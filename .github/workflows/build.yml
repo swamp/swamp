@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get install -y alsa-lib-devel libasound2-dev
+      - run: sudo apt install librust-alsa-sys-dev libudev-dev
       - run: rustup install stable
       - run: RUSTFLAGS="-D warnings" cargo clippy --color=always # -- -Wclippy::pedantic
       - run: RUSTFLAGS="-D warnings" cargo build --color=always --all-features
