@@ -34,11 +34,9 @@ impl Application for SingleTextureExample {
             TILE_SIZE,
             UVec2::new(256, 832),
         );
-        let test =         let fantasy_tileset_atlas = assets.material_png(
-            "fantasy-tileset",
-            TILE_SIZE,
-            UVec2::new(256, 832),
-        );
+
+        let test = assets.material_png("fantasy-tileset");
+
         Self {
             fantasy_tileset_atlas,
             test,
@@ -51,12 +49,16 @@ impl Application for SingleTextureExample {
     }
 
     fn render(&mut self, gfx: &mut impl Gfx) {
-        gfx.draw_sprite((
-            VIRTUAL_SCREEN_SIZE.x as i16 / 2i16,
-            VIRTUAL_SCREEN_SIZE.y as i16 / 2i16,
-            0,
-        )
-            .into(), &self.test);
+        gfx.draw_sprite(
+            (
+                VIRTUAL_SCREEN_SIZE.x as i16 / 2i16,
+                VIRTUAL_SCREEN_SIZE.y as i16 / 2i16,
+                0,
+            )
+                .into(),
+            UVec2::new(256, 832),
+            &self.test,
+        );
         gfx.sprite_atlas_frame(
             (
                 VIRTUAL_SCREEN_SIZE.x as i16 / 2i16,

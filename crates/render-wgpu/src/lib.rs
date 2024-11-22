@@ -82,7 +82,7 @@ pub struct FontAndMaterial {
 pub trait Gfx {
     fn sprite_atlas_frame(&mut self, position: Vec3, frame: u16, atlas: &impl FrameLookup);
     fn sprite_atlas(&mut self, position: Vec3, atlas_rect: URect, material_ref: &MaterialRef);
-    fn draw_sprite(&mut self, position: Vec3, material_ref: &MaterialRef);
+    fn draw_sprite(&mut self, position: Vec3, size: UVec2, material_ref: &MaterialRef);
     fn set_origin(&mut self, position: Vec2);
 
     fn set_clear_color(&mut self, color: Color);
@@ -193,8 +193,8 @@ impl Gfx for Render {
         self.sprite_atlas(position, atlas_rect, material_ref);
     }
 
-    fn draw_sprite(&mut self, position: Vec3, material_ref: &MaterialRef) {
-        self.draw_sprite(position, material_ref);
+    fn draw_sprite(&mut self, position: Vec3, size: UVec2, material_ref: &MaterialRef) {
+        self.draw_sprite(position, size, material_ref);
     }
 
     fn set_origin(&mut self, position: Vec2) {
