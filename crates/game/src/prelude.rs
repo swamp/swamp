@@ -11,5 +11,5 @@ pub use {
     swamp_game_audio::{Audio, SoundHandle},
     swamp_render::prelude::*,
     swamp_render_wgpu::prelude::Glyph,
-    swamp_render_wgpu::{FixedAtlas, FontAndMaterial, Gfx},
+    swamp_render_wgpu::{FixedAtlas, FontAndMaterial, Gfx, MaterialRef},
 };
