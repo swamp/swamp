@@ -282,6 +282,9 @@ impl ApplicationHandler for App<'_> {
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {
+                if event.repeat {
+                    return;
+                }
                 self.handler.keyboard_input(event.state, event.physical_key);
             }
 
