@@ -9,20 +9,12 @@ use monotonic_time_rs::{InstantMonotonicClock, Millis, MonotonicClock};
 use std::cmp::{max, min};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
-use swamp_app::prelude::*;
-use swamp_app::system_types::{LocReAll, ReAll};
-use swamp_audio::mixer::AudioMixer;
-use swamp_audio_sample::StereoSample;
-use swamp_basic_input::prelude::*;
+use limnus::prelude::*;
 use swamp_game_assets::{Assets, GameAssets};
 use swamp_game_audio::{Audio, GameAudio};
-use swamp_render_wgpu::prelude::Font;
 use swamp_render_wgpu::{Gfx, Material, Render};
-use swamp_resource::prelude::Resource;
-use swamp_resource::ResourceStorage;
-use swamp_screen::WindowMessage;
-use swamp_wgpu_window::WgpuWindow;
 use tracing::debug;
+use swamp_font::Font;
 
 pub trait Application: Send + Sync + Sized + 'static {
     fn new(assets: &mut impl Assets) -> Self;
@@ -162,8 +154,8 @@ impl<G: Application> Game<G> {
         &mut self,
         wgpu: &WgpuWindow,
         wgpu_render: &mut Render,
-        materials: &swamp_assets::Assets<Material>,
-        fonts: &swamp_assets::Assets<Font>,
+        materials: &limnus::prelude::Assets<Material>,
+        fonts: &limnus::prelude::Assets<Font>,
         now: Millis,
     ) {
         wgpu_render.set_now(now);
@@ -225,7 +217,7 @@ pub fn tick<G: Application>(
 
     // Audio
     {
-        let samples = all_resources.fetch::<swamp_assets::Assets<StereoSample>>();
+        let samples = all_resources.fetch::<limnus::prelude::Assets<StereoSample>>();
         let mixer = all_local_resources.fetch_mut::<AudioMixer>();
         let mut game_audio = GameAudio::new(mixer, samples);
         internal_game.game.audio(&mut game_audio);
@@ -233,8 +225,8 @@ pub fn tick<G: Application>(
 
     // Render
     {
-        let materials = all_resources.fetch::<swamp_assets::Assets<Material>>();
-        let fonts = all_resources.fetch::<swamp_assets::Assets<Font>>();
+        let materials = all_resources.fetch::<limnus::prelude::Assets<Material>>();
+        let fonts = all_resources.fetch::<limnus::prelude::Assets<Font>>();
         internal_game.render(&window, &mut wgpu_render, materials, fonts, now);
     }
 }

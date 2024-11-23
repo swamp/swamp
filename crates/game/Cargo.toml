@@ -14,27 +14,14 @@ int_math = "0.0.2"
 
 swamp-render = { path = "../render", version = "0.0.10" }
 swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.10" }
-swamp-assets = { path = "../assets", version = "0.0.10" }
 
-swamp-audio-sample = { path = "../audio-sample", version = "0.0.10" }
-
-swamp-resource = { path = "../resource", version = "0.0.10" }
-
-swamp-basic-input = { path = "../basic-input", version = "0.0.10" }
 monotonic-time-rs = "0.0.5"
-swamp-asset-registry = { path = "../asset-registry", version = "0.0.10" }
-
-
-swamp-app = { path = "../app", version = "0.0.10" }
-swamp-wgpu-window = { path = "../wgpu-window", version = "0.0.10" }
-swamp-loader = { path = "../loader", version = "0.0.10" }
+swamp-font = { path = "../font", version = "0.0.10" }
 swamp-wgpu-sprites = { path = "../wgpu-sprites", version = "0.0.10" }
-swamp-screen = { path = "../screen", version = "0.0.10" }
-swamp-window = { path = "../window", version = "0.0.10" }
+limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10" }
 
 swamp-game-assets = { path = "../game-assets", version = "0.0.10" }
 swamp-game-audio = { path = "../game-audio", version = "0.0.10" }
-swamp-audio = { path = "../audio", version = "0.0.10" }
 
 [dev-dependencies]
 test-log = "0.2.16"

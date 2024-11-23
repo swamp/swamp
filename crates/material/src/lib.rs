@@ -2,15 +2,9 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use swamp_app::prelude::*;
-use swamp_asset_registry::AssetRegistry;
-use swamp_assets::prelude::{AssetName, Assets, RawWeakId};
-use swamp_assets_loader::{
-    AssetLoader, ConversionError, ResourceStorage, WrappedAssetLoaderRegistry,
-};
 use swamp_render_wgpu::{Material, Render};
-use swamp_wgpu_window::BasicDeviceInfo;
 use tracing::debug;
+use limnus::prelude::*;
 
 pub struct MaterialPlugin;
 

@@ -5,11 +5,11 @@
 pub mod prelude;
 
 use int_math::UVec2;
-use swamp_app::prelude::{App, AppReturnValue};
-use swamp_boot::DefaultPlugins;
+use limnus::prelude::*;
+use swamp_font::FontPlugin;
 use swamp_game::{Application, GamePlugin, GameSettings};
-
-use swamp_screen::Window;
+use swamp_material::MaterialPlugin;
+use swamp_render_wgpu::plugin::RenderWgpuPlugin;
 
 pub fn run<T: Application>(
     title: &str,
@@ -24,6 +24,8 @@ pub fn run<T: Application>(
             fullscreen: false,
         })
         .insert_resource(GameSettings { virtual_size })
-        .add_plugins((DefaultPlugins, GamePlugin::<T>::new()))
+        .add_plugins((DefaultPlugins, RenderWgpuPlugin, MaterialPlugin))
+        .add_plugins(GamePlugin::<T>::new())
+        .add_plugins(FontPlugin)
         .run()
 }

@@ -1,12 +1,10 @@
+use swamp_font::Font;
+use swamp_font::Glyph;
 use int_math::UVec2;
 use monotonic_time_rs::Millis;
 use std::fmt::Debug;
-use swamp_asset_registry::AssetRegistry;
-use swamp_assets::prelude::{AssetName, Id};
-use swamp_audio_sample::{StereoSample, StereoSampleRef};
-use swamp_render_wgpu::prelude::{Font, Glyph};
 use swamp_render_wgpu::{FixedAtlas, FontAndMaterial, Material, MaterialRef};
-use swamp_resource::ResourceStorage;
+use limnus::prelude::*;
 
 pub trait Assets {
     #[must_use]
@@ -106,7 +104,7 @@ impl Assets for GameAssets<'_> {
     fn font(&self, font_ref: &Id<Font>) -> Option<&Font> {
         let font_assets = self
             .resource_storage
-            .get::<swamp_assets::Assets<Font>>()
+            .get::<limnus::prelude::Assets<Font>>()
             .expect("font assets should be a thing");
 
         font_assets.get(font_ref)

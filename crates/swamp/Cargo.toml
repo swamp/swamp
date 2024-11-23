@@ -9,5 +9,12 @@ categories = ["game-development"]
 keywords = ["game", "engine"]
 
 [dependencies]
-swamp-app = { path = "../app", version = "0.0.10" }
 swamp-boot-game = { path = "../boot-game", version = "0.0.10" }
+swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.10" }
+swamp-game-assets = { path = "../game-assets", version = "0.0.10" }
+swamp-render = { path = "../render", version = "0.0.10" }
+limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10", features = ["audio"] }
+
+swamp-game-audio = { path = "../game-audio", version = "0.0.10" }
+[features]
+audio = []

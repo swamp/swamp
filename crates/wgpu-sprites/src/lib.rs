@@ -4,7 +4,7 @@
  */
 use bytemuck::{Pod, Zeroable};
 use image::RgbaImage;
-use swamp_wgpu_math::{Matrix4, Vec4};
+use limnus::prelude::*;
 use wgpu::util::DeviceExt;
 use wgpu::BindingResource;
 use wgpu::BufferBindingType;

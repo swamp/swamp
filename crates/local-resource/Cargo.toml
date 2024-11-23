@@ -1,7 +1,0 @@
-[package]
-name = "swamp-local-resource"
-version = "0.0.10"
-edition = "2021"
-
-[dependencies]
-swamp-macros = { path = "../macros", version = "0.0.10" }

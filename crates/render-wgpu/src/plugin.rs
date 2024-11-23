@@ -5,9 +5,7 @@
 use crate::Render;
 use monotonic_time_rs::Millis;
 use std::sync::Arc;
-use swamp_app::prelude::{App, Msg, Plugin, ReM, UpdatePhase};
-use swamp_screen::{Window, WindowMessage};
-use swamp_wgpu_window::WgpuWindow;
+use limnus::prelude::*;
 use tracing::debug;
 
 fn tick(mut wgpu_render: ReM<Render>, window_messages: Msg<WindowMessage>) {

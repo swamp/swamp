@@ -4,12 +4,4 @@
  */
 pub use {
     crate::Application,
-    int_math::prelude::*,
-    swamp_audio_sample::StereoSampleRef,
-    swamp_basic_input::prelude::*,
-    swamp_game_assets::Assets,
-    swamp_game_audio::{Audio, SoundHandle},
-    swamp_render::prelude::*,
-    swamp_render_wgpu::prelude::Glyph,
-    swamp_render_wgpu::{FixedAtlas, FontAndMaterial, Gfx, MaterialRef},
 };

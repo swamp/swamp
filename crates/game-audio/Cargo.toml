@@ -4,8 +4,7 @@ version = "0.0.10"
 edition = "2021"
 
 [dependencies]
-swamp-audio-sample = { path = "../audio-sample", version = "0.0.10" }
-swamp-audio = { path = "../audio", version = "0.0.10" }
-swamp-assets = { path = "../assets", version = "0.0.10" }
-oddio = "0.7.4"
+limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10", features = ["audio"] }
+
+
 tracing = "0.1.40"

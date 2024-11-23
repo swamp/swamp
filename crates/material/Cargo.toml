@@ -9,13 +9,8 @@ description = "image asset loading and material creation"
 
 
 [dependencies]
-swamp-app = { path = "../app", version = "0.0.10" }
-swamp-assets-loader = { path = "../assets-loader", version = "0.0.10" }
 swamp-wgpu-sprites = { path = "../wgpu-sprites", version = "0.0.10" }
-swamp-wgpu-window = { path = "../wgpu-window", version = "0.0.10" }
 swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.10" }
-swamp-assets = { path = "../assets", version = "0.0.10" }
-swamp-loader-plugin = { path = "../loader-plugin", version = "0.0.10" }
-swamp-asset-registry = { path = "../asset-registry", version = "0.0.10" }
+limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10" }
 tracing = "0.1.40"
 image = "0.25.5"

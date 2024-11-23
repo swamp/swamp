@@ -6,13 +6,8 @@ edition = "2021"
 [dependencies]
 tracing = "0.1.40"
 int_math = "0.0.2"
-
-swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.10" }
-swamp-assets = { path = "../assets", version = "0.0.10" }
-
-swamp-audio-sample = { path = "../audio-sample", version = "0.0.10" }
-
-swamp-resource = { path = "../resource", version = "0.0.10" }
-
 monotonic-time-rs = "0.0.5"
-swamp-asset-registry = { path = "../asset-registry", version = "0.0.10" }
+
+limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10" }
+swamp-font = { path = "../font", version = "0.0.10" }
+swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.10" }

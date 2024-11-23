@@ -14,17 +14,9 @@ wgpu = "23.0.0"
 bytemuck = "1.19.0"
 monotonic-time-rs = "0.0.5"
 int_math = "0.0.2"
-bmf-parser = "0.0.1"
-swamp-wgpu-math = { path = "../wgpu-math", version = "0.0.10" }
+swamp-font = { path = "../font", version = "0.0.10" }
 swamp-wgpu-sprites = { path = "../wgpu-sprites", version = "0.0.10" }
 swamp-render = { path = "../render", version = "0.0.10" }
 swamp-wgpu = { path = "../wgpu", version = "0.0.10" }
-swamp-resource = { path = "../resource", version = "0.0.10" }
-swamp-assets = { path = "../assets", version = "0.0.10" }
-swamp-font = { path = "../font", version = "0.0.10" }
 
-
-# Plugin
-swamp-app = { path = "../app", version = "0.0.10" }
-swamp-wgpu-window = { path = "../wgpu-window", version = "0.0.10" }
-swamp-screen = { path = "../screen", version = "0.0.10" }
+limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10" }

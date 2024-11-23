@@ -4,11 +4,8 @@
  */
 use bmf_parser::BMFont;
 use int_math::{URect, UVec2, Vec2};
-use swamp_app::prelude::{App, Plugin, ResourceStorage};
-use swamp_asset_registry::AssetRegistry;
-use swamp_assets::prelude::*;
-use swamp_assets_loader::{AssetLoader, ConversionError, WrappedAssetLoaderRegistry};
 use tracing::debug;
+use limnus::prelude::*;
 
 pub type FontRef = Id<Font>;
 pub type WeakFontRef = WeakId<Font>;
