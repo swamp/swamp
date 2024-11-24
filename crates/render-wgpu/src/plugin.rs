@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Render;
+use limnus::prelude::*;
 use monotonic_time_rs::Millis;
 use std::sync::Arc;
-use limnus::prelude::*;
 use tracing::debug;
 
 fn tick(mut wgpu_render: ReM<Render>, window_messages: Msg<WindowMessage>) {

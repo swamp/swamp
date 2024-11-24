@@ -4,7 +4,8 @@
  */
 
 pub use {
-    limnus::prelude::{ButtonState, MouseButton, MouseScrollDelta, StereoSampleRef, KeyCode},
+    int_math::prelude::*,
+    limnus::prelude::{ButtonState, KeyCode, MouseButton, MouseScrollDelta, StereoSampleRef},
     swamp_boot_game::prelude::*,
     swamp_font::*,
     swamp_game::prelude::*,
@@ -12,6 +13,5 @@ pub use {
     swamp_game_audio::{Audio, SoundHandle},
     swamp_render::prelude::*,
     swamp_render_wgpu::prelude::*,
-    int_math::prelude::*,
-    tracing::{info, debug, trace, warn, error},
+    tracing::{debug, error, info, trace, warn},
 };

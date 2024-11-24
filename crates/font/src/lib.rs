@@ -4,8 +4,8 @@
  */
 use bmf_parser::BMFont;
 use int_math::{URect, UVec2, Vec2};
-use tracing::debug;
 use limnus::prelude::*;
+use tracing::debug;
 
 pub type FontRef = Id<Font>;
 pub type WeakFontRef = WeakId<Font>;

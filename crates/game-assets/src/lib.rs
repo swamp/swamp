@@ -1,10 +1,10 @@
-use swamp_font::Font;
-use swamp_font::Glyph;
 use int_math::UVec2;
+use limnus::prelude::*;
 use monotonic_time_rs::Millis;
 use std::fmt::Debug;
+use swamp_font::Font;
+use swamp_font::Glyph;
 use swamp_render_wgpu::{FixedAtlas, FontAndMaterial, Material, MaterialRef};
-use limnus::prelude::*;
 
 pub trait Assets {
     #[must_use]

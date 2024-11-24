@@ -5,7 +5,6 @@
 pub mod plugin;
 pub mod prelude;
 
-use swamp_font::FontRef;
 use int_math::{URect, UVec2, Vec2, Vec3};
 use limnus::prelude::*;
 use monotonic_time_rs::Millis;
@@ -13,6 +12,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::sync::Arc;
 use swamp_font::Font;
+use swamp_font::FontRef;
 use swamp_font::WeakFontRef;
 use swamp_render::prelude::*;
 use swamp_wgpu_sprites::{SpriteInfo, SpriteInstanceUniform};

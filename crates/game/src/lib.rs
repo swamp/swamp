@@ -5,16 +5,16 @@
 pub mod prelude;
 
 use int_math::{URect, UVec2, Vec2};
+use limnus::prelude::*;
 use monotonic_time_rs::{InstantMonotonicClock, Millis, MonotonicClock};
 use std::cmp::{max, min};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
-use limnus::prelude::*;
+use swamp_font::Font;
 use swamp_game_assets::{Assets, GameAssets};
 use swamp_game_audio::{Audio, GameAudio};
 use swamp_render_wgpu::{Gfx, Material, Render};
 use tracing::debug;
-use swamp_font::Font;
 
 pub trait Application: Send + Sync + Sized + 'static {
     fn new(assets: &mut impl Assets) -> Self;
