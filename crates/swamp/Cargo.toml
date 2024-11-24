@@ -1,6 +1,6 @@
 [package]
 name = "swamp"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 license = "MIT"
 description = "2D Game Engine"
@@ -9,12 +9,17 @@ categories = ["game-development"]
 keywords = ["game", "engine"]
 
 [dependencies]
-swamp-boot-game = { path = "../boot-game", version = "0.0.10" }
-swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.10" }
-swamp-game-assets = { path = "../game-assets", version = "0.0.10" }
-swamp-render = { path = "../render", version = "0.0.10" }
+swamp-boot-game = { path = "../boot-game", version = "0.0.11" }
+swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.11" }
+swamp-game-assets = { path = "../game-assets", version = "0.0.11" }
+swamp-render = { path = "../render", version = "0.0.11" }
 limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10", features = ["audio"] }
+swamp-game-audio = { path = "../game-audio", version = "0.0.11" }
+swamp-font = { path = "../font", version = "0.0.11" }
+int_math = "0.0.2"
+tracing = "0.1.40"
+swamp-game = { path = "../game", version = "0.0.11" }
 
-swamp-game-audio = { path = "../game-audio", version = "0.0.10" }
+
 [features]
 audio = []

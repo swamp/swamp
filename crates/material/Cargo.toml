@@ -1,6 +1,6 @@
 [package]
 name = "swamp-material"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 repository = "https://github.com/swamp/swamp"
 license = "MIT"
@@ -9,8 +9,8 @@ description = "image asset loading and material creation"
 
 
 [dependencies]
-swamp-wgpu-sprites = { path = "../wgpu-sprites", version = "0.0.10" }
-swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.10" }
+swamp-wgpu-sprites = { path = "../wgpu-sprites", version = "0.0.11" }
+swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.11" }
 limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10" }
 tracing = "0.1.40"
 image = "0.25.5"

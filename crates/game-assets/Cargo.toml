@@ -1,6 +1,6 @@
 [package]
 name = "swamp-game-assets"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 
 [dependencies]
@@ -9,5 +9,5 @@ int_math = "0.0.2"
 monotonic-time-rs = "0.0.5"
 
 limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10" }
-swamp-font = { path = "../font", version = "0.0.10" }
-swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.10" }
+swamp-font = { path = "../font", version = "0.0.11" }
+swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.11" }

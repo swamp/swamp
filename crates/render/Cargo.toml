@@ -1,6 +1,6 @@
 [package]
 name = "swamp-render"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 license = "MIT"
 description = "standard render types for 2D"

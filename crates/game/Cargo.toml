@@ -1,6 +1,6 @@
 [package]
 name = "swamp-game"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 repository = "https://github.com/swamp/swamp"
 license = "MIT"
@@ -12,16 +12,15 @@ description = "common swamp game types"
 tracing = "0.1.40"
 int_math = "0.0.2"
 
-swamp-render = { path = "../render", version = "0.0.10" }
-swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.10" }
+swamp-render = { path = "../render", version = "0.0.11" }
+swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.11" }
 
 monotonic-time-rs = "0.0.5"
-swamp-font = { path = "../font", version = "0.0.10" }
-swamp-wgpu-sprites = { path = "../wgpu-sprites", version = "0.0.10" }
+swamp-font = { path = "../font", version = "0.0.11" }
 limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10" }
 
-swamp-game-assets = { path = "../game-assets", version = "0.0.10" }
-swamp-game-audio = { path = "../game-audio", version = "0.0.10" }
+swamp-game-assets = { path = "../game-assets", version = "0.0.11" }
+swamp-game-audio = { path = "../game-audio", version = "0.0.11" }
 
 [dev-dependencies]
 test-log = "0.2.16"

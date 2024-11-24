@@ -1,6 +1,6 @@
 [package]
 name = "swamp-examples"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 repository = "https://github.com/swamp/swamp"
 license = "MIT"
@@ -10,4 +10,4 @@ description = "Examples for the swamp 2D game engine"
 
 [dependencies]
 tracing = "0.1.40"
-swamp = { path = "../swamp", version = "0.0.10", features = ["audio"] }
+swamp = { path = "../swamp", version = "0.0.11", features = ["audio"] }

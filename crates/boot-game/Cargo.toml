@@ -1,6 +1,6 @@
 [package]
 name = "swamp-boot-game"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 repository = "https://github.com/swamp/swamp"
 license = "MIT"
@@ -8,10 +8,10 @@ categories = ["game-development"]
 description = "Plugin to boot a swamp-game"
 
 [dependencies]
-swamp-game = { path = "../game", version = "0.0.10" }
+swamp-game = { path = "../game", version = "0.0.11" }
 tracing = "0.1.40"
 int_math = "0.0.2"
 limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10" }
-swamp-material = { path = "../material", version = "0.0.10" }
-swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.10" }
-swamp-font = { path = "../font", version = "0.0.10" }
+swamp-material = { path = "../material", version = "0.0.11" }
+swamp-render-wgpu = { path = "../render-wgpu", version = "0.0.11" }
+swamp-font = { path = "../font", version = "0.0.11" }

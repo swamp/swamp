@@ -1,6 +1,6 @@
 [package]
 name = "swamp-wgpu"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 license = "MIT"
 description = "wgpu utility functions"
@@ -10,5 +10,3 @@ keywords = ["game", "render"]
 
 [dependencies]
 wgpu = "23.0.0"
-tracing = "0.1.40"
-limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10" }

@@ -1,6 +1,6 @@
 [package]
 name = "swamp-render-wgpu"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 license = "MIT"
 description = "render pixel perfect 2D sprites"
@@ -14,9 +14,9 @@ wgpu = "23.0.0"
 bytemuck = "1.19.0"
 monotonic-time-rs = "0.0.5"
 int_math = "0.0.2"
-swamp-font = { path = "../font", version = "0.0.10" }
-swamp-wgpu-sprites = { path = "../wgpu-sprites", version = "0.0.10" }
-swamp-render = { path = "../render", version = "0.0.10" }
-swamp-wgpu = { path = "../wgpu", version = "0.0.10" }
+swamp-font = { path = "../font", version = "0.0.11" }
+swamp-wgpu-sprites = { path = "../wgpu-sprites", version = "0.0.11" }
+swamp-render = { path = "../render", version = "0.0.11" }
+swamp-wgpu = { path = "../wgpu", version = "0.0.11" }
 
 limnus = { path = "../../../limnus/crates/limnus", version = "0.0.10" }
