@@ -189,15 +189,18 @@ pub fn bootstrap_modules(
         source_map,
         current_dir: current_dir().unwrap(),
     };
+
+    /*
+
     let pretty_printer = SourceMapDisplay {
         source_map: &source_map_lookup,
     };
 
-    /*
     let symbol_table_display = SymbolTableDisplay {
         symbol_table: &default_symbol_table_for_others,
         source_map_display: &pretty_printer,
     };
+
      */
 
     let program = Program::new(state, modules, default_symbol_table_for_others);

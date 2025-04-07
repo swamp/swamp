@@ -22,8 +22,6 @@ use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
-use std::ops::Deref;
-use std::task::Context;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
 use swamp_semantic::instantiator::TypeVariableScope;

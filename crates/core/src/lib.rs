@@ -1158,7 +1158,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             .add_intrinsic_function(IntrinsicFunctionDefinition {
                 name,
                 intrinsic: intrinsic_fn,
-                signature: self_int_to_unit_value.clone(),
+                signature: self_int_to_optional_value.clone(),
             })
             .unwrap();
     }
