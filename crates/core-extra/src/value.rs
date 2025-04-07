@@ -597,6 +597,17 @@ impl Value {
 
     /// # Errors
     ///
+    pub fn expect_enum_simple_order(v: &Self) -> Result<u8, ValueError> {
+        match v {
+            Self::EnumVariantSimple(_v, s) => Ok(s.common.container_index),
+            _ => Err(ValueError::ConversionError(
+                "Expected enum simple value".into(),
+            )),
+        }
+    }
+
+    /// # Errors
+    ///
     pub fn expect_bool(&self) -> Result<bool, ValueError> {
         match self {
             Self::Bool(v) => Ok(*v),
