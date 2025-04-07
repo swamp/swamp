@@ -1,10 +1,10 @@
 [package]
 name = "swamp-vm-host"
-version = "0.1.15"
+version = "0.1.16"
 edition = "2024"
 license = "MIT"
 description = "host interface for the swamp VM"
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-vm = {path= "../vm", version = "0.1.15" }
+swamp-vm = {path= "../vm", version = "0.1.16" }

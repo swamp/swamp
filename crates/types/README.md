@@ -24,7 +24,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-swamp-types = "0.1.15"
+swamp-types = "0.1.16"
 ```
 
 # License

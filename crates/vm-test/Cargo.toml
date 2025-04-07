@@ -1,21 +1,21 @@
 [package]
 name = "swamp-vm-test"
-version = "0.1.15"
+version = "0.1.16"
 edition = "2024"
 license = "MIT"
 description = "examples and tests on how to use the swamp vm with swamp"
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-vm = { path = "../vm", version = "0.1.15", features = [] }
-swamp-vm-types = { path = "../vm-types", version = "0.1.15", features = [] }
-swamp-vm-disasm = { path = "../vm-disasm", version = "0.1.15" }
-swamp-code-gen-program = { path = "../code-gen-program", version = "0.1.15" }
-swamp-code-gen = { path = "../code-gen", version = "0.1.15" }
+swamp-vm = { path = "../vm", version = "0.1.16", features = [] }
+swamp-vm-types = { path = "../vm-types", version = "0.1.16", features = [] }
+swamp-vm-disasm = { path = "../vm-disasm", version = "0.1.16" }
+swamp-code-gen-program = { path = "../code-gen-program", version = "0.1.16" }
+swamp-code-gen = { path = "../code-gen", version = "0.1.16" }
 
-swamp-compile = { path = "../compile", version = "0.1.15" }
-swamp-types = { path = "../types", version = "0.1.15" }
-swamp-semantic = { path = "../semantic", version = "0.1.15" }
+swamp-compile = { path = "../compile", version = "0.1.16" }
+swamp-types = { path = "../types", version = "0.1.16" }
+swamp-semantic = { path = "../semantic", version = "0.1.16" }
 
 source-map-cache = "0.0.1"
 

@@ -20,7 +20,7 @@ This crate provides a straightforward way to run Swamp code by directly interpre
 
 ```toml
 [dependencies]
-swamp-eval = "0.1.15"
+swamp-eval = "0.1.16"
 ```
 
 ## License
