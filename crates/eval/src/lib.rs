@@ -23,7 +23,7 @@ use swamp_core_extra::grid::Grid;
 use swamp_core_extra::map2::Map2;
 use swamp_core_extra::prelude::ValueError;
 use swamp_core_extra::value::ValueRef;
-use swamp_core_extra::value::{Value, convert_vec_to_rc_refcell, format_value};
+use swamp_core_extra::value::{Value, convert_vec_to_rc_refcell};
 use swamp_semantic::prelude::*;
 use swamp_semantic::{
     BinaryOperatorKind, CompoundOperatorKind, ConstantId, ForPattern, Function,
@@ -923,6 +923,7 @@ impl<'a, C> Interpreter<'a, C> {
                 self.evaluate_block(statements)?.try_into().unwrap() // TODO: Error handling
             }
 
+            /*
             ExpressionKind::InterpolatedString(parts) => {
                 let mut result = String::new();
 
@@ -945,6 +946,7 @@ impl<'a, C> Interpreter<'a, C> {
                 Value::String(result)
             }
 
+             */
             ExpressionKind::Match(resolved_match) => self.eval_match(resolved_match)?,
             ExpressionKind::Guard(guards) => self.eval_guard(&expr.node, guards)?,
 
@@ -2158,6 +2160,13 @@ impl<'a, C> Interpreter<'a, C> {
                 Value::Vec(Type::Unit, column_items)
             }
 
+            IntrinsicFunction::BoolToString => match value_ref.borrow().clone() {
+                Value::Bool(b) => Value::String(b.to_string()),
+                _ => {
+                    return Err(self.create_err(RuntimeErrorKind::ExpectedBool, node));
+                }
+            },
+
             IntrinsicFunction::FloatRound => match value_ref.borrow().clone() {
                 Value::Float(f) => Value::Int(f.round().into()),
                 _ => {
@@ -2166,6 +2175,12 @@ impl<'a, C> Interpreter<'a, C> {
             },
             IntrinsicFunction::FloatFloor => match value_ref.borrow().clone() {
                 Value::Float(f) => Value::Int(f.floor().into()),
+                _ => {
+                    return Err(self.create_err(RuntimeErrorKind::ExpectedFloat, node));
+                }
+            },
+            IntrinsicFunction::FloatToString => match value_ref.borrow().clone() {
+                Value::Float(f) => Value::String(f.to_string()),
                 _ => {
                     return Err(self.create_err(RuntimeErrorKind::ExpectedFloat, node));
                 }
@@ -2277,6 +2292,13 @@ impl<'a, C> Interpreter<'a, C> {
             },
             IntrinsicFunction::IntAbs => match value_ref.borrow().clone() {
                 Value::Int(i) => Value::Int(i.abs()),
+                _ => {
+                    return Err(self.create_err(RuntimeErrorKind::ExpectedFloat, node));
+                }
+            },
+
+            IntrinsicFunction::IntToString => match value_ref.borrow().clone() {
+                Value::Int(i) => Value::String(i.to_string()),
                 _ => {
                     return Err(self.create_err(RuntimeErrorKind::ExpectedFloat, node));
                 }

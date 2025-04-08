@@ -28,9 +28,10 @@ use swamp_semantic::instantiator::TypeVariableScope;
 use swamp_semantic::prelude::*;
 use swamp_semantic::type_var_stack::SemanticContext;
 use swamp_semantic::{
-    BlockScope, BlockScopeMode, FunctionScopeState, InternalMainExpression, LocationAccess,
-    LocationAccessKind, MutRefOrImmutableExpression, MutableReferenceKind, NormalPattern, Postfix,
-    PostfixKind, SingleLocationExpression, TargetAssignmentLocation, TypeWithMut, WhenBinding,
+    BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState, InternalMainExpression,
+    LocationAccess, LocationAccessKind, MutRefOrImmutableExpression, MutableReferenceKind,
+    NormalPattern, Postfix, PostfixKind, SingleLocationExpression, TargetAssignmentLocation,
+    TypeWithMut, WhenBinding,
 };
 use swamp_types::all_types_are_concrete_or_unit;
 use swamp_types::prelude::*;
@@ -594,11 +595,7 @@ impl<'a> Analyzer<'a> {
             }
 
             swamp_ast::ExpressionKind::InterpolatedString(string_parts) => {
-                let kind = ExpressionKind::InterpolatedString(
-                    self.analyze_interpolated_string(string_parts)?,
-                );
-
-                self.create_expr(kind, Type::String, &ast_expression.node)
+                self.analyze_interpolated_string_lowering(string_parts)?
             }
 
             // Creation
@@ -1247,6 +1244,7 @@ impl<'a> Analyzer<'a> {
         Ok((resolved_expressions, last_type))
     }
 
+    /*
     fn analyze_interpolated_string(
         &mut self,
         string_parts: &[swamp_ast::StringPart],
@@ -1270,6 +1268,89 @@ impl<'a> Analyzer<'a> {
         }
 
         Ok(resolved_parts)
+    }
+
+     */
+
+    fn analyze_interpolated_string_lowering(
+        &mut self,
+        string_parts: &[swamp_ast::StringPart],
+    ) -> Result<Expression, Error> {
+        let mut last_expression: Option<Expression> = None;
+
+        for part in string_parts {
+            let created_expression = match part {
+                swamp_ast::StringPart::Literal(string_node, processed_string) => {
+                    let string_literal = Literal::StringLiteral(processed_string.to_string());
+                    let basic_literal = ExpressionKind::Literal(string_literal);
+                    self.create_expr(basic_literal, Type::String, string_node)
+                }
+                swamp_ast::StringPart::Interpolation(expression, format_specifier) => {
+                    let any_context = TypeContext::new_anything_argument();
+
+                    let expr = self.analyze_expression(expression, &any_context)?;
+                    let ty = expr.ty.clone();
+
+                    let maybe_to_string = self
+                        .shared
+                        .state
+                        .instantiator
+                        .associated_impls
+                        .get_internal_member_function(&ty, "to_string");
+
+                    if ty == Type::String {
+                        expr
+                    } else if let Type::Optional(inner_type) = ty {
+                        // TODO: FIX THIS
+                        let string_literal = Literal::StringLiteral("not implemented".to_string());
+                        let basic_literal = ExpressionKind::Literal(string_literal);
+                        self.create_expr(basic_literal, Type::String, &expression.node)
+                    } else {
+                        if maybe_to_string.is_none() {
+                            return Err(self.create_err(
+                                ErrorKind::MissingToString(ty.clone()),
+                                &expression.node,
+                            ));
+                        }
+
+                        let expr_as_param = MutRefOrImmutableExpression::Expression(expr);
+                        let call_expr_kind = self.create_static_call(
+                            "to_string",
+                            &[expr_as_param.clone()],
+                            &expression.node,
+                            &ty,
+                        )?;
+
+                        /*
+                        TODO: SUPPORT FORMAT SPEC
+                        let resolved_format_specifier =
+                            self.analyze_format_specifier(Option::from(format_specifier));
+
+                         */
+                        self.create_expr(call_expr_kind, Type::String, &expression.node)
+                    }
+                }
+            };
+
+            let x_last_expr = if let Some(last_expr) = last_expression.clone() {
+                let op_kind = BinaryOperatorKind::Add;
+                let node = created_expression.node.clone();
+                let op = BinaryOperator {
+                    left: Box::new(last_expr),
+                    right: Box::new(created_expression),
+                    kind: op_kind,
+                    node: node.clone(),
+                };
+
+                self.create_expr_resolved(ExpressionKind::BinaryOp(op), Type::String, &node)
+            } else {
+                created_expression
+            };
+
+            last_expression = Some(x_last_expr);
+        }
+
+        Ok(last_expression.unwrap())
     }
 
     pub(crate) fn analyze_identifier(

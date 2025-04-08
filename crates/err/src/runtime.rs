@@ -14,6 +14,7 @@ use swamp_eval::prelude::RuntimeError;
 pub fn build_runtime_error(err: &RuntimeError) -> Builder<usize> {
     let span = &err.node.span;
     let mut b = match &err.kind {
+        RuntimeErrorKind::ExpectedBool => Report::build(Kind::Error, 104, "expected bool", span),
         RuntimeErrorKind::StackCouldNotBePopped => {
             Report::build(Kind::Error, 104, "stack could not pop", span)
         }

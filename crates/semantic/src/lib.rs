@@ -352,11 +352,14 @@ pub struct FormatSpecifier {
     pub kind: FormatSpecifierKind,
 }
 
+/*
 #[derive(Debug, Clone)]
 pub enum StringPart {
     Literal(Node, String),
     Interpolation(Expression, Option<FormatSpecifier>),
 }
+
+ */
 
 pub type FunctionRef = Rc<Function>;
 
@@ -657,7 +660,7 @@ pub enum ExpressionKind {
     // For calls from returned function values
     FunctionValueCall(Signature, Box<Expression>, Vec<MutRefOrImmutableExpression>),
 
-    InterpolatedString(Vec<StringPart>),
+    //InterpolatedString(Vec<StringPart>),
 
     // Constructing
     VariableDefinition(VariableRef, Box<Expression>), // First time assignment

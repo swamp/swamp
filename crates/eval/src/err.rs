@@ -58,4 +58,5 @@ pub enum RuntimeErrorKind {
     UnknownMutIntrinsic,
     UnknownGenericIntrinsic,
     Panic(String),
+    ExpectedBool,
 }

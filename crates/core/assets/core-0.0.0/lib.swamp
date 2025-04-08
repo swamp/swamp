@@ -10,11 +10,19 @@ impl Bool {
   fn default() -> Bool {
     false
   }
+
+  fn to_string(self) -> String {
+      bool_to_string(self)
+  }
 }
 
 impl Float {
     fn default() -> Float {
         0.0
+    }
+
+    fn to_string(self) -> String {
+        float_to_string(self)
     }
 
     /// Rounds the Float value down.
@@ -178,6 +186,10 @@ impl Int {
         0
     }
 
+    fn to_string(self) -> String {
+        int_to_string(self)
+    }
+
     /// Computes the absolute value.
     ///
     /// Uses intrinsic function `int_abs` to return the non-negative value of the Int.
@@ -290,6 +302,11 @@ impl Vec<T> {
     /// Uses intrinsic function `vec_create` to add the value.
     fn new() -> Vec<T> {
         vec_create()
+    }
+
+
+    fn to_string(self) -> String {
+        "" // TODO:
     }
 
     /// Creates a new vector from a Slice.
@@ -886,6 +903,10 @@ impl Stack<T> {
     /// Uses intrinsic function `vec_create` to add the value.
     fn new() -> Stack<T> {
         vec_create()
+    }
+
+    fn to_string(self) -> String {
+        "" // TODO:
     }
 
     /// Creates a new vector from a Slice.

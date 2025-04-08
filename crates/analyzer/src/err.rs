@@ -83,6 +83,7 @@ pub enum ErrorKind {
     MissingMemberFunction(String),
     ExpectedLambda,
     ExpectedSlice,
+    MissingToString(Type),
 }
 
 impl From<SemanticError> for Error {

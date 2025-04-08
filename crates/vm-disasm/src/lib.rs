@@ -396,7 +396,17 @@ pub fn disasm(
             to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
             to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
         ],
+        OpCode::SubI32 => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
         OpCode::MulI32 => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
+        OpCode::ModI32 => &[
             to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
             to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
@@ -426,7 +436,17 @@ pub fn disasm(
             to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
         ],
+
+        OpCode::LeI32 => &[
+            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
+
         OpCode::GtI32 => &[
+            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
+        OpCode::GeI32 => &[
             to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
         ],
@@ -476,6 +496,19 @@ pub fn disasm(
             DecoratedOperandKind::CountU16(operands[3]),
         ],
 
+        OpCode::VecSubscript => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::VecSubscriptMut => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[3], DecoratedMemoryKind::Octets, frame_memory_size),
+        ],
+
         OpCode::VecIterInit => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             DecoratedOperandKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
@@ -498,6 +531,11 @@ pub fn disasm(
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
         ],
+        OpCode::VecLen => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+        ],
+
         OpCode::MapNewFromPairs => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
@@ -527,6 +565,24 @@ pub fn disasm(
         OpCode::MapRemove => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+        ],
+
+        OpCode::RangeIterInit => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            DecoratedOperandKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
+        ],
+
+        OpCode::RangeIterNext => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_jmp_ip(operands[2]),
+        ],
+
+        OpCode::RangeIterNextPair => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_jmp_ip(operands[3]),
         ],
 
         OpCode::StringFromConstantSlice => {
@@ -563,55 +619,61 @@ pub fn disasm(
                 DecoratedMemoryKind::IndirectHeapPointer,
                 frame_memory_size,
             ),
-        ], /*
-                   OpCode::Alloc => &[
-               to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-               DecoratedOperandKind::MemorySize(MemorySize(operands[1])),
-           ],
-           OpCode::LtU16 => todo!(),
-           OpCode::St32x => {
-               let data = ((operands[3] as u32) << 16) | operands[2] as u32;
-               &[
-                   DecoratedOperandKind::WriteIndirectMemory(
-                       MemoryAddress(operands[0]),
-                       MemoryOffset(operands[1]),
-                       DecoratedMemoryKind::U32,
-                   ),
-                   DecoratedOperandKind::ImmediateU32(data),
-               ]
-           }
-           OpCode::Stx => &[
-               DecoratedOperandKind::WriteIndirectMemory(
-                   MemoryAddress(operands[0]),
-                   MemoryOffset(operands[1]),
-                   DecoratedMemoryKind::Octets,
-               ),
-               DecoratedOperandKind::ReadFrameAddress(
-                   FrameMemoryAddress(operands[2]),
-                   DecoratedMemoryKind::Octets,
-                   FrameMemoryAttribute {
-                       is_temporary: operands[2] >= frame_memory_size.0,
-                   },
-               ),
-               DecoratedOperandKind::MemorySize(MemorySize(operands[3])),
-           ],
-           OpCode::Ldx => &[
-               DecoratedOperandKind::ReadIndirectMemory(
-                   MemoryAddress(operands[0]),
-                   MemoryOffset(operands[1]),
-                   DecoratedMemoryKind::Octets,
-               ),
-               DecoratedOperandKind::ReadFrameAddress(
-                   FrameMemoryAddress(operands[2]),
-                   DecoratedMemoryKind::Octets,
-                   FrameMemoryAttribute {
-                       is_temporary: operands[2] >= frame_memory_size.0,
-                   },
-               ),
-               DecoratedOperandKind::MemorySize(MemorySize(operands[3])),
-           ],
+        ],
 
-            */
+        OpCode::IntToRnd => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+        /*
+                OpCode::Alloc => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            DecoratedOperandKind::MemorySize(MemorySize(operands[1])),
+        ],
+        OpCode::LtU16 => todo!(),
+        OpCode::St32x => {
+            let data = ((operands[3] as u32) << 16) | operands[2] as u32;
+            &[
+                DecoratedOperandKind::WriteIndirectMemory(
+                    MemoryAddress(operands[0]),
+                    MemoryOffset(operands[1]),
+                    DecoratedMemoryKind::U32,
+                ),
+                DecoratedOperandKind::ImmediateU32(data),
+            ]
+        }
+        OpCode::Stx => &[
+            DecoratedOperandKind::WriteIndirectMemory(
+                MemoryAddress(operands[0]),
+                MemoryOffset(operands[1]),
+                DecoratedMemoryKind::Octets,
+            ),
+            DecoratedOperandKind::ReadFrameAddress(
+                FrameMemoryAddress(operands[2]),
+                DecoratedMemoryKind::Octets,
+                FrameMemoryAttribute {
+                    is_temporary: operands[2] >= frame_memory_size.0,
+                },
+            ),
+            DecoratedOperandKind::MemorySize(MemorySize(operands[3])),
+        ],
+        OpCode::Ldx => &[
+            DecoratedOperandKind::ReadIndirectMemory(
+                MemoryAddress(operands[0]),
+                MemoryOffset(operands[1]),
+                DecoratedMemoryKind::Octets,
+            ),
+            DecoratedOperandKind::ReadFrameAddress(
+                FrameMemoryAddress(operands[2]),
+                DecoratedMemoryKind::Octets,
+                FrameMemoryAttribute {
+                    is_temporary: operands[2] >= frame_memory_size.0,
+                },
+            ),
+            DecoratedOperandKind::MemorySize(MemorySize(operands[3])),
+        ],
+
+         */
     };
 
     let converted_operands = operands_slice

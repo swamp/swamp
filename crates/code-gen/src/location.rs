@@ -92,12 +92,23 @@ impl FunctionCodeGen<'_> {
                     );
                 }
                 LocationAccessKind::IntrinsicCallMut(
-                    _intrinsic_function,
-                    _arguments_to_the_intrinsic,
+                    intrinsic_function,
+                    arguments_to_the_intrinsic,
                 ) => {
                     // Fetching from vector, map, etc. are done using intrinsic calls
                     // arguments can be things like the key_value or the int index in a vector
-                    todo!()
+                    let mut converted = Vec::new();
+                    for x in arguments_to_the_intrinsic {
+                        converted.push(MutRefOrImmutableExpression::Expression(x.clone()));
+                    }
+
+                    let ctx = self.temp_space_for_type(&access.ty, "intrinsic call mut");
+                    self.gen_single_intrinsic_call(
+                        intrinsic_function,
+                        Some(frame_relative_base_address),
+                        &converted,
+                        &ctx,
+                    )?;
                 }
             }
         }

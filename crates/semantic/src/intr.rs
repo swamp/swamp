@@ -9,6 +9,10 @@ use swamp_types::prelude::*;
 
 #[derive(Debug, Hash, Clone)]
 pub enum IntrinsicFunction {
+    // Bool
+    BoolToString,
+
+    // Float
     FloatRound,
     FloatFloor,
     FloatSqrt,
@@ -23,6 +27,7 @@ pub enum IntrinsicFunction {
     FloatMin,
     FloatMax,
     FloatClamp,
+    FloatToString,
 
     // Int
     IntAbs,
@@ -31,6 +36,7 @@ pub enum IntrinsicFunction {
     IntMin,
     IntClamp,
     IntToFloat,
+    IntToString,
 
     // String
     StringLen,
@@ -128,6 +134,9 @@ pub struct IntrinsicFunctionDefinition {
 impl fmt::Display for IntrinsicFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
+            // Bool
+            Self::BoolToString => "bool_to_string",
+
             // Float
             Self::FloatRound => "float_round",
             Self::FloatFloor => "float_floor",
@@ -143,6 +152,7 @@ impl fmt::Display for IntrinsicFunction {
             Self::FloatMin => "float_min",
             Self::FloatMax => "float_max",
             Self::FloatClamp => "float_clamp",
+            Self::FloatToString => "float_to_string",
 
             // Int
             Self::IntAbs => "int_abs",
@@ -151,6 +161,7 @@ impl fmt::Display for IntrinsicFunction {
             Self::IntMin => "int_min",
             Self::IntToFloat => "int_to_float",
             Self::IntClamp => "int_clamp",
+            Self::IntToString => "int_to_string",
 
             // String
             Self::StringLen => "string_len",

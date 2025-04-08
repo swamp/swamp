@@ -8,7 +8,7 @@ use seq_map::SeqMap;
 use swamp_types::{AnonymousStructType, EnumVariantType, Type};
 use swamp_vm_types::{
     FLOAT_SIZE, INT_SIZE, MAP_REFERENCE_SIZE, MAP_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
-    STR_SIZE, VEC_REFERENCE_SIZE,
+    RANGE_SIZE, STR_SIZE, VEC_REFERENCE_SIZE,
 };
 use tracing::{error, info};
 
@@ -108,6 +108,21 @@ pub fn is_map(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
                 && named_struct.assigned_name.starts_with("Map<")
             {
                 Some((MemorySize(MAP_SIZE), MemoryAlignment::U16))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+pub fn is_range(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
+    match ty {
+        Type::NamedStruct(named_struct) => {
+            if named_struct.module_path == vec!["core-0.0.0".to_string()]
+                && named_struct.assigned_name.starts_with("Range")
+            {
+                Some((MemorySize(RANGE_SIZE), MemoryAlignment::U16))
             } else {
                 None
             }

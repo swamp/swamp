@@ -18,6 +18,10 @@ pub struct InstructionBuilder {
     pub comments: Vec<String>,
 }
 
+impl InstructionBuilder {}
+
+impl InstructionBuilder {}
+
 impl Default for InstructionBuilder {
     fn default() -> Self {
         Self::new()
@@ -52,6 +56,35 @@ impl InstructionBuilder {
         self.add_instruction(OpCode::Bnz, &[0], comment);
 
         PatchPosition(position)
+    }
+
+    pub fn add_vec_subscript(
+        &mut self,
+        target: FrameMemoryAddress,
+        self_addr: FrameMemoryAddress,
+        index: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::VecSubscript,
+            &[target.0, self_addr.0, index.0],
+            comment,
+        );
+    }
+
+    pub fn add_vec_subscript_mut(
+        &mut self,
+        target: FrameMemoryAddress,
+        self_addr: FrameMemoryAddress,
+        index: FrameMemoryAddress,
+        value_addr: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::VecSubscriptMut,
+            &[target.0, self_addr.0, index.0, value_addr.0],
+            comment,
+        );
     }
 
     pub fn add_vec_iter_next_placeholder(
@@ -189,6 +222,9 @@ impl InstructionBuilder {
         const MAP_ITER_NEXT: u8 = OpCode::MapIterNext as u8;
         const MAP_ITER_NEXT_PAIR: u8 = OpCode::MapIterNextPair as u8;
 
+        const RANGE_ITER_NEXT: u8 = OpCode::RangeIterNext as u8;
+        const RANGE_ITER_NEXT_PAIR: u8 = OpCode::RangeIterNextPair as u8;
+
         let instruction = &mut self.instructions[patch_position.0.0 as usize];
 
         match instruction.opcode {
@@ -210,6 +246,10 @@ impl InstructionBuilder {
                 instruction.operands[2] = target_position.0 as u16 - 1;
             }
 
+            RANGE_ITER_NEXT => {
+                instruction.operands[2] = target_position.0 as u16 - 1;
+            }
+
             VEC_ITER_NEXT_PAIR => {
                 instruction.operands[3] = target_position.0 as u16 - 1;
             }
@@ -217,6 +257,11 @@ impl InstructionBuilder {
             MAP_ITER_NEXT_PAIR => {
                 instruction.operands[3] = target_position.0 as u16 - 1;
             }
+
+            RANGE_ITER_NEXT_PAIR => {
+                instruction.operands[3] = target_position.0 as u16 - 1;
+            }
+
             _ => panic!("Attempted to patch a non-jump instruction at position {patch_position:?}"),
         }
     }
@@ -258,42 +303,76 @@ impl InstructionBuilder {
         );
     }
 
-    pub fn add_map_iter_next(
+    pub fn add_map_iter_next_placeholder(
         &mut self,
         iterator_target: FrameMemoryAddress,
         closure_variable: FrameMemoryAddress,
-        instruction_position: InstructionPosition,
         comment: &str,
-    ) {
+    ) -> PatchPosition {
+        let position = self.position();
         self.add_instruction(
             OpCode::MapIterNext,
-            &[
-                iterator_target.0,
-                closure_variable.0,
-                instruction_position.0,
-            ],
+            &[iterator_target.0, closure_variable.0, 0],
             comment,
         );
+        PatchPosition(position)
     }
 
-    pub fn add_map_iter_next_pair(
+    pub fn add_map_iter_next_pair_placeholder(
         &mut self,
         iterator_target: FrameMemoryAddress,
-        closure_variable_key: FrameMemoryAddress,
-        closure_variable_value: FrameMemoryAddress,
-        instruction_position: InstructionPosition,
+        closure_variable: FrameMemoryAddress,
+        closure_variable_b: FrameMemoryAddress,
         comment: &str,
-    ) {
+    ) -> PatchPosition {
+        let position = self.position();
         self.add_instruction(
             OpCode::MapIterNextPair,
             &[
                 iterator_target.0,
-                closure_variable_key.0,
-                closure_variable_value.0,
-                instruction_position.0,
+                closure_variable.0,
+                closure_variable_b.0,
+                0,
             ],
             comment,
         );
+        PatchPosition(position)
+    }
+
+    pub fn add_range_iter_next_placeholder(
+        &mut self,
+        iterator_target: FrameMemoryAddress,
+        closure_variable: FrameMemoryAddress,
+        comment: &str,
+    ) -> PatchPosition {
+        let position = self.position();
+        self.add_instruction(
+            OpCode::RangeIterNext,
+            &[iterator_target.0, closure_variable.0, 0],
+            comment,
+        );
+        PatchPosition(position)
+    }
+
+    pub fn add_range_iter_next_pair_placeholder(
+        &mut self,
+        iterator_target: FrameMemoryAddress,
+        closure_variable: FrameMemoryAddress,
+        closure_variable_b: FrameMemoryAddress,
+        comment: &str,
+    ) -> PatchPosition {
+        let position = self.position();
+        self.add_instruction(
+            OpCode::RangeIterNextPair,
+            &[
+                iterator_target.0,
+                closure_variable.0,
+                closure_variable_b.0,
+                0,
+            ],
+            comment,
+        );
+        PatchPosition(position)
     }
 
     pub fn add_string_from_constant_slice(
@@ -333,6 +412,15 @@ impl InstructionBuilder {
         comment: &str,
     ) {
         self.add_instruction(OpCode::StringLen, &[len_target.0, indirect.0.0], comment);
+    }
+
+    pub fn add_vec_len(
+        &mut self,
+        len_target: FrameMemoryAddress,
+        self_addr: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::VecLen, &[len_target.0, self_addr.0], comment);
     }
 
     pub fn add_vec_from_slice(
@@ -455,6 +543,34 @@ impl InstructionBuilder {
         );
     }
 
+    pub fn add_mod_i32(
+        &mut self,
+        dst_offset: FrameMemoryAddress,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::ModI32,
+            &[dst_offset.0, lhs_offset.0, rhs_offset.0],
+            comment,
+        );
+    }
+
+    pub fn add_sub_i32(
+        &mut self,
+        dst_offset: FrameMemoryAddress,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::SubI32,
+            &[dst_offset.0, lhs_offset.0, rhs_offset.0],
+            comment,
+        );
+    }
+
     pub fn add_add_f32(
         &mut self,
         dst_offset: FrameMemoryAddress,
@@ -528,6 +644,15 @@ impl InstructionBuilder {
         self.add_instruction(OpCode::LtI32, &[lhs_offset.0, rhs_offset.0], comment);
     }
 
+    pub fn add_le_i32(
+        &mut self,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::LeI32, &[lhs_offset.0, rhs_offset.0], comment);
+    }
+
     pub fn add_gt_i32(
         &mut self,
         lhs_offset: FrameMemoryAddress,
@@ -535,6 +660,15 @@ impl InstructionBuilder {
         comment: &str,
     ) {
         self.add_instruction(OpCode::GtI32, &[lhs_offset.0, rhs_offset.0], comment);
+    }
+
+    pub fn add_ge_i32(
+        &mut self,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::GeI32, &[lhs_offset.0, rhs_offset.0], comment);
     }
 
     pub fn add_tst8(&mut self, addr: FrameMemoryAddress, comment: &str) {
@@ -586,6 +720,15 @@ impl InstructionBuilder {
     }
     pub fn add_ld_u16(&mut self, dest: FrameMemoryAddress, data: u16, comment: &str) {
         self.add_instruction(OpCode::Ld16, &[dest.0, data], comment);
+    }
+
+    pub fn add_int_rnd(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_int: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::IntToRnd, &[dest.0, self_int.0], comment);
     }
 
     /*

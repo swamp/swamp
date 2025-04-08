@@ -229,6 +229,8 @@ pub const VEC_ITERATOR_SIZE: u16 = size_of::<VecIterator>() as u16;
 pub const MAP_SIZE: u16 = 2 + 2 + 2 + 2 + 2;
 pub const MAP_REFERENCE_SIZE: u16 = HEAP_PTR_SIZE;
 
+pub const RANGE_SIZE: u16 = 2 + 2 + 2;
+
 pub struct StringHeader {
     pub byte_count: u16,
     pub capacity: u16,

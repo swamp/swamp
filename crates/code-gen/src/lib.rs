@@ -12,8 +12,8 @@ mod vec;
 
 use crate::alloc::{ConstantMemoryRegion, FrameMemoryRegion, ScopeAllocator};
 use crate::alloc_util::{
-    is_map, is_vec, layout_struct, layout_tuple, layout_tuple_elements, reserve_space_for_type,
-    type_size_and_alignment,
+    is_map, is_range, is_vec, layout_struct, layout_tuple, layout_tuple_elements,
+    reserve_space_for_type, type_size_and_alignment,
 };
 use crate::constants::ConstantsManager;
 use crate::ctx::Context;
@@ -374,7 +374,11 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::FloatClamp => todo!(),
             // Int
             IntrinsicFunction::IntAbs => todo!(),
-            IntrinsicFunction::IntRnd => todo!(),
+            IntrinsicFunction::IntRnd => {
+                self.state
+                    .builder
+                    .add_int_rnd(ctx.addr(), self_addr.unwrap().addr, "intrnd")
+            }
             IntrinsicFunction::IntMax => todo!(),
             IntrinsicFunction::IntMin => todo!(),
             IntrinsicFunction::IntClamp => todo!(),
@@ -387,7 +391,6 @@ impl FunctionCodeGen<'_> {
                     FrameMemoryAddressIndirectPointer(self_addr.unwrap().addr),
                     "get the length",
                 );
-                Ok(())
             }
 
             // Vec
@@ -403,7 +406,6 @@ impl FunctionCodeGen<'_> {
                     CountU16(slice_region.size.0 / element_size.0),
                     "create vec from slice",
                 );
-                Ok(())
             }
             IntrinsicFunction::VecPush => todo!(),
             IntrinsicFunction::VecPop => todo!(),
@@ -412,8 +414,43 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecClear => todo!(),
             IntrinsicFunction::VecGet => todo!(),
             IntrinsicFunction::VecCreate => todo!(),
-            IntrinsicFunction::VecSubscript => todo!(),
-            IntrinsicFunction::VecSubscriptMut => todo!(),
+            IntrinsicFunction::VecSubscript => {
+                let maybe_index_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(index_expr) = maybe_index_argument
+                else {
+                    panic!();
+                };
+                let index_region = self.gen_expression_for_access(index_expr)?;
+                self.state.builder.add_vec_subscript(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,
+                    index_region.addr,
+                    "get the vec length",
+                );
+            }
+            IntrinsicFunction::VecSubscriptMut => {
+                let maybe_index_argument = &arguments[0];
+
+                let MutRefOrImmutableExpression::Expression(index_expr) = maybe_index_argument
+                else {
+                    panic!();
+                };
+                let index_region = self.gen_expression_for_access(index_expr)?;
+
+                let source_argument = &arguments[1];
+                let MutRefOrImmutableExpression::Expression(value_expr) = source_argument else {
+                    panic!();
+                };
+                let value_region = self.gen_expression_for_access(value_expr)?;
+
+                self.state.builder.add_vec_subscript_mut(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,
+                    index_region.addr,
+                    value_region.addr,
+                    "set the vec subscript",
+                );
+            }
             IntrinsicFunction::VecSubscriptRange => todo!(),
             IntrinsicFunction::VecIter => todo!(),
             IntrinsicFunction::VecIterMut => todo!(),
@@ -422,7 +459,11 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecFindMap => todo!(),
             IntrinsicFunction::VecSelfPush => todo!(),
             IntrinsicFunction::VecSelfExtend => todo!(),
-            IntrinsicFunction::VecLen => todo!(),
+            IntrinsicFunction::VecLen => self.state.builder.add_vec_len(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                "get the vec length",
+            ),
             IntrinsicFunction::VecIsEmpty => todo!(),
 
             // Map
@@ -450,15 +491,13 @@ impl FunctionCodeGen<'_> {
                     slice_pair_info.element_count,
                     "create map from temporary slice pair",
                 );
-
-                Ok(())
             }
             IntrinsicFunction::MapHas => todo!(),
             IntrinsicFunction::MapRemove => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                self.gen_intrinsic_map_remove(self_addr.unwrap(), key_argument, ctx)
+                self.gen_intrinsic_map_remove(self_addr.unwrap(), key_argument, ctx)?;
             }
             IntrinsicFunction::MapIter => todo!(),
             IntrinsicFunction::MapIterMut => todo!(),
@@ -512,7 +551,12 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecFold => todo!(),
 
             IntrinsicFunction::RuntimePanic => todo!(),
+            IntrinsicFunction::BoolToString => todo!(),
+            IntrinsicFunction::FloatToString => todo!(),
+            IntrinsicFunction::IntToString => todo!(),
         }
+
+        Ok(())
     }
 
     fn gen_intrinsic_map_remove(
@@ -691,8 +735,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<GeneratedExpressionResult, Error> {
         self.debug_node(&expr.node);
         let result = match &expr.kind {
-            ExpressionKind::InterpolatedString(_) => todo!(),
-
+            //ExpressionKind::InterpolatedString(_) => todo!(),
             ExpressionKind::ConstantAccess(constant_ref) => self
                 .gen_constant_access(constant_ref, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
@@ -837,7 +880,12 @@ impl FunctionCodeGen<'_> {
                 );
             }
 
-            BinaryOperatorKind::Subtract => todo!(),
+            BinaryOperatorKind::Subtract => self.state.builder.add_sub_i32(
+                ctx.addr(),
+                left_source.addr(),
+                right_source.addr(),
+                "i32 sub",
+            ),
             BinaryOperatorKind::Multiply => {
                 self.state.builder.add_mul_i32(
                     ctx.addr(),
@@ -847,7 +895,12 @@ impl FunctionCodeGen<'_> {
                 );
             }
             BinaryOperatorKind::Divide => todo!(),
-            BinaryOperatorKind::Modulo => todo!(),
+            BinaryOperatorKind::Modulo => self.state.builder.add_mod_i32(
+                ctx.addr(),
+                left_source.addr(),
+                right_source.addr(),
+                "i32 mod",
+            ),
             BinaryOperatorKind::LogicalOr => todo!(),
             BinaryOperatorKind::LogicalAnd => todo!(),
             BinaryOperatorKind::Equal => {
@@ -861,13 +914,21 @@ impl FunctionCodeGen<'_> {
                     .builder
                     .add_lt_i32(left_source.addr(), right_source.addr(), "i32 lt");
             }
-            BinaryOperatorKind::LessEqual => todo!(),
+            BinaryOperatorKind::LessEqual => {
+                self.state
+                    .builder
+                    .add_le_i32(left_source.addr(), right_source.addr(), "i32 le");
+            }
             BinaryOperatorKind::GreaterThan => {
                 self.state
                     .builder
                     .add_gt_i32(left_source.addr(), right_source.addr(), "i32 gt");
             }
-            BinaryOperatorKind::GreaterEqual => todo!(),
+            BinaryOperatorKind::GreaterEqual => {
+                self.state
+                    .builder
+                    .add_ge_i32(left_source.addr(), right_source.addr(), "i32 ge");
+            }
             BinaryOperatorKind::RangeExclusive => todo!(),
         }
 
@@ -1628,27 +1689,50 @@ impl FunctionCodeGen<'_> {
 
         let jump_ip = self.state.builder.position();
 
-        match for_pattern {
-            ForPattern::Single(_) => {
-                self.state.builder.add_map_iter_next(
-                    FrameMemoryAddress(0x80),
-                    FrameMemoryAddress(0x16),
-                    InstructionPosition(256),
-                    "move to next or jump over",
-                );
-            }
-            ForPattern::Pair(_, _) => {
-                self.state.builder.add_map_iter_next_pair(
-                    FrameMemoryAddress(0x80),
-                    FrameMemoryAddress(0x16),
-                    FrameMemoryAddress(0x16),
-                    InstructionPosition(256),
-                    "move to next or jump over",
-                );
-            }
-        }
+        let patch_position = match for_pattern {
+            ForPattern::Single(_) => self.state.builder.add_map_iter_next_placeholder(
+                FrameMemoryAddress(0x80),
+                FrameMemoryAddress(0x16),
+                "move to next or jump over",
+            ),
+            ForPattern::Pair(_, _) => self.state.builder.add_map_iter_next_pair_placeholder(
+                FrameMemoryAddress(0x80),
+                FrameMemoryAddress(0x16),
+                FrameMemoryAddress(0x16),
+                "move to next or jump over",
+            ),
+        };
 
-        Ok((jump_ip, PatchPosition(InstructionPosition(0))))
+        Ok((jump_ip, patch_position))
+    }
+
+    fn gen_for_loop_range(
+        &mut self,
+        for_pattern: &ForPattern,
+    ) -> Result<(InstructionPosition, PatchPosition), Error> {
+        self.state.builder.add_map_iter_init(
+            FrameMemoryAddress(0x80),
+            FrameMemoryAddressIndirectPointer(FrameMemoryAddress(0xffff)),
+            "initialize map iterator",
+        );
+
+        let jump_ip = self.state.builder.position();
+
+        let patch_position = match for_pattern {
+            ForPattern::Single(_) => self.state.builder.add_range_iter_next_placeholder(
+                FrameMemoryAddress(0x80),
+                FrameMemoryAddress(0x16),
+                "move to next or jump over",
+            ),
+            ForPattern::Pair(_, _) => self.state.builder.add_range_iter_next_pair_placeholder(
+                FrameMemoryAddress(0x80),
+                FrameMemoryAddress(0x16),
+                FrameMemoryAddress(0x16),
+                "move to next or jump over",
+            ),
+        };
+
+        Ok((jump_ip, patch_position))
     }
 
     fn gen_for_loop(
@@ -1668,12 +1752,15 @@ impl FunctionCodeGen<'_> {
             Type::String => {
                 todo!();
             }
-            Type::NamedStruct(_vec) => {
+            Type::NamedStruct(named_type) => {
                 if let Some(found_info) = is_vec(collection_type) {
                     self.gen_for_loop_vec(for_pattern, &iterable.resolved_expression)?
                 } else if let Some(found_info) = is_map(collection_type) {
                     self.gen_for_loop_map(for_pattern)?
+                } else if let Some(found_info) = is_range(collection_type) {
+                    self.gen_for_loop_range(for_pattern)?
                 } else {
+                    error!(?named_type, "can not iterate this collection");
                     return Err(self.create_err(
                         ErrorKind::NotAnIterableCollection,
                         iterable.resolved_expression.node(),
@@ -2210,6 +2297,9 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecFirst => todo!(),
             IntrinsicFunction::VecLast => todo!(),
             IntrinsicFunction::RuntimePanic => todo!(),
+            IntrinsicFunction::BoolToString => todo!(),
+            IntrinsicFunction::FloatToString => todo!(),
+            IntrinsicFunction::IntToString => todo!(),
         };
 
         Ok(())

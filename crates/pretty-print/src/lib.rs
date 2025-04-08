@@ -409,9 +409,12 @@ impl SourceMapDisplay<'_> {
             ExpressionKind::CoerceOptionToBool(_) => {
                 write!(f, "CoerceOptionToBool()")
             }
+            /*
             ExpressionKind::InterpolatedString(_) => {
                 write!(f, "InterpolatedString()")
             }
+
+             */
             ExpressionKind::VariableDefinition(a, b) => {
                 write!(
                     f,
