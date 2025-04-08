@@ -135,7 +135,6 @@ impl Analyzer<'_> {
             swamp_ast::BinaryOperatorKind::LessEqual => BinaryOperatorKind::LessEqual,
             swamp_ast::BinaryOperatorKind::GreaterThan => BinaryOperatorKind::GreaterThan,
             swamp_ast::BinaryOperatorKind::GreaterEqual => BinaryOperatorKind::GreaterEqual,
-            swamp_ast::BinaryOperatorKind::RangeExclusive => BinaryOperatorKind::RangeExclusive,
         }
     }
 }

@@ -567,7 +567,6 @@ pub enum BinaryOperatorKind {
     LessEqual,
     GreaterThan,
     GreaterEqual,
-    RangeExclusive,
 }
 
 // Only takes one expression argument

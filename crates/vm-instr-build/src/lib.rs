@@ -87,6 +87,28 @@ impl InstructionBuilder {
         );
     }
 
+    pub fn add_vec_push(
+        &mut self,
+        self_addr: FrameMemoryAddress,
+        element_item: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::VecPush, &[self_addr.0, element_item.0], comment);
+    }
+
+    pub fn add_vec_remove_index(
+        &mut self,
+        self_addr: FrameMemoryAddress,
+        element_item: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::VecRemoveIndex,
+            &[self_addr.0, element_item.0],
+            comment,
+        );
+    }
+
     pub fn add_vec_iter_next_placeholder(
         &mut self,
         iterator_target: FrameMemoryAddress,
@@ -139,6 +161,15 @@ impl InstructionBuilder {
         comment: &str,
     ) {
         self.add_instruction(OpCode::Eq32, &[addr_a.0, addr_b.0], comment);
+    }
+
+    pub fn add_ne_32(
+        &mut self,
+        addr_a: FrameMemoryAddress,
+        addr_b: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::Ne32, &[addr_a.0, addr_b.0], comment);
     }
 
     pub fn add_call_placeholder(&mut self, comment: &str) -> PatchPosition {
@@ -571,20 +602,6 @@ impl InstructionBuilder {
         );
     }
 
-    pub fn add_add_f32(
-        &mut self,
-        dst_offset: FrameMemoryAddress,
-        lhs_offset: FrameMemoryAddress,
-        rhs_offset: FrameMemoryAddress,
-        comment: &str,
-    ) {
-        self.add_instruction(
-            OpCode::AddF32,
-            &[dst_offset.0, lhs_offset.0, rhs_offset.0],
-            comment,
-        );
-    }
-
     pub fn add_mul_i32(
         &mut self,
         dst_offset: FrameMemoryAddress,
@@ -608,6 +625,74 @@ impl InstructionBuilder {
         self.add_instruction(OpCode::NegI32, &[target.0, source.0], comment);
     }
 
+    pub fn add_mod_f32(
+        &mut self,
+        dst_offset: FrameMemoryAddress,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::ModF32,
+            &[dst_offset.0, lhs_offset.0, rhs_offset.0],
+            comment,
+        );
+    }
+
+    pub fn add_sub_f32(
+        &mut self,
+        dst_offset: FrameMemoryAddress,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::SubF32,
+            &[dst_offset.0, lhs_offset.0, rhs_offset.0],
+            comment,
+        );
+    }
+    pub fn add_mul_f32(
+        &mut self,
+        dst_offset: FrameMemoryAddress,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::MulF32,
+            &[dst_offset.0, lhs_offset.0, rhs_offset.0],
+            comment,
+        );
+    }
+    pub fn add_div_f32(
+        &mut self,
+        dst_offset: FrameMemoryAddress,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::DivF32,
+            &[dst_offset.0, lhs_offset.0, rhs_offset.0],
+            comment,
+        );
+    }
+
+    pub fn add_add_f32(
+        &mut self,
+        dst_offset: FrameMemoryAddress,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::AddF32,
+            &[dst_offset.0, lhs_offset.0, rhs_offset.0],
+            comment,
+        );
+    }
+
     pub fn add_neg_f32(
         &mut self,
         target: FrameMemoryAddress,
@@ -624,6 +709,42 @@ impl InstructionBuilder {
         comment: &str,
     ) {
         self.add_instruction(OpCode::Bnz, &[condition_offset.0, jmp_target.0], comment);
+    }
+
+    pub fn add_lt_f32(
+        &mut self,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::LtF32, &[lhs_offset.0, rhs_offset.0], comment);
+    }
+
+    pub fn add_le_f32(
+        &mut self,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::LeF32, &[lhs_offset.0, rhs_offset.0], comment);
+    }
+
+    pub fn add_gt_f32(
+        &mut self,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::GtF32, &[lhs_offset.0, rhs_offset.0], comment);
+    }
+
+    pub fn add_ge_f32(
+        &mut self,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::GeF32, &[lhs_offset.0, rhs_offset.0], comment);
     }
 
     pub fn add_jmp_if_not(
@@ -698,6 +819,10 @@ impl InstructionBuilder {
         );
     }
 
+    pub fn add_map_has(&mut self, self_addr: FrameMemoryAddress, comment: &str) {
+        self.add_instruction(OpCode::MapHas, &[self_addr.0], comment);
+    }
+
     pub fn add_map_remove(
         &mut self,
         map_target_addr: FrameMemoryAddress,
@@ -705,6 +830,33 @@ impl InstructionBuilder {
         comment: &str,
     ) {
         self.add_instruction(OpCode::MapRemove, &[map_target_addr.0, key_addr.0], comment);
+    }
+
+    pub fn add_map_subscript(
+        &mut self,
+        target_addr: FrameMemoryAddress,
+        self_addr: FrameMemoryAddress,
+        key: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::MapSubscript,
+            &[target_addr.0, self_addr.0, key.0],
+            comment,
+        );
+    }
+
+    pub fn add_map_subscript_mut_create(
+        &mut self,
+        self_addr: FrameMemoryAddress,
+        key: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::MapSubscriptMutCreate,
+            &[self_addr.0, key.0],
+            comment,
+        );
     }
 
     fn add_instruction(&mut self, op_code: OpCode, operands: &[u16], comment: &str) {
@@ -729,6 +881,176 @@ impl InstructionBuilder {
         comment: &str,
     ) {
         self.add_instruction(OpCode::IntToRnd, &[dest.0, self_int.0], comment);
+    }
+
+    pub fn add_int_abs(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_int: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::IntAbs, &[dest.0, self_int.0], comment);
+    }
+
+    pub fn add_int_to_float(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_int: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::IntToFloat, &[dest.0, self_int.0], comment);
+    }
+
+    pub fn add_int_to_string(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_int: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::IntToString, &[dest.0, self_int.0], comment);
+    }
+
+    pub fn float_to_string(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatToString, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_round(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatRound, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_floor(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatFloor, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_sqrt(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatSqrt, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_sign(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatSign, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_abs(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatAbs, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_prnd(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatPseudoRandom, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_sin(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatSin, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_cos(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatCos, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_acos(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatAcos, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_asin(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatAsin, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_atan2(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatAtan2, &[dest.0, self_float.0], comment);
+    }
+
+    pub fn add_float_min(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        other: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatMin, &[dest.0, self_float.0, other.0], comment);
+    }
+
+    pub fn add_float_max(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        other: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::FloatMax, &[dest.0, self_float.0, other.0], comment);
+    }
+
+    pub fn add_float_clamp(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        min_addr: FrameMemoryAddress,
+        max_addr: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::FloatClamp,
+            &[dest.0, min_addr.0, self_float.0, max_addr.0],
+            comment,
+        );
     }
 
     /*

@@ -147,11 +147,17 @@ impl Analyzer<'_> {
             .expect("block scope should have at least one scope")
             .variables;
 
-        let should_insert_in_scope = !variable_str.starts_with('_');
+        let is_marked_as_unused = variable_str.starts_with('_');
+
+        let actual_name = if is_marked_as_unused {
+            format!("_{index_within_function}")
+        } else {
+            variable_str.to_string()
+        };
 
         let resolved_variable = Variable {
             name: Node::default(),
-            assigned_name: variable_str.to_string(),
+            assigned_name: actual_name.clone(),
             resolved_type: variable_type_ref.clone(),
             mutable_node: if is_mutable {
                 Some(Node::default())
@@ -161,16 +167,18 @@ impl Analyzer<'_> {
             scope_index,
             variable_index: variables.len(),
             unique_id_within_function: index_within_function,
-            is_unused: !should_insert_in_scope,
+            is_unused: !is_marked_as_unused,
         };
 
         let variable_ref = Rc::new(resolved_variable);
 
-        if should_insert_in_scope {
+        if !is_marked_as_unused {
             variables
-                .insert(variable_str.to_string(), variable_ref.clone())
+                .insert(actual_name, variable_ref.clone())
                 .expect("should have checked earlier for variable");
         }
+
+        self.function_variables.push(variable_ref.clone());
 
         Ok(variable_ref)
     }

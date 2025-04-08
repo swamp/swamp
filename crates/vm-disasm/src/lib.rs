@@ -427,8 +427,43 @@ pub fn disasm(
             to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
             to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
         ],
+        OpCode::DivF32 => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
+
+        OpCode::ModF32 => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
+        OpCode::SubF32 => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
         OpCode::NegF32 => &[
             to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
+
+        OpCode::LtF32 => &[
+            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
+
+        OpCode::LeF32 => &[
+            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
+
+        OpCode::GtF32 => &[
+            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+        ],
+        OpCode::GeF32 => &[
+            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
         ],
 
@@ -450,6 +485,90 @@ pub fn disasm(
             to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
         ],
+
+        OpCode::FloatToString => &[
+            to_write_frame(
+                operands[0],
+                DecoratedMemoryKind::IndirectHeapPointer,
+                frame_memory_size,
+            ),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatRound => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatFloor => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatSqrt => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatSign => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatAbs => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatSin => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatCos => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatAcos => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatAsin => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatAtan2 => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatMin => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatMax => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatClamp => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[3], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::FloatPseudoRandom => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
         OpCode::Eq8Imm => {
             let data = operands[1];
 
@@ -462,6 +581,11 @@ pub fn disasm(
             to_read_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
         ],
+        OpCode::Ne32 => &[
+            to_read_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
         OpCode::Tst8 => &[to_read_frame(
             operands[0],
             DecoratedMemoryKind::S32,
@@ -531,6 +655,12 @@ pub fn disasm(
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
         ],
+
+        OpCode::VecRemoveIndex => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
         OpCode::VecLen => &[
             to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
@@ -564,6 +694,22 @@ pub fn disasm(
 
         OpCode::MapRemove => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+        ],
+
+        OpCode::MapSubscript => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),
+        ],
+
+        OpCode::MapSubscriptMutCreate => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+        ],
+
+        OpCode::MapHas => &[
+            //  sets the Z flag
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
         ],
 
@@ -622,6 +768,25 @@ pub fn disasm(
         ],
 
         OpCode::IntToRnd => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::IntAbs => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::IntToString => &[
+            to_write_frame(
+                operands[0],
+                DecoratedMemoryKind::IndirectHeapPointer,
+                frame_memory_size,
+            ),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::IntToFloat => &[
             to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
         ],

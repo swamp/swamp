@@ -255,7 +255,6 @@ pub enum BinaryOperatorKind {
     LessEqual,
     GreaterThan,
     GreaterEqual,
-    RangeExclusive,
 }
 
 #[derive(Debug, Clone)]

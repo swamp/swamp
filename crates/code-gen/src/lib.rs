@@ -349,7 +349,7 @@ impl<'a> FunctionCodeGen<'a> {
 
 impl FunctionCodeGen<'_> {
     #[allow(clippy::too_many_lines)]
-    pub(crate) fn gen_single_intrinsic_call(
+    pub fn gen_single_intrinsic_call(
         &mut self,
         intrinsic_fn: &IntrinsicFunction,
         self_addr: Option<FrameMemoryRegion>,
@@ -358,31 +358,138 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(), Error> {
         match intrinsic_fn {
             // Fixed
-            IntrinsicFunction::FloatRound => todo!(),
-            IntrinsicFunction::FloatFloor => todo!(),
-            IntrinsicFunction::FloatSqrt => todo!(),
-            IntrinsicFunction::FloatSign => todo!(),
-            IntrinsicFunction::FloatAbs => todo!(),
-            IntrinsicFunction::FloatRnd => todo!(),
-            IntrinsicFunction::FloatCos => todo!(),
-            IntrinsicFunction::FloatSin => todo!(),
-            IntrinsicFunction::FloatAcos => todo!(),
-            IntrinsicFunction::FloatAsin => todo!(),
-            IntrinsicFunction::FloatAtan2 => todo!(),
-            IntrinsicFunction::FloatMin => todo!(),
-            IntrinsicFunction::FloatMax => todo!(),
-            IntrinsicFunction::FloatClamp => todo!(),
+            IntrinsicFunction::FloatRound => self.state.builder.add_float_round(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                "float round",
+            ),
+            IntrinsicFunction::FloatFloor => self.state.builder.add_float_floor(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                "float round",
+            ),
+            IntrinsicFunction::FloatSqrt => self.state.builder.add_float_sqrt(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                "float round",
+            ),
+            IntrinsicFunction::FloatSign => self.state.builder.add_float_sign(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                "float round",
+            ),
+            IntrinsicFunction::FloatAbs => {
+                self.state
+                    .builder
+                    .add_float_abs(ctx.addr(), self_addr.unwrap().addr, "float round")
+            }
+            IntrinsicFunction::FloatRnd => self.state.builder.add_float_prnd(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                "float round",
+            ),
+            IntrinsicFunction::FloatCos => {
+                self.state
+                    .builder
+                    .add_float_cos(ctx.addr(), self_addr.unwrap().addr, "float round")
+            }
+            IntrinsicFunction::FloatSin => {
+                self.state
+                    .builder
+                    .add_float_sin(ctx.addr(), self_addr.unwrap().addr, "float round")
+            }
+            IntrinsicFunction::FloatAcos => self.state.builder.add_float_acos(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                "float round",
+            ),
+            IntrinsicFunction::FloatAsin => self.state.builder.add_float_asin(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                "float round",
+            ),
+            IntrinsicFunction::FloatAtan2 => self.state.builder.add_float_atan2(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                "float round",
+            ),
+            IntrinsicFunction::FloatMin => {
+                let float_arg = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
+                    panic!();
+                };
+                let float_region = self.gen_expression_for_access(float_arg_expr)?;
+                self.state.builder.add_float_min(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,
+                    float_region.addr,
+                    "float round",
+                )
+            }
+            IntrinsicFunction::FloatMax => {
+                let float_arg = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
+                    panic!();
+                };
+                let float_region = self.gen_expression_for_access(float_arg_expr)?;
+                self.state.builder.add_float_max(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,
+                    float_region.addr,
+                    "float round",
+                )
+            }
+            IntrinsicFunction::FloatClamp => {
+                let float_arg = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
+                    panic!();
+                };
+                let float_region = self.gen_expression_for_access(float_arg_expr)?;
+
+                let float_b = &arguments[1];
+                let MutRefOrImmutableExpression::Expression(float_b_expr) = float_b else {
+                    panic!();
+                };
+                let float_b_region = self.gen_expression_for_access(float_b_expr)?;
+
+                self.state.builder.add_float_clamp(
+                    ctx.addr(),
+                    float_region.addr,
+                    self_addr.unwrap().addr,
+                    float_b_region.addr,
+                    "float round",
+                )
+            }
+            IntrinsicFunction::FloatToString => self.state.builder.float_to_string(
+                ctx.addr(),
+                self_addr.unwrap().addr(),
+                "float_to_string",
+            ),
             // Int
-            IntrinsicFunction::IntAbs => todo!(),
+            IntrinsicFunction::IntAbs => {
+                self.state
+                    .builder
+                    .add_int_abs(ctx.addr(), self_addr.unwrap().addr, "intrnd")
+            }
+
             IntrinsicFunction::IntRnd => {
                 self.state
                     .builder
-                    .add_int_rnd(ctx.addr(), self_addr.unwrap().addr, "intrnd")
+                    .add_int_rnd(ctx.addr(), self_addr.unwrap().addr, "intrnd");
             }
             IntrinsicFunction::IntMax => todo!(),
             IntrinsicFunction::IntMin => todo!(),
             IntrinsicFunction::IntClamp => todo!(),
-            IntrinsicFunction::IntToFloat => todo!(),
+            IntrinsicFunction::IntToFloat => self.state.builder.add_int_to_float(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                "int to float",
+            ),
+            IntrinsicFunction::IntToString => self.state.builder.add_int_to_string(
+                ctx.addr(),
+                self_addr.unwrap().addr(),
+                "int_to_string",
+            ),
 
             // String
             IntrinsicFunction::StringLen => {
@@ -407,9 +514,32 @@ impl FunctionCodeGen<'_> {
                     "create vec from slice",
                 );
             }
-            IntrinsicFunction::VecPush => todo!(),
+            IntrinsicFunction::VecPush => {
+                let maybe_key_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
+                    panic!();
+                };
+                let key_region = self.gen_expression_for_access(key_expr)?;
+                self.state.builder.add_vec_push(
+                    self_addr.unwrap().addr, // mut self
+                    key_region.addr,
+                    "vec push",
+                );
+            }
             IntrinsicFunction::VecPop => todo!(),
-            IntrinsicFunction::VecRemoveIndex => todo!(),
+            IntrinsicFunction::VecRemoveIndex => {
+                let maybe_index_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(index_expr) = maybe_index_argument
+                else {
+                    panic!();
+                };
+                let index_region = self.gen_expression_for_access(index_expr)?;
+                self.state.builder.add_vec_remove_index(
+                    self_addr.unwrap().addr,
+                    index_region.addr,
+                    "get the vec length",
+                );
+            }
             IntrinsicFunction::VecRemoveIndexGetValue => todo!(),
             IntrinsicFunction::VecClear => todo!(),
             IntrinsicFunction::VecGet => todo!(),
@@ -492,7 +622,10 @@ impl FunctionCodeGen<'_> {
                     "create map from temporary slice pair",
                 );
             }
-            IntrinsicFunction::MapHas => todo!(),
+            IntrinsicFunction::MapHas => self
+                .state
+                .builder
+                .add_map_has(self_addr.unwrap().addr, "map_has"),
             IntrinsicFunction::MapRemove => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
@@ -503,10 +636,31 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::MapIterMut => todo!(),
             IntrinsicFunction::MapLen => todo!(),
             IntrinsicFunction::MapIsEmpty => todo!(),
-            IntrinsicFunction::MapSubscript => todo!(),
+            IntrinsicFunction::MapSubscript => {
+                let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
+                    panic!("must be expression for key");
+                };
+                let key = self.gen_expression_for_access(key_argument)?;
+                self.state.builder.add_map_subscript(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,
+                    key.addr,
+                    "map_subscript",
+                );
+            }
             IntrinsicFunction::MapSubscriptSet => todo!(),
             IntrinsicFunction::MapSubscriptMut => todo!(),
-            IntrinsicFunction::MapSubscriptMutCreateIfNeeded => todo!(),
+            IntrinsicFunction::MapSubscriptMutCreateIfNeeded => {
+                let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
+                    panic!("must be expression for key");
+                };
+                let key = self.gen_expression_for_access(key_argument)?;
+                self.state.builder.add_map_subscript_mut_create(
+                    self_addr.unwrap().addr,
+                    key.addr,
+                    "map_subscript_mut_create (set)",
+                );
+            }
 
             // Map2
             IntrinsicFunction::Map2Remove => todo!(),
@@ -552,8 +706,6 @@ impl FunctionCodeGen<'_> {
 
             IntrinsicFunction::RuntimePanic => todo!(),
             IntrinsicFunction::BoolToString => todo!(),
-            IntrinsicFunction::FloatToString => todo!(),
-            IntrinsicFunction::IntToString => todo!(),
         }
 
         Ok(())
@@ -799,7 +951,7 @@ impl FunctionCodeGen<'_> {
                 .compound_assignment(target_location, operator_kind, source_expr, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => self
-                .gen_intrinsic_call_ex(intrinsic_fn, arguments, ctx)
+                .gen_single_intrinsic_call(intrinsic_fn, None, arguments, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
 
             ExpressionKind::Lambda(vec, x) => {
@@ -856,6 +1008,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<GeneratedExpressionResult, Error> {
         match (&binary_operator.left.ty, &binary_operator.right.ty) {
             (Type::Int, Type::Int) => self.gen_binary_operator_i32(binary_operator, ctx),
+            (Type::Float, Type::Float) => self.gen_binary_operator_f32(binary_operator, ctx),
             (Type::Bool, Type::Bool) => self.gen_binary_operator_bool(binary_operator),
             (Type::String, Type::String) => self.gen_binary_operator_string(binary_operator, ctx),
             _ => todo!(),
@@ -929,7 +1082,91 @@ impl FunctionCodeGen<'_> {
                     .builder
                     .add_ge_i32(left_source.addr(), right_source.addr(), "i32 ge");
             }
-            BinaryOperatorKind::RangeExclusive => todo!(),
+        }
+
+        Ok(GeneratedExpressionResult {
+            has_set_bool_z_flag: true,
+        })
+    }
+
+    fn gen_binary_operator_f32(
+        &mut self,
+        binary_operator: &BinaryOperator,
+        ctx: &Context,
+    ) -> Result<GeneratedExpressionResult, Error> {
+        let left_source = self.gen_expression_for_access(&binary_operator.left)?;
+        let right_source = self.gen_expression_for_access(&binary_operator.right)?;
+
+        match binary_operator.kind {
+            BinaryOperatorKind::Add => {
+                self.state.builder.add_add_f32(
+                    ctx.addr(),
+                    left_source.addr(),
+                    right_source.addr(),
+                    "f32 add",
+                );
+            }
+
+            BinaryOperatorKind::Subtract => self.state.builder.add_sub_f32(
+                ctx.addr(),
+                left_source.addr(),
+                right_source.addr(),
+                "f32 sub",
+            ),
+            BinaryOperatorKind::Multiply => {
+                self.state.builder.add_mul_f32(
+                    ctx.addr(),
+                    left_source.addr(),
+                    right_source.addr(),
+                    "f32 add",
+                );
+            }
+            BinaryOperatorKind::Divide => {
+                self.state.builder.add_div_f32(
+                    ctx.addr(),
+                    left_source.addr(),
+                    right_source.addr(),
+                    "f32 div",
+                );
+            }
+            BinaryOperatorKind::Modulo => self.state.builder.add_mod_f32(
+                ctx.addr(),
+                left_source.addr(),
+                right_source.addr(),
+                "f32 mod",
+            ),
+            BinaryOperatorKind::LogicalOr => panic!("not supported"),
+            BinaryOperatorKind::LogicalAnd => panic!("not supported"),
+            BinaryOperatorKind::Equal => {
+                self.state
+                    .builder
+                    .add_eq_32(left_source.addr(), right_source.addr(), "f32 eq");
+            }
+            BinaryOperatorKind::NotEqual => {
+                self.state
+                    .builder
+                    .add_ne_32(left_source.addr(), right_source.addr(), "f32 ne");
+            }
+            BinaryOperatorKind::LessThan => {
+                self.state
+                    .builder
+                    .add_lt_f32(left_source.addr(), right_source.addr(), "f32 lt");
+            }
+            BinaryOperatorKind::LessEqual => {
+                self.state
+                    .builder
+                    .add_le_f32(left_source.addr(), right_source.addr(), "f32 le");
+            }
+            BinaryOperatorKind::GreaterThan => {
+                self.state
+                    .builder
+                    .add_gt_f32(left_source.addr(), right_source.addr(), "f32 gt");
+            }
+            BinaryOperatorKind::GreaterEqual => {
+                self.state
+                    .builder
+                    .add_ge_f32(left_source.addr(), right_source.addr(), "f32 ge");
+            }
         }
 
         Ok(GeneratedExpressionResult {
@@ -1125,7 +1362,12 @@ impl FunctionCodeGen<'_> {
         let target_relative_frame_pointer = self
             .variable_offsets
             .get(&variable.unique_id_within_function)
-            .unwrap_or_else(|| panic!("{}", variable.assigned_name));
+            .unwrap_or_else(|| {
+                panic!(
+                    "could not find id {} {}",
+                    variable.unique_id_within_function, variable.assigned_name
+                )
+            });
 
         let init_ctx =
             ctx.with_target(*target_relative_frame_pointer, "variable assignment target");
@@ -1309,7 +1551,8 @@ impl FunctionCodeGen<'_> {
             if chain.len() == 1 {
                 if let PostfixKind::FunctionCall(args) = &chain[0].kind {
                     if let Some(intrinsic_fn) = single_intrinsic_fn(&internal_fn.body) {
-                        self.gen_single_intrinsic_call(intrinsic_fn, None, args, ctx)?;
+                        let maybe_self = self.gen_expression_for_access(start_expression)?;
+                        self.gen_single_intrinsic_call(intrinsic_fn, Some(maybe_self), args, ctx)?;
                     } else {
                         self.gen_arguments(&internal_fn.signature.signature, None, args)?;
                         self.state
@@ -2181,6 +2424,7 @@ impl FunctionCodeGen<'_> {
          */
     }
 
+    /*
     fn gen_intrinsic_call_ex(
         &mut self,
         intrinsic_fn: &IntrinsicFunction,
@@ -2304,6 +2548,8 @@ impl FunctionCodeGen<'_> {
 
         Ok(())
     }
+
+     */
 
     fn gen_intrinsic_vec_create(&self, arguments: &Vec<MutRefOrImmutableExpression>) {
         for arg in arguments {

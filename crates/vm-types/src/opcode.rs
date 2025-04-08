@@ -22,6 +22,7 @@ pub enum OpCode {
     AddF32,
     MulF32,
     NegF32,
+    DivF32,
 
     // Comparisons
     LtI32,
@@ -92,10 +93,39 @@ pub enum OpCode {
     HostCall, // calls back into host
     StringLen,
     IntToRnd,
+    IntToFloat,
 
     RangeIterInit,
     RangeIterNext,
     RangeIterNextPair,
+    IntToString,
+    MapHas,
+    MapSubscript,
+    MapSubscriptMutCreate,
+    VecRemoveIndex,
+    FloatToString,
+    ModF32,
+    SubF32,
+    LtF32,
+    LeF32,
+    GtF32,
+    GeF32,
+    Ne32,
+    FloatRound,
+    FloatFloor,
+    FloatSqrt,
+    FloatSign,
+    FloatAbs,
+    FloatPseudoRandom,
+    FloatSin,
+    FloatCos,
+    FloatAcos,
+    FloatAsin,
+    FloatAtan2,
+    FloatMin,
+    FloatMax,
+    FloatClamp,
+    IntAbs,
 }
 
 impl Display for OpCode {
@@ -114,15 +144,37 @@ impl Display for OpCode {
             Self::Mov => write!(f, "mov"),     // Move data
             Self::MovLp => write!(f, "movlp"), // Move data
 
+            // Int operations
             Self::AddI32 => write!(f, "sadd32"), // Signed Add
-            Self::SubI32 => write!(f, "ssub32"), // Signed Add
-            Self::MulI32 => write!(f, "smul32"), // Signed Add
+            Self::SubI32 => write!(f, "ssub32"), //
+            Self::MulI32 => write!(f, "smul32"), //
             Self::NegI32 => write!(f, "sneg32"), // Signed negate
-            Self::ModI32 => write!(f, "smod32"), // Signed Add
+            Self::ModI32 => write!(f, "smod32"), //
 
+            // Float operations
             Self::AddF32 => write!(f, "fadd"), // Signed Add
             Self::MulF32 => write!(f, "fmul"), // Signed Add
+            Self::DivF32 => write!(f, "fdiv"), //
             Self::NegF32 => write!(f, "fneg"), // Signed negate
+            Self::ModF32 => write!(f, "fmod"), //
+            Self::SubF32 => write!(f, "fsub"), //
+
+            Self::FloatToString => write!(f, "f_to_string"),
+
+            Self::FloatRound => write!(f, "round"),
+            Self::FloatFloor => write!(f, "floor"),
+            Self::FloatSqrt => write!(f, "sqrt"),
+            Self::FloatSign => write!(f, "fsign"),
+            Self::FloatCos => write!(f, "cos"),
+            Self::FloatAbs => write!(f, "fabs"),
+            Self::FloatSin => write!(f, "sin"),
+            Self::FloatAcos => write!(f, "acos"),
+            Self::FloatAsin => write!(f, "asin"),
+            Self::FloatAtan2 => write!(f, "atan2"),
+            Self::FloatMin => write!(f, "fmin"),
+            Self::FloatMax => write!(f, "fmax"),
+            Self::FloatClamp => write!(f, "fclamp"),
+            Self::FloatPseudoRandom => write!(f, "fprnd"),
 
             // Functions
             Self::Call => write!(f, "call"),     // Call function
@@ -140,8 +192,17 @@ impl Display for OpCode {
             Self::LeI32 => write!(f, "sle32"), // signed Less Than
             Self::GtI32 => write!(f, "sgt32"), // Set Less Than
             Self::GeI32 => write!(f, "sge32"),
+
+            // Fixed comparisons
+            Self::LtF32 => write!(f, "flt32"), // signed Less Than
+            Self::LeF32 => write!(f, "fle32"), // signed Less Than
+            Self::GtF32 => write!(f, "fgt32"), // Set Less Than
+            Self::GeF32 => write!(f, "fge32"),
+
+            // Byte comparisons
             Self::Eq8Imm => write!(f, "eq8"),
             Self::Eq32 => write!(f, "eq32"),
+            Self::Ne32 => write!(f, "neq32"),
             Self::Tst8 => write!(f, "tst8"),
 
             // Vec
@@ -153,6 +214,7 @@ impl Display for OpCode {
             Self::VecIterInit => write!(f, "vec_iter_init"),
             Self::VecIterNext => write!(f, "vec_iter_next"),
             Self::VecIterNextPair => write!(f, "vec_iter_next_pair"),
+            Self::VecRemoveIndex => write!(f, "vec_remove_index"),
 
             // Map
             Self::MapNewFromPairs => write!(f, "map_new_from_pairs"),
@@ -160,11 +222,14 @@ impl Display for OpCode {
             Self::MapIterInit => write!(f, "map_iter_init"),
             Self::MapIterNext => write!(f, "map_iter_next"),
             Self::MapIterNextPair => write!(f, "map_iter_next_pair"),
+            Self::MapHas => write!(f, "map_has"),
+            Self::MapSubscript => write!(f, "map_subscript"),
+            Self::MapSubscriptMutCreate => write!(f, "map_subscript_mut_create"),
 
             // Range
             Self::RangeIterInit => write!(f, "range_iter_init"),
             Self::RangeIterNext => write!(f, "range_iter_next"),
-            Self::RangeIterNextPair => write!(f, "map_iter_next_pair"),
+            Self::RangeIterNextPair => write!(f, "range_iter_next_pair"),
 
             // String
             Self::StringFromConstantSlice => write!(f, "str_from_const"),
@@ -173,6 +238,9 @@ impl Display for OpCode {
 
             // Int
             Self::IntToRnd => write!(f, "int_rnd"),
+            Self::IntToFloat => write!(f, "int_to_float"),
+            Self::IntToString => write!(f, "int_to_string"),
+            Self::IntAbs => write!(f, "int_abs"),
 
             Self::Nop => write!(f, "nop"),
         }
