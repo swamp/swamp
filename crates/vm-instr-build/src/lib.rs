@@ -22,6 +22,10 @@ impl InstructionBuilder {}
 
 impl InstructionBuilder {}
 
+impl InstructionBuilder {}
+
+impl InstructionBuilder {}
+
 impl Default for InstructionBuilder {
     fn default() -> Self {
         Self::new()
@@ -96,6 +100,15 @@ impl InstructionBuilder {
         self.add_instruction(OpCode::VecPush, &[self_addr.0, element_item.0], comment);
     }
 
+    pub fn add_vec_pop(
+        &mut self,
+        target_addr: FrameMemoryAddress,
+        self_addr: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::VecPop, &[target_addr.0, self_addr.0], comment);
+    }
+
     pub fn add_vec_remove_index(
         &mut self,
         self_addr: FrameMemoryAddress,
@@ -143,6 +156,15 @@ impl InstructionBuilder {
             comment,
         );
         PatchPosition(position)
+    }
+
+    pub fn add_not_u8(
+        &mut self,
+        target: FrameMemoryAddress,
+        source: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::Not8, &[target.0, source.0], comment);
     }
 
     pub fn add_eq_u8_immediate(
@@ -588,6 +610,20 @@ impl InstructionBuilder {
         );
     }
 
+    pub fn add_div_i32(
+        &mut self,
+        dst_offset: FrameMemoryAddress,
+        lhs_offset: FrameMemoryAddress,
+        rhs_offset: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::DivI32,
+            &[dst_offset.0, lhs_offset.0, rhs_offset.0],
+            comment,
+        );
+    }
+
     pub fn add_sub_i32(
         &mut self,
         dst_offset: FrameMemoryAddress,
@@ -796,6 +832,14 @@ impl InstructionBuilder {
         self.add_instruction(OpCode::Tst8, &[addr.0], comment);
     }
 
+    pub fn add_stz(&mut self, target: FrameMemoryAddress, comment: &str) {
+        self.add_instruction(OpCode::Stz, &[target.0], comment);
+    }
+
+    pub fn add_cmp8(&mut self, a: FrameMemoryAddress, b: FrameMemoryAddress, comment: &str) {
+        self.add_instruction(OpCode::Cmp8, &[a.0, b.0], comment);
+    }
+
     // Collection specific
     pub fn add_map_new_from_slice(
         &mut self,
@@ -881,6 +925,33 @@ impl InstructionBuilder {
         comment: &str,
     ) {
         self.add_instruction(OpCode::IntToRnd, &[dest.0, self_int.0], comment);
+    }
+
+    pub fn add_int_min(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_int: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::IntMin, &[dest.0, self_int.0], comment);
+    }
+
+    pub fn add_int_max(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_int: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::IntMax, &[dest.0, self_int.0], comment);
+    }
+
+    pub fn add_int_clamp(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_int: FrameMemoryAddress,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::IntClamp, &[dest.0, self_int.0], comment);
     }
 
     pub fn add_int_abs(

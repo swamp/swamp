@@ -17,6 +17,7 @@ pub enum OpCode {
     NegI32,
     SubI32,
     ModI32,
+    DivI32,
 
     // Fixed
     AddF32,
@@ -126,6 +127,13 @@ pub enum OpCode {
     FloatMax,
     FloatClamp,
     IntAbs,
+    IntMin,
+    IntMax,
+    IntClamp,
+    Not8,
+    VecPop,
+    Cmp8,
+    Stz,
 }
 
 impl Display for OpCode {
@@ -150,6 +158,7 @@ impl Display for OpCode {
             Self::MulI32 => write!(f, "smul32"), //
             Self::NegI32 => write!(f, "sneg32"), // Signed negate
             Self::ModI32 => write!(f, "smod32"), //
+            Self::DivI32 => write!(f, "sdiv32"), //
 
             // Float operations
             Self::AddF32 => write!(f, "fadd"), // Signed Add
@@ -201,9 +210,12 @@ impl Display for OpCode {
 
             // Byte comparisons
             Self::Eq8Imm => write!(f, "eq8"),
+            Self::Not8 => write!(f, "not8"),
             Self::Eq32 => write!(f, "eq32"),
             Self::Ne32 => write!(f, "neq32"),
             Self::Tst8 => write!(f, "tst8"),
+            Self::Stz => write!(f, "stz8"),
+            Self::Cmp8 => write!(f, "cmp8"),
 
             // Vec
             Self::VecPush => write!(f, "vec_push"),
@@ -215,6 +227,7 @@ impl Display for OpCode {
             Self::VecIterNext => write!(f, "vec_iter_next"),
             Self::VecIterNextPair => write!(f, "vec_iter_next_pair"),
             Self::VecRemoveIndex => write!(f, "vec_remove_index"),
+            Self::VecPop => write!(f, "vec_pop"),
 
             // Map
             Self::MapNewFromPairs => write!(f, "map_new_from_pairs"),
@@ -241,6 +254,9 @@ impl Display for OpCode {
             Self::IntToFloat => write!(f, "int_to_float"),
             Self::IntToString => write!(f, "int_to_string"),
             Self::IntAbs => write!(f, "int_abs"),
+            Self::IntMin => write!(f, "int_min"),
+            Self::IntMax => write!(f, "int_max"),
+            Self::IntClamp => write!(f, "int_clamp"),
 
             Self::Nop => write!(f, "nop"),
         }

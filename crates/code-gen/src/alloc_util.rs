@@ -116,11 +116,11 @@ pub fn is_map(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
     }
 }
 
-pub fn is_range(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
+fn is_core_type(ty: &Type, name: &str) -> Option<(MemorySize, MemoryAlignment)> {
     match ty {
         Type::NamedStruct(named_struct) => {
             if named_struct.module_path == vec!["core-0.0.0".to_string()]
-                && named_struct.assigned_name.starts_with("Range")
+                && named_struct.assigned_name.starts_with(name)
             {
                 Some((MemorySize(RANGE_SIZE), MemoryAlignment::U16))
             } else {
@@ -131,6 +131,17 @@ pub fn is_range(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
     }
 }
 
+pub fn is_range(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
+    is_core_type(ty, "Range")
+}
+
+pub fn is_grid(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
+    is_core_type(ty, "Grid")
+}
+
+pub fn is_stack(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
+    is_core_type(ty, "Stack")
+}
 pub fn type_size_and_alignment(ty: &Type) -> (MemorySize, MemoryAlignment) {
     match ty {
         Type::Int => (MemorySize(INT_SIZE), MemoryAlignment::U32),

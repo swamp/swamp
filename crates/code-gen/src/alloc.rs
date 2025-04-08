@@ -53,7 +53,7 @@ impl FrameMemoryRegion {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct ScopeAllocator {
     initial_addr: FrameMemoryAddress,
     addr: FrameMemoryAddress,
@@ -76,7 +76,10 @@ impl ScopeAllocator {
         self.addr = start_addr.add(size);
 
         if self.addr.0 > self.target_info.last_valid_end_addr().0 {
-            error!("out of alloc memory");
+            error!(
+                "out of alloc memory {}",
+                self.target_info.last_valid_end_addr()
+            );
         }
 
         assert!(self.addr.0 <= self.target_info.last_valid_end_addr().0);

@@ -12,8 +12,8 @@ mod vec;
 
 use crate::alloc::{ConstantMemoryRegion, FrameMemoryRegion, ScopeAllocator};
 use crate::alloc_util::{
-    is_map, is_range, is_vec, layout_struct, layout_tuple, layout_tuple_elements,
-    reserve_space_for_type, type_size_and_alignment,
+    is_grid, is_map, is_range, is_stack, is_vec, layout_struct, layout_tuple,
+    layout_tuple_elements, reserve_space_for_type, type_size_and_alignment,
 };
 use crate::constants::ConstantsManager;
 use crate::ctx::Context;
@@ -284,7 +284,21 @@ impl CodeGenState {
                     FrameMemoryAddress(0),
                     target_region.size,
                 ));
+
+                function_generator.frame_size = FrameMemorySize(target_region.size.0);
+
+                function_generator.argument_allocator = ScopeAllocator::new(FrameMemoryRegion {
+                    addr: FrameMemoryAddress(function_generator.frame_size.0),
+                    size: MemorySize(1024),
+                });
+
+                function_generator.temp_allocator = ScopeAllocator::new(FrameMemoryRegion {
+                    addr: FrameMemoryAddress(function_generator.frame_size.0 + 1024),
+                    size: MemorySize(1024),
+                });
+
                 function_generator.gen_expression(&constant.expr, &constant_target_ctx)?;
+
                 self.finalize_function(&GenOptions {
                     is_halt_function: true,
                 });
@@ -477,9 +491,21 @@ impl FunctionCodeGen<'_> {
                     .builder
                     .add_int_rnd(ctx.addr(), self_addr.unwrap().addr, "intrnd");
             }
-            IntrinsicFunction::IntMax => todo!(),
-            IntrinsicFunction::IntMin => todo!(),
-            IntrinsicFunction::IntClamp => todo!(),
+            IntrinsicFunction::IntMax => {
+                self.state
+                    .builder
+                    .add_int_max(ctx.addr(), self_addr.unwrap().addr, "int_max")
+            }
+            IntrinsicFunction::IntMin => {
+                self.state
+                    .builder
+                    .add_int_min(ctx.addr(), self_addr.unwrap().addr, "int_min")
+            }
+            IntrinsicFunction::IntClamp => {
+                self.state
+                    .builder
+                    .add_int_clamp(ctx.addr(), self_addr.unwrap().addr, "int_clamp")
+            }
             IntrinsicFunction::IntToFloat => self.state.builder.add_int_to_float(
                 ctx.addr(),
                 self_addr.unwrap().addr,
@@ -526,7 +552,13 @@ impl FunctionCodeGen<'_> {
                     "vec push",
                 );
             }
-            IntrinsicFunction::VecPop => todo!(),
+            IntrinsicFunction::VecPop => {
+                self.state.builder.add_vec_pop(
+                    ctx.addr(),
+                    self_addr.unwrap().addr, // mut self
+                    "vec pop",
+                );
+            }
             IntrinsicFunction::VecRemoveIndex => {
                 let maybe_index_argument = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(index_expr) = maybe_index_argument
@@ -540,10 +572,67 @@ impl FunctionCodeGen<'_> {
                     "get the vec length",
                 );
             }
-            IntrinsicFunction::VecRemoveIndexGetValue => todo!(),
-            IntrinsicFunction::VecClear => todo!(),
-            IntrinsicFunction::VecGet => todo!(),
-            IntrinsicFunction::VecCreate => todo!(),
+            IntrinsicFunction::VecRemoveIndexGetValue => {
+                let maybe_key_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
+                    panic!();
+                };
+                let key_region = self.gen_expression_for_access(key_expr)?;
+                todo!();
+                /*
+                self.state.builder.add_vec_remove_index_get_value(
+                    self_addr.unwrap().addr, // mut self
+                    key_region.addr,
+                    "vec push",
+                );
+
+                 */
+            }
+            IntrinsicFunction::VecClear => {
+                let maybe_key_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
+                    panic!();
+                };
+                let key_region = self.gen_expression_for_access(key_expr)?;
+                /*
+                self.state.builder.add_vec_clear(
+                    self_addr.unwrap().addr, // mut self
+                    key_region.addr,
+                    "vec clear",
+                );
+
+                 */
+            }
+            IntrinsicFunction::VecGet => {
+                let maybe_key_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
+                    panic!();
+                };
+                let key_region = self.gen_expression_for_access(key_expr)?;
+                /*
+                self.state.builder.add_vec_get(
+                    self_addr.unwrap().addr, // mut self
+                    key_region.addr,
+                    "vec get",
+                );
+
+                 */
+            }
+            IntrinsicFunction::VecCreate => {
+                let maybe_key_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
+                    panic!();
+                };
+                let key_region = self.gen_expression_for_access(key_expr)?;
+                /*
+                self.state.builder.add_vec_create(
+                    self_addr.unwrap().addr, // mut self
+                    key_region.addr,
+                    "vec create",
+                );
+
+                 */
+            }
             IntrinsicFunction::VecSubscript => {
                 let maybe_index_argument = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(index_expr) = maybe_index_argument
@@ -581,9 +670,24 @@ impl FunctionCodeGen<'_> {
                     "set the vec subscript",
                 );
             }
-            IntrinsicFunction::VecSubscriptRange => todo!(),
+            IntrinsicFunction::VecSubscriptRange => {
+                let maybe_key_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
+                    panic!();
+                };
+                let key_region = self.gen_expression_for_access(key_expr)?;
+                /*
+                self.state.builder.add_vec_subscript_range(
+                    self_addr.unwrap().addr, // mut self
+                    key_region.addr,
+                    "vec subscript range",
+                );
+
+                 */
+            }
             IntrinsicFunction::VecIter => todo!(),
             IntrinsicFunction::VecIterMut => todo!(),
+
             IntrinsicFunction::VecFor => todo!(),
             IntrinsicFunction::VecWhile => todo!(),
             IntrinsicFunction::VecFindMap => todo!(),
@@ -634,8 +738,31 @@ impl FunctionCodeGen<'_> {
             }
             IntrinsicFunction::MapIter => todo!(),
             IntrinsicFunction::MapIterMut => todo!(),
-            IntrinsicFunction::MapLen => todo!(),
-            IntrinsicFunction::MapIsEmpty => todo!(),
+            IntrinsicFunction::MapLen => {
+                /*
+                self.state.builder.add_map_len(
+                    ctx.addr(),
+                    self_addr.unwrap().addr, // mut self
+                    "map len",
+                );
+
+                 */
+            }
+            IntrinsicFunction::MapIsEmpty => {
+                let maybe_key_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
+                    panic!();
+                };
+                /*
+                let key_region = self.gen_expression_for_access(key_expr)?;
+                self.state.builder.add_map_is_empty(
+                    self_addr.unwrap().addr, // mut self
+                    key_region.addr,
+                    "vec subscript range",
+                );
+
+                 */
+            }
             IntrinsicFunction::MapSubscript => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
@@ -672,7 +799,15 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::Map2Create => todo!(),
 
             // Sparse
-            IntrinsicFunction::SparseCreate => todo!(),
+            IntrinsicFunction::SparseCreate => {
+                /*
+                self.state.builder.add_sparse_create(
+                    ctx.addr(),
+                    "map_subscript_mut_create (set)",
+                );
+
+                 */
+            }
             IntrinsicFunction::SparseFromSlice => todo!(),
             IntrinsicFunction::SparseIter => todo!(),
             IntrinsicFunction::SparseIterMut => todo!(),
@@ -682,20 +817,76 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::SparseRemove => todo!(),
 
             // Grid
-            IntrinsicFunction::GridCreate => todo!(),
+            IntrinsicFunction::GridCreate => {
+                /*
+                self.state.builder.add_sparse_create(
+                    ctx.addr(),
+                    "map_subscript_mut_create (set)",
+                );
+
+                 */
+            }
             IntrinsicFunction::GridFromSlice => todo!(),
-            IntrinsicFunction::GridSet => todo!(),
-            IntrinsicFunction::GridGet => todo!(),
+            IntrinsicFunction::GridSet => {
+                /*
+                let MutRefOrImmutableExpression::Expression(x_argument) = &arguments[0] else {
+                    panic!("must be expression for key");
+                };
+                let x_region = self.gen_expression_for_access(x_argument)?;
+                let MutRefOrImmutableExpression::Expression(y_argument) = &arguments[1] else {
+                    panic!("must be expression for key");
+                };
+                let y_region = self.gen_expression_for_access(y_argument)?;
+
+                let MutRefOrImmutableExpression::Expression(value) = &arguments[2] else {
+                    panic!("must be expression for key");
+                };
+                let value_region = self.gen_expression_for_access(value)?;
+
+                self.state.builder.add_grid_set(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,
+                    x_region.addr,
+                    y_region.addr,
+                    value_region.addr,
+                    "grid_get",
+                );
+
+                 */
+            }
+            IntrinsicFunction::GridGet => {
+                /*
+                let MutRefOrImmutableExpression::Expression(x_argument) = &arguments[0] else {
+                    panic!("must be expression for key");
+                };
+                let x_region = self.gen_expression_for_access(x_argument)?;
+                let MutRefOrImmutableExpression::Expression(y_argument) = &arguments[1] else {
+                    panic!("must be expression for key");
+                };
+                let y_region = self.gen_expression_for_access(y_argument)?;
+                self.state.builder.add_grid_get(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,
+                    x_region.addr,
+                    y_region.addr,
+                    "grid_get",
+                );
+
+                 */
+            }
             IntrinsicFunction::GridGetColumn => todo!(),
 
             IntrinsicFunction::Float2Magnitude => todo!(),
 
             IntrinsicFunction::SparseAdd => todo!(),
             IntrinsicFunction::SparseNew => todo!(),
+
             IntrinsicFunction::VecAny => todo!(),
             IntrinsicFunction::VecAll => todo!(),
             IntrinsicFunction::VecMap => todo!(),
-            IntrinsicFunction::VecFilter => todo!(),
+            IntrinsicFunction::VecFilter => {
+                // TODO:
+            }
             IntrinsicFunction::VecFilterMap => todo!(),
             IntrinsicFunction::VecFind => todo!(),
             IntrinsicFunction::VecSwap => todo!(),
@@ -740,7 +931,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(), Error> {
         let mut allocator = ScopeAllocator::new(FrameMemoryRegion::new(
             FrameMemoryAddress(0),
-            MemorySize(1024),
+            MemorySize(32 * 1024),
         ));
         let _current_offset = Self::reserve(return_type, &mut allocator);
 
@@ -766,7 +957,7 @@ impl FunctionCodeGen<'_> {
             .builder
             .add_enter(self.frame_size, &enter_comment);
 
-        const ARGUMENT_MAX_SIZE: u16 = 256;
+        const ARGUMENT_MAX_SIZE: u16 = 2 * 1024;
         self.argument_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
             FrameMemoryAddress(self.frame_size.0),
             MemorySize(ARGUMENT_MAX_SIZE),
@@ -774,14 +965,16 @@ impl FunctionCodeGen<'_> {
 
         self.temp_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
             FrameMemoryAddress(self.frame_size.0 + ARGUMENT_MAX_SIZE),
-            MemorySize(1024),
+            MemorySize(32 * 1024),
         ));
+        info!(?self.temp_allocator, "resetting temp_allocator!");
 
         Ok(())
     }
 
     pub fn temp_memory_region_for_type(&mut self, ty: &Type, comment: &str) -> FrameMemoryRegion {
         let new_target_info = reserve_space_for_type(ty, &mut self.temp_allocator);
+        info!(?new_target_info, ?self.temp_allocator, ?ty, "RESERVING SPACE");
         new_target_info
     }
 
@@ -958,7 +1151,9 @@ impl FunctionCodeGen<'_> {
                 todo!()
             }
             // --------- Not high prio
-            ExpressionKind::CoerceOptionToBool(_) => todo!(),
+            ExpressionKind::CoerceOptionToBool(a) => self
+                .gen_coerce_option_to_bool(&a, ctx)
+                .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::FunctionValueCall(_, _, _) => todo!(),
 
             // --------- TO BE REMOVED
@@ -978,7 +1173,15 @@ impl FunctionCodeGen<'_> {
         ctx: &Context,
     ) -> Result<(), Error> {
         match &unary_operator.kind {
-            UnaryOperatorKind::Not => todo!(),
+            UnaryOperatorKind::Not => match &unary_operator.left.ty {
+                Type::Bool => {
+                    let left_source = self.gen_expression_for_access(&unary_operator.left)?;
+                    self.state
+                        .builder
+                        .add_not_u8(ctx.addr(), left_source.addr, "negate bool");
+                }
+                _ => panic!("unknown not"),
+            },
             UnaryOperatorKind::Negate => match (&unary_operator.left.ty) {
                 Type::Int => {
                     let left_source = self.gen_expression_for_access(&unary_operator.left)?;
@@ -1047,7 +1250,12 @@ impl FunctionCodeGen<'_> {
                     "i32 add",
                 );
             }
-            BinaryOperatorKind::Divide => todo!(),
+            BinaryOperatorKind::Divide => self.state.builder.add_div_i32(
+                ctx.addr(),
+                left_source.addr(),
+                right_source.addr(),
+                "i32 div",
+            ),
             BinaryOperatorKind::Modulo => self.state.builder.add_mod_i32(
                 ctx.addr(),
                 left_source.addr(),
@@ -1235,8 +1443,16 @@ impl FunctionCodeGen<'_> {
 
                 self.state.builder.patch_jump_here(jump_after_patch);
             }
+
+            BinaryOperatorKind::Equal => {
+                let left = self.gen_expression_for_access(&binary_operator.left)?;
+                let right = self.gen_expression_for_access(&binary_operator.right)?;
+                self.state
+                    .builder
+                    .add_cmp8(left.addr, right.addr, "bool equals ==");
+            }
             _ => {
-                panic!("unknown operator")
+                panic!("unknown operator {:?}", binary_operator);
             }
         }
 
@@ -1482,7 +1698,7 @@ impl FunctionCodeGen<'_> {
         self.argument_allocator.reset();
         // Layout return and arguments, must be continuous space
         let argument_addr = Self::reserve(&signature.return_type, &mut self.argument_allocator);
-        assert_eq!(argument_addr.addr.0, self.frame_size.0);
+        //assert_eq!(argument_addr.addr.0, self.frame_size.0);
 
         let mut argument_targets = Vec::new();
         let mut argument_comments = Vec::new();
@@ -2002,6 +2218,10 @@ impl FunctionCodeGen<'_> {
                     self.gen_for_loop_map(for_pattern)?
                 } else if let Some(found_info) = is_range(collection_type) {
                     self.gen_for_loop_range(for_pattern)?
+                } else if let Some(found_info) = is_stack(collection_type) {
+                    self.gen_for_loop_range(for_pattern)?
+                } else if let Some(found_info) = is_grid(collection_type) {
+                    self.gen_for_loop_range(for_pattern)?
                 } else {
                     error!(?named_type, "can not iterate this collection");
                     return Err(self.create_err(
@@ -2241,10 +2461,30 @@ impl FunctionCodeGen<'_> {
                     "+=  (f32)",
                 );
             }
-            CompoundOperatorKind::Sub => todo!(),
-            CompoundOperatorKind::Mul => todo!(),
-            CompoundOperatorKind::Div => todo!(),
-            CompoundOperatorKind::Modulo => todo!(),
+            CompoundOperatorKind::Sub => self.state.builder.add_sub_f32(
+                target.addr(),
+                target.addr(),
+                source_ctx.addr(),
+                "-=  (f32)",
+            ),
+            CompoundOperatorKind::Mul => self.state.builder.add_mul_f32(
+                target.addr(),
+                target.addr(),
+                source_ctx.addr(),
+                "*=  (f32)",
+            ),
+            CompoundOperatorKind::Div => self.state.builder.add_div_f32(
+                target.addr(),
+                target.addr(),
+                source_ctx.addr(),
+                "/=  (f32)",
+            ),
+            CompoundOperatorKind::Modulo => self.state.builder.add_mod_f32(
+                target.addr(),
+                target.addr(),
+                source_ctx.addr(),
+                "%=  (f32)",
+            ),
         }
     }
 
@@ -2830,6 +3070,18 @@ impl FunctionCodeGen<'_> {
             constant_region.addr,
             constant_region.size,
             &format!("load constant '{}'", constant_reference.assigned_name),
+        );
+
+        Ok(())
+    }
+
+    fn gen_coerce_option_to_bool(&mut self, expr: &Expression, ctx: &Context) -> Result<(), Error> {
+        let region = self.gen_expression_for_access(expr)?;
+        self.state.builder.add_mov(
+            ctx.addr(),
+            region.addr,
+            MemorySize(1),
+            "move option tag to bool",
         );
 
         Ok(())
