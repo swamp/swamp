@@ -33,6 +33,8 @@ impl InstructionBuilder {}
 
 impl InstructionBuilder {}
 
+impl InstructionBuilder {}
+
 impl Default for InstructionBuilder {
     fn default() -> Self {
         Self::new()
@@ -565,6 +567,10 @@ impl InstructionBuilder {
         self.add_instruction(OpCode::VecLen, &[len_target.0, self_addr.0], node, comment);
     }
 
+    pub fn add_vec_is_empty(&mut self, self_addr: FrameMemoryAddress, node: &Node, comment: &str) {
+        self.add_instruction(OpCode::VecIsEmpty, &[self_addr.0], node, comment);
+    }
+
     pub fn add_vec_from_slice(
         &mut self,
         target: FrameMemoryAddress,
@@ -1017,6 +1023,10 @@ impl InstructionBuilder {
         self.add_instruction(OpCode::Stz, &[target.0], node, comment);
     }
 
+    pub fn add_stnz(&mut self, target: FrameMemoryAddress, node: &Node, comment: &str) {
+        self.add_instruction(OpCode::Stnz, &[target.0], node, comment);
+    }
+
     pub fn add_cmp8(
         &mut self,
         a: FrameMemoryAddress,
@@ -1025,6 +1035,32 @@ impl InstructionBuilder {
         comment: &str,
     ) {
         self.add_instruction(OpCode::Cmp8, &[a.0, b.0], node, comment);
+    }
+
+    pub fn add_cmp32(
+        &mut self,
+        a: FrameMemoryAddress,
+        b: FrameMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::Cmp32, &[a.0, b.0], node, comment);
+    }
+
+    pub fn add_cmp(
+        &mut self,
+        source_a: FrameMemoryAddress,
+        source_b: FrameMemoryAddress,
+        size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::Cmp,
+            &[source_a.0, source_b.0, size.0],
+            node,
+            comment,
+        );
     }
 
     // Collection specific
@@ -1100,6 +1136,22 @@ impl InstructionBuilder {
         self.add_instruction(
             OpCode::MapSubscriptMutCreate,
             &[self_addr.0, key.0],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_map_subscript_mut(
+        &mut self,
+        self_addr: FrameMemoryAddress,
+        key: FrameMemoryAddress,
+        value: FrameMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::MapSubscriptMut,
+            &[self_addr.0, key.0, value.0],
             node,
             comment,
         );

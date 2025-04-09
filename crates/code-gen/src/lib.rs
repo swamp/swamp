@@ -297,7 +297,16 @@ impl CodeGenState {
 
             for ip in (start_ip.0 as usize)..self.instructions().len() {
                 let meta = &self.meta()[ip];
-                let file_line_info = source_map_wrapper.get_line(&meta.node.span);
+                let file_line_info = if meta.node.span.file_id == 0 {
+                    FileLineInfo {
+                        row: 0,
+                        col: 0,
+                        line: "".to_string(),
+                        relative_file_name: "".to_string(),
+                    }
+                } else {
+                    source_map_wrapper.get_line(&meta.node.span)
+                };
                 let is_different_line = if let Some(previous) = &previous_node {
                     Self::different_file_info(&file_line_info, previous)
                 } else {
@@ -746,13 +755,13 @@ impl FunctionCodeGen<'_> {
                 );
             }
             IntrinsicFunction::VecRemoveIndexGetValue => {
+                /*
                 let maybe_key_argument = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
                 let key_region = self.gen_expression_for_access(key_expr)?;
                 todo!();
-                /*
                 self.state.builder.add_vec_remove_index_get_value(
                     self_addr.unwrap().addr, // mut self
                     key_region.addr,
@@ -792,12 +801,12 @@ impl FunctionCodeGen<'_> {
                  */
             }
             IntrinsicFunction::VecCreate => {
+                /*
                 let maybe_key_argument = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
                 let key_region = self.gen_expression_for_access(key_expr)?;
-                /*
                 self.state.builder.add_vec_create(
                     self_addr.unwrap().addr, // mut self
                     key_region.addr,
@@ -874,7 +883,11 @@ impl FunctionCodeGen<'_> {
                 node,
                 "get the vec length",
             ),
-            IntrinsicFunction::VecIsEmpty => todo!(),
+            IntrinsicFunction::VecIsEmpty => self.state.builder.add_vec_is_empty(
+                self_addr.unwrap().addr,
+                node,
+                "get the vec length",
+            ),
 
             // Map
             IntrinsicFunction::MapCreate => todo!(),
@@ -955,7 +968,19 @@ impl FunctionCodeGen<'_> {
                 );
             }
             IntrinsicFunction::MapSubscriptSet => todo!(),
-            IntrinsicFunction::MapSubscriptMut => todo!(),
+            IntrinsicFunction::MapSubscriptMut => {
+                let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
+                    panic!("must be expression for key");
+                };
+                let key = self.gen_expression_for_access(key_argument)?;
+                self.state.builder.add_map_subscript_mut(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,
+                    key.addr,
+                    node,
+                    "map_subscript",
+                );
+            }
             IntrinsicFunction::MapSubscriptMutCreateIfNeeded => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
@@ -1426,25 +1451,79 @@ impl FunctionCodeGen<'_> {
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        match (&binary_operator.left.ty, &binary_operator.right.ty) {
-            (Type::Int, Type::Int) => self.gen_binary_operator_i32(binary_operator, ctx),
-            (Type::Float, Type::Float) => self.gen_binary_operator_f32(binary_operator, ctx),
-            (Type::Bool, Type::Bool) => self.gen_binary_operator_bool(binary_operator),
-            (Type::String, Type::String) => self.gen_binary_operator_string(binary_operator, ctx),
-            _ => todo!(),
+        info!(left=?binary_operator.left.ty, right=?binary_operator.right.ty, "binary_op");
+
+        let left_source = self.gen_expression_for_access(&binary_operator.left)?;
+        let right_source = self.gen_expression_for_access(&binary_operator.right)?;
+
+        match &binary_operator.kind {
+            BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
+                match (&binary_operator.left.ty, &binary_operator.right.ty) {
+                    (Type::Bool, Type::Bool) => self.gen_binary_operator_cmp8(
+                        left_source,
+                        &binary_operator.node,
+                        right_source,
+                    ),
+                    (Type::Int, Type::Int) => self.gen_binary_operator_cmp32(
+                        left_source,
+                        &binary_operator.node,
+                        right_source,
+                    ),
+                    (Type::Float, Type::Float) => self.gen_binary_operator_cmp32(
+                        left_source,
+                        &binary_operator.node,
+                        right_source,
+                    ),
+                    (Type::String, Type::String) => self.gen_binary_operator_string_cmp(
+                        left_source,
+                        &binary_operator.node,
+                        right_source,
+                    ),
+                    (Type::Enum(a), Type::Enum(b)) => self.gen_binary_operator_bytes_cmp(
+                        left_source,
+                        &binary_operator.node,
+                        right_source,
+                    ),
+                    _ => todo!(),
+                }
+            }
+            _ => match (&binary_operator.left.ty, &binary_operator.right.ty) {
+                (Type::Bool, Type::Bool) => self.gen_binary_operator_bool(binary_operator),
+                (Type::Int, Type::Int) => self.gen_binary_operator_i32(
+                    left_source,
+                    &binary_operator.node,
+                    &binary_operator.kind,
+                    right_source,
+                    ctx,
+                ),
+                (Type::Float, Type::Float) => self.gen_binary_operator_f32(
+                    left_source,
+                    &binary_operator.node,
+                    &binary_operator.kind,
+                    right_source,
+                    ctx,
+                ),
+                (Type::String, Type::String) => self.gen_binary_operator_string(
+                    left_source,
+                    &binary_operator.node,
+                    &binary_operator.kind,
+                    right_source,
+                    ctx,
+                ),
+                _ => todo!(),
+            },
         }
     }
 
     fn gen_binary_operator_i32(
         &mut self,
-        binary_operator: &BinaryOperator,
+        left_source: FrameMemoryRegion,
+        node: &Node,
+        binary_operator_kind: &BinaryOperatorKind,
+        right_source: FrameMemoryRegion,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        let node = &binary_operator.node;
-        let left_source = self.gen_expression_for_access(&binary_operator.left)?;
-        let right_source = self.gen_expression_for_access(&binary_operator.right)?;
-
-        match binary_operator.kind {
+        match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.state.builder.add_add_i32(
                     ctx.addr(),
@@ -1537,14 +1616,13 @@ impl FunctionCodeGen<'_> {
 
     fn gen_binary_operator_f32(
         &mut self,
-        binary_operator: &BinaryOperator,
+        left_source: FrameMemoryRegion,
+        node: &Node,
+        binary_operator_kind: &BinaryOperatorKind,
+        right_source: FrameMemoryRegion,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        let node = &binary_operator.node;
-        let left_source = self.gen_expression_for_access(&binary_operator.left)?;
-        let right_source = self.gen_expression_for_access(&binary_operator.right)?;
-
-        match binary_operator.kind {
+        match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.state.builder.add_add_f32(
                     ctx.addr(),
@@ -1646,14 +1724,13 @@ impl FunctionCodeGen<'_> {
 
     fn gen_binary_operator_string(
         &mut self,
-        binary_operator: &BinaryOperator,
+        left_source: FrameMemoryRegion,
+        node: &Node,
+        binary_operator_kind: &BinaryOperatorKind,
+        right_source: FrameMemoryRegion,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        let node = &binary_operator.node;
-        let left_source = self.gen_expression_for_access(&binary_operator.left)?;
-        let right_source = self.gen_expression_for_access(&binary_operator.right)?;
-
-        match binary_operator.kind {
+        match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.state.builder.add_string_append(
                     ctx.addr(),
@@ -1668,6 +1745,70 @@ impl FunctionCodeGen<'_> {
             BinaryOperatorKind::NotEqual => todo!(),
             _ => panic!("illegal string operator"),
         }
+
+        Ok(GeneratedExpressionResult {
+            has_set_bool_z_flag: false,
+        })
+    }
+
+    fn gen_binary_operator_bytes_cmp(
+        &mut self,
+        left_source: FrameMemoryRegion,
+        node: &Node,
+        right_source: FrameMemoryRegion,
+    ) -> Result<GeneratedExpressionResult, Error> {
+        self.state.builder.add_cmp(
+            left_source.addr,
+            right_source.addr,
+            left_source.size,
+            &node,
+            "compare enum",
+        );
+
+        Ok(GeneratedExpressionResult {
+            has_set_bool_z_flag: false,
+        })
+    }
+
+    fn gen_binary_operator_cmp8(
+        &mut self,
+        left_source: FrameMemoryRegion,
+        node: &Node,
+        right_source: FrameMemoryRegion,
+    ) -> Result<GeneratedExpressionResult, Error> {
+        self.state
+            .builder
+            .add_cmp8(left_source.addr, right_source.addr, &node, "compare bool");
+
+        Ok(GeneratedExpressionResult {
+            has_set_bool_z_flag: false,
+        })
+    }
+
+    fn gen_binary_operator_cmp32(
+        &mut self,
+        left_source: FrameMemoryRegion,
+        node: &Node,
+        right_source: FrameMemoryRegion,
+    ) -> Result<GeneratedExpressionResult, Error> {
+        self.state
+            .builder
+            .add_cmp32(left_source.addr, right_source.addr, &node, "compare bool");
+
+        Ok(GeneratedExpressionResult {
+            has_set_bool_z_flag: false,
+        })
+    }
+
+    fn gen_binary_operator_string_cmp(
+        &mut self,
+        left_source: FrameMemoryRegion,
+        node: &Node,
+        right_source: FrameMemoryRegion,
+    ) -> Result<GeneratedExpressionResult, Error> {
+        self.state
+            .builder
+            .add_cmp8(left_source.addr, right_source.addr, &node, "compare bool");
 
         Ok(GeneratedExpressionResult {
             has_set_bool_z_flag: false,
@@ -1709,13 +1850,6 @@ impl FunctionCodeGen<'_> {
                 self.state.builder.patch_jump_here(jump_after_patch);
             }
 
-            BinaryOperatorKind::Equal => {
-                let left = self.gen_expression_for_access(&binary_operator.left)?;
-                let right = self.gen_expression_for_access(&binary_operator.right)?;
-                self.state
-                    .builder
-                    .add_cmp8(left.addr, right.addr, node, "bool equals ==");
-            }
             _ => {
                 panic!("unknown operator {:?}", binary_operator);
             }
@@ -1756,8 +1890,34 @@ impl FunctionCodeGen<'_> {
         Ok(())
     }
 
-    fn gen_boolean_expression(&mut self, condition: &BooleanExpression) -> Result<(), Error> {
+    fn gen_boolean_expression_z_flag(
+        &mut self,
+        condition: &BooleanExpression,
+    ) -> Result<(), Error> {
         self.gen_boolean_access_set_z_flag(&condition.expression)
+    }
+
+    fn gen_boolean_expression_store(
+        &mut self,
+        condition: &BooleanExpression,
+        invert: bool,
+        ctx: &Context,
+    ) -> Result<(), Error> {
+        self.gen_boolean_access_set_z_flag(&condition.expression)?;
+        if invert {
+            self.state.builder.add_stz(
+                ctx.addr(),
+                &condition.expression.node,
+                "gen_boolean_expression_store",
+            );
+        } else {
+            self.state.builder.add_stnz(
+                ctx.addr(),
+                &condition.expression.node,
+                "gen_boolean_expression_store",
+            );
+        }
+        Ok(())
     }
 
     fn gen_if(
@@ -2184,7 +2344,9 @@ impl FunctionCodeGen<'_> {
                     //self.gen_arguments(arguments);
                     //self.state.add_call(start_expression)
                 }
-                PostfixKind::OptionalChainingOperator => todo!(),
+                PostfixKind::OptionalChainingOperator => {
+                    //TODO:
+                }
                 PostfixKind::NoneCoalescingOperator(_) => todo!(),
             }
         }
@@ -2767,10 +2929,34 @@ impl FunctionCodeGen<'_> {
                     "+=  (i32)",
                 );
             }
-            CompoundOperatorKind::Sub => todo!(),
-            CompoundOperatorKind::Mul => todo!(),
-            CompoundOperatorKind::Div => todo!(),
-            CompoundOperatorKind::Modulo => todo!(),
+            CompoundOperatorKind::Sub => self.state.builder.add_sub_i32(
+                target.addr(),
+                target.addr(),
+                source_ctx.addr(),
+                node,
+                "-=  (i32)",
+            ),
+            CompoundOperatorKind::Mul => self.state.builder.add_mul_i32(
+                target.addr(),
+                target.addr(),
+                source_ctx.addr(),
+                node,
+                "*=  (i32)",
+            ),
+            CompoundOperatorKind::Div => self.state.builder.add_div_i32(
+                target.addr(),
+                target.addr(),
+                source_ctx.addr(),
+                node,
+                "/=  (i32)",
+            ),
+            CompoundOperatorKind::Modulo => self.state.builder.add_mod_i32(
+                target.addr(),
+                target.addr(),
+                source_ctx.addr(),
+                node,
+                "%=  (i32)",
+            ),
         }
     }
 
@@ -3207,11 +3393,11 @@ impl FunctionCodeGen<'_> {
             };
 
             let maybe_guard_skip = if let Some(guard) = maybe_guard {
-                self.gen_boolean_expression(guard)?;
+                self.gen_boolean_expression_z_flag(guard)?;
                 // z flag should have been updated now
 
                 Some(self.state.builder.add_jmp_if_not_equal_placeholder(
-                    &match_expr.expression.node(),
+                    match_expr.expression.node(),
                     "placeholder for skip guard",
                 ))
             } else {
@@ -3247,7 +3433,7 @@ impl FunctionCodeGen<'_> {
         let mut jump_to_exit_placeholders = Vec::new();
         for guard in guards {
             if let Some(condition) = &guard.condition {
-                self.gen_boolean_expression(condition)?; // update z flag
+                self.gen_boolean_expression_z_flag(condition)?; // update z flag
                 let skip_expression_patch = self
                     .state
                     .builder

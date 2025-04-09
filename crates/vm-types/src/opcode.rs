@@ -133,9 +133,16 @@ pub enum OpCode {
     IntClamp,
     Not8,
     VecPop,
+    Cmp,
+
     Cmp8,
+    Cmp32,
     Stz,
+    Stnz,
     BoolToString,
+    MapSubscriptMut,
+
+    VecIsEmpty,
 }
 
 impl Display for OpCode {
@@ -218,11 +225,15 @@ impl Display for OpCode {
             Self::Ne32 => write!(f, "neq32"),
             Self::Tst8 => write!(f, "tst8"),
             Self::Stz => write!(f, "stz8"),
+            Self::Stnz => write!(f, "stnz8"),
             Self::Cmp8 => write!(f, "cmp8"),
+            Self::Cmp32 => write!(f, "cmp32"),
+            Self::Cmp => write!(f, "cmp"),
 
             // Vec
             Self::VecPush => write!(f, "vec_push"),
             Self::VecLen => write!(f, "vec_len"),
+            Self::VecIsEmpty => write!(f, "vec_is_empty"),
             Self::VecSubscript => write!(f, "vec_subscript"),
             Self::VecSubscriptMut => write!(f, "vec_subscript_mut"),
             Self::VecFromSlice => write!(f, "vec_from_slice"),
@@ -241,6 +252,7 @@ impl Display for OpCode {
             Self::MapHas => write!(f, "map_has"),
             Self::MapSubscript => write!(f, "map_subscript"),
             Self::MapSubscriptMutCreate => write!(f, "map_subscript_mut_create"),
+            Self::MapSubscriptMut => write!(f, "map_subscript_mut"),
 
             // Range
             Self::RangeIterInit => write!(f, "range_iter_init"),

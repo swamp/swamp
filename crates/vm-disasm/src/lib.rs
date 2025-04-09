@@ -767,9 +767,25 @@ pub fn disasm(
             frame_memory_size,
         )],
 
+        OpCode::Stnz => &[to_write_frame(
+            operands[0],
+            DecoratedMemoryKind::U8,
+            frame_memory_size,
+        )],
+
         OpCode::Cmp8 => &[
             to_read_frame(operands[0], DecoratedMemoryKind::U8, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::U8, frame_memory_size),
+        ],
+
+        OpCode::Cmp32 => &[
+            to_read_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::Cmp => &[
+            to_read_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            DecoratedOperandKind::MemorySize(MemorySize(operands[1])),
         ],
 
         OpCode::Bnz => &[to_jmp_ip(operands[0])],
@@ -853,6 +869,12 @@ pub fn disasm(
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
         ],
 
+        OpCode::VecIsEmpty => &[to_read_frame(
+            operands[0],
+            DecoratedMemoryKind::Octets,
+            frame_memory_size,
+        )],
+
         OpCode::MapNewFromPairs => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
@@ -893,6 +915,12 @@ pub fn disasm(
         OpCode::MapSubscriptMutCreate => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+        ],
+
+        OpCode::MapSubscriptMut => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),
         ],
 
         OpCode::MapHas => &[
