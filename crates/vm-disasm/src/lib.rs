@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use seq_map::SeqMap;
+use std::cmp::PartialEq;
 use std::fmt::{Display, Formatter};
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
@@ -214,11 +215,16 @@ impl FrameMemoryInfo {
 
 use std::fmt::Write;
 
+#[derive(Eq, PartialEq, Clone)]
 pub struct SourceFileLineInfo {
     pub row: usize,
     pub col: usize,
     pub line: String,
     pub relative_file_name: String,
+}
+
+fn convert_tabs_to_spaces(input: &str) -> String {
+    input.replace('\t', " ")
 }
 
 #[must_use]
@@ -231,29 +237,40 @@ pub fn disasm_instructions_color(
     let mut string = String::new();
     let mut last_frame_size: u16 = 0;
 
+    let mut last_line_info = SourceFileLineInfo {
+        row: usize::MAX,
+        col: usize::MAX,
+        line: String::new(),
+        relative_file_name: String::new(),
+    };
     for (ip_offset, instruction) in binary_instructions.iter().enumerate() {
         let ip_index = instruction_position_base.0 + ip_offset as u16;
         if OpCode::Enter as u8 == instruction.opcode {
             last_frame_size = instruction.operands[0];
         }
         if let Some(found) = ip_infos.get(&InstructionPosition(ip_index as u16)) {
+            if last_line_info.relative_file_name != found.relative_file_name {
+                writeln!(string, "{}", found.relative_file_name.bright_blue(),)
+                    .expect("should work");
+                last_line_info = found.clone();
+            }
             writeln!(
                 string,
-                "{}:{}:{}    {}",
-                found.relative_file_name.bright_blue(),
+                "{:4} {} {}",
                 found.row,
-                found.col,
-                found.line
+                "|".green(),
+                convert_tabs_to_spaces(&found.line),
             )
             .expect("TODO: panic message");
         }
 
-        write!(
+        writeln!(
             string,
-            "> {:04X}: {}\n",
+            "     {:04X}: {}",
             ip_index,
             disasm_color(instruction, FrameMemorySize(last_frame_size), memory_infos,)
-        );
+        )
+        .expect("TODO: panic message");
     }
 
     string

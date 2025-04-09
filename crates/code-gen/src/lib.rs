@@ -187,16 +187,19 @@ impl CodeGenState {
     pub fn constant_functions(&self) -> &SeqMap<ConstantId, ConstantInfo> {
         &self.constant_functions
     }
-    pub(crate) fn add_call(&mut self, internal_fn: &InternalFunctionDefinitionRef, comment: &str) {
+    pub(crate) fn add_call(
+        &mut self,
+        node: &Node,
+        internal_fn: &InternalFunctionDefinitionRef,
+        comment: &str,
+    ) {
         let call_comment = &format!("calling {} ({})", internal_fn.assigned_name, comment);
 
         if let Some(found) = self.function_infos.get(&internal_fn.program_unique_id) {
             self.builder
-                .add_call(&found.starts_at_ip, &internal_fn.name.0, call_comment);
+                .add_call(&found.starts_at_ip, node, call_comment);
         } else {
-            let patch_position = self
-                .builder
-                .add_call_placeholder(&internal_fn.name.0, call_comment);
+            let patch_position = self.builder.add_call_placeholder(node, call_comment);
             info!(
                 id = internal_fn.program_unique_id,
                 name = internal_fn.assigned_name,
@@ -1308,7 +1311,7 @@ impl FunctionCodeGen<'_> {
         let result = match &expr.kind {
             //ExpressionKind::InterpolatedString(_) => todo!(),
             ExpressionKind::ConstantAccess(constant_ref) => self
-                .gen_constant_access(constant_ref, ctx)
+                .gen_constant_access(&expr.node, constant_ref, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::TupleDestructuring(variables, tuple_types, tuple_expression) => self
                 .gen_tuple_destructuring(variables, tuple_types, tuple_expression)
@@ -2221,8 +2224,11 @@ impl FunctionCodeGen<'_> {
                             None,
                             args,
                         )?;
-                        self.state
-                            .add_call(internal_fn, &format!("frame size: {}", self.frame_size)); // will be fixed up later
+                        self.state.add_call(
+                            &chain[0].node,
+                            internal_fn,
+                            &format!("frame size: {}", self.frame_size),
+                        ); // will be fixed up later
                         let (return_size, _alignment) =
                             type_size_and_alignment(&internal_fn.signature.signature.return_type);
                         if return_size.0 != 0 {
@@ -2313,6 +2319,7 @@ impl FunctionCodeGen<'_> {
                                     arguments,
                                 )?;
                                 self.state.add_call(
+                                    &element.node,
                                     internal_fn,
                                     &format!("frame size: {}", self.frame_size),
                                 ); // will be fixed up later
@@ -3594,6 +3601,7 @@ impl FunctionCodeGen<'_> {
 
     fn gen_constant_access(
         &mut self,
+        node: &Node,
         constant_reference: &ConstantRef,
         ctx: &Context,
     ) -> Result<(), Error> {
@@ -3608,7 +3616,7 @@ impl FunctionCodeGen<'_> {
             ctx.addr(),
             constant_region.addr,
             constant_region.size,
-            &constant_reference.name,
+            node,
             &format!("load constant '{}'", constant_reference.assigned_name),
         );
 
