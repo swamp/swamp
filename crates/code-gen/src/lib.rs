@@ -305,6 +305,7 @@ impl CodeGenState {
                         relative_file_name: "".to_string(),
                     }
                 } else {
+                    let text = source_map_wrapper.get_text_span(&meta.node.span);
                     source_map_wrapper.get_line(&meta.node.span)
                 };
                 let is_different_line = if let Some(previous) = &previous_node {
@@ -1095,7 +1096,9 @@ impl FunctionCodeGen<'_> {
                 // TODO:
             }
             IntrinsicFunction::VecFilterMap => todo!(),
-            IntrinsicFunction::VecFind => todo!(),
+            IntrinsicFunction::VecFind => {
+                //TODO:
+            }
             IntrinsicFunction::VecSwap => todo!(),
             IntrinsicFunction::VecInsert => todo!(),
             IntrinsicFunction::VecFirst => todo!(),
@@ -1451,7 +1454,7 @@ impl FunctionCodeGen<'_> {
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        info!(left=?binary_operator.left.ty, right=?binary_operator.right.ty, "binary_op");
+        //info!(left=?binary_operator.left.ty, right=?binary_operator.right.ty, "binary_op");
 
         let left_source = self.gen_expression_for_access(&binary_operator.left)?;
         let right_source = self.gen_expression_for_access(&binary_operator.right)?;
@@ -2347,7 +2350,9 @@ impl FunctionCodeGen<'_> {
                 PostfixKind::OptionalChainingOperator => {
                     //TODO:
                 }
-                PostfixKind::NoneCoalescingOperator(_) => todo!(),
+                PostfixKind::NoneCoalescingOperator(_) => {
+                    // TODO:
+                }
             }
         }
 
