@@ -41,6 +41,23 @@ use swamp_vm_types::{
 };
 use tracing::{error, info, trace};
 
+#[derive(Clone)]
+pub enum FrameRelativeInfoKind {
+    Variable(VariableRef),
+}
+
+#[derive(Clone)]
+pub struct FrameRelativeInfo {
+    pub frame_memory_region: FrameMemoryRegion,
+    pub kind: FrameRelativeInfoKind,
+}
+
+pub struct FunctionIp {
+    start_ip: InstructionPosition,
+    end_ip: InstructionPosition,
+    internal_fn_id: InternalFunctionId,
+}
+
 pub struct GeneratedExpressionResult {
     pub has_set_bool_z_flag: bool,
 }
@@ -92,6 +109,10 @@ pub struct ConstantInfo {
     pub target_constant_memory: ConstantMemoryRegion,
 }
 
+pub struct FunctionDebugInfo {
+    pub frame_relative: Vec<FrameRelativeInfo>,
+}
+
 pub struct CodeGenState {
     builder: InstructionBuilder,
     constants: ConstantsManager,
@@ -99,6 +120,9 @@ pub struct CodeGenState {
     constant_functions: SeqMap<ConstantId, ConstantInfo>,
     function_infos: SeqMap<InternalFunctionId, FunctionInfo>,
     function_fixups: Vec<FunctionFixup>,
+
+    function_ips: Vec<FunctionIp>,
+    function_debug_infos: SeqMap<InternalFunctionId, FunctionDebugInfo>,
     //source_map_lookup: &'b SourceMapWrapper<'b>,
     debug_last_ip: usize,
 }
@@ -117,6 +141,8 @@ impl CodeGenState {
             function_infos: SeqMap::default(),
             constant_functions: SeqMap::default(),
             function_fixups: vec![],
+            function_ips: vec![],
+            function_debug_infos: SeqMap::default(),
             debug_last_ip: 0,
         }
     }
@@ -125,6 +151,11 @@ impl CodeGenState {
     pub fn instructions(&self) -> &[BinaryInstruction] {
         &self.builder.instructions
     }
+
+    pub fn ip(&self) -> InstructionPosition {
+        InstructionPosition(self.builder.instructions.len() as u16)
+    }
+
     pub fn create_function_sections(&self) -> SeqMap<InstructionPosition, String> {
         let mut lookups = SeqMap::new();
         for (_func_id, function_info) in &self.function_infos {
@@ -225,25 +256,47 @@ impl CodeGenState {
             )
             .unwrap();
 
-        let mut function_generator = FunctionCodeGen::new(self, source_map_wrapper);
+        let start_ip = self.ip();
 
-        function_generator.layout_variables(
-            &internal_fn_def.name.0,
-            &internal_fn_def.function_scope_state,
-            &internal_fn_def.signature.signature.return_type,
-        )?;
+        let debug_frame_relative_info = {
+            let mut function_generator = FunctionCodeGen::new(self, source_map_wrapper);
 
-        let ExpressionKind::Block(block_expressions) = &internal_fn_def.body.kind else {
-            panic!("function body should be a block")
+            function_generator.layout_variables(
+                &internal_fn_def.name.0,
+                &internal_fn_def.function_scope_state,
+                &internal_fn_def.signature.signature.return_type,
+            )?;
+
+            let ExpressionKind::Block(block_expressions) = &internal_fn_def.body.kind else {
+                panic!("function body should be a block")
+            };
+
+            let (return_type_size, _return_alignment) =
+                type_size_and_alignment(&internal_fn_def.signature.signature.return_type);
+            let ctx = Context::new(FrameMemoryRegion::new(
+                FrameMemoryAddress(0),
+                return_type_size,
+            ));
+            function_generator.gen_expression(&internal_fn_def.body, &ctx)?;
+            function_generator.frame_memory_infos.clone()
         };
 
-        let (return_type_size, _return_alignment) =
-            type_size_and_alignment(&internal_fn_def.signature.signature.return_type);
-        let ctx = Context::new(FrameMemoryRegion::new(
-            FrameMemoryAddress(0),
-            return_type_size,
-        ));
-        function_generator.gen_expression(&internal_fn_def.body, &ctx)?;
+        let end_ip = self.ip();
+
+        self.function_ips.push(FunctionIp {
+            start_ip,
+            end_ip,
+            internal_fn_id: internal_fn_def.program_unique_id,
+        });
+
+        self.function_debug_infos
+            .insert(
+                internal_fn_def.program_unique_id,
+                FunctionDebugInfo {
+                    frame_relative: debug_frame_relative_info,
+                },
+            )
+            .unwrap();
 
         self.finalize_function(options);
 
@@ -362,6 +415,9 @@ pub struct FunctionCodeGen<'a> {
     //extra_frame_allocator: ScopeAllocator,
     temp_allocator: ScopeAllocator,
     argument_allocator: ScopeAllocator,
+
+    frame_memory_infos: Vec<FrameRelativeInfo>,
+
     source_map_lookup: &'a SourceMapWrapper<'a>,
 }
 
@@ -375,6 +431,7 @@ impl<'a> FunctionCodeGen<'a> {
             //  extra_frame_allocator: ScopeAllocator::new(FrameMemoryRegion::default()),
             temp_allocator: ScopeAllocator::new(FrameMemoryRegion::default()),
             argument_allocator: ScopeAllocator::new(FrameMemoryRegion::default()),
+            frame_memory_infos: Vec::new(),
             source_map_lookup,
         }
     }
@@ -1006,6 +1063,12 @@ impl FunctionCodeGen<'_> {
                 "  ${:04X}:{} {}\n",
                 var_target.addr.0, var_target.size.0, var_ref.assigned_name
             );
+
+            self.add_frame_relative_info(
+                var_target,
+                FrameRelativeInfoKind::Variable(var_ref.clone()),
+            );
+
             self.variable_offsets
                 .insert(var_ref.unique_id_within_function, var_target)
                 .map_err(|_| self.create_err(ErrorKind::VariableNotUnique, &var_ref.name))?;
@@ -3298,6 +3361,13 @@ impl FunctionCodeGen<'_> {
         );
 
         Ok(())
+    }
+
+    fn add_frame_relative_info(&mut self, region: FrameMemoryRegion, kind: FrameRelativeInfoKind) {
+        self.frame_memory_infos.push(FrameRelativeInfo {
+            frame_memory_region: region,
+            kind,
+        });
     }
 }
 
