@@ -212,12 +212,21 @@ impl FrameMemoryInfo {
     }
 }
 
+use std::fmt::Write;
+
+pub struct SourceFileLineInfo {
+    pub row: usize,
+    pub col: usize,
+    pub line: String,
+    pub relative_file_name: String,
+}
+
 #[must_use]
 pub fn disasm_instructions_color(
     binary_instructions: &[BinaryInstruction],
     instruction_position_base: &InstructionPosition,
     memory_infos: &FrameMemoryInfo,
-    ip_infos: &SeqMap<InstructionPosition, String>,
+    ip_infos: &SeqMap<InstructionPosition, SourceFileLineInfo>,
 ) -> String {
     let mut string = String::new();
     let mut last_frame_size: u16 = 0;
@@ -228,10 +237,19 @@ pub fn disasm_instructions_color(
             last_frame_size = instruction.operands[0];
         }
         if let Some(found) = ip_infos.get(&InstructionPosition(ip_index as u16)) {
-            string += &format!("------- {} --------\n", found.bright_blue());
+            writeln!(
+                string,
+                "{}:{}:{}    {}",
+                found.relative_file_name.bright_blue(),
+                found.row,
+                found.col,
+                found.line
+            )
+            .expect("TODO: panic message");
         }
 
-        string += &format!(
+        write!(
+            string,
             "> {:04X}: {}\n",
             ip_index,
             disasm_color(instruction, FrameMemorySize(last_frame_size), memory_infos,)

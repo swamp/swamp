@@ -31,7 +31,7 @@ fn gen_internal_debug(code: &str) -> Result<(CodeGenState, Program), Error> {
     let disassembler_output = disasm_instructions_color(
         code_gen.instructions(),
         &InstructionPosition(0),
-        code_gen.comments(),
+        code_gen.meta(),
         &code_gen.create_function_sections(),
     );
 
@@ -125,7 +125,7 @@ pub fn exec_with_assembly(code: &str, expected_assembly: &str, expected_hex: &st
 
     let disassembler_output = disasm_instructions_no_color(
         generator.instructions(),
-        generator.comments(),
+        generator.meta(),
         &generator.create_function_sections(),
         false,
     );
@@ -166,7 +166,7 @@ where
 
     let disassembler_output = disasm_instructions_no_color(
         generator.instructions(),
-        generator.comments(),
+        generator.meta(),
         &generator.create_function_sections(),
         false,
     );
@@ -225,7 +225,7 @@ fn gen_code(code: &str, expected_output: &str) {
 
     let disassembler_output = disasm_instructions_no_color(
         generator.instructions(),
-        generator.comments(),
+        generator.meta(),
         &generator.create_function_sections(),
         false,
     );

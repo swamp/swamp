@@ -18,8 +18,8 @@ use crate::alloc_util::{
 use crate::constants::ConstantsManager;
 use crate::ctx::Context;
 use seq_map::SeqMap;
-use source_map_cache::{SourceMapLookup, SourceMapWrapper};
-use source_map_node::Node;
+use source_map_cache::{FileLineInfo, SourceMapLookup, SourceMapWrapper};
+use source_map_node::{Node, Span};
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
@@ -32,8 +32,8 @@ use swamp_semantic::{
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
 use swamp_vm_disasm::{
-    BasicType, ComplexType, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo, disasm_color,
-    disasm_instructions_color,
+    BasicType, ComplexType, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
+    SourceFileLineInfo, disasm_color, disasm_instructions_color,
 };
 use swamp_vm_instr_build::{InstructionBuilder, Meta, PatchPosition};
 use swamp_vm_types::{
@@ -209,7 +209,7 @@ impl CodeGenState {
         }
     }
     #[must_use]
-    pub fn comments(&self) -> &[Meta] {
+    pub fn meta(&self) -> &[Meta] {
         &self.builder.meta
     }
 
@@ -239,6 +239,10 @@ impl CodeGenState {
             self.constants.take_data(),
             self.constant_functions,
         )
+    }
+
+    fn different_file_info(span_a: &FileLineInfo, span_b: &FileLineInfo) -> bool {
+        span_a.line != span_b.line
     }
 
     pub fn gen_function_def(
@@ -286,9 +290,38 @@ impl CodeGenState {
                 function_generator.frame_memory_infos.clone()
             };
 
-            let ip_infos = SeqMap::new();
+            let mut ip_infos = SeqMap::new();
 
             let mut memory_infos = Vec::new();
+            let mut previous_node: Option<FileLineInfo> = None;
+
+            for ip in (start_ip.0 as usize)..self.instructions().len() {
+                let meta = &self.meta()[ip];
+                let file_line_info = source_map_wrapper.get_line(&meta.node.span);
+                let is_different_line = if let Some(previous) = &previous_node {
+                    Self::different_file_info(&file_line_info, previous)
+                } else {
+                    true
+                };
+                previous_node = Some(FileLineInfo {
+                    row: file_line_info.row,
+                    col: file_line_info.col,
+                    line: file_line_info.line.clone(),
+                    relative_file_name: file_line_info.relative_file_name.clone(),
+                });
+
+                if is_different_line {
+                    let mapped = SourceFileLineInfo {
+                        row: file_line_info.row,
+                        col: file_line_info.col,
+                        line: file_line_info.line,
+                        relative_file_name: file_line_info.relative_file_name,
+                    };
+                    ip_infos
+                        .insert(InstructionPosition(ip as u16), mapped)
+                        .unwrap();
+                }
+            }
 
             for x in &frame_relative_infos {
                 let converted_kind = match &x.kind {
@@ -310,8 +343,12 @@ impl CodeGenState {
                 infos: memory_infos,
             };
 
-            let output =
-                disasm_instructions_color(self.instructions(), &start_ip, &mem_info, &ip_infos);
+            let output = disasm_instructions_color(
+                &self.instructions()[start_ip.0 as usize..],
+                &start_ip,
+                &mem_info,
+                &ip_infos,
+            );
             eprintln!("output\n{output}");
 
             frame_relative_infos
