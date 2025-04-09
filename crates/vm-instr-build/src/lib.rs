@@ -31,6 +31,8 @@ impl InstructionBuilder {}
 
 impl InstructionBuilder {}
 
+impl InstructionBuilder {}
+
 impl Default for InstructionBuilder {
     fn default() -> Self {
         Self::new()
@@ -290,6 +292,10 @@ impl InstructionBuilder {
 
     pub fn add_hlt(&mut self, node: &Node, comment: &str) {
         self.add_instruction(OpCode::Hlt, &[], node, comment);
+    }
+
+    pub fn add_panic(&mut self, str: FrameMemoryAddress, node: &Node, comment: &str) {
+        self.add_instruction(OpCode::Panic, &[str.0], node, comment);
     }
 
     pub fn add_call(&mut self, function_ip: &InstructionPosition, node: &Node, comment: &str) {
@@ -1194,6 +1200,17 @@ impl InstructionBuilder {
         comment: &str,
     ) {
         self.add_instruction(OpCode::IntToString, &[dest.0, self_int.0], node, comment);
+    }
+
+    pub fn bool_to_string(
+        &mut self,
+        dest: FrameMemoryAddress,
+        self_float: FrameMemoryAddress,
+        node: &Node,
+
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::BoolToString, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn float_to_string(

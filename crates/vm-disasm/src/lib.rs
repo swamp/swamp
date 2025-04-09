@@ -354,6 +354,11 @@ pub fn disasm(
         OpCode::Hlt => &[],
         OpCode::Ret => &[],
 
+        OpCode::Panic => &[to_read_frame(
+            operands[0],
+            DecoratedMemoryKind::IndirectHeapPointer,
+            frame_memory_size,
+        )],
         OpCode::LdConst => {
             let data = ((operands[2] as u32) << 16) | operands[1] as u32;
 
@@ -825,6 +830,15 @@ pub fn disasm(
         ],
 
         OpCode::IntToString => &[
+            to_write_frame(
+                operands[0],
+                DecoratedMemoryKind::IndirectHeapPointer,
+                frame_memory_size,
+            ),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
+        OpCode::BoolToString => &[
             to_write_frame(
                 operands[0],
                 DecoratedMemoryKind::IndirectHeapPointer,

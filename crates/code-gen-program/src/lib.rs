@@ -9,16 +9,18 @@ use swamp_compile::Program;
 use swamp_modules::prelude::ModuleRef;
 use swamp_semantic::Function;
 use swamp_types::Type;
+use tracing::{info, warn};
 
 pub fn code_gen_program<'a>(
     program: &Program,
-    main_module: &ModuleRef,
+    //main_module: &ModuleRef,
     source_map_lookup: &'a SourceMapWrapper,
 ) -> Result<CodeGenState, Error> {
     let mut code_gen = CodeGenState::new();
 
     code_gen.reserve_space_for_constants(&program.state.constants_in_dependency_order)?;
 
+    /*
     if let Some(found_main_expression) = &main_module.main_expression {
         let halt_function = GenOptions {
             is_halt_function: true,
@@ -26,25 +28,36 @@ pub fn code_gen_program<'a>(
         code_gen.gen_main_function(found_main_expression, &halt_function, source_map_lookup)?;
     }
 
+     */
+
     let normal_function = GenOptions {
         is_halt_function: false,
     };
 
-    for internal_function_def in &main_module.symbol_table.internal_functions() {
-        code_gen.gen_function_def(internal_function_def, &normal_function, source_map_lookup)?;
+    for (path, module) in program.modules.modules() {
+        info!(?path, "generating module");
+        for internal_function_def in &module.symbol_table.internal_functions() {
+            code_gen.gen_function_def(
+                internal_function_def,
+                &normal_function,
+                source_map_lookup,
+            )?;
+        }
     }
 
     for (associated_on_type, impl_functions) in
         &program.state.instantiator.associated_impls.functions
     {
         if !associated_on_type.is_concrete() {
-            continue;
-        }
-        if associated_on_type == &Type::Int
-            || associated_on_type == &Type::Float
-            || associated_on_type == &Type::Bool
-            || associated_on_type == &Type::String
-        {
+            for (name, func) in &impl_functions.functions {
+                if let Function::Internal(internal) = &**func {
+                    warn!(
+                        name,
+                        id = internal.program_unique_id,
+                        "skipping generation of this function"
+                    );
+                }
+            }
             continue;
         }
 

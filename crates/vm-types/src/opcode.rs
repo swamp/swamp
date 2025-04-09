@@ -9,6 +9,7 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug)]
 pub enum OpCode {
     Hlt, // Return to the host
+    Panic,
 
     // Operators
     // i32
@@ -134,12 +135,14 @@ pub enum OpCode {
     VecPop,
     Cmp8,
     Stz,
+    BoolToString,
 }
 
 impl Display for OpCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Hlt => write!(f, "hlt"), // Halt execution
+            Self::Panic => write!(f, "panic"),
 
             // Load
             Self::Ld8 => write!(f, "ld8"),
@@ -257,6 +260,8 @@ impl Display for OpCode {
             Self::IntMin => write!(f, "int_min"),
             Self::IntMax => write!(f, "int_max"),
             Self::IntClamp => write!(f, "int_clamp"),
+
+            Self::BoolToString => write!(f, "bool_to_string"),
 
             Self::Nop => write!(f, "nop"),
         }

@@ -24,10 +24,11 @@ use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
     CompoundOperatorKind, ConstantId, ConstantRef, EnumLiteralData, Expression, ExpressionKind,
-    ForPattern, Function, Guard, InternalFunctionDefinitionRef, InternalFunctionId,
-    InternalMainExpression, Iterable, Literal, Match, MutRefOrImmutableExpression, NormalPattern,
-    Pattern, Postfix, PostfixKind, SingleLocationExpression, TargetAssignmentLocation,
-    UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
+    ForPattern, Function, Guard, InternalFunctionDefinition, InternalFunctionDefinitionRef,
+    InternalFunctionId, InternalMainExpression, Iterable, Literal, Match,
+    MutRefOrImmutableExpression, NormalPattern, Pattern, Postfix, PostfixKind,
+    SingleLocationExpression, TargetAssignmentLocation, UnaryOperator, UnaryOperatorKind,
+    VariableRef, WhenBinding,
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
 use swamp_vm_disasm::{disasm_color, disasm_instructions_color};
@@ -162,6 +163,11 @@ impl CodeGenState {
             let patch_position = self
                 .builder
                 .add_call_placeholder(&internal_fn.name.0, call_comment);
+            info!(
+                id = internal_fn.program_unique_id,
+                name = internal_fn.assigned_name,
+                "calling function"
+            );
             self.function_fixups.push(FunctionFixup {
                 patch_position,
                 fn_id: internal_fn.program_unique_id,
@@ -175,12 +181,15 @@ impl CodeGenState {
 
     pub fn finalize(&mut self) {
         for function_fixup in &self.function_fixups {
+            info!(fn_id = ?function_fixup.fn_id, "fixing up function");
             let func = self.function_infos.get(&function_fixup.fn_id).unwrap();
             self.builder.patch_call(
                 PatchPosition(InstructionPosition(function_fixup.patch_position.0.0)),
                 &func.starts_at_ip,
             );
         }
+
+        self.function_fixups.clear();
     }
 
     #[must_use]
@@ -205,6 +214,7 @@ impl CodeGenState {
         source_map_wrapper: &SourceMapWrapper,
     ) -> Result<(), Error> {
         assert_ne!(internal_fn_def.program_unique_id, 0);
+        info!(id=?internal_fn_def.program_unique_id, internal_fn_def.assigned_name, "generating function");
         self.function_infos
             .insert(
                 internal_fn_def.program_unique_id,
@@ -227,20 +237,13 @@ impl CodeGenState {
             panic!("function body should be a block")
         };
 
-        if let ExpressionKind::IntrinsicCallEx(found_intrinsic_fn, _non_instantiated_arguments) =
-            &block_expressions[0].kind
-        {
-            // Intentionally do nothing
-            todo!()
-        } else {
-            let (return_type_size, _return_alignment) =
-                type_size_and_alignment(&internal_fn_def.signature.signature.return_type);
-            let ctx = Context::new(FrameMemoryRegion::new(
-                FrameMemoryAddress(0),
-                return_type_size,
-            ));
-            function_generator.gen_expression(&internal_fn_def.body, &ctx)?;
-        }
+        let (return_type_size, _return_alignment) =
+            type_size_and_alignment(&internal_fn_def.signature.signature.return_type);
+        let ctx = Context::new(FrameMemoryRegion::new(
+            FrameMemoryAddress(0),
+            return_type_size,
+        ));
+        function_generator.gen_expression(&internal_fn_def.body, &ctx)?;
 
         self.finalize_function(options);
 
@@ -923,7 +926,9 @@ impl FunctionCodeGen<'_> {
             }
             IntrinsicFunction::GridGetColumn => todo!(),
 
-            IntrinsicFunction::Float2Magnitude => todo!(),
+            IntrinsicFunction::Float2Magnitude => {
+                // TODO:
+            }
 
             IntrinsicFunction::SparseAdd => todo!(),
             IntrinsicFunction::SparseNew => todo!(),
@@ -942,8 +947,17 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecLast => todo!(),
             IntrinsicFunction::VecFold => todo!(),
 
-            IntrinsicFunction::RuntimePanic => todo!(),
-            IntrinsicFunction::BoolToString => todo!(),
+            IntrinsicFunction::RuntimePanic => {
+                self.state
+                    .builder
+                    .add_panic(self_addr.unwrap().addr(), node, "intrinsic panic")
+            }
+            IntrinsicFunction::BoolToString => self.state.builder.bool_to_string(
+                ctx.addr(),
+                self_addr.unwrap().addr(),
+                node,
+                "bool_to_string",
+            ),
         }
 
         Ok(())
@@ -1014,14 +1028,13 @@ impl FunctionCodeGen<'_> {
             FrameMemoryAddress(self.frame_size.0 + ARGUMENT_MAX_SIZE),
             MemorySize(32 * 1024),
         ));
-        info!(?self.temp_allocator, "resetting temp_allocator!");
 
         Ok(())
     }
 
     pub fn temp_memory_region_for_type(&mut self, ty: &Type, comment: &str) -> FrameMemoryRegion {
         let new_target_info = reserve_space_for_type(ty, &mut self.temp_allocator);
-        info!(?new_target_info, ?self.temp_allocator, ?ty, "RESERVING SPACE");
+        //        info!(?new_target_info, ?self.temp_allocator, ?ty, "RESERVING SPACE");
         new_target_info
     }
 
@@ -1125,7 +1138,6 @@ impl FunctionCodeGen<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        self.debug_node(&expr.node);
         let result = match &expr.kind {
             //ExpressionKind::InterpolatedString(_) => todo!(),
             ExpressionKind::ConstantAccess(constant_ref) => self
@@ -1190,9 +1202,20 @@ impl FunctionCodeGen<'_> {
             ExpressionKind::CompoundAssignment(target_location, operator_kind, source_expr) => self
                 .compound_assignment(target_location, operator_kind, source_expr, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
-            ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => self
-                .gen_single_intrinsic_call(&expr.node, intrinsic_fn, None, arguments, ctx)
-                .map(|_| GeneratedExpressionResult::default()),
+            ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => {
+                let self_arg = if arguments.is_empty() {
+                    None
+                } else {
+                    let MutRefOrImmutableExpression::Expression(as_expr) = &arguments[0] else {
+                        panic!("not sure")
+                    };
+                    let self_region = self.gen_expression_for_access(as_expr)?;
+                    Some(self_region)
+                };
+                let rest_args = &arguments[1..];
+                self.gen_single_intrinsic_call(&expr.node, intrinsic_fn, self_arg, rest_args, ctx)
+                    .map(|_| GeneratedExpressionResult::default())
+            }
 
             ExpressionKind::Lambda(vec, x) => {
                 todo!()
