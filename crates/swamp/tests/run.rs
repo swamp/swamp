@@ -28,8 +28,6 @@ fn compile_and_run() {
     let program = swamp_compile::bootstrap_and_compile(&mut source_map, crate_main_path)
         .expect("TODO: panic message");
 
-    let main_module = program.modules.get(crate_main_path).unwrap().clone();
-
     let source_map_wrapper = SourceMapWrapper {
         source_map: &source_map,
         current_dir: PathBuf::from(Path::new("")),

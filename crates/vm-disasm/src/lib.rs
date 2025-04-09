@@ -2,12 +2,12 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use seq_map::SeqMap;
+use std::fmt::{Display, Formatter};
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
     BinaryInstruction, ConstantMemoryAddress, FrameMemoryAddress, FrameMemorySize,
-    InstructionPosition, MemorySize,
+    InstructionPosition, MemoryOffset, MemorySize,
 };
 use yansi::{Color, Paint};
 
@@ -76,19 +76,153 @@ fn memory_kind_color(kind: &DecoratedMemoryKind) -> String {
     format!("{}", short_string)
 }
 
+#[derive(Clone, Debug)]
+pub struct OffsetMemoryItem {
+    pub offset: MemoryOffset,
+    pub size: MemorySize,
+    pub name: String,
+    pub ty: ComplexType,
+}
+
+#[derive(Clone, Debug)]
+pub struct StructType {
+    pub fields: SeqMap<MemoryOffset, OffsetMemoryItem>,
+}
+
+#[derive(Clone, Debug)]
+pub enum TaggedUnionDataKind {
+    Struct(StructType),
+    Tuple(Vec<OffsetMemoryItem>),
+}
+
+#[derive(Clone, Debug)]
+pub struct TaggedUnionData {
+    pub kind: TaggedUnionDataKind,
+    pub name: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct TaggedUnion {
+    pub name: String,
+    pub variants: Vec<TaggedUnionData>,
+}
+
+#[derive(Clone, Debug)]
+pub enum BasicType {
+    U8,
+    S32,
+    U32,
+    Struct(StructType),
+    TaggedUnion(TaggedUnion),
+    Tuple(Vec<ComplexType>),
+}
+
+impl Display for BasicType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BasicType::U8 => {
+                write!(f, "u8")
+            }
+            BasicType::S32 => {
+                write!(f, "s32")
+            }
+            BasicType::U32 => {
+                write!(f, "u32")
+            }
+            BasicType::Struct(_) => {
+                write!(f, "struct")
+            }
+            BasicType::TaggedUnion(_) => {
+                write!(f, "tagged_union")
+            }
+            BasicType::Tuple(_) => {
+                write!(f, "tuple")
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum ComplexType {
+    Optional(BasicType),
+    IndirectPointer(BasicType),
+    BasicType(BasicType),
+}
+
+impl Display for ComplexType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ComplexType::Optional(basic) => {
+                write!(f, "optional<{basic}>")
+            }
+            ComplexType::IndirectPointer(basic) => {
+                write!(f, "ptr to <{basic}>")
+            }
+            ComplexType::BasicType(basic) => {
+                write!(f, "{basic}")
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum FrameAddressInfoKind {
+    Variable {
+        is_mutable: bool,
+        name: String,
+        ty: ComplexType,
+    },
+}
+
+impl Display for FrameAddressInfoKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FrameAddressInfoKind::Variable {
+                is_mutable,
+                name,
+                ty,
+            } => {
+                let mut_prefix = if *is_mutable { "mut " } else { "" };
+
+                write!(f, "{mut_prefix}{name}: {ty}")
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct FrameAddressInfo {
+    pub addr: FrameMemoryAddress,
+    pub size: FrameMemorySize,
+    pub kind: FrameAddressInfoKind,
+}
+
+pub struct FrameMemoryInfo {
+    pub infos: Vec<FrameAddressInfo>,
+}
+
+impl FrameMemoryInfo {
+    pub(crate) fn get(&self, memory_addr: &FrameMemoryAddress) -> Option<FrameAddressInfo> {
+        for x in &self.infos {
+            if x.addr.0 == memory_addr.0 {
+                return Some(x.clone());
+            }
+        }
+        None
+    }
+}
+
 #[must_use]
 pub fn disasm_instructions_color(
     binary_instructions: &[BinaryInstruction],
     instruction_position_base: &InstructionPosition,
-    descriptions: &[String],
+    memory_infos: &FrameMemoryInfo,
     ip_infos: &SeqMap<InstructionPosition, String>,
 ) -> String {
     let mut string = String::new();
     let mut last_frame_size: u16 = 0;
 
-    for (ip_offset, (instruction, comment)) in
-        binary_instructions.iter().zip(descriptions).enumerate()
-    {
+    for (ip_offset, instruction) in binary_instructions.iter().enumerate() {
         let ip_index = instruction_position_base.0 + ip_offset as u16;
         if OpCode::Enter as u8 == instruction.opcode {
             last_frame_size = instruction.operands[0];
@@ -100,7 +234,7 @@ pub fn disasm_instructions_color(
         string += &format!(
             "> {:04X}: {}\n",
             ip_index,
-            disasm_color(instruction, FrameMemorySize(last_frame_size), comment)
+            disasm_color(instruction, FrameMemorySize(last_frame_size), memory_infos,)
         );
     }
 
@@ -151,7 +285,7 @@ pub fn disasm_instructions_no_color(
 pub fn disasm_color(
     binary_instruction: &BinaryInstruction,
     frame_size: FrameMemorySize,
-    comment: &str,
+    memory_infos: &FrameMemoryInfo,
 ) -> String {
     let decorated = disasm(binary_instruction, frame_size);
 
@@ -159,9 +293,16 @@ pub fn disasm_color(
 
     let mut converted_operands = Vec::new();
     let mut converted_comments = Vec::new();
+    let mut memory_comments = Vec::new();
 
     for operand in decorated.operands {
-        let (new_str, comment_str) = match operand.kind {
+        let operand_addr = match &operand.kind {
+            DecoratedOperandKind::ReadFrameAddress(addr, memory_kind, attr) => Some(addr),
+            DecoratedOperandKind::WriteFrameAddress(addr, memory_kind, attr) => Some(addr),
+            _ => None,
+        };
+
+        let (new_str, comment_str) = match &operand.kind {
             DecoratedOperandKind::ReadFrameAddress(addr, memory_kind, attr) => {
                 let color = if attr.is_temporary {
                     Color::BrightGreen
@@ -202,32 +343,6 @@ pub fn disasm_color(
                     "constant".to_string(),
                 )
             }
-            /*
-                        DecoratedOperandKind::HeapAddress(addr) => {
-                            let color = Color::Yellow;
-
-                            (
-                                format!("{}{}", "@".fg(color), format!("{:08X}", addr.0).fg(color)),
-                                "constant".to_string(),
-                            )
-                        }
-                        DecoratedOperandKind::WriteIndirectMemory(addr, memory_offset, memory_kind) => (
-                            format!(
-                                "({}{})",
-                                "$".red(),
-                                format!("{:04X}+{}", addr.0, memory_offset.0).red(),
-                            ),
-                            memory_kind_color(&memory_kind),
-                        ),
-                        DecoratedOperandKind::ReadIndirectMemory(addr, memory_offset, memory_kind) => (
-                            format!(
-                                "({}{})",
-                                "$".green(),
-                                format!("{:04X}+{}", addr.0, memory_offset.0).green()
-                            ),
-                            memory_kind_color(&memory_kind),
-                        ),
-            */
             DecoratedOperandKind::Ip(ip) => (
                 format!("{}{}", "@".cyan(), format!("{:X}", ip.0).bright_cyan()),
                 String::new(),
@@ -239,15 +354,15 @@ pub fn disasm_color(
 
             DecoratedOperandKind::ImmediateU32(data) => (
                 format!("{}", format!("{data:08X}",).magenta()),
-                format!("{}{}", "int:", data as i32),
+                format!("{}{}", "int:", *data as i32),
             ),
             DecoratedOperandKind::ImmediateU16(data) => (
                 format!("{}", format!("{data:04X}",).magenta()),
-                format!("{}{}", "int:", data as i32),
+                format!("{}{}", "int:", *data as i32),
             ),
             DecoratedOperandKind::ImmediateU8(data) => (
                 format!("{}", format!("{data:02X}",).magenta()),
-                format!("{}{}", "int:", data as i8),
+                format!("{}{}", "int:", *data as i8),
             ),
             DecoratedOperandKind::CountU16(data) => (
                 format!("{}", format!("{data:04X}",).yellow()),
@@ -255,6 +370,21 @@ pub fn disasm_color(
             ),
         };
         converted_operands.push(new_str);
+
+        let memory_comment = if let Some(addr) = operand_addr {
+            if let Some(info) = memory_infos.get(addr) {
+                Some(format!("{}", info.kind))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(comment) = memory_comment {
+            memory_comments.push(comment);
+        }
+
         if !comment_str.is_empty() {
             converted_comments.push(comment_str);
         }
@@ -266,7 +396,13 @@ pub fn disasm_color(
         format!(" ({})", converted_comments.join(", "))
     };
 
-    let total_comment = format!("{}{}", comment, comment_suffix);
+    let memory_comment_suffix = if memory_comments.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", memory_comments.join(", "))
+    };
+
+    let total_comment = format!("{}{}", memory_comment_suffix, comment_suffix);
     let print_comment = if total_comment.is_empty() {
         String::new()
     } else {

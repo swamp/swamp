@@ -90,7 +90,7 @@ impl MemoryAddress {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Eq, PartialEq, Hash, Clone)]
 pub struct MemoryOffset(pub u16);
 
 impl MemoryOffset {
@@ -176,7 +176,7 @@ pub fn align_offset(memory_address: MemoryOffset, alignment: MemoryAlignment) ->
     MemoryOffset(raw_addr as u16)
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct FrameMemorySize(pub u16);
 
 impl Display for FrameMemorySize {

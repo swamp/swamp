@@ -31,7 +31,10 @@ use swamp_semantic::{
     VariableRef, WhenBinding,
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
-use swamp_vm_disasm::{disasm_color, disasm_instructions_color};
+use swamp_vm_disasm::{
+    BasicType, ComplexType, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo, disasm_color,
+    disasm_instructions_color,
+};
 use swamp_vm_instr_build::{InstructionBuilder, Meta, PatchPosition};
 use swamp_vm_types::{
     BOOL_SIZE, BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
@@ -259,26 +262,59 @@ impl CodeGenState {
         let start_ip = self.ip();
 
         let debug_frame_relative_info = {
-            let mut function_generator = FunctionCodeGen::new(self, source_map_wrapper);
+            let frame_relative_infos = {
+                let mut function_generator = FunctionCodeGen::new(self, source_map_wrapper);
 
-            function_generator.layout_variables(
-                &internal_fn_def.name.0,
-                &internal_fn_def.function_scope_state,
-                &internal_fn_def.signature.signature.return_type,
-            )?;
+                function_generator.layout_variables(
+                    &internal_fn_def.name.0,
+                    &internal_fn_def.function_scope_state,
+                    &internal_fn_def.signature.signature.return_type,
+                )?;
 
-            let ExpressionKind::Block(block_expressions) = &internal_fn_def.body.kind else {
-                panic!("function body should be a block")
+                let ExpressionKind::Block(block_expressions) = &internal_fn_def.body.kind else {
+                    panic!("function body should be a block")
+                };
+
+                let (return_type_size, _return_alignment) =
+                    type_size_and_alignment(&internal_fn_def.signature.signature.return_type);
+                let ctx = Context::new(FrameMemoryRegion::new(
+                    FrameMemoryAddress(0),
+                    return_type_size,
+                ));
+                function_generator.gen_expression(&internal_fn_def.body, &ctx)?;
+
+                function_generator.frame_memory_infos.clone()
             };
 
-            let (return_type_size, _return_alignment) =
-                type_size_and_alignment(&internal_fn_def.signature.signature.return_type);
-            let ctx = Context::new(FrameMemoryRegion::new(
-                FrameMemoryAddress(0),
-                return_type_size,
-            ));
-            function_generator.gen_expression(&internal_fn_def.body, &ctx)?;
-            function_generator.frame_memory_infos.clone()
+            let ip_infos = SeqMap::new();
+
+            let mut memory_infos = Vec::new();
+
+            for x in &frame_relative_infos {
+                let converted_kind = match &x.kind {
+                    FrameRelativeInfoKind::Variable(var) => FrameAddressInfoKind::Variable {
+                        is_mutable: var.is_mutable(),
+                        name: var.assigned_name.clone(),
+                        ty: ComplexType::BasicType(BasicType::S32),
+                    },
+                };
+
+                memory_infos.push(FrameAddressInfo {
+                    addr: x.frame_memory_region.addr,
+                    size: FrameMemorySize(x.frame_memory_region.size.0),
+                    kind: converted_kind,
+                })
+            }
+
+            let mem_info = FrameMemoryInfo {
+                infos: memory_infos,
+            };
+
+            let output =
+                disasm_instructions_color(self.instructions(), &start_ip, &mem_info, &ip_infos);
+            eprintln!("output\n{output}");
+
+            frame_relative_infos
         };
 
         let end_ip = self.ip();
@@ -1179,6 +1215,7 @@ impl FunctionCodeGen<'_> {
     }
 
     fn debug_instructions(&mut self) {
+        /*
         let end_ip = self.state.builder.instructions.len() - 1;
         let instructions_to_disasm =
             &self.state.builder.instructions[self.state.debug_last_ip..=end_ip];
@@ -1194,6 +1231,8 @@ impl FunctionCodeGen<'_> {
         );
         eprintln!("{output}");
         self.state.debug_last_ip = end_ip + 1;
+
+         */
     }
 
     pub fn gen_expression(
@@ -1294,8 +1333,6 @@ impl FunctionCodeGen<'_> {
             ExpressionKind::ExternalFunctionAccess(_) => todo!(), // TODO: ExternalFunctionAccess should be reduced away in analyzer
             ExpressionKind::VariableBinding(_, _) => todo!(),
         };
-
-        self.debug_instructions();
 
         result
     }

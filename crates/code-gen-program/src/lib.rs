@@ -11,9 +11,10 @@ use swamp_semantic::Function;
 use swamp_types::Type;
 use tracing::{info, warn};
 
+/// # Errors
+///
 pub fn code_gen_program<'a>(
     program: &Program,
-    //main_module: &ModuleRef,
     source_map_lookup: &'a SourceMapWrapper,
 ) -> Result<CodeGenState, Error> {
     let mut code_gen = CodeGenState::new();
