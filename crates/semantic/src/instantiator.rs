@@ -156,9 +156,6 @@ impl Instantiator {
                                     signature: new_signature.clone(),
                                     generic_type_variables: generics_to_keep,
                                 },
-                                variable_scopes: FunctionScopeState::new(
-                                  //  *new_signature.return_type.clone(),
-                                ), // self.scope.clone(),
                                 function_scope_state: Vec::new(), // self.function_variables.clone(),
                                 program_unique_id: internal.program_unique_id,
                             });

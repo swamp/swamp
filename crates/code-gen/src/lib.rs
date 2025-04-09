@@ -31,7 +31,7 @@ use swamp_semantic::{
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
 use swamp_vm_disasm::{disasm_color, disasm_instructions_color};
-use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
+use swamp_vm_instr_build::{InstructionBuilder, Meta, PatchPosition};
 use swamp_vm_types::{
     BOOL_SIZE, BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
     FrameMemorySize, HEAP_PTR_ALIGNMENT, HEAP_PTR_SIZE, HeapMemoryAddress, INT_SIZE,
@@ -156,9 +156,12 @@ impl CodeGenState {
         let call_comment = &format!("calling {} ({})", internal_fn.assigned_name, comment);
 
         if let Some(found) = self.function_infos.get(&internal_fn.program_unique_id) {
-            self.builder.add_call(&found.starts_at_ip, call_comment);
+            self.builder
+                .add_call(&found.starts_at_ip, &internal_fn.name.0, call_comment);
         } else {
-            let patch_position = self.builder.add_call_placeholder(call_comment);
+            let patch_position = self
+                .builder
+                .add_call_placeholder(&internal_fn.name.0, call_comment);
             self.function_fixups.push(FunctionFixup {
                 patch_position,
                 fn_id: internal_fn.program_unique_id,
@@ -166,8 +169,8 @@ impl CodeGenState {
         }
     }
     #[must_use]
-    pub fn comments(&self) -> &[String] {
-        &self.builder.comments
+    pub fn comments(&self) -> &[Meta] {
+        &self.builder.meta
     }
 
     pub fn finalize(&mut self) {
@@ -215,6 +218,7 @@ impl CodeGenState {
         let mut function_generator = FunctionCodeGen::new(self, source_map_wrapper);
 
         function_generator.layout_variables(
+            &internal_fn_def.name.0,
             &internal_fn_def.function_scope_state,
             &internal_fn_def.signature.signature.return_type,
         )?;
@@ -245,9 +249,9 @@ impl CodeGenState {
 
     pub fn finalize_function(&mut self, options: &GenOptions) {
         if options.is_halt_function {
-            self.builder.add_hlt("");
+            self.builder.add_hlt(&Node::default(), "");
         } else {
-            self.builder.add_ret("");
+            self.builder.add_ret(&Node::default(), "");
         }
     }
 
@@ -279,12 +283,18 @@ impl CodeGenState {
             let ip = self.builder.position();
             {
                 let mut function_generator = FunctionCodeGen::new(self, source_map_wrapper);
+                function_generator.layout_variables(
+                    &constant.name,
+                    &constant.function_scope_state,
+                    &constant.resolved_type,
+                )?;
 
                 let constant_target_ctx = Context::new(FrameMemoryRegion::new(
                     FrameMemoryAddress(0),
                     target_region.size,
                 ));
 
+                /*
                 function_generator.frame_size = FrameMemorySize(target_region.size.0);
 
                 function_generator.argument_allocator = ScopeAllocator::new(FrameMemoryRegion {
@@ -296,6 +306,8 @@ impl CodeGenState {
                     addr: FrameMemoryAddress(function_generator.frame_size.0 + 1024),
                     size: MemorySize(1024),
                 });
+
+                 */
 
                 function_generator.gen_expression(&constant.expr, &constant_target_ctx)?;
 
@@ -328,7 +340,11 @@ impl CodeGenState {
     ) -> Result<(), Error> {
         let mut function_generator = FunctionCodeGen::new(self, source_map_lookup);
 
-        function_generator.layout_variables(&main.function_scope_state, &main.expression.ty)?;
+        function_generator.layout_variables(
+            &main.expression.node,
+            &main.function_scope_state,
+            &main.expression.ty,
+        )?;
         let empty_ctx = Context::new(FrameMemoryRegion::default());
         function_generator.gen_expression(&main.expression, &empty_ctx)?;
         self.finalize_function(options);
@@ -365,6 +381,7 @@ impl FunctionCodeGen<'_> {
     #[allow(clippy::too_many_lines)]
     pub fn gen_single_intrinsic_call(
         &mut self,
+        node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         self_addr: Option<FrameMemoryRegion>,
         arguments: &[MutRefOrImmutableExpression],
@@ -375,56 +392,67 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::FloatRound => self.state.builder.add_float_round(
                 ctx.addr(),
                 self_addr.unwrap().addr,
+                node,
                 "float round",
             ),
             IntrinsicFunction::FloatFloor => self.state.builder.add_float_floor(
                 ctx.addr(),
                 self_addr.unwrap().addr,
-                "float round",
+                node,
+                "float floor",
             ),
             IntrinsicFunction::FloatSqrt => self.state.builder.add_float_sqrt(
                 ctx.addr(),
                 self_addr.unwrap().addr,
-                "float round",
+                node,
+                "float sqr",
             ),
             IntrinsicFunction::FloatSign => self.state.builder.add_float_sign(
                 ctx.addr(),
                 self_addr.unwrap().addr,
-                "float round",
+                node,
+                "float sign",
             ),
-            IntrinsicFunction::FloatAbs => {
-                self.state
-                    .builder
-                    .add_float_abs(ctx.addr(), self_addr.unwrap().addr, "float round")
-            }
+            IntrinsicFunction::FloatAbs => self.state.builder.add_float_abs(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                node,
+                "float abs",
+            ),
             IntrinsicFunction::FloatRnd => self.state.builder.add_float_prnd(
                 ctx.addr(),
                 self_addr.unwrap().addr,
+                node,
+                "float rnd",
+            ),
+            IntrinsicFunction::FloatCos => self.state.builder.add_float_cos(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                node,
                 "float round",
             ),
-            IntrinsicFunction::FloatCos => {
-                self.state
-                    .builder
-                    .add_float_cos(ctx.addr(), self_addr.unwrap().addr, "float round")
-            }
-            IntrinsicFunction::FloatSin => {
-                self.state
-                    .builder
-                    .add_float_sin(ctx.addr(), self_addr.unwrap().addr, "float round")
-            }
+            IntrinsicFunction::FloatSin => self.state.builder.add_float_sin(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                node,
+                "float round",
+            ),
             IntrinsicFunction::FloatAcos => self.state.builder.add_float_acos(
                 ctx.addr(),
                 self_addr.unwrap().addr,
+                node,
                 "float round",
             ),
             IntrinsicFunction::FloatAsin => self.state.builder.add_float_asin(
                 ctx.addr(),
                 self_addr.unwrap().addr,
+                node,
                 "float round",
             ),
             IntrinsicFunction::FloatAtan2 => self.state.builder.add_float_atan2(
                 ctx.addr(),
                 self_addr.unwrap().addr,
+                node,
                 "float round",
             ),
             IntrinsicFunction::FloatMin => {
@@ -437,6 +465,7 @@ impl FunctionCodeGen<'_> {
                     ctx.addr(),
                     self_addr.unwrap().addr,
                     float_region.addr,
+                    node,
                     "float round",
                 )
             }
@@ -450,6 +479,7 @@ impl FunctionCodeGen<'_> {
                     ctx.addr(),
                     self_addr.unwrap().addr,
                     float_region.addr,
+                    node,
                     "float round",
                 )
             }
@@ -471,49 +501,54 @@ impl FunctionCodeGen<'_> {
                     float_region.addr,
                     self_addr.unwrap().addr,
                     float_b_region.addr,
+                    node,
                     "float round",
                 )
             }
             IntrinsicFunction::FloatToString => self.state.builder.float_to_string(
                 ctx.addr(),
                 self_addr.unwrap().addr(),
+                node,
                 "float_to_string",
             ),
             // Int
             IntrinsicFunction::IntAbs => {
                 self.state
                     .builder
-                    .add_int_abs(ctx.addr(), self_addr.unwrap().addr, "intrnd")
+                    .add_int_abs(ctx.addr(), self_addr.unwrap().addr, node, "intrnd")
             }
 
             IntrinsicFunction::IntRnd => {
                 self.state
                     .builder
-                    .add_int_rnd(ctx.addr(), self_addr.unwrap().addr, "intrnd");
+                    .add_int_rnd(ctx.addr(), self_addr.unwrap().addr, node, "intrnd");
             }
             IntrinsicFunction::IntMax => {
                 self.state
                     .builder
-                    .add_int_max(ctx.addr(), self_addr.unwrap().addr, "int_max")
+                    .add_int_max(ctx.addr(), self_addr.unwrap().addr, node, "int_max")
             }
             IntrinsicFunction::IntMin => {
                 self.state
                     .builder
-                    .add_int_min(ctx.addr(), self_addr.unwrap().addr, "int_min")
+                    .add_int_min(ctx.addr(), self_addr.unwrap().addr, node, "int_min")
             }
-            IntrinsicFunction::IntClamp => {
-                self.state
-                    .builder
-                    .add_int_clamp(ctx.addr(), self_addr.unwrap().addr, "int_clamp")
-            }
+            IntrinsicFunction::IntClamp => self.state.builder.add_int_clamp(
+                ctx.addr(),
+                self_addr.unwrap().addr,
+                node,
+                "int_clamp",
+            ),
             IntrinsicFunction::IntToFloat => self.state.builder.add_int_to_float(
                 ctx.addr(),
                 self_addr.unwrap().addr,
+                node,
                 "int to float",
             ),
             IntrinsicFunction::IntToString => self.state.builder.add_int_to_string(
                 ctx.addr(),
                 self_addr.unwrap().addr(),
+                node,
                 "int_to_string",
             ),
 
@@ -522,6 +557,7 @@ impl FunctionCodeGen<'_> {
                 self.state.builder.add_string_len(
                     ctx.addr(),
                     FrameMemoryAddressIndirectPointer(self_addr.unwrap().addr),
+                    node,
                     "get the length",
                 );
             }
@@ -537,6 +573,7 @@ impl FunctionCodeGen<'_> {
                     slice_region.addr,
                     element_size,
                     CountU16(slice_region.size.0 / element_size.0),
+                    node,
                     "create vec from slice",
                 );
             }
@@ -549,6 +586,7 @@ impl FunctionCodeGen<'_> {
                 self.state.builder.add_vec_push(
                     self_addr.unwrap().addr, // mut self
                     key_region.addr,
+                    node,
                     "vec push",
                 );
             }
@@ -556,6 +594,7 @@ impl FunctionCodeGen<'_> {
                 self.state.builder.add_vec_pop(
                     ctx.addr(),
                     self_addr.unwrap().addr, // mut self
+                    node,
                     "vec pop",
                 );
             }
@@ -569,6 +608,7 @@ impl FunctionCodeGen<'_> {
                 self.state.builder.add_vec_remove_index(
                     self_addr.unwrap().addr,
                     index_region.addr,
+                    node,
                     "get the vec length",
                 );
             }
@@ -644,6 +684,7 @@ impl FunctionCodeGen<'_> {
                     ctx.addr(),
                     self_addr.unwrap().addr,
                     index_region.addr,
+                    node,
                     "get the vec length",
                 );
             }
@@ -667,6 +708,7 @@ impl FunctionCodeGen<'_> {
                     self_addr.unwrap().addr,
                     index_region.addr,
                     value_region.addr,
+                    node,
                     "set the vec subscript",
                 );
             }
@@ -696,6 +738,7 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecLen => self.state.builder.add_vec_len(
                 ctx.addr(),
                 self_addr.unwrap().addr,
+                node,
                 "get the vec length",
             ),
             IntrinsicFunction::VecIsEmpty => todo!(),
@@ -723,13 +766,15 @@ impl FunctionCodeGen<'_> {
                     slice_pair_info.key_size,
                     slice_pair_info.value_size,
                     slice_pair_info.element_count,
+                    node,
                     "create map from temporary slice pair",
                 );
             }
-            IntrinsicFunction::MapHas => self
-                .state
-                .builder
-                .add_map_has(self_addr.unwrap().addr, "map_has"),
+            IntrinsicFunction::MapHas => {
+                self.state
+                    .builder
+                    .add_map_has(self_addr.unwrap().addr, node, "map_has")
+            }
             IntrinsicFunction::MapRemove => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
@@ -772,6 +817,7 @@ impl FunctionCodeGen<'_> {
                     ctx.addr(),
                     self_addr.unwrap().addr,
                     key.addr,
+                    node,
                     "map_subscript",
                 );
             }
@@ -785,6 +831,7 @@ impl FunctionCodeGen<'_> {
                 self.state.builder.add_map_subscript_mut_create(
                     self_addr.unwrap().addr,
                     key.addr,
+                    node,
                     "map_subscript_mut_create (set)",
                 );
             }
@@ -912,7 +959,7 @@ impl FunctionCodeGen<'_> {
 
         self.state
             .builder
-            .add_map_remove(map_region.addr, key_region.addr, "");
+            .add_map_remove(map_region.addr, key_region.addr, &key_expr.node, "");
 
         Ok(())
     }
@@ -926,6 +973,7 @@ impl FunctionCodeGen<'_> {
     ///
     pub fn layout_variables(
         &mut self,
+        node: &Node,
         variables: &Vec<VariableRef>,
         return_type: &Type,
     ) -> Result<(), Error> {
@@ -949,13 +997,12 @@ impl FunctionCodeGen<'_> {
                 .map_err(|_| self.create_err(ErrorKind::VariableNotUnique, &var_ref.name))?;
         }
 
-        let extra_frame_size = MemorySize(80);
-        let extra_target = FrameMemoryRegion::new(allocator.addr(), extra_frame_size);
-        self.frame_size = allocator.addr().as_size().add(extra_frame_size);
+        //let extra_frame_size = MemorySize(80);
+        self.frame_size = allocator.addr().as_size();
 
         self.state
             .builder
-            .add_enter(self.frame_size, &enter_comment);
+            .add_enter(self.frame_size, node, &enter_comment);
 
         const ARGUMENT_MAX_SIZE: u16 = 2 * 1024;
         self.argument_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
@@ -1089,7 +1136,7 @@ impl FunctionCodeGen<'_> {
                 .map(|_| GeneratedExpressionResult::default()),
 
             ExpressionKind::Assignment(target_mut_location_expr, source_expr) => self
-                .gen_assignment(target_mut_location_expr, source_expr)
+                .gen_assignment(&expr.node, target_mut_location_expr, source_expr)
                 .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::VariableAccess(variable_ref) => self
                 .gen_variable_access(variable_ref, ctx)
@@ -1114,13 +1161,13 @@ impl FunctionCodeGen<'_> {
                 .gen_anonymous_struct_literal(anon_struct, &expr.ty, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::Literal(basic_literal) => self
-                .gen_literal(basic_literal, ctx)
+                .gen_literal(&expr.node, basic_literal, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::Option(maybe_option) => self
-                .gen_option_expression(maybe_option.as_deref(), ctx)
+                .gen_option_expression(&expr.node, maybe_option.as_deref(), ctx)
                 .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::ForLoop(a, b, c) => self
-                .gen_for_loop(a, b, c)
+                .gen_for_loop(&expr.node, a, b, c)
                 .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::WhileLoop(condition, expression) => self
                 .gen_while_loop(condition, expression, ctx)
@@ -1144,7 +1191,7 @@ impl FunctionCodeGen<'_> {
                 .compound_assignment(target_location, operator_kind, source_expr, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => self
-                .gen_single_intrinsic_call(intrinsic_fn, None, arguments, ctx)
+                .gen_single_intrinsic_call(&expr.node, intrinsic_fn, None, arguments, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
 
             ExpressionKind::Lambda(vec, x) => {
@@ -1172,29 +1219,39 @@ impl FunctionCodeGen<'_> {
         unary_operator: &UnaryOperator,
         ctx: &Context,
     ) -> Result<(), Error> {
+        let node = &unary_operator.node;
         match &unary_operator.kind {
             UnaryOperatorKind::Not => match &unary_operator.left.ty {
                 Type::Bool => {
                     let left_source = self.gen_expression_for_access(&unary_operator.left)?;
-                    self.state
-                        .builder
-                        .add_not_u8(ctx.addr(), left_source.addr, "negate bool");
+                    self.state.builder.add_not_u8(
+                        ctx.addr(),
+                        left_source.addr,
+                        node,
+                        "negate bool",
+                    );
                 }
                 _ => panic!("unknown not"),
             },
             UnaryOperatorKind::Negate => match (&unary_operator.left.ty) {
                 Type::Int => {
                     let left_source = self.gen_expression_for_access(&unary_operator.left)?;
-                    self.state
-                        .builder
-                        .add_neg_i32(ctx.addr(), left_source.addr, "negate i32");
+                    self.state.builder.add_neg_i32(
+                        ctx.addr(),
+                        left_source.addr,
+                        node,
+                        "negate i32",
+                    );
                 }
 
                 Type::Float => {
                     let left_source = self.gen_expression_for_access(&unary_operator.left)?;
-                    self.state
-                        .builder
-                        .add_neg_f32(ctx.addr(), left_source.addr, "negate f32");
+                    self.state.builder.add_neg_f32(
+                        ctx.addr(),
+                        left_source.addr,
+                        node,
+                        "negate f32",
+                    );
                 }
                 _ => todo!(),
             },
@@ -1223,6 +1280,7 @@ impl FunctionCodeGen<'_> {
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
+        let node = &binary_operator.node;
         let left_source = self.gen_expression_for_access(&binary_operator.left)?;
         let right_source = self.gen_expression_for_access(&binary_operator.right)?;
 
@@ -1232,6 +1290,7 @@ impl FunctionCodeGen<'_> {
                     ctx.addr(),
                     left_source.addr(),
                     right_source.addr(),
+                    node,
                     "i32 add",
                 );
             }
@@ -1240,6 +1299,7 @@ impl FunctionCodeGen<'_> {
                 ctx.addr(),
                 left_source.addr(),
                 right_source.addr(),
+                node,
                 "i32 sub",
             ),
             BinaryOperatorKind::Multiply => {
@@ -1247,6 +1307,7 @@ impl FunctionCodeGen<'_> {
                     ctx.addr(),
                     left_source.addr(),
                     right_source.addr(),
+                    node,
                     "i32 add",
                 );
             }
@@ -1254,41 +1315,58 @@ impl FunctionCodeGen<'_> {
                 ctx.addr(),
                 left_source.addr(),
                 right_source.addr(),
+                node,
                 "i32 div",
             ),
             BinaryOperatorKind::Modulo => self.state.builder.add_mod_i32(
                 ctx.addr(),
                 left_source.addr(),
                 right_source.addr(),
+                node,
                 "i32 mod",
             ),
             BinaryOperatorKind::LogicalOr => todo!(),
             BinaryOperatorKind::LogicalAnd => todo!(),
             BinaryOperatorKind::Equal => {
-                self.state
-                    .builder
-                    .add_eq_32(left_source.addr(), right_source.addr(), "i32 eq");
+                self.state.builder.add_eq_32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "i32 eq",
+                );
             }
             BinaryOperatorKind::NotEqual => todo!(),
             BinaryOperatorKind::LessThan => {
-                self.state
-                    .builder
-                    .add_lt_i32(left_source.addr(), right_source.addr(), "i32 lt");
+                self.state.builder.add_lt_i32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "i32 lt",
+                );
             }
             BinaryOperatorKind::LessEqual => {
-                self.state
-                    .builder
-                    .add_le_i32(left_source.addr(), right_source.addr(), "i32 le");
+                self.state.builder.add_le_i32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "i32 le",
+                );
             }
             BinaryOperatorKind::GreaterThan => {
-                self.state
-                    .builder
-                    .add_gt_i32(left_source.addr(), right_source.addr(), "i32 gt");
+                self.state.builder.add_gt_i32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "i32 gt",
+                );
             }
             BinaryOperatorKind::GreaterEqual => {
-                self.state
-                    .builder
-                    .add_ge_i32(left_source.addr(), right_source.addr(), "i32 ge");
+                self.state.builder.add_ge_i32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "i32 ge",
+                );
             }
         }
 
@@ -1302,6 +1380,7 @@ impl FunctionCodeGen<'_> {
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
+        let node = &binary_operator.node;
         let left_source = self.gen_expression_for_access(&binary_operator.left)?;
         let right_source = self.gen_expression_for_access(&binary_operator.right)?;
 
@@ -1311,6 +1390,7 @@ impl FunctionCodeGen<'_> {
                     ctx.addr(),
                     left_source.addr(),
                     right_source.addr(),
+                    node,
                     "f32 add",
                 );
             }
@@ -1319,6 +1399,7 @@ impl FunctionCodeGen<'_> {
                 ctx.addr(),
                 left_source.addr(),
                 right_source.addr(),
+                node,
                 "f32 sub",
             ),
             BinaryOperatorKind::Multiply => {
@@ -1326,6 +1407,7 @@ impl FunctionCodeGen<'_> {
                     ctx.addr(),
                     left_source.addr(),
                     right_source.addr(),
+                    node,
                     "f32 add",
                 );
             }
@@ -1334,6 +1416,7 @@ impl FunctionCodeGen<'_> {
                     ctx.addr(),
                     left_source.addr(),
                     right_source.addr(),
+                    node,
                     "f32 div",
                 );
             }
@@ -1341,39 +1424,58 @@ impl FunctionCodeGen<'_> {
                 ctx.addr(),
                 left_source.addr(),
                 right_source.addr(),
+                node,
                 "f32 mod",
             ),
             BinaryOperatorKind::LogicalOr => panic!("not supported"),
             BinaryOperatorKind::LogicalAnd => panic!("not supported"),
             BinaryOperatorKind::Equal => {
-                self.state
-                    .builder
-                    .add_eq_32(left_source.addr(), right_source.addr(), "f32 eq");
+                self.state.builder.add_eq_32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "f32 eq",
+                );
             }
             BinaryOperatorKind::NotEqual => {
-                self.state
-                    .builder
-                    .add_ne_32(left_source.addr(), right_source.addr(), "f32 ne");
+                self.state.builder.add_ne_32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "f32 ne",
+                );
             }
             BinaryOperatorKind::LessThan => {
-                self.state
-                    .builder
-                    .add_lt_f32(left_source.addr(), right_source.addr(), "f32 lt");
+                self.state.builder.add_lt_f32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "f32 lt",
+                );
             }
             BinaryOperatorKind::LessEqual => {
-                self.state
-                    .builder
-                    .add_le_f32(left_source.addr(), right_source.addr(), "f32 le");
+                self.state.builder.add_le_f32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "f32 le",
+                );
             }
             BinaryOperatorKind::GreaterThan => {
-                self.state
-                    .builder
-                    .add_gt_f32(left_source.addr(), right_source.addr(), "f32 gt");
+                self.state.builder.add_gt_f32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "f32 gt",
+                );
             }
             BinaryOperatorKind::GreaterEqual => {
-                self.state
-                    .builder
-                    .add_ge_f32(left_source.addr(), right_source.addr(), "f32 ge");
+                self.state.builder.add_ge_f32(
+                    left_source.addr(),
+                    right_source.addr(),
+                    node,
+                    "f32 ge",
+                );
             }
         }
 
@@ -1387,6 +1489,7 @@ impl FunctionCodeGen<'_> {
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
+        let node = &binary_operator.node;
         let left_source = self.gen_expression_for_access(&binary_operator.left)?;
         let right_source = self.gen_expression_for_access(&binary_operator.right)?;
 
@@ -1396,6 +1499,7 @@ impl FunctionCodeGen<'_> {
                     ctx.addr(),
                     left_source.addr(),
                     right_source.addr(),
+                    node,
                     "string add",
                 );
             }
@@ -1414,6 +1518,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         binary_operator: &BinaryOperator,
     ) -> Result<GeneratedExpressionResult, Error> {
+        let node = &binary_operator.node;
         match binary_operator.kind {
             BinaryOperatorKind::LogicalOr => {
                 // this updates the z flag
@@ -1422,7 +1527,7 @@ impl FunctionCodeGen<'_> {
                 let jump_after_patch = self
                     .state
                     .builder
-                    .add_jmp_if_equal_placeholder("skip rhs `or` expression");
+                    .add_jmp_if_equal_placeholder(node, "skip rhs `or` expression");
 
                 // this updates the z flag
                 self.gen_boolean_access_set_z_flag(&binary_operator.right);
@@ -1436,7 +1541,7 @@ impl FunctionCodeGen<'_> {
                 let jump_after_patch = self
                     .state
                     .builder
-                    .add_jmp_if_not_equal_placeholder("skip rhs `and` expression");
+                    .add_jmp_if_not_equal_placeholder(node, "skip rhs `and` expression");
 
                 // this updates the z flag
                 self.gen_boolean_access_set_z_flag(&binary_operator.right);
@@ -1449,7 +1554,7 @@ impl FunctionCodeGen<'_> {
                 let right = self.gen_expression_for_access(&binary_operator.right)?;
                 self.state
                     .builder
-                    .add_cmp8(left.addr, right.addr, "bool equals ==");
+                    .add_cmp8(left.addr, right.addr, node, "bool equals ==");
             }
             _ => {
                 panic!("unknown operator {:?}", binary_operator);
@@ -1468,10 +1573,10 @@ impl FunctionCodeGen<'_> {
         let condition_ctx = self.extra_frame_space_for_type(&Type::Bool);
         self.gen_expression(&condition.expression, &condition_ctx)?;
 
-        let jump_on_false_condition = self
-            .state
-            .builder
-            .add_jmp_if_not_equal_placeholder("jump boolean condition false");
+        let jump_on_false_condition = self.state.builder.add_jmp_if_not_equal_placeholder(
+            &condition.expression.node,
+            "jump boolean condition false",
+        );
 
         Ok((condition_ctx, jump_on_false_condition))
     }
@@ -1483,6 +1588,7 @@ impl FunctionCodeGen<'_> {
         if !gen_result.has_set_bool_z_flag {
             self.state.builder.add_tst8(
                 frame_memory_region.addr,
+                &condition.node,
                 "convert to boolean expression (update z flag)",
             );
         }
@@ -1511,7 +1617,7 @@ impl FunctionCodeGen<'_> {
             let skip_false_if_true = self
                 .state
                 .builder
-                .add_jump_placeholder("condition is false skip");
+                .add_jump_placeholder(&condition.expression.node, "condition is false skip");
 
             // If the expression was false, it should continue here
             self.state.builder.patch_jump_here(jump_on_false_condition);
@@ -1547,7 +1653,7 @@ impl FunctionCodeGen<'_> {
         // Always jump to the condition again to see if it is true
         self.state
             .builder
-            .add_jmp(ip_for_condition, "jmp to while condition");
+            .add_jmp(ip_for_condition, &expression.node, "jmp to while condition");
 
         self.state.builder.patch_jump_here(jump_on_false_condition);
 
@@ -1562,9 +1668,13 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(), Error> {
         let region = self.gen_lvalue_address(argument)?;
 
-        self.state
-            .builder
-            .add_mov(ctx.addr(), region.addr, region.size, comment);
+        self.state.builder.add_mov(
+            ctx.addr(),
+            region.addr,
+            region.size,
+            &argument.node,
+            comment,
+        );
 
         Ok(())
     }
@@ -1612,6 +1722,7 @@ impl FunctionCodeGen<'_> {
 
     fn gen_assignment(
         &mut self,
+        node: &Node,
         lhs: &TargetAssignmentLocation,
         rhs: &Expression,
     ) -> Result<(), Error> {
@@ -1620,7 +1731,7 @@ impl FunctionCodeGen<'_> {
 
         self.state
             .builder
-            .add_mov(lhs_addr.addr, access.addr, access.size, "assignment");
+            .add_mov(lhs_addr.addr, access.addr, access.size, node, "assignment");
 
         Ok(())
     }
@@ -1645,6 +1756,7 @@ impl FunctionCodeGen<'_> {
 
     fn copy_back_mutable_arguments(
         &mut self,
+        node: &Node,
         signature: &Signature,
         maybe_self: Option<FrameMemoryRegion>,
         arguments: &Vec<MutRefOrImmutableExpression>,
@@ -1662,6 +1774,7 @@ impl FunctionCodeGen<'_> {
                 found_self.addr,
                 source_region.addr,
                 source_region.size,
+                node,
                 "copy back to <self>",
             );
             parameters.remove(0);
@@ -1678,6 +1791,7 @@ impl FunctionCodeGen<'_> {
                     argument_target.addr,
                     source_region.addr,
                     source_region.size,
+                    node,
                     &format!(
                         "copy back mutable argument {}",
                         found_location.starting_variable.assigned_name
@@ -1691,6 +1805,7 @@ impl FunctionCodeGen<'_> {
     }
     fn gen_arguments(
         &mut self,
+        node: &Node,
         signature: &Signature,
         self_region: Option<FrameMemoryRegion>,
         arguments: &Vec<MutRefOrImmutableExpression>,
@@ -1719,6 +1834,7 @@ impl FunctionCodeGen<'_> {
                 argument_targets[0].addr(),
                 push_self.addr,
                 push_self.size,
+                node,
                 "<self>",
             );
             argument_targets.remove(0);
@@ -1768,9 +1884,20 @@ impl FunctionCodeGen<'_> {
                 if let PostfixKind::FunctionCall(args) = &chain[0].kind {
                     if let Some(intrinsic_fn) = single_intrinsic_fn(&internal_fn.body) {
                         let maybe_self = self.gen_expression_for_access(start_expression)?;
-                        self.gen_single_intrinsic_call(intrinsic_fn, Some(maybe_self), args, ctx)?;
+                        self.gen_single_intrinsic_call(
+                            &start_expression.node,
+                            intrinsic_fn,
+                            Some(maybe_self),
+                            args,
+                            ctx,
+                        )?;
                     } else {
-                        self.gen_arguments(&internal_fn.signature.signature, None, args)?;
+                        self.gen_arguments(
+                            &start_expression.node,
+                            &internal_fn.signature.signature,
+                            None,
+                            args,
+                        )?;
                         self.state
                             .add_call(internal_fn, &format!("frame size: {}", self.frame_size)); // will be fixed up later
                         let (return_size, _alignment) =
@@ -1780,10 +1907,12 @@ impl FunctionCodeGen<'_> {
                                 ctx.addr(),
                                 self.infinite_above_frame_size().addr,
                                 return_size,
+                                &start_expression.node,
                                 "copy the ret value to destination",
                             );
                         }
                         self.copy_back_mutable_arguments(
+                            &start_expression.node,
                             &internal_fn.signature.signature,
                             None,
                             args,
@@ -1798,10 +1927,16 @@ impl FunctionCodeGen<'_> {
         if let ExpressionKind::ExternalFunctionAccess(external_fn) = &start_expression.kind {
             if chain.len() == 1 {
                 if let PostfixKind::FunctionCall(args) = &chain[0].kind {
-                    let total_region = self.gen_arguments(&external_fn.signature, None, args)?;
+                    let total_region = self.gen_arguments(
+                        &start_expression.node,
+                        &external_fn.signature,
+                        None,
+                        args,
+                    )?;
                     self.state.builder.add_host_call(
                         external_fn.id as u16,
                         total_region.size,
+                        &start_expression.node,
                         &format!("call external '{}'", external_fn.assigned_name),
                     );
                     let (return_size, _alignment) =
@@ -1811,6 +1946,7 @@ impl FunctionCodeGen<'_> {
                             ctx.addr(),
                             self.infinite_above_frame_size().addr,
                             return_size,
+                            &start_expression.node,
                             "copy the ret value to destination",
                         );
                     }
@@ -1840,6 +1976,7 @@ impl FunctionCodeGen<'_> {
                         Function::Internal(internal_fn) => {
                             if let Some(intrinsic_fn) = single_intrinsic_fn(&internal_fn.body) {
                                 self.gen_single_intrinsic_call(
+                                    &start_expression.node,
                                     intrinsic_fn,
                                     Some(start_source),
                                     arguments,
@@ -1847,6 +1984,7 @@ impl FunctionCodeGen<'_> {
                                 )?;
                             } else {
                                 self.gen_arguments(
+                                    &start_expression.node,
                                     &internal_fn.signature.signature,
                                     Some(start_source),
                                     arguments,
@@ -1864,11 +2002,13 @@ impl FunctionCodeGen<'_> {
                                         ctx.addr(),
                                         self.infinite_above_frame_size().addr,
                                         return_size,
+                                        &start_expression.node,
                                         "copy the return value to destination",
                                     );
                                 }
 
                                 self.copy_back_mutable_arguments(
+                                    &start_expression.node,
                                     &internal_fn.signature.signature,
                                     Some(start_source),
                                     arguments,
@@ -1943,29 +2083,34 @@ impl FunctionCodeGen<'_> {
         Ok(())
     }
 
-    fn gen_literal(&mut self, literal: &Literal, ctx: &Context) -> Result<(), Error> {
+    fn gen_literal(&mut self, node: &Node, literal: &Literal, ctx: &Context) -> Result<(), Error> {
         match literal {
             Literal::IntLiteral(int) => {
-                self.state.builder.add_ld32(ctx.addr(), *int, "int literal");
+                self.state
+                    .builder
+                    .add_ld32(ctx.addr(), *int, node, "int literal");
             }
             Literal::FloatLiteral(fixed_point) => {
                 self.state
                     .builder
-                    .add_ld32(ctx.addr(), fixed_point.inner(), "float literal");
+                    .add_ld32(ctx.addr(), fixed_point.inner(), node, "float literal");
             }
             Literal::NoneLiteral => {
-                self.state.builder.add_ld8(ctx.addr(), 0, "none literal");
+                self.state
+                    .builder
+                    .add_ld8(ctx.addr(), 0, node, "none literal");
             }
             Literal::BoolLiteral(truthy) => {
                 self.state
                     .builder
-                    .add_ld8(ctx.addr(), u8::from(*truthy), "bool literal");
+                    .add_ld8(ctx.addr(), u8::from(*truthy), node, "bool literal");
             }
 
             Literal::EnumVariantLiteral(enum_type, a, b) => {
                 self.state.builder.add_ld8(
                     ctx.addr(),
                     a.common().container_index,
+                    node,
                     &format!("enum variant {} tag", a.common().assigned_name),
                 );
 
@@ -2004,7 +2149,7 @@ impl FunctionCodeGen<'_> {
             }
             Literal::TupleLiteral(_tuple_type, expressions) => self.gen_tuple(expressions, ctx)?,
             Literal::StringLiteral(str) => {
-                self.gen_string_literal(str, ctx);
+                self.gen_string_literal(node, str, ctx);
             }
             Literal::Slice(ty, expressions) => {
                 //self.gen_slice_literal(ty, expressions, ctx)
@@ -2018,7 +2163,7 @@ impl FunctionCodeGen<'_> {
         Ok(())
     }
 
-    fn gen_string_literal(&mut self, string: &str, ctx: &Context) {
+    fn gen_string_literal(&mut self, node: &Node, string: &str, ctx: &Context) {
         let string_bytes = string.as_bytes();
         let string_byte_count = string_bytes.len();
 
@@ -2033,6 +2178,7 @@ impl FunctionCodeGen<'_> {
             ctx.addr(),
             data_ptr,
             mem_size,
+            node,
             "create string",
         );
         // self.gen_vec_immediate(data_ptr, mem_size, mem_size, "string", ctx);
@@ -2068,17 +2214,22 @@ impl FunctionCodeGen<'_> {
      */
     fn gen_option_expression(
         &mut self,
+        node: &Node,
         maybe_option: Option<&Expression>,
         ctx: &Context,
     ) -> Result<(), Error> {
         if let Some(found_value) = maybe_option {
-            self.state.builder.add_ld8(ctx.addr(), 1, "option Some tag"); // 1 signals `Some`
+            self.state
+                .builder
+                .add_ld8(ctx.addr(), 1, node, "option Some tag"); // 1 signals `Some`
             let (inner_size, inner_alignment) = type_size_and_alignment(&found_value.ty);
             let one_offset_ctx = ctx.with_offset(inner_alignment.into(), inner_size);
 
             self.gen_expression(found_value, &one_offset_ctx)?; // Fills in more of the union
         } else {
-            self.state.builder.add_ld8(ctx.addr(), 0, "option None tag"); // 0 signals `None`
+            self.state
+                .builder
+                .add_ld8(ctx.addr(), 0, node, "option None tag"); // 0 signals `None`
             // No real need to clear the rest of the memory
         }
 
@@ -2087,6 +2238,7 @@ impl FunctionCodeGen<'_> {
 
     fn gen_for_loop_vec(
         &mut self,
+        node: &Node,
         for_pattern: &ForPattern,
         collection_expr: &MutRefOrImmutableExpression,
     ) -> Result<(InstructionPosition, PatchPosition), Error> {
@@ -2098,6 +2250,7 @@ impl FunctionCodeGen<'_> {
         self.state.builder.add_vec_iter_init(
             temp_iterator_region,
             FrameMemoryAddressIndirectPointer(collection_region.addr),
+            node,
             "initialize vec iterator",
         );
 
@@ -2112,6 +2265,7 @@ impl FunctionCodeGen<'_> {
                 self.state.builder.add_vec_iter_next_placeholder(
                     temp_iterator_region,
                     target_variable.addr,
+                    node,
                     "move to next or jump over",
                 )
             }
@@ -2128,6 +2282,7 @@ impl FunctionCodeGen<'_> {
                     temp_iterator_region,
                     target_variable_a.addr,
                     target_variable_b.addr,
+                    node,
                     "move to next or jump over",
                 )
             }
@@ -2138,11 +2293,13 @@ impl FunctionCodeGen<'_> {
 
     fn gen_for_loop_map(
         &mut self,
+        node: &Node,
         for_pattern: &ForPattern,
     ) -> Result<(InstructionPosition, PatchPosition), Error> {
         self.state.builder.add_map_iter_init(
             FrameMemoryAddress(0x80),
             FrameMemoryAddressIndirectPointer(FrameMemoryAddress(0xffff)),
+            node,
             "initialize map iterator",
         );
 
@@ -2152,12 +2309,14 @@ impl FunctionCodeGen<'_> {
             ForPattern::Single(_) => self.state.builder.add_map_iter_next_placeholder(
                 FrameMemoryAddress(0x80),
                 FrameMemoryAddress(0x16),
+                node,
                 "move to next or jump over",
             ),
             ForPattern::Pair(_, _) => self.state.builder.add_map_iter_next_pair_placeholder(
                 FrameMemoryAddress(0x80),
                 FrameMemoryAddress(0x16),
                 FrameMemoryAddress(0x16),
+                node,
                 "move to next or jump over",
             ),
         };
@@ -2167,11 +2326,13 @@ impl FunctionCodeGen<'_> {
 
     fn gen_for_loop_range(
         &mut self,
+        node: &Node,
         for_pattern: &ForPattern,
     ) -> Result<(InstructionPosition, PatchPosition), Error> {
         self.state.builder.add_map_iter_init(
             FrameMemoryAddress(0x80),
             FrameMemoryAddressIndirectPointer(FrameMemoryAddress(0xffff)),
+            node,
             "initialize map iterator",
         );
 
@@ -2181,12 +2342,14 @@ impl FunctionCodeGen<'_> {
             ForPattern::Single(_) => self.state.builder.add_range_iter_next_placeholder(
                 FrameMemoryAddress(0x80),
                 FrameMemoryAddress(0x16),
+                node,
                 "move to next or jump over",
             ),
             ForPattern::Pair(_, _) => self.state.builder.add_range_iter_next_pair_placeholder(
                 FrameMemoryAddress(0x80),
                 FrameMemoryAddress(0x16),
                 FrameMemoryAddress(0x16),
+                node,
                 "move to next or jump over",
             ),
         };
@@ -2196,6 +2359,7 @@ impl FunctionCodeGen<'_> {
 
     fn gen_for_loop(
         &mut self,
+        node: &Node,
         for_pattern: &ForPattern,
         iterable: &Iterable,
         closure: &Box<Expression>,
@@ -2212,16 +2376,17 @@ impl FunctionCodeGen<'_> {
                 todo!();
             }
             Type::NamedStruct(named_type) => {
+                let node = &named_type.name;
                 if let Some(found_info) = is_vec(collection_type) {
-                    self.gen_for_loop_vec(for_pattern, &iterable.resolved_expression)?
+                    self.gen_for_loop_vec(node, for_pattern, &iterable.resolved_expression)?
                 } else if let Some(found_info) = is_map(collection_type) {
-                    self.gen_for_loop_map(for_pattern)?
+                    self.gen_for_loop_map(node, for_pattern)?
                 } else if let Some(found_info) = is_range(collection_type) {
-                    self.gen_for_loop_range(for_pattern)?
+                    self.gen_for_loop_range(node, for_pattern)?
                 } else if let Some(found_info) = is_stack(collection_type) {
-                    self.gen_for_loop_range(for_pattern)?
+                    self.gen_for_loop_range(node, for_pattern)?
                 } else if let Some(found_info) = is_grid(collection_type) {
-                    self.gen_for_loop_range(for_pattern)?
+                    self.gen_for_loop_range(node, for_pattern)?
                 } else {
                     error!(?named_type, "can not iterate this collection");
                     return Err(self.create_err(
@@ -2248,7 +2413,7 @@ impl FunctionCodeGen<'_> {
 
         self.state
             .builder
-            .add_jmp(jump_ip, "jump to next iteration");
+            .add_jmp(jump_ip, node, "jump to next iteration");
         // advance iterator pointer
         // jump to check if iterator pointer has reached its end
         self.state.builder.patch_jump_here(placeholder_position);
@@ -2379,6 +2544,7 @@ impl FunctionCodeGen<'_> {
             ctx.addr(),
             region.addr,
             region.size,
+            &variable.name,
             &format!(
                 "variable access '{}' ({})",
                 variable.assigned_name,
@@ -2412,10 +2578,10 @@ impl FunctionCodeGen<'_> {
 
         match &type_to_consider {
             Type::Int => {
-                self.gen_compound_assignment_i32(&target_location, op, &source_info);
+                self.gen_compound_assignment_i32(&source.node, &target_location, op, &source_info);
             }
             Type::Float => {
-                self.gen_compound_assignment_f32(&target_location, op, &source_info);
+                self.gen_compound_assignment_f32(&source.node, &target_location, op, &source_info);
             }
             Type::String => todo!(),
             _ => return Err(self.create_err(ErrorKind::IllegalCompoundAssignment, &source.node)),
@@ -2426,6 +2592,7 @@ impl FunctionCodeGen<'_> {
 
     fn gen_compound_assignment_i32(
         &mut self,
+        node: &Node,
         target: &FrameMemoryRegion,
         op: &CompoundOperatorKind,
         source_ctx: &FrameMemoryRegion,
@@ -2436,6 +2603,7 @@ impl FunctionCodeGen<'_> {
                     target.addr(),
                     target.addr(),
                     source_ctx.addr(),
+                    node,
                     "+=  (i32)",
                 );
             }
@@ -2448,6 +2616,7 @@ impl FunctionCodeGen<'_> {
 
     fn gen_compound_assignment_f32(
         &mut self,
+        node: &Node,
         target: &FrameMemoryRegion,
         op: &CompoundOperatorKind,
         source_ctx: &FrameMemoryRegion,
@@ -2458,6 +2627,7 @@ impl FunctionCodeGen<'_> {
                     target.addr(),
                     target.addr(),
                     source_ctx.addr(),
+                    node,
                     "+=  (f32)",
                 );
             }
@@ -2465,24 +2635,28 @@ impl FunctionCodeGen<'_> {
                 target.addr(),
                 target.addr(),
                 source_ctx.addr(),
+                node,
                 "-=  (f32)",
             ),
             CompoundOperatorKind::Mul => self.state.builder.add_mul_f32(
                 target.addr(),
                 target.addr(),
                 source_ctx.addr(),
+                node,
                 "*=  (f32)",
             ),
             CompoundOperatorKind::Div => self.state.builder.add_div_f32(
                 target.addr(),
                 target.addr(),
                 source_ctx.addr(),
+                node,
                 "/=  (f32)",
             ),
             CompoundOperatorKind::Modulo => self.state.builder.add_mod_f32(
                 target.addr(),
                 target.addr(),
                 source_ctx.addr(),
+                node,
                 "%=  (f32)",
             ),
         }
@@ -2496,6 +2670,7 @@ impl FunctionCodeGen<'_> {
         self.state.builder.add_ld_u16(
             ctx.addr(),
             internal.program_unique_id,
+            &internal.name.0,
             &format!("function access '{}'", internal.assigned_name),
         );
         Ok(())
@@ -2626,6 +2801,7 @@ impl FunctionCodeGen<'_> {
 
     fn gen_slice_helper(
         &mut self,
+        node: &Node,
         start_temp_frame_address_to_transfer: FrameMemoryAddress,
         element_count: u16,
         element_size: MemorySize,
@@ -2635,17 +2811,20 @@ impl FunctionCodeGen<'_> {
         let vec_len_addr = ctx.addr().advance(MemoryOffset(0));
         self.state
             .builder
-            .add_ld_u16(vec_len_addr, element_count, "slice len");
+            .add_ld_u16(vec_len_addr, element_count, node, "slice len");
 
         let vec_capacity_addr = ctx.addr().advance(MemoryOffset(2));
         self.state
             .builder
-            .add_ld_u16(vec_capacity_addr, element_count, "slice capacity");
+            .add_ld_u16(vec_capacity_addr, element_count, node, "slice capacity");
 
         let vec_element_size_addr = ctx.addr().advance(MemoryOffset(4));
-        self.state
-            .builder
-            .add_ld_u16(vec_element_size_addr, element_size.0, "slice element size");
+        self.state.builder.add_ld_u16(
+            vec_element_size_addr,
+            element_size.0,
+            node,
+            "slice element size",
+        );
 
         /*
         let allocated_vec_address = ctx.addr().advance(MemoryOffset(6));
@@ -2799,6 +2978,7 @@ impl FunctionCodeGen<'_> {
 
     fn gen_intrinsic_vec_from_slice(
         &mut self,
+        node: &Node,
         arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
     ) -> Result<(), Error> {
@@ -2809,6 +2989,7 @@ impl FunctionCodeGen<'_> {
                 memory.addr,
                 MemorySize(0),
                 CountU16(0),
+                node,
                 "create vec",
             );
         } else {
@@ -2839,6 +3020,7 @@ impl FunctionCodeGen<'_> {
                         self.state.builder.add_eq_u8_immediate(
                             region_to_match.addr,
                             enum_variant.common().container_index,
+                            &match_expr.expression.node(),
                             "check for enum variant",
                         );
                         maybe_guard.as_ref()
@@ -2856,11 +3038,10 @@ impl FunctionCodeGen<'_> {
             let did_add_comparison = !matches!(arm.pattern, Pattern::Wildcard(_));
 
             let maybe_skip_added = if did_add_comparison {
-                Some(
-                    self.state
-                        .builder
-                        .add_jmp_if_not_equal_placeholder("placeholder for enum match"),
-                )
+                Some(self.state.builder.add_jmp_if_not_equal_placeholder(
+                    &match_expr.expression.node(),
+                    "placeholder for enum match",
+                ))
             } else {
                 None
             };
@@ -2869,11 +3050,10 @@ impl FunctionCodeGen<'_> {
                 self.gen_boolean_expression(guard)?;
                 // z flag should have been updated now
 
-                Some(
-                    self.state
-                        .builder
-                        .add_jmp_if_not_equal_placeholder("placeholder for skip guard"),
-                )
+                Some(self.state.builder.add_jmp_if_not_equal_placeholder(
+                    &match_expr.expression.node(),
+                    "placeholder for skip guard",
+                ))
             } else {
                 None
             };
@@ -2881,8 +3061,10 @@ impl FunctionCodeGen<'_> {
             self.gen_expression(&arm.expression, ctx)?;
 
             if !is_last {
-                let jump_to_exit_placeholder =
-                    self.state.builder.add_jump_placeholder("jump to exit");
+                let jump_to_exit_placeholder = self
+                    .state
+                    .builder
+                    .add_jump_placeholder(&match_expr.expression.node(), "jump to exit");
                 jump_to_exit_placeholders.push(jump_to_exit_placeholder);
             }
 
@@ -2905,14 +3087,16 @@ impl FunctionCodeGen<'_> {
         let mut jump_to_exit_placeholders = Vec::new();
         for guard in guards {
             if let Some(condition) = &guard.condition {
-                self.gen_boolean_expression(condition); // update z flag
+                self.gen_boolean_expression(condition)?; // update z flag
                 let skip_expression_patch = self
                     .state
                     .builder
-                    .add_jmp_if_not_equal_placeholder("guard condition");
+                    .add_jmp_if_not_equal_placeholder(&guard.result.node, "guard condition");
                 self.gen_expression(&guard.result, ctx)?;
-                let jump_to_exit_placeholder =
-                    self.state.builder.add_jump_placeholder("jump to exit");
+                let jump_to_exit_placeholder = self
+                    .state
+                    .builder
+                    .add_jump_placeholder(&guard.result.node, "jump to exit");
                 jump_to_exit_placeholders.push(jump_to_exit_placeholder);
                 self.state.builder.patch_jump_here(skip_expression_patch);
             } else {
@@ -2942,13 +3126,15 @@ impl FunctionCodeGen<'_> {
 
             let old_variable_region = self.gen_for_access_or_location(&binding.expr)?;
 
-            self.state
-                .builder
-                .add_tst8(old_variable_region.addr, "check binding");
+            self.state.builder.add_tst8(
+                old_variable_region.addr,
+                &binding.expr.node(),
+                "check binding",
+            );
             let patch = self
                 .state
                 .builder
-                .add_jmp_if_not_equal_placeholder("jump if none");
+                .add_jmp_if_not_equal_placeholder(&binding.expr.node(), "jump if none");
             all_false_jumps.push(patch);
         }
 
@@ -2976,17 +3162,18 @@ impl FunctionCodeGen<'_> {
                     variable_region.addr,
                     some_value_region.addr,
                     some_value_region.size,
+                    &binding.expr.node(),
                     "move from Some to value",
                 );
             }
         }
 
         self.gen_expression(true_expr, ctx)?;
-        let maybe_jump_over_false = if let Some(_else_expr) = maybe_false_expr {
+        let maybe_jump_over_false = if let Some(else_expr) = maybe_false_expr {
             Some(
                 self.state
                     .builder
-                    .add_jump_placeholder("jump over false section"),
+                    .add_jump_placeholder(&else_expr.node, "jump over false section"),
             )
         } else {
             None
@@ -2997,7 +3184,7 @@ impl FunctionCodeGen<'_> {
         }
 
         if let Some(else_expr) = maybe_false_expr {
-            self.gen_expression(else_expr, ctx);
+            self.gen_expression(else_expr, ctx)?;
             self.state
                 .builder
                 .patch_jump_here(maybe_jump_over_false.unwrap());
@@ -3042,6 +3229,7 @@ impl FunctionCodeGen<'_> {
                     target_region.addr,
                     source_element_region.addr,
                     source_element_region.size,
+                    &target_variable.name,
                     &format!(
                         "destructuring to variable {}",
                         target_variable.assigned_name
@@ -3069,6 +3257,7 @@ impl FunctionCodeGen<'_> {
             ctx.addr(),
             constant_region.addr,
             constant_region.size,
+            &constant_reference.name,
             &format!("load constant '{}'", constant_reference.assigned_name),
         );
 
@@ -3081,6 +3270,7 @@ impl FunctionCodeGen<'_> {
             ctx.addr(),
             region.addr,
             MemorySize(1),
+            &expr.node,
             "move option tag to bool",
         );
 

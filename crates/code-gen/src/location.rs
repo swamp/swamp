@@ -104,6 +104,7 @@ impl FunctionCodeGen<'_> {
 
                     let ctx = self.temp_space_for_type(&access.ty, "intrinsic call mut");
                     self.gen_single_intrinsic_call(
+                        &location_expression.node,
                         intrinsic_function,
                         Some(frame_relative_base_address),
                         &converted,

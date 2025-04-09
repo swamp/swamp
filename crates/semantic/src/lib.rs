@@ -69,7 +69,7 @@ pub struct InternalFunctionDefinition {
     pub name: LocalIdentifier,
     pub assigned_name: String,
     pub signature: GenericAwareSignature,
-    pub variable_scopes: FunctionScopeState,
+    //pub variable_scopes: FunctionScopeState,
     pub function_scope_state: Vec<VariableRef>,
     pub program_unique_id: InternalFunctionId,
 }
@@ -91,7 +91,7 @@ impl Default for InternalFunctionDefinition {
                 },
                 generic_type_variables: vec![],
             },
-            variable_scopes: FunctionScopeState::new(),
+            //variable_scopes: FunctionScopeState::new(),
             function_scope_state: Vec::new(),
             program_unique_id: 0,
         }
@@ -767,6 +767,7 @@ pub struct Constant {
     pub id: ConstantId,
     pub expr: Expression,
     pub resolved_type: Type,
+    pub function_scope_state: Vec<VariableRef>,
 }
 pub type ConstantRef = Rc<Constant>;
 

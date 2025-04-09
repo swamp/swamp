@@ -25,6 +25,7 @@ impl Analyzer<'_> {
             id: self.shared.state.constants_in_dependency_order.len() as u32,
             expr: resolved_expr,
             resolved_type,
+            function_scope_state: self.function_variables.clone(),
         };
 
         let const_ref = self
