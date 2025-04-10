@@ -990,8 +990,8 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         match &start.kind {
-            StartOfChainKind::FunctionCall(start_call) => {
-                todo!()
+            StartOfChainKind::Expression(start_expression) => {
+                self.show_expression(f, start_expression, tabs)
             }
 
             StartOfChainKind::Variable(var) => self.show_variable(f, var),

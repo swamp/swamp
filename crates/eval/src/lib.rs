@@ -379,6 +379,50 @@ impl<'a, C> Interpreter<'a, C> {
         }
     }
 
+    fn evaluate_internal_function_call(
+        &mut self,
+        internal_func_ref: &InternalFunctionDefinitionRef,
+        arguments: &[MutRefOrImmutableExpression],
+    ) -> Result<Value, RuntimeError> {
+        let evaluated_args = self.evaluate_args(arguments)?;
+
+        self.push_function_scope();
+
+        self.bind_parameters(
+            &internal_func_ref.body.node,
+            &internal_func_ref.signature.signature.parameters,
+            &evaluated_args,
+        )?;
+
+        let result = self.evaluate_expression(&internal_func_ref.body)?;
+
+        self.pop_function_scope();
+
+        Ok(result)
+    }
+
+    fn evaluate_host_function_call(
+        &mut self,
+        node: &Node,
+        external_function_ref: &ExternalFunctionDefinitionRef,
+        arguments: &[MutRefOrImmutableExpression],
+    ) -> Result<Value, RuntimeError> {
+        let evaluated_args = self.evaluate_args(arguments)?;
+
+        let external_function_id = &external_function_ref.id;
+        let mut func = self
+            .externals
+            .external_functions_by_id
+            .get(&external_function_id)
+            .ok_or(self.create_err(
+                RuntimeErrorKind::MissingExternalFunction(*external_function_id),
+                node,
+            ))?
+            .borrow_mut();
+
+        (func.func)(&evaluated_args, self.context)
+    }
+
     fn evaluate_location_chain(
         &mut self,
         node: &Node,
@@ -913,6 +957,13 @@ impl<'a, C> Interpreter<'a, C> {
             // Calling
             ExpressionKind::IntrinsicCallEx(intrinsic, arguments) => {
                 self.eval_intrinsic(&expr.node, intrinsic, arguments)?
+            }
+
+            ExpressionKind::InternalCall(internal_fn, arguments) => {
+                self.evaluate_internal_function_call(internal_fn, arguments)?
+            }
+            ExpressionKind::HostCall(host_fn, arguments) => {
+                self.evaluate_host_function_call(&expr.node, host_fn, arguments)?
             }
 
             ExpressionKind::Block(statements) => {
@@ -2419,8 +2470,10 @@ impl<'a, C> Interpreter<'a, C> {
                 }
             }
 
-            StartOfChainKind::FunctionCall(call) => {
-                todo!()
+            StartOfChainKind::Expression(call) => {
+                let val = self.evaluate_expression(call)?;
+                let val_ref = RefCell::new(val);
+                (ValueRef::new(val_ref), false)
             }
         };
 

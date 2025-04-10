@@ -24,9 +24,9 @@ use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
     CompoundOperatorKind, ConstantId, ConstantRef, EnumLiteralData, Expression, ExpressionKind,
-    ForPattern, Function, Guard, InternalFunctionDefinition, InternalFunctionDefinitionRef,
-    InternalFunctionId, InternalMainExpression, Iterable, Literal, Match,
-    MutRefOrImmutableExpression, NormalPattern, Pattern, Postfix, PostfixKind,
+    ExternalFunctionDefinitionRef, ForPattern, Function, Guard, InternalFunctionDefinition,
+    InternalFunctionDefinitionRef, InternalFunctionId, InternalMainExpression, Iterable, Literal,
+    Match, MutRefOrImmutableExpression, NormalPattern, Pattern, Postfix, PostfixKind,
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
     UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
 };
@@ -1402,6 +1402,12 @@ impl FunctionCodeGen<'_> {
             //ExpressionKind::IntrinsicFunctionAccess(_) => todo!(), // TODO: IntrinsicFunctionAccess should be reduced away in analyzer
             //ExpressionKind::ExternalFunctionAccess(_) => todo!(), // TODO: ExternalFunctionAccess should be reduced away in analyzer
             ExpressionKind::VariableBinding(_, _) => todo!(),
+            ExpressionKind::InternalCall(internal, arguments) => self
+                .gen_internal_call(&expr.node, internal, arguments, ctx)
+                .map(|_| GeneratedExpressionResult::default()),
+            ExpressionKind::HostCall(host_fn, arguments) => self
+                .gen_host_call(&expr.node, host_fn, arguments, ctx)
+                .map(|_| GeneratedExpressionResult::default()),
         };
 
         result
@@ -2329,24 +2335,12 @@ impl FunctionCodeGen<'_> {
                                     &format!("frame size: {}", self.frame_size),
                                 ); // will be fixed up later
 
-                                let (return_size, _alignment) = type_size_and_alignment(
-                                    &internal_fn.signature.signature.return_type,
-                                );
-                                if return_size.0 != 0 {
-                                    self.state.builder.add_mov(
-                                        ctx.addr(),
-                                        self.infinite_above_frame_size().addr,
-                                        return_size,
-                                        &start_expression.node,
-                                        "copy the return value to destination",
-                                    );
-                                }
-
-                                self.copy_back_mutable_arguments(
-                                    &start_expression.node,
+                                self.call_post_helper(
+                                    &element.node,
                                     &internal_fn.signature.signature,
                                     Some(start_source),
                                     arguments,
+                                    ctx,
                                 )?;
                             }
                         }
@@ -2361,6 +2355,30 @@ impl FunctionCodeGen<'_> {
                 }
             }
         }
+
+        Ok(())
+    }
+
+    fn call_post_helper(
+        &mut self,
+        node: &Node,
+        signature: &Signature,
+        maybe_self: Option<FrameMemoryRegion>,
+        arguments: &Vec<MutRefOrImmutableExpression>,
+        ctx: &Context,
+    ) -> Result<(), Error> {
+        let (return_size, _alignment) = type_size_and_alignment(&signature.return_type);
+        if return_size.0 != 0 {
+            self.state.builder.add_mov(
+                ctx.addr(),
+                self.infinite_above_frame_size().addr,
+                return_size,
+                &node,
+                "copy the return value to destination",
+            );
+        }
+
+        self.copy_back_mutable_arguments(node, &signature, maybe_self, arguments)?;
 
         Ok(())
     }
@@ -3644,14 +3662,49 @@ impl FunctionCodeGen<'_> {
 
     fn gen_start_of_chain(&mut self, start: &StartOfChain) -> Result<FrameMemoryRegion, Error> {
         match &start.kind {
-            StartOfChainKind::FunctionCall(_) => {
-                todo!()
-            }
+            StartOfChainKind::Expression(expr) => self.gen_expression_for_access(expr),
             StartOfChainKind::Variable(variable) => {
                 let (x, y) = self.get_variable_region(variable);
                 Ok(x)
             }
         }
+    }
+
+    fn gen_internal_call(
+        &mut self,
+        node: &Node,
+        internal_fn: &InternalFunctionDefinitionRef,
+        arguments: &Vec<MutRefOrImmutableExpression>,
+        ctx: &Context,
+    ) -> Result<(), Error> {
+        self.gen_arguments(node, &internal_fn.signature.signature, None, arguments)?;
+
+        self.state.add_call(
+            &node,
+            internal_fn,
+            &format!("frame size: {}", self.frame_size),
+        ); // will be fixed up later
+
+        self.call_post_helper(node, &internal_fn.signature.signature, None, arguments, ctx)
+    }
+
+    fn gen_host_call(
+        &mut self,
+        node: &Node,
+        host_fn: &ExternalFunctionDefinitionRef,
+        arguments: &Vec<MutRefOrImmutableExpression>,
+        ctx: &Context,
+    ) -> Result<(), Error> {
+        let memory_region = self.gen_arguments(node, &host_fn.signature, None, arguments)?;
+
+        self.state.builder.add_host_call(
+            host_fn.id as u16,
+            memory_region.size,
+            node,
+            &format!("host call frame size: {}", self.frame_size),
+        ); // will be fixed up later
+
+        self.call_post_helper(node, &host_fn.signature, None, arguments, ctx)
     }
 }
 

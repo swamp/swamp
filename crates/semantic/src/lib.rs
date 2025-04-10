@@ -641,14 +641,8 @@ impl WhenBinding {
 }
 
 #[derive(Debug, Clone)]
-pub struct StartOfChainCall {
-    pub func_def: Function,
-    pub arguments: Vec<MutRefOrImmutableExpression>,
-}
-
-#[derive(Debug, Clone)]
 pub enum StartOfChainKind {
-    FunctionCall(StartOfChainCall),
+    Expression(Box<Expression>),
     Variable(VariableRef),
 }
 
@@ -661,14 +655,14 @@ pub struct StartOfChain {
 impl StartOfChainKind {
     pub fn ty(&self) -> Type {
         match self {
-            Self::FunctionCall(call) => *call.func_def.signature().return_type.clone(),
+            Self::Expression(expr) => expr.ty.clone(),
             Self::Variable(var) => var.resolved_type.clone(),
         }
     }
 
     pub fn is_mutable(&self) -> bool {
         match self {
-            Self::FunctionCall(call) => {
+            Self::Expression(call) => {
                 // The language can never return something that is mutable
                 false
             }
@@ -695,11 +689,18 @@ pub enum ExpressionKind {
     CoerceOptionToBool(Box<Expression>),
 
     // Calls
+    IntrinsicCallEx(IntrinsicFunction, Vec<MutRefOrImmutableExpression>),
+    InternalCall(
+        InternalFunctionDefinitionRef,
+        Vec<MutRefOrImmutableExpression>,
+    ),
+    HostCall(
+        ExternalFunctionDefinitionRef,
+        Vec<MutRefOrImmutableExpression>,
+    ),
 
     // For calls from returned function values
     //FunctionValueCall(Signature, Box<Expression>, Vec<MutRefOrImmutableExpression>),
-
-    //InterpolatedString(Vec<StringPart>),
 
     // Constructing
     VariableDefinition(VariableRef, Box<Expression>), // First time assignment
@@ -730,19 +731,6 @@ pub enum ExpressionKind {
 
     TupleDestructuring(Vec<VariableRef>, Vec<Type>, Box<Expression>),
 
-    // --------------------------------------------------------------------
-    // Built In members
-    // --------------------------------------------------------------------
-    IntrinsicCallEx(IntrinsicFunction, Vec<MutRefOrImmutableExpression>),
-    /*
-    //NoneCoalesceOperator(Box<Expression>, Box<Expression>),
-
-    IntrinsicCallMut(
-        IntrinsicFunction,
-        SingleMutLocationExpression,
-        Vec<Expression>,
-    ),
-    */
     Lambda(Vec<VariableRef>, Box<Expression>),
 }
 

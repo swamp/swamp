@@ -25,7 +25,6 @@ use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
-use swamp_semantic::StartOfChainCall;
 use swamp_semantic::instantiator::TypeVariableScope;
 use swamp_semantic::prelude::*;
 use swamp_semantic::type_var_stack::SemanticContext;
@@ -478,8 +477,8 @@ impl<'a> Analyzer<'a> {
         &mut self,
         ast_expression: &swamp_ast::Expression,
     ) -> Result<StartOfChainBase, Error> {
-        let start = if let Some(found_func_def) = self.check_if_function_reference(&ast_expression)
-        {
+        info!(?ast_expression, "WHAT START KIND IS THIS");
+        let start = if let Some(found_func_def) = self.check_if_function_reference(ast_expression) {
             StartOfChainBase::FunctionReference(found_func_def)
         } else if let swamp_ast::ExpressionKind::IdentifierReference(found_qualified_identifier) =
             &ast_expression.kind
@@ -507,10 +506,11 @@ impl<'a> Analyzer<'a> {
             .shared
             .source_map
             .get_span_location_utf8(self.shared.file_id, expr.node.span.offset as usize);
-        let _source_line = self
+        let source_line = self
             .shared
             .source_map
             .get_source_line(self.shared.file_id, line);
+        info!(?line, ?source_line, "debug_expr");
     }
 
     /// # Errors
@@ -565,6 +565,8 @@ impl<'a> Analyzer<'a> {
         ast_expression: &swamp_ast::Expression,
         context: &TypeContext,
     ) -> Result<Expression, Error> {
+        //        info!(?ast_expression, "analyze expression");
+        self.debug_expression(ast_expression);
         let expr = self.analyze_expression_internal(ast_expression, context)?;
 
         let encountered_type = expr.ty.clone();
@@ -912,18 +914,8 @@ impl<'a> Analyzer<'a> {
                     let Function::Internal(internal_function) = &function else {
                         panic!("only allowed for internal functions");
                     };
-
-                    let call = StartOfChainCall {
-                        func_def: Function::Internal(internal_function.clone()),
-                        arguments: arguments.to_vec(),
-                    };
-
-                    let start_of_chain = StartOfChain {
-                        kind: StartOfChainKind::FunctionCall(call),
-                        node: Default::default(),
-                    };
-
-                    let expr_kind = ExpressionKind::PostfixChain(start_of_chain, vec![]);
+                    let expr_kind =
+                        ExpressionKind::InternalCall(internal_function.clone(), arguments.to_vec());
 
                     Ok(expr_kind)
                 },
@@ -1016,14 +1008,28 @@ impl<'a> Analyzer<'a> {
                         arguments,
                     )?;
 
-                    let start = StartOfChainCall {
-                        func_def,
-                        arguments: analyzed_arguments,
-                    };
-
                     start_index = 1;
 
-                    StartOfChainKind::FunctionCall(start)
+                    let expr_kind = match &func_def {
+                        Function::Internal(internal) => {
+                            ExpressionKind::InternalCall(internal.clone(), analyzed_arguments)
+                        }
+                        Function::External(host) => {
+                            ExpressionKind::HostCall(host.clone(), analyzed_arguments)
+                        }
+                        Function::Intrinsic(intrinsic) => ExpressionKind::IntrinsicCallEx(
+                            intrinsic.intrinsic.clone(),
+                            analyzed_arguments,
+                        ),
+                    };
+
+                    let expr = self.create_expr(
+                        expr_kind,
+                        *signature.return_type.clone(),
+                        &chain.base.node,
+                    );
+
+                    StartOfChainKind::Expression(Box::from(expr))
                 } else {
                     panic!("must be a normal function call")
                 }
@@ -2158,15 +2164,21 @@ impl<'a> Analyzer<'a> {
         vec.push(postfix);
     }
 
-    fn extract_single_intrinsic_call(body: &Expression) -> Option<IntrinsicFunction> {
-        match &body.kind {
-            ExpressionKind::Block(expressions) => {
-                let first_kind = &expressions[0].kind;
-                if let ExpressionKind::IntrinsicCallEx(intrinsic_fn, _args) = first_kind {
-                    return Some(intrinsic_fn.clone());
+    fn extract_single_intrinsic_call(
+        body: &Expression,
+    ) -> Option<(IntrinsicFunction, Vec<MutRefOrImmutableExpression>)> {
+        if let ExpressionKind::Block(expressions) = &body.kind {
+            let first_kind = &expressions[0].kind;
+            info!(?first_kind, "FIRST EXPR");
+            if let ExpressionKind::PostfixChain(start, postfixes) = first_kind {
+                if postfixes.is_empty() {
+                    if let StartOfChainKind::Expression(fn_call) = &start.kind {
+                        if let ExpressionKind::IntrinsicCallEx(intrinsic_fn, args) = &fn_call.kind {
+                            Some((intrinsic_fn, args));
+                        }
+                    }
                 }
             }
-            _ => {}
         }
         None
     }
@@ -2226,7 +2238,7 @@ impl<'a> Analyzer<'a> {
                         .get_internal_member_function(&ty, subscript_member_function_name)
                         .cloned()
                     {
-                        let intrinsic_to_call =
+                        let (intrinsic_to_call, original_arguments) =
                             Self::extract_single_intrinsic_call(&found.body).expect("must exist");
 
                         let create_if_not_exists_bool_expr = self.create_expr(
