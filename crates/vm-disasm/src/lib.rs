@@ -8,7 +8,7 @@ use std::fmt::{Display, Formatter};
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
     BinaryInstruction, ConstantMemoryAddress, FrameMemoryAddress, FrameMemorySize,
-    InstructionPosition, MemoryOffset, MemorySize,
+    InstructionPosition, InstructionPositionOffset, MemoryOffset, MemorySize,
 };
 use yansi::{Color, Paint};
 
@@ -230,7 +230,7 @@ fn convert_tabs_to_spaces(input: &str) -> String {
 #[must_use]
 pub fn disasm_instructions_color(
     binary_instructions: &[BinaryInstruction],
-    instruction_position_base: &InstructionPosition,
+    instruction_position_base: &InstructionPositionOffset,
     memory_infos: &FrameMemoryInfo,
     ip_infos: &SeqMap<InstructionPosition, SourceFileLineInfo>,
 ) -> String {
@@ -250,8 +250,14 @@ pub fn disasm_instructions_color(
         }
         if let Some(found) = ip_infos.get(&InstructionPosition(ip_index as u16)) {
             if last_line_info.relative_file_name != found.relative_file_name {
-                writeln!(string, "{}", found.relative_file_name.bright_blue(),)
-                    .expect("should work");
+                writeln!(
+                    string,
+                    "{}:{}:{}",
+                    found.relative_file_name.bright_blue(),
+                    found.row,
+                    found.col
+                )
+                .expect("should work");
                 last_line_info = found.clone();
             }
             writeln!(
@@ -266,7 +272,7 @@ pub fn disasm_instructions_color(
 
         writeln!(
             string,
-            "     {:04X}: {}",
+            "     {:04X}> {}",
             ip_index,
             disasm_color(instruction, FrameMemorySize(last_frame_size), memory_infos,)
         )

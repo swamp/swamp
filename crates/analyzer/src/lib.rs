@@ -23,6 +23,7 @@ use source_map_node::{FileId, Node, Span};
 use std::fmt::Arguments;
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
+use std::task::Context;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
 use swamp_semantic::instantiator::TypeVariableScope;
@@ -461,7 +462,7 @@ impl<'a> Analyzer<'a> {
                 {
                     Some(func_ref)
                 } else {
-                    return None;
+                    None
                 }
             }
             swamp_ast::ExpressionKind::IdentifierReference(qualified_identifier) => {
@@ -476,29 +477,20 @@ impl<'a> Analyzer<'a> {
     pub fn analyze_start_chain_expression_get_mutability(
         &mut self,
         ast_expression: &swamp_ast::Expression,
-    ) -> Result<StartOfChainBase, Error> {
-        info!(?ast_expression, "WHAT START KIND IS THIS");
-        let start = if let Some(found_func_def) = self.check_if_function_reference(ast_expression) {
-            StartOfChainBase::FunctionReference(found_func_def)
+    ) -> Option<StartOfChainBase> {
+        if let Some(found_func_def) = self.check_if_function_reference(ast_expression) {
+            Some(StartOfChainBase::FunctionReference(found_func_def))
         } else if let swamp_ast::ExpressionKind::IdentifierReference(found_qualified_identifier) =
             &ast_expression.kind
         {
             if let Some(found_variable) = self.try_find_variable(&found_qualified_identifier.name) {
-                StartOfChainBase::Variable(found_variable)
+                Some(StartOfChainBase::Variable(found_variable))
             } else {
-                let text = self.get_text(&found_qualified_identifier.name);
-                return Err(self.create_err(
-                    ErrorKind::UnknownIdentifier(text.to_string()),
-                    &ast_expression.node,
-                ));
+                None
             }
         } else {
-            return Err(self.create_err(
-                ErrorKind::NotValidLocationStartingPoint,
-                &ast_expression.node,
-            ));
-        };
-        Ok(start)
+            None
+        }
     }
 
     pub fn debug_expression(&self, expr: &swamp_ast::Expression) {
@@ -566,7 +558,7 @@ impl<'a> Analyzer<'a> {
         context: &TypeContext,
     ) -> Result<Expression, Error> {
         //        info!(?ast_expression, "analyze expression");
-        self.debug_expression(ast_expression);
+        //self.debug_expression(ast_expression);
         let expr = self.analyze_expression_internal(ast_expression, context)?;
 
         let encountered_type = expr.ty.clone();
@@ -916,6 +908,7 @@ impl<'a> Analyzer<'a> {
                     };
                     let expr_kind =
                         ExpressionKind::InternalCall(internal_function.clone(), arguments.to_vec());
+                    info!(?function_name, ?ty, "created static call");
 
                     Ok(expr_kind)
                 },
@@ -988,53 +981,62 @@ impl<'a> Analyzer<'a> {
         &mut self,
         chain: &swamp_ast::PostfixChain,
     ) -> Result<Expression, Error> {
-        let start_of_chain_base =
-            self.analyze_start_chain_expression_get_mutability(&chain.base)?;
+        let maybe_start_of_chain_base =
+            self.analyze_start_chain_expression_get_mutability(&chain.base);
 
         let mut start_index = 0;
 
-        let start_of_chain_kind = match start_of_chain_base {
-            StartOfChainBase::FunctionReference(func_def) => {
-                // In this version it is not allowed to provide references to functions
-                // So it must mean that this is a function call
-                if let swamp_ast::Postfix::FunctionCall(ast_node, types, arguments) =
-                    &chain.postfixes[0]
-                {
-                    let signature = func_def.signature();
-                    let resolved_node = self.to_node(&ast_node);
-                    let analyzed_arguments = self.analyze_and_verify_parameters(
-                        &resolved_node,
-                        &signature.parameters,
-                        arguments,
-                    )?;
+        let start_of_chain_kind = if let Some(start_of_chain_base) = maybe_start_of_chain_base {
+            match start_of_chain_base {
+                StartOfChainBase::FunctionReference(func_def) => {
+                    // In this version it is not allowed to provide references to functions
+                    // So it must mean that this is a function call
+                    if let swamp_ast::Postfix::FunctionCall(ast_node, types, arguments) =
+                        &chain.postfixes[0]
+                    {
+                        let signature = func_def.signature();
+                        let resolved_node = self.to_node(&ast_node);
+                        let analyzed_arguments = self.analyze_and_verify_parameters(
+                            &resolved_node,
+                            &signature.parameters,
+                            arguments,
+                        )?;
 
-                    start_index = 1;
+                        start_index = 1;
 
-                    let expr_kind = match &func_def {
-                        Function::Internal(internal) => {
-                            ExpressionKind::InternalCall(internal.clone(), analyzed_arguments)
+                        let expr_kind = match &func_def {
+                            Function::Internal(internal) => {
+                                ExpressionKind::InternalCall(internal.clone(), analyzed_arguments)
+                            }
+                            Function::External(host) => {
+                                ExpressionKind::HostCall(host.clone(), analyzed_arguments)
+                            }
+                            Function::Intrinsic(intrinsic) => ExpressionKind::IntrinsicCallEx(
+                                intrinsic.intrinsic.clone(),
+                                analyzed_arguments,
+                            ),
+                        };
+
+                        let expr = self.create_expr(
+                            expr_kind,
+                            *signature.return_type.clone(),
+                            &chain.base.node,
+                        );
+
+                        if chain.postfixes.len() == 1 {
+                            return Ok(expr);
                         }
-                        Function::External(host) => {
-                            ExpressionKind::HostCall(host.clone(), analyzed_arguments)
-                        }
-                        Function::Intrinsic(intrinsic) => ExpressionKind::IntrinsicCallEx(
-                            intrinsic.intrinsic.clone(),
-                            analyzed_arguments,
-                        ),
-                    };
 
-                    let expr = self.create_expr(
-                        expr_kind,
-                        *signature.return_type.clone(),
-                        &chain.base.node,
-                    );
-
-                    StartOfChainKind::Expression(Box::from(expr))
-                } else {
-                    panic!("must be a normal function call")
+                        StartOfChainKind::Expression(Box::from(expr))
+                    } else {
+                        panic!("must be a normal function call")
+                    }
                 }
+                StartOfChainBase::Variable(var) => StartOfChainKind::Variable(var),
             }
-            StartOfChainBase::Variable(var) => StartOfChainKind::Variable(var),
+        } else {
+            let ctx = TypeContext::new_anything_argument();
+            StartOfChainKind::Expression(Box::from(self.analyze_expression(&chain.base, &ctx)?))
         };
 
         let start_of_chain_node = self.to_node(&chain.base.node);
@@ -2170,14 +2172,8 @@ impl<'a> Analyzer<'a> {
         if let ExpressionKind::Block(expressions) = &body.kind {
             let first_kind = &expressions[0].kind;
             info!(?first_kind, "FIRST EXPR");
-            if let ExpressionKind::PostfixChain(start, postfixes) = first_kind {
-                if postfixes.is_empty() {
-                    if let StartOfChainKind::Expression(fn_call) = &start.kind {
-                        if let ExpressionKind::IntrinsicCallEx(intrinsic_fn, args) = &fn_call.kind {
-                            Some((intrinsic_fn, args));
-                        }
-                    }
-                }
+            if let ExpressionKind::IntrinsicCallEx(intrinsic_fn, args) = &first_kind {
+                return Some((intrinsic_fn.clone(), args.clone()));
             }
         }
         None
@@ -2239,7 +2235,8 @@ impl<'a> Analyzer<'a> {
                         .cloned()
                     {
                         let (intrinsic_to_call, original_arguments) =
-                            Self::extract_single_intrinsic_call(&found.body).expect("must exist");
+                            Self::extract_single_intrinsic_call(&found.body)
+                                .expect(&format!("must exist {subscript_member_function_name}"));
 
                         let create_if_not_exists_bool_expr = self.create_expr(
                             ExpressionKind::Literal(Literal::BoolLiteral(create_if_not_exists)),

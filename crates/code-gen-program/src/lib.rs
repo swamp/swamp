@@ -2,13 +2,19 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
-use source_map_cache::SourceMapWrapper;
-use swamp_code_gen::{CodeGenState, Error, GenOptions};
+use seq_map::SeqMap;
+use source_map_cache::{FileLineInfo, SourceMapWrapper};
+use swamp_code_gen::{
+    CodeGenState, Error, FrameRelativeInfoKind, GenOptions, disasm_whole_program,
+};
 use swamp_compile::Program;
 use swamp_modules::prelude::ModuleRef;
 use swamp_semantic::Function;
 use swamp_types::Type;
+use swamp_vm_disasm::{
+    BasicType, ComplexType, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
+    SourceFileLineInfo, disasm_instructions_color,
+};
 use tracing::{info, warn};
 
 /// # Errors
@@ -38,7 +44,7 @@ pub fn code_gen_program<'a>(
     for (path, module) in program.modules.modules() {
         info!(?path, "generating module");
         for internal_function_def in &module.symbol_table.internal_functions() {
-            code_gen.gen_function_def(
+            let frame_infos = code_gen.gen_function_def(
                 internal_function_def,
                 &normal_function,
                 source_map_lookup,
@@ -72,11 +78,11 @@ pub fn code_gen_program<'a>(
                 }
 
                 Function::External(_ext_fn) => {
-                    todo!()
+                    //
                 }
 
                 Function::Intrinsic(_) => {
-                    todo!()
+                    //
                 }
             }
         }
@@ -88,6 +94,13 @@ pub fn code_gen_program<'a>(
     )?;
 
     code_gen.finalize();
+    disasm_whole_program(
+        &code_gen.function_ips,
+        &code_gen.function_debug_infos,
+        source_map_lookup,
+        code_gen.instructions(),
+        code_gen.meta(),
+    );
 
     Ok(code_gen)
 }

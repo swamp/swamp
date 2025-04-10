@@ -39,8 +39,8 @@ use swamp_vm_instr_build::{InstructionBuilder, Meta, PatchPosition};
 use swamp_vm_types::{
     BOOL_SIZE, BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
     FrameMemorySize, HEAP_PTR_ALIGNMENT, HEAP_PTR_SIZE, HeapMemoryAddress, INT_SIZE,
-    InstructionPosition, MemoryAlignment, MemoryOffset, MemorySize, PTR_SIZE,
-    TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
+    InstructionPosition, InstructionPositionOffset, MemoryAlignment, MemoryOffset, MemorySize,
+    PTR_SIZE, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
 };
 use tracing::{error, info, trace};
 
@@ -55,6 +55,7 @@ pub struct FrameRelativeInfo {
     pub kind: FrameRelativeInfoKind,
 }
 
+#[derive(Clone)]
 pub struct FunctionIp {
     start_ip: InstructionPosition,
     end_ip: InstructionPosition,
@@ -116,24 +117,174 @@ pub struct FunctionDebugInfo {
     pub frame_relative: Vec<FrameRelativeInfo>,
 }
 
+pub struct FunctionIps {
+    ranges: Vec<FunctionIp>,
+}
+
+impl Default for FunctionIps {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FunctionIps {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { ranges: Vec::new() }
+    }
+    #[must_use]
+    pub fn get(&self, ip: InstructionPosition) -> Option<InternalFunctionId> {
+        for range in &self.ranges {
+            if range.start_ip.0 >= ip.0 && range.end_ip.0 <= ip.0 {
+                return Some(range.internal_fn_id);
+            }
+        }
+
+        None
+    }
+    #[must_use]
+    pub fn get_function_end_from_start(&self, ip: InstructionPosition) -> Option<FunctionIp> {
+        for range in &self.ranges {
+            if range.start_ip.0 == ip.0 {
+                return Some(range.clone());
+            }
+        }
+
+        None
+    }
+}
+
 pub struct CodeGenState {
     builder: InstructionBuilder,
     constants: ConstantsManager,
     constant_offsets: SeqMap<ConstantId, ConstantMemoryRegion>,
     constant_functions: SeqMap<ConstantId, ConstantInfo>,
-    function_infos: SeqMap<InternalFunctionId, FunctionInfo>,
+    pub function_infos: SeqMap<InternalFunctionId, FunctionInfo>,
     function_fixups: Vec<FunctionFixup>,
 
-    function_ips: Vec<FunctionIp>,
-    function_debug_infos: SeqMap<InternalFunctionId, FunctionDebugInfo>,
-    //source_map_lookup: &'b SourceMapWrapper<'b>,
-    debug_last_ip: usize,
+    pub function_ips: FunctionIps,
+    pub function_debug_infos: SeqMap<InternalFunctionId, FunctionDebugInfo>,
 }
 
 pub struct GenOptions {
     pub is_halt_function: bool,
 }
 
+fn different_file_info(span_a: &FileLineInfo, span_b: &FileLineInfo) -> bool {
+    span_a.line != span_b.line
+}
+
+pub fn disasm_function(
+    frame_relative_infos: &Vec<FrameRelativeInfo>,
+    instructions: &[BinaryInstruction],
+    meta: &[Meta],
+    ip_offset: InstructionPositionOffset,
+    source_map_wrapper: &SourceMapWrapper,
+) -> String {
+    let mut ip_infos = SeqMap::new();
+
+    let mut memory_infos = Vec::new();
+    let mut previous_node: Option<FileLineInfo> = None;
+
+    for (offset, _inst) in instructions.iter().enumerate() {
+        let absolute_ip = ip_offset.0 + offset as u16;
+        let meta = &meta[offset];
+        let file_line_info = if meta.node.span.file_id == 0 {
+            FileLineInfo {
+                row: 0,
+                col: 0,
+                line: "".to_string(),
+                relative_file_name: "".to_string(),
+            }
+        } else {
+            //let text = source_map_wrapper.get_text_span(&meta.node.span);
+            source_map_wrapper.get_line(&meta.node.span)
+        };
+        let is_different_line = if let Some(previous) = &previous_node {
+            different_file_info(&file_line_info, previous)
+        } else {
+            true
+        };
+        previous_node = Some(FileLineInfo {
+            row: file_line_info.row,
+            col: file_line_info.col,
+            line: file_line_info.line.clone(),
+            relative_file_name: file_line_info.relative_file_name.clone(),
+        });
+
+        if is_different_line {
+            let mapped = SourceFileLineInfo {
+                row: file_line_info.row,
+                col: file_line_info.col,
+                line: file_line_info.line,
+                relative_file_name: file_line_info.relative_file_name,
+            };
+            ip_infos
+                .insert(InstructionPosition(absolute_ip as u16), mapped)
+                .unwrap();
+        }
+    }
+
+    for frame_relative_info in frame_relative_infos {
+        let converted_kind = match &frame_relative_info.kind {
+            FrameRelativeInfoKind::Variable(var) => FrameAddressInfoKind::Variable {
+                is_mutable: var.is_mutable(),
+                name: var.assigned_name.clone(),
+                ty: ComplexType::BasicType(BasicType::S32),
+            },
+        };
+
+        memory_infos.push(FrameAddressInfo {
+            addr: frame_relative_info.frame_memory_region.addr,
+            size: FrameMemorySize(frame_relative_info.frame_memory_region.size.0),
+            kind: converted_kind,
+        })
+    }
+
+    let mem_info = FrameMemoryInfo {
+        infos: memory_infos,
+    };
+
+    disasm_instructions_color(&instructions, &ip_offset, &mem_info, &ip_infos)
+}
+
+pub fn disasm_whole_program(
+    function_ips: &FunctionIps,
+    function_debug_infos: &SeqMap<InternalFunctionId, FunctionDebugInfo>,
+    source_map_wrapper: &SourceMapWrapper,
+    instructions: &[BinaryInstruction],
+    meta: &[Meta],
+) {
+    let mut current_ip: u16 = 0;
+
+    while current_ip < instructions.len() as u16 {
+        if let Some(function_ip) =
+            function_ips.get_function_end_from_start(InstructionPosition(current_ip))
+        {
+            let function_debug_info = function_debug_infos
+                .get(&function_ip.internal_fn_id)
+                .unwrap();
+
+            //panic!("unknown ip");
+            eprintln!("function =====");
+            let instructions_slice =
+                &instructions[function_ip.start_ip.0 as usize..=function_ip.end_ip.0 as usize];
+            let meta_slice = &meta[function_ip.start_ip.0 as usize..=function_ip.end_ip.0 as usize];
+
+            let output_string = disasm_function(
+                &function_debug_info.frame_relative,
+                instructions_slice,
+                meta_slice,
+                InstructionPositionOffset(function_ip.start_ip.0),
+                &source_map_wrapper,
+            );
+            eprintln!("output\n{output_string}");
+            current_ip = function_ip.end_ip.0 + 1;
+        } else {
+            current_ip += 1;
+        }
+    }
+}
 impl CodeGenState {
     #[must_use]
     pub fn new() -> Self {
@@ -144,9 +295,8 @@ impl CodeGenState {
             function_infos: SeqMap::default(),
             constant_functions: SeqMap::default(),
             function_fixups: vec![],
-            function_ips: vec![],
+            function_ips: FunctionIps::default(),
             function_debug_infos: SeqMap::default(),
-            debug_last_ip: 0,
         }
     }
 
@@ -219,11 +369,14 @@ impl CodeGenState {
     pub fn finalize(&mut self) {
         for function_fixup in &self.function_fixups {
             info!(fn_id = ?function_fixup.fn_id, "fixing up function");
-            let func = self.function_infos.get(&function_fixup.fn_id).unwrap();
-            self.builder.patch_call(
-                PatchPosition(InstructionPosition(function_fixup.patch_position.0.0)),
-                &func.starts_at_ip,
-            );
+            if let Some(func) = self.function_infos.get(&function_fixup.fn_id) {
+                self.builder.patch_call(
+                    PatchPosition(InstructionPosition(function_fixup.patch_position.0.0)),
+                    &func.starts_at_ip,
+                );
+            } else {
+                error!(?function_fixup.fn_id, "couldn't fixup function");
+            }
         }
 
         self.function_fixups.clear();
@@ -242,10 +395,6 @@ impl CodeGenState {
             self.constants.take_data(),
             self.constant_functions,
         )
-    }
-
-    fn different_file_info(span_a: &FileLineInfo, span_b: &FileLineInfo) -> bool {
-        span_a.line != span_b.line
     }
 
     pub fn gen_function_def(
@@ -293,83 +442,12 @@ impl CodeGenState {
                 function_generator.frame_memory_infos.clone()
             };
 
-            let mut ip_infos = SeqMap::new();
-
-            let mut memory_infos = Vec::new();
-            let mut previous_node: Option<FileLineInfo> = None;
-
-            for ip in (start_ip.0 as usize)..self.instructions().len() {
-                let meta = &self.meta()[ip];
-                let file_line_info = if meta.node.span.file_id == 0 {
-                    FileLineInfo {
-                        row: 0,
-                        col: 0,
-                        line: "".to_string(),
-                        relative_file_name: "".to_string(),
-                    }
-                } else {
-                    let text = source_map_wrapper.get_text_span(&meta.node.span);
-                    source_map_wrapper.get_line(&meta.node.span)
-                };
-                let is_different_line = if let Some(previous) = &previous_node {
-                    Self::different_file_info(&file_line_info, previous)
-                } else {
-                    true
-                };
-                previous_node = Some(FileLineInfo {
-                    row: file_line_info.row,
-                    col: file_line_info.col,
-                    line: file_line_info.line.clone(),
-                    relative_file_name: file_line_info.relative_file_name.clone(),
-                });
-
-                if is_different_line {
-                    let mapped = SourceFileLineInfo {
-                        row: file_line_info.row,
-                        col: file_line_info.col,
-                        line: file_line_info.line,
-                        relative_file_name: file_line_info.relative_file_name,
-                    };
-                    ip_infos
-                        .insert(InstructionPosition(ip as u16), mapped)
-                        .unwrap();
-                }
-            }
-
-            for x in &frame_relative_infos {
-                let converted_kind = match &x.kind {
-                    FrameRelativeInfoKind::Variable(var) => FrameAddressInfoKind::Variable {
-                        is_mutable: var.is_mutable(),
-                        name: var.assigned_name.clone(),
-                        ty: ComplexType::BasicType(BasicType::S32),
-                    },
-                };
-
-                memory_infos.push(FrameAddressInfo {
-                    addr: x.frame_memory_region.addr,
-                    size: FrameMemorySize(x.frame_memory_region.size.0),
-                    kind: converted_kind,
-                })
-            }
-
-            let mem_info = FrameMemoryInfo {
-                infos: memory_infos,
-            };
-
-            let output = disasm_instructions_color(
-                &self.instructions()[start_ip.0 as usize..],
-                &start_ip,
-                &mem_info,
-                &ip_infos,
-            );
-            eprintln!("output\n{output}");
-
             frame_relative_infos
         };
 
         let end_ip = self.ip();
 
-        self.function_ips.push(FunctionIp {
+        self.function_ips.ranges.push(FunctionIp {
             start_ip,
             end_ip,
             internal_fn_id: internal_fn_def.program_unique_id,
@@ -379,7 +457,7 @@ impl CodeGenState {
             .insert(
                 internal_fn_def.program_unique_id,
                 FunctionDebugInfo {
-                    frame_relative: debug_frame_relative_info,
+                    frame_relative: debug_frame_relative_info.clone(),
                 },
             )
             .unwrap();
@@ -2344,7 +2422,12 @@ impl FunctionCodeGen<'_> {
                                 )?;
                             }
                         }
-                        _ => panic!("not supported as a member call"),
+                        Function::External(x) => {}
+                        Function::Intrinsic(intr) => {}
+                        _ => panic!(
+                            "{}",
+                            &format!("not supported as a member call {function_to_call:?}")
+                        ),
                     }
                 }
                 PostfixKind::OptionalChainingOperator => {
@@ -2504,10 +2587,11 @@ impl FunctionCodeGen<'_> {
             }
             Literal::Slice(ty, expressions) => {
                 //self.gen_slice_literal(ty, expressions, ctx)
-                todo!()
+
+                // TODO: !!!!
             }
             Literal::SlicePair(ty, expression_pairs) => {
-                todo!()
+                // TODO: !!!!
             }
         }
 
@@ -2727,7 +2811,7 @@ impl FunctionCodeGen<'_> {
                 todo!();
             }
             Type::NamedStruct(named_type) => {
-                let node = &named_type.name;
+                //let node = &named_type.name;
                 if let Some(found_info) = is_vec(collection_type) {
                     self.gen_for_loop_vec(node, for_pattern, &iterable.resolved_expression)?
                 } else if let Some(found_info) = is_map(collection_type) {
