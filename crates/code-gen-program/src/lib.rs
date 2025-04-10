@@ -71,7 +71,13 @@ pub fn code_gen_program<'a>(
                     code_gen.gen_function_def(int_fn, &normal_function, source_map_lookup)?;
                 }
 
-                Function::External(_ext_fn) => {}
+                Function::External(_ext_fn) => {
+                    todo!()
+                }
+
+                Function::Intrinsic(_) => {
+                    todo!()
+                }
             }
         }
     }

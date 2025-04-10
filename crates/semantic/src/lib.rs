@@ -366,6 +366,7 @@ pub type FunctionRef = Rc<Function>;
 pub enum Function {
     Internal(InternalFunctionDefinitionRef),
     External(ExternalFunctionDefinitionRef),
+    Intrinsic(IntrinsicFunctionDefinitionRef),
 }
 
 impl Function {
@@ -374,6 +375,7 @@ impl Function {
         match self {
             Self::Internal(x) => x.assigned_name.clone(),
             Self::External(y) => y.assigned_name.clone(),
+            Self::Intrinsic(i) => i.name.clone(),
         }
     }
 
@@ -382,6 +384,7 @@ impl Function {
         match self {
             Self::Internal(x) => Some(&x.name.0),
             Self::External(y) => y.name.as_ref(),
+            Self::Intrinsic(i) => None,
         }
     }
 
@@ -390,6 +393,7 @@ impl Function {
         match self {
             Self::Internal(x) => x.name.0.clone(),
             Self::External(_y) => Node::new_unknown(),
+            Self::Intrinsic(i) => Node::new_unknown(),
         }
     }
 
@@ -398,6 +402,7 @@ impl Function {
         match self {
             Self::Internal(internal) => &internal.signature.signature,
             Self::External(external) => &external.signature,
+            Self::Intrinsic(i) => &i.signature,
         }
     }
 
@@ -406,6 +411,7 @@ impl Function {
         match self {
             Self::Internal(internal) => (Some(&internal.signature), &internal.signature.signature),
             Self::External(external) => (None, &external.signature),
+            Self::Intrinsic(i) => (None, &i.signature),
         }
     }
 }
@@ -524,7 +530,7 @@ pub struct Postfix {
 pub enum PostfixKind {
     StructField(AnonymousStructType, usize),
     MemberCall(FunctionRef, Vec<MutRefOrImmutableExpression>),
-    FunctionCall(Vec<MutRefOrImmutableExpression>),
+    // FunctionCall(Vec<MutRefOrImmutableExpression>), // This should be removed
     OptionalChainingOperator,           // ? operator
     NoneCoalescingOperator(Expression), // ?? operator
 }
@@ -635,20 +641,54 @@ impl WhenBinding {
 }
 
 #[derive(Debug, Clone)]
+pub struct StartOfChainCall {
+    pub func_def: Function,
+    pub arguments: Vec<MutRefOrImmutableExpression>,
+}
+
+#[derive(Debug, Clone)]
+pub enum StartOfChainKind {
+    FunctionCall(StartOfChainCall),
+    Variable(VariableRef),
+}
+
+#[derive(Debug, Clone)]
+pub struct StartOfChain {
+    pub kind: StartOfChainKind,
+    pub node: Node,
+}
+
+impl StartOfChainKind {
+    pub fn ty(&self) -> Type {
+        match self {
+            Self::FunctionCall(call) => *call.func_def.signature().return_type.clone(),
+            Self::Variable(var) => var.resolved_type.clone(),
+        }
+    }
+
+    pub fn is_mutable(&self) -> bool {
+        match self {
+            Self::FunctionCall(call) => {
+                // The language can never return something that is mutable
+                false
+            }
+            Self::Variable(var) => var.is_mutable(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum ExpressionKind {
     // Access Lookup values
     ConstantAccess(ConstantRef),
     VariableAccess(VariableRef),
 
     // ----
-    IntrinsicFunctionAccess(IntrinsicFunctionDefinitionRef),
-    InternalFunctionAccess(InternalFunctionDefinitionRef),
-    ExternalFunctionAccess(ExternalFunctionDefinitionRef),
 
     // Operators
     BinaryOp(BinaryOperator),
     UnaryOp(UnaryOperator),
-    PostfixChain(Box<Expression>, Vec<Postfix>),
+    PostfixChain(StartOfChain, Vec<Postfix>),
 
     // Conversion
     // the `?` operator. unwraps the value, unless it is none
@@ -657,7 +697,7 @@ pub enum ExpressionKind {
     // Calls
 
     // For calls from returned function values
-    FunctionValueCall(Signature, Box<Expression>, Vec<MutRefOrImmutableExpression>),
+    //FunctionValueCall(Signature, Box<Expression>, Vec<MutRefOrImmutableExpression>),
 
     //InterpolatedString(Vec<StringPart>),
 

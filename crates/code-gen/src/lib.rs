@@ -27,8 +27,8 @@ use swamp_semantic::{
     ForPattern, Function, Guard, InternalFunctionDefinition, InternalFunctionDefinitionRef,
     InternalFunctionId, InternalMainExpression, Iterable, Literal, Match,
     MutRefOrImmutableExpression, NormalPattern, Pattern, Postfix, PostfixKind,
-    SingleLocationExpression, TargetAssignmentLocation, UnaryOperator, UnaryOperatorKind,
-    VariableRef, WhenBinding,
+    SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
+    UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
 use swamp_vm_disasm::{
@@ -1309,7 +1309,6 @@ impl FunctionCodeGen<'_> {
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
         let result = match &expr.kind {
-            //ExpressionKind::InterpolatedString(_) => todo!(),
             ExpressionKind::ConstantAccess(constant_ref) => self
                 .gen_constant_access(&expr.node, constant_ref, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
@@ -1323,9 +1322,9 @@ impl FunctionCodeGen<'_> {
             ExpressionKind::VariableAccess(variable_ref) => self
                 .gen_variable_access(variable_ref, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
-            ExpressionKind::InternalFunctionAccess(function) => self
-                .internal_function_access(function, ctx)
-                .map(|_| GeneratedExpressionResult::default()),
+            // ExpressionKind::InternalFunctionAccess(function) => self
+            //    .internal_function_access(function, ctx)
+            //   .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::BinaryOp(operator) => self.gen_binary_operator(operator, ctx),
             ExpressionKind::UnaryOp(operator) => self
                 .gen_unary_operator(operator, ctx)
@@ -1350,16 +1349,16 @@ impl FunctionCodeGen<'_> {
                 .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::ForLoop(a, b, c) => self
                 .gen_for_loop(&expr.node, a, b, c)
-                .map(|_| GeneratedExpressionResult::default()),
+                .map(|()| GeneratedExpressionResult::default()),
             ExpressionKind::WhileLoop(condition, expression) => self
                 .gen_while_loop(condition, expression, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
             ExpressionKind::Block(expressions) => self
                 .gen_block(expressions, ctx)
-                .map(|_| GeneratedExpressionResult::default()),
+                .map(|()| GeneratedExpressionResult::default()),
             ExpressionKind::Match(match_expr) => self
                 .gen_match(match_expr, ctx)
-                .map(|_| GeneratedExpressionResult::default()),
+                .map(|()| GeneratedExpressionResult::default()),
             ExpressionKind::Guard(guards) => self
                 .gen_guard(guards, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
@@ -1387,18 +1386,21 @@ impl FunctionCodeGen<'_> {
                     .map(|_| GeneratedExpressionResult::default())
             }
 
-            ExpressionKind::Lambda(vec, x) => {
-                todo!()
+            ExpressionKind::Lambda(_vec, _x) => {
+                panic!("something went wrong. non-capturing lambdas can not be evaluated")
             }
+
             // --------- Not high prio
             ExpressionKind::CoerceOptionToBool(a) => self
-                .gen_coerce_option_to_bool(&a, ctx)
+                .gen_coerce_option_to_bool(a, ctx)
                 .map(|_| GeneratedExpressionResult::default()),
-            ExpressionKind::FunctionValueCall(_, _, _) => todo!(),
+
+            // --------- Maybe remove from the language?
+            //ExpressionKind::FunctionValueCall(_, _, _) => todo!(),
 
             // --------- TO BE REMOVED
-            ExpressionKind::IntrinsicFunctionAccess(_) => todo!(), // TODO: IntrinsicFunctionAccess should be reduced away in analyzer
-            ExpressionKind::ExternalFunctionAccess(_) => todo!(), // TODO: ExternalFunctionAccess should be reduced away in analyzer
+            //ExpressionKind::IntrinsicFunctionAccess(_) => todo!(), // TODO: IntrinsicFunctionAccess should be reduced away in analyzer
+            //ExpressionKind::ExternalFunctionAccess(_) => todo!(), // TODO: ExternalFunctionAccess should be reduced away in analyzer
             ExpressionKind::VariableBinding(_, _) => todo!(),
         };
 
@@ -2201,10 +2203,11 @@ impl FunctionCodeGen<'_> {
     #[allow(clippy::too_many_lines)]
     fn gen_postfix_chain(
         &mut self,
-        start_expression: &Expression,
+        start_expression: &StartOfChain,
         chain: &[Postfix],
         ctx: &Context,
     ) -> Result<(), Error> {
+        /*
         if let ExpressionKind::InternalFunctionAccess(internal_fn) = &start_expression.kind {
             if chain.len() == 1 {
                 if let PostfixKind::FunctionCall(args) = &chain[0].kind {
@@ -2285,7 +2288,9 @@ impl FunctionCodeGen<'_> {
             }
         }
 
-        let mut start_source = self.gen_expression_for_access(start_expression)?;
+         */
+
+        let mut start_source = self.gen_start_of_chain(start_expression)?;
 
         for element in chain {
             match &element.kind {
@@ -2345,14 +2350,8 @@ impl FunctionCodeGen<'_> {
                                 )?;
                             }
                         }
-                        Function::External(external_fn) => {
-                            //self.state.builder.add_host_call(external_fn.id);
-                        }
+                        _ => panic!("not supported as a member call"),
                     }
-                }
-                PostfixKind::FunctionCall(arguments) => {
-                    //self.gen_arguments(arguments);
-                    //self.state.add_call(start_expression)
                 }
                 PostfixKind::OptionalChainingOperator => {
                     //TODO:
@@ -3641,6 +3640,18 @@ impl FunctionCodeGen<'_> {
             frame_memory_region: region,
             kind,
         });
+    }
+
+    fn gen_start_of_chain(&mut self, start: &StartOfChain) -> Result<FrameMemoryRegion, Error> {
+        match &start.kind {
+            StartOfChainKind::FunctionCall(_) => {
+                todo!()
+            }
+            StartOfChainKind::Variable(variable) => {
+                let (x, y) = self.get_variable_region(variable);
+                Ok(x)
+            }
+        }
     }
 }
 

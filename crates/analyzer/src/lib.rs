@@ -20,10 +20,12 @@ use crate::err::{Error, ErrorKind};
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
+use std::fmt::Arguments;
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
+use swamp_semantic::StartOfChainCall;
 use swamp_semantic::instantiator::TypeVariableScope;
 use swamp_semantic::prelude::*;
 use swamp_semantic::type_var_stack::SemanticContext;
@@ -33,6 +35,7 @@ use swamp_semantic::{
     NormalPattern, Postfix, PostfixKind, SingleLocationExpression, TargetAssignmentLocation,
     TypeWithMut, WhenBinding,
 };
+use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::all_types_are_concrete_or_unit;
 use swamp_types::prelude::*;
 use tracing::info;
@@ -43,6 +46,10 @@ pub enum LocationSide {
     Rhs,
 }
 
+pub enum StartOfChainBase {
+    FunctionReference(Function),
+    Variable(VariableRef),
+}
 #[derive(Debug)]
 pub struct Program {
     pub state: ProgramState,
@@ -396,21 +403,103 @@ impl<'a> Analyzer<'a> {
         Ok(resolved_parameters)
     }
 
+    pub(crate) fn analyze_static_member_access(
+        &mut self,
+        named_type: &swamp_ast::QualifiedTypeIdentifier,
+        member_name_node: &swamp_ast::Node,
+    ) -> Option<Function> {
+        let Some(some_type) = self.analyze_named_type(named_type).ok() else {
+            return None;
+        };
+
+        let member_name = self.get_text(member_name_node);
+        self.lookup_associated_function(&some_type, member_name)
+    }
+
+    pub fn analyze_local_function_access(
+        &mut self,
+        qualified_func_name: &swamp_ast::QualifiedIdentifier,
+    ) -> Option<Function> {
+        let path = self.get_module_path(qualified_func_name.module_path.as_ref());
+        let function_name = self.get_text(&qualified_func_name.name);
+
+        if let Some(found_table) = self.shared.get_symbol_table(&path) {
+            if let Some(found_func) = found_table.get_function(function_name) {
+                let (kind, signature) = match found_func {
+                    FuncDef::Internal(internal_fn) => (
+                        Function::Internal(internal_fn.clone()),
+                        &internal_fn.signature.signature,
+                    ),
+                    FuncDef::External(external_fn) => (
+                        Function::External(external_fn.clone()),
+                        &external_fn.signature,
+                    ),
+                    // Can not have a reference to an intrinsic function
+                    FuncDef::Intrinsic(intrinsic_fn) => (
+                        Function::Intrinsic(intrinsic_fn.clone()),
+                        &intrinsic_fn.signature,
+                    ),
+                };
+
+                return Some(kind.clone());
+            }
+        }
+
+        None
+    }
+
+    fn check_if_function_reference(
+        &mut self,
+        ast_expression: &swamp_ast::Expression,
+    ) -> Option<Function> {
+        match &ast_expression.kind {
+            swamp_ast::ExpressionKind::StaticMemberFunctionReference(
+                qualified_type_identifier,
+                node,
+            ) => {
+                if let Some(func_ref) =
+                    self.analyze_static_member_access(qualified_type_identifier, node)
+                {
+                    Some(func_ref)
+                } else {
+                    return None;
+                }
+            }
+            swamp_ast::ExpressionKind::IdentifierReference(qualified_identifier) => {
+                self.analyze_local_function_access(qualified_identifier)
+            }
+            _ => None,
+        }
+    }
+
     /// # Errors
     ///
     pub fn analyze_start_chain_expression_get_mutability(
         &mut self,
         ast_expression: &swamp_ast::Expression,
-        expected_type: Option<&Type>,
-    ) -> Result<(Expression, bool), Error> {
-        let any_parameter_context = TypeContext::new_unsure_argument(expected_type);
-        let resolved = self.analyze_expression(ast_expression, &any_parameter_context)?;
-        let mutability = match resolved.kind {
-            ExpressionKind::VariableAccess(ref resolved_variable) => resolved_variable.is_mutable(),
-            _ => false,
+    ) -> Result<StartOfChainBase, Error> {
+        let start = if let Some(found_func_def) = self.check_if_function_reference(&ast_expression)
+        {
+            StartOfChainBase::FunctionReference(found_func_def)
+        } else if let swamp_ast::ExpressionKind::IdentifierReference(found_qualified_identifier) =
+            &ast_expression.kind
+        {
+            if let Some(found_variable) = self.try_find_variable(&found_qualified_identifier.name) {
+                StartOfChainBase::Variable(found_variable)
+            } else {
+                let text = self.get_text(&found_qualified_identifier.name);
+                return Err(self.create_err(
+                    ErrorKind::UnknownIdentifier(text.to_string()),
+                    &ast_expression.node,
+                ));
+            }
+        } else {
+            return Err(self.create_err(
+                ErrorKind::NotValidLocationStartingPoint,
+                &ast_expression.node,
+            ));
         };
-
-        Ok((resolved, mutability))
+        Ok(start)
     }
 
     pub fn debug_expression(&self, expr: &swamp_ast::Expression) {
@@ -541,7 +630,7 @@ impl<'a> Analyzer<'a> {
             swamp_ast::ExpressionKind::StaticMemberFunctionReference(
                 type_identifier,
                 member_name,
-            ) => self.analyze_static_member_access(type_identifier, member_name)?,
+            ) => panic!("can not have separate member func ref"),
 
             swamp_ast::ExpressionKind::ConstantReference(constant_identifier) => {
                 self.analyze_constant_access(constant_identifier)?
@@ -820,28 +909,23 @@ impl<'a> Analyzer<'a> {
                     ))
                 },
                 |function| {
-                    let kind = match &*function {
-                        Function::Internal(internal_function) => {
-                            ExpressionKind::InternalFunctionAccess(internal_function.clone())
-                        }
-                        Function::External(external_function) => {
-                            ExpressionKind::ExternalFunctionAccess(external_function.clone())
-                        }
+                    let Function::Internal(internal_function) = &function else {
+                        panic!("only allowed for internal functions");
                     };
 
-                    let base_expr =
-                        self.create_expr(kind, Type::Function(function.signature().clone()), node);
-
-                    let empty_call_postfix = Postfix {
-                        node: self.to_node(node),
-                        ty: *function.signature().return_type.clone(),
-                        kind: PostfixKind::FunctionCall(arguments.to_vec()),
+                    let call = StartOfChainCall {
+                        func_def: Function::Internal(internal_function.clone()),
+                        arguments: arguments.to_vec(),
                     };
 
-                    let kind =
-                        ExpressionKind::PostfixChain(Box::new(base_expr), vec![empty_call_postfix]);
+                    let start_of_chain = StartOfChain {
+                        kind: StartOfChainKind::FunctionCall(call),
+                        node: Default::default(),
+                    };
 
-                    Ok(kind)
+                    let expr_kind = ExpressionKind::PostfixChain(start_of_chain, vec![]);
+
+                    Ok(expr_kind)
                 },
             )
     }
@@ -912,43 +996,58 @@ impl<'a> Analyzer<'a> {
         &mut self,
         chain: &swamp_ast::PostfixChain,
     ) -> Result<Expression, Error> {
-        let (start, is_mutable) =
-            self.analyze_start_chain_expression_get_mutability(&chain.base, None)?;
+        let start_of_chain_base =
+            self.analyze_start_chain_expression_get_mutability(&chain.base)?;
 
-        if let ExpressionKind::IntrinsicFunctionAccess(some_access) = &start.kind {
-            assert_eq!(chain.postfixes.len(), 1);
-            let call_postifx = &chain.postfixes[0];
-            if let swamp_ast::Postfix::FunctionCall(_member, _generic_arguments, arguments) =
-                &call_postifx
-            {
-                let resolved_arguments = self.analyze_and_verify_parameters(
-                    &start.node,
-                    &some_access.signature.parameters,
-                    arguments,
-                )?;
+        let mut start_index = 0;
 
-                return Ok(self.create_expr(
-                    ExpressionKind::IntrinsicCallEx(
-                        some_access.intrinsic.clone(),
-                        resolved_arguments,
-                    ),
-                    *some_access.signature.return_type.clone(),
-                    &chain.base.node,
-                ));
+        let start_of_chain_kind = match start_of_chain_base {
+            StartOfChainBase::FunctionReference(func_def) => {
+                // In this version it is not allowed to provide references to functions
+                // So it must mean that this is a function call
+                if let swamp_ast::Postfix::FunctionCall(ast_node, types, arguments) =
+                    &chain.postfixes[0]
+                {
+                    let signature = func_def.signature();
+                    let resolved_node = self.to_node(&ast_node);
+                    let analyzed_arguments = self.analyze_and_verify_parameters(
+                        &resolved_node,
+                        &signature.parameters,
+                        arguments,
+                    )?;
+
+                    let start = StartOfChainCall {
+                        func_def,
+                        arguments: analyzed_arguments,
+                    };
+
+                    start_index = 1;
+
+                    StartOfChainKind::FunctionCall(start)
+                } else {
+                    panic!("must be a normal function call")
+                }
             }
-            panic!("not sure here");
-        }
+            StartOfChainBase::Variable(var) => StartOfChainKind::Variable(var),
+        };
+
+        let start_of_chain_node = self.to_node(&chain.base.node);
+
+        let start_of_chain = StartOfChain {
+            kind: start_of_chain_kind.clone(),
+            node: start_of_chain_node,
+        };
 
         let mut tv = TypeWithMut {
-            resolved_type: start.ty.clone(),
-            is_mutable,
+            resolved_type: start_of_chain_kind.ty().clone(),
+            is_mutable: start_of_chain_kind.is_mutable(),
         };
 
         let mut uncertain = false;
 
         let mut suffixes = Vec::new();
 
-        for item in &chain.postfixes {
+        for item in &chain.postfixes[start_index..] {
             match item {
                 swamp_ast::Postfix::FieldAccess(field_name) => {
                     let (struct_type_ref, index, return_type) =
@@ -990,6 +1089,7 @@ impl<'a> Analyzer<'a> {
                     }
                 }
                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, arguments) => {
+                    /*
                     if let Type::Function(signature) = &tv.resolved_type {
                         let resolved_node = self.to_node(node);
                         let resolved_arguments = self.analyze_and_verify_parameters(
@@ -1009,9 +1109,13 @@ impl<'a> Analyzer<'a> {
 
                         tv.resolved_type = *signature.return_type.clone();
                         tv.is_mutable = false;
+
                     } else {
                         panic!("{}", &format!("what is this type {:?} ", tv.resolved_type))
                     }
+
+                     */
+                    panic!("can only have function call at the start of a postfix chain")
                 }
 
                 swamp_ast::Postfix::Subscript(index_expr) => {
@@ -1111,7 +1215,7 @@ impl<'a> Analyzer<'a> {
         }
 
         Ok(self.create_expr(
-            ExpressionKind::PostfixChain(Box::new(start), suffixes),
+            ExpressionKind::PostfixChain(start_of_chain, suffixes),
             tv.resolved_type,
             &chain.base.node,
         ))
@@ -1371,36 +1475,9 @@ impl<'a> Analyzer<'a> {
             }
         }
 
-        let path = self.get_module_path(qualified_func_name.module_path.as_ref());
-        let function_name = self.get_text(&qualified_func_name.name);
-
-        if let Some(found_table) = self.shared.get_symbol_table(&path) {
-            if let Some(found_func) = found_table.get_function(function_name) {
-                let (kind, signature) = match found_func {
-                    FuncDef::Internal(internal_fn) => (
-                        ExpressionKind::InternalFunctionAccess(internal_fn.clone()),
-                        &internal_fn.signature.signature,
-                    ),
-                    FuncDef::External(external_fn) => (
-                        ExpressionKind::ExternalFunctionAccess(external_fn.clone()),
-                        &external_fn.signature,
-                    ),
-                    // Can not have a reference to an intrinsic function
-                    FuncDef::Intrinsic(intrinsic_fn) => (
-                        ExpressionKind::IntrinsicFunctionAccess(intrinsic_fn.clone()),
-                        &intrinsic_fn.signature,
-                    ),
-                };
-
-                return Ok(self.create_expr(
-                    kind,
-                    Type::Function(signature.clone()),
-                    &qualified_func_name.name,
-                ));
-            }
-        }
+        let text = self.get_text(&qualified_func_name.name);
         Err(self.create_err(
-            ErrorKind::UnknownIdentifier(function_name.to_string()),
+            ErrorKind::UnknownIdentifier(text.to_string()),
             &qualified_func_name.name,
         ))
     }

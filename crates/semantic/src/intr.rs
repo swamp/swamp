@@ -7,7 +7,7 @@ use std::fmt::Debug;
 use std::rc::Rc;
 use swamp_types::prelude::*;
 
-#[derive(Debug, Hash, Clone)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub enum IntrinsicFunction {
     // Bool
     BoolToString,
@@ -124,7 +124,8 @@ pub enum IntrinsicFunction {
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
-#[derive(Clone, Debug)]
+
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct IntrinsicFunctionDefinition {
     pub name: String,
     pub signature: Signature,

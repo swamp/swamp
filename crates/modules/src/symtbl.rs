@@ -19,6 +19,17 @@ pub enum FuncDef {
     External(ExternalFunctionDefinitionRef),
 }
 
+impl FuncDef {
+    #[must_use]
+    pub fn signature(&self) -> &Signature {
+        match self {
+            Self::Internal(internal) => &internal.signature.signature,
+            Self::Intrinsic(intrinsic_fn) => &intrinsic_fn.signature,
+            Self::External(host_fn) => &host_fn.signature,
+        }
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct TypeParameterName {
     pub resolved_node: Node,

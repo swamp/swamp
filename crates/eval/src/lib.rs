@@ -28,7 +28,7 @@ use swamp_semantic::prelude::*;
 use swamp_semantic::{
     BinaryOperatorKind, CompoundOperatorKind, ConstantId, ForPattern, Function,
     MutRefOrImmutableExpression, MutableReferenceKind, NormalPattern, PatternElement, PostfixKind,
-    SingleLocationExpression, UnaryOperatorKind,
+    SingleLocationExpression, StartOfChain, StartOfChainKind, UnaryOperatorKind,
 };
 use swamp_semantic::{ExternalFunctionId, Postfix};
 use swamp_semantic::{LocationAccess, LocationAccessKind};
@@ -911,10 +911,6 @@ impl<'a, C> Interpreter<'a, C> {
             }
 
             // Calling
-            ExpressionKind::FunctionValueCall(_signature, expr, arguments) => {
-                self.evaluate_function_call(expr, arguments)?
-            }
-
             ExpressionKind::IntrinsicCallEx(intrinsic, arguments) => {
                 self.eval_intrinsic(&expr.node, intrinsic, arguments)?
             }
@@ -949,18 +945,6 @@ impl<'a, C> Interpreter<'a, C> {
              */
             ExpressionKind::Match(resolved_match) => self.eval_match(resolved_match)?,
             ExpressionKind::Guard(guards) => self.eval_guard(&expr.node, guards)?,
-
-            ExpressionKind::InternalFunctionAccess(fetch_function) => {
-                Value::InternalFunction(fetch_function.clone())
-            }
-
-            ExpressionKind::ExternalFunctionAccess(fetch_function) => {
-                self.externals
-                    .external_functions_by_id
-                    .get(&fetch_function.id)
-                    .expect("should have external function ref");
-                Value::ExternalFunction(fetch_function.clone())
-            }
 
             ExpressionKind::Option(inner) => match inner {
                 None => Value::Option(None),
@@ -1073,10 +1057,6 @@ impl<'a, C> Interpreter<'a, C> {
                 let x = value_ref.borrow().clone();
                 x
             }
-            ExpressionKind::IntrinsicFunctionAccess(_) => panic!(
-                "Intrinsic Function Access should have been converted to IntrinsicFunctionCalls before eval"
-            ),
-
             ExpressionKind::Lambda(a, b) => Value::Lambda(a.to_vec(), b.clone()),
         };
 
@@ -2420,11 +2400,11 @@ impl<'a, C> Interpreter<'a, C> {
     fn eval_chain(
         &mut self,
         node: &Node,
-        start: &Expression,
+        start: &StartOfChain,
         parts: &[Postfix],
     ) -> Result<ValueRef, RuntimeError> {
         let (mut val_ref, mut is_mutable) = match &start.kind {
-            ExpressionKind::VariableAccess(start_var) => {
+            StartOfChainKind::Variable(start_var) => {
                 let start_variable_value = self.current_block_scopes.get_var(start_var);
 
                 match start_variable_value {
@@ -2438,10 +2418,10 @@ impl<'a, C> Interpreter<'a, C> {
                     }
                 }
             }
-            _ => (
-                Rc::new(RefCell::new(self.evaluate_expression(start)?)),
-                false,
-            ),
+
+            StartOfChainKind::FunctionCall(call) => {
+                todo!()
+            }
         };
 
         let mut has_value_but_should_be_considered_as_option = false;
@@ -2503,12 +2483,6 @@ impl<'a, C> Interpreter<'a, C> {
                 PostfixKind::MemberCall(function_ref, arguments) => {
                     let val =
                         self.eval_member_call(node, &val_ref, is_mutable, function_ref, arguments)?;
-
-                    val_ref = Rc::new(RefCell::new(val));
-                    is_mutable = false;
-                }
-                PostfixKind::FunctionCall(arguments) => {
-                    let val = self.eval_function_call(node, &val_ref, arguments)?;
 
                     val_ref = Rc::new(RefCell::new(val));
                     is_mutable = false;
@@ -2595,6 +2569,10 @@ impl<'a, C> Interpreter<'a, C> {
                     .borrow_mut();
                 (func.func)(&resolved_arguments, self.context)?
             }
+
+            Function::Intrinsic(_) => {
+                todo!()
+            }
         };
 
         Ok(result_val)
@@ -2648,6 +2626,9 @@ impl<'a, C> Interpreter<'a, C> {
                     .expect("member call: external function missing")
                     .borrow_mut();
                 (func.func)(&member_call_arguments, self.context)?
+            }
+            Function::Intrinsic(_) => {
+                todo!()
             }
         };
 

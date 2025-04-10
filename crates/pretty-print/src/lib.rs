@@ -11,7 +11,7 @@ use swamp_modules::symtbl::{FuncDef, Symbol, SymbolTable, TypeGenerator};
 use swamp_semantic::prelude::*;
 use swamp_semantic::{
     AssociatedImpls, MutRefOrImmutableExpression, MutableReferenceKind, Postfix, PostfixKind,
-    SingleLocationExpression, TargetAssignmentLocation,
+    SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
 };
 use swamp_types::*;
 use yansi::{Color, Paint};
@@ -381,17 +381,6 @@ impl SourceMapDisplay<'_> {
             }
             ExpressionKind::VariableAccess(var) => self.show_variable(f, var),
 
-            ExpressionKind::InternalFunctionAccess(internal_function) => {
-                write!(
-                    f,
-                    "[fn:{}]",
-                    //self.source_map.get_text(&internal_function.name.0)
-                    internal_function.assigned_name
-                )
-            }
-            ExpressionKind::ExternalFunctionAccess(_) => {
-                write!(f, "ExternalFunctionAccess()")
-            }
             ExpressionKind::BinaryOp(_) => {
                 write!(f, "BinaryOp()")
             }
@@ -399,7 +388,7 @@ impl SourceMapDisplay<'_> {
                 write!(f, "UnaryOp()")
             }
             ExpressionKind::PostfixChain(base_expr, postfixes) => {
-                self.show_expression(f, base_expr, tabs)?;
+                self.show_start_chain(f, base_expr, tabs)?;
                 for postfix in postfixes {
                     write!(f, " . ")?;
                     self.show_postfix(f, postfix, tabs)?;
@@ -473,9 +462,6 @@ impl SourceMapDisplay<'_> {
             }
             ExpressionKind::CompoundAssignment(_, _, _) => {
                 write!(f, "CompoundAssignment()")
-            }
-            ExpressionKind::IntrinsicFunctionAccess(intrinsic_func_def) => {
-                write!(f, "intrinsic_access {intrinsic_func_def:?}")
             }
             ExpressionKind::IntrinsicCallEx(intrinsic_func_def, args) => {
                 write!(f, "intrinsic_call{intrinsic_func_def:?}")?;
@@ -570,11 +556,6 @@ impl SourceMapDisplay<'_> {
                 write!(f, ".{}", name.bright_blue())
             }
             PostfixKind::MemberCall(_function_ref, b) => write!(f, "membercall {b:?}"),
-            PostfixKind::FunctionCall(arguments) => {
-                write!(f, "[call:")?;
-                self.show_arguments(f, arguments, tabs + 1)?;
-                write!(f, "]")
-            }
             PostfixKind::OptionalChainingOperator => todo!(),
             PostfixKind::NoneCoalescingOperator(_) => todo!(),
             /*
@@ -854,6 +835,7 @@ impl SourceMapDisplay<'_> {
             Function::External(external) => {
                 self.show_external_function_declaration(f, external, tabs)
             }
+            Function::Intrinsic(intr) => self.show_intrinsic_function(f, intr, tabs),
         }
     }
 
@@ -999,5 +981,20 @@ impl SourceMapDisplay<'_> {
             self.show_type_variable(f, variable, tabs)?;
         }
         write!(f, "{}", ">".white())
+    }
+
+    fn show_start_chain(
+        &self,
+        f: &mut Formatter,
+        start: &StartOfChain,
+        tabs: usize,
+    ) -> std::fmt::Result {
+        match &start.kind {
+            StartOfChainKind::FunctionCall(start_call) => {
+                todo!()
+            }
+
+            StartOfChainKind::Variable(var) => self.show_variable(f, var),
+        }
     }
 }

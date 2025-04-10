@@ -170,6 +170,9 @@ impl Instantiator {
                             });
                             Function::External(func_ref)
                         }
+                        Function::Intrinsic(_) => {
+                            panic!("not supported");
+                        }
                     };
                     new_impls.insert(func_name.clone(), new_func).unwrap();
                 }

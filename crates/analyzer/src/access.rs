@@ -4,70 +4,27 @@
  */
 use crate::Analyzer;
 use crate::TypeContext;
-use crate::err::{Error, ErrorKind};
+use crate::err::Error;
 use swamp_semantic::Literal::BoolLiteral;
-use swamp_semantic::{
-    Expression, ExpressionKind, Function, FunctionRef, MutRefOrImmutableExpression,
-};
+use swamp_semantic::{Expression, ExpressionKind, Function, MutRefOrImmutableExpression};
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
     #[must_use]
-    pub fn convert_to_function_access_kind(function_ref: &FunctionRef) -> ExpressionKind {
-        match &**function_ref {
-            Function::Internal(internal_function) => {
-                ExpressionKind::InternalFunctionAccess(internal_function.clone())
-            }
-            Function::External(external_function) => {
-                ExpressionKind::ExternalFunctionAccess(external_function.clone())
-            }
-        }
-    }
-
-    #[must_use]
-    pub fn lookup_associated_function(
-        &self,
-        ty: &Type,
-        function_name: &str,
-    ) -> Option<FunctionRef> {
-        self.shared
+    pub fn lookup_associated_function(&self, ty: &Type, function_name: &str) -> Option<Function> {
+        let x = self
+            .shared
             .state
             .instantiator
             .associated_impls
             .get_member_function(ty, function_name)
-            .cloned()
-    }
+            .cloned();
 
-    #[must_use]
-    pub fn convert_to_function_access_expr(
-        &self,
-        associated_function_info: &FunctionRef,
-        ast_node: &swamp_ast::Node,
-    ) -> Expression {
-        let kind = Self::convert_to_function_access_kind(associated_function_info);
-        self.create_expr(
-            kind,
-            Type::Function(associated_function_info.signature().clone()),
-            ast_node,
-        )
-    }
-
-    pub(crate) fn analyze_static_member_access(
-        &mut self,
-        named_type: &swamp_ast::QualifiedTypeIdentifier,
-        member_name_node: &swamp_ast::Node,
-    ) -> Result<Expression, Error> {
-        let some_type = self.analyze_named_type(named_type)?;
-        let member_name = self.get_text(member_name_node);
-        self.lookup_associated_function(&some_type, member_name)
-            .map_or_else(
-                || Err(self.create_err(ErrorKind::UnknownMemberFunction, member_name_node)),
-                |member_function| {
-                    let expr =
-                        self.convert_to_function_access_expr(&member_function, member_name_node);
-                    Ok(expr)
-                },
-            )
+        if let Some(found_func_ref) = x {
+            Some(found_func_ref.as_ref().clone())
+        } else {
+            None
+        }
     }
 
     pub(crate) fn analyze_min_max_expr(
