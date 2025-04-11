@@ -837,13 +837,13 @@ impl FunctionCodeGen<'_> {
                 );
             }
             IntrinsicFunction::VecRemoveIndexGetValue => {
+                todo!();
                 /*
                 let maybe_key_argument = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
                 let key_region = self.gen_expression_for_access(key_expr)?;
-                todo!();
                 self.state.builder.add_vec_remove_index_get_value(
                     self_addr.unwrap().addr, // mut self
                     key_region.addr,
@@ -953,19 +953,12 @@ impl FunctionCodeGen<'_> {
             }
             IntrinsicFunction::VecIter => todo!(),
             IntrinsicFunction::VecIterMut => todo!(),
-
             IntrinsicFunction::VecFor => todo!(),
             IntrinsicFunction::VecWhile => todo!(),
             IntrinsicFunction::VecFindMap => todo!(),
-            IntrinsicFunction::VecSelfPush => todo!(),
-            IntrinsicFunction::VecSelfExtend => todo!(),
+
             IntrinsicFunction::VecLen => self.state.builder.add_vec_len(
                 ctx.addr(),
-                self_addr.unwrap().addr,
-                node,
-                "get the vec length",
-            ),
-            IntrinsicFunction::VecIsEmpty => self.state.builder.add_vec_is_empty(
                 self_addr.unwrap().addr,
                 node,
                 "get the vec length",
@@ -1001,7 +994,7 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::MapHas => {
                 self.state
                     .builder
-                    .add_map_has(self_addr.unwrap().addr, node, "map_has")
+                    .add_map_has(self_addr.unwrap().addr, node, "map_has");
             }
             IntrinsicFunction::MapRemove => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
@@ -1012,30 +1005,14 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::MapIter => todo!(),
             IntrinsicFunction::MapIterMut => todo!(),
             IntrinsicFunction::MapLen => {
-                /*
                 self.state.builder.add_map_len(
                     ctx.addr(),
-                    self_addr.unwrap().addr, // mut self
+                    self_addr.unwrap().addr,
+                    node,
                     "map len",
                 );
-
-                 */
             }
-            IntrinsicFunction::MapIsEmpty => {
-                let maybe_key_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
-                    panic!();
-                };
-                /*
-                let key_region = self.gen_expression_for_access(key_expr)?;
-                self.state.builder.add_map_is_empty(
-                    self_addr.unwrap().addr, // mut self
-                    key_region.addr,
-                    "vec subscript range",
-                );
 
-                 */
-            }
             IntrinsicFunction::MapSubscript => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
@@ -1049,7 +1026,6 @@ impl FunctionCodeGen<'_> {
                     "map_subscript",
                 );
             }
-            IntrinsicFunction::MapSubscriptSet => todo!(),
             IntrinsicFunction::MapSubscriptMut => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
@@ -1076,15 +1052,6 @@ impl FunctionCodeGen<'_> {
                 );
             }
 
-            // Map2
-            IntrinsicFunction::Map2Remove => todo!(),
-            IntrinsicFunction::Map2Insert => todo!(),
-            IntrinsicFunction::Map2GetColumn => todo!(),
-            IntrinsicFunction::Map2GetRow => todo!(),
-            IntrinsicFunction::Map2Get => todo!(),
-            IntrinsicFunction::Map2Has => todo!(),
-            IntrinsicFunction::Map2Create => todo!(),
-
             // Sparse
             IntrinsicFunction::SparseCreate => {
                 /*
@@ -1095,13 +1062,6 @@ impl FunctionCodeGen<'_> {
 
                  */
             }
-            IntrinsicFunction::SparseFromSlice => todo!(),
-            IntrinsicFunction::SparseIter => todo!(),
-            IntrinsicFunction::SparseIterMut => todo!(),
-            IntrinsicFunction::SparseSubscript => todo!(),
-            IntrinsicFunction::SparseSubscriptMut => todo!(),
-            IntrinsicFunction::SparseHas => todo!(),
-            IntrinsicFunction::SparseRemove => todo!(),
 
             // Grid
             IntrinsicFunction::GridCreate => {
@@ -1113,7 +1073,7 @@ impl FunctionCodeGen<'_> {
 
                  */
             }
-            IntrinsicFunction::GridFromSlice => todo!(),
+
             IntrinsicFunction::GridSet => {
                 /*
                 let MutRefOrImmutableExpression::Expression(x_argument) = &arguments[0] else {
@@ -1161,30 +1121,13 @@ impl FunctionCodeGen<'_> {
 
                  */
             }
-            IntrinsicFunction::GridGetColumn => todo!(),
 
-            IntrinsicFunction::Float2Magnitude => {
-                // TODO:
-            }
-
-            IntrinsicFunction::SparseAdd => todo!(),
-            IntrinsicFunction::SparseNew => todo!(),
-
-            IntrinsicFunction::VecAny => todo!(),
-            IntrinsicFunction::VecAll => todo!(),
-            IntrinsicFunction::VecMap => todo!(),
             IntrinsicFunction::VecFilter => {
-                // TODO:
+                // TODO: self.gen_vec_filter()
             }
-            IntrinsicFunction::VecFilterMap => todo!(),
             IntrinsicFunction::VecFind => {
                 //TODO:
             }
-            IntrinsicFunction::VecSwap => todo!(),
-            IntrinsicFunction::VecInsert => todo!(),
-            IntrinsicFunction::VecFirst => todo!(),
-            IntrinsicFunction::VecLast => todo!(),
-            IntrinsicFunction::VecFold => todo!(),
 
             IntrinsicFunction::RuntimePanic => {
                 self.state
@@ -1197,6 +1140,43 @@ impl FunctionCodeGen<'_> {
                 node,
                 "bool_to_string",
             ),
+
+            IntrinsicFunction::GridGetColumn => todo!(),
+            IntrinsicFunction::GridFromSlice => todo!(),
+
+            IntrinsicFunction::Float2Magnitude => {
+                todo!()
+            }
+            IntrinsicFunction::SparseAdd => todo!(),
+            IntrinsicFunction::SparseNew => todo!(),
+            IntrinsicFunction::SparseFromSlice => todo!(),
+            IntrinsicFunction::SparseIter => todo!(),
+            IntrinsicFunction::SparseIterMut => todo!(),
+            IntrinsicFunction::SparseSubscript => todo!(),
+            IntrinsicFunction::SparseSubscriptMut => todo!(),
+            IntrinsicFunction::SparseHas => todo!(),
+            IntrinsicFunction::SparseRemove => todo!(),
+
+            IntrinsicFunction::VecAny => todo!(),
+            IntrinsicFunction::VecAll => todo!(),
+            IntrinsicFunction::VecMap => todo!(),
+
+            IntrinsicFunction::VecFilterMap => todo!(),
+
+            IntrinsicFunction::VecSwap => todo!(),
+            IntrinsicFunction::VecInsert => todo!(),
+            IntrinsicFunction::VecFirst => todo!(),
+            IntrinsicFunction::VecLast => todo!(),
+            IntrinsicFunction::VecFold => todo!(),
+
+            // Map2
+            IntrinsicFunction::Map2Remove => todo!(),
+            IntrinsicFunction::Map2Insert => todo!(),
+            IntrinsicFunction::Map2GetColumn => todo!(),
+            IntrinsicFunction::Map2GetRow => todo!(),
+            IntrinsicFunction::Map2Get => todo!(),
+            IntrinsicFunction::Map2Has => todo!(),
+            IntrinsicFunction::Map2Create => todo!(),
         }
 
         Ok(())

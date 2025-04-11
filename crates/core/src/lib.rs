@@ -736,6 +736,7 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
             .unwrap();
     }
 
+    /*
     let self_to_bool = Signature {
         parameters: [TypeForParameter {
             name: "self".to_string(),
@@ -746,9 +747,7 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
         .into(),
         return_type: Box::new(Type::Bool),
     };
-
     let self_to_bool_functions = [IntrinsicFunction::MapIsEmpty];
-
     for intrinsic_fn in self_to_bool_functions {
         let name = intrinsic_fn.to_string();
         core_ns
@@ -759,6 +758,8 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
             })
             .unwrap();
     }
+
+     */
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1391,6 +1392,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             .unwrap();
     }
 
+    /*
     let self_to_bool = Signature {
         parameters: [TypeForParameter {
             name: "self".to_string(),
@@ -1412,6 +1414,8 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             })
             .unwrap();
     }
+
+     */
 
     let mut_self_int_int_to_unit = Signature {
         parameters: [

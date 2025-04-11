@@ -35,6 +35,8 @@ impl InstructionBuilder {}
 
 impl InstructionBuilder {}
 
+impl InstructionBuilder {}
+
 impl Default for InstructionBuilder {
     fn default() -> Self {
         Self::new()
@@ -1091,6 +1093,16 @@ impl InstructionBuilder {
 
     pub fn add_map_has(&mut self, self_addr: FrameMemoryAddress, node: &Node, comment: &str) {
         self.add_instruction(OpCode::MapHas, &[self_addr.0], node, comment);
+    }
+
+    pub fn add_map_len(
+        &mut self,
+        target_addr: FrameMemoryAddress,
+        self_addr: FrameMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::MapLen, &[target_addr.0, self_addr.0], node, comment);
     }
 
     pub fn add_map_remove(

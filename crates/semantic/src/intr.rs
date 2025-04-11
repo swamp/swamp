@@ -12,6 +12,15 @@ pub enum IntrinsicFunction {
     // Bool
     BoolToString,
 
+    // Int
+    IntAbs,
+    IntRnd,
+    IntMax,
+    IntMin,
+    IntClamp,
+    IntToFloat,
+    IntToString,
+
     // Float
     FloatRound,
     FloatFloor,
@@ -29,31 +38,30 @@ pub enum IntrinsicFunction {
     FloatClamp,
     FloatToString,
 
-    // Int
-    IntAbs,
-    IntRnd,
-    IntMax,
-    IntMin,
-    IntClamp,
-    IntToFloat,
-    IntToString,
-
     // String
     StringLen,
+    // TODO: StringSubscript, StringConcat
 
     // Vec
+    VecCreate, // create from empty
     VecFromSlice,
     VecPush,
     VecPop,
     VecRemoveIndex,
     VecRemoveIndexGetValue,
+    VecLen,
     VecClear,
-    VecCreate,
     VecSubscript,
     VecSubscriptMut,
     VecSubscriptRange,
     VecIter,
     VecIterMut,
+    VecSwap,
+    VecInsert,
+    VecFirst,
+    VecGet,
+    VecLast,
+
     VecFor,
     VecWhile,
     VecFindMap,
@@ -64,14 +72,6 @@ pub enum IntrinsicFunction {
     VecFilterMap,
     VecFind,
     VecFold,
-    VecSwap,
-    VecInsert,
-    VecFirst,
-    VecGet,
-    VecLast,
-
-    VecSelfPush,
-    VecSelfExtend,
 
     // Map
     MapCreate,
@@ -81,9 +81,7 @@ pub enum IntrinsicFunction {
     MapIter,
     MapIterMut,
     MapLen,
-    MapIsEmpty,
     MapSubscript,
-    MapSubscriptSet,
     MapSubscriptMut,
     MapSubscriptMutCreateIfNeeded,
 
@@ -98,6 +96,8 @@ pub enum IntrinsicFunction {
 
     // Sparse
     SparseCreate,
+    SparseAdd,
+    SparseNew,
     SparseFromSlice,
     SparseIter,
     SparseIterMut,
@@ -110,16 +110,11 @@ pub enum IntrinsicFunction {
     GridCreate,
     GridFromSlice,
     GridGetColumn,
-    //GridIter,
-    //GridIterMut,
     GridSet,
     GridGet,
-    //GridSubscriptMut,
+
     Float2Magnitude,
-    SparseAdd,
-    VecLen,
-    VecIsEmpty,
-    SparseNew,
+
     RuntimePanic,
 }
 
@@ -185,7 +180,6 @@ impl fmt::Display for IntrinsicFunction {
             Self::VecWhile => "vec_while",
             Self::VecFindMap => "vec_find_map",
             Self::VecLen => "vec_len",
-            Self::VecIsEmpty => "vec_is_empty",
             Self::VecAny => "vec_any",
             Self::VecAll => "vec_all",
             Self::VecMap => "vec_map",
@@ -198,9 +192,6 @@ impl fmt::Display for IntrinsicFunction {
             Self::VecFirst => "vec_first",
             Self::VecLast => "vec_last",
 
-            Self::VecSelfPush => "vec_self_push",
-            Self::VecSelfExtend => "vec_self_extend",
-
             // Map
             Self::MapCreate => "map_create",
             Self::MapFromSlicePair => "map_from_slice_pair",
@@ -209,11 +200,9 @@ impl fmt::Display for IntrinsicFunction {
             Self::MapSubscriptMut => "map_subscript_mut",
             Self::MapSubscriptMutCreateIfNeeded => "map_subscript_mut_create_if_needed",
             Self::MapSubscript => "map_subscript",
-            Self::MapSubscriptSet => "map_subscript_set",
             Self::MapIter => "map_iter",
             Self::MapIterMut => "map_iter_mut",
             Self::MapLen => "map_len",
-            Self::MapIsEmpty => "map_is_empty",
 
             // Map2
             Self::Map2Create => "map2_create",

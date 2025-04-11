@@ -1500,11 +1500,13 @@ impl<'a, C> Interpreter<'a, C> {
                 }
             },
 
+            /*
             IntrinsicFunction::VecIsEmpty => match &mut *value_ref.borrow_mut() {
                 Value::Vec(_type_id, vector) => Value::Bool(vector.len() == 0),
                 _ => Err(self.create_err(RuntimeErrorKind::OperationRequiresArray, node))?,
             },
 
+             */
             IntrinsicFunction::VecPop => match &mut *value_ref.borrow_mut() {
                 Value::Vec(_type_id, vector) => {
                     let maybe_val = vector.pop();
@@ -1908,10 +1910,13 @@ impl<'a, C> Interpreter<'a, C> {
                     return Err(self.create_err(RuntimeErrorKind::NotAMap, node));
                 }
             },
+            /*
             IntrinsicFunction::MapIsEmpty => match &mut *value_ref.borrow_mut() {
                 Value::Vec(_type_id, seq_map) => Value::Bool(seq_map.len() == 0),
                 _ => Err(self.create_err(RuntimeErrorKind::OperationRequiresArray, node))?,
             },
+
+             */
             IntrinsicFunction::MapSubscript => match value_ref.borrow().clone() {
                 Value::Map(_type_id, seq_map) => {
                     let key_value = self.evaluate_expression(arguments[0])?;
@@ -2423,11 +2428,8 @@ impl<'a, C> Interpreter<'a, C> {
             IntrinsicFunction::VecSubscriptMut => todo!(),
             IntrinsicFunction::VecIter => todo!(),
             IntrinsicFunction::VecIterMut => todo!(),
-            IntrinsicFunction::VecSelfPush => todo!(),
-            IntrinsicFunction::VecSelfExtend => todo!(),
             IntrinsicFunction::MapIter => todo!(),
             IntrinsicFunction::MapIterMut => todo!(),
-            IntrinsicFunction::MapSubscriptSet => todo!(),
             IntrinsicFunction::MapSubscriptMut => todo!(),
             IntrinsicFunction::MapSubscriptMutCreateIfNeeded => todo!(),
             IntrinsicFunction::SparseCreate => todo!(),

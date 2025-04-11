@@ -924,6 +924,11 @@ pub fn disasm(
             to_jmp_ip(operands[3]),
         ],
 
+        OpCode::MapLen => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+        ],
+
         OpCode::MapRemove => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),

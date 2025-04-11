@@ -143,6 +143,7 @@ pub enum OpCode {
     MapSubscriptMut,
 
     VecIsEmpty,
+    MapLen,
 }
 
 impl Display for OpCode {
@@ -253,6 +254,7 @@ impl Display for OpCode {
             Self::MapSubscript => write!(f, "map_subscript"),
             Self::MapSubscriptMutCreate => write!(f, "map_subscript_mut_create"),
             Self::MapSubscriptMut => write!(f, "map_subscript_mut"),
+            Self::MapLen => write!(f, "map_len"),
 
             // Range
             Self::RangeIterInit => write!(f, "range_iter_init"),
