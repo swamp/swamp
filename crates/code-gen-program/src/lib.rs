@@ -11,10 +11,7 @@ use swamp_compile::Program;
 use swamp_modules::prelude::ModuleRef;
 use swamp_semantic::Function;
 use swamp_types::Type;
-use swamp_vm_disasm::{
-    BasicType, ComplexType, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
-    SourceFileLineInfo, disasm_instructions_color,
-};
+use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use tracing::{info, warn};
 
 /// # Errors

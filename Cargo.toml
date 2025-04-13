@@ -34,5 +34,5 @@ members = [
     "crates/vm-instr-build",
     "crates/vm-host",
     # Evaluator, hopefully soon deprecated
-    "crates/eval",
+    "crates/eval", "crates/vm-debug-types",
 ]

@@ -8,3 +8,4 @@ repository = "https://github.com/swamp/swamp"
 
 [dependencies]
 source-map-node = "0.0.1"
+seq-map = "0.0.13"

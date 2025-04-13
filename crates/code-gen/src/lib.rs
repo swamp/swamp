@@ -31,10 +31,10 @@ use swamp_semantic::{
     UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
-use swamp_vm_disasm::{
-    BasicType, ComplexType, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
-    SourceFileLineInfo, disasm_color, disasm_instructions_color,
+use swamp_vm_debug_types::{
+    BasicType, ComplexType, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo, VariableInfo,
 };
+use swamp_vm_disasm::{SourceFileLineInfo, disasm_color, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::{
     BOOL_SIZE, BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
@@ -227,11 +227,11 @@ pub fn disasm_function(
 
     for frame_relative_info in frame_relative_infos {
         let converted_kind = match &frame_relative_info.kind {
-            FrameRelativeInfoKind::Variable(var) => FrameAddressInfoKind::Variable {
+            FrameRelativeInfoKind::Variable(var) => FrameAddressInfoKind::Variable(VariableInfo {
                 is_mutable: var.is_mutable(),
                 name: var.assigned_name.clone(),
                 ty: ComplexType::BasicType(BasicType::S32),
-            },
+            }),
         };
 
         memory_infos.push(FrameAddressInfo {

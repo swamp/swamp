@@ -4,6 +4,7 @@
  */
 
 use crate::aligner::align;
+use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::{Alignment, Display, Formatter};
 

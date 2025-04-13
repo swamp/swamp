@@ -4,216 +4,19 @@
  */
 use seq_map::SeqMap;
 use std::cmp::PartialEq;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
     BinaryInstruction, ConstantMemoryAddress, FrameMemoryAddress, FrameMemorySize,
-    InstructionPosition, InstructionPositionOffset, MemoryOffset, MemorySize, Meta,
+    InstructionPosition, InstructionPositionOffset, MemorySize, Meta,
 };
 use yansi::{Color, Paint};
 
-#[derive(Debug, Clone)]
-pub struct FrameMemoryAttribute {
-    pub is_temporary: bool,
-}
-
-#[derive(Debug, Clone)]
-pub enum DecoratedOperandKind {
-    ReadFrameAddress(
-        FrameMemoryAddress,
-        DecoratedMemoryKind,
-        FrameMemoryAttribute,
-    ),
-    WriteFrameAddress(
-        FrameMemoryAddress,
-        DecoratedMemoryKind,
-        FrameMemoryAttribute,
-    ),
-    ReadIndirectPointer(FrameMemoryAddress),
-    ConstantAddress(ConstantMemoryAddress),
-    Ip(InstructionPosition),
-    ImmediateU32(u32),
-    ImmediateU16(u16),
-    MemorySize(MemorySize),
-    ImmediateU8(u16),
-    //WriteIndirectMemory(MemoryAddress, MemoryOffset, DecoratedMemoryKind),
-    //ReadIndirectMemory(MemoryAddress, MemoryOffset, DecoratedMemoryKind),
-    CountU16(u16),
-    //HeapAddress(HeapMemoryAddress),
-}
-
-#[derive(Clone, Debug)]
-pub enum DecoratedMemoryKind {
-    U8,
-    U16,
-    U32,
-    S32,
-    Fp32,
-    B8,
-    Octets,
-    IndirectHeapPointer,
-}
-pub struct DecoratedOperand {
-    pub kind: DecoratedOperandKind,
-}
-
-pub struct DecoratedOpcode {
-    pub name: String,
-    pub operands: Vec<DecoratedOperand>,
-}
-
-fn memory_kind_color(kind: &DecoratedMemoryKind) -> String {
-    let short_string = match kind {
-        DecoratedMemoryKind::B8 => "b8",
-        DecoratedMemoryKind::U8 => "u8",
-        DecoratedMemoryKind::U16 => "u16",
-        DecoratedMemoryKind::U32 => "u32",
-        DecoratedMemoryKind::S32 => "i32",
-        DecoratedMemoryKind::Fp32 => "fp32",
-        DecoratedMemoryKind::Octets => "*b8",
-        DecoratedMemoryKind::IndirectHeapPointer => "(heap_ptr)",
-    };
-
-    format!("{}", short_string)
-}
-
-#[derive(Clone, Debug)]
-pub struct OffsetMemoryItem {
-    pub offset: MemoryOffset,
-    pub size: MemorySize,
-    pub name: String,
-    pub ty: ComplexType,
-}
-
-#[derive(Clone, Debug)]
-pub struct StructType {
-    pub fields: SeqMap<MemoryOffset, OffsetMemoryItem>,
-}
-
-#[derive(Clone, Debug)]
-pub enum TaggedUnionDataKind {
-    Struct(StructType),
-    Tuple(Vec<OffsetMemoryItem>),
-}
-
-#[derive(Clone, Debug)]
-pub struct TaggedUnionData {
-    pub kind: TaggedUnionDataKind,
-    pub name: String,
-}
-
-#[derive(Clone, Debug)]
-pub struct TaggedUnion {
-    pub name: String,
-    pub variants: Vec<TaggedUnionData>,
-}
-
-#[derive(Clone, Debug)]
-pub enum BasicType {
-    U8,
-    S32,
-    U32,
-    Struct(StructType),
-    TaggedUnion(TaggedUnion),
-    Tuple(Vec<ComplexType>),
-}
-
-impl Display for BasicType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BasicType::U8 => {
-                write!(f, "u8")
-            }
-            BasicType::S32 => {
-                write!(f, "s32")
-            }
-            BasicType::U32 => {
-                write!(f, "u32")
-            }
-            BasicType::Struct(_) => {
-                write!(f, "struct")
-            }
-            BasicType::TaggedUnion(_) => {
-                write!(f, "tagged_union")
-            }
-            BasicType::Tuple(_) => {
-                write!(f, "tuple")
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum ComplexType {
-    Optional(BasicType),
-    IndirectPointer(BasicType),
-    BasicType(BasicType),
-}
-
-impl Display for ComplexType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ComplexType::Optional(basic) => {
-                write!(f, "optional<{basic}>")
-            }
-            ComplexType::IndirectPointer(basic) => {
-                write!(f, "ptr to <{basic}>")
-            }
-            ComplexType::BasicType(basic) => {
-                write!(f, "{basic}")
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum FrameAddressInfoKind {
-    Variable {
-        is_mutable: bool,
-        name: String,
-        ty: ComplexType,
-    },
-}
-
-impl Display for FrameAddressInfoKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FrameAddressInfoKind::Variable {
-                is_mutable,
-                name,
-                ty,
-            } => {
-                let mut_prefix = if *is_mutable { "mut " } else { "" };
-
-                write!(f, "{mut_prefix}{name}: {ty}")
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct FrameAddressInfo {
-    pub addr: FrameMemoryAddress,
-    pub size: FrameMemorySize,
-    pub kind: FrameAddressInfoKind,
-}
-
-pub struct FrameMemoryInfo {
-    pub infos: Vec<FrameAddressInfo>,
-}
-
-impl FrameMemoryInfo {
-    pub(crate) fn get(&self, memory_addr: &FrameMemoryAddress) -> Option<FrameAddressInfo> {
-        for x in &self.infos {
-            if x.addr.0 == memory_addr.0 {
-                return Some(x.clone());
-            }
-        }
-        None
-    }
-}
-
 use std::fmt::Write;
+use swamp_vm_debug_types::{
+    DecoratedMemoryKind, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
+    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo,
+};
 
 #[derive(Eq, PartialEq, Clone)]
 pub struct SourceFileLineInfo {
@@ -287,6 +90,20 @@ pub fn disasm_instructions_color(
 
     string
 }
+fn memory_kind_color(kind: &DecoratedMemoryKind) -> String {
+    let short_string = match kind {
+        DecoratedMemoryKind::B8 => "b8",
+        DecoratedMemoryKind::U8 => "u8",
+        DecoratedMemoryKind::U16 => "u16",
+        DecoratedMemoryKind::U32 => "u32",
+        DecoratedMemoryKind::S32 => "i32",
+        DecoratedMemoryKind::Fp32 => "fp32",
+        DecoratedMemoryKind::Octets => "*b8",
+        DecoratedMemoryKind::IndirectHeapPointer => "(heap_ptr)",
+    };
+
+    format!("{}", short_string)
+}
 
 #[must_use]
 pub fn disasm_instructions_no_color(
@@ -346,13 +163,13 @@ pub fn disasm_color(
 
     for operand in decorated.operands {
         let operand_addr = match &operand.kind {
-            DecoratedOperandKind::ReadFrameAddress(addr, memory_kind, attr) => Some(addr),
-            DecoratedOperandKind::WriteFrameAddress(addr, memory_kind, attr) => Some(addr),
+            DecoratedOperandAccessKind::ReadFrameAddress(addr, memory_kind, attr) => Some(addr),
+            DecoratedOperandAccessKind::WriteFrameAddress(addr, memory_kind, attr) => Some(addr),
             _ => None,
         };
 
         let (new_str, comment_str) = match &operand.kind {
-            DecoratedOperandKind::ReadFrameAddress(addr, memory_kind, attr) => {
+            DecoratedOperandAccessKind::ReadFrameAddress(addr, memory_kind, attr) => {
                 let color = if attr.is_temporary {
                     Color::BrightGreen
                 } else {
@@ -364,7 +181,7 @@ pub fn disasm_color(
                     memory_kind_color(&memory_kind),
                 )
             }
-            DecoratedOperandKind::WriteFrameAddress(addr, memory_kind, attr) => {
+            DecoratedOperandAccessKind::WriteFrameAddress(addr, memory_kind, attr) => {
                 let color = if attr.is_temporary {
                     Color::BrightMagenta
                 } else {
@@ -376,7 +193,7 @@ pub fn disasm_color(
                     memory_kind_color(&memory_kind),
                 )
             }
-            DecoratedOperandKind::ReadIndirectPointer(addr) => {
+            DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
                 let color = Color::Green;
 
                 (
@@ -384,7 +201,7 @@ pub fn disasm_color(
                     String::new(),
                 )
             }
-            DecoratedOperandKind::ConstantAddress(addr) => {
+            DecoratedOperandAccessKind::ConstantAddress(addr) => {
                 let color = Color::Yellow;
 
                 (
@@ -392,28 +209,28 @@ pub fn disasm_color(
                     "constant".to_string(),
                 )
             }
-            DecoratedOperandKind::Ip(ip) => (
+            DecoratedOperandAccessKind::Ip(ip) => (
                 format!("{}{}", "@".cyan(), format!("{:X}", ip.0).bright_cyan()),
                 String::new(),
             ),
-            DecoratedOperandKind::MemorySize(data) => (
+            DecoratedOperandAccessKind::MemorySize(data) => (
                 format!("{}", format!("{:X}", data.0).yellow()),
                 format!("{}{}", "int:", data.0),
             ),
 
-            DecoratedOperandKind::ImmediateU32(data) => (
+            DecoratedOperandAccessKind::ImmediateU32(data) => (
                 format!("{}", format!("{data:08X}",).magenta()),
                 format!("{}{}", "int:", *data as i32),
             ),
-            DecoratedOperandKind::ImmediateU16(data) => (
+            DecoratedOperandAccessKind::ImmediateU16(data) => (
                 format!("{}", format!("{data:04X}",).magenta()),
                 format!("{}{}", "int:", *data as i32),
             ),
-            DecoratedOperandKind::ImmediateU8(data) => (
+            DecoratedOperandAccessKind::ImmediateU8(data) => (
                 format!("{}", format!("{data:02X}",).magenta()),
                 format!("{}{}", "int:", *data as i8),
             ),
-            DecoratedOperandKind::CountU16(data) => (
+            DecoratedOperandAccessKind::CountU16(data) => (
                 format!("{}", format!("{data:04X}",).yellow()),
                 format!("{}", "count"),
             ),
@@ -476,16 +293,16 @@ pub fn disasm_no_color(
 
     for operand in decorated.operands {
         let new_str = match operand.kind {
-            DecoratedOperandKind::ReadFrameAddress(addr, _memory_kind, _attr) => {
+            DecoratedOperandAccessKind::ReadFrameAddress(addr, _memory_kind, _attr) => {
                 format!("{}{}", "$", format!("{:04X}", addr.0))
             }
-            DecoratedOperandKind::WriteFrameAddress(addr, _memory_kind, _attr) => {
+            DecoratedOperandAccessKind::WriteFrameAddress(addr, _memory_kind, _attr) => {
                 format!("{}{}", "$", format!("{:04X}", addr.0))
             }
-            DecoratedOperandKind::ReadIndirectPointer(addr) => {
+            DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
                 format!("({}{})", "$", format!("{:04X}", addr.0))
             }
-            DecoratedOperandKind::ConstantAddress(addr) => {
+            DecoratedOperandAccessKind::ConstantAddress(addr) => {
                 format!("{}{}", "@#", format!("{:08X}", addr.0))
             }
             /*
@@ -500,15 +317,15 @@ pub fn disasm_no_color(
             }
 
              */
-            DecoratedOperandKind::MemorySize(data) => format!("{}", format!("{:X}", data.0)),
+            DecoratedOperandAccessKind::MemorySize(data) => format!("{}", format!("{:X}", data.0)),
 
-            DecoratedOperandKind::Ip(ip) => {
+            DecoratedOperandAccessKind::Ip(ip) => {
                 format!("{}{}", "@", format!("{:X}", ip.0))
             }
-            DecoratedOperandKind::ImmediateU32(data) => format!("{}", format!("{data:08X}",)),
-            DecoratedOperandKind::ImmediateU16(data) => format!("{}", format!("{data:04X}",)),
-            DecoratedOperandKind::ImmediateU8(data) => format!("{}", format!("{data:02X}",)),
-            DecoratedOperandKind::CountU16(data) => format!("{}", format!("{data:04X}",)),
+            DecoratedOperandAccessKind::ImmediateU32(data) => format!("{}", format!("{data:08X}",)),
+            DecoratedOperandAccessKind::ImmediateU16(data) => format!("{}", format!("{data:04X}",)),
+            DecoratedOperandAccessKind::ImmediateU8(data) => format!("{}", format!("{data:02X}",)),
+            DecoratedOperandAccessKind::CountU16(data) => format!("{}", format!("{data:04X}",)),
         };
         converted_operands.push(new_str);
     }
@@ -536,7 +353,7 @@ pub fn disasm(
     let opcode: OpCode = binary_instruction.opcode.into();
     let operands = binary_instruction.operands;
 
-    let operands_slice: &[DecoratedOperandKind] = match opcode {
+    let operands_slice: &[DecoratedOperandAccessKind] = match opcode {
         OpCode::Hlt => &[],
         OpCode::Ret => &[],
 
@@ -550,8 +367,8 @@ pub fn disasm(
 
             &[
                 to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-                DecoratedOperandKind::ConstantAddress(ConstantMemoryAddress(data)),
-                DecoratedOperandKind::MemorySize(MemorySize(operands[3])),
+                DecoratedOperandAccessKind::ConstantAddress(ConstantMemoryAddress(data)),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
             ]
         }
 
@@ -560,7 +377,7 @@ pub fn disasm(
 
             &[
                 to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-                DecoratedOperandKind::ImmediateU32(data),
+                DecoratedOperandAccessKind::ImmediateU32(data),
             ]
         }
         OpCode::Ld16 => {
@@ -568,7 +385,7 @@ pub fn disasm(
 
             &[
                 to_write_frame(operands[0], DecoratedMemoryKind::U16, frame_memory_size),
-                DecoratedOperandKind::ImmediateU16(data),
+                DecoratedOperandAccessKind::ImmediateU16(data),
             ]
         }
 
@@ -577,7 +394,7 @@ pub fn disasm(
 
             &[
                 to_write_frame(operands[0], DecoratedMemoryKind::U8, frame_memory_size),
-                DecoratedOperandKind::ImmediateU8(data),
+                DecoratedOperandAccessKind::ImmediateU8(data),
             ]
         }
 
@@ -770,7 +587,7 @@ pub fn disasm(
 
             &[
                 to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-                DecoratedOperandKind::ImmediateU8(data),
+                DecoratedOperandAccessKind::ImmediateU8(data),
             ]
         }
         OpCode::Eq32 => &[
@@ -817,42 +634,44 @@ pub fn disasm(
 
         OpCode::Cmp => &[
             to_read_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandKind::MemorySize(MemorySize(operands[1])),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[1])),
         ],
 
         OpCode::Bnz => &[to_jmp_ip(operands[0])],
         OpCode::Bz => &[to_jmp_ip(operands[0])],
         OpCode::Call => &[to_jmp_ip(operands[0])],
         OpCode::HostCall => &[
-            DecoratedOperandKind::ImmediateU16(operands[0]),
-            DecoratedOperandKind::MemorySize(MemorySize(operands[1])),
+            DecoratedOperandAccessKind::ImmediateU16(operands[0]),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[1])),
         ],
-        OpCode::Enter => &[DecoratedOperandKind::MemorySize(MemorySize(operands[0]))],
+        OpCode::Enter => &[DecoratedOperandAccessKind::MemorySize(MemorySize(
+            operands[0],
+        ))],
         OpCode::Jmp => &[to_jmp_ip(operands[0])],
         OpCode::Mov => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandKind::MemorySize(MemorySize(operands[2])),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
         ],
         OpCode::MovLp => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandKind::MemorySize(MemorySize(operands[2])),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
         ],
         OpCode::Nop => &[],
 
         OpCode::VecPop => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandKind::MemorySize(MemorySize(operands[2])),
-            DecoratedOperandKind::CountU16(operands[3]),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
+            DecoratedOperandAccessKind::CountU16(operands[3]),
         ],
 
         OpCode::VecFromSlice => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandKind::MemorySize(MemorySize(operands[2])),
-            DecoratedOperandKind::CountU16(operands[3]),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
+            DecoratedOperandAccessKind::CountU16(operands[3]),
         ],
 
         OpCode::VecSubscript => &[
@@ -870,7 +689,7 @@ pub fn disasm(
 
         OpCode::VecIterInit => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
+            DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
         ],
 
         OpCode::VecIterNext => &[
@@ -933,14 +752,14 @@ pub fn disasm(
         OpCode::MapNewFromPairs => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandKind::MemorySize(MemorySize(operands[2])),
-            DecoratedOperandKind::MemorySize(MemorySize(operands[3])),
-            DecoratedOperandKind::CountU16(operands[4]),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
+            DecoratedOperandAccessKind::CountU16(operands[4]),
         ],
 
         OpCode::MapIterInit => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
+            DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
         ],
 
         OpCode::MapIterNext => &[
@@ -990,7 +809,7 @@ pub fn disasm(
 
         OpCode::RangeIterInit => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
+            DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
         ],
 
         OpCode::RangeIterNext => &[
@@ -1011,8 +830,8 @@ pub fn disasm(
 
             &[
                 to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-                DecoratedOperandKind::ConstantAddress(ConstantMemoryAddress(data)),
-                DecoratedOperandKind::MemorySize(MemorySize(operands[3])),
+                DecoratedOperandAccessKind::ConstantAddress(ConstantMemoryAddress(data)),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
             ]
         }
 
@@ -1146,7 +965,10 @@ pub fn disasm(
 
     let converted_operands = operands_slice
         .iter()
-        .map(|kind| DecoratedOperand { kind: kind.clone() })
+        .map(|kind| DecoratedOperand {
+            kind: kind.clone(),
+            origin: DecoratedOperandOrigin {},
+        })
         .collect();
 
     DecoratedOpcode {
@@ -1159,9 +981,9 @@ fn to_write_frame(
     addr: u16,
     mem: DecoratedMemoryKind,
     frame_memory_size: FrameMemorySize,
-) -> DecoratedOperandKind {
+) -> DecoratedOperandAccessKind {
     let is_temporary = addr >= frame_memory_size.0;
-    DecoratedOperandKind::WriteFrameAddress(
+    DecoratedOperandAccessKind::WriteFrameAddress(
         to_frame(addr),
         mem,
         FrameMemoryAttribute { is_temporary },
@@ -1172,17 +994,17 @@ fn to_read_frame(
     addr: u16,
     mem: DecoratedMemoryKind,
     frame_memory_size: FrameMemorySize,
-) -> DecoratedOperandKind {
+) -> DecoratedOperandAccessKind {
     let is_temporary = addr >= frame_memory_size.0;
-    DecoratedOperandKind::ReadFrameAddress(
+    DecoratedOperandAccessKind::ReadFrameAddress(
         to_frame(addr),
         mem,
         FrameMemoryAttribute { is_temporary },
     )
 }
 
-fn to_jmp_ip(ip: u16) -> DecoratedOperandKind {
-    DecoratedOperandKind::Ip(InstructionPosition(ip + 1))
+fn to_jmp_ip(ip: u16) -> DecoratedOperandAccessKind {
+    DecoratedOperandAccessKind::Ip(InstructionPosition(ip + 1))
 }
 
 fn to_frame(val: u16) -> FrameMemoryAddress {
