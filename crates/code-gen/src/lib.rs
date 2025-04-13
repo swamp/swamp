@@ -35,12 +35,12 @@ use swamp_vm_disasm::{
     BasicType, ComplexType, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
     SourceFileLineInfo, disasm_color, disasm_instructions_color,
 };
-use swamp_vm_instr_build::{InstructionBuilder, Meta, PatchPosition};
+use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::{
     BOOL_SIZE, BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
     FrameMemorySize, HEAP_PTR_ALIGNMENT, HEAP_PTR_SIZE, HeapMemoryAddress, INT_SIZE,
     InstructionPosition, InstructionPositionOffset, MemoryAlignment, MemoryOffset, MemorySize,
-    PTR_SIZE, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
+    Meta, PTR_SIZE, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
 };
 use tracing::{error, info, trace};
 
@@ -245,7 +245,7 @@ pub fn disasm_function(
         infos: memory_infos,
     };
 
-    disasm_instructions_color(&instructions, &ip_offset, &mem_info, &ip_infos)
+    disasm_instructions_color(&instructions, &ip_offset, meta, &mem_info, &ip_infos)
 }
 
 pub fn disasm_whole_program(
@@ -343,7 +343,10 @@ impl CodeGenState {
         internal_fn: &InternalFunctionDefinitionRef,
         comment: &str,
     ) {
-        let call_comment = &format!("calling {} ({})", internal_fn.assigned_name, comment);
+        let call_comment = &format!(
+            "calling {:?}::{} ({})",
+            internal_fn.defined_in_module_path, internal_fn.assigned_name, comment
+        );
 
         if let Some(found) = self.function_infos.get(&internal_fn.program_unique_id) {
             self.builder

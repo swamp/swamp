@@ -474,6 +474,7 @@ impl Analyzer<'_> {
                     body: statements,
                     name: LocalIdentifier(self.to_node(&function_data.declaration.name)),
                     assigned_name: self.get_text(&function_data.declaration.name).to_string(),
+                    defined_in_module_path: self.module_path.clone(),
                     function_scope_state: self.function_variables.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
                 };
@@ -798,6 +799,7 @@ impl Analyzer<'_> {
                     body: statements,
                     name: LocalIdentifier(self.to_node(&function_data.declaration.name)),
                     assigned_name: self.get_text(&function_data.declaration.name).to_string(),
+                    defined_in_module_path: self.module_path.clone(),
                     //variable_scopes: self.scope.clone(),
                     function_scope_state: self.function_variables.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),

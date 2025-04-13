@@ -7,37 +7,16 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
     BinaryInstruction, ConstantMemoryAddress, CountU16, FrameMemoryAddress,
     FrameMemoryAddressIndirectPointer, FrameMemorySize, InstructionPosition, MemoryAddress,
-    MemorySize,
+    MemorySize, Meta,
 };
 
 #[derive(Debug)]
 pub struct PatchPosition(pub InstructionPosition);
 
-pub struct Meta {
-    pub comment: String,
-    pub node: Node,
-}
-
 pub struct InstructionBuilder {
     pub instructions: Vec<BinaryInstruction>,
     pub meta: Vec<Meta>,
 }
-
-impl InstructionBuilder {}
-
-impl InstructionBuilder {}
-
-impl InstructionBuilder {}
-
-impl InstructionBuilder {}
-
-impl InstructionBuilder {}
-
-impl InstructionBuilder {}
-
-impl InstructionBuilder {}
-
-impl InstructionBuilder {}
 
 impl Default for InstructionBuilder {
     fn default() -> Self {

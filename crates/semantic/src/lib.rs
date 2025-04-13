@@ -68,6 +68,7 @@ pub struct InternalFunctionDefinition {
     pub body: Expression,
     pub name: LocalIdentifier,
     pub assigned_name: String,
+    pub defined_in_module_path: Vec<String>,
     pub signature: GenericAwareSignature,
     //pub variable_scopes: FunctionScopeState,
     pub function_scope_state: Vec<VariableRef>,
@@ -84,6 +85,7 @@ impl Default for InternalFunctionDefinition {
             },
             name: LocalIdentifier(Node::default()),
             assigned_name: String::new(),
+            defined_in_module_path: vec![],
             signature: GenericAwareSignature {
                 signature: Signature {
                     parameters: vec![],

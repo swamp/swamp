@@ -7,3 +7,4 @@ description = "Low-level types for memory layout, addresses, and instructions us
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
+source-map-node = "0.0.1"

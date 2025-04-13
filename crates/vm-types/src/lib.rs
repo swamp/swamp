@@ -4,6 +4,7 @@
  */
 
 use crate::aligner::align;
+use source_map_node::Node;
 use std::fmt::{Alignment, Display, Formatter};
 
 pub mod aligner;
@@ -190,6 +191,11 @@ impl FrameMemorySize {
     pub const fn add(&self, inc: MemorySize) -> Self {
         Self(self.0 + inc.0)
     }
+}
+
+pub struct Meta {
+    pub comment: String,
+    pub node: Node,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

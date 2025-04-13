@@ -8,7 +8,7 @@ use std::fmt::{Display, Formatter};
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
     BinaryInstruction, ConstantMemoryAddress, FrameMemoryAddress, FrameMemorySize,
-    InstructionPosition, InstructionPositionOffset, MemoryOffset, MemorySize,
+    InstructionPosition, InstructionPositionOffset, MemoryOffset, MemorySize, Meta,
 };
 use yansi::{Color, Paint};
 
@@ -231,6 +231,7 @@ fn convert_tabs_to_spaces(input: &str) -> String {
 pub fn disasm_instructions_color(
     binary_instructions: &[BinaryInstruction],
     instruction_position_base: &InstructionPositionOffset,
+    meta: &[Meta],
     memory_infos: &FrameMemoryInfo,
     ip_infos: &SeqMap<InstructionPosition, SourceFileLineInfo>,
 ) -> String {
@@ -274,7 +275,12 @@ pub fn disasm_instructions_color(
             string,
             "     {:04X}> {}",
             ip_index,
-            disasm_color(instruction, FrameMemorySize(last_frame_size), memory_infos,)
+            disasm_color(
+                instruction,
+                FrameMemorySize(last_frame_size),
+                memory_infos,
+                &meta[ip_offset]
+            )
         )
         .expect("TODO: panic message");
     }
@@ -322,11 +328,13 @@ pub fn disasm_instructions_no_color(
     string
 }
 
+#[allow(clippy::too_many_lines)]
 #[must_use]
 pub fn disasm_color(
     binary_instruction: &BinaryInstruction,
     frame_size: FrameMemorySize,
     memory_infos: &FrameMemoryInfo,
+    meta: &Meta,
 ) -> String {
     let decorated = disasm(binary_instruction, frame_size);
 
@@ -412,15 +420,13 @@ pub fn disasm_color(
         };
         converted_operands.push(new_str);
 
-        let memory_comment = if let Some(addr) = operand_addr {
+        let memory_comment = operand_addr.and_then(|addr| {
             if let Some(info) = memory_infos.get(addr) {
                 Some(format!("{}", info.kind))
             } else {
                 None
             }
-        } else {
-            None
-        };
+        });
 
         if let Some(comment) = memory_comment {
             memory_comments.push(comment);
@@ -443,7 +449,10 @@ pub fn disasm_color(
         format!(" {}", memory_comments.join(", "))
     };
 
-    let total_comment = format!("{}{}", memory_comment_suffix, comment_suffix);
+    let total_comment = format!(
+        "{} {}{}",
+        meta.comment, memory_comment_suffix, comment_suffix
+    );
     let print_comment = if total_comment.is_empty() {
         String::new()
     } else {
