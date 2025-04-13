@@ -37,6 +37,8 @@ impl InstructionBuilder {}
 
 impl InstructionBuilder {}
 
+impl InstructionBuilder {}
+
 impl Default for InstructionBuilder {
     fn default() -> Self {
         Self::new()
@@ -88,6 +90,23 @@ impl InstructionBuilder {
     ) {
         self.add_instruction(
             OpCode::VecSubscript,
+            &[target.0, self_addr.0, index.0],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_vec_get(
+        &mut self,
+        target: FrameMemoryAddress,
+        self_addr: FrameMemoryAddress,
+        index: FrameMemoryAddress,
+        node: &Node,
+
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::VecGet,
             &[target.0, self_addr.0, index.0],
             node,
             comment,
@@ -150,6 +169,23 @@ impl InstructionBuilder {
         self.add_instruction(
             OpCode::VecRemoveIndex,
             &[self_addr.0, element_item.0],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_vec_remove_index_get_value(
+        &mut self,
+        target_addr: FrameMemoryAddress,
+        self_addr: FrameMemoryAddress,
+        element_item: FrameMemoryAddress,
+        node: &Node,
+
+        comment: &str,
+    ) {
+        self.add_instruction(
+            OpCode::VecRemoveIndexGetValue,
+            &[target_addr.0, self_addr.0, element_item.0],
             node,
             comment,
         );
@@ -567,6 +603,19 @@ impl InstructionBuilder {
         comment: &str,
     ) {
         self.add_instruction(OpCode::VecLen, &[len_target.0, self_addr.0], node, comment);
+    }
+
+    pub fn add_vec_clear(&mut self, mut_self_addr: FrameMemoryAddress, node: &Node, comment: &str) {
+        self.add_instruction(OpCode::VecClear, &[mut_self_addr.0], node, comment);
+    }
+
+    pub fn add_vec_create(
+        &mut self,
+        mut_self_addr: FrameMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.add_instruction(OpCode::VecCreate, &[mut_self_addr.0], node, comment);
     }
 
     pub fn add_vec_is_empty(&mut self, self_addr: FrameMemoryAddress, node: &Node, comment: &str) {

@@ -144,6 +144,10 @@ pub enum OpCode {
 
     VecIsEmpty,
     MapLen,
+    VecRemoveIndexGetValue,
+    VecClear,
+    VecCreate,
+    VecGet,
 }
 
 impl Display for OpCode {
@@ -235,6 +239,7 @@ impl Display for OpCode {
             Self::VecPush => write!(f, "vec_push"),
             Self::VecLen => write!(f, "vec_len"),
             Self::VecIsEmpty => write!(f, "vec_is_empty"),
+            Self::VecClear => write!(f, "vec_clear"),
             Self::VecSubscript => write!(f, "vec_subscript"),
             Self::VecSubscriptMut => write!(f, "vec_subscript_mut"),
             Self::VecFromSlice => write!(f, "vec_from_slice"),
@@ -242,7 +247,10 @@ impl Display for OpCode {
             Self::VecIterNext => write!(f, "vec_iter_next"),
             Self::VecIterNextPair => write!(f, "vec_iter_next_pair"),
             Self::VecRemoveIndex => write!(f, "vec_remove_index"),
+            Self::VecRemoveIndexGetValue => write!(f, "vec_remove_index_get_value"),
+            Self::VecGet => write!(f, "vec_get"),
             Self::VecPop => write!(f, "vec_pop"),
+            Self::VecCreate => write!(f, "vec_create"),
 
             // Map
             Self::MapNewFromPairs => write!(f, "map_new_from_pairs"),

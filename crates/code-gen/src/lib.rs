@@ -837,35 +837,25 @@ impl FunctionCodeGen<'_> {
                 );
             }
             IntrinsicFunction::VecRemoveIndexGetValue => {
-                todo!();
-                /*
                 let maybe_key_argument = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
                 let key_region = self.gen_expression_for_access(key_expr)?;
                 self.state.builder.add_vec_remove_index_get_value(
+                    ctx.addr(),
                     self_addr.unwrap().addr, // mut self
                     key_region.addr,
-                    "vec push",
+                    node,
+                    "vec remove index",
                 );
-
-                 */
             }
             IntrinsicFunction::VecClear => {
-                let maybe_key_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
-                    panic!();
-                };
-                let key_region = self.gen_expression_for_access(key_expr)?;
-                /*
                 self.state.builder.add_vec_clear(
                     self_addr.unwrap().addr, // mut self
-                    key_region.addr,
+                    node,
                     "vec clear",
                 );
-
-                 */
             }
             IntrinsicFunction::VecGet => {
                 let maybe_key_argument = &arguments[0];
@@ -873,29 +863,20 @@ impl FunctionCodeGen<'_> {
                     panic!();
                 };
                 let key_region = self.gen_expression_for_access(key_expr)?;
-                /*
                 self.state.builder.add_vec_get(
+                    ctx.addr(),
                     self_addr.unwrap().addr, // mut self
                     key_region.addr,
+                    node,
                     "vec get",
                 );
-
-                 */
             }
             IntrinsicFunction::VecCreate => {
-                /*
-                let maybe_key_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
-                    panic!();
-                };
-                let key_region = self.gen_expression_for_access(key_expr)?;
                 self.state.builder.add_vec_create(
                     self_addr.unwrap().addr, // mut self
-                    key_region.addr,
+                    node,
                     "vec create",
                 );
-
-                 */
             }
             IntrinsicFunction::VecSubscript => {
                 let maybe_index_argument = &arguments[0];
@@ -1366,6 +1347,8 @@ impl FunctionCodeGen<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
+        self.debug_node(&expr.node);
+
         let result = match &expr.kind {
             ExpressionKind::ConstantAccess(constant_ref) => self
                 .gen_constant_access(&expr.node, constant_ref, ctx)
@@ -2372,12 +2355,19 @@ impl FunctionCodeGen<'_> {
                 PostfixKind::MemberCall(function_to_call, arguments) => {
                     match &**function_to_call {
                         Function::Internal(internal_fn) => {
-                            if let Some(intrinsic_fn) = single_intrinsic_fn(&internal_fn.body) {
+                            if let Some((intrinsic_fn, intrinsic_arguments)) =
+                                single_intrinsic_fn(&internal_fn.body)
+                            {
+                                let merged_arguments = Self::merge_arguments_keep_literals(
+                                    arguments,
+                                    intrinsic_arguments,
+                                );
+
                                 self.gen_single_intrinsic_call(
                                     &start_expression.node,
                                     intrinsic_fn,
                                     Some(start_source),
-                                    arguments,
+                                    &merged_arguments,
                                     ctx,
                                 )?;
                             } else {
@@ -3770,17 +3760,35 @@ impl FunctionCodeGen<'_> {
 
         self.call_post_helper(node, &host_fn.signature, None, arguments, ctx)
     }
+
+    fn merge_arguments_keep_literals(
+        outer_args: &Vec<MutRefOrImmutableExpression>,
+        intrinsic_args: &Vec<MutRefOrImmutableExpression>,
+    ) -> Vec<MutRefOrImmutableExpression> {
+        // HACK: we assume that the parameters are in the same order.
+        // If one has more arguments, we assume that those extra arguments are in the end
+        // We also assume that the first is self
+        let mut all_args = outer_args.clone();
+
+        if intrinsic_args.len() > outer_args.len() + 1 {
+            all_args.extend_from_slice(&intrinsic_args[outer_args.len() + 1..]);
+        }
+
+        all_args
+    }
 }
 
-fn single_intrinsic_fn(body: &Expression) -> Option<&IntrinsicFunction> {
+fn single_intrinsic_fn(
+    body: &Expression,
+) -> Option<(&IntrinsicFunction, &Vec<MutRefOrImmutableExpression>)> {
     let ExpressionKind::Block(block_expressions) = &body.kind else {
         panic!("function body should be a block")
     };
 
-    if let ExpressionKind::IntrinsicCallEx(found_intrinsic_fn, _non_instantiated_arguments) =
+    if let ExpressionKind::IntrinsicCallEx(found_intrinsic_fn, arguments) =
         &block_expressions[0].kind
     {
-        Some(found_intrinsic_fn)
+        Some((found_intrinsic_fn, arguments))
     } else {
         None
     }
