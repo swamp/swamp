@@ -2,25 +2,19 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use seq_map::SeqMap;
-use source_map_cache::{FileLineInfo, SourceMapWrapper};
-use swamp_code_gen::{
-    CodeGenState, Error, FrameRelativeInfoKind, GenOptions, disasm_whole_program,
-};
+use source_map_cache::SourceMapWrapper;
+use swamp_code_gen::{Error, GenOptions, TopLevelGenState, disasm_whole_program};
 use swamp_compile::Program;
-use swamp_modules::prelude::ModuleRef;
 use swamp_semantic::Function;
-use swamp_types::Type;
-use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use tracing::{info, warn};
 
 /// # Errors
 ///
-pub fn code_gen_program<'a>(
+pub fn code_gen_program(
     program: &Program,
-    source_map_lookup: &'a SourceMapWrapper,
-) -> Result<CodeGenState, Error> {
-    let mut code_gen = CodeGenState::new();
+    source_map_lookup: &SourceMapWrapper,
+) -> Result<TopLevelGenState, Error> {
+    let mut code_gen = TopLevelGenState::new();
 
     code_gen.reserve_space_for_constants(&program.state.constants_in_dependency_order)?;
 
@@ -41,7 +35,7 @@ pub fn code_gen_program<'a>(
     for (path, module) in program.modules.modules() {
         info!(?path, "generating module");
         for internal_function_def in &module.symbol_table.internal_functions() {
-            let frame_infos = code_gen.gen_function_def(
+            code_gen.gen_function_def(
                 internal_function_def,
                 &normal_function,
                 source_map_lookup,
@@ -92,8 +86,8 @@ pub fn code_gen_program<'a>(
 
     code_gen.finalize();
     disasm_whole_program(
-        &code_gen.function_ips,
-        &code_gen.function_debug_infos,
+        code_gen.function_ips(),
+        code_gen.function_debug_infos(),
         source_map_lookup,
         code_gen.instructions(),
         code_gen.meta(),

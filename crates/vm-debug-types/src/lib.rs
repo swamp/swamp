@@ -1,18 +1,15 @@
 use seq_map::SeqMap;
 use std::fmt::{Display, Formatter};
+use swamp_vm_types::FrameMemoryRegion;
 use swamp_vm_types::{
-    ConstantMemoryAddress, FrameMemoryAddress, FrameMemorySize, InstructionPosition, MemoryOffset,
-    MemorySize,
+    ConstantMemoryAddress, FrameMemoryAddress, FrameMemorySize, InstructionPosition,
+    InstructionPositionOffset, MemoryOffset, MemorySize,
 };
-
-pub struct FrameMemoryInfo {
-    pub infos: Vec<FrameAddressInfo>,
-}
 
 impl FrameMemoryInfo {
     pub fn get(&self, memory_addr: &FrameMemoryAddress) -> Option<FrameAddressInfo> {
         for x in &self.infos {
-            if x.addr.0 == memory_addr.0 {
+            if x.region.addr.0 == memory_addr.0 {
                 return Some(x.clone());
             }
         }
@@ -30,6 +27,7 @@ pub struct OffsetMemoryItem {
 
 #[derive(Clone, Debug)]
 pub struct StructType {
+    pub name: String,
     pub fields: SeqMap<MemoryOffset, OffsetMemoryItem>,
 }
 
@@ -107,9 +105,13 @@ pub struct DecoratedOpcode {
 
 #[derive(Clone, Debug)]
 pub enum BasicType {
+    Empty,
     U8,
+    B8,
     S32,
+    Fixed32,
     U32,
+    CollectionPointer,
     Struct(StructType),
     TaggedUnion(TaggedUnion),
     Tuple(Vec<ComplexType>),
@@ -136,6 +138,18 @@ impl Display for BasicType {
             Self::Tuple(_) => {
                 write!(f, "tuple")
             }
+            Self::Empty => {
+                write!(f, "()")
+            }
+            Self::B8 => {
+                write!(f, "bool8")
+            }
+            Self::Fixed32 => {
+                write!(f, "fixed32")
+            }
+            Self::CollectionPointer => {
+                write!(f, "collection ptr")
+            }
         }
     }
 }
@@ -143,8 +157,10 @@ impl Display for BasicType {
 #[derive(Clone, Debug)]
 pub enum ComplexType {
     Optional(BasicType),
-    IndirectPointer(BasicType),
+    //IndirectPointer(BasicType),
     BasicType(BasicType),
+    Slice(BasicType),
+    SlicePair(BasicType, BasicType),
 }
 
 impl Display for ComplexType {
@@ -153,11 +169,14 @@ impl Display for ComplexType {
             Self::Optional(basic) => {
                 write!(f, "optional<{basic}>")
             }
-            Self::IndirectPointer(basic) => {
-                write!(f, "ptr to <{basic}>")
-            }
             Self::BasicType(basic) => {
                 write!(f, "{basic}")
+            }
+            Self::Slice(basic) => {
+                write!(f, "slice {basic}")
+            }
+            Self::SlicePair(a, b) => {
+                write!(f, "slice {a} {b}")
             }
         }
     }
@@ -205,7 +224,45 @@ impl Display for FrameAddressInfoKind {
 
 #[derive(Clone, Debug)]
 pub struct FrameAddressInfo {
-    pub addr: FrameMemoryAddress,
-    pub size: FrameMemorySize,
+    pub region: FrameMemoryRegion,
     pub kind: FrameAddressInfoKind,
+}
+
+#[derive(Clone, Debug)]
+pub struct FrameMemoryInfo {
+    pub infos: Vec<FrameAddressInfo>,
+    pub size: FrameMemorySize,
+}
+
+#[derive(Clone)]
+pub struct FrameRelativeInfo {
+    pub frame_memory_region: FrameMemoryRegion,
+    pub kind: FrameAddressInfo,
+}
+
+impl FrameMemoryInfo {
+    #[must_use]
+    pub fn size(&self) -> FrameMemorySize {
+        self.size
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum FunctionInfoKind {
+    Constant(usize),
+    Normal(usize),
+}
+
+#[derive(Clone, Debug)]
+pub struct FunctionInfo {
+    pub kind: FunctionInfoKind,
+    pub frame_memory: FrameMemoryInfo,
+    pub name: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct CompleteFunctionInfo {
+    pub ip: InstructionPosition,
+    pub size: InstructionPositionOffset,
+    pub info: FunctionInfo,
 }

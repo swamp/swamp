@@ -3,10 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use crate::alloc::FrameMemoryRegion;
 use crate::ctx::Context;
 use crate::{Error, FunctionCodeGen};
 use swamp_semantic::{LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression};
+use swamp_vm_types::FrameMemoryRegion;
 
 impl FunctionCodeGen<'_> {
     pub(crate) fn gen_for_access_or_location(

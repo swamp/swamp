@@ -2,33 +2,38 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use seq_map::SeqMap;
 use source_map_node::Node;
+use swamp_vm_debug_types::{CompleteFunctionInfo, FunctionInfo, FunctionInfoKind};
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
     BinaryInstruction, ConstantMemoryAddress, CountU16, FrameMemoryAddress,
-    FrameMemoryAddressIndirectPointer, FrameMemorySize, InstructionPosition, MemoryAddress,
-    MemorySize, Meta,
+    FrameMemoryAddressIndirectPointer, FrameMemorySize, InstructionPosition,
+    InstructionPositionOffset, MemoryAddress, MemorySize, Meta,
 };
 
 #[derive(Debug)]
 pub struct PatchPosition(pub InstructionPosition);
 
-pub struct InstructionBuilder {
+pub struct InstructionBuilderState {
     pub instructions: Vec<BinaryInstruction>,
+    pub functions: SeqMap<usize, CompleteFunctionInfo>,
+    pub constants: SeqMap<usize, CompleteFunctionInfo>,
     pub meta: Vec<Meta>,
 }
 
-impl Default for InstructionBuilder {
+impl Default for InstructionBuilderState {
     fn default() -> Self {
         Self::new()
     }
 }
-
-impl InstructionBuilder {
+impl InstructionBuilderState {
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             instructions: Vec::new(),
+            functions: SeqMap::default(),
+            constants: SeqMap::default(),
             meta: Vec::new(),
         }
     }
@@ -37,11 +42,124 @@ impl InstructionBuilder {
     pub fn position(&self) -> InstructionPosition {
         InstructionPosition(self.instructions.len() as u16)
     }
+    pub fn add_function(
+        &mut self,
+        function_info: FunctionInfo,
+        node: &Node,
+        comment: &str,
+    ) -> InstructionBuilder {
+        let FunctionInfoKind::Normal(_id) = function_info.kind else {
+            panic!("must be constant")
+        };
+        self.add_function_helper(function_info, node, comment)
+    }
+
+    pub fn add_function_helper(
+        &mut self,
+        function_info: FunctionInfo,
+        node: &Node,
+        comment: &str,
+    ) -> InstructionBuilder {
+        let complete_info = CompleteFunctionInfo {
+            ip: self.position(),
+            size: InstructionPositionOffset(0),
+            info: function_info.clone(),
+        };
+        if let FunctionInfoKind::Constant(constant_id) = function_info.kind {
+            self.constants.insert(constant_id, complete_info).unwrap();
+        } else if let FunctionInfoKind::Normal(normal_id) = function_info.kind {
+            self.functions.insert(normal_id, complete_info).unwrap();
+        }
+
+        let mut function_instruction_builder = InstructionBuilder::new(self);
+
+        function_instruction_builder.enter(function_info.frame_memory.size(), node, comment);
+
+        function_instruction_builder
+    }
+
+    pub fn add_constant_function(
+        &mut self,
+        constant_info: FunctionInfo,
+        node: &Node,
+        comment: &str,
+    ) -> InstructionBuilder {
+        let FunctionInfoKind::Constant(_id) = constant_info.kind else {
+            panic!("must be constant")
+        };
+
+        self.add_function_helper(constant_info, node, comment)
+    }
+
+    /// # Panics
+    ///
+    pub fn patch_call(&mut self, patch_position: PatchPosition, ip: &InstructionPosition) {
+        const CALL: u8 = OpCode::Call as u8;
+
+        let instruction = &mut self.instructions[patch_position.0.0 as usize];
+
+        match instruction.opcode {
+            CALL => {
+                instruction.operands[0] = ip.0 as u16 - 1;
+            }
+            _ => panic!("Attempted to patch a non-call instruction at position {patch_position:?}"),
+        }
+    }
+
+    pub fn add_ret(&mut self, node: &Node, comment: &str) {
+        self.add_instruction(OpCode::Ret, &[], node, comment);
+    }
+
+    pub fn add_hlt(&mut self, node: &Node, comment: &str) {
+        self.add_instruction(OpCode::Hlt, &[], node, comment);
+    }
+
+    fn add_instruction(&mut self, op_code: OpCode, operands: &[u16], node: &Node, comment: &str) {
+        let mut array: [u16; 5] = [0; 5];
+        assert!(operands.len() <= 5);
+        let len = operands.len();
+        array[..len].copy_from_slice(&operands[..len]);
+        self.instructions.push(BinaryInstruction {
+            opcode: op_code as u8,
+            operands: array,
+        });
+        let meta = Meta {
+            comment: comment.to_string(),
+            node: node.clone(),
+        };
+
+        self.meta.push(meta);
+    }
+}
+
+pub struct InstructionBuilder<'a> {
+    pub state: &'a mut InstructionBuilderState,
+}
+
+impl InstructionBuilder<'_> {
+    pub fn enter(&mut self, size: FrameMemorySize, node: &Node, comment: &str) {
+        self.state
+            .add_instruction(OpCode::Enter, &[size.0], node, comment);
+    }
+}
+
+impl<'a> InstructionBuilder<'a> {
+    #[must_use]
+    pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
+        Self { state }
+    }
+}
+
+impl InstructionBuilder<'_> {
+    #[must_use]
+    pub fn position(&self) -> InstructionPosition {
+        InstructionPosition(self.state.instructions.len() as u16)
+    }
 
     pub fn add_jmp_if_equal_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
         let position = self.position();
 
-        self.add_instruction(OpCode::Bz, &[0], node, comment);
+        self.state.add_instruction(OpCode::Bz, &[0], node, comment);
 
         PatchPosition(position)
     }
@@ -53,7 +171,7 @@ impl InstructionBuilder {
     ) -> PatchPosition {
         let position = self.position();
 
-        self.add_instruction(OpCode::Bnz, &[0], node, comment);
+        self.state.add_instruction(OpCode::Bnz, &[0], node, comment);
 
         PatchPosition(position)
     }
@@ -67,7 +185,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecSubscript,
             &[target.0, self_addr.0, index.0],
             node,
@@ -84,7 +202,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecGet,
             &[target.0, self_addr.0, index.0],
             node,
@@ -102,7 +220,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecSubscriptMut,
             &[target.0, self_addr.0, index.0, value_addr.0],
             node,
@@ -118,7 +236,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecPush,
             &[self_addr.0, element_item.0],
             node,
@@ -134,7 +252,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::VecPop, &[target_addr.0, self_addr.0], node, comment);
+        self.state
+            .add_instruction(OpCode::VecPop, &[target_addr.0, self_addr.0], node, comment);
     }
 
     pub fn add_vec_remove_index(
@@ -145,7 +264,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecRemoveIndex,
             &[self_addr.0, element_item.0],
             node,
@@ -162,7 +281,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecRemoveIndexGetValue,
             &[target_addr.0, self_addr.0, element_item.0],
             node,
@@ -179,7 +298,7 @@ impl InstructionBuilder {
         comment: &str,
     ) -> PatchPosition {
         let position = self.position();
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecIterNext,
             &[iterator_target.0, closure_variable.0, 0],
             node,
@@ -198,7 +317,7 @@ impl InstructionBuilder {
         comment: &str,
     ) -> PatchPosition {
         let position = self.position();
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecIterNextPair,
             &[
                 iterator_target.0,
@@ -220,7 +339,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::Not8, &[target.0, source.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Not8, &[target.0, source.0], node, comment);
     }
 
     pub fn add_eq_u8_immediate(
@@ -231,7 +351,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::Eq8Imm,
             &[source_addr.0, immediate as u16],
             node,
@@ -247,7 +367,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::Eq32, &[addr_a.0, addr_b.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Eq32, &[addr_a.0, addr_b.0], node, comment);
     }
 
     pub fn add_ne_32(
@@ -258,25 +379,23 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::Ne32, &[addr_a.0, addr_b.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Ne32, &[addr_a.0, addr_b.0], node, comment);
     }
 
     pub fn add_call_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
         let position = self.position();
-        self.add_instruction(OpCode::Call, &[0], node, comment);
+        self.state
+            .add_instruction(OpCode::Call, &[0], node, comment);
         PatchPosition(position)
     }
 
     pub fn add_jump_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
         let position = self.position();
 
-        self.add_instruction(OpCode::Jmp, &[0], node, comment);
+        self.state.add_instruction(OpCode::Jmp, &[0], node, comment);
 
         PatchPosition(position)
-    }
-
-    pub fn add_enter(&mut self, size: FrameMemorySize, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::Enter, &[size.0], node, comment);
     }
 
     // Mov is more of a copy. Keeping the name Mov because it is old school and idiomatic.
@@ -289,7 +408,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::Mov, &[target.0, source.0, size.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Mov, &[target.0, source.0, size.0], node, comment);
     }
 
     // for overlap moves
@@ -302,23 +422,18 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::MovLp, &[target.0, source.0, size.0], node, comment);
-    }
-
-    pub fn add_ret(&mut self, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::Ret, &[], node, comment);
-    }
-
-    pub fn add_hlt(&mut self, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::Hlt, &[], node, comment);
+        self.state
+            .add_instruction(OpCode::MovLp, &[target.0, source.0, size.0], node, comment);
     }
 
     pub fn add_panic(&mut self, str: FrameMemoryAddress, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::Panic, &[str.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Panic, &[str.0], node, comment);
     }
 
     pub fn add_call(&mut self, function_ip: &InstructionPosition, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::Call, &[function_ip.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Call, &[function_ip.0], node, comment);
     }
 
     pub fn add_host_call(
@@ -329,7 +444,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::HostCall,
             &[host_function_id, arguments_size.0],
             node,
@@ -356,7 +471,7 @@ impl InstructionBuilder {
         const RANGE_ITER_NEXT: u8 = OpCode::RangeIterNext as u8;
         const RANGE_ITER_NEXT_PAIR: u8 = OpCode::RangeIterNextPair as u8;
 
-        let instruction = &mut self.instructions[patch_position.0.0 as usize];
+        let instruction = &mut self.state.instructions[patch_position.0.0 as usize];
 
         match instruction.opcode {
             JMP_IF_NOT => {
@@ -402,23 +517,9 @@ impl InstructionBuilder {
         self.patch_jump(jump_position, &self.position());
     }
 
-    /// # Panics
-    ///
-    pub fn patch_call(&mut self, patch_position: PatchPosition, ip: &InstructionPosition) {
-        const CALL: u8 = OpCode::Call as u8;
-
-        let instruction = &mut self.instructions[patch_position.0.0 as usize];
-
-        match instruction.opcode {
-            CALL => {
-                instruction.operands[0] = ip.0 as u16 - 1;
-            }
-            _ => panic!("Attempted to patch a non-call instruction at position {patch_position:?}"),
-        }
-    }
-
     pub fn add_jmp(&mut self, ip: InstructionPosition, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::Jmp, &[ip.0 - 1], node, comment);
+        self.state
+            .add_instruction(OpCode::Jmp, &[ip.0 - 1], node, comment);
     }
 
     pub fn add_map_iter_init(
@@ -429,7 +530,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::MapIterInit,
             &[iterator_target.0, pointer_to_map.0.0],
             node,
@@ -446,7 +547,7 @@ impl InstructionBuilder {
         comment: &str,
     ) -> PatchPosition {
         let position = self.position();
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::MapIterNext,
             &[iterator_target.0, closure_variable.0, 0],
             node,
@@ -465,7 +566,7 @@ impl InstructionBuilder {
         comment: &str,
     ) -> PatchPosition {
         let position = self.position();
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::MapIterNextPair,
             &[
                 iterator_target.0,
@@ -488,7 +589,7 @@ impl InstructionBuilder {
         comment: &str,
     ) -> PatchPosition {
         let position = self.position();
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::RangeIterNext,
             &[iterator_target.0, closure_variable.0, 0],
             node,
@@ -507,7 +608,7 @@ impl InstructionBuilder {
         comment: &str,
     ) -> PatchPosition {
         let position = self.position();
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::RangeIterNextPair,
             &[
                 iterator_target.0,
@@ -532,7 +633,7 @@ impl InstructionBuilder {
     ) {
         let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(constant_addr.0);
 
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::StringFromConstantSlice,
             &[target_string.0, lower_bits, upper_bits, byte_count.0],
             node,
@@ -549,7 +650,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::StringAppend,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -565,7 +666,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::StringLen,
             &[len_target.0, indirect.0.0],
             node,
@@ -581,11 +682,13 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::VecLen, &[len_target.0, self_addr.0], node, comment);
+        self.state
+            .add_instruction(OpCode::VecLen, &[len_target.0, self_addr.0], node, comment);
     }
 
     pub fn add_vec_clear(&mut self, mut_self_addr: FrameMemoryAddress, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::VecClear, &[mut_self_addr.0], node, comment);
+        self.state
+            .add_instruction(OpCode::VecClear, &[mut_self_addr.0], node, comment);
     }
 
     pub fn add_vec_create(
@@ -594,11 +697,13 @@ impl InstructionBuilder {
         node: &Node,
         comment: &str,
     ) {
-        self.add_instruction(OpCode::VecCreate, &[mut_self_addr.0], node, comment);
+        self.state
+            .add_instruction(OpCode::VecCreate, &[mut_self_addr.0], node, comment);
     }
 
     pub fn add_vec_is_empty(&mut self, self_addr: FrameMemoryAddress, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::VecIsEmpty, &[self_addr.0], node, comment);
+        self.state
+            .add_instruction(OpCode::VecIsEmpty, &[self_addr.0], node, comment);
     }
 
     pub fn add_vec_from_slice(
@@ -611,7 +716,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecFromSlice,
             &[target.0, source_slice.0, element_size.0, element_count.0],
             node,
@@ -627,7 +732,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecIterInit,
             &[iterator_target.0, pointer_to_vec.0.0],
             node,
@@ -644,7 +749,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecIterNext,
             &[
                 iterator_target.0,
@@ -666,7 +771,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::VecIterNextPair,
             &[
                 iterator_target.0,
@@ -695,7 +800,7 @@ impl InstructionBuilder {
     ) {
         let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(value as u32);
 
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::Ld32,
             &[dst_offset.0, lower_bits, upper_bits],
             node,
@@ -717,7 +822,7 @@ impl InstructionBuilder {
         let lower_bits = (value_u32 & 0xFFFF) as u16;
         let upper_bits = (value_u32 >> 16) as u16;
 
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::LdConst,
             &[target_addr.0, lower_bits, upper_bits, size.0],
             node,
@@ -732,7 +837,8 @@ impl InstructionBuilder {
         node: &Node,
         comment: &str,
     ) {
-        self.add_instruction(OpCode::Ld8, &[dst_offset.0, value as u16], node, comment);
+        self.state
+            .add_instruction(OpCode::Ld8, &[dst_offset.0, value as u16], node, comment);
     }
 
     pub fn add_add_i32(
@@ -744,7 +850,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::AddI32,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -761,7 +867,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::ModI32,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -778,7 +884,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::DivI32,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -795,7 +901,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::SubI32,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -812,7 +918,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::MulI32,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -828,7 +934,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::NegI32, &[target.0, source.0], node, comment);
+        self.state
+            .add_instruction(OpCode::NegI32, &[target.0, source.0], node, comment);
     }
 
     pub fn add_mod_f32(
@@ -840,7 +947,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::ModF32,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -857,7 +964,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::SubF32,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -873,7 +980,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::MulF32,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -889,7 +996,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::DivF32,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -906,7 +1013,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::AddF32,
             &[dst_offset.0, lhs_offset.0, rhs_offset.0],
             node,
@@ -922,7 +1029,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::NegF32, &[target.0, source.0], node, comment);
+        self.state
+            .add_instruction(OpCode::NegF32, &[target.0, source.0], node, comment);
     }
 
     pub fn add_jmp_if(
@@ -933,7 +1041,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::Bnz,
             &[condition_offset.0, jmp_target.0],
             node,
@@ -949,7 +1057,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::LtF32, &[lhs_offset.0, rhs_offset.0], node, comment);
+        self.state
+            .add_instruction(OpCode::LtF32, &[lhs_offset.0, rhs_offset.0], node, comment);
     }
 
     pub fn add_le_f32(
@@ -960,7 +1069,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::LeF32, &[lhs_offset.0, rhs_offset.0], node, comment);
+        self.state
+            .add_instruction(OpCode::LeF32, &[lhs_offset.0, rhs_offset.0], node, comment);
     }
 
     pub fn add_gt_f32(
@@ -971,7 +1081,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::GtF32, &[lhs_offset.0, rhs_offset.0], node, comment);
+        self.state
+            .add_instruction(OpCode::GtF32, &[lhs_offset.0, rhs_offset.0], node, comment);
     }
 
     pub fn add_ge_f32(
@@ -982,7 +1093,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::GeF32, &[lhs_offset.0, rhs_offset.0], node, comment);
+        self.state
+            .add_instruction(OpCode::GeF32, &[lhs_offset.0, rhs_offset.0], node, comment);
     }
 
     pub fn add_jmp_if_not(
@@ -993,7 +1105,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::Bz,
             &[condition_offset.0, jmp_target.0],
             node,
@@ -1009,7 +1121,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::LtI32, &[lhs_offset.0, rhs_offset.0], node, comment);
+        self.state
+            .add_instruction(OpCode::LtI32, &[lhs_offset.0, rhs_offset.0], node, comment);
     }
 
     pub fn add_le_i32(
@@ -1020,7 +1133,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::LeI32, &[lhs_offset.0, rhs_offset.0], node, comment);
+        self.state
+            .add_instruction(OpCode::LeI32, &[lhs_offset.0, rhs_offset.0], node, comment);
     }
 
     pub fn add_gt_i32(
@@ -1031,7 +1145,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::GtI32, &[lhs_offset.0, rhs_offset.0], node, comment);
+        self.state
+            .add_instruction(OpCode::GtI32, &[lhs_offset.0, rhs_offset.0], node, comment);
     }
 
     pub fn add_ge_i32(
@@ -1042,19 +1157,23 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::GeI32, &[lhs_offset.0, rhs_offset.0], node, comment);
+        self.state
+            .add_instruction(OpCode::GeI32, &[lhs_offset.0, rhs_offset.0], node, comment);
     }
 
     pub fn add_tst8(&mut self, addr: FrameMemoryAddress, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::Tst8, &[addr.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Tst8, &[addr.0], node, comment);
     }
 
     pub fn add_stz(&mut self, target: FrameMemoryAddress, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::Stz, &[target.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Stz, &[target.0], node, comment);
     }
 
     pub fn add_stnz(&mut self, target: FrameMemoryAddress, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::Stnz, &[target.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Stnz, &[target.0], node, comment);
     }
 
     pub fn add_cmp8(
@@ -1064,7 +1183,8 @@ impl InstructionBuilder {
         node: &Node,
         comment: &str,
     ) {
-        self.add_instruction(OpCode::Cmp8, &[a.0, b.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Cmp8, &[a.0, b.0], node, comment);
     }
 
     pub fn add_cmp32(
@@ -1074,7 +1194,8 @@ impl InstructionBuilder {
         node: &Node,
         comment: &str,
     ) {
-        self.add_instruction(OpCode::Cmp32, &[a.0, b.0], node, comment);
+        self.state
+            .add_instruction(OpCode::Cmp32, &[a.0, b.0], node, comment);
     }
 
     pub fn add_cmp(
@@ -1085,7 +1206,7 @@ impl InstructionBuilder {
         node: &Node,
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::Cmp,
             &[source_a.0, source_b.0, size.0],
             node,
@@ -1105,7 +1226,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::MapNewFromPairs,
             &[
                 map_target_addr.0,
@@ -1120,7 +1241,8 @@ impl InstructionBuilder {
     }
 
     pub fn add_map_has(&mut self, self_addr: FrameMemoryAddress, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::MapHas, &[self_addr.0], node, comment);
+        self.state
+            .add_instruction(OpCode::MapHas, &[self_addr.0], node, comment);
     }
 
     pub fn add_map_len(
@@ -1130,7 +1252,8 @@ impl InstructionBuilder {
         node: &Node,
         comment: &str,
     ) {
-        self.add_instruction(OpCode::MapLen, &[target_addr.0, self_addr.0], node, comment);
+        self.state
+            .add_instruction(OpCode::MapLen, &[target_addr.0, self_addr.0], node, comment);
     }
 
     pub fn add_map_remove(
@@ -1141,7 +1264,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::MapRemove,
             &[map_target_addr.0, key_addr.0],
             node,
@@ -1158,7 +1281,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::MapSubscript,
             &[target_addr.0, self_addr.0, key.0],
             node,
@@ -1173,7 +1296,7 @@ impl InstructionBuilder {
         node: &Node,
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::MapSubscriptMutCreate,
             &[self_addr.0, key.0],
             node,
@@ -1189,7 +1312,7 @@ impl InstructionBuilder {
         node: &Node,
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::MapSubscriptMut,
             &[self_addr.0, key.0, value.0],
             node,
@@ -1197,24 +1320,9 @@ impl InstructionBuilder {
         );
     }
 
-    fn add_instruction(&mut self, op_code: OpCode, operands: &[u16], node: &Node, comment: &str) {
-        let mut array: [u16; 5] = [0; 5];
-        assert!(operands.len() <= 5);
-        let len = operands.len();
-        array[..len].copy_from_slice(&operands[..len]);
-        self.instructions.push(BinaryInstruction {
-            opcode: op_code as u8,
-            operands: array,
-        });
-        let meta = Meta {
-            comment: comment.to_string(),
-            node: node.clone(),
-        };
-
-        self.meta.push(meta);
-    }
     pub fn add_ld_u16(&mut self, dest: FrameMemoryAddress, data: u16, node: &Node, comment: &str) {
-        self.add_instruction(OpCode::Ld16, &[dest.0, data], node, comment);
+        self.state
+            .add_instruction(OpCode::Ld16, &[dest.0, data], node, comment);
     }
 
     pub fn add_int_rnd(
@@ -1225,7 +1333,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::IntToRnd, &[dest.0, self_int.0], node, comment);
+        self.state
+            .add_instruction(OpCode::IntToRnd, &[dest.0, self_int.0], node, comment);
     }
 
     pub fn add_int_min(
@@ -1236,7 +1345,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::IntMin, &[dest.0, self_int.0], node, comment);
+        self.state
+            .add_instruction(OpCode::IntMin, &[dest.0, self_int.0], node, comment);
     }
 
     pub fn add_int_max(
@@ -1247,7 +1357,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::IntMax, &[dest.0, self_int.0], node, comment);
+        self.state
+            .add_instruction(OpCode::IntMax, &[dest.0, self_int.0], node, comment);
     }
 
     pub fn add_int_clamp(
@@ -1258,7 +1369,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::IntClamp, &[dest.0, self_int.0], node, comment);
+        self.state
+            .add_instruction(OpCode::IntClamp, &[dest.0, self_int.0], node, comment);
     }
 
     pub fn add_int_abs(
@@ -1269,7 +1381,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::IntAbs, &[dest.0, self_int.0], node, comment);
+        self.state
+            .add_instruction(OpCode::IntAbs, &[dest.0, self_int.0], node, comment);
     }
 
     pub fn add_int_to_float(
@@ -1280,7 +1393,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::IntToFloat, &[dest.0, self_int.0], node, comment);
+        self.state
+            .add_instruction(OpCode::IntToFloat, &[dest.0, self_int.0], node, comment);
     }
 
     pub fn add_int_to_string(
@@ -1291,7 +1405,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::IntToString, &[dest.0, self_int.0], node, comment);
+        self.state
+            .add_instruction(OpCode::IntToString, &[dest.0, self_int.0], node, comment);
     }
 
     pub fn bool_to_string(
@@ -1302,7 +1417,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::BoolToString, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::BoolToString, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn float_to_string(
@@ -1313,7 +1429,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::FloatToString,
             &[dest.0, self_float.0],
             node,
@@ -1329,7 +1445,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::FloatRound, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::FloatRound, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn add_float_floor(
@@ -1340,7 +1457,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::FloatFloor, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::FloatFloor, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn add_float_sqrt(
@@ -1351,7 +1469,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::FloatSqrt, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::FloatSqrt, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn add_float_sign(
@@ -1362,7 +1481,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::FloatSign, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::FloatSign, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn add_float_abs(
@@ -1373,7 +1493,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::FloatAbs, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::FloatAbs, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn add_float_prnd(
@@ -1384,7 +1505,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::FloatPseudoRandom,
             &[dest.0, self_float.0],
             node,
@@ -1400,7 +1521,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::FloatSin, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::FloatSin, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn add_float_cos(
@@ -1411,7 +1533,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::FloatCos, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::FloatCos, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn add_float_acos(
@@ -1422,7 +1545,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::FloatAcos, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::FloatAcos, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn add_float_asin(
@@ -1433,7 +1557,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::FloatAsin, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::FloatAsin, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn add_float_atan2(
@@ -1444,7 +1569,8 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(OpCode::FloatAtan2, &[dest.0, self_float.0], node, comment);
+        self.state
+            .add_instruction(OpCode::FloatAtan2, &[dest.0, self_float.0], node, comment);
     }
 
     pub fn add_float_min(
@@ -1456,7 +1582,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::FloatMin,
             &[dest.0, self_float.0, other.0],
             node,
@@ -1473,7 +1599,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::FloatMax,
             &[dest.0, self_float.0, other.0],
             node,
@@ -1491,7 +1617,7 @@ impl InstructionBuilder {
 
         comment: &str,
     ) {
-        self.add_instruction(
+        self.state.add_instruction(
             OpCode::FloatClamp,
             &[dest.0, min_addr.0, self_float.0, max_addr.0],
             node,

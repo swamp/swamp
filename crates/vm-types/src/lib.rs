@@ -4,7 +4,6 @@
  */
 
 use crate::aligner::align;
-use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::{Alignment, Display, Formatter};
 
@@ -46,6 +45,47 @@ pub struct FrameMemoryAddress(pub u16);
 impl Display for FrameMemoryAddress {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[frame {:04X} ({})]", self.0, self.0)
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ConstantMemoryRegion {
+    pub addr: ConstantMemoryAddress,
+    pub size: MemorySize,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct FrameMemoryRegion {
+    pub addr: FrameMemoryAddress,
+    pub size: MemorySize,
+}
+
+impl Default for FrameMemoryRegion {
+    fn default() -> Self {
+        Self {
+            addr: FrameMemoryAddress(0),
+            size: MemorySize(0),
+        }
+    }
+}
+
+impl FrameMemoryRegion {
+    pub fn new(frame_addr: FrameMemoryAddress, size: MemorySize) -> FrameMemoryRegion {
+        Self {
+            addr: frame_addr,
+            size,
+        }
+    }
+
+    pub fn last_valid_end_addr(&self) -> FrameMemoryAddress {
+        self.addr.add(MemorySize(self.size.0))
+    }
+}
+
+impl FrameMemoryRegion {
+    #[must_use]
+    pub fn addr(&self) -> FrameMemoryAddress {
+        self.addr
     }
 }
 

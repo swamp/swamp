@@ -3,29 +3,34 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use crate::alloc::{FrameMemoryRegion, ScopeAllocator};
+use crate::alloc::ScopeAllocator;
 use seq_map::SeqMap;
 use swamp_types::{AnonymousStructType, EnumVariantType, Type};
 use swamp_vm_types::{
-    FLOAT_SIZE, INT_SIZE, MAP_REFERENCE_SIZE, MAP_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
-    RANGE_SIZE, STR_SIZE, VEC_REFERENCE_SIZE,
+    FLOAT_SIZE, FrameMemoryRegion, INT_SIZE, MAP_REFERENCE_SIZE, MAP_SIZE, MemoryAlignment,
+    MemoryOffset, MemorySize, RANGE_SIZE, STR_SIZE, VEC_REFERENCE_SIZE,
 };
 use tracing::{error, info};
 
-pub fn layout_struct(anon_struct: &AnonymousStructType) -> (MemorySize, MemoryAlignment) {
+pub fn layout_struct(
+    anon_struct: &AnonymousStructType,
+) -> (MemorySize, MemoryAlignment, Vec<(MemoryOffset, MemorySize)>) {
     let mut calculated_offset = MemoryOffset(0);
     let mut largest_alignment = MemoryAlignment::U8;
+
+    let mut elements = Vec::new();
     for (_name, field) in &anon_struct.field_name_sorted_fields {
         let (field_size, field_alignment) = type_size_and_alignment(&field.field_type);
         if field_alignment.greater_than(largest_alignment) {
             largest_alignment = field_alignment;
         }
         calculated_offset.space(field_size, field_alignment);
+        elements.push((calculated_offset, field_size));
     }
 
     let total_offset = calculated_offset.space(MemorySize(0), largest_alignment);
 
-    (total_offset.as_size(), largest_alignment)
+    (total_offset.as_size(), largest_alignment, elements)
 }
 
 #[must_use]
@@ -69,7 +74,11 @@ pub fn layout_union(variants: &SeqMap<String, EnumVariantType>) -> (MemorySize, 
     let mut calculated_offset = MemoryOffset(0);
     for (_name, variant) in variants {
         let (variant_size, variant_alignment) = match variant {
-            EnumVariantType::Struct(anon_struct) => layout_struct(&anon_struct.anon_struct),
+            EnumVariantType::Struct(anon_struct) => {
+                let (struct_size, struct_alignment, _elements) =
+                    layout_struct(&anon_struct.anon_struct);
+                (struct_size, struct_alignment)
+            }
             EnumVariantType::Tuple(types) => layout_tuple(&types.fields_in_order),
             EnumVariantType::Nothing(_) => (MemorySize(0), MemoryAlignment::U8),
         };
@@ -170,7 +179,10 @@ pub fn type_size_and_alignment(ty: &Type) -> (MemorySize, MemoryAlignment) {
         Type::SlicePair(key_type, value_type) => {
             layout_tuple(&vec![*key_type.clone(), *value_type.clone()])
         }
-        Type::AnonymousStruct(anon_struct) => layout_struct(anon_struct),
+        Type::AnonymousStruct(anon_struct) => {
+            let (struct_size, struct_alignment, _elements) = layout_struct(&anon_struct);
+            (struct_size, struct_alignment)
+        }
         Type::Enum(enum_type) => {
             let (offset, alignment) = layout_union(&enum_type.variants);
 
