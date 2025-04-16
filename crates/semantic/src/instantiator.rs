@@ -5,8 +5,8 @@
 
 use crate::prelude::InstantiationCache;
 use crate::{
-    AssociatedImpls, ExternalFunctionDefinition, Function, FunctionScopeState,
-    InternalFunctionDefinition, LocalIdentifier, SemanticError,
+    AssociatedImpls, ExternalFunctionDefinition, Function, InternalFunctionDefinition,
+    LocalIdentifier, SemanticError,
 };
 use seq_map::SeqMap;
 use source_map_node::Node;
@@ -258,7 +258,9 @@ impl Instantiator {
         signature: &GenericAwareSignature,
         scope: &TypeVariableScope,
     ) -> Result<Signature, SemanticError> {
-        let scope_to_use = if !signature.generic_type_variables.is_empty() {
+        let scope_to_use = if signature.generic_type_variables.is_empty() {
+            scope
+        } else {
             let mut has_all_generics = true;
 
             for required_types in &signature.generic_type_variables {
@@ -268,13 +270,11 @@ impl Instantiator {
                 }
             }
 
-            if !has_all_generics {
-                &scope.with_variables(&signature.generic_type_variables)?
-            } else {
+            if has_all_generics {
                 scope
+            } else {
+                &scope.with_variables(&signature.generic_type_variables)?
             }
-        } else {
-            scope
         };
 
         self.instantiate_signature(self_type, &signature.signature, scope_to_use)

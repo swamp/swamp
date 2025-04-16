@@ -11,6 +11,7 @@ use swamp_vm_types::{
     FrameMemoryAddressIndirectPointer, FrameMemorySize, InstructionPosition,
     InstructionPositionOffset, MemoryAddress, MemorySize, Meta,
 };
+use tracing::info;
 
 #[derive(Debug)]
 pub struct PatchPosition(pub InstructionPosition);
@@ -42,15 +43,14 @@ impl InstructionBuilderState {
     pub fn position(&self) -> InstructionPosition {
         InstructionPosition(self.instructions.len() as u16)
     }
+    // Could be a constant function
+    // should probably be called function_like
     pub fn add_function(
         &mut self,
         function_info: FunctionInfo,
         node: &Node,
         comment: &str,
     ) -> InstructionBuilder {
-        let FunctionInfoKind::Normal(_id) = function_info.kind else {
-            panic!("must be constant")
-        };
         self.add_function_helper(function_info, node, comment)
     }
 
@@ -68,6 +68,7 @@ impl InstructionBuilderState {
         if let FunctionInfoKind::Constant(constant_id) = function_info.kind {
             self.constants.insert(constant_id, complete_info).unwrap();
         } else if let FunctionInfoKind::Normal(normal_id) = function_info.kind {
+            info!(?normal_id, "function_id");
             self.functions.insert(normal_id, complete_info).unwrap();
         }
 

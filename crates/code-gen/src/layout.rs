@@ -1,17 +1,17 @@
 use crate::alloc::ScopeAllocator;
-use crate::{Error, FrameAndVariableInfo, convert_type_to_basic, reserve};
+use crate::{Error, FrameAndVariableInfo, reserve};
 use seq_map::SeqMap;
 use source_map_node::Node;
 use swamp_semantic::VariableRef;
 use swamp_types::{AnonymousStructType, EnumVariantType, Type};
 use swamp_vm_debug_types::{
-    BasicType, BasicTypeKind, ComplexType, ComplexTypeKind, FrameAddressInfo, FrameAddressInfoKind,
-    FrameMemoryInfo, OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionData,
-    TaggedUnionDataKind, TupleType, VariableInfo,
+    BasicType, BasicTypeKind, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
+    OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionData, TaggedUnionDataKind, TupleType,
+    VariableInfo,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ALIGNMENT, MemoryAlignment, MemoryOffset,
-    MemorySize, PTR_SIZE, align_to,
+    MemorySize, PTR_SIZE, adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
 
@@ -33,7 +33,7 @@ pub fn layout_enum_into_tagged_union(
     // TODO: maybe not worth it?
     enum VariantPayloadLayout {
         Struct(StructType),
-        Tuple(Vec<OffsetMemoryItem>),
+        Tuple(TupleType),
         Empty,
     }
 
@@ -64,17 +64,16 @@ pub fn layout_enum_into_tagged_union(
                 });
             }
             EnumVariantType::Tuple(t) => {
-                let (tuple_items, tuple_size, tuple_alignment) =
-                    layout_tuple_items(&t.fields_in_order, MemoryOffset(0));
-                if tuple_alignment > max_payload_alignment {
-                    max_payload_alignment = tuple_alignment;
+                let tuple_type = layout_tuple_items(&t.fields_in_order, MemoryOffset(0));
+                if tuple_type.total_alignment > max_payload_alignment {
+                    max_payload_alignment = tuple_type.total_alignment;
                 }
-                if tuple_size > max_payload_size {
-                    max_payload_size = tuple_size;
+                if tuple_type.total_size > max_payload_size {
+                    max_payload_size = tuple_type.total_size;
                 }
                 variant_layouts.push(VariantLayout {
                     name: t.common.assigned_name.clone(),
-                    payload: VariantPayloadLayout::Tuple(tuple_items),
+                    payload: VariantPayloadLayout::Tuple(tuple_type),
                 });
             }
             EnumVariantType::Nothing(n) => {
@@ -124,7 +123,7 @@ pub fn layout_enum_into_tagged_union(
                 });
             }
             VariantPayloadLayout::Tuple(_) => {
-                let (tuple_items, total_size, max_alignment) = layout_tuple_items(
+                let tuple_type = layout_tuple_items(
                     match variants.iter().find(|var| match var {
                         EnumVariantType::Tuple(t) => t.common.assigned_name == v.name,
                         _ => false,
@@ -136,11 +135,7 @@ pub fn layout_enum_into_tagged_union(
                 );
                 tagged_variants.push(TaggedUnionData {
                     name: v.name.clone(),
-                    kind: TaggedUnionDataKind::Tuple(TupleType {
-                        fields: tuple_items,
-                        total_size,
-                        total_alignment: max_alignment,
-                    }),
+                    kind: TaggedUnionDataKind::Tuple(tuple_type),
                 });
             }
             VariantPayloadLayout::Empty => {
@@ -171,26 +166,21 @@ pub fn layout_enum(
     name: &str,
     variants: &[EnumVariantType],
     base_offset: MemoryOffset,
-) -> ComplexType {
+) -> BasicType {
     let tagged_union = layout_enum_into_tagged_union(name, variants, base_offset);
 
-    ComplexType {
+    BasicType {
         total_size: tagged_union.total_size,
         total_alignment: tagged_union.max_alignment,
-        kind: ComplexTypeKind::BasicType(BasicType {
-            total_size: tagged_union.total_size,
-            total_alignment: tagged_union.max_alignment,
-            kind: BasicTypeKind::TaggedUnion(tagged_union),
-        }),
+        kind: BasicTypeKind::TaggedUnion(tagged_union),
     }
 }
 
-fn layout_slice_pair(base_offset: MemoryOffset, a_type: &Type, b_type: &Type) -> ComplexType {
+fn layout_slice_pair(base_offset: MemoryOffset, a_type: &Type, b_type: &Type) -> BasicType {
     let a_info = layout_type(a_type, base_offset, "a");
     let b_info = layout_type(b_type, base_offset, "b");
 
     let b_offset = align_to(base_offset + a_info.total_size, b_info.total_alignment);
-
     let b_layout = layout_type(b_type, b_offset, "b");
 
     let max_alignment = std::cmp::max(a_info.total_alignment, b_layout.total_alignment);
@@ -198,18 +188,8 @@ fn layout_slice_pair(base_offset: MemoryOffset, a_type: &Type, b_type: &Type) ->
     let end = b_offset + b_layout.total_size;
     let total_size = align_to(end, max_alignment) - base_offset;
 
-    let a_basic = match a_info.kind {
-        ComplexTypeKind::BasicType(ref b) => b.clone(),
-        _ => panic!("SlicePair expects BasicType elements"),
-    };
-
-    let b_basic = match b_layout.kind {
-        ComplexTypeKind::BasicType(ref b) => b.clone(),
-        _ => panic!("SlicePair expects BasicType elements"),
-    };
-
-    ComplexType {
-        kind: ComplexTypeKind::SlicePair(a_basic, b_basic),
+    BasicType {
+        kind: BasicTypeKind::SlicePair(Box::new(a_info), Box::new(b_layout)),
         total_size: MemorySize(total_size.0),
         total_alignment: max_alignment,
     }
@@ -219,20 +199,16 @@ fn basic_type_as_complex(
     basic_type_kind: BasicTypeKind,
     size: MemorySize,
     alignment: MemoryAlignment,
-) -> ComplexType {
-    ComplexType {
-        kind: ComplexTypeKind::BasicType(BasicType {
-            kind: basic_type_kind,
-            total_size: size,
-            total_alignment: alignment,
-        }),
+) -> BasicType {
+    BasicType {
+        kind: basic_type_kind,
         total_size: size,
         total_alignment: alignment,
     }
 }
 
 #[must_use]
-pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> ComplexType {
+pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> BasicType {
     match ty {
         Type::Int => basic_type_as_complex(BasicTypeKind::S32, MemorySize(4), MemoryAlignment::U32),
         Type::Float => {
@@ -248,14 +224,14 @@ pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> Comple
             HEAP_PTR_ALIGNMENT,
         ),
         Type::Slice(inner_type) => {
-            let basic = convert_type_to_basic(inner_type, memory_offset);
-            ComplexType {
-                kind: ComplexTypeKind::Slice(basic.clone()),
+            let basic = layout_type(inner_type, memory_offset, "slice");
+            BasicType {
+                kind: BasicTypeKind::Slice(Box::from(basic.clone())),
                 total_size: basic.total_size,
                 total_alignment: basic.total_alignment,
             }
         }
-        Type::SlicePair(a, b) => layout_slice_pair(memory_offset, &a, &b),
+        Type::SlicePair(a, b) => layout_slice_pair(memory_offset, a, b),
         Type::Tuple(types) => layout_tuple(types, memory_offset),
         Type::NamedStruct(named_struct_type) => layout_struct(
             &named_struct_type.anon_struct_type,
@@ -263,14 +239,14 @@ pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> Comple
             &named_struct_type.assigned_name,
         ),
         Type::AnonymousStruct(anon_struct_type) => {
-            layout_struct(&anon_struct_type, memory_offset, "")
+            layout_struct(anon_struct_type, memory_offset, "")
         }
         Type::Enum(a) => layout_enum(
             &a.assigned_name,
             &a.variants.values().cloned().collect::<Vec<_>>(),
             memory_offset,
         ),
-        Type::Optional(inner_type) => todo!(),
+        Type::Optional(inner_type) => layout_optional_type(inner_type, memory_offset, "?"),
         Type::Function(_) => panic!("function types should not be a part of codegen"),
         Type::Never => panic!("'never' should not be a part of codegen"),
         Type::Generic(_, _) => panic!("generic should not be a part of codegen"),
@@ -313,17 +289,7 @@ pub fn layout_struct_type(
         }
     }
 
-    // The total size of a struct is always rounded up to a multiple of its alignment.
-    // It might be strange in that it "wastes" memory for the potential parent struct
-    // to place items of lower memory alignment. (reuse tail padding).
-    // It simplifies things as well with code generation and similar, that a struct
-    // is always the same size and doesn't have to rely on where the struct is contained.
-    // It also ensures that arrays of the struct are correctly aligned according to the ABI,
-    // and matches the behavior of C, C++, and Rust.
-    // Note: The tail padding at the end of a struct is not reused for subsequent fields
-    // in a parent struct—this is required for safe and predictable layout, and for
-    // compatibility with standard system ABIs.
-    let total_size = MemorySize((align_to(offset, max_alignment) - base_offset).0);
+    let total_size = adjust_size_to_alignment(offset, base_offset, max_alignment);
 
     StructType {
         name: name.to_string(),
@@ -337,21 +303,71 @@ pub fn layout_struct(
     struct_type: &AnonymousStructType,
     base_offset: MemoryOffset,
     name: &str,
-) -> ComplexType {
+) -> BasicType {
     let inner_struct = layout_struct_type(struct_type, base_offset, name);
-    ComplexType {
+    BasicType {
         total_size: inner_struct.total_size,
         total_alignment: inner_struct.total_alignment,
-        kind: ComplexTypeKind::BasicType(BasicType {
-            total_size: inner_struct.total_size,
-            total_alignment: inner_struct.total_alignment,
-            kind: BasicTypeKind::Struct(inner_struct),
-        }),
+        kind: BasicTypeKind::Struct(inner_struct),
+    }
+}
+
+pub fn layout_optional_type(inner_type: &Type, base_offset: MemoryOffset, name: &str) -> BasicType {
+    let tuple_type = layout_optional_type_items(inner_type, base_offset, name);
+    BasicType {
+        total_size: tuple_type.total_size,
+        total_alignment: tuple_type.total_alignment,
+        kind: BasicTypeKind::Optional(Box::from(BasicType {
+            total_size: tuple_type.total_size,
+            total_alignment: tuple_type.total_alignment,
+            kind: BasicTypeKind::Tuple(tuple_type),
+        })),
+    }
+}
+
+pub fn layout_optional_type_items(
+    inner_type: &Type,
+    base_offset: MemoryOffset,
+    name: &str,
+) -> TupleType {
+    let tag_size = MemorySize(1);
+    let tag_alignment = MemoryAlignment::U8;
+
+    let payload_layout = layout_type(inner_type, MemoryOffset(0), name);
+    let payload_offset = align_to(base_offset + tag_size, payload_layout.total_alignment);
+    let max_alignment = std::cmp::max(tag_alignment, payload_layout.total_alignment);
+    let end_offset = payload_offset + payload_layout.total_size;
+
+    let total_size = adjust_size_to_alignment(end_offset, base_offset, max_alignment);
+
+    let items = vec![
+        OffsetMemoryItem {
+            offset: base_offset,
+            size: tag_size,
+            name: "tag".to_string(),
+            ty: BasicType {
+                kind: BasicTypeKind::U8,
+                total_size: tag_size,
+                total_alignment: tag_alignment,
+            },
+        },
+        OffsetMemoryItem {
+            offset: payload_offset,
+            size: payload_layout.total_size,
+            name: "payload".to_string(),
+            ty: payload_layout.clone(),
+        },
+    ];
+
+    TupleType {
+        fields: items,
+        total_size,
+        total_alignment: max_alignment,
     }
 }
 
 #[must_use]
-pub fn layout_types(types: &[Type], memory_offset: MemoryOffset) -> Vec<ComplexType> {
+pub fn layout_types(types: &[Type], memory_offset: MemoryOffset) -> Vec<BasicType> {
     let mut converted = Vec::new();
     let mut max_alignment = MemoryAlignment::U8;
     for ty in types {
@@ -365,10 +381,7 @@ pub fn layout_types(types: &[Type], memory_offset: MemoryOffset) -> Vec<ComplexT
     converted
 }
 
-pub fn layout_tuple_items(
-    types: &[Type],
-    base_offset: MemoryOffset,
-) -> (Vec<OffsetMemoryItem>, MemorySize, MemoryAlignment) {
+pub fn layout_tuple_items(types: &[Type], base_offset: MemoryOffset) -> TupleType {
     let mut offset = base_offset;
     let mut max_alignment = MemoryAlignment::U8;
     let mut items = Vec::with_capacity(types.len());
@@ -392,26 +405,22 @@ pub fn layout_tuple_items(
         }
     }
 
-    let total_size = MemorySize((align_to(offset, max_alignment) - base_offset).0);
+    let total_size = adjust_size_to_alignment(offset, base_offset, max_alignment);
 
-    (items, total_size, max_alignment)
-}
-
-pub fn layout_tuple(types: &[Type], base_offset: MemoryOffset) -> ComplexType {
-    let (tuple_items, total_size, max_alignment) = layout_tuple_items(&types, base_offset);
-
-    ComplexType {
-        kind: ComplexTypeKind::BasicType(BasicType {
-            kind: BasicTypeKind::Tuple(TupleType {
-                fields: tuple_items,
-                total_size,
-                total_alignment: max_alignment,
-            }),
-            total_size,
-            total_alignment: max_alignment,
-        }),
+    TupleType {
+        fields: items,
         total_size,
         total_alignment: max_alignment,
+    }
+}
+
+pub fn layout_tuple(types: &[Type], base_offset: MemoryOffset) -> BasicType {
+    let tuple_type = layout_tuple_items(&types, base_offset);
+
+    BasicType {
+        total_size: tuple_type.total_size,
+        total_alignment: tuple_type.total_alignment,
+        kind: BasicTypeKind::Tuple(tuple_type),
     }
 }
 

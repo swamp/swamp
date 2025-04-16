@@ -21,7 +21,7 @@ pub struct OffsetMemoryItem {
     pub offset: MemoryOffset,
     pub size: MemorySize,
     pub name: String,
-    pub ty: ComplexType,
+    pub ty: BasicType,
 }
 
 #[derive(Clone, Debug)]
@@ -167,6 +167,9 @@ pub enum BasicTypeKind {
     Struct(StructType),
     TaggedUnion(TaggedUnion),
     Tuple(TupleType),
+    Optional(Box<BasicType>),
+    Slice(Box<BasicType>),
+    SlicePair(Box<BasicType>, Box<BasicType>),
 }
 #[derive(Clone, Debug)]
 pub struct BasicType {
@@ -214,39 +217,8 @@ impl Display for BasicTypeKind {
             Self::CollectionPointer => {
                 write!(f, "collection ptr")
             }
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum ComplexTypeKind {
-    Optional(BasicType),
-    BasicType(BasicType),
-    Slice(BasicType),
-    SlicePair(BasicType, BasicType),
-}
-
-#[derive(Clone, Debug)]
-pub struct ComplexType {
-    pub kind: ComplexTypeKind,
-    pub total_size: MemorySize,
-    pub total_alignment: MemoryAlignment,
-}
-
-impl Display for ComplexType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.kind)
-    }
-}
-
-impl Display for ComplexTypeKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
             Self::Optional(basic) => {
                 write!(f, "optional<{basic}>")
-            }
-            Self::BasicType(basic) => {
-                write!(f, "{basic}")
             }
             Self::Slice(basic) => {
                 write!(f, "slice {basic}")
@@ -262,7 +234,7 @@ impl Display for ComplexTypeKind {
 pub struct VariableInfo {
     pub is_mutable: bool,
     pub name: String,
-    pub ty: ComplexType,
+    pub ty: BasicType,
 }
 
 impl Display for VariableInfo {
@@ -279,7 +251,7 @@ impl Display for VariableInfo {
 pub enum FrameAddressInfoKind {
     Variable(VariableInfo),
     Parameter(VariableInfo),
-    Return(ComplexType),
+    Return(BasicType),
 }
 
 impl Display for FrameAddressInfoKind {

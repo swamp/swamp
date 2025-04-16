@@ -185,12 +185,11 @@ pub fn bootstrap_modules(
         .add_package_version(swamp_core::PACKAGE_NAME, compiler_version)
         .expect("should work");
 
+    /*
     let source_map_lookup = SourceMapWrapper {
         source_map,
         current_dir: current_dir().unwrap(),
     };
-
-    /*
 
     let pretty_printer = SourceMapDisplay {
         source_map: &source_map_lookup,

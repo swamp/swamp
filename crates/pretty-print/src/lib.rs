@@ -654,11 +654,11 @@ impl SourceMapDisplay<'_> {
             Type::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name.bright_cyan()),
             Type::Function(signature) => write!(f, "function {signature}"),
             Type::Optional(base_type) => {
-                self.show_type_short(f, base_type, tabs);
+                self.show_type_short(f, base_type, tabs)?;
                 write!(f, "{}", "?".yellow())
             }
             Type::MutableReference(base_type) => {
-                write!(f, "{}", "mut ref".red());
+                write!(f, "{}", "mut ref".red())?;
                 self.show_type_short(f, base_type, tabs)
             }
             Type::External(external_type) => write!(f, "External {}", external_type.type_name),

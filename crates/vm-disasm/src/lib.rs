@@ -4,19 +4,17 @@
  */
 use seq_map::SeqMap;
 use std::cmp::PartialEq;
-use std::fmt::Display;
+use std::fmt::Write;
+use swamp_vm_debug_types::{
+    DecoratedMemoryKind, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
+    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo,
+};
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
     BinaryInstruction, ConstantMemoryAddress, FrameMemoryAddress, FrameMemorySize,
     InstructionPosition, InstructionPositionOffset, MemorySize, Meta,
 };
 use yansi::{Color, Paint};
-
-use std::fmt::Write;
-use swamp_vm_debug_types::{
-    DecoratedMemoryKind, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
-    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo,
-};
 
 #[derive(Eq, PartialEq, Clone)]
 pub struct SourceFileLineInfo {

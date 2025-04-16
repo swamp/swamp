@@ -4,7 +4,7 @@
  */
 use crate::aligner::align;
 use source_map_node::Node;
-use std::cmp::Ordering;
+use std::cmp::PartialOrd;
 use std::fmt::{Alignment, Display, Formatter};
 use std::ops::{Add, Sub};
 
@@ -130,6 +130,35 @@ pub fn align_to(addr: MemoryOffset, alignment: MemoryAlignment) -> MemoryOffset 
     MemoryOffset(align(addr.0 as usize, alignment.into()) as u16)
 }
 
+/// # Arguments
+/// * `offset` - The offset after the last field (end of layout).
+/// * `base_offset` - The starting offset of the struct/tuple/union.
+/// * `max_alignment` - The maximum alignment required by any field.
+///
+/// # Returns
+/// The total size, rounded up to `max_alignment`.
+/// # Notes
+/// The total size of a struct is always rounded up to a multiple of its alignment.
+/// It might be strange in that it "wastes" memory for the potential parent struct
+/// to place items of lower memory alignment. (reuse tail padding).
+/// It simplifies things as well with code generation and similar, that a struct
+/// is always the same size and doesn't have to rely on where the struct is contained.
+/// It also ensures that arrays of the struct are correctly aligned according to the ABI,
+/// and matches the behavior of C, C++, and Rust.
+/// Note: The tail padding at the end of a struct is not reused for subsequent fields
+/// in a parent struct—this is required for safe and predictable layout
+pub fn adjust_size_to_alignment(
+    offset: MemoryOffset,
+    base_offset: MemoryOffset,
+    max_alignment: MemoryAlignment,
+) -> MemorySize {
+    if base_offset > offset {
+        panic!("")
+    }
+    let unaligned_size = offset - base_offset;
+    align_to(unaligned_size, max_alignment).to_size()
+}
+
 impl MemoryAddress {
     #[must_use]
     pub const fn space(&self, memory_size: MemorySize, _alignment: Alignment) -> Self {
@@ -137,7 +166,7 @@ impl MemoryAddress {
     }
 }
 
-#[derive(Debug, Copy, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Copy, Eq, PartialEq, Hash, Clone, Ord, PartialOrd)]
 pub struct MemoryOffset(pub u16);
 
 impl MemoryOffset {
@@ -166,7 +195,7 @@ impl Sub<MemoryOffset> for MemoryOffset {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
-        assert!(rhs.0 < self.0);
+        assert!(rhs.0 <= self.0);
         Self(self.0 - rhs.0)
     }
 }

@@ -19,7 +19,7 @@ use crate::layout::layout_type;
 use crate::layout::layout_variables;
 use crate::layout::type_size_and_alignment;
 use crate::layout::{
-    layout_enum, layout_enum_into_tagged_union, layout_struct, layout_struct_type, layout_tuple,
+    layout_enum_into_tagged_union, layout_struct, layout_struct_type, layout_tuple,
     layout_tuple_items,
 };
 use seq_map::SeqMap;
@@ -37,19 +37,19 @@ use swamp_semantic::{
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
 use swamp_vm_debug_types::{
-    BasicType, BasicTypeKind, ComplexTypeKind, FrameAddressInfo, FrameAddressInfoKind,
-    FrameMemoryInfo, FrameRelativeInfo, FunctionInfo, FunctionInfoKind, MemoryElement,
-    OffsetMemoryItem, StructType, TaggedUnionData, TaggedUnionDataKind, VariableInfo,
+    BasicType, BasicTypeKind, FrameMemoryInfo, FrameRelativeInfo, FunctionInfo, FunctionInfoKind,
+    MemoryElement, OffsetMemoryItem, StructType, TaggedUnionData, TaggedUnionDataKind,
+    VariableInfo,
 };
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::{
     BinaryInstruction, ConstantMemoryRegion, CountU16, FrameMemoryAddress,
-    FrameMemoryAddressIndirectPointer, FrameMemoryRegion, FrameMemorySize, HEAP_PTR_SIZE, INT_SIZE,
+    FrameMemoryAddressIndirectPointer, FrameMemoryRegion, FrameMemorySize, INT_SIZE,
     InstructionPosition, InstructionPositionOffset, MemoryAlignment, MemoryOffset, MemorySize,
     Meta, PTR_SIZE, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
 };
-use tracing::{error, info, trace};
+use tracing::{error, info};
 
 #[derive(Clone)]
 pub struct FunctionIp {
@@ -369,29 +369,6 @@ pub struct FrameAndVariableInfo {
 
 */
 
-#[must_use]
-pub fn convert_type_to_basic(ty: &Type, offset: MemoryOffset) -> BasicType {
-    let converted = layout_type(ty, offset, "");
-    if let ComplexTypeKind::BasicType(basic) = converted.kind {
-        basic
-    } else {
-        panic!("type was not basic")
-    }
-}
-
-pub fn basic_type(
-    kind: BasicTypeKind,
-    offset: MemoryOffset,
-    total_size: MemorySize,
-    total_alignment: MemoryAlignment,
-) -> BasicType {
-    BasicType {
-        kind,
-        total_size,
-        total_alignment,
-    }
-}
-
 pub struct FunctionInData {
     pub function_name_node: Node,
     pub kind: FunctionInfoKind,
@@ -578,9 +555,12 @@ impl TopLevelGenState {
             source_map_wrapper,
         );
 
+        /*
         let ExpressionKind::Block(block_expressions) = &in_data.expression.kind else {
             panic!("function body should be a block")
         };
+
+         */
 
         let (return_type_size, _return_alignment) = type_size_and_alignment(&in_data.return_type);
         let ctx = Context::new(FrameMemoryRegion::new(
@@ -612,7 +592,7 @@ impl TopLevelGenState {
 
             let in_data = FunctionInData {
                 function_name_node: constant.name.clone(),
-                kind: FunctionInfoKind::Normal(constant.id as usize),
+                kind: FunctionInfoKind::Constant(constant.id as usize),
                 assigned_name: constant.assigned_name.clone(),
                 all_variables_parameters_first: constant.function_scope_state.clone(),
                 return_type: constant.resolved_type.clone(),
@@ -1450,7 +1430,7 @@ impl FunctionCodeGen<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        self.debug_node(&expr.node);
+        //self.debug_node(&expr.node);
 
         let result = match &expr.kind {
             ExpressionKind::ConstantAccess(constant_ref) => self
@@ -3655,11 +3635,10 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(), Error> {
         let source_region = self.gen_expression_for_access(source_tuple_expression)?;
 
-        let (element_offsets, total_size, max_alignment) =
-            layout_tuple_items(tuple_type, MemoryOffset(0));
-        assert_eq!(total_size.0, source_region.size.0);
+        let tuple_type = layout_tuple_items(tuple_type, MemoryOffset(0));
+        assert_eq!(tuple_type.total_size.0, source_region.size.0);
 
-        for (target_variable, offset_item) in target_variables.iter().zip(element_offsets) {
+        for (target_variable, offset_item) in target_variables.iter().zip(tuple_type.fields) {
             if target_variable.is_unused {
             } else {
                 let (target_region, _variable_alignment) =
