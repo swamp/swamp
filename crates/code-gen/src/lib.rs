@@ -266,7 +266,7 @@ pub fn disasm_whole_program(
                 .unwrap();
 
             //panic!("unknown ip");
-            eprintln!("function =====");
+            eprintln!("function = {} =", function_debug_info.name);
             let instructions_slice =
                 &instructions[function_ip.start_ip.0 as usize..=function_ip.end_ip.0 as usize];
             let meta_slice = &meta[function_ip.start_ip.0 as usize..=function_ip.end_ip.0 as usize];
@@ -278,7 +278,7 @@ pub fn disasm_whole_program(
                 InstructionPositionOffset(function_ip.start_ip.0),
                 source_map_wrapper,
             );
-            eprintln!("output\n{output_string}");
+            eprintln!("{output_string}");
             current_ip = function_ip.end_ip.0 + 1;
         } else {
             current_ip += 1;
@@ -424,7 +424,6 @@ impl TopLevelGenState {
         source_map_wrapper: &SourceMapWrapper,
     ) -> Result<(), Error> {
         assert_ne!(internal_fn_def.program_unique_id, 0);
-        info!(id=?internal_fn_def.program_unique_id, internal_fn_def.assigned_name, "generating function");
         self.codegen_state
             .function_infos
             .insert(
@@ -1309,11 +1308,6 @@ impl FunctionCodeGen<'_> {
                 .add_call(&found.starts_at_ip, node, call_comment);
         } else {
             let patch_position = self.builder.add_call_placeholder(node, call_comment);
-            info!(
-                id = internal_fn.program_unique_id,
-                name = internal_fn.assigned_name,
-                "calling function"
-            );
             self.state.function_fixups.push(FunctionFixup {
                 patch_position,
                 fn_id: internal_fn.program_unique_id,

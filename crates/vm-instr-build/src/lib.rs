@@ -68,7 +68,6 @@ impl InstructionBuilderState {
         if let FunctionInfoKind::Constant(constant_id) = function_info.kind {
             self.constants.insert(constant_id, complete_info).unwrap();
         } else if let FunctionInfoKind::Normal(normal_id) = function_info.kind {
-            info!(?normal_id, "function_id");
             self.functions.insert(normal_id, complete_info).unwrap();
         }
 

@@ -661,7 +661,6 @@ impl SourceMapDisplay<'_> {
                 write!(f, "{}", "mut ref".red())?;
                 self.show_type_short(f, base_type, tabs)
             }
-            Type::External(external_type) => write!(f, "External {}", external_type.type_name),
             Type::Generic(blueprint, concrete_types) => {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }
@@ -702,7 +701,6 @@ impl SourceMapDisplay<'_> {
                 write!(f, "{}", "mut ref".red());
                 self.show_type_short(f, base_type, tabs)
             }
-            Type::External(external_type) => write!(f, "External {}", external_type.type_name),
             Type::Generic(blueprint, concrete_types) => {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }

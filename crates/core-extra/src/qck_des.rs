@@ -219,30 +219,6 @@ pub fn quick_deserialize(resolved_type: &Type, buf: &[u8], depth: usize) -> (Val
                 (Value::Option(None), offset)
             }
         }
-        Type::External(_rust_type_ref) => {
-            /*
-            match rust_type_ref.number {
-                SPARSE_ID_TYPE_ID => {
-                    let sparse_id_rust_type = ExternalType {
-                        type_name: "SparseId".to_string(),
-                        number: SPARSE_ID_TYPE_ID, // TODO: FIX hardcoded number
-                    };
-
-                    let (sparse_value_id, octet_size) = SparseValueId::quick_deserialize(buf);
-                    (
-                        {
-                            let boxed_sparse_value_id: Rc<RefCell<Box<dyn RustType>>> =
-                                Rc::new(RefCell::new(Box::new(sparse_value_id)));
-                            Value::RustValue(sparse_id_rust_type, boxed_sparse_value_id)
-                        },
-                        octet_size,
-                    )
-                }
-                _ => panic!("can not deserialize rust types {}", rust_type_ref.type_name),
-            }
-            */
-            (Value::Unit, 0)
-        }
         &swamp_types::Type::Variable(_) => todo!(),
         &swamp_types::Type::Generic(_, _) => todo!(),
         &swamp_types::Type::Blueprint(_) => todo!(),

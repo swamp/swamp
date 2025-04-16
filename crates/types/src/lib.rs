@@ -42,8 +42,6 @@ pub enum Type {
     Variable(String),
 
     MutableReference(Box<Type>),
-
-    External(ExternalType),
 }
 
 impl Type {
@@ -224,7 +222,6 @@ impl Debug for Type {
             }
             Self::Optional(base_type) => write!(f, "{base_type:?}?"),
             Self::MutableReference(base_type) => write!(f, "mut ref {base_type:?}?"),
-            Self::External(rust_type) => write!(f, "{:?}?", rust_type.type_name),
             Self::Variable(variable_name) => write!(f, "<|{variable_name}|>"),
             Self::Generic(blueprint, non_concrete_arguments) => {
                 write!(f, "{blueprint:?}<{non_concrete_arguments:?}>")
@@ -258,7 +255,6 @@ impl Display for Type {
             Self::Function(signature) => write!(f, "function {signature}"),
             Self::Optional(base_type) => write!(f, "{base_type}?"),
             Self::MutableReference(base_type) => write!(f, "mut ref {base_type:?}?"),
-            Self::External(rust_type) => write!(f, "RustType {}", rust_type.type_name),
             Self::Variable(variable_name) => write!(f, "<|{variable_name}|>"),
 
             Self::Generic(blueprint, non_concrete_arguments) => {
@@ -345,10 +341,6 @@ impl Type {
             (Self::Blueprint(a), Self::Blueprint(b)) => a == b,
 
             (Self::Variable(a), Self::Variable(b)) => a == b,
-
-            (Self::External(type_ref_a), Self::External(type_ref_b)) => {
-                type_ref_a.number == type_ref_b.number
-            }
 
             _ => false,
         }

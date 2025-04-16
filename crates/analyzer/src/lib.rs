@@ -908,7 +908,6 @@ impl<'a> Analyzer<'a> {
                     };
                     let expr_kind =
                         ExpressionKind::InternalCall(internal_function.clone(), arguments.to_vec());
-                    info!(?function_name, ?ty, "created static call");
 
                     Ok(expr_kind)
                 },
@@ -2171,7 +2170,6 @@ impl<'a> Analyzer<'a> {
     ) -> Option<(IntrinsicFunction, Vec<MutRefOrImmutableExpression>)> {
         if let ExpressionKind::Block(expressions) = &body.kind {
             let first_kind = &expressions[0].kind;
-            info!(?first_kind, "FIRST EXPR");
             if let ExpressionKind::IntrinsicCallEx(intrinsic_fn, args) = &first_kind {
                 return Some((intrinsic_fn.clone(), args.clone()));
             }

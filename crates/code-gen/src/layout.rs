@@ -253,7 +253,6 @@ pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> BasicT
         Type::Blueprint(_) => panic!("blueprint should not be a part of codegen"),
         Type::Variable(_) => panic!("type variable (generics) should not be a part of codegen"),
         Type::MutableReference(inner_type) => layout_type(inner_type, memory_offset, "mut ref"),
-        Type::External(_) => todo!(),
     }
 }
 

@@ -304,30 +304,6 @@ impl SymbolTable {
         None
     }
 
-    pub fn add_external_type(
-        &mut self,
-        external: ExternalType,
-    ) -> Result<ExternalType, SemanticError> {
-        self.add_external_type_link(external.clone())?;
-        Ok(external)
-    }
-
-    /// # Errors
-    ///
-    pub fn add_external_type_link(
-        &mut self,
-        external_type_ref: ExternalType,
-    ) -> Result<(), SemanticError> {
-        let name = external_type_ref.type_name.clone();
-        self.symbols
-            .insert(
-                name.clone(),
-                Symbol::Type(Type::External(external_type_ref)),
-            )
-            .map_err(|_| SemanticError::DuplicateStructName(name))?;
-        Ok(())
-    }
-
     /// # Errors
     ///
     pub fn add_struct(
@@ -518,13 +494,6 @@ impl SymbolTable {
     ) -> Option<&ExternalFunctionDefinitionRef> {
         match self.get_function(name)? {
             FuncDef::External(external_def) => Some(external_def),
-            _ => None,
-        }
-    }
-
-    pub fn get_external_type(&self, name: &str) -> Option<&ExternalType> {
-        match self.get_type(name)? {
-            Type::External(ext_type) => Some(ext_type),
             _ => None,
         }
     }

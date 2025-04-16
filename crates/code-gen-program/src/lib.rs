@@ -33,7 +33,6 @@ pub fn code_gen_program(
     };
 
     for (path, module) in program.modules.modules() {
-        info!(?path, "generating module");
         for internal_function_def in &module.symbol_table.internal_functions() {
             code_gen.gen_function_def(
                 internal_function_def,
