@@ -4,37 +4,16 @@
  */
 
 use crate::alloc::ScopeAllocator;
+use crate::layout::type_size_and_alignment;
 use seq_map::SeqMap;
-use swamp_types::{AnonymousStructType, EnumVariantType, Type};
+use swamp_types::{EnumType, EnumVariantType, Type};
 use swamp_vm_types::{
-    FLOAT_SIZE, FrameMemoryRegion, INT_SIZE, MAP_REFERENCE_SIZE, MAP_SIZE, MemoryAlignment,
-    MemoryOffset, MemorySize, RANGE_SIZE, STR_SIZE, VEC_REFERENCE_SIZE,
+    FrameMemoryRegion, MAP_SIZE, MemoryAlignment, MemoryOffset, MemorySize, RANGE_SIZE,
+    VEC_REFERENCE_SIZE,
 };
-use tracing::{error, info};
-
-pub fn layout_struct(
-    anon_struct: &AnonymousStructType,
-) -> (MemorySize, MemoryAlignment, Vec<(MemoryOffset, MemorySize)>) {
-    let mut calculated_offset = MemoryOffset(0);
-    let mut largest_alignment = MemoryAlignment::U8;
-
-    let mut elements = Vec::new();
-    for (_name, field) in &anon_struct.field_name_sorted_fields {
-        let (field_size, field_alignment) = type_size_and_alignment(&field.field_type);
-        if field_alignment.greater_than(largest_alignment) {
-            largest_alignment = field_alignment;
-        }
-        calculated_offset.space(field_size, field_alignment);
-        elements.push((calculated_offset, field_size));
-    }
-
-    let total_offset = calculated_offset.space(MemorySize(0), largest_alignment);
-
-    (total_offset.as_size(), largest_alignment, elements)
-}
-
+/*
 #[must_use]
-pub fn layout_tuple(types: &Vec<Type>) -> (MemorySize, MemoryAlignment) {
+pub fn layout_tuple_old(types: &Vec<Type>) -> (MemorySize, MemoryAlignment) {
     let mut calculated_offset = MemoryOffset(0);
     let mut largest_alignment = MemoryAlignment::U8;
     for ty in types {
@@ -68,10 +47,14 @@ pub fn layout_tuple_elements(
     (total_offset.as_size(), largest_alignment, elements)
 }
 
-pub fn layout_union(variants: &SeqMap<String, EnumVariantType>) -> (MemorySize, MemoryAlignment) {
+pub fn layout_union_old(
+    variants: &SeqMap<String, EnumVariantType>,
+) -> (MemorySize, MemoryAlignment, Vec<(MemoryOffset, MemorySize)>) {
     let mut max_variant_alignment = MemoryAlignment::U8;
     let mut max_variant_size = MemorySize(0);
     let mut calculated_offset = MemoryOffset(0);
+
+    let mut elements = Vec::new();
     for (_name, variant) in variants {
         let (variant_size, variant_alignment) = match variant {
             EnumVariantType::Struct(anon_struct) => {
@@ -83,6 +66,8 @@ pub fn layout_union(variants: &SeqMap<String, EnumVariantType>) -> (MemorySize, 
             EnumVariantType::Nothing(_) => (MemorySize(0), MemoryAlignment::U8),
         };
 
+        elements.push((calculated_offset, variant_size));
+
         if variant_alignment.greater_than(max_variant_alignment) {
             max_variant_alignment = variant_alignment;
         }
@@ -92,8 +77,9 @@ pub fn layout_union(variants: &SeqMap<String, EnumVariantType>) -> (MemorySize, 
         }
     }
 
-    (max_variant_size, max_variant_alignment)
+    (max_variant_size, max_variant_alignment, elements)
 }
+*/
 
 pub fn is_vec(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
     match ty {
@@ -151,63 +137,41 @@ pub fn is_grid(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
 pub fn is_stack(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
     is_core_type(ty, "Stack")
 }
-pub fn type_size_and_alignment(ty: &Type) -> (MemorySize, MemoryAlignment) {
-    match ty {
-        Type::Int => (MemorySize(INT_SIZE), MemoryAlignment::U32),
-        Type::Float => (MemorySize(FLOAT_SIZE), MemoryAlignment::U32),
-        Type::String => (MemorySize(STR_SIZE), MemoryAlignment::U16),
-        Type::Bool => (MemorySize(1), MemoryAlignment::U8),
-        Type::Unit => (MemorySize(0), MemoryAlignment::U8),
-        Type::Never => (MemorySize(0), MemoryAlignment::U8),
-        Type::Tuple(types) => layout_tuple(types),
-        Type::NamedStruct(named_struct) => {
-            if named_struct.module_path == vec!["core-0.0.0".to_string()]
-                && named_struct.assigned_name.starts_with("Vec<")
-            {
-                (MemorySize(VEC_REFERENCE_SIZE), MemoryAlignment::U16)
-            } else if named_struct.module_path == vec!["core-0.0.0".to_string()]
-                && named_struct.assigned_name.starts_with("Map<")
-            {
-                (MemorySize(MAP_REFERENCE_SIZE), MemoryAlignment::U16)
-            } else {
-                type_size_and_alignment(&Type::AnonymousStruct(
-                    named_struct.anon_struct_type.clone(),
-                ))
-            }
-        }
-        Type::Slice(value_type) => type_size_and_alignment(value_type),
-        Type::SlicePair(key_type, value_type) => {
-            layout_tuple(&vec![*key_type.clone(), *value_type.clone()])
-        }
-        Type::AnonymousStruct(anon_struct) => {
-            let (struct_size, struct_alignment, _elements) = layout_struct(&anon_struct);
-            (struct_size, struct_alignment)
-        }
-        Type::Enum(enum_type) => {
-            let (offset, alignment) = layout_union(&enum_type.variants);
 
-            let alignment_octets: usize = alignment.into();
+pub fn type_with_tag_size_and_alignment(inner_type: &Type) -> (MemorySize, MemoryAlignment) {
+    let (offset, alignment) = type_size_and_alignment(inner_type);
 
-            (MemorySize(offset.0 + alignment_octets as u16), alignment)
-        }
-        Type::Function(_) => (MemorySize(2), MemoryAlignment::U16),
-        Type::Optional(inner_type) => {
-            let (offset, alignment) = type_size_and_alignment(inner_type);
+    let alignment_octets: usize = alignment.into();
 
-            let alignment_octets: usize = alignment.into();
-
-            (MemorySize(offset.0 + alignment_octets as u16), alignment)
-        }
-        Type::Generic(a, b) => {
-            error!(?a, ?b, "generic can not be generated");
-            panic!("generic is not supported")
-        }
-        Type::MutableReference(referenced_type) => type_size_and_alignment(referenced_type),
-        Type::Blueprint(_) => panic!("not supported"),
-        Type::Variable(_) => panic!("not supported"),
-        Type::External(_) => todo!(),
-    }
+    (MemorySize(offset.0 + alignment_octets as u16), alignment) // Add the alignment for the tag
 }
+
+/*
+pub fn layout_union_with_tag(
+    enum_type: &EnumType,
+) -> (MemorySize, MemoryAlignment, Vec<(MemoryOffset, MemorySize)>) {
+    enum_type.variants.iter().map(|(name, variant)| (name, variant))
+
+    let (offset, alignment, offsets) = layout_union(&enum_type.assigned_name, );
+
+    let mut converted_offsets = Vec::new();
+
+    let alignment_octets_usize: usize = alignment.into();
+    let alignment_octets: u16 = alignment_octets_usize as u16;
+
+    converted_offsets.push((MemoryOffset(0), MemorySize(alignment_octets)));
+    for (offset, size) in offsets {
+        converted_offsets.push((MemoryOffset(offset.0 + alignment_octets), size));
+    }
+
+    (
+        MemorySize(offset.0 + alignment_octets),
+        alignment,
+        converted_offsets,
+    )
+}
+
+ */
 
 pub fn reserve_space_for_type(ty: &Type, allocator: &mut ScopeAllocator) -> FrameMemoryRegion {
     let (size, alignment) = type_size_and_alignment(ty);

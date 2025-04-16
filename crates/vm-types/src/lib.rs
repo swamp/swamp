@@ -2,10 +2,11 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use crate::aligner::align;
 use source_map_node::Node;
+use std::cmp::Ordering;
 use std::fmt::{Alignment, Display, Formatter};
+use std::ops::{Add, Sub};
 
 pub mod aligner;
 pub mod opcode;
@@ -125,6 +126,10 @@ impl FrameMemoryAddress {
     }
 }
 
+pub fn align_to(addr: MemoryOffset, alignment: MemoryAlignment) -> MemoryOffset {
+    MemoryOffset(align(addr.0 as usize, alignment.into()) as u16)
+}
+
 impl MemoryAddress {
     #[must_use]
     pub const fn space(&self, memory_size: MemorySize, _alignment: Alignment) -> Self {
@@ -136,10 +141,33 @@ impl MemoryAddress {
 pub struct MemoryOffset(pub u16);
 
 impl MemoryOffset {
+    pub fn to_size(&self) -> MemorySize {
+        MemorySize(self.0)
+    }
+}
+
+impl MemoryOffset {
     pub fn space(&mut self, memory_size: MemorySize, alignment: MemoryAlignment) -> Self {
         let start = align(self.0 as usize, alignment.into()) as u16;
         self.0 = start + memory_size.0;
         MemoryOffset(start)
+    }
+}
+
+impl Add<MemorySize> for MemoryOffset {
+    type Output = Self;
+
+    fn add(self, rhs: MemorySize) -> Self {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Sub<MemoryOffset> for MemoryOffset {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self {
+        assert!(rhs.0 < self.0);
+        Self(self.0 - rhs.0)
     }
 }
 
@@ -156,11 +184,12 @@ impl MemoryOffset {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]
 pub struct MemorySize(pub u16);
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemoryAlignment {
+    // Do not change the order.
     U8,
     U16,
     U32,

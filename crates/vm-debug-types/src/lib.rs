@@ -1,10 +1,9 @@
-use seq_map::SeqMap;
 use std::fmt::{Display, Formatter};
-use swamp_vm_types::FrameMemoryRegion;
 use swamp_vm_types::{
     ConstantMemoryAddress, FrameMemoryAddress, FrameMemorySize, InstructionPosition,
     InstructionPositionOffset, MemoryOffset, MemorySize,
 };
+use swamp_vm_types::{FrameMemoryRegion, MemoryAlignment, align_to};
 
 impl FrameMemoryInfo {
     pub fn get(&self, memory_addr: &FrameMemoryAddress) -> Option<FrameAddressInfo> {
@@ -28,13 +27,23 @@ pub struct OffsetMemoryItem {
 #[derive(Clone, Debug)]
 pub struct StructType {
     pub name: String,
-    pub fields: SeqMap<MemoryOffset, OffsetMemoryItem>,
+    pub fields: Vec<OffsetMemoryItem>,
+    pub total_size: MemorySize,
+    pub total_alignment: MemoryAlignment,
+}
+
+#[derive(Clone, Debug)]
+pub struct TupleType {
+    pub fields: Vec<OffsetMemoryItem>,
+    pub total_size: MemorySize,
+    pub total_alignment: MemoryAlignment,
 }
 
 #[derive(Clone, Debug)]
 pub enum TaggedUnionDataKind {
     Struct(StructType),
-    Tuple(Vec<OffsetMemoryItem>),
+    Tuple(TupleType),
+    Empty,
 }
 
 #[derive(Clone, Debug)]
@@ -43,10 +52,46 @@ pub struct TaggedUnionData {
     pub name: String,
 }
 
+impl TaggedUnionData {
+    #[must_use]
+    pub const fn payload_size(&self) -> MemorySize {
+        match &self.kind {
+            TaggedUnionDataKind::Struct(st) => st.total_size,
+            TaggedUnionDataKind::Tuple(tt) => tt.total_size,
+            TaggedUnionDataKind::Empty => MemorySize(0),
+        }
+    }
+    #[must_use]
+    pub const fn payload_alignment(&self) -> MemoryAlignment {
+        match &self.kind {
+            TaggedUnionDataKind::Struct(st) => st.total_alignment,
+            TaggedUnionDataKind::Tuple(tt) => tt.total_alignment,
+            TaggedUnionDataKind::Empty => MemoryAlignment::U8,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct TaggedUnion {
     pub name: String,
+    pub tag_offset: MemoryOffset, // should always be 0
+    pub tag_size: MemorySize,
     pub variants: Vec<TaggedUnionData>,
+    pub total_size: MemorySize,
+    pub max_alignment: MemoryAlignment,
+}
+
+impl TaggedUnion {
+    pub fn payload_offset(&self) -> MemoryOffset {
+        align_to(MemoryOffset(self.tag_size.0), self.max_alignment)
+    }
+}
+
+impl TaggedUnion {
+    #[must_use]
+    pub fn get_variant_by_index(&self, index: usize) -> &TaggedUnionData {
+        &self.variants[index]
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -104,7 +149,14 @@ pub struct DecoratedOpcode {
 }
 
 #[derive(Clone, Debug)]
-pub enum BasicType {
+pub struct MemoryElement {
+    pub offset: MemoryOffset,
+    pub size: MemorySize,
+    pub alignment: MemoryAlignment,
+}
+
+#[derive(Clone, Debug)]
+pub enum BasicTypeKind {
     Empty,
     U8,
     B8,
@@ -114,10 +166,22 @@ pub enum BasicType {
     CollectionPointer,
     Struct(StructType),
     TaggedUnion(TaggedUnion),
-    Tuple(Vec<ComplexType>),
+    Tuple(TupleType),
+}
+#[derive(Clone, Debug)]
+pub struct BasicType {
+    pub kind: BasicTypeKind,
+    pub total_size: MemorySize,
+    pub total_alignment: MemoryAlignment,
 }
 
 impl Display for BasicType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "")
+    }
+}
+
+impl Display for BasicTypeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::U8 => {
@@ -155,15 +219,27 @@ impl Display for BasicType {
 }
 
 #[derive(Clone, Debug)]
-pub enum ComplexType {
+pub enum ComplexTypeKind {
     Optional(BasicType),
-    //IndirectPointer(BasicType),
     BasicType(BasicType),
     Slice(BasicType),
     SlicePair(BasicType, BasicType),
 }
 
+#[derive(Clone, Debug)]
+pub struct ComplexType {
+    pub kind: ComplexTypeKind,
+    pub total_size: MemorySize,
+    pub total_alignment: MemoryAlignment,
+}
+
 impl Display for ComplexType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+impl Display for ComplexTypeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Optional(basic) => {

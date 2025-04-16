@@ -7,16 +7,21 @@ pub mod alloc;
 pub mod alloc_util;
 pub mod constants;
 pub mod ctx;
+mod layout;
 mod location;
 mod vec;
 
 use crate::alloc::ScopeAllocator;
-use crate::alloc_util::{
-    is_grid, is_map, is_range, is_stack, is_vec, layout_struct, layout_tuple,
-    layout_tuple_elements, reserve_space_for_type, type_size_and_alignment,
-};
+use crate::alloc_util::{is_grid, is_map, is_range, is_stack, is_vec, reserve_space_for_type};
 use crate::constants::ConstantsManager;
 use crate::ctx::Context;
+use crate::layout::layout_type;
+use crate::layout::layout_variables;
+use crate::layout::type_size_and_alignment;
+use crate::layout::{
+    layout_enum, layout_enum_into_tagged_union, layout_struct, layout_struct_type, layout_tuple,
+    layout_tuple_items,
+};
 use seq_map::SeqMap;
 use source_map_cache::{FileLineInfo, SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
@@ -32,8 +37,9 @@ use swamp_semantic::{
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
 use swamp_vm_debug_types::{
-    BasicType, ComplexType, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
-    FrameRelativeInfo, FunctionInfo, FunctionInfoKind, OffsetMemoryItem, StructType, VariableInfo,
+    BasicType, BasicTypeKind, ComplexTypeKind, FrameAddressInfo, FrameAddressInfoKind,
+    FrameMemoryInfo, FrameRelativeInfo, FunctionInfo, FunctionInfoKind, MemoryElement,
+    OffsetMemoryItem, StructType, TaggedUnionData, TaggedUnionDataKind, VariableInfo,
 };
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
@@ -364,135 +370,26 @@ pub struct FrameAndVariableInfo {
 */
 
 #[must_use]
-pub fn convert_type_to_basic(ty: &Type) -> BasicType {
-    let converted = convert_type(ty);
-    if let ComplexType::BasicType(basic) = converted {
+pub fn convert_type_to_basic(ty: &Type, offset: MemoryOffset) -> BasicType {
+    let converted = layout_type(ty, offset, "");
+    if let ComplexTypeKind::BasicType(basic) = converted.kind {
         basic
     } else {
         panic!("type was not basic")
     }
 }
 
-#[must_use]
-pub fn convert_type(ty: &Type) -> ComplexType {
-    match ty {
-        Type::Int => ComplexType::BasicType(BasicType::S32),
-        Type::Float => ComplexType::BasicType(BasicType::Fixed32),
-        Type::Bool => ComplexType::BasicType(BasicType::B8),
-        Type::Unit => ComplexType::BasicType(BasicType::Empty),
-        Type::String => ComplexType::BasicType(BasicType::CollectionPointer),
-        Type::Never => panic!("'never' should not be a part of codegen"),
-        Type::Slice(inner_type) => ComplexType::Slice(convert_type_to_basic(inner_type)),
-        Type::SlicePair(a, b) => {
-            ComplexType::SlicePair(convert_type_to_basic(a), convert_type_to_basic(b))
-        }
-        Type::Tuple(types) => ComplexType::BasicType(BasicType::Tuple(convert_types(types))),
-        Type::NamedStruct(named_struct_type) => {
-            ComplexType::BasicType(BasicType::Struct(convert_struct_type(
-                &named_struct_type.anon_struct_type,
-                &named_struct_type.assigned_name,
-            )))
-        }
-        Type::AnonymousStruct(_) => todo!(),
-        Type::Enum(_) => todo!(),
-        Type::Function(_) => todo!(),
-        Type::Optional(_) => todo!(),
-        Type::Generic(_, _) => todo!(),
-        Type::Blueprint(_) => panic!("blueprint should not be a part of codegen"),
-        Type::Variable(_) => todo!(),
-        Type::MutableReference(_) => todo!(),
-        Type::External(_) => todo!(),
+pub fn basic_type(
+    kind: BasicTypeKind,
+    offset: MemoryOffset,
+    total_size: MemorySize,
+    total_alignment: MemoryAlignment,
+) -> BasicType {
+    BasicType {
+        kind,
+        total_size,
+        total_alignment,
     }
-}
-
-#[must_use]
-pub fn convert_struct_type(anonymous_struct_type: &AnonymousStructType, name: &str) -> StructType {
-    let (_a, _b, elements) = layout_struct(&anonymous_struct_type);
-
-    let mut items = SeqMap::new();
-    for ((name, field), (memory_offset, memory_size)) in anonymous_struct_type
-        .field_name_sorted_fields
-        .iter()
-        .zip(elements)
-    {
-        let item = OffsetMemoryItem {
-            offset: memory_offset,
-            size: memory_size,
-            name: name.clone(),
-            ty: convert_type(&field.field_type),
-        };
-
-        items.insert(memory_offset, item).unwrap();
-    }
-
-    StructType {
-        name: name.to_string(),
-        fields: items,
-    }
-}
-
-#[must_use]
-pub fn convert_types(types: &[Type]) -> Vec<ComplexType> {
-    let mut converted = Vec::new();
-    for ty in types {
-        converted.push(convert_type(ty));
-    }
-
-    converted
-}
-
-/// # Errors
-///
-pub fn layout_variables(
-    node: &Node,
-    variables: &Vec<VariableRef>,
-    return_type: &Type,
-) -> Result<FrameAndVariableInfo, Error> {
-    let mut allocator = ScopeAllocator::new(FrameMemoryRegion::new(
-        FrameMemoryAddress(0),
-        MemorySize(32 * 1024),
-    ));
-    let _current_offset = reserve(return_type, &mut allocator);
-
-    let mut enter_comment = "variables:\n".to_string();
-
-    let mut frame_memory_infos = Vec::new();
-    let mut variable_offsets = SeqMap::new();
-
-    for var_ref in variables {
-        let var_target = reserve(&var_ref.resolved_type, &mut allocator);
-        trace!(?var_ref.assigned_name, ?var_target, "laying out");
-        enter_comment += &format!(
-            "  ${:04X}:{} {}\n",
-            var_target.addr.0, var_target.size.0, var_ref.assigned_name
-        );
-
-        frame_memory_infos.push(FrameAddressInfo {
-            region: var_target,
-            kind: FrameAddressInfoKind::Variable(VariableInfo {
-                is_mutable: var_ref.is_mutable(),
-                name: var_ref.assigned_name.clone(),
-                ty: convert_type(&var_ref.resolved_type),
-            }),
-        });
-
-        variable_offsets
-            .insert(var_ref.unique_id_within_function, var_target)
-            .unwrap();
-    }
-
-    //let extra_frame_size = MemorySize(80);
-    let frame_size = allocator.addr().as_size();
-
-    let result = FrameAndVariableInfo {
-        frame_memory: FrameMemoryInfo {
-            infos: frame_memory_infos,
-            size: frame_size,
-        },
-        variable_offsets,
-    };
-
-    Ok(result)
 }
 
 pub struct FunctionInData {
@@ -2646,6 +2543,17 @@ impl FunctionCodeGen<'_> {
             }
 
             Literal::EnumVariantLiteral(enum_type, a, b) => {
+                let tagged_union = layout_enum_into_tagged_union(
+                    &enum_type.assigned_name,
+                    &enum_type.variants.values().cloned().collect::<Vec<_>>(),
+                    MemoryOffset(0),
+                );
+
+                let variant_data =
+                    tagged_union.get_variant_by_index(a.common().container_index as usize);
+
+                let payload_offset = tagged_union.payload_offset();
+
                 self.builder.add_ld8(
                     ctx.addr(),
                     a.common().container_index,
@@ -2653,22 +2561,8 @@ impl FunctionCodeGen<'_> {
                     &format!("enum variant {} tag", a.common().assigned_name),
                 );
 
-                let starting_offset = MemoryOffset(1);
-
-                let (data_size, data_alignment) = match a {
-                    EnumVariantType::Struct(enum_variant_struct) => {
-                        let (memory_size, memory_alignment, _elements) =
-                            layout_struct(&enum_variant_struct.anon_struct);
-                        (memory_size, memory_alignment)
-                    }
-                    EnumVariantType::Tuple(tuple_type) => layout_tuple(&tuple_type.fields_in_order),
-                    EnumVariantType::Nothing(_) => (MemorySize(0), MemoryAlignment::U8),
-                };
-
-                let skip_octets: usize = data_alignment.into();
-                let skip = MemorySize(skip_octets as u16);
-                let inner_addr = ctx.addr().add(skip);
-                let region = FrameMemoryRegion::new(inner_addr, data_size);
+                let inner_addr = ctx.addr().add(MemorySize(payload_offset.0));
+                let region = FrameMemoryRegion::new(inner_addr, variant_data.payload_size());
                 let inner_ctx = Context::new(region);
 
                 //layout_union(a)
@@ -3761,21 +3655,20 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(), Error> {
         let source_region = self.gen_expression_for_access(source_tuple_expression)?;
 
-        let (total_size, _max_alignment, element_offsets) = layout_tuple_elements(tuple_type);
+        let (element_offsets, total_size, max_alignment) =
+            layout_tuple_items(tuple_type, MemoryOffset(0));
         assert_eq!(total_size.0, source_region.size.0);
 
-        for (target_variable, (element_offset, element_size)) in
-            target_variables.iter().zip(element_offsets)
-        {
+        for (target_variable, offset_item) in target_variables.iter().zip(element_offsets) {
             if target_variable.is_unused {
             } else {
                 let (target_region, _variable_alignment) =
                     self.get_variable_region(target_variable);
-                assert_eq!(target_region.size.0, element_size.0);
+                assert_eq!(target_region.size.0, offset_item.size.0);
 
                 let source_element_region = FrameMemoryRegion::new(
-                    source_region.addr.advance(element_offset),
-                    element_size,
+                    source_region.addr.advance(offset_item.offset),
+                    offset_item.size,
                 );
                 self.builder.add_mov(
                     target_region.addr,

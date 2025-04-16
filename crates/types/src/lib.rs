@@ -462,7 +462,6 @@ impl Display for StructTypeField {
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct AnonymousStructType {
-    //pub source_ordered_fields: SeqMap<String, StructTypeField>,
     pub field_name_sorted_fields: SeqMap<String, StructTypeField>,
 }
 
