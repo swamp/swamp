@@ -46,16 +46,22 @@ use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPos
 use swamp_vm_types::{
     BinaryInstruction, ConstantMemoryRegion, CountU16, FrameMemoryAddress,
     FrameMemoryAddressIndirectPointer, FrameMemoryRegion, FrameMemorySize, INT_SIZE,
-    InstructionPosition, InstructionPositionOffset, MemoryAlignment, MemoryOffset, MemorySize,
-    Meta, PTR_SIZE, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
+    InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryAlignment,
+    MemoryOffset, MemorySize, Meta, PTR_SIZE, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT,
+    VEC_ITERATOR_SIZE,
 };
 use tracing::{error, info};
 
 #[derive(Clone)]
+pub enum FunctionIpKind {
+    Normal(InternalFunctionId),
+    Constant(ConstantId),
+}
+
+#[derive(Clone)]
 pub struct FunctionIp {
-    start_ip: InstructionPosition,
-    end_ip: InstructionPosition,
-    internal_fn_id: InternalFunctionId,
+    ip_range: InstructionRange,
+    pub kind: FunctionIpKind,
 }
 
 pub struct GeneratedExpressionResult {
@@ -93,7 +99,7 @@ pub struct SlicePairInfo {
 }
 
 pub struct GenFunctionInfo {
-    pub starts_at_ip: InstructionPosition,
+    pub ip_range: InstructionRange,
     pub internal_function_definition: InternalFunctionDefinitionRef,
 }
 
@@ -104,7 +110,7 @@ pub struct FunctionFixup {
 }
 
 pub struct ConstantInfo {
-    pub ip: InstructionPosition,
+    pub ip_range: InstructionRange,
     pub constant_ref: ConstantRef,
     pub target_constant_memory: ConstantMemoryRegion,
 }
@@ -124,20 +130,11 @@ impl FunctionIps {
     pub const fn new() -> Self {
         Self { ranges: Vec::new() }
     }
-    #[must_use]
-    pub fn get(&self, ip: InstructionPosition) -> Option<InternalFunctionId> {
-        for range in &self.ranges {
-            if range.start_ip.0 >= ip.0 && range.end_ip.0 <= ip.0 {
-                return Some(range.internal_fn_id);
-            }
-        }
 
-        None
-    }
     #[must_use]
     pub fn get_function_end_from_start(&self, ip: InstructionPosition) -> Option<FunctionIp> {
         for range in &self.ranges {
-            if range.start_ip.0 == ip.0 {
+            if range.ip_range.start.0 == ip.0 {
                 return Some(range.clone());
             }
         }
@@ -154,7 +151,7 @@ pub struct CodeGenState {
     function_fixups: Vec<FunctionFixup>,
 
     pub function_ips: FunctionIps,
-    pub function_debug_infos: SeqMap<InternalFunctionId, FunctionInfo>,
+    pub function_debug_infos: SeqMap<InstructionPosition, FunctionInfo>,
 }
 
 pub struct GenOptions {
@@ -249,39 +246,33 @@ pub fn disasm_function(
 }
 
 pub fn disasm_whole_program(
-    function_ips: &FunctionIps,
-    function_debug_infos: &SeqMap<InternalFunctionId, FunctionInfo>,
+    function_debug_infos: &SeqMap<InstructionPosition, FunctionInfo>,
     source_map_wrapper: &SourceMapWrapper,
     instructions: &[BinaryInstruction],
     meta: &[Meta],
 ) {
     let mut current_ip: u16 = 0;
 
-    while current_ip < instructions.len() as u16 {
-        if let Some(function_ip) =
-            function_ips.get_function_end_from_start(InstructionPosition(current_ip))
+    while current_ip < (instructions.len() - 1) as u16 {
+        if let Some(function_debug_info) =
+            function_debug_infos.get(&InstructionPosition(current_ip))
         {
-            let function_debug_info = function_debug_infos
-                .get(&function_ip.internal_fn_id)
-                .unwrap();
-
-            //panic!("unknown ip");
             eprintln!("function = {} =", function_debug_info.name);
-            let instructions_slice =
-                &instructions[function_ip.start_ip.0 as usize..=function_ip.end_ip.0 as usize];
-            let meta_slice = &meta[function_ip.start_ip.0 as usize..=function_ip.end_ip.0 as usize];
+            let end_ip = current_ip + function_debug_info.ip_range.count.0;
+            let instructions_slice = &instructions[current_ip as usize..end_ip as usize];
+            let meta_slice = &meta[current_ip as usize..end_ip as usize];
 
             let output_string = disasm_function(
                 &function_debug_info.frame_memory,
                 instructions_slice,
                 meta_slice,
-                InstructionPositionOffset(function_ip.start_ip.0),
+                InstructionPositionOffset(current_ip),
                 source_map_wrapper,
             );
             eprintln!("{output_string}");
-            current_ip = function_ip.end_ip.0 + 1;
+            current_ip = end_ip;
         } else {
-            current_ip += 1;
+            panic!("instruction pointer that is not covered")
         }
     }
 }
@@ -313,14 +304,14 @@ impl CodeGenState {
                 .assigned_name
                 .clone();
             lookups
-                .insert(function_info.starts_at_ip.clone(), description)
+                .insert(function_info.ip_range.start.clone(), description)
                 .unwrap();
         }
 
         for (_func_id, function_info) in &self.constant_functions {
             let description = format!("constant {}", function_info.constant_ref.assigned_name);
             lookups
-                .insert(function_info.ip.clone(), description)
+                .insert(function_info.ip_range.start.clone(), description)
                 .unwrap();
         }
 
@@ -386,7 +377,7 @@ pub struct TopLevelGenState {
 
 impl TopLevelGenState {
     #[must_use]
-    pub fn function_debug_infos(&self) -> &SeqMap<InternalFunctionId, FunctionInfo> {
+    pub fn function_debug_infos(&self) -> &SeqMap<InstructionPosition, FunctionInfo> {
         &self.codegen_state.function_debug_infos
     }
 }
@@ -424,16 +415,6 @@ impl TopLevelGenState {
         source_map_wrapper: &SourceMapWrapper,
     ) -> Result<(), Error> {
         assert_ne!(internal_fn_def.program_unique_id, 0);
-        self.codegen_state
-            .function_infos
-            .insert(
-                internal_fn_def.program_unique_id,
-                GenFunctionInfo {
-                    starts_at_ip: self.builder_state.position(),
-                    internal_function_definition: internal_fn_def.clone(),
-                },
-            )
-            .unwrap();
 
         let in_data = FunctionInData {
             function_name_node: internal_fn_def.name.0.clone(),
@@ -447,15 +428,32 @@ impl TopLevelGenState {
         let (start_ip, end_ip, function_info) =
             self.gen_function_preamble(&in_data, source_map_wrapper)?;
 
+        let count_ip = end_ip.0 - start_ip.0;
+
+        let range = InstructionRange {
+            start: start_ip,
+            count: InstructionPositionOffset(count_ip),
+        };
+
+        self.codegen_state
+            .function_infos
+            .insert(
+                internal_fn_def.program_unique_id,
+                GenFunctionInfo {
+                    ip_range: range.clone(),
+                    internal_function_definition: internal_fn_def.clone(),
+                },
+            )
+            .unwrap();
+
         self.codegen_state.function_ips.ranges.push(FunctionIp {
-            start_ip,
-            end_ip,
-            internal_fn_id: internal_fn_def.program_unique_id,
+            ip_range: range.clone(),
+            kind: FunctionIpKind::Normal(internal_fn_def.program_unique_id),
         });
 
         self.codegen_state
             .function_debug_infos
-            .insert(internal_fn_def.program_unique_id, function_info)
+            .insert(range.start, function_info)
             .unwrap();
 
         Ok(())
@@ -473,12 +471,7 @@ impl TopLevelGenState {
             &main.expression.node,
             &main.function_scope_state,
             &main.expression.ty,
-        )?;
-        let function_info = FunctionInfo {
-            kind: FunctionInfoKind::Normal(main.program_unique_id as usize),
-            frame_memory: variable_and_frame_memory.frame_memory,
-            name: "main".to_string(),
-        };
+        );
 
         let in_data = FunctionInData {
             function_name_node: main.expression.node.clone(),
@@ -491,6 +484,16 @@ impl TopLevelGenState {
 
         let (start_ip, end_ip, function_info) =
             self.gen_function_preamble(&in_data, source_map_lookup)?;
+
+        let function_info = FunctionInfo {
+            kind: FunctionInfoKind::Normal(main.program_unique_id as usize),
+            frame_memory: variable_and_frame_memory.frame_memory,
+            name: "main".to_string(),
+            ip_range: InstructionRange {
+                start: start_ip.clone(),
+                count: InstructionPositionOffset(end_ip.0 - start_ip.0),
+            },
+        };
 
         Ok(())
     }
@@ -509,7 +512,7 @@ impl TopLevelGenState {
             if let Some(func) = self.codegen_state.function_infos.get(&function_fixup.fn_id) {
                 self.builder_state.patch_call(
                     PatchPosition(InstructionPosition(function_fixup.patch_position.0.0)),
-                    &func.starts_at_ip,
+                    &func.ip_range.start,
                 );
             } else {
                 error!(?function_fixup.fn_id, "couldn't fixup function");
@@ -530,14 +533,18 @@ impl TopLevelGenState {
             &in_data.function_name_node,
             &in_data.all_variables_parameters_first,
             &in_data.return_type,
-        )?;
+        );
 
         let frame_size = frame_and_variable_info.frame_memory.size();
 
-        let function_info = FunctionInfo {
+        let mut function_info = FunctionInfo {
             kind: in_data.kind.clone(),
             frame_memory: frame_and_variable_info.frame_memory,
             name: in_data.assigned_name.clone(),
+            ip_range: InstructionRange {
+                start: start_ip.clone(),
+                count: InstructionPositionOffset(0),
+            },
         };
 
         let mut func_builder = self.builder_state.add_function(
@@ -574,6 +581,8 @@ impl TopLevelGenState {
 
         let end_ip = self.ip();
 
+        function_info.ip_range.count = InstructionPositionOffset(end_ip.0 - start_ip.0);
+
         Ok((start_ip, end_ip, function_info))
     }
 
@@ -601,37 +610,11 @@ impl TopLevelGenState {
             let (start_ip, end_ip, function_info) =
                 self.gen_function_preamble(&in_data, source_map_wrapper)?;
 
-            /*
-            let mut function_builder = self.builder_state.add_constant_function(
-                function_info,
-                &constant.name,
-                "constant builder",
-            );
-                           let constant_target_ctx = Context::new(FrameMemoryRegion::new(
-
-                               FrameMemoryAddress(0),
-                               target_region.size,
-                           ));
-                           function_generator.gen_expression(&constant.expr, &constant_target_ctx)?;
-
-            */
-
-            /*
-            function_generator.frame_size = FrameMemorySize(target_region.size.0);
-
-            function_generator.argument_allocator = ScopeAllocator::new(FrameMemoryRegion {
-                addr: FrameMemoryAddress(function_generator.frame_size.0),
-                size: MemorySize(1024),
-            });
-
-            function_generator.temp_allocator = ScopeAllocator::new(FrameMemoryRegion {
-                addr: FrameMemoryAddress(function_generator.frame_size.0 + 1024),
-                size: MemorySize(1024),
-            });
-
-             */
             let constant_info = ConstantInfo {
-                ip: start_ip,
+                ip_range: InstructionRange {
+                    count: InstructionPositionOffset(end_ip.0 - start_ip.0),
+                    start: start_ip.clone(),
+                },
                 target_constant_memory: target_region,
                 constant_ref: constant.clone(),
             };
@@ -639,6 +622,11 @@ impl TopLevelGenState {
             self.codegen_state
                 .constant_functions
                 .insert(constant.id, constant_info)
+                .unwrap();
+
+            self.codegen_state
+                .function_debug_infos
+                .insert(start_ip, function_info)
                 .unwrap();
         }
 
@@ -680,10 +668,8 @@ pub struct FunctionCodeGen<'a> {
     builder: &'a mut InstructionBuilder<'a>, // also references things in CodeGenState
     variable_offsets: SeqMap<usize, FrameMemoryRegion>,
     frame_size: FrameMemorySize,
-    //extra_frame_allocator: ScopeAllocator,
     temp_allocator: ScopeAllocator,
     argument_allocator: ScopeAllocator,
-    frame_memory_infos: Vec<FrameRelativeInfo>,
     source_map_lookup: &'a SourceMapWrapper<'a>,
 }
 
@@ -712,7 +698,6 @@ impl<'a> FunctionCodeGen<'a> {
                 FrameMemoryAddress(frame_size.0),
                 MemorySize(ARGUMENT_MAX_SIZE),
             )),
-            frame_memory_infos: Vec::new(),
             builder,
             source_map_lookup,
         }
@@ -1305,7 +1290,7 @@ impl FunctionCodeGen<'_> {
             .get(&internal_fn.program_unique_id)
         {
             self.builder
-                .add_call(&found.starts_at_ip, node, call_comment);
+                .add_call(&found.ip_range.start, node, call_comment);
         } else {
             let patch_position = self.builder.add_call_placeholder(node, call_comment);
             self.state.function_fixups.push(FunctionFixup {

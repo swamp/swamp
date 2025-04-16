@@ -176,7 +176,12 @@ pub fn layout_enum(
     }
 }
 
-fn layout_slice_pair(base_offset: MemoryOffset, a_type: &Type, b_type: &Type) -> BasicType {
+fn layout_slice_pair(
+    base_offset: MemoryOffset,
+    a_type: &Type,
+    b_type: &Type,
+    name: &str,
+) -> BasicType {
     let a_info = layout_type(a_type, base_offset, "a");
     let b_info = layout_type(b_type, base_offset, "b");
 
@@ -195,7 +200,7 @@ fn layout_slice_pair(base_offset: MemoryOffset, a_type: &Type, b_type: &Type) ->
     }
 }
 
-fn basic_type_as_complex(
+fn basic_type(
     basic_type_kind: BasicTypeKind,
     size: MemorySize,
     alignment: MemoryAlignment,
@@ -210,28 +215,24 @@ fn basic_type_as_complex(
 #[must_use]
 pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> BasicType {
     match ty {
-        Type::Int => basic_type_as_complex(BasicTypeKind::S32, MemorySize(4), MemoryAlignment::U32),
-        Type::Float => {
-            basic_type_as_complex(BasicTypeKind::Fixed32, MemorySize(4), MemoryAlignment::U32)
-        }
-        Type::Bool => basic_type_as_complex(BasicTypeKind::B8, MemorySize(1), MemoryAlignment::U8),
-        Type::Unit => {
-            basic_type_as_complex(BasicTypeKind::Empty, MemorySize(0), MemoryAlignment::U8)
-        }
-        Type::String => basic_type_as_complex(
+        Type::Int => basic_type(BasicTypeKind::S32, MemorySize(4), MemoryAlignment::U32),
+        Type::Float => basic_type(BasicTypeKind::Fixed32, MemorySize(4), MemoryAlignment::U32),
+        Type::Bool => basic_type(BasicTypeKind::B8, MemorySize(1), MemoryAlignment::U8),
+        Type::Unit => basic_type(BasicTypeKind::Empty, MemorySize(0), MemoryAlignment::U8),
+        Type::String => basic_type(
             BasicTypeKind::CollectionPointer,
             MemorySize(PTR_SIZE),
             HEAP_PTR_ALIGNMENT,
         ),
         Type::Slice(inner_type) => {
-            let basic = layout_type(inner_type, memory_offset, "slice");
+            let basic = layout_type(inner_type, memory_offset, &format!("slice {name}"));
             BasicType {
                 kind: BasicTypeKind::Slice(Box::from(basic.clone())),
                 total_size: basic.total_size,
                 total_alignment: basic.total_alignment,
             }
         }
-        Type::SlicePair(a, b) => layout_slice_pair(memory_offset, a, b),
+        Type::SlicePair(a, b) => layout_slice_pair(memory_offset, a, b, &format!("slice {name}")),
         Type::Tuple(types) => layout_tuple(types, memory_offset),
         Type::NamedStruct(named_struct_type) => layout_struct(
             &named_struct_type.anon_struct_type,
@@ -239,20 +240,24 @@ pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> BasicT
             &named_struct_type.assigned_name,
         ),
         Type::AnonymousStruct(anon_struct_type) => {
-            layout_struct(anon_struct_type, memory_offset, "")
+            layout_struct(anon_struct_type, memory_offset, &format!("struct {name}"))
         }
         Type::Enum(a) => layout_enum(
             &a.assigned_name,
             &a.variants.values().cloned().collect::<Vec<_>>(),
             memory_offset,
         ),
-        Type::Optional(inner_type) => layout_optional_type(inner_type, memory_offset, "?"),
+        Type::Optional(inner_type) => {
+            layout_optional_type(inner_type, memory_offset, &format!("{name}?"))
+        }
+        Type::MutableReference(inner_type) => {
+            layout_type(inner_type, memory_offset, &format!("mut ref {name}?"))
+        }
         Type::Function(_) => panic!("function types should not be a part of codegen"),
         Type::Never => panic!("'never' should not be a part of codegen"),
         Type::Generic(_, _) => panic!("generic should not be a part of codegen"),
         Type::Blueprint(_) => panic!("blueprint should not be a part of codegen"),
         Type::Variable(_) => panic!("type variable (generics) should not be a part of codegen"),
-        Type::MutableReference(inner_type) => layout_type(inner_type, memory_offset, "mut ref"),
     }
 }
 
@@ -266,10 +271,8 @@ pub fn layout_struct_type(
     let mut items = Vec::with_capacity(struct_type.field_name_sorted_fields.len());
 
     for (field_name, field_type) in &struct_type.field_name_sorted_fields {
-        // Recursively layout the field at the current offset
         let field_layout = layout_type(&field_type.field_type, offset, field_name);
 
-        // Align the offset for this field
         offset = align_to(offset, field_layout.total_alignment);
 
         items.push(OffsetMemoryItem {
@@ -279,10 +282,8 @@ pub fn layout_struct_type(
             ty: field_layout.clone(),
         });
 
-        // Advance offset for next field
         offset = offset + field_layout.total_size;
 
-        // Track max alignment
         if field_layout.total_alignment > max_alignment {
             max_alignment = field_layout.total_alignment;
         }
@@ -429,7 +430,7 @@ pub fn layout_variables(
     node: &Node,
     variables: &Vec<VariableRef>,
     return_type: &Type,
-) -> Result<FrameAndVariableInfo, Error> {
+) -> FrameAndVariableInfo {
     let mut allocator = ScopeAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
         MemorySize(32 * 1024),
@@ -467,16 +468,13 @@ pub fn layout_variables(
             .unwrap();
     }
 
-    //let extra_frame_size = MemorySize(80);
     let frame_size = allocator.addr().as_size();
 
-    let result = FrameAndVariableInfo {
+    FrameAndVariableInfo {
         frame_memory: FrameMemoryInfo {
             infos: frame_memory_infos,
             size: frame_size,
         },
         variable_offsets,
-    };
-
-    Ok(result)
+    }
 }

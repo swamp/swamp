@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use swamp_vm_types::{
     ConstantMemoryAddress, FrameMemoryAddress, FrameMemorySize, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize,
+    InstructionPositionOffset, InstructionRange, MemoryOffset, MemorySize,
 };
 use swamp_vm_types::{FrameMemoryRegion, MemoryAlignment, align_to};
 
@@ -306,6 +306,7 @@ pub struct FunctionInfo {
     pub kind: FunctionInfoKind,
     pub frame_memory: FrameMemoryInfo,
     pub name: String,
+    pub ip_range: InstructionRange,
 }
 
 #[derive(Clone, Debug)]

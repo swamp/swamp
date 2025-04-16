@@ -303,6 +303,12 @@ pub struct InstructionPosition(pub u16);
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct InstructionPositionOffset(pub u16);
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct InstructionRange {
+    pub start: InstructionPosition,
+    pub count: InstructionPositionOffset,
+}
+
 pub const INT_SIZE: u16 = 4;
 pub const FLOAT_SIZE: u16 = 4;
 pub const BOOL_SIZE: u16 = 1;

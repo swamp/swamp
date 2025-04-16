@@ -85,7 +85,7 @@ pub fn code_gen_program(
 
     code_gen.finalize();
     disasm_whole_program(
-        code_gen.function_ips(),
+        //code_gen.function_ips(),
         code_gen.function_debug_infos(),
         source_map_lookup,
         code_gen.instructions(),
