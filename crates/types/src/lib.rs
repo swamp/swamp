@@ -198,6 +198,11 @@ impl Type {
             Self::Unit | Self::Never | Self::Variable(_) | Self::Generic(_, _) | Self::Blueprint(_)
         )
     }
+
+    #[must_use]
+    pub const fn is_function_type(&self) -> bool {
+        !matches!(self, Self::Function(_))
+    }
 }
 
 impl Debug for Type {

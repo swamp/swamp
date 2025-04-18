@@ -253,6 +253,8 @@ pub fn disasm_whole_program(
 ) {
     let mut current_ip: u16 = 0;
 
+    let instruction_count = instructions.len();
+    info!(?instruction_count, "INSTRUCTION COUNT");
     while current_ip < (instructions.len() - 1) as u16 {
         if let Some(function_debug_info) =
             function_debug_infos.get(&InstructionPosition(current_ip))
@@ -893,6 +895,7 @@ impl FunctionCodeGen<'_> {
 
             // Vec
             IntrinsicFunction::VecFromSlice => {
+                /* TODO:
                 let slice_variable = &arguments[0];
                 let slice_region = self.gen_for_access_or_location_ex(slice_variable)?;
                 let (element_size, element_alignment) =
@@ -905,6 +908,8 @@ impl FunctionCodeGen<'_> {
                     node,
                     "create vec from slice",
                 );
+
+                 */
             }
             IntrinsicFunction::VecPush => {
                 let maybe_key_argument = &arguments[0];
@@ -1033,8 +1038,14 @@ impl FunctionCodeGen<'_> {
 
                  */
             }
-            IntrinsicFunction::VecIter => todo!(),
-            IntrinsicFunction::VecIterMut => todo!(),
+            IntrinsicFunction::VecIter => {
+                // TODO:
+                // Intentionally empty, since it is never called
+            }
+            IntrinsicFunction::VecIterMut => {
+                // TODO:
+                // Intentionally empty, since it is never called
+            }
             IntrinsicFunction::VecFor => todo!(),
             IntrinsicFunction::VecWhile => todo!(),
             IntrinsicFunction::VecFindMap => todo!(),
@@ -1047,7 +1058,9 @@ impl FunctionCodeGen<'_> {
             ),
 
             // Map
-            IntrinsicFunction::MapCreate => todo!(),
+            IntrinsicFunction::MapCreate => {
+                // TODO:
+            }
             IntrinsicFunction::MapFromSlicePair => {
                 let slice_pair_argument = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(expr) = slice_pair_argument else {

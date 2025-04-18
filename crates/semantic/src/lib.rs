@@ -74,6 +74,19 @@ pub struct InternalFunctionDefinition {
     pub program_unique_id: InternalFunctionId,
 }
 
+impl InternalFunctionDefinition {
+    #[must_use]
+    pub fn all_parameters_are_concrete(&self) -> bool {
+        for var in &self.parameter_and_variables {
+            if !var.resolved_type.is_concrete() || var.resolved_type.is_function_type() {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
 impl Default for InternalFunctionDefinition {
     fn default() -> Self {
         Self {

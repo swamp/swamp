@@ -68,7 +68,13 @@ impl InstructionBuilderState {
         if let FunctionInfoKind::Constant(constant_id) = function_info.kind {
             self.constants.insert(constant_id, complete_info).unwrap();
         } else if let FunctionInfoKind::Normal(normal_id) = function_info.kind {
-            self.functions.insert(normal_id, complete_info).unwrap();
+            info!(?normal_id, "function id");
+            if self.functions.contains_key(&normal_id) {
+                // TODO: improve monomorph
+                info!("skipping");
+            } else {
+                self.functions.insert(normal_id, complete_info).unwrap();
+            }
         }
 
         let mut function_instruction_builder = InstructionBuilder::new(self);

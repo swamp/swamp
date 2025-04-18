@@ -61,7 +61,14 @@ pub fn code_gen_program(
         for (_name, func) in &impl_functions.functions {
             match &**func {
                 Function::Internal(int_fn) => {
-                    code_gen.gen_function_def(int_fn, &normal_function, source_map_lookup)?;
+                    if !code_gen
+                        .codegen_state
+                        .function_infos
+                        .contains_key(&int_fn.program_unique_id)
+                        && int_fn.all_parameters_are_concrete()
+                    {
+                        code_gen.gen_function_def(int_fn, &normal_function, source_map_lookup)?;
+                    }
                 }
 
                 Function::External(_ext_fn) => {
