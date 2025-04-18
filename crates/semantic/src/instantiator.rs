@@ -5,8 +5,8 @@
 
 use crate::prelude::InstantiationCache;
 use crate::{
-    AssociatedImpls, ExternalFunctionDefinition, Function, InternalFunctionDefinition,
-    LocalIdentifier, SemanticError,
+    AssociatedImpls, ExternalFunctionDefinition, Function, FunctionScopeState,
+    InternalFunctionDefinition, LocalIdentifier, SemanticError, Variable, VariableRef,
 };
 use seq_map::SeqMap;
 use source_map_node::Node;
@@ -85,6 +85,38 @@ impl Instantiator {
             instantiation_cache: InstantiationCache::new(),
         }
     }
+    pub fn instantiate_parameters_and_variables(
+        &mut self,
+        internal: &InternalFunctionDefinition,
+        current_self: &Type,
+        type_variables: &TypeVariableScope,
+    ) -> Result<Vec<VariableRef>, SemanticError> {
+        internal
+            .parameter_and_variables
+            .iter()
+            .map(|var| {
+                info!(?var, "instantiating variable");
+                let instantiated_type = self.instantiate_type_in_signature(
+                    current_self,
+                    &var.resolved_type,
+                    type_variables,
+                )?;
+
+                info!(?var.assigned_name, ?var.resolved_type, ?instantiated_type, "instantiated variable");
+
+                Ok(VariableRef::new(Variable {
+                    name: var.name.clone(),
+                    assigned_name: var.assigned_name.clone(),
+                    resolved_type: instantiated_type,
+                    mutable_node: var.mutable_node.clone(),
+                    scope_index: var.scope_index,
+                    variable_index: var.variable_index,
+                    unique_id_within_function: var.unique_id_within_function,
+                    is_unused: var.is_unused,
+                }))
+            })
+            .collect()
+    }
 
     /// # Errors
     ///
@@ -105,7 +137,7 @@ impl Instantiator {
             return Ok(existing.clone());
         }
 
-        let scope = Self::create_type_parameter_scope_from_variables(
+        let mut scope = Self::create_type_parameter_scope_from_variables(
             &blueprint.type_variables,
             analyzed_type_parameters,
         );
@@ -126,10 +158,12 @@ impl Instantiator {
                         _ => None,
                     };
 
+                    /*
+
                     let new_signature = if let Some(generic_signature) = &maybe_generic_signature {
                         self.instantiate_generic_signature(
                             &instantiated_type,
-                            &generic_signature,
+                            generic_signature,
                             &scope,
                         )?
                     } else {
@@ -140,6 +174,32 @@ impl Instantiator {
                         )?
                     };
 
+                     */
+
+                    scope = if let Some(generic_signature) = &maybe_generic_signature {
+                        let mut has_all_generics = true;
+
+                        for required_types in &generic_signature.generic_type_variables {
+                            if !scope.type_variables_private.contains_key(&required_types.0) {
+                                has_all_generics = false;
+                                break;
+                            }
+                        }
+
+                        if has_all_generics {
+                            scope
+                        } else {
+                            scope.with_variables(&generic_signature.generic_type_variables)?
+                        }
+                    } else {
+                        scope
+                    };
+
+                    let new_signature = func_ref.signature();
+
+                    let new_signature =
+                        self.instantiate_signature(&instantiated_type, new_signature, &scope)?;
+
                     let generics_to_keep = if let Some(generic) = maybe_generic_signature {
                         generic.generic_type_variables.clone()
                     } else {
@@ -148,6 +208,13 @@ impl Instantiator {
 
                     let new_func = match &**func_ref {
                         Function::Internal(internal) => {
+                            let instantiated_variables = self
+                                .instantiate_parameters_and_variables(
+                                    internal,
+                                    &instantiated_type,
+                                    &scope,
+                                )?;
+
                             let func_ref = Rc::new(InternalFunctionDefinition {
                                 body: internal.body.clone(),
                                 name: LocalIdentifier(Node::default()),
@@ -157,7 +224,7 @@ impl Instantiator {
                                     signature: new_signature.clone(),
                                     generic_type_variables: generics_to_keep,
                                 },
-                                function_scope_state: Vec::new(), // self.function_variables.clone(),
+                                parameter_and_variables: instantiated_variables,
                                 program_unique_id: internal.program_unique_id,
                             });
                             Function::Internal(func_ref)
@@ -248,36 +315,6 @@ impl Instantiator {
             }
             _ => self.instantiate_type_if_needed(Some(current_self), ty, type_variables),
         }
-    }
-
-    /// # Errors
-    ///
-    pub fn instantiate_generic_signature(
-        &mut self,
-        self_type: &Type,
-        signature: &GenericAwareSignature,
-        scope: &TypeVariableScope,
-    ) -> Result<Signature, SemanticError> {
-        let scope_to_use = if signature.generic_type_variables.is_empty() {
-            scope
-        } else {
-            let mut has_all_generics = true;
-
-            for required_types in &signature.generic_type_variables {
-                if !scope.type_variables_private.contains_key(&required_types.0) {
-                    has_all_generics = false;
-                    break;
-                }
-            }
-
-            if has_all_generics {
-                scope
-            } else {
-                &scope.with_variables(&signature.generic_type_variables)?
-            }
-        };
-
-        self.instantiate_signature(self_type, &signature.signature, scope_to_use)
     }
 
     /// # Errors

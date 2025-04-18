@@ -106,7 +106,7 @@ pub struct GenFunctionInfo {
 pub struct FunctionFixup {
     pub patch_position: PatchPosition,
     pub fn_id: InternalFunctionId,
-    //pub internal_function_definition: InternalFunctionDefinitionRef,
+    pub internal_function_definition: InternalFunctionDefinitionRef,
 }
 
 pub struct ConstantInfo {
@@ -420,10 +420,12 @@ impl TopLevelGenState {
             function_name_node: internal_fn_def.name.0.clone(),
             kind: FunctionInfoKind::Normal(internal_fn_def.program_unique_id as usize),
             assigned_name: internal_fn_def.assigned_name.clone(),
-            all_variables_parameters_first: internal_fn_def.function_scope_state.clone(),
+            all_variables_parameters_first: internal_fn_def.parameter_and_variables.clone(),
             return_type: *internal_fn_def.signature.signature.return_type.clone(),
             expression: internal_fn_def.body.clone(),
         };
+
+        info!(internal_fn_def.assigned_name, "gen_function_def");
 
         let (start_ip, end_ip, function_info) =
             self.gen_function_preamble(&in_data, source_map_wrapper)?;
@@ -515,7 +517,7 @@ impl TopLevelGenState {
                     &func.ip_range.start,
                 );
             } else {
-                error!(?function_fixup.fn_id, "couldn't fixup function");
+                error!(?function_fixup.fn_id, name=function_fixup.internal_function_definition.assigned_name, path=?function_fixup.internal_function_definition.defined_in_module_path,  "couldn't fixup function");
             }
         }
 
@@ -975,11 +977,7 @@ impl FunctionCodeGen<'_> {
                 );
             }
             IntrinsicFunction::VecCreate => {
-                self.builder.add_vec_create(
-                    self_addr.unwrap().addr, // mut self
-                    node,
-                    "vec create",
-                );
+                self.builder.add_vec_create(ctx.addr(), node, "vec create");
             }
             IntrinsicFunction::VecSubscript => {
                 let maybe_index_argument = &arguments[0];
@@ -1296,6 +1294,7 @@ impl FunctionCodeGen<'_> {
             self.state.function_fixups.push(FunctionFixup {
                 patch_position,
                 fn_id: internal_fn.program_unique_id,
+                internal_function_definition: internal_fn.clone(),
             });
         }
     }
@@ -1331,6 +1330,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(FrameMemoryRegion, GeneratedExpressionResult), Error> {
         match &expr.kind {
             ExpressionKind::VariableAccess(var_ref) => {
+                info!(?var_ref, "variable access");
                 let frame_address = self
                     .variable_offsets
                     .get(&var_ref.unique_id_within_function)
@@ -1484,7 +1484,11 @@ impl FunctionCodeGen<'_> {
                     let self_region = self.gen_expression_for_access(as_expr)?;
                     Some(self_region)
                 };
-                let rest_args = &arguments[1..];
+                let rest_args = if arguments.len() > 1 {
+                    &arguments[1..]
+                } else {
+                    &vec![]
+                };
                 self.gen_single_intrinsic_call(&expr.node, intrinsic_fn, self_arg, rest_args, ctx)
                     .map(|_| GeneratedExpressionResult::default())
             }

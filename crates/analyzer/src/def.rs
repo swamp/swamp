@@ -13,6 +13,7 @@ use swamp_semantic::{
 use swamp_types::TypeVariable;
 use swamp_types::prelude::*;
 use swamp_types::{GenericAwareSignature, ParameterizedTypeBlueprint, ParameterizedTypeKind};
+use tracing::info;
 
 impl Analyzer<'_> {
     fn general_import(
@@ -475,7 +476,7 @@ impl Analyzer<'_> {
                     name: LocalIdentifier(self.to_node(&function_data.declaration.name)),
                     assigned_name: self.get_text(&function_data.declaration.name).to_string(),
                     defined_in_module_path: self.module_path.clone(),
-                    function_scope_state: self.function_variables.clone(),
+                    parameter_and_variables: self.function_variables.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
                 };
 
@@ -667,8 +668,9 @@ impl Analyzer<'_> {
             .associated_impls
             .prepare(attach_to_type);
 
+        info!(?attach_to_type, "analyze impl functions");
+
         for function in functions {
-            //let new_return_type = self.analyze_return_type(function)?;
             self.start_function();
 
             let function_name = match function {
@@ -679,6 +681,7 @@ impl Analyzer<'_> {
             };
 
             let function_name_str = self.get_text(&function_name.name).to_string();
+            info!(function_name_str, "impl function");
 
             let resolved_function = self.analyze_impl_func(function, attach_to_type)?;
 
@@ -801,7 +804,7 @@ impl Analyzer<'_> {
                     assigned_name: self.get_text(&function_data.declaration.name).to_string(),
                     defined_in_module_path: self.module_path.clone(),
                     //variable_scopes: self.scope.clone(),
-                    function_scope_state: self.function_variables.clone(),
+                    parameter_and_variables: self.function_variables.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
                 };
 

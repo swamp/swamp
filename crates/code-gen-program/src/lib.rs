@@ -59,9 +59,6 @@ pub fn code_gen_program(
         }
 
         for (_name, func) in &impl_functions.functions {
-            if func.name().clone().starts_with("instantiated ") {
-                continue;
-            }
             match &**func {
                 Function::Internal(int_fn) => {
                     code_gen.gen_function_def(int_fn, &normal_function, source_map_lookup)?;

@@ -2516,12 +2516,15 @@ impl<'a> Analyzer<'a> {
                     .insert(variable.0.to_string(), generic_argument_type.clone())
                     .unwrap();
             }
-            let scope = TypeVariableScope::new(seq_map);
+            let mut scope = TypeVariableScope::new(seq_map);
+
+            scope = scope.with_variables(&found_generic.generic_type_variables)?;
+
             let instantiated_signature = self
                 .shared
                 .state
                 .instantiator
-                .instantiate_generic_signature(type_that_member_is_on, found_generic, &scope)?
+                .instantiate_signature(type_that_member_is_on, &found_generic.signature, &scope)?
                 .clone();
 
             &instantiated_signature.clone()

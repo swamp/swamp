@@ -70,8 +70,7 @@ pub struct InternalFunctionDefinition {
     pub assigned_name: String,
     pub defined_in_module_path: Vec<String>,
     pub signature: GenericAwareSignature,
-    //pub variable_scopes: FunctionScopeState,
-    pub function_scope_state: Vec<VariableRef>,
+    pub parameter_and_variables: Vec<VariableRef>,
     pub program_unique_id: InternalFunctionId,
 }
 
@@ -94,7 +93,7 @@ impl Default for InternalFunctionDefinition {
                 generic_type_variables: vec![],
             },
             //variable_scopes: FunctionScopeState::new(),
-            function_scope_state: Vec::new(),
+            parameter_and_variables: Vec::new(),
             program_unique_id: 0,
         }
     }
@@ -180,7 +179,6 @@ impl BlockScope {
 #[derive(Clone)]
 pub struct FunctionScopeState {
     pub block_scope_stack: Vec<BlockScope>,
-    //pub return_type: Type,
     pub variable_index: usize,
 }
 
