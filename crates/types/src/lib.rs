@@ -201,7 +201,7 @@ impl Type {
 
     #[must_use]
     pub const fn is_function_type(&self) -> bool {
-        !matches!(self, Self::Function(_))
+        matches!(self, Self::Function(_))
     }
 }
 

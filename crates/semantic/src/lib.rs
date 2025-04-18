@@ -20,7 +20,7 @@ use std::rc::Rc;
 use swamp_types::GenericAwareSignature;
 use swamp_types::StructLikeType;
 use swamp_types::prelude::*;
-use tracing::error;
+use tracing::{error, warn};
 
 #[derive(Debug, Clone)]
 pub struct TypeWithMut {
@@ -76,9 +76,10 @@ pub struct InternalFunctionDefinition {
 
 impl InternalFunctionDefinition {
     #[must_use]
-    pub fn all_parameters_are_concrete(&self) -> bool {
+    pub fn all_parameters_and_variables_are_concrete(&self) -> bool {
         for var in &self.parameter_and_variables {
             if !var.resolved_type.is_concrete() || var.resolved_type.is_function_type() {
+                //warn!(?var.assigned_name, ?var.resolved_type, "skipping function due to not concrete parameters or variables");
                 return false;
             }
         }
@@ -584,6 +585,12 @@ pub enum MutableReferenceKind {
 pub enum MutRefOrImmutableExpression {
     Expression(Expression),
     Location(SingleLocationExpression),
+}
+
+impl MutRefOrImmutableExpression {
+    pub fn expression(&self) -> &Expression {
+        todo!()
+    }
 }
 
 impl MutRefOrImmutableExpression {

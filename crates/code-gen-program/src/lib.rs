@@ -6,7 +6,6 @@ use source_map_cache::SourceMapWrapper;
 use swamp_code_gen::{Error, GenOptions, TopLevelGenState, disasm_whole_program};
 use swamp_compile::Program;
 use swamp_semantic::Function;
-use tracing::{info, warn};
 
 /// # Errors
 ///
@@ -48,11 +47,15 @@ pub fn code_gen_program(
         if !associated_on_type.is_concrete() {
             for (name, func) in &impl_functions.functions {
                 if let Function::Internal(internal) = &**func {
+                    /*
                     warn!(
-                        name,
+                        name = internal.assigned_name,
+                        path = ?internal.defined_in_module_path,
                         id = internal.program_unique_id,
                         "skipping generation of this function"
                     );
+
+                     */
                 }
             }
             continue;
@@ -65,9 +68,11 @@ pub fn code_gen_program(
                         .codegen_state
                         .function_infos
                         .contains_key(&int_fn.program_unique_id)
-                        && int_fn.all_parameters_are_concrete()
+                        && int_fn.all_parameters_and_variables_are_concrete()
                     {
                         code_gen.gen_function_def(int_fn, &normal_function, source_map_lookup)?;
+                    } else {
+                        // info!(int_fn.assigned_name, ?int_fn.defined_in_module_path, "skipping due to strange parameters");
                     }
                 }
 

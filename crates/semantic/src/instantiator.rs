@@ -95,14 +95,14 @@ impl Instantiator {
             .parameter_and_variables
             .iter()
             .map(|var| {
-                info!(?var, "instantiating variable");
+                //                info!(?var, "instantiating variable");
                 let instantiated_type = self.instantiate_type_in_signature(
                     current_self,
                     &var.resolved_type,
                     type_variables,
                 )?;
 
-                info!(?var.assigned_name, ?var.resolved_type, ?instantiated_type, "instantiated variable");
+                //              info!(?var.assigned_name, ?var.resolved_type, ?instantiated_type, "instantiated variable");
 
                 Ok(VariableRef::new(Variable {
                     name: var.name.clone(),

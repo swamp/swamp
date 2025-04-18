@@ -427,8 +427,6 @@ impl TopLevelGenState {
             expression: internal_fn_def.body.clone(),
         };
 
-        info!(internal_fn_def.assigned_name, "gen_function_def");
-
         let (start_ip, end_ip, function_info) =
             self.gen_function_preamble(&in_data, source_map_wrapper)?;
 
@@ -520,6 +518,7 @@ impl TopLevelGenState {
                 );
             } else {
                 error!(?function_fixup.fn_id, name=function_fixup.internal_function_definition.assigned_name, path=?function_fixup.internal_function_definition.defined_in_module_path,  "couldn't fixup function");
+                panic!("couldn't fixup function");
             }
         }
 
@@ -1007,12 +1006,17 @@ impl FunctionCodeGen<'_> {
                     panic!();
                 };
                 let index_region = self.gen_expression_for_access(index_expr)?;
+                // TODO:
 
+                /*
                 let source_argument = &arguments[1];
                 let MutRefOrImmutableExpression::Expression(value_expr) = source_argument else {
                     panic!();
                 };
+
                 let value_region = self.gen_expression_for_access(value_expr)?;
+                 */
+                let value_region = index_region;
 
                 self.builder.add_vec_subscript_mut(
                     ctx.addr(),
@@ -1062,6 +1066,7 @@ impl FunctionCodeGen<'_> {
                 // TODO:
             }
             IntrinsicFunction::MapFromSlicePair => {
+                /*
                 let slice_pair_argument = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(expr) = slice_pair_argument else {
                     panic!();
@@ -1085,6 +1090,8 @@ impl FunctionCodeGen<'_> {
                     node,
                     "create map from temporary slice pair",
                 );
+
+                 */
             }
             IntrinsicFunction::MapHas => {
                 self.builder
@@ -1096,8 +1103,8 @@ impl FunctionCodeGen<'_> {
                 };
                 self.gen_intrinsic_map_remove(self_addr.unwrap(), key_argument, ctx)?;
             }
-            IntrinsicFunction::MapIter => todo!(),
-            IntrinsicFunction::MapIterMut => todo!(),
+            IntrinsicFunction::MapIter => {}
+            IntrinsicFunction::MapIterMut => {}
             IntrinsicFunction::MapLen => {
                 self.builder
                     .add_map_len(ctx.addr(), self_addr.unwrap().addr, node, "map len");
@@ -1230,42 +1237,40 @@ impl FunctionCodeGen<'_> {
                 "bool_to_string",
             ),
 
-            IntrinsicFunction::GridGetColumn => todo!(),
-            IntrinsicFunction::GridFromSlice => todo!(),
+            IntrinsicFunction::GridGetColumn => {}
+            IntrinsicFunction::GridFromSlice => {}
 
-            IntrinsicFunction::Float2Magnitude => {
-                todo!()
-            }
-            IntrinsicFunction::SparseAdd => todo!(),
-            IntrinsicFunction::SparseNew => todo!(),
-            IntrinsicFunction::SparseFromSlice => todo!(),
-            IntrinsicFunction::SparseIter => todo!(),
-            IntrinsicFunction::SparseIterMut => todo!(),
-            IntrinsicFunction::SparseSubscript => todo!(),
-            IntrinsicFunction::SparseSubscriptMut => todo!(),
-            IntrinsicFunction::SparseHas => todo!(),
-            IntrinsicFunction::SparseRemove => todo!(),
+            IntrinsicFunction::Float2Magnitude => {}
+            IntrinsicFunction::SparseAdd => {}
+            IntrinsicFunction::SparseNew => {}
+            IntrinsicFunction::SparseFromSlice => {}
+            IntrinsicFunction::SparseIter => {}
+            IntrinsicFunction::SparseIterMut => {}
+            IntrinsicFunction::SparseSubscript => {}
+            IntrinsicFunction::SparseSubscriptMut => {}
+            IntrinsicFunction::SparseHas => {}
+            IntrinsicFunction::SparseRemove => {}
 
-            IntrinsicFunction::VecAny => todo!(),
-            IntrinsicFunction::VecAll => todo!(),
-            IntrinsicFunction::VecMap => todo!(),
+            IntrinsicFunction::VecAny => {}
+            IntrinsicFunction::VecAll => {}
+            IntrinsicFunction::VecMap => {}
 
-            IntrinsicFunction::VecFilterMap => todo!(),
+            IntrinsicFunction::VecFilterMap => {}
 
-            IntrinsicFunction::VecSwap => todo!(),
-            IntrinsicFunction::VecInsert => todo!(),
-            IntrinsicFunction::VecFirst => todo!(),
-            IntrinsicFunction::VecLast => todo!(),
-            IntrinsicFunction::VecFold => todo!(),
+            IntrinsicFunction::VecSwap => {}
+            IntrinsicFunction::VecInsert => {}
+            IntrinsicFunction::VecFirst => {}
+            IntrinsicFunction::VecLast => {}
+            IntrinsicFunction::VecFold => {}
 
             // Map2
-            IntrinsicFunction::Map2Remove => todo!(),
-            IntrinsicFunction::Map2Insert => todo!(),
-            IntrinsicFunction::Map2GetColumn => todo!(),
-            IntrinsicFunction::Map2GetRow => todo!(),
-            IntrinsicFunction::Map2Get => todo!(),
-            IntrinsicFunction::Map2Has => todo!(),
-            IntrinsicFunction::Map2Create => todo!(),
+            IntrinsicFunction::Map2Remove => {}
+            IntrinsicFunction::Map2Insert => {}
+            IntrinsicFunction::Map2GetColumn => {}
+            IntrinsicFunction::Map2GetRow => {}
+            IntrinsicFunction::Map2Get => {}
+            IntrinsicFunction::Map2Has => {}
+            IntrinsicFunction::Map2Create => {}
         }
 
         Ok(())
@@ -1343,7 +1348,6 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(FrameMemoryRegion, GeneratedExpressionResult), Error> {
         match &expr.kind {
             ExpressionKind::VariableAccess(var_ref) => {
-                info!(?var_ref, "variable access");
                 let frame_address = self
                     .variable_offsets
                     .get(&var_ref.unique_id_within_function)
@@ -1491,10 +1495,7 @@ impl FunctionCodeGen<'_> {
                 let self_arg = if arguments.is_empty() {
                     None
                 } else {
-                    let MutRefOrImmutableExpression::Expression(as_expr) = &arguments[0] else {
-                        panic!("not sure")
-                    };
-                    let self_region = self.gen_expression_for_access(as_expr)?;
+                    let self_region = self.gen_for_access_or_location_ex(&arguments[0])?;
                     Some(self_region)
                 };
                 let rest_args = if arguments.len() > 1 {

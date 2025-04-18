@@ -668,8 +668,6 @@ impl Analyzer<'_> {
             .associated_impls
             .prepare(attach_to_type);
 
-        info!(?attach_to_type, "analyze impl functions");
-
         for function in functions {
             self.start_function();
 
@@ -681,7 +679,7 @@ impl Analyzer<'_> {
             };
 
             let function_name_str = self.get_text(&function_name.name).to_string();
-            info!(function_name_str, "impl function");
+            //            info!(function_name_str, "impl function");
 
             let resolved_function = self.analyze_impl_func(function, attach_to_type)?;
 
