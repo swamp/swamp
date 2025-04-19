@@ -751,7 +751,59 @@ impl<'a> FunctionCodeGen<'a> {
 
 impl FunctionCodeGen<'_> {
     #[allow(clippy::too_many_lines)]
+    #[allow(clippy::single_match_else)]
     pub fn gen_single_intrinsic_call(
+        &mut self,
+        node: &Node,
+        intrinsic_fn: &IntrinsicFunction,
+        arguments: &[MutRefOrImmutableExpression],
+        ctx: &Context,
+    ) -> Result<GeneratedExpressionResult, Error> {
+        match intrinsic_fn {
+            IntrinsicFunction::VecFromSlice => {
+                let ty = arguments[0].ty();
+                let (element_size, _element_alignment) = type_size_and_alignment(&ty);
+                let slice_region =
+                    self.gen_expression_location_mut_ref_or_immutable(&arguments[0])?;
+                let element_count = slice_region.size / element_size;
+
+                self.builder.add_vec_from_slice(
+                    ctx.addr(),
+                    slice_region.addr,
+                    element_size,
+                    element_count,
+                    node,
+                    "vec_from_slice",
+                );
+                Ok(GeneratedExpressionResult::default())
+            }
+
+            _ => {
+                let self_arg = if arguments.is_empty() {
+                    None
+                } else {
+                    let self_region =
+                        self.gen_expression_location_mut_ref_or_immutable(&arguments[0])?;
+                    Some(self_region)
+                };
+                let rest_args = if arguments.len() > 1 {
+                    &arguments[1..]
+                } else {
+                    &vec![]
+                };
+                self.gen_single_intrinsic_call_with_self(
+                    node,
+                    intrinsic_fn,
+                    self_arg,
+                    rest_args,
+                    ctx,
+                )
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_lines)]
+    pub fn gen_single_intrinsic_call_with_self(
         &mut self,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
@@ -930,9 +982,9 @@ impl FunctionCodeGen<'_> {
 
             // Vec
             IntrinsicFunction::VecFromSlice => {
-                /* TODO:
                 let slice_variable = &arguments[0];
-                let slice_region = self.gen_for_access_or_location_ex(slice_variable)?;
+                let slice_region =
+                    self.gen_expression_location_mut_ref_or_immutable(slice_variable)?;
                 let (element_size, element_alignment) =
                     type_size_and_alignment(&slice_variable.ty());
                 self.builder.add_vec_from_slice(
@@ -943,8 +995,6 @@ impl FunctionCodeGen<'_> {
                     node,
                     "create vec from slice",
                 );
-
-                 */
             }
             IntrinsicFunction::VecPush => {
                 let maybe_key_argument = &arguments[0];
@@ -1460,93 +1510,72 @@ impl FunctionCodeGen<'_> {
         //self.debug_node(&expr.node);
 
         match &expr.kind {
-            ExpressionKind::ConstantAccess(constant_ref) => self
-                .gen_constant_access(&expr.node, constant_ref, ctx),
-            ExpressionKind::TupleDestructuring(variables, tuple_types, tuple_expression) => self
-                .gen_tuple_destructuring(variables, tuple_types, tuple_expression),
-
-            ExpressionKind::Assignment(target_mut_location_expr, source_expr) => self
-                .gen_assignment(&expr.node, target_mut_location_expr, source_expr),
-            ExpressionKind::VariableAccess(variable_ref) => self
-                .gen_variable_access(&expr.node, variable_ref,  ctx)
-            ,
+            ExpressionKind::ConstantAccess(constant_ref) => {
+                self.gen_constant_access(&expr.node, constant_ref, ctx)
+            }
+            ExpressionKind::TupleDestructuring(variables, tuple_types, tuple_expression) => {
+                self.gen_tuple_destructuring(variables, tuple_types, tuple_expression)
+            }
+            ExpressionKind::Assignment(target_mut_location_expr, source_expr) => {
+                self.gen_assignment(&expr.node, target_mut_location_expr, source_expr)
+            }
+            ExpressionKind::VariableAccess(variable_ref) => {
+                self.gen_variable_access(&expr.node, variable_ref, ctx)
+            }
             ExpressionKind::BinaryOp(operator) => self.gen_binary_operator(operator, ctx),
-            ExpressionKind::UnaryOp(operator) => self
-                .gen_unary_operator(operator, ctx)
-            ,
-            ExpressionKind::PostfixChain(start, chain) => self
-                .gen_postfix_chain(start, chain, ctx)
-            ,
-            ExpressionKind::VariableDefinition(variable, expression) => self
-                .gen_variable_definition(variable, expression, ctx)
-            ,
-            ExpressionKind::VariableReassignment(variable, expression) => self
-                .gen_variable_reassignment(variable, expression, ctx)
-            ,
-            ExpressionKind::AnonymousStructLiteral(anon_struct) => self
-                .gen_anonymous_struct_literal(anon_struct, &expr.ty, ctx)
-            ,
-            ExpressionKind::Literal(basic_literal) => self
-                .gen_literal(&expr.node, basic_literal, ctx)
-            ,
-            ExpressionKind::Option(maybe_option) => self
-                .gen_option_expression(&expr.node, maybe_option.as_deref(), ctx)
-            ,
-            ExpressionKind::ForLoop(a, b, c) => self
-                .gen_for_loop(&expr.node, a, b, c)
-            ,
-            ExpressionKind::WhileLoop(condition, expression) => self
-                .gen_while_loop(condition, expression, ctx)
-            ,
-            ExpressionKind::Block(expressions) => self
-                .gen_block(expressions, ctx)
-            ,
-            ExpressionKind::Match(match_expr) => self
-                .gen_match(match_expr, ctx),
+            ExpressionKind::UnaryOp(operator) => self.gen_unary_operator(operator, ctx),
+            ExpressionKind::PostfixChain(start, chain) => self.gen_postfix_chain(start, chain, ctx),
+            ExpressionKind::VariableDefinition(variable, expression) => {
+                self.gen_variable_definition(variable, expression, ctx)
+            }
+            ExpressionKind::VariableReassignment(variable, expression) => {
+                self.gen_variable_reassignment(variable, expression, ctx)
+            }
+            ExpressionKind::AnonymousStructLiteral(anon_struct) => {
+                self.gen_anonymous_struct_literal(anon_struct, &expr.ty, ctx)
+            }
+            ExpressionKind::Literal(basic_literal) => {
+                self.gen_literal(&expr.node, basic_literal, ctx)
+            }
+            ExpressionKind::Option(maybe_option) => {
+                self.gen_option_expression(&expr.node, maybe_option.as_deref(), ctx)
+            }
+            ExpressionKind::ForLoop(a, b, c) => self.gen_for_loop(&expr.node, a, b, c),
+            ExpressionKind::WhileLoop(condition, expression) => {
+                self.gen_while_loop(condition, expression, ctx)
+            }
+            ExpressionKind::Block(expressions) => self.gen_block(expressions, ctx),
+            ExpressionKind::Match(match_expr) => self.gen_match(match_expr, ctx),
 
-            ExpressionKind::Guard(guards) => self
-                .gen_guard(guards, ctx)
-            ,
-            ExpressionKind::If(conditional, true_expr, false_expr) => self
-                .gen_if(conditional, true_expr, false_expr.as_deref(), ctx)
-            ,
-            ExpressionKind::When(bindings, true_expr, false_expr) => self
-                .gen_when(bindings, true_expr, false_expr.as_deref(), ctx)
-            ,
-            ExpressionKind::CompoundAssignment(target_location, operator_kind, source_expr) => self
-                .compound_assignment(target_location, operator_kind, source_expr)
-            ,
+            ExpressionKind::Guard(guards) => self.gen_guard(guards, ctx),
+            ExpressionKind::If(conditional, true_expr, false_expr) => {
+                self.gen_if(conditional, true_expr, false_expr.as_deref(), ctx)
+            }
+            ExpressionKind::When(bindings, true_expr, false_expr) => {
+                self.gen_when(bindings, true_expr, false_expr.as_deref(), ctx)
+            }
+            ExpressionKind::CompoundAssignment(target_location, operator_kind, source_expr) => {
+                self.compound_assignment(target_location, operator_kind, source_expr)
+            }
             ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => {
-                let self_arg = if arguments.is_empty() {
-                    None
-                } else {
-                    let self_region = self.gen_for_access_or_location_ex(&arguments[0])?;
-                    Some(self_region)
-                };
-                let rest_args = if arguments.len() > 1 {
-                    &arguments[1..]
-                } else {
-                    &vec![]
-                };
-                self.gen_single_intrinsic_call(&expr.node, intrinsic_fn, self_arg, rest_args, ctx)
+                self.gen_single_intrinsic_call(&expr.node, intrinsic_fn, arguments, ctx)
             }
 
             ExpressionKind::Lambda(_vec, _x) => {
                 panic!("something went wrong. non-capturing lambdas can not be evaluated")
             }
 
-            // --------- Not high prio
-            ExpressionKind::CoerceOptionToBool(a) => self
-                .gen_coerce_option_to_bool(a, ctx)
-            ,
+            ExpressionKind::CoerceOptionToBool(a) => self.gen_coerce_option_to_bool(a, ctx),
 
-            // --------- TO BE REMOVED
-            ExpressionKind::VariableBinding(_, _) => todo!(),
-            ExpressionKind::InternalCall(internal, arguments) => self
-                .gen_internal_call(&expr.node, internal, arguments, ctx)
-            ,
-            ExpressionKind::HostCall(host_fn, arguments) => self
-                .gen_host_call(&expr.node, host_fn, arguments, ctx),
+            ExpressionKind::VariableBinding(_, _) => todo!(), // only used for `when` expressions
+
+            ExpressionKind::InternalCall(internal, arguments) => {
+                self.gen_internal_call(&expr.node, internal, arguments, ctx)
+            }
+
+            ExpressionKind::HostCall(host_fn, arguments) => {
+                self.gen_host_call(&expr.node, host_fn, arguments, ctx)
+            }
         }
     }
 
@@ -2449,7 +2478,7 @@ impl FunctionCodeGen<'_> {
                                     intrinsic_arguments,
                                 );
 
-                                self.gen_single_intrinsic_call(
+                                self.gen_single_intrinsic_call_with_self(
                                     &start_expression.node,
                                     intrinsic_fn,
                                     Some(start_source),

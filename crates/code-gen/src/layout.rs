@@ -16,7 +16,7 @@ use swamp_vm_types::{
 use tracing::trace;
 
 pub fn type_size_and_alignment(ty: &Type) -> (MemorySize, MemoryAlignment) {
-    let complex_type = layout_type(&ty, MemoryOffset(0), "size_and_alignment");
+    let complex_type = layout_type(ty, MemoryOffset(0), "size_and_alignment");
 
     (complex_type.total_size, complex_type.total_alignment)
 }

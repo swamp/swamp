@@ -353,6 +353,38 @@ impl Instantiator {
         Ok(new_signature)
     }
 
+    /// # Errors
+    ///
+    pub fn instantiate_signature_without_self(
+        &mut self,
+        signature: &Signature,
+        scope: &TypeVariableScope,
+    ) -> Result<Signature, SemanticError> {
+        let mut instantiated_type_for_parameters = Vec::new();
+
+        for type_for_parameter in &signature.parameters {
+            let resolved =
+                self.instantiate_type_if_needed(None, &type_for_parameter.resolved_type, scope)?;
+
+            instantiated_type_for_parameters.push(TypeForParameter {
+                name: type_for_parameter.name.clone(),
+                resolved_type: resolved,
+                is_mutable: type_for_parameter.is_mutable,
+                node: type_for_parameter.node.clone(),
+            });
+        }
+
+        let instantiated_return_type =
+            self.instantiate_type_if_needed(None, &signature.return_type, scope)?;
+
+        let new_signature = Signature {
+            parameters: instantiated_type_for_parameters,
+            return_type: Box::new(instantiated_return_type),
+        };
+
+        Ok(new_signature)
+    }
+
     fn instantiate_types_if_needed(
         &mut self,
         current_self: Option<&Type>,

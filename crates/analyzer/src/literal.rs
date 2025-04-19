@@ -5,8 +5,8 @@
 use crate::err::{Error, ErrorKind};
 use crate::{Analyzer, TypeContext};
 use source_map_node::Node;
-use swamp_semantic::ExpressionKind;
 use swamp_semantic::{EnumLiteralData, Expression, Fp, Literal, MutRefOrImmutableExpression};
+use swamp_semantic::{ExpressionKind, Function};
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
@@ -17,10 +17,11 @@ impl Analyzer<'_> {
     #[allow(clippy::too_many_lines)]
     pub fn analyze_complex_literal_to_expression(
         &mut self,
-        ast_node: &swamp_ast::Node,
+        ast_expression: &swamp_ast::Expression,
         ast_literal_kind: &swamp_ast::LiteralKind,
         context: &TypeContext,
     ) -> Result<Expression, Error> {
+        let ast_node = &ast_expression.node;
         let expression = match &ast_literal_kind {
             swamp_ast::LiteralKind::Slice(items) => {
                 let (encountered_element_type, resolved_items) =
@@ -53,6 +54,16 @@ impl Analyzer<'_> {
                     .associated_impls
                     .get_internal_member_function(&found_expected_type, "new_from_slice")
                 {
+                    let func_def = Function::Internal(found.clone());
+
+                    self.analyze_static_call(
+                        ast_node,
+                        Some(found_expected_type),
+                        func_def,
+                        &None,
+                        &[ast_expression.clone()],
+                    )?
+                    /*
                     let required_type = &found.signature.signature.parameters[0].resolved_type;
                     if resolved_items.is_empty() || slice_type.compatible_with(required_type) {
                         let slice_literal = Literal::Slice(slice_type.clone(), resolved_items);
@@ -64,6 +75,9 @@ impl Analyzer<'_> {
                         );
                         let return_type = *found.signature.signature.return_type.clone();
                         let arg = MutRefOrImmutableExpression::Expression(expr);
+
+
+
                         let call_kind = self.create_static_call(
                             "new_from_slice",
                             &[arg],
@@ -81,6 +95,8 @@ impl Analyzer<'_> {
                             ast_node,
                         ));
                     }
+
+                     */
                 } else {
                     return Err(self.create_err(
                         ErrorKind::MissingMemberFunction("new_from_slice".to_string()),

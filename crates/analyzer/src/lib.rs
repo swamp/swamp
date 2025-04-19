@@ -699,7 +699,7 @@ impl<'a> Analyzer<'a> {
             }
 
             swamp_ast::ExpressionKind::Literal(literal) => {
-                self.analyze_complex_literal_to_expression(&ast_expression.node, literal, context)?
+                self.analyze_complex_literal_to_expression(&ast_expression, literal, context)?
             }
 
             swamp_ast::ExpressionKind::ForLoop(
@@ -975,6 +975,51 @@ impl<'a> Analyzer<'a> {
         Err(self.create_err(ErrorKind::UnknownStructField, field_name))
     }
 
+    pub fn analyze_static_call(
+        &mut self,
+        ast_node: &swamp_ast::Node,
+        maybe_associated_to_type: Option<Type>,
+        func_def: Function,
+        maybe_generic_arguments: &Option<Vec<swamp_ast::Type>>,
+        arguments: &[swamp_ast::Expression],
+    ) -> Result<Expression, Error> {
+        let signature = if let Some(found_generic_arguments) = maybe_generic_arguments {
+            let analyzed_generic_argument_types = self.analyze_types(found_generic_arguments)?;
+            if let Some(found_associated_to_type) = maybe_associated_to_type {
+                self.instantiate_signature_if_needed(
+                    &func_def.node(),
+                    &found_associated_to_type,
+                    &FunctionRef::from(func_def.clone()),
+                    &analyzed_generic_argument_types,
+                )?
+            } else {
+                self.instantiate_signature_without_self_if_needed(
+                    &func_def.node(),
+                    FunctionRef::from(func_def.clone()),
+                    &analyzed_generic_argument_types,
+                )?
+            }
+        } else {
+            func_def.signature().clone()
+        };
+
+        let resolved_node = self.to_node(ast_node);
+        let analyzed_arguments =
+            self.analyze_and_verify_parameters(&resolved_node, &signature.parameters, arguments)?;
+
+        let expr_kind = match &func_def {
+            Function::Internal(internal) => {
+                ExpressionKind::InternalCall(internal.clone(), analyzed_arguments)
+            }
+            Function::External(host) => ExpressionKind::HostCall(host.clone(), analyzed_arguments),
+            Function::Intrinsic(intrinsic) => {
+                ExpressionKind::IntrinsicCallEx(intrinsic.intrinsic.clone(), analyzed_arguments)
+            }
+        };
+
+        Ok(self.create_expr(expr_kind, *signature.return_type.clone(), ast_node))
+    }
+
     #[allow(clippy::too_many_lines)]
     fn analyze_postfix_chain(
         &mut self,
@@ -988,45 +1033,26 @@ impl<'a> Analyzer<'a> {
         let start_of_chain_kind = if let Some(start_of_chain_base) = maybe_start_of_chain_base {
             match start_of_chain_base {
                 StartOfChainBase::FunctionReference(func_def) => {
-                    // In this version it is not allowed to provide references to functions
+                    // In this language version, it is not allowed to provide references to functions
                     // So it must mean that this is a function call
-                    if let swamp_ast::Postfix::FunctionCall(ast_node, types, arguments) =
-                        &chain.postfixes[0]
+                    if let swamp_ast::Postfix::FunctionCall(
+                        ast_node,
+                        maybe_generic_arguments,
+                        arguments,
+                    ) = &chain.postfixes[0]
                     {
-                        let signature = func_def.signature();
-                        let resolved_node = self.to_node(&ast_node);
-                        let analyzed_arguments = self.analyze_and_verify_parameters(
-                            &resolved_node,
-                            &signature.parameters,
+                        start_index = 1;
+                        let call_expr = self.analyze_static_call(
+                            ast_node,
+                            None,
+                            func_def,
+                            maybe_generic_arguments,
                             arguments,
                         )?;
-
-                        start_index = 1;
-
-                        let expr_kind = match &func_def {
-                            Function::Internal(internal) => {
-                                ExpressionKind::InternalCall(internal.clone(), analyzed_arguments)
-                            }
-                            Function::External(host) => {
-                                ExpressionKind::HostCall(host.clone(), analyzed_arguments)
-                            }
-                            Function::Intrinsic(intrinsic) => ExpressionKind::IntrinsicCallEx(
-                                intrinsic.intrinsic.clone(),
-                                analyzed_arguments,
-                            ),
-                        };
-
-                        let expr = self.create_expr(
-                            expr_kind,
-                            *signature.return_type.clone(),
-                            &chain.base.node,
-                        );
-
                         if chain.postfixes.len() == 1 {
-                            return Ok(expr);
+                            return Ok(call_expr);
                         }
-
-                        StartOfChainKind::Expression(Box::from(expr))
+                        StartOfChainKind::Expression(Box::from(call_expr))
                     } else {
                         panic!("must be a normal function call")
                     }
@@ -2463,6 +2489,87 @@ impl<'a> Analyzer<'a> {
         }
     }
 
+    pub fn instantiate_signature_if_needed(
+        &mut self,
+        node: &Node,
+        type_that_member_is_on: &Type,
+        found_function: &FunctionRef,
+        generic_arguments: &[Type],
+    ) -> Result<Signature, Error> {
+        let (maybe_generic, alternative_signature) = found_function.signatures();
+
+        let signature = if let Some(found_generic) = maybe_generic {
+            let mut seq_map = SeqMap::new();
+            if generic_arguments.len() != found_generic.generic_type_variables.len() {
+                return Err(self.create_err_resolved(ErrorKind::WrongNumberOfArguments(0, 0), node));
+            }
+            for (variable, generic_argument_type) in found_generic
+                .generic_type_variables
+                .iter()
+                .zip(generic_arguments)
+            {
+                info!(?variable, ?generic_argument_type, "SETTING VAR");
+                seq_map
+                    .insert(variable.0.to_string(), generic_argument_type.clone())
+                    .unwrap();
+            }
+            let mut scope = TypeVariableScope::new(seq_map);
+
+            scope = scope.with_variables(&found_generic.generic_type_variables)?;
+
+            let instantiated_signature = self
+                .shared
+                .state
+                .instantiator
+                .instantiate_signature(type_that_member_is_on, &found_generic.signature, &scope)?
+                .clone();
+
+            instantiated_signature.clone()
+        } else {
+            alternative_signature.clone()
+        };
+
+        Ok(signature)
+    }
+
+    pub fn instantiate_signature_without_self_if_needed(
+        &mut self,
+        node: &Node,
+        found_function: FunctionRef,
+        generic_arguments: &[Type],
+    ) -> Result<Signature, Error> {
+        let (maybe_generic, alternative_signature) = found_function.signatures();
+
+        let signature = if let Some(found_generic) = maybe_generic {
+            let mut seq_map = SeqMap::new();
+            if generic_arguments.len() != found_generic.generic_type_variables.len() {
+                return Err(self.create_err_resolved(ErrorKind::WrongNumberOfArguments(0, 0), node));
+            }
+            for (variable, generic_argument_type) in found_generic
+                .generic_type_variables
+                .iter()
+                .zip(generic_arguments)
+            {
+                info!(?variable, ?generic_argument_type, "SETTING VAR");
+                seq_map
+                    .insert(variable.0.to_string(), generic_argument_type.clone())
+                    .unwrap();
+            }
+            let mut scope = TypeVariableScope::new(seq_map);
+
+            scope = scope.with_variables(&found_generic.generic_type_variables)?;
+
+            self.shared
+                .state
+                .instantiator
+                .instantiate_signature_without_self(&found_generic.signature, &scope)?
+        } else {
+            alternative_signature.clone()
+        };
+
+        Ok(signature)
+    }
+
     fn analyze_postfix_member_call(
         &mut self,
         type_that_member_is_on: &Type,
@@ -2498,39 +2605,12 @@ impl<'a> Analyzer<'a> {
             return Err(self.create_err(ErrorKind::NotValidLocationStartingPoint, member_name));
         };
 
-        let (maybe_generic, alternative_signature) = found_function.signatures();
-
-        let signature = if let Some(found_generic) = maybe_generic {
-            let mut seq_map = SeqMap::new();
-            if generic_arguments.len() != found_generic.generic_type_variables.len() {
-                return Err(self
-                    .create_err_resolved(ErrorKind::WrongNumberOfArguments(0, 0), &resolved_node));
-            }
-            for (variable, generic_argument_type) in found_generic
-                .generic_type_variables
-                .iter()
-                .zip(generic_arguments)
-            {
-                info!(?variable, ?generic_argument_type, "SETTING VAR");
-                seq_map
-                    .insert(variable.0.to_string(), generic_argument_type.clone())
-                    .unwrap();
-            }
-            let mut scope = TypeVariableScope::new(seq_map);
-
-            scope = scope.with_variables(&found_generic.generic_type_variables)?;
-
-            let instantiated_signature = self
-                .shared
-                .state
-                .instantiator
-                .instantiate_signature(type_that_member_is_on, &found_generic.signature, &scope)?
-                .clone();
-
-            &instantiated_signature.clone()
-        } else {
-            alternative_signature
-        };
+        let signature = self.instantiate_signature_if_needed(
+            &resolved_node,
+            type_that_member_is_on,
+            &found_function,
+            &generic_arguments,
+        )?;
 
         let self_type = &signature.parameters[0];
         if !self_type

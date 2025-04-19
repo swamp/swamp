@@ -6,7 +6,7 @@ use crate::aligner::align;
 use source_map_node::Node;
 use std::cmp::PartialOrd;
 use std::fmt::{Alignment, Display, Formatter};
-use std::ops::{Add, Sub};
+use std::ops::{Add, Div, Sub};
 
 pub mod aligner;
 pub mod opcode;
@@ -220,6 +220,25 @@ pub enum ZFlagPolarity {
 
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]
 pub struct MemorySize(pub u16);
+
+impl Div<Self> for MemorySize {
+    type Output = CountU16;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        assert!(rhs.0 > 0, "Division by zero in MemorySize");
+        assert!(
+            self.0 > 0,
+            "Numerator must be positive in MemorySize division"
+        );
+        assert_eq!(
+            self.0 % rhs.0,
+            0,
+            "MemorySize division must be exact and positive"
+        );
+
+        CountU16(self.0 / rhs.0)
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemoryAlignment {

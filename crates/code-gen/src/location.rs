@@ -13,7 +13,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
     ) -> Result<FrameMemoryRegion, Error> {
-        self.gen_for_access_or_location_ex(&mut_or_immutable_expression)
+        self.gen_expression_location_mut_ref_or_immutable(&mut_or_immutable_expression)
     }
 
     pub(crate) fn gen_mut_or_immute(
@@ -50,7 +50,7 @@ impl FunctionCodeGen<'_> {
         Ok(())
     }
 
-    pub(crate) fn gen_for_access_or_location_ex(
+    pub(crate) fn gen_expression_location_mut_ref_or_immutable(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
     ) -> Result<FrameMemoryRegion, Error> {
@@ -103,7 +103,7 @@ impl FunctionCodeGen<'_> {
                     }
 
                     let ctx = self.temp_space_for_type(&access.ty, "intrinsic call mut");
-                    self.gen_single_intrinsic_call(
+                    self.gen_single_intrinsic_call_with_self(
                         &location_expression.node,
                         intrinsic_function,
                         Some(frame_relative_base_address),
