@@ -161,8 +161,8 @@ pub fn disasm_color(
 
     for operand in decorated.operands {
         let operand_addr = match &operand.kind {
-            DecoratedOperandAccessKind::ReadFrameAddress(addr, memory_kind, attr) => Some(addr),
-            DecoratedOperandAccessKind::WriteFrameAddress(addr, memory_kind, attr) => Some(addr),
+            DecoratedOperandAccessKind::ReadFrameAddress(addr, _memory_kind, _attr) => Some(addr),
+            DecoratedOperandAccessKind::WriteFrameAddress(addr, _memory_kind, _attr) => Some(addr),
             _ => None,
         };
 

@@ -23,7 +23,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(), Error> {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.gen_expression(found_expression, ctx)?;
+                self.gen_expression_materialize(found_expression, ctx)?;
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
                 self.gen_lvalue_address(location_expression)?;
@@ -41,7 +41,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(), Error> {
         match &argument {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.gen_expression(found_expression, ctx)?;
+                self.gen_expression_materialize(found_expression, ctx)?;
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
                 self.gen_location_argument(location_expression, ctx, comment)?;
@@ -56,7 +56,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<FrameMemoryRegion, Error> {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.gen_expression_for_access(found_expression)
+                self.gen_expression_location(found_expression)
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
                 self.gen_lvalue_address(location_expression)
