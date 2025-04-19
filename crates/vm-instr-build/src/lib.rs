@@ -364,30 +364,6 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_eq_32(
-        &mut self,
-        addr_a: FrameMemoryAddress,
-        addr_b: FrameMemoryAddress,
-        node: &Node,
-
-        comment: &str,
-    ) {
-        self.state
-            .add_instruction(OpCode::Eq32, &[addr_a.0, addr_b.0], node, comment);
-    }
-
-    pub fn add_ne_32(
-        &mut self,
-        addr_a: FrameMemoryAddress,
-        addr_b: FrameMemoryAddress,
-        node: &Node,
-
-        comment: &str,
-    ) {
-        self.state
-            .add_instruction(OpCode::Ne32, &[addr_a.0, addr_b.0], node, comment);
-    }
-
     pub fn add_call_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
         let position = self.position();
         self.state

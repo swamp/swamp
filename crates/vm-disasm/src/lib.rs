@@ -50,7 +50,7 @@ pub fn disasm_instructions_color(
         if OpCode::Enter as u8 == instruction.opcode {
             last_frame_size = instruction.operands[0];
         }
-        if let Some(found) = ip_infos.get(&InstructionPosition(ip_index as u16)) {
+        if let Some(found) = ip_infos.get(&InstructionPosition(ip_index)) {
             if last_line_info.relative_file_name != found.relative_file_name {
                 writeln!(
                     string,
@@ -354,6 +354,7 @@ pub fn disasm(
     let operands_slice: &[DecoratedOperandAccessKind] = match opcode {
         OpCode::Hlt => &[],
         OpCode::Ret => &[],
+        OpCode::Brk => &[],
 
         OpCode::Panic => &[to_read_frame(
             operands[0],
@@ -588,14 +589,6 @@ pub fn disasm(
                 DecoratedOperandAccessKind::ImmediateU8(data),
             ]
         }
-        OpCode::Eq32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
-        ],
-        OpCode::Ne32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
-        ],
 
         OpCode::Not8 => &[
             to_write_frame(operands[0], DecoratedMemoryKind::U8, frame_memory_size),

@@ -254,7 +254,6 @@ pub fn disasm_whole_program(
     let mut current_ip: u16 = 0;
 
     let instruction_count = instructions.len();
-    info!(?instruction_count, "INSTRUCTION COUNT");
     while current_ip < (instructions.len() - 1) as u16 {
         if let Some(function_debug_info) =
             function_debug_infos.get(&InstructionPosition(current_ip))
@@ -510,7 +509,6 @@ impl TopLevelGenState {
 
     pub fn finalize(&mut self) {
         for function_fixup in &self.codegen_state.function_fixups {
-            info!(fn_id = ?function_fixup.fn_id, "fixing up function");
             if let Some(func) = self.codegen_state.function_infos.get(&function_fixup.fn_id) {
                 self.builder_state.patch_call(
                     PatchPosition(InstructionPosition(function_fixup.patch_position.0.0)),
@@ -1691,12 +1689,12 @@ impl FunctionCodeGen<'_> {
             BinaryOperatorKind::LogicalAnd => todo!(),
             BinaryOperatorKind::Equal => {
                 self.builder
-                    .add_eq_32(left_source.addr(), right_source.addr(), node, "i32 eq");
+                    .add_cmp32(left_source.addr(), right_source.addr(), node, "i32 cmp");
             }
             BinaryOperatorKind::NotEqual => todo!(),
             BinaryOperatorKind::LessThan => {
                 self.builder
-                    .add_lt_i32(left_source.addr(), right_source.addr(), node, "i32 lt");
+                    .add_cmp32(left_source.addr(), right_source.addr(), node, "i32 cmp");
             }
             BinaryOperatorKind::LessEqual => {
                 self.builder
@@ -1772,11 +1770,11 @@ impl FunctionCodeGen<'_> {
             BinaryOperatorKind::LogicalAnd => panic!("not supported"),
             BinaryOperatorKind::Equal => {
                 self.builder
-                    .add_eq_32(left_source.addr(), right_source.addr(), node, "f32 eq");
+                    .add_cmp32(left_source.addr(), right_source.addr(), node, "f32 eq");
             }
             BinaryOperatorKind::NotEqual => {
                 self.builder
-                    .add_ne_32(left_source.addr(), right_source.addr(), node, "f32 ne");
+                    .add_cmp32(left_source.addr(), right_source.addr(), node, "f32 ne");
             }
             BinaryOperatorKind::LessThan => {
                 self.builder
