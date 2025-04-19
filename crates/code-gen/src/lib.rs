@@ -1468,7 +1468,7 @@ impl FunctionCodeGen<'_> {
             ExpressionKind::Assignment(target_mut_location_expr, source_expr) => self
                 .gen_assignment(&expr.node, target_mut_location_expr, source_expr),
             ExpressionKind::VariableAccess(variable_ref) => self
-                .gen_variable_access(variable_ref, ctx)
+                .gen_variable_access(&expr.node, variable_ref,  ctx)
             ,
             ExpressionKind::BinaryOp(operator) => self.gen_binary_operator(operator, ctx),
             ExpressionKind::UnaryOp(operator) => self
@@ -2897,7 +2897,7 @@ impl FunctionCodeGen<'_> {
         self.gen_expression_materialize(closure, &unit_expr)?;
 
         self.builder
-            .add_jmp(jump_ip, node, "jump to next iteration");
+            .add_jmp(jump_ip, &closure.node, "jump to next iteration");
         // advance iterator pointer
         // jump to check if iterator pointer has reached its end
         self.builder.patch_jump_here(placeholder_position);
@@ -3028,6 +3028,7 @@ impl FunctionCodeGen<'_> {
 
     fn gen_variable_access(
         &mut self,
+        node: &Node, // Variable access node
         variable: &VariableRef,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
@@ -3036,7 +3037,7 @@ impl FunctionCodeGen<'_> {
             ctx.addr(),
             region.addr,
             region.size,
-            &variable.name,
+            node,
             &format!(
                 "variable access '{}' ({})",
                 variable.assigned_name,
@@ -3580,7 +3581,7 @@ impl FunctionCodeGen<'_> {
             if !is_last {
                 let jump_to_exit_placeholder = self
                     .builder
-                    .add_jump_placeholder(match_expr.expression.node(), "jump to exit");
+                    .add_jump_placeholder(&arm.expression.node, "jump to exit");
                 jump_to_exit_placeholders.push(jump_to_exit_placeholder);
             }
 
