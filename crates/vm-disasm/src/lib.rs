@@ -590,11 +590,6 @@ pub fn disasm(
             ]
         }
 
-        OpCode::Not8 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U8, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U8, frame_memory_size),
-        ],
-
         OpCode::Tst8 => &[to_read_frame(
             operands[0],
             DecoratedMemoryKind::U8,
@@ -630,6 +625,7 @@ pub fn disasm(
 
         OpCode::Bnz => &[to_jmp_ip(operands[0])],
         OpCode::Bz => &[to_jmp_ip(operands[0])],
+        OpCode::NotZ => &[],
         OpCode::Call => &[to_jmp_ip(operands[0])],
         OpCode::HostCall => &[
             DecoratedOperandAccessKind::ImmediateU16(operands[0]),

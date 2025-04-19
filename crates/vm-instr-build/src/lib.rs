@@ -9,7 +9,7 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
     BinaryInstruction, ConstantMemoryAddress, CountU16, FrameMemoryAddress,
     FrameMemoryAddressIndirectPointer, FrameMemorySize, InstructionPosition,
-    InstructionPositionOffset, MemoryAddress, MemorySize, Meta,
+    InstructionPositionOffset, MemoryAddress, MemorySize, Meta, ZFlagPolarity,
 };
 use tracing::info;
 
@@ -141,6 +141,14 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
 
+impl<'a> InstructionBuilder<'a> {}
+
+impl<'a> InstructionBuilder<'a> {
+    pub fn add_not_z(&mut self, node: &Node, comment: &str) {
+        self.state.add_instruction(OpCode::NotZ, &[], node, comment);
+    }
+}
+
 impl InstructionBuilder<'_> {
     pub fn enter(&mut self, size: FrameMemorySize, node: &Node, comment: &str) {
         self.state
@@ -179,6 +187,18 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(OpCode::Bnz, &[0], node, comment);
 
         PatchPosition(position)
+    }
+
+    pub fn add_jmp_if_not_equal_polarity_placeholder(
+        &mut self,
+        polarity: &ZFlagPolarity,
+        node: &Node,
+        comment: &str,
+    ) -> PatchPosition {
+        match polarity {
+            ZFlagPolarity::Normal => self.add_jmp_if_not_equal_placeholder(node, comment),
+            ZFlagPolarity::Inverted => self.add_jmp_if_equal_placeholder(node, comment),
+        }
     }
 
     pub fn add_vec_subscript(
@@ -334,18 +354,6 @@ impl InstructionBuilder<'_> {
             comment,
         );
         PatchPosition(position)
-    }
-
-    pub fn add_not_u8(
-        &mut self,
-        target: FrameMemoryAddress,
-        source: FrameMemoryAddress,
-        node: &Node,
-
-        comment: &str,
-    ) {
-        self.state
-            .add_instruction(OpCode::Not8, &[target.0, source.0], node, comment);
     }
 
     pub fn add_eq_u8_immediate(

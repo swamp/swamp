@@ -48,7 +48,7 @@ use swamp_vm_types::{
     FrameMemoryAddressIndirectPointer, FrameMemoryRegion, FrameMemorySize, INT_SIZE,
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryAlignment,
     MemoryOffset, MemorySize, Meta, PTR_SIZE, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT,
-    VEC_ITERATOR_SIZE,
+    VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -64,14 +64,51 @@ pub struct FunctionIp {
     pub kind: FunctionIpKind,
 }
 
+#[derive(PartialEq, Debug)]
+pub enum GeneratedExpressionResultKind {
+    ZFlagUnmodified,
+    ZFlagIsTrue,
+    ZFlagIsInversion,
+}
+
 pub struct GeneratedExpressionResult {
-    pub has_set_bool_z_flag: bool,
+    pub kind: GeneratedExpressionResultKind,
+}
+
+impl GeneratedExpressionResult {
+    pub(crate) fn invert_polarity(&self) -> Self {
+        Self {
+            kind: self.kind.invert_polarity(),
+        }
+    }
+}
+
+impl GeneratedExpressionResultKind {
+    pub(crate) fn invert_polarity(&self) -> Self {
+        match self {
+            Self::ZFlagUnmodified => {
+                panic!("can not invert polarity. status is unknown")
+            }
+            Self::ZFlagIsTrue => Self::ZFlagIsInversion,
+            Self::ZFlagIsInversion => Self::ZFlagIsTrue,
+        }
+    }
+}
+
+impl GeneratedExpressionResult {
+    pub(crate) fn polarity(&self) -> ZFlagPolarity {
+        match self.kind {
+            GeneratedExpressionResultKind::ZFlagUnmodified => panic!("polarity is undefined"),
+            GeneratedExpressionResultKind::ZFlagIsTrue => ZFlagPolarity::Normal,
+            GeneratedExpressionResultKind::ZFlagIsInversion => ZFlagPolarity::Inverted,
+        }
+    }
 }
 
 impl Default for GeneratedExpressionResult {
     fn default() -> Self {
         Self {
-            has_set_bool_z_flag: false,
+            kind: GeneratedExpressionResultKind::ZFlagUnmodified,
         }
     }
 }
@@ -1383,11 +1420,6 @@ impl FunctionCodeGen<'_> {
         Ok((temp_ctx.target(), expression_result))
     }
 
-    pub(crate) fn extra_frame_space_for_type(&mut self, ty: &Type) -> Context {
-        let target = reserve(ty, &mut self.temp_allocator);
-        Context::new(target)
-    }
-
     fn debug_node(&self, node: &Node) {
         let line_info = self.source_map_lookup.get_line(&node.span);
         let span_text = self.source_map_lookup.get_text_span(&node.span);
@@ -1536,14 +1568,13 @@ impl FunctionCodeGen<'_> {
         &mut self,
         unary_operator: &UnaryOperator,
         ctx: &Context,
-    ) -> Result<(), Error> {
+    ) -> Result<GeneratedExpressionResult, Error> {
         let node = &unary_operator.node;
-        match &unary_operator.kind {
+        let result = match &unary_operator.kind {
             UnaryOperatorKind::Not => match &unary_operator.left.ty {
                 Type::Bool => {
-                    let left_source = self.gen_expression_for_access(&unary_operator.left)?;
-                    self.builder
-                        .add_not_u8(ctx.addr(), left_source.addr, node, "negate bool");
+                    let bool_result = self.gen_boolean_access_set_z_flag(&unary_operator.left)?;
+                    bool_result.invert_polarity()
                 }
                 _ => panic!("unknown not"),
             },
@@ -1552,19 +1583,21 @@ impl FunctionCodeGen<'_> {
                     let left_source = self.gen_expression_for_access(&unary_operator.left)?;
                     self.builder
                         .add_neg_i32(ctx.addr(), left_source.addr, node, "negate i32");
+                    GeneratedExpressionResult::default()
                 }
 
                 Type::Float => {
                     let left_source = self.gen_expression_for_access(&unary_operator.left)?;
                     self.builder
                         .add_neg_f32(ctx.addr(), left_source.addr, node, "negate f32");
+                    GeneratedExpressionResult::default()
                 }
                 _ => todo!(),
             },
             UnaryOperatorKind::BorrowMutRef => todo!(),
-        }
+        };
 
-        Ok(())
+        Ok(result)
     }
 
     fn gen_binary_operator(
@@ -1644,6 +1677,7 @@ impl FunctionCodeGen<'_> {
         right_source: FrameMemoryRegion,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
+        let mut kind = GeneratedExpressionResultKind::ZFlagUnmodified;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.builder.add_add_i32(
@@ -1687,34 +1721,41 @@ impl FunctionCodeGen<'_> {
             ),
             BinaryOperatorKind::LogicalOr => todo!(),
             BinaryOperatorKind::LogicalAnd => todo!(),
-            BinaryOperatorKind::Equal => {
+            BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
                 self.builder
                     .add_cmp32(left_source.addr(), right_source.addr(), node, "i32 cmp");
+                if let BinaryOperatorKind::Equal = binary_operator_kind {
+                    kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                } else {
+                    kind = GeneratedExpressionResultKind::ZFlagIsInversion;
+                }
             }
-            BinaryOperatorKind::NotEqual => todo!(),
             BinaryOperatorKind::LessThan => {
                 self.builder
                     .add_cmp32(left_source.addr(), right_source.addr(), node, "i32 cmp");
+                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             BinaryOperatorKind::LessEqual => {
                 self.builder
                     .add_le_i32(left_source.addr(), right_source.addr(), node, "i32 le");
+                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             BinaryOperatorKind::GreaterThan => {
                 self.builder
                     .add_gt_i32(left_source.addr(), right_source.addr(), node, "i32 gt");
+                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             BinaryOperatorKind::GreaterEqual => {
                 self.builder
                     .add_ge_i32(left_source.addr(), right_source.addr(), node, "i32 ge");
+                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
         }
 
-        Ok(GeneratedExpressionResult {
-            has_set_bool_z_flag: true,
-        })
+        Ok(GeneratedExpressionResult { kind })
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn gen_binary_operator_f32(
         &mut self,
         left_source: FrameMemoryRegion,
@@ -1723,6 +1764,7 @@ impl FunctionCodeGen<'_> {
         right_source: FrameMemoryRegion,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
+        let mut kind = GeneratedExpressionResultKind::ZFlagUnmodified;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.builder.add_add_f32(
@@ -1768,35 +1810,38 @@ impl FunctionCodeGen<'_> {
             ),
             BinaryOperatorKind::LogicalOr => panic!("not supported"),
             BinaryOperatorKind::LogicalAnd => panic!("not supported"),
-            BinaryOperatorKind::Equal => {
+            BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
                 self.builder
                     .add_cmp32(left_source.addr(), right_source.addr(), node, "f32 eq");
-            }
-            BinaryOperatorKind::NotEqual => {
-                self.builder
-                    .add_cmp32(left_source.addr(), right_source.addr(), node, "f32 ne");
+                if let BinaryOperatorKind::Equal = binary_operator_kind {
+                    kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                } else {
+                    kind = GeneratedExpressionResultKind::ZFlagIsInversion;
+                }
             }
             BinaryOperatorKind::LessThan => {
                 self.builder
                     .add_lt_f32(left_source.addr(), right_source.addr(), node, "f32 lt");
+                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             BinaryOperatorKind::LessEqual => {
                 self.builder
                     .add_le_f32(left_source.addr(), right_source.addr(), node, "f32 le");
+                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             BinaryOperatorKind::GreaterThan => {
                 self.builder
                     .add_gt_f32(left_source.addr(), right_source.addr(), node, "f32 gt");
+                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             BinaryOperatorKind::GreaterEqual => {
                 self.builder
                     .add_ge_f32(left_source.addr(), right_source.addr(), node, "f32 ge");
+                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
         }
 
-        Ok(GeneratedExpressionResult {
-            has_set_bool_z_flag: true,
-        })
+        Ok(GeneratedExpressionResult { kind })
     }
 
     fn gen_binary_operator_string(
@@ -1824,7 +1869,7 @@ impl FunctionCodeGen<'_> {
         }
 
         Ok(GeneratedExpressionResult {
-            has_set_bool_z_flag: false,
+            kind: GeneratedExpressionResultKind::ZFlagUnmodified,
         })
     }
 
@@ -1843,7 +1888,7 @@ impl FunctionCodeGen<'_> {
         );
 
         Ok(GeneratedExpressionResult {
-            has_set_bool_z_flag: false,
+            kind: GeneratedExpressionResultKind::ZFlagUnmodified,
         })
     }
 
@@ -1857,7 +1902,7 @@ impl FunctionCodeGen<'_> {
             .add_cmp8(left_source.addr, right_source.addr, &node, "compare bool");
 
         Ok(GeneratedExpressionResult {
-            has_set_bool_z_flag: false,
+            kind: GeneratedExpressionResultKind::ZFlagUnmodified,
         })
     }
 
@@ -1871,7 +1916,7 @@ impl FunctionCodeGen<'_> {
             .add_cmp32(left_source.addr, right_source.addr, &node, "compare bool");
 
         Ok(GeneratedExpressionResult {
-            has_set_bool_z_flag: false,
+            kind: GeneratedExpressionResultKind::ZFlagIsTrue,
         })
     }
 
@@ -1885,7 +1930,7 @@ impl FunctionCodeGen<'_> {
             .add_cmp8(left_source.addr, right_source.addr, &node, "compare bool");
 
         Ok(GeneratedExpressionResult {
-            has_set_bool_z_flag: false,
+            kind: GeneratedExpressionResultKind::ZFlagIsTrue,
         })
     }
 
@@ -1894,30 +1939,33 @@ impl FunctionCodeGen<'_> {
         binary_operator: &BinaryOperator,
     ) -> Result<GeneratedExpressionResult, Error> {
         let node = &binary_operator.node;
+
+        let mut kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+
         match binary_operator.kind {
             BinaryOperatorKind::LogicalOr => {
-                // this updates the z flag
-                self.gen_boolean_access_set_z_flag(&binary_operator.left);
+                let z_flag_left =
+                    self.gen_boolean_access_normalized_z_flag(&binary_operator.left)?;
 
                 let jump_after_patch = self
                     .builder
                     .add_jmp_if_equal_placeholder(node, "skip rhs `or` expression");
 
-                // this updates the z flag
-                self.gen_boolean_access_set_z_flag(&binary_operator.right);
+                let z_flag_right =
+                    self.gen_boolean_access_normalized_z_flag(&binary_operator.right)?;
 
                 self.builder.patch_jump_here(jump_after_patch);
             }
             BinaryOperatorKind::LogicalAnd => {
-                // this updates the z flag
-                self.gen_boolean_access_set_z_flag(&binary_operator.left);
+                let z_flag_left =
+                    self.gen_boolean_access_normalized_z_flag(&binary_operator.left)?;
 
                 let jump_after_patch = self
                     .builder
                     .add_jmp_if_not_equal_placeholder(node, "skip rhs `and` expression");
 
-                // this updates the z flag
-                self.gen_boolean_access_set_z_flag(&binary_operator.right);
+                let z_flag_right =
+                    self.gen_boolean_access_normalized_z_flag(&binary_operator.right)?;
 
                 self.builder.patch_jump_here(jump_after_patch);
             }
@@ -1927,69 +1975,66 @@ impl FunctionCodeGen<'_> {
             }
         }
 
-        Ok(GeneratedExpressionResult {
-            has_set_bool_z_flag: true,
-        })
+        Ok(GeneratedExpressionResult { kind })
     }
 
     fn gen_condition_context(
         &mut self,
         condition: &BooleanExpression,
-    ) -> Result<(Context, PatchPosition), Error> {
-        let condition_ctx = self.extra_frame_space_for_type(&Type::Bool);
-        self.gen_expression(&condition.expression, &condition_ctx)?;
+    ) -> Result<PatchPosition, Error> {
+        //let condition_ctx = self.extra_frame_space_for_type(&Type::Bool);
+        let result = self.gen_boolean_access_set_z_flag(&condition.expression)?;
 
-        let jump_on_false_condition = self.builder.add_jmp_if_not_equal_placeholder(
+        let jump_on_false_condition = self.builder.add_jmp_if_not_equal_polarity_placeholder(
+            &result.polarity(),
             &condition.expression.node,
             "jump boolean condition false",
         );
 
-        Ok((condition_ctx, jump_on_false_condition))
+        Ok(jump_on_false_condition)
     }
 
-    fn gen_boolean_access_set_z_flag(&mut self, condition: &Expression) -> Result<(), Error> {
-        let (frame_memory_region, gen_result) =
+    fn gen_boolean_access_set_z_flag(
+        &mut self,
+        condition: &Expression,
+    ) -> Result<GeneratedExpressionResult, Error> {
+        let (frame_memory_region, mut gen_result) =
             self.gen_expression_for_access_internal(condition)?;
 
-        if !gen_result.has_set_bool_z_flag {
+        if gen_result.kind == GeneratedExpressionResultKind::ZFlagUnmodified {
             self.builder.add_tst8(
                 frame_memory_region.addr,
                 &condition.node,
                 "convert to boolean expression (update z flag)",
             );
+            gen_result.kind = GeneratedExpressionResultKind::ZFlagIsTrue;
         }
 
-        Ok(())
+        Ok(gen_result)
+    }
+
+    fn gen_boolean_access_normalized_z_flag(
+        &mut self,
+        condition: &Expression,
+    ) -> Result<GeneratedExpressionResult, Error> {
+        let result = self.gen_boolean_access_set_z_flag(condition)?;
+        assert_ne!(result.kind, GeneratedExpressionResultKind::ZFlagUnmodified);
+
+        if result.kind == GeneratedExpressionResultKind::ZFlagIsInversion {
+            self.builder
+                .add_not_z(&condition.node, "normalized z is required");
+        }
+
+        Ok(GeneratedExpressionResult {
+            kind: GeneratedExpressionResultKind::ZFlagIsTrue,
+        })
     }
 
     fn gen_boolean_expression_z_flag(
         &mut self,
         condition: &BooleanExpression,
-    ) -> Result<(), Error> {
+    ) -> Result<GeneratedExpressionResult, Error> {
         self.gen_boolean_access_set_z_flag(&condition.expression)
-    }
-
-    fn gen_boolean_expression_store(
-        &mut self,
-        condition: &BooleanExpression,
-        invert: bool,
-        ctx: &Context,
-    ) -> Result<(), Error> {
-        self.gen_boolean_access_set_z_flag(&condition.expression)?;
-        if invert {
-            self.builder.add_stz(
-                ctx.addr(),
-                &condition.expression.node,
-                "gen_boolean_expression_store",
-            );
-        } else {
-            self.builder.add_stnz(
-                ctx.addr(),
-                &condition.expression.node,
-                "gen_boolean_expression_store",
-            );
-        }
-        Ok(())
     }
 
     fn gen_if(
@@ -1999,7 +2044,7 @@ impl FunctionCodeGen<'_> {
         maybe_false_expr: Option<&Expression>,
         ctx: &Context,
     ) -> Result<(), Error> {
-        let (_condition_ctx, jump_on_false_condition) = self.gen_condition_context(condition)?;
+        let jump_on_false_condition = self.gen_condition_context(condition)?;
 
         // True expression just takes over our target
         self.gen_expression(true_expr, ctx)?;
@@ -2035,11 +2080,11 @@ impl FunctionCodeGen<'_> {
 
         let ip_for_condition = self.builder.position();
 
-        let (_condition_ctx, jump_on_false_condition) = self.gen_condition_context(condition)?;
+        let jump_on_false_condition = self.gen_condition_context(condition)?;
 
         // Expression is only for side effects
-        let mut unit_ctx = self.temp_space_for_type(&Type::Unit, "while body expression");
-        self.gen_expression(expression, &mut unit_ctx)?;
+        let unit_ctx = self.temp_space_for_type(&Type::Unit, "while body expression");
+        self.gen_expression(expression, &unit_ctx)?;
 
         // Always jump to the condition again to see if it is true
         self.builder
@@ -3475,10 +3520,10 @@ impl FunctionCodeGen<'_> {
             };
 
             let maybe_guard_skip = if let Some(guard) = maybe_guard {
-                self.gen_boolean_expression_z_flag(guard)?;
-                // z flag should have been updated now
+                let polarity = self.gen_boolean_expression_z_flag(guard)?;
 
-                Some(self.builder.add_jmp_if_not_equal_placeholder(
+                Some(self.builder.add_jmp_if_not_equal_polarity_placeholder(
+                    &polarity.polarity(),
                     match_expr.expression.node(),
                     "placeholder for skip guard",
                 ))
@@ -3514,10 +3559,12 @@ impl FunctionCodeGen<'_> {
         let mut jump_to_exit_placeholders = Vec::new();
         for guard in guards {
             if let Some(condition) = &guard.condition {
-                self.gen_boolean_expression_z_flag(condition)?; // update z flag
-                let skip_expression_patch = self
-                    .builder
-                    .add_jmp_if_not_equal_placeholder(&guard.result.node, "guard condition");
+                let result = self.gen_boolean_expression_z_flag(condition)?;
+                let skip_expression_patch = self.builder.add_jmp_if_not_equal_polarity_placeholder(
+                    &result.polarity(),
+                    &guard.result.node,
+                    "guard condition",
+                );
                 self.gen_expression(&guard.result, ctx)?;
                 let jump_to_exit_placeholder = self
                     .builder

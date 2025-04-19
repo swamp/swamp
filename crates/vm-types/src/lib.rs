@@ -213,6 +213,11 @@ impl MemoryOffset {
     }
 }
 
+pub enum ZFlagPolarity {
+    Normal,
+    Inverted,
+}
+
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]
 pub struct MemorySize(pub u16);
 

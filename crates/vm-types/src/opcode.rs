@@ -51,6 +51,8 @@ pub enum OpCode {
     Cmp32,  // Compare a 32 bit. Used for both Integer and Fixed point. Updates the z flag
     Tst8, // Load the byte into the z flag (zero = sets the z flag, any other value = clears the z flag)
 
+    NotZ,
+
     // Store z flag
     Stz,
     Stnz,
@@ -103,7 +105,6 @@ pub enum OpCode {
     IntMin,
     IntMax,
     IntClamp,
-    Not8,
     IntToString,
 
     // Bool
@@ -338,6 +339,7 @@ impl OpCode {
             Self::Cmp8 => "cmp8",
             Self::Cmp32 => "cmp32",
             Self::Tst8 => "tst8",
+            Self::NotZ => "notz",
 
             // Store Z flag
             Self::Stz => "stz",
@@ -387,7 +389,6 @@ impl OpCode {
             Self::IntMin => "imin",
             Self::IntMax => "imax",
             Self::IntClamp => "iclamp",
-            Self::Not8 => "not8",
             Self::IntToString => "itos",
 
             // Bool
