@@ -5,8 +5,8 @@
 
 use crate::prelude::InstantiationCache;
 use crate::{
-    AssociatedImpls, ExternalFunctionDefinition, Function, FunctionScopeState,
-    InternalFunctionDefinition, LocalIdentifier, SemanticError, Variable, VariableRef,
+    AssociatedImpls, ExternalFunctionDefinition, Function, InternalFunctionDefinition,
+    LocalIdentifier, SemanticError, Variable, VariableRef,
 };
 use seq_map::SeqMap;
 use source_map_node::Node;

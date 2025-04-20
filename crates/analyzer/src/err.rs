@@ -80,7 +80,7 @@ pub enum ErrorKind {
     CouldNotCoerceTo(Type),
     UnexpectedType,
     CanNotAttachFunctionsToType,
-    MissingMemberFunction(String),
+    MissingMemberFunction(String, Type),
     ExpectedLambda,
     ExpectedSlice,
     MissingToString(Type),

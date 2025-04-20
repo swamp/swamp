@@ -22,7 +22,7 @@ impl Vm {
 
         // Copy the constant slice to heap
         unsafe {
-            let source_constant = self.const_ptr_immute_at(constant_offset);
+            let source_constant = self.heap_ptr_immut_at(constant_offset as usize);
             let dest_ptr = self.heap_ptr_at(heap_offset as usize);
 
             ptr::copy_nonoverlapping(source_constant, dest_ptr, byte_count as usize);

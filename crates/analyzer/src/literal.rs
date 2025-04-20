@@ -5,8 +5,8 @@
 use crate::err::{Error, ErrorKind};
 use crate::{Analyzer, TypeContext};
 use source_map_node::Node;
-use swamp_semantic::{EnumLiteralData, Expression, Fp, Literal, MutRefOrImmutableExpression};
-use swamp_semantic::{ExpressionKind, Function};
+use swamp_semantic::ExpressionKind;
+use swamp_semantic::{EnumLiteralData, Expression, Fp, Literal};
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
@@ -22,87 +22,17 @@ impl Analyzer<'_> {
         context: &TypeContext,
     ) -> Result<Expression, Error> {
         let ast_node = &ast_expression.node;
-        let expression = match &ast_literal_kind {
+        let (lit_kind, literal_type) = match &ast_literal_kind {
             swamp_ast::LiteralKind::Slice(items) => {
                 let (encountered_element_type, resolved_items) =
                     self.analyze_slice_type_helper(ast_node, items, &context)?;
 
                 let slice_type = Type::Slice(Box::new(encountered_element_type.clone()));
 
-                let found_expected_type = if let Some(inner_type) = context.expected_type {
-                    inner_type.clone()
-                } else {
-                    let vec_blueprint = self
-                        .shared
-                        .core_symbol_table
-                        .get_blueprint("Vec")
-                        .unwrap()
-                        .clone();
-                    self.shared
-                        .state
-                        .instantiator
-                        .instantiate_blueprint_and_members(
-                            &vec_blueprint,
-                            &[encountered_element_type],
-                        )?
-                };
-
-                if let Some(found) = self
-                    .shared
-                    .state
-                    .instantiator
-                    .associated_impls
-                    .get_internal_member_function(&found_expected_type, "new_from_slice")
-                {
-                    let func_def = Function::Internal(found.clone());
-
-                    self.analyze_static_call(
-                        ast_node,
-                        Some(found_expected_type),
-                        func_def,
-                        &None,
-                        &[ast_expression.clone()],
-                    )?
-                    /*
-                    let required_type = &found.signature.signature.parameters[0].resolved_type;
-                    if resolved_items.is_empty() || slice_type.compatible_with(required_type) {
-                        let slice_literal = Literal::Slice(slice_type.clone(), resolved_items);
-
-                        let expr = self.create_expr(
-                            ExpressionKind::Literal(slice_literal),
-                            slice_type,
-                            ast_node,
-                        );
-                        let return_type = *found.signature.signature.return_type.clone();
-                        let arg = MutRefOrImmutableExpression::Expression(expr);
-
-
-
-                        let call_kind = self.create_static_call(
-                            "new_from_slice",
-                            &[arg],
-                            ast_node,
-                            &found_expected_type.clone(),
-                        )?;
-
-                        self.create_expr(call_kind, return_type, ast_node)
-                    } else {
-                        return Err(self.create_err(
-                            ErrorKind::IncompatibleTypes {
-                                expected: required_type.clone(),
-                                found: slice_type,
-                            },
-                            ast_node,
-                        ));
-                    }
-
-                     */
-                } else {
-                    return Err(self.create_err(
-                        ErrorKind::MissingMemberFunction("new_from_slice".to_string()),
-                        ast_node,
-                    ));
-                }
+                (
+                    Literal::Slice(slice_type.clone(), resolved_items),
+                    slice_type,
+                )
             }
 
             swamp_ast::LiteralKind::SlicePair(entries) => {
@@ -114,74 +44,17 @@ impl Analyzer<'_> {
                     Box::new(encountered_value_type.clone()),
                 );
 
-                let found_expected_type = if let Some(inner_type) = context.expected_type {
-                    inner_type.clone()
-                } else {
-                    let map_blueprint = self
-                        .shared
-                        .core_symbol_table
-                        .get_blueprint("Map")
-                        .unwrap()
-                        .clone();
-                    self.shared
-                        .state
-                        .instantiator
-                        .instantiate_blueprint_and_members(
-                            &map_blueprint,
-                            &[encountered_key_type, encountered_value_type],
-                        )?
-                };
-
-                if let Some(found) = self
-                    .shared
-                    .state
-                    .instantiator
-                    .associated_impls
-                    .get_internal_member_function(&found_expected_type, "new_from_slice_pair")
-                {
-                    let required_type = &found.signature.signature.parameters[0].resolved_type;
-                    if resolved_items.is_empty() || slice_pair_type.compatible_with(required_type) {
-                        let slice_literal =
-                            Literal::SlicePair(slice_pair_type.clone(), resolved_items);
-
-                        let expr = self.create_expr(
-                            ExpressionKind::Literal(slice_literal),
-                            slice_pair_type,
-                            ast_node,
-                        );
-                        let return_type = *found.signature.signature.return_type.clone();
-                        let arg = MutRefOrImmutableExpression::Expression(expr);
-                        let call_kind = self.create_static_call(
-                            "new_from_slice_pair",
-                            &[arg],
-                            ast_node,
-                            &found_expected_type.clone(),
-                        )?;
-
-                        self.create_expr(call_kind, return_type, ast_node)
-                    } else {
-                        return Err(self.create_err(
-                            ErrorKind::IncompatibleTypes {
-                                expected: required_type.clone(),
-                                found: slice_pair_type,
-                            },
-                            ast_node,
-                        ));
-                    }
-                } else {
-                    return Err(self.create_err(
-                        ErrorKind::MissingMemberFunction("new_from_slice_pair".to_string()),
-                        ast_node,
-                    ));
-                }
+                (
+                    Literal::SlicePair(slice_pair_type.clone(), resolved_items),
+                    slice_pair_type,
+                )
             }
 
-            _ => {
-                let (lit_kind, literal_type) =
-                    self.analyze_literal(ast_node, ast_literal_kind, context)?;
-                self.create_expr(ExpressionKind::Literal(lit_kind), literal_type, ast_node)
-            }
+            _ => self.analyze_literal(ast_node, ast_literal_kind, context)?,
         };
+
+        let expression =
+            self.create_expr(ExpressionKind::Literal(lit_kind), literal_type, ast_node);
 
         Ok(expression)
     }

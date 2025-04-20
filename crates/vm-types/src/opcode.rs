@@ -73,11 +73,13 @@ pub enum OpCode {
     Mov,
     MovLp, // Copy overlapping
 
+    // Heap copy
+    MovMem,
+
     // Load immediate into frame memory
     Ld8,
     Ld16,
     Ld32,
-    LdConst, // Load from constant memory
 
     // Type specific -----
 
@@ -147,7 +149,7 @@ pub enum OpCode {
     MapSubscriptMutCreate,
 
     // String
-    StringFromConstantSlice,
+    StringFromSlice,
     StringAppend,
     StringLen,
 
@@ -358,12 +360,12 @@ impl OpCode {
             // Move
             Self::Mov => "mov",
             Self::MovLp => "movlp",
+            Self::MovMem => "movmem",
 
             // Load
             Self::Ld8 => "ld8",
             Self::Ld16 => "ld16",
             Self::Ld32 => "ld32",
-            Self::LdConst => "ldc",
 
             // Float functions
             Self::FloatRound => "fround",
@@ -429,7 +431,7 @@ impl OpCode {
             Self::MapSubscriptMutCreate => "msubmc",
 
             // String
-            Self::StringFromConstantSlice => "sfromc",
+            Self::StringFromSlice => "sfromc",
             Self::StringAppend => "sapp",
             Self::StringLen => "slen",
 

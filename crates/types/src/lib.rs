@@ -195,7 +195,13 @@ impl Type {
     pub const fn is_concrete(&self) -> bool {
         !matches!(
             self,
-            Self::Unit | Self::Never | Self::Variable(_) | Self::Generic(_, _) | Self::Blueprint(_)
+            Self::Unit
+                | Self::Never
+                | Self::Variable(_)
+                | Self::Generic(_, _)
+                | Self::Blueprint(_)
+                | Self::SlicePair(_, _)
+                | Self::Slice(_)
         )
     }
 

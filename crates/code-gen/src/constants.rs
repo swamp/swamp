@@ -2,9 +2,8 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use swamp_vm_types::aligner::align;
-use swamp_vm_types::{ConstantMemoryAddress, MemoryAlignment, MemorySize};
+use swamp_vm_types::{HeapMemoryAddress, MemoryAlignment, MemorySize};
 
 const ALIGNMENT_MASK: usize = 0x7;
 
@@ -28,13 +27,13 @@ impl ConstantsAllocator {
         &mut self,
         size: MemorySize,
         alignment_enum: MemoryAlignment,
-    ) -> ConstantMemoryAddress {
+    ) -> HeapMemoryAddress {
         let alignment: usize = alignment_enum.into();
         let start_addr = align(self.current_addr as usize, alignment) as u32;
 
         self.current_addr = start_addr + size.0 as u32;
 
-        ConstantMemoryAddress(start_addr)
+        HeapMemoryAddress(start_addr)
     }
 
     pub fn reset(&mut self) {
@@ -43,7 +42,7 @@ impl ConstantsAllocator {
 }
 
 pub struct ConstantsManager {
-    allocator: ConstantsAllocator,
+    pub(crate) allocator: ConstantsAllocator,
     data: Vec<u8>,
 }
 
@@ -66,15 +65,10 @@ impl ConstantsManager {
         &mut self,
         memory_size: MemorySize,
         memory_alignment: MemoryAlignment,
-    ) -> ConstantMemoryAddress {
+    ) -> HeapMemoryAddress {
         self.allocator.allocate(memory_size, memory_alignment)
     }
-
-    pub fn allocate(
-        &mut self,
-        data: &[u8],
-        alignment_enum: MemoryAlignment,
-    ) -> ConstantMemoryAddress {
+    pub fn allocate(&mut self, data: &[u8], alignment_enum: MemoryAlignment) -> HeapMemoryAddress {
         let addr = self
             .allocator
             .allocate(MemorySize(data.len() as u16), alignment_enum);
@@ -82,7 +76,7 @@ impl ConstantsManager {
         let start_idx = addr.0 as usize;
         self.data[start_idx..start_idx + data.len()].copy_from_slice(data);
 
-        ConstantMemoryAddress(addr.0)
+        HeapMemoryAddress(addr.0)
     }
 
     pub fn take_data(self) -> Vec<u8> {

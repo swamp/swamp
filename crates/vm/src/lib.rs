@@ -41,17 +41,14 @@ pub struct Vm {
     stack_memory: *mut u8,
     stack_memory_size: usize,
 
-    constant_memory: *mut u8,
-    constant_memory_size: usize,
-
     heap_memory: *mut u8,
     heap_memory_size: usize,
 
     // Memory regions (offsets)
-    heap_alloc_offset: usize,     // Current allocation point
-    stack_offset: usize,          // Current stack position
-    frame_offset: usize,          // Current frame position
-    constant_alloc_offset: usize, // Constants
+    heap_alloc_offset: usize, // Current allocation point
+    stack_offset: usize,      // Current stack position
+    frame_offset: usize,      // Current frame position
+    constant_memory_size: usize,
 
     // Execution state
     ip: usize,                            // Instruction pointer
@@ -98,9 +95,6 @@ impl Drop for Vm {
             alloc::dealloc(self.stack_memory, layout);
             let layout = alloc::Layout::from_size_align(self.heap_memory_size, ALIGNMENT).unwrap();
             alloc::dealloc(self.heap_memory, layout);
-            let layout =
-                alloc::Layout::from_size_align(self.constant_memory_size, ALIGNMENT).unwrap();
-            alloc::dealloc(self.constant_memory, layout);
         }
     }
 }
@@ -117,8 +111,8 @@ impl Vm {
         unsafe { std::slice::from_raw_parts(self.heap_memory, self.heap_memory_size) }
     }
 
-    pub fn constants(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.constant_memory, self.heap_memory_size) }
+    pub fn constant_size(&self) -> usize {
+        self.constant_memory_size
     }
 }
 
@@ -142,22 +136,15 @@ impl Vm {
         let heap_memory = unsafe {
             alloc::alloc(alloc::Layout::from_size_align(setup.heap_memory_size, ALIGNMENT).unwrap())
         };
-        let constant_memory = unsafe {
-            alloc::alloc(
-                alloc::Layout::from_size_align(setup.constant_memory.len(), ALIGNMENT).unwrap(),
-            )
-        };
 
         let mut vm = Self {
             stack_memory: frame_memory,                 // Raw memory pointer
             stack_memory_size: setup.frame_memory_size, // Total memory size
-            constant_memory,
             constant_memory_size: setup.constant_memory.len(),
             heap_memory,
             heap_memory_size: setup.heap_memory_size,
-            heap_alloc_offset: 0,
+            heap_alloc_offset: setup.constant_memory.len(),
             stack_offset: 0,
-            constant_alloc_offset: 0,
             frame_offset: 0,
             ip: 0,
             instructions,
@@ -178,7 +165,7 @@ impl Vm {
         // Copy data in frame memory
         vm.handlers[OpCode::Mov as usize] = HandlerType::Args3(Self::execute_mov);
         vm.handlers[OpCode::MovLp as usize] = HandlerType::Args3(Self::execute_mov_lp);
-        vm.handlers[OpCode::LdConst as usize] = HandlerType::Args4(Self::execute_ld_const);
+        vm.handlers[OpCode::MovMem as usize] = HandlerType::Args4(Self::execute_mov_mem);
 
         // Comparisons
         vm.handlers[OpCode::LtI32 as usize] = HandlerType::Args2(Self::execute_lt_i32);
@@ -224,7 +211,7 @@ impl Vm {
         vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args3(Self::execute_vec_iter_next);
 
         // String
-        vm.handlers[OpCode::StringFromConstantSlice as usize] =
+        vm.handlers[OpCode::StringFromSlice as usize] =
             HandlerType::Args4(Self::execute_string_from_constant_slice);
         vm.handlers[OpCode::StringAppend as usize] =
             HandlerType::Args3(Self::execute_string_append);
@@ -252,7 +239,7 @@ impl Vm {
             ptr::write_bytes(heap_memory, 0, setup.heap_memory_size);
             ptr::copy_nonoverlapping(
                 setup.constant_memory.as_ptr(),
-                constant_memory,
+                heap_memory,
                 setup.constant_memory.len(),
             );
         }
@@ -508,7 +495,7 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_ld_const(
+    fn execute_mov_mem(
         &mut self,
         dst_offset: u16,
         const_lower: u16,
@@ -516,8 +503,8 @@ impl Vm {
         memory_size: u16,
     ) {
         let const_offset = ((const_upper as u32) << 16) | (const_lower as u32);
-        let src_ptr = self.const_ptr_at(const_offset);
         let dst_ptr = self.frame_ptr_at(dst_offset);
+        let src_ptr = self.heap_ptr_immut_at(const_offset as usize);
 
         unsafe {
             ptr::copy_nonoverlapping(src_ptr, dst_ptr, memory_size as usize);
@@ -535,16 +522,6 @@ impl Vm {
     }
 
     // Helper to convert offset to pointer
-
-    #[inline(always)]
-    fn const_ptr_at(&self, constant_offset: u32) -> *mut u8 {
-        unsafe { self.constant_memory.add(constant_offset as usize) }
-    }
-
-    #[inline(always)]
-    fn const_ptr_immute_at(&self, constant_offset: u32) -> *const u8 {
-        unsafe { self.constant_memory.add(constant_offset as usize) }
-    }
 
     #[inline(always)]
     fn ptr_at_i32(&self, offset: usize) -> *mut i32 {
@@ -671,20 +648,6 @@ impl Vm {
                 );
             }
         }
-    }
-
-    pub fn allocate_constant(&mut self, size: usize) -> u32 {
-        let aligned_size = (size + ALIGNMENT_REST) & ALIGNMENT_MASK;
-        let aligned_offset = (self.constant_alloc_offset + ALIGNMENT_REST) & ALIGNMENT_MASK;
-
-        assert!(
-            aligned_offset + aligned_size <= self.constant_memory_size,
-            "Out of memory"
-        );
-
-        self.constant_alloc_offset = aligned_offset + aligned_size;
-
-        aligned_offset as u32
     }
 
     pub fn debug_opcode(&self, opcode: u8, operands: &[u16; 5]) {

@@ -14,7 +14,7 @@ mod vec;
 use crate::GeneratedExpressionResultKind::ZFlagIsTrue;
 use crate::alloc::ScopeAllocator;
 use crate::alloc_util::{is_grid, is_map, is_range, is_stack, is_vec, reserve_space_for_type};
-use crate::constants::ConstantsManager;
+use crate::constants::{ConstantsAllocator, ConstantsManager};
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use crate::layout::layout_variables;
@@ -45,11 +45,10 @@ use swamp_vm_debug_types::{
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::{
-    BinaryInstruction, ConstantMemoryRegion, CountU16, FrameMemoryAddress,
-    FrameMemoryAddressIndirectPointer, FrameMemoryRegion, FrameMemorySize, INT_SIZE,
-    InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryAlignment,
-    MemoryOffset, MemorySize, Meta, PTR_SIZE, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT,
-    VEC_ITERATOR_SIZE, ZFlagPolarity,
+    BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
+    FrameMemoryRegion, FrameMemorySize, HeapMemoryRegion, INT_SIZE, InstructionPosition,
+    InstructionPositionOffset, InstructionRange, MemoryAlignment, MemoryOffset, MemorySize, Meta,
+    PTR_SIZE, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -150,7 +149,7 @@ pub struct FunctionFixup {
 pub struct ConstantInfo {
     pub ip_range: InstructionRange,
     pub constant_ref: ConstantRef,
-    pub target_constant_memory: ConstantMemoryRegion,
+    pub target_constant_memory: HeapMemoryRegion,
 }
 
 pub struct FunctionIps {
@@ -183,7 +182,7 @@ impl FunctionIps {
 
 pub struct CodeGenState {
     constants: ConstantsManager,
-    constant_offsets: SeqMap<ConstantId, ConstantMemoryRegion>,
+    constant_offsets: SeqMap<ConstantId, HeapMemoryRegion>,
     constant_functions: SeqMap<ConstantId, ConstantInfo>,
     pub function_infos: SeqMap<InternalFunctionId, GenFunctionInfo>,
     function_fixups: Vec<FunctionFixup>,
@@ -319,7 +318,7 @@ impl CodeGenState {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            constants: ConstantsManager::new(),
+            constants: ConstantsManager::default(),
             constant_offsets: SeqMap::default(),
             function_infos: SeqMap::default(),
             constant_functions: SeqMap::default(),
@@ -368,10 +367,10 @@ impl CodeGenState {
         for constant in constants {
             let (size, alignment) = type_size_and_alignment(&constant.resolved_type);
 
-            let constant_memory_address = self.constants.reserve(size, alignment);
+            let heap_memory_address = self.constants.allocator.allocate(size, alignment);
 
-            let constant_memory_region = ConstantMemoryRegion {
-                addr: constant_memory_address,
+            let constant_memory_region = HeapMemoryRegion {
+                addr: heap_memory_address,
                 size,
             };
 
@@ -675,14 +674,9 @@ impl TopLevelGenState {
     #[must_use]
     pub fn take_instructions_and_constants(
         self,
-    ) -> (
-        Vec<BinaryInstruction>,
-        Vec<u8>,
-        SeqMap<ConstantId, ConstantInfo>,
-    ) {
+    ) -> (Vec<BinaryInstruction>, SeqMap<ConstantId, ConstantInfo>) {
         (
             self.builder_state.instructions,
-            self.codegen_state.constants.take_data(),
             self.codegen_state.constant_functions,
         )
     }
@@ -3798,7 +3792,7 @@ impl FunctionCodeGen<'_> {
             .unwrap();
         assert_eq!(constant_region.size.0, ctx.target_size().0);
 
-        self.builder.add_ld_constant(
+        self.builder.add_mov_mem(
             ctx.addr(),
             constant_region.addr,
             constant_region.size,

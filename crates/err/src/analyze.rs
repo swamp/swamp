@@ -198,9 +198,12 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
         ErrorKind::CanNotAttachFunctionsToType => {
             Report::build(Kind::Error, 58, "can not attach functions to type", span)
         }
-        ErrorKind::MissingMemberFunction(_) => {
-            Report::build(Kind::Error, 59, "missing member function", span)
-        }
+        ErrorKind::MissingMemberFunction(missing_func_name, ty) => Report::build(
+            Kind::Error,
+            59,
+            &format!("missing member function {missing_func_name} on type {ty}"),
+            span,
+        ),
         &swamp_analyzer::err::ErrorKind::ExpectedSlice => {
             Report::build(Kind::Error, 59, "expected slice", span)
         }

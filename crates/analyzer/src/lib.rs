@@ -563,21 +563,86 @@ impl<'a> Analyzer<'a> {
 
         let encountered_type = expr.ty.clone();
 
-        if let Some(found_expected_type) = context.expected_type {
+        let expr = if let Some(found_expected_type) = context.expected_type {
             if found_expected_type.compatible_with(&encountered_type) {
                 return Ok(expr);
             }
 
-            let result = self.types_did_not_match_try_late_coerce_expression(
+            self.types_did_not_match_try_late_coerce_expression(
                 expr,
                 found_expected_type,
                 &encountered_type,
                 &ast_expression.node,
-            )?;
+            )?
+        } else {
+            self.coerce_unrestricted_type(&ast_expression.node, expr)?
+        };
 
-            return Ok(result);
-        }
+        Ok(expr)
+    }
 
+    fn coerce_unrestricted_type(
+        &mut self,
+        ast_node: &swamp_ast::Node,
+        expr: Expression,
+    ) -> Result<Expression, Error> {
+        let expr = match &expr.ty {
+            Type::Slice(analyzed_element_type) => {
+                let vec_blueprint = self
+                    .shared
+                    .core_symbol_table
+                    .get_blueprint("Vec")
+                    .unwrap()
+                    .clone();
+                let created_type = self
+                    .shared
+                    .state
+                    .instantiator
+                    .instantiate_blueprint_and_members(
+                        &vec_blueprint,
+                        &[*analyzed_element_type.clone()],
+                    )?;
+                let mut_or_immut = MutRefOrImmutableExpression::Expression(expr);
+
+                let call_kind = self.create_static_member_call(
+                    "new_from_slice",
+                    &[mut_or_immut],
+                    &ast_node,
+                    &created_type,
+                )?;
+
+                self.create_expr(call_kind, created_type, ast_node)
+            }
+            Type::SlicePair(analyzed_key_type, analyzed_value_type) => {
+                let map_blueprint = self
+                    .shared
+                    .core_symbol_table
+                    .get_blueprint("Map")
+                    .unwrap()
+                    .clone();
+
+                let created_type = self
+                    .shared
+                    .state
+                    .instantiator
+                    .instantiate_blueprint_and_members(
+                        &map_blueprint,
+                        &[*analyzed_key_type.clone(), *analyzed_value_type.clone()],
+                    )?;
+
+                let mut_or_immut = MutRefOrImmutableExpression::Expression(expr);
+
+                let call_kind = self.create_static_member_call(
+                    "new_from_slice_pair",
+                    &[mut_or_immut],
+                    &ast_node,
+                    &created_type,
+                )?;
+
+                self.create_expr(call_kind, created_type, ast_node)
+            }
+            _ => expr,
+        };
         Ok(expr)
     }
 
@@ -887,7 +952,7 @@ impl<'a> Analyzer<'a> {
         Ok(expr)
     }
 
-    fn create_static_call(
+    fn create_static_member_call(
         &mut self,
         function_name: &str,
         arguments: &[MutRefOrImmutableExpression],
@@ -919,7 +984,7 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
         ty: &Type,
     ) -> Result<ExpressionKind, Error> {
-        self.create_static_call("default", &[], node, ty)
+        self.create_static_member_call("default", &[], node, ty)
     }
 
     fn add_postfix(
@@ -1451,7 +1516,7 @@ impl<'a> Analyzer<'a> {
                         }
 
                         let expr_as_param = MutRefOrImmutableExpression::Expression(expr);
-                        let call_expr_kind = self.create_static_call(
+                        let call_expr_kind = self.create_static_member_call(
                             "to_string",
                             &[expr_as_param.clone()],
                             &expression.node,
@@ -2641,8 +2706,77 @@ impl<'a> Analyzer<'a> {
         Ok(last_type)
     }
 
+    fn late_coerce_slice_pair(
+        &mut self,
+        ast_node: &swamp_ast::Node,
+        found_expected_type: &Type,
+        hopefully_slice_pair_expr: &Expression,
+    ) -> Result<Expression, Error> {
+        let return_type = if let Some(found) = self
+            .shared
+            .state
+            .instantiator
+            .associated_impls
+            .get_internal_member_function(&found_expected_type, "new_from_slice_pair")
+        {
+            found.signature.signature.return_type.clone()
+        } else {
+            return Err(self.create_err(
+                ErrorKind::MissingMemberFunction(
+                    "new_from_slice".to_string(),
+                    found_expected_type.clone(),
+                ),
+                ast_node,
+            ));
+        };
+
+        let mut_or_immute =
+            MutRefOrImmutableExpression::Expression(hopefully_slice_pair_expr.clone());
+        let call_kind = self.create_static_member_call(
+            "new_from_slice_pair",
+            &[mut_or_immute],
+            ast_node,
+            found_expected_type,
+        )?;
+        Ok(self.create_expr(call_kind, *return_type.clone(), ast_node))
+    }
+
+    fn late_coerce_slice(
+        &mut self,
+        ast_node: &swamp_ast::Node,
+        found_expected_type: &Type,
+        hopefully_slice_expr: &Expression,
+    ) -> Result<Expression, Error> {
+        let return_type = if let Some(found) = self
+            .shared
+            .state
+            .instantiator
+            .associated_impls
+            .get_internal_member_function(&found_expected_type, "new_from_slice")
+        {
+            found.signature.signature.return_type.clone()
+        } else {
+            return Err(self.create_err(
+                ErrorKind::MissingMemberFunction(
+                    "new_from_slice".to_string(),
+                    found_expected_type.clone(),
+                ),
+                ast_node,
+            ));
+        };
+
+        let mut_or_immute = MutRefOrImmutableExpression::Expression(hopefully_slice_expr.clone());
+        let call_kind = self.create_static_member_call(
+            "new_from_slice",
+            &[mut_or_immute],
+            ast_node,
+            found_expected_type,
+        )?;
+        Ok(self.create_expr(call_kind, *return_type.clone(), ast_node))
+    }
+
     fn types_did_not_match_try_late_coerce_expression(
-        &self,
+        &mut self,
         expr: Expression,
         expected_type: &Type,
         encountered_type: &Type,
@@ -2670,6 +2804,10 @@ impl<'a> Analyzer<'a> {
                     return Ok(wrapped);
                 }
             }
+        } else if let Type::Slice(encountered_type_slice_type) = encountered_type {
+            return self.late_coerce_slice(node, expected_type, &expr);
+        } else if let Type::SlicePair(first_type, second_type) = encountered_type {
+            return self.late_coerce_slice_pair(node, expected_type, &expr);
         } else if matches!(expected_type, &Type::Bool) {
             // if it has a mut or immutable optional, then it works well to wrap it
             if encountered_type.inner_optional_mut_or_immutable().is_some() {

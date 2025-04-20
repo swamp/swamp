@@ -35,10 +35,13 @@ impl StackMemoryAddress {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct ConstantMemoryAddress(pub u32);
+pub struct HeapMemoryAddress(pub u32);
 
 #[derive(Debug, Copy, Clone)]
-pub struct HeapMemoryAddress(pub u32);
+pub struct HeapMemoryRegion {
+    pub addr: HeapMemoryAddress,
+    pub size: MemorySize,
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct FrameMemoryAddress(pub u16);
@@ -47,12 +50,6 @@ impl Display for FrameMemoryAddress {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[frame {:04X} ({})]", self.0, self.0)
     }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct ConstantMemoryRegion {
-    pub addr: ConstantMemoryAddress,
-    pub size: MemorySize,
 }
 
 #[derive(Debug, Copy, Clone)]

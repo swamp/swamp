@@ -65,7 +65,7 @@ impl Analyzer<'_> {
         let bool_expr_kind = ExpressionKind::Literal(BoolLiteral(is_inclusive));
         let bool_expr = self.create_expr(bool_expr_kind, Type::Bool, ast_node);
 
-        let call_kind = self.create_static_call(
+        let call_kind = self.create_static_member_call(
             "new",
             &[
                 MutRefOrImmutableExpression::Expression(min),

@@ -7,9 +7,9 @@ use source_map_node::Node;
 use swamp_vm_debug_types::{CompleteFunctionInfo, FunctionInfo, FunctionInfoKind};
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
-    BinaryInstruction, ConstantMemoryAddress, CountU16, FrameMemoryAddress,
-    FrameMemoryAddressIndirectPointer, FrameMemorySize, InstructionPosition,
-    InstructionPositionOffset, MemoryAddress, MemorySize, Meta, ZFlagPolarity,
+    BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
+    FrameMemorySize, HeapMemoryAddress, InstructionPosition, InstructionPositionOffset,
+    MemoryAddress, MemorySize, Meta, ZFlagPolarity,
 };
 use tracing::info;
 
@@ -401,6 +401,24 @@ impl InstructionBuilder<'_> {
             .add_instruction(OpCode::Mov, &[target.0, source.0, size.0], node, comment);
     }
 
+    // Mov is more of a copy. Keeping the name Mov because it is old school and idiomatic.
+    pub fn add_mov_mem(
+        &mut self,
+        target: FrameMemoryAddress,
+        source: HeapMemoryAddress,
+        size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(source.0);
+        self.state.add_instruction(
+            OpCode::MovMem,
+            &[target.0, lower_bits, upper_bits, size.0],
+            node,
+            comment,
+        );
+    }
+
     // for overlap moves
     pub fn add_movlp(
         &mut self,
@@ -614,7 +632,7 @@ impl InstructionBuilder<'_> {
     pub fn add_string_from_constant_slice(
         &mut self,
         target_string: FrameMemoryAddress,
-        constant_addr: ConstantMemoryAddress,
+        constant_addr: HeapMemoryAddress,
         byte_count: MemorySize,
         node: &Node,
 
@@ -623,7 +641,7 @@ impl InstructionBuilder<'_> {
         let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(constant_addr.0);
 
         self.state.add_instruction(
-            OpCode::StringFromConstantSlice,
+            OpCode::StringFromSlice,
             &[target_string.0, lower_bits, upper_bits, byte_count.0],
             node,
             comment,
@@ -792,28 +810,6 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::Ld32,
             &[dst_offset.0, lower_bits, upper_bits],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_ld_constant(
-        &mut self,
-        target_addr: FrameMemoryAddress,
-        constant_addr: ConstantMemoryAddress,
-        size: MemorySize,
-        node: &Node,
-
-        comment: &str,
-    ) {
-        let value_u32 = constant_addr.0;
-
-        let lower_bits = (value_u32 & 0xFFFF) as u16;
-        let upper_bits = (value_u32 >> 16) as u16;
-
-        self.state.add_instruction(
-            OpCode::LdConst,
-            &[target_addr.0, lower_bits, upper_bits, size.0],
             node,
             comment,
         );

@@ -11,8 +11,8 @@ use swamp_vm_debug_types::{
 };
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
-    BinaryInstruction, ConstantMemoryAddress, FrameMemoryAddress, FrameMemorySize,
-    InstructionPosition, InstructionPositionOffset, MemorySize, Meta,
+    BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, InstructionPosition,
+    InstructionPositionOffset, MemorySize, Meta,
 };
 use yansi::{Color, Paint};
 
@@ -191,20 +191,21 @@ pub fn disasm_color(
                     memory_kind_color(&memory_kind),
                 )
             }
+            DecoratedOperandAccessKind::HeapAddress(addr) => {
+                let color = Color::Green;
+                let memory_kind = DecoratedMemoryKind::Octets;
+
+                (
+                    format!("{}{}", "%$".fg(color), format!("{:08X}", addr.0).fg(color)),
+                    memory_kind_color(&memory_kind),
+                )
+            }
             DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
                 let color = Color::Green;
 
                 (
                     format!("({}{})", "$".fg(color), format!("{:04X}", addr.0).fg(color)),
                     String::new(),
-                )
-            }
-            DecoratedOperandAccessKind::ConstantAddress(addr) => {
-                let color = Color::Yellow;
-
-                (
-                    format!("{}{}", "@#".fg(color), format!("{:08X}", addr.0).fg(color)),
-                    "constant".to_string(),
                 )
             }
             DecoratedOperandAccessKind::Ip(ip) => (
@@ -297,11 +298,11 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::WriteFrameAddress(addr, _memory_kind, _attr) => {
                 format!("{}{}", "$", format!("{:04X}", addr.0))
             }
+            DecoratedOperandAccessKind::HeapAddress(addr) => {
+                format!("{}{}", "%$", format!("{:08X}", addr.0))
+            }
             DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
                 format!("({}{})", "$", format!("{:04X}", addr.0))
-            }
-            DecoratedOperandAccessKind::ConstantAddress(addr) => {
-                format!("{}{}", "@#", format!("{:08X}", addr.0))
             }
             /*
             DecoratedOperandKind::HeapAddress(addr) => {
@@ -361,15 +362,6 @@ pub fn disasm(
             DecoratedMemoryKind::IndirectHeapPointer,
             frame_memory_size,
         )],
-        OpCode::LdConst => {
-            let data = ((operands[2] as u32) << 16) | operands[1] as u32;
-
-            &[
-                to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-                DecoratedOperandAccessKind::ConstantAddress(ConstantMemoryAddress(data)),
-                DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
-            ]
-        }
 
         OpCode::Ld32 => {
             let data = ((operands[2] as u32) << 16) | operands[1] as u32;
@@ -645,6 +637,15 @@ pub fn disasm(
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
         ],
+
+        OpCode::MovMem => {
+            let heap_mem_addr = ((operands[2] as u32) << 16) | operands[1] as u32;
+            &[
+                to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+                DecoratedOperandAccessKind::HeapAddress(HeapMemoryAddress(heap_mem_addr)),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
+            ]
+        }
         OpCode::Nop => &[],
 
         OpCode::VecPop => &[
@@ -812,12 +813,12 @@ pub fn disasm(
             to_jmp_ip(operands[3]),
         ],
 
-        OpCode::StringFromConstantSlice => {
+        OpCode::StringFromSlice => {
             let data = ((operands[2] as u32) << 16) | operands[1] as u32;
 
             &[
                 to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-                DecoratedOperandAccessKind::ConstantAddress(ConstantMemoryAddress(data)),
+                DecoratedOperandAccessKind::HeapAddress(HeapMemoryAddress(data)),
                 DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
             ]
         }

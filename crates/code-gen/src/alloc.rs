@@ -4,8 +4,7 @@
  */
 
 use swamp_vm_types::{
-    ConstantMemoryAddress, FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize,
-    align_frame_addr,
+    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize, align_frame_addr,
 };
 use tracing::error;
 
