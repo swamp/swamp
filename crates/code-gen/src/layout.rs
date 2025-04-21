@@ -456,12 +456,12 @@ pub fn layout_variables(
             kind: FrameAddressInfoKind::Variable(VariableInfo {
                 is_mutable: var_ref.is_mutable(),
                 name: var_ref.assigned_name.clone(),
-                ty: layout_type(
-                    &var_ref.resolved_type,
-                    MemoryOffset(0),
-                    &var_ref.assigned_name,
-                ),
             }),
+            ty: layout_type(
+                &var_ref.resolved_type,
+                MemoryOffset(0),
+                &var_ref.assigned_name,
+            ),
         });
 
         variable_offsets

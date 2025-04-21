@@ -6,13 +6,14 @@ use seq_map::SeqMap;
 use std::cmp::PartialEq;
 use std::fmt::Write;
 use swamp_vm_debug_types::{
-    DecoratedMemoryKind, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
-    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo,
+    BasicType, BasicTypeKind, DecoratedMemoryKind, DecoratedOpcode, DecoratedOperand,
+    DecoratedOperandAccessKind, DecoratedOperandOrigin, FrameAddressInfoKind, FrameMemoryAttribute,
+    FrameMemoryInfo, OffsetMemoryItem, StructType, TaggedUnionDataKind, TupleType,
 };
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    InstructionPosition, InstructionPositionOffset, MemoryAddress, MemoryOffset, MemorySize, Meta,
+    InstructionPosition, InstructionPositionOffset, MemoryOffset, MemorySize, Meta,
 };
 use yansi::{Color, Paint};
 
@@ -26,6 +27,163 @@ pub struct SourceFileLineInfo {
 
 fn convert_tabs_to_spaces(input: &str) -> String {
     input.replace('\t', " ")
+}
+
+pub fn new_line_and_tab(f: &mut dyn Write, tabs: usize) -> std::fmt::Result {
+    let tab_str = "..".repeat(tabs);
+    writeln!(f)?;
+    write!(f, "{}", tab_str)
+}
+
+pub fn show_offset_item(
+    offset_item: &OffsetMemoryItem,
+    origin: FrameMemoryAddress,
+    f: &mut dyn Write,
+    tabs: usize,
+) -> std::fmt::Result {
+    show_memory_offset(offset_item.offset, origin, f, tabs)?;
+    write!(f, ":")?;
+    show_memory_size(offset_item.size, f, tabs)?;
+    write!(f, "  {}: ", offset_item.name)?;
+    write_basic_type(&offset_item.ty, origin, f, tabs + 1)
+}
+
+pub fn show_struct_type(
+    s: &StructType,
+    origin: FrameMemoryAddress,
+    f: &mut dyn Write,
+    tabs: usize,
+) -> std::fmt::Result {
+    write!(f, "{{")?;
+    for offset_item in &s.fields {
+        new_line_and_tab(f, tabs + 1)?;
+        let local_origin = origin + offset_item.offset;
+        show_offset_item(offset_item, local_origin, f, tabs + 1)?;
+    }
+    write!(f, " }}")
+}
+
+pub fn show_tuple_type(
+    s: &TupleType,
+    origin: FrameMemoryAddress,
+    f: &mut dyn Write,
+    tabs: usize,
+) -> std::fmt::Result {
+    write!(f, "(")?;
+    for offset_item in &s.fields {
+        new_line_and_tab(f, tabs + 1)?;
+        let local_origin = origin + offset_item.offset;
+        show_offset_item(offset_item, local_origin, f, tabs + 1)?;
+    }
+    write!(f, " )")
+}
+
+pub fn write_identifier_and_colon(identifier: &str, f: &mut dyn Write) -> std::fmt::Result {
+    write!(f, "{}:", identifier.bright_magenta())
+}
+
+pub fn write_basic_type(
+    ty: &BasicType,
+    origin: FrameMemoryAddress,
+    f: &mut dyn Write,
+    tabs: usize,
+) -> std::fmt::Result {
+    match &ty.kind {
+        BasicTypeKind::Empty => write!(f, "()"),
+        BasicTypeKind::U8 => write!(f, "U8"),
+        BasicTypeKind::B8 => write!(f, "B8"),
+        BasicTypeKind::S32 => write!(f, "S32"),
+        BasicTypeKind::Fixed32 => write!(f, "F32"),
+        BasicTypeKind::U32 => write!(f, "U32"),
+        BasicTypeKind::CollectionPointer => write!(f, "CollectionPointer"),
+        BasicTypeKind::Struct(s) => show_struct_type(s, origin, f, tabs),
+        BasicTypeKind::TaggedUnion(tagged_union) => {
+            write!(f, "union tag_size:")?;
+            show_memory_size(tagged_union.tag_size, f, tabs)?;
+            for (index, union_data) in tagged_union.variants.iter().enumerate() {
+                new_line_and_tab(f, tabs + 1)?;
+                write!(f, "{}> ", index.bright_magenta())?;
+                write_identifier_and_colon(&union_data.name, f)?;
+                match &union_data.kind {
+                    TaggedUnionDataKind::Struct(struct_type) => {
+                        show_struct_type(struct_type, origin, f, tabs + 2)?;
+                    }
+                    TaggedUnionDataKind::Tuple(tuple_type) => {
+                        show_tuple_type(tuple_type, origin, f, tabs + 2)?;
+                    }
+                    TaggedUnionDataKind::Empty => {}
+                }
+            }
+            Ok(())
+        }
+        BasicTypeKind::Tuple(tuple_type) => show_tuple_type(tuple_type, origin, f, tabs),
+        BasicTypeKind::Optional(inner_type) => {
+            write!(f, "Option")?;
+            write_basic_type(inner_type, origin, f, tabs)
+        }
+        BasicTypeKind::Slice(slice_inner_type) => {
+            write!(f, "[|")?;
+            write_basic_type(slice_inner_type, origin, f, tabs + 1)?;
+            write!(f, "|]")
+        }
+        BasicTypeKind::SlicePair(key_type, value_type) => {
+            write!(f, "[|")?;
+            write_basic_type(key_type, origin, f, tabs + 1)?;
+            write!(f, ", ")?;
+            write_basic_type(value_type, origin, f, tabs + 1)?;
+            write!(f, "|]")
+        }
+    }
+}
+
+pub fn show_memory_offset(
+    offset: MemoryOffset,
+    origin: FrameMemoryAddress,
+    f: &mut dyn Write,
+    tabs: usize,
+) -> std::fmt::Result {
+    let result = origin + offset;
+    write!(f, "{:04X}+{:04X}", result.0.cyan(), offset.0.yellow())
+}
+fn show_memory_size(size: MemorySize, f: &mut dyn Write, tabs: usize) -> std::fmt::Result {
+    write!(f, "{:X}", size.0.green())
+}
+
+pub fn show_frame_addr(
+    addr: FrameMemoryAddress,
+    f: &mut dyn Write,
+    tabs: usize,
+) -> std::fmt::Result {
+    write!(f, "{:04X}", addr.0.blue())
+}
+
+pub fn show_frame_memory(
+    frame_relative_infos: &FrameMemoryInfo,
+    f: &mut dyn Write,
+) -> std::fmt::Result {
+    for mem in &frame_relative_infos.infos {
+        let addr = mem.region.addr;
+        show_frame_addr(addr, f, 0)?;
+        write!(f, " ")?;
+        match &mem.kind {
+            FrameAddressInfoKind::Variable(v) => {
+                write!(f, "var ")?;
+                write_identifier_and_colon(&v.name, f)?;
+            }
+            FrameAddressInfoKind::Parameter(v) => {
+                write!(f, "param ")?;
+                write_identifier_and_colon(&v.name, f)?;
+            }
+            FrameAddressInfoKind::Return => {
+                write!(f, "return")?;
+            }
+        }
+        write!(f, ": ")?;
+        write_basic_type(&mem.ty, addr, f, 0)?;
+        writeln!(f)?;
+    }
+
+    Ok(())
 }
 
 #[must_use]
@@ -153,7 +311,7 @@ pub fn disasm_color(
 ) -> String {
     let decorated = disasm(binary_instruction, frame_size);
 
-    let name = format!("{:8}", decorated.name.blue());
+    let name = format!("{:7}", decorated.name.blue());
 
     let mut converted_operands = Vec::new();
     let mut converted_comments = Vec::new();
@@ -176,7 +334,7 @@ pub fn disasm_color(
 
                 (
                     format!("{}{}", "$".fg(color), format!("{:04X}", addr.0).fg(color)),
-                    memory_kind_color(&memory_kind),
+                    memory_kind_color(memory_kind),
                 )
             }
             DecoratedOperandAccessKind::WriteFrameAddress(addr, memory_kind, attr) => {
@@ -188,7 +346,7 @@ pub fn disasm_color(
 
                 (
                     format!("{}{}", "$".fg(color), format!("{:04X}", addr.0).fg(color)),
-                    memory_kind_color(&memory_kind),
+                    memory_kind_color(memory_kind),
                 )
             }
             DecoratedOperandAccessKind::HeapAddress(addr) => {
@@ -328,18 +486,6 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
                 format!("({}{})", "$", format!("{:04X}", addr.0))
             }
-            /*
-            DecoratedOperandKind::HeapAddress(addr) => {
-                format!("{}{}", "@", format!("{:04X}", addr.0))
-            }
-            DecoratedOperandKind::ReadIndirectMemory(addr, memory_offset, memory_kind) => {
-                format!("({}{})", "$", format!("{:04X}+{}", addr.0, memory_offset.0))
-            }
-            DecoratedOperandKind::WriteIndirectMemory(addr, memory_offset, memory_kind) => {
-                format!("({}{})", "$", format!("{:04X}+{}", addr.0, memory_offset.0))
-            }
-
-             */
             DecoratedOperandAccessKind::MemorySize(data) => format!("{}", format!("{:X}", data.0)),
 
             DecoratedOperandAccessKind::Ip(ip) => {
@@ -383,9 +529,7 @@ pub fn disasm(
     let operands = binary_instruction.operands;
 
     let operands_slice: &[DecoratedOperandAccessKind] = match opcode {
-        OpCode::Hlt => &[],
-        OpCode::Ret => &[],
-        OpCode::Brk => &[],
+        OpCode::Hlt | OpCode::Ret | OpCode::Brk => &[],
 
         OpCode::Panic => &[to_read_frame(
             operands[0],
@@ -645,10 +789,8 @@ pub fn disasm(
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[1])),
         ],
 
-        OpCode::Bnz => &[to_jmp_ip(operands[0])],
-        OpCode::Bz => &[to_jmp_ip(operands[0])],
+        OpCode::Bnz | OpCode::Bz | OpCode::Call => &[to_jmp_ip(operands[0])],
         OpCode::NotZ => &[],
-        OpCode::Call => &[to_jmp_ip(operands[0])],
         OpCode::HostCall => &[
             DecoratedOperandAccessKind::ImmediateU16(operands[0]),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[1])),

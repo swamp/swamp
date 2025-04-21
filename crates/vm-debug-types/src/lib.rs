@@ -233,7 +233,6 @@ impl Display for BasicTypeKind {
 pub struct VariableInfo {
     pub is_mutable: bool,
     pub name: String,
-    pub ty: BasicType,
 }
 
 impl Display for VariableInfo {
@@ -241,8 +240,7 @@ impl Display for VariableInfo {
         let mut_prefix = if self.is_mutable { "mut " } else { "" };
 
         let name = &self.name;
-        let ty = &self.ty;
-        write!(f, "{mut_prefix}{name}: {ty}")
+        write!(f, "{mut_prefix}{name}")
     }
 }
 
@@ -250,7 +248,7 @@ impl Display for VariableInfo {
 pub enum FrameAddressInfoKind {
     Variable(VariableInfo),
     Parameter(VariableInfo),
-    Return(BasicType),
+    Return,
 }
 
 impl Display for FrameAddressInfoKind {
@@ -262,8 +260,8 @@ impl Display for FrameAddressInfoKind {
             Self::Parameter(var_info) => {
                 write!(f, "param: {var_info}")
             }
-            Self::Return(ty) => {
-                write!(f, "return: {ty}")
+            Self::Return => {
+                write!(f, "return: ")
             }
         }
     }
@@ -273,6 +271,7 @@ impl Display for FrameAddressInfoKind {
 pub struct FrameAddressInfo {
     pub region: FrameMemoryRegion,
     pub kind: FrameAddressInfoKind,
+    pub ty: BasicType,
 }
 
 #[derive(Clone, Debug)]

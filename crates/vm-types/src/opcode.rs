@@ -227,7 +227,7 @@ impl OpCode {
             Self::MovLp => "movlp",
             Self::MovMem => "movmem",
             Self::Stx => "stx",
-            Self::Ldx => "stx",
+            Self::Ldx => "ldx",
 
             // Load
             Self::Ld8 => "ld8",
@@ -292,10 +292,10 @@ impl OpCode {
             Self::MapIterInit => "miter",
             Self::MapIterNext => "mitern",
             Self::MapIterNextPair => "miternp",
-            Self::MapSubscriptMut => "msubm",
+            Self::MapSubscriptMut => "mset",
             Self::MapHas => "mhas",
-            Self::MapSubscript => "msub",
-            Self::MapSubscriptMutCreate => "msubmc",
+            Self::MapSubscript => "mget",
+            Self::MapSubscriptMutCreate => "mgetc",
 
             // String
             Self::StringFromSlice => "sfromc",

@@ -43,7 +43,7 @@ use swamp_vm_debug_types::{
     MemoryElement, OffsetMemoryItem, StructType, TaggedUnionData, TaggedUnionDataKind,
     VariableInfo,
 };
-use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
+use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color, show_frame_memory};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
@@ -209,6 +209,10 @@ pub fn disasm_function(
     ip_offset: InstructionPositionOffset,
     source_map_wrapper: &SourceMapWrapper,
 ) -> String {
+    let mut header_output = String::new();
+
+    show_frame_memory(frame_relative_infos, &mut header_output).unwrap();
+
     let mut ip_infos = SeqMap::new();
 
     let mut previous_node: Option<FileLineInfo> = None;
@@ -276,12 +280,16 @@ pub fn disasm_function(
 
      */
 
-    disasm_instructions_color(
-        instructions,
-        &ip_offset,
-        meta,
-        frame_relative_infos,
-        &ip_infos,
+    format!(
+        "{}\n{}",
+        header_output,
+        disasm_instructions_color(
+            instructions,
+            &ip_offset,
+            meta,
+            frame_relative_infos,
+            &ip_infos,
+        )
     )
 }
 
@@ -298,7 +306,10 @@ pub fn disasm_whole_program(
         if let Some(function_debug_info) =
             function_debug_infos.get(&InstructionPosition(current_ip))
         {
-            eprintln!("function = {} =", function_debug_info.name);
+            eprintln!(
+                "{} ==========================================================================",
+                function_debug_info.name
+            );
             let end_ip = current_ip + function_debug_info.ip_range.count.0;
             let instructions_slice = &instructions[current_ip as usize..end_ip as usize];
             let meta_slice = &meta[current_ip as usize..end_ip as usize];
