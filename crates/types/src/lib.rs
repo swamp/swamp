@@ -192,17 +192,97 @@ impl Signature {
 
 impl Type {
     #[must_use]
-    pub const fn is_concrete(&self) -> bool {
-        !matches!(
-            self,
+    pub fn is_concrete(&self) -> bool {
+        match self {
             Self::Unit
-                | Self::Never
-                | Self::Variable(_)
-                | Self::Generic(_, _)
-                | Self::Blueprint(_)
-                | Self::SlicePair(_, _)
-                | Self::Slice(_)
-        )
+            | Self::Never
+            | Self::Function(_)
+            | Self::Generic(_, _)
+            | Self::Blueprint(_)
+            | Self::Variable(_) => false,
+
+            Self::Float | Self::Int | Self::String | Self::Bool => true,
+
+            Self::Optional(inner) | Self::MutableReference(inner) | Self::Slice(inner) => {
+                inner.is_concrete()
+            }
+
+            Self::SlicePair(a, b) => a.is_concrete() && b.is_concrete(),
+            Self::Tuple(types) => types.iter().all(Self::is_concrete),
+            Self::NamedStruct(struct_type) => struct_type
+                .anon_struct_type
+                .field_name_sorted_fields
+                .iter()
+                .all(|(_name, field)| field.field_type.is_concrete()),
+            Self::AnonymousStruct(anon_struct_type) => anon_struct_type
+                .field_name_sorted_fields
+                .iter()
+                .all(|(_name, field)| field.field_type.is_concrete()),
+            Self::Enum(enum_type) => enum_type
+                .variants
+                .iter()
+                .all(|(_name, variant)| variant.types().iter().all(Self::is_concrete)),
+        }
+    }
+
+    #[must_use]
+    pub fn can_be_return_type(&self) -> bool {
+        if matches!(self, Self::Unit) {
+            true
+        } else {
+            self.is_concrete()
+        }
+    }
+
+    #[must_use]
+    pub fn can_be_stored_in_variable(&self) -> bool {
+        self.is_concrete()
+    }
+
+    // TODO: Fix this
+    #[must_use]
+    pub fn can_be_parameter(&self) -> bool {
+        if let Self::Function(_sign) = self {
+            //let parameters_are_ok = sign.parameters.iter().all(|x| x.resolved_type.can_be_stored_in_variable() );
+            //return parameters_are_ok; // && sign.return_type.can_be_return_type()
+            true
+        } else {
+            true
+        }
+    }
+
+    #[must_use]
+    pub fn can_be_stored_in_field(&self) -> bool {
+        match self {
+            Self::Unit
+            | Self::Never
+            | Self::Function(_)
+            | Self::Generic(_, _)
+            | Self::Blueprint(_)
+            | Self::SlicePair(_, _)
+            | Self::Slice(_)
+            | Self::MutableReference(_)
+            | Self::Variable(_) => false,
+
+            Self::Float | Self::Int | Self::String | Self::Bool => true,
+
+            Self::Optional(inner) => inner.can_be_stored_in_field(),
+
+            Self::Tuple(types) => types.iter().all(Self::can_be_stored_in_field),
+            Self::NamedStruct(struct_type) => struct_type
+                .anon_struct_type
+                .field_name_sorted_fields
+                .iter()
+                .all(|(_name, field)| field.field_type.can_be_stored_in_field()),
+            Self::AnonymousStruct(anon_struct_type) => anon_struct_type
+                .field_name_sorted_fields
+                .iter()
+                .all(|(_name, field)| field.field_type.can_be_stored_in_field()),
+            Self::Enum(enum_type) => enum_type
+                .variants
+                .iter()
+                .all(|(_name, variant)| variant.types().iter().all(Self::can_be_stored_in_field)),
+        }
     }
 
     #[must_use]
@@ -615,6 +695,19 @@ impl EnumVariantType {
             Self::Tuple(tuple) => &tuple.common,
             Self::Struct(c) => &c.common,
             Self::Nothing(c) => &c.common,
+        }
+    }
+
+    pub fn types(&self) -> Vec<Type> {
+        match self {
+            Self::Tuple(tuple) => tuple.fields_in_order.clone(),
+            Self::Struct(c) => c
+                .anon_struct
+                .field_name_sorted_fields
+                .iter()
+                .map(|(_name, field)| field.field_type.clone())
+                .collect(),
+            Self::Nothing(c) => vec![],
         }
     }
 }

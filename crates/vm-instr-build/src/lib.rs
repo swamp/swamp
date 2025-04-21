@@ -8,8 +8,8 @@ use swamp_vm_debug_types::{CompleteFunctionInfo, FunctionInfo, FunctionInfoKind}
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
-    FrameMemorySize, HeapMemoryAddress, InstructionPosition, InstructionPositionOffset,
-    MemoryAddress, MemorySize, Meta, ZFlagPolarity,
+    FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset, InstructionPosition,
+    InstructionPositionOffset, MemoryAddress, MemorySize, Meta, ZFlagPolarity,
 };
 use tracing::info;
 
@@ -665,34 +665,6 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_string_len(
-        &mut self,
-        len_target: FrameMemoryAddress,
-        indirect: FrameMemoryAddressIndirectPointer,
-        node: &Node,
-
-        comment: &str,
-    ) {
-        self.state.add_instruction(
-            OpCode::StringLen,
-            &[len_target.0, indirect.0.0],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_vec_len(
-        &mut self,
-        len_target: FrameMemoryAddress,
-        self_addr: FrameMemoryAddress,
-        node: &Node,
-
-        comment: &str,
-    ) {
-        self.state
-            .add_instruction(OpCode::VecLen, &[len_target.0, self_addr.0], node, comment);
-    }
-
     pub fn add_vec_clear(&mut self, mut_self_addr: FrameMemoryAddress, node: &Node, comment: &str) {
         self.state
             .add_instruction(OpCode::VecClear, &[mut_self_addr.0], node, comment);
@@ -708,24 +680,17 @@ impl InstructionBuilder<'_> {
             .add_instruction(OpCode::VecCreate, &[mut_self_addr.0], node, comment);
     }
 
-    pub fn add_vec_is_empty(&mut self, self_addr: FrameMemoryAddress, node: &Node, comment: &str) {
-        self.state
-            .add_instruction(OpCode::VecIsEmpty, &[self_addr.0], node, comment);
-    }
-
     pub fn add_vec_from_slice(
         &mut self,
         target: FrameMemoryAddress,
-        source_slice: FrameMemoryAddress,
-        element_size: MemorySize,
-        element_count: CountU16,
+        source_slice_header: FrameMemoryAddress,
+        element_byte_size: MemorySize,
         node: &Node,
-
         comment: &str,
     ) {
         self.state.add_instruction(
             OpCode::VecFromSlice,
-            &[target.0, source_slice.0, element_size.0, element_count.0],
+            &[target.0, source_slice_header.0, element_byte_size.0],
             node,
             comment,
         );
@@ -813,6 +778,17 @@ impl InstructionBuilder<'_> {
             node,
             comment,
         );
+    }
+
+    pub fn add_mov32(
+        &mut self,
+        dst_offset: FrameMemoryAddress,
+        src_offset: FrameMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state
+            .add_instruction(OpCode::Mov32, &[dst_offset.0, src_offset.0], node, comment);
     }
 
     pub fn add_ld8(
@@ -1230,17 +1206,6 @@ impl InstructionBuilder<'_> {
             .add_instruction(OpCode::MapHas, &[self_addr.0], node, comment);
     }
 
-    pub fn add_map_len(
-        &mut self,
-        target_addr: FrameMemoryAddress,
-        self_addr: FrameMemoryAddress,
-        node: &Node,
-        comment: &str,
-    ) {
-        self.state
-            .add_instruction(OpCode::MapLen, &[target_addr.0, self_addr.0], node, comment);
-    }
-
     pub fn add_map_remove(
         &mut self,
         map_target_addr: FrameMemoryAddress,
@@ -1308,6 +1273,35 @@ impl InstructionBuilder<'_> {
     pub fn add_ld_u16(&mut self, dest: FrameMemoryAddress, data: u16, node: &Node, comment: &str) {
         self.state
             .add_instruction(OpCode::Ld16, &[dest.0, data], node, comment);
+    }
+
+    pub fn add_alloc(
+        &mut self,
+        target: FrameMemoryAddress,
+        size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state
+            .add_instruction(OpCode::Alloc, &[target.0, size.0], node, comment);
+    }
+
+    pub fn add_stx(
+        &mut self,
+        dest: FrameMemoryAddress,
+        offset: HeapMemoryOffset,
+        source: FrameMemoryAddress,
+        size: FrameMemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        let (offset_lower, offset_upper) = Self::convert_to_lower_and_upper(offset.0);
+        self.state.add_instruction(
+            OpCode::Stx,
+            &[dest.0, offset_lower, offset_upper, source.0, size.0],
+            node,
+            comment,
+        );
     }
 
     pub fn add_int_rnd(

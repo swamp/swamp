@@ -20,6 +20,7 @@ use crate::err::{Error, ErrorKind};
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
+use std::env::var;
 use std::fmt::Arguments;
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
@@ -38,7 +39,7 @@ use swamp_semantic::{
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::all_types_are_concrete_or_unit;
 use swamp_types::prelude::*;
-use tracing::info;
+use tracing::{error, info};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum LocationSide {
@@ -581,6 +582,10 @@ impl<'a> Analyzer<'a> {
         Ok(expr)
     }
 
+    fn new_from_slice(&mut self, analyzed_element_type: &Type) -> Result<Expression, Error> {
+        todo!()
+    }
+
     fn coerce_unrestricted_type(
         &mut self,
         ast_node: &swamp_ast::Node,
@@ -602,9 +607,10 @@ impl<'a> Analyzer<'a> {
                         &vec_blueprint,
                         &[*analyzed_element_type.clone()],
                     )?;
+                assert!(analyzed_element_type.is_concrete());
                 let mut_or_immut = MutRefOrImmutableExpression::Expression(expr);
 
-                let call_kind = self.create_static_member_call(
+                let call_kind = self.create_static_member_intrinsic_call(
                     "new_from_slice",
                     &[mut_or_immut],
                     &ast_node,
@@ -632,7 +638,7 @@ impl<'a> Analyzer<'a> {
 
                 let mut_or_immut = MutRefOrImmutableExpression::Expression(expr);
 
-                let call_kind = self.create_static_member_call(
+                let call_kind = self.create_static_member_intrinsic_call(
                     "new_from_slice_pair",
                     &[mut_or_immut],
                     &ast_node,
@@ -975,6 +981,45 @@ impl<'a> Analyzer<'a> {
                         ExpressionKind::InternalCall(internal_function.clone(), arguments.to_vec());
 
                     Ok(expr_kind)
+                },
+            )
+    }
+
+    fn create_static_member_intrinsic_call(
+        &mut self,
+        function_name: &str,
+        arguments: &[MutRefOrImmutableExpression],
+        node: &swamp_ast::Node,
+        ty: &Type,
+    ) -> Result<ExpressionKind, Error> {
+        self.lookup_associated_function(ty, function_name)
+            .map_or_else(
+                || {
+                    Err(self.create_err(
+                        ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
+                        node,
+                    ))
+                },
+                |function| {
+                    let Function::Internal(internal_function) = &function else {
+                        panic!("only allowed for internal functions");
+                    };
+
+                    if let Some((intrinsic_fn, _)) =
+                        Self::extract_single_intrinsic_call(&internal_function.body)
+                    {
+                        let expr_kind = ExpressionKind::IntrinsicCallEx(
+                            intrinsic_fn.clone(),
+                            arguments.to_vec(),
+                        );
+
+                        Ok(expr_kind)
+                    } else {
+                        Err(self.create_err(
+                            ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
+                            node,
+                        ))
+                    }
                 },
             )
     }
@@ -2182,8 +2227,11 @@ impl<'a> Analyzer<'a> {
 
         let source_expr = self.analyze_expression(source_expression, &context)?;
         let ty = source_expr.ty.clone();
-        if !ty.is_concrete() {
-            return Err(self.create_err(ErrorKind::VariableTypeMustBeConcrete, &variable.name));
+        if !ty.can_be_stored_in_variable() {
+            let debug_text = self.get_text(&variable.name);
+            if !debug_text.starts_with('_') {
+                return Err(self.create_err(ErrorKind::VariableTypeMustBeConcrete, &variable.name));
+            }
         }
 
         let kind: ExpressionKind = if let Some(found_var) = maybe_found_variable {
@@ -2201,6 +2249,10 @@ impl<'a> Analyzer<'a> {
             }
             ExpressionKind::VariableReassignment(found_var, Box::from(source_expr))
         } else {
+            if !ty.can_be_stored_in_variable() {
+                let text = self.get_text(&variable.name);
+                error!(?text, ?required_type, ?source_expr, "variable is wrong");
+            }
             let new_var = self.create_variable(variable, &ty)?;
             ExpressionKind::VariableDefinition(new_var, Box::from(source_expr))
         };
@@ -2717,7 +2769,7 @@ impl<'a> Analyzer<'a> {
             .state
             .instantiator
             .associated_impls
-            .get_internal_member_function(&found_expected_type, "new_from_slice_pair")
+            .get_internal_member_function(found_expected_type, "new_from_slice_pair")
         {
             found.signature.signature.return_type.clone()
         } else {
@@ -2732,7 +2784,7 @@ impl<'a> Analyzer<'a> {
 
         let mut_or_immute =
             MutRefOrImmutableExpression::Expression(hopefully_slice_pair_expr.clone());
-        let call_kind = self.create_static_member_call(
+        let call_kind = self.create_static_member_intrinsic_call(
             "new_from_slice_pair",
             &[mut_or_immute],
             ast_node,
@@ -2752,7 +2804,7 @@ impl<'a> Analyzer<'a> {
             .state
             .instantiator
             .associated_impls
-            .get_internal_member_function(&found_expected_type, "new_from_slice")
+            .get_internal_member_function(found_expected_type, "new_from_slice")
         {
             found.signature.signature.return_type.clone()
         } else {
@@ -2764,9 +2816,14 @@ impl<'a> Analyzer<'a> {
                 ast_node,
             ));
         };
+        let Type::Slice(found_slice_element_type) = &hopefully_slice_expr.ty else {
+            panic!("must be slice")
+        };
+
+        assert!(found_slice_element_type.is_concrete());
 
         let mut_or_immute = MutRefOrImmutableExpression::Expression(hopefully_slice_expr.clone());
-        let call_kind = self.create_static_member_call(
+        let call_kind = self.create_static_member_intrinsic_call(
             "new_from_slice",
             &[mut_or_immute],
             ast_node,

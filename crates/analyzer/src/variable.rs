@@ -57,7 +57,13 @@ impl Analyzer<'_> {
         is_mutable: Option<&swamp_ast::Node>,
         variable_type_ref: &Type,
     ) -> Result<VariableRef, Error> {
-        debug_assert!(variable_type_ref.is_concrete());
+        let debug_text = self.get_text(variable);
+        if !debug_text.starts_with('_') {
+            debug_assert!(
+                variable_type_ref.can_be_stored_in_variable(),
+                "{variable_type_ref}"
+            );
+        }
         self.create_local_variable_resolved(
             &self.to_node(variable),
             Option::from(&self.to_node_option(is_mutable)),
@@ -167,7 +173,7 @@ impl Analyzer<'_> {
             scope_index,
             variable_index: variables.len(),
             unique_id_within_function: index_within_function,
-            is_unused: !is_marked_as_unused,
+            is_unused: is_marked_as_unused,
         };
 
         let variable_ref = Rc::new(resolved_variable);

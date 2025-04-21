@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, InstructionPosition,
+    FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset, InstructionPosition,
     InstructionPositionOffset, InstructionRange, MemoryOffset, MemorySize,
 };
 use swamp_vm_types::{FrameMemoryRegion, MemoryAlignment, align_to};
@@ -117,10 +117,10 @@ pub enum DecoratedOperandAccessKind {
     ImmediateU16(u16),
     MemorySize(MemorySize),
     ImmediateU8(u16),
-    //WriteIndirectMemory(MemoryAddress, MemoryOffset, DecoratedMemoryKind),
-    //ReadIndirectMemory(MemoryAddress, MemoryOffset, DecoratedMemoryKind),
     CountU16(u16),
     HeapAddress(HeapMemoryAddress),
+    WriteIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, DecoratedMemoryKind),
+    ReadIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, DecoratedMemoryKind),
 }
 
 #[derive(Clone, Debug)]

@@ -64,6 +64,20 @@ pub fn code_gen_program(
         for (_name, func) in &impl_functions.functions {
             match &**func {
                 Function::Internal(int_fn) => {
+                    if int_fn
+                        .assigned_name
+                        .starts_with("instantiated new_from_slice")
+                    {
+                        continue;
+                    }
+
+                    if int_fn
+                        .assigned_name
+                        .starts_with("instantiated new_from_slice_pair")
+                    {
+                        continue;
+                    }
+
                     if !code_gen
                         .codegen_state
                         .function_infos

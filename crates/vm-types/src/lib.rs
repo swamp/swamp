@@ -27,6 +27,9 @@ pub struct StackMemoryAddress(pub u16);
 #[derive(Copy, Clone)]
 pub struct CountU16(pub u16);
 
+#[derive(Copy, Clone)]
+pub struct CountU32(pub u32);
+
 impl StackMemoryAddress {
     #[must_use]
     pub const fn add(&self, memory_size: MemorySize) -> Self {
@@ -49,6 +52,14 @@ pub struct FrameMemoryAddress(pub u16);
 impl Display for FrameMemoryAddress {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[frame {:04X} ({})]", self.0, self.0)
+    }
+}
+
+impl Add<MemoryOffset> for FrameMemoryAddress {
+    type Output = FrameMemoryAddress;
+
+    fn add(self, rhs: MemoryOffset) -> Self::Output {
+        FrameMemoryAddress(self.0 + rhs.0)
     }
 }
 
@@ -76,7 +87,7 @@ impl FrameMemoryRegion {
     }
 
     pub fn last_valid_end_addr(&self) -> FrameMemoryAddress {
-        self.addr.add(MemorySize(self.size.0))
+        self.addr.add(MemoryOffset(self.size.0))
     }
 }
 
@@ -164,6 +175,53 @@ impl MemoryAddress {
 }
 
 #[derive(Debug, Copy, Eq, PartialEq, Hash, Clone, Ord, PartialOrd)]
+pub struct HeapMemoryOffset(pub u32);
+
+impl HeapMemoryOffset {
+    pub fn to_size(&self) -> HeapMemorySize {
+        HeapMemorySize(self.0)
+    }
+}
+
+impl HeapMemoryOffset {
+    pub fn space(&mut self, memory_size: HeapMemorySize, alignment: MemoryAlignment) -> Self {
+        let start = align(self.0 as usize, alignment.into()) as u32;
+        self.0 = start + memory_size.0;
+        HeapMemoryOffset(start)
+    }
+}
+
+impl Add<HeapMemorySize> for HeapMemoryOffset {
+    type Output = Self;
+
+    fn add(self, rhs: HeapMemorySize) -> Self {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Sub<HeapMemoryOffset> for HeapMemoryOffset {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self {
+        assert!(rhs.0 <= self.0);
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl HeapMemoryOffset {
+    pub fn as_size(&self) -> HeapMemorySize {
+        HeapMemorySize(self.0)
+    }
+}
+
+impl HeapMemoryOffset {
+    pub fn add(&self, size: HeapMemorySize, alignment: MemoryAlignment) -> HeapMemoryOffset {
+        let new_start = align(self.0 as usize, alignment.into());
+        HeapMemoryOffset(new_start as u32 + size.0)
+    }
+}
+
+#[derive(Debug, Copy, Eq, PartialEq, Hash, Clone, Ord, PartialOrd)]
 pub struct MemoryOffset(pub u16);
 
 impl MemoryOffset {
@@ -213,6 +271,28 @@ impl MemoryOffset {
 pub enum ZFlagPolarity {
     Normal,
     Inverted,
+}
+
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]
+pub struct HeapMemorySize(pub u32);
+
+impl Div<Self> for HeapMemorySize {
+    type Output = CountU32;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        assert!(rhs.0 > 0, "Division by zero in MemorySize");
+        assert!(
+            self.0 > 0,
+            "Numerator must be positive in MemorySize division"
+        );
+        assert_eq!(
+            self.0 % rhs.0,
+            0,
+            "MemorySize division must be exact and positive"
+        );
+
+        CountU32(self.0 / rhs.0)
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]
@@ -335,7 +415,7 @@ pub const FLOAT_SIZE: u16 = 4;
 pub const BOOL_SIZE: u16 = 1;
 
 pub const PTR_SIZE: u16 = 2;
-pub const HEAP_PTR_SIZE: u16 = 4;
+pub const HEAP_PTR_HEADER_SIZE: MemorySize = MemorySize(4);
 pub const HEAP_PTR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 pub const VEC_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
@@ -350,8 +430,8 @@ pub struct VecHeader {
     pub size: u16,        // size (in bytes) of each element; useful for iterator
 }
 pub const VEC_HEADER_SIZE: u16 = size_of::<VecHeader>() as u16;
-pub const VEC_REFERENCE_SIZE: u16 = HEAP_PTR_SIZE;
 
+#[repr(C)]
 pub struct VecIterator {
     pub data_heap_offset: u32,
     pub count: u16,
@@ -362,14 +442,24 @@ pub struct VecIterator {
 pub const VEC_ITERATOR_SIZE: u16 = size_of::<VecIterator>() as u16;
 
 pub const MAP_SIZE: u16 = 2 + 2 + 2 + 2 + 2;
-pub const MAP_REFERENCE_SIZE: u16 = HEAP_PTR_SIZE;
+pub const MAP_HEADER_SIZE: FrameMemorySize = FrameMemorySize(MAP_SIZE);
 
 pub const RANGE_SIZE: u16 = 2 + 2 + 2;
 
+#[repr(C)]
 pub struct StringHeader {
     pub byte_count: u16,
     pub capacity: u16,
     pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory)
 }
-pub const STRING_HEADER_SIZE: u16 = size_of::<StringHeader>() as u16;
-pub const STRING_REFERENCE_SIZE: u16 = HEAP_PTR_SIZE;
+pub const STRING_HEADER_SIZE: MemorySize = MemorySize(size_of::<StringHeader>() as u16);
+
+#[repr(C)]
+pub struct SliceHeader {
+    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
+    pub element_count: u32,
+}
+pub const SLICE_HEADER_SIZE: MemorySize = MemorySize(size_of::<SliceHeader>() as u16);
+pub const SLICE_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+pub const SLICE_PTR_OFFSET: MemoryOffset = MemoryOffset(0);
+pub const SLICE_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);

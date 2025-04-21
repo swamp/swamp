@@ -104,6 +104,10 @@ impl Instantiator {
 
                 //              info!(?var.assigned_name, ?var.resolved_type, ?instantiated_type, "instantiated variable");
 
+                assert!(
+                    instantiated_type.can_be_parameter(),
+                    "instantiate of variable went wrong {instantiated_type} {var:?}"
+                ); // TODO: Should have separate checks for actual variables
                 Ok(VariableRef::new(Variable {
                     name: var.name.clone(),
                     assigned_name: var.assigned_name.clone(),

@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+use crate::ctx::Context;
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize, align_frame_addr,
 };
@@ -51,6 +52,10 @@ impl ScopeAllocator {
             addr: self.allocate(size, alignment),
             size,
         }
+    }
+
+    pub fn reserve_ctx(&mut self, size: MemorySize, alignment: MemoryAlignment) -> Context {
+        Context::new(self.reserve(size, alignment))
     }
 
     #[must_use]

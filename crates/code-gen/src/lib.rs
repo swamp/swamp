@@ -23,6 +23,7 @@ use crate::layout::{
     layout_enum_into_tagged_union, layout_struct, layout_struct_type, layout_tuple,
     layout_tuple_items,
 };
+use crate::vec::{MAP_LENGTH_OFFSET, VECTOR_LENGTH_OFFSET};
 use seq_map::SeqMap;
 use source_map_cache::{FileLineInfo, SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
@@ -46,9 +47,11 @@ use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
-    FrameMemoryRegion, FrameMemorySize, HeapMemoryRegion, INT_SIZE, InstructionPosition,
-    InstructionPositionOffset, InstructionRange, MemoryAlignment, MemoryOffset, MemorySize, Meta,
-    PTR_SIZE, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
+    FrameMemoryRegion, FrameMemorySize, HEAP_PTR_ALIGNMENT, HEAP_PTR_HEADER_SIZE, HeapMemoryOffset,
+    HeapMemoryRegion, INT_SIZE, InstructionPosition, InstructionPositionOffset, InstructionRange,
+    MemoryAlignment, MemoryOffset, MemorySize, Meta, PTR_SIZE, SLICE_COUNT_OFFSET,
+    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PTR_OFFSET, TempFrameMemoryAddress,
+    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -398,6 +401,7 @@ pub struct FrameAndVariableInfo {
 
 */
 
+#[derive(Debug)]
 pub struct FunctionInData {
     pub function_name_node: Node,
     pub kind: FunctionInfoKind,
@@ -611,6 +615,7 @@ impl TopLevelGenState {
             FrameMemoryAddress(0),
             return_type_size,
         ));
+        info!(?in_data, "generate");
         function_generator.gen_expression_materialize(&in_data.expression, &ctx)?;
 
         self.finalize_function(&GenOptions {
@@ -755,17 +760,26 @@ impl FunctionCodeGen<'_> {
     ) -> Result<GeneratedExpressionResult, Error> {
         match intrinsic_fn {
             IntrinsicFunction::VecFromSlice => {
-                let ty = arguments[0].ty();
-                let (element_size, _element_alignment) = type_size_and_alignment(&ty);
-                let slice_region =
-                    self.gen_expression_location_mut_ref_or_immutable(&arguments[0])?;
-                let element_count = slice_region.size / element_size;
+                let MutRefOrImmutableExpression::Expression(expr) = &arguments[0] else {
+                    panic!("problem");
+                };
+
+                let slice_region = self.gen_expression_location(expr)?;
+
+                let slice_type = arguments[0].ty();
+
+                let Type::Slice(element_type) = slice_type else {
+                    panic!("problem");
+                };
+
+                assert!(element_type.is_concrete());
+
+                let (element_size, _element_alignment) = type_size_and_alignment(&element_type);
 
                 self.builder.add_vec_from_slice(
                     ctx.addr(),
                     slice_region.addr,
                     element_size,
-                    element_count,
                     node,
                     "vec_from_slice",
                 );
@@ -966,9 +980,9 @@ impl FunctionCodeGen<'_> {
 
             // String
             IntrinsicFunction::StringLen => {
-                self.builder.add_string_len(
+                self.builder.add_mov32(
                     ctx.addr(),
-                    FrameMemoryAddressIndirectPointer(self_addr.unwrap().addr),
+                    self_addr.unwrap().addr + MemoryOffset(VECTOR_LENGTH_OFFSET),
                     node,
                     "get the length",
                 );
@@ -979,13 +993,12 @@ impl FunctionCodeGen<'_> {
                 let slice_variable = &arguments[0];
                 let slice_region =
                     self.gen_expression_location_mut_ref_or_immutable(slice_variable)?;
-                let (element_size, element_alignment) =
+                let (element_size, _element_alignment) =
                     type_size_and_alignment(&slice_variable.ty());
                 self.builder.add_vec_from_slice(
                     ctx.addr(),
                     slice_region.addr,
                     element_size,
-                    CountU16(slice_region.size.0 / element_size.0),
                     node,
                     "create vec from slice",
                 );
@@ -1134,9 +1147,9 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecWhile => todo!(),
             IntrinsicFunction::VecFindMap => todo!(),
 
-            IntrinsicFunction::VecLen => self.builder.add_vec_len(
+            IntrinsicFunction::VecLen => self.builder.add_mov32(
                 ctx.addr(),
-                self_addr.unwrap().addr,
+                self_addr.unwrap().addr + MemoryOffset(VECTOR_LENGTH_OFFSET),
                 node,
                 "get the vec length",
             ),
@@ -1186,8 +1199,12 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::MapIter => {}
             IntrinsicFunction::MapIterMut => {}
             IntrinsicFunction::MapLen => {
-                self.builder
-                    .add_map_len(ctx.addr(), self_addr.unwrap().addr, node, "map len");
+                self.builder.add_mov32(
+                    ctx.addr(),
+                    self_addr.unwrap().addr + MAP_LENGTH_OFFSET,
+                    node,
+                    "map len",
+                );
             }
 
             IntrinsicFunction::MapSubscript => {
@@ -1437,13 +1454,16 @@ impl FunctionCodeGen<'_> {
             }
             ExpressionKind::Literal(lit) => match lit {
                 Literal::Slice(slice_type, expressions) => {
+                    let slice_ctx = self
+                        .temp_allocator
+                        .reserve_ctx(SLICE_HEADER_SIZE, SLICE_HEADER_ALIGNMENT);
                     return Ok((
-                        self.gen_slice_literal(slice_type, expressions)?,
+                        self.gen_slice_literal(&expr.node, slice_type, expressions, &slice_ctx)?,
                         GeneratedExpressionResult::default(),
                     ));
                 }
                 Literal::SlicePair(slice_pair_type, pairs) => {
-                    let info = self.gen_slice_pair_literal(slice_pair_type, pairs);
+                    let info = self.gen_slice_pair_literal(slice_pair_type, pairs)?;
                     return Ok((
                         FrameMemoryRegion::new(
                             info.addr.0,
@@ -3265,28 +3285,56 @@ impl FunctionCodeGen<'_> {
 
     fn gen_slice_literal(
         &mut self,
+        node: &Node,
         ty: &Type,
         expressions: &Vec<Expression>,
+        ctx: &Context,
     ) -> Result<FrameMemoryRegion, Error> {
         let (element_size, element_alignment) = type_size_and_alignment(ty);
         let element_count = expressions.len() as u16;
         let total_slice_size = MemorySize(element_size.0 * element_count);
+        assert_eq!(ctx.target_size(), SLICE_HEADER_SIZE);
 
-        let start_frame_address_to_transfer = self
+        let heap_ptr_header_addr = ctx.addr() + SLICE_PTR_OFFSET;
+
+        self.builder.add_alloc(
+            heap_ptr_header_addr,
+            total_slice_size,
+            node,
+            "allocate slice",
+        );
+
+        let temp_element_address = self
             .temp_allocator
-            .allocate(total_slice_size, element_alignment);
+            .allocate(element_size, element_alignment);
+        let region = FrameMemoryRegion::new(temp_element_address, element_size);
+        let element_ctx = Context::new(region);
+
         for (index, expr) in expressions.iter().enumerate() {
-            let memory_offset = MemoryOffset((index as u16) * element_size.0);
-            let region = FrameMemoryRegion::new(
-                start_frame_address_to_transfer.advance(memory_offset),
-                element_size,
-            );
-            let element_ctx = Context::new(region);
             self.gen_expression_materialize(expr, &element_ctx)?;
+
+            let heap_offset = HeapMemoryOffset((index as u32) * element_size.0 as u32);
+
+            self.builder.add_stx(
+                heap_ptr_header_addr,
+                heap_offset,
+                element_ctx.addr(),
+                FrameMemorySize(element_ctx.target_size().0),
+                node,
+                "copy slice element",
+            );
         }
 
+        let slice_header_byte_count_addr = ctx.addr() + SLICE_COUNT_OFFSET;
+        self.builder.add_ld32(
+            slice_header_byte_count_addr,
+            element_count as i32,
+            node,
+            "set slice element count",
+        );
+
         Ok(FrameMemoryRegion::new(
-            start_frame_address_to_transfer,
+            temp_element_address,
             total_slice_size,
         ))
     }
@@ -3295,7 +3343,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         slice_type: &Type,
         expressions: &[(Expression, Expression)],
-    ) -> SlicePairInfo {
+    ) -> Result<SlicePairInfo, Error> {
         let Type::SlicePair(key_type, value_type) = slice_type else {
             panic!("should have been slice pair type")
         };
@@ -3319,23 +3367,23 @@ impl FunctionCodeGen<'_> {
                 element_size,
             );
             let key_ctx = Context::new(key_region);
-            self.gen_expression_materialize(key_expr, &key_ctx);
+            self.gen_expression_materialize(key_expr, &key_ctx)?;
 
             let value_region = FrameMemoryRegion::new(
                 start_frame_address_to_transfer.advance(memory_offset.add(key_size, key_alignment)),
                 value_size,
             );
             let value_ctx = Context::new(value_region);
-            self.gen_expression_materialize(value_expr, &value_ctx);
+            self.gen_expression_materialize(value_expr, &value_ctx)?;
         }
 
-        SlicePairInfo {
+        Ok(SlicePairInfo {
             addr: TempFrameMemoryAddress(start_frame_address_to_transfer),
             key_size,
             value_size,
             element_count: CountU16(element_count),
             element_size,
-        }
+        })
     }
 
     fn gen_slice_helper(
@@ -3525,7 +3573,6 @@ impl FunctionCodeGen<'_> {
                 ctx.addr(),
                 memory.addr,
                 MemorySize(0),
-                CountU16(0),
                 node,
                 "create vec",
             );

@@ -9,7 +9,7 @@ use seq_map::SeqMap;
 use swamp_types::{EnumType, EnumVariantType, Type};
 use swamp_vm_types::{
     FrameMemoryRegion, MAP_SIZE, MemoryAlignment, MemoryOffset, MemorySize, RANGE_SIZE,
-    VEC_REFERENCE_SIZE,
+    VEC_HEADER_SIZE,
 };
 /*
 #[must_use]
@@ -87,7 +87,7 @@ pub fn is_vec(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
             if named_struct.module_path == vec!["core-0.0.0".to_string()]
                 && named_struct.assigned_name.starts_with("Vec<")
             {
-                Some((MemorySize(VEC_REFERENCE_SIZE), MemoryAlignment::U16))
+                Some((MemorySize(VEC_HEADER_SIZE), MemoryAlignment::U16))
             } else {
                 None
             }

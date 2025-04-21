@@ -17,7 +17,7 @@ impl Analyzer<'_> {
         let context = TypeContext::new_unsure_argument(maybe_annotation_type.as_ref());
         let resolved_expr = self.analyze_expression(&constant.expression, &context)?;
         let resolved_type = resolved_expr.ty.clone();
-        assert!(resolved_type.is_concrete());
+        assert!(resolved_type.can_be_stored_in_field());
 
         let name_node = self.to_node(&constant.constant_identifier.0);
         let name_text = self.get_text_resolved(&name_node).to_string();
