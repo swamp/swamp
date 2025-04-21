@@ -153,7 +153,7 @@ pub fn disasm_color(
 ) -> String {
     let decorated = disasm(binary_instruction, frame_size);
 
-    let name = format!("{:5}", decorated.name.blue());
+    let name = format!("{:8}", decorated.name.blue());
 
     let mut converted_operands = Vec::new();
     let mut converted_comments = Vec::new();
@@ -218,11 +218,11 @@ pub fn disasm_color(
             ),
 
             DecoratedOperandAccessKind::ImmediateU32(data) => (
-                format!("{}", format!("{data:08X}",).magenta()),
+                format!("{}", format!("{data:X}",).magenta()),
                 format!("{}{}", "int:", *data as i32),
             ),
             DecoratedOperandAccessKind::ImmediateU16(data) => (
-                format!("{}", format!("{data:04X}",).magenta()),
+                format!("{}", format!("{data:X}",).magenta()),
                 format!("{}{}", "int:", *data as i32),
             ),
             DecoratedOperandAccessKind::ImmediateU8(data) => (
@@ -239,10 +239,11 @@ pub fn disasm_color(
                 memory_kind,
             ) => (
                 format!(
-                    "{}",
-                    format!("({:08X})+{:08X}", frame_addr.0, memory_offset.0).yellow()
+                    "({})+{}",
+                    format!("${:04X}", frame_addr.0).red(),
+                    format!("{:X}", memory_offset.0).red()
                 ),
-                memory_kind_color(&memory_kind),
+                memory_kind_color(memory_kind),
             ),
             DecoratedOperandAccessKind::ReadIndirectHeapWithOffset(
                 frame_addr,
@@ -250,10 +251,11 @@ pub fn disasm_color(
                 memory_kind,
             ) => (
                 format!(
-                    "{}",
-                    format!("({:08X})+{:08X}", frame_addr.0, memory_offset.0).red()
+                    "({})+{}",
+                    format!("${:04X}", frame_addr.0).green(),
+                    format!("{:X}", memory_offset.0).green()
                 ),
-                memory_kind_color(&memory_kind),
+                memory_kind_color(memory_kind),
             ),
         };
         converted_operands.push(new_str);

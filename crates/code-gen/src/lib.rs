@@ -615,7 +615,7 @@ impl TopLevelGenState {
             FrameMemoryAddress(0),
             return_type_size,
         ));
-        info!(?in_data, "generate");
+        //        info!(?in_data, "generate");
         function_generator.gen_expression_materialize(&in_data.expression, &ctx)?;
 
         self.finalize_function(&GenOptions {
@@ -1452,28 +1452,6 @@ impl FunctionCodeGen<'_> {
 
                 return Ok((*frame_address, GeneratedExpressionResult::default()));
             }
-            ExpressionKind::Literal(lit) => match lit {
-                Literal::Slice(slice_type, expressions) => {
-                    let slice_ctx = self
-                        .temp_allocator
-                        .reserve_ctx(SLICE_HEADER_SIZE, SLICE_HEADER_ALIGNMENT);
-                    return Ok((
-                        self.gen_slice_literal(&expr.node, slice_type, expressions, &slice_ctx)?,
-                        GeneratedExpressionResult::default(),
-                    ));
-                }
-                Literal::SlicePair(slice_pair_type, pairs) => {
-                    let info = self.gen_slice_pair_literal(slice_pair_type, pairs)?;
-                    return Ok((
-                        FrameMemoryRegion::new(
-                            info.addr.0,
-                            MemorySize(info.element_count.0 * info.element_size.0),
-                        ),
-                        GeneratedExpressionResult::default(),
-                    ));
-                }
-                _ => {}
-            },
 
             _ => {}
         }
@@ -2682,13 +2660,11 @@ impl FunctionCodeGen<'_> {
             Literal::StringLiteral(str) => {
                 self.gen_string_literal(node, str, ctx);
             }
-            Literal::Slice(ty, expressions) => {
-                //self.gen_slice_literal(ty, expressions, ctx)
-
-                // TODO: !!!!
+            Literal::Slice(slice_type, expressions) => {
+                self.gen_slice_literal(node, slice_type, expressions, ctx)?;
             }
-            Literal::SlicePair(ty, expression_pairs) => {
-                // TODO: !!!!
+            Literal::SlicePair(slice_pair_type, pairs) => {
+                self.gen_slice_pair_literal(slice_pair_type, pairs)?;
             }
         }
 
@@ -3286,11 +3262,15 @@ impl FunctionCodeGen<'_> {
     fn gen_slice_literal(
         &mut self,
         node: &Node,
-        ty: &Type,
-        expressions: &Vec<Expression>,
+        slice_type: &Type,
+        expressions: &[Expression],
         ctx: &Context,
-    ) -> Result<FrameMemoryRegion, Error> {
-        let (element_size, element_alignment) = type_size_and_alignment(ty);
+    ) -> Result<(), Error> {
+        let Type::Slice(element_type) = slice_type else {
+            panic!("incorrect slice type")
+        };
+
+        let (element_size, element_alignment) = type_size_and_alignment(element_type);
         let element_count = expressions.len() as u16;
         let total_slice_size = MemorySize(element_size.0 * element_count);
         assert_eq!(ctx.target_size(), SLICE_HEADER_SIZE);
@@ -3307,10 +3287,16 @@ impl FunctionCodeGen<'_> {
         let temp_element_address = self
             .temp_allocator
             .allocate(element_size, element_alignment);
-        let region = FrameMemoryRegion::new(temp_element_address, element_size);
-        let element_ctx = Context::new(region);
+        let temp_element_region = FrameMemoryRegion::new(temp_element_address, element_size);
+        let element_ctx = Context::new(temp_element_region);
 
         for (index, expr) in expressions.iter().enumerate() {
+            let (expression_size, expression_alignment) = type_size_and_alignment(&expr.ty);
+            if expression_size != element_ctx.target_size() {
+                error!(?expr.ty, ?element_type, "how can this happen?");
+            }
+            assert_eq!(expression_size, element_ctx.target_size());
+
             self.gen_expression_materialize(expr, &element_ctx)?;
 
             let heap_offset = HeapMemoryOffset((index as u32) * element_size.0 as u32);
@@ -3333,10 +3319,7 @@ impl FunctionCodeGen<'_> {
             "set slice element count",
         );
 
-        Ok(FrameMemoryRegion::new(
-            temp_element_address,
-            total_slice_size,
-        ))
+        Ok(())
     }
 
     fn gen_slice_pair_literal(

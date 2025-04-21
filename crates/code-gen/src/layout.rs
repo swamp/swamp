@@ -11,7 +11,8 @@ use swamp_vm_debug_types::{
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ALIGNMENT, MemoryAlignment, MemoryOffset,
-    MemorySize, PTR_SIZE, adjust_size_to_alignment, align_to,
+    MemorySize, PTR_SIZE, SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, adjust_size_to_alignment,
+    align_to,
 };
 use tracing::trace;
 
@@ -228,8 +229,8 @@ pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> BasicT
             let basic = layout_type(inner_type, memory_offset, &format!("slice {name}"));
             BasicType {
                 kind: BasicTypeKind::Slice(Box::from(basic.clone())),
-                total_size: basic.total_size,
-                total_alignment: basic.total_alignment,
+                total_size: SLICE_HEADER_SIZE,
+                total_alignment: SLICE_HEADER_ALIGNMENT,
             }
         }
         Type::SlicePair(a, b) => layout_slice_pair(memory_offset, a, b, &format!("slice {name}")),

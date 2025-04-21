@@ -183,6 +183,12 @@ impl HeapMemoryOffset {
     }
 }
 
+impl Display for HeapMemoryOffset {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "+{:08X}]", self.0)
+    }
+}
+
 impl HeapMemoryOffset {
     pub fn space(&mut self, memory_size: HeapMemorySize, alignment: MemoryAlignment) -> Self {
         let start = align(self.0 as usize, alignment.into()) as u32;
