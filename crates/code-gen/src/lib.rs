@@ -41,17 +41,17 @@ use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeFie
 use swamp_vm_debug_types::{
     BasicType, BasicTypeKind, FrameMemoryInfo, FrameRelativeInfo, FunctionInfo, FunctionInfoKind,
     MemoryElement, OffsetMemoryItem, StructType, TaggedUnionData, TaggedUnionDataKind,
-    VariableInfo,
+    VariableInfo, show_frame_memory,
 };
-use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color, show_frame_memory};
+use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
-    FrameMemoryRegion, FrameMemorySize, HEAP_PTR_ALIGNMENT, HEAP_PTR_HEADER_SIZE, HeapMemoryOffset,
-    HeapMemoryRegion, INT_SIZE, InstructionPosition, InstructionPositionOffset, InstructionRange,
-    MemoryAlignment, MemoryOffset, MemorySize, Meta, PTR_SIZE, SLICE_COUNT_OFFSET,
-    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PTR_OFFSET, TempFrameMemoryAddress,
-    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
+    FrameMemoryRegion, FrameMemorySize, HeapMemoryOffset, HeapMemoryRegion, INT_SIZE,
+    InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryAlignment,
+    MemoryOffset, MemorySize, Meta, PTR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_ALIGNMENT,
+    SLICE_HEADER_SIZE, SLICE_PTR_OFFSET, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT,
+    VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -2761,7 +2761,7 @@ impl FunctionCodeGen<'_> {
 
         let temp_iterator_region = self
             .temp_allocator
-            .allocate(MemorySize(VEC_ITERATOR_SIZE), VEC_ITERATOR_ALIGNMENT);
+            .allocate(VEC_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT);
         self.builder.add_vec_iter_init(
             temp_iterator_region,
             FrameMemoryAddressIndirectPointer(collection_region.addr),

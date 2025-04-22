@@ -1,18 +1,21 @@
 use crate::alloc::ScopeAllocator;
+use crate::alloc_util::{
+    is_grid, is_grid_ns, is_map_ns, is_range_ns, is_stack_ns, is_vec, is_vec_ns,
+};
 use crate::{Error, FrameAndVariableInfo, reserve};
 use seq_map::SeqMap;
 use source_map_node::Node;
 use swamp_semantic::VariableRef;
-use swamp_types::{AnonymousStructType, EnumVariantType, Type};
+use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_debug_types::{
     BasicType, BasicTypeKind, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
     OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionData, TaggedUnionDataKind, TupleType,
     VariableInfo,
 };
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ALIGNMENT, MemoryAlignment, MemoryOffset,
-    MemorySize, PTR_SIZE, SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, adjust_size_to_alignment,
-    align_to,
+    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemoryOffset, MemorySize, PTR_SIZE,
+    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE,
+    adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
 
@@ -221,9 +224,9 @@ pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> BasicT
         Type::Bool => basic_type(BasicTypeKind::B8, MemorySize(1), MemoryAlignment::U8),
         Type::Unit => basic_type(BasicTypeKind::Empty, MemorySize(0), MemoryAlignment::U8),
         Type::String => basic_type(
-            BasicTypeKind::CollectionPointer,
-            MemorySize(PTR_SIZE),
-            HEAP_PTR_ALIGNMENT,
+            BasicTypeKind::InternalStringHeader,
+            STRING_HEADER_SIZE,
+            STRING_HEADER_ALIGNMENT,
         ),
         Type::Slice(inner_type) => {
             let basic = layout_type(inner_type, memory_offset, &format!("slice {name}"));
@@ -235,11 +238,9 @@ pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> BasicT
         }
         Type::SlicePair(a, b) => layout_slice_pair(memory_offset, a, b, &format!("slice {name}")),
         Type::Tuple(types) => layout_tuple(types, memory_offset),
-        Type::NamedStruct(named_struct_type) => layout_struct(
-            &named_struct_type.anon_struct_type,
-            memory_offset,
-            &named_struct_type.assigned_name,
-        ),
+        Type::NamedStruct(named_struct_type) => {
+            layout_named_struct(named_struct_type, memory_offset)
+        }
         Type::AnonymousStruct(anon_struct_type) => {
             layout_struct(anon_struct_type, memory_offset, &format!("struct {name}"))
         }
@@ -260,6 +261,35 @@ pub fn layout_type(ty: &Type, memory_offset: MemoryOffset, name: &str) -> BasicT
         Type::Blueprint(_) => panic!("blueprint should not be a part of codegen"),
         Type::Variable(_) => panic!("type variable (generics) should not be a part of codegen"),
     }
+}
+
+fn layout_named_struct(
+    named_struct_type: &NamedStructType,
+    memory_offset: MemoryOffset,
+) -> BasicType {
+    if let Some((size, alignment)) = is_vec_ns(named_struct_type) {
+        return basic_type(BasicTypeKind::InternalVecHeader, size, alignment);
+    }
+
+    if let Some((size, alignment)) = is_map_ns(named_struct_type) {
+        return basic_type(BasicTypeKind::InternalMapHeader, size, alignment);
+    }
+
+    if let Some((size, alignment)) = is_grid_ns(named_struct_type) {
+        return basic_type(BasicTypeKind::InternalGridHeader, size, alignment);
+    }
+    if let Some((size, alignment)) = is_stack_ns(named_struct_type) {
+        return basic_type(BasicTypeKind::InternalVecHeader, size, alignment);
+    }
+    if let Some((size, alignment)) = is_range_ns(named_struct_type) {
+        return basic_type(BasicTypeKind::InternalRangeHeader, size, alignment);
+    }
+
+    layout_struct(
+        &named_struct_type.anon_struct_type,
+        memory_offset,
+        &named_struct_type.assigned_name,
+    )
 }
 
 pub fn layout_struct_type(

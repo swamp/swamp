@@ -157,6 +157,8 @@ impl Vm {
             flags: Flags { z: false },
         };
 
+        vm.handlers[OpCode::Alloc as usize] = HandlerType::Args4(Self::execute_alloc);
+
         // Load immediate
         vm.handlers[OpCode::Ld8 as usize] = HandlerType::Args2(Self::execute_ld8);
         vm.handlers[OpCode::Ld16 as usize] = HandlerType::Args2(Self::execute_ld16);
@@ -166,13 +168,34 @@ impl Vm {
         vm.handlers[OpCode::Mov as usize] = HandlerType::Args3(Self::execute_mov);
         vm.handlers[OpCode::MovLp as usize] = HandlerType::Args3(Self::execute_mov_lp);
         vm.handlers[OpCode::MovMem as usize] = HandlerType::Args4(Self::execute_mov_mem);
+        vm.handlers[OpCode::Mov32 as usize] = HandlerType::Args4(Self::execute_mov_32);
+        vm.handlers[OpCode::Stx as usize] = HandlerType::Args4(Self::execute_stx);
+        vm.handlers[OpCode::Ldx as usize] = HandlerType::Args4(Self::execute_ldx);
 
-        // Comparisons
+        // Comparisons - Int
         vm.handlers[OpCode::LtI32 as usize] = HandlerType::Args2(Self::execute_lt_i32);
+        vm.handlers[OpCode::LeI32 as usize] = HandlerType::Args2(Self::execute_le_i32);
         vm.handlers[OpCode::GtI32 as usize] = HandlerType::Args2(Self::execute_gt_i32);
+        vm.handlers[OpCode::GeI32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
+
+        // Comparisons - Fixed
+        vm.handlers[OpCode::LtF32 as usize] = HandlerType::Args2(Self::execute_ltf_i32);
+        vm.handlers[OpCode::LeF32 as usize] = HandlerType::Args2(Self::execute_lef_i32);
+        vm.handlers[OpCode::GtF32 as usize] = HandlerType::Args2(Self::execute_gtf_i32);
+        vm.handlers[OpCode::GeF32 as usize] = HandlerType::Args2(Self::execute_gef_i32);
+
+        vm.handlers[OpCode::Cmp as usize] = HandlerType::Args2(Self::execute_cmp);
+        vm.handlers[OpCode::Cmp8 as usize] = HandlerType::Args2(Self::execute_cmp8);
+        vm.handlers[OpCode::Cmp32 as usize] = HandlerType::Args2(Self::execute_cmp32);
 
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
         vm.handlers[OpCode::Tst8 as usize] = HandlerType::Args1(Self::execute_tst8);
+
+        vm.handlers[OpCode::NotZ as usize] = HandlerType::Args2(Self::execute_notz); // needed for normalized Z
+        vm.handlers[OpCode::Stz as usize] = HandlerType::Args2(Self::execute_stz);
+        vm.handlers[OpCode::Stnz as usize] = HandlerType::Args2(Self::execute_stnz);
+
+        vm.handlers[OpCode::Cmp32 as usize] = HandlerType::Args2(Self::execute_cmp32);
 
         // Logical Operations
 
@@ -183,13 +206,21 @@ impl Vm {
         // Unconditional jump
         vm.handlers[OpCode::Jmp as usize] = HandlerType::Args1(Self::execute_jmp);
 
-        // Operators
+        // Operators - Int
+        vm.handlers[OpCode::NegI32 as usize] = HandlerType::Args2(Self::execute_neg_i32);
         vm.handlers[OpCode::AddI32 as usize] = HandlerType::Args3(Self::execute_add_i32);
         vm.handlers[OpCode::MulI32 as usize] = HandlerType::Args3(Self::execute_mul_i32);
-        vm.handlers[OpCode::NegI32 as usize] = HandlerType::Args2(Self::execute_neg_i32);
+        vm.handlers[OpCode::SubI32 as usize] = HandlerType::Args2(Self::execute_sub_i32);
+        vm.handlers[OpCode::ModI32 as usize] = HandlerType::Args2(Self::execute_mod_i32);
+        vm.handlers[OpCode::DivI32 as usize] = HandlerType::Args2(Self::execute_div_i32);
 
-        // fixed
+        // Operators - Fixed
         vm.handlers[OpCode::NegF32 as usize] = HandlerType::Args2(Self::execute_neg_f32);
+        vm.handlers[OpCode::AddI32 as usize] = HandlerType::Args3(Self::execute_add_f32);
+        vm.handlers[OpCode::MulI32 as usize] = HandlerType::Args3(Self::execute_mul_f32);
+        vm.handlers[OpCode::SubI32 as usize] = HandlerType::Args2(Self::execute_sub_f32);
+        vm.handlers[OpCode::ModI32 as usize] = HandlerType::Args2(Self::execute_mod_f32);
+        vm.handlers[OpCode::DivI32 as usize] = HandlerType::Args2(Self::execute_div_f32);
 
         // Call, enter, ret
         vm.handlers[OpCode::Call as usize] = HandlerType::Args1(Self::execute_call);
@@ -201,37 +232,54 @@ impl Vm {
         // Halt - return to host
         vm.handlers[OpCode::Hlt as usize] = HandlerType::Args0(Self::execute_hlt);
 
-        // Intrinsic more advanced instructions
-        //vm.handlers[OpCode::MapNewFromPairs as usize] =
-        //  HandlerType::Args5(Self::execute_map_new_from_pairs);
-
-        vm.handlers[OpCode::VecFromSlice as usize] =
-            HandlerType::Args4(Self::execute_vec_from_slice);
-        vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args2(Self::execute_vec_iter_init);
-        vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args3(Self::execute_vec_iter_next);
-
         // String
         vm.handlers[OpCode::StringFromSlice as usize] =
             HandlerType::Args4(Self::execute_string_from_constant_slice);
         vm.handlers[OpCode::StringAppend as usize] =
             HandlerType::Args3(Self::execute_string_append);
-        vm.handlers[OpCode::StringLen as usize] = HandlerType::Args2(Self::execute_string_len);
 
-        /*
-        vm.handlers[OpCode::MapNewFromPairs as usize] =
-            HandlerType::Args5(Self::execute_map_open_addressing_from_slice);
+        // Int
+        vm.handlers[OpCode::IntMin as usize] = HandlerType::Args2(Self::execute_int_min);
+        vm.handlers[OpCode::IntMax as usize] = HandlerType::Args2(Self::execute_int_max);
+        vm.handlers[OpCode::IntClamp as usize] = HandlerType::Args2(Self::execute_int_clamp);
 
-        vm.handlers[OpCode::MapRemove as usize] = HandlerType::Args2(Self::execute_map_remove);
+        vm.handlers[OpCode::IntAbs as usize] = HandlerType::Args2(Self::execute_int_abs);
+        vm.handlers[OpCode::IntToRnd as usize] = HandlerType::Args2(Self::execute_int_prnd);
+        vm.handlers[OpCode::IntToString as usize] = HandlerType::Args2(Self::execute_int_to_string);
+        vm.handlers[OpCode::IntToFloat as usize] = HandlerType::Args2(Self::execute_int_to_float);
+
+        // Fixed
+        vm.handlers[OpCode::FloatRound as usize] = HandlerType::Args2(Self::execute_float_round);
+        vm.handlers[OpCode::FloatFloor as usize] = HandlerType::Args2(Self::execute_float_floor);
+        vm.handlers[OpCode::FloatSqrt as usize] = HandlerType::Args2(Self::execute_float_sqrt);
+        vm.handlers[OpCode::FloatSign as usize] = HandlerType::Args2(Self::execute_float_sign);
+        vm.handlers[OpCode::FloatAbs as usize] = HandlerType::Args2(Self::execute_float_abs);
+        vm.handlers[OpCode::FloatPseudoRandom as usize] =
+            HandlerType::Args2(Self::execute_float_prnd);
+        vm.handlers[OpCode::FloatSin as usize] = HandlerType::Args2(Self::execute_float_sin);
+        vm.handlers[OpCode::FloatCos as usize] = HandlerType::Args2(Self::execute_float_cos);
+        vm.handlers[OpCode::FloatAsin as usize] = HandlerType::Args2(Self::execute_float_asin);
+        vm.handlers[OpCode::FloatAcos as usize] = HandlerType::Args2(Self::execute_float_acos);
+        vm.handlers[OpCode::FloatAtan2 as usize] = HandlerType::Args2(Self::execute_float_atan2);
+        vm.handlers[OpCode::FloatMin as usize] = HandlerType::Args2(Self::execute_float_min);
+        vm.handlers[OpCode::FloatMax as usize] = HandlerType::Args2(Self::execute_float_max);
+        vm.handlers[OpCode::FloatClamp as usize] = HandlerType::Args2(Self::execute_float_clamp);
+        vm.handlers[OpCode::FloatToString as usize] =
+            HandlerType::Args2(Self::execute_float_to_string);
+
+        // Vec
+        vm.handlers[OpCode::VecFromSlice as usize] =
+            HandlerType::Args4(Self::execute_vec_from_slice);
+        vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args2(Self::execute_vec_iter_init);
+        vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args3(Self::execute_vec_iter_next);
+        vm.handlers[OpCode::VecIterNextPair as usize] =
+            HandlerType::Args2(Self::execute_vec_iter_next_pair);
+        vm.handlers[OpCode::VecPush as usize] =
+            HandlerType::Args2(Self::execute_vec_iter_next_pair);
+
+        assert_eq!(vm.handlers.len(), OpCode::HostCall as usize);
 
         // Load indirect
-        vm.handlers[OpCode::Ldx as usize] = HandlerType::Args4(Self::execute_ldx);
-        vm.handlers[OpCode::Stx as usize] = HandlerType::Args4(Self::execute_stx);
-        vm.handlers[OpCode::St32x as usize] = HandlerType::Args4(Self::execute_st32x);
-
-        // Alloc
-        vm.handlers[OpCode::Alloc as usize] = HandlerType::Args2(Self::execute_alloc);
-
-         */
 
         // Optional: Zero out the memory for safety?
         unsafe {

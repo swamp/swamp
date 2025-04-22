@@ -154,9 +154,6 @@ pub enum OpCode {
     StringFromSlice,
     StringAppend,
 
-    // Slice
-    SliceFromIndirectHeap,
-
     // Other
     HostCall, // calls back into host
 }
@@ -235,7 +232,6 @@ impl OpCode {
             Self::Ld32 => "ld32",
 
             Self::Alloc => "alloc",
-            Self::SliceFromIndirectHeap => "slice_i",
 
             // Float functions
             Self::FloatRound => "fround",

@@ -304,6 +304,12 @@ impl Div<Self> for HeapMemorySize {
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]
 pub struct MemorySize(pub u16);
 
+impl Into<usize> for MemorySize {
+    fn into(self) -> usize {
+        self.0 as usize
+    }
+}
+
 impl Div<Self> for MemorySize {
     type Output = CountU16;
 
@@ -421,12 +427,8 @@ pub const FLOAT_SIZE: u16 = 4;
 pub const BOOL_SIZE: u16 = 1;
 
 pub const PTR_SIZE: u16 = 2;
-pub const HEAP_PTR_HEADER_SIZE: MemorySize = MemorySize(4);
-pub const HEAP_PTR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
-
-pub const VEC_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
-
-pub const STR_SIZE: u16 = VEC_HEADER_SIZE; // TODO: FIX THIS
+//pub const HEAP_PTR_HEADER_SIZE: MemorySize = MemorySize(4);
+//pub const HEAP_PTR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
 pub struct VecHeader {
@@ -435,30 +437,54 @@ pub struct VecHeader {
     pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory)
     pub size: u16,        // size (in bytes) of each element; useful for iterator
 }
-pub const VEC_HEADER_SIZE: u16 = size_of::<VecHeader>() as u16;
+pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u16);
+pub const VEC_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
 pub struct VecIterator {
-    pub data_heap_offset: u32,
-    pub count: u16,
-    pub element_size: u16,
+    pub vec_header_frame_offset: u32,
     pub index: u16,
 }
 
-pub const VEC_ITERATOR_SIZE: u16 = size_of::<VecIterator>() as u16;
+pub const VEC_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<VecIterator>() as u16);
+pub const VEC_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
-pub const MAP_SIZE: u16 = 2 + 2 + 2 + 2 + 2;
-pub const MAP_HEADER_SIZE: FrameMemorySize = FrameMemorySize(MAP_SIZE);
+#[repr(C)]
+pub struct RangeHeader {
+    pub min: i32,
+    pub max: i32,
+    pub inclusive: bool,
+}
+pub const RANGE_HEADER_SIZE: MemorySize = MemorySize(size_of::<RangeHeader>() as u16);
+pub const RANGE_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
-pub const RANGE_SIZE: u16 = 2 + 2 + 2;
+#[repr(C)]
+pub struct GridHeader {
+    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
+    pub width: u32,
+    pub height: u32,
+}
+
+pub const GRID_HEADER_SIZE: MemorySize = MemorySize(size_of::<GridHeader>() as u16);
+pub const GRID_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+
+#[repr(C)]
+pub struct MapHeader {
+    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
+    pub element_count: u32, // Count should be second
+    pub capacity: u32,
+}
+pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
+pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
 pub struct StringHeader {
-    pub byte_count: u16,
+    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
+    pub byte_count: u16,  // Count should be second
     pub capacity: u16,
-    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory)
 }
 pub const STRING_HEADER_SIZE: MemorySize = MemorySize(size_of::<StringHeader>() as u16);
+pub const STRING_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
 pub struct SliceHeader {

@@ -6,10 +6,11 @@
 use crate::alloc::ScopeAllocator;
 use crate::layout::type_size_and_alignment;
 use seq_map::SeqMap;
-use swamp_types::{EnumType, EnumVariantType, Type};
+use swamp_types::{EnumType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_types::{
-    FrameMemoryRegion, MAP_SIZE, MemoryAlignment, MemoryOffset, MemorySize, RANGE_SIZE,
-    VEC_HEADER_SIZE,
+    FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT,
+    MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize, RANGE_HEADER_ALIGNMENT,
+    RANGE_HEADER_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
 };
 /*
 #[must_use]
@@ -81,61 +82,98 @@ pub fn layout_union_old(
 }
 */
 
+pub fn is_vec_ns(named_struct: &NamedStructType) -> Option<(MemorySize, MemoryAlignment)> {
+    if named_struct.module_path == vec!["core-0.0.0".to_string()]
+        && named_struct.assigned_name.starts_with("Vec<")
+    {
+        Some((VEC_HEADER_SIZE, VEC_HEADER_ALIGNMENT))
+    } else {
+        None
+    }
+}
+
 pub fn is_vec(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
     match ty {
-        Type::NamedStruct(named_struct) => {
-            if named_struct.module_path == vec!["core-0.0.0".to_string()]
-                && named_struct.assigned_name.starts_with("Vec<")
-            {
-                Some((MemorySize(VEC_HEADER_SIZE), MemoryAlignment::U16))
-            } else {
-                None
-            }
-        }
+        Type::NamedStruct(named_struct) => is_vec_ns(named_struct),
         _ => None,
+    }
+}
+
+pub fn is_map_ns(named_struct: &NamedStructType) -> Option<(MemorySize, MemoryAlignment)> {
+    if named_struct.module_path == vec!["core-0.0.0".to_string()]
+        && named_struct.assigned_name.starts_with("Map<")
+    {
+        Some((MAP_HEADER_SIZE, MAP_HEADER_ALIGNMENT))
+    } else {
+        None
     }
 }
 
 pub fn is_map(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
     match ty {
-        Type::NamedStruct(named_struct) => {
-            if named_struct.module_path == vec!["core-0.0.0".to_string()]
-                && named_struct.assigned_name.starts_with("Map<")
-            {
-                Some((MemorySize(MAP_SIZE), MemoryAlignment::U16))
-            } else {
-                None
-            }
-        }
+        Type::NamedStruct(named_struct) => is_map_ns(named_struct),
         _ => None,
     }
 }
 
-fn is_core_type(ty: &Type, name: &str) -> Option<(MemorySize, MemoryAlignment)> {
+fn is_core_type_ns(named_struct: &NamedStructType, name: &str) -> bool {
+    named_struct.module_path == vec!["core-0.0.0".to_string()]
+        && named_struct.assigned_name.starts_with(name)
+}
+
+fn is_core_type(ty: &Type, name: &str) -> bool {
     match ty {
-        Type::NamedStruct(named_struct) => {
-            if named_struct.module_path == vec!["core-0.0.0".to_string()]
-                && named_struct.assigned_name.starts_with(name)
-            {
-                Some((MemorySize(RANGE_SIZE), MemoryAlignment::U16))
-            } else {
-                None
-            }
-        }
-        _ => None,
+        Type::NamedStruct(named_struct) => is_core_type_ns(named_struct, name),
+        _ => false,
     }
 }
 
 pub fn is_range(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
-    is_core_type(ty, "Range")
+    if is_core_type(ty, "Range") {
+        Some((RANGE_HEADER_SIZE, RANGE_HEADER_ALIGNMENT))
+    } else {
+        None
+    }
 }
 
 pub fn is_grid(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
-    is_core_type(ty, "Grid")
+    if is_core_type(ty, "Grid") {
+        Some((GRID_HEADER_SIZE, GRID_HEADER_ALIGNMENT))
+    } else {
+        None
+    }
+}
+
+pub fn is_stack_ns(named_struct_type: &NamedStructType) -> Option<(MemorySize, MemoryAlignment)> {
+    if is_core_type_ns(named_struct_type, "Stack") {
+        Some((VEC_HEADER_SIZE, VEC_HEADER_ALIGNMENT))
+    } else {
+        None
+    }
 }
 
 pub fn is_stack(ty: &Type) -> Option<(MemorySize, MemoryAlignment)> {
-    is_core_type(ty, "Stack")
+    if is_core_type(ty, "Stack") {
+        Some((VEC_HEADER_SIZE, VEC_HEADER_ALIGNMENT))
+    } else {
+        None
+    }
+}
+
+pub fn is_range_ns(named_struct_type: &NamedStructType) -> Option<(MemorySize, MemoryAlignment)> {
+    if is_core_type_ns(named_struct_type, "Range") {
+        Some((RANGE_HEADER_SIZE, RANGE_HEADER_ALIGNMENT))
+    } else {
+        None
+    }
+}
+
+pub fn is_grid_ns(named_struct_type: &NamedStructType) -> Option<(MemorySize, MemoryAlignment)> {
+    if is_core_type_ns(named_struct_type, "Grid") {
+        Some((GRID_HEADER_SIZE, GRID_HEADER_ALIGNMENT))
+    } else {
+        None
+    }
 }
 
 pub fn type_with_tag_size_and_alignment(inner_type: &Type) -> (MemorySize, MemoryAlignment) {

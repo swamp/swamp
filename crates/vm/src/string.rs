@@ -34,7 +34,7 @@ impl Vm {
             heap_offset,
         };
 
-        let header_offset = self.heap_allocate(STRING_HEADER_SIZE as usize);
+        let header_offset = self.heap_allocate(STRING_HEADER_SIZE.into());
 
         // Copy String header to heap
         unsafe {
@@ -87,7 +87,7 @@ impl Vm {
             heap_offset: heap_runes_offset,
         };
 
-        let header_offset = self.heap_allocate(STRING_HEADER_SIZE as usize);
+        let header_offset = self.heap_allocate(STRING_HEADER_SIZE.into());
 
         // Copy String header to heap
         unsafe {
@@ -99,17 +99,6 @@ impl Vm {
         unsafe {
             let target_ptr = self.frame_ptr_at(target_string_addr) as *mut u32;
             ptr::write(target_ptr, header_offset);
-        }
-    }
-
-    #[inline]
-    pub fn execute_string_len(&mut self, target_int_len_addr: u16, string_indirect_addr: u16) {
-        let (header, str_a) = self.get_string(string_indirect_addr);
-
-        // Copy the heap offset of the string header to the frame.
-        unsafe {
-            let target_ptr = self.frame_ptr_i32_at(target_int_len_addr) as *mut i32;
-            ptr::write(target_ptr, (*header).byte_count.into());
         }
     }
 }
