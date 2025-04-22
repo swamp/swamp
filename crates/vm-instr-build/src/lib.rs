@@ -141,10 +141,6 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
 
-impl<'a> InstructionBuilder<'a> {}
-
-impl<'a> InstructionBuilder<'a> {}
-
 impl<'a> InstructionBuilder<'a> {
     pub fn add_not_z(&mut self, node: &Node, comment: &str) {
         self.state.add_instruction(OpCode::NotZ, &[], node, comment);
@@ -201,6 +197,22 @@ impl InstructionBuilder<'_> {
             ZFlagPolarity::Normal => self.add_jmp_if_not_equal_placeholder(node, comment),
             ZFlagPolarity::Inverted => self.add_jmp_if_equal_placeholder(node, comment),
         }
+    }
+
+    pub fn add_vec_swamp(
+        &mut self,
+        vec_self_addr: FrameMemoryAddress,
+        int_index_a: FrameMemoryAddress,
+        int_index_b: FrameMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::VecSwap,
+            &[vec_self_addr.0, int_index_a.0, int_index_b.0],
+            node,
+            comment,
+        );
     }
 
     pub fn add_vec_subscript(
@@ -550,14 +562,14 @@ impl InstructionBuilder<'_> {
     pub fn add_map_iter_init(
         &mut self,
         iterator_target: FrameMemoryAddress,
-        pointer_to_map: FrameMemoryAddressIndirectPointer,
+        pointer_to_map_header: FrameMemoryAddress,
         node: &Node,
 
         comment: &str,
     ) {
         self.state.add_instruction(
             OpCode::MapIterInit,
-            &[iterator_target.0, pointer_to_map.0.0],
+            &[iterator_target.0, pointer_to_map_header.0],
             node,
             comment,
         );
@@ -717,14 +729,13 @@ impl InstructionBuilder<'_> {
     pub fn add_vec_iter_init(
         &mut self,
         iterator_target: FrameMemoryAddress,
-        pointer_to_vec: FrameMemoryAddressIndirectPointer,
+        pointer_to_vec_header: FrameMemoryAddress,
         node: &Node,
-
         comment: &str,
     ) {
         self.state.add_instruction(
             OpCode::VecIterInit,
-            &[iterator_target.0, pointer_to_vec.0.0],
+            &[iterator_target.0, pointer_to_vec_header.0],
             node,
             comment,
         );

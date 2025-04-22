@@ -589,12 +589,6 @@ pub enum MutRefOrImmutableExpression {
 }
 
 impl MutRefOrImmutableExpression {
-    pub fn expression(&self) -> &Expression {
-        todo!()
-    }
-}
-
-impl MutRefOrImmutableExpression {
     #[must_use]
     pub fn ty(&self) -> Type {
         match self {

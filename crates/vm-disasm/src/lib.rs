@@ -90,18 +90,8 @@ pub fn disasm_instructions_color(
     string
 }
 fn memory_kind_color(kind: &DecoratedMemoryKind) -> String {
-    let short_string = match kind {
-        DecoratedMemoryKind::B8 => "b8",
-        DecoratedMemoryKind::U8 => "u8",
-        DecoratedMemoryKind::U16 => "u16",
-        DecoratedMemoryKind::U32 => "u32",
-        DecoratedMemoryKind::S32 => "i32",
-        DecoratedMemoryKind::Fp32 => "fp32",
-        DecoratedMemoryKind::Octets => "*b8",
-        DecoratedMemoryKind::IndirectHeapPointer => "(heap_ptr)",
-    };
-
-    format!("{}", short_string)
+    let short_string = kind.to_str();
+    short_string.to_string()
 }
 
 #[must_use]
@@ -376,7 +366,7 @@ pub fn disasm(
 
         OpCode::Panic => &[to_read_frame(
             operands[0],
-            DecoratedMemoryKind::IndirectHeapPointer,
+            DecoratedMemoryKind::StringHeader,
             frame_memory_size,
         )],
 
@@ -510,7 +500,7 @@ pub fn disasm(
         OpCode::FloatToString => &[
             to_write_frame(
                 operands[0],
-                DecoratedMemoryKind::IndirectHeapPointer,
+                DecoratedMemoryKind::StringHeader,
                 frame_memory_size,
             ),
             to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
@@ -686,6 +676,12 @@ pub fn disasm(
             to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
         ],
 
+        OpCode::VecSwap => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+        ],
+
         OpCode::VecSubscriptMut => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
@@ -760,7 +756,11 @@ pub fn disasm(
 
         OpCode::MapIterInit => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
+            to_read_frame(
+                operands[1],
+                DecoratedMemoryKind::VecIterator,
+                frame_memory_size,
+            ),
         ],
 
         OpCode::MapIterNext => &[
@@ -834,17 +834,17 @@ pub fn disasm(
         OpCode::StringAppend => &[
             to_write_frame(
                 operands[0],
-                DecoratedMemoryKind::IndirectHeapPointer,
+                DecoratedMemoryKind::StringHeader,
                 frame_memory_size,
             ),
             to_read_frame(
                 operands[1],
-                DecoratedMemoryKind::IndirectHeapPointer,
+                DecoratedMemoryKind::StringHeader,
                 frame_memory_size,
             ),
             to_read_frame(
                 operands[2],
-                DecoratedMemoryKind::IndirectHeapPointer,
+                DecoratedMemoryKind::StringHeader,
                 frame_memory_size,
             ),
         ],
@@ -881,7 +881,7 @@ pub fn disasm(
         OpCode::IntToString => &[
             to_write_frame(
                 operands[0],
-                DecoratedMemoryKind::IndirectHeapPointer,
+                DecoratedMemoryKind::StringHeader,
                 frame_memory_size,
             ),
             to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
@@ -890,7 +890,7 @@ pub fn disasm(
         OpCode::BoolToString => &[
             to_write_frame(
                 operands[0],
-                DecoratedMemoryKind::IndirectHeapPointer,
+                DecoratedMemoryKind::StringHeader,
                 frame_memory_size,
             ),
             to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),

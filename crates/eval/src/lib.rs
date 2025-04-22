@@ -1891,7 +1891,7 @@ impl<'a, C> Interpreter<'a, C> {
             }
 
             IntrinsicFunction::MapHas => {
-                let index_val = self.evaluate_expression(&arguments[0])?;
+                let index_val = self.evaluate_expression(arguments[0])?;
 
                 match value_ref.borrow().clone() {
                     Value::Map(_key_type, ref seq_map) => {
@@ -1961,8 +1961,8 @@ impl<'a, C> Interpreter<'a, C> {
             IntrinsicFunction::Map2Create => Value::Map2(Map2::new()),
 
             IntrinsicFunction::Map2Remove => {
-                let column_val = self.evaluate_expression(&arguments[0])?;
-                let row_val = self.evaluate_expression(&arguments[1])?;
+                let column_val = self.evaluate_expression(arguments[0])?;
+                let row_val = self.evaluate_expression(arguments[1])?;
 
                 let result = {
                     let mut borrowed = value_ref.borrow_mut();
@@ -1980,9 +1980,9 @@ impl<'a, C> Interpreter<'a, C> {
             }
 
             IntrinsicFunction::Map2Insert => {
-                let column_val = self.evaluate_expression(&arguments[0])?;
-                let row_val = self.evaluate_expression(&arguments[1])?;
-                let value_to_insert = self.evaluate_expression(&arguments[2])?;
+                let column_val = self.evaluate_expression(arguments[0])?;
+                let row_val = self.evaluate_expression(arguments[1])?;
+                let value_to_insert = self.evaluate_expression(arguments[2])?;
 
                 let result = {
                     let mut borrowed = value_ref.borrow_mut();
@@ -2042,7 +2042,7 @@ impl<'a, C> Interpreter<'a, C> {
             }
 
             IntrinsicFunction::Map2GetColumn => {
-                let column_val = self.evaluate_expression(&arguments[0])?;
+                let column_val = self.evaluate_expression(arguments[0])?;
 
                 let result = {
                     let borrowed = value_ref.borrow();
@@ -2082,7 +2082,7 @@ impl<'a, C> Interpreter<'a, C> {
 
                 match &mut *borrowed {
                     Value::Sparse(_type, found) => {
-                        let resolved_value = self.evaluate_expression(&arguments[0])?;
+                        let resolved_value = self.evaluate_expression(arguments[0])?;
                         let id_value = found.add(resolved_value);
 
                         id_value
@@ -2098,7 +2098,7 @@ impl<'a, C> Interpreter<'a, C> {
 
                 match &mut *borrowed {
                     Value::Sparse(_type, found) => {
-                        let id_value = self.evaluate_expression(&arguments[0])?;
+                        let id_value = self.evaluate_expression(arguments[0])?;
                         match id_value.downcast_rust::<SparseValueId>() {
                             Some(found_id) => {
                                 found.remove(&found_id.borrow());

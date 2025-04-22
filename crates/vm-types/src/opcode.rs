@@ -157,6 +157,7 @@ pub enum OpCode {
 
     // Other
     HostCall, // calls back into host
+    VecSwap,
 }
 
 impl OpCode {
@@ -283,6 +284,7 @@ impl OpCode {
             Self::VecCreate => "vcreate",
             Self::VecGet => "vget",
             Self::VecGetRange => "vgetrn",
+            Self::VecSwap => "vswap",
 
             // Map
             Self::MapNewFromPairs => "mnew",

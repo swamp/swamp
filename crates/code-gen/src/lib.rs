@@ -47,13 +47,47 @@ use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
-    FrameMemoryRegion, FrameMemorySize, HeapMemoryOffset, HeapMemoryRegion, INT_SIZE,
-    InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryAlignment,
-    MemoryOffset, MemorySize, Meta, PTR_SIZE, RANGE_HEADER_SIZE, SLICE_COUNT_OFFSET,
-    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PTR_OFFSET, TempFrameMemoryAddress,
+    FrameMemoryRegion, FrameMemorySize, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, HeapMemoryOffset,
+    HeapMemoryRegion, INT_SIZE, InstructionPosition, InstructionPositionOffset, InstructionRange,
+    MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize, Meta,
+    PTR_SIZE, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, SLICE_COUNT_OFFSET,
+    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT,
+    STRING_HEADER_SIZE, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
     VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
+
+#[derive(Copy, Clone)]
+pub enum Collection {
+    Vec,
+    Map,
+    Grid,
+    String,
+    Range,
+}
+
+impl Collection {
+    pub fn size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
+        match self {
+            Self::Vec => (VEC_HEADER_SIZE, VEC_HEADER_ALIGNMENT),
+            Self::Map => (MAP_HEADER_SIZE, MAP_HEADER_ALIGNMENT),
+            Self::Grid => (GRID_HEADER_SIZE, GRID_HEADER_ALIGNMENT),
+            Self::String => (STRING_HEADER_SIZE, STRING_HEADER_ALIGNMENT),
+            Self::Range => (RANGE_HEADER_SIZE, RANGE_HEADER_ALIGNMENT),
+        }
+    }
+
+    pub fn iterator_size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
+        match self {
+            Self::Vec => (VEC_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT),
+            //     Self::Map => (MAP_HEADER_SIZE, MAP_HEADER_ALIGNMENT),
+            //   Self::Grid => (GRID_HEADER_SIZE, GRID_HEADER_ALIGNMENT),
+            // Self::String => (STRING_HEADER_SIZE, STRING_HEADER_ALIGNMENT),
+            //Self::Range => (RANGE_HEADER_SIZE, RANGE_HEADER_ALIGNMENT),
+            _ => todo!(),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub enum FunctionIpKind {
@@ -1173,9 +1207,9 @@ impl FunctionCodeGen<'_> {
                 // TODO:
                 // Intentionally empty, since it should never be called
             }
-            IntrinsicFunction::VecFor => todo!(),
-            IntrinsicFunction::VecWhile => todo!(),
-            IntrinsicFunction::VecFindMap => todo!(),
+            IntrinsicFunction::VecFor => todo!(),   // Low prio
+            IntrinsicFunction::VecWhile => todo!(), // Low prio
+            IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
             IntrinsicFunction::VecLen => self.builder.add_mov32(
                 ctx.addr(),
@@ -1183,15 +1217,48 @@ impl FunctionCodeGen<'_> {
                 node,
                 "get the vec length",
             ),
-            IntrinsicFunction::VecAny => {}
-            IntrinsicFunction::VecAll => {}
-            IntrinsicFunction::VecMap => {}
-            IntrinsicFunction::VecFilterMap => {}
-            IntrinsicFunction::VecSwap => {}
-            IntrinsicFunction::VecInsert => {}
-            IntrinsicFunction::VecFirst => {}
-            IntrinsicFunction::VecLast => {}
-            IntrinsicFunction::VecFold => {}
+            IntrinsicFunction::VecAny => todo!(), // Low prio
+            IntrinsicFunction::VecAll => todo!(), // Low prio
+            IntrinsicFunction::VecMap => todo!(), // Low prio
+            IntrinsicFunction::VecFilterMap => todo!(), // Low prio
+            IntrinsicFunction::VecSwap => {
+                let index_a = self.gen_for_access_or_location(&arguments[0])?;
+                let index_b = self.gen_for_access_or_location(&arguments[1])?;
+                self.builder.add_vec_swamp(
+                    self_addr.unwrap().addr,
+                    index_a.addr,
+                    index_b.addr,
+                    node,
+                    "vec swap",
+                );
+            }
+
+            IntrinsicFunction::VecInsert => { // Low prio
+            }
+            IntrinsicFunction::VecFirst => { // Low prio
+            }
+            IntrinsicFunction::VecLast => { // Low prio
+            }
+            IntrinsicFunction::VecFold => { // Low prio
+            }
+            IntrinsicFunction::VecFilter => {
+                let (iter_next_ip, patch_position, lambda_expr) = self.iter_start(
+                    node,
+                    Collection::Vec,
+                    self_addr.unwrap().addr,
+                    &arguments[0],
+                )?;
+
+                let lambda_result = self.gen_expression_location(&lambda_expr)?;
+                // TODO: Generate code for filter
+                self.builder
+                    .add_jmp(iter_next_ip, node, "jump to iter_next");
+                self.builder.patch_jump_here(patch_position);
+            }
+
+            IntrinsicFunction::VecFind => {
+                //TODO:
+            }
 
             // Map
             IntrinsicFunction::MapCreate => {
@@ -1317,13 +1384,6 @@ impl FunctionCodeGen<'_> {
                 );
 
                  */
-            }
-
-            IntrinsicFunction::VecFilter => {
-                // TODO: self.gen_vec_filter()
-            }
-            IntrinsicFunction::VecFind => {
-                //TODO:
             }
 
             IntrinsicFunction::GridGetColumn => {}
@@ -2759,7 +2819,7 @@ impl FunctionCodeGen<'_> {
             .allocate(VEC_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT);
         self.builder.add_vec_iter_init(
             temp_iterator_region,
-            FrameMemoryAddressIndirectPointer(collection_region.addr),
+            collection_region.addr,
             node,
             "initialize vec iterator",
         );
@@ -2808,7 +2868,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(InstructionPosition, PatchPosition), Error> {
         self.builder.add_map_iter_init(
             FrameMemoryAddress(0x80),
-            FrameMemoryAddressIndirectPointer(FrameMemoryAddress(0xffff)),
+            FrameMemoryAddress(0xffff),
             node,
             "initialize map iterator",
         );
@@ -2841,7 +2901,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(InstructionPosition, PatchPosition), Error> {
         self.builder.add_map_iter_init(
             FrameMemoryAddress(0x80),
-            FrameMemoryAddressIndirectPointer(FrameMemoryAddress(0xffff)),
+            FrameMemoryAddress(0xffff),
             node,
             "initialize map iterator",
         );
@@ -3787,8 +3847,8 @@ impl FunctionCodeGen<'_> {
 
     fn gen_tuple_destructuring(
         &mut self,
-        target_variables: &Vec<VariableRef>,
-        tuple_type: &Vec<Type>,
+        target_variables: &[VariableRef],
+        tuple_type: &[Type],
         source_tuple_expression: &Expression,
     ) -> Result<GeneratedExpressionResult, Error> {
         let source_region = self.gen_expression_location(source_tuple_expression)?;
@@ -3926,6 +3986,100 @@ impl FunctionCodeGen<'_> {
         }
 
         all_args
+    }
+
+    #[allow(clippy::unnecessary_wraps)]
+    fn iter_start(
+        &mut self,
+        node: &Node,
+        collection_type: Collection,
+        collection_self_addr: FrameMemoryAddress,
+        lambda_expression: &MutRefOrImmutableExpression,
+    ) -> Result<(InstructionPosition, PatchPosition, Expression), Error> {
+        let MutRefOrImmutableExpression::Expression(expr) = lambda_expression else {
+            panic!("internal error");
+        };
+
+        let ExpressionKind::Lambda(lambda_variables, lambda_expr) = &expr.kind else {
+            panic!();
+        };
+
+        let target_variables: Vec<_> = lambda_variables
+            .iter()
+            .map(|x| {
+                *self
+                    .variable_offsets
+                    .get(&x.unique_id_within_function)
+                    .unwrap()
+            })
+            .collect();
+
+        let (iterator_size, iterator_alignment) = collection_type.iterator_size_and_alignment();
+
+        let iterator_target = self
+            .temp_allocator
+            .reserve(iterator_size, iterator_alignment);
+
+        let iter_next_position = InstructionPosition(self.builder.position().0 + 1);
+        let placeholder = match collection_type {
+            Collection::Vec => {
+                self.builder.add_vec_iter_init(
+                    iterator_target.addr,
+                    collection_self_addr,
+                    node,
+                    "vec init",
+                );
+
+                if target_variables.len() == 2 {
+                    self.builder.add_vec_iter_next_pair_placeholder(
+                        iterator_target.addr,
+                        target_variables[0].addr,
+                        target_variables[1].addr,
+                        node,
+                        "vec iter next pair",
+                    )
+                } else {
+                    self.builder.add_vec_iter_next_placeholder(
+                        iterator_target.addr,
+                        target_variables[0].addr,
+                        node,
+                        "vec iter next single",
+                    )
+                }
+            }
+            Collection::Map => {
+                self.builder.add_map_iter_init(
+                    iterator_target.addr,
+                    collection_self_addr,
+                    node,
+                    "map init",
+                );
+
+                if target_variables.len() == 2 {
+                    self.builder.add_map_iter_next_pair_placeholder(
+                        iterator_target.addr,
+                        target_variables[0].addr,
+                        target_variables[1].addr,
+                        node,
+                        "map next_pair",
+                    )
+                } else {
+                    self.builder.add_map_iter_next_placeholder(
+                        iterator_target.addr,
+                        target_variables[0].addr,
+                        node,
+                        "map next_single",
+                    )
+                }
+            }
+            Collection::Grid => todo!(),
+            Collection::Range => todo!(),
+
+            // Low  prio
+            Collection::String => todo!(),
+        };
+
+        Ok((iter_next_position, placeholder, *lambda_expr.clone()))
     }
 }
 

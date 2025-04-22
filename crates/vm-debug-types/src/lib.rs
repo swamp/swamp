@@ -133,7 +133,29 @@ pub enum DecoratedMemoryKind {
     Fp32, // Float
     B8,   // Bool
     Octets,
+    VecIterator,
+    VecHeader,
     IndirectHeapPointer,
+
+    StringHeader,
+}
+
+impl DecoratedMemoryKind {
+    pub fn to_str(&self) -> &str {
+        match self {
+            Self::B8 => "b8",
+            Self::U8 => "u8",
+            Self::U16 => "u16",
+            Self::U32 => "u32",
+            Self::S32 => "i32",
+            Self::Fp32 => "fp32",
+            Self::Octets => "*b8",
+            Self::VecIterator => "vec_iter",
+            Self::VecHeader => "vec_header",
+            Self::IndirectHeapPointer => "<heap ptr}",
+            Self::StringHeader => "string header",
+        }
+    }
 }
 
 pub struct DecoratedOperandOrigin {}
