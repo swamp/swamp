@@ -744,6 +744,12 @@ pub fn disasm(
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
         ],
 
+        OpCode::VecGetRange => &[
+            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),
+        ],
+
         OpCode::MapNewFromPairs => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),

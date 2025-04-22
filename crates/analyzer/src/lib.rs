@@ -34,7 +34,7 @@ use swamp_semantic::{
     BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState, InternalMainExpression,
     LocationAccess, LocationAccessKind, MutRefOrImmutableExpression, MutableReferenceKind,
     NormalPattern, Postfix, PostfixKind, SingleLocationExpression, TargetAssignmentLocation,
-    TypeWithMut, WhenBinding,
+    TypeWithMut, UnaryOperatorKind, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::all_types_are_concrete_or_unit;
@@ -722,12 +722,16 @@ impl<'a> Analyzer<'a> {
             }
 
             swamp_ast::ExpressionKind::UnaryOp(operator, expression) => {
-                let (resolved_op, result_type) = self.analyze_unary_op(operator, expression)?;
-                self.create_expr(
-                    ExpressionKind::UnaryOp(resolved_op),
-                    result_type,
-                    &ast_expression.node,
-                )
+                if let swamp_ast::UnaryOperator::BorrowMutRef(_node) = operator {
+                    self.analyze_expression(expression, context)?
+                } else {
+                    let (resolved_op, result_type) = self.analyze_unary_op(operator, expression)?;
+                    self.create_expr(
+                        ExpressionKind::UnaryOp(resolved_op),
+                        result_type,
+                        &ast_expression.node,
+                    )
+                }
             }
 
             swamp_ast::ExpressionKind::Block(expressions) => {
@@ -2781,6 +2785,13 @@ impl<'a> Analyzer<'a> {
                 ast_node,
             ));
         };
+
+        let Type::SlicePair(key_type, value_type) = &hopefully_slice_pair_expr.ty else {
+            panic!("must be slice pair")
+        };
+
+        assert!(key_type.is_concrete_or_unit(), "{key_type:?}");
+        assert!(value_type.is_concrete_or_unit());
 
         let mut_or_immute =
             MutRefOrImmutableExpression::Expression(hopefully_slice_pair_expr.clone());

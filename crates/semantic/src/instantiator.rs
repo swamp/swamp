@@ -223,6 +223,7 @@ impl Instantiator {
                                 body: internal.body.clone(),
                                 name: LocalIdentifier(Node::default()),
                                 defined_in_module_path: blueprint.defined_in_module_path.clone(),
+                                associated_with_type: Some(instantiated_type.clone()),
                                 assigned_name: format!("instantiated {func_name}"),
                                 signature: GenericAwareSignature {
                                     signature: new_signature.clone(),

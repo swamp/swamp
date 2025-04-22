@@ -176,7 +176,7 @@ pub enum BasicTypeKind {
     Tuple(TupleType),
     Optional(Box<BasicType>),
     Slice(Box<BasicType>),
-    SlicePair(Box<BasicType>, Box<BasicType>),
+    SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
 }
 #[derive(Clone, Debug)]
 pub struct BasicType {
@@ -249,7 +249,7 @@ impl Display for BasicTypeKind {
                 write!(f, "slice {basic}")
             }
             Self::SlicePair(a, b) => {
-                write!(f, "slice {a} {b}")
+                write!(f, "slice {a:?} {b:?}")
             }
         }
     }
@@ -451,9 +451,9 @@ pub fn write_basic_type(
         }
         BasicTypeKind::SlicePair(key_type, value_type) => {
             write!(f, "[|")?;
-            write_basic_type(key_type, origin, f, tabs + 1)?;
+            show_offset_item(key_type, origin, f, tabs + 1)?;
             write!(f, ", ")?;
-            write_basic_type(value_type, origin, f, tabs + 1)?;
+            show_offset_item(value_type, origin, f, tabs + 1)?;
             write!(f, "|]")
         }
         BasicTypeKind::InternalStringHeader => {

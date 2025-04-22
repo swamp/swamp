@@ -143,6 +143,8 @@ pub struct InstructionBuilder<'a> {
 
 impl<'a> InstructionBuilder<'a> {}
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl<'a> InstructionBuilder<'a> {
     pub fn add_not_z(&mut self, node: &Node, comment: &str) {
         self.state.add_instruction(OpCode::NotZ, &[], node, comment);
@@ -230,6 +232,22 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::VecGet,
             &[target.0, self_addr.0, index.0],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_vec_get_range(
+        &mut self,
+        target: FrameMemoryAddress,
+        vec_self_addr: FrameMemoryAddress,
+        range_header: FrameMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::VecGetRange,
+            &[target.0, vec_self_addr.0, range_header.0],
             node,
             comment,
         );
@@ -1182,7 +1200,7 @@ impl InstructionBuilder<'_> {
         slice_source_addr: FrameMemoryAddress,
         key_size: MemorySize,
         value_size: MemorySize,
-        count: CountU16,
+        element_size: MemorySize,
         node: &Node,
 
         comment: &str,
@@ -1194,7 +1212,7 @@ impl InstructionBuilder<'_> {
                 slice_source_addr.0,
                 key_size.0,
                 value_size.0,
-                count.0,
+                element_size.0,
             ],
             node,
             comment,

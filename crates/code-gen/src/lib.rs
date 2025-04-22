@@ -40,7 +40,7 @@ use swamp_semantic::{
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
 use swamp_vm_debug_types::{
     BasicType, BasicTypeKind, FrameMemoryInfo, FrameRelativeInfo, FunctionInfo, FunctionInfoKind,
-    MemoryElement, OffsetMemoryItem, StructType, TaggedUnionData, TaggedUnionDataKind,
+    MemoryElement, OffsetMemoryItem, StructType, TaggedUnionData, TaggedUnionDataKind, TupleType,
     VariableInfo, show_frame_memory,
 };
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
@@ -49,9 +49,9 @@ use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
     FrameMemoryRegion, FrameMemorySize, HeapMemoryOffset, HeapMemoryRegion, INT_SIZE,
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryAlignment,
-    MemoryOffset, MemorySize, Meta, PTR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_ALIGNMENT,
-    SLICE_HEADER_SIZE, SLICE_PTR_OFFSET, TempFrameMemoryAddress, VEC_ITERATOR_ALIGNMENT,
-    VEC_ITERATOR_SIZE, ZFlagPolarity,
+    MemoryOffset, MemorySize, Meta, PTR_SIZE, RANGE_HEADER_SIZE, SLICE_COUNT_OFFSET,
+    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PTR_OFFSET, TempFrameMemoryAddress,
+    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -407,11 +407,6 @@ pub struct FrameAndVariableInfo {
     variable_offsets: SeqMap<usize, FrameMemoryRegion>,
 }
 
-/*
-
-
-*/
-
 #[derive(Debug)]
 pub struct FunctionInData {
     pub function_name_node: Node,
@@ -426,20 +421,6 @@ pub struct FunctionInData {
 pub struct TopLevelGenState {
     pub builder_state: InstructionBuilderState,
     pub codegen_state: CodeGenState,
-}
-
-impl TopLevelGenState {
-    #[must_use]
-    pub fn function_debug_infos(&self) -> &SeqMap<InstructionPosition, FunctionInfo> {
-        &self.codegen_state.function_debug_infos
-    }
-}
-
-impl TopLevelGenState {
-    #[must_use]
-    pub fn function_ips(&self) -> &FunctionIps {
-        &self.codegen_state.function_ips
-    }
 }
 
 impl Default for TopLevelGenState {
@@ -457,6 +438,15 @@ impl TopLevelGenState {
         }
     }
 
+    #[must_use]
+    pub fn function_debug_infos(&self) -> &SeqMap<InstructionPosition, FunctionInfo> {
+        &self.codegen_state.function_debug_infos
+    }
+    #[must_use]
+    pub fn function_ips(&self) -> &FunctionIps {
+        &self.codegen_state.function_ips
+    }
+
     pub fn reserve_space_for_constants(&mut self, constants: &[ConstantRef]) -> Result<(), Error> {
         self.codegen_state.reserve_space_for_constants(constants)
     }
@@ -467,6 +457,7 @@ impl TopLevelGenState {
         options: &GenOptions,
         source_map_wrapper: &SourceMapWrapper,
     ) -> Result<(), Error> {
+        info!(internal_fn_def.assigned_name, "gen_function");
         assert_ne!(internal_fn_def.program_unique_id, 0);
 
         let in_data = FunctionInData {
@@ -726,11 +717,9 @@ impl<'a> FunctionCodeGen<'a> {
     #[must_use]
     pub fn new(
         state: &'a mut CodeGenState,
-        builder: &'a mut swamp_vm_instr_build::InstructionBuilder<'a>,
+        builder: &'a mut InstructionBuilder<'a>,
         variable_offsets: SeqMap<usize, FrameMemoryRegion>,
         frame_size: FrameMemorySize,
-        //node: &Node,
-        //function_info: FunctionInfo,
         source_map_lookup: &'a SourceMapWrapper,
     ) -> Self {
         const ARGUMENT_MAX_SIZE: u16 = 2 * 1024;
@@ -750,12 +739,6 @@ impl<'a> FunctionCodeGen<'a> {
             builder,
             source_map_lookup,
         }
-        /*
-               s.state
-                   .
-                   .add_enter(frame_size, node, &enter_comment);
-
-        */
     }
 }
 
@@ -797,6 +780,39 @@ impl FunctionCodeGen<'_> {
                 Ok(GeneratedExpressionResult::default())
             }
 
+            IntrinsicFunction::MapFromSlicePair => {
+                let MutRefOrImmutableExpression::Expression(expr) = &arguments[0] else {
+                    panic!("problem");
+                };
+
+                let slice_region = self.gen_expression_location(expr)?;
+
+                let slice_type = arguments[0].ty();
+
+                let Type::SlicePair(key_type, value_type) = slice_type else {
+                    panic!("problem");
+                };
+
+                assert!(key_type.is_concrete_or_unit()); // is unit when it is empty
+                assert!(value_type.is_concrete_or_unit());
+
+                let element_pair_layout = layout_tuple_items(&[*key_type, *value_type]);
+                let key_layout = &element_pair_layout.fields[0];
+                let value_layout = &element_pair_layout.fields[1];
+
+                self.builder.add_map_new_from_slice(
+                    ctx.addr(),
+                    slice_region.addr,
+                    key_layout.size,
+                    value_layout.size,
+                    element_pair_layout.total_size,
+                    node,
+                    "create map from temporary slice pair",
+                );
+
+                Ok(GeneratedExpressionResult::default())
+            }
+
             _ => {
                 let self_arg = if arguments.is_empty() {
                     None
@@ -831,6 +847,19 @@ impl FunctionCodeGen<'_> {
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
         match intrinsic_fn {
+            IntrinsicFunction::RuntimePanic => {
+                self.builder
+                    .add_panic(self_addr.unwrap().addr(), node, "intrinsic panic");
+            }
+
+            // Bool
+            IntrinsicFunction::BoolToString => self.builder.bool_to_string(
+                ctx.addr(),
+                self_addr.unwrap().addr(),
+                node,
+                "bool_to_string",
+            ),
+
             // Fixed
             IntrinsicFunction::FloatRound => self.builder.add_float_round(
                 ctx.addr(),
@@ -861,42 +890,34 @@ impl FunctionCodeGen<'_> {
                     .add_float_abs(ctx.addr(), self_addr.unwrap().addr, node, "float abs");
             }
             IntrinsicFunction::FloatRnd => {
-                self.builder
-                    .add_float_prnd(ctx.addr(), self_addr.unwrap().addr, node, "float rnd");
+                self.builder.add_float_prnd(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,
+                    node,
+                    "float pseudo random",
+                );
             }
             IntrinsicFunction::FloatCos => {
-                self.builder.add_float_cos(
-                    ctx.addr(),
-                    self_addr.unwrap().addr,
-                    node,
-                    "float round",
-                );
+                self.builder
+                    .add_float_cos(ctx.addr(), self_addr.unwrap().addr, node, "float cos");
             }
             IntrinsicFunction::FloatSin => {
-                self.builder.add_float_sin(
-                    ctx.addr(),
-                    self_addr.unwrap().addr,
-                    node,
-                    "float round",
-                );
+                self.builder
+                    .add_float_sin(ctx.addr(), self_addr.unwrap().addr, node, "float sin");
             }
-            IntrinsicFunction::FloatAcos => self.builder.add_float_acos(
-                ctx.addr(),
-                self_addr.unwrap().addr,
-                node,
-                "float round",
-            ),
-            IntrinsicFunction::FloatAsin => self.builder.add_float_asin(
-                ctx.addr(),
-                self_addr.unwrap().addr,
-                node,
-                "float round",
-            ),
+            IntrinsicFunction::FloatAcos => {
+                self.builder
+                    .add_float_acos(ctx.addr(), self_addr.unwrap().addr, node, "float acos")
+            }
+            IntrinsicFunction::FloatAsin => {
+                self.builder
+                    .add_float_asin(ctx.addr(), self_addr.unwrap().addr, node, "float asin")
+            }
             IntrinsicFunction::FloatAtan2 => self.builder.add_float_atan2(
                 ctx.addr(),
                 self_addr.unwrap().addr,
                 node,
-                "float round",
+                "float atan2",
             ),
             IntrinsicFunction::FloatMin => {
                 let float_arg = &arguments[0];
@@ -909,7 +930,7 @@ impl FunctionCodeGen<'_> {
                     self_addr.unwrap().addr,
                     float_region.addr,
                     node,
-                    "float round",
+                    "float min",
                 );
             }
             IntrinsicFunction::FloatMax => {
@@ -923,7 +944,7 @@ impl FunctionCodeGen<'_> {
                     self_addr.unwrap().addr,
                     float_region.addr,
                     node,
-                    "float round",
+                    "float max",
                 );
             }
             IntrinsicFunction::FloatClamp => {
@@ -954,27 +975,32 @@ impl FunctionCodeGen<'_> {
                 node,
                 "float_to_string",
             ),
+
             // Int
             IntrinsicFunction::IntAbs => {
                 self.builder
-                    .add_int_abs(ctx.addr(), self_addr.unwrap().addr, node, "intrnd");
+                    .add_int_abs(ctx.addr(), self_addr.unwrap().addr, node, "int abs");
             }
 
             IntrinsicFunction::IntRnd => {
-                self.builder
-                    .add_int_rnd(ctx.addr(), self_addr.unwrap().addr, node, "intrnd");
+                self.builder.add_int_rnd(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,
+                    node,
+                    "int pseudo random",
+                );
             }
             IntrinsicFunction::IntMax => {
                 self.builder
-                    .add_int_max(ctx.addr(), self_addr.unwrap().addr, node, "int_max");
+                    .add_int_max(ctx.addr(), self_addr.unwrap().addr, node, "int max");
             }
             IntrinsicFunction::IntMin => {
                 self.builder
-                    .add_int_min(ctx.addr(), self_addr.unwrap().addr, node, "int_min");
+                    .add_int_min(ctx.addr(), self_addr.unwrap().addr, node, "int min");
             }
             IntrinsicFunction::IntClamp => {
                 self.builder
-                    .add_int_clamp(ctx.addr(), self_addr.unwrap().addr, node, "int_clamp");
+                    .add_int_clamp(ctx.addr(), self_addr.unwrap().addr, node, "int clamp");
             }
             IntrinsicFunction::IntToFloat => self.builder.add_int_to_float(
                 ctx.addr(),
@@ -1001,18 +1027,10 @@ impl FunctionCodeGen<'_> {
 
             // Vec
             IntrinsicFunction::VecFromSlice => {
-                let slice_variable = &arguments[0];
-                let slice_region =
-                    self.gen_expression_location_mut_ref_or_immutable(slice_variable)?;
-                let (element_size, _element_alignment) =
-                    type_size_and_alignment(&slice_variable.ty());
-                self.builder.add_vec_from_slice(
-                    ctx.addr(),
-                    slice_region.addr,
-                    element_size,
-                    node,
-                    "create vec from slice",
-                );
+                panic!("no self in vec from slice")
+            }
+            IntrinsicFunction::MapFromSlicePair => {
+                panic!("no self in mac from slice")
             }
             IntrinsicFunction::VecPush => {
                 let maybe_key_argument = &arguments[0];
@@ -1046,7 +1064,7 @@ impl FunctionCodeGen<'_> {
                     self_addr.unwrap().addr,
                     index_region.addr,
                     node,
-                    "get the vec length",
+                    "remove index",
                 );
             }
             IntrinsicFunction::VecRemoveIndexGetValue => {
@@ -1060,7 +1078,7 @@ impl FunctionCodeGen<'_> {
                     self_addr.unwrap().addr, // mut self
                     key_region.addr,
                     node,
-                    "vec remove index",
+                    "vec remove index get value",
                 );
             }
             IntrinsicFunction::VecClear => {
@@ -1099,7 +1117,7 @@ impl FunctionCodeGen<'_> {
                     self_addr.unwrap().addr,
                     index_region.addr,
                     node,
-                    "get the vec length",
+                    "vec get element at index",
                 );
             }
             IntrinsicFunction::VecSubscriptMut => {
@@ -1132,27 +1150,28 @@ impl FunctionCodeGen<'_> {
                 );
             }
             IntrinsicFunction::VecSubscriptRange => {
-                let maybe_key_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
+                let maybe_range_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(range_expr) = maybe_range_argument
+                else {
                     panic!();
                 };
-                let key_region = self.gen_expression_location(key_expr)?;
-                /*
-                self.state.builder.add_vec_subscript_range(
-                    self_addr.unwrap().addr, // mut self
-                    key_region.addr,
+                let range_header_region = self.gen_expression_location(range_expr)?;
+                assert_eq!(ctx.target_size(), RANGE_HEADER_SIZE);
+                self.builder.add_vec_get_range(
+                    ctx.addr(),
+                    self_addr.unwrap().addr,  // mut self (string header)
+                    range_header_region.addr, // range x..=y
+                    node,
                     "vec subscript range",
                 );
-
-                 */
             }
             IntrinsicFunction::VecIter => {
                 // TODO:
-                // Intentionally empty, since it is never called
+                // Intentionally empty, since it should never be called
             }
             IntrinsicFunction::VecIterMut => {
                 // TODO:
-                // Intentionally empty, since it is never called
+                // Intentionally empty, since it should never be called
             }
             IntrinsicFunction::VecFor => todo!(),
             IntrinsicFunction::VecWhile => todo!(),
@@ -1164,38 +1183,19 @@ impl FunctionCodeGen<'_> {
                 node,
                 "get the vec length",
             ),
+            IntrinsicFunction::VecAny => {}
+            IntrinsicFunction::VecAll => {}
+            IntrinsicFunction::VecMap => {}
+            IntrinsicFunction::VecFilterMap => {}
+            IntrinsicFunction::VecSwap => {}
+            IntrinsicFunction::VecInsert => {}
+            IntrinsicFunction::VecFirst => {}
+            IntrinsicFunction::VecLast => {}
+            IntrinsicFunction::VecFold => {}
 
             // Map
             IntrinsicFunction::MapCreate => {
                 // TODO:
-            }
-            IntrinsicFunction::MapFromSlicePair => {
-                /*
-                let slice_pair_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(expr) = slice_pair_argument else {
-                    panic!();
-                };
-
-                let ExpressionKind::Literal(some_lit) = &expr.kind else {
-                    panic!();
-                };
-
-                let Literal::SlicePair(slice_type, expression_pairs) = some_lit else {
-                    panic!();
-                };
-
-                let slice_pair_info = self.gen_slice_pair_literal(slice_type, expression_pairs);
-                self.builder.add_map_new_from_slice(
-                    ctx.addr(),
-                    slice_pair_info.addr.to_addr(),
-                    slice_pair_info.key_size,
-                    slice_pair_info.value_size,
-                    slice_pair_info.element_count,
-                    node,
-                    "create map from temporary slice pair",
-                );
-
-                 */
             }
             IntrinsicFunction::MapHas => {
                 self.builder
@@ -1207,8 +1207,12 @@ impl FunctionCodeGen<'_> {
                 };
                 self.gen_intrinsic_map_remove(self_addr.unwrap(), key_argument, ctx)?;
             }
-            IntrinsicFunction::MapIter => {}
-            IntrinsicFunction::MapIterMut => {}
+            IntrinsicFunction::MapIter => {
+                // Never called directly
+            }
+            IntrinsicFunction::MapIterMut => {
+                // Never called directly
+            }
             IntrinsicFunction::MapLen => {
                 self.builder.add_mov32(
                     ctx.addr(),
@@ -1217,7 +1221,6 @@ impl FunctionCodeGen<'_> {
                     "map len",
                 );
             }
-
             IntrinsicFunction::MapSubscript => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
@@ -1255,17 +1258,6 @@ impl FunctionCodeGen<'_> {
                     node,
                     "map_subscript_mut_create (set)",
                 );
-            }
-
-            // Sparse
-            IntrinsicFunction::SparseCreate => {
-                /*
-                self.state.builder.add_sparse_create(
-                    ctx.addr(),
-                    "map_subscript_mut_create (set)",
-                );
-
-                 */
             }
 
             // Grid
@@ -1334,42 +1326,8 @@ impl FunctionCodeGen<'_> {
                 //TODO:
             }
 
-            IntrinsicFunction::RuntimePanic => {
-                self.builder
-                    .add_panic(self_addr.unwrap().addr(), node, "intrinsic panic");
-            }
-            IntrinsicFunction::BoolToString => self.builder.bool_to_string(
-                ctx.addr(),
-                self_addr.unwrap().addr(),
-                node,
-                "bool_to_string",
-            ),
-
             IntrinsicFunction::GridGetColumn => {}
             IntrinsicFunction::GridFromSlice => {}
-
-            IntrinsicFunction::Float2Magnitude => {}
-            IntrinsicFunction::SparseAdd => {}
-            IntrinsicFunction::SparseNew => {}
-            IntrinsicFunction::SparseFromSlice => {}
-            IntrinsicFunction::SparseIter => {}
-            IntrinsicFunction::SparseIterMut => {}
-            IntrinsicFunction::SparseSubscript => {}
-            IntrinsicFunction::SparseSubscriptMut => {}
-            IntrinsicFunction::SparseHas => {}
-            IntrinsicFunction::SparseRemove => {}
-
-            IntrinsicFunction::VecAny => {}
-            IntrinsicFunction::VecAll => {}
-            IntrinsicFunction::VecMap => {}
-
-            IntrinsicFunction::VecFilterMap => {}
-
-            IntrinsicFunction::VecSwap => {}
-            IntrinsicFunction::VecInsert => {}
-            IntrinsicFunction::VecFirst => {}
-            IntrinsicFunction::VecLast => {}
-            IntrinsicFunction::VecFold => {}
 
             // Map2
             IntrinsicFunction::Map2Remove => {}
@@ -1379,6 +1337,29 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::Map2Get => {}
             IntrinsicFunction::Map2Has => {}
             IntrinsicFunction::Map2Create => {}
+
+            // Low prio ========
+            // Sparse
+            IntrinsicFunction::SparseCreate => {
+                /*
+                self.state.builder.add_sparse_create(
+                    ctx.addr(),
+                    "map_subscript_mut_create (set)",
+                );
+
+                 */
+            }
+            IntrinsicFunction::SparseAdd => {}
+            IntrinsicFunction::SparseFromSlice => {}
+            IntrinsicFunction::SparseIter => {}
+            IntrinsicFunction::SparseIterMut => {}
+            IntrinsicFunction::SparseSubscript => {}
+            IntrinsicFunction::SparseSubscriptMut => {}
+            IntrinsicFunction::SparseHas => {}
+            IntrinsicFunction::SparseRemove => {}
+
+            // Other
+            IntrinsicFunction::Float2Magnitude => {}
         }
 
         Ok(GeneratedExpressionResult::default())
@@ -1403,10 +1384,23 @@ impl FunctionCodeGen<'_> {
         internal_fn: &InternalFunctionDefinitionRef,
         comment: &str,
     ) {
-        let call_comment = &format!(
-            "calling {:?}::{} ({})",
-            internal_fn.defined_in_module_path, internal_fn.assigned_name, comment
+        let function_name = internal_fn.associated_with_type.as_ref().map_or_else(
+            || {
+                format!(
+                    "{:?}::{}",
+                    internal_fn.defined_in_module_path, internal_fn.assigned_name
+                )
+            },
+            |associated_with_type| {
+                format!(
+                    "{:?}::{}:{}",
+                    internal_fn.defined_in_module_path,
+                    associated_with_type,
+                    internal_fn.assigned_name
+                )
+            },
         );
+        let call_comment = &format!("calling {function_name} ({comment})",);
 
         if let Some(found) = self
             .state
@@ -1549,7 +1543,6 @@ impl FunctionCodeGen<'_> {
             }
             ExpressionKind::Block(expressions) => self.gen_block(expressions, ctx),
             ExpressionKind::Match(match_expr) => self.gen_match(match_expr, ctx),
-
             ExpressionKind::Guard(guards) => self.gen_guard(guards, ctx),
             ExpressionKind::If(conditional, true_expr, false_expr) => {
                 self.gen_if(conditional, true_expr, false_expr.as_deref(), ctx)
@@ -1563,21 +1556,21 @@ impl FunctionCodeGen<'_> {
             ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => {
                 self.gen_single_intrinsic_call(&expr.node, intrinsic_fn, arguments, ctx)
             }
-
-            ExpressionKind::Lambda(_vec, _x) => {
-                panic!("something went wrong. non-capturing lambdas can not be evaluated")
-            }
-
             ExpressionKind::CoerceOptionToBool(a) => self.gen_coerce_option_to_bool(a, ctx),
-
-            ExpressionKind::VariableBinding(_, _) => todo!(), // only used for `when` expressions
 
             ExpressionKind::InternalCall(internal, arguments) => {
                 self.gen_internal_call(&expr.node, internal, arguments, ctx)
             }
-
             ExpressionKind::HostCall(host_fn, arguments) => {
                 self.gen_host_call(&expr.node, host_fn, arguments, ctx)
+            }
+
+            // Low priority
+            ExpressionKind::VariableBinding(_, _) => todo!(), // only used for `when` expressions
+
+            // Illegal
+            ExpressionKind::Lambda(_vec, _x) => {
+                panic!("something went wrong. non-capturing lambdas can not be evaluated")
             }
         }
     }
@@ -1610,9 +1603,8 @@ impl FunctionCodeGen<'_> {
                         .add_neg_f32(ctx.addr(), left_source.addr, node, "negate f32");
                     GeneratedExpressionResult::default()
                 }
-                _ => todo!(),
+                _ => panic!("negate should only be possible on Int and Float"),
             },
-            UnaryOperatorKind::BorrowMutRef => todo!(),
         };
 
         Ok(result)
@@ -2262,21 +2254,25 @@ impl FunctionCodeGen<'_> {
 
         let mut parameters = signature.parameters.clone();
         if let Some(found_self) = maybe_self {
-            let source_region = reserve(&parameters[0].resolved_type, &mut arguments_allocator);
-            self.builder.add_mov(
-                found_self.addr,
-                source_region.addr,
-                source_region.size,
-                node,
-                "copy back to <self>",
-            );
+            assert_eq!(signature.parameters[0].name, "self");
+            if signature.parameters[0].is_mutable {
+                let source_region = reserve(&parameters[0].resolved_type, &mut arguments_allocator);
+                self.builder.add_mov(
+                    found_self.addr,
+                    source_region.addr,
+                    source_region.size,
+                    node,
+                    "copy back to <self>",
+                );
+            }
+
             parameters.remove(0);
         }
         for (parameter, argument) in parameters.iter().zip(arguments) {
-            let source_region = reserve(&parameter.resolved_type, &mut arguments_allocator);
             if !parameter.is_mutable {
                 continue;
             }
+            let source_region = reserve(&parameter.resolved_type, &mut arguments_allocator);
 
             if let MutRefOrImmutableExpression::Location(found_location) = argument {
                 let argument_target = self.gen_lvalue_address(found_location)?;
@@ -2631,7 +2627,6 @@ impl FunctionCodeGen<'_> {
                 let tagged_union = layout_enum_into_tagged_union(
                     &enum_type.assigned_name,
                     &enum_type.variants.values().cloned().collect::<Vec<_>>(),
-                    MemoryOffset(0),
                 );
 
                 let variant_data =
@@ -2927,7 +2922,7 @@ impl FunctionCodeGen<'_> {
         self.gen_expression_materialize(closure, &unit_expr)?;
 
         self.builder
-            .add_jmp(jump_ip, &closure.node, "jump to next iteration");
+            .add_jmp(jump_ip, &Node::default(), "jump to next iteration");
         // advance iterator pointer
         // jump to check if iterator pointer has reached its end
         self.builder.patch_jump_here(placeholder_position);
@@ -3342,30 +3337,38 @@ impl FunctionCodeGen<'_> {
             panic!("should have been slice pair type")
         };
 
-        let constructed_tuple = Type::Tuple(vec![*key_type.clone(), *value_type.clone()]);
+        //let constructed_tuple = Type::Tuple(vec![*key_type.clone(), *value_type.clone()]);
 
-        let (key_size, key_alignment) = type_size_and_alignment(key_type);
-        let (value_size, value_alignment) = type_size_and_alignment(value_type);
-        let (element_size, tuple_alignment) = type_size_and_alignment(&constructed_tuple);
+        let tuple_type_layout = layout_tuple_items(&[*key_type.clone(), *value_type.clone()]);
+
+        let key_layout = &tuple_type_layout.fields[0];
+        let value_layout = &tuple_type_layout.fields[1];
+
+        info!(?key_layout, ?value_layout, "layouts");
+
+        let element_size = tuple_type_layout.total_size;
+        let element_alignment = tuple_type_layout.total_alignment;
+
         let element_count = expressions.len() as u16;
         let total_slice_size = MemorySize(element_size.0 * element_count);
 
         let start_frame_address_to_transfer = self
             .temp_allocator
-            .allocate(total_slice_size, tuple_alignment);
+            .allocate(total_slice_size, element_alignment);
 
         for (index, (key_expr, value_expr)) in expressions.iter().enumerate() {
             let memory_offset = MemoryOffset((index as u16) * element_size.0);
             let key_region = FrameMemoryRegion::new(
                 start_frame_address_to_transfer.advance(memory_offset),
-                element_size,
+                key_layout.size,
             );
             let key_ctx = Context::new(key_region);
             self.gen_expression_materialize(key_expr, &key_ctx)?;
 
+            //.advance(memory_offset.add(value_layout.offset.as_size(), tuple_type_layout.total_alignment)),
             let value_region = FrameMemoryRegion::new(
-                start_frame_address_to_transfer.advance(memory_offset.add(key_size, key_alignment)),
-                value_size,
+                start_frame_address_to_transfer + value_layout.offset,
+                value_layout.size,
             );
             let value_ctx = Context::new(value_region);
             self.gen_expression_materialize(value_expr, &value_ctx)?;
@@ -3373,8 +3376,8 @@ impl FunctionCodeGen<'_> {
 
         Ok(SlicePairInfo {
             addr: TempFrameMemoryAddress(start_frame_address_to_transfer),
-            key_size,
-            value_size,
+            key_size: key_layout.size,
+            value_size: value_layout.size,
             element_count: CountU16(element_count),
             element_size,
         })
@@ -3790,7 +3793,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<GeneratedExpressionResult, Error> {
         let source_region = self.gen_expression_location(source_tuple_expression)?;
 
-        let tuple_type = layout_tuple_items(tuple_type, MemoryOffset(0));
+        let tuple_type = layout_tuple_items(tuple_type);
         assert_eq!(tuple_type.total_size.0, source_region.size.0);
 
         for (target_variable, offset_item) in target_variables.iter().zip(tuple_type.fields) {
@@ -3826,6 +3829,7 @@ impl FunctionCodeGen<'_> {
         constant_reference: &ConstantRef,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
+        info!(?constant_reference, "looking up constant");
         let constant_region = self
             .state
             .constant_offsets

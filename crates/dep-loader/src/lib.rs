@@ -14,6 +14,8 @@ use swamp_ast::Function;
 use swamp_ast::prelude::*;
 use swamp_parser::{AstParser, SpecificError};
 use time_dilation::ScopedTimer;
+use tracing::error;
+use tracing::trace;
 
 pub struct ParseRoot;
 
@@ -346,8 +348,10 @@ impl DependencyParser {
             visited: &mut HashSet<Vec<String>>,
             temp_visited: &mut HashSet<Vec<String>>,
             order: &mut Vec<Vec<String>>,
+            depth: usize,
         ) -> Result<(), DependencyError> {
             if temp_visited.contains(path) {
+                error!(?path, depth, "already visited this path");
                 return Err(DependencyError::CircularDependency(Vec::from(path)));
             }
 
@@ -355,14 +359,15 @@ impl DependencyParser {
                 return Ok(());
             }
 
+            trace!(?path, depth, "visit path");
             temp_visited.insert(Vec::from(path));
 
             if let Some(module) = graph.import_scanned_modules.get(&path.to_vec()) {
                 for import in &module.uses {
-                    visit(graph, import, visited, temp_visited, order)?;
+                    visit(graph, import, visited, temp_visited, order, depth + 1)?;
                 }
                 for import in &module.imports {
-                    visit(graph, import, visited, temp_visited, order)?;
+                    visit(graph, import, visited, temp_visited, order, depth + 1)?;
                 }
             }
 
@@ -376,7 +381,7 @@ impl DependencyParser {
 
         for path in self.import_scanned_modules.keys() {
             if !visited.contains(path) {
-                visit(self, path, &mut visited, &mut temp_visited, &mut order)?;
+                visit(self, path, &mut visited, &mut temp_visited, &mut order, 0)?;
             }
         }
 

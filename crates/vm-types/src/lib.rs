@@ -156,15 +156,10 @@ pub fn align_to(addr: MemoryOffset, alignment: MemoryAlignment) -> MemoryOffset 
 /// Note: The tail padding at the end of a struct is not reused for subsequent fields
 /// in a parent struct—this is required for safe and predictable layout
 pub fn adjust_size_to_alignment(
-    offset: MemoryOffset,
-    base_offset: MemoryOffset,
+    unaligned_size: MemorySize,
     max_alignment: MemoryAlignment,
 ) -> MemorySize {
-    if base_offset > offset {
-        panic!("")
-    }
-    let unaligned_size = offset - base_offset;
-    align_to(unaligned_size, max_alignment).to_size()
+    align_to(MemoryOffset(unaligned_size.0), max_alignment).to_size()
 }
 
 impl MemoryAddress {

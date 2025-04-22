@@ -191,6 +191,14 @@ impl Signature {
 }
 
 impl Type {
+    pub fn is_concrete_or_unit(&self) -> bool {
+        if matches!(self, Self::Unit) {
+            true
+        } else {
+            self.is_concrete()
+        }
+    }
+
     #[must_use]
     pub fn is_concrete(&self) -> bool {
         match self {

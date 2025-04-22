@@ -97,7 +97,6 @@ pub enum IntrinsicFunction {
     // Sparse
     SparseCreate,
     SparseAdd,
-    SparseNew,
     SparseFromSlice,
     SparseIter,
     SparseIterMut,
@@ -214,7 +213,6 @@ impl fmt::Display for IntrinsicFunction {
             Self::Map2Get => "map2_get",
 
             // Sparse
-            Self::SparseNew => "sparse_new",
             Self::SparseCreate => "sparse_create",
             Self::SparseFromSlice => "sparse_from_slice",
             Self::SparseAdd => "sparse_add",

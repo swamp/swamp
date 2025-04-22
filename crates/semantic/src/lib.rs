@@ -68,6 +68,7 @@ pub struct InternalFunctionDefinition {
     pub body: Expression,
     pub name: LocalIdentifier,
     pub assigned_name: String,
+    pub associated_with_type: Option<Type>,
     pub defined_in_module_path: Vec<String>,
     pub signature: GenericAwareSignature,
     pub parameter_and_variables: Vec<VariableRef>,
@@ -98,6 +99,7 @@ impl Default for InternalFunctionDefinition {
             },
             name: LocalIdentifier(Node::default()),
             assigned_name: String::new(),
+            associated_with_type: None,
             defined_in_module_path: vec![],
             signature: GenericAwareSignature {
                 signature: Signature {
@@ -283,7 +285,6 @@ pub struct BinaryOperator {
 pub enum UnaryOperatorKind {
     Not,
     Negate,
-    BorrowMutRef,
 }
 #[derive(Debug, Clone)]
 pub struct UnaryOperator {

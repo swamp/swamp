@@ -138,6 +138,7 @@ pub enum OpCode {
     VecClear,
     VecCreate,
     VecGet,
+    VecGetRange,
 
     // Map
     MapIterInit,
@@ -281,6 +282,7 @@ impl OpCode {
             Self::VecClear => "vclear",
             Self::VecCreate => "vcreate",
             Self::VecGet => "vget",
+            Self::VecGetRange => "vgetrn",
 
             // Map
             Self::MapNewFromPairs => "mnew",
