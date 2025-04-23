@@ -5,7 +5,7 @@ use crate::alloc_util::{
 use crate::{Error, FrameAndVariableInfo, reserve};
 use seq_map::SeqMap;
 use source_map_node::Node;
-use swamp_semantic::VariableRef;
+use swamp_semantic::{VariableRef, VariableType};
 use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_debug_types::{
     BasicType, BasicTypeKind, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
@@ -400,11 +400,17 @@ pub fn layout_variables(
         FrameMemoryAddress(0),
         MemorySize(32 * 1024),
     ));
-    let _current_offset = reserve(return_type, &mut allocator);
+    let return_region = reserve(return_type, &mut allocator);
 
     let mut enter_comment = "variables:\n".to_string();
 
     let mut frame_memory_infos = Vec::new();
+    frame_memory_infos.push(FrameAddressInfo {
+        region: return_region,
+        kind: FrameAddressInfoKind::Return,
+        ty: layout_type(&return_type, "return"),
+    });
+
     let mut variable_offsets = SeqMap::new();
 
     for var_ref in variables {
@@ -415,12 +421,20 @@ pub fn layout_variables(
             var_target.addr.0, var_target.size.0, var_ref.assigned_name
         );
 
-        frame_memory_infos.push(FrameAddressInfo {
-            region: var_target,
-            kind: FrameAddressInfoKind::Variable(VariableInfo {
+        let kind = match var_ref.variable_type {
+            VariableType::Local => FrameAddressInfoKind::Variable(VariableInfo {
                 is_mutable: var_ref.is_mutable(),
                 name: var_ref.assigned_name.clone(),
             }),
+            VariableType::Parameter => FrameAddressInfoKind::Parameter(VariableInfo {
+                is_mutable: var_ref.is_mutable(),
+                name: var_ref.assigned_name.clone(),
+            }),
+        };
+
+        frame_memory_infos.push(FrameAddressInfo {
+            region: var_target,
+            kind: kind,
             ty: layout_type(&var_ref.resolved_type, &var_ref.assigned_name),
         });
 

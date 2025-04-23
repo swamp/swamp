@@ -499,7 +499,7 @@ impl TopLevelGenState {
         options: &GenOptions,
         source_map_wrapper: &SourceMapWrapper,
     ) -> Result<(), Error> {
-        info!(internal_fn_def.assigned_name, "gen_function");
+        //info!(internal_fn_def.assigned_name, "gen_function");
         assert_ne!(internal_fn_def.program_unique_id, 0);
 
         let in_data = FunctionInData {
@@ -3417,7 +3417,7 @@ impl FunctionCodeGen<'_> {
         let key_layout = &tuple_type_layout.fields[0];
         let value_layout = &tuple_type_layout.fields[1];
 
-        info!(?key_layout, ?value_layout, "layouts");
+        //info!(?key_layout, ?value_layout, "layouts");
 
         let element_size = tuple_type_layout.total_size;
         let element_alignment = tuple_type_layout.max_alignment;
@@ -3902,7 +3902,7 @@ impl FunctionCodeGen<'_> {
         constant_reference: &ConstantRef,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        info!(?constant_reference, "looking up constant");
+        //info!(?constant_reference, "looking up constant");
         let constant_region = self
             .state
             .constant_offsets

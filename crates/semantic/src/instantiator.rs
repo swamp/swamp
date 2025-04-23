@@ -110,6 +110,7 @@ impl Instantiator {
                 ); // TODO: Should have separate checks for actual variables
                 Ok(VariableRef::new(Variable {
                     name: var.name.clone(),
+                    variable_type: var.variable_type.clone(),
                     assigned_name: var.assigned_name.clone(),
                     resolved_type: instantiated_type,
                     mutable_node: var.mutable_node.clone(),

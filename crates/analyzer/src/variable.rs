@@ -8,6 +8,7 @@ use source_map_node::Node;
 use std::rc::Rc;
 use swamp_semantic::{
     BlockScopeMode, Expression, ExpressionKind, MutRefOrImmutableExpression, Variable, VariableRef,
+    VariableType,
 };
 use swamp_types::prelude::*;
 
@@ -51,6 +52,20 @@ impl Analyzer<'_> {
         None
     }
 
+    pub(crate) fn create_parameter_resolved(
+        &mut self,
+        variable: &Node,
+        is_mutable: Option<&Node>,
+        variable_type_ref: &Type,
+    ) -> Result<VariableRef, Error> {
+        self.create_local_variable_resolved(
+            variable,
+            is_mutable,
+            variable_type_ref,
+            VariableType::Parameter,
+        )
+    }
+
     pub(crate) fn create_local_variable(
         &mut self,
         variable: &swamp_ast::Node,
@@ -68,6 +83,7 @@ impl Analyzer<'_> {
             &self.to_node(variable),
             Option::from(&self.to_node_option(is_mutable)),
             variable_type_ref,
+            VariableType::Local,
         )
     }
 
@@ -88,6 +104,7 @@ impl Analyzer<'_> {
         variable: &Node,
         is_mutable: Option<&Node>,
         variable_type_ref: &Type,
+        variable_type: VariableType,
     ) -> Result<VariableRef, Error> {
         if let Some(_existing_variable) = self.try_find_local_variable(variable) {
             return Err(
@@ -111,7 +128,7 @@ impl Analyzer<'_> {
         let resolved_variable = Variable {
             name: variable.clone(),
             assigned_name: variable_str.clone(),
-
+            variable_type,
             resolved_type: variable_type_ref.clone(),
             mutable_node: is_mutable.cloned(),
             scope_index,
@@ -165,6 +182,7 @@ impl Analyzer<'_> {
             name: Node::default(),
             assigned_name: actual_name.clone(),
             resolved_type: variable_type_ref.clone(),
+            variable_type: VariableType::Local,
             mutable_node: if is_mutable {
                 Some(Node::default())
             } else {

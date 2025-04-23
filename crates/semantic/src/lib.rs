@@ -227,11 +227,18 @@ impl FunctionScopeState {
 }
 
 #[derive(Debug, Clone)]
+pub enum VariableType {
+    Local,
+    Parameter,
+}
+
+#[derive(Debug, Clone)]
 pub struct Variable {
     pub name: Node,
     pub assigned_name: String,
     pub resolved_type: Type,
     pub mutable_node: Option<Node>,
+    pub variable_type: VariableType,
 
     pub scope_index: usize,
     pub variable_index: usize,

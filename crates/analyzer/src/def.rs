@@ -8,7 +8,7 @@ use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_semantic::{
     ExternalFunctionDefinition, Function, InternalFunctionDefinition, LocalIdentifier,
-    SemanticError, UseItem,
+    SemanticError, UseItem, VariableType,
 };
 use swamp_types::TypeVariable;
 use swamp_types::prelude::*;
@@ -444,6 +444,7 @@ impl Analyzer<'_> {
                         &param.node.as_ref().unwrap().name,
                         param.node.as_ref().unwrap().is_mutable.as_ref(),
                         &param.resolved_type.clone(),
+                        VariableType::Parameter,
                     )?;
                 }
                 let function_name = self
@@ -766,7 +767,7 @@ impl Analyzer<'_> {
                     self.analyze_maybe_type(Option::from(&function_data.declaration.return_type))?;
 
                 for param in &parameters {
-                    self.create_local_variable_resolved(
+                    self.create_parameter_resolved(
                         &param.node.as_ref().unwrap().name,
                         param.node.as_ref().unwrap().is_mutable.as_ref(),
                         &param.resolved_type.clone(),
