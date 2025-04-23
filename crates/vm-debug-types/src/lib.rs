@@ -30,45 +30,48 @@ pub struct StructType {
     pub name: String,
     pub fields: Vec<OffsetMemoryItem>,
     pub total_size: MemorySize,
-    pub total_alignment: MemoryAlignment,
+    pub max_alignment: MemoryAlignment,
+}
+
+impl Display for StructType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)?;
+        for field in &self.fields {
+            write!(
+                f,
+                "{:04X}:{:X} {}:{}",
+                field.offset.0, field.size.0, field.name, field.ty
+            )?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct TupleType {
     pub fields: Vec<OffsetMemoryItem>,
     pub total_size: MemorySize,
-    pub total_alignment: MemoryAlignment,
+    pub max_alignment: MemoryAlignment,
 }
 
-#[derive(Clone, Debug)]
-pub enum TaggedUnionDataKind {
-    Struct(StructType),
-    Tuple(TupleType),
-    Empty,
-}
-
-#[derive(Clone, Debug)]
-pub struct TaggedUnionData {
-    pub kind: TaggedUnionDataKind,
-    pub name: String,
-}
-
-impl TaggedUnionData {
-    #[must_use]
-    pub const fn payload_size(&self) -> MemorySize {
-        match &self.kind {
-            TaggedUnionDataKind::Struct(st) => st.total_size,
-            TaggedUnionDataKind::Tuple(tt) => tt.total_size,
-            TaggedUnionDataKind::Empty => MemorySize(0),
+impl Display for TupleType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for field in &self.fields {
+            write!(f, "{:04X}:{:X} {}", field.offset.0, field.size.0, field.ty)?;
         }
+        Ok(())
     }
-    #[must_use]
-    pub const fn payload_alignment(&self) -> MemoryAlignment {
-        match &self.kind {
-            TaggedUnionDataKind::Struct(st) => st.total_alignment,
-            TaggedUnionDataKind::Tuple(tt) => tt.total_alignment,
-            TaggedUnionDataKind::Empty => MemoryAlignment::U8,
-        }
+}
+
+#[derive(Clone, Debug)]
+pub struct TaggedUnionVariant {
+    pub name: String,  // e.g., "None", "Some"
+    pub ty: BasicType, // the payload type (could be unit/empty)
+}
+
+impl Display for TaggedUnionVariant {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.name, self.ty)
     }
 }
 
@@ -77,9 +80,21 @@ pub struct TaggedUnion {
     pub name: String,
     pub tag_offset: MemoryOffset, // should always be 0
     pub tag_size: MemorySize,
-    pub variants: Vec<TaggedUnionData>,
+    pub payload_max_size: MemorySize,
+    pub payload_offset: MemoryOffset,
+    pub variants: Vec<TaggedUnionVariant>,
     pub total_size: MemorySize,
     pub max_alignment: MemoryAlignment,
+}
+
+impl Display for TaggedUnion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "union {}:", self.name,)?;
+        for (offset, variant) in self.variants.iter().enumerate() {
+            writeln!(f, "  {offset}: {variant}")?;
+        }
+        Ok(())
+    }
 }
 
 impl TaggedUnion {
@@ -90,7 +105,7 @@ impl TaggedUnion {
 
 impl TaggedUnion {
     #[must_use]
-    pub fn get_variant_by_index(&self, index: usize) -> &TaggedUnionData {
+    pub fn get_variant_by_index(&self, index: usize) -> &TaggedUnionVariant {
         &self.variants[index]
     }
 }
@@ -196,7 +211,7 @@ pub enum BasicTypeKind {
     Struct(StructType),
     TaggedUnion(TaggedUnion),
     Tuple(TupleType),
-    Optional(Box<BasicType>),
+    Optional(TaggedUnion),
     Slice(Box<BasicType>),
     SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
 }
@@ -204,7 +219,24 @@ pub enum BasicTypeKind {
 pub struct BasicType {
     pub kind: BasicTypeKind,
     pub total_size: MemorySize,
-    pub total_alignment: MemoryAlignment,
+    pub max_alignment: MemoryAlignment,
+}
+
+impl BasicType {
+    #[must_use]
+    pub const fn unwrap_info(
+        &self,
+    ) -> Option<(MemoryOffset, MemorySize, MemoryOffset, MemorySize)> {
+        match &self.kind {
+            BasicTypeKind::TaggedUnion(tagged) | BasicTypeKind::Optional(tagged) => Some((
+                tagged.tag_offset,
+                tagged.tag_size,
+                tagged.payload_offset,
+                tagged.payload_max_size,
+            )),
+            _ => None,
+        }
+    }
 }
 
 impl Display for BasicType {
@@ -228,11 +260,14 @@ impl Display for BasicTypeKind {
             Self::Struct(_) => {
                 write!(f, "struct")
             }
-            Self::TaggedUnion(_) => {
-                write!(f, "tagged_union")
+            Self::TaggedUnion(basic) => {
+                write!(f, "tagged_union<{basic}>")
             }
-            Self::Tuple(_) => {
-                write!(f, "tuple")
+            Self::Optional(basic) => {
+                write!(f, "optional<{basic}>")
+            }
+            Self::Tuple(tuple) => {
+                write!(f, "tuple({tuple})")
             }
             Self::Empty => {
                 write!(f, "()")
@@ -263,9 +298,6 @@ impl Display for BasicTypeKind {
             }
             Self::InternalMapIterator => {
                 write!(f, "map_iter")
-            }
-            Self::Optional(basic) => {
-                write!(f, "optional<{basic}>")
             }
             Self::Slice(basic) => {
                 write!(f, "slice {basic}")
@@ -392,7 +424,30 @@ pub fn show_offset_item(
     show_memory_size(offset_item.size, f, tabs)?;
     write!(f, " ")?;
     write_identifier_and_colon(&offset_item.name, f)?;
-    write_basic_type(&offset_item.ty, origin, f, tabs + 1)
+    let adjusted_origin = origin + offset_item.offset;
+    write_basic_type(&offset_item.ty, adjusted_origin, f, tabs + 1)
+}
+
+pub fn show_tagged_union(
+    tagged_union: &TaggedUnion,
+    origin: FrameMemoryAddress,
+    f: &mut dyn Write,
+    tabs: usize,
+) -> std::fmt::Result {
+    write!(f, "union tag_size:")?;
+    show_memory_size(tagged_union.tag_size, f, tabs)?;
+    write!(f, " max payload:")?;
+    show_memory_size(tagged_union.payload_max_size, f, tabs)?;
+
+    let adjusted_payload_origin = origin + tagged_union.payload_offset;
+
+    for (index, union_data) in tagged_union.variants.iter().enumerate() {
+        new_line_and_tab(f, tabs + 1)?;
+        write!(f, "{}> ", index.bright_magenta())?;
+        write_identifier_and_colon(&union_data.name, f)?;
+        write_basic_type(&union_data.ty, adjusted_payload_origin, f, tabs + 1)?;
+    }
+    Ok(())
 }
 
 pub fn show_struct_type(
@@ -418,8 +473,7 @@ pub fn show_tuple_type(
     write!(f, "(")?;
     for offset_item in &s.fields {
         new_line_and_tab(f, tabs + 1)?;
-        let local_origin = origin + offset_item.offset;
-        show_offset_item(offset_item, local_origin, f, tabs + 1)?;
+        show_offset_item(offset_item, origin, f, tabs + 1)?;
     }
     write!(f, " )")
 }
@@ -443,29 +497,14 @@ pub fn write_basic_type(
         BasicTypeKind::U32 => write!(f, "{}", "u32".white()),
         BasicTypeKind::Struct(s) => show_struct_type(s, origin, f, tabs),
         BasicTypeKind::TaggedUnion(tagged_union) => {
-            write!(f, "union tag_size:")?;
-            show_memory_size(tagged_union.tag_size, f, tabs)?;
-            for (index, union_data) in tagged_union.variants.iter().enumerate() {
-                new_line_and_tab(f, tabs + 1)?;
-                write!(f, "{}> ", index.bright_magenta())?;
-                write_identifier_and_colon(&union_data.name, f)?;
-                match &union_data.kind {
-                    TaggedUnionDataKind::Struct(struct_type) => {
-                        show_struct_type(struct_type, origin, f, tabs + 2)?;
-                    }
-                    TaggedUnionDataKind::Tuple(tuple_type) => {
-                        show_tuple_type(tuple_type, origin, f, tabs + 2)?;
-                    }
-                    TaggedUnionDataKind::Empty => {}
-                }
-            }
-            Ok(())
+            show_tagged_union(tagged_union, origin, f, tabs)
+        }
+        BasicTypeKind::Optional(tagged_union) => {
+            write!(f, "Option")?;
+            show_tagged_union(tagged_union, origin, f, tabs)
         }
         BasicTypeKind::Tuple(tuple_type) => show_tuple_type(tuple_type, origin, f, tabs),
-        BasicTypeKind::Optional(inner_type) => {
-            write!(f, "Option")?;
-            write_basic_type(inner_type, origin, f, tabs)
-        }
+
         BasicTypeKind::Slice(slice_inner_type) => {
             write!(f, "[|")?;
             write_basic_type(slice_inner_type, origin, f, tabs + 1)?;

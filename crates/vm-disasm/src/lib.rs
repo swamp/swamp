@@ -8,7 +8,7 @@ use std::fmt::Write;
 use swamp_vm_debug_types::{
     BasicType, BasicTypeKind, DecoratedMemoryKind, DecoratedOpcode, DecoratedOperand,
     DecoratedOperandAccessKind, DecoratedOperandOrigin, FrameAddressInfoKind, FrameMemoryAttribute,
-    FrameMemoryInfo, OffsetMemoryItem, StructType, TaggedUnionDataKind, TupleType,
+    FrameMemoryInfo, OffsetMemoryItem, StructType, TupleType,
 };
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{

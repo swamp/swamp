@@ -9,8 +9,7 @@ use swamp_semantic::VariableRef;
 use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_debug_types::{
     BasicType, BasicTypeKind, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
-    OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionData, TaggedUnionDataKind, TupleType,
-    VariableInfo,
+    OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemoryOffset, MemorySize, PTR_SIZE,
@@ -22,140 +21,136 @@ use tracing::trace;
 pub fn type_size_and_alignment(ty: &Type) -> (MemorySize, MemoryAlignment) {
     let complex_type = layout_type(ty, "size_and_alignment");
 
-    (complex_type.total_size, complex_type.total_alignment)
+    (complex_type.total_size, complex_type.max_alignment)
+}
+
+#[derive(Copy, Clone)]
+struct VariantLayout {
+    pub size: MemorySize,
+    pub alignment: MemoryAlignment,
+}
+
+#[derive(Copy, Clone)]
+struct TaggedUnionLayout {
+    pub tag_offset: MemoryOffset,
+    pub tag_size: MemorySize,
+    pub tag_alignment: MemoryAlignment,
+    pub payload_offset: MemoryOffset,
+    pub payload_size: MemorySize,
+    pub payload_alignment: MemoryAlignment,
+    pub total_size: MemorySize,
+    pub max_alignment: MemoryAlignment,
+}
+
+fn layout_tagged_union(variants: &[VariantLayout]) -> TaggedUnionLayout {
+    let num_variants = variants.len();
+    let (tag_size, tag_alignment) = if num_variants <= 0xFF {
+        (MemorySize(1), MemoryAlignment::U8)
+    } else if num_variants <= 0xFFFF {
+        (MemorySize(2), MemoryAlignment::U16)
+    } else {
+        (MemorySize(4), MemoryAlignment::U32)
+    };
+
+    let max_payload_size = variants
+        .iter()
+        .map(|v| v.size)
+        .max()
+        .unwrap_or(MemorySize(0));
+    let max_payload_alignment = variants
+        .iter()
+        .map(|v| v.alignment)
+        .max()
+        .unwrap_or(MemoryAlignment::U8);
+
+    let payload_offset = align_to(MemoryOffset(tag_size.0), max_payload_alignment);
+    let max_alignment = std::cmp::max(tag_alignment, max_payload_alignment);
+
+    let complete_size_before_alignment = MemorySize(payload_offset.0 + max_payload_size.0);
+    let total_size = adjust_size_to_alignment(complete_size_before_alignment, max_alignment);
+
+    TaggedUnionLayout {
+        tag_offset: MemoryOffset(0),
+        tag_size,
+        tag_alignment,
+        payload_offset,
+        payload_size: max_payload_size,
+        payload_alignment: max_payload_alignment,
+        total_size,
+        max_alignment: max_alignment,
+    }
 }
 
 #[allow(clippy::too_many_lines)]
 pub fn layout_enum_into_tagged_union(name: &str, variants: &[EnumVariantType]) -> TaggedUnion {
-    // These are redundant types that
-    // just reflects the temporary status
-    // so it is not confused with the final types
-    // TODO: maybe not worth it?
-    enum VariantPayloadLayout {
-        Struct(StructType),
-        Tuple(TupleType),
-        Empty,
-    }
-
-    struct VariantLayout {
-        name: String,
-        payload: VariantPayloadLayout,
-    }
-
-    let mut max_payload_alignment = MemoryAlignment::U8;
-    let mut max_payload_size = MemorySize(0);
-
-    let mut variant_layouts = Vec::with_capacity(variants.len());
-
-    for variant in variants {
-        match variant {
+    let variant_infos: Vec<(VariantLayout, TaggedUnionVariant)> = variants
+        .into_iter()
+        .map(|variant| match variant {
             EnumVariantType::Struct(s) => {
                 let struct_type = layout_struct_type(&s.anon_struct, &s.common.assigned_name);
-                if struct_type.total_alignment > max_payload_alignment {
-                    max_payload_alignment = struct_type.total_alignment;
-                }
-                if struct_type.total_size > max_payload_size {
-                    max_payload_size = struct_type.total_size;
-                }
-                variant_layouts.push(VariantLayout {
-                    name: s.common.assigned_name.clone(),
-                    payload: VariantPayloadLayout::Struct(struct_type),
-                });
+                (
+                    VariantLayout {
+                        size: struct_type.total_size,
+                        alignment: struct_type.max_alignment,
+                    },
+                    TaggedUnionVariant {
+                        name: s.common.assigned_name.clone(),
+                        ty: BasicType {
+                            total_size: struct_type.total_size,
+                            max_alignment: struct_type.max_alignment,
+                            kind: BasicTypeKind::Struct(struct_type),
+                        },
+                    },
+                )
             }
             EnumVariantType::Tuple(t) => {
                 let tuple_type = layout_tuple_items(&t.fields_in_order);
-                if tuple_type.total_alignment > max_payload_alignment {
-                    max_payload_alignment = tuple_type.total_alignment;
-                }
-                if tuple_type.total_size > max_payload_size {
-                    max_payload_size = tuple_type.total_size;
-                }
-                variant_layouts.push(VariantLayout {
-                    name: t.common.assigned_name.clone(),
-                    payload: VariantPayloadLayout::Tuple(tuple_type),
-                });
+                (
+                    VariantLayout {
+                        size: tuple_type.total_size,
+                        alignment: tuple_type.max_alignment,
+                    },
+                    TaggedUnionVariant {
+                        name: t.common.assigned_name.clone(),
+                        ty: BasicType {
+                            total_size: tuple_type.total_size,
+                            max_alignment: tuple_type.max_alignment,
+                            kind: BasicTypeKind::Tuple(tuple_type),
+                        },
+                    },
+                )
             }
-            EnumVariantType::Nothing(n) => {
-                variant_layouts.push(VariantLayout {
+
+            EnumVariantType::Nothing(n) => (
+                VariantLayout {
+                    size: MemorySize(0),
+                    alignment: MemoryAlignment::U8,
+                },
+                TaggedUnionVariant {
                     name: n.common.assigned_name.clone(),
-                    payload: VariantPayloadLayout::Empty,
-                });
-            }
-        }
-    }
-
-    let tag_size = MemorySize(if variants.len() <= 0xFF {
-        1
-    } else if variants.len() <= 0xFFFF {
-        2
-    } else {
-        4
-    });
-    let tag_alignment = match tag_size.0 {
-        1 => MemoryAlignment::U8,
-        2 => MemoryAlignment::U16,
-        4 => MemoryAlignment::U32,
-        _ => panic!("Unsupported tag size"),
-    };
-
-    let payload_offset = align_to(MemoryOffset(tag_size.0), max_payload_alignment);
-
-    // Second pass: Layout each variant at the correct payload offset
-    let mut tagged_variants = Vec::with_capacity(variants.len());
-    for v in &variant_layouts {
-        match &v.payload {
-            VariantPayloadLayout::Struct(_) => {
-                let struct_type = layout_struct_type(
-                    match variants.iter().find(|var| match var {
-                        EnumVariantType::Struct(s) => s.common.assigned_name == v.name,
-                        _ => false,
-                    }) {
-                        Some(EnumVariantType::Struct(s)) => &s.anon_struct,
-                        _ => panic!("Struct variant not found"),
+                    ty: BasicType {
+                        total_size: MemorySize(0),
+                        max_alignment: MemoryAlignment::U8,
+                        kind: BasicTypeKind::Empty,
                     },
-                    //payload_offset,
-                    &v.name,
-                );
-                tagged_variants.push(TaggedUnionData {
-                    name: v.name.clone(),
-                    kind: TaggedUnionDataKind::Struct(struct_type),
-                });
-            }
-            VariantPayloadLayout::Tuple(_) => {
-                let tuple_type = layout_tuple_items(
-                    match variants.iter().find(|var| match var {
-                        EnumVariantType::Tuple(t) => t.common.assigned_name == v.name,
-                        _ => false,
-                    }) {
-                        Some(EnumVariantType::Tuple(t)) => &t.fields_in_order,
-                        _ => panic!("Tuple variant not found"),
-                    },
-                    //                    payload_offset,
-                );
-                tagged_variants.push(TaggedUnionData {
-                    name: v.name.clone(),
-                    kind: TaggedUnionDataKind::Tuple(tuple_type),
-                });
-            }
-            VariantPayloadLayout::Empty => {
-                tagged_variants.push(TaggedUnionData {
-                    name: v.name.clone(),
-                    kind: TaggedUnionDataKind::Empty,
-                });
-            }
-        }
-    }
+                },
+            ),
+        })
+        .collect();
 
-    let total_size = (align_to(payload_offset + max_payload_size, max_payload_alignment)).to_size();
-    let total_alignment = std::cmp::max(tag_alignment, max_payload_alignment);
+    let (variant_layouts, tagged_variants): (Vec<VariantLayout>, Vec<TaggedUnionVariant>) =
+        variant_infos.into_iter().unzip();
+    let tagged_union_layout = layout_tagged_union(&variant_layouts);
 
     TaggedUnion {
         name: name.to_string(),
-        tag_offset: MemoryOffset(0),
-        tag_size,
+        tag_offset: tagged_union_layout.tag_offset,
+        tag_size: tagged_union_layout.tag_size,
+        payload_max_size: tagged_union_layout.payload_size,
+        payload_offset: tagged_union_layout.payload_offset,
         variants: tagged_variants,
-        total_size,
-        max_alignment: total_alignment,
+        total_size: tagged_union_layout.total_size,
+        max_alignment: tagged_union_layout.max_alignment,
     }
 }
 
@@ -164,7 +159,7 @@ pub fn layout_enum(name: &str, variants: &[EnumVariantType]) -> BasicType {
 
     BasicType {
         total_size: tagged_union.total_size,
-        total_alignment: tagged_union.max_alignment,
+        max_alignment: tagged_union.max_alignment,
         kind: BasicTypeKind::TaggedUnion(tagged_union),
     }
 }
@@ -177,7 +172,7 @@ fn layout_slice_pair(a_type: &Type, b_type: &Type, name: &str) -> BasicType {
     BasicType {
         kind: BasicTypeKind::SlicePair(Box::new(key_type.clone()), Box::new(value_type.clone())),
         total_size: tuple_type.total_size,
-        total_alignment: tuple_type.total_alignment,
+        max_alignment: tuple_type.max_alignment,
     }
 }
 
@@ -189,7 +184,7 @@ fn basic_type(
     BasicType {
         kind: basic_type_kind,
         total_size: size,
-        total_alignment: alignment,
+        max_alignment: alignment,
     }
 }
 
@@ -210,7 +205,7 @@ pub fn layout_type(ty: &Type, name: &str) -> BasicType {
             BasicType {
                 kind: BasicTypeKind::Slice(Box::from(basic.clone())),
                 total_size: SLICE_HEADER_SIZE,
-                total_alignment: SLICE_HEADER_ALIGNMENT,
+                max_alignment: SLICE_HEADER_ALIGNMENT,
             }
         }
         Type::SlicePair(a, b) => layout_slice_pair(a, b, &format!("slice {name}")),
@@ -269,7 +264,7 @@ pub fn layout_struct_type(struct_type: &AnonymousStructType, name: &str) -> Stru
     for (field_name, field_type) in &struct_type.field_name_sorted_fields {
         let field_layout = layout_type(&field_type.field_type, field_name);
 
-        offset = align_to(offset, field_layout.total_alignment);
+        offset = align_to(offset, field_layout.max_alignment);
 
         items.push(OffsetMemoryItem {
             offset,
@@ -280,8 +275,8 @@ pub fn layout_struct_type(struct_type: &AnonymousStructType, name: &str) -> Stru
 
         offset = offset + field_layout.total_size;
 
-        if field_layout.total_alignment > max_alignment {
-            max_alignment = field_layout.total_alignment;
+        if field_layout.max_alignment > max_alignment {
+            max_alignment = field_layout.max_alignment;
         }
     }
 
@@ -291,7 +286,7 @@ pub fn layout_struct_type(struct_type: &AnonymousStructType, name: &str) -> Stru
         name: name.to_string(),
         fields: items,
         total_size,
-        total_alignment: max_alignment,
+        max_alignment,
     }
 }
 
@@ -299,58 +294,55 @@ pub fn layout_struct(struct_type: &AnonymousStructType, name: &str) -> BasicType
     let inner_struct = layout_struct_type(struct_type, name);
     BasicType {
         total_size: inner_struct.total_size,
-        total_alignment: inner_struct.total_alignment,
+        max_alignment: inner_struct.max_alignment,
         kind: BasicTypeKind::Struct(inner_struct),
     }
 }
 
 pub fn layout_optional_type(inner_type: &Type, name: &str) -> BasicType {
-    let tuple_type = layout_optional_type_items(inner_type, name);
+    let tagged_union_type = layout_optional_type_items(inner_type, name);
     BasicType {
-        total_size: tuple_type.total_size,
-        total_alignment: tuple_type.total_alignment,
-        kind: BasicTypeKind::Optional(Box::from(BasicType {
-            total_size: tuple_type.total_size,
-            total_alignment: tuple_type.total_alignment,
-            kind: BasicTypeKind::Tuple(tuple_type),
-        })),
+        total_size: tagged_union_type.total_size,
+        max_alignment: tagged_union_type.max_alignment,
+        kind: BasicTypeKind::Optional(tagged_union_type),
     }
 }
 
-pub fn layout_optional_type_items(inner_type: &Type, name: &str) -> TupleType {
-    let tag_size = MemorySize(1);
-    let tag_alignment = MemoryAlignment::U8;
+pub fn layout_optional_type_items(inner_type: &Type, name: &str) -> TaggedUnion {
+    let (payload_size, payload_max_alignment) = type_size_and_alignment(inner_type);
+    let payload_variant = VariantLayout {
+        size: payload_size,
+        alignment: payload_max_alignment,
+    };
+    let none_variant = VariantLayout {
+        size: MemorySize(0),
+        alignment: MemoryAlignment::U8,
+    };
+    let tagged = layout_tagged_union(&[none_variant, payload_variant]);
 
-    let payload_layout = layout_type(inner_type, name);
-    let payload_offset = align_to(MemoryOffset(tag_size.0), payload_layout.total_alignment);
-    let max_alignment = std::cmp::max(tag_alignment, payload_layout.total_alignment);
-    let end_offset = payload_offset + payload_layout.total_size;
+    let payload_tagged_variant = TaggedUnionVariant {
+        name: "Some".to_string(),
+        ty: layout_type(inner_type, "some"),
+    };
 
-    let total_size = adjust_size_to_alignment(end_offset.as_size(), max_alignment);
-
-    let items = vec![
-        OffsetMemoryItem {
-            offset: MemoryOffset(0),
-            size: tag_size,
-            name: "tag".to_string(),
-            ty: BasicType {
-                kind: BasicTypeKind::U8,
-                total_size: tag_size,
-                total_alignment: tag_alignment,
-            },
+    let none_tagged_variant = TaggedUnionVariant {
+        name: "None".to_string(),
+        ty: BasicType {
+            kind: BasicTypeKind::Empty,
+            total_size: MemorySize(0),
+            max_alignment: MemoryAlignment::U8,
         },
-        OffsetMemoryItem {
-            offset: payload_offset,
-            size: payload_layout.total_size,
-            name: "payload".to_string(),
-            ty: payload_layout.clone(),
-        },
-    ];
+    };
 
-    TupleType {
-        fields: items,
-        total_size,
-        total_alignment: max_alignment,
+    TaggedUnion {
+        name: "option".to_string(),
+        tag_offset: tagged.tag_offset,
+        tag_size: tagged.tag_size,
+        payload_max_size: tagged.payload_size,
+        payload_offset: tagged.payload_offset,
+        variants: vec![none_tagged_variant, payload_tagged_variant],
+        total_size: tagged.total_size,
+        max_alignment: tagged.max_alignment,
     }
 }
 
@@ -362,7 +354,7 @@ pub fn layout_tuple_items(types: &[Type]) -> TupleType {
     for (i, ty) in types.iter().enumerate() {
         let elem_layout = layout_type(ty, &i.to_string());
 
-        offset = align_to(offset, elem_layout.total_alignment);
+        offset = align_to(offset, elem_layout.max_alignment);
 
         items.push(OffsetMemoryItem {
             offset,
@@ -373,8 +365,8 @@ pub fn layout_tuple_items(types: &[Type]) -> TupleType {
 
         offset = offset + elem_layout.total_size;
 
-        if elem_layout.total_alignment > max_alignment {
-            max_alignment = elem_layout.total_alignment;
+        if elem_layout.max_alignment > max_alignment {
+            max_alignment = elem_layout.max_alignment;
         }
     }
 
@@ -383,7 +375,7 @@ pub fn layout_tuple_items(types: &[Type]) -> TupleType {
     TupleType {
         fields: items,
         total_size,
-        total_alignment: max_alignment,
+        max_alignment,
     }
 }
 
@@ -392,7 +384,7 @@ pub fn layout_tuple(types: &[Type]) -> BasicType {
 
     BasicType {
         total_size: tuple_type.total_size,
-        total_alignment: tuple_type.total_alignment,
+        max_alignment: tuple_type.max_alignment,
         kind: BasicTypeKind::Tuple(tuple_type),
     }
 }

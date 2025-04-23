@@ -40,8 +40,7 @@ use swamp_semantic::{
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
 use swamp_vm_debug_types::{
     BasicType, BasicTypeKind, FrameMemoryInfo, FrameRelativeInfo, FunctionInfo, FunctionInfoKind,
-    MemoryElement, OffsetMemoryItem, StructType, TaggedUnionData, TaggedUnionDataKind, TupleType,
-    VariableInfo, show_frame_memory,
+    MemoryElement, OffsetMemoryItem, StructType, TupleType, VariableInfo, show_frame_memory,
 };
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
@@ -56,6 +55,15 @@ use swamp_vm_types::{
     VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
+
+#[derive(Copy, Clone)]
+pub enum Transformer {
+    Filter,
+    Map,
+    Any,
+    All,
+    FilterMap,
+}
 
 #[derive(Copy, Clone)]
 pub enum Collection {
@@ -1251,9 +1259,13 @@ impl FunctionCodeGen<'_> {
 
                 let lambda_result = self.gen_expression_location(&lambda_expr)?;
                 // TODO: Generate code for filter
+                let did_it_set_z_flag =
+                    self.transformer_set_z_flag(Transformer::Filter, lambda_result, node);
+
                 self.builder
                     .add_jmp(iter_next_ip, node, "jump to iter_next");
                 self.builder.patch_jump_here(patch_position);
+                //self.builder.patch_jump_here(transformer_patch_position);
             }
 
             IntrinsicFunction::VecFind => {
@@ -2702,7 +2714,8 @@ impl FunctionCodeGen<'_> {
                 );
 
                 let inner_addr = ctx.addr().add(MemorySize(payload_offset.0));
-                let region = FrameMemoryRegion::new(inner_addr, variant_data.payload_size());
+
+                let region = FrameMemoryRegion::new(inner_addr, variant_data.ty.total_size);
                 let inner_ctx = Context::new(region);
 
                 //layout_union(a)
@@ -3407,7 +3420,7 @@ impl FunctionCodeGen<'_> {
         info!(?key_layout, ?value_layout, "layouts");
 
         let element_size = tuple_type_layout.total_size;
-        let element_alignment = tuple_type_layout.total_alignment;
+        let element_alignment = tuple_type_layout.max_alignment;
 
         let element_count = expressions.len() as u16;
         let total_slice_size = MemorySize(element_size.0 * element_count);
@@ -4080,6 +4093,78 @@ impl FunctionCodeGen<'_> {
         };
 
         Ok((iter_next_position, placeholder, *lambda_expr.clone()))
+    }
+
+    fn transformer_set_z_flag(
+        &mut self,
+        transformer: Transformer,
+        in_value: FrameMemoryRegion,
+        node: &Node,
+    ) -> GeneratedExpressionResultKind {
+        match transformer {
+            Transformer::Filter => {
+                assert_eq!(in_value.size.0, 1); // bool
+                self.builder
+                    .add_tst8(in_value.addr, node, "filter bool to z flag");
+                GeneratedExpressionResultKind::ZFlagIsTrue
+            }
+            Transformer::Map => GeneratedExpressionResultKind::ZFlagUnmodified,
+            Transformer::Any => {
+                self.builder.add_tst8(in_value.addr, node, "any, check tag");
+                GeneratedExpressionResultKind::ZFlagIsInversion
+            }
+            Transformer::All => {
+                self.builder.add_tst8(in_value.addr, node, "all, check tag");
+                GeneratedExpressionResultKind::ZFlagIsTrue
+            }
+            Transformer::FilterMap => {
+                self.builder
+                    .add_tst8(in_value.addr, node, "filter map, check tag");
+                GeneratedExpressionResultKind::ZFlagIsTrue
+            }
+        }
+    }
+
+    fn add_to_collection(
+        &mut self,
+        node: &Node,
+        collection: Collection,
+        mut_collection: FrameMemoryRegion,
+        value: FrameMemoryRegion,
+    ) {
+        match collection {
+            Collection::Vec => {
+                self.builder
+                    .add_vec_push(mut_collection.addr, value.addr, node, "push");
+            }
+            Collection::Map => todo!(),
+            Collection::Grid => todo!(),
+            Collection::String => todo!(),
+            Collection::Range => todo!(),
+        }
+    }
+
+    fn transformer_add_to_collection(
+        &mut self,
+        in_value_type: &BasicType,
+        in_value: FrameMemoryRegion,
+        should_unwrap_value: bool,
+        collection_type: Collection,
+        mut_collection: FrameMemoryRegion,
+        node: &Node,
+    ) {
+        let adjusted_region = if should_unwrap_value {
+            let (_tag_offset, _tag_size, payload_offset, payload_max_size) =
+                in_value_type.unwrap_info().unwrap();
+            FrameMemoryRegion {
+                addr: in_value.addr + payload_offset,
+                size: payload_max_size,
+            }
+        } else {
+            in_value
+        };
+
+        self.add_to_collection(node, collection_type, mut_collection, adjusted_region);
     }
 }
 
