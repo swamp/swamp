@@ -703,11 +703,16 @@ impl InstructionBuilder<'_> {
     pub fn add_vec_create(
         &mut self,
         mut_self_addr: FrameMemoryAddress,
+        element_byte_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
-        self.state
-            .add_instruction(OpCode::VecCreate, &[mut_self_addr.0], node, comment);
+        self.state.add_instruction(
+            OpCode::VecCreate,
+            &[mut_self_addr.0, element_byte_size.0],
+            node,
+            comment,
+        );
     }
 
     pub fn add_vec_from_slice(

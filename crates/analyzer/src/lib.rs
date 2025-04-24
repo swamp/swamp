@@ -753,7 +753,7 @@ impl<'a> Analyzer<'a> {
             }
 
             swamp_ast::ExpressionKind::InterpolatedString(string_parts) => {
-                self.analyze_interpolated_string_lowering(string_parts)?
+                self.analyze_interpolated_string_lowering(&ast_expression.node, string_parts)?
             }
 
             // Creation
@@ -1525,6 +1525,7 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_interpolated_string_lowering(
         &mut self,
+        node: &swamp_ast::Node,
         string_parts: &[swamp_ast::StringPart],
     ) -> Result<Expression, Error> {
         let mut last_expression: Option<Expression> = None;
@@ -1557,12 +1558,19 @@ impl<'a> Analyzer<'a> {
                         let basic_literal = ExpressionKind::Literal(string_literal);
                         self.create_expr(basic_literal, Type::String, &expression.node)
                     } else {
+                        // HACK TODO: REMOVE THIS
+
+                        let string_literal = Literal::StringLiteral("not implemented".to_string());
+                        let basic_literal = ExpressionKind::Literal(string_literal);
+                        self.create_expr(basic_literal, Type::String, &expression.node)
+                        /*
                         if maybe_to_string.is_none() {
                             return Err(self.create_err(
                                 ErrorKind::MissingToString(ty.clone()),
                                 &expression.node,
                             ));
                         }
+
 
                         let expr_as_param = MutRefOrImmutableExpression::Expression(expr);
                         let call_expr_kind = self.create_static_member_call(
@@ -1579,6 +1587,8 @@ impl<'a> Analyzer<'a> {
 
                          */
                         self.create_expr(call_expr_kind, Type::String, &expression.node)
+
+                             */
                     }
                 }
             };
@@ -1600,6 +1610,12 @@ impl<'a> Analyzer<'a> {
 
             last_expression = Some(x_last_expr);
         }
+
+        // HACK TODO: REMOVE THIS
+        let string_literal = Literal::StringLiteral("not implemented".to_string());
+        let basic_literal = ExpressionKind::Literal(string_literal);
+        let hack_expr = self.create_expr(basic_literal, Type::String, &node);
+        last_expression = Some(hack_expr);
 
         Ok(last_expression.unwrap())
     }

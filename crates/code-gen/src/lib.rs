@@ -11,18 +11,14 @@ mod layout;
 mod location;
 mod vec;
 
-use crate::GeneratedExpressionResultKind::ZFlagIsTrue;
 use crate::alloc::ScopeAllocator;
 use crate::alloc_util::{is_grid, is_map, is_range, is_stack, is_vec, reserve_space_for_type};
-use crate::constants::{ConstantsAllocator, ConstantsManager};
+use crate::constants::ConstantsManager;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use crate::layout::layout_variables;
 use crate::layout::type_size_and_alignment;
-use crate::layout::{
-    layout_enum_into_tagged_union, layout_struct, layout_struct_type, layout_tuple,
-    layout_tuple_items,
-};
+use crate::layout::{layout_enum_into_tagged_union, layout_tuple_items};
 use crate::vec::{MAP_LENGTH_OFFSET, VECTOR_LENGTH_OFFSET};
 use seq_map::SeqMap;
 use source_map_cache::{FileLineInfo, SourceMapLookup, SourceMapWrapper};
@@ -35,24 +31,22 @@ use swamp_semantic::{
     InternalFunctionId, InternalMainExpression, Iterable, Literal, Match,
     MutRefOrImmutableExpression, NormalPattern, Pattern, Postfix, PostfixKind,
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
-    UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
+    UnaryOperator, UnaryOperatorKind, Variable, VariableRef, WhenBinding,
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
 use swamp_vm_debug_types::{
-    BasicType, BasicTypeKind, FrameMemoryInfo, FrameRelativeInfo, FunctionInfo, FunctionInfoKind,
-    MemoryElement, OffsetMemoryItem, StructType, TupleType, VariableInfo, show_frame_memory,
+    BasicType, FrameMemoryInfo, FunctionInfo, FunctionInfoKind, show_frame_memory,
 };
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::{
-    BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryAddressIndirectPointer,
-    FrameMemoryRegion, FrameMemorySize, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, HeapMemoryOffset,
-    HeapMemoryRegion, INT_SIZE, InstructionPosition, InstructionPositionOffset, InstructionRange,
-    MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize, Meta,
-    PTR_SIZE, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, SLICE_COUNT_OFFSET,
-    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT,
-    STRING_HEADER_SIZE, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
-    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
+    BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
+    GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, HeapMemoryOffset, HeapMemoryRegion,
+    InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
+    MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize, Meta, RANGE_HEADER_ALIGNMENT,
+    RANGE_HEADER_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE, SLICE_PTR_OFFSET,
+    STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT,
+    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -63,6 +57,33 @@ pub enum Transformer {
     Any,
     All,
     FilterMap,
+}
+
+impl Transformer {}
+
+pub enum TransformerResult {
+    NormalBool,
+    InvertedBool,
+    Vector,
+}
+
+impl Transformer {
+    pub(crate) fn return_type(&self) -> TransformerResult {
+        match self {
+            Self::Filter => TransformerResult::Vector,
+            Self::FilterMap => TransformerResult::Vector,
+            Self::Map => TransformerResult::Vector,
+            Self::All => TransformerResult::NormalBool,
+            Self::Any => TransformerResult::InvertedBool,
+        }
+    }
+
+    pub(crate) fn needs_tag_removed(&self) -> bool {
+        match self {
+            Self::FilterMap => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -1145,7 +1166,8 @@ impl FunctionCodeGen<'_> {
                 );
             }
             IntrinsicFunction::VecCreate => {
-                self.builder.add_vec_create(ctx.addr(), node, "vec create");
+                self.builder
+                    .add_vec_create(ctx.addr(), MemorySize(0), node, "vec create"); // TODO: Fix to have proper element memory size
             }
             IntrinsicFunction::VecSubscript => {
                 let maybe_index_argument = &arguments[0];
@@ -1250,21 +1272,14 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecFold => { // Low prio
             }
             IntrinsicFunction::VecFilter => {
-                let (iter_next_ip, patch_position, lambda_expr) = self.iter_start(
+                self.iterate_over_collection_with_lambda(
                     node,
                     Collection::Vec,
-                    self_addr.unwrap().addr,
+                    Transformer::Filter,
+                    self_addr.unwrap(),
                     &arguments[0],
+                    ctx,
                 )?;
-
-                let lambda_result = self.gen_expression_location(&lambda_expr)?;
-                // TODO: Generate code for filter
-                let did_it_set_z_flag =
-                    self.transformer_set_z_flag(Transformer::Filter, lambda_result, node);
-
-                self.builder
-                    .add_jmp(iter_next_ip, node, "jump to iter_next");
-                self.builder.patch_jump_here(patch_position);
                 //self.builder.patch_jump_here(transformer_patch_position);
             }
 
@@ -2088,7 +2103,9 @@ impl FunctionCodeGen<'_> {
                     &option_union_expr.node,
                     "shortcut directly to z-flag",
                 );
-                return Ok(GeneratedExpressionResult { kind: ZFlagIsTrue });
+                return Ok(GeneratedExpressionResult {
+                    kind: GeneratedExpressionResultKind::ZFlagIsTrue,
+                });
             }
             /*
             ExpressionKind::ConstantAccess(_) => {}
@@ -4001,14 +4018,46 @@ impl FunctionCodeGen<'_> {
         all_args
     }
 
-    #[allow(clippy::unnecessary_wraps)]
-    fn iter_start(
+    /// Generates code to iterate over a collection using a transformer (e.g., map, filter, filter_map)
+    /// and a lambda expression. Handles creation of result vectors, iterator setup, lambda invocation,
+    /// early exit logic, and result collection.
+    ///
+    /// Steps:
+    /// 1. (Optional) Initialize a target vector for the result, if the transformer produces one.
+    /// 2. Initialize the iterator for the collection.
+    /// 3. Generate code to fetch the next element from the iterator.
+    /// 4. Inline the lambda code for the current element.
+    /// 5. If the transformer supports early exit (e.g., filter, find), set the Z flag based on the lambda result.
+    /// 6. Conditionally skip result insertion if early exit is triggered.
+    /// 7. (Optional) If applicable, insert the (possibly unwrapped) result into the target vector.
+    /// 8. Loop back to fetch the next element.
+    /// 9. Finalize iteration, handling any post-processing (e.g., normalizing boolean results).
+    ///
+    /// # Parameters
+    /// - `node`: The AST node for error reporting and code location.
+    /// - `collection_type`: The type of collection being iterated.
+    /// - `transformer`: The transformer operation (map, filter, find, fold, etc.).
+    /// - `collection_self_region`: Memory region of the collection.
+    /// - `lambda_expression`: The lambda expression to apply.
+    /// - `ctx`: Code generation context. Contains the result target.
+    ///
+    /// # Returns
+    /// - `Ok(())` on success, or an error if code generation fails.
+    ///
+    /// # Errors
+    /// // TODO:
+    /// # Panics
+    /// - If the lambda expression or its kind is not as expected (internal error).
+    pub fn iterate_over_collection_with_lambda(
         &mut self,
         node: &Node,
-        collection_type: Collection,
-        collection_self_addr: FrameMemoryAddress,
+        source_collection_type: Collection,
+        transformer: Transformer,
+        source_collection_self_region: FrameMemoryRegion,
         lambda_expression: &MutRefOrImmutableExpression,
-    ) -> Result<(InstructionPosition, PatchPosition, Expression), Error> {
+        ctx: &Context,
+    ) -> Result<(), Error> {
+        // Take out lambda and other lookups before generating the code
         let MutRefOrImmutableExpression::Expression(expr) = lambda_expression else {
             panic!("internal error");
         };
@@ -4017,6 +4066,118 @@ impl FunctionCodeGen<'_> {
             panic!();
         };
 
+        // 1. Optionally initialize the result vector if the transformer produces one.
+        let lambda_return_analyzed_type = &lambda_expr.ty;
+        let lambda_return_gen_type = layout_type(lambda_return_analyzed_type, "for_iterator");
+
+        if matches!(transformer.return_type(), TransformerResult::Vector) {
+            let element_size_in_target_vec = if transformer.needs_tag_removed() {
+                let (_tag_size, _tag_offset, _payload_offset, payload_size) =
+                    lambda_return_gen_type.unwrap_info().unwrap();
+                payload_size
+            } else {
+                lambda_return_gen_type.total_size
+            };
+
+            assert_eq!(ctx.target_size(), VEC_HEADER_SIZE);
+            self.builder.add_vec_create(
+                ctx.addr(),
+                element_size_in_target_vec,
+                node,
+                "target result vector",
+            );
+        }
+
+        // 2. Initialize the iterator and generate code to fetch the next element.
+        let (continue_iteration_label, iteration_complete_patch_position) = self
+            .iter_init_and_next(
+                node,
+                source_collection_type,
+                source_collection_self_region.addr,
+                lambda_variables,
+            )?;
+
+        // 3. Inline the lambda code for the current element(s).
+        let lambda_result = self.gen_expression_location(lambda_expr)?;
+
+        // 4. If the transformer supports early exit, set the Z flag based on the lambda result.
+        let transformer_z_flag_state =
+            self.check_if_transformer_sets_z_flag(Transformer::Filter, lambda_result, node);
+
+        // 5. Conditionally skip result insertion if early exit is triggered.
+        let maybe_skip_early = if matches!(
+            transformer_z_flag_state,
+            GeneratedExpressionResultKind::ZFlagIsTrue
+                | GeneratedExpressionResultKind::ZFlagIsInversion
+        ) {
+            // The z flag is set so we can act on it
+            let skip_early = self
+                .builder
+                .add_jmp_if_equal_placeholder(node, "skip early");
+
+            Some(skip_early)
+        } else {
+            // Z flag is not set, we have to iterate through the whole collection
+            None
+        };
+
+        // 6. If applicable, insert the (possibly unwrapped) result into the target vector.
+        if matches!(transformer.return_type(), TransformerResult::Vector) {
+            self.transformer_add_to_collection(
+                &lambda_return_gen_type,
+                lambda_result,
+                transformer.needs_tag_removed(),
+                source_collection_type,
+                ctx.target(),
+                node,
+            );
+        } else {
+            // Only alternative is that it is a bool return, so no need to take any action here
+        }
+
+        // 7. Loop back to fetch the next element.
+        self.builder
+            .add_jmp(continue_iteration_label, node, "jump to iter_next");
+
+        self.builder
+            .patch_jump_here(iteration_complete_patch_position);
+
+        // 8. Finalize iteration, handling any post-processing (e.g., normalizing boolean results).
+        if let Some(found_skip_early) = maybe_skip_early {
+            self.builder.patch_jump_here(found_skip_early);
+        }
+
+        if matches!(
+            transformer.return_type(),
+            TransformerResult::InvertedBool | TransformerResult::NormalBool
+        ) {
+            // It is a transformer that returns a bool, lets normalize it
+            match transformer.return_type() {
+                TransformerResult::NormalBool => {
+                    self.builder
+                        .add_stz(ctx.addr(), node, "transformer sets standard bool");
+                }
+                TransformerResult::InvertedBool => {
+                    self.builder
+                        .add_stnz(ctx.addr(), node, "transformer sets inverted bool");
+                }
+                TransformerResult::Vector => {
+                    panic!("should not be possible")
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    #[allow(clippy::unnecessary_wraps)]
+    fn iter_init_and_next(
+        &mut self,
+        node: &Node,
+        collection_type: Collection,
+        collection_self_addr: FrameMemoryAddress,
+        lambda_variables: &[VariableRef],
+    ) -> Result<(InstructionPosition, PatchPosition), Error> {
         let target_variables: Vec<_> = lambda_variables
             .iter()
             .map(|x| {
@@ -4092,10 +4253,10 @@ impl FunctionCodeGen<'_> {
             Collection::String => todo!(),
         };
 
-        Ok((iter_next_position, placeholder, *lambda_expr.clone()))
+        Ok((iter_next_position, placeholder))
     }
 
-    fn transformer_set_z_flag(
+    fn check_if_transformer_sets_z_flag(
         &mut self,
         transformer: Transformer,
         in_value: FrameMemoryRegion,

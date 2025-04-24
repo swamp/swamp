@@ -729,11 +729,14 @@ pub fn disasm(
             to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
         ],
 
-        OpCode::VecCreate => &[to_write_frame(
-            operands[0],
-            DecoratedMemoryKind::U32,
-            frame_memory_size,
-        )],
+        OpCode::VecCreate => &[
+            to_write_frame(
+                operands[0],
+                DecoratedMemoryKind::VecHeader,
+                frame_memory_size,
+            ),
+            DecoratedOperandAccessKind::CountU16(operands[1]),
+        ],
 
         OpCode::VecGet => &[
             to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),

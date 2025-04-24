@@ -9,6 +9,8 @@ pub struct Context {
     comment: String,
 }
 
+impl Context {}
+
 impl Context {
     pub(crate) fn comment(&self) -> &str {
         &self.comment
