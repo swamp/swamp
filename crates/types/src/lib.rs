@@ -45,6 +45,68 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn is_vec(&self) -> bool {
+        match self {
+            Type::NamedStruct(named_struct) => named_struct.is_vec(),
+            _ => false,
+        }
+    }
+
+    pub fn is_map(&self) -> bool {
+        match self {
+            Type::NamedStruct(named_struct) => named_struct.is_map(),
+            _ => false,
+        }
+    }
+
+    pub fn is_stack(&self) -> bool {
+        match self {
+            Type::NamedStruct(named_struct) => named_struct.is_stack(),
+            _ => false,
+        }
+    }
+
+    pub fn is_range(&self) -> bool {
+        match self {
+            Type::NamedStruct(named_struct) => named_struct.is_range(),
+            _ => false,
+        }
+    }
+
+    fn is_core_type_with_name(&self, name: &str) -> bool {
+        match self {
+            Type::NamedStruct(named_struct) => named_struct.is_core_type_with_name(name),
+            _ => false,
+        }
+    }
+
+    pub fn is_grid(&self) -> bool {
+        self.is_core_type_with_name("Grid")
+    }
+
+    pub fn is_vec_ns(named_struct: &NamedStructType) -> bool {
+        named_struct.module_path == vec!["core-0.0.0".to_string()]
+            && named_struct.assigned_name.starts_with("Vec<")
+    }
+
+    pub fn primary_element_type(&self) -> Option<&Self> {
+        match self {
+            Self::Slice(element_type) => Some(element_type),
+            Self::SlicePair(_key, value_type) => Some(value_type),
+            Self::NamedStruct(ns) => {
+                if ns.is_vec() || ns.is_stack() {
+                    Some(&ns.instantiated_type_parameters[0])
+                } else {
+                    None
+                }
+            }
+            Self::MutableReference(inner) => inner.primary_element_type(),
+            _ => None,
+        }
+    }
+}
+
+impl Type {
     pub fn inner_optional_mut_or_immutable(&self) -> Option<&Type> {
         if let Self::Optional(normal) = self {
             Some(normal)
@@ -745,6 +807,37 @@ pub struct NamedStructType {
     pub anon_struct_type: AnonymousStructType,
     pub instantiated_type_parameters: Vec<Type>,
     pub blueprint_info: Option<ParameterizedTypeBlueprintInfo>,
+}
+
+impl NamedStructType {}
+
+impl NamedStructType {}
+
+impl NamedStructType {}
+
+impl NamedStructType {
+    fn is_core_type_with_name(&self, name: &str) -> bool {
+        self.module_path == vec!["core-0.0.0".to_string()] && self.assigned_name.starts_with(name)
+    }
+
+    pub fn is_vec(&self) -> bool {
+        self.is_core_type_with_name("Vec")
+    }
+
+    pub fn is_stack(&self) -> bool {
+        self.is_core_type_with_name("Stack")
+    }
+
+    pub fn is_grid(&self) -> bool {
+        self.is_core_type_with_name("Grid")
+    }
+    pub fn is_range(&self) -> bool {
+        self.is_core_type_with_name("Range")
+    }
+
+    pub fn is_map(&self) -> bool {
+        self.is_core_type_with_name("Map<")
+    }
 }
 
 impl Debug for NamedStructType {

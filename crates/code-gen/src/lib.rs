@@ -12,7 +12,7 @@ mod location;
 mod vec;
 
 use crate::alloc::ScopeAllocator;
-use crate::alloc_util::{is_grid, is_map, is_range, is_stack, is_vec, reserve_space_for_type};
+use crate::alloc_util::reserve_space_for_type;
 use crate::constants::ConstantsManager;
 use crate::ctx::Context;
 use crate::layout::layout_type;
@@ -33,7 +33,9 @@ use swamp_semantic::{
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
     UnaryOperator, UnaryOperatorKind, Variable, VariableRef, WhenBinding,
 };
-use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
+use swamp_types::{
+    AnonymousStructType, EnumVariantType, NamedStructType, Signature, StructTypeField, Type,
+};
 use swamp_vm_debug_types::{
     BasicType, FrameMemoryInfo, FunctionInfo, FunctionInfoKind, show_frame_memory,
 };
@@ -59,30 +61,23 @@ pub enum Transformer {
     FilterMap,
 }
 
-impl Transformer {}
-
 pub enum TransformerResult {
-    NormalBool,
-    InvertedBool,
-    Vector,
+    Bool,
+    VecWithLambdaResult,
+    VecFromSourceCollection,
 }
 
 impl Transformer {
-    pub(crate) fn return_type(&self) -> TransformerResult {
+    pub(crate) const fn return_type(self) -> TransformerResult {
         match self {
-            Self::Filter => TransformerResult::Vector,
-            Self::FilterMap => TransformerResult::Vector,
-            Self::Map => TransformerResult::Vector,
-            Self::All => TransformerResult::NormalBool,
-            Self::Any => TransformerResult::InvertedBool,
+            Self::Filter => TransformerResult::VecFromSourceCollection,
+            Self::FilterMap | Self::Map => TransformerResult::VecWithLambdaResult,
+            Self::All | Self::Any => TransformerResult::Bool,
         }
     }
 
-    pub(crate) fn needs_tag_removed(&self) -> bool {
-        match self {
-            Self::FilterMap => true,
-            _ => false,
-        }
+    pub(crate) const fn needs_tag_removed(self) -> bool {
+        matches!(self, Self::FilterMap)
     }
 }
 
@@ -159,15 +154,19 @@ impl GeneratedExpressionResultKind {
             Self::ZFlagIsInversion => Self::ZFlagIsTrue,
         }
     }
+
+    pub(crate) fn polarity(&self) -> ZFlagPolarity {
+        match self {
+            Self::ZFlagUnmodified => panic!("polarity is undefined"),
+            Self::ZFlagIsTrue => ZFlagPolarity::Normal,
+            Self::ZFlagIsInversion => ZFlagPolarity::Inverted,
+        }
+    }
 }
 
 impl GeneratedExpressionResult {
     pub(crate) fn polarity(&self) -> ZFlagPolarity {
-        match self.kind {
-            GeneratedExpressionResultKind::ZFlagUnmodified => panic!("polarity is undefined"),
-            GeneratedExpressionResultKind::ZFlagIsTrue => ZFlagPolarity::Normal,
-            GeneratedExpressionResultKind::ZFlagIsInversion => ZFlagPolarity::Inverted,
-        }
+        self.kind.polarity()
     }
 }
 
@@ -877,12 +876,12 @@ impl FunctionCodeGen<'_> {
             }
 
             _ => {
-                let self_arg = if arguments.is_empty() {
-                    None
+                let (self_arg, maybe_self_type) = if arguments.is_empty() {
+                    (None, None)
                 } else {
                     let self_region =
                         self.gen_expression_location_mut_ref_or_immutable(&arguments[0])?;
-                    Some(self_region)
+                    (Some(self_region), Some(arguments[0].ty().clone()))
                 };
                 let rest_args = if arguments.len() > 1 {
                     &arguments[1..]
@@ -892,6 +891,7 @@ impl FunctionCodeGen<'_> {
                 self.gen_single_intrinsic_call_with_self(
                     node,
                     intrinsic_fn,
+                    maybe_self_type,
                     self_arg,
                     rest_args,
                     ctx,
@@ -905,6 +905,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
+        self_type: Option<Type>,
         self_addr: Option<FrameMemoryRegion>,
         arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
@@ -1277,6 +1278,7 @@ impl FunctionCodeGen<'_> {
                     Collection::Vec,
                     Transformer::Filter,
                     self_addr.unwrap(),
+                    &self_type.unwrap(),
                     &arguments[0],
                     ctx,
                 )?;
@@ -2569,6 +2571,7 @@ impl FunctionCodeGen<'_> {
                                 self.gen_single_intrinsic_call_with_self(
                                     &start_expression.node,
                                     intrinsic_fn,
+                                    Some(element.ty.clone()),
                                     Some(start_source),
                                     &merged_arguments,
                                     ctx,
@@ -2977,15 +2980,15 @@ impl FunctionCodeGen<'_> {
             }
             Type::NamedStruct(named_type) => {
                 //let node = &named_type.name;
-                if let Some(found_info) = is_vec(collection_type) {
+                if named_type.is_vec() {
                     self.gen_for_loop_vec(node, for_pattern, &iterable.resolved_expression)?
-                } else if let Some(found_info) = is_map(collection_type) {
+                } else if named_type.is_map() {
                     self.gen_for_loop_map(node, for_pattern)?
-                } else if let Some(found_info) = is_range(collection_type) {
+                } else if named_type.is_range() {
                     self.gen_for_loop_range(node, for_pattern)?
-                } else if let Some(found_info) = is_stack(collection_type) {
+                } else if named_type.is_stack() {
                     self.gen_for_loop_range(node, for_pattern)?
-                } else if let Some(found_info) = is_grid(collection_type) {
+                } else if named_type.is_grid() {
                     self.gen_for_loop_range(node, for_pattern)?
                 } else {
                     error!(?named_type, "can not iterate this collection");
@@ -4054,6 +4057,7 @@ impl FunctionCodeGen<'_> {
         source_collection_type: Collection,
         transformer: Transformer,
         source_collection_self_region: FrameMemoryRegion,
+        source_collection_analyzed_type: &Type,
         lambda_expression: &MutRefOrImmutableExpression,
         ctx: &Context,
     ) -> Result<(), Error> {
@@ -4066,17 +4070,46 @@ impl FunctionCodeGen<'_> {
             panic!();
         };
 
-        // 1. Optionally initialize the result vector if the transformer produces one.
+        let primary_element_type = source_collection_analyzed_type.primary_element_type();
+
+        let target_variables: Vec<_> = lambda_variables
+            .iter()
+            .map(|x| {
+                *self
+                    .variable_offsets
+                    .get(&x.unique_id_within_function)
+                    .unwrap()
+            })
+            .collect();
+
+        // Primary is the right most variable
+        let primary_variable = target_variables[target_variables.len() - 1];
+
         let lambda_return_analyzed_type = &lambda_expr.ty;
+
+        // 1. Optionally initialize the result vector if the transformer produces one.
         let lambda_return_gen_type = layout_type(lambda_return_analyzed_type, "for_iterator");
 
-        if matches!(transformer.return_type(), TransformerResult::Vector) {
-            let element_size_in_target_vec = if transformer.needs_tag_removed() {
-                let (_tag_size, _tag_offset, _payload_offset, payload_size) =
-                    lambda_return_gen_type.unwrap_info().unwrap();
-                payload_size
-            } else {
-                lambda_return_gen_type.total_size
+        if matches!(
+            transformer.return_type(),
+            TransformerResult::VecWithLambdaResult | TransformerResult::VecFromSourceCollection
+        ) {
+            let element_size_in_target_vec = match transformer.return_type() {
+                TransformerResult::VecFromSourceCollection => {
+                    let (element_size, _element_alignment) =
+                        type_size_and_alignment(primary_element_type.unwrap());
+                    element_size
+                }
+                TransformerResult::VecWithLambdaResult => {
+                    if transformer.needs_tag_removed() {
+                        let (_tag_size, _tag_offset, _payload_offset, payload_size) =
+                            lambda_return_gen_type.unwrap_info().unwrap();
+                        payload_size
+                    } else {
+                        lambda_return_gen_type.total_size
+                    }
+                }
+                _ => panic!("should not happen"),
             };
 
             assert_eq!(ctx.target_size(), VEC_HEADER_SIZE);
@@ -4094,7 +4127,7 @@ impl FunctionCodeGen<'_> {
                 node,
                 source_collection_type,
                 source_collection_self_region.addr,
-                lambda_variables,
+                &target_variables,
             )?;
 
         // 3. Inline the lambda code for the current element(s).
@@ -4111,9 +4144,11 @@ impl FunctionCodeGen<'_> {
                 | GeneratedExpressionResultKind::ZFlagIsInversion
         ) {
             // The z flag is set so we can act on it
-            let skip_early = self
-                .builder
-                .add_jmp_if_equal_placeholder(node, "skip early");
+            let skip_early = self.builder.add_jmp_if_not_equal_polarity_placeholder(
+                &transformer_z_flag_state.polarity(),
+                node,
+                "skip early",
+            );
 
             Some(skip_early)
         } else {
@@ -4122,17 +4157,28 @@ impl FunctionCodeGen<'_> {
         };
 
         // 6. If applicable, insert the (possibly unwrapped) result into the target vector.
-        if matches!(transformer.return_type(), TransformerResult::Vector) {
-            self.transformer_add_to_collection(
-                &lambda_return_gen_type,
-                lambda_result,
-                transformer.needs_tag_removed(),
-                source_collection_type,
-                ctx.target(),
-                node,
-            );
-        } else {
-            // Only alternative is that it is a bool return, so no need to take any action here
+        match transformer.return_type() {
+            TransformerResult::Bool => {
+                // Only alternative is that it is a bool return, so no need to take any action here
+            }
+            TransformerResult::VecWithLambdaResult => {
+                self.transformer_add_to_collection(
+                    &lambda_return_gen_type,
+                    lambda_result,
+                    transformer.needs_tag_removed(),
+                    source_collection_type,
+                    ctx.target(),
+                    node,
+                );
+            }
+            TransformerResult::VecFromSourceCollection => {
+                self.add_to_collection(
+                    node,
+                    source_collection_type,
+                    ctx.target(),
+                    primary_variable,
+                );
+            }
         }
 
         // 7. Loop back to fetch the next element.
@@ -4147,24 +4193,10 @@ impl FunctionCodeGen<'_> {
             self.builder.patch_jump_here(found_skip_early);
         }
 
-        if matches!(
-            transformer.return_type(),
-            TransformerResult::InvertedBool | TransformerResult::NormalBool
-        ) {
+        if matches!(transformer.return_type(), TransformerResult::Bool) {
             // It is a transformer that returns a bool, lets normalize it
-            match transformer.return_type() {
-                TransformerResult::NormalBool => {
-                    self.builder
-                        .add_stz(ctx.addr(), node, "transformer sets standard bool");
-                }
-                TransformerResult::InvertedBool => {
-                    self.builder
-                        .add_stnz(ctx.addr(), node, "transformer sets inverted bool");
-                }
-                TransformerResult::Vector => {
-                    panic!("should not be possible")
-                }
-            }
+            self.builder
+                .add_stz(ctx.addr(), node, "transformer sets standard bool");
         }
 
         Ok(())
@@ -4176,18 +4208,8 @@ impl FunctionCodeGen<'_> {
         node: &Node,
         collection_type: Collection,
         collection_self_addr: FrameMemoryAddress,
-        lambda_variables: &[VariableRef],
+        target_variables: &[FrameMemoryRegion],
     ) -> Result<(InstructionPosition, PatchPosition), Error> {
-        let target_variables: Vec<_> = lambda_variables
-            .iter()
-            .map(|x| {
-                *self
-                    .variable_offsets
-                    .get(&x.unique_id_within_function)
-                    .unwrap()
-            })
-            .collect();
-
         let (iterator_size, iterator_alignment) = collection_type.iterator_size_and_alignment();
 
         let iterator_target = self

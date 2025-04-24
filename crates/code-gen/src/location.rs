@@ -106,6 +106,7 @@ impl FunctionCodeGen<'_> {
                     self.gen_single_intrinsic_call_with_self(
                         &location_expression.node,
                         intrinsic_function,
+                        Some(access.ty.clone()),
                         Some(frame_relative_base_address),
                         &converted,
                         &ctx,

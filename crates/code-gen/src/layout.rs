@@ -1,7 +1,4 @@
 use crate::alloc::ScopeAllocator;
-use crate::alloc_util::{
-    is_grid, is_grid_ns, is_map_ns, is_range_ns, is_stack_ns, is_vec, is_vec_ns,
-};
 use crate::{Error, FrameAndVariableInfo, reserve};
 use seq_map::SeqMap;
 use source_map_node::Node;
@@ -14,7 +11,7 @@ use swamp_vm_debug_types::{
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemoryOffset, MemorySize, PTR_SIZE,
     SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE,
-    adjust_size_to_alignment, align_to,
+    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
 
@@ -231,22 +228,42 @@ pub fn layout_type(ty: &Type, name: &str) -> BasicType {
 }
 
 fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
-    if let Some((size, alignment)) = is_vec_ns(named_struct_type) {
-        return basic_type(BasicTypeKind::InternalVecHeader, size, alignment);
+    if named_struct_type.is_vec() {
+        return basic_type(
+            BasicTypeKind::InternalVecHeader,
+            VEC_HEADER_SIZE,
+            VEC_HEADER_ALIGNMENT,
+        );
     }
 
-    if let Some((size, alignment)) = is_map_ns(named_struct_type) {
-        return basic_type(BasicTypeKind::InternalMapHeader, size, alignment);
+    if named_struct_type.is_map() {
+        return basic_type(
+            BasicTypeKind::InternalVecHeader,
+            VEC_HEADER_SIZE,
+            VEC_HEADER_ALIGNMENT,
+        );
     }
 
-    if let Some((size, alignment)) = is_grid_ns(named_struct_type) {
-        return basic_type(BasicTypeKind::InternalGridHeader, size, alignment);
+    if named_struct_type.is_grid() {
+        return basic_type(
+            BasicTypeKind::InternalVecHeader,
+            VEC_HEADER_SIZE,
+            VEC_HEADER_ALIGNMENT,
+        );
     }
-    if let Some((size, alignment)) = is_stack_ns(named_struct_type) {
-        return basic_type(BasicTypeKind::InternalVecHeader, size, alignment);
+    if named_struct_type.is_stack() {
+        return basic_type(
+            BasicTypeKind::InternalVecHeader,
+            VEC_HEADER_SIZE,
+            VEC_HEADER_ALIGNMENT,
+        );
     }
-    if let Some((size, alignment)) = is_range_ns(named_struct_type) {
-        return basic_type(BasicTypeKind::InternalRangeHeader, size, alignment);
+    if named_struct_type.is_range() {
+        return basic_type(
+            BasicTypeKind::InternalVecHeader,
+            VEC_HEADER_SIZE,
+            VEC_HEADER_ALIGNMENT,
+        );
     }
 
     layout_struct(
