@@ -3,9 +3,14 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+use crate::Collection;
 use crate::ctx::Context;
+use crate::layout::layout_type;
+use swamp_types::Type;
+use swamp_vm_types::types::{BasicType, BasicTypeKind, FramePlacedType};
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize, align_frame_addr,
+    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize, VEC_ITERATOR_ALIGNMENT,
+    VEC_ITERATOR_SIZE, align_frame_addr,
 };
 use tracing::error;
 
@@ -47,15 +52,37 @@ impl ScopeAllocator {
         start_addr
     }
 
-    pub fn reserve(&mut self, size: MemorySize, alignment: MemoryAlignment) -> FrameMemoryRegion {
-        FrameMemoryRegion {
-            addr: self.allocate(size, alignment),
-            size,
-        }
+    pub fn reserve_iterator(&mut self, collection: Collection) -> FramePlacedType {
+        let gen_type = match collection {
+            Collection::Vec => BasicType {
+                kind: BasicTypeKind::InternalVecHeader,
+                total_size: VEC_ITERATOR_SIZE,
+                max_alignment: VEC_ITERATOR_ALIGNMENT,
+            },
+            Collection::Map => todo!(),
+            Collection::Grid => todo!(),
+            Collection::String => todo!(),
+            Collection::Range => todo!(),
+        };
+
+        self.allocate_type(gen_type)
     }
 
-    pub fn reserve_ctx(&mut self, size: MemorySize, alignment: MemoryAlignment) -> Context {
-        Context::new(self.reserve(size, alignment))
+    pub fn allocate_type(&mut self, gen_type: BasicType) -> FramePlacedType {
+        FramePlacedType::new(
+            self.allocate(gen_type.total_size, gen_type.max_alignment),
+            gen_type,
+        )
+    }
+
+    pub fn reserve(&mut self, analyzed_type: &Type) -> FramePlacedType {
+        let gen_type = layout_type(analyzed_type, "");
+        self.allocate_type(gen_type)
+    }
+
+    pub fn reserve_ctx(&mut self, ty: &Type) -> Context {
+        let placed_type = self.reserve(&ty);
+        Context::new(placed_type)
     }
 
     #[must_use]

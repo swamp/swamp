@@ -777,7 +777,7 @@ impl EnumVariantType {
                 .iter()
                 .map(|(_name, field)| field.field_type.clone())
                 .collect(),
-            Self::Nothing(c) => vec![],
+            Self::Nothing(_c) => vec![],
         }
     }
 }

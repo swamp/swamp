@@ -1,25 +1,28 @@
 use crate::alloc::ScopeAllocator;
-use crate::{Error, FrameAndVariableInfo, reserve};
+use crate::{FrameAndVariableInfo, reserve};
 use seq_map::SeqMap;
 use source_map_node::Node;
 use swamp_semantic::{VariableRef, VariableType};
 use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
-use swamp_vm_debug_types::{
+use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
     OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo,
 };
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemoryOffset, MemorySize, PTR_SIZE,
+    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemoryOffset, MemorySize,
     SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE,
     VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
 
+/*
 pub fn type_size_and_alignment(ty: &Type) -> (MemorySize, MemoryAlignment) {
     let complex_type = layout_type(ty, "size_and_alignment");
 
     (complex_type.total_size, complex_type.max_alignment)
 }
+
+ */
 
 #[derive(Copy, Clone)]
 struct VariantLayout {
@@ -161,7 +164,7 @@ pub fn layout_enum(name: &str, variants: &[EnumVariantType]) -> BasicType {
     }
 }
 
-fn layout_slice_pair(a_type: &Type, b_type: &Type, name: &str) -> BasicType {
+fn layout_slice_pair(a_type: &Type, b_type: &Type, _name: &str) -> BasicType {
     let tuple_type = layout_tuple_items(&[a_type.clone(), b_type.clone()]);
     let key_type = &tuple_type.fields[0];
     let value_type = &tuple_type.fields[1];
@@ -325,11 +328,11 @@ pub fn layout_optional_type(inner_type: &Type, name: &str) -> BasicType {
     }
 }
 
-pub fn layout_optional_type_items(inner_type: &Type, name: &str) -> TaggedUnion {
-    let (payload_size, payload_max_alignment) = type_size_and_alignment(inner_type);
+pub fn layout_optional_type_items(inner_type: &Type, _name: &str) -> TaggedUnion {
+    let gen_type = layout_type(inner_type, "");
     let payload_variant = VariantLayout {
-        size: payload_size,
-        alignment: payload_max_alignment,
+        size: gen_type.total_size,
+        alignment: gen_type.max_alignment,
     };
     let none_variant = VariantLayout {
         size: MemorySize(0),
@@ -409,7 +412,7 @@ pub fn layout_tuple(types: &[Type]) -> BasicType {
 /// # Errors
 ///
 pub fn layout_variables(
-    node: &Node,
+    _node: &Node,
     variables: &Vec<VariableRef>,
     return_type: &Type,
 ) -> FrameAndVariableInfo {
@@ -417,25 +420,26 @@ pub fn layout_variables(
         FrameMemoryAddress(0),
         MemorySize(32 * 1024),
     ));
-    let return_region = reserve(return_type, &mut allocator);
+    let return_placed_type = reserve(return_type, &mut allocator);
 
     let mut enter_comment = "variables:\n".to_string();
 
     let mut frame_memory_infos = Vec::new();
     frame_memory_infos.push(FrameAddressInfo {
-        region: return_region,
         kind: FrameAddressInfoKind::Return,
-        ty: layout_type(&return_type, "return"),
+        frame_placed_type: return_placed_type.clone(),
     });
 
     let mut variable_offsets = SeqMap::new();
 
     for var_ref in variables {
-        let var_target = reserve(&var_ref.resolved_type, &mut allocator);
-        trace!(?var_ref.assigned_name, ?var_target, "laying out");
+        let var_frame_placed_type = reserve(&var_ref.resolved_type, &mut allocator);
+        trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
         enter_comment += &format!(
             "  ${:04X}:{} {}\n",
-            var_target.addr.0, var_target.size.0, var_ref.assigned_name
+            var_frame_placed_type.addr().0,
+            var_frame_placed_type.size().0,
+            var_ref.assigned_name
         );
 
         let kind = match var_ref.variable_type {
@@ -450,13 +454,12 @@ pub fn layout_variables(
         };
 
         frame_memory_infos.push(FrameAddressInfo {
-            region: var_target,
-            kind: kind,
-            ty: layout_type(&var_ref.resolved_type, &var_ref.assigned_name),
+            kind,
+            frame_placed_type: var_frame_placed_type.clone(),
         });
 
         variable_offsets
-            .insert(var_ref.unique_id_within_function, var_target)
+            .insert(var_ref.unique_id_within_function, var_frame_placed_type)
             .unwrap();
     }
 
@@ -467,6 +470,7 @@ pub fn layout_variables(
             infos: frame_memory_infos,
             size: frame_size,
         },
+        return_placement: return_placed_type,
         variable_offsets,
     }
 }

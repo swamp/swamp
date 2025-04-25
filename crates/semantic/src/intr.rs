@@ -169,7 +169,7 @@ impl fmt::Display for IntrinsicFunction {
             Self::VecRemoveIndexGetValue => "vec_remove_index_get_value",
             Self::VecClear => "vec_clear",
             Self::VecGet => "vec_get",
-            Self::VecCreate => "vec_create",
+            Self::VecCreate => "–",
             Self::VecSubscriptMut => "vec_subscript_mut",
             Self::VecSubscript => "vec_subscript",
             Self::VecSubscriptRange => "vec_subscript_range",

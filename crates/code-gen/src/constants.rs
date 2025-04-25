@@ -2,10 +2,11 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::layout::layout_type;
+use swamp_types::Type;
+use swamp_vm_types::HeapMemoryAddress;
 use swamp_vm_types::aligner::align;
-use swamp_vm_types::{HeapMemoryAddress, MemoryAlignment, MemorySize};
-
-const ALIGNMENT_MASK: usize = 0x7;
+use swamp_vm_types::types::{HeapPlacedArray, HeapPlacedType};
 
 pub struct ConstantsAllocator {
     current_addr: u32,
@@ -23,17 +24,21 @@ impl ConstantsAllocator {
         Self { current_addr: 0 }
     }
 
-    pub fn allocate(
-        &mut self,
-        size: MemorySize,
-        alignment_enum: MemoryAlignment,
-    ) -> HeapMemoryAddress {
-        let alignment: usize = alignment_enum.into();
+    pub fn allocate(&mut self, ty: &Type) -> HeapPlacedType {
+        let gen_type = layout_type(&ty, "");
+        let alignment: usize = gen_type.max_alignment.into();
         let start_addr = align(self.current_addr as usize, alignment) as u32;
 
-        self.current_addr = start_addr + size.0 as u32;
+        self.current_addr = start_addr + gen_type.total_size.0 as u32;
 
-        HeapMemoryAddress(start_addr)
+        HeapPlacedType::new(HeapMemoryAddress(start_addr), gen_type)
+    }
+
+    pub fn allocate_byte_array(&mut self, byte_count: u32) -> HeapPlacedArray {
+        let start_addr = align(self.current_addr as usize, 1) as u32;
+        self.current_addr += byte_count;
+
+        HeapPlacedArray::new(HeapMemoryAddress(start_addr), byte_count)
     }
 
     pub fn reset(&mut self) {
@@ -61,22 +66,31 @@ impl ConstantsManager {
         }
     }
 
-    pub fn reserve(
-        &mut self,
-        memory_size: MemorySize,
-        memory_alignment: MemoryAlignment,
-    ) -> HeapMemoryAddress {
-        self.allocator.allocate(memory_size, memory_alignment)
-    }
-    pub fn allocate(&mut self, data: &[u8], alignment_enum: MemoryAlignment) -> HeapMemoryAddress {
+    /*
+    pub fn allocate(&mut self, data: &[u8], alignment_enum: MemoryAlignment) -> HeapPlacedType {
         let addr = self
             .allocator
-            .allocate(MemorySize(data.len() as u16), alignment_enum);
+            .allocate(&BasicType {
+                kind: BasicTypeKind::Empty,
+                total_size: MemorySize(data.len() as u16),
+                max_alignment: alignment_enum,
+            });
 
         let start_idx = addr.0 as usize;
         self.data[start_idx..start_idx + data.len()].copy_from_slice(data);
 
         HeapMemoryAddress(addr.0)
+    }
+
+     */
+
+    pub fn allocate_byte_array(&mut self, data: &[u8], count: u32) -> HeapPlacedArray {
+        let addr = self.allocator.allocate_byte_array(count);
+
+        let start_idx = addr.addr().0 as usize;
+        self.data[start_idx..start_idx + data.len()].copy_from_slice(data);
+
+        addr
     }
 
     pub fn take_data(self) -> Vec<u8> {

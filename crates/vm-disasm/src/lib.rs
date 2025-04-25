@@ -5,15 +5,15 @@
 use seq_map::SeqMap;
 use std::cmp::PartialEq;
 use std::fmt::Write;
-use swamp_vm_debug_types::{
-    BasicType, BasicTypeKind, DecoratedMemoryKind, DecoratedOpcode, DecoratedOperand,
-    DecoratedOperandAccessKind, DecoratedOperandOrigin, FrameAddressInfoKind, FrameMemoryAttribute,
-    FrameMemoryInfo, OffsetMemoryItem, StructType, TupleType,
-};
+
 use swamp_vm_types::opcode::OpCode;
+use swamp_vm_types::types::{
+    DecoratedMemoryKind, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
+    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo,
+};
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    InstructionPosition, InstructionPositionOffset, MemoryOffset, MemorySize, Meta,
+    InstructionPosition, InstructionPositionOffset, MemorySize, Meta,
 };
 use yansi::{Color, Paint};
 
@@ -328,10 +328,10 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::ImmediateU16(data) => format!("{}", format!("{data:04X}",)),
             DecoratedOperandAccessKind::ImmediateU8(data) => format!("{}", format!("{data:02X}",)),
             DecoratedOperandAccessKind::CountU16(data) => format!("{}", format!("{data:04X}",)),
-            DecoratedOperandAccessKind::WriteIndirectHeapWithOffset(a, b, c) => {
+            DecoratedOperandAccessKind::WriteIndirectHeapWithOffset(a, b, _c) => {
                 format!("{}", format!("{:08X}+{:08X}", a.0, b.0))
             }
-            DecoratedOperandAccessKind::ReadIndirectHeapWithOffset(a, b, c) => {
+            DecoratedOperandAccessKind::ReadIndirectHeapWithOffset(a, b, _c) => {
                 format!("{}", format!("{:08X}+{:08X}", a.0, b.0))
             }
         };

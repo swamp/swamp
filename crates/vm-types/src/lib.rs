@@ -7,9 +7,9 @@ use source_map_node::Node;
 use std::cmp::PartialOrd;
 use std::fmt::{Alignment, Display, Formatter};
 use std::ops::{Add, Div, Sub};
-
 pub mod aligner;
 pub mod opcode;
+pub mod types;
 
 #[repr(C, packed)]
 #[derive(Clone)]
@@ -427,13 +427,15 @@ pub const PTR_SIZE: u16 = 2;
 
 #[repr(C)]
 pub struct VecHeader {
-    pub count: u16, // useful for iterator
-    pub capacity: u16,
-    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory)
+    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory) // must be first
+    pub count: u32,       // must be second. useful for iterator
+    pub capacity: u16,    // capacity is always third
     pub size: u16,        // size (in bytes) of each element; useful for iterator
 }
 pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u16);
 pub const VEC_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+
+pub const VEC_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
 
 #[repr(C)]
 pub struct VecIterator {
@@ -471,6 +473,7 @@ pub struct MapHeader {
 }
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+pub const MAP_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
 
 #[repr(C)]
 pub struct StringHeader {
@@ -479,6 +482,7 @@ pub struct StringHeader {
     pub capacity: u16,
 }
 pub const STRING_HEADER_SIZE: MemorySize = MemorySize(size_of::<StringHeader>() as u16);
+pub const STRING_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
 pub const STRING_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]

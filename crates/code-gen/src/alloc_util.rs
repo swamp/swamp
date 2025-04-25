@@ -4,14 +4,8 @@
  */
 
 use crate::alloc::ScopeAllocator;
-use crate::layout::type_size_and_alignment;
-use seq_map::SeqMap;
-use swamp_types::{EnumType, EnumVariantType, NamedStructType, Type};
-use swamp_vm_types::{
-    FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT,
-    MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize, RANGE_HEADER_ALIGNMENT,
-    RANGE_HEADER_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
-};
+use swamp_types::Type;
+use swamp_vm_types::types::FramePlacedType;
 /*
 #[must_use]
 pub fn layout_tuple_old(types: &Vec<Type>) -> (MemorySize, MemoryAlignment) {
@@ -82,14 +76,6 @@ pub fn layout_union_old(
 }
 */
 
-pub fn type_with_tag_size_and_alignment(inner_type: &Type) -> (MemorySize, MemoryAlignment) {
-    let (offset, alignment) = type_size_and_alignment(inner_type);
-
-    let alignment_octets: usize = alignment.into();
-
-    (MemorySize(offset.0 + alignment_octets as u16), alignment) // Add the alignment for the tag
-}
-
 /*
 pub fn layout_union_with_tag(
     enum_type: &EnumType,
@@ -117,8 +103,6 @@ pub fn layout_union_with_tag(
 
  */
 
-pub fn reserve_space_for_type(ty: &Type, allocator: &mut ScopeAllocator) -> FrameMemoryRegion {
-    let (size, alignment) = type_size_and_alignment(ty);
-
-    allocator.reserve(size, alignment)
+pub fn reserve_space_for_type(ty: &Type, allocator: &mut ScopeAllocator) -> FramePlacedType {
+    allocator.reserve(ty)
 }

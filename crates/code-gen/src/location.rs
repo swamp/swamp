@@ -6,13 +6,13 @@
 use crate::ctx::Context;
 use crate::{Error, FunctionCodeGen};
 use swamp_semantic::{LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression};
-use swamp_vm_types::FrameMemoryRegion;
+use swamp_vm_types::types::FramePlacedType;
 
 impl FunctionCodeGen<'_> {
     pub(crate) fn gen_for_access_or_location(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
-    ) -> Result<FrameMemoryRegion, Error> {
+    ) -> Result<FramePlacedType, Error> {
         self.gen_expression_location_mut_ref_or_immutable(&mut_or_immutable_expression)
     }
 
@@ -53,7 +53,7 @@ impl FunctionCodeGen<'_> {
     pub(crate) fn gen_expression_location_mut_ref_or_immutable(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
-    ) -> Result<FrameMemoryRegion, Error> {
+    ) -> Result<FramePlacedType, Error> {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
                 self.gen_expression_location(found_expression)
@@ -67,29 +67,30 @@ impl FunctionCodeGen<'_> {
     pub(crate) fn gen_lvalue_address(
         &mut self,
         location_expression: &SingleLocationExpression,
-    ) -> Result<FrameMemoryRegion, Error> {
-        let mut frame_relative_base_address = *self
+    ) -> Result<FramePlacedType, Error> {
+        let mut frame_relative_base_address = self
             .variable_offsets
             .get(
                 &location_expression
                     .starting_variable
                     .unique_id_within_function,
             )
-            .unwrap();
+            .unwrap()
+            .clone();
 
         // Loop over the consecutive accesses until we find the actual location
         for access in &location_expression.access_chain {
             match &access.kind {
-                LocationAccessKind::FieldIndex(anonymous_struct_type, field_index) => {
-                    let (memory_offset, memory_size, _max_alignment) =
-                        Self::get_struct_field_offset(
-                            &anonymous_struct_type.field_name_sorted_fields,
-                            *field_index,
-                        );
-                    frame_relative_base_address = FrameMemoryRegion::new(
-                        frame_relative_base_address.addr.advance(memory_offset),
-                        memory_size,
-                    );
+                LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
+                    /*let (memory_offset, memory_size, _max_alignment) =
+                       Self::get_struct_field_offset(
+                           &anonymous_struct_type.field_name_sorted_fields,
+                           *field_index,
+                       );
+
+                    */
+                    frame_relative_base_address =
+                        frame_relative_base_address.move_to_field(*field_index);
                 }
                 LocationAccessKind::IntrinsicCallMut(
                     intrinsic_function,
@@ -107,7 +108,7 @@ impl FunctionCodeGen<'_> {
                         &location_expression.node,
                         intrinsic_function,
                         Some(access.ty.clone()),
-                        Some(frame_relative_base_address),
+                        Some(frame_relative_base_address.clone()),
                         &converted,
                         &ctx,
                     )?;
@@ -115,6 +116,6 @@ impl FunctionCodeGen<'_> {
             }
         }
 
-        Ok(frame_relative_base_address)
+        Ok(frame_relative_base_address.clone())
     }
 }

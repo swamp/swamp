@@ -20,7 +20,7 @@ use std::rc::Rc;
 use swamp_types::GenericAwareSignature;
 use swamp_types::StructLikeType;
 use swamp_types::prelude::*;
-use tracing::{error, warn};
+use tracing::error;
 
 #[derive(Debug, Clone)]
 pub struct TypeWithMut {
@@ -406,7 +406,7 @@ impl Function {
         match self {
             Self::Internal(x) => Some(&x.name.0),
             Self::External(y) => y.name.as_ref(),
-            Self::Intrinsic(i) => None,
+            Self::Intrinsic(_i) => None,
         }
     }
 
@@ -415,7 +415,7 @@ impl Function {
         match self {
             Self::Internal(x) => x.name.0.clone(),
             Self::External(_y) => Node::new_unknown(),
-            Self::Intrinsic(i) => Node::new_unknown(),
+            Self::Intrinsic(_i) => Node::new_unknown(),
         }
     }
 
@@ -684,7 +684,7 @@ impl StartOfChainKind {
 
     pub fn is_mutable(&self) -> bool {
         match self {
-            Self::Expression(call) => {
+            Self::Expression(_call) => {
                 // The language can never return something that is mutable
                 false
             }
