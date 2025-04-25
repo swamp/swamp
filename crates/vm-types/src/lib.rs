@@ -447,6 +447,15 @@ pub const VEC_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<VecIterator>() as
 pub const VEC_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
+pub struct RangeIterator {
+    pub range_header_frame_offset: u32,
+    pub index: u32,
+}
+
+pub const RANGE_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<RangeIterator>() as u16);
+pub const RANGE_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+
+#[repr(C)]
 pub struct RangeHeader {
     pub min: i32,
     pub max: i32,
@@ -474,6 +483,15 @@ pub struct MapHeader {
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 pub const MAP_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
+
+#[repr(C)]
+pub struct MapIterator {
+    pub map_header_frame_offset: u32,
+    pub index: u32,
+}
+
+pub const MAP_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<MapIterator>() as u16);
+pub const MAP_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
 pub struct StringHeader {

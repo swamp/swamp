@@ -11,7 +11,8 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset, InstructionPosition,
-    InstructionPositionOffset, MemoryAddress, MemorySize, Meta, ZFlagPolarity,
+    InstructionPositionOffset, MemoryAddress, MemorySize, Meta, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::info;
 
@@ -142,6 +143,8 @@ impl InstructionBuilderState {
 pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
+
+impl<'a> InstructionBuilder<'a> {}
 
 impl<'a> InstructionBuilder<'a> {
     pub fn add_not_z(&mut self, node: &Node, comment: &str) {
@@ -467,7 +470,11 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert_eq!(target.size(), source.size());
+        assert_eq!(
+            target.size(),
+            source.size(),
+            "problem with move {target:?} {source:?}"
+        );
         self.add_mov(target, source, source.size(), node, comment);
     }
 
@@ -801,6 +808,24 @@ impl InstructionBuilder<'_> {
                 source_slice_header.addr().0,
                 element_byte_size.0,
             ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_range_iter_init(
+        &mut self,
+        iterator_target: &FramePlacedType,
+        range_source_header: &FramePlacedType,
+        node: &Node,
+        comment: &str,
+    ) {
+        assert_eq!(iterator_target.size(), RANGE_ITERATOR_SIZE);
+        assert_eq!(range_source_header.size(), RANGE_HEADER_SIZE);
+
+        self.state.add_instruction(
+            OpCode::RangeIterInit,
+            &[iterator_target.addr().0, range_source_header.addr().0],
             node,
             comment,
         );

@@ -42,8 +42,9 @@ use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
     GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, HeapMemoryOffset, InstructionPosition,
     InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT, MAP_HEADER_COUNT_OFFSET,
-    MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize, Meta, RANGE_HEADER_ALIGNMENT,
-    RANGE_HEADER_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE, SLICE_PTR_OFFSET,
+    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset,
+    MemorySize, Meta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT,
+    RANGE_ITERATOR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE, SLICE_PTR_OFFSET,
     STRING_HEADER_ALIGNMENT, STRING_HEADER_COUNT_OFFSET, STRING_HEADER_SIZE,
     TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_COUNT_OFFSET, VEC_HEADER_SIZE,
     VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
@@ -108,10 +109,10 @@ impl Collection {
     pub fn iterator_size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
         match self {
             Self::Vec => (VEC_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT),
-            Self::Map => (MAP_HEADER_SIZE, MAP_HEADER_ALIGNMENT),
-            Self::Grid => (GRID_HEADER_SIZE, GRID_HEADER_ALIGNMENT),
-            Self::String => (STRING_HEADER_SIZE, STRING_HEADER_ALIGNMENT),
-            Self::Range => (RANGE_HEADER_SIZE, RANGE_HEADER_ALIGNMENT),
+            Self::Map => (MAP_ITERATOR_SIZE, MAP_ITERATOR_ALIGNMENT),
+            Self::Grid => todo!(),
+            Self::String => todo!(),
+            Self::Range => (RANGE_ITERATOR_SIZE, RANGE_ITERATOR_ALIGNMENT),
             _ => todo!(),
         }
     }
@@ -1740,6 +1741,19 @@ impl FunctionCodeGen<'_> {
     ) -> Result<GeneratedExpressionResult, Error> {
         //info!(left=?binary_operator.left.ty, right=?binary_operator.right.ty, "binary_op");
 
+        match &binary_operator.kind {
+            BinaryOperatorKind::LogicalOr | BinaryOperatorKind::LogicalAnd => {
+                self.gen_binary_operator_logical(binary_operator)
+            }
+            _ => self.gen_binary_operator_normal(binary_operator, ctx),
+        }
+    }
+
+    fn gen_binary_operator_normal(
+        &mut self,
+        binary_operator: &BinaryOperator,
+        ctx: &Context,
+    ) -> Result<GeneratedExpressionResult, Error> {
         let left_source = self.gen_expression_location(&binary_operator.left)?;
         let right_source = self.gen_expression_location(&binary_operator.right)?;
 
@@ -1775,7 +1789,7 @@ impl FunctionCodeGen<'_> {
                 }
             }
             _ => match (&binary_operator.left.ty, &binary_operator.right.ty) {
-                (Type::Bool, Type::Bool) => self.gen_binary_operator_bool(binary_operator),
+                (Type::Bool, Type::Bool) => self.gen_binary_operator_logical(binary_operator),
                 (Type::Int, Type::Int) => self.gen_binary_operator_i32(
                     &left_source,
                     &binary_operator.node,
@@ -1981,7 +1995,7 @@ impl FunctionCodeGen<'_> {
         );
 
         Ok(GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::ZFlagUnmodified,
+            kind: GeneratedExpressionResultKind::ZFlagIsTrue,
         })
     }
 
@@ -1997,7 +2011,7 @@ impl FunctionCodeGen<'_> {
             .add_cmp8(left_source, right_source, &node, "compare bool");
 
         Ok(GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::ZFlagUnmodified,
+            kind: GeneratedExpressionResultKind::ZFlagIsTrue,
         })
     }
 
@@ -2029,13 +2043,14 @@ impl FunctionCodeGen<'_> {
         })
     }
 
-    fn gen_binary_operator_bool(
+    fn gen_binary_operator_logical(
         &mut self,
         binary_operator: &BinaryOperator,
     ) -> Result<GeneratedExpressionResult, Error> {
         let node = &binary_operator.node;
 
-        let mut kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+        // the logical is always normalized
+        let kind = GeneratedExpressionResultKind::ZFlagIsTrue;
 
         match binary_operator.kind {
             BinaryOperatorKind::LogicalOr => {
@@ -2062,7 +2077,7 @@ impl FunctionCodeGen<'_> {
             }
 
             _ => {
-                panic!("unknown operator {:?}", binary_operator);
+                panic!("unknown operator {binary_operator:?}");
             }
         }
 
@@ -2181,9 +2196,10 @@ impl FunctionCodeGen<'_> {
 
         if let Some(false_expr) = maybe_false_expr {
             // we need to help the true expression to jump over false
-            let skip_false_if_true = self
-                .builder
-                .add_jump_placeholder(&condition.expression.node, "condition is false skip");
+            let skip_false_if_true = self.builder.add_jump_placeholder(
+                &condition.expression.node,
+                "since it was true, skip over false section",
+            );
 
             // If the expression was false, it should continue here
             self.builder.patch_jump_here(jump_on_false_condition);
@@ -2291,10 +2307,17 @@ impl FunctionCodeGen<'_> {
         rhs: &Expression,
     ) -> Result<GeneratedExpressionResult, Error> {
         let lhs_addr = self.gen_lvalue_address(&lhs.0)?;
-        let access = self.gen_expression_location(rhs)?;
 
+        let lhs_target_ctx = Context::new(lhs_addr);
+
+        self.gen_expression_materialize(rhs, &lhs_target_ctx)?;
+
+        /*
+        let access = self.gen_expression_location(rhs)?;
         self.builder
             .add_mov_for_assignment(&lhs_addr, &access, node, "assignment");
+
+         */
 
         Ok(GeneratedExpressionResult::default())
     }
@@ -2522,13 +2545,28 @@ impl FunctionCodeGen<'_> {
 
         let mut start_source = self.gen_start_of_chain(start_expression)?;
 
-        for element in chain {
+        for (index, element) in chain.iter().enumerate() {
+            let is_last = index == chain.len() - 1;
+
             match &element.kind {
-                PostfixKind::StructField(_anonymous_struct, field_index) => {
+                PostfixKind::StructField(anonymous_struct, field_index) => {
                     let field_placed_type = start_source.move_to_field(*field_index);
+                    if is_last {
+                        self.builder.add_mov_for_assignment(
+                            ctx.target(),
+                            &field_placed_type,
+                            &element.node,
+                            "last lookup copy",
+                        );
+                    }
                     start_source = field_placed_type;
                 }
                 PostfixKind::MemberCall(function_to_call, arguments) => {
+                    let target_ctx = if is_last {
+                        ctx
+                    } else {
+                        &self.temp_space_for_type(&function_to_call.signature().return_type, "")
+                    };
                     match &**function_to_call {
                         Function::Internal(internal_fn) => {
                             if let Some((intrinsic_fn, intrinsic_arguments)) =
@@ -2545,7 +2583,7 @@ impl FunctionCodeGen<'_> {
                                     Some(element.ty.clone()),
                                     Some(start_source.clone()),
                                     &merged_arguments,
-                                    ctx,
+                                    target_ctx,
                                 )?;
                             } else {
                                 self.gen_arguments(
@@ -2565,7 +2603,7 @@ impl FunctionCodeGen<'_> {
                                     &internal_fn.signature.signature,
                                     Some(start_source.clone()),
                                     arguments,
-                                    ctx,
+                                    target_ctx,
                                 )?;
                             }
                         }
@@ -2576,6 +2614,7 @@ impl FunctionCodeGen<'_> {
                             &format!("not supported as a member call {function_to_call:?}")
                         ),
                     }
+                    start_source = target_ctx.target().clone();
                 }
                 PostfixKind::OptionalChainingOperator => {
                     //TODO:
@@ -2682,11 +2721,6 @@ impl FunctionCodeGen<'_> {
                     &enum_type.assigned_name,
                     &enum_type.variants.values().cloned().collect::<Vec<_>>(),
                 );
-
-                let variant_data =
-                    tagged_union.get_variant_by_index(a.common().container_index as usize);
-
-                let payload_offset = tagged_union.payload_offset();
 
                 self.builder.add_ld8(
                     ctx.target(),
@@ -3197,7 +3231,7 @@ impl FunctionCodeGen<'_> {
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
         //let struct_type = Type::AnonymousStruct(struct_type_ref.clone());
-        let gen_source_struct_type = layout_struct_type(&struct_type_ref, "");
+        let gen_source_struct_type = layout_struct_type(struct_type_ref, "");
 
         if ctx.target_size() != gen_source_struct_type.total_size {
             info!("problem");
@@ -3208,6 +3242,8 @@ impl FunctionCodeGen<'_> {
             source_order_expressions.len(),
             gen_source_struct_type.fields.len()
         );
+
+        info!(x=?ctx.target(), "gen_struct_literal_helper");
 
         for (_offset_item, (field_index, _node, expression)) in gen_source_struct_type
             .fields
@@ -4093,7 +4129,7 @@ impl FunctionCodeGen<'_> {
             Collection::Vec => {
                 self.builder.add_vec_iter_init(
                     &iterator_target,
-                    &collection_self_addr,
+                    collection_self_addr,
                     node,
                     "vec init",
                 );
@@ -4118,7 +4154,7 @@ impl FunctionCodeGen<'_> {
             Collection::Map => {
                 self.builder.add_map_iter_init(
                     &iterator_target,
-                    &collection_self_addr,
+                    collection_self_addr,
                     node,
                     "map init",
                 );
@@ -4141,7 +4177,22 @@ impl FunctionCodeGen<'_> {
                 }
             }
             Collection::Grid => todo!(),
-            Collection::Range => todo!(),
+            Collection::Range => {
+                self.builder.add_range_iter_init(
+                    &iterator_target,
+                    collection_self_addr,
+                    node,
+                    "range init",
+                );
+
+                assert_eq!(target_variables.len(), 1);
+                self.builder.add_range_iter_next_placeholder(
+                    &iterator_target,
+                    &target_variables[0],
+                    node,
+                    "range iter next single",
+                )
+            }
 
             // Low  prio
             Collection::String => todo!(),

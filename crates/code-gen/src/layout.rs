@@ -9,9 +9,9 @@ use swamp_vm_types::types::{
     OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo,
 };
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemoryOffset, MemorySize,
-    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE,
-    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
+    FrameMemoryAddress, FrameMemoryRegion, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MemoryAlignment,
+    MemoryOffset, MemorySize, SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, STRING_HEADER_ALIGNMENT,
+    STRING_HEADER_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
 
@@ -241,9 +241,9 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
 
     if named_struct_type.is_map() {
         return basic_type(
-            BasicTypeKind::InternalVecHeader,
-            VEC_HEADER_SIZE,
-            VEC_HEADER_ALIGNMENT,
+            BasicTypeKind::InternalMapHeader,
+            MAP_HEADER_SIZE,
+            MAP_HEADER_ALIGNMENT,
         );
     }
 
@@ -255,13 +255,6 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
         );
     }
     if named_struct_type.is_stack() {
-        return basic_type(
-            BasicTypeKind::InternalVecHeader,
-            VEC_HEADER_SIZE,
-            VEC_HEADER_ALIGNMENT,
-        );
-    }
-    if named_struct_type.is_range() {
         return basic_type(
             BasicTypeKind::InternalVecHeader,
             VEC_HEADER_SIZE,

@@ -317,17 +317,18 @@ pub struct FramePlacedType {
 impl FramePlacedType {}
 
 impl FramePlacedType {
+    #[must_use]
     pub fn union_payload(&self, index: usize) -> Self {
-        let tagged_union = match &self.ty.kind {
-            BasicTypeKind::TaggedUnion(tagged_union) => tagged_union,
-            BasicTypeKind::Optional(tagged_union) => tagged_union,
-            _ => panic!("should not work"),
+        let (BasicTypeKind::TaggedUnion(tagged_union) | BasicTypeKind::Optional(tagged_union)) =
+            &self.ty.kind
+        else {
+            panic!("should not work")
         };
 
         let variant = &tagged_union.variants[index];
 
         Self {
-            addr: self.addr + tagged_union.tag_offset,
+            addr: self.addr + tagged_union.payload_offset,
             ty: variant.ty.clone(),
         }
     }
