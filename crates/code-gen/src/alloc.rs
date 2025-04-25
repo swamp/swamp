@@ -14,10 +14,6 @@ use swamp_vm_types::{
 };
 use tracing::error;
 
-const ALIGNMENT: u16 = 8;
-const ALIGNMENT_REST: u16 = ALIGNMENT - 1;
-const ALIGNMENT_MASK: u16 = !ALIGNMENT_REST;
-
 #[derive(Copy, Clone, Debug)]
 pub struct ScopeAllocator {
     initial_addr: FrameMemoryAddress,
@@ -81,7 +77,7 @@ impl ScopeAllocator {
     }
 
     pub fn reserve_ctx(&mut self, ty: &Type) -> Context {
-        let placed_type = self.reserve(&ty);
+        let placed_type = self.reserve(ty);
         Context::new(placed_type)
     }
 
@@ -99,7 +95,7 @@ impl ScopeAllocator {
         self.addr
     }
 
-    pub fn reset(&mut self) {
+    pub const fn reset(&mut self) {
         self.addr = self.initial_addr;
     }
 }

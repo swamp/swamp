@@ -41,7 +41,7 @@ impl ConstantsAllocator {
         HeapPlacedArray::new(HeapMemoryAddress(start_addr), byte_count)
     }
 
-    pub fn reset(&mut self) {
+    pub const fn reset(&mut self) {
         self.current_addr = 0;
     }
 }
@@ -66,24 +66,6 @@ impl ConstantsManager {
         }
     }
 
-    /*
-    pub fn allocate(&mut self, data: &[u8], alignment_enum: MemoryAlignment) -> HeapPlacedType {
-        let addr = self
-            .allocator
-            .allocate(&BasicType {
-                kind: BasicTypeKind::Empty,
-                total_size: MemorySize(data.len() as u16),
-                max_alignment: alignment_enum,
-            });
-
-        let start_idx = addr.0 as usize;
-        self.data[start_idx..start_idx + data.len()].copy_from_slice(data);
-
-        HeapMemoryAddress(addr.0)
-    }
-
-     */
-
     pub fn allocate_byte_array(&mut self, data: &[u8], count: u32) -> HeapPlacedArray {
         let addr = self.allocator.allocate_byte_array(count);
 
@@ -93,6 +75,7 @@ impl ConstantsManager {
         addr
     }
 
+    #[must_use]
     pub fn take_data(self) -> Vec<u8> {
         self.data
     }

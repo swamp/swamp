@@ -31,7 +31,7 @@ pub fn code_gen_program(
         is_halt_function: false,
     };
 
-    for (path, module) in program.modules.modules() {
+    for (_path, module) in program.modules.modules() {
         for internal_function_def in &module.symbol_table.internal_functions() {
             code_gen.gen_function_def(
                 internal_function_def,
@@ -45,8 +45,8 @@ pub fn code_gen_program(
         &program.state.instantiator.associated_impls.functions
     {
         if !associated_on_type.is_concrete() {
-            for (name, func) in &impl_functions.functions {
-                if let Function::Internal(internal) = &**func {
+            for (_name, func) in &impl_functions.functions {
+                if let Function::Internal(_internal) = &**func {
                     /*
                     warn!(
                         name = internal.assigned_name,

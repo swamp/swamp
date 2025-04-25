@@ -13,7 +13,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
     ) -> Result<FramePlacedType, Error> {
-        self.gen_expression_location_mut_ref_or_immutable(&mut_or_immutable_expression)
+        self.gen_expression_location_mut_ref_or_immutable(mut_or_immutable_expression)
     }
 
     pub(crate) fn gen_mut_or_immute(
@@ -118,6 +118,6 @@ impl FunctionCodeGen<'_> {
             }
         }
 
-        Ok(frame_relative_base_address.clone())
+        Ok(frame_relative_base_address)
     }
 }

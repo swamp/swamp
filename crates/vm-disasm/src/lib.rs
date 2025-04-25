@@ -817,13 +817,6 @@ pub fn disasm(
             to_jmp_ip(operands[2]),
         ],
 
-        OpCode::RangeIterNextPair => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_write_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_write_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_jmp_ip(operands[3]),
-        ],
-
         OpCode::StringFromSlice => {
             let data = ((operands[2] as u32) << 16) | operands[1] as u32;
 

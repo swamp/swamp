@@ -1,4 +1,3 @@
-use crate::MemoryAlignment::U32;
 use crate::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HEAP_PTR_ON_FRAME_ALIGNMENT,
     HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemoryRegion,
@@ -6,10 +5,11 @@ use crate::{
     MemoryOffset, MemorySize, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, align_to,
 };
 use std::fmt::{Display, Formatter, Write};
-use tracing::{error, info};
+use tracing::error;
 use yansi::Paint;
 
 impl FrameMemoryInfo {
+    #[must_use]
     pub fn get(&self, memory_addr: &FrameMemoryAddress) -> Option<FrameAddressInfo> {
         for x in &self.infos {
             if x.frame_placed_type.addr.0 == memory_addr.0 {

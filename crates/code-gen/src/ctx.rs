@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use swamp_vm_types::types::{BasicType, FramePlacedType};
-use swamp_vm_types::{FrameMemoryAddress, MemoryOffset, MemorySize};
+use swamp_vm_types::{FrameMemoryAddress, MemorySize};
 
 pub struct Context {
     placed_type: FramePlacedType,
@@ -15,16 +15,9 @@ impl Context {}
 impl Context {}
 
 impl Context {
+    #[must_use]
     pub fn ty(&self) -> &BasicType {
         &self.placed_type.ty()
-    }
-}
-
-impl Context {}
-
-impl Context {
-    pub(crate) fn comment(&self) -> &str {
-        &self.comment
     }
 }
 
@@ -32,14 +25,9 @@ impl Context {
     pub(crate) const fn target(&self) -> &FramePlacedType {
         &self.placed_type
     }
-}
-
-impl Context {
-    pub(crate) fn with_offset(&self, offset: MemoryOffset, ty: BasicType) -> Self {
-        Self {
-            placed_type: self.placed_type.move_with_offset(offset, ty),
-            comment: "".to_string(),
-        }
+    #[must_use]
+    pub fn comment(&self) -> &str {
+        &self.comment
     }
 
     pub(crate) fn move_to_field_index(&self, index: usize) -> Self {
@@ -49,24 +37,26 @@ impl Context {
                 self.placed_type.addr() + offset_item.offset,
                 offset_item.ty.clone(),
             ),
-            comment: "".to_string(),
+            comment: String::new(),
         }
     }
+    #[must_use]
     pub fn move_to_optional_tag(&self) -> Self {
         let new_placed_type = self.placed_type.move_to_optional_tag();
 
         Self {
             placed_type: new_placed_type,
-            comment: "".to_string(),
+            comment: String::new(),
         }
     }
 
+    #[must_use]
     pub fn move_to_optional_some_payload(&self) -> Self {
         let new_placed_type = self.placed_type.move_to_optional_some_payload();
 
         Self {
             placed_type: new_placed_type,
-            comment: "".to_string(),
+            comment: String::new(),
         }
     }
 }

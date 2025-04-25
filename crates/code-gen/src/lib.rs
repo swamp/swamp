@@ -9,7 +9,6 @@ pub mod constants;
 pub mod ctx;
 mod layout;
 mod location;
-mod vec;
 
 use crate::alloc::ScopeAllocator;
 use crate::alloc_util::reserve_space_for_type;
@@ -31,12 +30,12 @@ use swamp_semantic::{
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
     UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
 };
-use swamp_types::{AnonymousStructType, EnumVariantType, Signature, StructTypeField, Type};
+use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FrameMemoryInfo, FramePlacedType, FunctionInfo, FunctionInfoKind,
-    HeapPlacedType, heap_ptr_size, int_type, show_frame_memory, u16_type,
+    HeapPlacedType, heap_ptr_size, int_type, show_frame_memory,
 };
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
@@ -339,30 +338,6 @@ pub fn disasm_function(
                 .unwrap();
         }
     }
-
-    /*
-    for frame_relative_info in frame_relative_infos {
-        let converted_kind = match &frame_relative_info.kind {
-            FrameRelativeInfoKind::Variable(var) => FrameAddressInfoKind::Variable(VariableInfo {
-                is_mutable: var.is_mutable(),
-                name: var.assigned_name.clone(),
-                ty: ComplexType::BasicType(BasicType::S32),
-            }),
-        };
-
-        memory_infos.push(FrameAddressInfo {
-            addr: frame_relative_info.frame_memory_region.addr,
-            size: FrameMemorySize(frame_relative_info.frame_memory_region.size.0),
-            kind: converted_kind,
-        })
-    }
-
-    let mem_info = FrameMemoryInfo {
-        infos: memory_infos,
-        size: FrameMemorySize(),
-    };
-
-     */
 
     format!(
         "{}\n{}",
@@ -1213,7 +1188,7 @@ impl FunctionCodeGen<'_> {
                     ctx.target(),
                     &self_addr.unwrap(),
                     &index_region,
-                    &value_region,
+                    value_region,
                     node,
                     "set the vec subscript",
                 );
@@ -1314,7 +1289,7 @@ impl FunctionCodeGen<'_> {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                self.gen_intrinsic_map_remove(&self_addr.unwrap(), key_argument, ctx)?;
+                self.gen_intrinsic_map_remove(&self_addr.unwrap(), key_argument)?;
             }
             IntrinsicFunction::MapIter => {
                 // Never called directly
@@ -1473,7 +1448,6 @@ impl FunctionCodeGen<'_> {
         &mut self,
         map_region: &FramePlacedType,
         key_expr: &Expression,
-        ctx: &Context,
     ) -> Result<(), Error> {
         let key_region = self.gen_expression_location(key_expr)?;
 
@@ -1789,7 +1763,7 @@ impl FunctionCodeGen<'_> {
                 }
             }
             _ => match (&binary_operator.left.ty, &binary_operator.right.ty) {
-                (Type::Bool, Type::Bool) => self.gen_binary_operator_logical(binary_operator),
+                //(Type::Bool, Type::Bool) => self.gen_binary_operator_logical(binary_operator),
                 (Type::Int, Type::Int) => self.gen_binary_operator_i32(
                     &left_source,
                     &binary_operator.node,
@@ -1830,14 +1804,13 @@ impl FunctionCodeGen<'_> {
                 self.builder
                     .add_add_i32(ctx.target(), left_source, right_source, node, "i32 add");
             }
-
             BinaryOperatorKind::Subtract => {
                 self.builder
                     .add_sub_i32(ctx.target(), left_source, right_source, node, "i32 sub")
             }
             BinaryOperatorKind::Multiply => {
                 self.builder
-                    .add_mul_i32(ctx.target(), left_source, right_source, node, "i32 add");
+                    .add_mul_i32(ctx.target(), left_source, right_source, node, "i32 mul");
             }
             BinaryOperatorKind::Divide => {
                 self.builder
@@ -1849,7 +1822,9 @@ impl FunctionCodeGen<'_> {
             }
             BinaryOperatorKind::LogicalOr => todo!(),
             BinaryOperatorKind::LogicalAnd => todo!(),
-            BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
+            BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => todo!(),
+            /*
+            {
                 self.builder
                     .add_cmp32(left_source, right_source, node, "i32 cmp");
                 if let BinaryOperatorKind::Equal = binary_operator_kind {
@@ -1858,9 +1833,10 @@ impl FunctionCodeGen<'_> {
                     kind = GeneratedExpressionResultKind::ZFlagIsInversion;
                 }
             }
+             */
             BinaryOperatorKind::LessThan => {
                 self.builder
-                    .add_cmp32(left_source, right_source, node, "i32 cmp");
+                    .add_lt_i32(left_source, right_source, node, "i32 lt");
                 kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             BinaryOperatorKind::LessEqual => {
@@ -1917,7 +1893,8 @@ impl FunctionCodeGen<'_> {
             }
             BinaryOperatorKind::LogicalOr => panic!("not supported"),
             BinaryOperatorKind::LogicalAnd => panic!("not supported"),
-            BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
+            BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => panic!("handled elsewhere"),
+            /*{
                 self.builder
                     .add_cmp32(left_source, right_source, node, "f32 eq");
                 if let BinaryOperatorKind::Equal = binary_operator_kind {
@@ -1925,7 +1902,7 @@ impl FunctionCodeGen<'_> {
                 } else {
                     kind = GeneratedExpressionResultKind::ZFlagIsInversion;
                 }
-            }
+            }*/
             BinaryOperatorKind::LessThan => {
                 self.builder
                     .add_lt_f32(left_source, right_source, node, "f32 lt");
@@ -2312,13 +2289,6 @@ impl FunctionCodeGen<'_> {
 
         self.gen_expression_materialize(rhs, &lhs_target_ctx)?;
 
-        /*
-        let access = self.gen_expression_location(rhs)?;
-        self.builder
-            .add_mov_for_assignment(&lhs_addr, &access, node, "assignment");
-
-         */
-
         Ok(GeneratedExpressionResult::default())
     }
 
@@ -2636,6 +2606,7 @@ impl FunctionCodeGen<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
+        self.copy_back_mutable_arguments(node, signature, maybe_self, arguments)?;
         let return_placed_type = self.return_frame_address(&signature.return_type);
         if return_placed_type.size().0 != 0 {
             self.builder.add_mov_for_assignment(
@@ -2645,9 +2616,6 @@ impl FunctionCodeGen<'_> {
                 "copy the return value to the caller",
             );
         }
-
-        self.copy_back_mutable_arguments(node, signature, maybe_self, arguments)?;
-
         Ok(GeneratedExpressionResult::default())
     }
 
@@ -2664,7 +2632,6 @@ impl FunctionCodeGen<'_> {
             kind: BasicTypeKind::Tuple(gen_tuple_type.clone()),
         };
 
-        //let mut scope = ScopeAllocator::new(ctx.target().region());
         assert_eq!(gen_tuple_placed.total_size, ctx.target_size());
         assert_eq!(gen_tuple_type.fields.len(), expressions.len());
 
@@ -2715,13 +2682,7 @@ impl FunctionCodeGen<'_> {
                 self.builder
                     .add_ld8(ctx.target(), u8::from(*truthy), node, "bool literal");
             }
-
-            Literal::EnumVariantLiteral(enum_type, a, b) => {
-                let tagged_union = layout_enum_into_tagged_union(
-                    &enum_type.assigned_name,
-                    &enum_type.variants.values().cloned().collect::<Vec<_>>(),
-                );
-
+            Literal::EnumVariantLiteral(_enum_type, a, b) => {
                 self.builder.add_ld8(
                     ctx.target(),
                     a.common().container_index,
@@ -2734,7 +2695,6 @@ impl FunctionCodeGen<'_> {
                     .union_payload(a.common().container_index as usize);
                 let inner_ctx = Context::new(inner_addr);
 
-                //layout_union(a)
                 match b {
                     EnumLiteralData::Nothing => {}
                     EnumLiteralData::Tuple(expressions) => {
@@ -2791,37 +2751,8 @@ impl FunctionCodeGen<'_> {
             node,
             "create string",
         );
-        // self.gen_vec_immediate(data_ptr, mem_size, mem_size, "string", ctx);
     }
 
-    /*
-    fn gen_vec_immediate(
-        &mut self,
-        data_ptr: MemoryAddress,
-        len: MemorySize,
-        capacity: MemorySize,
-        comment_prefix: &str,
-        ctx: &Context,
-    ) {
-        self.state
-            .builder
-            .add_ld_u16(ctx.target(), len.0, &format!("{} len", comment_prefix));
-
-        self.state.builder.add_ld_u16(
-            ctx.addr().add(MemorySize(2)),
-            capacity.0,
-            &format!("{} capacity", comment_prefix),
-        );
-
-        self.state.builder.add_ld_u16(
-            ctx.addr().add(MemorySize(4)),
-            data_ptr.0,
-            &format!("{} ptr", comment_prefix),
-        );
-    }
-
-
-     */
     fn gen_option_expression(
         &mut self,
         node: &Node,
@@ -2940,102 +2871,6 @@ impl FunctionCodeGen<'_> {
         };
 
         Ok(GeneratedExpressionResult::default())
-    }
-
-    fn gen_for_loop_for_vec(
-        &mut self,
-        element_type: &Type,
-        vector_expr: Expression,
-        ctx: &mut Context,
-    ) -> Result<GeneratedExpressionResult, Error> {
-        // get the vector that is referenced
-        let vector_ctx = self.temp_space_for_type(&vector_expr.ty, "vector space");
-        self.gen_expression_materialize(&vector_expr, &vector_ctx);
-        Ok(GeneratedExpressionResult::default())
-
-        /*
-        let value_var_addr = match for_pattern {
-            ForPattern::Single(value_variable) => self
-                .variable_offsets
-                .get(&value_variable.unique_id_within_function)
-                .expect("Variable not found"),
-            ForPattern::Pair(_, _) => {
-                panic!("Cannot use key-value pattern with vectors");
-            }
-        };
-
-         */
-
-        /*
-        let element_size = type_size(element_type);
-               // Temporary for the counter
-               let counter_addr = ctx.allocate_temp(MemorySize(2)); // u16 counter
-               self.state
-                   .builder
-                   .add_ld_u16(counter_addr, 0, "temporary counter");
-
-               let loop_start_pos = self.state.builder.position();
-
-               // vector length
-               let length_addr = ctx.allocate_temp(MemorySize(2));
-               self.state.builder.add_mov(
-                   length_addr,
-                   vector_ctx.addr().add(MemorySize(VECTOR_LENGTH_OFFSET)),
-                   MemorySize(2),
-                   "vector length",
-               );
-
-               // Compare counter < length
-               let compare_result_addr = ctx.allocate_temp(MemorySize(1)); // boolean result
-               self.state.builder.add_lt_u16(
-                   compare_result_addr,
-                   counter_addr,
-                   length_addr,
-                   "counter < length",
-               );
-
-               // Exit loop if counter >= length
-               let exit_jump = self
-                   .state
-                   .builder
-                   .add_conditional_jump_placeholder(compare_result_addr, "counter >= length exit");
-
-               let data_ptr_addr = ctx.allocate_temp(MemorySize(2));
-               self.state.builder.add_mov(
-                   data_ptr_addr,
-                   vector_ctx.addr().add(MemorySize(VECTOR_DATA_PTR_OFFSET)),
-                   MemorySize(PTR_SIZE),
-                   "copy vector data ptr",
-               );
-
-
-        */
-        /*
-        let offset_addr = ctx.allocate_temp(2);
-        self.state.builder.add_mul_u16(
-            offset_addr,
-            counter_addr,
-            element_size
-        );
-
-        self.state.builder.add_ld_indirect(
-            *value_var_addr,     // Destination: loop variable
-            data_ptr_addr,       // Base: vector's data pointer
-            offset_addr,         // Offset: counter * element_size
-            element_size         // Size to copy
-        );
-
-        let mut body_ctx = ctx.temp_space_for_type(&Type::Unit);
-        self.gen_expression(body, &mut body_ctx);
-
-        self.state.builder.add_inc_u16(counter_addr);
-
-        self.state.builder.add_jmp_to_position(loop_start_pos);
-
-        let end_pos = self.state.builder.current_position();
-        self.state.builder.patch_jump(exit_jump, end_pos);
-
-         */
     }
 
     fn gen_block(
@@ -3995,7 +3830,6 @@ impl FunctionCodeGen<'_> {
             }
             TransformerResult::VecWithLambdaResult => {
                 self.transformer_add_to_collection(
-                    &lambda_return_gen_type,
                     &lambda_result,
                     transformer.needs_tag_removed(),
                     source_collection_type,
@@ -4201,7 +4035,6 @@ impl FunctionCodeGen<'_> {
 
     fn transformer_add_to_collection(
         &mut self,
-        in_value_type: &BasicType,
         in_value: &FramePlacedType,
         should_unwrap_value: bool,
         collection_type: Collection,

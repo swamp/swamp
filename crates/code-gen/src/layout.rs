@@ -31,7 +31,7 @@ struct VariantLayout {
 }
 
 #[derive(Copy, Clone)]
-struct TaggedUnionLayout {
+pub struct TaggedUnionLayout {
     pub tag_offset: MemoryOffset,
     pub tag_size: MemorySize,
     pub tag_alignment: MemoryAlignment,
@@ -77,66 +77,63 @@ fn layout_tagged_union(variants: &[VariantLayout]) -> TaggedUnionLayout {
         payload_size: max_payload_size,
         payload_alignment: max_payload_alignment,
         total_size,
-        max_alignment: max_alignment,
+        max_alignment,
     }
 }
 
 #[allow(clippy::too_many_lines)]
 pub fn layout_enum_into_tagged_union(name: &str, variants: &[EnumVariantType]) -> TaggedUnion {
-    let variant_infos: Vec<(VariantLayout, TaggedUnionVariant)> = variants
-        .into_iter()
-        .map(|variant| match variant {
-            EnumVariantType::Struct(s) => {
-                let struct_type = layout_struct_type(&s.anon_struct, &s.common.assigned_name);
-                (
-                    VariantLayout {
-                        size: struct_type.total_size,
-                        alignment: struct_type.max_alignment,
-                    },
-                    TaggedUnionVariant {
-                        name: s.common.assigned_name.clone(),
-                        ty: BasicType {
-                            total_size: struct_type.total_size,
-                            max_alignment: struct_type.max_alignment,
-                            kind: BasicTypeKind::Struct(struct_type),
-                        },
-                    },
-                )
-            }
-            EnumVariantType::Tuple(t) => {
-                let tuple_type = layout_tuple_items(&t.fields_in_order);
-                (
-                    VariantLayout {
-                        size: tuple_type.total_size,
-                        alignment: tuple_type.max_alignment,
-                    },
-                    TaggedUnionVariant {
-                        name: t.common.assigned_name.clone(),
-                        ty: BasicType {
-                            total_size: tuple_type.total_size,
-                            max_alignment: tuple_type.max_alignment,
-                            kind: BasicTypeKind::Tuple(tuple_type),
-                        },
-                    },
-                )
-            }
-
-            EnumVariantType::Nothing(n) => (
+    let variant_infos = variants.iter().map(|variant| match variant {
+        EnumVariantType::Struct(s) => {
+            let struct_type = layout_struct_type(&s.anon_struct, &s.common.assigned_name);
+            (
                 VariantLayout {
-                    size: MemorySize(0),
-                    alignment: MemoryAlignment::U8,
+                    size: struct_type.total_size,
+                    alignment: struct_type.max_alignment,
                 },
                 TaggedUnionVariant {
-                    name: n.common.assigned_name.clone(),
+                    name: s.common.assigned_name.clone(),
                     ty: BasicType {
-                        total_size: MemorySize(0),
-                        max_alignment: MemoryAlignment::U8,
-                        kind: BasicTypeKind::Empty,
+                        total_size: struct_type.total_size,
+                        max_alignment: struct_type.max_alignment,
+                        kind: BasicTypeKind::Struct(struct_type),
                     },
                 },
-            ),
-        })
-        .collect();
+            )
+        }
+        EnumVariantType::Tuple(t) => {
+            let tuple_type = layout_tuple_items(&t.fields_in_order);
+            (
+                VariantLayout {
+                    size: tuple_type.total_size,
+                    alignment: tuple_type.max_alignment,
+                },
+                TaggedUnionVariant {
+                    name: t.common.assigned_name.clone(),
+                    ty: BasicType {
+                        total_size: tuple_type.total_size,
+                        max_alignment: tuple_type.max_alignment,
+                        kind: BasicTypeKind::Tuple(tuple_type),
+                    },
+                },
+            )
+        }
+
+        EnumVariantType::Nothing(n) => (
+            VariantLayout {
+                size: MemorySize(0),
+                alignment: MemoryAlignment::U8,
+            },
+            TaggedUnionVariant {
+                name: n.common.assigned_name.clone(),
+                ty: BasicType {
+                    total_size: MemorySize(0),
+                    max_alignment: MemoryAlignment::U8,
+                    kind: BasicTypeKind::Empty,
+                },
+            },
+        ),
+    });
 
     let (variant_layouts, tagged_variants): (Vec<VariantLayout>, Vec<TaggedUnionVariant>) =
         variant_infos.into_iter().unzip();
@@ -176,7 +173,7 @@ fn layout_slice_pair(a_type: &Type, b_type: &Type, _name: &str) -> BasicType {
     }
 }
 
-fn basic_type(
+const fn basic_type(
     basic_type_kind: BasicTypeKind,
     size: MemorySize,
     alignment: MemoryAlignment,
@@ -203,7 +200,7 @@ pub fn layout_type(ty: &Type, name: &str) -> BasicType {
         Type::Slice(inner_type) => {
             let basic = layout_type(inner_type, &format!("slice {name}"));
             BasicType {
-                kind: BasicTypeKind::Slice(Box::from(basic.clone())),
+                kind: BasicTypeKind::Slice(Box::from(basic)),
                 total_size: SLICE_HEADER_SIZE,
                 max_alignment: SLICE_HEADER_ALIGNMENT,
             }
@@ -401,7 +398,7 @@ pub fn layout_tuple_items(types: &[Type]) -> TupleType {
 }
 
 pub fn layout_tuple(types: &[Type]) -> BasicType {
-    let tuple_type = layout_tuple_items(&types);
+    let tuple_type = layout_tuple_items(types);
 
     BasicType {
         total_size: tuple_type.total_size,

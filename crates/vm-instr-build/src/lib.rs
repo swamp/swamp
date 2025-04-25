@@ -11,8 +11,8 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemorySize, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress,
-    HeapMemoryOffset, InstructionPosition, InstructionPositionOffset, MemoryAddress, MemorySize,
-    Meta, RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HeapMemoryOffset, InstructionPosition, InstructionPositionOffset, MemorySize, Meta,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::info;
 
@@ -144,19 +144,6 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
 
-impl InstructionBuilder<'_> {
-    pub fn add_not_z(&mut self, node: &Node, comment: &str) {
-        self.state.add_instruction(OpCode::NotZ, &[], node, comment);
-    }
-}
-
-impl InstructionBuilder<'_> {
-    pub fn enter(&mut self, size: FrameMemorySize, node: &Node, comment: &str) {
-        self.state
-            .add_instruction(OpCode::Enter, &[size.0], node, comment);
-    }
-}
-
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -165,6 +152,14 @@ impl<'a> InstructionBuilder<'a> {
 }
 
 impl InstructionBuilder<'_> {
+    pub fn add_not_z(&mut self, node: &Node, comment: &str) {
+        self.state.add_instruction(OpCode::NotZ, &[], node, comment);
+    }
+    pub fn enter(&mut self, size: FrameMemorySize, node: &Node, comment: &str) {
+        self.state
+            .add_instruction(OpCode::Enter, &[size.0], node, comment);
+    }
+
     #[must_use]
     pub fn position(&self) -> InstructionPosition {
         InstructionPosition(self.state.instructions.len() as u16)
@@ -614,7 +609,6 @@ impl InstructionBuilder<'_> {
         const MAP_ITER_NEXT_PAIR: u8 = OpCode::MapIterNextPair as u8;
 
         const RANGE_ITER_NEXT: u8 = OpCode::RangeIterNext as u8;
-        const RANGE_ITER_NEXT_PAIR: u8 = OpCode::RangeIterNextPair as u8;
 
         let instruction = &mut self.state.instructions[patch_position.0.0 as usize];
 
@@ -646,10 +640,6 @@ impl InstructionBuilder<'_> {
             }
 
             MAP_ITER_NEXT_PAIR => {
-                instruction.operands[3] = target_position.0 as u16 - 1;
-            }
-
-            RANGE_ITER_NEXT_PAIR => {
                 instruction.operands[3] = target_position.0 as u16 - 1;
             }
 
@@ -735,30 +725,6 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::RangeIterNext,
             &[iterator_target.addr().0, closure_variable.addr().0, 0],
-            node,
-            comment,
-        );
-        PatchPosition(position)
-    }
-
-    pub fn add_range_iter_next_pair_placeholder(
-        &mut self,
-        iterator_target: &FramePlacedType,
-        closure_variable: &FramePlacedType,
-        closure_variable_b: &FramePlacedType,
-        node: &Node,
-
-        comment: &str,
-    ) -> PatchPosition {
-        let position = self.position();
-        self.state.add_instruction(
-            OpCode::RangeIterNextPair,
-            &[
-                iterator_target.addr().0,
-                closure_variable.addr().0,
-                closure_variable_b.addr().0,
-                0,
-            ],
             node,
             comment,
         );
@@ -922,7 +888,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    fn convert_to_lower_and_upper(data: u32) -> (u16, u16) {
+    const fn convert_to_lower_and_upper(data: u32) -> (u16, u16) {
         let lower_bits = (data & 0xFFFF) as u16;
         let upper_bits = (data >> 16) as u16;
 
@@ -976,9 +942,11 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dst_offset.ty().is_int());
+        assert!(lhs_offset.ty().is_int());
+        assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::AddI32,
             &[
@@ -997,7 +965,6 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
         assert!(dst_offset.ty().is_int());
@@ -1022,9 +989,11 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dst_offset.ty().is_int());
+        assert!(lhs_offset.ty().is_int());
+        assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::DivI32,
             &[
@@ -1043,9 +1012,11 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dst_offset.ty().is_int());
+        assert!(lhs_offset.ty().is_int());
+        assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::SubI32,
             &[
@@ -1064,9 +1035,11 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dst_offset.ty().is_int());
+        assert!(lhs_offset.ty().is_int());
+        assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::MulI32,
             &[
@@ -1084,9 +1057,10 @@ impl InstructionBuilder<'_> {
         target: &FramePlacedType,
         source: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(target.ty().is_int());
+        assert!(source.ty().is_int());
         self.state.add_instruction(
             OpCode::NegI32,
             &[target.addr().0, source.addr().0],
@@ -1101,9 +1075,11 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dst_offset.ty().is_float());
+        assert!(lhs_offset.ty().is_float());
+        assert!(rhs_offset.ty().is_float());
         self.state.add_instruction(
             OpCode::ModF32,
             &[
@@ -1122,9 +1098,11 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dst_offset.ty().is_float());
+        assert!(lhs_offset.ty().is_float());
+        assert!(rhs_offset.ty().is_float());
         self.state.add_instruction(
             OpCode::SubF32,
             &[
@@ -1142,9 +1120,11 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dst_offset.ty().is_float());
+        assert!(lhs_offset.ty().is_float());
+        assert!(rhs_offset.ty().is_float());
         self.state.add_instruction(
             OpCode::MulF32,
             &[
@@ -1162,9 +1142,11 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dst_offset.ty().is_float());
+        assert!(lhs_offset.ty().is_float());
+        assert!(rhs_offset.ty().is_float());
         self.state.add_instruction(
             OpCode::DivF32,
             &[
@@ -1183,9 +1165,11 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dst_offset.ty().is_float());
+        assert!(lhs_offset.ty().is_float());
+        assert!(rhs_offset.ty().is_float());
         self.state.add_instruction(
             OpCode::AddF32,
             &[
@@ -1203,28 +1187,13 @@ impl InstructionBuilder<'_> {
         target: &FramePlacedType,
         source: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(target.ty().is_float());
+        assert!(source.ty().is_float());
         self.state.add_instruction(
             OpCode::NegF32,
             &[target.addr().0, source.addr().0],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_jmp_if(
-        &mut self,
-        condition_offset: &FramePlacedType,
-        jmp_target: &InstructionPosition,
-        node: &Node,
-
-        comment: &str,
-    ) {
-        self.state.add_instruction(
-            OpCode::Bnz,
-            &[condition_offset.addr().0, jmp_target.0],
             node,
             comment,
         );
@@ -1235,7 +1204,6 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
         assert!(lhs_offset.ty().is_float());
@@ -1253,7 +1221,6 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
         assert!(lhs_offset.ty().is_float());
@@ -1272,7 +1239,6 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
         assert!(lhs_offset.ty().is_float());
@@ -1291,7 +1257,6 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
         assert!(lhs_offset.ty().is_float());

@@ -122,7 +122,6 @@ pub enum OpCode {
     // Range
     RangeIterInit,
     RangeIterNext,
-    RangeIterNextPair,
 
     // Vec
     VecIterInit,
@@ -267,7 +266,6 @@ impl OpCode {
             // Range
             Self::RangeIterInit => "riter",
             Self::RangeIterNext => "ritern",
-            Self::RangeIterNextPair => "riternp",
 
             // Vec
             Self::VecFromSlice => "vfrom",
