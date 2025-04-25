@@ -52,6 +52,7 @@ use tracing::{error, info};
 
 #[derive(Copy, Clone)]
 pub enum Transformer {
+    For,
     Filter,
     Find,
     Map,
@@ -61,6 +62,7 @@ pub enum Transformer {
 }
 
 pub enum TransformerResult {
+    Unit,
     Bool,
     VecWithLambdaResult,
     VecFromSourceCollection,
@@ -74,6 +76,7 @@ impl Transformer {
             Self::FilterMap | Self::Map => TransformerResult::VecWithLambdaResult,
             Self::All | Self::Any => TransformerResult::Bool,
             Self::Find => TransformerResult::WrappedValueFromSourceCollection,
+            Self::For => TransformerResult::Unit,
         }
     }
 
@@ -105,10 +108,10 @@ impl Collection {
     pub fn iterator_size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
         match self {
             Self::Vec => (VEC_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT),
-            //     Self::Map => (MAP_HEADER_SIZE, MAP_HEADER_ALIGNMENT),
-            //   Self::Grid => (GRID_HEADER_SIZE, GRID_HEADER_ALIGNMENT),
-            // Self::String => (STRING_HEADER_SIZE, STRING_HEADER_ALIGNMENT),
-            //Self::Range => (RANGE_HEADER_SIZE, RANGE_HEADER_ALIGNMENT),
+            Self::Map => (MAP_HEADER_SIZE, MAP_HEADER_ALIGNMENT),
+            Self::Grid => (GRID_HEADER_SIZE, GRID_HEADER_ALIGNMENT),
+            Self::String => (STRING_HEADER_SIZE, STRING_HEADER_ALIGNMENT),
+            Self::Range => (RANGE_HEADER_SIZE, RANGE_HEADER_ALIGNMENT),
             _ => todo!(),
         }
     }
@@ -686,7 +689,7 @@ impl TopLevelGenState {
          */
 
         let ctx = Context::new(frame_and_variable_info.return_placement);
-        //        info!(?in_data, "generate");
+        info!(?in_data, "generate");
         function_generator.gen_expression_materialize(&in_data.expression, &ctx)?;
 
         self.finalize_function(&GenOptions {
@@ -1622,7 +1625,7 @@ impl FunctionCodeGen<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        //self.debug_node(&expr.node);
+        self.debug_node(&expr.node);
 
         match &expr.kind {
             ExpressionKind::ConstantAccess(constant_ref) => {
@@ -1655,7 +1658,9 @@ impl FunctionCodeGen<'_> {
             ExpressionKind::Option(maybe_option) => {
                 self.gen_option_expression(&expr.node, maybe_option.as_deref(), ctx)
             }
-            ExpressionKind::ForLoop(a, b, c) => self.gen_for_loop(&expr.node, a, b, c),
+            ExpressionKind::ForLoop(for_pattern, collection, lambda_expr) => {
+                self.gen_for_loop(&expr.node, for_pattern, collection, lambda_expr, ctx)
+            }
             ExpressionKind::WhileLoop(condition, expression) => {
                 self.gen_while_loop(condition, expression, ctx)
             }
@@ -2810,7 +2815,8 @@ impl FunctionCodeGen<'_> {
         node: &Node,
         for_pattern: &ForPattern,
         iterable: &Iterable,
-        closure: &Box<Expression>,
+        lambda_non_capturing_expr: &Box<Expression>,
+        ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
         // Add check if the collection is empty, to skip everything
 
@@ -2819,22 +2825,70 @@ impl FunctionCodeGen<'_> {
         // check if it has reached its end
 
         let collection_type = &iterable.resolved_expression.ty();
-        let (jump_ip, placeholder_position) = match collection_type {
+
+        let gen_collection =
+            self.gen_expression_location_mut_ref_or_immutable(&iterable.resolved_expression)?;
+        match collection_type {
             Type::String => {
                 todo!();
             }
             Type::NamedStruct(named_type) => {
-                /*
                 if named_type.is_vec() {
-                    self.gen_for_loop_vec(node, for_pattern, &iterable.resolved_expression)?
+                    self.gen_for_loop_lambda(
+                        node,
+                        Collection::Vec,
+                        &gen_collection,
+                        collection_type,
+                        for_pattern,
+                        &lambda_non_capturing_expr,
+                        ctx,
+                    )?
                 } else if named_type.is_map() {
-                    self.gen_for_loop_map(node, for_pattern)?
+                    self.gen_for_loop_lambda(
+                        node,
+                        Collection::Map,
+                        &gen_collection,
+                        collection_type,
+                        for_pattern,
+                        &lambda_non_capturing_expr,
+                        ctx,
+                    )?
                 } else if named_type.is_range() {
-                    self.gen_for_loop_range(node, for_pattern)?
+                    self.gen_for_loop_lambda(
+                        node,
+                        Collection::Range,
+                        &gen_collection,
+                        collection_type,
+                        for_pattern,
+                        &lambda_non_capturing_expr,
+                        ctx,
+                    )?
                 } else if named_type.is_stack() {
-                    self.gen_for_loop_range(node, for_pattern)?
+                    /*
+                    self.gen_for_loop_lambda(
+                        node,
+                        Collection::Stack,
+                        &gen_collection,
+                        collection_type,
+                        for_pattern,
+                        &lambda_non_capturing_expr,
+                        ctx,
+                    )?
+
+                     */
                 } else if named_type.is_grid() {
-                    self.gen_for_loop_range(node, for_pattern)?
+                    /*
+                    self.gen_for_loop_lambda(
+                        node,
+                        Collection::Grid,
+                        &gen_collection,
+                        collection_type,
+                        for_pattern,
+                        &lambda_non_capturing_expr,
+                        ctx,
+                    )?
+
+                     */
                 } else {
                     error!(?named_type, "can not iterate this collection");
                     return Err(self.create_err(
@@ -2842,9 +2896,6 @@ impl FunctionCodeGen<'_> {
                         iterable.resolved_expression.node(),
                     ));
                 }
-
-                 */
-                todo!()
             }
             _ => {
                 return Err(self.create_err(
@@ -2853,20 +2904,6 @@ impl FunctionCodeGen<'_> {
                 ));
             }
         };
-
-        match for_pattern {
-            ForPattern::Single(value_variable) => {}
-            ForPattern::Pair(key_variable, value_variable) => {}
-        }
-
-        let unit_expr = self.temp_space_for_type(&Type::Unit, "for loop body");
-        self.gen_expression_materialize(closure, &unit_expr)?;
-
-        self.builder
-            .add_jmp(jump_ip, &Node::default(), "jump to next iteration");
-        // advance iterator pointer
-        // jump to check if iterator pointer has reached its end
-        self.builder.patch_jump_here(placeholder_position);
 
         Ok(GeneratedExpressionResult::default())
     }
@@ -3861,6 +3898,8 @@ impl FunctionCodeGen<'_> {
     /// // TODO:
     /// # Panics
     /// - If the lambda expression or its kind is not as expected (internal error).
+    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_arguments)]
     pub fn iterate_over_collection_with_lambda(
         &mut self,
         node: &Node,
@@ -3944,7 +3983,7 @@ impl FunctionCodeGen<'_> {
 
         // 4. If the transformer supports early exit, set the Z flag based on the lambda result.
         let transformer_z_flag_state =
-            self.check_if_transformer_sets_z_flag(Transformer::Filter, &lambda_result, node);
+            self.check_if_transformer_sets_z_flag(transformer, &lambda_result, node);
 
         // 5. Conditionally skip result insertion if early exit is triggered.
         let maybe_skip_early = if matches!(
@@ -3967,6 +4006,9 @@ impl FunctionCodeGen<'_> {
 
         // 6. If applicable, insert the (possibly unwrapped) result into the target vector.
         match transformer.return_type() {
+            TransformerResult::Unit => {
+                // Only alternative is that it is a bool return, so no need to take any action here
+            }
             TransformerResult::Bool => {
                 // Only alternative is that it is a bool return, so no need to take any action here
             }
@@ -4115,6 +4157,7 @@ impl FunctionCodeGen<'_> {
         node: &Node,
     ) -> GeneratedExpressionResultKind {
         match transformer {
+            Transformer::For => GeneratedExpressionResultKind::ZFlagUnmodified,
             Transformer::Filter => {
                 assert_eq!(in_value.size().0, 1); // bool
                 self.builder
@@ -4200,6 +4243,40 @@ impl FunctionCodeGen<'_> {
                     .add_stnz(target, node, "materialize inverse z flag");
             }
         }
+    }
+
+    fn gen_for_loop_lambda(
+        &mut self,
+        node: &Node,
+        collection: Collection,
+        source_collection: &FramePlacedType,
+        source_collection_type: &Type,
+        for_pattern: &ForPattern,
+        lambda_expr: &Expression,
+
+        ctx: &Context,
+    ) -> Result<(), Error> {
+        let variables = match for_pattern {
+            ForPattern::Single(a) => vec![a.clone()],
+            ForPattern::Pair(a, b) => vec![a.clone(), b.clone()],
+        };
+
+        let fake_lambda_kind = ExpressionKind::Lambda(variables, Box::from(lambda_expr.clone()));
+        let fake_lambda_expr = MutRefOrImmutableExpression::Expression(Expression {
+            ty: lambda_expr.ty.clone(),
+            node: node.clone(),
+            kind: fake_lambda_kind,
+        });
+
+        self.iterate_over_collection_with_lambda(
+            node,
+            collection,
+            Transformer::For,
+            source_collection,
+            source_collection_type,
+            &fake_lambda_expr,
+            ctx,
+        )
     }
 }
 

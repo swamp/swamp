@@ -112,6 +112,8 @@ impl FunctionCodeGen<'_> {
                         &converted,
                         &ctx,
                     )?;
+
+                    frame_relative_base_address = ctx.target().clone();
                 }
             }
         }

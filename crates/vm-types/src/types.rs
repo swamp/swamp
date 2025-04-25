@@ -4,6 +4,7 @@ use crate::{
     MemoryAlignment, MemoryOffset, MemorySize, align_to,
 };
 use std::fmt::{Display, Formatter, Write};
+use tracing::{error, info};
 use yansi::Paint;
 
 impl FrameMemoryInfo {
@@ -448,7 +449,10 @@ impl BasicType {
         match &self.kind {
             BasicTypeKind::Struct(struct_type) => struct_type.fields.get(index),
             BasicTypeKind::Tuple(tuple_type) => tuple_type.fields.get(index),
-            _ => None,
+            _ => {
+                error!(?self, "not a type with fields");
+                None
+            }
         }
     }
 
