@@ -690,7 +690,7 @@ impl TopLevelGenState {
          */
 
         let ctx = Context::new(frame_and_variable_info.return_placement);
-        info!(?in_data, "generate");
+        //info!(?in_data, "generate");
         function_generator.gen_expression_materialize(&in_data.expression, &ctx)?;
 
         self.finalize_function(&GenOptions {
@@ -1626,7 +1626,7 @@ impl FunctionCodeGen<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        self.debug_node(&expr.node);
+        //self.debug_node(&expr.node);
 
         match &expr.kind {
             ExpressionKind::ConstantAccess(constant_ref) => {
@@ -3180,20 +3180,6 @@ impl FunctionCodeGen<'_> {
         }
     }
 
-    fn internal_function_access(
-        &mut self,
-        internal: &InternalFunctionDefinitionRef,
-        ctx: &Context,
-    ) -> Result<(), Error> {
-        self.builder.add_ld_u16(
-            ctx.target(),
-            internal.program_unique_id,
-            &internal.name.0,
-            &format!("function access '{}'", internal.assigned_name),
-        );
-        Ok(())
-    }
-
     fn infinite_above_frame_size(&self) -> FrameMemoryRegion {
         FrameMemoryRegion::new(FrameMemoryAddress(self.frame_size.0), MemorySize(1024))
     }
@@ -3242,8 +3228,6 @@ impl FunctionCodeGen<'_> {
             source_order_expressions.len(),
             gen_source_struct_type.fields.len()
         );
-
-        info!(x=?ctx.target(), "gen_struct_literal_helper");
 
         for (_offset_item, (field_index, _node, expression)) in gen_source_struct_type
             .fields
@@ -3367,48 +3351,6 @@ impl FunctionCodeGen<'_> {
             element_count: CountU16(element_count),
             element_size,
         })
-    }
-
-    fn gen_slice_helper(
-        &mut self,
-        node: &Node,
-        start_temp_frame_address_to_transfer: FrameMemoryAddress,
-        element_count: u16,
-        element_size: MemorySize,
-        ctx: &Context,
-    ) {
-        let total_slice_size = MemorySize(element_size.0 * element_count);
-        let vec_len_addr = ctx.target().move_with_offset(MemoryOffset(0), u16_type());
-        self.builder
-            .add_ld_u16(&vec_len_addr, element_count, node, "slice len");
-
-        let vec_capacity_addr = ctx.target().move_with_offset(MemoryOffset(2), u16_type());
-        self.builder
-            .add_ld_u16(&vec_capacity_addr, element_count, node, "slice capacity");
-
-        let vec_element_size_addr = ctx.target().move_with_offset(MemoryOffset(4), u16_type());
-        self.builder.add_ld_u16(
-            &vec_element_size_addr,
-            element_size.0,
-            node,
-            "slice element size",
-        );
-
-        /*
-        let allocated_vec_address = ctx.addr().advance(MemoryOffset(6));
-        self.state
-        .builder
-        add_alloc(allocated_vec_address, total_slice_size, "slice literal");
-
-        self.state.builder.add_stx(
-            allocated_vec_address,
-            MemoryOffset(0),
-            start_temp_frame_address_to_transfer,
-            total_slice_size,
-            "copy from slice continuous temporary frame memory to allocated vec ptr heap area",
-        );
-
-         */
     }
 
     /*

@@ -262,6 +262,14 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
         );
     }
 
+    if named_struct_type.is_queue() {
+        return basic_type(
+            BasicTypeKind::InternalVecHeader,
+            VEC_HEADER_SIZE,
+            VEC_HEADER_ALIGNMENT,
+        );
+    }
+
     layout_struct(
         &named_struct_type.anon_struct_type,
         //memory_offset,

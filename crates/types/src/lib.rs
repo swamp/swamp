@@ -828,6 +828,10 @@ impl NamedStructType {
         self.is_core_type_with_name("Stack")
     }
 
+    pub fn is_queue(&self) -> bool {
+        self.is_core_type_with_name("Queue")
+    }
+
     pub fn is_grid(&self) -> bool {
         self.is_core_type_with_name("Grid")
     }

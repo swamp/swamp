@@ -6,13 +6,13 @@ use seq_map::SeqMap;
 use source_map_node::Node;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
-    CompleteFunctionInfo, FramePlacedType, FunctionInfo, FunctionInfoKind, HeapPlacedArray,
-    HeapPlacedType,
+    BasicTypeKind, CompleteFunctionInfo, FramePlacedType, FunctionInfo, FunctionInfoKind,
+    HeapPlacedArray, HeapPlacedType,
 };
 use swamp_vm_types::{
-    BinaryInstruction, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset, InstructionPosition,
-    InstructionPositionOffset, MemoryAddress, MemorySize, Meta, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    BinaryInstruction, FrameMemorySize, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress,
+    HeapMemoryOffset, InstructionPosition, InstructionPositionOffset, MemoryAddress, MemorySize,
+    Meta, RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::info;
 
@@ -144,9 +144,7 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
 
-impl<'a> InstructionBuilder<'a> {}
-
-impl<'a> InstructionBuilder<'a> {
+impl InstructionBuilder<'_> {
     pub fn add_not_z(&mut self, node: &Node, comment: &str) {
         self.state.add_instruction(OpCode::NotZ, &[], node, comment);
     }
@@ -212,6 +210,10 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        assert!(matches!(
+            vec_self_addr.ty().kind,
+            BasicTypeKind::InternalVecHeader
+        ));
         assert_eq!(int_index_a.size(), int_index_b.size());
         self.state.add_instruction(
             OpCode::VecSwap,
@@ -231,9 +233,12 @@ impl InstructionBuilder<'_> {
         self_addr: &FramePlacedType,
         index: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(matches!(
+            self_addr.ty().kind,
+            BasicTypeKind::InternalVecHeader
+        ));
         self.state.add_instruction(
             OpCode::VecSubscript,
             &[target.addr().0, self_addr.addr().0, index.addr().0],
@@ -248,9 +253,12 @@ impl InstructionBuilder<'_> {
         self_addr: &FramePlacedType,
         index: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(matches!(
+            self_addr.ty().kind,
+            BasicTypeKind::InternalVecHeader
+        ));
         self.state.add_instruction(
             OpCode::VecGet,
             &[target.addr().0, self_addr.addr().0, index.addr().0],
@@ -267,6 +275,11 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        assert!(matches!(
+            vec_self_addr.ty().kind,
+            BasicTypeKind::InternalVecHeader
+        ));
+
         self.state.add_instruction(
             OpCode::VecGetRange,
             &[
@@ -286,9 +299,13 @@ impl InstructionBuilder<'_> {
         index: &FramePlacedType,
         value_addr: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(matches!(
+            self_addr.ty().kind,
+            BasicTypeKind::InternalVecHeader
+        ));
+
         self.state.add_instruction(
             OpCode::VecSubscriptMut,
             &[
@@ -307,9 +324,14 @@ impl InstructionBuilder<'_> {
         self_addr: &FramePlacedType,
         element_item: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(
+            matches!(self_addr.ty().kind, BasicTypeKind::InternalVecHeader),
+            "what is this {:?}",
+            self_addr.ty()
+        );
+
         self.state.add_instruction(
             OpCode::VecPush,
             &[self_addr.addr().0, element_item.addr().0],
@@ -323,9 +345,12 @@ impl InstructionBuilder<'_> {
         target_addr: &FramePlacedType,
         self_addr: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(matches!(
+            self_addr.ty().kind,
+            BasicTypeKind::InternalVecHeader
+        ));
         self.state.add_instruction(
             OpCode::VecPop,
             &[target_addr.addr().0, self_addr.addr().0],
@@ -339,9 +364,12 @@ impl InstructionBuilder<'_> {
         self_addr: &FramePlacedType,
         element_item: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(matches!(
+            self_addr.ty().kind,
+            BasicTypeKind::InternalVecHeader
+        ));
         self.state.add_instruction(
             OpCode::VecRemoveIndex,
             &[self_addr.addr().0, element_item.addr().0],
@@ -356,9 +384,12 @@ impl InstructionBuilder<'_> {
         self_addr: &FramePlacedType,
         element_item: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(matches!(
+            self_addr.ty().kind,
+            BasicTypeKind::InternalVecHeader
+        ));
         self.state.add_instruction(
             OpCode::VecRemoveIndexGetValue,
             &[
@@ -376,9 +407,12 @@ impl InstructionBuilder<'_> {
         iterator_target: &FramePlacedType,
         closure_variable: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) -> PatchPosition {
+        assert!(matches!(
+            iterator_target.ty().kind,
+            BasicTypeKind::InternalVecIterator
+        ));
         let position = self.position();
         self.state.add_instruction(
             OpCode::VecIterNext,
@@ -395,9 +429,12 @@ impl InstructionBuilder<'_> {
         closure_variable: &FramePlacedType,
         closure_variable_b: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) -> PatchPosition {
+        assert!(matches!(
+            iterator_target.ty().kind,
+            BasicTypeKind::InternalVecIterator
+        ));
         let position = self.position();
         self.state.add_instruction(
             OpCode::VecIterNextPair,
@@ -418,9 +455,9 @@ impl InstructionBuilder<'_> {
         source_addr: &FramePlacedType,
         immediate: u8,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(source_addr.size().0 >= 1);
         self.state.add_instruction(
             OpCode::Eq8Imm,
             &[source_addr.addr().0, immediate as u16],
@@ -451,7 +488,6 @@ impl InstructionBuilder<'_> {
         source: &FramePlacedType,
         size: MemorySize,
         node: &Node,
-
         comment: &str,
     ) {
         self.state.add_instruction(
@@ -514,7 +550,6 @@ impl InstructionBuilder<'_> {
         source: &FramePlacedType,
         size: MemorySize,
         node: &Node,
-
         comment: &str,
     ) {
         self.state.add_instruction(
@@ -531,9 +566,9 @@ impl InstructionBuilder<'_> {
         target: &FramePlacedType,
         source: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert_eq!(target.size(), source.size());
         self.add_movlp(target, source, source.size(), node, comment);
     }
 
@@ -552,7 +587,6 @@ impl InstructionBuilder<'_> {
         host_function_id: u16,
         arguments_size: MemorySize,
         node: &Node,
-
         comment: &str,
     ) {
         self.state.add_instruction(
@@ -638,7 +672,6 @@ impl InstructionBuilder<'_> {
         iterator_target: &FramePlacedType,
         pointer_to_map_header: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
         self.state.add_instruction(
@@ -654,7 +687,6 @@ impl InstructionBuilder<'_> {
         iterator_target: &FramePlacedType,
         closure_variable: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) -> PatchPosition {
         let position = self.position();
@@ -1206,6 +1238,8 @@ impl InstructionBuilder<'_> {
 
         comment: &str,
     ) {
+        assert!(lhs_offset.ty().is_float());
+        assert!(rhs_offset.ty().is_float());
         self.state.add_instruction(
             OpCode::LtF32,
             &[lhs_offset.addr().0, rhs_offset.addr().0],
@@ -1222,6 +1256,9 @@ impl InstructionBuilder<'_> {
 
         comment: &str,
     ) {
+        assert!(lhs_offset.ty().is_float());
+        assert!(rhs_offset.ty().is_float());
+
         self.state.add_instruction(
             OpCode::LeF32,
             &[lhs_offset.addr().0, rhs_offset.addr().0],
@@ -1238,6 +1275,9 @@ impl InstructionBuilder<'_> {
 
         comment: &str,
     ) {
+        assert!(lhs_offset.ty().is_float());
+        assert!(rhs_offset.ty().is_float());
+
         self.state.add_instruction(
             OpCode::GtF32,
             &[lhs_offset.addr().0, rhs_offset.addr().0],
@@ -1254,25 +1294,12 @@ impl InstructionBuilder<'_> {
 
         comment: &str,
     ) {
+        assert!(lhs_offset.ty().is_float());
+        assert!(rhs_offset.ty().is_float());
+
         self.state.add_instruction(
             OpCode::GeF32,
             &[lhs_offset.addr().0, rhs_offset.addr().0],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_jmp_if_not(
-        &mut self,
-        condition_offset: MemoryAddress,
-        jmp_target: InstructionPosition,
-        node: &Node,
-
-        comment: &str,
-    ) {
-        self.state.add_instruction(
-            OpCode::Bz,
-            &[condition_offset.0, jmp_target.0],
             node,
             comment,
         );
@@ -1283,9 +1310,10 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(lhs_offset.ty().is_int());
+        assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LtI32,
             &[lhs_offset.addr().0, rhs_offset.addr().0],
@@ -1299,9 +1327,10 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(lhs_offset.ty().is_int());
+        assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LeI32,
             &[lhs_offset.addr().0, rhs_offset.addr().0],
@@ -1315,9 +1344,10 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(lhs_offset.ty().is_int());
+        assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::GtI32,
             &[lhs_offset.addr().0, rhs_offset.addr().0],
@@ -1331,9 +1361,10 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(lhs_offset.ty().is_int());
+        assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::GeI32,
             &[lhs_offset.addr().0, rhs_offset.addr().0],
@@ -1343,17 +1374,19 @@ impl InstructionBuilder<'_> {
     }
 
     pub fn add_tst8(&mut self, addr: &FramePlacedType, node: &Node, comment: &str) {
-        //        assert_eq!(addr.size().0, 1);
+        assert!(addr.size().0 >= 1);
         self.state
             .add_instruction(OpCode::Tst8, &[addr.addr().0], node, comment);
     }
 
     pub fn add_stz(&mut self, target: &FramePlacedType, node: &Node, comment: &str) {
+        assert_eq!(target.size().0, 1);
         self.state
             .add_instruction(OpCode::Stz, &[target.addr().0], node, comment);
     }
 
     pub fn add_stnz(&mut self, target: &FramePlacedType, node: &Node, comment: &str) {
+        assert_eq!(target.size().0, 1);
         self.state
             .add_instruction(OpCode::Stnz, &[target.addr().0], node, comment);
     }
@@ -1389,7 +1422,6 @@ impl InstructionBuilder<'_> {
         &mut self,
         source_a: &FramePlacedType,
         source_b: &FramePlacedType,
-        //size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
@@ -1411,7 +1443,6 @@ impl InstructionBuilder<'_> {
         value_size: MemorySize,
         element_size: MemorySize,
         node: &Node,
-
         comment: &str,
     ) {
         self.state.add_instruction(
@@ -1429,21 +1460,22 @@ impl InstructionBuilder<'_> {
     }
 
     pub fn add_map_has(&mut self, self_addr: &FramePlacedType, node: &Node, comment: &str) {
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
         self.state
             .add_instruction(OpCode::MapHas, &[self_addr.addr().0], node, comment);
     }
 
     pub fn add_map_remove(
         &mut self,
-        map_target_addr: &FramePlacedType,
+        self_addr: &FramePlacedType,
         key_addr: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
         self.state.add_instruction(
             OpCode::MapRemove,
-            &[map_target_addr.addr().0, key_addr.addr().0],
+            &[self_addr.addr().0, key_addr.addr().0],
             node,
             comment,
         );
@@ -1455,9 +1487,9 @@ impl InstructionBuilder<'_> {
         self_addr: &FramePlacedType,
         key: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
         self.state.add_instruction(
             OpCode::MapSubscript,
             &[target_addr.addr().0, self_addr.addr().0, key.addr().0],
@@ -1473,6 +1505,8 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
+
         self.state.add_instruction(
             OpCode::MapSubscriptMutCreate,
             &[self_addr.addr().0, key.addr().0],
@@ -1489,6 +1523,8 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
+
         self.state.add_instruction(
             OpCode::MapSubscriptMut,
             &[self_addr.addr().0, key.addr().0, value.addr().0],
@@ -1509,6 +1545,12 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        assert!(matches!(
+            target.ty().kind,
+            BasicTypeKind::IndirectHeapPointerOnFrame
+        ));
+        assert_eq!(target.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
+
         self.state
             .add_instruction(OpCode::Alloc, &[target.addr().0, size.0], node, comment);
     }
@@ -1522,6 +1564,12 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        assert!(matches!(
+            dest.ty().kind,
+            BasicTypeKind::IndirectHeapPointerOnFrame
+        ));
+        assert_eq!(dest.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
+
         let (offset_lower, offset_upper) = Self::convert_to_lower_and_upper(offset.0);
         self.state.add_instruction(
             OpCode::Stx,
@@ -1560,9 +1608,10 @@ impl InstructionBuilder<'_> {
         dest: &FramePlacedType,
         self_int: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest.ty().is_int());
+        assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntToRnd,
             &[dest.addr().0, self_int.addr().0],
@@ -1576,9 +1625,11 @@ impl InstructionBuilder<'_> {
         dest: &FramePlacedType,
         self_int: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest.ty().is_int());
+        assert!(self_int.ty().is_int());
+
         self.state.add_instruction(
             OpCode::IntMin,
             &[dest.addr().0, self_int.addr().0],
@@ -1592,9 +1643,11 @@ impl InstructionBuilder<'_> {
         dest: &FramePlacedType,
         self_int: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest.ty().is_int());
+        assert!(self_int.ty().is_int());
+
         self.state.add_instruction(
             OpCode::IntMax,
             &[dest.addr().0, self_int.addr().0],
@@ -1608,9 +1661,10 @@ impl InstructionBuilder<'_> {
         dest: &FramePlacedType,
         self_int: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest.ty().is_int());
+        assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntClamp,
             &[dest.addr().0, self_int.addr().0],
@@ -1624,9 +1678,10 @@ impl InstructionBuilder<'_> {
         dest: &FramePlacedType,
         self_int: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest.ty().is_int());
+        assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntAbs,
             &[dest.addr().0, self_int.addr().0],
@@ -1640,9 +1695,10 @@ impl InstructionBuilder<'_> {
         dest: &FramePlacedType,
         self_int: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest.ty().is_float());
+        assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntToFloat,
             &[dest.addr().0, self_int.addr().0],
@@ -1656,9 +1712,10 @@ impl InstructionBuilder<'_> {
         dest: &FramePlacedType,
         self_int: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest.ty().is_str());
+        assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntToString,
             &[dest.addr().0, self_int.addr().0],
@@ -1669,15 +1726,16 @@ impl InstructionBuilder<'_> {
 
     pub fn bool_to_string(
         &mut self,
-        dest: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_str: &FramePlacedType,
+        self_bool: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_str.ty().is_str());
+        assert!(self_bool.ty().is_bool());
         self.state.add_instruction(
             OpCode::BoolToString,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_str.addr().0, self_bool.addr().0],
             node,
             comment,
         );
@@ -1685,15 +1743,16 @@ impl InstructionBuilder<'_> {
 
     pub fn float_to_string(
         &mut self,
-        dest: &FramePlacedType,
+        dest_str: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_str.ty().is_str());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatToString,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_str.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1701,15 +1760,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_round(
         &mut self,
-        dest: &FramePlacedType,
+        dest_int: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_int.ty().is_int());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatRound,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_int.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1717,15 +1777,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_floor(
         &mut self,
-        dest: &FramePlacedType,
+        dest_int: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_int.ty().is_int());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatFloor,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_int.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1733,15 +1794,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_sqrt(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatSqrt,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_float.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1749,15 +1811,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_sign(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatSign,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_float.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1765,15 +1828,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_abs(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatAbs,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_float.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1781,15 +1845,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_prnd(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatPseudoRandom,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_float.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1797,15 +1862,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_sin(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatSin,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_float.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1813,15 +1879,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_cos(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatCos,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_float.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1829,15 +1896,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_acos(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatAcos,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_float.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1845,15 +1913,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_asin(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatAsin,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_float.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1861,15 +1930,16 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_atan2(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatAtan2,
-            &[dest.addr().0, self_float.addr().0],
+            &[dest_float.addr().0, self_float.addr().0],
             node,
             comment,
         );
@@ -1877,16 +1947,17 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_min(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
         other: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatMin,
-            &[dest.addr().0, self_float.addr().0, other.addr().0],
+            &[dest_float.addr().0, self_float.addr().0, other.addr().0],
             node,
             comment,
         );
@@ -1894,16 +1965,18 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_max(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
-        other: &FramePlacedType,
+        max_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
+        assert!(max_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatMax,
-            &[dest.addr().0, self_float.addr().0, other.addr().0],
+            &[dest_float.addr().0, self_float.addr().0, max_float.addr().0],
             node,
             comment,
         );
@@ -1911,67 +1984,28 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_clamp(
         &mut self,
-        dest: &FramePlacedType,
+        dest_float: &FramePlacedType,
         self_float: &FramePlacedType,
-        min_addr: &FramePlacedType,
-        max_addr: &FramePlacedType,
+        min_float: &FramePlacedType,
+        max_float: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
+        assert!(dest_float.ty().is_float());
+        assert!(self_float.ty().is_float());
+        assert!(min_float.ty().is_float());
+        assert!(max_float.ty().is_float());
+
         self.state.add_instruction(
             OpCode::FloatClamp,
             &[
-                dest.addr().0,
-                min_addr.addr().0,
+                dest_float.addr().0,
+                min_float.addr().0,
                 self_float.addr().0,
-                max_addr.addr().0,
+                max_float.addr().0,
             ],
             node,
             comment,
         );
     }
-
-    /*
-
-        pub fn add_lt_u16(
-        &mut self,
-        dest: &FramePlacedType,
-        a: &FramePlacedType,
-        b: &FramePlacedType,
-        comment: &str,
-    ) {
-        self.add_instruction(OpCode::LtU16, &[dest.0, a.0, b.0], comment);
-    }
-
-
-    pub fn add_stx(
-        &mut self,
-        indirect_target: &FramePlacedType,
-        offset: MemoryOffset,
-        source_address: &FramePlacedType,
-        size: MemorySize,
-        comment: &str,
-    ) {
-        self.add_instruction(
-            OpCode::Stx,
-            &[indirect_target.0, offset.0, source_address.0, size.0],
-            comment,
-        );
-    }
-    pub fn add_alloc(&mut self, target: &FramePlacedType, size: MemorySize, comment: &str) {
-        self.add_instruction(OpCode::Alloc, &[target.0, size.0], comment);
-    }
-
-
-        pub fn add_load_frame_address(
-        &mut self,
-        dest: &FramePlacedType,
-        addr: &FramePlacedType,
-        comment: &str,
-    ) {
-        self.add_ld_u16(dest, addr.0, comment);
-    }
-
-    */
 }

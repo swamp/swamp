@@ -1,7 +1,9 @@
+use crate::MemoryAlignment::U32;
 use crate::{
-    FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    HeapMemoryRegion, InstructionPosition, InstructionPositionOffset, InstructionRange,
-    MemoryAlignment, MemoryOffset, MemorySize, align_to,
+    FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HEAP_PTR_ON_FRAME_ALIGNMENT,
+    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemoryRegion,
+    InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryAlignment,
+    MemoryOffset, MemorySize, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, align_to,
 };
 use std::fmt::{Display, Formatter, Write};
 use tracing::{error, info};
@@ -217,6 +219,7 @@ pub enum BasicTypeKind {
     Optional(TaggedUnion),
     Slice(Box<BasicType>),
     SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
+    IndirectHeapPointerOnFrame,
 }
 
 #[must_use]
@@ -240,9 +243,9 @@ pub const fn u16_type() -> BasicType {
 #[must_use]
 pub const fn heap_ptr_size() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::U32,
-        total_size: MemorySize(4),
-        max_alignment: MemoryAlignment::U32,
+        kind: BasicTypeKind::IndirectHeapPointerOnFrame,
+        total_size: HEAP_PTR_ON_FRAME_SIZE,
+        max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
     }
 }
 
@@ -419,8 +422,6 @@ pub struct BasicType {
     pub max_alignment: MemoryAlignment,
 }
 
-impl BasicType {}
-
 impl BasicType {
     #[must_use]
     pub const fn unwrap_info(
@@ -474,8 +475,30 @@ impl BasicType {
     }
 
     #[must_use]
-    pub const fn is_int(&self) -> bool {
+    pub fn is_int(&self) -> bool {
         matches!(self.kind, BasicTypeKind::S32)
+            && self.total_size.0 == 4
+            && self.max_alignment == MemoryAlignment::U32
+    }
+    #[must_use]
+    pub fn is_float(&self) -> bool {
+        matches!(self.kind, BasicTypeKind::Fixed32)
+            && self.total_size.0 == 4
+            && self.max_alignment == MemoryAlignment::U32
+    }
+
+    #[must_use]
+    pub fn is_str(&self) -> bool {
+        matches!(self.kind, BasicTypeKind::InternalStringHeader)
+            && self.total_size == STRING_HEADER_SIZE
+            && self.max_alignment == STRING_HEADER_ALIGNMENT
+    }
+
+    #[must_use]
+    pub fn is_bool(&self) -> bool {
+        matches!(self.kind, BasicTypeKind::B8)
+            && self.total_size.0 == 1
+            && self.max_alignment == MemoryAlignment::U8
     }
 }
 
@@ -544,6 +567,9 @@ impl Display for BasicTypeKind {
             }
             Self::InternalRangeIterator => {
                 write!(f, "range_iter")
+            }
+            Self::IndirectHeapPointerOnFrame => {
+                write!(f, "heap_ptr")
             }
             Self::Slice(basic) => {
                 write!(f, "slice {basic}")
@@ -768,6 +794,9 @@ pub fn write_basic_type(
         }
         BasicTypeKind::InternalRangeHeader => {
             write!(f, "range")
+        }
+        BasicTypeKind::IndirectHeapPointerOnFrame => {
+            write!(f, "heap_ptr")
         }
         BasicTypeKind::InternalVecHeader => {
             write!(f, "vec<>")
