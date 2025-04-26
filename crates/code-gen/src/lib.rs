@@ -1162,8 +1162,7 @@ impl FunctionCodeGen<'_> {
                  */
                 let value_region = &index_region;
 
-                self.builder.add_vec_subscript_mut(
-                    ctx.target(),
+                self.builder.add_vec_set(
                     &self_addr.unwrap(),
                     &index_region,
                     value_region,
@@ -1290,7 +1289,7 @@ impl FunctionCodeGen<'_> {
                     panic!("must be expression for key");
                 };
                 let key = self.emit_expression_location(key_argument);
-                self.builder.add_map_subscript(
+                self.builder.add_map_fetch(
                     ctx.target(),
                     &self_addr.unwrap(),
                     &key,
@@ -1298,31 +1297,8 @@ impl FunctionCodeGen<'_> {
                     "map_subscript",
                 );
             }
-            IntrinsicFunction::MapSubscriptMut => {
-                let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
-                    panic!("must be expression for key");
-                };
-                let key = self.emit_expression_location(key_argument);
-                self.builder.add_map_subscript_mut(
-                    ctx.target(),
-                    &self_addr.unwrap(),
-                    &key,
-                    node,
-                    "map_subscript",
-                );
-            }
-            IntrinsicFunction::MapSubscriptMutCreateIfNeeded => {
-                let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
-                    panic!("must be expression for key");
-                };
-                let key = self.emit_expression_location(key_argument);
-                self.builder.add_map_subscript_mut_create(
-                    &self_addr.unwrap(),
-                    &key,
-                    node,
-                    "map_subscript_mut_create (set)",
-                );
-            }
+            IntrinsicFunction::MapSubscriptMut => {}
+            IntrinsicFunction::MapSubscriptMutCreateIfNeeded => {}
 
             // Grid
             IntrinsicFunction::GridCreate => {

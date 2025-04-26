@@ -2,13 +2,14 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use crate::FunctionCodeGen;
 use crate::ctx::Context;
+use source_map_node::Node;
+use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
-use swamp_vm_types::types::FramePlacedType;
+use swamp_vm_types::types::{BasicTypeKind, FramePlacedType};
 
 impl FunctionCodeGen<'_> {
     pub(crate) fn emit_for_access_or_location(
@@ -101,12 +102,23 @@ impl FunctionCodeGen<'_> {
                     }
 
                     let ctx = self.temp_space_for_type(&access.ty, "intrinsic call mut");
+                    /*
                     self.emit_single_intrinsic_call_with_self(
                         &location_expression.node,
                         intrinsic_function,
                         Some(access.ty.clone()),
                         Some(frame_relative_base_address.clone()),
                         &converted,
+                        &ctx,
+                    );
+
+
+                     */
+
+                    self.emit_collection_get(
+                        node,
+                        &frame_relative_base_address,
+                        arguments_to_the_intrinsic,
                         &ctx,
                     );
 
@@ -118,11 +130,12 @@ impl FunctionCodeGen<'_> {
 
         // If this is an assignment (LHS), do the assignment and copy-back
         if let Some(value_to_assign) = source_value_to_assign {
+            let last_intermediate = intermediates.last().unwrap();
             self.builder.add_mov_for_assignment(
-                intermediates.last().unwrap(),
+                last_intermediate,
                 &value_to_assign,
-                &node,
-                "assign the rightmost value",
+                node,
+                &format!("assign the rightmost value {last_intermediate:?}"),
             );
 
             // Right-to-left: walk the chain in reverse for copy-back
@@ -142,37 +155,99 @@ impl FunctionCodeGen<'_> {
                         let parent_field_target = parent_addr.move_to_field(*field_index);
                         self.builder.add_mov_for_assignment(
                             &parent_field_target,
-                            &child_addr,
-                            &node,
-                            "assign the rightmost value",
+                            child_addr,
+                            node,
+                            &format!("copy back field index {:?}", parent_field_target.ty()),
                         );
                     }
                     LocationAccessKind::IntrinsicCallMut(
-                        intrinsic_function,
+                        _intrinsic_function,
                         arguments_to_the_intrinsic,
                     ) => {
                         // Set the value in the parent container (map_set, vec_set, etc.)
                         let parent_addr = &intermediates[i];
                         let child_addr = &intermediates[i + 1];
-                        let mut converted = Vec::new();
-                        for x in arguments_to_the_intrinsic {
-                            converted.push(MutRefOrImmutableExpression::Expression(x.clone()));
-                        }
-                        /*
                         self.emit_collection_set(
                             &location_expression.node,
-                            intrinsic_function,
-                            Some(parent_addr.clone()),
-                            &converted,
+                            parent_addr,
+                            arguments_to_the_intrinsic,
                             child_addr,
-                        )?
-                        ;
-                         */
+                        );
                     }
                 }
             }
         }
 
         frame_relative_base_address
+    }
+
+    fn emit_collection_set(
+        &mut self,
+        node: &Node,
+        self_collection: &FramePlacedType,
+        key_or_index: &[Expression],
+        element_to_set: &FramePlacedType,
+    ) {
+        let key_address = self.emit_expression_location(&key_or_index[0]);
+        match &self_collection.ty().kind {
+            BasicTypeKind::InternalStringHeader => {
+                todo!()
+            }
+            BasicTypeKind::InternalVecHeader => {
+                assert!(key_address.ty().is_int());
+                self.builder.add_vec_set(
+                    self_collection,
+                    &key_address,
+                    element_to_set,
+                    node,
+                    "copy back collection set (vec)",
+                );
+            }
+            BasicTypeKind::InternalMapHeader => {
+                self.builder.add_map_set(
+                    self_collection,
+                    &key_address,
+                    element_to_set,
+                    node,
+                    " copy back collection set (map)",
+                );
+            }
+            _ => panic!("unknown collection"),
+        }
+    }
+
+    fn emit_collection_get(
+        &mut self,
+        node: &Node,
+        self_collection: &FramePlacedType,
+        key_or_index: &[Expression],
+        ctx: &Context,
+    ) {
+        let key_address = self.emit_expression_location(&key_or_index[0]);
+        match &self_collection.ty().kind {
+            BasicTypeKind::InternalStringHeader => {
+                todo!()
+            }
+            BasicTypeKind::InternalVecHeader => {
+                assert!(key_address.ty().is_int());
+                self.builder.add_vec_get(
+                    ctx.target(),
+                    self_collection,
+                    &key_address,
+                    node,
+                    "collection get (vec)",
+                );
+            }
+            BasicTypeKind::InternalMapHeader => {
+                self.builder.add_map_fetch(
+                    ctx.target(),
+                    self_collection,
+                    &key_address,
+                    node,
+                    "collection get (map)",
+                );
+            }
+            _ => panic!("unknown collection"),
+        }
     }
 }

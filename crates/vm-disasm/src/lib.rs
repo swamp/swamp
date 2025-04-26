@@ -670,10 +670,13 @@ pub fn disasm(
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
         ],
 
-        OpCode::VecSubscript => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+        OpCode::VecFetch => &[
+            to_write_frame(
+                operands[0],
+                DecoratedMemoryKind::VecHeader,
+                frame_memory_size,
+            ),
+            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
         ],
 
         OpCode::VecSwap => &[
@@ -682,8 +685,12 @@ pub fn disasm(
             to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
         ],
 
-        OpCode::VecSubscriptMut => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+        OpCode::VecSet => &[
+            to_write_frame(
+                operands[0],
+                DecoratedMemoryKind::VecHeader,
+                frame_memory_size,
+            ),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
             to_read_frame(operands[3], DecoratedMemoryKind::Octets, frame_memory_size),
@@ -784,18 +791,13 @@ pub fn disasm(
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
         ],
 
-        OpCode::MapSubscript => &[
+        OpCode::MapFetch => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),
         ],
 
-        OpCode::MapSubscriptMutCreate => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-        ],
-
-        OpCode::MapSubscriptMut => &[
+        OpCode::MapSet => &[
             to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
             to_read_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),

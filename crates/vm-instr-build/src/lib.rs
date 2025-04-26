@@ -235,7 +235,7 @@ impl InstructionBuilder<'_> {
             BasicTypeKind::InternalVecHeader
         ));
         self.state.add_instruction(
-            OpCode::VecSubscript,
+            OpCode::VecGet,
             &[target.addr().0, self_addr.addr().0, index.addr().0],
             node,
             comment,
@@ -287,9 +287,8 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_vec_subscript_mut(
+    pub fn add_vec_set(
         &mut self,
-        target: &FramePlacedType,
         self_addr: &FramePlacedType,
         index: &FramePlacedType,
         value_addr: &FramePlacedType,
@@ -302,13 +301,8 @@ impl InstructionBuilder<'_> {
         ));
 
         self.state.add_instruction(
-            OpCode::VecSubscriptMut,
-            &[
-                target.addr().0,
-                self_addr.addr().0,
-                index.addr().0,
-                value_addr.addr().0,
-            ],
+            OpCode::VecSet,
+            &[self_addr.addr().0, index.addr().0, value_addr.addr().0],
             node,
             comment,
         );
@@ -1446,7 +1440,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_map_subscript(
+    pub fn add_map_fetch(
         &mut self,
         target_addr: &FramePlacedType,
         self_addr: &FramePlacedType,
@@ -1456,31 +1450,14 @@ impl InstructionBuilder<'_> {
     ) {
         matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
         self.state.add_instruction(
-            OpCode::MapSubscript,
+            OpCode::MapFetch,
             &[target_addr.addr().0, self_addr.addr().0, key.addr().0],
             node,
             comment,
         );
     }
 
-    pub fn add_map_subscript_mut_create(
-        &mut self,
-        self_addr: &FramePlacedType,
-        key: &FramePlacedType,
-        node: &Node,
-        comment: &str,
-    ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
-
-        self.state.add_instruction(
-            OpCode::MapSubscriptMutCreate,
-            &[self_addr.addr().0, key.addr().0],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_map_subscript_mut(
+    pub fn add_map_set(
         &mut self,
         self_addr: &FramePlacedType,
         key: &FramePlacedType,
@@ -1491,7 +1468,7 @@ impl InstructionBuilder<'_> {
         matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
 
         self.state.add_instruction(
-            OpCode::MapSubscriptMut,
+            OpCode::MapSet,
             &[self_addr.addr().0, key.addr().0, value.addr().0],
             node,
             comment,
