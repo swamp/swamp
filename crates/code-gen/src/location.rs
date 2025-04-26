@@ -11,21 +11,21 @@ use swamp_semantic::{
 use swamp_vm_types::types::FramePlacedType;
 
 impl FunctionCodeGen<'_> {
-    pub(crate) fn gen_for_access_or_location(
+    pub(crate) fn emit_for_access_or_location(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
     ) -> Result<FramePlacedType, Error> {
-        self.gen_expression_location_mut_ref_or_immutable(mut_or_immutable_expression)
+        self.emit_expression_location_mut_ref_or_immutable(mut_or_immutable_expression)
     }
 
-    pub(crate) fn gen_mut_or_immute(
+    pub(crate) fn emit_mut_or_immute(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
         ctx: &Context,
     ) -> Result<(), Error> {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.gen_expression_materialize(found_expression, ctx)?;
+                self.emit_expression_materialize(found_expression, ctx)?;
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
                 self.emit_lvalue_chain(location_expression, None)?;
@@ -35,7 +35,7 @@ impl FunctionCodeGen<'_> {
         Ok(())
     }
 
-    pub(crate) fn gen_argument(
+    pub(crate) fn emit_argument(
         &mut self,
         argument: &MutRefOrImmutableExpression,
         ctx: &Context,
@@ -43,16 +43,16 @@ impl FunctionCodeGen<'_> {
     ) -> Result<(), Error> {
         match &argument {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.gen_expression_materialize(found_expression, ctx)?;
+                self.emit_expression_materialize(found_expression, ctx)?;
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                self.gen_location_argument(location_expression, ctx, comment)?;
+                self.emit_location_argument(location_expression, ctx, comment)?;
             }
         }
         Ok(())
     }
 
-    pub(crate) fn gen_expression_location_mut_ref_or_immutable(
+    pub(crate) fn emit_expression_location_mut_ref_or_immutable(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
     ) -> Result<FramePlacedType, Error> {
@@ -104,7 +104,7 @@ impl FunctionCodeGen<'_> {
                     }
 
                     let ctx = self.temp_space_for_type(&access.ty, "intrinsic call mut");
-                    self.gen_single_intrinsic_call_with_self(
+                    self.emit_single_intrinsic_call_with_self(
                         &location_expression.node,
                         intrinsic_function,
                         Some(access.ty.clone()),

@@ -14,7 +14,7 @@ use swamp_vm::{Vm, VmSetup};
 use swamp_vm_disasm::{disasm_instructions_color, disasm_instructions_no_color};
 use swamp_vm_types::InstructionPosition;
 
-fn gen_internal(code: &str) -> Result<(CodeGenState, Program), Error> {
+fn emit_internal(code: &str) -> Result<(CodeGenState, Program), Error> {
     let (program, main_module, source_map) = compile_string(code).unwrap();
 
     let source_map_wrapper = SourceMapWrapper {
@@ -26,7 +26,7 @@ fn gen_internal(code: &str) -> Result<(CodeGenState, Program), Error> {
     Ok((code_gen, program))
 }
 
-fn gen_internal_debug(code: &str) -> Result<(CodeGenState, Program), Error> {
+fn emit_internal_debug(code: &str) -> Result<(CodeGenState, Program), Error> {
     let (code_gen, program) = gen_internal(code)?;
     let disassembler_output = disasm_instructions_color(
         code_gen.instructions(),
@@ -220,7 +220,7 @@ fn exec_vars(code: &str, expected_hex: &str) {
     compare_hex_outputs(&vm.unwrap().frame_memory()[..16], expected_hex);
 }
 
-fn gen_code(code: &str, expected_output: &str) {
+fn emit_code(code: &str, expected_output: &str) {
     let (generator, _program) = gen_internal_debug(code).expect("should work");
 
     let disassembler_output = disasm_instructions_no_color(

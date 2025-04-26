@@ -115,7 +115,7 @@ impl Analyzer<'_> {
 
         let scope_index = self.scope.block_scope_stack.len() - 1;
 
-        let index = { self.scope.gen_variable_index() };
+        let index = { self.scope.emit_variable_index() };
 
         let should_insert_in_scope = !variable_str.starts_with('_');
         let variables = &mut self
@@ -161,7 +161,7 @@ impl Analyzer<'_> {
     ) -> Result<VariableRef, Error> {
         let scope_index = self.scope.block_scope_stack.len() - 1;
 
-        let index_within_function = self.scope.gen_variable_index();
+        let index_within_function = self.scope.emit_variable_index();
 
         let variables = &mut self
             .scope

@@ -5,7 +5,7 @@
 
 use swamp_vm_test::util::exec_with_assembly;
 #[test_log::test]
-fn gen_tuple_destructuring() {
+fn emit_tuple_destructuring() {
     exec_with_assembly(
         "
 result, _, fixed = (10, 20, -42.12)

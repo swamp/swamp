@@ -208,7 +208,7 @@ impl Display for FunctionScopeState {
 }
 
 impl FunctionScopeState {
-    pub fn gen_variable_index(&mut self) -> usize {
+    pub fn emit_variable_index(&mut self) -> usize {
         let index = self.variable_index;
         self.variable_index += 1;
         index

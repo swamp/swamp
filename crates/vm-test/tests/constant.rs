@@ -5,7 +5,7 @@
 
 use swamp_vm_test::util::exec_with_assembly;
 #[test_log::test]
-fn gen_constant() {
+fn emit_constant() {
     exec_with_assembly(
         "
 const SOMETHING = 3

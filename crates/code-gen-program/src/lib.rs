@@ -22,7 +22,7 @@ pub fn code_gen_program(
         let halt_function = GenOptions {
             is_halt_function: true,
         };
-        code_gen.gen_main_function(found_main_expression, &halt_function, source_map_lookup)?;
+        code_gen.emit_main_function(found_main_expression, &halt_function, source_map_lookup)?;
     }
 
      */
@@ -33,7 +33,7 @@ pub fn code_gen_program(
 
     for (_path, module) in program.modules.modules() {
         for internal_function_def in &module.symbol_table.internal_functions() {
-            code_gen.gen_function_def(
+            code_gen.emit_function_def(
                 internal_function_def,
                 &normal_function,
                 source_map_lookup,
@@ -84,7 +84,7 @@ pub fn code_gen_program(
                         .contains_key(&int_fn.program_unique_id)
                         && int_fn.all_parameters_and_variables_are_concrete()
                     {
-                        code_gen.gen_function_def(int_fn, &normal_function, source_map_lookup)?;
+                        code_gen.emit_function_def(int_fn, &normal_function, source_map_lookup)?;
                     } else {
                         // info!(int_fn.assigned_name, ?int_fn.defined_in_module_path, "skipping due to strange parameters");
                     }
@@ -101,7 +101,7 @@ pub fn code_gen_program(
         }
     }
 
-    code_gen.gen_constants_expression_functions_in_order(
+    code_gen.emit_constants_expression_functions_in_order(
         &program.state.constants_in_dependency_order,
         source_map_lookup,
     )?;
