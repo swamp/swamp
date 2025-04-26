@@ -32,6 +32,6 @@ fn compile_and_run() {
         source_map: &source_map,
         current_dir: PathBuf::from(Path::new("")),
     };
-    code_gen_program(&program, &source_map_wrapper).expect("code gen failed");
+    code_gen_program(&program, &source_map_wrapper);
     //info!(?program, "program");
 }

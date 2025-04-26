@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+use crate::FunctionCodeGen;
 use crate::ctx::Context;
-use crate::{Error, FunctionCodeGen};
 use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
@@ -14,7 +14,7 @@ impl FunctionCodeGen<'_> {
     pub(crate) fn emit_for_access_or_location(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
-    ) -> Result<FramePlacedType, Error> {
+    ) -> FramePlacedType {
         self.emit_expression_location_mut_ref_or_immutable(mut_or_immutable_expression)
     }
 
@@ -22,17 +22,15 @@ impl FunctionCodeGen<'_> {
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
         ctx: &Context,
-    ) -> Result<(), Error> {
+    ) {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.emit_expression_materialize(found_expression, ctx)?;
+                self.emit_expression_materialize(found_expression, ctx);
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                self.emit_lvalue_chain(location_expression, None)?;
+                self.emit_lvalue_chain(location_expression, None);
             }
         }
-
-        Ok(())
     }
 
     pub(crate) fn emit_argument(
@@ -40,22 +38,21 @@ impl FunctionCodeGen<'_> {
         argument: &MutRefOrImmutableExpression,
         ctx: &Context,
         comment: &str,
-    ) -> Result<(), Error> {
+    ) {
         match &argument {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.emit_expression_materialize(found_expression, ctx)?;
+                self.emit_expression_materialize(found_expression, ctx);
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                self.emit_location_argument(location_expression, ctx, comment)?;
+                self.emit_location_argument(location_expression, ctx, comment);
             }
         }
-        Ok(())
     }
 
     pub(crate) fn emit_expression_location_mut_ref_or_immutable(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
-    ) -> Result<FramePlacedType, Error> {
+    ) -> FramePlacedType {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
                 self.emit_expression_location(found_expression)
@@ -70,7 +67,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         location_expression: &SingleLocationExpression,
         source_value_to_assign: Option<FramePlacedType>,
-    ) -> Result<FramePlacedType, Error> {
+    ) -> FramePlacedType {
         let mut frame_relative_base_address = self
             .variable_offsets
             .get(
@@ -111,7 +108,7 @@ impl FunctionCodeGen<'_> {
                         Some(frame_relative_base_address.clone()),
                         &converted,
                         &ctx,
-                    )?;
+                    );
 
                     frame_relative_base_address = ctx.target().clone();
                     intermediates.push(frame_relative_base_address.clone());
@@ -176,6 +173,6 @@ impl FunctionCodeGen<'_> {
             }
         }
 
-        Ok(frame_relative_base_address)
+        frame_relative_base_address
     }
 }
