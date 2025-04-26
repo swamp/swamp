@@ -807,7 +807,7 @@ impl FunctionCodeGen<'_> {
                     panic!("problem");
                 };
 
-                let slice_region = self.gen_expression_location(expr)?;
+                let slice_region = self.emit_expression_location(expr)?;
 
                 let slice_type = arguments[0].ty();
 
@@ -834,7 +834,7 @@ impl FunctionCodeGen<'_> {
                     panic!("problem");
                 };
 
-                let slice_region = self.gen_expression_location(expr)?;
+                let slice_region = self.emit_expression_location(expr)?;
 
                 let slice_type = arguments[0].ty();
 
@@ -965,7 +965,7 @@ impl FunctionCodeGen<'_> {
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
-                let float_region = self.gen_expression_location(float_arg_expr)?;
+                let float_region = self.emit_expression_location(float_arg_expr)?;
                 self.builder.add_float_min(
                     ctx.target(),
                     &self_addr.unwrap(),
@@ -979,7 +979,7 @@ impl FunctionCodeGen<'_> {
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
-                let float_region = self.gen_expression_location(float_arg_expr)?;
+                let float_region = self.emit_expression_location(float_arg_expr)?;
                 self.builder.add_float_max(
                     ctx.target(),
                     &self_addr.unwrap(),
@@ -993,13 +993,13 @@ impl FunctionCodeGen<'_> {
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
-                let float_region = self.gen_expression_location(float_arg_expr)?;
+                let float_region = self.emit_expression_location(float_arg_expr)?;
 
                 let float_b = &arguments[1];
                 let MutRefOrImmutableExpression::Expression(float_b_expr) = float_b else {
                     panic!();
                 };
-                let float_b_region = self.gen_expression_location(float_b_expr)?;
+                let float_b_region = self.emit_expression_location(float_b_expr)?;
 
                 self.builder.add_float_clamp(
                     ctx.target(),
@@ -1080,7 +1080,7 @@ impl FunctionCodeGen<'_> {
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
-                let key_region = self.gen_expression_location(key_expr)?;
+                let key_region = self.emit_expression_location(key_expr)?;
                 self.builder.add_vec_push(
                     &self_addr.unwrap(), // mut self
                     &key_region,
@@ -1102,7 +1102,7 @@ impl FunctionCodeGen<'_> {
                 else {
                     panic!();
                 };
-                let index_region = self.gen_expression_location(index_expr)?;
+                let index_region = self.emit_expression_location(index_expr)?;
                 self.builder.add_vec_remove_index(
                     &self_addr.unwrap(),
                     &index_region,
@@ -1115,7 +1115,7 @@ impl FunctionCodeGen<'_> {
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
-                let key_region = self.gen_expression_location(key_expr)?;
+                let key_region = self.emit_expression_location(key_expr)?;
                 self.builder.add_vec_remove_index_get_value(
                     ctx.target(),
                     &self_addr.unwrap(), // mut self
@@ -1136,7 +1136,7 @@ impl FunctionCodeGen<'_> {
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
-                let key_region = self.gen_expression_location(key_expr)?;
+                let key_region = self.emit_expression_location(key_expr)?;
                 self.builder.add_vec_get(
                     ctx.target(),
                     &self_addr.unwrap(), // mut self
@@ -1155,7 +1155,7 @@ impl FunctionCodeGen<'_> {
                 else {
                     panic!();
                 };
-                let index_region = self.gen_expression_location(index_expr)?;
+                let index_region = self.emit_expression_location(index_expr)?;
                 self.builder.add_vec_subscript(
                     ctx.target(),
                     &self_addr.unwrap(),
@@ -1171,7 +1171,7 @@ impl FunctionCodeGen<'_> {
                 else {
                     panic!();
                 };
-                let index_region = self.gen_expression_location(index_expr)?;
+                let index_region = self.emit_expression_location(index_expr)?;
                 // TODO:
 
                 /*
@@ -1199,7 +1199,7 @@ impl FunctionCodeGen<'_> {
                 else {
                     panic!();
                 };
-                let range_header_region = self.gen_expression_location(range_expr)?;
+                let range_header_region = self.emit_expression_location(range_expr)?;
                 assert_eq!(ctx.target_size(), RANGE_HEADER_SIZE);
                 self.builder.add_vec_get_range(
                     ctx.target(),
@@ -1311,7 +1311,7 @@ impl FunctionCodeGen<'_> {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                let key = self.gen_expression_location(key_argument)?;
+                let key = self.emit_expression_location(key_argument)?;
                 self.builder.add_map_subscript(
                     ctx.target(),
                     &self_addr.unwrap(),
@@ -1324,7 +1324,7 @@ impl FunctionCodeGen<'_> {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                let key = self.gen_expression_location(key_argument)?;
+                let key = self.emit_expression_location(key_argument)?;
                 self.builder.add_map_subscript_mut(
                     ctx.target(),
                     &self_addr.unwrap(),
@@ -1337,7 +1337,7 @@ impl FunctionCodeGen<'_> {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                let key = self.gen_expression_location(key_argument)?;
+                let key = self.emit_expression_location(key_argument)?;
                 self.builder.add_map_subscript_mut_create(
                     &self_addr.unwrap(),
                     &key,
@@ -1449,7 +1449,7 @@ impl FunctionCodeGen<'_> {
         map_region: &FramePlacedType,
         key_expr: &Expression,
     ) -> Result<(), Error> {
-        let key_region = self.gen_expression_location(key_expr)?;
+        let key_region = self.emit_expression_location(key_expr)?;
 
         self.builder
             .add_map_remove(map_region, &key_region, &key_expr.node, "");
@@ -1510,7 +1510,10 @@ impl FunctionCodeGen<'_> {
     /// # Panics
     ///
     #[allow(clippy::single_match_else)]
-    pub fn gen_expression_location(&mut self, expr: &Expression) -> Result<FramePlacedType, Error> {
+    pub fn emit_expression_location(
+        &mut self,
+        expr: &Expression,
+    ) -> Result<FramePlacedType, Error> {
         self.gen_expression_location_internal(expr)
     }
 
@@ -1610,7 +1613,7 @@ impl FunctionCodeGen<'_> {
                 self.gen_tuple_destructuring(variables, tuple_types, tuple_expression)
             }
             ExpressionKind::Assignment(target_mut_location_expr, source_expr) => {
-                self.gen_assignment(&expr.node, target_mut_location_expr, source_expr)
+                self.emit_assignment(&expr.node, target_mut_location_expr, source_expr)
             }
             ExpressionKind::VariableAccess(variable_ref) => {
                 self.gen_variable_access(&expr.node, variable_ref, ctx)
@@ -1689,14 +1692,14 @@ impl FunctionCodeGen<'_> {
             },
             UnaryOperatorKind::Negate => match &unary_operator.left.ty {
                 Type::Int => {
-                    let left_source = self.gen_expression_location(&unary_operator.left)?;
+                    let left_source = self.emit_expression_location(&unary_operator.left)?;
                     self.builder
                         .add_neg_i32(ctx.target(), &left_source, node, "negate i32");
                     GeneratedExpressionResult::default()
                 }
 
                 Type::Float => {
-                    let left_source = self.gen_expression_location(&unary_operator.left)?;
+                    let left_source = self.emit_expression_location(&unary_operator.left)?;
                     self.builder
                         .add_neg_f32(ctx.target(), &left_source, node, "negate f32");
                     GeneratedExpressionResult::default()
@@ -1728,8 +1731,8 @@ impl FunctionCodeGen<'_> {
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        let left_source = self.gen_expression_location(&binary_operator.left)?;
-        let right_source = self.gen_expression_location(&binary_operator.right)?;
+        let left_source = self.emit_expression_location(&binary_operator.left)?;
+        let right_source = self.emit_expression_location(&binary_operator.right)?;
 
         match &binary_operator.kind {
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
@@ -2082,7 +2085,7 @@ impl FunctionCodeGen<'_> {
     ) -> Result<GeneratedExpressionResult, Error> {
         match &condition.kind {
             ExpressionKind::CoerceOptionToBool(option_union_expr) => {
-                let region = self.gen_expression_location(option_union_expr)?;
+                let region = self.emit_expression_location(option_union_expr)?;
                 // We can shortcut this, since we know that the tag location is basically a bool value
                 self.builder.add_tst8(
                     &region,
@@ -2224,7 +2227,7 @@ impl FunctionCodeGen<'_> {
         ctx: &Context,
         comment: &str,
     ) -> Result<(), Error> {
-        let region = self.gen_lvalue_address(argument)?;
+        let region = self.emit_lvalue_chain(argument, None)?;
 
         self.builder
             .add_mov_for_assignment(ctx.target(), &region, &argument.node, comment);
@@ -2277,17 +2280,14 @@ impl FunctionCodeGen<'_> {
         self.gen_mut_or_immute(mut_or_immutable_expression, &init_ctx)
     }
 
-    fn gen_assignment(
+    fn emit_assignment(
         &mut self,
         node: &Node,
         lhs: &TargetAssignmentLocation,
         rhs: &Expression,
     ) -> Result<GeneratedExpressionResult, Error> {
-        let lhs_addr = self.gen_lvalue_address(&lhs.0)?;
-
-        let lhs_target_ctx = Context::new(lhs_addr);
-
-        self.gen_expression_materialize(rhs, &lhs_target_ctx)?;
+        let frame_relative_source = self.emit_expression_location(rhs)?;
+        self.emit_lvalue_chain(&lhs.0, Some(frame_relative_source))?;
 
         Ok(GeneratedExpressionResult::default())
     }
@@ -2344,7 +2344,7 @@ impl FunctionCodeGen<'_> {
             let source_region = reserve(&parameter.resolved_type, &mut arguments_allocator);
 
             if let MutRefOrImmutableExpression::Location(found_location) = argument {
-                let argument_target = self.gen_lvalue_address(found_location)?;
+                let argument_target = self.emit_lvalue_chain(found_location, None)?;
                 self.builder.add_mov_for_assignment(
                     &argument_target,
                     &source_region,
@@ -2933,9 +2933,9 @@ impl FunctionCodeGen<'_> {
         op: &CompoundOperatorKind,
         source: &Expression,
     ) -> Result<GeneratedExpressionResult, Error> {
-        let target_location = self.gen_lvalue_address(&target_location.0)?;
+        let target_location = self.emit_lvalue_chain(&target_location.0, None)?;
 
-        let source_info = self.gen_expression_location(source)?;
+        let source_info = self.emit_expression_location(source)?;
 
         let type_to_consider = Self::referenced_or_not_type(&source.ty);
 
@@ -3328,7 +3328,7 @@ impl FunctionCodeGen<'_> {
         ctx: &Context,
     ) -> Result<(), Error> {
         if let MutRefOrImmutableExpression::Expression(found_expr) = &arguments[0] {
-            let memory = self.gen_expression_location(found_expr)?;
+            let memory = self.emit_expression_location(found_expr)?;
             self.builder.add_vec_from_slice(
                 ctx.target(),
                 &memory,
@@ -3498,7 +3498,7 @@ impl FunctionCodeGen<'_> {
                     panic!("must be expression");
                 };
                 let old_variable_region =
-                    self.gen_expression_location(variable_access_expression)?;
+                    self.emit_expression_location(variable_access_expression)?;
 
                 let some_payload = old_variable_region.move_to_optional_some_payload();
 
@@ -3547,7 +3547,7 @@ impl FunctionCodeGen<'_> {
         tuple_type: &[Type],
         source_tuple_expression: &Expression,
     ) -> Result<GeneratedExpressionResult, Error> {
-        let source_region = self.gen_expression_location(source_tuple_expression)?;
+        let source_region = self.emit_expression_location(source_tuple_expression)?;
 
         let tuple_type = layout_tuple_items(tuple_type);
         assert_eq!(tuple_type.total_size.0, source_region.size().0);
@@ -3606,7 +3606,7 @@ impl FunctionCodeGen<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> Result<GeneratedExpressionResult, Error> {
-        let region = self.gen_expression_location(expr)?;
+        let region = self.emit_expression_location(expr)?;
         self.builder.add_mov(
             ctx.target(),
             &region,
@@ -3620,7 +3620,7 @@ impl FunctionCodeGen<'_> {
 
     fn gen_start_of_chain(&mut self, start: &StartOfChain) -> Result<FramePlacedType, Error> {
         match &start.kind {
-            StartOfChainKind::Expression(expr) => self.gen_expression_location(expr),
+            StartOfChainKind::Expression(expr) => self.emit_expression_location(expr),
             StartOfChainKind::Variable(variable) => {
                 let frame_placed_type = self.get_variable_region(variable);
                 Ok(frame_placed_type.clone())
@@ -3792,7 +3792,7 @@ impl FunctionCodeGen<'_> {
             )?;
 
         // 3. Inline the lambda code for the current element(s).
-        let lambda_result = self.gen_expression_location(lambda_expr)?;
+        let lambda_result = self.emit_expression_location(lambda_expr)?;
 
         // 4. If the transformer supports early exit, set the Z flag based on the lambda result.
         let transformer_z_flag_state =

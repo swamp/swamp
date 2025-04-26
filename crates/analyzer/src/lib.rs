@@ -2411,7 +2411,7 @@ impl<'a> Analyzer<'a> {
                             self.analyze_expression(key_expression, &subscript_lookup_context)?;
                         let return_type = *found.signature.signature.return_type.clone();
                         ty = return_type.clone();
-                        //let argument = ArgumentExpressionOrLocation::Expression(analyzed_expr);
+
                         self.add_location_item(
                             &mut items,
                             LocationAccessKind::IntrinsicCallMut(
