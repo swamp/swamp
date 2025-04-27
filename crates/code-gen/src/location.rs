@@ -5,7 +5,6 @@
 use crate::FunctionCodeGen;
 use crate::ctx::Context;
 use source_map_node::Node;
-use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
@@ -94,18 +93,12 @@ impl FunctionCodeGen<'_> {
             location_expression.access_chain.iter().take(chain_len)
         };
 
-        info!("--- walking forward in chain");
         // Loop over the consecutive accesses until we find the actual frame relative address (FramePlacedType)
         for access in accesses {
             match &access.kind {
                 LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
                     frame_relative_base_address =
                         frame_relative_base_address.move_to_field(*field_index);
-                    info!(
-                        ?field_index,
-                        ?frame_relative_base_address,
-                        "pushing FieldIndex"
-                    );
                     intermediates.push(frame_relative_base_address.clone());
                 }
                 LocationAccessKind::IntrinsicCallMut(
@@ -128,11 +121,6 @@ impl FunctionCodeGen<'_> {
 
                     frame_relative_base_address = ctx.target().clone();
                     let key_expression = &arguments_to_the_intrinsic[0];
-                    info!(
-                        ?key_expression,
-                        ?frame_relative_base_address,
-                        "pushing subscript"
-                    );
                     intermediates.push(frame_relative_base_address.clone());
                 }
             }
@@ -141,7 +129,6 @@ impl FunctionCodeGen<'_> {
         // If this is an assignment (LHS), do the assignment and copy-back
         if let Some(value_to_assign) = source_value_to_assign {
             let n = location_expression.access_chain.len();
-            info!(?n, "=== this is a LHS so start copy back");
 
             // to make the code more clean, we push in the value_to_assign as a last "intermediate"
             intermediates.push(value_to_assign);
@@ -159,28 +146,14 @@ impl FunctionCodeGen<'_> {
 
                             // Skip the move since it was updated by the collection set
                             collection_set_updated_field = false;
-                            info!(
-                                ?field_index,
-                                ?parent_addr,
-                                ?parent_field_target,
-                                ?child_addr,
-                                "skipping field index copy back since last was a collection set"
-                            );
                         } else {
                             // Set the field in the parent struct
                             let parent_field_target = parent_addr.move_to_field(*field_index);
-                            info!(
-                                ?field_index,
-                                ?parent_addr,
-                                ?parent_field_target,
-                                ?child_addr,
-                                "copy back field index"
-                            );
                             self.builder.add_mov_for_assignment(
                                 &parent_field_target,
                                 child_addr,
                                 node,
-                                &format!("copy back field index {:?}", parent_field_target.ty()),
+                                &format!("copy back field index {}", parent_field_target.ty()),
                             );
                         }
                     }
@@ -190,7 +163,6 @@ impl FunctionCodeGen<'_> {
                     ) => {
                         // Set the value in the parent container (map_set, vec_set, etc.)
                         let key_expr = &arguments_to_the_intrinsic[0];
-                        info!(?parent_addr, ?child_addr, ?key_expr, "copy back collection");
                         self.emit_collection_set(
                             &location_expression.node,
                             parent_addr,
@@ -201,7 +173,6 @@ impl FunctionCodeGen<'_> {
                     }
                 }
             }
-            info!(?n, "~~~ copy back is over");
         }
 
         frame_relative_base_address

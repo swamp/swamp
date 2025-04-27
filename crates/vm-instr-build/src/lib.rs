@@ -725,25 +725,6 @@ impl InstructionBuilder<'_> {
         PatchPosition(position)
     }
 
-    pub fn add_string_from_constant_slice(
-        &mut self,
-        target_string: &FramePlacedType,
-        constant_addr: HeapPlacedArray,
-        byte_count: MemorySize,
-        node: &Node,
-
-        comment: &str,
-    ) {
-        let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(constant_addr.addr().0);
-
-        self.state.add_instruction(
-            OpCode::StringFromSlice,
-            &[target_string.addr().0, lower_bits, upper_bits, byte_count.0],
-            node,
-            comment,
-        );
-    }
-
     pub fn add_string_append(
         &mut self,
         dst_offset: &FramePlacedType,

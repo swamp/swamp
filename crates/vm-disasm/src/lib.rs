@@ -9,7 +9,7 @@ use std::fmt::Write;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
     DecoratedMemoryKind, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
-    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo,
+    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, OffsetMemoryItem, PathStep,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
@@ -151,11 +151,7 @@ pub fn disasm_color(
     let mut memory_comments = Vec::new();
 
     for operand in decorated.operands {
-        let operand_addr = match &operand.kind {
-            DecoratedOperandAccessKind::ReadFrameAddress(addr, _memory_kind, _attr) => Some(addr),
-            DecoratedOperandAccessKind::WriteFrameAddress(addr, _memory_kind, _attr) => Some(addr),
-            _ => None,
-        };
+        let operand_addr = operand.kind.to_addr();
 
         let (new_str, comment_str) = match &operand.kind {
             DecoratedOperandAccessKind::ReadFrameAddress(addr, memory_kind, attr) => {
@@ -251,12 +247,13 @@ pub fn disasm_color(
         };
         converted_operands.push(new_str);
 
-        let memory_comment = operand_addr.and_then(|addr| {
-            if let Some(info) = memory_infos.get(addr) {
-                Some(format!("{}", info.kind))
-            } else {
-                None
-            }
+        let memory_comment = operand_addr.map(|operand_addr| {
+            memory_infos
+                .find_path_to_address_items(operand_addr)
+                .map_or_else(
+                    || "temporary address".to_string(),
+                    |addr| frame_placed_type_path_to_string(&addr),
+                )
         });
 
         if let Some(comment) = memory_comment {
@@ -291,6 +288,25 @@ pub fn disasm_color(
     };
 
     format!("{} {}{}", name, converted_operands.join(" "), print_comment)
+}
+
+fn frame_placed_type_path_to_string(path: &[PathStep]) -> String {
+    let last = path.last().unwrap();
+
+    let names: Vec<_> = path.iter().map(|x| x.item.name.to_string()).collect();
+
+    let types: Vec<_> = path.iter().map(|x| format!("{}", x.item.ty.kind)).collect();
+
+    let names_path = names.join(".");
+    let types_path = types.join("->");
+
+    format!(
+        "{:04X}:{:X} {} ({})",
+        (last.origin + last.item.offset).0,
+        last.item.ty.total_size.0,
+        names_path,
+        types_path
+    )
 }
 
 #[must_use]
@@ -827,16 +843,6 @@ pub fn disasm(
             to_write_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
             to_jmp_ip(operands[2]),
         ],
-
-        OpCode::StringFromSlice => {
-            let data = ((operands[2] as u32) << 16) | operands[1] as u32;
-
-            &[
-                to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-                DecoratedOperandAccessKind::HeapAddress(HeapMemoryAddress(data)),
-                DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
-            ]
-        }
 
         OpCode::StringAppend => &[
             to_write_frame(

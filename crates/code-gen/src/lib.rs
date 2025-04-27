@@ -39,14 +39,14 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, HeapMemoryOffset, InstructionPosition,
-    InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT, MAP_HEADER_COUNT_OFFSET,
-    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset,
-    MemorySize, Meta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT,
-    RANGE_ITERATOR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE, SLICE_PTR_OFFSET,
-    STRING_HEADER_ALIGNMENT, STRING_HEADER_COUNT_OFFSET, STRING_HEADER_SIZE,
-    TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_COUNT_OFFSET, VEC_HEADER_SIZE,
-    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
+    GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, HeapMemoryAddress, HeapMemoryOffset,
+    InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
+    MAP_HEADER_COUNT_OFFSET, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
+    MemoryAlignment, MemoryOffset, MemorySize, Meta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE,
+    SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT, STRING_HEADER_COUNT_OFFSET, STRING_HEADER_SIZE,
+    StringHeader, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_COUNT_OFFSET,
+    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -1536,7 +1536,7 @@ impl FunctionCodeGen<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        self.debug_node(&expr.node);
+        //self.debug_node(&expr.node);
 
         match &expr.kind {
             ExpressionKind::ConstantAccess(constant_ref) => {
@@ -2657,14 +2657,33 @@ impl FunctionCodeGen<'_> {
             .constants
             .allocate_byte_array(string_bytes, string_byte_count as u32);
 
-        let mem_size = MemorySize(string_byte_count as u16);
+        let string_header = StringHeader {
+            heap_offset: data_ptr.addr().0,
+            byte_count: string_byte_count as u32,
+            capacity: string_byte_count as u32,
+        };
 
-        self.builder.add_string_from_constant_slice(
+        // Convert string header to bytes (little-endian)
+        let mut header_bytes = [0u8; 12];
+        header_bytes[0..4].copy_from_slice(&string_header.heap_offset.to_le_bytes());
+        header_bytes[4..8].copy_from_slice(&string_header.byte_count.to_le_bytes());
+        header_bytes[8..12].copy_from_slice(&string_header.capacity.to_le_bytes());
+
+        let string_header_in_heap_ptr = HeapMemoryAddress(
+            self.state
+                .constants
+                .allocate_byte_array(&header_bytes, header_bytes.len() as u32)
+                .addr()
+                .0,
+        );
+        let mem_size = MemorySize(header_bytes.len() as u16);
+
+        self.builder.add_mov_mem(
             ctx.target(),
-            data_ptr,
+            string_header_in_heap_ptr,
             mem_size,
             node,
-            "create string",
+            "constant string",
         );
     }
 
@@ -2817,11 +2836,7 @@ impl FunctionCodeGen<'_> {
             ctx.target(),
             &frame_placed_variable,
             node,
-            &format!(
-                "variable access '{}' ({})",
-                variable.assigned_name,
-                ctx.comment()
-            ),
+            &format!("variable access {}", ctx.comment()),
         );
 
         GeneratedExpressionResult::default()

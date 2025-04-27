@@ -495,9 +495,10 @@ pub const MAP_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 #[repr(C)]
 pub struct StringHeader {
     pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
-    pub byte_count: u16,  // Count should be second
-    pub capacity: u16,
+    pub byte_count: u32,  // Count should be second
+    pub capacity: u32,
 }
+
 pub const STRING_HEADER_SIZE: MemorySize = MemorySize(size_of::<StringHeader>() as u16);
 pub const STRING_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
 pub const STRING_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;

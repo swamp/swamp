@@ -4,21 +4,10 @@ use crate::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryAlignment,
     MemoryOffset, MemorySize, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, align_to,
 };
+use seq_fmt::comma;
 use std::fmt::{Display, Formatter, Write};
 use tracing::error;
 use yansi::Paint;
-
-impl FrameMemoryInfo {
-    #[must_use]
-    pub fn get(&self, memory_addr: &FrameMemoryAddress) -> Option<FrameAddressInfo> {
-        for x in &self.infos {
-            if x.frame_placed_type.addr.0 == memory_addr.0 {
-                return Some(x.clone());
-            }
-        }
-        None
-    }
-}
 
 #[derive(Clone, Debug)]
 pub struct OffsetMemoryItem {
@@ -26,6 +15,12 @@ pub struct OffsetMemoryItem {
     pub size: MemorySize,
     pub name: String,
     pub ty: BasicType,
+}
+
+impl Display for OffsetMemoryItem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.name, self.ty)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -142,6 +137,19 @@ pub enum DecoratedOperandAccessKind {
     ReadIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, DecoratedMemoryKind),
 }
 
+impl DecoratedOperandAccessKind {
+    #[must_use]
+    pub const fn to_addr(&self) -> Option<&FrameMemoryAddress> {
+        match self {
+            Self::ReadFrameAddress(addr, _memory_kind, _attr) => Some(addr),
+            Self::WriteFrameAddress(addr, _memory_kind, _attr) => Some(addr),
+            Self::WriteIndirectHeapWithOffset(addr, _x, _y) => Some(addr),
+            Self::ReadIndirectHeapWithOffset(addr, _x, _y) => Some(addr),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum DecoratedMemoryKind {
     U8,
@@ -163,7 +171,7 @@ pub enum DecoratedMemoryKind {
 }
 
 impl DecoratedMemoryKind {
-    pub fn to_str(&self) -> &str {
+    pub const fn to_str(&self) -> &str {
         match self {
             Self::B8 => "b8",
             Self::U8 => "u8",
@@ -230,6 +238,110 @@ pub enum BasicTypeKind {
     SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
     IndirectHeapPointerOnFrame,
 }
+
+impl Display for BasicTypeKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Empty => write!(f, "()"),
+            Self::U8 => write!(f, "u8"),
+            Self::B8 => write!(f, "b8"),
+            Self::U16 => write!(f, "u16"),
+            Self::S32 => write!(f, "int"),
+            Self::Fixed32 => write!(f, "fixed"),
+            Self::U32 => write!(f, "u32"),
+            Self::InternalStringHeader => write!(f, "String"),
+            Self::InternalRangeHeader => write!(f, "Range"),
+            Self::InternalVecHeader => write!(f, "Vec"),
+            Self::InternalMapHeader => write!(f, "Map"),
+            Self::InternalGridHeader => write!(f, "Grid"),
+            Self::InternalVecIterator => write!(f, "Vec::Iterator"),
+            Self::InternalMapIterator => write!(f, "Map::Iterator"),
+            Self::InternalRangeIterator => write!(f, "Range::Iterator"),
+            Self::Struct(struct_type) => write!(f, "struct {}", struct_type.name),
+            Self::TaggedUnion(union) => write!(f, "{}", comma(&union.variants)),
+            Self::Optional(optional) => write!(f, "{}", comma(&optional.variants)),
+            Self::Tuple(tuple_type) => write!(f, "{}", comma(&tuple_type.fields)),
+            Self::Slice(a) => write!(f, "slice<{}>", a.kind),
+            Self::SlicePair(a, b) => write!(f, "slice_pair<{a}, {b}>"),
+            Self::IndirectHeapPointerOnFrame => write!(f, "indirect heap ptr"),
+        }
+    }
+}
+
+/*
+impl Display for BasicTypeKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::U8 => {
+                write!(f, "u8")
+            }
+            Self::U16 => {
+                write!(f, "u16")
+            }
+            Self::S32 => {
+                write!(f, "s32")
+            }
+            Self::U32 => {
+                write!(f, "u32")
+            }
+            Self::Struct(_) => {
+                write!(f, "struct")
+            }
+            Self::TaggedUnion(basic) => {
+                write!(f, "tagged_union<{basic}>")
+            }
+            Self::Optional(basic) => {
+                write!(f, "optional<{basic}>")
+            }
+            Self::Tuple(tuple) => {
+                write!(f, "tuple({tuple})")
+            }
+            Self::Empty => {
+                write!(f, "()")
+            }
+            Self::B8 => {
+                write!(f, "bool8")
+            }
+            Self::Fixed32 => {
+                write!(f, "fixed32")
+            }
+            Self::InternalStringHeader => {
+                write!(f, "str")
+            }
+            Self::InternalRangeHeader => {
+                write!(f, "range<>")
+            }
+            Self::InternalVecHeader => {
+                write!(f, "vec<>")
+            }
+            Self::InternalMapHeader => {
+                write!(f, "map<>")
+            }
+            Self::InternalGridHeader => {
+                write!(f, "grid<>")
+            }
+            Self::InternalVecIterator => {
+                write!(f, "vec_iter")
+            }
+            Self::InternalMapIterator => {
+                write!(f, "map_iter")
+            }
+            Self::InternalRangeIterator => {
+                write!(f, "range_iter")
+            }
+            Self::IndirectHeapPointerOnFrame => {
+                write!(f, "heap_ptr")
+            }
+            Self::Slice(basic) => {
+                write!(f, "slice {basic}")
+            }
+            Self::SlicePair(a, b) => {
+                write!(f, "slice {a:?} {b:?}")
+            }
+        }
+    }
+}
+ */
 
 #[must_use]
 pub const fn int_type() -> BasicType {
@@ -325,8 +437,6 @@ pub struct FramePlacedType {
     addr: FrameMemoryAddress,
     ty: BasicType,
 }
-
-impl FramePlacedType {}
 
 impl FramePlacedType {
     #[must_use]
@@ -517,79 +627,6 @@ impl Display for BasicType {
     }
 }
 
-impl Display for BasicTypeKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::U8 => {
-                write!(f, "u8")
-            }
-            Self::U16 => {
-                write!(f, "u16")
-            }
-            Self::S32 => {
-                write!(f, "s32")
-            }
-            Self::U32 => {
-                write!(f, "u32")
-            }
-            Self::Struct(_) => {
-                write!(f, "struct")
-            }
-            Self::TaggedUnion(basic) => {
-                write!(f, "tagged_union<{basic}>")
-            }
-            Self::Optional(basic) => {
-                write!(f, "optional<{basic}>")
-            }
-            Self::Tuple(tuple) => {
-                write!(f, "tuple({tuple})")
-            }
-            Self::Empty => {
-                write!(f, "()")
-            }
-            Self::B8 => {
-                write!(f, "bool8")
-            }
-            Self::Fixed32 => {
-                write!(f, "fixed32")
-            }
-            Self::InternalStringHeader => {
-                write!(f, "str")
-            }
-            Self::InternalRangeHeader => {
-                write!(f, "range<>")
-            }
-            Self::InternalVecHeader => {
-                write!(f, "vec<>")
-            }
-            Self::InternalMapHeader => {
-                write!(f, "map<>")
-            }
-            Self::InternalGridHeader => {
-                write!(f, "grid<>")
-            }
-            Self::InternalVecIterator => {
-                write!(f, "vec_iter")
-            }
-            Self::InternalMapIterator => {
-                write!(f, "map_iter")
-            }
-            Self::InternalRangeIterator => {
-                write!(f, "range_iter")
-            }
-            Self::IndirectHeapPointerOnFrame => {
-                write!(f, "heap_ptr")
-            }
-            Self::Slice(basic) => {
-                write!(f, "slice {basic}")
-            }
-            Self::SlicePair(a, b) => {
-                write!(f, "slice {a:?} {b:?}")
-            }
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct VariableInfo {
     pub is_mutable: bool,
@@ -646,11 +683,126 @@ pub struct FrameRelativeInfo {
     pub kind: FrameAddressInfo,
 }
 
+#[derive(Clone, Debug)]
+pub struct PathStep {
+    pub item: OffsetMemoryItem,
+    pub origin: FrameMemoryAddress,
+}
+
+impl PathStep {
+    pub fn absolute_address(&self) -> FrameMemoryAddress {
+        FrameMemoryAddress(self.origin.0 + self.item.offset.0)
+    }
+}
+
 impl FrameMemoryInfo {
     #[must_use]
     pub fn size(&self) -> FrameMemorySize {
         self.size
     }
+
+    /// Returns a vector of OffsetMemoryItem from root to the one containing the address.
+    #[must_use]
+    pub fn find_path_to_address_items(&self, target: &FrameMemoryAddress) -> Option<Vec<PathStep>> {
+        for info in &self.infos {
+            // Synthesize a root OffsetMemoryItem
+            let root_item = OffsetMemoryItem {
+                offset: MemoryOffset(0),
+                size: info.frame_placed_type.ty.total_size,
+                name: info.kind.to_string(),
+                ty: info.frame_placed_type.ty.clone(),
+            };
+            let base_addr = info.frame_placed_type.addr;
+            let mut path = Vec::new();
+            if find_in_item(&root_item, &base_addr, target, &mut path) {
+                return Some(path);
+            }
+        }
+        None
+    }
+}
+fn find_in_item(
+    item: &OffsetMemoryItem,
+    base_addr: &FrameMemoryAddress,
+    target: &FrameMemoryAddress,
+    path: &mut Vec<PathStep>,
+) -> bool {
+    let item_addr = FrameMemoryAddress(base_addr.0 + item.offset.0);
+    path.push(PathStep {
+        item: item.clone(),
+        origin: base_addr.clone(),
+    });
+
+    if item_addr.0 == target.0 {
+        return true;
+    }
+
+    match &item.ty.kind {
+        BasicTypeKind::Struct(st) => {
+            for field in &st.fields {
+                if find_in_item(field, &item_addr, target, path) {
+                    return true;
+                }
+            }
+        }
+        BasicTypeKind::Tuple(tt) => {
+            for field in &tt.fields {
+                if find_in_item(field, &item_addr, target, path) {
+                    return true;
+                }
+            }
+        }
+        BasicTypeKind::TaggedUnion(tu) => {
+            for variant in &tu.variants {
+                // Synthesize an OffsetMemoryItem for the variant
+                let variant_item = OffsetMemoryItem {
+                    offset: MemoryOffset(0),
+                    size: variant.ty.total_size,
+                    name: variant.name.clone(),
+                    ty: variant.ty.clone(),
+                };
+                if find_in_item(&variant_item, &item_addr, target, path) {
+                    return true;
+                }
+            }
+        }
+        BasicTypeKind::Optional(tu) => {
+            for variant in &tu.variants {
+                let variant_item = OffsetMemoryItem {
+                    offset: MemoryOffset(0),
+                    size: variant.ty.total_size,
+                    name: variant.name.clone(),
+                    ty: variant.ty.clone(),
+                };
+                if find_in_item(&variant_item, &item_addr, target, path) {
+                    return true;
+                }
+            }
+        }
+        BasicTypeKind::Slice(inner) => {
+            let slice_item = OffsetMemoryItem {
+                offset: MemoryOffset(0),
+                size: inner.total_size,
+                name: "slice".to_string(),
+                ty: (**inner).clone(),
+            };
+            if find_in_item(&slice_item, &item_addr, target, path) {
+                return true;
+            }
+        }
+        BasicTypeKind::SlicePair(a, b) => {
+            if find_in_item(a, &item_addr, target, path) {
+                return true;
+            }
+            if find_in_item(b, &item_addr, target, path) {
+                return true;
+            }
+        }
+        _ => {}
+    }
+
+    path.pop();
+    false
 }
 
 #[derive(Clone, Debug)]

@@ -150,7 +150,6 @@ pub enum OpCode {
     MapSet,
 
     // String
-    StringFromSlice,
     StringAppend,
 
     // Other
@@ -294,7 +293,6 @@ impl OpCode {
             Self::MapSet => "mset",
 
             // String
-            Self::StringFromSlice => "sfromc",
             Self::StringAppend => "sapp",
 
             // Other
