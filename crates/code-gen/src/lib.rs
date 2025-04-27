@@ -1536,7 +1536,7 @@ impl FunctionCodeGen<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        //self.debug_node(&expr.node);
+        self.debug_node(&expr.node);
 
         match &expr.kind {
             ExpressionKind::ConstantAccess(constant_ref) => {

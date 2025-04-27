@@ -10,6 +10,7 @@ use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
 use swamp_vm_types::types::{BasicTypeKind, FramePlacedType};
+use tracing::info;
 
 impl FunctionCodeGen<'_> {
     pub(crate) fn emit_for_access_or_location(
@@ -64,6 +65,7 @@ impl FunctionCodeGen<'_> {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_lvalue_chain(
         &mut self,
         location_expression: &SingleLocationExpression,
@@ -83,12 +85,27 @@ impl FunctionCodeGen<'_> {
 
         let mut intermediates = vec![frame_relative_base_address.clone()];
 
+        let chain_len = location_expression.access_chain.len();
+        let accesses = if source_value_to_assign.is_some() {
+            // For assignment, skip the last access
+            location_expression.access_chain.iter().take(chain_len - 1)
+        } else {
+            // For RHS, it is a normal lookup so we just everything
+            location_expression.access_chain.iter().take(chain_len)
+        };
+
+        info!("--- walking forward in chain");
         // Loop over the consecutive accesses until we find the actual frame relative address (FramePlacedType)
-        for access in &location_expression.access_chain {
+        for access in accesses {
             match &access.kind {
                 LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
                     frame_relative_base_address =
                         frame_relative_base_address.move_to_field(*field_index);
+                    info!(
+                        ?field_index,
+                        ?frame_relative_base_address,
+                        "pushing FieldIndex"
+                    );
                     intermediates.push(frame_relative_base_address.clone());
                 }
                 LocationAccessKind::IntrinsicCallMut(
@@ -102,19 +119,6 @@ impl FunctionCodeGen<'_> {
                     }
 
                     let ctx = self.temp_space_for_type(&access.ty, "intrinsic call mut");
-                    /*
-                    self.emit_single_intrinsic_call_with_self(
-                        &location_expression.node,
-                        intrinsic_function,
-                        Some(access.ty.clone()),
-                        Some(frame_relative_base_address.clone()),
-                        &converted,
-                        &ctx,
-                    );
-
-
-                     */
-
                     self.emit_collection_get(
                         node,
                         &frame_relative_base_address,
@@ -123,6 +127,12 @@ impl FunctionCodeGen<'_> {
                     );
 
                     frame_relative_base_address = ctx.target().clone();
+                    let key_expression = &arguments_to_the_intrinsic[0];
+                    info!(
+                        ?key_expression,
+                        ?frame_relative_base_address,
+                        "pushing subscript"
+                    );
                     intermediates.push(frame_relative_base_address.clone());
                 }
             }
@@ -130,52 +140,68 @@ impl FunctionCodeGen<'_> {
 
         // If this is an assignment (LHS), do the assignment and copy-back
         if let Some(value_to_assign) = source_value_to_assign {
-            let last_intermediate = intermediates.last().unwrap();
-            self.builder.add_mov_for_assignment(
-                last_intermediate,
-                &value_to_assign,
-                node,
-                &format!("assign the rightmost value {last_intermediate:?}"),
-            );
+            let n = location_expression.access_chain.len();
+            info!(?n, "=== this is a LHS so start copy back");
 
-            // Right-to-left: walk the chain in reverse for copy-back
-            // (skip the last, which we already did above)
-            for (i, access) in location_expression
-                .access_chain
-                .iter()
-                .enumerate()
-                .rev()
-                .skip(1)
-            {
+            // to make the code more clean, we push in the value_to_assign as a last "intermediate"
+            intermediates.push(value_to_assign);
+
+            let mut collection_set_updated_field = false;
+            // Process all accesses in reverse order
+            for i in (0..n).rev() {
+                let access = &location_expression.access_chain[i];
+                let parent_addr = &intermediates[i];
+                let child_addr = &intermediates[i + 1];
                 match &access.kind {
                     LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
-                        // Set the field in the parent struct
-                        let parent_addr = &intermediates[i];
-                        let child_addr = &intermediates[i + 1];
-                        let parent_field_target = parent_addr.move_to_field(*field_index);
-                        self.builder.add_mov_for_assignment(
-                            &parent_field_target,
-                            child_addr,
-                            node,
-                            &format!("copy back field index {:?}", parent_field_target.ty()),
-                        );
+                        if collection_set_updated_field {
+                            let parent_field_target = parent_addr.move_to_field(*field_index);
+
+                            // Skip the move since it was updated by the collection set
+                            collection_set_updated_field = false;
+                            info!(
+                                ?field_index,
+                                ?parent_addr,
+                                ?parent_field_target,
+                                ?child_addr,
+                                "skipping field index copy back since last was a collection set"
+                            );
+                        } else {
+                            // Set the field in the parent struct
+                            let parent_field_target = parent_addr.move_to_field(*field_index);
+                            info!(
+                                ?field_index,
+                                ?parent_addr,
+                                ?parent_field_target,
+                                ?child_addr,
+                                "copy back field index"
+                            );
+                            self.builder.add_mov_for_assignment(
+                                &parent_field_target,
+                                child_addr,
+                                node,
+                                &format!("copy back field index {:?}", parent_field_target.ty()),
+                            );
+                        }
                     }
                     LocationAccessKind::IntrinsicCallMut(
                         _intrinsic_function,
                         arguments_to_the_intrinsic,
                     ) => {
                         // Set the value in the parent container (map_set, vec_set, etc.)
-                        let parent_addr = &intermediates[i];
-                        let child_addr = &intermediates[i + 1];
+                        let key_expr = &arguments_to_the_intrinsic[0];
+                        info!(?parent_addr, ?child_addr, ?key_expr, "copy back collection");
                         self.emit_collection_set(
                             &location_expression.node,
                             parent_addr,
                             arguments_to_the_intrinsic,
                             child_addr,
                         );
+                        collection_set_updated_field = true;
                     }
                 }
             }
+            info!(?n, "~~~ copy back is over");
         }
 
         frame_relative_base_address

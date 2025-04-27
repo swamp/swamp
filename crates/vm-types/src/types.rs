@@ -153,9 +153,13 @@ pub enum DecoratedMemoryKind {
     Octets,
     VecIterator,
     VecHeader,
-    IndirectHeapPointer,
-
+    RangeIterator,
+    RangeHeader,
     StringHeader,
+    StringIterator,
+    MapHeader,
+    MapIterator,
+    IndirectHeapPointer,
 }
 
 impl DecoratedMemoryKind {
@@ -170,8 +174,13 @@ impl DecoratedMemoryKind {
             Self::Octets => "*b8",
             Self::VecIterator => "vec_iter",
             Self::VecHeader => "vec_header",
-            Self::IndirectHeapPointer => "<heap ptr}",
             Self::StringHeader => "string header",
+            Self::IndirectHeapPointer => "<heap ptr}",
+            Self::RangeIterator => "range_iter",
+            Self::RangeHeader => "range_header",
+            Self::StringIterator => "string_iterator",
+            Self::MapHeader => "map_header",
+            Self::MapIterator => "map_iterator",
         }
     }
 }
