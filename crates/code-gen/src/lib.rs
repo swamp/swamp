@@ -2163,8 +2163,10 @@ impl FunctionCodeGen<'_> {
     ) {
         let region = self.emit_lvalue_chain(argument, None);
 
-        self.builder
-            .add_mov_for_assignment(ctx.target(), &region, &argument.node, comment);
+        if region.size().0 != 0 {
+            self.builder
+                .add_mov_for_assignment(ctx.target(), &region, &argument.node, comment);
+        }
     }
 
     fn emit_variable_assignment(

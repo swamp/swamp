@@ -479,6 +479,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        assert_ne!(size.0, 0);
         self.state.add_instruction(
             OpCode::Mov,
             &[target.addr().0, source.addr().0, size.0],
@@ -512,6 +513,8 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        assert_ne!(size.0, 0);
+
         let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(source.0);
         self.state.add_instruction(
             OpCode::MovMem,
@@ -541,6 +544,8 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        assert_ne!(size.0, 0);
+
         self.state.add_instruction(
             OpCode::MovLp,
             &[target.addr().0, source.addr().0, size.0],
@@ -689,7 +694,6 @@ impl InstructionBuilder<'_> {
         closure_variable: &FramePlacedType,
         closure_variable_b: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) -> PatchPosition {
         let position = self.position();
@@ -731,7 +735,6 @@ impl InstructionBuilder<'_> {
         lhs_offset: &FramePlacedType,
         rhs_offset: &FramePlacedType,
         node: &Node,
-
         comment: &str,
     ) {
         self.state.add_instruction(
@@ -758,6 +761,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        // assert_ne!(element_byte_size.0, 0); // TODO: Bring this back
         self.state.add_instruction(
             OpCode::VecCreate,
             &[mut_self_addr.addr().0, element_byte_size.0],
@@ -774,6 +778,8 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        assert_ne!(element_byte_size.0, 0);
+
         self.state.add_instruction(
             OpCode::VecFromSlice,
             &[
@@ -825,7 +831,6 @@ impl InstructionBuilder<'_> {
         closure_variable: &FramePlacedType,
         instruction_position: InstructionPosition,
         node: &Node,
-
         comment: &str,
     ) {
         self.state.add_instruction(
@@ -847,7 +852,6 @@ impl InstructionBuilder<'_> {
         closure_variable_value: &FramePlacedType,
         instruction_position: InstructionPosition,
         node: &Node,
-
         comment: &str,
     ) {
         self.state.add_instruction(
@@ -1385,6 +1389,10 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        //assert_ne!(key_size.0, 0); // TODO: Bring this back
+        //assert_ne!(value_size.0, 0); // TODO: Bring this back
+        // assert_ne!(element_size.0, 0); // TODO: Bring this back
+
         self.state.add_instruction(
             OpCode::MapNewFromPairs,
             &[
@@ -1473,6 +1481,7 @@ impl InstructionBuilder<'_> {
             BasicTypeKind::IndirectHeapPointerOnFrame
         ));
         assert_eq!(target.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
+        // assert_ne!(size.0, 0); TODO: Bring this back
 
         self.state
             .add_instruction(OpCode::Alloc, &[target.addr().0, size.0], node, comment);
@@ -1492,6 +1501,7 @@ impl InstructionBuilder<'_> {
             BasicTypeKind::IndirectHeapPointerOnFrame
         ));
         assert_eq!(dest.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
+        assert_ne!(size.0, 0);
 
         let (offset_lower, offset_upper) = Self::convert_to_lower_and_upper(offset.0);
         self.state.add_instruction(
