@@ -6,10 +6,10 @@ use crate::FunctionCodeGen;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{
-    Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
+    Expression, ExpressionKind, LocationAccessKind, MutRefOrImmutableExpression,
+    SingleLocationExpression,
 };
 use swamp_vm_types::types::{BasicTypeKind, FramePlacedType};
-use tracing::info;
 
 impl FunctionCodeGen<'_> {
     pub(crate) fn emit_for_access_or_location(

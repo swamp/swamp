@@ -2325,53 +2325,79 @@ impl FunctionCodeGen<'_> {
         let argument_addr = reserve(&signature.return_type, &mut self.argument_allocator);
         //assert_eq!(argument_addr.addr.0, self.frame_size.0);
 
-        let mut argument_targets = Vec::new();
+        let mut argument_final_targets = Vec::new();
         let mut argument_comments = Vec::new();
 
+        // TODO: Temporary targets can be skipped, and the final argument targets be used instead
+        // in the case that there are no nested calls. This will make the code slightly more complicated
+        // so I opted to put that on the todo list for now.
+
+        let mut argument_temp_targets = Vec::new();
         // Layout arguments, must be continuous space
         for (index, type_for_parameter) in signature.parameters.iter().enumerate() {
-            let argument_target = reserve(
+            let argument_final_target = reserve(
                 &type_for_parameter.resolved_type,
                 &mut self.argument_allocator,
             );
-            argument_targets.push(argument_target);
+            let temporary = self.temp_space_for_type(&type_for_parameter.resolved_type, "argument");
+            assert_eq!(temporary.target().size(), argument_final_target.size());
+
+            argument_final_targets.push(argument_final_target);
+            argument_temp_targets.push(temporary);
+
             argument_comments.push(format!("argument {}", type_for_parameter.name));
         }
 
-        if let Some(push_self) = self_region {
+        let skip_count = if let Some(push_self) = self_region {
             if push_self.size().0 != 0 {
                 self.builder.add_mov_for_assignment(
-                    &argument_targets[0],
+                    argument_temp_targets[0].target(),
                     &push_self,
                     node,
                     "<self>",
                 );
             }
-            argument_targets.remove(0);
-        }
+            1
+        } else {
+            0
+        };
 
-        for ((argument_target, argument_expr_or_loc), argument_comment) in argument_targets
-            .iter()
-            .zip(arguments)
-            .zip(argument_comments)
+        for ((argument_temp_target, argument_expr_or_loc), argument_comment) in
+            argument_temp_targets
+                .iter()
+                .skip(skip_count)
+                .zip(arguments)
+                .zip(argument_comments)
         {
-            let argument_target_ctx = Context::new(argument_target.clone());
             self.emit_argument(
                 argument_expr_or_loc,
-                &argument_target_ctx,
+                argument_temp_target,
                 &argument_comment,
             );
         }
 
-        let memory_size = argument_targets
+        for (final_target, temp_target) in argument_final_targets.iter().zip(argument_temp_targets)
+        {
+            if temp_target.target().size().0 != 0 {
+                self.builder.add_mov_for_assignment(
+                    final_target,
+                    temp_target.target(),
+                    node,
+                    "copy in to final argument target",
+                );
+            }
+        }
+
+        let memory_size = argument_final_targets
             .last()
             .map_or(MemorySize(0), |last_target| {
                 MemorySize(
-                    last_target.addr().add(last_target.size()).0 - argument_targets[0].addr().0,
+                    last_target.addr().add(last_target.size()).0
+                        - argument_final_targets[0].addr().0,
                 )
             });
 
-        let start_addr = argument_targets
+        let start_addr = argument_final_targets
             .first()
             .map_or(FrameMemoryAddress(0), FramePlacedType::addr);
 
