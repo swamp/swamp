@@ -426,8 +426,9 @@ impl Analyzer<'_> {
     pub(crate) fn analyze_function_definition(
         &mut self,
         function: &swamp_ast::Function,
+        attributes: &[Attribute],
     ) -> Result<Function, Error> {
-        let func = match function {
+        let func = match &function {
             swamp_ast::Function::Internal(function_data) => {
                 let parameters = self.analyze_parameters(&function_data.declaration.params)?;
                 let return_type = if let Some(found) = &function_data.declaration.return_type {
@@ -480,6 +481,7 @@ impl Analyzer<'_> {
                     defined_in_module_path: self.module_path.clone(),
                     parameter_and_variables: self.function_variables.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
+                    attributes: attributes.to_vec(),
                 };
 
                 let function_ref = self
@@ -566,6 +568,9 @@ impl Analyzer<'_> {
     ///
     pub fn analyze_definition(&mut self, ast_def: &swamp_ast::Definition) -> Result<(), Error> {
         //self.debug_definition(ast_def);
+
+        let analyzed_attributes = self.analyze_attributes(&ast_def.attributes);
+
         match &ast_def.kind {
             swamp_ast::DefinitionKind::NamedStructDef(ast_struct) => {
                 self.analyze_named_struct_type_definition(ast_struct)?;
@@ -579,8 +584,7 @@ impl Analyzer<'_> {
             swamp_ast::DefinitionKind::FunctionDef(function) => {
                 let resolved_return_type = self.analyze_return_type(function)?;
                 self.start_function();
-                self.analyze_function_definition(function)?;
-
+                self.analyze_function_definition(function, &analyzed_attributes)?;
                 self.stop_function();
             }
             swamp_ast::DefinitionKind::ImplDef(type_identifier, functions) => {
@@ -807,6 +811,7 @@ impl Analyzer<'_> {
                     //variable_scopes: self.scope.clone(),
                     parameter_and_variables: self.function_variables.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
+                    attributes: vec![],
                 };
 
                 let internal_ref = Rc::new(internal);

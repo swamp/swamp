@@ -88,13 +88,9 @@ impl Analyzer<'_> {
                 Type::String,
             ),
             swamp_ast::LiteralKind::Bool => {
-                let bool_val = if node_text == "false" {
-                    false
-                } else if node_text == "true" {
-                    true
-                } else {
-                    return Err(self.create_err(ErrorKind::BoolConversionError, ast_node));
-                };
+                let bool_val = Self::str_to_bool(node_text).map_err(|float_conversion_err| {
+                    self.create_err(ErrorKind::BoolConversionError, ast_node)
+                })?;
                 (Literal::BoolLiteral(bool_val), Type::Bool)
             }
             swamp_ast::LiteralKind::EnumVariant(enum_literal) => {

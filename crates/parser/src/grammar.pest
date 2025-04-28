@@ -296,7 +296,7 @@ external_member_function = {
 }
 
 normal_member_function = {
-    member_signature ~ block
+    attribute* ~ member_signature ~ block
 }
 
 const_def = {
@@ -498,16 +498,14 @@ variable_binding           = { variable_item ~ ("=" ~ arg_expression)? }
 */
 attribute = { outer_attribute | inner_attribute }
 
-outer_attribute = { "#" ~ "[" ~ attr_body ~ "]" }
-inner_attribute = { "#!" ~ "[" ~ attr_body ~ "]" } // TODO: not sure if inner_attributes should be used?
+outer_attribute = { "#" ~ "[" ~ meta_item ~ "]" }
+inner_attribute = { "#!" ~ "[" ~ meta_item ~ "]" }
 
-attr_body = { attr_path ~ ( "=" ~ attr_value | attr_args )? }
+meta_item = { meta_path | meta_key_value | meta_list }
 
-attr_path = { qualified_identifier }
+meta_path = { qualified_identifier }
+meta_key_value = { qualified_identifier ~ "=" ~ meta_value }
+meta_list = { qualified_identifier ~ "(" ~ meta_item_list? ~ ")" } // Function-call-like
 
-attr_args = { "(" ~ attr_arg_list? ~ ")" }
-attr_arg_list = { attr_arg ~ (COMMA ~ attr_arg)* ~ TRAILING_COMMA? }
-attr_arg = { attr_key_value | attr_value }
-
-attr_key_value = { attr_path ~ "=" ~ attr_value }
-attr_value = { basic_literal | attr_path | attr_args } // TODO: maybe have a proper special literal for attributes
+meta_item_list = { meta_item ~ (COMMA ~ meta_item)* ~ TRAILING_COMMA? } // "arguments"
+meta_value = { basic_literal | meta_path | meta_list } // argument item: literal, a name or a "function call"

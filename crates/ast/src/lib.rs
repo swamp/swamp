@@ -337,6 +337,7 @@ pub struct FunctionDeclaration {
 
 #[derive(Debug, Clone)]
 pub struct FunctionWithBody {
+    pub attributes: Vec<Attribute>,
     pub declaration: FunctionDeclaration,
     pub body: Expression,
 }
@@ -640,14 +641,17 @@ pub enum PrecisionType {
 
 #[derive(Debug, Clone)]
 pub enum AttributeArg {
-    KeyValue(QualifiedIdentifier, AttributeValue),
-    Value(AttributeValue),
+    /// A path/identifier, e.g. `Debug` or `unix`
+    Path(QualifiedIdentifier),
+    /// A literal value, e.g. `"foo"`, `42`, `true`
+    Literal(AttributeValue),
+    /// A function call, e.g. `any(unix, windows)` or `rename = "foo"`
+    Function(QualifiedIdentifier, Vec<AttributeArg>),
 }
 
 #[derive(Debug, Clone)]
 pub enum AttributeLiteralKind {
     Int,
-    Float,
     String(String),
     Bool,
 }
@@ -656,15 +660,15 @@ pub enum AttributeLiteralKind {
 pub enum AttributeValue {
     Literal(Node, AttributeLiteralKind),
     Path(QualifiedIdentifier),
-    Args(Vec<AttributeArg>),
+    Function(QualifiedIdentifier, Vec<AttributeArg>),
 }
 
 #[derive(Debug, Clone)]
 pub struct Attribute {
     pub is_inner: bool,
     pub path: QualifiedIdentifier,
-    pub args: Option<Vec<AttributeArg>>,
-    pub value: Option<AttributeValue>, // for =value
+    pub args: Vec<AttributeArg>,
+    pub node: Node,
 }
 
 #[derive()]

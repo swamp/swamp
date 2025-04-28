@@ -232,6 +232,7 @@ impl Instantiator {
                                 },
                                 parameter_and_variables: instantiated_variables,
                                 program_unique_id: internal.program_unique_id,
+                                attributes: internal.attributes.clone(),
                             });
                             Function::Internal(func_ref)
                         }

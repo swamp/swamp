@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 pub mod access;
+mod attributes;
 pub mod call;
 pub mod constant;
 pub mod def;
@@ -24,6 +25,7 @@ use std::env::var;
 use std::fmt::Arguments;
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
+use std::str::{FromStr, ParseBoolError};
 use std::task::Context;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
@@ -1841,6 +1843,21 @@ impl<'a> Analyzer<'a> {
 
     fn str_to_float(text: &str) -> Result<f32, ParseFloatError> {
         text.parse::<f32>()
+    }
+
+    fn str_to_bool(text: &str) -> Result<bool, ParseBoolError> {
+        bool::from_str(text)
+
+        /*
+        if node_text == "false" {
+            false
+        } else if node_text == "true" {
+            true
+        } else {
+            return Err(self.create_err(ErrorKind::BoolConversionError, ast_node));
+        };
+
+             */
     }
 
     fn analyze_pattern_literal(

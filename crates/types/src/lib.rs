@@ -927,3 +927,29 @@ pub fn all_types_are_variables(types: &[Type]) -> bool {
     }
     true
 }
+
+#[derive(Debug, Clone)]
+pub struct Attribute {
+    pub path: AttributeIdentifier,
+    pub args: Vec<AttributeArg>,
+    pub node: Node,
+}
+
+#[derive(Debug, Clone)]
+pub struct AttributeIdentifier {
+    pub name: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum AttributeArg {
+    Path(AttributeIdentifier), // e.g., Debug, unix, clippy::something
+    Literal(AttributeValue),   // e.g., "foo", 42, true
+    Function(AttributeIdentifier, Vec<AttributeArg>), // e.g., any(unix, windows)
+}
+
+#[derive(Debug, Clone)]
+pub enum AttributeValue {
+    String(String),
+    Int(i32),
+    Bool(bool),
+}

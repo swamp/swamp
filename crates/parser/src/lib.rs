@@ -315,7 +315,7 @@ impl AstParser {
         }
         // The next should be the definition
         if let Some(def_pair) = inner.next() {
-            let definition_kind = self.parse_definition(&def_pair)?;
+            let definition_kind = self.parse_definition(&def_pair, &attributes)?;
             let definition = Definition {
                 kind: definition_kind,
                 attributes,
@@ -369,14 +369,18 @@ impl AstParser {
         Ok(Module::new(definitions, maybe_expression))
     }
 
-    fn parse_definition(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
+    fn parse_definition(
+        &self,
+        pair: &Pair<Rule>,
+        attributes: &[Attribute],
+    ) -> Result<DefinitionKind, ParseError> {
         let inner_pair = self.next_inner_pair(pair)?;
         match inner_pair.as_rule() {
             Rule::impl_def => self.parse_impl_def(&inner_pair),
             Rule::const_def => self.parse_const_definition(&inner_pair),
             Rule::struct_def => self.parse_struct_def(&inner_pair),
             Rule::type_def => self.parse_type_def(&inner_pair),
-            Rule::function_def => self.parse_function_def(&inner_pair),
+            Rule::function_def => self.parse_function_def(&inner_pair, attributes),
             Rule::use_def => self.parse_use(&inner_pair),
             Rule::mod_def => self.parse_mod(&inner_pair),
             Rule::enum_def => self.parse_enum_def(&inner_pair),
@@ -820,7 +824,11 @@ impl AstParser {
         }))
     }
 
-    fn parse_function_def(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
+    fn parse_function_def(
+        &self,
+        pair: &Pair<Rule>,
+        attributes: &[Attribute],
+    ) -> Result<DefinitionKind, ParseError> {
         let function_pair = self.next_inner_pair(pair)?;
 
         match function_pair.as_rule() {
@@ -839,6 +847,7 @@ impl AstParser {
                 Ok(DefinitionKind::FunctionDef(Function::Internal(
                     FunctionWithBody {
                         declaration: signature,
+                        attributes: attributes.to_vec(),
                         body,
                     },
                 )))
@@ -1049,7 +1058,18 @@ impl AstParser {
             return Err(self.create_error_pair(SpecificError::ExpectedMemberSignature, pair));
         }
 
-        let mut inner = Self::convert_into_iterator(pair);
+        let mut inner = Self::convert_into_iterator(pair).peekable();
+
+        let mut attributes = Vec::new();
+        while let Some(next) = inner.peek() {
+            if next.as_rule() == Rule::attribute {
+                let attr_pair = inner.next().unwrap();
+                let attr = self.parse_attribute(&attr_pair)?;
+                attributes.push(attr);
+            } else {
+                break;
+            }
+        }
 
         let signature_pair = Self::next_pair(&mut inner)?;
         let signature = self.parse_member_signature(&signature_pair)?;
@@ -1058,6 +1078,7 @@ impl AstParser {
         let body = self.parse_block(&block_pair)?;
 
         Ok(FunctionWithBody {
+            attributes,
             declaration: signature,
             body,
         })
@@ -2775,100 +2796,116 @@ impl AstParser {
 
     pub fn parse_attribute(&self, pair: &Pair<Rule>) -> Result<Attribute, ParseError> {
         let inner = pair.clone().into_inner().next().unwrap();
-        match inner.as_rule() {
-            Rule::outer_attribute => self.parse_attribute_inner(inner, false),
-            Rule::inner_attribute => self.parse_attribute_inner(inner, true),
+        let is_inner = match inner.as_rule() {
+            Rule::outer_attribute => false,
+            Rule::inner_attribute => true,
             _ => panic!("must be attribute"),
-        }
-    }
-
-    fn parse_attribute_inner(
-        &self,
-        pair: Pair<Rule>,
-        is_inner: bool,
-    ) -> Result<Attribute, ParseError> {
-        let mut inner = pair.into_inner();
-        let attr_body = inner.next().unwrap();
-        let mut attr_inner = attr_body.into_inner();
-
-        let path_pair = attr_inner.next().unwrap();
-        let path = self.parse_qualified_identifier(&path_pair)?;
-
-        let mut args = None;
-        let mut value = None;
-
-        if let Some(next) = attr_inner.next() {
-            match next.as_rule() {
-                Rule::attr_args => {
-                    args = Some(self.parse_attr_args(&next)?);
-                }
-                Rule::attr_value => {
-                    value = Some(self.parse_attr_value(&next)?);
-                }
-                _ => {}
-            }
-        }
+        };
+        let meta_item = inner.into_inner().next().unwrap();
+        let (path, args) = self.parse_meta_item(&meta_item)?;
 
         Ok(Attribute {
             is_inner,
             path,
             args,
-            value,
+            node: self.to_node(pair),
         })
     }
 
-    fn parse_attr_args(&self, pair: &Pair<Rule>) -> Result<Vec<AttributeArg>, ParseError> {
-        let mut args = Vec::new();
-        for arg_pair in pair.clone().into_inner() {
-            if arg_pair.as_rule() == Rule::attr_arg_list {
-                for item in arg_pair.into_inner() {
-                    args.push(self.parse_attr_arg(&item)?);
-                }
+    fn parse_meta_item(
+        &self,
+        pair: &Pair<Rule>,
+    ) -> Result<(QualifiedIdentifier, Vec<AttributeArg>), ParseError> {
+        match pair.as_rule() {
+            Rule::meta_path => {
+                let path =
+                    self.parse_qualified_identifier(&pair.clone().into_inner().next().unwrap())?;
+                Ok((path, vec![]))
             }
+            Rule::meta_key_value => {
+                let mut inner = pair.clone().into_inner();
+                let path = self.parse_qualified_identifier(&inner.next().unwrap())?;
+                let value = self.parse_meta_value(&inner.next().unwrap())?;
+                Ok((path, vec![value]))
+            }
+            Rule::meta_list => {
+                let mut inner = pair.clone().into_inner();
+                let path = self.parse_qualified_identifier(&inner.next().unwrap())?;
+                let args = if let Some(list) = inner.next() {
+                    self.parse_meta_item_list(&list)?
+                } else {
+                    vec![]
+                };
+                Ok((path, args))
+            }
+            _ => panic!("unexpected meta_item"),
+        }
+    }
+
+    fn parse_meta_item_list(&self, pair: &Pair<Rule>) -> Result<Vec<AttributeArg>, ParseError> {
+        let mut args = Vec::new();
+        for item in pair.clone().into_inner() {
+            args.push(self.parse_meta_item_arg(&item)?);
         }
         Ok(args)
     }
 
-    fn parse_attr_arg(&self, pair: &Pair<Rule>) -> Result<AttributeArg, ParseError> {
-        let inner = pair.clone().into_inner().next().unwrap_or(pair.clone());
-        match inner.as_rule() {
-            Rule::attr_key_value => {
-                let mut kv = inner.into_inner();
-                let key = self.parse_qualified_identifier(&kv.next().unwrap())?;
-                let value = self.parse_attr_value(&kv.next().unwrap())?;
-                Ok(AttributeArg::KeyValue(key, value))
+    fn parse_meta_item_arg(&self, pair: &Pair<Rule>) -> Result<AttributeArg, ParseError> {
+        match pair.as_rule() {
+            Rule::meta_path => {
+                let path =
+                    self.parse_qualified_identifier(&pair.clone().into_inner().next().unwrap())?;
+                Ok(AttributeArg::Path(path))
             }
-            Rule::attr_value | Rule::attr_path => {
-                let value = self.parse_attr_value(&inner)?;
-                Ok(AttributeArg::Value(value))
+            Rule::meta_key_value => {
+                let mut inner = pair.clone().into_inner();
+                let key = self.parse_qualified_identifier(&inner.next().unwrap())?;
+                let value = self.parse_meta_value(&inner.next().unwrap())?;
+                Ok(AttributeArg::Function(key, vec![value]))
             }
-            _ => panic!("must be attr key, value or path"),
+            Rule::meta_list => {
+                let mut inner = pair.clone().into_inner();
+                let path = self.parse_qualified_identifier(&inner.next().unwrap())?;
+                let args = if let Some(list) = inner.next() {
+                    self.parse_meta_item_list(&list)?
+                } else {
+                    vec![]
+                };
+                Ok(AttributeArg::Function(path, args))
+            }
+            _ => panic!("unexpected meta_item_arg"),
         }
     }
 
-    fn parse_attr_value(&self, pair: &Pair<Rule>) -> Result<AttributeValue, ParseError> {
-        let inner = pair.clone().into_inner().next().unwrap_or(pair.clone());
-        match inner.as_rule() {
+    fn parse_meta_value(&self, pair: &Pair<Rule>) -> Result<AttributeArg, ParseError> {
+        match pair.as_rule() {
             Rule::basic_literal => {
-                let (literal_kind, node) = self.parse_basic_literal(&inner)?;
-                let converted_literal = match literal_kind {
-                    LiteralKind::Int => AttributeLiteralKind::Int,
-                    LiteralKind::Float => AttributeLiteralKind::Float,
-                    LiteralKind::String(string) => AttributeLiteralKind::String(string),
-                    LiteralKind::Bool => AttributeLiteralKind::Bool,
-                    _ => panic!("not supported attr value"),
+                let (kind, node) = self.parse_basic_literal(&pair)?;
+                Ok(AttributeArg::Literal(match kind {
+                    LiteralKind::Int => AttributeValue::Literal(node, AttributeLiteralKind::Int),
+                    LiteralKind::String(s) => {
+                        AttributeValue::Literal(node, AttributeLiteralKind::String(s))
+                    }
+                    LiteralKind::Bool => AttributeValue::Literal(node, AttributeLiteralKind::Bool),
+                    _ => panic!("not supported"),
+                }))
+            }
+            Rule::meta_path => {
+                let path =
+                    self.parse_qualified_identifier(&pair.clone().into_inner().next().unwrap())?;
+                Ok(AttributeArg::Path(path))
+            }
+            Rule::meta_list => {
+                let mut inner = pair.clone().into_inner();
+                let path = self.parse_qualified_identifier(&inner.next().unwrap())?;
+                let args = if let Some(list) = inner.next() {
+                    self.parse_meta_item_list(&list)?
+                } else {
+                    vec![]
                 };
-                Ok(AttributeValue::Literal(node, converted_literal))
+                Ok(AttributeArg::Function(path, args))
             }
-            Rule::attr_path => {
-                let path = self.parse_qualified_identifier(&inner)?;
-                Ok(AttributeValue::Path(path))
-            }
-            Rule::attr_args => {
-                let args = self.parse_attr_args(&inner)?;
-                Ok(AttributeValue::Args(args))
-            }
-            _ => panic!("unexpected attr value"),
+            _ => panic!("unexpected meta_value"),
         }
     }
 }
