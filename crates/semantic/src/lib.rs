@@ -73,7 +73,7 @@ pub struct InternalFunctionDefinition {
     pub signature: GenericAwareSignature,
     pub parameter_and_variables: Vec<VariableRef>,
     pub program_unique_id: InternalFunctionId,
-    pub attributes: Vec<Attribute>,
+    pub attributes: Attributes,
 }
 
 impl InternalFunctionDefinition {
@@ -112,7 +112,7 @@ impl Default for InternalFunctionDefinition {
             //variable_scopes: FunctionScopeState::new(),
             parameter_and_variables: Vec::new(),
             program_unique_id: 0,
-            attributes: vec![],
+            attributes: Attributes::default(),
         }
     }
 }

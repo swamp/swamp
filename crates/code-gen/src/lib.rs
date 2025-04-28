@@ -30,7 +30,7 @@ use swamp_semantic::{
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
     UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
 };
-use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
+use swamp_types::{AnonymousStructType, Attribute, Attributes, EnumVariantType, Signature, Type};
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
@@ -487,10 +487,14 @@ impl TopLevelGenState {
         self.codegen_state.reserve_space_for_constants(constants)
     }
 
+    #[must_use]
+    pub fn is_host_call(attributes: &Attributes) -> bool {
+        !attributes.get_attributes("host_call").is_empty()
+    }
+
     pub fn emit_function_def(
         &mut self,
         internal_fn_def: &InternalFunctionDefinitionRef,
-        options: &GenOptions,
         source_map_wrapper: &SourceMapWrapper,
     ) {
         //info!(internal_fn_def.assigned_name, "gen_function");
@@ -505,8 +509,10 @@ impl TopLevelGenState {
             expression: internal_fn_def.body.clone(),
         };
 
+        let is_host_call = Self::is_host_call(&internal_fn_def.attributes);
+
         let (start_ip, end_ip, function_info) =
-            self.emit_function_preamble(&in_data, source_map_wrapper);
+            self.emit_function_preamble(&in_data, source_map_wrapper, is_host_call);
 
         let count_ip = end_ip.0 - start_ip.0;
 
@@ -561,7 +567,7 @@ impl TopLevelGenState {
         };
 
         let (start_ip, end_ip, function_info) =
-            self.emit_function_preamble(&in_data, source_map_lookup);
+            self.emit_function_preamble(&in_data, source_map_lookup, true);
 
         let function_info = FunctionInfo {
             kind: FunctionInfoKind::Normal(main.program_unique_id as usize),
@@ -602,6 +608,7 @@ impl TopLevelGenState {
         &mut self,
         in_data: &FunctionInData,
         source_map_wrapper: &SourceMapWrapper,
+        is_called_by_host: bool,
     ) -> (InstructionPosition, InstructionPosition, FunctionInfo) {
         let start_ip = self.ip();
 
@@ -649,7 +656,7 @@ impl TopLevelGenState {
         function_generator.emit_expression_materialize(&in_data.expression, &ctx);
 
         self.finalize_function(&GenOptions {
-            is_halt_function: true,
+            is_halt_function: is_called_by_host,
         });
 
         let end_ip = self.ip();
@@ -682,7 +689,7 @@ impl TopLevelGenState {
             };
 
             let (start_ip, end_ip, function_info) =
-                self.emit_function_preamble(&in_data, source_map_wrapper);
+                self.emit_function_preamble(&in_data, source_map_wrapper, true);
 
             let constant_info = ConstantInfo {
                 ip_range: InstructionRange {

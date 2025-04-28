@@ -928,6 +928,18 @@ pub fn all_types_are_variables(types: &[Type]) -> bool {
     true
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Attributes(pub Vec<Attribute>);
+
+impl Attributes {
+    pub fn get_attributes(&self, name: &str) -> Vec<&Attribute> {
+        self.0
+            .iter()
+            .filter(|attr| attr.path.name == name)
+            .collect()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Attribute {
     pub path: AttributeIdentifier,

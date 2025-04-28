@@ -426,7 +426,7 @@ impl Analyzer<'_> {
     pub(crate) fn analyze_function_definition(
         &mut self,
         function: &swamp_ast::Function,
-        attributes: &[Attribute],
+        attributes: &Attributes,
     ) -> Result<Function, Error> {
         let func = match &function {
             swamp_ast::Function::Internal(function_data) => {
@@ -481,7 +481,7 @@ impl Analyzer<'_> {
                     defined_in_module_path: self.module_path.clone(),
                     parameter_and_variables: self.function_variables.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
-                    attributes: attributes.to_vec(),
+                    attributes: attributes.clone(),
                 };
 
                 let function_ref = self
@@ -795,6 +795,8 @@ impl Analyzer<'_> {
                     })
                     .collect();
 
+                let attributes = self.analyze_attributes(&function_data.attributes);
+
                 let internal = InternalFunctionDefinition {
                     signature: GenericAwareSignature {
                         signature: Signature {
@@ -811,7 +813,7 @@ impl Analyzer<'_> {
                     //variable_scopes: self.scope.clone(),
                     parameter_and_variables: self.function_variables.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
-                    attributes: vec![],
+                    attributes,
                 };
 
                 let internal_ref = Rc::new(internal);

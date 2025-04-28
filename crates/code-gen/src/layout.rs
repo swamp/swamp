@@ -423,10 +423,13 @@ pub fn layout_variables(
     let mut enter_comment = "variables:\n".to_string();
 
     let mut frame_memory_infos = Vec::new();
-    frame_memory_infos.push(FrameAddressInfo {
-        kind: FrameAddressInfoKind::Return,
-        frame_placed_type: return_placed_type.clone(),
-    });
+    if return_placed_type.size().0 != 0 {
+        // Only add return if it is non-zero. Otherwise the debug code is hard to follow.
+        frame_memory_infos.push(FrameAddressInfo {
+            kind: FrameAddressInfoKind::Return,
+            frame_placed_type: return_placed_type.clone(),
+        });
+    }
 
     let mut variable_offsets = SeqMap::new();
 

@@ -1,12 +1,14 @@
 use crate::Analyzer;
-use swamp_types::{Attribute, AttributeArg, AttributeIdentifier, AttributeValue};
+use swamp_types::{Attribute, AttributeArg, AttributeIdentifier, AttributeValue, Attributes};
 
 impl Analyzer<'_> {
-    pub fn analyze_attributes(&self, attributes: &[swamp_ast::Attribute]) -> Vec<Attribute> {
-        attributes
+    pub fn analyze_attributes(&self, attributes: &[swamp_ast::Attribute]) -> Attributes {
+        let items = attributes
             .iter()
             .map(|swamp_attr| self.analyze_attribute(swamp_attr))
-            .collect()
+            .collect();
+
+        Attributes(items)
     }
 
     pub fn analyze_attribute(&self, parsed: &swamp_ast::Attribute) -> Attribute {

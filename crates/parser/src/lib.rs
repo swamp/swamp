@@ -21,7 +21,7 @@ use swamp_ast::{
 };
 use swamp_ast::{AttributeLiteralKind, Function};
 use swamp_ast::{Postfix, PostfixChain};
-use tracing::error;
+use tracing::{error, info};
 
 pub struct ParseResult<'a> {
     #[allow(dead_code)]
@@ -2816,20 +2816,23 @@ impl AstParser {
         &self,
         pair: &Pair<Rule>,
     ) -> Result<(QualifiedIdentifier, Vec<AttributeArg>), ParseError> {
-        match pair.as_rule() {
+        debug_assert_eq!(pair.as_rule(), Rule::meta_item);
+
+        let inner = pair.clone().into_inner().next().unwrap();
+        match inner.as_rule() {
             Rule::meta_path => {
                 let path =
-                    self.parse_qualified_identifier(&pair.clone().into_inner().next().unwrap())?;
+                    self.parse_qualified_identifier(&inner.clone().into_inner().next().unwrap())?;
                 Ok((path, vec![]))
             }
             Rule::meta_key_value => {
-                let mut inner = pair.clone().into_inner();
+                let mut inner = inner.clone().into_inner();
                 let path = self.parse_qualified_identifier(&inner.next().unwrap())?;
                 let value = self.parse_meta_value(&inner.next().unwrap())?;
                 Ok((path, vec![value]))
             }
             Rule::meta_list => {
-                let mut inner = pair.clone().into_inner();
+                let mut inner = inner.clone().into_inner();
                 let path = self.parse_qualified_identifier(&inner.next().unwrap())?;
                 let args = if let Some(list) = inner.next() {
                     self.parse_meta_item_list(&list)?
