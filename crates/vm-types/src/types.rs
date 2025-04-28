@@ -1,8 +1,11 @@
 use crate::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HEAP_PTR_ON_FRAME_ALIGNMENT,
     HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemoryRegion,
-    InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryAlignment,
-    MemoryOffset, MemorySize, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, align_to,
+    InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
+    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset,
+    MemorySize, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT,
+    RANGE_ITERATOR_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, VEC_HEADER_ALIGNMENT,
+    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, align_to,
 };
 use seq_fmt::comma;
 use std::fmt::{Display, Formatter, Write};
@@ -115,16 +118,8 @@ pub struct FrameMemoryAttribute {
 
 #[derive(Debug, Clone)]
 pub enum DecoratedOperandAccessKind {
-    ReadFrameAddress(
-        FrameMemoryAddress,
-        DecoratedMemoryKind,
-        FrameMemoryAttribute,
-    ),
-    WriteFrameAddress(
-        FrameMemoryAddress,
-        DecoratedMemoryKind,
-        FrameMemoryAttribute,
-    ),
+    ReadFrameAddress(FrameMemoryAddress, Option<PathInfo>, FrameMemoryAttribute),
+    WriteFrameAddress(FrameMemoryAddress, Option<PathInfo>, FrameMemoryAttribute),
     ReadIndirectPointer(FrameMemoryAddress),
     Ip(InstructionPosition),
     ImmediateU32(u32),
@@ -133,22 +128,26 @@ pub enum DecoratedOperandAccessKind {
     ImmediateU8(u16),
     CountU16(u16),
     HeapAddress(HeapMemoryAddress),
-    WriteIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, DecoratedMemoryKind),
-    ReadIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, DecoratedMemoryKind),
+    WriteIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
+    ReadIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
 }
 
 impl DecoratedOperandAccessKind {
     #[must_use]
-    pub const fn to_addr(&self) -> Option<&FrameMemoryAddress> {
+    pub const fn path_info(&self) -> Option<&PathInfo> {
         match self {
-            Self::ReadFrameAddress(addr, _memory_kind, _attr) => Some(addr),
-            Self::WriteFrameAddress(addr, _memory_kind, _attr) => Some(addr),
-            Self::WriteIndirectHeapWithOffset(addr, _x, _y) => Some(addr),
-            Self::ReadIndirectHeapWithOffset(addr, _x, _y) => Some(addr),
+            Self::ReadFrameAddress(addr, maybe_path_info, b) => maybe_path_info.as_ref(),
+            Self::WriteFrameAddress(addr, maybe_path_info, _attr) => maybe_path_info.as_ref(),
+            Self::WriteIndirectHeapWithOffset(addr, _x, maybe_path_info) => {
+                maybe_path_info.as_ref()
+            }
+            Self::ReadIndirectHeapWithOffset(_, addr, maybe_path_info) => maybe_path_info.as_ref(),
             _ => None,
         }
     }
 }
+
+/*
 
 #[derive(Clone, Debug)]
 pub enum DecoratedMemoryKind {
@@ -193,6 +192,8 @@ impl DecoratedMemoryKind {
     }
 }
 
+
+ */
 pub struct DecoratedOperandOrigin {}
 
 pub struct DecoratedOperand {
@@ -237,6 +238,7 @@ pub enum BasicTypeKind {
     Slice(Box<BasicType>),
     SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
     IndirectHeapPointerOnFrame,
+    Bytes,
 }
 
 impl Display for BasicTypeKind {
@@ -247,6 +249,7 @@ impl Display for BasicTypeKind {
             Self::B8 => write!(f, "b8"),
             Self::U16 => write!(f, "u16"),
             Self::S32 => write!(f, "int"),
+            Self::Bytes => write!(f, "[u8]"),
             Self::Fixed32 => write!(f, "fixed"),
             Self::U32 => write!(f, "u32"),
             Self::InternalStringHeader => write!(f, "String"),
@@ -344,9 +347,115 @@ impl Display for BasicTypeKind {
  */
 
 #[must_use]
+pub const fn indirect_heap_ptr_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::IndirectHeapPointerOnFrame,
+        total_size: MemorySize(4),
+        max_alignment: MemoryAlignment::U32,
+    }
+}
+
+#[must_use]
+pub const fn string_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::InternalStringHeader,
+        total_size: STRING_HEADER_SIZE,
+        max_alignment: STRING_HEADER_ALIGNMENT,
+    }
+}
+#[must_use]
 pub const fn int_type() -> BasicType {
     BasicType {
         kind: BasicTypeKind::S32,
+        total_size: MemorySize(4),
+        max_alignment: MemoryAlignment::U32,
+    }
+}
+
+#[must_use]
+pub const fn float_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::Fixed32,
+        total_size: MemorySize(4),
+        max_alignment: MemoryAlignment::U32,
+    }
+}
+
+#[must_use]
+pub const fn bytes_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::Bytes,
+        total_size: MemorySize(0),
+        max_alignment: MemoryAlignment::U32,
+    }
+}
+
+#[must_use]
+pub const fn range_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::InternalRangeHeader,
+        total_size: RANGE_HEADER_SIZE,
+        max_alignment: RANGE_HEADER_ALIGNMENT,
+    }
+}
+
+#[must_use]
+pub const fn range_iter_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::InternalRangeIterator,
+        total_size: RANGE_ITERATOR_SIZE,
+        max_alignment: RANGE_ITERATOR_ALIGNMENT,
+    }
+}
+
+pub fn slice_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::Slice(Box::from(u8_type())), // todo: fix
+        total_size: MAP_HEADER_SIZE,
+        max_alignment: MAP_HEADER_ALIGNMENT,
+    }
+}
+
+#[must_use]
+pub const fn vec_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::InternalVecHeader,
+        total_size: VEC_HEADER_SIZE,
+        max_alignment: VEC_HEADER_ALIGNMENT,
+    }
+}
+
+#[must_use]
+pub const fn vec_iter_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::InternalVecIterator,
+        total_size: VEC_ITERATOR_SIZE,
+        max_alignment: VEC_ITERATOR_ALIGNMENT,
+    }
+}
+
+#[must_use]
+pub const fn map_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::InternalMapHeader,
+        total_size: MAP_HEADER_SIZE,
+        max_alignment: MAP_HEADER_ALIGNMENT,
+    }
+}
+
+#[must_use]
+pub const fn map_iter_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::InternalMapIterator,
+        total_size: MAP_ITERATOR_SIZE,
+        max_alignment: MAP_ITERATOR_ALIGNMENT,
+    }
+}
+
+#[must_use]
+pub const fn u32_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::U32,
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
     }
@@ -358,6 +467,24 @@ pub const fn u16_type() -> BasicType {
         kind: BasicTypeKind::U16,
         total_size: MemorySize(2),
         max_alignment: MemoryAlignment::U16,
+    }
+}
+
+#[must_use]
+pub const fn u8_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::U8,
+        total_size: MemorySize(1),
+        max_alignment: MemoryAlignment::U8,
+    }
+}
+
+#[must_use]
+pub const fn b8_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::B8,
+        total_size: MemorySize(1),
+        max_alignment: MemoryAlignment::U8,
     }
 }
 
@@ -684,6 +811,34 @@ pub struct FrameRelativeInfo {
 }
 
 #[derive(Clone, Debug)]
+pub struct PathInfo {
+    pub steps: Vec<PathStep>,
+}
+
+impl PathInfo {
+    pub fn convert_to_string(&self) -> String {
+        let path = &self.steps;
+
+        let last = path.last().unwrap();
+
+        let names: Vec<_> = path.iter().map(|x| x.item.name.to_string()).collect();
+
+        let types: Vec<_> = path.iter().map(|x| format!("{}", x.item.ty.kind)).collect();
+
+        let names_path = names.join(".");
+        let types_path = types.join("->");
+
+        format!(
+            "{:04X}:{:X} {} ({})",
+            (last.origin + last.item.offset).0,
+            last.item.ty.total_size.0,
+            names_path,
+            types_path
+        )
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct PathStep {
     pub item: OffsetMemoryItem,
     pub origin: FrameMemoryAddress,
@@ -703,7 +858,7 @@ impl FrameMemoryInfo {
 
     /// Returns a vector of OffsetMemoryItem from root to the one containing the address.
     #[must_use]
-    pub fn find_path_to_address_items(&self, target: &FrameMemoryAddress) -> Option<Vec<PathStep>> {
+    pub fn find_path_to_address_items(&self, target: FrameMemoryAddress) -> Option<PathInfo> {
         for info in &self.infos {
             // Synthesize a root OffsetMemoryItem
             let root_item = OffsetMemoryItem {
@@ -714,8 +869,8 @@ impl FrameMemoryInfo {
             };
             let base_addr = info.frame_placed_type.addr;
             let mut path = Vec::new();
-            if find_in_item(&root_item, &base_addr, target, &mut path) {
-                return Some(path);
+            if find_in_item(&root_item, base_addr, target, &mut path) {
+                return Some(PathInfo { steps: path });
             }
         }
         None
@@ -723,8 +878,8 @@ impl FrameMemoryInfo {
 }
 fn find_in_item(
     item: &OffsetMemoryItem,
-    base_addr: &FrameMemoryAddress,
-    target: &FrameMemoryAddress,
+    base_addr: FrameMemoryAddress,
+    target: FrameMemoryAddress,
     path: &mut Vec<PathStep>,
 ) -> bool {
     let item_addr = FrameMemoryAddress(base_addr.0 + item.offset.0);
@@ -740,14 +895,14 @@ fn find_in_item(
     match &item.ty.kind {
         BasicTypeKind::Struct(st) => {
             for field in &st.fields {
-                if find_in_item(field, &item_addr, target, path) {
+                if find_in_item(field, item_addr, target, path) {
                     return true;
                 }
             }
         }
         BasicTypeKind::Tuple(tt) => {
             for field in &tt.fields {
-                if find_in_item(field, &item_addr, target, path) {
+                if find_in_item(field, item_addr, target, path) {
                     return true;
                 }
             }
@@ -761,7 +916,7 @@ fn find_in_item(
                     name: variant.name.clone(),
                     ty: variant.ty.clone(),
                 };
-                if find_in_item(&variant_item, &item_addr, target, path) {
+                if find_in_item(&variant_item, item_addr, target, path) {
                     return true;
                 }
             }
@@ -774,7 +929,7 @@ fn find_in_item(
                     name: variant.name.clone(),
                     ty: variant.ty.clone(),
                 };
-                if find_in_item(&variant_item, &item_addr, target, path) {
+                if find_in_item(&variant_item, item_addr, target, path) {
                     return true;
                 }
             }
@@ -786,15 +941,15 @@ fn find_in_item(
                 name: "slice".to_string(),
                 ty: (**inner).clone(),
             };
-            if find_in_item(&slice_item, &item_addr, target, path) {
+            if find_in_item(&slice_item, item_addr, target, path) {
                 return true;
             }
         }
         BasicTypeKind::SlicePair(a, b) => {
-            if find_in_item(a, &item_addr, target, path) {
+            if find_in_item(a, item_addr, target, path) {
                 return true;
             }
-            if find_in_item(b, &item_addr, target, path) {
+            if find_in_item(b, item_addr, target, path) {
                 return true;
             }
         }
@@ -926,6 +1081,7 @@ pub fn write_basic_type(
         BasicTypeKind::B8 => write!(f, "{}", "b8".white()),
         BasicTypeKind::U16 => write!(f, "{}", "u16".white()),
         BasicTypeKind::S32 => write!(f, "{}", "s32".white()),
+        BasicTypeKind::Bytes => write!(f, "{}", "[u8]".white()),
         BasicTypeKind::Fixed32 => write!(f, "{}", "f32".white()),
         BasicTypeKind::U32 => write!(f, "{}", "u32".white()),
         BasicTypeKind::Struct(s) => show_struct_type(s, origin, f, tabs),

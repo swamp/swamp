@@ -2257,7 +2257,7 @@ impl FunctionCodeGen<'_> {
         let mut parameters = signature.parameters.clone();
         if let Some(found_self) = maybe_self {
             assert_eq!(signature.parameters[0].name, "self");
-            if signature.parameters[0].is_mutable {
+            if signature.parameters[0].is_mutable && found_self.size().0 > 0 {
                 let source_region = reserve(&parameters[0].resolved_type, &mut arguments_allocator);
                 self.builder.add_mov_for_assignment(
                     &found_self,
@@ -2273,7 +2273,11 @@ impl FunctionCodeGen<'_> {
             if !parameter.is_mutable {
                 continue;
             }
+
             let source_region = reserve(&parameter.resolved_type, &mut arguments_allocator);
+            if source_region.size().0 == 0 {
+                continue;
+            }
 
             if let MutRefOrImmutableExpression::Location(found_location) = argument {
                 let argument_target = self.emit_lvalue_chain(found_location, None);
@@ -2317,8 +2321,14 @@ impl FunctionCodeGen<'_> {
         }
 
         if let Some(push_self) = self_region {
-            self.builder
-                .add_mov_for_assignment(&argument_targets[0], &push_self, node, "<self>");
+            if push_self.size().0 != 0 {
+                self.builder.add_mov_for_assignment(
+                    &argument_targets[0],
+                    &push_self,
+                    node,
+                    "<self>",
+                );
+            }
             argument_targets.remove(0);
         }
 
@@ -2444,14 +2454,14 @@ impl FunctionCodeGen<'_> {
 
          */
 
-        let mut start_source = self.emit_start_of_chain(start_expression);
+        let mut self_source_frame_placed = self.emit_start_of_chain(start_expression);
 
         for (index, element) in chain.iter().enumerate() {
             let is_last = index == chain.len() - 1;
 
             match &element.kind {
                 PostfixKind::StructField(anonymous_struct, field_index) => {
-                    let field_placed_type = start_source.move_to_field(*field_index);
+                    let field_placed_type = self_source_frame_placed.move_to_field(*field_index);
                     if is_last {
                         self.builder.add_mov_for_assignment(
                             ctx.target(),
@@ -2460,7 +2470,7 @@ impl FunctionCodeGen<'_> {
                             "last lookup copy",
                         );
                     }
-                    start_source = field_placed_type;
+                    self_source_frame_placed = field_placed_type;
                 }
                 PostfixKind::MemberCall(function_to_call, arguments) => {
                     let target_ctx = if is_last {
@@ -2482,7 +2492,7 @@ impl FunctionCodeGen<'_> {
                                     &start_expression.node,
                                     intrinsic_fn,
                                     Some(element.ty.clone()),
-                                    Some(start_source.clone()),
+                                    Some(self_source_frame_placed.clone()),
                                     &merged_arguments,
                                     target_ctx,
                                 );
@@ -2490,7 +2500,7 @@ impl FunctionCodeGen<'_> {
                                 self.emit_arguments(
                                     &start_expression.node,
                                     &internal_fn.signature.signature,
-                                    Some(start_source.clone()),
+                                    Some(self_source_frame_placed.clone()),
                                     arguments,
                                 );
                                 self.add_call(
@@ -2502,20 +2512,28 @@ impl FunctionCodeGen<'_> {
                                 self.call_post_helper(
                                     &element.node,
                                     &internal_fn.signature.signature,
-                                    Some(start_source.clone()),
+                                    Some(self_source_frame_placed.clone()),
                                     arguments,
                                     target_ctx,
                                 );
                             }
                         }
-                        Function::External(x) => {}
+                        Function::External(external_function_def) => {
+                            self.emit_host_self_call(
+                                &start_expression.node,
+                                external_function_def,
+                                &self_source_frame_placed,
+                                arguments,
+                                target_ctx,
+                            );
+                        }
                         Function::Intrinsic(intr) => {}
                         _ => panic!(
                             "{}",
                             &format!("not supported as a member call {function_to_call:?}")
                         ),
                     }
-                    start_source = target_ctx.target().clone();
+                    self_source_frame_placed = target_ctx.target().clone();
                 }
                 PostfixKind::OptionalChainingOperator => {
                     //TODO:
@@ -3568,10 +3586,47 @@ impl FunctionCodeGen<'_> {
             host_fn.id as u16,
             memory_region.size,
             node,
-            &format!("host call frame size: {}", self.frame_size),
-        ); // will be fixed up later
+            &format!(
+                "host: {} arguments_size:{}",
+                host_fn.assigned_name, memory_region.size.0
+            ),
+        );
 
         self.call_post_helper(node, &host_fn.signature, None, arguments, ctx)
+    }
+
+    fn emit_host_self_call(
+        &mut self,
+        node: &Node,
+        host_fn: &ExternalFunctionDefinitionRef,
+        self_frame_placed_type: &FramePlacedType,
+        arguments: &Vec<MutRefOrImmutableExpression>,
+        ctx: &Context,
+    ) -> GeneratedExpressionResult {
+        let memory_region = self.emit_arguments(
+            node,
+            &host_fn.signature,
+            Some(self_frame_placed_type.clone()),
+            arguments,
+        );
+
+        self.builder.add_host_call(
+            host_fn.id as u16,
+            memory_region.size,
+            node,
+            &format!(
+                "host self call: {} arguments_size:{}",
+                host_fn.assigned_name, memory_region.size.0
+            ),
+        ); // will be fixed up later
+
+        self.call_post_helper(
+            node,
+            &host_fn.signature,
+            Some(self_frame_placed_type.clone()),
+            arguments,
+            ctx,
+        )
     }
 
     fn merge_arguments_keep_literals(

@@ -8,8 +8,11 @@ use std::fmt::Write;
 
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
-    DecoratedMemoryKind, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
-    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, OffsetMemoryItem, PathStep,
+    BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
+    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, OffsetMemoryItem, PathInfo,
+    PathStep, b8_type, bytes_type, float_type, indirect_heap_ptr_type, int_type, map_iter_type,
+    map_type, range_iter_type, range_type, slice_type, string_type, u8_type, u32_type,
+    vec_iter_type, vec_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
@@ -89,9 +92,12 @@ pub fn disasm_instructions_color(
 
     string
 }
-fn memory_kind_color(kind: &DecoratedMemoryKind) -> String {
-    let short_string = kind.to_str();
-    short_string.to_string()
+fn memory_kind_color(kind: Option<PathInfo>) -> String {
+    if let Some(path_info) = kind {
+        path_info.convert_to_string()
+    } else {
+        String::new()
+    }
 }
 
 #[must_use]
@@ -99,6 +105,7 @@ pub fn disasm_instructions_no_color(
     binary_instruction: &[BinaryInstruction],
     descriptions: &[String],
     ip_infos: &SeqMap<InstructionPosition, String>,
+    frame_memory_info: &FrameMemoryInfo,
     include_comments: bool,
 ) -> String {
     let mut string = String::new();
@@ -126,6 +133,7 @@ pub fn disasm_instructions_no_color(
             disasm_no_color(
                 instruction,
                 FrameMemorySize(last_frame_size),
+                frame_memory_info,
                 &comment_to_use
             )
         );
@@ -142,7 +150,7 @@ pub fn disasm_color(
     memory_infos: &FrameMemoryInfo,
     meta: &Meta,
 ) -> String {
-    let decorated = disasm(binary_instruction, frame_size);
+    let decorated = disasm(binary_instruction, frame_size, memory_infos);
 
     let name = format!("{:7}", decorated.name.blue());
 
@@ -151,7 +159,7 @@ pub fn disasm_color(
     let mut memory_comments = Vec::new();
 
     for operand in decorated.operands {
-        let operand_addr = operand.kind.to_addr();
+        let operand_addr = operand.kind.path_info();
 
         let (new_str, comment_str) = match &operand.kind {
             DecoratedOperandAccessKind::ReadFrameAddress(addr, memory_kind, attr) => {
@@ -163,7 +171,7 @@ pub fn disasm_color(
 
                 (
                     format!("{}{}", "$".fg(color), format!("{:04X}", addr.0).fg(color)),
-                    memory_kind_color(memory_kind),
+                    memory_kind_color(memory_kind.clone()),
                 )
             }
             DecoratedOperandAccessKind::WriteFrameAddress(addr, memory_kind, attr) => {
@@ -175,16 +183,15 @@ pub fn disasm_color(
 
                 (
                     format!("{}{}", "$".fg(color), format!("{:04X}", addr.0).fg(color)),
-                    memory_kind_color(memory_kind),
+                    memory_kind_color(memory_kind.clone()),
                 )
             }
             DecoratedOperandAccessKind::HeapAddress(addr) => {
                 let color = Color::Green;
-                let memory_kind = DecoratedMemoryKind::Octets;
 
                 (
                     format!("{}{}", "%$".fg(color), format!("{:08X}", addr.0).fg(color)),
-                    memory_kind_color(&memory_kind),
+                    "".to_string(),
                 )
             }
             DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
@@ -230,7 +237,7 @@ pub fn disasm_color(
                     format!("${:04X}", frame_addr.0).red(),
                     format!("{:X}", memory_offset.0).red()
                 ),
-                memory_kind_color(memory_kind),
+                memory_kind_color(memory_kind.clone()),
             ),
             DecoratedOperandAccessKind::ReadIndirectHeapWithOffset(
                 frame_addr,
@@ -242,19 +249,13 @@ pub fn disasm_color(
                     format!("${:04X}", frame_addr.0).green(),
                     format!("{:X}", memory_offset.0).green()
                 ),
-                memory_kind_color(memory_kind),
+                memory_kind_color(memory_kind.clone()),
             ),
         };
         converted_operands.push(new_str);
 
-        let memory_comment = operand_addr.map(|operand_addr| {
-            memory_infos
-                .find_path_to_address_items(operand_addr)
-                .map_or_else(
-                    || "temporary address".to_string(),
-                    |addr| frame_placed_type_path_to_string(&addr),
-                )
-        });
+        let memory_comment =
+            operand_addr.map(|found_path_info| found_path_info.convert_to_string());
 
         if let Some(comment) = memory_comment {
             memory_comments.push(comment);
@@ -290,32 +291,14 @@ pub fn disasm_color(
     format!("{} {}{}", name, converted_operands.join(" "), print_comment)
 }
 
-fn frame_placed_type_path_to_string(path: &[PathStep]) -> String {
-    let last = path.last().unwrap();
-
-    let names: Vec<_> = path.iter().map(|x| x.item.name.to_string()).collect();
-
-    let types: Vec<_> = path.iter().map(|x| format!("{}", x.item.ty.kind)).collect();
-
-    let names_path = names.join(".");
-    let types_path = types.join("->");
-
-    format!(
-        "{:04X}:{:X} {} ({})",
-        (last.origin + last.item.offset).0,
-        last.item.ty.total_size.0,
-        names_path,
-        types_path
-    )
-}
-
 #[must_use]
 pub fn disasm_no_color(
     binary_instruction: &BinaryInstruction,
     frame_memory_size: FrameMemorySize,
+    frame_memory_info: &FrameMemoryInfo,
     comment: &str,
 ) -> String {
-    let decorated = disasm(binary_instruction, frame_memory_size);
+    let decorated = disasm(binary_instruction, frame_memory_size, frame_memory_info);
 
     let name = decorated.name.to_string();
 
@@ -373,6 +356,7 @@ pub fn disasm_no_color(
 pub fn disasm(
     binary_instruction: &BinaryInstruction,
     frame_memory_size: FrameMemorySize,
+    frame_memory_info: &FrameMemoryInfo,
 ) -> DecoratedOpcode {
     let opcode: OpCode = binary_instruction.opcode.into();
     let operands = binary_instruction.operands;
@@ -382,15 +366,15 @@ pub fn disasm(
 
         OpCode::Panic => &[to_read_frame(
             operands[0],
-            DecoratedMemoryKind::StringHeader,
-            frame_memory_size,
+            &string_type(),
+            frame_memory_info,
         )],
 
         OpCode::Ld32 => {
             let data = ((operands[2] as u32) << 16) | operands[1] as u32;
 
             &[
-                to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+                to_write_frame(operands[0], &int_type(), frame_memory_info),
                 DecoratedOperandAccessKind::ImmediateU32(data),
             ]
         }
@@ -398,7 +382,7 @@ pub fn disasm(
             let data = operands[1] as u16;
 
             &[
-                to_write_frame(operands[0], DecoratedMemoryKind::U16, frame_memory_size),
+                to_write_frame(operands[0], &int_type(), frame_memory_info),
                 DecoratedOperandAccessKind::ImmediateU16(data),
             ]
         }
@@ -407,234 +391,218 @@ pub fn disasm(
             let data = operands[1];
 
             &[
-                to_write_frame(operands[0], DecoratedMemoryKind::U8, frame_memory_size),
+                to_write_frame(operands[0], &int_type(), frame_memory_info),
                 DecoratedOperandAccessKind::ImmediateU8(data),
             ]
         }
 
         // Integer
         OpCode::AddI32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
+            to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
         OpCode::SubI32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
+            to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
         OpCode::MulI32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
+            to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
         OpCode::DivI32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
+            to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
         OpCode::ModI32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
+            to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
         OpCode::NegI32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
 
         // Fixed
         OpCode::AddF32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
+            to_read_frame(operands[2], &float_type(), frame_memory_info),
         ],
         OpCode::MulF32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
+            to_read_frame(operands[2], &float_type(), frame_memory_info),
         ],
         OpCode::DivF32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
+            to_read_frame(operands[2], &float_type(), frame_memory_info),
         ],
 
         OpCode::ModF32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
+            to_read_frame(operands[2], &float_type(), frame_memory_info),
         ],
         OpCode::SubF32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
+            to_read_frame(operands[2], &float_type(), frame_memory_info),
         ],
         OpCode::NegF32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::LtF32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::LeF32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::GtF32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
         OpCode::GeF32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::LtI32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
 
         OpCode::LeI32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
 
         OpCode::GtI32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
         OpCode::GeI32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_read_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
 
         OpCode::FloatToString => &[
-            to_write_frame(
-                operands[0],
-                DecoratedMemoryKind::StringHeader,
-                frame_memory_size,
-            ),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &string_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatRound => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatFloor => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatSqrt => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatSign => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatAbs => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatSin => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatCos => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatAcos => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatAsin => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatAtan2 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatMin => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
+            to_read_frame(operands[2], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatMax => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
+            to_read_frame(operands[2], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatClamp => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[3], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
+            to_read_frame(operands[2], &float_type(), frame_memory_info),
+            to_read_frame(operands[3], &float_type(), frame_memory_info),
         ],
 
         OpCode::FloatPseudoRandom => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::Eq8Imm => {
             let data = operands[1];
 
             &[
-                to_read_frame(operands[0], DecoratedMemoryKind::S32, frame_memory_size),
+                to_read_frame(operands[0], &u8_type(), frame_memory_info),
                 DecoratedOperandAccessKind::ImmediateU8(data),
             ]
         }
 
-        OpCode::Tst8 => &[to_read_frame(
-            operands[0],
-            DecoratedMemoryKind::U8,
-            frame_memory_size,
-        )],
+        OpCode::Tst8 => &[to_read_frame(operands[0], &u8_type(), frame_memory_info)],
 
-        OpCode::Stz => &[to_write_frame(
-            operands[0],
-            DecoratedMemoryKind::U8,
-            frame_memory_size,
-        )],
+        OpCode::Stz => &[to_write_frame(operands[0], &b8_type(), frame_memory_info)],
 
-        OpCode::Stnz => &[to_write_frame(
-            operands[0],
-            DecoratedMemoryKind::U8,
-            frame_memory_size,
-        )],
+        OpCode::Stnz => &[to_write_frame(operands[0], &b8_type(), frame_memory_info)],
 
         OpCode::Cmp8 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::U8, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U8, frame_memory_size),
+            to_read_frame(operands[0], &u8_type(), frame_memory_info),
+            to_read_frame(operands[1], &u8_type(), frame_memory_info),
         ],
 
         OpCode::Cmp32 => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_read_frame(operands[0], &u32_type(), frame_memory_info),
+            to_read_frame(operands[1], &u32_type(), frame_memory_info),
         ],
 
         OpCode::Cmp => &[
-            to_read_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[0], &bytes_type(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[1])),
         ],
 
@@ -649,277 +617,220 @@ pub fn disasm(
         ))],
         OpCode::Jmp => &[to_jmp_ip(operands[0])],
         OpCode::Mov => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
         ],
         OpCode::Mov32 => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &u32_type(), frame_memory_info),
+            to_read_frame(operands[1], &u32_type(), frame_memory_info),
         ],
         OpCode::MovLp => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
         ],
 
         OpCode::MovMem => {
             let heap_mem_addr = ((operands[2] as u32) << 16) | operands[1] as u32;
             &[
-                to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+                to_write_frame(operands[0], &bytes_type(), frame_memory_info),
                 DecoratedOperandAccessKind::HeapAddress(HeapMemoryAddress(heap_mem_addr)),
                 DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
             ]
         }
         OpCode::Nop => &[],
 
-        OpCode::VecPop => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
-            DecoratedOperandAccessKind::CountU16(operands[3]),
-        ],
+        OpCode::VecPop => &[to_write_frame(operands[0], &vec_type(), frame_memory_info)],
 
         OpCode::VecFromSlice => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
         ],
 
         OpCode::VecFetch => &[
-            to_write_frame(
-                operands[0],
-                DecoratedMemoryKind::VecHeader,
-                frame_memory_size,
-            ),
-            to_read_frame(operands[1], DecoratedMemoryKind::S32, frame_memory_size),
+            to_write_frame(operands[0], &vec_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
 
         OpCode::VecSwap => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &vec_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
+            to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
 
         OpCode::VecSet => &[
-            to_write_frame(
-                operands[0],
-                DecoratedMemoryKind::VecHeader,
-                frame_memory_size,
-            ),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[3], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &vec_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
+            to_read_frame(operands[2], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::VecIterInit => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &vec_iter_type(), frame_memory_info),
             DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
         ],
 
         OpCode::VecIterNext => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_write_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &vec_iter_type(), frame_memory_info),
+            to_write_frame(operands[1], &bytes_type(), frame_memory_info),
             to_jmp_ip(operands[2]),
         ],
 
         OpCode::VecIterNextPair => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_write_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_write_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &vec_iter_type(), frame_memory_info),
+            to_write_frame(operands[1], &bytes_type(), frame_memory_info),
+            to_write_frame(operands[2], &bytes_type(), frame_memory_info),
             to_jmp_ip(operands[3]),
         ],
 
-        OpCode::VecClear => &[to_write_frame(
-            operands[0],
-            DecoratedMemoryKind::Octets,
-            frame_memory_size,
-        )],
+        OpCode::VecClear => &[to_write_frame(operands[0], &vec_type(), frame_memory_info)],
 
         OpCode::VecPush => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &vec_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::VecRemoveIndex => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &vec_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
 
         OpCode::VecRemoveIndexGetValue => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &vec_type(), frame_memory_info),
+            to_write_frame(operands[1], &vec_type(), frame_memory_info),
+            to_read_frame(operands[2], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::VecCreate => &[
-            to_write_frame(
-                operands[0],
-                DecoratedMemoryKind::VecHeader,
-                frame_memory_size,
-            ),
+            to_write_frame(operands[0], &vec_type(), frame_memory_info),
             DecoratedOperandAccessKind::CountU16(operands[1]),
         ],
 
         OpCode::VecGet => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(
-                operands[1],
-                DecoratedMemoryKind::VecHeader,
-                frame_memory_size,
-            ),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
+            to_read_frame(operands[1], &vec_type(), frame_memory_info),
+            to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
 
         OpCode::VecGetRange => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(
-                operands[2],
-                DecoratedMemoryKind::RangeHeader,
-                frame_memory_size,
-            ),
+            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
+            to_read_frame(operands[2], &range_type(), frame_memory_info),
         ],
 
         OpCode::MapNewFromPairs => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &map_type(), frame_memory_info),
+            to_read_frame(operands[1], &slice_type(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
             DecoratedOperandAccessKind::CountU16(operands[4]),
         ],
 
         OpCode::MapIterInit => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(
-                operands[1],
-                DecoratedMemoryKind::VecIterator,
-                frame_memory_size,
-            ),
+            to_write_frame(operands[0], &map_iter_type(), frame_memory_info),
+            to_read_frame(operands[1], &map_type(), frame_memory_info),
         ],
 
         OpCode::MapIterNext => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_write_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &map_iter_type(), frame_memory_info),
+            to_write_frame(operands[1], &bytes_type(), frame_memory_info),
             to_jmp_ip(operands[2]),
         ],
 
         OpCode::MapIterNextPair => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_write_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_write_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &map_iter_type(), frame_memory_info),
+            to_write_frame(operands[1], &bytes_type(), frame_memory_info),
+            to_write_frame(operands[2], &bytes_type(), frame_memory_info),
             to_jmp_ip(operands[3]),
         ],
 
         OpCode::MapRemove => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &map_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::MapFetch => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
+            to_read_frame(operands[1], &map_type(), frame_memory_info),
+            to_read_frame(operands[2], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::MapSet => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &map_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
+            to_read_frame(operands[2], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::MapHas => &[
             //  sets the Z flag
-            to_read_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_read_frame(operands[0], &map_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::RangeIterInit => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &range_iter_type(), frame_memory_info),
             DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
         ],
 
         OpCode::RangeIterNext => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::Octets, frame_memory_size),
-            to_write_frame(operands[1], DecoratedMemoryKind::Octets, frame_memory_size),
+            to_write_frame(operands[0], &range_iter_type(), frame_memory_info),
+            to_write_frame(operands[1], &bytes_type(), frame_memory_info),
             to_jmp_ip(operands[2]),
         ],
 
         OpCode::StringAppend => &[
-            to_write_frame(
-                operands[0],
-                DecoratedMemoryKind::StringHeader,
-                frame_memory_size,
-            ),
-            to_read_frame(
-                operands[1],
-                DecoratedMemoryKind::StringHeader,
-                frame_memory_size,
-            ),
-            to_read_frame(
-                operands[2],
-                DecoratedMemoryKind::StringHeader,
-                frame_memory_size,
-            ),
+            to_write_frame(operands[0], &string_type(), frame_memory_info),
+            to_read_frame(operands[1], &string_type(), frame_memory_info),
+            to_read_frame(operands[2], &string_type(), frame_memory_info),
         ],
 
         OpCode::IntToRnd => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
 
         OpCode::IntAbs => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
 
         OpCode::IntMin => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
+            to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
 
         OpCode::IntMax => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
+            to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
 
         OpCode::IntClamp => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[2], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[3], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
+            to_read_frame(operands[2], &int_type(), frame_memory_info),
+            to_read_frame(operands[3], &int_type(), frame_memory_info),
         ],
 
         OpCode::IntToString => &[
-            to_write_frame(
-                operands[0],
-                DecoratedMemoryKind::StringHeader,
-                frame_memory_size,
-            ),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &string_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
 
         OpCode::BoolToString => &[
-            to_write_frame(
-                operands[0],
-                DecoratedMemoryKind::StringHeader,
-                frame_memory_size,
-            ),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &string_type(), frame_memory_info),
+            to_read_frame(operands[1], &b8_type(), frame_memory_info),
         ],
 
         OpCode::IntToFloat => &[
-            to_write_frame(operands[0], DecoratedMemoryKind::U32, frame_memory_size),
-            to_read_frame(operands[1], DecoratedMemoryKind::U32, frame_memory_size),
+            to_write_frame(operands[0], &float_type(), frame_memory_info),
+            to_read_frame(operands[1], &int_type(), frame_memory_info),
         ],
 
         OpCode::Alloc => &[
-            to_write_frame(
-                operands[0],
-                DecoratedMemoryKind::IndirectHeapPointer,
-                frame_memory_size,
-            ),
+            to_write_frame(operands[0], &indirect_heap_ptr_type(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[1])),
         ],
 
@@ -929,13 +840,13 @@ pub fn disasm(
                 DecoratedOperandAccessKind::WriteIndirectHeapWithOffset(
                     FrameMemoryAddress(operands[0]),
                     HeapMemoryOffset(heap_mem_offset),
-                    DecoratedMemoryKind::Octets,
+                    None,
                 ),
                 DecoratedOperandAccessKind::ReadFrameAddress(
                     FrameMemoryAddress(operands[3]),
-                    DecoratedMemoryKind::Octets,
+                    None,
                     FrameMemoryAttribute {
-                        is_temporary: operands[3] >= frame_memory_size.0,
+                        is_temporary: operands[3] >= frame_memory_info.size.0,
                     },
                 ),
                 DecoratedOperandAccessKind::MemorySize(MemorySize(operands[4])),
@@ -945,15 +856,11 @@ pub fn disasm(
         OpCode::Ldx => {
             let heap_mem_offset = ((operands[3] as u32) << 16) | operands[2] as u32;
             &[
-                to_write_frame(
-                    operands[0],
-                    DecoratedMemoryKind::IndirectHeapPointer,
-                    frame_memory_size,
-                ),
+                to_write_frame(operands[0], &indirect_heap_ptr_type(), frame_memory_info),
                 DecoratedOperandAccessKind::ReadIndirectHeapWithOffset(
                     FrameMemoryAddress(operands[1]),
                     HeapMemoryOffset(heap_mem_offset),
-                    DecoratedMemoryKind::Octets,
+                    None,
                 ),
                 DecoratedOperandAccessKind::MemorySize(MemorySize(operands[4])),
             ]
@@ -976,26 +883,29 @@ pub fn disasm(
 
 fn to_write_frame(
     addr: u16,
-    mem: DecoratedMemoryKind,
-    frame_memory_size: FrameMemorySize,
+    fallback_expected_type: &BasicType,
+    frame_memory_info: &FrameMemoryInfo,
 ) -> DecoratedOperandAccessKind {
-    let is_temporary = addr >= frame_memory_size.0;
+    let maybe_path = frame_memory_info.find_path_to_address_items(FrameMemoryAddress(addr));
+
+    let is_temporary = maybe_path.is_none();
     DecoratedOperandAccessKind::WriteFrameAddress(
         to_frame(addr),
-        mem,
+        maybe_path,
         FrameMemoryAttribute { is_temporary },
     )
 }
 
 fn to_read_frame(
     addr: u16,
-    mem: DecoratedMemoryKind,
-    frame_memory_size: FrameMemorySize,
+    fallback_expected_type: &BasicType,
+    frame_memory_info: &FrameMemoryInfo,
 ) -> DecoratedOperandAccessKind {
-    let is_temporary = addr >= frame_memory_size.0;
+    let is_temporary = addr >= frame_memory_info.size.0;
+    let maybe_path = frame_memory_info.find_path_to_address_items(FrameMemoryAddress(addr));
     DecoratedOperandAccessKind::ReadFrameAddress(
         to_frame(addr),
-        mem,
+        maybe_path,
         FrameMemoryAttribute { is_temporary },
     )
 }
