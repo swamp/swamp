@@ -144,6 +144,8 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -195,6 +197,46 @@ impl InstructionBuilder<'_> {
             ZFlagPolarity::Normal => self.add_jmp_if_not_equal_placeholder(node, comment),
             ZFlagPolarity::Inverted => self.add_jmp_if_equal_placeholder(node, comment),
         }
+    }
+
+    pub fn add_unwrap_jmp_some_placeholder(
+        &mut self,
+        target: &FramePlacedType,
+        check_optional: &FramePlacedType,
+        node: &Node,
+        comment: &str,
+    ) -> PatchPosition {
+        let position = self.position();
+
+        self.state.add_instruction(
+            OpCode::UnwrapJmpSome,
+            &[target.addr().0, check_optional.addr().0, 0],
+            node,
+            comment,
+        );
+
+        PatchPosition(position)
+    }
+
+    // If the value at option_offset is Some, unwrap and write to result_offset, then continue.
+    // If it is None, write the value at none_value_offset to result_offset, and jump to jump_ip (the end of the chain).
+    pub fn add_unwrap_jmp_none_placeholder(
+        &mut self,
+        target: &FramePlacedType,
+        check_optional: &FramePlacedType,
+        node: &Node,
+        comment: &str,
+    ) -> PatchPosition {
+        let position = self.position();
+
+        self.state.add_instruction(
+            OpCode::UnwrapJmpNone,
+            &[target.addr().0, check_optional.addr().0, 0],
+            node,
+            comment,
+        );
+
+        PatchPosition(position)
     }
 
     pub fn add_vec_swap(
@@ -609,6 +651,9 @@ impl InstructionBuilder<'_> {
 
         const RANGE_ITER_NEXT: u8 = OpCode::RangeIterNext as u8;
 
+        const UNWRAP_JMP_NONE: u8 = OpCode::UnwrapJmpNone as u8;
+        const UNWRAP_JMP_SOME: u8 = OpCode::UnwrapJmpSome as u8;
+
         let instruction = &mut self.state.instructions[patch_position.0.0 as usize];
 
         match instruction.opcode {
@@ -640,6 +685,13 @@ impl InstructionBuilder<'_> {
 
             MAP_ITER_NEXT_PAIR => {
                 instruction.operands[3] = target_position.0 as u16 - 1;
+            }
+
+            UNWRAP_JMP_NONE => {
+                instruction.operands[2] = target_position.0 as u16 - 1;
+            }
+            UNWRAP_JMP_SOME => {
+                instruction.operands[2] = target_position.0 as u16 - 1;
             }
 
             _ => panic!("Attempted to patch a non-jump instruction at position {patch_position:?}"),

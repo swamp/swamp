@@ -1481,6 +1481,10 @@ impl FunctionCodeGen<'_> {
                 return (frame_address.clone(), GeneratedExpressionResult::default());
             }
 
+            ExpressionKind::PostfixChain(start_of_chain, chain) => {
+                return self.emit_postfix_chain(start_of_chain, chain);
+            }
+
             _ => {}
         }
 
@@ -1543,7 +1547,7 @@ impl FunctionCodeGen<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        //self.debug_node(&expr.node);
+        self.debug_node(&expr.node);
 
         match &expr.kind {
             ExpressionKind::ConstantAccess(constant_ref) => {
@@ -1561,7 +1565,18 @@ impl FunctionCodeGen<'_> {
             ExpressionKind::BinaryOp(operator) => self.emit_binary_operator(operator, ctx),
             ExpressionKind::UnaryOp(operator) => self.emit_unary_operator(operator, ctx),
             ExpressionKind::PostfixChain(start, chain) => {
-                self.emit_postfix_chain(start, chain, ctx)
+                let (source_frame_placed_type, expression_result) =
+                    self.emit_postfix_chain(start, chain);
+                if source_frame_placed_type.size().0 != 0 {
+                    info!(?source_frame_placed_type, target=?ctx.target(), "diff chain");
+                    self.builder.add_mov_for_assignment(
+                        ctx.target(),
+                        &source_frame_placed_type,
+                        &expr.node,
+                        "last lookup copy",
+                    );
+                }
+                expression_result
             }
             ExpressionKind::VariableDefinition(variable, expression) => {
                 self.emit_variable_definition(variable, expression, ctx)
@@ -2371,8 +2386,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         start_expression: &StartOfChain,
         chain: &[Postfix],
-        ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) -> (FramePlacedType, GeneratedExpressionResult) {
         /*
         if let ExpressionKind::InternalFunctionAccess(internal_fn) = &start_expression.kind {
             if chain.len() == 1 {
@@ -2459,27 +2473,16 @@ impl FunctionCodeGen<'_> {
         let mut self_source_frame_placed = self.emit_start_of_chain(start_expression);
 
         for (index, element) in chain.iter().enumerate() {
-            let is_last = index == chain.len() - 1;
-
             match &element.kind {
                 PostfixKind::StructField(anonymous_struct, field_index) => {
                     let field_placed_type = self_source_frame_placed.move_to_field(*field_index);
-                    if is_last {
-                        self.builder.add_mov_for_assignment(
-                            ctx.target(),
-                            &field_placed_type,
-                            &element.node,
-                            "last lookup copy",
-                        );
-                    }
+
                     self_source_frame_placed = field_placed_type;
                 }
                 PostfixKind::MemberCall(function_to_call, arguments) => {
-                    let target_ctx = if is_last {
-                        ctx
-                    } else {
-                        &self.temp_space_for_type(&function_to_call.signature().return_type, "")
-                    };
+                    let target_ctx =
+                        &self.temp_space_for_type(&function_to_call.signature().return_type, "");
+
                     match &**function_to_call {
                         Function::Internal(internal_fn) => {
                             if let Some((intrinsic_fn, intrinsic_arguments)) =
@@ -2538,15 +2541,31 @@ impl FunctionCodeGen<'_> {
                     self_source_frame_placed = target_ctx.target().clone();
                 }
                 PostfixKind::OptionalChainingOperator => {
-                    //TODO:
+                    todo!()
                 }
-                PostfixKind::NoneCoalescingOperator(_) => {
-                    // TODO:
+                PostfixKind::NoneCoalescingOperator(expression) => {
+                    let target_ctx = &self.temp_space_for_type(&expression.ty, "");
+
+                    let patch = self.builder.add_unwrap_jmp_some_placeholder(
+                        target_ctx.target(),
+                        &self_source_frame_placed,
+                        &expression.node,
+                        "none coalesce",
+                    );
+
+                    self.emit_expression_materialize(expression, target_ctx);
+
+                    self.builder.patch_jump_here(patch);
+
+                    self_source_frame_placed = target_ctx.target().clone();
                 }
             }
         }
 
-        GeneratedExpressionResult::default()
+        (
+            self_source_frame_placed,
+            GeneratedExpressionResult::default(),
+        )
     }
 
     fn call_post_helper(

@@ -155,6 +155,8 @@ pub enum OpCode {
     // Other
     HostCall, // calls back into host
     VecSwap,
+    UnwrapJmpSome,
+    UnwrapJmpNone,
 }
 
 impl OpCode {
@@ -166,6 +168,9 @@ impl OpCode {
             Self::Hlt => "hlt",
             Self::Panic => "panic",
             Self::Brk => "brk",
+
+            Self::UnwrapJmpNone => "unw_none",
+            Self::UnwrapJmpSome => "unw_some",
 
             // Integer arithmetic
             Self::AddI32 => "add",

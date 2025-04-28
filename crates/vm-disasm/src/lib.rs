@@ -865,6 +865,18 @@ pub fn disasm(
                 DecoratedOperandAccessKind::MemorySize(MemorySize(operands[4])),
             ]
         }
+
+        OpCode::UnwrapJmpNone => &[
+            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info), // todo: optional union type
+            to_jmp_ip(operands[2]),
+        ],
+
+        OpCode::UnwrapJmpSome => &[
+            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info), // todo: optional union type
+            to_jmp_ip(operands[2]),
+        ],
     };
 
     let converted_operands = operands_slice

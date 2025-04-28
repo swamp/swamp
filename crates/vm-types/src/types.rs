@@ -1066,7 +1066,7 @@ pub fn show_tuple_type(
 }
 
 pub fn write_identifier_and_colon(identifier: &str, f: &mut dyn Write) -> std::fmt::Result {
-    write!(f, "{}:", identifier.blue())
+    write!(f, "{}: ", identifier.blue())
 }
 
 pub fn write_basic_type(
@@ -1089,7 +1089,7 @@ pub fn write_basic_type(
             show_tagged_union(tagged_union, origin, f, tabs)
         }
         BasicTypeKind::Optional(tagged_union) => {
-            write!(f, "Option")?;
+            write!(f, "Option ")?;
             show_tagged_union(tagged_union, origin, f, tabs)
         }
         BasicTypeKind::Tuple(tuple_type) => show_tuple_type(tuple_type, origin, f, tabs),
