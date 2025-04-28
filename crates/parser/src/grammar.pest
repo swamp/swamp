@@ -230,7 +230,8 @@ module_segments           = { (identifier ~ SCOPE_OPERATOR)+ }
     Program Structure
     =============================================================
 */
-program = { SOI ~ (definition | expression)* ~ EOI }
+item = { attribute* ~ definition }
+program = { SOI ~ (item | expression)* ~ EOI }
 
 definition = {
     (use_def | mod_def | type_def | struct_def | enum_def | function_def | impl_def | const_def | trait_def)
@@ -276,8 +277,10 @@ tuple_variant  = { type_identifier ~ tuple_type }
 struct_variant = { type_identifier ~ struct_type }
 
 function_def = {
+
     external_function
   | normal_function
+
 }
 
 external_function = {
@@ -486,3 +489,25 @@ maybe_mut_identifier       = { mut_keyword? ~ identifier }
 variable_item              = { maybe_mut_identifier }
 variable_binding_list      = { variable_binding ~ (COMMA ~ variable_binding)* ~ TRAILING_COMMA }
 variable_binding           = { variable_item ~ ("=" ~ arg_expression)? }
+
+
+/*
+    ===============================
+    Attributes
+    ===============================
+*/
+attribute = { outer_attribute | inner_attribute }
+
+outer_attribute = { "#" ~ "[" ~ attr_body ~ "]" }
+inner_attribute = { "#!" ~ "[" ~ attr_body ~ "]" } // TODO: not sure if inner_attributes should be used?
+
+attr_body = { attr_path ~ ( "=" ~ attr_value | attr_args )? }
+
+attr_path = { qualified_identifier }
+
+attr_args = { "(" ~ attr_arg_list? ~ ")" }
+attr_arg_list = { attr_arg ~ (COMMA ~ attr_arg)* ~ TRAILING_COMMA? }
+attr_arg = { attr_key_value | attr_value }
+
+attr_key_value = { attr_path ~ "=" ~ attr_value }
+attr_value = { basic_literal | attr_path | attr_args } // TODO: maybe have a proper special literal for attributes
