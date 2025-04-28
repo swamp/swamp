@@ -566,29 +566,29 @@ impl Analyzer<'_> {
     ///
     pub fn analyze_definition(&mut self, ast_def: &swamp_ast::Definition) -> Result<(), Error> {
         //self.debug_definition(ast_def);
-        match ast_def {
-            swamp_ast::Definition::NamedStructDef(ast_struct) => {
+        match &ast_def.kind {
+            swamp_ast::DefinitionKind::NamedStructDef(ast_struct) => {
                 self.analyze_named_struct_type_definition(ast_struct)?;
             }
-            swamp_ast::Definition::AliasDef(alias_def) => {
+            swamp_ast::DefinitionKind::AliasDef(alias_def) => {
                 self.analyze_alias_type_definition(alias_def)?;
             }
-            swamp_ast::Definition::EnumDef(identifier, variants) => {
+            swamp_ast::DefinitionKind::EnumDef(identifier, variants) => {
                 self.analyze_enum_type_definition(identifier, variants)?;
             }
-            swamp_ast::Definition::FunctionDef(function) => {
+            swamp_ast::DefinitionKind::FunctionDef(function) => {
                 let resolved_return_type = self.analyze_return_type(function)?;
                 self.start_function();
                 self.analyze_function_definition(function)?;
 
                 self.stop_function();
             }
-            swamp_ast::Definition::ImplDef(type_identifier, functions) => {
+            swamp_ast::DefinitionKind::ImplDef(type_identifier, functions) => {
                 self.analyze_impl_definition(type_identifier, functions)?;
             }
-            swamp_ast::Definition::Mod(mod_info) => self.analyze_mod_definition(mod_info)?,
-            swamp_ast::Definition::Use(use_info) => self.analyze_use_definition(use_info)?,
-            swamp_ast::Definition::Constant(const_info) => {
+            swamp_ast::DefinitionKind::Mod(mod_info) => self.analyze_mod_definition(mod_info)?,
+            swamp_ast::DefinitionKind::Use(use_info) => self.analyze_use_definition(use_info)?,
+            swamp_ast::DefinitionKind::Constant(const_info) => {
                 self.analyze_constant_definition(const_info)?;
             }
         };

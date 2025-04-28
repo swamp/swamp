@@ -10,7 +10,6 @@ use pest::{Parser, Position};
 use pest_derive::Parser;
 use std::iter::Peekable;
 use std::str::Chars;
-use swamp_ast::Function;
 use swamp_ast::LiteralKind;
 use swamp_ast::{
     AssignmentOperatorKind, BinaryOperatorKind, CompoundOperator, CompoundOperatorKind,
@@ -20,6 +19,7 @@ use swamp_ast::{
     QualifiedIdentifier, RangeMode, SpanWithoutFileId, StructTypeField, TypeForParameter,
     TypeVariable, VariableBinding, prelude::*,
 };
+use swamp_ast::{AttributeLiteralKind, Function};
 use swamp_ast::{Postfix, PostfixChain};
 use tracing::error;
 
@@ -299,6 +299,33 @@ impl AstParser {
         })
     }
 
+    pub fn parse_item(&self, pair: &Pair<Rule>) -> Result<Definition, ParseError> {
+        debug_assert_eq!(pair.as_rule(), Rule::item);
+
+        let mut inner = pair.clone().into_inner();
+        let mut attributes = Vec::new();
+
+        while let Some(attr_pair) = inner.peek() {
+            if attr_pair.as_rule() == Rule::attribute {
+                let attr = self.parse_attribute(&inner.next().unwrap())?;
+                attributes.push(attr);
+            } else {
+                break;
+            }
+        }
+        // The next should be the definition
+        if let Some(def_pair) = inner.next() {
+            let definition_kind = self.parse_definition(&def_pair)?;
+            let definition = Definition {
+                kind: definition_kind,
+                attributes,
+            };
+            Ok(definition)
+        } else {
+            panic!("must be definition after attributes")
+        }
+    }
+
     pub fn parse_module(&self, raw_script: &str) -> Result<Module, ParseError> {
         let result = Self::parse(Rule::program, raw_script)?;
 
@@ -310,8 +337,8 @@ impl AstParser {
         let mut definitions = Vec::new();
         for pair in Self::convert_into_iterator(&program_pair) {
             match pair.as_rule() {
-                Rule::definition => {
-                    let def = self.parse_definition(&pair)?;
+                Rule::item => {
+                    let def = self.parse_item(&pair)?;
                     definitions.push(def);
                 }
                 Rule::expression => {
@@ -342,7 +369,7 @@ impl AstParser {
         Ok(Module::new(definitions, maybe_expression))
     }
 
-    fn parse_definition(&self, pair: &Pair<Rule>) -> Result<Definition, ParseError> {
+    fn parse_definition(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
         let inner_pair = self.next_inner_pair(pair)?;
         match inner_pair.as_rule() {
             Rule::impl_def => self.parse_impl_def(&inner_pair),
@@ -357,8 +384,8 @@ impl AstParser {
         }
     }
 
-    fn parse_const_definition(&self, pair: &Pair<Rule>) -> Result<Definition, ParseError> {
-        Ok(Definition::Constant(self.parse_const_info(pair)?))
+    fn parse_const_definition(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
+        Ok(DefinitionKind::Constant(self.parse_const_info(pair)?))
     }
 
     fn parse_const_info(&self, pair: &Pair<Rule>) -> Result<ConstantInfo, ParseError> {
@@ -427,19 +454,19 @@ impl AstParser {
         Ok((segments, items))
     }
 
-    fn parse_use(&self, pair: &Pair<Rule>) -> Result<Definition, ParseError> {
+    fn parse_use(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
         let (segments, items) = self.module_path_and_items(&pair)?;
 
-        Ok(Definition::Use(Use {
+        Ok(DefinitionKind::Use(Use {
             module_path: ModulePath(segments),
             items,
         }))
     }
 
-    fn parse_mod(&self, pair: &Pair<Rule>) -> Result<Definition, ParseError> {
+    fn parse_mod(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
         let (segments, items) = self.module_path_and_items(&pair)?;
 
-        Ok(Definition::Mod(Mod {
+        Ok(DefinitionKind::Mod(Mod {
             module_path: ModulePath(segments),
             items,
         }))
@@ -708,7 +735,7 @@ impl AstParser {
         Ok((member_identifier, generic_args, args))
     }
 
-    fn parse_type_def(&self, pair: &Pair<Rule>) -> Result<Definition, ParseError> {
+    fn parse_type_def(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
         let mut inner = Self::convert_into_iterator(pair);
         let alias_name = self.expect_local_type_identifier_next(&mut inner)?;
         let referenced_type = self.parse_type(inner.next().expect("should work"))?;
@@ -718,7 +745,7 @@ impl AstParser {
             referenced_type,
         };
 
-        Ok(Definition::AliasDef(alias_type))
+        Ok(DefinitionKind::AliasDef(alias_type))
     }
 
     fn parse_struct_type_field(&self, pair: &Pair<Rule>) -> Result<StructTypeField, ParseError> {
@@ -767,7 +794,7 @@ impl AstParser {
         Ok(types)
     }
 
-    fn parse_struct_def(&self, pair: &Pair<Rule>) -> Result<Definition, ParseError> {
+    fn parse_struct_def(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
         let mut inner = Self::convert_into_iterator(pair).peekable();
 
         let name_with_optional_type_params =
@@ -787,13 +814,13 @@ impl AstParser {
             |found_result| found_result,
         );
 
-        Ok(Definition::NamedStructDef(NamedStructDef {
+        Ok(DefinitionKind::NamedStructDef(NamedStructDef {
             identifier: name_with_optional_type_params,
             struct_type,
         }))
     }
 
-    fn parse_function_def(&self, pair: &Pair<Rule>) -> Result<Definition, ParseError> {
+    fn parse_function_def(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
         let function_pair = self.next_inner_pair(pair)?;
 
         match function_pair.as_rule() {
@@ -809,7 +836,7 @@ impl AstParser {
                     self.create_error_pair(SpecificError::MissingFunctionBody, &function_pair)
                 })?)?;
 
-                Ok(Definition::FunctionDef(Function::Internal(
+                Ok(DefinitionKind::FunctionDef(Function::Internal(
                     FunctionWithBody {
                         declaration: signature,
                         body,
@@ -826,7 +853,7 @@ impl AstParser {
                     })?;
 
                 let signature = self.parse_function_signature(&signature_pair)?;
-                Ok(Definition::FunctionDef(Function::External(signature)))
+                Ok(DefinitionKind::FunctionDef(Function::External(signature)))
             }
             _ => {
                 Err(self
@@ -920,7 +947,7 @@ impl AstParser {
         Ok(parameters)
     }
 
-    fn parse_impl_def(&self, pair: &Pair<Rule>) -> Result<Definition, ParseError> {
+    fn parse_impl_def(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
         let mut inner = Self::convert_into_iterator(pair);
         let name_with_optional_type_params =
             self.parse_local_type_identifier_with_optional_type_variables(&inner.next().unwrap())?;
@@ -949,7 +976,7 @@ impl AstParser {
             }
         }
 
-        Ok(Definition::ImplDef(
+        Ok(DefinitionKind::ImplDef(
             name_with_optional_type_params,
             functions,
         ))
@@ -2363,7 +2390,7 @@ impl AstParser {
         Ok(LocalTypeIdentifier::new(self.to_node(pair)))
     }
 
-    fn parse_enum_def(&self, pair: &Pair<Rule>) -> Result<Definition, ParseError> {
+    fn parse_enum_def(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
         let mut inner = Self::convert_into_iterator(pair);
 
         let name_with_optional_type_params =
@@ -2384,7 +2411,7 @@ impl AstParser {
             }
         }
 
-        Ok(Definition::EnumDef(
+        Ok(DefinitionKind::EnumDef(
             name_with_optional_type_params,
             variants,
         ))
@@ -2744,5 +2771,104 @@ impl AstParser {
             ExpressionKind::Lambda(variable_list, Box::new(expression)),
             pair,
         ))
+    }
+
+    pub fn parse_attribute(&self, pair: &Pair<Rule>) -> Result<Attribute, ParseError> {
+        let inner = pair.clone().into_inner().next().unwrap();
+        match inner.as_rule() {
+            Rule::outer_attribute => self.parse_attribute_inner(inner, false),
+            Rule::inner_attribute => self.parse_attribute_inner(inner, true),
+            _ => panic!("must be attribute"),
+        }
+    }
+
+    fn parse_attribute_inner(
+        &self,
+        pair: Pair<Rule>,
+        is_inner: bool,
+    ) -> Result<Attribute, ParseError> {
+        let mut inner = pair.into_inner();
+        let attr_body = inner.next().unwrap();
+        let mut attr_inner = attr_body.into_inner();
+
+        let path_pair = attr_inner.next().unwrap();
+        let path = self.parse_qualified_identifier(&path_pair)?;
+
+        let mut args = None;
+        let mut value = None;
+
+        if let Some(next) = attr_inner.next() {
+            match next.as_rule() {
+                Rule::attr_args => {
+                    args = Some(self.parse_attr_args(&next)?);
+                }
+                Rule::attr_value => {
+                    value = Some(self.parse_attr_value(&next)?);
+                }
+                _ => {}
+            }
+        }
+
+        Ok(Attribute {
+            is_inner,
+            path,
+            args,
+            value,
+        })
+    }
+
+    fn parse_attr_args(&self, pair: &Pair<Rule>) -> Result<Vec<AttributeArg>, ParseError> {
+        let mut args = Vec::new();
+        for arg_pair in pair.clone().into_inner() {
+            if arg_pair.as_rule() == Rule::attr_arg_list {
+                for item in arg_pair.into_inner() {
+                    args.push(self.parse_attr_arg(&item)?);
+                }
+            }
+        }
+        Ok(args)
+    }
+
+    fn parse_attr_arg(&self, pair: &Pair<Rule>) -> Result<AttributeArg, ParseError> {
+        let inner = pair.clone().into_inner().next().unwrap_or(pair.clone());
+        match inner.as_rule() {
+            Rule::attr_key_value => {
+                let mut kv = inner.into_inner();
+                let key = self.parse_qualified_identifier(&kv.next().unwrap())?;
+                let value = self.parse_attr_value(&kv.next().unwrap())?;
+                Ok(AttributeArg::KeyValue(key, value))
+            }
+            Rule::attr_value | Rule::attr_path => {
+                let value = self.parse_attr_value(&inner)?;
+                Ok(AttributeArg::Value(value))
+            }
+            _ => panic!("must be attr key, value or path"),
+        }
+    }
+
+    fn parse_attr_value(&self, pair: &Pair<Rule>) -> Result<AttributeValue, ParseError> {
+        let inner = pair.clone().into_inner().next().unwrap_or(pair.clone());
+        match inner.as_rule() {
+            Rule::basic_literal => {
+                let (literal_kind, node) = self.parse_basic_literal(&inner)?;
+                let converted_literal = match literal_kind {
+                    LiteralKind::Int => AttributeLiteralKind::Int,
+                    LiteralKind::Float => AttributeLiteralKind::Float,
+                    LiteralKind::String(string) => AttributeLiteralKind::String(string),
+                    LiteralKind::Bool => AttributeLiteralKind::Bool,
+                    _ => panic!("not supported attr value"),
+                };
+                Ok(AttributeValue::Literal(node, converted_literal))
+            }
+            Rule::attr_path => {
+                let path = self.parse_qualified_identifier(&inner)?;
+                Ok(AttributeValue::Path(path))
+            }
+            Rule::attr_args => {
+                let args = self.parse_attr_args(&inner)?;
+                Ok(AttributeValue::Args(args))
+            }
+            _ => panic!("unexpected attr value"),
+        }
     }
 }

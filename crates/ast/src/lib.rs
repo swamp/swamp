@@ -241,7 +241,7 @@ pub struct NamedStructDef {
 }
 
 #[derive(Debug, Clone)]
-pub enum Definition {
+pub enum DefinitionKind {
     AliasDef(AliasType),
     NamedStructDef(NamedStructDef),
     EnumDef(
@@ -254,6 +254,12 @@ pub enum Definition {
     Use(Use),
     // Other
     Constant(ConstantInfo),
+}
+
+#[derive(Debug, Clone)]
+pub struct Definition {
+    pub kind: DefinitionKind,
+    pub attributes: Vec<Attribute>,
 }
 
 #[derive(Debug, Clone)]
@@ -632,6 +638,35 @@ pub enum PrecisionType {
     String(Node),
 }
 
+#[derive(Debug, Clone)]
+pub enum AttributeArg {
+    KeyValue(QualifiedIdentifier, AttributeValue),
+    Value(AttributeValue),
+}
+
+#[derive(Debug, Clone)]
+pub enum AttributeLiteralKind {
+    Int,
+    Float,
+    String(String),
+    Bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum AttributeValue {
+    Literal(Node, AttributeLiteralKind),
+    Path(QualifiedIdentifier),
+    Args(Vec<AttributeArg>),
+}
+
+#[derive(Debug, Clone)]
+pub struct Attribute {
+    pub is_inner: bool,
+    pub path: QualifiedIdentifier,
+    pub args: Option<Vec<AttributeArg>>,
+    pub value: Option<AttributeValue>, // for =value
+}
+
 #[derive()]
 pub struct Module {
     pub expression: Option<Expression>,
@@ -687,7 +722,7 @@ impl Module {
         let mut use_items = Vec::new();
 
         for def in &self.definitions {
-            if let Definition::Use(use_info) = def {
+            if let DefinitionKind::Use(use_info) = &def.kind {
                 use_items.push(use_info);
             }
         }

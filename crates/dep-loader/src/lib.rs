@@ -48,9 +48,14 @@ impl ParsedAstModule {
         };
         let external_signature = Function::External(signature);
 
+        let fake_def = Definition {
+            kind: DefinitionKind::FunctionDef(external_signature),
+            attributes: vec![],
+        };
+
         self.ast_module.definitions.insert(
             0, // add it first
-            Definition::FunctionDef(external_signature),
+            fake_def,
         );
     }
 }
@@ -163,8 +168,8 @@ pub fn get_all_local_paths(
     let mut uses = vec![];
 
     for def in parsed_module.ast_module.definitions() {
-        match def {
-            Definition::Mod(import) => {
+        match &def.kind {
+            DefinitionKind::Mod(import) => {
                 let mut sections = Vec::new();
                 sections.push(LOCAL_ROOT_PACKAGE_PATH.to_string());
                 for section_node in &import.module_path.0 {
@@ -181,7 +186,7 @@ pub fn get_all_local_paths(
                 imports.push(sections);
             }
 
-            Definition::Use(import) => {
+            DefinitionKind::Use(import) => {
                 let mut sections = Vec::new();
                 for section_node in &import.module_path.0 {
                     let import_path = source_map
