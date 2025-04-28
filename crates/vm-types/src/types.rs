@@ -780,13 +780,13 @@ impl Display for FrameAddressInfoKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Variable(var_info) => {
-                write!(f, "var: {var_info}")
+                write!(f, "{} {var_info}", "var:".white())
             }
             Self::Parameter(var_info) => {
-                write!(f, "param: {var_info}")
+                write!(f, "{} {var_info}", "param:".white())
             }
             Self::Return => {
-                write!(f, "return: ")
+                write!(f, "{}", "return".white())
             }
         }
     }
@@ -816,6 +816,7 @@ pub struct PathInfo {
 }
 
 impl PathInfo {
+    #[must_use]
     pub fn convert_to_string(&self) -> String {
         let path = &self.steps;
 
@@ -830,10 +831,10 @@ impl PathInfo {
 
         format!(
             "{:04X}:{:X} {} ({})",
-            (last.origin + last.item.offset).0,
-            last.item.ty.total_size.0,
-            names_path,
-            types_path
+            (last.origin + last.item.offset).0.bright_cyan(),
+            last.item.ty.total_size.0.yellow(),
+            names_path.bright_blue(),
+            types_path.yellow(),
         )
     }
 }

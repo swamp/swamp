@@ -46,7 +46,7 @@ pub struct HeapMemoryRegion {
     pub size: MemorySize,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct FrameMemoryAddress(pub u16);
 
 impl Display for FrameMemoryAddress {

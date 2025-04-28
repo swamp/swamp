@@ -1482,7 +1482,7 @@ impl FunctionCodeGen<'_> {
             }
 
             ExpressionKind::PostfixChain(start_of_chain, chain) => {
-                return self.emit_postfix_chain(start_of_chain, chain);
+                return self.emit_postfix_chain(start_of_chain, chain, None);
             }
 
             _ => {}
@@ -1547,7 +1547,7 @@ impl FunctionCodeGen<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        self.debug_node(&expr.node);
+        //self.debug_node(&expr.node);
 
         match &expr.kind {
             ExpressionKind::ConstantAccess(constant_ref) => {
@@ -1565,15 +1565,16 @@ impl FunctionCodeGen<'_> {
             ExpressionKind::BinaryOp(operator) => self.emit_binary_operator(operator, ctx),
             ExpressionKind::UnaryOp(operator) => self.emit_unary_operator(operator, ctx),
             ExpressionKind::PostfixChain(start, chain) => {
-                let (source_frame_placed_type, expression_result) =
-                    self.emit_postfix_chain(start, chain);
-                if source_frame_placed_type.size().0 != 0 {
-                    info!(?source_frame_placed_type, target=?ctx.target(), "diff chain");
+                let (chain_placed_type, expression_result) =
+                    self.emit_postfix_chain(start, chain, Some(ctx));
+                if chain_placed_type.addr() != ctx.target().addr()
+                    && chain_placed_type.size().0 != 0
+                {
                     self.builder.add_mov_for_assignment(
                         ctx.target(),
-                        &source_frame_placed_type,
+                        &chain_placed_type,
                         &expr.node,
-                        "last lookup copy",
+                        "forced mov after chain",
                     );
                 }
                 expression_result
@@ -2354,7 +2355,6 @@ impl FunctionCodeGen<'_> {
             .zip(arguments)
             .zip(argument_comments)
         {
-            //let debug_addr = argument_target_ctx.target().addr();
             let argument_target_ctx = Context::new(argument_target.clone());
             self.emit_argument(
                 argument_expr_or_loc,
@@ -2373,7 +2373,7 @@ impl FunctionCodeGen<'_> {
 
         let start_addr = argument_targets
             .first()
-            .map_or(FrameMemoryAddress(0), |first| first.addr());
+            .map_or(FrameMemoryAddress(0), FramePlacedType::addr);
 
         FrameMemoryRegion {
             addr: start_addr,
@@ -2386,93 +2386,12 @@ impl FunctionCodeGen<'_> {
         &mut self,
         start_expression: &StartOfChain,
         chain: &[Postfix],
+        final_target: Option<&Context>,
     ) -> (FramePlacedType, GeneratedExpressionResult) {
-        /*
-        if let ExpressionKind::InternalFunctionAccess(internal_fn) = &start_expression.kind {
-            if chain.len() == 1 {
-                if let PostfixKind::FunctionCall(args) = &chain[0].kind {
-                    if let Some(intrinsic_fn) = single_intrinsic_fn(&internal_fn.body) {
-                        let maybe_self = self.emit_expression_for_access(start_expression)?;
-                        self.emit_single_intrinsic_call(
-                            &start_expression.node,
-                            intrinsic_fn,
-                            Some(maybe_self),
-                            args,
-                            ctx,
-                        )?;
-                    } else {
-                        self.emit_arguments(
-                            &start_expression.node,
-                            &internal_fn.signature.signature,
-                            None,
-                            args,
-                        )?;
-                        self.state.add_call(
-                            &chain[0].node,
-                            internal_fn,
-                            &format!("frame size: {}", self.frame_size),
-                        ); // will be fixed up later
-                        let (return_size, _alignment) =
-                            type_size_and_alignment(&internal_fn.signature.signature.return_type);
-                        if return_size.0 != 0 {
-                            self.state.builder.add_mov(
-                                ctx.target(),
-                                self.infinite_above_frame_size().addr,
-                                return_size,
-                                &start_expression.node,
-                                "copy the ret value to destination",
-                            );
-                        }
-                        self.copy_back_mutable_arguments(
-                            &start_expression.node,
-                            &internal_fn.signature.signature,
-                            None,
-                            args,
-                        )?;
-                    }
-
-                    return Ok(());
-                }
-            }
-        }
-
-        if let ExpressionKind::ExternalFunctionAccess(external_fn) = &start_expression.kind {
-            if chain.len() == 1 {
-                if let PostfixKind::FunctionCall(args) = &chain[0].kind {
-                    let total_region = self.emit_arguments(
-                        &start_expression.node,
-                        &external_fn.signature,
-                        None,
-                        args,
-                    )?;
-                    self.state.builder.add_host_call(
-                        external_fn.id as u16,
-                        total_region.size,
-                        &start_expression.node,
-                        &format!("call external '{}'", external_fn.assigned_name),
-                    );
-                    let (return_size, _alignment) =
-                        type_size_and_alignment(&external_fn.signature.return_type);
-                    if return_size.0 != 0 {
-                        self.state.builder.add_mov(
-                            ctx.target(),
-                            self.infinite_above_frame_size().addr,
-                            return_size,
-                            &start_expression.node,
-                            "copy the ret value to destination",
-                        );
-                    }
-
-                    return Ok(());
-                }
-            }
-        }
-
-         */
-
         let mut self_source_frame_placed = self.emit_start_of_chain(start_expression);
 
         for (index, element) in chain.iter().enumerate() {
+            let is_last = index == chain.len() - 1;
             match &element.kind {
                 PostfixKind::StructField(anonymous_struct, field_index) => {
                     let field_placed_type = self_source_frame_placed.move_to_field(*field_index);
@@ -2480,8 +2399,11 @@ impl FunctionCodeGen<'_> {
                     self_source_frame_placed = field_placed_type;
                 }
                 PostfixKind::MemberCall(function_to_call, arguments) => {
-                    let target_ctx =
-                        &self.temp_space_for_type(&function_to_call.signature().return_type, "");
+                    let target_ctx = if is_last && final_target.is_some() {
+                        final_target.unwrap()
+                    } else {
+                        &self.temp_space_for_type(&function_to_call.signature().return_type, "")
+                    };
 
                     match &**function_to_call {
                         Function::Internal(internal_fn) => {

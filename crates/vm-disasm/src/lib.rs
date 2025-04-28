@@ -93,11 +93,10 @@ pub fn disasm_instructions_color(
     string
 }
 fn memory_kind_color(kind: Option<PathInfo>) -> String {
-    if let Some(path_info) = kind {
-        path_info.convert_to_string()
-    } else {
-        String::new()
-    }
+    kind.map_or_else(
+        || "temp addr".to_string(),
+        |path_info| path_info.convert_to_string(),
+    )
 }
 
 #[must_use]
@@ -156,7 +155,6 @@ pub fn disasm_color(
 
     let mut converted_operands = Vec::new();
     let mut converted_comments = Vec::new();
-    let mut memory_comments = Vec::new();
 
     for operand in decorated.operands {
         let operand_addr = operand.kind.path_info();
@@ -191,7 +189,7 @@ pub fn disasm_color(
 
                 (
                     format!("{}{}", "%$".fg(color), format!("{:08X}", addr.0).fg(color)),
-                    "".to_string(),
+                    String::new(),
                 )
             }
             DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
@@ -254,12 +252,15 @@ pub fn disasm_color(
         };
         converted_operands.push(new_str);
 
+        /*
         let memory_comment =
-            operand_addr.map(|found_path_info| found_path_info.convert_to_string());
+            operand_addr.map(PathInfo::convert_to_string);
 
         if let Some(comment) = memory_comment {
             memory_comments.push(comment);
         }
+
+         */
 
         if !comment_str.is_empty() {
             converted_comments.push(comment_str);
@@ -272,16 +273,16 @@ pub fn disasm_color(
         format!(" ({})", converted_comments.join(", "))
     };
 
+    /*
     let memory_comment_suffix = if memory_comments.is_empty() {
         String::new()
     } else {
         format!(" {}", memory_comments.join(", "))
     };
 
-    let total_comment = format!(
-        "{} {}{}",
-        meta.comment, memory_comment_suffix, comment_suffix
-    );
+     */
+
+    let total_comment = format!("{} {}", meta.comment, comment_suffix);
     let print_comment = if total_comment.is_empty() {
         String::new()
     } else {
