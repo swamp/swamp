@@ -9,7 +9,7 @@ use fixed32::Fp;
 use seq_map::SeqMap;
 use std::{alloc, ptr, slice};
 use swamp_vm_types::opcode::OpCode;
-use swamp_vm_types::{BinaryInstruction, InstructionPosition};
+use swamp_vm_types::{BinaryInstruction, InstructionPosition, StringHeader};
 
 pub mod host;
 mod map;
@@ -263,12 +263,12 @@ impl Vm {
         vm.handlers[OpCode::FloatFloor as usize] = HandlerType::Args2(Self::execute_f32_floor);
         vm.handlers[OpCode::FloatSqrt as usize] = HandlerType::Args2(Self::execute_f32_sqrt);
         vm.handlers[OpCode::FloatSign as usize] = HandlerType::Args2(Self::execute_f32_sign);
-        vm.handlers[OpCode::FloatAbs as usize] = HandlerType::Args2(Self::execute_f32_abs);
+        vm.handlers[OpCode::FloatAbs as usize] = HandlerType::Args2(Self::execute_abs_i32);
         vm.handlers[OpCode::FloatSin as usize] = HandlerType::Args2(Self::execute_f32_sin);
         vm.handlers[OpCode::FloatCos as usize] = HandlerType::Args2(Self::execute_f32_cos);
         vm.handlers[OpCode::FloatAsin as usize] = HandlerType::Args2(Self::execute_f32_asin);
         vm.handlers[OpCode::FloatAcos as usize] = HandlerType::Args2(Self::execute_f32_acos);
-        vm.handlers[OpCode::FloatAtan2 as usize] = HandlerType::Args2(Self::execute_f32_atan2);
+        vm.handlers[OpCode::FloatAtan2 as usize] = HandlerType::Args3(Self::execute_f32_atan2);
         vm.handlers[OpCode::FloatToString as usize] =
             HandlerType::Args2(Self::execute_f32_to_string);
 
@@ -464,6 +464,141 @@ impl Vm {
             let lhs = *lhs_ptr;
             let rhs = *rhs_ptr;
             *dst_ptr = (Fp::from_raw(lhs) / Fp::from_raw(rhs)).inner();
+        }
+    }
+
+    /*
+       execute_f32_atan2
+    */
+
+    #[inline]
+    fn execute_f32_round(&mut self, dst_offset: u16, val_offset: u16) {
+        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        unsafe {
+            *dst_ptr = Fp::from_raw(*val_ptr).round().into();
+        }
+    }
+
+    #[inline]
+    fn execute_f32_floor(&mut self, dst_offset: u16, val_offset: u16) {
+        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        unsafe {
+            *dst_ptr = Fp::from_raw(*val_ptr).floor().into();
+        }
+    }
+
+    #[inline]
+    fn execute_f32_sqrt(&mut self, dst_offset: u16, val_offset: u16) {
+        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        unsafe {
+            *dst_ptr = Fp::from_raw(*val_ptr).sqrt().inner();
+        }
+    }
+
+    #[inline]
+    fn execute_f32_sin(&mut self, dst_offset: u16, val_offset: u16) {
+        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        unsafe {
+            *dst_ptr = Fp::from_raw(*val_ptr).sin().inner();
+        }
+    }
+
+    #[inline]
+    fn execute_f32_asin(&mut self, dst_offset: u16, val_offset: u16) {
+        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        unsafe {
+            *dst_ptr = Fp::from_raw(*val_ptr).asin().inner();
+        }
+    }
+
+    #[inline]
+    fn execute_f32_cos(&mut self, dst_offset: u16, val_offset: u16) {
+        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        unsafe {
+            *dst_ptr = Fp::from_raw(*val_ptr).cos().inner();
+        }
+    }
+
+    #[inline]
+    fn execute_f32_acos(&mut self, dst_offset: u16, val_offset: u16) {
+        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        unsafe {
+            *dst_ptr = Fp::from_raw(*val_ptr).acos().inner();
+        }
+    }
+
+    #[inline]
+    fn execute_f32_atan2(&mut self, dst_offset: u16, val_offset: u16, y_offset: u16) {
+        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        // TODO: Implement atan2 in fixed32
+        todo!()
+    }
+
+    #[inline]
+    fn execute_f32_to_string(&mut self, dst_string: u16, val_offset: u16) {
+        let dst_ptr = self.frame_ptr_i32_at(dst_string);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        let fp = unsafe { Fp::from_raw(*val_ptr) };
+
+        *dst_ptr = self.create_string(&fp.to_string());
+    }
+
+    fn create_string(&mut self, string: &str) -> u32 {
+        let rune_bytes = string.as_bytes();
+        let runes_in_heap = self.heap_allocate_with_data(rune_bytes);
+
+        let string_header = StringHeader {
+            heap_offset: runes_in_heap,
+            byte_count: rune_bytes.len() as u32,
+            capacity: rune_bytes.len() as u32,
+        };
+
+        // Convert string header to bytes (little-endian)
+        let mut header_bytes = [0u8; 12];
+        header_bytes[0..4].copy_from_slice(&string_header.heap_offset.to_le_bytes());
+        header_bytes[4..8].copy_from_slice(&string_header.byte_count.to_le_bytes());
+        header_bytes[8..12].copy_from_slice(&string_header.capacity.to_le_bytes());
+
+        let header_ptr_in_heap = self.heap_allocate_with_data(&header_bytes);
+
+        header_ptr_in_heap
+    }
+
+    #[inline]
+    fn execute_f32_sign(&mut self, dst_offset: u16, val_offset: u16) {
+        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        unsafe {
+            let v = *val_ptr;
+            *dst_ptr = Fp::from(if v < 0 {
+                -1
+            } else if v > 0 {
+                1
+            } else {
+                0
+            })
+            .inner();
+
+            // TODO: signum() is/was incorrect in Fixed32 crate
+            //*dst_ptr = Fp::from_raw(*val_ptr).signum().inner();
         }
     }
 
@@ -973,7 +1108,7 @@ impl Vm {
     }
 
     #[inline(always)]
-    fn heap_allocate_with_data(&mut self, octets: &[u8]) {
+    fn heap_allocate_with_data(&mut self, octets: &[u8]) -> u32 {
         let offset = self.heap_allocate(octets.len());
         {
             unsafe {
@@ -984,6 +1119,7 @@ impl Vm {
                 );
             }
         }
+        offset
     }
 
     pub fn debug_opcode(&self, opcode: u8, operands: &[u16; 5]) {
