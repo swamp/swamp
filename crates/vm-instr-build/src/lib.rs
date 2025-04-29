@@ -1477,10 +1477,20 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_map_has(&mut self, self_addr: &FramePlacedType, node: &Node, comment: &str) {
+    pub fn add_map_has(
+        &mut self,
+        self_addr: &FramePlacedType,
+        key_addr: &FramePlacedType,
+        node: &Node,
+        comment: &str,
+    ) {
         matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
-        self.state
-            .add_instruction(OpCode::MapHas, &[self_addr.addr().0], node, comment);
+        self.state.add_instruction(
+            OpCode::MapHas,
+            &[self_addr.addr().0, key_addr.addr().0],
+            node,
+            comment,
+        );
     }
 
     pub fn add_map_len(

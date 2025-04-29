@@ -4,7 +4,7 @@
  */
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
-use source_map_node::{FileId, Span};
+use source_map_node::FileId;
 use std::cmp::PartialEq;
 use std::fmt::Write;
 use swamp_vm_types::opcode::OpCode;
@@ -18,7 +18,6 @@ use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
     InstructionPosition, InstructionPositionOffset, MemorySize, Meta,
 };
-use tracing::info;
 use yansi::{Color, Paint};
 
 #[derive(Eq, PartialEq, Clone)]
@@ -648,7 +647,10 @@ pub fn disasm(
         }
         OpCode::Nop => &[],
 
-        OpCode::VecPop => &[to_write_frame(operands[0], &vec_type(), frame_memory_info)],
+        OpCode::VecPop => &[
+            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
+            to_write_frame(operands[1], &vec_type(), frame_memory_info),
+        ],
 
         OpCode::VecFromSlice => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),

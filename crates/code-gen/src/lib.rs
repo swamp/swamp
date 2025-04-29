@@ -898,6 +898,7 @@ impl FunctionCodeGen<'_> {
         arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
     ) -> GeneratedExpressionResult {
+        let mut z_flag_result = GeneratedExpressionResult::default();
         match intrinsic_fn {
             IntrinsicFunction::RuntimePanic => {
                 self.builder
@@ -1280,8 +1281,13 @@ impl FunctionCodeGen<'_> {
                 // TODO:
             }
             IntrinsicFunction::MapHas => {
+                let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
+                    panic!("must be expression for key");
+                };
+                let key = self.emit_expression_location(key_argument);
                 self.builder
-                    .add_map_has(&self_addr.unwrap(), node, "map_has");
+                    .add_map_has(&self_addr.unwrap(), &key, node, "map_has");
+                z_flag_result.kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             IntrinsicFunction::MapRemove => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
@@ -1410,7 +1416,7 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::Float2Magnitude => {}
         }
 
-        GeneratedExpressionResult::default()
+        z_flag_result
     }
 
     fn emit_intrinsic_map_remove(&mut self, map_region: &FramePlacedType, key_expr: &Expression) {
@@ -2423,7 +2429,7 @@ impl FunctionCodeGen<'_> {
         final_target: Option<&Context>,
     ) -> (FramePlacedType, GeneratedExpressionResult) {
         let mut self_source_frame_placed = self.emit_start_of_chain(start_expression);
-
+        let mut z_flag_result = GeneratedExpressionResult::default();
         for (index, element) in chain.iter().enumerate() {
             let is_last = index == chain.len() - 1;
             match &element.kind {
@@ -2449,7 +2455,7 @@ impl FunctionCodeGen<'_> {
                                     intrinsic_arguments,
                                 );
 
-                                self.emit_single_intrinsic_call_with_self(
+                                let z_result = self.emit_single_intrinsic_call_with_self(
                                     &start_expression.node,
                                     intrinsic_fn,
                                     Some(element.ty.clone()),
@@ -2457,6 +2463,9 @@ impl FunctionCodeGen<'_> {
                                     &merged_arguments,
                                     target_ctx,
                                 );
+                                if is_last {
+                                    z_flag_result = z_result;
+                                }
                             } else {
                                 self.emit_arguments(
                                     &start_expression.node,
@@ -2518,10 +2527,7 @@ impl FunctionCodeGen<'_> {
             }
         }
 
-        (
-            self_source_frame_placed,
-            GeneratedExpressionResult::default(),
-        )
+        (self_source_frame_placed, z_flag_result)
     }
 
     fn call_post_helper(

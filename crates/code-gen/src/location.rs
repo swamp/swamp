@@ -6,8 +6,7 @@ use crate::FunctionCodeGen;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{
-    Expression, ExpressionKind, LocationAccessKind, MutRefOrImmutableExpression,
-    SingleLocationExpression,
+    Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
 use swamp_vm_types::types::{BasicTypeKind, FramePlacedType};
 
@@ -83,9 +82,14 @@ impl FunctionCodeGen<'_> {
         let node = &location_expression.node;
 
         let chain_len = location_expression.access_chain.len();
+        let accesses_count = if source_value_to_assign.is_some() {
+            chain_len.saturating_sub(1)
+        } else {
+            chain_len
+        };
 
         // Loop over the consecutive accesses until we find the actual frame relative address (FramePlacedType)
-        for access in &location_expression.access_chain {
+        for access in location_expression.access_chain.iter().take(accesses_count) {
             match &access.kind {
                 LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
                     frame_relative_base_address =
@@ -96,11 +100,6 @@ impl FunctionCodeGen<'_> {
                     arguments_to_the_intrinsic,
                 ) => {
                     // Fetching from vector, map, etc. are done using intrinsic calls
-                    let mut converted = Vec::new();
-                    for x in arguments_to_the_intrinsic {
-                        converted.push(MutRefOrImmutableExpression::Expression(x.clone()));
-                    }
-
                     let ctx = self.temp_space_for_type(&access.ty, "intrinsic call mut");
                     self.emit_collection_get(
                         node,
@@ -114,18 +113,82 @@ impl FunctionCodeGen<'_> {
             }
         }
 
-        // This is wrong?
         if let Some(value_to_assign) = source_value_to_assign {
-            self.builder.add_mov_for_assignment(
-                &frame_relative_base_address,
-                &value_to_assign,
-                node,
-                &format!(
-                    "copy back after chain {} <- {}",
-                    value_to_assign.ty(),
-                    frame_relative_base_address.ty()
-                ),
-            );
+            let mut collection_access_index = None;
+            let mut collection_args = None;
+
+            for (i, access) in location_expression.access_chain.iter().enumerate() {
+                if let LocationAccessKind::IntrinsicCallMut(_, args) = &access.kind {
+                    collection_access_index = Some(i);
+                    collection_args = Some(args.clone());
+                }
+            }
+
+            // Check what kind of access the last one was
+            if let Some(last) = location_expression.access_chain.last() {
+                match &last.kind {
+                    LocationAccessKind::IntrinsicCallMut(_, args) => {
+                        // Direct collection access - set element directly
+                        self.emit_collection_set(
+                            node,
+                            &frame_relative_base_address,
+                            args,
+                            &value_to_assign,
+                        );
+                    }
+                    LocationAccessKind::FieldIndex(_, field_index) => {
+                        // Field access - set the field
+                        let field_target = frame_relative_base_address.move_to_field(*field_index);
+                        self.builder.add_mov_for_assignment(
+                            &field_target,
+                            &value_to_assign,
+                            node,
+                            &format!("assign to field {}", field_target.ty()),
+                        );
+
+                        // If this field is inside an object from a collection, copy the object back
+                        if let (Some(idx), Some(args)) = (collection_access_index, &collection_args)
+                        {
+                            // We need the container and address of the object that contains the field
+                            // Get the container by going back in the chain to before the collection access
+                            let mut container = self
+                                .variable_offsets
+                                .get(
+                                    &location_expression
+                                        .starting_variable
+                                        .unique_id_within_function,
+                                )
+                                .unwrap()
+                                .clone();
+
+                            for i in 0..idx {
+                                match &location_expression.access_chain[i].kind {
+                                    LocationAccessKind::FieldIndex(_, field_idx) => {
+                                        container = container.move_to_field(*field_idx);
+                                    }
+                                    _ => {} // Skip other access types (shouldn't happen before collection)
+                                }
+                            }
+
+                            // Copy the modified object back to the collection
+                            self.emit_collection_set(
+                                node,
+                                &container,
+                                args,
+                                &frame_relative_base_address,
+                            );
+                        }
+                    }
+                }
+            } else {
+                // Direct variable assignment (no access chain)
+                self.builder.add_mov_for_assignment(
+                    &frame_relative_base_address,
+                    &value_to_assign,
+                    node,
+                    "direct variable assignment",
+                );
+            }
         }
 
         frame_relative_base_address
