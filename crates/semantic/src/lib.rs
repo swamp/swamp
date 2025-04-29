@@ -554,7 +554,6 @@ pub struct Postfix {
 pub enum PostfixKind {
     StructField(AnonymousStructType, usize),
     MemberCall(FunctionRef, Vec<MutRefOrImmutableExpression>),
-    // FunctionCall(Vec<MutRefOrImmutableExpression>), // This should be removed
     OptionalChainingOperator,           // ? operator
     NoneCoalescingOperator(Expression), // ?? operator
 }

@@ -220,6 +220,14 @@ pub struct Signature {
     pub return_type: Box<Type>,
 }
 
+impl Signature {
+    pub fn is_self_mutable(&self) -> bool {
+        self.parameters
+            .first()
+            .is_some_and(|x| x.name == "self" && x.is_mutable)
+    }
+}
+
 impl Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "({})->{}", comma(&self.parameters), self.return_type)

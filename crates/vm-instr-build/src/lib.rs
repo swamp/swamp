@@ -7,7 +7,7 @@ use source_map_node::Node;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
     BasicTypeKind, CompleteFunctionInfo, FramePlacedType, FunctionInfo, FunctionInfoKind,
-    HeapPlacedArray, HeapPlacedType,
+    HeapPlacedType,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemorySize, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress,
