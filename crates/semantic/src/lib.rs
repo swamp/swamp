@@ -640,6 +640,26 @@ pub struct Expression {
     pub kind: ExpressionKind,
 }
 
+impl Expression {
+    pub fn debug_last_expression(&self) -> &Expression {
+        match &self.kind {
+            ExpressionKind::ConstantAccess(a) => &a.expr.debug_last_expression(),
+            ExpressionKind::BinaryOp(binary) => &binary.right.debug_last_expression(),
+            ExpressionKind::UnaryOp(a) => &a.left.debug_last_expression(),
+            ExpressionKind::ForLoop(_, _, a) => a.debug_last_expression(),
+            ExpressionKind::WhileLoop(_, a) => a.debug_last_expression(),
+            ExpressionKind::Block(block) => block.last().unwrap_or(self),
+            ExpressionKind::Match(a) => &a.arms.last().unwrap().expression.debug_last_expression(),
+            ExpressionKind::Guard(g) => &g.last().unwrap().result.debug_last_expression(),
+            ExpressionKind::If(_, a, _) => a.debug_last_expression(),
+            ExpressionKind::When(_, b, a) => b,
+            ExpressionKind::TupleDestructuring(_, _, x) => x,
+            ExpressionKind::Lambda(_, a) => a.debug_last_expression(),
+            _ => self,
+        }
+    }
+}
+
 impl Debug for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(f, "{:?}{},{:?}", self.node, self.ty, self.kind)

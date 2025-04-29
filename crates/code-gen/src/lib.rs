@@ -19,7 +19,7 @@ use crate::layout::{layout_enum_into_tagged_union, layout_tuple_items};
 use crate::layout::{layout_struct_type, layout_type};
 use seq_map::SeqMap;
 use source_map_cache::{FileLineInfo, SourceMapLookup, SourceMapWrapper};
-use source_map_node::Node;
+use source_map_node::{FileId, Node};
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
@@ -271,6 +271,10 @@ fn different_file_info(span_a: &FileLineInfo, span_b: &FileLineInfo) -> bool {
     span_a.line != span_b.line
 }
 
+pub fn is_valid_file_id(file_id: FileId) -> bool {
+    file_id != 0 && file_id != 0xffff
+}
+
 pub fn disasm_function(
     frame_relative_infos: &FrameMemoryInfo,
     instructions: &[BinaryInstruction],
@@ -289,39 +293,44 @@ pub fn disasm_function(
     for (offset, _inst) in instructions.iter().enumerate() {
         let absolute_ip = ip_offset.0 + offset as u16;
         let meta = &meta[offset];
-        let file_line_info = if meta.node.span.file_id == 0 {
-            FileLineInfo {
-                row: 0,
-                col: 0,
-                line: "".to_string(),
-                relative_file_name: "".to_string(),
-            }
+        let file_line_info = if is_valid_file_id(meta.node.span.file_id) {
+            Some(source_map_wrapper.get_line(&meta.node.span))
         } else {
-            //let text = source_map_wrapper.get_text_span(&meta.node.span);
-            source_map_wrapper.get_line(&meta.node.span)
+            None
         };
-        let is_different_line = if let Some(previous) = &previous_node {
-            different_file_info(&file_line_info, previous)
-        } else {
-            true
-        };
-        previous_node = Some(FileLineInfo {
-            row: file_line_info.row,
-            col: file_line_info.col,
-            line: file_line_info.line.clone(),
-            relative_file_name: file_line_info.relative_file_name.clone(),
-        });
 
-        if is_different_line {
-            let mapped = SourceFileLineInfo {
-                row: file_line_info.row,
-                col: file_line_info.col,
-                line: file_line_info.line,
-                relative_file_name: file_line_info.relative_file_name,
-            };
-            ip_infos
-                .insert(InstructionPosition(absolute_ip as u16), mapped)
-                .unwrap();
+        if let Some(line_info) = file_line_info {
+            let is_different_line = previous_node
+                .as_ref()
+                .is_none_or(|previous| different_file_info(&line_info, previous));
+
+            // TODO: Add clone to FileLineInfo
+            previous_node = Some(FileLineInfo {
+                row: line_info.row,
+                col: line_info.col,
+                line: line_info.line.clone(),
+                relative_file_name: line_info.relative_file_name.clone(),
+            });
+
+            if is_different_line {
+                assert_ne!(
+                    line_info.row, 0,
+                    "file_info: {}",
+                    line_info.relative_file_name
+                );
+                assert_ne!(
+                    line_info.row, 0,
+                    "file_info: {}",
+                    line_info.relative_file_name
+                );
+                let mapped = SourceFileLineInfo {
+                    row: line_info.row,
+                    file_id: meta.node.span.file_id as usize,
+                };
+                ip_infos
+                    .insert(InstructionPosition(absolute_ip as u16), mapped)
+                    .unwrap();
+            }
         }
     }
 
@@ -334,6 +343,7 @@ pub fn disasm_function(
             meta,
             frame_relative_infos,
             &ip_infos,
+            source_map_wrapper,
         )
     )
 }
@@ -3277,7 +3287,7 @@ impl FunctionCodeGen<'_> {
                         self.builder.add_eq_u8_immediate(
                             &region_to_match,
                             enum_variant.common().container_index,
-                            match_expr.expression.node(),
+                            &arm.expression.node,
                             "check for enum variant",
                         );
                         maybe_guard.as_ref()
@@ -3296,7 +3306,7 @@ impl FunctionCodeGen<'_> {
 
             let maybe_skip_added = if did_add_comparison {
                 Some(self.builder.add_jmp_if_not_equal_placeholder(
-                    match_expr.expression.node(),
+                    &arm.expression.node,
                     "placeholder for enum match",
                 ))
             } else {
@@ -3318,9 +3328,10 @@ impl FunctionCodeGen<'_> {
             self.emit_expression_materialize(&arm.expression, ctx);
 
             if !is_last {
-                let jump_to_exit_placeholder = self
-                    .builder
-                    .add_jump_placeholder(&arm.expression.node, "jump to exit");
+                let jump_to_exit_placeholder = self.builder.add_jump_placeholder(
+                    &arm.expression.debug_last_expression().node,
+                    "jump to exit",
+                );
                 jump_to_exit_placeholders.push(jump_to_exit_placeholder);
             }
 
@@ -3350,9 +3361,10 @@ impl FunctionCodeGen<'_> {
                 //"guard condition",
                 //);
                 self.emit_expression_materialize(&guard.result, ctx);
-                let jump_to_exit_placeholder = self
-                    .builder
-                    .add_jump_placeholder(&guard.result.node, "jump to exit");
+                let jump_to_exit_placeholder = self.builder.add_jump_placeholder(
+                    &guard.result.debug_last_expression().node,
+                    "jump to exit",
+                );
                 jump_to_exit_placeholders.push(jump_to_exit_placeholder);
                 self.builder.patch_jump_here(skip_expression_patch);
             } else {
@@ -3775,14 +3787,17 @@ impl FunctionCodeGen<'_> {
                     node,
                     source_collection_type,
                     ctx.target(),
-                    &primary_variable,
+                    primary_variable,
                 );
             }
         }
 
         // 7. Loop back to fetch the next element.
-        self.builder
-            .add_jmp(continue_iteration_label, node, "jump to iter_next");
+        self.builder.add_jmp(
+            continue_iteration_label,
+            &lambda_expr.debug_last_expression().node,
+            "jump to iter_next",
+        );
 
         self.builder
             .patch_jump_here(iteration_complete_patch_position);
@@ -3810,7 +3825,7 @@ impl FunctionCodeGen<'_> {
                 let some_payload_target = ctx.target().move_to_optional_some_payload();
                 self.builder.add_mov_for_assignment(
                     &some_payload_target,
-                    &primary_variable,
+                    primary_variable,
                     node,
                     "copy into optional return",
                 );

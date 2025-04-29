@@ -34,7 +34,7 @@ swamp-eval = { path = "../eval", version = "0.1.16" }
 swamp-code-gen-program = { path = "../code-gen-program", version = "0.1.16" }
 
 # Source Map
-source-map-cache = "0.0.1"
+source-map-cache = "0.0.2"
 source-map-node = "0.0.1"
 
 tiny-ver = "0.1.2"

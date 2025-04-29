@@ -19,7 +19,7 @@ swamp-types = { path = "../types", version = "0.1.16" }
 
 # Source Map
 source-map-node = "0.0.1"
-source-map-cache = "0.0.1"
+source-map-cache = "0.0.2"
 
 
 seq-map = "0.0.13"

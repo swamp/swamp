@@ -25,7 +25,7 @@ swamp-core = { path = "../core", version = "0.1.16" }
 swamp-pretty-print = { path = "../pretty-print", version = "0.1.16" }
 
 # Source Map
-source-map-cache = "0.0.1"
+source-map-cache = "0.0.2"
 
 time-dilation = { version = "0.1.10", features = [
     "enable_summary",
