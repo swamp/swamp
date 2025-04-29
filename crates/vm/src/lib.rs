@@ -2,10 +2,12 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+extern crate core;
 
 use crate::host::{HostArgs, HostFunctionCallback};
+use fixed32::Fp;
 use seq_map::SeqMap;
-use std::{alloc, ptr};
+use std::{alloc, ptr, slice};
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
@@ -157,7 +159,7 @@ impl Vm {
             flags: Flags { z: false },
         };
 
-        vm.handlers[OpCode::Alloc as usize] = HandlerType::Args4(Self::execute_alloc);
+        vm.handlers[OpCode::Alloc as usize] = HandlerType::Args2(Self::execute_alloc);
 
         // Load immediate
         vm.handlers[OpCode::Ld8 as usize] = HandlerType::Args2(Self::execute_ld8);
@@ -167,10 +169,11 @@ impl Vm {
         // Copy data in frame memory
         vm.handlers[OpCode::Mov as usize] = HandlerType::Args3(Self::execute_mov);
         vm.handlers[OpCode::MovLp as usize] = HandlerType::Args3(Self::execute_mov_lp);
+        vm.handlers[OpCode::Mov32 as usize] = HandlerType::Args2(Self::execute_mov32);
+
+        // Copy to and from heap
+        vm.handlers[OpCode::Stx as usize] = HandlerType::Args5(Self::execute_stx);
         vm.handlers[OpCode::MovMem as usize] = HandlerType::Args4(Self::execute_mov_mem);
-        vm.handlers[OpCode::Mov32 as usize] = HandlerType::Args4(Self::execute_mov_32);
-        vm.handlers[OpCode::Stx as usize] = HandlerType::Args4(Self::execute_stx);
-        vm.handlers[OpCode::Ldx as usize] = HandlerType::Args4(Self::execute_ldx);
 
         // Comparisons - Int
         vm.handlers[OpCode::LtI32 as usize] = HandlerType::Args2(Self::execute_lt_i32);
@@ -178,24 +181,25 @@ impl Vm {
         vm.handlers[OpCode::GtI32 as usize] = HandlerType::Args2(Self::execute_gt_i32);
         vm.handlers[OpCode::GeI32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
 
-        // Comparisons - Fixed
-        vm.handlers[OpCode::LtF32 as usize] = HandlerType::Args2(Self::execute_ltf_i32);
-        vm.handlers[OpCode::LeF32 as usize] = HandlerType::Args2(Self::execute_lef_i32);
-        vm.handlers[OpCode::GtF32 as usize] = HandlerType::Args2(Self::execute_gtf_i32);
-        vm.handlers[OpCode::GeF32 as usize] = HandlerType::Args2(Self::execute_gef_i32);
+        // Comparisons - Float (Fixed Point)
+        vm.handlers[OpCode::LtF32 as usize] = HandlerType::Args2(Self::execute_lt_i32);
+        vm.handlers[OpCode::LeF32 as usize] = HandlerType::Args2(Self::execute_le_i32);
+        vm.handlers[OpCode::GtF32 as usize] = HandlerType::Args2(Self::execute_gt_i32);
+        vm.handlers[OpCode::GeF32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
 
-        vm.handlers[OpCode::Cmp as usize] = HandlerType::Args2(Self::execute_cmp);
-        vm.handlers[OpCode::Cmp8 as usize] = HandlerType::Args2(Self::execute_cmp8);
-        vm.handlers[OpCode::Cmp32 as usize] = HandlerType::Args2(Self::execute_cmp32);
+        // Comparison
+        vm.handlers[OpCode::Cmp as usize] = HandlerType::Args3(Self::execute_cmp);
+        vm.handlers[OpCode::Cmp8 as usize] = HandlerType::Args2(Self::execute_cmp_8);
+        vm.handlers[OpCode::Cmp32 as usize] = HandlerType::Args2(Self::execute_cmp_32);
 
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
+
+        // Z flag
         vm.handlers[OpCode::Tst8 as usize] = HandlerType::Args1(Self::execute_tst8);
 
-        vm.handlers[OpCode::NotZ as usize] = HandlerType::Args2(Self::execute_notz); // needed for normalized Z
-        vm.handlers[OpCode::Stz as usize] = HandlerType::Args2(Self::execute_stz);
-        vm.handlers[OpCode::Stnz as usize] = HandlerType::Args2(Self::execute_stnz);
-
-        vm.handlers[OpCode::Cmp32 as usize] = HandlerType::Args2(Self::execute_cmp32);
+        vm.handlers[OpCode::NotZ as usize] = HandlerType::Args0(Self::execute_notz); // needed for normalized Z
+        vm.handlers[OpCode::Stz as usize] = HandlerType::Args1(Self::execute_stz);
+        vm.handlers[OpCode::Stnz as usize] = HandlerType::Args1(Self::execute_stnz);
 
         // Logical Operations
 
@@ -210,17 +214,18 @@ impl Vm {
         vm.handlers[OpCode::NegI32 as usize] = HandlerType::Args2(Self::execute_neg_i32);
         vm.handlers[OpCode::AddI32 as usize] = HandlerType::Args3(Self::execute_add_i32);
         vm.handlers[OpCode::MulI32 as usize] = HandlerType::Args3(Self::execute_mul_i32);
-        vm.handlers[OpCode::SubI32 as usize] = HandlerType::Args2(Self::execute_sub_i32);
-        vm.handlers[OpCode::ModI32 as usize] = HandlerType::Args2(Self::execute_mod_i32);
-        vm.handlers[OpCode::DivI32 as usize] = HandlerType::Args2(Self::execute_div_i32);
+        vm.handlers[OpCode::SubI32 as usize] = HandlerType::Args3(Self::execute_sub_i32);
+        vm.handlers[OpCode::ModI32 as usize] = HandlerType::Args3(Self::execute_mod_i32);
+        vm.handlers[OpCode::DivI32 as usize] = HandlerType::Args3(Self::execute_div_i32);
 
-        // Operators - Fixed
-        vm.handlers[OpCode::NegF32 as usize] = HandlerType::Args2(Self::execute_neg_f32);
-        vm.handlers[OpCode::AddI32 as usize] = HandlerType::Args3(Self::execute_add_f32);
+        // Operators - Float (Fixed Point)
+        vm.handlers[OpCode::NegF32 as usize] = HandlerType::Args2(Self::execute_neg_i32);
+        vm.handlers[OpCode::AddI32 as usize] = HandlerType::Args3(Self::execute_add_i32);
+        vm.handlers[OpCode::SubI32 as usize] = HandlerType::Args3(Self::execute_sub_i32);
+        vm.handlers[OpCode::ModI32 as usize] = HandlerType::Args3(Self::execute_mod_i32);
+
+        vm.handlers[OpCode::DivI32 as usize] = HandlerType::Args3(Self::execute_div_f32);
         vm.handlers[OpCode::MulI32 as usize] = HandlerType::Args3(Self::execute_mul_f32);
-        vm.handlers[OpCode::SubI32 as usize] = HandlerType::Args2(Self::execute_sub_f32);
-        vm.handlers[OpCode::ModI32 as usize] = HandlerType::Args2(Self::execute_mod_f32);
-        vm.handlers[OpCode::DivI32 as usize] = HandlerType::Args2(Self::execute_div_f32);
 
         // Call, enter, ret
         vm.handlers[OpCode::Call as usize] = HandlerType::Args1(Self::execute_call);
@@ -233,39 +238,41 @@ impl Vm {
         vm.handlers[OpCode::Hlt as usize] = HandlerType::Args0(Self::execute_hlt);
 
         // String
-        vm.handlers[OpCode::StringFromSlice as usize] =
-            HandlerType::Args4(Self::execute_string_from_constant_slice);
         vm.handlers[OpCode::StringAppend as usize] =
             HandlerType::Args3(Self::execute_string_append);
 
         // Int
-        vm.handlers[OpCode::IntMin as usize] = HandlerType::Args2(Self::execute_int_min);
-        vm.handlers[OpCode::IntMax as usize] = HandlerType::Args2(Self::execute_int_max);
-        vm.handlers[OpCode::IntClamp as usize] = HandlerType::Args2(Self::execute_int_clamp);
+        vm.handlers[OpCode::IntToRnd as usize] = HandlerType::Args2(Self::execute_prnd_i32);
+        vm.handlers[OpCode::IntMin as usize] = HandlerType::Args3(Self::execute_min_i32);
+        vm.handlers[OpCode::IntMax as usize] = HandlerType::Args3(Self::execute_max_i32);
+        vm.handlers[OpCode::IntClamp as usize] = HandlerType::Args4(Self::execute_clamp_i32);
 
-        vm.handlers[OpCode::IntAbs as usize] = HandlerType::Args2(Self::execute_int_abs);
-        vm.handlers[OpCode::IntToRnd as usize] = HandlerType::Args2(Self::execute_int_prnd);
+        vm.handlers[OpCode::IntAbs as usize] = HandlerType::Args2(Self::execute_abs_i32);
+
         vm.handlers[OpCode::IntToString as usize] = HandlerType::Args2(Self::execute_int_to_string);
         vm.handlers[OpCode::IntToFloat as usize] = HandlerType::Args2(Self::execute_int_to_float);
 
-        // Fixed
-        vm.handlers[OpCode::FloatRound as usize] = HandlerType::Args2(Self::execute_float_round);
-        vm.handlers[OpCode::FloatFloor as usize] = HandlerType::Args2(Self::execute_float_floor);
-        vm.handlers[OpCode::FloatSqrt as usize] = HandlerType::Args2(Self::execute_float_sqrt);
-        vm.handlers[OpCode::FloatSign as usize] = HandlerType::Args2(Self::execute_float_sign);
-        vm.handlers[OpCode::FloatAbs as usize] = HandlerType::Args2(Self::execute_float_abs);
+        // Float (Fixed Point)
         vm.handlers[OpCode::FloatPseudoRandom as usize] =
-            HandlerType::Args2(Self::execute_float_prnd);
-        vm.handlers[OpCode::FloatSin as usize] = HandlerType::Args2(Self::execute_float_sin);
-        vm.handlers[OpCode::FloatCos as usize] = HandlerType::Args2(Self::execute_float_cos);
-        vm.handlers[OpCode::FloatAsin as usize] = HandlerType::Args2(Self::execute_float_asin);
-        vm.handlers[OpCode::FloatAcos as usize] = HandlerType::Args2(Self::execute_float_acos);
-        vm.handlers[OpCode::FloatAtan2 as usize] = HandlerType::Args2(Self::execute_float_atan2);
-        vm.handlers[OpCode::FloatMin as usize] = HandlerType::Args2(Self::execute_float_min);
-        vm.handlers[OpCode::FloatMax as usize] = HandlerType::Args2(Self::execute_float_max);
-        vm.handlers[OpCode::FloatClamp as usize] = HandlerType::Args2(Self::execute_float_clamp);
+            HandlerType::Args2(Self::execute_prnd_i32);
+        vm.handlers[OpCode::FloatMin as usize] = HandlerType::Args3(Self::execute_min_i32);
+        vm.handlers[OpCode::FloatMax as usize] = HandlerType::Args3(Self::execute_max_i32);
+        vm.handlers[OpCode::FloatClamp as usize] = HandlerType::Args4(Self::execute_clamp_i32);
+
+        vm.handlers[OpCode::FloatRound as usize] = HandlerType::Args2(Self::execute_f32_round);
+        vm.handlers[OpCode::FloatFloor as usize] = HandlerType::Args2(Self::execute_f32_floor);
+        vm.handlers[OpCode::FloatSqrt as usize] = HandlerType::Args2(Self::execute_f32_sqrt);
+        vm.handlers[OpCode::FloatSign as usize] = HandlerType::Args2(Self::execute_f32_sign);
+        vm.handlers[OpCode::FloatAbs as usize] = HandlerType::Args2(Self::execute_f32_abs);
+        vm.handlers[OpCode::FloatSin as usize] = HandlerType::Args2(Self::execute_f32_sin);
+        vm.handlers[OpCode::FloatCos as usize] = HandlerType::Args2(Self::execute_f32_cos);
+        vm.handlers[OpCode::FloatAsin as usize] = HandlerType::Args2(Self::execute_f32_asin);
+        vm.handlers[OpCode::FloatAcos as usize] = HandlerType::Args2(Self::execute_f32_acos);
+        vm.handlers[OpCode::FloatAtan2 as usize] = HandlerType::Args2(Self::execute_f32_atan2);
         vm.handlers[OpCode::FloatToString as usize] =
-            HandlerType::Args2(Self::execute_float_to_string);
+            HandlerType::Args2(Self::execute_f32_to_string);
+
+        // Collections ==========
 
         // Vec
         vm.handlers[OpCode::VecFromSlice as usize] =
@@ -276,10 +283,26 @@ impl Vm {
             HandlerType::Args2(Self::execute_vec_iter_next_pair);
         vm.handlers[OpCode::VecPush as usize] =
             HandlerType::Args2(Self::execute_vec_iter_next_pair);
+        vm.handlers[OpCode::VecLen as usize] = HandlerType::Args2(Self::execute_vec_len);
+
+        // Map
+        vm.handlers[OpCode::MapNewFromPairs as usize] =
+            HandlerType::Args4(Self::execute_map_from_slice);
+        vm.handlers[OpCode::MapIterInit as usize] = HandlerType::Args2(Self::execute_map_iter_init);
+        vm.handlers[OpCode::MapIterNext as usize] = HandlerType::Args3(Self::execute_map_iter_next);
+        vm.handlers[OpCode::MapIterNextPair as usize] =
+            HandlerType::Args2(Self::execute_map_iter_next_pair);
+        vm.handlers[OpCode::MapSet as usize] = HandlerType::Args2(Self::execute_map_iter_next_pair);
+        vm.handlers[OpCode::MapLen as usize] = HandlerType::Args2(Self::execute_map_len);
+
+        // Other ==========
+        // Unwrap
+        vm.handlers[OpCode::UnwrapJmpNone as usize] =
+            HandlerType::Args2(Self::execute_unwrap_jmp_none);
+        vm.handlers[OpCode::UnwrapJmpSome as usize] =
+            HandlerType::Args2(Self::execute_unwrap_jmp_some);
 
         assert_eq!(vm.handlers.len(), OpCode::HostCall as usize);
-
-        // Load indirect
 
         // Optional: Zero out the memory for safety?
         unsafe {
@@ -400,22 +423,58 @@ impl Vm {
         }
     }
 
-    /*
     #[inline]
     fn execute_alloc(&mut self, dst_offset: u16, memory_size: u16) {
         let data_ptr = self.heap_allocate(memory_size as usize);
-        let dst_ptr = self.ptr_at_u16(self.frame_offset + dst_offset as usize) as *mut u16;
+        let dst_ptr = self.ptr_at_u32(self.frame_offset + dst_offset as usize) as *mut u32;
         unsafe {
             *dst_ptr = data_ptr;
         }
     }
-    */
 
     #[inline]
     fn execute_ld8(&mut self, dst_offset: u16, octet: u16) {
         let dst_ptr = self.frame_ptr_bool_at(dst_offset);
         unsafe {
             *dst_ptr = octet as u8;
+        }
+    }
+
+    // Fixed Point special methods
+    #[inline]
+    fn execute_mul_f32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
+        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
+        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+
+        unsafe {
+            let lhs = *lhs_ptr;
+            let rhs = *rhs_ptr;
+            *dst_ptr = (Fp::from_raw(lhs) * Fp::from_raw(rhs)).inner();
+        }
+    }
+
+    #[inline]
+    fn execute_div_f32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
+        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
+        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+
+        unsafe {
+            let lhs = *lhs_ptr;
+            let rhs = *rhs_ptr;
+            *dst_ptr = (Fp::from_raw(lhs) / Fp::from_raw(rhs)).inner();
+        }
+    }
+
+    #[inline]
+    fn execute_neg_i32(&mut self, dst_offset: u16, lhs_offset: u16) {
+        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize);
+
+        unsafe {
+            let lhs = *lhs_ptr;
+            *dst_ptr = -lhs;
         }
     }
 
@@ -441,18 +500,46 @@ impl Vm {
         unsafe {
             let lhs = *lhs_ptr;
             let rhs = *rhs_ptr;
-            *dst_ptr = lhs * rhs;
+            *dst_ptr = (Fp::from_raw(lhs) * Fp::from_raw(rhs)).inner();
         }
     }
 
     #[inline]
-    fn execute_neg_i32(&mut self, dst_offset: u16, lhs_offset: u16) {
+    fn execute_sub_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
         let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize);
+        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
 
         unsafe {
             let lhs = *lhs_ptr;
-            *dst_ptr = -lhs;
+            let rhs = *rhs_ptr;
+            *dst_ptr = lhs + rhs;
+        }
+    }
+
+    #[inline]
+    fn execute_mod_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
+        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
+        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+
+        unsafe {
+            let lhs = *lhs_ptr;
+            let rhs = *rhs_ptr;
+            *dst_ptr = lhs % rhs;
+        }
+    }
+
+    #[inline]
+    fn execute_div_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
+        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
+        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+
+        unsafe {
+            let lhs = *lhs_ptr;
+            let rhs = *rhs_ptr;
+            *dst_ptr = (Fp::from_raw(lhs) / Fp::from_raw(rhs)).inner();
         }
     }
 
@@ -469,6 +556,18 @@ impl Vm {
     }
 
     #[inline]
+    fn execute_le_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
+        let lhs_ptr = self.frame_ptr_i32_const_at(lhs_offset);
+        let rhs_ptr = self.frame_ptr_i32_const_at(rhs_offset);
+
+        unsafe {
+            let lhs = *lhs_ptr;
+            let rhs = *rhs_ptr;
+            self.flags.z = lhs <= rhs;
+        }
+    }
+
+    #[inline]
     fn execute_gt_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
         let lhs_ptr = self.frame_ptr_i32_const_at(lhs_offset);
         let rhs_ptr = self.frame_ptr_i32_const_at(rhs_offset);
@@ -481,13 +580,137 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_neg_f32(&mut self, dst_offset: u16, lhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize);
+    fn execute_ge_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
+        let lhs_ptr = self.frame_ptr_i32_const_at(lhs_offset);
+        let rhs_ptr = self.frame_ptr_i32_const_at(rhs_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
-            *dst_ptr = -lhs;
+            let rhs = *rhs_ptr;
+            self.flags.z = lhs >= rhs;
+        }
+    }
+
+    #[inline]
+    fn execute_prnd_i32(&mut self, dst_offset: u16, src_offset: u16) {
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let src_ptr = self.ptr_at_i32(self.frame_offset + src_offset as usize) as *mut i32;
+
+        unsafe {
+            *dst_ptr = squirrel_prng::squirrel_noise5(*src_ptr as u32, 0) as i32;
+        }
+    }
+
+    #[inline]
+    fn execute_abs_i32(&mut self, dst_offset: u16, lhs_offset: u16) {
+        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+
+        unsafe {
+            let lhs = *lhs_ptr;
+
+            *dst_ptr = if lhs < 0 { -lhs } else { lhs }
+        }
+    }
+
+    #[inline]
+    fn execute_min_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
+        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
+        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+
+        unsafe {
+            let lhs = *lhs_ptr;
+            let rhs = *rhs_ptr;
+
+            if lhs < rhs {
+                *dst_ptr = lhs;
+            } else {
+                *dst_ptr = rhs;
+            }
+        }
+    }
+
+    #[inline]
+    fn execute_max_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
+        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
+        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+
+        unsafe {
+            let lhs = *lhs_ptr;
+            let rhs = *rhs_ptr;
+
+            if lhs > rhs {
+                *dst_ptr = lhs;
+            } else {
+                *dst_ptr = rhs;
+            }
+        }
+    }
+
+    #[inline]
+    fn execute_clamp_i32(
+        &mut self,
+        dst_offset: u16,
+        v_offset: u16,
+        min_offset: u16,
+        max_offset: u16,
+    ) {
+        let v_ptr = self.ptr_at_i32(self.frame_offset + v_offset as usize) as *const i32;
+        let min_ptr = self.ptr_at_i32(self.frame_offset + min_offset as usize) as *const i32;
+        let max_ptr = self.ptr_at_i32(self.frame_offset + max_offset as usize) as *const i32;
+        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+
+        unsafe {
+            let v = *v_ptr;
+            let min = *min_ptr;
+            let max = *max_ptr;
+
+            let r = if v < min {
+                min
+            } else if v > max {
+                max
+            } else {
+                v
+            };
+
+            *dst_ptr = r;
+        }
+    }
+
+    #[inline]
+    fn execute_cmp(&mut self, lhs_offset: u16, rhs_offset: u16, count: u16) {
+        let lhs_ptr = self.frame_ptr_at(lhs_offset);
+        let rhs_ptr = self.frame_ptr_at(rhs_offset);
+
+        // SAFETY: The caller must ensure that lhs_offset, rhs_offset, and count
+        // define valid, readable memory ranges within the current stack frame.
+        unsafe {
+            let lhs_slice = slice::from_raw_parts(lhs_ptr, count as usize);
+            let rhs_slice = slice::from_raw_parts(rhs_ptr, count as usize);
+
+            self.flags.z = lhs_slice == rhs_slice
+        }
+    }
+
+    #[inline]
+    fn execute_cmp_8(&mut self, lhs_offset: u16, rhs_offset: u16) {
+        let lhs_ptr = self.frame_ptr_at(lhs_offset);
+        let rhs_ptr = self.frame_ptr_at(rhs_offset);
+
+        unsafe {
+            self.flags.z = *lhs_ptr == *rhs_ptr;
+        }
+    }
+
+    #[inline]
+    fn execute_cmp_32(&mut self, lhs_offset: u16, rhs_offset: u16) {
+        let lhs_ptr = self.frame_ptr_at(lhs_offset) as *const u32;
+        let rhs_ptr = self.frame_ptr_at(rhs_offset) as *const u32;
+
+        unsafe {
+            self.flags.z = *lhs_ptr == *rhs_ptr;
         }
     }
 
@@ -501,6 +724,27 @@ impl Vm {
     fn execute_tst8(&mut self, lhs_offset: u16) {
         let lhs_u8 = self.frame_u8_at(lhs_offset);
         self.flags.z = lhs_u8 == 1;
+    }
+
+    #[inline]
+    fn execute_notz(&mut self) {
+        self.flags.z = !self.flags.z;
+    }
+
+    #[inline]
+    fn execute_stz(&mut self, target: u16) {
+        let target_ptr = self.frame_ptr_at(target);
+        unsafe {
+            *target_ptr = self.flags.z as u8;
+        }
+    }
+
+    #[inline]
+    fn execute_stnz(&mut self, target: u16) {
+        let target_ptr = self.frame_ptr_at(target);
+        unsafe {
+            *target_ptr = !self.flags.z as u8;
+        }
     }
 
     #[inline]
@@ -543,6 +787,16 @@ impl Vm {
     }
 
     #[inline]
+    fn execute_mov32(&mut self, dst_offset: u16, src_offset: u16) {
+        let src_ptr = self.ptr_at_u32(self.frame_offset + src_offset as usize);
+        let dst_ptr = self.ptr_at_u32(self.frame_offset + dst_offset as usize);
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, 4);
+        }
+    }
+
+    #[inline]
     fn execute_mov_mem(
         &mut self,
         dst_offset: u16,
@@ -556,6 +810,24 @@ impl Vm {
 
         unsafe {
             ptr::copy_nonoverlapping(src_ptr, dst_ptr, memory_size as usize);
+        }
+    }
+
+    #[inline]
+    fn execute_stx(
+        &mut self,
+        dst_offset: u16,
+        const_lower: u16,
+        const_upper: u16,
+        source_offset: u16,
+        memory_size: u16,
+    ) {
+        let indirect_offset = ((const_upper as u32) << 16) | (const_lower as u32);
+        let dst_heap_ptr = self.frame_ptr_indirect_heap_at_with_offset(dst_offset, indirect_offset);
+        let source_ptr = self.frame_ptr_at(source_offset);
+
+        unsafe {
+            ptr::copy_nonoverlapping(dst_heap_ptr, source_ptr, memory_size as usize);
         }
     }
 
@@ -654,6 +926,22 @@ impl Vm {
     fn frame_ptr_indirect_heap_immut_at(&self, frame_offset: u16) -> *const u8 {
         let heap_offset = self.frame_u32_at(frame_offset);
         self.heap_ptr_immut_at(heap_offset as usize)
+    }
+
+    #[inline(always)]
+    fn frame_ptr_indirect_heap_at(&self, frame_offset: u16) -> *mut u8 {
+        let heap_offset = self.frame_u32_at(frame_offset);
+        self.heap_ptr_at(heap_offset as usize)
+    }
+
+    #[inline(always)]
+    fn frame_ptr_indirect_heap_at_with_offset(
+        &self,
+        frame_offset: u16,
+        heap_ptr_offset: u32,
+    ) -> *mut u8 {
+        let heap_offset = self.frame_ptr_indirect_heap_offset_at(frame_offset);
+        self.heap_ptr_at(heap_offset as usize + heap_ptr_offset as usize)
     }
 
     fn frame_ptr_indirect_heap_offset_at(&self, frame_offset: u16) -> u32 {

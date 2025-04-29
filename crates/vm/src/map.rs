@@ -5,7 +5,6 @@
 
 use crate::Vm;
 use std::ptr;
-use swamp_vm_types::PTR_SIZE;
 
 /// # Map Header Structure
 ///

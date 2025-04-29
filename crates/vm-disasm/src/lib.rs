@@ -872,19 +872,6 @@ pub fn disasm(
             ]
         }
 
-        OpCode::Ldx => {
-            let heap_mem_offset = ((operands[3] as u32) << 16) | operands[2] as u32;
-            &[
-                to_write_frame(operands[0], &indirect_heap_ptr_type(), frame_memory_info),
-                DecoratedOperandAccessKind::ReadIndirectHeapWithOffset(
-                    FrameMemoryAddress(operands[1]),
-                    HeapMemoryOffset(heap_mem_offset),
-                    None,
-                ),
-                DecoratedOperandAccessKind::MemorySize(MemorySize(operands[4])),
-            ]
-        }
-
         OpCode::UnwrapJmpNone => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info), // todo: optional union type

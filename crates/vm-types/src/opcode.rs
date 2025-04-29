@@ -75,11 +75,10 @@ pub enum OpCode {
     Mov32,
 
     // Heap copy
-    MovMem,
+    MovMem, // Copy from heap region with offset to frame region
 
     Alloc, // For slices
     Stx,   // Copy from frame region to allocated region with offset
-    Ldx,   // Copy from heap region with offset to frame region
 
     // Load immediate into frame memory
     Ld8,
@@ -139,6 +138,7 @@ pub enum OpCode {
     VecCreate,
     VecGet,
     VecGetRange,
+    VecSwap,
 
     // Map
     MapIterInit,
@@ -154,11 +154,12 @@ pub enum OpCode {
     // String
     StringAppend,
 
-    // Other
-    HostCall, // calls back into host
-    VecSwap,
+    // Optional Unwrap
     UnwrapJmpSome,
     UnwrapJmpNone,
+
+    // Other
+    HostCall, // calls back into host
 }
 
 impl OpCode {
@@ -230,7 +231,6 @@ impl OpCode {
             Self::MovLp => "movlp",
             Self::MovMem => "movmem",
             Self::Stx => "stx",
-            Self::Ldx => "ldx",
 
             // Load
             Self::Ld8 => "ld8",
