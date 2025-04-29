@@ -9,8 +9,11 @@ use fixed32::Fp;
 use seq_map::SeqMap;
 use std::{alloc, ptr, slice};
 use swamp_vm_types::opcode::OpCode;
-use swamp_vm_types::{BinaryInstruction, InstructionPosition, StringHeader};
+use swamp_vm_types::{
+    BinaryInstruction, InstructionPosition, StringHeader, VEC_ITERATOR_SIZE, VecHeader, VecIterator,
+};
 
+pub mod frame;
 pub mod host;
 mod map;
 mod map_open;
@@ -238,8 +241,11 @@ impl Vm {
         vm.handlers[OpCode::Hlt as usize] = HandlerType::Args0(Self::execute_hlt);
 
         // String
+        /* TODO: BRING THIS BACK
         vm.handlers[OpCode::StringAppend as usize] =
             HandlerType::Args3(Self::execute_string_append);
+
+         */
 
         // Int
         vm.handlers[OpCode::IntToRnd as usize] = HandlerType::Args2(Self::execute_prnd_i32);
@@ -249,8 +255,8 @@ impl Vm {
 
         vm.handlers[OpCode::IntAbs as usize] = HandlerType::Args2(Self::execute_abs_i32);
 
-        vm.handlers[OpCode::IntToString as usize] = HandlerType::Args2(Self::execute_int_to_string);
-        vm.handlers[OpCode::IntToFloat as usize] = HandlerType::Args2(Self::execute_int_to_float);
+        vm.handlers[OpCode::IntToString as usize] = HandlerType::Args2(Self::execute_i32_to_string);
+        vm.handlers[OpCode::IntToFloat as usize] = HandlerType::Args2(Self::execute_i32_to_f32);
 
         // Float (Fixed Point)
         vm.handlers[OpCode::FloatPseudoRandom as usize] =
@@ -280,12 +286,12 @@ impl Vm {
         vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args2(Self::execute_vec_iter_init);
         vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args3(Self::execute_vec_iter_next);
         vm.handlers[OpCode::VecIterNextPair as usize] =
-            HandlerType::Args2(Self::execute_vec_iter_next_pair);
-        vm.handlers[OpCode::VecPush as usize] =
-            HandlerType::Args2(Self::execute_vec_iter_next_pair);
+            HandlerType::Args4(Self::execute_vec_iter_next_pair);
+        vm.handlers[OpCode::VecPush as usize] = HandlerType::Args2(Self::execute_vec_push);
         vm.handlers[OpCode::VecLen as usize] = HandlerType::Args2(Self::execute_vec_len);
 
         // Map
+        /* TODO: BRING THESE BACK
         vm.handlers[OpCode::MapNewFromPairs as usize] =
             HandlerType::Args4(Self::execute_map_from_slice);
         vm.handlers[OpCode::MapIterInit as usize] = HandlerType::Args2(Self::execute_map_iter_init);
@@ -294,6 +300,7 @@ impl Vm {
             HandlerType::Args2(Self::execute_map_iter_next_pair);
         vm.handlers[OpCode::MapSet as usize] = HandlerType::Args2(Self::execute_map_iter_next_pair);
         vm.handlers[OpCode::MapLen as usize] = HandlerType::Args2(Self::execute_map_len);
+         */
 
         // Other ==========
         // Unwrap
@@ -356,64 +363,21 @@ impl Vm {
         }
     }
 
-    /*
     #[inline]
-    fn execute_ld32ptr(&mut self, base_offset: u16, offset: u16, lower_bits: u16, upper_bits: u16) {
-        let value = ((upper_bits as u32) << 16) | (lower_bits as u32);
-
-        let ptr_ptr = self.ptr_at_u16(self.frame_offset + base_offset as usize) as *const u16;
-        let ptr = unsafe { *ptr_ptr };
-
-        let addr = ptr + offset;
-
-        let dst_ptr = self.ptr_at_u32(addr as usize) as *mut u32;
-        unsafe {
-            *dst_ptr = value;
-        }
-    }
-    fn execute_ldx(&mut self, dst_offset: u16, base_offset: u16, offset: u16, size: u16) {
-        let ptr_ptr = self.ptr_at_u16(self.frame_offset + base_offset as usize) as *const u16;
-        let ptr = unsafe { *ptr_ptr };
-
-        let src_addr = ptr + offset;
-
-        let src_ptr = self.ptr_at_u8(src_addr as usize);
-        let dst_ptr = self.ptr_at_u8(self.frame_offset + dst_offset as usize);
-
-        unsafe {
-            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, size as usize);
-        }
-    }
-
-    fn execute_stx(&mut self, base_offset: u16, offset: u16, src_offset: u16, size: u16) {
-        let ptr_ptr = self.ptr_at_u16(self.frame_offset + base_offset as usize) as *const u16;
-        let ptr = unsafe { *ptr_ptr };
-
-        let dst_addr = ptr + offset;
-
-        let src_ptr = self.ptr_at_u8(self.frame_offset + src_offset as usize);
-        let dst_ptr = self.ptr_at_u8(dst_addr as usize);
-
-        unsafe {
-            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, size as usize);
+    pub fn execute_unwrap_jmp_some(&mut self, optional_addr: u16, jmp_offset: u16) {
+        let tag_value = self.frame_u8_at(optional_addr);
+        if tag_value != 0 {
+            self.ip = jmp_offset as usize;
         }
     }
 
     #[inline]
-    fn execute_st32x(&mut self, base_offset: u16, offset: u16, lower_bits: u16, upper_bits: u16) {
-        let value = ((upper_bits as u32) << 16) | (lower_bits as u32);
-
-        let ptr_ptr = self.ptr_at_u16(self.frame_offset + base_offset as usize) as *const u16;
-        let ptr = unsafe { *ptr_ptr };
-
-        let dst_addr = ptr + offset;
-
-        let dst_ptr = self.ptr_at_u32(dst_addr as usize) as *mut u32;
-        unsafe {
-            *dst_ptr = value;
+    pub fn execute_unwrap_jmp_none(&mut self, optional_addr: u16, jmp_offset: u16) {
+        let tag_value = self.frame_u8_at(optional_addr);
+        if tag_value == 0 {
+            self.ip = jmp_offset as usize;
         }
     }
-    */
 
     #[inline]
     fn execute_ld16(&mut self, dst_offset: u16, data: u16) {
@@ -466,10 +430,6 @@ impl Vm {
             *dst_ptr = (Fp::from_raw(lhs) / Fp::from_raw(rhs)).inner();
         }
     }
-
-    /*
-       execute_f32_atan2
-    */
 
     #[inline]
     fn execute_f32_round(&mut self, dst_offset: u16, val_offset: u16) {
@@ -552,12 +512,14 @@ impl Vm {
 
     #[inline]
     fn execute_f32_to_string(&mut self, dst_string: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_i32_at(dst_string);
+        let dst_ptr = self.frame_ptr_indirect_heap_mut_at(dst_string);
         let val_ptr = self.frame_ptr_i32_const_at(val_offset);
 
         let fp = unsafe { Fp::from_raw(*val_ptr) };
 
-        *dst_ptr = self.create_string(&fp.to_string());
+        unsafe {
+            *dst_ptr = self.create_string(&fp.to_string());
+        }
     }
 
     fn create_string(&mut self, string: &str) -> u32 {
@@ -733,6 +695,26 @@ impl Vm {
 
         unsafe {
             *dst_ptr = squirrel_prng::squirrel_noise5(*src_ptr as u32, 0) as i32;
+        }
+    }
+
+    #[inline]
+    fn execute_i32_to_string(&mut self, dst_string: u16, val_offset: u16) {
+        let dst_ptr = self.frame_ptr_indirect_heap_mut_at(dst_string);
+        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+
+        unsafe {
+            *dst_ptr = self.create_string(&(*val_ptr).to_string());
+        }
+    }
+
+    #[inline]
+    fn execute_i32_to_f32(&mut self, float_dest: u16, int_source: u16) {
+        let source_ptr = self.frame_ptr_i32_const_at(int_source);
+        let dst_ptr = self.frame_ptr_i32_at(float_dest);
+
+        unsafe {
+            *dst_ptr = Fp::from((*source_ptr) as i16).inner();
         }
     }
 
@@ -979,116 +961,6 @@ impl Vm {
     // Helper to convert offset to pointer
 
     #[inline(always)]
-    fn ptr_at_i32(&self, offset: usize) -> *mut i32 {
-        // Ensure alignment
-        debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {}", offset);
-        // Inline ptr_at functionality
-        unsafe { self.stack_memory.add(offset) as *mut i32 }
-    }
-
-    #[inline(always)]
-    fn ptr_at_u32(&self, offset: usize) -> *mut u32 {
-        // Ensure alignment
-        debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {}", offset);
-        // Inline ptr_at functionality
-        unsafe { self.stack_memory.add(offset) as *mut u32 }
-    }
-
-    #[inline(always)]
-    fn ptr_at_u16(&self, offset: usize) -> *mut u16 {
-        // Ensure alignment
-        debug_assert_eq!(offset % 2, 0, "Unaligned u16 access at offset {}", offset);
-        // Inline ptr_at functionality
-        unsafe { self.stack_memory.add(offset) as *mut u16 }
-    }
-
-    #[inline(always)]
-    fn ptr_at_u8(&self, offset: usize) -> *mut u8 {
-        // Inline ptr_at functionality
-        unsafe { self.stack_memory.add(offset) }
-    }
-
-    #[inline(always)]
-    fn heap_ptr_at(&self, offset: usize) -> *mut u8 {
-        unsafe { self.heap_memory.add(offset) }
-    }
-
-    fn heap_ptr_immut_at(&self, offset: usize) -> *const u8 {
-        unsafe { self.heap_memory.add(offset) }
-    }
-
-    // Helper to get current frame pointer
-    fn frame_ptr(&self) -> *mut u8 {
-        self.ptr_at_u8(self.frame_offset)
-    }
-
-    fn stack_ptr(&self) -> *mut u8 {
-        self.ptr_at_u8(self.stack_offset)
-    }
-
-    #[inline(always)]
-    fn frame_ptr_i32_at(&self, offset: u16) -> *mut i32 {
-        self.ptr_at_i32(self.frame_offset + offset as usize)
-    }
-
-    #[inline(always)]
-    fn frame_ptr_i32_const_at(&self, offset: u16) -> *const i32 {
-        self.ptr_at_i32(self.frame_offset + offset as usize)
-            .cast_const()
-    }
-
-    #[inline(always)]
-    fn frame_u8_at(&self, offset: u16) -> u8 {
-        unsafe { *self.ptr_at_u8(self.frame_offset + offset as usize) }
-    }
-
-    #[inline(always)]
-    fn frame_u32_at(&self, offset: u16) -> u32 {
-        unsafe { *self.ptr_at_u32(self.frame_offset + offset as usize) }
-    }
-
-    #[inline(always)]
-    fn frame_ptr_bool_at(&self, offset: u16) -> *mut u8 {
-        self.ptr_at_u8(self.frame_offset + offset as usize)
-    }
-
-    #[inline(always)]
-    fn frame_ptr_at(&self, offset: u16) -> *mut u8 {
-        self.ptr_at_u8(self.frame_offset + offset as usize)
-    }
-
-    #[inline(always)]
-    fn frame_ptr_indirect_heap_immut_at(&self, frame_offset: u16) -> *const u8 {
-        let heap_offset = self.frame_u32_at(frame_offset);
-        self.heap_ptr_immut_at(heap_offset as usize)
-    }
-
-    #[inline(always)]
-    fn frame_ptr_indirect_heap_at(&self, frame_offset: u16) -> *mut u8 {
-        let heap_offset = self.frame_u32_at(frame_offset);
-        self.heap_ptr_at(heap_offset as usize)
-    }
-
-    #[inline(always)]
-    fn frame_ptr_indirect_heap_at_with_offset(
-        &self,
-        frame_offset: u16,
-        heap_ptr_offset: u32,
-    ) -> *mut u8 {
-        let heap_offset = self.frame_ptr_indirect_heap_offset_at(frame_offset);
-        self.heap_ptr_at(heap_offset as usize + heap_ptr_offset as usize)
-    }
-
-    fn frame_ptr_indirect_heap_offset_at(&self, frame_offset: u16) -> u32 {
-        self.frame_u32_at(frame_offset)
-    }
-
-    #[inline(always)]
-    fn frame_ptr_bool_const_at(&self, offset: u16) -> bool {
-        unsafe { *self.ptr_at_u8(self.frame_offset + offset as usize) != 0 }
-    }
-
-    #[inline(always)]
     fn heap_allocate(&mut self, size: usize) -> u32 {
         let aligned_size = (size + ALIGNMENT_REST) & ALIGNMENT_MASK;
         let aligned_offset = (self.heap_alloc_offset + ALIGNMENT_REST) & ALIGNMENT_MASK;
@@ -1244,8 +1116,6 @@ impl Vm {
     fn execute_host_call(&mut self, function_id: u16, bytes_to_copy_from_frame_ptr: u16) {
         let callback: &mut Box<dyn FnMut(HostArgs)> =
             self.host_functions.get_mut(&function_id).unwrap();
-        //        let offset = self.frame_offset + self.last_frame_size as usize;
-        //      let num_bytes = bytes_to_copy_from_frame_ptr as usize;
 
         unsafe {
             let host_args = HostArgs::new(

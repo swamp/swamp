@@ -425,11 +425,12 @@ pub const HEAP_PTR_ON_FRAME_SIZE: MemorySize = MemorySize(4);
 pub const HEAP_PTR_ON_FRAME_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct VecHeader {
     pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory) // must be first
-    pub count: u32,       // must be second. useful for iterator
+    pub count: u16,       // must be second. useful for iterator
     pub capacity: u16,    // capacity is always third
-    pub size: u16,        // size (in bytes) of each element; useful for iterator
+    pub element_size: u16, // size (in bytes) of each element; useful for iterator
 }
 pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u16);
 pub const VEC_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
@@ -441,7 +442,7 @@ pub const VEC_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 
 #[repr(C)]
 pub struct VecIterator {
-    pub vec_header_frame_offset: u32,
+    pub vec_header_heap_ptr: u32,
     pub index: u16,
 }
 

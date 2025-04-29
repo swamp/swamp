@@ -728,10 +728,15 @@ impl TopLevelGenState {
     #[must_use]
     pub fn take_instructions_and_constants(
         self,
-    ) -> (Vec<BinaryInstruction>, SeqMap<ConstantId, ConstantInfo>) {
+    ) -> (
+        Vec<BinaryInstruction>,
+        SeqMap<ConstantId, ConstantInfo>,
+        Vec<u8>,
+    ) {
         (
             self.builder_state.instructions,
             self.codegen_state.constant_functions,
+            self.codegen_state.constants.take_data(),
         )
     }
 

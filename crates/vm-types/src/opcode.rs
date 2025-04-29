@@ -159,7 +159,7 @@ pub enum OpCode {
     UnwrapJmpNone,
 
     // Other
-    HostCall, // calls back into host
+    HostCall, // calls back into host, //must be last
 }
 
 impl OpCode {

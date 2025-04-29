@@ -8,6 +8,7 @@ use std::ptr;
 use swamp_vm_types::{STRING_HEADER_SIZE, StringHeader};
 
 impl Vm {
+    /*
     #[inline]
     pub fn execute_string_from_constant_slice(
         &mut self,
@@ -47,6 +48,7 @@ impl Vm {
             let target_ptr = self.frame_ptr_at(target_string_addr) as *mut u32;
             ptr::write(target_ptr, header_offset);
         }
+
     }
 
     #[inline]
@@ -101,4 +103,5 @@ impl Vm {
             ptr::write(target_ptr, header_offset);
         }
     }
+         */
 }
