@@ -450,6 +450,7 @@ pub fn reserve(ty: &Type, allocator: &mut ScopeAllocator) -> FramePlacedType {
 pub struct FrameAndVariableInfo {
     pub frame_memory: FrameMemoryInfo,
     variable_offsets: SeqMap<usize, FramePlacedType>,
+    temp_allocator_region: FrameMemoryRegion,
     return_placement: FramePlacedType,
 }
 
@@ -651,6 +652,8 @@ impl TopLevelGenState {
             &mut func_builder,
             frame_and_variable_info.variable_offsets,
             frame_size,
+            frame_and_variable_info.temp_allocator_region,
+            &in_data.assigned_name,
             source_map_wrapper,
         );
 
@@ -751,9 +754,11 @@ pub struct FunctionCodeGen<'a> {
     state: &'a mut CodeGenState,
     builder: &'a mut InstructionBuilder<'a>, // also references things in CodeGenState
     variable_offsets: SeqMap<usize, FramePlacedType>,
-    frame_size: FrameMemorySize,
+    total_frame_size: FrameMemorySize,
+    variable_frame_size: FrameMemorySize,
     temp_allocator: ScopeAllocator,
     argument_allocator: ScopeAllocator,
+    debug_name: String,
     source_map_lookup: &'a SourceMapWrapper<'a>,
 }
 
@@ -764,6 +769,8 @@ impl<'a> FunctionCodeGen<'a> {
         builder: &'a mut InstructionBuilder<'a>,
         variable_offsets: SeqMap<usize, FramePlacedType>,
         frame_size: FrameMemorySize,
+        temp_memory_region: FrameMemoryRegion,
+        debug_name: &str,
         source_map_lookup: &'a SourceMapWrapper,
     ) -> Self {
         const ARGUMENT_MAX_SIZE: u16 = 2 * 1024;
@@ -771,16 +778,15 @@ impl<'a> FunctionCodeGen<'a> {
         Self {
             state,
             variable_offsets,
-            frame_size,
-            temp_allocator: ScopeAllocator::new(FrameMemoryRegion::new(
-                FrameMemoryAddress(frame_size.0 + ARGUMENT_MAX_SIZE),
-                MemorySize(32 * 1024),
-            )),
+            total_frame_size: frame_size,
+            variable_frame_size: temp_memory_region.addr.as_size(),
+            temp_allocator: ScopeAllocator::new(temp_memory_region),
             argument_allocator: ScopeAllocator::new(FrameMemoryRegion::new(
                 FrameMemoryAddress(frame_size.0),
                 MemorySize(ARGUMENT_MAX_SIZE),
             )),
             builder,
+            debug_name: debug_name.to_string(),
             source_map_lookup,
         }
     }
@@ -2469,7 +2475,7 @@ impl FunctionCodeGen<'_> {
                                 self.add_call(
                                     &element.node,
                                     internal_fn,
-                                    &format!("frame size: {}", self.frame_size),
+                                    &format!("frame size: {}", self.total_frame_size),
                                 ); // will be fixed up later
 
                                 self.call_post_helper(
@@ -2943,12 +2949,15 @@ impl FunctionCodeGen<'_> {
     }
 
     fn infinite_above_frame_size(&self) -> FrameMemoryRegion {
-        FrameMemoryRegion::new(FrameMemoryAddress(self.frame_size.0), MemorySize(1024))
+        FrameMemoryRegion::new(
+            FrameMemoryAddress(self.total_frame_size.0),
+            MemorySize(1024),
+        )
     }
 
     fn return_frame_address(&self, ty: &Type) -> FramePlacedType {
         let return_layout = layout_type(ty, "");
-        let addr = FrameMemoryAddress(self.frame_size.0);
+        let addr = FrameMemoryAddress(self.total_frame_size.0);
 
         FramePlacedType::new(addr, return_layout)
     }
@@ -3548,7 +3557,7 @@ impl FunctionCodeGen<'_> {
         self.add_call(
             node,
             internal_fn,
-            &format!("frame size: {}", self.frame_size),
+            &format!("frame size: {}", self.total_frame_size),
         ); // will be fixed up later
 
         self.call_post_helper(node, &internal_fn.signature.signature, None, arguments, ctx)

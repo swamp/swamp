@@ -609,7 +609,8 @@ pub fn disasm(
 
         OpCode::Cmp => &[
             to_read_frame(operands[0], &bytes_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[1])),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
         ],
 
         OpCode::Bnz | OpCode::Bz | OpCode::Call => &[to_jmp_ip(operands[0])],
@@ -852,7 +853,7 @@ pub fn disasm(
                     FrameMemoryAddress(operands[3]),
                     None,
                     FrameMemoryAttribute {
-                        is_temporary: operands[3] >= frame_memory_info.size.0,
+                        is_temporary: operands[3] >= frame_memory_info.variable_frame_size.0,
                     },
                 ),
                 DecoratedOperandAccessKind::MemorySize(MemorySize(operands[4])),
@@ -919,7 +920,7 @@ fn to_read_frame(
     fallback_expected_type: &BasicType,
     frame_memory_info: &FrameMemoryInfo,
 ) -> DecoratedOperandAccessKind {
-    let is_temporary = addr >= frame_memory_info.size.0;
+    let is_temporary = addr >= frame_memory_info.variable_frame_size.0;
     let maybe_path = frame_memory_info.find_path_to_address_items(FrameMemoryAddress(addr));
     DecoratedOperandAccessKind::ReadFrameAddress(
         to_frame(addr),

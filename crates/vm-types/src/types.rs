@@ -801,7 +801,8 @@ pub struct FrameAddressInfo {
 #[derive(Clone, Debug)]
 pub struct FrameMemoryInfo {
     pub infos: Vec<FrameAddressInfo>,
-    pub size: FrameMemorySize,
+    pub total_frame_size: FrameMemorySize,
+    pub variable_frame_size: FrameMemorySize,
 }
 
 #[derive(Clone)]
@@ -854,7 +855,7 @@ impl PathStep {
 impl FrameMemoryInfo {
     #[must_use]
     pub fn size(&self) -> FrameMemorySize {
-        self.size
+        self.total_frame_size
     }
 
     /// Returns a vector of OffsetMemoryItem from root to the one containing the address.

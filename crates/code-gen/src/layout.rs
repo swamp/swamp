@@ -2,8 +2,10 @@ use crate::alloc::ScopeAllocator;
 use crate::{FrameAndVariableInfo, reserve};
 use seq_map::SeqMap;
 use source_map_node::Node;
+use std::fmt::Write;
 use swamp_semantic::{VariableRef, VariableType};
 use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
+use swamp_vm_types::aligner::align;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
     OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo,
@@ -14,7 +16,6 @@ use swamp_vm_types::{
     STRING_HEADER_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
-
 /*
 pub fn type_size_and_alignment(ty: &Type) -> (MemorySize, MemoryAlignment) {
     let complex_type = layout_type(ty, "size_and_alignment");
@@ -414,6 +415,8 @@ pub fn layout_variables(
     variables: &Vec<VariableRef>,
     return_type: &Type,
 ) -> FrameAndVariableInfo {
+    const TEMPORARY_SIZE: MemorySize = MemorySize(16 * 1024);
+
     let mut allocator = ScopeAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
         MemorySize(32 * 1024),
@@ -424,7 +427,7 @@ pub fn layout_variables(
 
     let mut frame_memory_infos = Vec::new();
     if return_placed_type.size().0 != 0 {
-        // Only add return if it is non-zero. Otherwise the debug code is hard to follow.
+        // Only add return if it is non-zero. Otherwise, the debug code is hard to follow.
         frame_memory_infos.push(FrameAddressInfo {
             kind: FrameAddressInfoKind::Return,
             frame_placed_type: return_placed_type.clone(),
@@ -436,12 +439,14 @@ pub fn layout_variables(
     for var_ref in variables {
         let var_frame_placed_type = reserve(&var_ref.resolved_type, &mut allocator);
         trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
-        enter_comment += &format!(
-            "  ${:04X}:{} {}\n",
+        writeln!(
+            &mut enter_comment,
+            "  ${:04X}:{} {}",
             var_frame_placed_type.addr().0,
             var_frame_placed_type.size().0,
             var_ref.assigned_name
-        );
+        )
+        .unwrap();
 
         let kind = match var_ref.variable_type {
             VariableType::Local => FrameAddressInfoKind::Variable(VariableInfo {
@@ -464,14 +469,29 @@ pub fn layout_variables(
             .unwrap();
     }
 
+    let variable_space = allocator.addr().as_size();
+    let allocate_for_temp = if variable_space.0 > (TEMPORARY_SIZE.0 / 2) {
+        TEMPORARY_SIZE
+    } else {
+        let aligned = TEMPORARY_SIZE.0 as usize - align(variable_space.0 as usize, 8);
+        MemorySize(aligned as u16)
+    };
+
+    let temp_allocator_region = FrameMemoryRegion {
+        addr: allocator.allocate(allocate_for_temp, MemoryAlignment::U64),
+        size: allocate_for_temp,
+    };
+
     let frame_size = allocator.addr().as_size();
 
     FrameAndVariableInfo {
         frame_memory: FrameMemoryInfo {
             infos: frame_memory_infos,
-            size: frame_size,
+            total_frame_size: frame_size,
+            variable_frame_size: temp_allocator_region.addr.as_size(),
         },
         return_placement: return_placed_type,
+        temp_allocator_region,
         variable_offsets,
     }
 }
