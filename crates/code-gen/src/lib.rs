@@ -46,7 +46,7 @@ use swamp_vm_types::{
     RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE,
     SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT, STRING_HEADER_COUNT_OFFSET, STRING_HEADER_SIZE,
     StringHeader, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_COUNT_OFFSET,
-    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
+    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -1200,7 +1200,7 @@ impl FunctionCodeGen<'_> {
                     panic!();
                 };
                 let range_header_region = self.emit_expression_location(range_expr);
-                assert_eq!(ctx.target_size(), RANGE_HEADER_SIZE);
+                assert_eq!(range_header_region.size(), RANGE_HEADER_SIZE);
                 self.builder.add_vec_get_range(
                     ctx.target(),
                     &self_addr.unwrap(),  // mut self (string header)
@@ -1221,11 +1221,9 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecWhile => todo!(), // Low prio
             IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
-            IntrinsicFunction::VecLen => self.builder.add_mov32(
+            IntrinsicFunction::VecLen => self.builder.add_vec_len(
                 ctx.target(),
-                &self_addr
-                    .unwrap()
-                    .move_with_offset(VEC_HEADER_COUNT_OFFSET, int_type()),
+                &self_addr.unwrap(),
                 node,
                 "get the vec length",
             ),
@@ -1298,14 +1296,8 @@ impl FunctionCodeGen<'_> {
                 // Never called directly
             }
             IntrinsicFunction::MapLen => {
-                self.builder.add_mov32(
-                    ctx.target(),
-                    &self_addr
-                        .unwrap()
-                        .move_with_offset(MAP_HEADER_COUNT_OFFSET, int_type()),
-                    node,
-                    "map len",
-                );
+                self.builder
+                    .add_map_len(ctx.target(), &self_addr.unwrap(), node, "map len");
             }
             IntrinsicFunction::MapSubscript => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
@@ -3727,7 +3719,7 @@ impl FunctionCodeGen<'_> {
                 _ => panic!("should not happen"),
             };
 
-            assert_eq!(ctx.target_size(), VEC_HEADER_SIZE);
+            assert_eq!(ctx.target_size(), VEC_PTR_SIZE);
             self.builder.add_vec_create(
                 ctx.target(),
                 element_size_in_target_vec,

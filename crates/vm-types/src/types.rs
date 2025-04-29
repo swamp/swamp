@@ -2,10 +2,11 @@ use crate::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HEAP_PTR_ON_FRAME_ALIGNMENT,
     HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemoryRegion,
     InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
-    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset,
-    MemorySize, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT,
-    RANGE_ITERATOR_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, VEC_HEADER_ALIGNMENT,
-    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, align_to,
+    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MAP_PTR_ALIGNMENT, MAP_PTR_SIZE,
+    MemoryAlignment, MemoryOffset, MemorySize, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE,
+    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
+    VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
 };
 use seq_fmt::comma;
 use std::fmt::{Display, Formatter, Write};
@@ -222,11 +223,11 @@ pub enum BasicTypeKind {
     S32,
     Fixed32,
     U32,
-    InternalStringHeader,
+    InternalStringPointer,
     InternalRangeHeader,
-    InternalVecHeader,
-    InternalMapHeader,
-    InternalGridHeader,
+    InternalVecPointer,
+    InternalMapPointer,
+    InternalGridPointer,
     InternalVecIterator,
     InternalMapIterator,
     InternalRangeIterator,
@@ -252,11 +253,11 @@ impl Display for BasicTypeKind {
             Self::Bytes => write!(f, "[u8]"),
             Self::Fixed32 => write!(f, "fixed"),
             Self::U32 => write!(f, "u32"),
-            Self::InternalStringHeader => write!(f, "String"),
+            Self::InternalStringPointer => write!(f, "String"),
             Self::InternalRangeHeader => write!(f, "Range"),
-            Self::InternalVecHeader => write!(f, "Vec"),
-            Self::InternalMapHeader => write!(f, "Map"),
-            Self::InternalGridHeader => write!(f, "Grid"),
+            Self::InternalVecPointer => write!(f, "Vec"),
+            Self::InternalMapPointer => write!(f, "Map"),
+            Self::InternalGridPointer => write!(f, "Grid"),
             Self::InternalVecIterator => write!(f, "Vec::Iterator"),
             Self::InternalMapIterator => write!(f, "Map::Iterator"),
             Self::InternalRangeIterator => write!(f, "Range::Iterator"),
@@ -358,7 +359,7 @@ pub const fn indirect_heap_ptr_type() -> BasicType {
 #[must_use]
 pub const fn string_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::InternalStringHeader,
+        kind: BasicTypeKind::InternalStringPointer,
         total_size: STRING_HEADER_SIZE,
         max_alignment: STRING_HEADER_ALIGNMENT,
     }
@@ -419,9 +420,9 @@ pub fn slice_type() -> BasicType {
 #[must_use]
 pub const fn vec_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::InternalVecHeader,
-        total_size: VEC_HEADER_SIZE,
-        max_alignment: VEC_HEADER_ALIGNMENT,
+        kind: BasicTypeKind::InternalVecPointer,
+        total_size: VEC_PTR_SIZE,
+        max_alignment: VEC_PTR_ALIGNMENT,
     }
 }
 
@@ -437,9 +438,9 @@ pub const fn vec_iter_type() -> BasicType {
 #[must_use]
 pub const fn map_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::InternalMapHeader,
-        total_size: MAP_HEADER_SIZE,
-        max_alignment: MAP_HEADER_ALIGNMENT,
+        kind: BasicTypeKind::InternalMapPointer,
+        total_size: MAP_PTR_SIZE,
+        max_alignment: MAP_PTR_ALIGNMENT,
     }
 }
 
@@ -735,7 +736,7 @@ impl BasicType {
 
     #[must_use]
     pub fn is_str(&self) -> bool {
-        matches!(self.kind, BasicTypeKind::InternalStringHeader)
+        matches!(self.kind, BasicTypeKind::InternalStringPointer)
             && self.total_size == STRING_HEADER_SIZE
             && self.max_alignment == STRING_HEADER_ALIGNMENT
     }
@@ -1108,7 +1109,7 @@ pub fn write_basic_type(
             show_offset_item(value_type, origin, f, tabs + 1)?;
             write!(f, "|]")
         }
-        BasicTypeKind::InternalStringHeader => {
+        BasicTypeKind::InternalStringPointer => {
             write!(f, "str")
         }
         BasicTypeKind::InternalRangeHeader => {
@@ -1117,13 +1118,13 @@ pub fn write_basic_type(
         BasicTypeKind::IndirectHeapPointerOnFrame => {
             write!(f, "heap_ptr")
         }
-        BasicTypeKind::InternalVecHeader => {
+        BasicTypeKind::InternalVecPointer => {
             write!(f, "vec<>")
         }
-        BasicTypeKind::InternalMapHeader => {
+        BasicTypeKind::InternalMapPointer => {
             write!(f, "map<>")
         }
-        BasicTypeKind::InternalGridHeader => {
+        BasicTypeKind::InternalGridPointer => {
             write!(f, "grid<>")
         }
         BasicTypeKind::InternalVecIterator => {

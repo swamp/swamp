@@ -436,6 +436,9 @@ pub const VEC_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 pub const VEC_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
 
+pub const VEC_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
+pub const VEC_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
+
 #[repr(C)]
 pub struct VecIterator {
     pub vec_header_frame_offset: u32,
@@ -472,6 +475,8 @@ pub struct GridHeader {
 
 pub const GRID_HEADER_SIZE: MemorySize = MemorySize(size_of::<GridHeader>() as u16);
 pub const GRID_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+pub const GRID_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
+pub const GRID_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 
 #[repr(C)]
 pub struct MapHeader {
@@ -482,6 +487,9 @@ pub struct MapHeader {
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 pub const MAP_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
+
+pub const MAP_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
+pub const MAP_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 
 #[repr(C)]
 pub struct MapIterator {
@@ -502,6 +510,9 @@ pub struct StringHeader {
 pub const STRING_HEADER_SIZE: MemorySize = MemorySize(size_of::<StringHeader>() as u16);
 pub const STRING_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
 pub const STRING_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+
+pub const STRING_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
+pub const STRING_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 
 #[repr(C)]
 pub struct SliceHeader {

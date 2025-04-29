@@ -720,6 +720,11 @@ pub fn disasm(
             to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
 
+        OpCode::VecLen => &[
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &vec_type(), frame_memory_info),
+        ],
+
         OpCode::VecGetRange => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
@@ -761,6 +766,11 @@ pub fn disasm(
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &map_type(), frame_memory_info),
             to_read_frame(operands[2], &bytes_type(), frame_memory_info),
+        ],
+
+        OpCode::MapLen => &[
+            to_write_frame(operands[0], &int_type(), frame_memory_info),
+            to_read_frame(operands[1], &map_type(), frame_memory_info),
         ],
 
         OpCode::MapSet => &[

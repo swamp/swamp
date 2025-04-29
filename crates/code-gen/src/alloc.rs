@@ -51,7 +51,7 @@ impl ScopeAllocator {
     pub fn reserve_iterator(&mut self, collection: Collection) -> FramePlacedType {
         let gen_type = match collection {
             Collection::Vec => BasicType {
-                kind: BasicTypeKind::InternalVecHeader,
+                kind: BasicTypeKind::InternalVecPointer,
                 total_size: VEC_ITERATOR_SIZE,
                 max_alignment: VEC_ITERATOR_ALIGNMENT,
             },

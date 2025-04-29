@@ -82,24 +82,14 @@ impl FunctionCodeGen<'_> {
 
         let node = &location_expression.node;
 
-        let mut intermediates = vec![frame_relative_base_address.clone()];
-
         let chain_len = location_expression.access_chain.len();
-        let accesses = if source_value_to_assign.is_some() {
-            // For assignment, skip the last access
-            location_expression.access_chain.iter().take(chain_len - 1)
-        } else {
-            // For RHS, it is a normal lookup so we just everything
-            location_expression.access_chain.iter().take(chain_len)
-        };
 
         // Loop over the consecutive accesses until we find the actual frame relative address (FramePlacedType)
-        for access in accesses {
+        for access in &location_expression.access_chain {
             match &access.kind {
                 LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
                     frame_relative_base_address =
                         frame_relative_base_address.move_to_field(*field_index);
-                    intermediates.push(frame_relative_base_address.clone());
                 }
                 LocationAccessKind::IntrinsicCallMut(
                     intrinsic_function,
@@ -120,59 +110,22 @@ impl FunctionCodeGen<'_> {
                     );
 
                     frame_relative_base_address = ctx.target().clone();
-                    let key_expression = &arguments_to_the_intrinsic[0];
-                    intermediates.push(frame_relative_base_address.clone());
                 }
             }
         }
 
-        // If this is an assignment (LHS), do the assignment and copy-back
+        // This is wrong?
         if let Some(value_to_assign) = source_value_to_assign {
-            let n = location_expression.access_chain.len();
-
-            // to make the code more clean, we push in the value_to_assign as a last "intermediate"
-            intermediates.push(value_to_assign);
-
-            let mut collection_set_updated_field = false;
-            // Process all accesses in reverse order
-            for i in (0..n).rev() {
-                let access = &location_expression.access_chain[i];
-                let parent_addr = &intermediates[i];
-                let child_addr = &intermediates[i + 1];
-                match &access.kind {
-                    LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
-                        if collection_set_updated_field {
-                            let parent_field_target = parent_addr.move_to_field(*field_index);
-
-                            // Skip the move since it was updated by the collection set
-                            collection_set_updated_field = false;
-                        } else {
-                            // Set the field in the parent struct
-                            let parent_field_target = parent_addr.move_to_field(*field_index);
-                            self.builder.add_mov_for_assignment(
-                                &parent_field_target,
-                                child_addr,
-                                node,
-                                &format!("copy back field index {}", parent_field_target.ty()),
-                            );
-                        }
-                    }
-                    LocationAccessKind::IntrinsicCallMut(
-                        _intrinsic_function,
-                        arguments_to_the_intrinsic,
-                    ) => {
-                        // Set the value in the parent container (map_set, vec_set, etc.)
-                        let key_expr = &arguments_to_the_intrinsic[0];
-                        self.emit_collection_set(
-                            &location_expression.node,
-                            parent_addr,
-                            arguments_to_the_intrinsic,
-                            child_addr,
-                        );
-                        collection_set_updated_field = true;
-                    }
-                }
-            }
+            self.builder.add_mov_for_assignment(
+                &frame_relative_base_address,
+                &value_to_assign,
+                node,
+                &format!(
+                    "copy back after chain {} <- {}",
+                    value_to_assign.ty(),
+                    frame_relative_base_address.ty()
+                ),
+            );
         }
 
         frame_relative_base_address
@@ -187,10 +140,10 @@ impl FunctionCodeGen<'_> {
     ) {
         let key_address = self.emit_expression_location(&key_or_index[0]);
         match &self_collection.ty().kind {
-            BasicTypeKind::InternalStringHeader => {
+            BasicTypeKind::InternalStringPointer => {
                 todo!()
             }
-            BasicTypeKind::InternalVecHeader => {
+            BasicTypeKind::InternalVecPointer => {
                 assert!(key_address.ty().is_int());
                 self.builder.add_vec_set(
                     self_collection,
@@ -200,7 +153,7 @@ impl FunctionCodeGen<'_> {
                     "copy back collection set (vec)",
                 );
             }
-            BasicTypeKind::InternalMapHeader => {
+            BasicTypeKind::InternalMapPointer => {
                 self.builder.add_map_set(
                     self_collection,
                     &key_address,
@@ -222,10 +175,10 @@ impl FunctionCodeGen<'_> {
     ) {
         let key_address = self.emit_expression_location(&key_or_index[0]);
         match &self_collection.ty().kind {
-            BasicTypeKind::InternalStringHeader => {
+            BasicTypeKind::InternalStringPointer => {
                 todo!()
             }
-            BasicTypeKind::InternalVecHeader => {
+            BasicTypeKind::InternalVecPointer => {
                 assert!(key_address.ty().is_int());
                 self.builder.add_vec_get(
                     ctx.target(),
@@ -235,7 +188,7 @@ impl FunctionCodeGen<'_> {
                     "collection get (vec)",
                 );
             }
-            BasicTypeKind::InternalMapHeader => {
+            BasicTypeKind::InternalMapPointer => {
                 self.builder.add_map_fetch(
                     ctx.target(),
                     self_collection,

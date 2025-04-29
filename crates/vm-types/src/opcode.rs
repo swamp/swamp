@@ -129,6 +129,7 @@ pub enum OpCode {
     VecIterNextPair,
     VecFromSlice,
     VecPush,
+    VecLen,
     VecFetch,
     VecSet,
     VecRemoveIndex,
@@ -144,6 +145,7 @@ pub enum OpCode {
     MapIterNext,
     MapIterNextPair,
     MapNewFromPairs,
+    MapLen,
     MapRemove,
     MapHas,
     MapFetch,
@@ -277,6 +279,7 @@ impl OpCode {
             Self::VecIterNext => "vitern",
             Self::VecIterNextPair => "viternp",
             Self::VecFetch => "vget",
+            Self::VecLen => "vlen",
             Self::VecSet => "vset",
             Self::VecRemoveIndex => "vrem",
             Self::VecPop => "vpop",
@@ -296,6 +299,7 @@ impl OpCode {
             Self::MapHas => "mhas",
             Self::MapFetch => "mget",
             Self::MapSet => "mset",
+            Self::MapLen => "mlen",
 
             // String
             Self::StringAppend => "sapp",

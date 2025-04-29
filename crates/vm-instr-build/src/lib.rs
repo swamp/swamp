@@ -146,6 +146,8 @@ pub struct InstructionBuilder<'a> {
 
 impl<'a> InstructionBuilder<'a> {}
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -249,7 +251,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             vec_self_addr.ty().kind,
-            BasicTypeKind::InternalVecHeader
+            BasicTypeKind::InternalVecPointer
         ));
         assert_eq!(int_index_a.size(), int_index_b.size());
         self.state.add_instruction(
@@ -274,7 +276,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecHeader
+            BasicTypeKind::InternalVecPointer
         ));
         self.state.add_instruction(
             OpCode::VecGet,
@@ -294,7 +296,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecHeader
+            BasicTypeKind::InternalVecPointer
         ));
         self.state.add_instruction(
             OpCode::VecGet,
@@ -314,7 +316,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             vec_self_addr.ty().kind,
-            BasicTypeKind::InternalVecHeader
+            BasicTypeKind::InternalVecPointer
         ));
 
         self.state.add_instruction(
@@ -339,12 +341,28 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecHeader
+            BasicTypeKind::InternalVecPointer
         ));
 
         self.state.add_instruction(
             OpCode::VecSet,
             &[self_addr.addr().0, index.addr().0, value_addr.addr().0],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_vec_len(
+        &mut self,
+        target: &FramePlacedType,
+        self_vec: &FramePlacedType,
+        node: &Node,
+        comment: &str,
+    ) {
+        matches!(self_vec.ty().kind, BasicTypeKind::InternalVecPointer);
+        self.state.add_instruction(
+            OpCode::VecLen,
+            &[target.addr().0, self_vec.addr().0],
             node,
             comment,
         );
@@ -358,7 +376,7 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         assert!(
-            matches!(self_addr.ty().kind, BasicTypeKind::InternalVecHeader),
+            matches!(self_addr.ty().kind, BasicTypeKind::InternalVecPointer),
             "what is this {:?}",
             self_addr.ty()
         );
@@ -380,7 +398,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecHeader
+            BasicTypeKind::InternalVecPointer
         ));
         self.state.add_instruction(
             OpCode::VecPop,
@@ -399,7 +417,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecHeader
+            BasicTypeKind::InternalVecPointer
         ));
         self.state.add_instruction(
             OpCode::VecRemoveIndex,
@@ -419,7 +437,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecHeader
+            BasicTypeKind::InternalVecPointer
         ));
         self.state.add_instruction(
             OpCode::VecRemoveIndexGetValue,
@@ -1460,9 +1478,25 @@ impl InstructionBuilder<'_> {
     }
 
     pub fn add_map_has(&mut self, self_addr: &FramePlacedType, node: &Node, comment: &str) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
         self.state
             .add_instruction(OpCode::MapHas, &[self_addr.addr().0], node, comment);
+    }
+
+    pub fn add_map_len(
+        &mut self,
+        target: &FramePlacedType,
+        self_addr: &FramePlacedType,
+        node: &Node,
+        comment: &str,
+    ) {
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
+        self.state.add_instruction(
+            OpCode::MapLen,
+            &[target.addr().0, self_addr.addr().0],
+            node,
+            comment,
+        );
     }
 
     pub fn add_map_remove(
@@ -1472,7 +1506,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
         self.state.add_instruction(
             OpCode::MapRemove,
             &[self_addr.addr().0, key_addr.addr().0],
@@ -1489,7 +1523,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
         self.state.add_instruction(
             OpCode::MapFetch,
             &[target_addr.addr().0, self_addr.addr().0, key.addr().0],
@@ -1506,7 +1540,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapHeader);
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
 
         self.state.add_instruction(
             OpCode::MapSet,
