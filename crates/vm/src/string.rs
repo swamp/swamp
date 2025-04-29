@@ -104,4 +104,25 @@ impl Vm {
         }
     }
          */
+
+    pub(crate) fn create_string(&mut self, string: &str) -> u32 {
+        let rune_bytes = string.as_bytes();
+        let runes_in_heap = self.heap_allocate_with_data(rune_bytes);
+
+        let string_header = StringHeader {
+            heap_offset: runes_in_heap,
+            byte_count: rune_bytes.len() as u32,
+            capacity: rune_bytes.len() as u32,
+        };
+
+        // Convert string header to bytes (little-endian)
+        let mut header_bytes = [0u8; 12];
+        header_bytes[0..4].copy_from_slice(&string_header.heap_offset.to_le_bytes());
+        header_bytes[4..8].copy_from_slice(&string_header.byte_count.to_le_bytes());
+        header_bytes[8..12].copy_from_slice(&string_header.capacity.to_le_bytes());
+
+        let header_ptr_in_heap = self.heap_allocate_with_data(&header_bytes);
+
+        header_ptr_in_heap
+    }
 }

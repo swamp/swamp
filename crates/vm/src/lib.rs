@@ -14,6 +14,7 @@ use swamp_vm_types::{
 };
 
 pub mod frame;
+mod heap;
 pub mod host;
 mod map;
 mod map_open;
@@ -522,27 +523,6 @@ impl Vm {
         }
     }
 
-    fn create_string(&mut self, string: &str) -> u32 {
-        let rune_bytes = string.as_bytes();
-        let runes_in_heap = self.heap_allocate_with_data(rune_bytes);
-
-        let string_header = StringHeader {
-            heap_offset: runes_in_heap,
-            byte_count: rune_bytes.len() as u32,
-            capacity: rune_bytes.len() as u32,
-        };
-
-        // Convert string header to bytes (little-endian)
-        let mut header_bytes = [0u8; 12];
-        header_bytes[0..4].copy_from_slice(&string_header.heap_offset.to_le_bytes());
-        header_bytes[4..8].copy_from_slice(&string_header.byte_count.to_le_bytes());
-        header_bytes[8..12].copy_from_slice(&string_header.capacity.to_le_bytes());
-
-        let header_ptr_in_heap = self.heap_allocate_with_data(&header_bytes);
-
-        header_ptr_in_heap
-    }
-
     #[inline]
     fn execute_f32_sign(&mut self, dst_offset: u16, val_offset: u16) {
         let dst_ptr = self.frame_ptr_i32_at(dst_offset);
@@ -956,42 +936,6 @@ impl Vm {
         unsafe {
             std::ptr::copy(src_ptr, dst_ptr, size as usize);
         }
-    }
-
-    // Helper to convert offset to pointer
-
-    #[inline(always)]
-    fn heap_allocate(&mut self, size: usize) -> u32 {
-        let aligned_size = (size + ALIGNMENT_REST) & ALIGNMENT_MASK;
-        let aligned_offset = (self.heap_alloc_offset + ALIGNMENT_REST) & ALIGNMENT_MASK;
-
-        eprintln!(
-            "heap_allocate original_size:{size}, aligned_size: {aligned_size} offset: {aligned_offset:08X} ({aligned_offset})"
-        );
-
-        debug_assert!(
-            aligned_offset + aligned_size <= self.heap_memory_size,
-            "Out of memory"
-        );
-
-        self.heap_alloc_offset = aligned_offset + aligned_size;
-
-        aligned_offset as u32
-    }
-
-    #[inline(always)]
-    fn heap_allocate_with_data(&mut self, octets: &[u8]) -> u32 {
-        let offset = self.heap_allocate(octets.len());
-        {
-            unsafe {
-                ptr::copy_nonoverlapping(
-                    octets.as_ptr(),
-                    self.heap_ptr_at(offset as usize),
-                    octets.len(),
-                );
-            }
-        }
-        offset
     }
 
     pub fn debug_opcode(&self, opcode: u8, operands: &[u16; 5]) {
