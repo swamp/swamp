@@ -9,9 +9,7 @@ use fixed32::Fp;
 use seq_map::SeqMap;
 use std::{alloc, ptr, slice};
 use swamp_vm_types::opcode::OpCode;
-use swamp_vm_types::{
-    BinaryInstruction, InstructionPosition, StringHeader, VEC_ITERATOR_SIZE, VecHeader, VecIterator,
-};
+use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
 pub mod frame;
 mod heap;
@@ -342,12 +340,6 @@ impl Vm {
         self.frame_offset
     }
 
-    // Read a value at a specific offset from memory
-    #[must_use]
-    pub fn get_i32(&self, offset: usize) -> i32 {
-        unsafe { *(self.ptr_at_i32(offset) as *const i32) }
-    }
-
     pub fn load_bytecode(&mut self, instructions: Vec<BinaryInstruction>) {
         self.instructions = instructions;
         self.ip = 0;
@@ -358,7 +350,7 @@ impl Vm {
     fn execute_ld32(&mut self, dst_offset: u16, lower_bits: u16, upper_bits: u16) {
         let value = ((upper_bits as u32) << 16) | (lower_bits as u32);
 
-        let dst_ptr = self.ptr_at_u32(self.frame_offset + dst_offset as usize) as *mut u32;
+        let dst_ptr = self.get_frame_ptr_as_u32(dst_offset);
         unsafe {
             *dst_ptr = value;
         }
@@ -366,7 +358,7 @@ impl Vm {
 
     #[inline]
     pub fn execute_unwrap_jmp_some(&mut self, optional_addr: u16, jmp_offset: u16) {
-        let tag_value = self.frame_u8_at(optional_addr);
+        let tag_value = self.read_frame_u8(optional_addr);
         if tag_value != 0 {
             self.ip = jmp_offset as usize;
         }
@@ -374,7 +366,7 @@ impl Vm {
 
     #[inline]
     pub fn execute_unwrap_jmp_none(&mut self, optional_addr: u16, jmp_offset: u16) {
-        let tag_value = self.frame_u8_at(optional_addr);
+        let tag_value = self.read_frame_u8(optional_addr);
         if tag_value == 0 {
             self.ip = jmp_offset as usize;
         }
@@ -382,7 +374,7 @@ impl Vm {
 
     #[inline]
     fn execute_ld16(&mut self, dst_offset: u16, data: u16) {
-        let dst_ptr = self.ptr_at_u16(self.frame_offset + dst_offset as usize) as *mut u16;
+        let dst_ptr = self.get_frame_ptr_as_u16(dst_offset);
         unsafe {
             *dst_ptr = data;
         }
@@ -391,7 +383,7 @@ impl Vm {
     #[inline]
     fn execute_alloc(&mut self, dst_offset: u16, memory_size: u16) {
         let data_ptr = self.heap_allocate(memory_size as usize);
-        let dst_ptr = self.ptr_at_u32(self.frame_offset + dst_offset as usize) as *mut u32;
+        let dst_ptr = self.get_frame_ptr_as_u32(dst_offset);
         unsafe {
             *dst_ptr = data_ptr;
         }
@@ -399,7 +391,7 @@ impl Vm {
 
     #[inline]
     fn execute_ld8(&mut self, dst_offset: u16, octet: u16) {
-        let dst_ptr = self.frame_ptr_bool_at(dst_offset);
+        let dst_ptr = self.get_frame_ptr(dst_offset);
         unsafe {
             *dst_ptr = octet as u8;
         }
@@ -408,9 +400,9 @@ impl Vm {
     // Fixed Point special methods
     #[inline]
     fn execute_mul_f32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -421,9 +413,9 @@ impl Vm {
 
     #[inline]
     fn execute_div_f32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -434,8 +426,8 @@ impl Vm {
 
     #[inline]
     fn execute_f32_round(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         unsafe {
             *dst_ptr = Fp::from_raw(*val_ptr).round().into();
@@ -444,8 +436,8 @@ impl Vm {
 
     #[inline]
     fn execute_f32_floor(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         unsafe {
             *dst_ptr = Fp::from_raw(*val_ptr).floor().into();
@@ -454,8 +446,8 @@ impl Vm {
 
     #[inline]
     fn execute_f32_sqrt(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         unsafe {
             *dst_ptr = Fp::from_raw(*val_ptr).sqrt().inner();
@@ -464,8 +456,8 @@ impl Vm {
 
     #[inline]
     fn execute_f32_sin(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         unsafe {
             *dst_ptr = Fp::from_raw(*val_ptr).sin().inner();
@@ -474,8 +466,8 @@ impl Vm {
 
     #[inline]
     fn execute_f32_asin(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         unsafe {
             *dst_ptr = Fp::from_raw(*val_ptr).asin().inner();
@@ -484,8 +476,8 @@ impl Vm {
 
     #[inline]
     fn execute_f32_cos(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         unsafe {
             *dst_ptr = Fp::from_raw(*val_ptr).cos().inner();
@@ -494,8 +486,8 @@ impl Vm {
 
     #[inline]
     fn execute_f32_acos(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         unsafe {
             *dst_ptr = Fp::from_raw(*val_ptr).acos().inner();
@@ -504,8 +496,8 @@ impl Vm {
 
     #[inline]
     fn execute_f32_atan2(&mut self, dst_offset: u16, val_offset: u16, y_offset: u16) {
-        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         // TODO: Implement atan2 in fixed32
         todo!()
@@ -513,8 +505,8 @@ impl Vm {
 
     #[inline]
     fn execute_f32_to_string(&mut self, dst_string: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_indirect_heap_mut_at(dst_string);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_heap_u32_ptr_via_frame(dst_string);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         let fp = unsafe { Fp::from_raw(*val_ptr) };
 
@@ -525,8 +517,8 @@ impl Vm {
 
     #[inline]
     fn execute_f32_sign(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_i32_at(dst_offset);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         unsafe {
             let v = *val_ptr;
@@ -546,8 +538,8 @@ impl Vm {
 
     #[inline]
     fn execute_neg_i32(&mut self, dst_offset: u16, lhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize);
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -557,9 +549,9 @@ impl Vm {
 
     #[inline]
     fn execute_add_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset) as *mut i32;
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -570,9 +562,9 @@ impl Vm {
 
     #[inline]
     fn execute_mul_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -583,9 +575,9 @@ impl Vm {
 
     #[inline]
     fn execute_sub_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -596,9 +588,9 @@ impl Vm {
 
     #[inline]
     fn execute_mod_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -609,9 +601,9 @@ impl Vm {
 
     #[inline]
     fn execute_div_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -622,8 +614,8 @@ impl Vm {
 
     #[inline]
     fn execute_lt_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.frame_ptr_i32_const_at(lhs_offset);
-        let rhs_ptr = self.frame_ptr_i32_const_at(rhs_offset);
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -634,8 +626,8 @@ impl Vm {
 
     #[inline]
     fn execute_le_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.frame_ptr_i32_const_at(lhs_offset);
-        let rhs_ptr = self.frame_ptr_i32_const_at(rhs_offset);
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -646,8 +638,8 @@ impl Vm {
 
     #[inline]
     fn execute_gt_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.frame_ptr_i32_const_at(lhs_offset);
-        let rhs_ptr = self.frame_ptr_i32_const_at(rhs_offset);
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -658,8 +650,8 @@ impl Vm {
 
     #[inline]
     fn execute_ge_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.frame_ptr_i32_const_at(lhs_offset);
-        let rhs_ptr = self.frame_ptr_i32_const_at(rhs_offset);
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -670,8 +662,8 @@ impl Vm {
 
     #[inline]
     fn execute_prnd_i32(&mut self, dst_offset: u16, src_offset: u16) {
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
-        let src_ptr = self.ptr_at_i32(self.frame_offset + src_offset as usize) as *mut i32;
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let src_ptr = self.get_frame_const_ptr_as_i32(src_offset);
 
         unsafe {
             *dst_ptr = squirrel_prng::squirrel_noise5(*src_ptr as u32, 0) as i32;
@@ -680,8 +672,8 @@ impl Vm {
 
     #[inline]
     fn execute_i32_to_string(&mut self, dst_string: u16, val_offset: u16) {
-        let dst_ptr = self.frame_ptr_indirect_heap_mut_at(dst_string);
-        let val_ptr = self.frame_ptr_i32_const_at(val_offset);
+        let dst_ptr = self.get_heap_u32_ptr_via_frame(dst_string);
+        let val_ptr = self.get_frame_const_ptr_as_i32(val_offset);
 
         unsafe {
             *dst_ptr = self.create_string(&(*val_ptr).to_string());
@@ -690,8 +682,8 @@ impl Vm {
 
     #[inline]
     fn execute_i32_to_f32(&mut self, float_dest: u16, int_source: u16) {
-        let source_ptr = self.frame_ptr_i32_const_at(int_source);
-        let dst_ptr = self.frame_ptr_i32_at(float_dest);
+        let source_ptr = self.get_frame_const_ptr_as_i32(int_source);
+        let dst_ptr = self.get_frame_ptr_as_i32(float_dest);
 
         unsafe {
             *dst_ptr = Fp::from((*source_ptr) as i16).inner();
@@ -699,12 +691,12 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_abs_i32(&mut self, dst_offset: u16, lhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+    fn execute_abs_i32(&mut self, dst_offset: u16, src_offset: u16) {
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
+        let src_ptr = self.get_frame_const_ptr_as_i32(src_offset);
 
         unsafe {
-            let lhs = *lhs_ptr;
+            let lhs = *src_ptr;
 
             *dst_ptr = if lhs < 0 { -lhs } else { lhs }
         }
@@ -712,9 +704,9 @@ impl Vm {
 
     #[inline]
     fn execute_min_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -730,9 +722,9 @@ impl Vm {
 
     #[inline]
     fn execute_max_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.ptr_at_i32(self.frame_offset + lhs_offset as usize) as *const i32;
-        let rhs_ptr = self.ptr_at_i32(self.frame_offset + rhs_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let lhs_ptr = self.get_frame_const_ptr_as_i32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_i32(rhs_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
 
         unsafe {
             let lhs = *lhs_ptr;
@@ -754,10 +746,10 @@ impl Vm {
         min_offset: u16,
         max_offset: u16,
     ) {
-        let v_ptr = self.ptr_at_i32(self.frame_offset + v_offset as usize) as *const i32;
-        let min_ptr = self.ptr_at_i32(self.frame_offset + min_offset as usize) as *const i32;
-        let max_ptr = self.ptr_at_i32(self.frame_offset + max_offset as usize) as *const i32;
-        let dst_ptr = self.ptr_at_i32(self.frame_offset + dst_offset as usize) as *mut i32;
+        let v_ptr = self.get_frame_const_ptr_as_i32(v_offset);
+        let min_ptr = self.get_frame_const_ptr_as_i32(min_offset);
+        let max_ptr = self.get_frame_const_ptr_as_i32(max_offset);
+        let dst_ptr = self.get_frame_ptr_as_i32(dst_offset);
 
         unsafe {
             let v = *v_ptr;
@@ -778,8 +770,8 @@ impl Vm {
 
     #[inline]
     fn execute_cmp(&mut self, lhs_offset: u16, rhs_offset: u16, count: u16) {
-        let lhs_ptr = self.frame_ptr_at(lhs_offset);
-        let rhs_ptr = self.frame_ptr_at(rhs_offset);
+        let lhs_ptr = self.get_frame_const_ptr(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr(rhs_offset);
 
         // SAFETY: The caller must ensure that lhs_offset, rhs_offset, and count
         // define valid, readable memory ranges within the current stack frame.
@@ -793,8 +785,8 @@ impl Vm {
 
     #[inline]
     fn execute_cmp_8(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.frame_ptr_at(lhs_offset);
-        let rhs_ptr = self.frame_ptr_at(rhs_offset);
+        let lhs_ptr = self.get_frame_ptr(lhs_offset);
+        let rhs_ptr = self.get_frame_ptr(rhs_offset);
 
         unsafe {
             self.flags.z = *lhs_ptr == *rhs_ptr;
@@ -803,8 +795,8 @@ impl Vm {
 
     #[inline]
     fn execute_cmp_32(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.frame_ptr_at(lhs_offset) as *const u32;
-        let rhs_ptr = self.frame_ptr_at(rhs_offset) as *const u32;
+        let lhs_ptr = self.get_frame_const_ptr_as_u32(lhs_offset);
+        let rhs_ptr = self.get_frame_const_ptr_as_u32(rhs_offset);
 
         unsafe {
             self.flags.z = *lhs_ptr == *rhs_ptr;
@@ -813,13 +805,13 @@ impl Vm {
 
     #[inline]
     fn execute_eq_8_imm(&mut self, lhs_offset: u16, rhs_u8_in_u16: u16) {
-        let lhs_u8 = self.frame_u8_at(lhs_offset);
+        let lhs_u8 = self.read_frame_u8(lhs_offset);
         self.flags.z = lhs_u8 < rhs_u8_in_u16 as u8;
     }
 
     #[inline]
     fn execute_tst8(&mut self, lhs_offset: u16) {
-        let lhs_u8 = self.frame_u8_at(lhs_offset);
+        let lhs_u8 = self.read_frame_u8(lhs_offset);
         self.flags.z = lhs_u8 == 1;
     }
 
@@ -830,7 +822,7 @@ impl Vm {
 
     #[inline]
     fn execute_stz(&mut self, target: u16) {
-        let target_ptr = self.frame_ptr_at(target);
+        let target_ptr = self.get_frame_ptr(target);
         unsafe {
             *target_ptr = self.flags.z as u8;
         }
@@ -838,7 +830,7 @@ impl Vm {
 
     #[inline]
     fn execute_stnz(&mut self, target: u16) {
-        let target_ptr = self.frame_ptr_at(target);
+        let target_ptr = self.get_frame_ptr(target);
         unsafe {
             *target_ptr = !self.flags.z as u8;
         }
@@ -875,8 +867,8 @@ impl Vm {
 
     #[inline]
     fn execute_mov(&mut self, dst_offset: u16, src_offset: u16, size: u16) {
-        let src_ptr = self.ptr_at_u16(self.frame_offset + src_offset as usize);
-        let dst_ptr = self.ptr_at_u16(self.frame_offset + dst_offset as usize);
+        let src_ptr = self.get_frame_ptr_as_u16(src_offset);
+        let dst_ptr = self.get_frame_ptr_as_u16(dst_offset);
 
         unsafe {
             std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, size as usize);
@@ -885,8 +877,8 @@ impl Vm {
 
     #[inline]
     fn execute_mov32(&mut self, dst_offset: u16, src_offset: u16) {
-        let src_ptr = self.ptr_at_u32(self.frame_offset + src_offset as usize);
-        let dst_ptr = self.ptr_at_u32(self.frame_offset + dst_offset as usize);
+        let src_ptr = self.get_frame_ptr_as_u32(src_offset);
+        let dst_ptr = self.get_frame_ptr_as_u32(dst_offset);
 
         unsafe {
             std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, 4);
@@ -902,8 +894,8 @@ impl Vm {
         memory_size: u16,
     ) {
         let const_offset = ((const_upper as u32) << 16) | (const_lower as u32);
-        let dst_ptr = self.frame_ptr_at(dst_offset);
-        let src_ptr = self.heap_ptr_immut_at(const_offset as usize);
+        let dst_ptr = self.get_frame_ptr(dst_offset);
+        let src_ptr = self.get_heap_const_ptr(const_offset as usize);
 
         unsafe {
             ptr::copy_nonoverlapping(src_ptr, dst_ptr, memory_size as usize);
@@ -920,18 +912,18 @@ impl Vm {
         memory_size: u16,
     ) {
         let indirect_offset = ((const_upper as u32) << 16) | (const_lower as u32);
-        let dst_heap_ptr = self.frame_ptr_indirect_heap_at_with_offset(dst_offset, indirect_offset);
-        let source_ptr = self.frame_ptr_at(source_offset);
+        let dst_heap_ptr = self.get_heap_ptr_via_frame_with_offset(dst_offset, indirect_offset);
+        let source_ptr = self.get_frame_const_ptr(source_offset);
 
         unsafe {
-            ptr::copy_nonoverlapping(dst_heap_ptr, source_ptr, memory_size as usize);
+            ptr::copy_nonoverlapping(source_ptr, dst_heap_ptr, memory_size as usize);
         }
     }
 
     #[inline]
     fn execute_mov_lp(&mut self, dst_offset: u16, src_offset: u16, size: u16) {
-        let src_ptr = self.ptr_at_u16(self.frame_offset + src_offset as usize);
-        let dst_ptr = self.ptr_at_u16(self.frame_offset + dst_offset as usize);
+        let src_ptr = self.get_frame_ptr_as_u16(src_offset);
+        let dst_ptr = self.get_frame_ptr_as_u16(dst_offset);
 
         unsafe {
             std::ptr::copy(src_ptr, dst_ptr, size as usize);

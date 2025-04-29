@@ -23,8 +23,8 @@ impl Vm {
 
         // Copy the slice from Frame to Heap.
         unsafe {
-            let source_ptr = self.frame_ptr_bool_at(source_slice_addr);
-            let dest_ptr = self.heap_ptr_at(heap_offset as usize);
+            let source_ptr = self.get_frame_ptr(source_slice_addr);
+            let dest_ptr = self.get_heap_ptr(heap_offset as usize);
 
             ptr::copy_nonoverlapping(source_ptr, dest_ptr, slice_size);
         }
@@ -41,19 +41,19 @@ impl Vm {
 
         // Copy the Vec header to Heap.
         unsafe {
-            let header_ptr = self.heap_ptr_at(header_offset as usize) as *mut VecHeader;
+            let header_ptr = self.get_heap_ptr(header_offset as usize) as *mut VecHeader;
             ptr::write(header_ptr, vec_header);
         }
 
         // Copy the heap offset of the vec header to the frame.
         unsafe {
-            let target_ptr = self.frame_ptr_at(target_vec_pointer) as *mut u32;
+            let target_ptr = self.get_frame_ptr_as_u32(target_vec_pointer);
             ptr::write(target_ptr, header_offset);
         }
     }
     #[inline]
     pub fn execute_vec_iter_init(&mut self, target_iterator_addr: u16, vec_indirect: u16) {
-        let vec_header_heap_ptr_as_offset = self.frame_ptr_indirect_heap_offset_at(vec_indirect);
+        let vec_header_heap_ptr_as_offset = self.get_heap_offset_via_frame(vec_indirect);
         unsafe {
             let vec_iterator = VecIterator {
                 vec_header_heap_ptr: vec_header_heap_ptr_as_offset,
@@ -62,31 +62,31 @@ impl Vm {
 
             ptr::copy_nonoverlapping(
                 &vec_iterator,
-                self.frame_ptr_at(target_iterator_addr) as *mut VecIterator,
+                self.get_frame_ptr(target_iterator_addr) as *mut VecIterator,
                 VEC_ITERATOR_SIZE.0 as usize,
             );
         }
     }
 
     pub fn vec_header_from_heap(&self, heap_offset: u32) -> VecHeader {
-        unsafe { *(self.heap_ptr_immut_at(heap_offset as usize) as *const VecHeader) }
+        unsafe { *(self.get_heap_const_ptr(heap_offset as usize) as *const VecHeader) }
     }
 
     pub fn vec_header_from_indirect_heap(&self, frame_offset: u16) -> VecHeader {
-        let heap_offset = self.frame_ptr_indirect_heap_offset_at(frame_offset);
-        unsafe { *(self.heap_ptr_immut_at(heap_offset as usize) as *const VecHeader) }
+        let heap_offset = self.get_heap_offset_via_frame(frame_offset);
+        unsafe { *(self.get_heap_const_ptr(heap_offset as usize) as *const VecHeader) }
     }
 
     pub fn vec_header_from_indirect_heap_mut(&self, frame_offset: u16) -> *mut VecHeader {
-        let heap_offset = self.frame_ptr_indirect_heap_offset_at(frame_offset);
-        self.heap_ptr_immut_at(heap_offset as usize) as *mut VecHeader
+        let heap_offset = self.get_heap_offset_via_frame(frame_offset);
+        self.get_heap_const_ptr(heap_offset as usize) as *mut VecHeader
     }
 
     #[inline]
     pub fn execute_vec_len(&mut self, int_target: u16, frame_source: u16) {
         let vec_header = self.vec_header_from_indirect_heap(frame_source);
         unsafe {
-            *self.frame_ptr_i32_at(int_target) = vec_header.count as i32;
+            *self.get_frame_ptr_as_i32(int_target) = vec_header.count as i32;
         }
     }
 
@@ -102,8 +102,8 @@ impl Vm {
             let new_capacity = (capacity * 2);
             let new_ptr = self.heap_allocate(new_capacity as usize);
             unsafe {
-                let source_items = self.heap_ptr_immut_at((*vec_header).heap_offset as usize);
-                let target_items = self.heap_ptr_at(new_ptr as usize);
+                let source_items = self.get_heap_const_ptr((*vec_header).heap_offset as usize);
+                let target_items = self.get_heap_ptr(new_ptr as usize);
                 let element_size = (*vec_header).element_size;
                 ptr::copy_nonoverlapping(
                     source_items,
@@ -129,7 +129,7 @@ impl Vm {
         value_variable: u16,
         jump: u16,
     ) {
-        let vec_iterator = self.frame_ptr_at(target_iterator_addr) as *mut VecIterator;
+        let vec_iterator = self.get_frame_ptr(target_iterator_addr) as *mut VecIterator;
         let (data_heap_offset, index) =
             unsafe { ((*vec_iterator).vec_header_heap_ptr, (*vec_iterator).index) };
 
@@ -140,9 +140,9 @@ impl Vm {
         } else {
             let new_index = index + 1;
             let heap_data_offset = data_heap_offset + vec_header.element_size as u32 * index as u32;
-            let source = self.heap_ptr_immut_at(heap_data_offset as usize);
-            let index_ptr = self.frame_ptr_i32_at(key_variable);
-            let target_ptr = self.frame_ptr_at(value_variable);
+            let source = self.get_heap_const_ptr(heap_data_offset as usize);
+            let index_ptr = self.get_frame_ptr_as_i32(key_variable);
+            let target_ptr = self.get_frame_ptr(value_variable);
 
             unsafe {
                 ptr::copy_nonoverlapping(source, target_ptr, vec_header.element_size as usize);
@@ -159,7 +159,7 @@ impl Vm {
         target_variable: u16,
         jump: u16,
     ) {
-        let vec_iterator = self.frame_ptr_at(target_iterator_addr) as *mut VecIterator;
+        let vec_iterator = self.get_frame_ptr(target_iterator_addr) as *mut VecIterator;
         let (data_heap_offset, index) =
             unsafe { ((*vec_iterator).vec_header_heap_ptr, (*vec_iterator).index) };
 
@@ -170,8 +170,8 @@ impl Vm {
         } else {
             let new_index = index + 1;
             let heap_data_offset = data_heap_offset + vec_header.element_size as u32 * index as u32;
-            let source = self.heap_ptr_immut_at(heap_data_offset as usize);
-            let target_ptr = self.frame_ptr_at(target_variable);
+            let source = self.get_heap_const_ptr(heap_data_offset as usize);
+            let target_ptr = self.get_frame_ptr(target_variable);
 
             unsafe {
                 ptr::copy_nonoverlapping(source, target_ptr, vec_header.element_size as usize);

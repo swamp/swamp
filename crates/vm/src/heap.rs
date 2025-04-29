@@ -4,13 +4,13 @@ use std::ptr;
 impl Vm {
     #[inline(always)]
     #[must_use]
-    pub const fn heap_ptr_at(&self, offset: usize) -> *mut u8 {
+    pub const fn get_heap_ptr(&self, offset: usize) -> *mut u8 {
         unsafe { self.heap_memory.add(offset) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub const fn heap_ptr_immut_at(&self, offset: usize) -> *const u8 {
+    pub const fn get_heap_const_ptr(&self, offset: usize) -> *const u8 {
         unsafe { self.heap_memory.add(offset) }
     }
 
@@ -40,7 +40,7 @@ impl Vm {
             unsafe {
                 ptr::copy_nonoverlapping(
                     octets.as_ptr(),
-                    self.heap_ptr_at(offset as usize),
+                    self.get_heap_ptr(offset as usize),
                     octets.len(),
                 );
             }

@@ -1,123 +1,121 @@
 use crate::Vm;
 
 impl Vm {
-    #[inline(always)]
-    pub fn ptr_at_i32(&self, offset: usize) -> *mut i32 {
-        // Ensure alignment
-        debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
-        // Inline ptr_at functionality
-        unsafe { self.stack_memory.add(offset) as *mut i32 }
-    }
-
-    #[inline(always)]
-    pub fn ptr_at_u32(&self, offset: usize) -> *mut u32 {
-        // Ensure alignment
-        debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
-        // Inline ptr_at functionality
-        unsafe { self.stack_memory.add(offset) as *mut u32 }
-    }
-
-    #[inline(always)]
-    pub fn ptr_at_u16(&self, offset: usize) -> *mut u16 {
-        // Ensure alignment
-        debug_assert_eq!(offset % 2, 0, "Unaligned u16 access at offset {offset}",);
-        // Inline ptr_at functionality
-        unsafe { self.stack_memory.add(offset) as *mut u16 }
-    }
-
-    #[inline(always)]
-    #[must_use]
-    pub const fn ptr_at_u8(&self, offset: usize) -> *mut u8 {
-        unsafe { self.stack_memory.add(offset) }
-    }
-
     #[must_use]
     pub const fn frame_ptr(&self) -> *mut u8 {
-        self.ptr_at_u8(self.frame_offset)
+        self.get_frame_ptr(0)
     }
 
     #[must_use]
     pub const fn stack_ptr(&self) -> *mut u8 {
-        self.ptr_at_u8(self.stack_offset)
+        self.get_frame_ptr(0)
+    }
+
+    #[inline(always)]
+    pub fn get_frame_ptr_as_u32(&self, offset: u16) -> *mut u32 {
+        // Ensure alignment
+        debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
+        // Inline ptr_at functionality
+        unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *mut u32 }
+    }
+
+    #[inline(always)]
+    pub fn get_frame_ptr_as_u16(&self, offset: u16) -> *mut u16 {
+        // Ensure alignment
+        debug_assert_eq!(offset % 2, 0, "Unaligned u16 access at offset {offset}",);
+        // Inline ptr_at functionality
+        unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *mut u16 }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn frame_ptr_i32_at(&self, offset: u16) -> *mut i32 {
-        self.ptr_at_i32(self.frame_offset + offset as usize)
+    pub const fn get_frame_ptr(&self, offset: u16) -> *mut u8 {
+        unsafe { self.stack_memory.add(self.frame_offset + offset as usize) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn frame_ptr_i32_const_at(&self, offset: u16) -> *const i32 {
-        self.ptr_at_i32(self.frame_offset + offset as usize)
-            .cast_const()
+    pub const fn get_frame_const_ptr(&self, offset: u16) -> *const u8 {
+        unsafe { self.stack_memory.add(self.frame_offset + offset as usize) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn frame_u8_at(&self, offset: u16) -> u8 {
-        unsafe { *self.ptr_at_u8(self.frame_offset + offset as usize) }
+    pub fn get_frame_ptr_as_i32(&self, offset: u16) -> *mut i32 {
+        // Ensure alignment
+        debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
+        // Inline ptr_at functionality
+        unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *mut i32 }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn frame_u32_at(&self, offset: u16) -> u32 {
-        unsafe { *self.ptr_at_u32(self.frame_offset + offset as usize) }
+    pub fn get_frame_const_ptr_as_i32(&self, offset: u16) -> *const i32 {
+        // Ensure alignment
+        debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
+        // Inline ptr_at functionality
+        unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *const i32 }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn frame_ptr_bool_at(&self, offset: u16) -> *mut u8 {
-        self.ptr_at_u8(self.frame_offset + offset as usize)
+    pub fn get_frame_const_ptr_as_u32(&self, offset: u16) -> *const u32 {
+        // Ensure alignment
+        debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
+        // Inline ptr_at functionality
+        unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *const u32 }
+    }
+
+    #[must_use]
+    pub fn read_frame_i32(&self, offset: u16) -> i32 {
+        unsafe { *(self.get_frame_const_ptr_as_i32(offset)) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn frame_ptr_at(&self, offset: u16) -> *mut u8 {
-        self.ptr_at_u8(self.frame_offset + offset as usize)
+    pub fn read_frame_u8(&self, offset: u16) -> u8 {
+        unsafe { *self.get_frame_const_ptr(offset) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn frame_ptr_indirect_heap_immut_at(&self, frame_offset: u16) -> *const u8 {
-        let heap_offset = self.frame_u32_at(frame_offset);
-        self.heap_ptr_immut_at(heap_offset as usize)
+    pub fn read_frame_bool(&self, offset: u16) -> bool {
+        unsafe { *self.get_frame_const_ptr(offset) != 0 }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn frame_ptr_indirect_heap_at(&self, frame_offset: u16) -> *mut u8 {
-        let heap_offset = self.frame_u32_at(frame_offset);
-        self.heap_ptr_at(heap_offset as usize)
+    pub fn read_frame_u32(&self, offset: u16) -> u32 {
+        unsafe { *self.get_frame_const_ptr_as_u32(offset) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn frame_ptr_indirect_heap_mut_at(&self, frame_offset: u16) -> *mut u32 {
-        let heap_offset = self.frame_u32_at(frame_offset);
-        self.heap_ptr_at(heap_offset as usize) as *mut u32
+    pub fn get_heap_ptr_via_frame(&self, frame_offset: u16) -> *mut u8 {
+        let heap_offset = self.read_frame_u32(frame_offset);
+        self.get_heap_ptr(heap_offset as usize)
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn frame_ptr_indirect_heap_at_with_offset(
+    pub fn get_heap_u32_ptr_via_frame(&self, frame_offset: u16) -> *mut u32 {
+        let heap_offset = self.read_frame_u32(frame_offset);
+        self.get_heap_ptr(heap_offset as usize) as *mut u32
+    }
+
+    #[inline(always)]
+    #[must_use]
+    pub fn get_heap_ptr_via_frame_with_offset(
         &self,
         frame_offset: u16,
         heap_ptr_offset: u32,
     ) -> *mut u8 {
-        let heap_offset = self.frame_ptr_indirect_heap_offset_at(frame_offset);
-        self.heap_ptr_at(heap_offset as usize + heap_ptr_offset as usize)
+        let heap_offset = self.get_heap_offset_via_frame(frame_offset);
+        self.get_heap_ptr(heap_offset as usize + heap_ptr_offset as usize)
     }
 
     #[must_use]
-    pub fn frame_ptr_indirect_heap_offset_at(&self, frame_offset: u16) -> u32 {
-        self.frame_u32_at(frame_offset)
-    }
-
-    #[inline(always)]
-    #[must_use]
-    pub fn frame_ptr_bool_const_at(&self, offset: u16) -> bool {
-        unsafe { *self.ptr_at_u8(self.frame_offset + offset as usize) != 0 }
+    pub fn get_heap_offset_via_frame(&self, frame_offset: u16) -> u32 {
+        self.read_frame_u32(frame_offset)
     }
 }
