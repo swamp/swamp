@@ -9,30 +9,25 @@ use swamp_vm_types::{VEC_HEADER_SIZE, VEC_ITERATOR_SIZE, VecHeader, VecIterator}
 
 impl Vm {
     #[inline]
-    pub fn execute_vec_from_slice(
-        &mut self,
-        target_vec_pointer: u16,
-        source_slice_addr: u16,
-        element_size: u16,
-        element_count: u16,
-    ) {
-        let slice_size = element_size as usize * element_count as usize;
+    pub fn execute_vec_from_slice(&mut self, target_vec_pointer: u16, source_slice_addr: u16) {
+        let slice_header = self.slice_header_from_frame(source_slice_addr);
 
+        let slice_size = slice_header.element_size as usize * slice_header.element_count as usize;
         // Allocate space on the heap for the slice data.
         let heap_offset: u32 = self.heap_allocate(slice_size);
 
         // Copy the slice from Frame to Heap.
         unsafe {
-            let source_ptr = self.get_frame_ptr(source_slice_addr);
             let dest_ptr = self.get_heap_ptr(heap_offset as usize);
+            let src_ptr = self.get_heap_const_ptr(slice_header.heap_offset as usize);
 
-            ptr::copy_nonoverlapping(source_ptr, dest_ptr, slice_size);
+            ptr::copy_nonoverlapping(src_ptr, dest_ptr, slice_size);
         }
 
         let vec_header = VecHeader {
-            count: element_count,
-            capacity: element_count,
-            element_size,
+            count: slice_header.element_count,
+            capacity: slice_header.element_count,
+            element_size: slice_header.element_size,
             heap_offset,
         };
 

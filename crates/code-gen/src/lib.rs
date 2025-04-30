@@ -44,9 +44,10 @@ use swamp_vm_types::{
     MAP_HEADER_COUNT_OFFSET, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
     MemoryAlignment, MemoryOffset, MemorySize, Meta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
     RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE,
-    SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT, STRING_HEADER_COUNT_OFFSET, STRING_HEADER_SIZE,
-    StringHeader, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_COUNT_OFFSET,
-    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_SIZE, ZFlagPolarity,
+    SLICE_PAIR_HEADER_SIZE, SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT, STRING_HEADER_COUNT_OFFSET,
+    STRING_HEADER_SIZE, StringHeader, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT,
+    VEC_HEADER_COUNT_OFFSET, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
+    VEC_PTR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -825,12 +826,9 @@ impl FunctionCodeGen<'_> {
 
                 assert!(element_type.is_concrete());
 
-                let gen_element_type = slice_region.ty().element().unwrap();
-
                 self.builder.add_vec_from_slice(
                     ctx.target(),
                     &slice_region,
-                    gen_element_type.total_size,
                     node,
                     "vec_from_slice",
                 );
@@ -853,16 +851,9 @@ impl FunctionCodeGen<'_> {
                 assert!(key_type.is_concrete_or_unit()); // is unit when it is empty
                 assert!(value_type.is_concrete_or_unit());
 
-                let element_pair_layout = layout_tuple_items(&[*key_type, *value_type]);
-                let key_layout = &element_pair_layout.fields[0];
-                let value_layout = &element_pair_layout.fields[1];
-
                 self.builder.add_map_new_from_slice(
                     ctx.target(),
                     &slice_region,
-                    key_layout.size,
-                    value_layout.size,
-                    element_pair_layout.total_size,
                     node,
                     "create map from temporary slice pair",
                 );
@@ -2659,7 +2650,7 @@ impl FunctionCodeGen<'_> {
                 self.emit_slice_literal(node, slice_type, expressions, ctx);
             }
             Literal::SlicePair(slice_pair_type, pairs) => {
-                self.emit_slice_pair_literal(slice_pair_type, pairs);
+                self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
             }
         }
 
@@ -3064,14 +3055,13 @@ impl FunctionCodeGen<'_> {
             );
         }
 
-        let slice_header_byte_count_addr = ctx
-            .target()
-            .move_with_offset(SLICE_COUNT_OFFSET, int_type());
-        self.builder.add_ld32(
-            &slice_header_byte_count_addr,
-            element_count as i32,
+        self.builder.add_slice_from_heap(
+            ctx.target(),
+            heap_ptr_header_addr.addr(),
+            &element_gen_type,
+            element_count,
             node,
-            "set slice element count",
+            "slice literal",
         );
     }
 
@@ -3079,10 +3069,17 @@ impl FunctionCodeGen<'_> {
         &mut self,
         slice_type: &Type,
         expressions: &[(Expression, Expression)],
-    ) -> SlicePairInfo {
+        node: &Node,
+        ctx: &Context,
+    ) {
         let Type::SlicePair(key_type, value_type) = slice_type else {
             panic!("should have been slice pair type")
         };
+
+        assert!(key_type.is_concrete());
+        assert!(value_type.is_concrete());
+
+        assert_eq!(ctx.target_size(), SLICE_PAIR_HEADER_SIZE);
 
         //let constructed_tuple = Type::Tuple(vec![*key_type.clone(), *value_type.clone()]);
 
@@ -3121,6 +3118,17 @@ impl FunctionCodeGen<'_> {
             self.emit_expression_materialize(value_expr, &value_ctx);
         }
 
+        self.builder.add_slice_pair_from_heap(
+            ctx.target(),
+            start_frame_address_to_transfer,
+            &key_layout,
+            &value_layout,
+            element_count,
+            node,
+            "creating slice pair",
+        );
+        /*
+
         SlicePairInfo {
             addr: TempFrameMemoryAddress(start_frame_address_to_transfer),
             key_size: key_layout.size,
@@ -3128,6 +3136,8 @@ impl FunctionCodeGen<'_> {
             element_count: CountU16(element_count),
             element_size,
         }
+
+         */
     }
 
     /*
@@ -3271,13 +3281,8 @@ impl FunctionCodeGen<'_> {
     ) {
         if let MutRefOrImmutableExpression::Expression(found_expr) = &arguments[0] {
             let memory = self.emit_expression_location(found_expr);
-            self.builder.add_vec_from_slice(
-                ctx.target(),
-                &memory,
-                MemorySize(0),
-                node,
-                "create vec",
-            );
+            self.builder
+                .add_vec_from_slice(ctx.target(), &memory, node, "create vec");
         } else {
             panic!("vec_from_slice");
         }

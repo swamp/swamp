@@ -1659,7 +1659,134 @@ impl<'a> Analyzer<'a> {
         let text = self.get_text(var_node);
         Err(self.create_err(ErrorKind::UnknownIdentifier(text.to_string()), var_node))
     }
+    fn analyze_slice_pair_literal(
+        &mut self,
+        node: &swamp_ast::Node,
+        entries: &[(swamp_ast::Expression, swamp_ast::Expression)],
+    ) -> Result<(Vec<(Expression, Expression)>, Type, Type), Error> {
+        if entries.is_empty() {
+            return Ok((vec![], Type::Unit, Type::Unit));
+        }
 
+        // Resolve first entry to determine map types
+        let (first_key, first_value) = &entries[0];
+        let anything_context = TypeContext::new_anything_argument();
+        let resolved_first_key = self.analyze_expression(first_key, &anything_context)?;
+        let resolved_first_value = self.analyze_expression(first_value, &anything_context)?;
+        let key_type = resolved_first_key.ty.clone();
+        let value_type = resolved_first_value.ty.clone();
+
+        let key_context = TypeContext::new_argument(&key_type);
+        let value_context = TypeContext::new_argument(&value_type);
+
+        // Check all entries match the types
+        let mut resolved_entries = Vec::new();
+        resolved_entries.push((resolved_first_key, resolved_first_value));
+
+        for (key, value) in entries.iter().skip(1) {
+            let resolved_key = self.analyze_expression(key, &key_context)?;
+            let resolved_value = self.analyze_expression(value, &value_context)?;
+
+            if !resolved_key.ty.compatible_with(&key_type) {
+                return Err(self.create_err(
+                    ErrorKind::MapKeyTypeMismatch {
+                        expected: key_type,
+                        found: resolved_key.ty,
+                    },
+                    node,
+                ));
+            }
+
+            if !resolved_value.ty.compatible_with(&value_type) {
+                return Err(self.create_err(
+                    ErrorKind::MapValueTypeMismatch {
+                        expected: value_type,
+                        found: resolved_value.ty,
+                    },
+                    node,
+                ));
+            }
+
+            resolved_entries.push((resolved_key, resolved_value));
+        }
+
+        Ok((resolved_entries, key_type, value_type))
+    }
+
+    fn analyze_slice_pair_for_real(
+        &mut self,
+        node: &swamp_ast::Node,
+        items: &[(swamp_ast::Expression, swamp_ast::Expression)],
+        context: &TypeContext,
+    ) -> Result<(Type, Type, Vec<(Expression, Expression)>), Error> {
+        let maybe_key_and_value_type = if let Some(expected_type) = context.expected_type {
+            if let Type::SlicePair(key_type, value_type) = expected_type {
+                Some((*key_type.clone(), *value_type.clone()))
+            } else {
+                if let Type::NamedStruct(named) = expected_type {
+                    Some((
+                        named.instantiated_type_parameters[0].clone(),
+                        named.instantiated_type_parameters[1].clone(),
+                    ))
+                } else {
+                    return Err(self.create_err(ErrorKind::ExpectedSlice, &node));
+                }
+            }
+        } else {
+            None
+        };
+
+        if items.is_empty() {
+            context.expected_type.map_or_else(
+                || Ok((Type::Unit, Type::Unit, vec![])),
+                |expected_type| {
+                    if let Type::SlicePair(key_type, value_type) = expected_type {
+                        Ok((*key_type.clone(), *value_type.clone(), vec![]))
+                    } else if let Type::NamedStruct(named) = expected_type {
+                        Ok((
+                            named.instantiated_type_parameters[0].clone(),
+                            named.instantiated_type_parameters[1].clone(),
+                            vec![],
+                        ))
+                    } else {
+                        Err(self.create_err(ErrorKind::ExpectedSlice, node))
+                    }
+                },
+            )
+        } else {
+            let maybe_key_type = maybe_key_and_value_type
+                .clone()
+                .map(|key_and_value| key_and_value.0);
+            let maybe_key_context = TypeContext::new_unsure_argument(maybe_key_type.as_ref());
+
+            let first_key_expression = self.analyze_expression(&items[0].0, &maybe_key_context)?;
+
+            let maybe_value_type = maybe_key_and_value_type.map(|key_and_value| key_and_value.1);
+            let maybe_value_context = TypeContext::new_unsure_argument(maybe_value_type.as_ref());
+            let first_value_expression =
+                self.analyze_expression(&items[0].1, &maybe_value_context)?;
+
+            let required_key_type = first_key_expression.ty.clone();
+            let required_key_context = TypeContext::new_argument(&required_key_type);
+
+            let required_value_type = first_value_expression.ty.clone();
+            let required_value_context = TypeContext::new_argument(&required_value_type);
+
+            let mut resolved_items = Vec::new();
+
+            for (key_expr, value_expr) in items {
+                let analyzed_key_expr = self.analyze_expression(key_expr, &required_key_context)?;
+                let analyzed_value_expr =
+                    self.analyze_expression(value_expr, &required_value_context)?;
+                resolved_items.push((analyzed_key_expr, analyzed_value_expr));
+            }
+            Ok((
+                first_key_expression.ty,
+                first_value_expression.ty,
+                resolved_items,
+            ))
+        }
+    }
     fn analyze_slice_type_helper(
         &mut self,
         node: &swamp_ast::Node,

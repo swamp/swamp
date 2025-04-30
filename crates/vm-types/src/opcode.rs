@@ -118,6 +118,10 @@ pub enum OpCode {
 
     // Collection intrinsics ----
 
+    // Slice
+    SliceFromHeap,
+    SlicePairFromHeap,
+
     // Range
     RangeIterInit,
     RangeIterNext,
@@ -159,7 +163,7 @@ pub enum OpCode {
     UnwrapJmpNone,
 
     // Other
-    HostCall, // calls back into host, //must be last
+    HostCall, // calls back into host
 }
 
 impl OpCode {
@@ -267,6 +271,10 @@ impl OpCode {
 
             // Bool
             Self::BoolToString => "btos",
+
+            // Slice
+            Self::SliceFromHeap => "slicef",
+            Self::SlicePairFromHeap => "slicepf",
 
             // Range
             Self::RangeIterInit => "riter",

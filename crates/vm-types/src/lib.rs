@@ -487,7 +487,10 @@ pub struct MapHeader {
     pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
     pub element_count: u32, // Count should be second
     pub capacity: u32,
+    pub key_size: u32,
+    pub value_size: u32,
 }
+
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 pub const MAP_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
@@ -519,11 +522,28 @@ pub const STRING_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
 pub const STRING_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct SliceHeader {
     pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
-    pub element_count: u32,
+    pub element_count: u16,
+    pub element_size: u16,
 }
+
 pub const SLICE_HEADER_SIZE: MemorySize = MemorySize(size_of::<SliceHeader>() as u16);
 pub const SLICE_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 pub const SLICE_PTR_OFFSET: MemoryOffset = MemoryOffset(0);
 pub const SLICE_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct SlicePairHeader {
+    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
+    pub element_count: u16,
+    pub key_size: u16,
+    pub value_size: u16,
+}
+
+pub const SLICE_PAIR_HEADER_SIZE: MemorySize = MemorySize(size_of::<SlicePairHeader>() as u16);
+pub const SLICE_PAIR_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+pub const SLICE_PAIR_PTR_OFFSET: MemoryOffset = MemoryOffset(0);
+pub const SLICE_PAIR_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);

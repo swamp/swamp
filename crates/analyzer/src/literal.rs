@@ -25,7 +25,7 @@ impl Analyzer<'_> {
         let (lit_kind, literal_type) = match &ast_literal_kind {
             swamp_ast::LiteralKind::Slice(items) => {
                 let (encountered_element_type, resolved_items) =
-                    self.analyze_slice_type_helper(ast_node, items, &context)?;
+                    self.analyze_slice_type_helper(ast_node, items, context)?;
 
                 let slice_type = Type::Slice(Box::new(encountered_element_type.clone()));
 
@@ -36,12 +36,14 @@ impl Analyzer<'_> {
             }
 
             swamp_ast::LiteralKind::SlicePair(entries) => {
-                let (resolved_items, encountered_key_type, encountered_value_type) =
-                    self.analyze_slice_pair_literal(ast_node, entries)?;
+                let (encountered_key_type, encountered_value_type, resolved_items) =
+                    self.analyze_slice_pair_for_real(ast_node, entries, context)?;
 
+                assert!(!matches!(encountered_key_type, Type::Unit));
+                assert!(!matches!(encountered_value_type, Type::Unit));
                 let slice_pair_type = Type::SlicePair(
-                    Box::new(encountered_key_type.clone()),
-                    Box::new(encountered_value_type.clone()),
+                    Box::new(encountered_key_type),
+                    Box::new(encountered_value_type),
                 );
 
                 (
@@ -236,60 +238,6 @@ impl Analyzer<'_> {
         }
 
         Ok(expressions)
-    }
-
-    fn analyze_slice_pair_literal(
-        &mut self,
-        node: &swamp_ast::Node,
-        entries: &[(swamp_ast::Expression, swamp_ast::Expression)],
-    ) -> Result<(Vec<(Expression, Expression)>, Type, Type), Error> {
-        if entries.is_empty() {
-            return Ok((vec![], Type::Unit, Type::Unit));
-        }
-
-        // Resolve first entry to determine map types
-        let (first_key, first_value) = &entries[0];
-        let anything_context = TypeContext::new_anything_argument();
-        let resolved_first_key = self.analyze_expression(first_key, &anything_context)?;
-        let resolved_first_value = self.analyze_expression(first_value, &anything_context)?;
-        let key_type = resolved_first_key.ty.clone();
-        let value_type = resolved_first_value.ty.clone();
-
-        let key_context = TypeContext::new_argument(&key_type);
-        let value_context = TypeContext::new_argument(&value_type);
-
-        // Check all entries match the types
-        let mut resolved_entries = Vec::new();
-        resolved_entries.push((resolved_first_key, resolved_first_value));
-
-        for (key, value) in entries.iter().skip(1) {
-            let resolved_key = self.analyze_expression(key, &key_context)?;
-            let resolved_value = self.analyze_expression(value, &value_context)?;
-
-            if !resolved_key.ty.compatible_with(&key_type) {
-                return Err(self.create_err(
-                    ErrorKind::MapKeyTypeMismatch {
-                        expected: key_type,
-                        found: resolved_key.ty,
-                    },
-                    node,
-                ));
-            }
-
-            if !resolved_value.ty.compatible_with(&value_type) {
-                return Err(self.create_err(
-                    ErrorKind::MapValueTypeMismatch {
-                        expected: value_type,
-                        found: resolved_value.ty,
-                    },
-                    node,
-                ));
-            }
-
-            resolved_entries.push((resolved_key, resolved_value));
-        }
-
-        Ok((resolved_entries, key_type, value_type))
     }
 
     #[must_use]

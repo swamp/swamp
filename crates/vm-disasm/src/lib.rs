@@ -647,6 +647,21 @@ pub fn disasm(
         }
         OpCode::Nop => &[],
 
+        OpCode::SliceFromHeap => &[
+            to_write_frame(operands[0], &slice_type(), frame_memory_info),
+            to_read_frame(operands[1], &indirect_heap_ptr_type(), frame_memory_info),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
+            DecoratedOperandAccessKind::CountU16(operands[4]),
+        ],
+
+        OpCode::SlicePairFromHeap => &[
+            to_write_frame(operands[0], &slice_type(), frame_memory_info),
+            to_read_frame(operands[1], &indirect_heap_ptr_type(), frame_memory_info),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
+            DecoratedOperandAccessKind::CountU16(operands[4]),
+        ],
+
         OpCode::VecPop => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_write_frame(operands[1], &vec_type(), frame_memory_info),
@@ -655,7 +670,6 @@ pub fn disasm(
         OpCode::VecFromSlice => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
         ],
 
         OpCode::VecFetch => &[

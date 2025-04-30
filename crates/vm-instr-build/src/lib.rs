@@ -6,13 +6,13 @@ use seq_map::SeqMap;
 use source_map_node::Node;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
-    BasicTypeKind, CompleteFunctionInfo, FramePlacedType, FunctionInfo, FunctionInfoKind,
-    HeapPlacedType,
+    BasicType, BasicTypeKind, CompleteFunctionInfo, FramePlacedType, FunctionInfo,
+    FunctionInfoKind, HeapPlacedType, OffsetMemoryItem,
 };
 use swamp_vm_types::{
-    BinaryInstruction, FrameMemorySize, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress,
-    HeapMemoryOffset, InstructionPosition, InstructionPositionOffset, MemorySize, Meta,
-    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HEAP_PTR_ON_FRAME_SIZE,
+    HeapMemoryAddress, HeapMemoryOffset, InstructionPosition, InstructionPositionOffset,
+    MemorySize, Meta, RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::info;
 
@@ -144,10 +144,6 @@ impl InstructionBuilderState {
 pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
-
-impl<'a> InstructionBuilder<'a> {}
-
-impl<'a> InstructionBuilder<'a> {}
 
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
@@ -727,6 +723,54 @@ impl InstructionBuilder<'_> {
             .add_instruction(OpCode::Jmp, &[ip.0 - 1], node, comment);
     }
 
+    // Slices
+
+    pub fn add_slice_from_heap(
+        &mut self,
+        slice_dst: &FramePlacedType,
+        heap_region: FrameMemoryAddress,
+        value_type: &BasicType,
+        element_count: u16,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::SliceFromHeap,
+            &[
+                slice_dst.addr().0,
+                heap_region.0,
+                value_type.total_size.0,
+                element_count,
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_slice_pair_from_heap(
+        &mut self,
+        slice_dst: &FramePlacedType,
+        heap_region: FrameMemoryAddress,
+        key_type: &OffsetMemoryItem,
+        value_type: &OffsetMemoryItem,
+        element_count: u16,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::SlicePairFromHeap,
+            &[
+                slice_dst.addr().0,
+                heap_region.0,
+                key_type.size.0,
+                value_type.size.0,
+                element_count,
+            ],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_map_iter_init(
         &mut self,
         iterator_target: &FramePlacedType,
@@ -845,19 +889,12 @@ impl InstructionBuilder<'_> {
         &mut self,
         target: &FramePlacedType,
         source_slice_header: &FramePlacedType,
-        element_byte_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
-        assert_ne!(element_byte_size.0, 0);
-
         self.state.add_instruction(
             OpCode::VecFromSlice,
-            &[
-                target.addr().0,
-                source_slice_header.addr().0,
-                element_byte_size.0,
-            ],
+            &[target.addr().0, source_slice_header.addr().0],
             node,
             comment,
         );
@@ -1454,9 +1491,6 @@ impl InstructionBuilder<'_> {
         &mut self,
         map_target_addr: &FramePlacedType,
         slice_source_addr: &FramePlacedType,
-        key_size: MemorySize,
-        value_size: MemorySize,
-        element_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
@@ -1466,13 +1500,7 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::MapNewFromPairs,
-            &[
-                map_target_addr.addr().0,
-                slice_source_addr.addr().0,
-                key_size.0,
-                value_size.0,
-                element_size.0,
-            ],
+            &[map_target_addr.addr().0, slice_source_addr.addr().0],
             node,
             comment,
         );

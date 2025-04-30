@@ -13,8 +13,8 @@ use swamp_vm_types::types::{
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE,
     MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
-    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE,
-    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
+    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, STRING_HEADER_ALIGNMENT,
+    STRING_HEADER_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
     adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
@@ -164,6 +164,15 @@ pub fn layout_enum(name: &str, variants: &[EnumVariantType]) -> BasicType {
     }
 }
 
+fn layout_slice(value_type: &Type, name: &str) -> BasicType {
+    let basic = layout_type(value_type, &format!("slice {name}"));
+    BasicType {
+        kind: BasicTypeKind::Slice(Box::from(basic)),
+        total_size: SLICE_HEADER_SIZE,
+        max_alignment: SLICE_HEADER_ALIGNMENT,
+    }
+}
+
 fn layout_slice_pair(a_type: &Type, b_type: &Type, _name: &str) -> BasicType {
     let tuple_type = layout_tuple_items(&[a_type.clone(), b_type.clone()]);
     let key_type = &tuple_type.fields[0];
@@ -171,8 +180,8 @@ fn layout_slice_pair(a_type: &Type, b_type: &Type, _name: &str) -> BasicType {
 
     BasicType {
         kind: BasicTypeKind::SlicePair(Box::new(key_type.clone()), Box::new(value_type.clone())),
-        total_size: tuple_type.total_size,
-        max_alignment: tuple_type.max_alignment,
+        total_size: SLICE_PAIR_HEADER_SIZE,
+        max_alignment: SLICE_HEADER_ALIGNMENT,
     }
 }
 
@@ -200,14 +209,7 @@ pub fn layout_type(ty: &Type, name: &str) -> BasicType {
             STRING_HEADER_SIZE,
             STRING_HEADER_ALIGNMENT,
         ),
-        Type::Slice(inner_type) => {
-            let basic = layout_type(inner_type, &format!("slice {name}"));
-            BasicType {
-                kind: BasicTypeKind::Slice(Box::from(basic)),
-                total_size: SLICE_HEADER_SIZE,
-                max_alignment: SLICE_HEADER_ALIGNMENT,
-            }
-        }
+        Type::Slice(inner_type) => layout_slice(inner_type, "slice"),
         Type::SlicePair(a, b) => layout_slice_pair(a, b, &format!("slice {name}")),
         Type::Tuple(types) => layout_tuple(types),
         Type::NamedStruct(named_struct_type) => {

@@ -17,6 +17,7 @@ pub mod host;
 mod map;
 mod map_open;
 mod range;
+mod slice_region;
 mod string;
 mod vec;
 
@@ -268,16 +269,21 @@ impl Vm {
 
         // Collections ==========
 
+        // Slices
+        vm.handlers[OpCode::SliceFromHeap as usize] =
+            HandlerType::Args4(Self::execute_slice_from_heap);
+        vm.handlers[OpCode::SlicePairFromHeap as usize] =
+            HandlerType::Args5(Self::execute_slice_pair_from_heap);
+
         // Range
         vm.handlers[OpCode::RangeIterInit as usize] =
             HandlerType::Args2(Self::execute_range_iter_init);
-
         vm.handlers[OpCode::RangeIterNext as usize] =
             HandlerType::Args3(Self::execute_range_iter_next);
 
         // Vec
         vm.handlers[OpCode::VecFromSlice as usize] =
-            HandlerType::Args4(Self::execute_vec_from_slice);
+            HandlerType::Args2(Self::execute_vec_from_slice);
         vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args2(Self::execute_vec_iter_init);
         vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args3(Self::execute_vec_iter_next);
         vm.handlers[OpCode::VecIterNextPair as usize] =
@@ -287,10 +293,10 @@ impl Vm {
         vm.handlers[OpCode::VecGet as usize] = HandlerType::Args3(Self::execute_vec_get);
         vm.handlers[OpCode::VecSet as usize] = HandlerType::Args3(Self::execute_vec_set);
 
+        vm.handlers[OpCode::MapNewFromPairs as usize] =
+            HandlerType::Args2(Self::execute_map_open_addressing_from_slice);
         // Map
         /* TODO: BRING THESE BACK
-        vm.handlers[OpCode::MapNewFromPairs as usize] =
-            HandlerType::Args4(Self::execute_map_from_slice);
         vm.handlers[OpCode::MapIterInit as usize] = HandlerType::Args2(Self::execute_map_iter_init);
         vm.handlers[OpCode::MapIterNext as usize] = HandlerType::Args3(Self::execute_map_iter_next);
         vm.handlers[OpCode::MapIterNextPair as usize] =
