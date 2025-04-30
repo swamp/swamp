@@ -50,10 +50,18 @@ impl Vm {
             let target_ptr = self.get_frame_ptr_as_u32(target_vec_pointer);
             ptr::write(target_ptr, header_offset);
         }
+
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!(
+                "creating vec from slice count:{} of capacity {} element_size: {}",
+                vec_header.count, vec_header.capacity, vec_header.element_size
+            );
+        }
     }
     #[inline]
     pub fn execute_vec_iter_init(&mut self, target_iterator_addr: u16, vec_indirect: u16) {
-        let vec_header_heap_ptr_as_offset = self.get_heap_offset_via_frame(vec_indirect);
+        let vec_header_heap_ptr_as_offset = self.read_heap_offset_via_frame(vec_indirect);
         unsafe {
             let vec_iterator = VecIterator {
                 vec_header_heap_ptr: vec_header_heap_ptr_as_offset,
@@ -73,12 +81,12 @@ impl Vm {
     }
 
     pub fn vec_header_from_indirect_heap(&self, frame_offset: u16) -> VecHeader {
-        let heap_offset = self.get_heap_offset_via_frame(frame_offset);
+        let heap_offset = self.read_heap_offset_via_frame(frame_offset);
         unsafe { *(self.get_heap_const_ptr(heap_offset as usize) as *const VecHeader) }
     }
 
     pub fn vec_header_from_indirect_heap_mut(&self, frame_offset: u16) -> *mut VecHeader {
-        let heap_offset = self.get_heap_offset_via_frame(frame_offset);
+        let heap_offset = self.read_heap_offset_via_frame(frame_offset);
         self.get_heap_const_ptr(heap_offset as usize) as *mut VecHeader
     }
 
@@ -94,6 +102,11 @@ impl Vm {
     pub fn execute_vec_get(&mut self, item_target: u16, vec_indirect_source: u16, int_index: u16) {
         let vec_index = self.read_frame_i32(int_index) as usize;
         let vec_header = self.vec_header_from_indirect_heap(vec_indirect_source);
+        debug_assert!(
+            vec_index < vec_header.count as usize,
+            "out of bounds for vector. index:{vec_index} out of {}",
+            vec_header.count
+        );
         let item_target_ptr = self.get_frame_ptr(item_target);
         unsafe {
             let base_ptr = self.get_heap_const_ptr(vec_header.heap_offset as usize);
@@ -106,13 +119,31 @@ impl Vm {
     }
 
     #[inline]
+    pub fn execute_vec_set(&mut self, vec_indirect_source: u16, int_index: u16, item_source: u16) {
+        let vec_index = self.read_frame_i32(int_index) as usize;
+        let vec_header = self.vec_header_from_indirect_heap(vec_indirect_source);
+        debug_assert!(vec_index < vec_header.count as usize);
+        let item_source_ptr = self.get_frame_const_ptr(item_source);
+        unsafe {
+            let base_ptr = self.get_heap_ptr(vec_header.heap_offset as usize);
+            ptr::copy_nonoverlapping(
+                item_source_ptr,
+                base_ptr.add(vec_index * vec_header.count as usize),
+                vec_header.element_size as usize,
+            );
+        }
+    }
+
+    #[inline]
     pub fn execute_vec_push(&mut self, vec_frame_target: u16, item_to_push: u16) {
         let vec_header = self.vec_header_from_indirect_heap_mut(vec_frame_target);
         let (count, capacity) = unsafe { ((*vec_header).count, (*vec_header).capacity) };
 
         if count == capacity {
-            if capacity > 16384 {
-                panic!("capacity overrun");
+            assert!(capacity <= 16384, "capacity overrun");
+            #[cfg(feature = "debug_vm")]
+            {
+                eprintln!("reallocating vector {count} of capacity {capacity}");
             }
             let new_capacity = capacity * 2;
             let new_ptr = self.heap_allocate(new_capacity as usize);

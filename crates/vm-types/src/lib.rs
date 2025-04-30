@@ -11,10 +11,11 @@ pub mod aligner;
 pub mod opcode;
 pub mod types;
 
-#[repr(C, packed)]
+#[repr(C)] // do not use `packed` for now
 #[derive(Clone)]
 pub struct BinaryInstruction {
     pub opcode: u8,
+    pub padding: u8, // this is just to be explicit about the actual padding.
     pub operands: [u16; 5],
 }
 

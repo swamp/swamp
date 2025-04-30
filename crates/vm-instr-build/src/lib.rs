@@ -129,6 +129,7 @@ impl InstructionBuilderState {
         array[..len].copy_from_slice(&operands[..len]);
         self.instructions.push(BinaryInstruction {
             opcode: op_code as u8,
+            padding: 0,
             operands: array,
         });
         let meta = Meta {

@@ -1461,8 +1461,11 @@ impl FunctionCodeGen<'_> {
             .function_infos
             .get(&internal_fn.program_unique_id)
         {
-            self.builder
-                .add_call(&found.ip_range.start, node, call_comment);
+            self.builder.add_call(
+                &InstructionPosition(found.ip_range.start.0.saturating_sub(1)),
+                node,
+                call_comment,
+            );
         } else {
             let patch_position = self.builder.add_call_placeholder(node, call_comment);
             self.state.function_fixups.push(FunctionFixup {

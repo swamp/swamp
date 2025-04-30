@@ -150,12 +150,13 @@ impl Vm {
         frame_offset: u16,
         heap_ptr_offset: u32,
     ) -> *mut u8 {
-        let heap_offset = self.get_heap_offset_via_frame(frame_offset);
+        let heap_offset = self.read_heap_offset_via_frame(frame_offset);
         self.get_heap_ptr(heap_offset as usize + heap_ptr_offset as usize)
     }
 
     #[must_use]
-    pub fn get_heap_offset_via_frame(&self, frame_offset: u16) -> u32 {
+    #[inline(always)]
+    pub fn read_heap_offset_via_frame(&self, frame_offset: u16) -> u32 {
         self.read_frame_u32(frame_offset)
     }
 }

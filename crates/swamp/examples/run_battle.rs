@@ -33,7 +33,7 @@ fn main() {
         current_dir: PathBuf::from(Path::new("")),
     };
 
-    let options = CodeGenOptions { show_disasm: false };
+    let options = CodeGenOptions { show_disasm: true };
 
     let top_gen_state = code_gen_program(&program, &source_map_wrapper, &options);
 

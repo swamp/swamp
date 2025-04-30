@@ -41,6 +41,18 @@ pub struct Flags {
     z: bool,
 }
 
+pub struct Debug {
+    pub opcodes_executed: u16,
+    pub call_depth: usize,
+    pub max_call_depth: usize,
+}
+
+pub struct CallFrame {
+    return_address: usize,        // Instruction to return to
+    previous_frame_offset: usize, // Previous frame position
+    frame_size: usize,            // Size of this frame
+}
+
 pub struct Vm {
     // Memory
     stack_memory: *mut u8,
@@ -69,27 +81,10 @@ pub struct Vm {
     handlers: [HandlerType; 256],
 
     // TODO: Error state
-    debug_call_depth: usize,
-
     pub flags: Flags,
     last_frame_size: u16,
-}
 
-impl Vm {
-    #[must_use]
-    pub fn instructions(&self) -> &[BinaryInstruction] {
-        &self.instructions
-    }
-}
-
-impl Vm {
-    pub fn reset(&mut self) {
-        self.stack_offset = 0;
-        self.frame_offset = self.stack_offset;
-        self.ip = 0;
-        self.execution_complete = false;
-        self.call_stack.clear();
-    }
+    pub debug: Debug,
 }
 
 impl Drop for Vm {
@@ -101,23 +96,6 @@ impl Drop for Vm {
             let layout = alloc::Layout::from_size_align(self.heap_memory_size, ALIGNMENT).unwrap();
             alloc::dealloc(self.heap_memory, layout);
         }
-    }
-}
-
-impl Vm {
-    pub fn stack_memory(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.stack_ptr(), self.stack_memory_size) }
-    }
-
-    pub fn frame_memory(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.frame_ptr(), self.stack_memory_size) }
-    }
-    pub fn heap_memory(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.heap_memory, self.heap_memory_size) }
-    }
-
-    pub fn constant_size(&self) -> usize {
-        self.constant_memory_size
     }
 }
 
@@ -163,9 +141,13 @@ impl Vm {
             call_stack: vec![],
             host_functions: SeqMap::default(),
             handlers: [const { HandlerType::Args0(Self::execute_unimplemented) }; 256],
-            debug_call_depth: 0,
             last_frame_size: 0,
             flags: Flags { z: false },
+            debug: Debug {
+                opcodes_executed: 0,
+                call_depth: 0,
+                max_call_depth: 0,
+            },
         };
 
         vm.handlers[OpCode::Alloc as usize] = HandlerType::Args2(Self::execute_alloc);
@@ -291,7 +273,7 @@ impl Vm {
             HandlerType::Args2(Self::execute_range_iter_init);
 
         vm.handlers[OpCode::RangeIterNext as usize] =
-            HandlerType::Args2(Self::execute_range_iter_next);
+            HandlerType::Args3(Self::execute_range_iter_next);
 
         // Vec
         vm.handlers[OpCode::VecFromSlice as usize] =
@@ -303,6 +285,7 @@ impl Vm {
         vm.handlers[OpCode::VecPush as usize] = HandlerType::Args2(Self::execute_vec_push);
         vm.handlers[OpCode::VecLen as usize] = HandlerType::Args2(Self::execute_vec_len);
         vm.handlers[OpCode::VecGet as usize] = HandlerType::Args3(Self::execute_vec_get);
+        vm.handlers[OpCode::VecSet as usize] = HandlerType::Args3(Self::execute_vec_set);
 
         // Map
         /* TODO: BRING THESE BACK
@@ -337,6 +320,116 @@ impl Vm {
         }
 
         vm
+    }
+
+    pub fn execute_internal(&mut self) {
+        self.execution_complete = false;
+        self.flags.z = false;
+        self.call_stack.clear();
+
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!("start executing ----------");
+        }
+
+        self.call_stack.push(CallFrame {
+            return_address: 1,
+            previous_frame_offset: 0,
+            frame_size: 0,
+        });
+
+        while !self.execution_complete {
+            let instruction = &self.instructions[self.ip];
+            let opcode = instruction.opcode;
+
+            #[cfg(feature = "debug_vm")]
+            {
+                let operands = instruction.operands;
+                eprint!("> {:04X}: ", self.ip);
+                self.debug_opcode(opcode, &operands);
+                self.debug.opcodes_executed += 1;
+
+                //    let s = hexify::format_hex(&self.frame_memory()[..16]);
+                //  eprintln!("mem: {s}");
+            }
+
+            match self.handlers[opcode as usize] {
+                HandlerType::Args0(handler) => handler(self),
+                HandlerType::Args1(handler) => handler(self, instruction.operands[0]),
+                HandlerType::Args2(handler) => {
+                    handler(self, instruction.operands[0], instruction.operands[1]);
+                }
+                HandlerType::Args3(handler) => handler(
+                    self,
+                    instruction.operands[0],
+                    instruction.operands[1],
+                    instruction.operands[2],
+                ),
+                HandlerType::Args4(handler) => handler(
+                    self,
+                    instruction.operands[0],
+                    instruction.operands[1],
+                    instruction.operands[2],
+                    instruction.operands[3],
+                ),
+                HandlerType::Args5(handler) => handler(
+                    self,
+                    instruction.operands[0],
+                    instruction.operands[1],
+                    instruction.operands[2],
+                    instruction.operands[3],
+                    instruction.operands[4],
+                ),
+            }
+
+            self.ip += 1;
+        }
+    }
+
+    pub fn execute(&mut self) {
+        self.execute_from_ip(&InstructionPosition(0));
+    }
+
+    pub fn execute_from_ip(&mut self, ip: &InstructionPosition) {
+        self.ip = ip.0 as usize;
+        self.execute_internal();
+    }
+
+    fn execute_unimplemented(&mut self) {
+        let unknown_opcode = OpCode::from(self.instructions[self.ip].opcode);
+        eprintln!("error: opcode not implemented: {unknown_opcode} {unknown_opcode:?}");
+        eprintln!(
+            "VM runtime halted. total opcodes executed: {}, call_stack_depth: {}, max_call_depth:{}",
+            self.debug.opcodes_executed, self.debug.call_depth, self.debug.max_call_depth
+        );
+        panic!("unknown OPCODE! {unknown_opcode} {unknown_opcode:?}");
+    }
+
+    pub fn stack_memory(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.stack_ptr(), self.stack_memory_size) }
+    }
+
+    pub fn frame_memory(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.frame_ptr(), self.stack_memory_size) }
+    }
+    pub fn heap_memory(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.heap_memory, self.heap_memory_size) }
+    }
+
+    pub fn constant_size(&self) -> usize {
+        self.constant_memory_size
+    }
+    #[must_use]
+    #[allow(clippy::missing_const_for_fn)]
+    pub fn instructions(&self) -> &[BinaryInstruction] {
+        &self.instructions
+    }
+    pub fn reset(&mut self) {
+        self.stack_offset = 0;
+        self.frame_offset = self.stack_offset;
+        self.ip = 0;
+        self.execution_complete = false;
+        self.call_stack.clear();
     }
 
     /// # Panics
@@ -875,13 +968,6 @@ impl Vm {
         self.execution_complete = true;
     }
 
-    fn execute_unimplemented(&mut self) {
-        let unknown_opcode = OpCode::from(self.instructions[self.ip].opcode);
-        eprintln!("error: opcode not implemented: {unknown_opcode} {unknown_opcode:?}");
-        eprintln!("VM runtime halted");
-        panic!("unknown OPCODE! {unknown_opcode} {unknown_opcode:?}");
-    }
-
     #[inline]
     fn execute_mov(&mut self, dst_offset: u16, src_offset: u16, size: u16) {
         let src_ptr = self.get_frame_ptr(src_offset);
@@ -947,110 +1033,29 @@ impl Vm {
         }
     }
 
+    #[cfg(feature = "debug_vm")]
     pub fn debug_opcode(&self, opcode: u8, operands: &[u16; 5]) {
         eprintln!(
-            "{:8} [{}]",
+            "{:8} {}",
             OpCode::from(opcode),
             match self.handlers[opcode as usize] {
                 HandlerType::Args0(_) => String::new(),
-                HandlerType::Args1(_) => format!("{:04x}", operands[0]),
-                HandlerType::Args2(_) => format!("{:04x}, {:04x}", operands[0], operands[1]),
+                HandlerType::Args1(_) => format!("{:04X}", operands[0]),
+                HandlerType::Args2(_) => format!("{:04X}, {:04X}", operands[0], operands[1]),
                 HandlerType::Args3(_) => format!(
-                    "{:04x}, {:04x}, {:04x}",
+                    "{:04X}, {:04X}, {:04X}",
                     operands[0], operands[1], operands[2]
                 ),
                 HandlerType::Args4(_) => format!(
-                    "{:04x}, {:04x}, {:04x}, {:04x}",
+                    "{:04X}, {:04X}, {:04X}, {:04X}",
                     operands[0], operands[1], operands[2], operands[3]
                 ),
                 HandlerType::Args5(_) => format!(
-                    "{:04x}, {:04x}, {:04x}, {:04x}, {:04x}",
+                    "{:04X}, {:04X}, {:04X}, {:04X}, {:04X}",
                     operands[0], operands[1], operands[2], operands[3], operands[4],
                 ),
             }
         );
-    }
-
-    fn debug_instructions(&self) {
-        for (ip, instruction) in self.instructions.iter().enumerate() {
-            eprint!("|> {ip:04x}: ");
-            let operands = instruction.operands;
-            self.debug_opcode(instruction.opcode, &operands);
-        }
-    }
-
-    pub fn execute(&mut self) {
-        self.execute_from_ip(&InstructionPosition(0));
-    }
-
-    pub fn execute_from_ip(&mut self, ip: &InstructionPosition) {
-        self.ip = ip.0 as usize;
-        self.execute_internal();
-    }
-
-    pub fn execute_internal(&mut self) {
-        self.execution_complete = false;
-        self.flags.z = false;
-        self.call_stack.clear();
-
-        #[cfg(feature = "debug_vm")]
-        {
-            eprintln!("program:");
-            self.debug_instructions();
-            eprintln!("start executing ----------");
-        }
-
-        self.call_stack.push(CallFrame {
-            return_address: 1,
-            previous_frame_offset: 0,
-            frame_size: 0,
-        });
-
-        while !self.execution_complete {
-            let instruction = &self.instructions[self.ip];
-            let opcode = instruction.opcode;
-
-            #[cfg(feature = "debug_vm")]
-            {
-                let operands = instruction.operands;
-                eprint!("> {:04x}: ", self.ip);
-                self.debug_opcode(opcode, &operands);
-
-                //    let s = hexify::format_hex(&self.frame_memory()[..16]);
-                //  eprintln!("mem: {s}");
-            }
-
-            match self.handlers[opcode as usize] {
-                HandlerType::Args0(handler) => handler(self),
-                HandlerType::Args1(handler) => handler(self, instruction.operands[0]),
-                HandlerType::Args2(handler) => {
-                    handler(self, instruction.operands[0], instruction.operands[1]);
-                }
-                HandlerType::Args3(handler) => handler(
-                    self,
-                    instruction.operands[0],
-                    instruction.operands[1],
-                    instruction.operands[2],
-                ),
-                HandlerType::Args4(handler) => handler(
-                    self,
-                    instruction.operands[0],
-                    instruction.operands[1],
-                    instruction.operands[2],
-                    instruction.operands[3],
-                ),
-                HandlerType::Args5(handler) => handler(
-                    self,
-                    instruction.operands[0],
-                    instruction.operands[1],
-                    instruction.operands[2],
-                    instruction.operands[3],
-                    instruction.operands[4],
-                ),
-            };
-
-            self.ip += 1;
-        }
     }
 
     fn execute_call(&mut self, target: u16) {
@@ -1063,6 +1068,13 @@ impl Vm {
         self.call_stack.push(return_info);
 
         self.ip = target as usize;
+        #[cfg(feature = "debug_vm")]
+        {
+            self.debug.call_depth += 1;
+            if self.debug.call_depth > self.debug.max_call_depth {
+                self.debug.max_call_depth = self.debug.call_depth;
+            }
+        }
     }
 
     #[inline]
@@ -1084,8 +1096,6 @@ impl Vm {
 
     #[inline]
     fn execute_enter(&mut self, aligned_size: u16) {
-        //let aligned_size = (frame_size as usize + ALIGNMENT_REST) & ALIGNMENT_MASK; // 8-byte alignment
-
         let frame = self.call_stack.last_mut().unwrap();
         frame.frame_size = aligned_size as usize;
         self.last_frame_size = aligned_size;
@@ -1112,11 +1122,10 @@ impl Vm {
         self.ip -= 1; // Adjust for automatic increment
 
         // NOTE: Any return value is always at frame_offset + 0
-    }
-}
 
-pub struct CallFrame {
-    return_address: usize,        // Instruction to return to
-    previous_frame_offset: usize, // Previous frame position
-    frame_size: usize,            // Size of this frame
+        #[cfg(feature = "debug_vm")]
+        {
+            self.debug.call_depth -= 1;
+        }
+    }
 }
