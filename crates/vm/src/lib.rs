@@ -42,6 +42,7 @@ pub struct Flags {
     z: bool,
 }
 
+#[derive(Debug, Default)]
 pub struct Debug {
     pub opcodes_executed: u16,
     pub call_depth: usize,
@@ -216,8 +217,8 @@ impl Vm {
         vm.handlers[OpCode::SubI32 as usize] = HandlerType::Args3(Self::execute_sub_i32);
         vm.handlers[OpCode::ModI32 as usize] = HandlerType::Args3(Self::execute_mod_i32);
 
-        vm.handlers[OpCode::DivI32 as usize] = HandlerType::Args3(Self::execute_div_f32);
-        vm.handlers[OpCode::MulI32 as usize] = HandlerType::Args3(Self::execute_mul_f32);
+        vm.handlers[OpCode::DivF32 as usize] = HandlerType::Args3(Self::execute_div_f32);
+        vm.handlers[OpCode::MulF32 as usize] = HandlerType::Args3(Self::execute_mul_f32);
 
         // Call, enter, ret
         vm.handlers[OpCode::Call as usize] = HandlerType::Args1(Self::execute_call);
@@ -295,6 +296,13 @@ impl Vm {
 
         vm.handlers[OpCode::MapNewFromPairs as usize] =
             HandlerType::Args2(Self::execute_map_open_addressing_from_slice);
+        vm.handlers[OpCode::MapFetch as usize] =
+            HandlerType::Args3(Self::execute_map_open_addressing_get);
+        vm.handlers[OpCode::MapSet as usize] =
+            HandlerType::Args3(Self::execute_map_open_addressing_set);
+        vm.handlers[OpCode::MapHas as usize] =
+            HandlerType::Args2(Self::execute_map_open_addressing_has);
+
         // Map
         /* TODO: BRING THESE BACK
         vm.handlers[OpCode::MapIterInit as usize] = HandlerType::Args2(Self::execute_map_iter_init);
@@ -332,10 +340,14 @@ impl Vm {
         self.execution_complete = false;
         self.flags.z = false;
         self.call_stack.clear();
+        self.frame_offset = 0;
 
         #[cfg(feature = "debug_vm")]
         {
-            eprintln!("start executing ----------");
+            eprintln!(
+                "start executing --------- frame {:X} heap: {:X}",
+                self.frame_offset, self.heap_alloc_offset
+            );
         }
 
         self.call_stack.push(CallFrame {
@@ -433,9 +445,20 @@ impl Vm {
     pub fn reset(&mut self) {
         self.stack_offset = 0;
         self.frame_offset = self.stack_offset;
+        self.heap_alloc_offset = self.constant_memory_size;
         self.ip = 0;
         self.execution_complete = false;
         self.call_stack.clear();
+    }
+
+    pub fn reset_stack_and_heap_to_constant_limit(&mut self) {
+        self.heap_alloc_offset = self.constant_memory_size;
+        self.stack_offset = 0;
+        self.frame_offset = self.stack_offset;
+    }
+
+    pub fn reset_debug(&mut self) {
+        self.debug = Debug::default();
     }
 
     /// # Panics
@@ -671,6 +694,13 @@ impl Vm {
             let lhs = *lhs_ptr;
             let rhs = *rhs_ptr;
             *dst_ptr = lhs + rhs;
+
+            #[cfg(feature = "debug_vm")]
+            {
+                unsafe {
+                    eprintln!("add {} = {} + {}", *dst_ptr, lhs, rhs);
+                }
+            }
         }
     }
 
@@ -696,7 +726,14 @@ impl Vm {
         unsafe {
             let lhs = *lhs_ptr;
             let rhs = *rhs_ptr;
-            *dst_ptr = lhs + rhs;
+            *dst_ptr = lhs - rhs;
+
+            #[cfg(feature = "debug_vm")]
+            {
+                unsafe {
+                    eprintln!("sub {} = {} - {}", *dst_ptr, lhs, rhs);
+                }
+            }
         }
     }
 
@@ -709,7 +746,14 @@ impl Vm {
         unsafe {
             let lhs = *lhs_ptr;
             let rhs = *rhs_ptr;
-            *dst_ptr = lhs % rhs;
+            *dst_ptr = ((lhs % rhs) + rhs) % rhs; // Swamp uses strict modulo instead of remainder
+        }
+
+        #[cfg(feature = "debug_vm")]
+        {
+            unsafe {
+                eprintln!("mod {} = {} % {}", *dst_ptr, *lhs_ptr, *rhs_ptr);
+            }
         }
     }
 
@@ -981,6 +1025,12 @@ impl Vm {
 
         unsafe {
             std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, size as usize);
+        }
+        #[cfg(feature = "debug_vm")]
+        {
+            unsafe {
+                eprintln!("mov {:X}", *dst_ptr);
+            }
         }
     }
 

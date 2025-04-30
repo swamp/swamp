@@ -6,6 +6,7 @@
 use source_map_cache::SourceMap;
 use source_map_cache::SourceMapWrapper;
 use std::path::{Path, PathBuf};
+use std::ptr;
 use swamp::prelude::SeqMap;
 use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_dep_loader::swamp_registry_path;
@@ -37,7 +38,7 @@ fn main() {
 
     let top_gen_state = code_gen_program(&program, &source_map_wrapper, &options);
 
-    let (instructions, _constant_info, emit_function_infos, constant_memory) =
+    let (instructions, constants_info, emit_function_infos, constant_memory) =
         top_gen_state.take_instructions_and_constants();
 
     let vm_setup = VmSetup {
@@ -47,6 +48,18 @@ fn main() {
     };
 
     let mut vm = Vm::new(instructions, vm_setup);
+
+    for (_key, constant) in constants_info {
+        vm.reset_stack_and_heap_to_constant_limit();
+        vm.execute_from_ip(&constant.ip_range.start);
+        unsafe {
+            ptr::copy_nonoverlapping(
+                vm.get_frame_ptr(0),
+                vm.get_heap_ptr(constant.target_constant_memory.addr().0 as usize),
+                constant.target_constant_memory.size().0 as usize,
+            );
+        }
+    }
 
     let main_module = program
         .modules
@@ -62,6 +75,9 @@ fn main() {
     let simulation_emit_info = emit_function_infos.get(&simulation_fn_id).unwrap();
 
     // It takes no parameters, so we can just run the function
+    eprintln!("============= SIMULATION STARTS ============");
+    vm.reset_stack_and_heap_to_constant_limit();
+    vm.reset_debug();
     vm.execute_from_ip(&simulation_emit_info.ip_range.start);
 
     //info!(?program, "program");

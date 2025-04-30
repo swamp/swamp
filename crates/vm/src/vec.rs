@@ -91,6 +91,10 @@ impl Vm {
         unsafe {
             *self.get_frame_ptr_as_i32(int_target) = vec_header.count as i32;
         }
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!("vec_len {}", vec_header.count as i32);
+        }
     }
 
     #[inline]
@@ -106,10 +110,15 @@ impl Vm {
         unsafe {
             let base_ptr = self.get_heap_const_ptr(vec_header.heap_offset as usize);
             ptr::copy_nonoverlapping(
-                base_ptr.add(vec_index * vec_header.count as usize),
+                base_ptr.add(vec_index * vec_header.element_size as usize),
                 item_target_ptr,
                 vec_header.element_size as usize,
             );
+        }
+
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!("vec_get {vec_index}");
         }
     }
 
@@ -126,6 +135,11 @@ impl Vm {
                 base_ptr.add(vec_index * vec_header.count as usize),
                 vec_header.element_size as usize,
             );
+        }
+
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!("vec_set {vec_index}");
         }
     }
 

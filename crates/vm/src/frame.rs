@@ -16,8 +16,9 @@ impl Vm {
     pub fn get_frame_ptr_as_u32(&self, offset: u16) -> *mut u32 {
         debug_assert!(
             (self.frame_offset + offset as usize) < self.stack_memory_size,
-            "wrong frame addr {:X} {offset:X}",
-            self.frame_offset
+            "out of stack space frame base:{} offset:{offset} total: {}",
+            self.frame_offset,
+            self.stack_memory_size,
         );
         // Ensure alignment
         debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");

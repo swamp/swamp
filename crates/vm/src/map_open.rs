@@ -17,6 +17,10 @@ impl Vm {
         self.get_heap_ptr(heap_addr as usize) as *mut MapHeader
     }
 
+    pub fn read_heap_map_header_via_frame(&self, frame_addr: u16) -> MapHeader {
+        unsafe { *(self.get_heap_ptr_via_frame(frame_addr) as *const MapHeader) }
+    }
+
     pub const ELEMENT_COUNT_FACTOR: f32 = 1.5;
     pub(crate) fn execute_map_open_addressing_from_slice(
         &mut self,
@@ -29,7 +33,9 @@ impl Vm {
         debug_assert_ne!(slice_pairs.value_size, 0);
         //debug_assert_ne!(element_count, 0);
 
-        let min_capacity = ((slice_pairs.element_count as u32 * 4 + 2) / 3).max(8) as u16;
+        // TODO: HACK: count should not be adjusted to 128 in the future
+        let adjusted_count = slice_pairs.element_count.max(128);
+        let min_capacity = ((adjusted_count as u32 * 4 + 2) / 3).max(8) as u16;
         let capacity = min_capacity.next_power_of_two() as u16;
 
         // The bucket doesn't have to be aligned since we will copy key and value in bytes
@@ -44,11 +50,13 @@ impl Vm {
             (*map_header_ptr).heap_offset = buckets_heap_addr;
             (*map_header_ptr).capacity = capacity as u32;
             (*map_header_ptr).element_count = slice_pairs.element_count as u32;
+            (*map_header_ptr).key_size = slice_pairs.key_size as u32;
+            (*map_header_ptr).value_size = slice_pairs.value_size as u32;
         }
 
         let buckets_ptr = self.get_heap_ptr(buckets_heap_addr as usize);
 
-        let slice_ptr = self.get_heap_ptr_via_frame(slice_addr);
+        let slice_ptr = self.get_heap_ptr(slice_pairs.heap_offset as usize);
 
         let pair_size = slice_pairs.key_size + slice_pairs.value_size;
         for i in 0..slice_pairs.element_count {
@@ -81,6 +89,8 @@ impl Vm {
         let capacity = header.capacity as usize;
         let key_size = header.key_size as usize;
         let value_size = header.value_size as usize;
+        debug_assert_ne!(key_size, 0);
+        debug_assert_ne!(value_size, 0);
 
         // Calculate bucket layout sizes
         // Alignment doesn't matter since we are not accessing key and value fields directly,
@@ -93,6 +103,13 @@ impl Vm {
 
         // Use bitwise AND for modulo (capacity is always a power of two)
         let mut index = (hash as usize) & (capacity - 1);
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!(
+                "wants to insert hash: {hash:08X} start index: {index} capacity: {}, key_size: {key_size}",
+                header.capacity
+            );
+        }
 
         // Keep track of the first tombstone found, if any
         let mut first_tombstone_index: Option<usize> = None;
@@ -118,6 +135,10 @@ impl Vm {
                 ptr::write(target_status_ptr, Self::BUCKET_OCCUPIED);
                 ptr::copy_nonoverlapping(key_ptr, target_key_ptr, key_size);
                 ptr::copy_nonoverlapping(value_ptr, target_value_ptr, value_size);
+                #[cfg(feature = "debug_vm")]
+                {
+                    eprintln!("empty bucket just overwrite");
+                }
 
                 return true;
             } else if status == Self::BUCKET_OCCUPIED {
@@ -126,10 +147,18 @@ impl Vm {
                 let existing_key_slice = slice::from_raw_parts(existing_key_ptr, key_size);
 
                 if key_slice == existing_key_slice {
+                    #[cfg(feature = "debug_vm")]
+                    {
+                        eprintln!("keys matched, so we found it");
+                    }
                     // Keys match, we can just overwrite the value portion
                     let value_dest_ptr = existing_key_ptr.add(key_size);
                     ptr::copy_nonoverlapping(value_ptr, value_dest_ptr, value_size);
                     return true;
+                }
+                #[cfg(feature = "debug_vm")]
+                {
+                    eprintln!("keys didn't match, so continue searching");
                 }
                 // Keys don't match (collision), just continue the loop
             } else if status == Self::BUCKET_TOMBSTONE {
@@ -137,6 +166,11 @@ impl Vm {
                 if first_tombstone_index.is_none() {
                     first_tombstone_index = Some(index);
                 }
+                #[cfg(feature = "debug_vm")]
+                {
+                    eprintln!("found tombstone but continue searching");
+                }
+
                 // Continue probing, as the key might exist later.
             }
 
@@ -153,12 +187,21 @@ impl Vm {
             let target_key_ptr = target_bucket_ptr.add(status_size);
             let target_value_ptr = target_key_ptr.add(key_size);
 
+            #[cfg(feature = "debug_vm")]
+            {
+                eprintln!("found tombstone in the end, overwriting");
+            }
             // Write status, key, and value
             ptr::write(target_status_ptr, Self::BUCKET_OCCUPIED);
             ptr::copy_nonoverlapping(key_ptr, target_key_ptr, key_size);
             ptr::copy_nonoverlapping(value_ptr, target_value_ptr, value_size);
 
             return true;
+        }
+
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!("MAP IS FULL, CAN NOT INSERT");
         }
 
         // If we reach here, the map is close to full or completely full and with no tombstones.
@@ -169,7 +212,197 @@ impl Vm {
     fn calculate_hash(key_bytes: &[u8]) -> u64 {
         let mut hasher = DefaultHasher::new();
         hasher.write(key_bytes);
-        hasher.finish()
+        let unique = hasher.finish();
+        eprintln!("hash: {unique:08X}");
+        unique
+    }
+
+    pub fn execute_map_open_addressing_get(
+        &mut self,
+        dst_value_addr: u16,
+        self_map_source_addr: u16,
+        key_source: u16,
+    ) {
+        let map_header = self.read_heap_map_header_via_frame(self_map_source_addr);
+        let buckets_ptr = self.get_heap_const_ptr(map_header.heap_offset as usize);
+        let key_source_ptr = self.get_frame_const_ptr(key_source);
+        let value_dest_ptr = self.get_frame_ptr(dst_value_addr);
+        unsafe {
+            let worked = Self::lookup_open_addressing(
+                buckets_ptr,
+                &map_header,
+                key_source_ptr,
+                value_dest_ptr,
+            );
+            assert!(worked);
+        }
+    }
+
+    pub fn execute_map_open_addressing_has(
+        &mut self,
+        self_const_map_source_addr: u16,
+        key_source: u16,
+    ) {
+        let map_header = self.read_heap_map_header_via_frame(self_const_map_source_addr);
+        let buckets_ptr = self.get_heap_ptr(map_header.heap_offset as usize);
+        let key_source_ptr = self.get_frame_const_ptr(key_source);
+        unsafe {
+            let found = Self::has_open_addressing(buckets_ptr, &map_header, key_source_ptr);
+            self.flags.z = found;
+        }
+
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!("map has: {}", self.flags.z);
+        }
+    }
+
+    ///
+    /// Returns `true` if the key is found within the maximum probe distance,
+    /// `false` otherwise.
+    unsafe fn has_open_addressing(
+        buckets_ptr: *const u8,
+        header: &MapHeader,
+        key_ptr: *const u8,
+    ) -> bool {
+        let capacity = header.capacity as usize;
+        let key_size = header.key_size as usize;
+        let value_size = header.value_size as usize;
+        debug_assert_ne!(key_size, 0);
+        debug_assert_ne!(value_size, 0);
+
+        // Calculate bucket layout sizes
+        let status_size: usize = 1;
+        let bucket_size: usize = status_size + key_size + value_size;
+
+        let key_slice = slice::from_raw_parts(key_ptr, key_size);
+        let hash = Self::calculate_hash(key_slice);
+
+        // Use bitwise AND for modulo (capacity is always a power of two)
+        let mut index = (hash as usize) & (capacity - 1);
+
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!(
+                "checks if has item with hash: {hash:08X} start index: {index} capacity: {capacity} key_size:{key_size}"
+            );
+        }
+
+        // Linear probing loop with max distance
+        for _ in 0..Self::MAX_PROBE_DISTANCE {
+            let bucket_start_ptr = buckets_ptr.add(index * bucket_size);
+            let status_ptr = bucket_start_ptr; // Status is at the start
+
+            let status = ptr::read(status_ptr);
+
+            if status == Self::BUCKET_EMPTY {
+                // Found an empty slot. The key cannot be present.
+                return false;
+            } else if status == Self::BUCKET_OCCUPIED {
+                // Slot is occupied, check if the keys match.
+                let existing_key_ptr = bucket_start_ptr.add(status_size);
+                let existing_key_slice = slice::from_raw_parts(existing_key_ptr, key_size);
+
+                if key_slice == existing_key_slice {
+                    // Keys match! The key exists.
+                    return true;
+                }
+                // Keys don't match (collision), continue probing.
+            } else if status == Self::BUCKET_TOMBSTONE {
+                // Found a tombstone. The key might be further down. Continue probing.
+            }
+
+            // Linear probing: move to the next index, wrap around.
+            index = (index + 1) & (capacity - 1);
+        }
+
+        // If we exit the loop, we've probed MAX_PROBE_DISTANCE slots
+        // without finding the key or hitting an empty slot.
+        false
+    }
+
+    pub fn execute_map_open_addressing_set(
+        &mut self,
+        self_mut_map_source_addr: u16,
+        key_source: u16,
+        src_value_addr: u16,
+    ) {
+        let map_header = self.read_heap_map_header_via_frame(self_mut_map_source_addr);
+        let buckets_ptr = self.get_heap_ptr(map_header.heap_offset as usize);
+        let key_source_ptr = self.get_frame_const_ptr(key_source);
+        let value_source_ptr = self.get_frame_const_ptr(src_value_addr);
+        unsafe {
+            let worked = Self::insert_open_addressing(
+                buckets_ptr,
+                &map_header,
+                key_source_ptr,
+                value_source_ptr,
+            );
+            assert!(worked);
+        }
+    }
+
+    /// Looks up a key in the hash map using open addressing and linear probing.
+    ///
+    /// If the key is found, its corresponding value is copied into `value_out_ptr`
+    /// and the function returns `true`. Otherwise, it returns `false`.
+    ///
+    unsafe fn lookup_open_addressing(
+        buckets_ptr: *const u8,
+        header: &MapHeader,
+        key_ptr: *const u8,
+        value_out_ptr: *mut u8,
+    ) -> bool {
+        let capacity = header.capacity as usize;
+        let key_size = header.key_size as usize;
+        let value_size = header.value_size as usize;
+
+        // Calculate bucket layout sizes (same as insert)
+        let status_size: usize = 1;
+        let bucket_size: usize = status_size + key_size + value_size;
+
+        let key_slice = slice::from_raw_parts(key_ptr, key_size);
+        let hash = Self::calculate_hash(key_slice);
+
+        // Use bitwise AND for modulo (capacity is always a power of two)
+        let mut index = (hash as usize) & (capacity - 1);
+
+        // Linear probing loop with max distance
+        for _ in 0..Self::MAX_PROBE_DISTANCE {
+            let bucket_start_ptr = buckets_ptr.add(index * bucket_size);
+            let status_ptr = bucket_start_ptr; // Status is at the start
+
+            let status = ptr::read(status_ptr);
+
+            if status == Self::BUCKET_EMPTY {
+                // Found an empty slot. The key cannot be present further down
+                // the probe sequence, because insertion would have stopped here.
+                return false;
+            } else if status == Self::BUCKET_OCCUPIED {
+                // Slot is occupied, check if the keys match.
+                let existing_key_ptr = bucket_start_ptr.add(status_size);
+                let existing_key_slice = slice::from_raw_parts(existing_key_ptr, key_size);
+
+                if key_slice == existing_key_slice {
+                    // Keys match! Copy the value and return true.
+                    let value_src_ptr = existing_key_ptr.add(key_size);
+                    ptr::copy_nonoverlapping(value_src_ptr, value_out_ptr, value_size);
+                    return true;
+                }
+                // Keys don't match (collision), continue probing.
+            } else if status == Self::BUCKET_TOMBSTONE {
+                // Found a tombstone. The key we are looking for might be
+                // further down the probe sequence, so we must continue searching.
+            }
+
+            // Linear probing: move to the next index, wrap around.
+            index = (index + 1) & (capacity - 1);
+        }
+
+        // If we exit the loop, we've probed MAX_PROBE_DISTANCE slots
+        // without finding the key or hitting an empty slot.
+        // Therefore, the key is not considered present within the probe limit.
+        false
     }
 
     /*

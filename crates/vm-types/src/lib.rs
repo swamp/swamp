@@ -483,6 +483,7 @@ pub const GRID_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
 pub const GRID_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct MapHeader {
     pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
     pub element_count: u32, // Count should be second

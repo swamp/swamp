@@ -734,6 +734,8 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        assert_ne!(slice_dst.size().0, 0);
+        assert_ne!(value_type.total_size.0, 0);
         self.state.add_instruction(
             OpCode::SliceFromHeap,
             &[
@@ -757,6 +759,10 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        assert_ne!(slice_dst.size().0, 0);
+        assert_ne!(key_type.size.0, 0);
+        assert_ne!(value_type.size.0, 0);
+
         self.state.add_instruction(
             OpCode::SlicePairFromHeap,
             &[

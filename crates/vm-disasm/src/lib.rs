@@ -650,8 +650,8 @@ pub fn disasm(
         OpCode::SliceFromHeap => &[
             to_write_frame(operands[0], &slice_type(), frame_memory_info),
             to_read_frame(operands[1], &indirect_heap_ptr_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
-            DecoratedOperandAccessKind::CountU16(operands[4]),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
+            DecoratedOperandAccessKind::CountU16(operands[3]),
         ],
 
         OpCode::SlicePairFromHeap => &[

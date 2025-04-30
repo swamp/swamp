@@ -7,7 +7,8 @@ impl Vm {
     pub fn get_heap_ptr(&self, offset: usize) -> *mut u8 {
         debug_assert!(
             offset < self.heap_memory_size,
-            "out of bounds for heap {offset:X}"
+            "out of bounds for heap. requested {offset} out of {}",
+            self.heap_memory_size,
         );
         unsafe { self.heap_memory.add(offset) }
     }
@@ -32,7 +33,8 @@ impl Vm {
         let aligned_offset = (self.heap_alloc_offset + ALIGNMENT_REST) & ALIGNMENT_MASK;
 
         eprintln!(
-            "heap_allocate original_size:{size}, aligned_size: {aligned_size} offset: {aligned_offset:08X} ({aligned_offset})"
+            "heap_allocate original_size:{size}, aligned_size: {aligned_size} offset: {aligned_offset:08X} ({aligned_offset}) max_heap_size: {}",
+            self.heap_memory_size
         );
 
         debug_assert!(

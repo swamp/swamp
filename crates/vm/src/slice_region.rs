@@ -50,6 +50,7 @@ impl Vm {
             (*dst_ptr).value_size = value_size;
             (*dst_ptr).element_count = element_count;
             (*dst_ptr).heap_offset = self.read_heap_offset_via_frame(heap_addr_via_frame);
+            debug_assert!((*dst_ptr).heap_offset < self.heap_memory_size as u32);
         }
     }
 }
