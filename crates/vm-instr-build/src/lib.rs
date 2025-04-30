@@ -753,23 +753,23 @@ impl InstructionBuilder<'_> {
         &mut self,
         slice_dst: &FramePlacedType,
         heap_region: FrameMemoryAddress,
-        key_type: &OffsetMemoryItem,
-        value_type: &OffsetMemoryItem,
+        key_type: &BasicType,
+        value_type: &BasicType,
         element_count: u16,
         node: &Node,
         comment: &str,
     ) {
         assert_ne!(slice_dst.size().0, 0);
-        assert_ne!(key_type.size.0, 0);
-        assert_ne!(value_type.size.0, 0);
+        assert_ne!(key_type.total_size.0, 0);
+        assert_ne!(value_type.total_size.0, 0);
 
         self.state.add_instruction(
             OpCode::SlicePairFromHeap,
             &[
                 slice_dst.addr().0,
                 heap_region.0,
-                key_type.size.0,
-                value_type.size.0,
+                key_type.total_size.0,
+                value_type.total_size.0,
                 element_count,
             ],
             node,

@@ -39,7 +39,7 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, HeapMemoryAddress, HeapMemoryOffset,
+    GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemorySize,
     InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
     MAP_HEADER_COUNT_OFFSET, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
     MemoryAlignment, MemoryOffset, MemorySize, Meta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
@@ -3083,44 +3083,57 @@ impl FunctionCodeGen<'_> {
 
         //let constructed_tuple = Type::Tuple(vec![*key_type.clone(), *value_type.clone()]);
 
-        let tuple_type_layout = layout_tuple_items(&[*key_type.clone(), *value_type.clone()]);
-
-        let key_layout = &tuple_type_layout.fields[0];
-        let value_layout = &tuple_type_layout.fields[1];
+        let key_layout = layout_type(key_type, "");
+        let value_layout = layout_type(value_type, "");
 
         //info!(?key_layout, ?value_layout, "layouts");
 
-        let element_size = tuple_type_layout.total_size;
-        let element_alignment = tuple_type_layout.max_alignment;
-
+        let pair_size = key_layout.total_size.0 + value_layout.total_size.0; // Alignment is not relevant, since we will only access them using byte chunks.
         let element_count = expressions.len() as u16;
-        let total_slice_size = MemorySize(element_size.0 * element_count);
+        let total_slice_size = MemorySize(pair_size * element_count);
 
-        let start_frame_address_to_transfer = self
-            .temp_allocator
-            .allocate(total_slice_size, element_alignment);
+        let heap_ptr_header_addr = ctx
+            .target()
+            .move_with_offset(SLICE_PTR_OFFSET, heap_ptr_size());
+
+        self.builder.add_alloc(
+            &heap_ptr_header_addr,
+            total_slice_size,
+            node,
+            "allocate slice pair",
+        );
+
+        let temp_key_ctx = self.temp_allocator.reserve_ctx(key_type);
+        let temp_value_ctx = self.temp_allocator.reserve_ctx(value_type);
 
         for (index, (key_expr, value_expr)) in expressions.iter().enumerate() {
-            let memory_offset = MemoryOffset((index as u16) * element_size.0);
-            let key_placed_type = FramePlacedType::new(
-                start_frame_address_to_transfer.advance(memory_offset),
-                key_layout.ty.clone(),
+            self.emit_expression_materialize(key_expr, &temp_key_ctx);
+            let key_offset = HeapMemoryOffset((index as u32) * pair_size as u32);
+            self.builder.add_stx_for_assignment(
+                &heap_ptr_header_addr,
+                key_offset,
+                temp_key_ctx.target(),
+                node,
+                "copy slice pair key element",
             );
-            let key_ctx = Context::new(key_placed_type);
-            self.emit_expression_materialize(key_expr, &key_ctx);
 
-            //.advance(memory_offset.add(value_layout.offset.as_size(), tuple_type_layout.total_alignment)),
-            let value_placed_type = FramePlacedType::new(
-                start_frame_address_to_transfer + value_layout.offset,
-                value_layout.ty.clone(),
+            self.emit_expression_materialize(value_expr, &temp_value_ctx);
+            let value_offset = HeapMemoryOffset((index as u32) * pair_size as u32).add(
+                HeapMemorySize(key_layout.total_size.0 as u32),
+                MemoryAlignment::U8,
             );
-            let value_ctx = Context::new(value_placed_type);
-            self.emit_expression_materialize(value_expr, &value_ctx);
+            self.builder.add_stx_for_assignment(
+                &heap_ptr_header_addr,
+                value_offset,
+                temp_value_ctx.target(),
+                node,
+                "copy slice pair value element",
+            );
         }
 
         self.builder.add_slice_pair_from_heap(
             ctx.target(),
-            start_frame_address_to_transfer,
+            heap_ptr_header_addr.addr(),
             &key_layout,
             &value_layout,
             element_count,

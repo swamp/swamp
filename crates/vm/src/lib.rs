@@ -416,10 +416,8 @@ impl Vm {
     fn execute_unimplemented(&mut self) {
         let unknown_opcode = OpCode::from(self.instructions[self.ip].opcode);
         eprintln!("error: opcode not implemented: {unknown_opcode} {unknown_opcode:?}");
-        eprintln!(
-            "VM runtime halted. total opcodes executed: {}, call_stack_depth: {}, max_call_depth:{}",
-            self.debug.opcodes_executed, self.debug.call_depth, self.debug.max_call_depth
-        );
+        eprintln!("VM runtime halted.");
+        self.debug_output();
         panic!("unknown OPCODE! {unknown_opcode} {unknown_opcode:?}");
     }
 
@@ -455,6 +453,14 @@ impl Vm {
         self.heap_alloc_offset = self.constant_memory_size;
         self.stack_offset = 0;
         self.frame_offset = self.stack_offset;
+        self.execution_complete = false;
+        self.call_stack.clear();
+        self.ip = 0;
+
+        #[cfg(feature = "debug_vm")]
+        {
+            self.reset_debug();
+        }
     }
 
     pub fn reset_debug(&mut self) {
@@ -1016,6 +1022,17 @@ impl Vm {
     #[inline]
     fn execute_hlt(&mut self) {
         self.execution_complete = true;
+        #[cfg(feature = "debug_vm")]
+        {
+            self.debug_output();
+        }
+    }
+
+    fn debug_output(&self) {
+        eprintln!(
+            "total opcodes executed: {}, call_stack_depth: {}, max_call_depth:{}",
+            self.debug.opcodes_executed, self.debug.call_depth, self.debug.max_call_depth
+        );
     }
 
     #[inline]
