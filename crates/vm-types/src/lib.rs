@@ -451,14 +451,16 @@ pub const VEC_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
 pub struct RangeIterator {
-    pub range_header_frame_offset: u32,
-    pub index: u32,
+    pub index: i32,
+    pub end: i32,
+    pub direction: i32,
 }
 
 pub const RANGE_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<RangeIterator>() as u16);
 pub const RANGE_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct RangeHeader {
     pub min: i32,
     pub max: i32,

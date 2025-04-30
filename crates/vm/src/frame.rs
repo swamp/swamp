@@ -1,4 +1,5 @@
 use crate::Vm;
+use std::mem;
 
 impl Vm {
     #[must_use]
@@ -13,6 +14,11 @@ impl Vm {
 
     #[inline(always)]
     pub fn get_frame_ptr_as_u32(&self, offset: u16) -> *mut u32 {
+        debug_assert!(
+            (self.frame_offset + offset as usize) < self.stack_memory_size,
+            "wrong frame addr {:X} {offset:X}",
+            self.frame_offset
+        );
         // Ensure alignment
         debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
         // Inline ptr_at functionality
@@ -21,6 +27,10 @@ impl Vm {
 
     #[inline(always)]
     pub fn get_frame_ptr_as_u16(&self, offset: u16) -> *mut u16 {
+        debug_assert!(
+            (self.frame_offset + offset as usize) < self.stack_memory_size,
+            "wrong frame addr"
+        );
         // Ensure alignment
         debug_assert_eq!(offset % 2, 0, "Unaligned u16 access at offset {offset}",);
         // Inline ptr_at functionality
@@ -30,12 +40,20 @@ impl Vm {
     #[inline(always)]
     #[must_use]
     pub const fn get_frame_ptr(&self, offset: u16) -> *mut u8 {
+        debug_assert!(
+            (self.frame_offset + offset as usize) < self.stack_memory_size,
+            "wrong frame addr"
+        );
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) }
     }
 
     #[inline(always)]
     #[must_use]
     pub const fn get_frame_const_ptr(&self, offset: u16) -> *const u8 {
+        debug_assert!(
+            (self.frame_offset + offset as usize) < self.stack_memory_size,
+            "wrong frame addr"
+        );
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) }
     }
 
@@ -45,6 +63,10 @@ impl Vm {
         // Ensure alignment
         debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
         // Inline ptr_at functionality
+        debug_assert!(
+            (self.frame_offset + offset as usize) < self.stack_memory_size,
+            "wrong frame addr"
+        );
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *mut i32 }
     }
 
@@ -53,6 +75,11 @@ impl Vm {
     pub fn get_frame_const_ptr_as_i32(&self, offset: u16) -> *const i32 {
         // Ensure alignment
         debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
+        debug_assert!(
+            (self.frame_offset + offset as usize) < self.stack_memory_size,
+            "wrong frame addr"
+        );
+
         // Inline ptr_at functionality
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *const i32 }
     }
@@ -60,8 +87,21 @@ impl Vm {
     #[inline(always)]
     #[must_use]
     pub fn get_frame_const_ptr_as_u32(&self, offset: u16) -> *const u32 {
+        let absolute_offset = self.frame_offset + offset as usize;
+        debug_assert!(
+            (self.frame_offset + offset as usize) < self.stack_memory_size,
+            "wrong frame addr"
+        );
+
         // Ensure alignment
-        debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
+        debug_assert_eq!(
+            absolute_offset % mem::align_of::<u32>(),
+            0,
+            "Unaligned u32 access at absolute offset {absolute_offset} (frame: {}, offset: {})",
+            self.frame_offset,
+            offset
+        );
+
         // Inline ptr_at functionality
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *const u32 }
     }
@@ -73,13 +113,13 @@ impl Vm {
 
     #[inline(always)]
     #[must_use]
-    pub fn read_frame_u8(&self, offset: u16) -> u8 {
+    pub const fn read_frame_u8(&self, offset: u16) -> u8 {
         unsafe { *self.get_frame_const_ptr(offset) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn read_frame_bool(&self, offset: u16) -> bool {
+    pub const fn read_frame_bool(&self, offset: u16) -> bool {
         unsafe { *self.get_frame_const_ptr(offset) != 0 }
     }
 

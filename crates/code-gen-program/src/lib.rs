@@ -7,11 +7,16 @@ use swamp_code_gen::{GenOptions, TopLevelGenState, disasm_whole_program};
 use swamp_compile::Program;
 use swamp_semantic::Function;
 
+pub struct CodeGenOptions {
+    pub show_disasm: bool,
+}
+
 /// # Errors
 ///
 pub fn code_gen_program(
     program: &Program,
     source_map_lookup: &SourceMapWrapper,
+    options: &CodeGenOptions,
 ) -> TopLevelGenState {
     let mut code_gen = TopLevelGenState::new();
 
@@ -99,13 +104,16 @@ pub fn code_gen_program(
     );
 
     code_gen.finalize();
-    disasm_whole_program(
-        //code_gen.function_ips(),
-        code_gen.function_debug_infos(),
-        source_map_lookup,
-        code_gen.instructions(),
-        code_gen.meta(),
-    );
+
+    if options.show_disasm {
+        disasm_whole_program(
+            //code_gen.function_ips(),
+            code_gen.function_debug_infos(),
+            source_map_lookup,
+            code_gen.instructions(),
+            code_gen.meta(),
+        );
+    }
 
     code_gen
 }

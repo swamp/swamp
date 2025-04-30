@@ -16,6 +16,7 @@ mod heap;
 pub mod host;
 mod map;
 mod map_open;
+mod range;
 mod string;
 mod vec;
 
@@ -131,6 +132,7 @@ pub struct VmSetup {
 }
 
 impl Vm {
+    #[allow(clippy::too_many_lines)]
     pub fn new(instructions: Vec<BinaryInstruction>, setup: VmSetup) -> Self {
         let frame_memory = unsafe {
             alloc::alloc(
@@ -140,6 +142,11 @@ impl Vm {
         let heap_memory = unsafe {
             alloc::alloc(alloc::Layout::from_size_align(setup.heap_memory_size, ALIGNMENT).unwrap())
         };
+
+        assert!(
+            setup.constant_memory.len() < setup.heap_memory_size / 2,
+            "too much constant memory"
+        );
 
         let mut vm = Self {
             stack_memory: frame_memory,                 // Raw memory pointer
@@ -279,6 +286,13 @@ impl Vm {
 
         // Collections ==========
 
+        // Range
+        vm.handlers[OpCode::RangeIterInit as usize] =
+            HandlerType::Args2(Self::execute_range_iter_init);
+
+        vm.handlers[OpCode::RangeIterNext as usize] =
+            HandlerType::Args2(Self::execute_range_iter_next);
+
         // Vec
         vm.handlers[OpCode::VecFromSlice as usize] =
             HandlerType::Args4(Self::execute_vec_from_slice);
@@ -288,6 +302,7 @@ impl Vm {
             HandlerType::Args4(Self::execute_vec_iter_next_pair);
         vm.handlers[OpCode::VecPush as usize] = HandlerType::Args2(Self::execute_vec_push);
         vm.handlers[OpCode::VecLen as usize] = HandlerType::Args2(Self::execute_vec_len);
+        vm.handlers[OpCode::VecGet as usize] = HandlerType::Args3(Self::execute_vec_get);
 
         // Map
         /* TODO: BRING THESE BACK
@@ -308,7 +323,7 @@ impl Vm {
         vm.handlers[OpCode::UnwrapJmpSome as usize] =
             HandlerType::Args2(Self::execute_unwrap_jmp_some);
 
-        assert_eq!(vm.handlers.len(), OpCode::HostCall as usize);
+        //assert_eq!(vm.handlers.len(), OpCode::HostCall as usize);
 
         // Optional: Zero out the memory for safety?
         unsafe {
@@ -862,13 +877,15 @@ impl Vm {
 
     fn execute_unimplemented(&mut self) {
         let unknown_opcode = OpCode::from(self.instructions[self.ip].opcode);
+        eprintln!("error: opcode not implemented: {unknown_opcode} {unknown_opcode:?}");
+        eprintln!("VM runtime halted");
         panic!("unknown OPCODE! {unknown_opcode} {unknown_opcode:?}");
     }
 
     #[inline]
     fn execute_mov(&mut self, dst_offset: u16, src_offset: u16, size: u16) {
-        let src_ptr = self.get_frame_ptr_as_u16(src_offset);
-        let dst_ptr = self.get_frame_ptr_as_u16(dst_offset);
+        let src_ptr = self.get_frame_ptr(src_offset);
+        let dst_ptr = self.get_frame_ptr(dst_offset);
 
         unsafe {
             std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, size as usize);
@@ -980,7 +997,7 @@ impl Vm {
         {
             eprintln!("program:");
             self.debug_instructions();
-            eprintln!("start executing");
+            eprintln!("start executing ----------");
         }
 
         self.call_stack.push(CallFrame {

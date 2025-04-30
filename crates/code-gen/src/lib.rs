@@ -731,11 +731,13 @@ impl TopLevelGenState {
     ) -> (
         Vec<BinaryInstruction>,
         SeqMap<ConstantId, ConstantInfo>,
+        SeqMap<InternalFunctionId, GenFunctionInfo>,
         Vec<u8>,
     ) {
         (
             self.builder_state.instructions,
             self.codegen_state.constant_functions,
+            self.codegen_state.function_infos,
             self.codegen_state.constants.take_data(),
         )
     }

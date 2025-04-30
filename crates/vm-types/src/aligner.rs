@@ -3,6 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+pub const SAFE_ALIGNMENT: usize = 8;
+
 pub fn align(addr: usize, alignment: usize) -> usize {
     assert!(
         alignment.is_power_of_two(),

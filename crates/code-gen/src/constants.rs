@@ -5,7 +5,7 @@
 use crate::layout::layout_type;
 use swamp_types::Type;
 use swamp_vm_types::HeapMemoryAddress;
-use swamp_vm_types::aligner::align;
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{HeapPlacedArray, HeapPlacedType};
 
 pub struct ConstantsAllocator {
@@ -21,7 +21,9 @@ impl Default for ConstantsAllocator {
 impl ConstantsAllocator {
     #[must_use]
     pub const fn new() -> Self {
-        Self { current_addr: 0 }
+        Self {
+            current_addr: SAFE_ALIGNMENT as u32,
+        } // Reserve space so no valid heap address is zero
     }
 
     pub fn allocate(&mut self, ty: &Type) -> HeapPlacedType {
@@ -77,6 +79,6 @@ impl ConstantsManager {
 
     #[must_use]
     pub fn take_data(self) -> Vec<u8> {
-        self.data
+        self.data[..self.allocator.current_addr as usize].to_vec()
     }
 }

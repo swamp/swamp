@@ -9,11 +9,9 @@ use std::path::{Path, PathBuf};
 use swamp::prelude::SeqMap;
 use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_dep_loader::swamp_registry_path;
-use swamp_parser::Rule::op_add;
 use swamp_vm::{Vm, VmSetup};
 
-#[test_log::test]
-fn compile_and_run() {
+fn main() {
     let mut mounts = SeqMap::new();
     let path_buf = Path::new("/Users/peter/external/swamp_autobattler/scripts").to_path_buf();
     mounts.insert("crate".to_string(), path_buf).unwrap();
@@ -43,7 +41,7 @@ fn compile_and_run() {
         top_gen_state.take_instructions_and_constants();
 
     let vm_setup = VmSetup {
-        frame_memory_size: 16 * 1024,
+        frame_memory_size: 16 * 1024 * 20,
         heap_memory_size: 1024 * 1024,
         constant_memory,
     };

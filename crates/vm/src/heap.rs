@@ -4,18 +4,30 @@ use std::ptr;
 impl Vm {
     #[inline(always)]
     #[must_use]
-    pub const fn get_heap_ptr(&self, offset: usize) -> *mut u8 {
+    pub fn get_heap_ptr(&self, offset: usize) -> *mut u8 {
+        debug_assert!(
+            offset < self.heap_memory_size,
+            "out of bounds for heap {offset:X}"
+        );
         unsafe { self.heap_memory.add(offset) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub const fn get_heap_const_ptr(&self, offset: usize) -> *const u8 {
+    pub fn get_heap_const_ptr(&self, offset: usize) -> *const u8 {
+        debug_assert!(
+            offset < self.heap_memory_size,
+            "out of bounds for heap {offset:X}"
+        );
         unsafe { self.heap_memory.add(offset) }
     }
 
     #[inline]
     pub(crate) fn heap_allocate(&mut self, size: usize) -> u32 {
+        if size == 0 {
+            eprintln!("heap_allocate zero");
+            return 0;
+        }
         let aligned_size = (size + ALIGNMENT_REST) & ALIGNMENT_MASK;
         let aligned_offset = (self.heap_alloc_offset + ALIGNMENT_REST) & ALIGNMENT_MASK;
 
@@ -36,6 +48,7 @@ impl Vm {
     #[inline]
     pub(crate) fn heap_allocate_with_data(&mut self, octets: &[u8]) -> u32 {
         let offset = self.heap_allocate(octets.len());
+        debug_assert_ne!(offset, 0);
         {
             unsafe {
                 ptr::copy_nonoverlapping(
