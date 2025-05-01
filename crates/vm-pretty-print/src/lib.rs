@@ -4,8 +4,8 @@ use std::{fmt, slice};
 use swamp_vm::Vm;
 use swamp_vm::frame::FrameMemory;
 use swamp_vm::heap::HeapMemory;
-use swamp_vm_types::StackMemoryAddress;
-use swamp_vm_types::types::{BasicTypeKind, OffsetMemoryItem};
+use swamp_vm_types::types::{BasicType, BasicTypeKind, OffsetMemoryItem};
+use swamp_vm_types::{MemoryOffset, StackMemoryAddress};
 
 pub fn new_line_and_tab(f: &mut dyn Write, tabs: usize) -> std::fmt::Result {
     let tab_str = "..".repeat(tabs);
@@ -14,7 +14,26 @@ pub fn new_line_and_tab(f: &mut dyn Write, tabs: usize) -> std::fmt::Result {
 }
 
 #[allow(clippy::too_many_lines)]
-pub fn print(
+pub fn print_value(
+    f: &mut dyn Write,
+    frame: &FrameMemory,
+    heap: &HeapMemory,
+    origin: StackMemoryAddress,
+    ty: &BasicType,
+    name: &str,
+) -> fmt::Result {
+    let item = OffsetMemoryItem {
+        offset: MemoryOffset(0),
+        size: ty.total_size,
+        name: name.to_string(),
+        ty: ty.clone(),
+    };
+    print(f, frame, heap, origin, &item, 0)?;
+    writeln!(f)
+}
+
+#[allow(clippy::too_many_lines)]
+fn print(
     f: &mut dyn Write,
     frame: &FrameMemory,
     heap: &HeapMemory,

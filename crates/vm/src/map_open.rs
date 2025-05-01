@@ -74,7 +74,7 @@ impl Vm {
         unsafe { *self.frame.get_frame_ptr_as_u32(dst_offset) = map_header_on_heap_addr }
     }
 
-    const MAX_PROBE_DISTANCE: usize = 16; // TODO: tweak this, only guessing for now
+    const MAX_PROBE_DISTANCE: usize = 32; // TODO: tweak this, only guessing for now
 
     // Inserts a key and value into the hash map using open addressing
     // and linear probing with a max distance. Hopefully it will work out
@@ -106,7 +106,7 @@ impl Vm {
         #[cfg(feature = "debug_vm")]
         {
             eprintln!(
-                "wants to insert hash: {hash:08X} start index: {index} capacity: {}, key_size: {key_size}",
+                "wants to insert hash: {hash:08X} starting at: {index} capacity: {}, key_size: {key_size}",
                 header.capacity
             );
         }
@@ -137,7 +137,7 @@ impl Vm {
                 ptr::copy_nonoverlapping(value_ptr, target_value_ptr, value_size);
                 #[cfg(feature = "debug_vm")]
                 {
-                    eprintln!("empty bucket just overwrite");
+                    eprintln!("empty bucket just overwriting index {index}");
                 }
 
                 return true;
@@ -149,7 +149,7 @@ impl Vm {
                 if key_slice == existing_key_slice {
                     #[cfg(feature = "debug_vm")]
                     {
-                        eprintln!("keys matched, so we found it");
+                        eprintln!("keys matched, so we found it. overwriting index {index}");
                     }
                     // Keys match, we can just overwrite the value portion
                     let value_dest_ptr = existing_key_ptr.add(key_size);
@@ -227,6 +227,15 @@ impl Vm {
         let buckets_ptr = self
             .heap
             .get_heap_const_ptr(map_header.heap_offset as usize);
+
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!(
+                "lookup in bucket: {buckets_ptr:?} {:04X}",
+                map_header.heap_offset,
+            );
+        }
+
         let key_source_ptr = self.frame.get_frame_const_ptr(key_source);
         let value_dest_ptr = self.frame.get_frame_ptr(dst_value_addr);
         unsafe {
@@ -333,6 +342,15 @@ impl Vm {
         let buckets_ptr = self.heap.get_heap_ptr(map_header.heap_offset as usize);
         let key_source_ptr = self.frame.get_frame_const_ptr(key_source);
         let value_source_ptr = self.frame.get_frame_const_ptr(src_value_addr);
+
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!(
+                "setting in bucket: {buckets_ptr:?} {:04X}",
+                map_header.heap_offset,
+            );
+        }
+
         unsafe {
             let worked = Self::insert_open_addressing(
                 buckets_ptr,
@@ -369,6 +387,11 @@ impl Vm {
         // Use bitwise AND for modulo (capacity is always a power of two)
         let mut index = (hash as usize) & (capacity - 1);
 
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!("calculated search hash {hash:08X} starting at {index}");
+        }
+
         // Linear probing loop with max distance
         for _ in 0..Self::MAX_PROBE_DISTANCE {
             let bucket_start_ptr = buckets_ptr.add(index * bucket_size);
@@ -379,6 +402,10 @@ impl Vm {
             if status == Self::BUCKET_EMPTY {
                 // Found an empty slot. The key cannot be present further down
                 // the probe sequence, because insertion would have stopped here.
+                #[cfg(feature = "debug_vm")]
+                {
+                    eprintln!("found empty bucket, so gave up on searching");
+                }
                 return false;
             } else if status == Self::BUCKET_OCCUPIED {
                 // Slot is occupied, check if the keys match.
@@ -386,6 +413,12 @@ impl Vm {
                 let existing_key_slice = slice::from_raw_parts(existing_key_ptr, key_size);
 
                 if key_slice == existing_key_slice {
+                    #[cfg(feature = "debug_vm")]
+                    {
+                        eprintln!(
+                            "matching key {key_slice:?} {existing_key_slice:?}. copying to value out"
+                        );
+                    }
                     // Keys match! Copy the value and return true.
                     let value_src_ptr = existing_key_ptr.add(key_size);
                     ptr::copy_nonoverlapping(value_src_ptr, value_out_ptr, value_size);
@@ -404,6 +437,10 @@ impl Vm {
         // If we exit the loop, we've probed MAX_PROBE_DISTANCE slots
         // without finding the key or hitting an empty slot.
         // Therefore, the key is not considered present within the probe limit.
+        #[cfg(feature = "debug_vm")]
+        {
+            eprintln!("lookup failed to find anything after max probe distance");
+        }
         false
     }
 

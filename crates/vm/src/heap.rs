@@ -1,6 +1,6 @@
 use crate::frame::FrameMemory;
 use crate::{ALIGNMENT, ALIGNMENT_MASK, ALIGNMENT_REST, Vm};
-use std::{alloc, ptr};
+use std::{alloc, ptr, slice};
 
 pub struct HeapMemory {
     pub(crate) heap_memory: *mut u8,
@@ -9,6 +9,19 @@ pub struct HeapMemory {
     // Memory regions (offsets)
     pub(crate) heap_alloc_offset: usize, // Current allocation point
     pub(crate) constant_memory_size: usize,
+}
+
+impl HeapMemory {
+    pub(crate) fn read_debug_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
+        let slice = unsafe {
+            slice::from_raw_parts(
+                self.get_heap_const_ptr(start_offset as usize),
+                size as usize,
+            )
+        };
+
+        slice.to_vec()
+    }
 }
 
 impl Drop for HeapMemory {
@@ -40,6 +53,10 @@ impl HeapMemory {
 
     pub fn reset_allocator(&mut self) {
         self.heap_alloc_offset = self.constant_memory_size;
+    }
+
+    pub(crate) fn protect_up_to_allocator(&mut self) {
+        self.constant_memory_size = self.heap_alloc_offset;
     }
 
     #[inline(always)]

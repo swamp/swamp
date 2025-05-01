@@ -81,6 +81,8 @@ pub struct Vm {
     pub debug: Debug,
 }
 
+impl Vm {}
+
 impl Vm {
     #[must_use]
     pub const fn frame(&self) -> &FrameMemory {
@@ -434,16 +436,23 @@ impl Vm {
 
     pub fn reset_stack_and_heap_to_constant_limit(&mut self) {
         self.heap.reset_allocator();
-        self.frame.reset();
-
+        self.reset_frame();
         self.execution_complete = false;
-        self.call_stack.clear();
         self.ip = 0;
 
         #[cfg(feature = "debug_vm")]
         {
             self.reset_debug();
         }
+    }
+
+    pub fn protect_heap_up_to_current_allocator(&mut self) {
+        self.heap.protect_up_to_allocator();
+    }
+
+    pub fn reset_frame(&mut self) {
+        self.frame.reset();
+        self.call_stack.clear();
     }
 
     pub fn reset_debug(&mut self) {
@@ -704,7 +713,7 @@ impl Vm {
         unsafe {
             let lhs = *lhs_ptr;
             let rhs = *rhs_ptr;
-            *dst_ptr = (Fp::from_raw(lhs) * Fp::from_raw(rhs)).inner();
+            *dst_ptr = lhs * rhs;
         }
     }
 
@@ -757,7 +766,7 @@ impl Vm {
         unsafe {
             let lhs = *lhs_ptr;
             let rhs = *rhs_ptr;
-            *dst_ptr = (Fp::from_raw(lhs) / Fp::from_raw(rhs)).inner();
+            *dst_ptr = lhs / rhs;
         }
     }
 
@@ -1060,6 +1069,13 @@ impl Vm {
         let dst_ptr = self.frame.get_frame_ptr(dst_offset);
         let src_ptr = self.heap.get_heap_const_ptr(const_offset as usize);
 
+        #[cfg(feature = "debug_vm")]
+        {
+            let slice = self.heap.read_debug_slice(const_offset, memory_size);
+            eprintln!(
+                "memmove {dst_offset:04X} <- {const_offset:08X} size: {memory_size} data:{slice:?}",
+            );
+        }
         unsafe {
             ptr::copy_nonoverlapping(src_ptr, dst_ptr, memory_size as usize);
         }
@@ -1147,8 +1163,8 @@ impl Vm {
         unsafe {
             let host_args = HostArgs::new(
                 self.frame
-                    .stack_memory
-                    .add(self.frame.frame_offset + self.last_frame_size as usize),
+                    .get_frame_ptr(0)
+                    .add(self.last_frame_size as usize),
                 self.frame.stack_memory_size - self.frame.frame_offset,
                 self.heap.heap_memory,
                 self.heap.heap_memory_size,

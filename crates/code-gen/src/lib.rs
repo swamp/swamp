@@ -45,9 +45,9 @@ use swamp_vm_types::{
     MemoryAlignment, MemoryOffset, MemorySize, Meta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
     RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE,
     SLICE_PAIR_HEADER_SIZE, SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT, STRING_HEADER_COUNT_OFFSET,
-    STRING_HEADER_SIZE, StringHeader, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT,
-    VEC_HEADER_COUNT_OFFSET, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
-    VEC_PTR_SIZE, ZFlagPolarity,
+    STRING_HEADER_SIZE, STRING_PTR_SIZE, StringHeader, TempFrameMemoryAddress,
+    VEC_HEADER_ALIGNMENT, VEC_HEADER_COUNT_OFFSET, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT,
+    VEC_ITERATOR_SIZE, VEC_PTR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -256,7 +256,7 @@ impl FunctionIps {
 pub struct CodeGenState {
     constants: ConstantsManager,
     constant_offsets: SeqMap<ConstantId, HeapPlacedType>,
-    constant_functions: SeqMap<ConstantId, ConstantInfo>,
+    constant_functions_in_order: SeqMap<ConstantId, ConstantInfo>,
     pub function_infos: SeqMap<InternalFunctionId, GenFunctionInfo>,
     function_fixups: Vec<FunctionFixup>,
 
@@ -391,7 +391,7 @@ impl CodeGenState {
             constants: ConstantsManager::default(),
             constant_offsets: SeqMap::default(),
             function_infos: SeqMap::default(),
-            constant_functions: SeqMap::default(),
+            constant_functions_in_order: SeqMap::default(),
             function_fixups: vec![],
             function_ips: FunctionIps::default(),
             function_debug_infos: SeqMap::default(),
@@ -400,7 +400,7 @@ impl CodeGenState {
 
     #[must_use]
     pub fn constant_functions(&self) -> &SeqMap<ConstantId, ConstantInfo> {
-        &self.constant_functions
+        &self.constant_functions_in_order
     }
 
     #[must_use]
@@ -416,7 +416,7 @@ impl CodeGenState {
                 .unwrap();
         }
 
-        for (_func_id, function_info) in &self.constant_functions {
+        for (_func_id, function_info) in &self.constant_functions_in_order {
             let description = format!("constant {}", function_info.constant_ref.assigned_name);
             lookups
                 .insert(function_info.ip_range.start.clone(), description)
@@ -715,7 +715,7 @@ impl TopLevelGenState {
             };
 
             self.codegen_state
-                .constant_functions
+                .constant_functions_in_order
                 .insert(constant.id, constant_info)
                 .unwrap();
 
@@ -737,7 +737,7 @@ impl TopLevelGenState {
     ) {
         (
             self.builder_state.instructions,
-            self.codegen_state.constant_functions,
+            self.codegen_state.constant_functions_in_order,
             self.codegen_state.function_infos,
             self.codegen_state.constants.take_data(),
         )
@@ -2685,12 +2685,12 @@ impl FunctionCodeGen<'_> {
                 .addr()
                 .0,
         );
-        let mem_size = MemorySize(header_bytes.len() as u16);
+        let mem_size = STRING_PTR_SIZE;
 
-        self.builder.add_mov_mem(
+        assert_eq!(ctx.target_size(), STRING_PTR_SIZE);
+        self.builder.add_ld32(
             ctx.target(),
-            string_header_in_heap_ptr,
-            mem_size,
+            string_header_in_heap_ptr.0 as i32,
             node,
             "constant string",
         );

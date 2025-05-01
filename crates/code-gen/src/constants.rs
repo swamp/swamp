@@ -37,7 +37,7 @@ impl ConstantsAllocator {
     }
 
     pub fn allocate_byte_array(&mut self, byte_count: u32) -> HeapPlacedArray {
-        let start_addr = align(self.current_addr as usize, 1) as u32;
+        let start_addr = align(self.current_addr as usize, SAFE_ALIGNMENT) as u32;
         self.current_addr += byte_count;
 
         HeapPlacedArray::new(HeapMemoryAddress(start_addr), byte_count)

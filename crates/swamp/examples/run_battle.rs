@@ -19,6 +19,10 @@ pub struct StderrWriter;
 
 use std::fmt::{self, Write as FmtWrite};
 use std::io::{self, Write as IoWrite};
+use swamp_vm::host::HostArgs;
+use test_log::tracing_subscriber;
+use tracing::info;
+
 impl FmtWrite for StderrWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let mut stderr = io::stderr();
@@ -27,7 +31,17 @@ impl FmtWrite for StderrWriter {
     }
 }
 
+fn print_fn(mut args: HostArgs) {
+    let output = args.get_str();
+    eprintln!("PRINT! {output}");
+}
+
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_writer(std::io::stderr)
+        .init();
+
     let mut mounts = SeqMap::new();
     let path_buf = Path::new("/Users/peter/external/swamp_autobattler/scripts").to_path_buf();
     mounts.insert("crate".to_string(), path_buf).unwrap();
@@ -44,6 +58,8 @@ fn main() {
     let program = swamp_compile::bootstrap_and_compile(&mut source_map, crate_main_path)
         .expect("TODO: panic message");
 
+    let mut stderr_adapter = StderrWriter;
+
     let source_map_wrapper = SourceMapWrapper {
         source_map: &source_map,
         current_dir: PathBuf::from(Path::new("")),
@@ -53,7 +69,7 @@ fn main() {
 
     let top_gen_state = code_gen_program(&program, &source_map_wrapper, &options);
 
-    let (instructions, constants_info, emit_function_infos, constant_memory) =
+    let (instructions, constants_in_order, emit_function_infos, constant_memory) =
         top_gen_state.take_instructions_and_constants();
 
     let vm_setup = VmSetup {
@@ -64,8 +80,13 @@ fn main() {
 
     let mut vm = Vm::new(instructions, vm_setup);
 
-    for (_key, constant) in constants_info {
-        vm.reset_stack_and_heap_to_constant_limit();
+    vm.add_host_function(1, print_fn);
+
+    for (_key, constant) in constants_in_order {
+        info!(?constant.constant_ref, "ordered constant");
+        // do not reset heap, all allocations from heap should remain (for now)
+        // TODO: compact the heap after each constant
+        vm.reset_frame();
         vm.execute_from_ip(&constant.ip_range.start);
         unsafe {
             ptr::copy_nonoverlapping(
@@ -75,6 +96,30 @@ fn main() {
                 constant.target_constant_memory.size().0 as usize,
             );
         }
+        vm.protect_heap_up_to_current_allocator();
+
+        let return_layout =
+            swamp_code_gen::layout::layout_type(&constant.constant_ref.resolved_type, "");
+
+        assert_eq!(
+            constant.target_constant_memory.size(),
+            return_layout.total_size
+        );
+
+        eprintln!(
+            "value: written to %${:08X} --------",
+            constant.target_constant_memory.addr().0
+        );
+
+        swamp_vm_pretty_print::print_value(
+            &mut stderr_adapter,
+            vm.frame(),
+            vm.heap(),
+            StackMemoryAddress(0),
+            &return_layout,
+            &constant.constant_ref.assigned_name,
+        )
+        .unwrap();
     }
 
     let main_module = program
@@ -100,22 +145,14 @@ fn main() {
 
     let return_layout =
         swamp_code_gen::layout::layout_type(&simulation_fn.signature.signature.return_type, "");
-    let return_offset_item = OffsetMemoryItem {
-        offset: MemoryOffset(0),
-        size: return_layout.total_size,
-        name: "Simulation".to_string(),
-        ty: return_layout,
-    };
 
-    let mut stderr_adapter = StderrWriter;
-
-    swamp_vm_pretty_print::print(
+    swamp_vm_pretty_print::print_value(
         &mut stderr_adapter,
         vm.frame(),
         vm.heap(),
         StackMemoryAddress(0),
-        &return_offset_item,
-        0,
+        &return_layout,
+        "Simulation",
     )
     .unwrap();
 

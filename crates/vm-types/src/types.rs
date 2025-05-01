@@ -5,8 +5,8 @@ use crate::{
     MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MAP_PTR_ALIGNMENT, MAP_PTR_SIZE,
     MemoryAlignment, MemoryOffset, MemorySize, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
     RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE,
-    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
-    VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
+    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
+    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
 };
 use seq_fmt::comma;
 use std::fmt::{Display, Formatter, Write};
@@ -376,8 +376,8 @@ pub const fn indirect_heap_ptr_type() -> BasicType {
 pub const fn string_type() -> BasicType {
     BasicType {
         kind: BasicTypeKind::InternalStringPointer,
-        total_size: STRING_HEADER_SIZE,
-        max_alignment: STRING_HEADER_ALIGNMENT,
+        total_size: STRING_PTR_SIZE,
+        max_alignment: STRING_PTR_ALIGNMENT,
     }
 }
 #[must_use]
@@ -761,8 +761,8 @@ impl BasicType {
     #[must_use]
     pub fn is_str(&self) -> bool {
         matches!(self.kind, BasicTypeKind::InternalStringPointer)
-            && self.total_size == STRING_HEADER_SIZE
-            && self.max_alignment == STRING_HEADER_ALIGNMENT
+            && self.total_size == STRING_PTR_SIZE
+            && self.max_alignment == STRING_PTR_ALIGNMENT
     }
 
     #[must_use]

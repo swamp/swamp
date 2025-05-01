@@ -14,8 +14,8 @@ use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE,
     MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
     SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, STRING_HEADER_ALIGNMENT,
-    STRING_HEADER_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
-    adjust_size_to_alignment, align_to,
+    STRING_HEADER_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT,
+    VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
 /*
@@ -206,8 +206,8 @@ pub fn layout_type(ty: &Type, name: &str) -> BasicType {
         Type::Unit => basic_type(BasicTypeKind::Empty, MemorySize(0), MemoryAlignment::U8),
         Type::String => basic_type(
             BasicTypeKind::InternalStringPointer,
-            STRING_HEADER_SIZE,
-            STRING_HEADER_ALIGNMENT,
+            STRING_PTR_SIZE,
+            STRING_PTR_ALIGNMENT,
         ),
         Type::Slice(inner_type) => layout_slice(inner_type, "slice"),
         Type::SlicePair(a, b) => layout_slice_pair(a, b, &format!("slice {name}")),
