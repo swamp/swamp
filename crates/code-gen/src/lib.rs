@@ -2955,7 +2955,7 @@ impl FunctionCodeGen<'_> {
     }
 
     fn return_frame_address(&self, ty: &Type) -> FramePlacedType {
-        let return_layout = layout_type(ty, "");
+        let return_layout = layout_type(ty);
         let addr = FrameMemoryAddress(self.total_frame_size.0);
 
         FramePlacedType::new(addr, return_layout)
@@ -3022,7 +3022,7 @@ impl FunctionCodeGen<'_> {
             panic!("incorrect slice type")
         };
 
-        let element_gen_type = layout_type(element_type, "");
+        let element_gen_type = layout_type(element_type);
         let element_count = expressions.len() as u16;
         let total_slice_size = MemorySize(element_gen_type.total_size.0 * element_count);
         assert_eq!(ctx.target_size(), SLICE_HEADER_SIZE);
@@ -3083,8 +3083,8 @@ impl FunctionCodeGen<'_> {
 
         //let constructed_tuple = Type::Tuple(vec![*key_type.clone(), *value_type.clone()]);
 
-        let key_layout = layout_type(key_type, "");
-        let value_layout = layout_type(value_type, "");
+        let key_layout = layout_type(key_type);
+        let value_layout = layout_type(value_type);
 
         //info!(?key_layout, ?value_layout, "layouts");
 
@@ -3730,7 +3730,7 @@ impl FunctionCodeGen<'_> {
         let lambda_return_analyzed_type = &lambda_expr.ty;
 
         // 1. Optionally initialize the result vector if the transformer produces one.
-        let lambda_return_gen_type = layout_type(lambda_return_analyzed_type, "for_iterator");
+        let lambda_return_gen_type = layout_type(lambda_return_analyzed_type);
 
         if matches!(
             transformer.return_type(),
@@ -3738,7 +3738,7 @@ impl FunctionCodeGen<'_> {
         ) {
             let element_size_in_target_vec = match transformer.return_type() {
                 TransformerResult::VecFromSourceCollection => {
-                    let element_gen_type = layout_type(primary_element_type.unwrap(), "");
+                    let element_gen_type = layout_type(primary_element_type.unwrap());
                     element_gen_type.total_size
                 }
                 TransformerResult::VecWithLambdaResult => {

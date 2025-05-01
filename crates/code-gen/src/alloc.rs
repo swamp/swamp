@@ -72,7 +72,7 @@ impl ScopeAllocator {
     }
 
     pub fn reserve(&mut self, analyzed_type: &Type) -> FramePlacedType {
-        let gen_type = layout_type(analyzed_type, "");
+        let gen_type = layout_type(analyzed_type);
         self.allocate_type(gen_type)
     }
 

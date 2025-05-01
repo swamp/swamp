@@ -165,7 +165,7 @@ pub fn layout_enum(name: &str, variants: &[EnumVariantType]) -> BasicType {
 }
 
 fn layout_slice(value_type: &Type, name: &str) -> BasicType {
-    let basic = layout_type(value_type, &format!("slice {name}"));
+    let basic = layout_type(value_type);
     BasicType {
         kind: BasicTypeKind::Slice(Box::from(basic)),
         total_size: SLICE_HEADER_SIZE,
@@ -173,7 +173,7 @@ fn layout_slice(value_type: &Type, name: &str) -> BasicType {
     }
 }
 
-fn layout_slice_pair(a_type: &Type, b_type: &Type, _name: &str) -> BasicType {
+fn layout_slice_pair(a_type: &Type, b_type: &Type) -> BasicType {
     let tuple_type = layout_tuple_items(&[a_type.clone(), b_type.clone()]);
     let key_type = &tuple_type.fields[0];
     let value_type = &tuple_type.fields[1];
@@ -198,7 +198,7 @@ const fn basic_type(
 }
 
 #[must_use]
-pub fn layout_type(ty: &Type, name: &str) -> BasicType {
+pub fn layout_type(ty: &Type) -> BasicType {
     match ty {
         Type::Int => basic_type(BasicTypeKind::S32, MemorySize(4), MemoryAlignment::U32),
         Type::Float => basic_type(BasicTypeKind::Fixed32, MemorySize(4), MemoryAlignment::U32),
@@ -210,20 +210,20 @@ pub fn layout_type(ty: &Type, name: &str) -> BasicType {
             STRING_PTR_ALIGNMENT,
         ),
         Type::Slice(inner_type) => layout_slice(inner_type, "slice"),
-        Type::SlicePair(a, b) => layout_slice_pair(a, b, &format!("slice {name}")),
+        Type::SlicePair(a, b) => layout_slice_pair(a, b),
         Type::Tuple(types) => layout_tuple(types),
         Type::NamedStruct(named_struct_type) => {
             layout_named_struct(named_struct_type) // NOTE: memory_offset removed
         }
         Type::AnonymousStruct(anon_struct_type) => {
-            layout_struct(anon_struct_type, &format!("struct {name}")) // NOTE: memory_offset removed
+            layout_struct(anon_struct_type, "") // NOTE: memory_offset removed
         }
         Type::Enum(a) => layout_enum(
             &a.assigned_name,
             &a.variants.values().cloned().collect::<Vec<_>>(),
         ),
-        Type::Optional(inner_type) => layout_optional_type(inner_type, &format!("{name}?")),
-        Type::MutableReference(inner_type) => layout_type(inner_type, &format!("mut ref {name}?")),
+        Type::Optional(inner_type) => layout_optional_type(inner_type),
+        Type::MutableReference(inner_type) => layout_type(inner_type),
         Type::Function(_) => panic!("function types should not be a part of codegen"),
         Type::Never => panic!("'never' should not be a part of codegen"),
         Type::Generic(_, _) => panic!("generic should not be a part of codegen"),
@@ -237,7 +237,6 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
         return basic_type(
             BasicTypeKind::InternalVecPointer(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
-                "vec<T>",
             ))),
             VEC_PTR_SIZE,
             VEC_PTR_ALIGNMENT,
@@ -245,8 +244,15 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
     }
 
     if named_struct_type.is_map() {
+        let analyzed_key_type = &named_struct_type.instantiated_type_parameters[0];
+        assert!(analyzed_key_type.is_concrete());
+        let key_type = layout_type(analyzed_key_type);
+
+        let analyzed_value_type = &named_struct_type.instantiated_type_parameters[1];
+        assert!(analyzed_value_type.is_concrete());
+        let value_type = layout_type(analyzed_value_type);
         return basic_type(
-            BasicTypeKind::InternalMapPointer,
+            BasicTypeKind::InternalMapPointer(Box::from(key_type), Box::from(value_type)),
             MAP_PTR_SIZE,
             MAP_PTR_ALIGNMENT,
         );
@@ -256,7 +262,6 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
         return basic_type(
             BasicTypeKind::InternalVecPointer(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
-                "grid",
             ))),
             VEC_PTR_SIZE,
             VEC_PTR_ALIGNMENT,
@@ -266,7 +271,6 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
         return basic_type(
             BasicTypeKind::InternalVecPointer(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
-                "stack",
             ))),
             VEC_PTR_SIZE,
             VEC_PTR_ALIGNMENT,
@@ -277,7 +281,6 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
         return basic_type(
             BasicTypeKind::InternalVecPointer(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
-                "queue",
             ))),
             VEC_PTR_SIZE,
             VEC_PTR_ALIGNMENT,
@@ -297,7 +300,7 @@ pub fn layout_struct_type(struct_type: &AnonymousStructType, name: &str) -> Stru
     let mut items = Vec::with_capacity(struct_type.field_name_sorted_fields.len());
 
     for (field_name, field_type) in &struct_type.field_name_sorted_fields {
-        let field_layout = layout_type(&field_type.field_type, field_name);
+        let field_layout = layout_type(&field_type.field_type);
 
         offset = align_to(offset, field_layout.max_alignment);
 
@@ -334,8 +337,8 @@ pub fn layout_struct(struct_type: &AnonymousStructType, name: &str) -> BasicType
     }
 }
 
-pub fn layout_optional_type(inner_type: &Type, name: &str) -> BasicType {
-    let tagged_union_type = layout_optional_type_items(inner_type, name);
+pub fn layout_optional_type(inner_type: &Type) -> BasicType {
+    let tagged_union_type = layout_optional_type_items(inner_type);
     BasicType {
         total_size: tagged_union_type.total_size,
         max_alignment: tagged_union_type.max_alignment,
@@ -343,8 +346,8 @@ pub fn layout_optional_type(inner_type: &Type, name: &str) -> BasicType {
     }
 }
 
-pub fn layout_optional_type_items(inner_type: &Type, _name: &str) -> TaggedUnion {
-    let gen_type = layout_type(inner_type, "");
+pub fn layout_optional_type_items(inner_type: &Type) -> TaggedUnion {
+    let gen_type = layout_type(inner_type);
     let payload_variant = VariantLayout {
         size: gen_type.total_size,
         alignment: gen_type.max_alignment,
@@ -357,7 +360,7 @@ pub fn layout_optional_type_items(inner_type: &Type, _name: &str) -> TaggedUnion
 
     let payload_tagged_variant = TaggedUnionVariant {
         name: "Some".to_string(),
-        ty: layout_type(inner_type, "some"),
+        ty: layout_type(inner_type),
     };
 
     let none_tagged_variant = TaggedUnionVariant {
@@ -387,7 +390,7 @@ pub fn layout_tuple_items(types: &[Type]) -> TupleType {
     let mut items = Vec::with_capacity(types.len());
 
     for (i, ty) in types.iter().enumerate() {
-        let elem_layout = layout_type(ty, &i.to_string());
+        let elem_layout = layout_type(ty);
 
         offset = align_to(offset, elem_layout.max_alignment);
 

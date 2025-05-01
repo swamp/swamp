@@ -1560,19 +1560,12 @@ impl<'a> Analyzer<'a> {
                         let basic_literal = ExpressionKind::Literal(string_literal);
                         self.create_expr(basic_literal, Type::String, &expression.node)
                     } else {
-                        // HACK TODO: REMOVE THIS
-
-                        let string_literal = Literal::StringLiteral("not implemented".to_string());
-                        let basic_literal = ExpressionKind::Literal(string_literal);
-                        self.create_expr(basic_literal, Type::String, &expression.node)
-                        /*
                         if maybe_to_string.is_none() {
                             return Err(self.create_err(
                                 ErrorKind::MissingToString(ty.clone()),
                                 &expression.node,
                             ));
                         }
-
 
                         let expr_as_param = MutRefOrImmutableExpression::Expression(expr);
                         let call_expr_kind = self.create_static_member_call(
@@ -1589,8 +1582,6 @@ impl<'a> Analyzer<'a> {
 
                          */
                         self.create_expr(call_expr_kind, Type::String, &expression.node)
-
-                             */
                     }
                 }
             };

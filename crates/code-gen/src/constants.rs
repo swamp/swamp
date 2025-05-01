@@ -27,7 +27,7 @@ impl ConstantsAllocator {
     }
 
     pub fn allocate(&mut self, ty: &Type) -> HeapPlacedType {
-        let gen_type = layout_type(&ty, "");
+        let gen_type = layout_type(&ty);
         let alignment: usize = gen_type.max_alignment.into();
         let start_addr = align(self.current_addr as usize, alignment) as u32;
 

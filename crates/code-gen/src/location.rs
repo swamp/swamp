@@ -217,7 +217,7 @@ impl FunctionCodeGen<'_> {
                     "copy back collection set (vec)",
                 );
             }
-            BasicTypeKind::InternalMapPointer => {
+            BasicTypeKind::InternalMapPointer(_, _) => {
                 self.builder.add_map_set(
                     self_collection,
                     &key_address,
@@ -253,7 +253,7 @@ impl FunctionCodeGen<'_> {
                     "collection get (vec)",
                 );
             }
-            BasicTypeKind::InternalMapPointer => {
+            BasicTypeKind::InternalMapPointer(_, _) => {
                 self.builder.add_map_fetch(
                     ctx.target(),
                     self_collection,

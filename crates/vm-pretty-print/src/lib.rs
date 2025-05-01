@@ -95,7 +95,7 @@ fn print(
             }
             write!(f, "]")
         }
-        BasicTypeKind::InternalMapPointer => write!(f, "map<K,V>"),
+        BasicTypeKind::InternalMapPointer(k, v) => write!(f, "map<{k},{v}>"),
         BasicTypeKind::InternalGridPointer => todo!(),
 
         BasicTypeKind::Struct(struct_type) => {
@@ -180,8 +180,7 @@ fn print(
             }
         }
 
-        BasicTypeKind::IndirectHeapPointerOnFrame => todo!(),
-        BasicTypeKind::Bytes => todo!(),
+        BasicTypeKind::IndirectHeapPointerOnFrame => panic!("heap pointers can not be stored"),
         BasicTypeKind::Slice(_) => panic!("slices should not be stored"),
         BasicTypeKind::SlicePair(_, _) => panic!("slice pairs should not be stored"),
         BasicTypeKind::InternalVecIterator => panic!("vec iterators should not be stored"),

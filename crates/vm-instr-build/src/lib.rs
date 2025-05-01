@@ -1519,7 +1519,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
         self.state.add_instruction(
             OpCode::MapHas,
             &[self_addr.addr().0, key_addr.addr().0],
@@ -1535,7 +1535,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
         self.state.add_instruction(
             OpCode::MapLen,
             &[target.addr().0, self_addr.addr().0],
@@ -1551,7 +1551,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
         self.state.add_instruction(
             OpCode::MapRemove,
             &[self_addr.addr().0, key_addr.addr().0],
@@ -1568,7 +1568,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
         self.state.add_instruction(
             OpCode::MapFetch,
             &[target_addr.addr().0, self_addr.addr().0, key.addr().0],
@@ -1585,7 +1585,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer);
+        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
 
         self.state.add_instruction(
             OpCode::MapSet,

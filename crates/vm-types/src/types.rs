@@ -240,22 +240,23 @@ pub enum BasicTypeKind {
     Fixed32,
     U32,
     InternalStringPointer,
-    InternalRangeHeader,
     InternalVecPointer(Box<BasicType>),
-    InternalMapPointer,
+    InternalMapPointer(Box<BasicType>, Box<BasicType>),
     InternalGridPointer,
-    InternalVecIterator,
-    InternalMapIterator,
-    InternalRangeIterator,
-    //InternalGridIterator,
     Struct(StructType),
     TaggedUnion(TaggedUnion),
     Tuple(TupleType),
     Optional(TaggedUnion),
+    InternalRangeHeader,
+
+    // Can not be stored:
+    InternalVecIterator,
+    InternalMapIterator,
+    InternalRangeIterator,
+    //InternalGridIterator,
     Slice(Box<BasicType>),
     SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
     IndirectHeapPointerOnFrame,
-    Bytes,
 }
 
 impl Display for BasicTypeKind {
@@ -266,21 +267,20 @@ impl Display for BasicTypeKind {
             Self::B8 => write!(f, "b8"),
             Self::U16 => write!(f, "u16"),
             Self::S32 => write!(f, "int"),
-            Self::Bytes => write!(f, "[u8]"),
             Self::Fixed32 => write!(f, "fixed"),
             Self::U32 => write!(f, "u32"),
             Self::InternalStringPointer => write!(f, "String"),
             Self::InternalRangeHeader => write!(f, "Range"),
-            Self::InternalVecPointer(item_type) => write!(f, "Vec"),
-            Self::InternalMapPointer => write!(f, "Map"),
+            Self::InternalVecPointer(item_type) => write!(f, "Vec<{item_type}>"),
+            Self::InternalMapPointer(key, value) => write!(f, "Map<{key}, {value}>"),
             Self::InternalGridPointer => write!(f, "Grid"),
             Self::InternalVecIterator => write!(f, "Vec::Iterator"),
             Self::InternalMapIterator => write!(f, "Map::Iterator"),
             Self::InternalRangeIterator => write!(f, "Range::Iterator"),
-            Self::Struct(struct_type) => write!(f, "struct {}", struct_type.name),
-            Self::TaggedUnion(union) => write!(f, "{}", comma(&union.variants)),
-            Self::Optional(optional) => write!(f, "{}", comma(&optional.variants)),
-            Self::Tuple(tuple_type) => write!(f, "{}", comma(&tuple_type.fields)),
+            Self::Struct(struct_type) => write!(f, "{}", struct_type.name),
+            Self::TaggedUnion(union) => write!(f, "enum {}", union.name),
+            Self::Optional(optional) => write!(f, "{}?", optional.get_variant_by_index(1).ty),
+            Self::Tuple(tuple_type) => write!(f, "({})", comma(&tuple_type.fields)),
             Self::Slice(a) => write!(f, "slice<{}>", a.kind),
             Self::SlicePair(a, b) => write!(f, "slice_pair<{a}, {b}>"),
             Self::IndirectHeapPointerOnFrame => write!(f, "indirect heap ptr"),
@@ -401,7 +401,7 @@ pub const fn float_type() -> BasicType {
 #[must_use]
 pub const fn bytes_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::Bytes,
+        kind: BasicTypeKind::Empty,
         total_size: MemorySize(0),
         max_alignment: MemoryAlignment::U32,
     }
@@ -460,9 +460,12 @@ pub const fn vec_iter_type() -> BasicType {
 }
 
 #[must_use]
-pub const fn map_type() -> BasicType {
+pub fn map_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::InternalMapPointer,
+        kind: BasicTypeKind::InternalMapPointer(
+            Box::from(unknown_type()),
+            Box::from(unknown_type()),
+        ),
         total_size: MAP_PTR_SIZE,
         max_alignment: MAP_PTR_ALIGNMENT,
     }
@@ -775,7 +778,7 @@ impl BasicType {
 
 impl Display for BasicType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "")
+        write!(f, "{}", self.kind)
     }
 }
 
@@ -1108,7 +1111,6 @@ pub fn write_basic_type(
         BasicTypeKind::B8 => write!(f, "{}", "b8".white()),
         BasicTypeKind::U16 => write!(f, "{}", "u16".white()),
         BasicTypeKind::S32 => write!(f, "{}", "s32".white()),
-        BasicTypeKind::Bytes => write!(f, "{}", "[u8]".white()),
         BasicTypeKind::Fixed32 => write!(f, "{}", "f32".white()),
         BasicTypeKind::U32 => write!(f, "{}", "u32".white()),
         BasicTypeKind::Struct(s) => show_struct_type(s, origin, f, tabs),
@@ -1145,8 +1147,8 @@ pub fn write_basic_type(
         BasicTypeKind::InternalVecPointer(x) => {
             write!(f, "vec<>")
         }
-        BasicTypeKind::InternalMapPointer => {
-            write!(f, "map<>")
+        BasicTypeKind::InternalMapPointer(key, value) => {
+            write!(f, "map<{key}, {value}>")
         }
         BasicTypeKind::InternalGridPointer => {
             write!(f, "grid<>")

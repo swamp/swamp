@@ -99,7 +99,7 @@ fn main() {
         vm.protect_heap_up_to_current_allocator();
 
         let return_layout =
-            swamp_code_gen::layout::layout_type(&constant.constant_ref.resolved_type, "");
+            swamp_code_gen::layout::layout_type(&constant.constant_ref.resolved_type);
 
         assert_eq!(
             constant.target_constant_memory.size(),
@@ -144,7 +144,7 @@ fn main() {
     let mut f = String::new();
 
     let return_layout =
-        swamp_code_gen::layout::layout_type(&simulation_fn.signature.signature.return_type, "");
+        swamp_code_gen::layout::layout_type(&simulation_fn.signature.signature.return_type);
 
     swamp_vm_pretty_print::print_value(
         &mut stderr_adapter,
