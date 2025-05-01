@@ -1,11 +1,11 @@
 use fixed32::Fp;
-use std::fmt::{Formatter, Write};
+use std::fmt::Write;
 use std::{fmt, slice};
 use swamp_vm::Vm;
 use swamp_vm::frame::FrameMemory;
 use swamp_vm::heap::HeapMemory;
+use swamp_vm_types::StackMemoryAddress;
 use swamp_vm_types::types::{BasicTypeKind, OffsetMemoryItem};
-use swamp_vm_types::{HeapMemoryAddress, StackMemoryAddress};
 
 pub fn new_line_and_tab(f: &mut dyn Write, tabs: usize) -> std::fmt::Result {
     let tab_str = "..".repeat(tabs);
@@ -13,6 +13,7 @@ pub fn new_line_and_tab(f: &mut dyn Write, tabs: usize) -> std::fmt::Result {
     write!(f, "{tab_str}")
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn print(
     f: &mut dyn Write,
     frame: &FrameMemory,
@@ -21,13 +22,13 @@ pub fn print(
     item: &OffsetMemoryItem,
     indent: usize,
 ) -> fmt::Result {
-    write!(
-        f,
-        "{:08X}:{:04X} |>   {}: ",
-        origin.0, item.offset.0, item.name
-    )?;
     let total_frame_addr = origin.0 as u16 + item.offset.0;
     let total_frame_addr_origin = StackMemoryAddress(total_frame_addr as u32);
+    write!(
+        f,
+        "{:08X}:{:X} |>   {}: ",
+        total_frame_addr, item.size.0, item.name
+    )?;
     match &item.ty.kind {
         BasicTypeKind::Empty => write!(f, "()"),
         BasicTypeKind::U8 => {
@@ -36,7 +37,11 @@ pub fn print(
         }
         BasicTypeKind::B8 => {
             let byte = frame.read_frame_u8(total_frame_addr);
-            let value = byte != 0;
+            let value = match byte {
+                0 => false,
+                1 => true,
+                _ => panic!("illegal value for bool {byte}"),
+            };
             write!(f, "{value}")
         }
         BasicTypeKind::U16 => {
@@ -71,7 +76,7 @@ pub fn print(
             }
             write!(f, "]")
         }
-        BasicTypeKind::InternalMapPointer => write!(f, "will fix maps"),
+        BasicTypeKind::InternalMapPointer => write!(f, "map<K,V>"),
         BasicTypeKind::InternalGridPointer => todo!(),
 
         BasicTypeKind::Struct(struct_type) => {
@@ -94,17 +99,24 @@ pub fn print(
                 tagged_union.tag_size.0, 1,
                 "only small unions supported for print"
             );
-            let variant_index = frame.read_frame_u8(total_frame_addr) as usize;
+            let variant_index = frame
+                .read_frame_u8(total_frame_addr_origin.0 as u16 + tagged_union.tag_offset.0)
+                as usize;
             let variant = tagged_union.get_variant_as_offset_item(variant_index);
-            write!(f, "{}:", variant.name)?;
-            print(
-                f,
-                frame,
-                heap,
-                total_frame_addr_origin,
-                &variant,
-                indent + 1,
-            )
+            if variant.size.0 != 0 {
+                write!(f, "{}:", variant.name)?;
+                new_line_and_tab(f, indent + 1)?;
+                print(
+                    f,
+                    frame,
+                    heap,
+                    total_frame_addr_origin,
+                    &variant,
+                    indent + 1,
+                )
+            } else {
+                write!(f, "{}", variant.name)
+            }
         }
         BasicTypeKind::Tuple(tuple_type) => {
             write!(f, "(")?;
@@ -132,16 +144,21 @@ pub fn print(
             let variant_index = frame
                 .read_frame_u8(total_frame_addr_origin.0 as u16 + tagged_union.tag_offset.0)
                 as usize;
-            let variant = tagged_union.get_variant_as_offset_item(variant_index);
-            write!(f, "{}:", variant.name)?;
-            print(
-                f,
-                frame,
-                heap,
-                total_frame_addr_origin,
-                &variant,
-                indent + 1,
-            )
+            if variant_index == 0 {
+                write!(f, "none")
+            } else {
+                let variant = tagged_union.get_variant_as_offset_item(variant_index);
+                write!(f, "{}:", variant.name)?;
+                new_line_and_tab(f, indent + 1)?;
+                print(
+                    f,
+                    frame,
+                    heap,
+                    total_frame_addr_origin,
+                    &variant,
+                    indent + 1,
+                )
+            }
         }
 
         BasicTypeKind::IndirectHeapPointerOnFrame => todo!(),
