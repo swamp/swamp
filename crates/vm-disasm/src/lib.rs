@@ -84,12 +84,7 @@ pub fn disasm_instructions_color(
             string,
             "     {:04X}> {}",
             ip_index,
-            disasm_color(
-                instruction,
-                FrameMemorySize(last_frame_size),
-                memory_infos,
-                &meta[ip_offset]
-            )
+            disasm_color(instruction, memory_infos, &meta[ip_offset])
         )
         .expect("TODO: panic message");
     }
@@ -133,12 +128,7 @@ pub fn disasm_instructions_no_color(
         string += &format!(
             "> {:04X}: {}\n",
             ip_index,
-            disasm_no_color(
-                instruction,
-                FrameMemorySize(last_frame_size),
-                frame_memory_info,
-                &comment_to_use
-            )
+            disasm_no_color(instruction, frame_memory_info, &comment_to_use)
         );
     }
 
@@ -149,11 +139,10 @@ pub fn disasm_instructions_no_color(
 #[must_use]
 pub fn disasm_color(
     binary_instruction: &BinaryInstruction,
-    frame_size: FrameMemorySize,
     memory_infos: &FrameMemoryInfo,
     meta: &Meta,
 ) -> String {
-    let decorated = disasm(binary_instruction, frame_size, memory_infos);
+    let decorated = disasm(binary_instruction, memory_infos);
 
     let name = format!("{:7}", decorated.name.blue());
 
@@ -299,11 +288,10 @@ pub fn disasm_color(
 #[must_use]
 pub fn disasm_no_color(
     binary_instruction: &BinaryInstruction,
-    frame_memory_size: FrameMemorySize,
     frame_memory_info: &FrameMemoryInfo,
     comment: &str,
 ) -> String {
-    let decorated = disasm(binary_instruction, frame_memory_size, frame_memory_info);
+    let decorated = disasm(binary_instruction, frame_memory_info);
 
     let name = decorated.name.to_string();
 
@@ -360,7 +348,6 @@ pub fn disasm_no_color(
 #[must_use]
 pub fn disasm(
     binary_instruction: &BinaryInstruction,
-    frame_memory_size: FrameMemorySize,
     frame_memory_info: &FrameMemoryInfo,
 ) -> DecoratedOpcode {
     let opcode: OpCode = binary_instruction.opcode.into();

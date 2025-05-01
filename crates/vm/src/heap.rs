@@ -1,7 +1,47 @@
-use crate::{ALIGNMENT_MASK, ALIGNMENT_REST, Vm};
-use std::ptr;
+use crate::frame::FrameMemory;
+use crate::{ALIGNMENT, ALIGNMENT_MASK, ALIGNMENT_REST, Vm};
+use std::{alloc, ptr};
 
-impl Vm {
+pub struct HeapMemory {
+    pub(crate) heap_memory: *mut u8,
+    pub(crate) heap_memory_size: usize,
+
+    // Memory regions (offsets)
+    pub(crate) heap_alloc_offset: usize, // Current allocation point
+    pub(crate) constant_memory_size: usize,
+}
+
+impl Drop for HeapMemory {
+    fn drop(&mut self) {
+        unsafe {
+            // Free the memory that was allocated in new()
+            let layout = alloc::Layout::from_size_align(self.heap_memory_size, ALIGNMENT).unwrap();
+            alloc::dealloc(self.heap_memory, layout);
+        }
+    }
+}
+
+impl HeapMemory {
+    pub fn new(heap_memory_size: usize, constant_memory: &[u8]) -> Self {
+        let heap_memory = unsafe {
+            alloc::alloc(alloc::Layout::from_size_align(heap_memory_size, ALIGNMENT).unwrap())
+        };
+        unsafe {
+            ptr::write_bytes(heap_memory, 0, heap_memory_size);
+            ptr::copy_nonoverlapping(constant_memory.as_ptr(), heap_memory, constant_memory.len());
+        }
+        Self {
+            heap_memory,
+            heap_memory_size,
+            heap_alloc_offset: 0,
+            constant_memory_size: constant_memory.len(),
+        }
+    }
+
+    pub fn reset_allocator(&mut self) {
+        self.heap_alloc_offset = self.constant_memory_size;
+    }
+
     #[inline(always)]
     #[must_use]
     pub fn get_heap_ptr(&self, offset: usize) -> *mut u8 {

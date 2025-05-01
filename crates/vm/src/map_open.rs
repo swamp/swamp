@@ -14,11 +14,11 @@ impl Vm {
     const BUCKET_OCCUPIED: u8 = 2;
 
     pub fn get_heap_map_header(&self, heap_addr: u32) -> *mut MapHeader {
-        self.get_heap_ptr(heap_addr as usize) as *mut MapHeader
+        self.heap.get_heap_ptr(heap_addr as usize) as *mut MapHeader
     }
 
     pub fn read_heap_map_header_via_frame(&self, frame_addr: u16) -> MapHeader {
-        unsafe { *(self.get_heap_ptr_via_frame(frame_addr) as *const MapHeader) }
+        unsafe { *(self.frame.get_heap_ptr_via_frame(frame_addr, &self.heap) as *const MapHeader) }
     }
 
     pub const ELEMENT_COUNT_FACTOR: f32 = 1.5;
@@ -39,11 +39,11 @@ impl Vm {
         let capacity = min_capacity.next_power_of_two() as u16;
 
         // The bucket doesn't have to be aligned since we will copy key and value in bytes
-        let buckets_heap_addr = self.heap_allocate(
+        let buckets_heap_addr = self.heap.heap_allocate(
             (capacity * (1 + slice_pairs.key_size + slice_pairs.value_size)) as usize,
         );
 
-        let map_header_on_heap_addr = self.heap_allocate(MAP_HEADER_SIZE.0 as usize);
+        let map_header_on_heap_addr = self.heap.heap_allocate(MAP_HEADER_SIZE.0 as usize);
         let map_header_ptr = self.get_heap_map_header(map_header_on_heap_addr);
 
         unsafe {
@@ -54,9 +54,9 @@ impl Vm {
             (*map_header_ptr).value_size = slice_pairs.value_size as u32;
         }
 
-        let buckets_ptr = self.get_heap_ptr(buckets_heap_addr as usize);
+        let buckets_ptr = self.heap.get_heap_ptr(buckets_heap_addr as usize);
 
-        let slice_ptr = self.get_heap_ptr(slice_pairs.heap_offset as usize);
+        let slice_ptr = self.heap.get_heap_ptr(slice_pairs.heap_offset as usize);
 
         let pair_size = slice_pairs.key_size + slice_pairs.value_size;
         for i in 0..slice_pairs.element_count {
@@ -71,7 +71,7 @@ impl Vm {
             assert!(worked, "problem with hashmap");
         }
 
-        unsafe { *self.get_frame_ptr_as_u32(dst_offset) = map_header_on_heap_addr }
+        unsafe { *self.frame.get_frame_ptr_as_u32(dst_offset) = map_header_on_heap_addr }
     }
 
     const MAX_PROBE_DISTANCE: usize = 16; // TODO: tweak this, only guessing for now
@@ -224,9 +224,11 @@ impl Vm {
         key_source: u16,
     ) {
         let map_header = self.read_heap_map_header_via_frame(self_map_source_addr);
-        let buckets_ptr = self.get_heap_const_ptr(map_header.heap_offset as usize);
-        let key_source_ptr = self.get_frame_const_ptr(key_source);
-        let value_dest_ptr = self.get_frame_ptr(dst_value_addr);
+        let buckets_ptr = self
+            .heap
+            .get_heap_const_ptr(map_header.heap_offset as usize);
+        let key_source_ptr = self.frame.get_frame_const_ptr(key_source);
+        let value_dest_ptr = self.frame.get_frame_ptr(dst_value_addr);
         unsafe {
             let worked = Self::lookup_open_addressing(
                 buckets_ptr,
@@ -244,8 +246,8 @@ impl Vm {
         key_source: u16,
     ) {
         let map_header = self.read_heap_map_header_via_frame(self_const_map_source_addr);
-        let buckets_ptr = self.get_heap_ptr(map_header.heap_offset as usize);
-        let key_source_ptr = self.get_frame_const_ptr(key_source);
+        let buckets_ptr = self.heap.get_heap_ptr(map_header.heap_offset as usize);
+        let key_source_ptr = self.frame.get_frame_const_ptr(key_source);
         unsafe {
             let found = Self::has_open_addressing(buckets_ptr, &map_header, key_source_ptr);
             self.flags.z = found;
@@ -328,9 +330,9 @@ impl Vm {
         src_value_addr: u16,
     ) {
         let map_header = self.read_heap_map_header_via_frame(self_mut_map_source_addr);
-        let buckets_ptr = self.get_heap_ptr(map_header.heap_offset as usize);
-        let key_source_ptr = self.get_frame_const_ptr(key_source);
-        let value_source_ptr = self.get_frame_const_ptr(src_value_addr);
+        let buckets_ptr = self.heap.get_heap_ptr(map_header.heap_offset as usize);
+        let key_source_ptr = self.frame.get_frame_const_ptr(key_source);
+        let value_source_ptr = self.frame.get_frame_const_ptr(src_value_addr);
         unsafe {
             let worked = Self::insert_open_addressing(
                 buckets_ptr,

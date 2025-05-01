@@ -7,7 +7,7 @@ use crate::Collection;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_types::Type;
-use swamp_vm_types::types::{BasicType, BasicTypeKind, FramePlacedType};
+use swamp_vm_types::types::{BasicType, BasicTypeKind, FramePlacedType, unknown_type};
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize, VEC_ITERATOR_ALIGNMENT,
     VEC_ITERATOR_SIZE, align_frame_addr,
@@ -51,7 +51,7 @@ impl ScopeAllocator {
     pub fn reserve_iterator(&mut self, collection: Collection) -> FramePlacedType {
         let gen_type = match collection {
             Collection::Vec => BasicType {
-                kind: BasicTypeKind::InternalVecPointer,
+                kind: BasicTypeKind::InternalVecPointer(Box::new(unknown_type())),
                 total_size: VEC_ITERATOR_SIZE,
                 max_alignment: VEC_ITERATOR_ALIGNMENT,
             },

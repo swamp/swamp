@@ -206,8 +206,9 @@ impl FunctionCodeGen<'_> {
             BasicTypeKind::InternalStringPointer => {
                 todo!()
             }
-            BasicTypeKind::InternalVecPointer => {
+            BasicTypeKind::InternalVecPointer(expected_type) => {
                 assert!(key_address.ty().is_int());
+                assert_eq!(expected_type.total_size, element_to_set.size());
                 self.builder.add_vec_set(
                     self_collection,
                     &key_address,
@@ -241,8 +242,9 @@ impl FunctionCodeGen<'_> {
             BasicTypeKind::InternalStringPointer => {
                 todo!()
             }
-            BasicTypeKind::InternalVecPointer => {
+            BasicTypeKind::InternalVecPointer(expected_item_type) => {
                 assert!(key_address.ty().is_int());
+                assert_eq!(expected_item_type.total_size, ctx.target_size());
                 self.builder.add_vec_get(
                     ctx.target(),
                     self_collection,

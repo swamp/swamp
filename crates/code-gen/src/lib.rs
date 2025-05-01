@@ -7,7 +7,7 @@ pub mod alloc;
 pub mod alloc_util;
 pub mod constants;
 pub mod ctx;
-mod layout;
+pub mod layout;
 mod location;
 
 use crate::alloc::ScopeAllocator;

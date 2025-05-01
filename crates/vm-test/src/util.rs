@@ -46,7 +46,7 @@ fn exec_code_gen_state(code_gen_state: TopLevelGenState) -> Vm {
 
     for (_constant_id, constant_func) in constant_functions {
         let setup = VmSetup {
-            frame_memory_size: 1024,
+            stack_memory_size: 1024,
             heap_memory_size: 1024,
             constant_memory: constants_memory.clone(),
         };
@@ -57,7 +57,7 @@ fn exec_code_gen_state(code_gen_state: TopLevelGenState) -> Vm {
     }
 
     let setup = VmSetup {
-        frame_memory_size: 1024,
+        stack_memory_size: 1024,
         heap_memory_size: 1024,
         constant_memory: constants_memory,
     };
@@ -180,7 +180,7 @@ where
 
     let (instructions, _constants, constant_memory) = generator.take_instructions_and_constants();
     let setup = VmSetup {
-        frame_memory_size: 1024,
+        stack_memory_size: 1024,
         heap_memory_size: 1024,
         constant_memory,
     };

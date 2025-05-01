@@ -43,7 +43,7 @@ fn compile_and_run() {
         top_gen_state.take_instructions_and_constants();
 
     let vm_setup = VmSetup {
-        frame_memory_size: 16 * 1024,
+        stack_memory_size: 16 * 1024,
         heap_memory_size: 1024 * 1024,
         constant_memory,
     };

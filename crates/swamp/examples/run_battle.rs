@@ -2,15 +2,30 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use source_map_cache::SourceMap;
 use source_map_cache::SourceMapWrapper;
+use std::io::stderr;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use swamp::prelude::SeqMap;
 use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_dep_loader::swamp_registry_path;
 use swamp_vm::{Vm, VmSetup};
+use swamp_vm_types::types::OffsetMemoryItem;
+use swamp_vm_types::{MemoryOffset, StackMemoryAddress};
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct StderrWriter;
+
+use std::fmt::{self, Write as FmtWrite};
+use std::io::{self, Write as IoWrite};
+impl FmtWrite for StderrWriter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        let mut stderr = io::stderr();
+
+        stderr.write_all(s.as_bytes()).map_err(|_| fmt::Error)
+    }
+}
 
 fn main() {
     let mut mounts = SeqMap::new();
@@ -42,7 +57,7 @@ fn main() {
         top_gen_state.take_instructions_and_constants();
 
     let vm_setup = VmSetup {
-        frame_memory_size: 16 * 1024 * 20,
+        stack_memory_size: 16 * 1024 * 20,
         heap_memory_size: 1024 * 1024,
         constant_memory,
     };
@@ -54,8 +69,9 @@ fn main() {
         vm.execute_from_ip(&constant.ip_range.start);
         unsafe {
             ptr::copy_nonoverlapping(
-                vm.get_frame_ptr(0),
-                vm.get_heap_ptr(constant.target_constant_memory.addr().0 as usize),
+                vm.frame().get_frame_ptr(0),
+                vm.heap()
+                    .get_heap_ptr(constant.target_constant_memory.addr().0 as usize),
                 constant.target_constant_memory.size().0 as usize,
             );
         }
@@ -79,6 +95,29 @@ fn main() {
     vm.reset_stack_and_heap_to_constant_limit();
     vm.reset_debug();
     vm.execute_from_ip(&simulation_emit_info.ip_range.start);
+
+    let mut f = String::new();
+
+    let return_layout =
+        swamp_code_gen::layout::layout_type(&simulation_fn.signature.signature.return_type, "");
+    let return_offset_item = OffsetMemoryItem {
+        offset: MemoryOffset(0),
+        size: return_layout.total_size,
+        name: "Simulation".to_string(),
+        ty: return_layout,
+    };
+
+    let mut stderr_adapter = StderrWriter;
+
+    swamp_vm_pretty_print::print(
+        &mut stderr_adapter,
+        vm.frame(),
+        vm.heap(),
+        StackMemoryAddress(0),
+        &return_offset_item,
+        0,
+    )
+    .unwrap();
 
     //info!(?program, "program");
 }

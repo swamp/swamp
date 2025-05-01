@@ -248,7 +248,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             vec_self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer
+            BasicTypeKind::InternalVecPointer(_)
         ));
         assert_eq!(int_index_a.size(), int_index_b.size());
         self.state.add_instruction(
@@ -273,7 +273,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer
+            BasicTypeKind::InternalVecPointer(_)
         ));
         self.state.add_instruction(
             OpCode::VecGet,
@@ -293,7 +293,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer
+            BasicTypeKind::InternalVecPointer(_)
         ));
         self.state.add_instruction(
             OpCode::VecGet,
@@ -313,7 +313,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             vec_self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer
+            BasicTypeKind::InternalVecPointer(_)
         ));
 
         self.state.add_instruction(
@@ -338,7 +338,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer
+            BasicTypeKind::InternalVecPointer(_)
         ));
 
         self.state.add_instruction(
@@ -356,7 +356,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_vec.ty().kind, BasicTypeKind::InternalVecPointer);
+        matches!(self_vec.ty().kind, BasicTypeKind::InternalVecPointer(_));
         self.state.add_instruction(
             OpCode::VecLen,
             &[target.addr().0, self_vec.addr().0],
@@ -373,7 +373,7 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         assert!(
-            matches!(self_addr.ty().kind, BasicTypeKind::InternalVecPointer),
+            matches!(self_addr.ty().kind, BasicTypeKind::InternalVecPointer(_)),
             "what is this {:?}",
             self_addr.ty()
         );
@@ -395,7 +395,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer
+            BasicTypeKind::InternalVecPointer(_)
         ));
         self.state.add_instruction(
             OpCode::VecPop,
@@ -414,7 +414,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer
+            BasicTypeKind::InternalVecPointer(_)
         ));
         self.state.add_instruction(
             OpCode::VecRemoveIndex,
@@ -434,7 +434,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer
+            BasicTypeKind::InternalVecPointer(_)
         ));
         self.state.add_instruction(
             OpCode::VecRemoveIndexGetValue,

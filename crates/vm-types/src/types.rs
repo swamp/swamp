@@ -108,7 +108,23 @@ impl TaggedUnion {
 impl TaggedUnion {
     #[must_use]
     pub fn get_variant_by_index(&self, index: usize) -> &TaggedUnionVariant {
+        debug_assert!(
+            index < self.variants.len(),
+            "variant out of bounds {index} out of {}",
+            self.variants.len()
+        );
         &self.variants[index]
+    }
+
+    #[must_use]
+    pub fn get_variant_as_offset_item(&self, index: usize) -> OffsetMemoryItem {
+        let variant = self.get_variant_by_index(index);
+        OffsetMemoryItem {
+            offset: self.payload_offset,
+            size: variant.ty.total_size,
+            name: variant.name.clone(),
+            ty: variant.ty.clone(),
+        }
     }
 }
 
@@ -225,7 +241,7 @@ pub enum BasicTypeKind {
     U32,
     InternalStringPointer,
     InternalRangeHeader,
-    InternalVecPointer,
+    InternalVecPointer(Box<BasicType>),
     InternalMapPointer,
     InternalGridPointer,
     InternalVecIterator,
@@ -255,7 +271,7 @@ impl Display for BasicTypeKind {
             Self::U32 => write!(f, "u32"),
             Self::InternalStringPointer => write!(f, "String"),
             Self::InternalRangeHeader => write!(f, "Range"),
-            Self::InternalVecPointer => write!(f, "Vec"),
+            Self::InternalVecPointer(item_type) => write!(f, "Vec"),
             Self::InternalMapPointer => write!(f, "Map"),
             Self::InternalGridPointer => write!(f, "Grid"),
             Self::InternalVecIterator => write!(f, "Vec::Iterator"),
@@ -417,10 +433,18 @@ pub fn slice_type() -> BasicType {
     }
 }
 
-#[must_use]
-pub const fn vec_type() -> BasicType {
+pub const fn unknown_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::InternalVecPointer,
+        kind: BasicTypeKind::Empty,
+        total_size: MemorySize(0),
+        max_alignment: MemoryAlignment::U8,
+    }
+}
+
+#[must_use]
+pub fn vec_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::InternalVecPointer(Box::from(unknown_type())),
         total_size: VEC_PTR_SIZE,
         max_alignment: VEC_PTR_ALIGNMENT,
     }
@@ -1118,7 +1142,7 @@ pub fn write_basic_type(
         BasicTypeKind::IndirectHeapPointerOnFrame => {
             write!(f, "heap_ptr")
         }
-        BasicTypeKind::InternalVecPointer => {
+        BasicTypeKind::InternalVecPointer(x) => {
             write!(f, "vec<>")
         }
         BasicTypeKind::InternalMapPointer => {

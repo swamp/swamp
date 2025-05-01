@@ -23,7 +23,7 @@ pub struct BinaryInstruction {
 pub struct MemoryAddress(pub u16);
 
 #[derive(Copy, Clone)]
-pub struct StackMemoryAddress(pub u16);
+pub struct StackMemoryAddress(pub u32);
 
 #[derive(Copy, Clone)]
 pub struct CountU16(pub u16);
@@ -34,7 +34,7 @@ pub struct CountU32(pub u32);
 impl StackMemoryAddress {
     #[must_use]
     pub const fn add(&self, memory_size: MemorySize) -> Self {
-        Self(self.0 + memory_size.0)
+        Self(self.0 + memory_size.0 as u32)
     }
 }
 
