@@ -592,37 +592,6 @@ impl InstructionBuilder<'_> {
         self.add_mov_mem(target, source.addr(), source.size(), node, comment);
     }
 
-    // for overlap moves
-    pub fn add_movlp(
-        &mut self,
-        target: &FramePlacedType,
-        source: &FramePlacedType,
-        size: MemorySize,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert_ne!(size.0, 0);
-
-        self.state.add_instruction(
-            OpCode::MovLp,
-            &[target.addr().0, source.addr().0, size.0],
-            node,
-            comment,
-        );
-    }
-
-    // for overlap moves
-    pub fn add_movlp_for_assignment(
-        &mut self,
-        target: &FramePlacedType,
-        source: &FramePlacedType,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert_eq!(target.size(), source.size());
-        self.add_movlp(target, source, source.size(), node, comment);
-    }
-
     pub fn add_panic(&mut self, str: &FramePlacedType, node: &Node, comment: &str) {
         self.state
             .add_instruction(OpCode::Panic, &[str.addr().0], node, comment);
@@ -988,7 +957,7 @@ impl InstructionBuilder<'_> {
         (lower_bits, upper_bits)
     }
 
-    pub fn add_ld32(
+    pub fn add_ldi32(
         &mut self,
         dst_offset: &FramePlacedType,
         value: i32,
@@ -996,6 +965,23 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(value as u32);
+
+        self.state.add_instruction(
+            OpCode::Ld32,
+            &[dst_offset.addr().0, lower_bits, upper_bits],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_ld32(
+        &mut self,
+        dst_offset: &FramePlacedType,
+        value: u32,
+        node: &Node,
+        comment: &str,
+    ) {
+        let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(value);
 
         self.state.add_instruction(
             OpCode::Ld32,

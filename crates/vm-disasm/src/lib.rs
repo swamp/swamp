@@ -618,12 +618,6 @@ pub fn disasm(
             to_write_frame(operands[0], &u32_type(), frame_memory_info),
             to_read_frame(operands[1], &u32_type(), frame_memory_info),
         ],
-        OpCode::MovLp => &[
-            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
-            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
-        ],
-
         OpCode::MovMem => {
             let heap_mem_addr = ((operands[2] as u32) << 16) | operands[1] as u32;
             &[

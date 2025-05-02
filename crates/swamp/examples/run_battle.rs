@@ -158,14 +158,13 @@ fn main() {
 
     let simulation_layout =
         swamp_code_gen::layout::layout_type(&simulation_fn.signature.signature.return_type);
-    let vm_ref = Rc::new(RefCell::new(vm));
     let context = Context {
         simulation_layout: simulation_layout.clone(),
     };
 
     {
         swamp_vm_host::register_context_aware::<Context, _>(
-            &mut vm_ref.borrow_mut(),
+            &mut vm,
             1,
             &Rc::new(RefCell::new(context)),
             print_fn,
@@ -175,7 +174,6 @@ fn main() {
     // It takes no parameters, so we can just run the function
     eprintln!("============= SIMULATION STARTS ============");
     {
-        let mut vm = vm_ref.borrow_mut();
         vm.reset_stack_and_heap_to_constant_limit();
         vm.reset_debug();
         vm.debug_enabled = true;
@@ -183,19 +181,16 @@ fn main() {
     }
 
     let mut f = String::new();
-    /*
 
-       swamp_vm_pretty_print::print_value(
-           &mut stderr_adapter,
-           vm.frame_memory(),
-           vm.heap(),
-           StackMemoryAddress(0),
-           &simulation_layout,
-           "Simulation",
-       )
-       .unwrap();
-
-    */
+    swamp_vm_pretty_print::print_value(
+        &mut stderr_adapter,
+        vm.frame_memory(),
+        vm.heap(),
+        StackMemoryAddress(0),
+        &simulation_layout,
+        "Simulation",
+    )
+    .unwrap();
 
     //info!(?program, "program");
 }

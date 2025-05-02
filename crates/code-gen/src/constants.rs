@@ -6,24 +6,21 @@ use crate::layout::layout_type;
 use swamp_types::Type;
 use swamp_vm_types::HeapMemoryAddress;
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::types::DecoratedOperandAccessKind::MemorySize;
 use swamp_vm_types::types::{HeapPlacedArray, HeapPlacedType};
 
 pub struct ConstantsAllocator {
     current_addr: u32,
-}
-
-impl Default for ConstantsAllocator {
-    fn default() -> Self {
-        Self::new()
-    }
+    max_size: u32,
 }
 
 impl ConstantsAllocator {
     #[must_use]
-    pub const fn new() -> Self {
+    pub const fn new(max_size: u32) -> Self {
         Self {
-            current_addr: SAFE_ALIGNMENT as u32,
-        } // Reserve space so no valid heap address is zero
+            current_addr: SAFE_ALIGNMENT as u32, // Reserve space (alignment distance) so no valid heap address is zero
+            max_size,
+        }
     }
 
     pub fn allocate(&mut self, ty: &Type) -> HeapPlacedType {
@@ -32,19 +29,21 @@ impl ConstantsAllocator {
         let start_addr = align(self.current_addr as usize, alignment) as u32;
 
         self.current_addr = start_addr + gen_type.total_size.0 as u32;
+        assert!(self.current_addr < self.max_size);
 
         HeapPlacedType::new(HeapMemoryAddress(start_addr), gen_type)
     }
 
     pub fn allocate_byte_array(&mut self, byte_count: u32) -> HeapPlacedArray {
         let start_addr = align(self.current_addr as usize, SAFE_ALIGNMENT) as u32;
-        self.current_addr += byte_count;
+        self.current_addr = start_addr + byte_count;
+        assert!(self.current_addr < self.max_size);
 
         HeapPlacedArray::new(HeapMemoryAddress(start_addr), byte_count)
     }
 
     pub const fn reset(&mut self) {
-        self.current_addr = 0;
+        self.current_addr = SAFE_ALIGNMENT as u32;
     }
 }
 
@@ -63,13 +62,25 @@ impl ConstantsManager {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            allocator: ConstantsAllocator::new(),
+            allocator: ConstantsAllocator::new(1024 * 1024),
             data: vec![0u8; 1024 * 1024],
         }
     }
 
-    pub fn allocate_byte_array(&mut self, data: &[u8], count: u32) -> HeapPlacedArray {
-        let addr = self.allocator.allocate_byte_array(count);
+    pub fn allocate_byte_array(&mut self, data: &[u8]) -> HeapPlacedArray {
+        let count = data.len();
+        if count == 0 {
+            return HeapPlacedArray::new(HeapMemoryAddress(0), 0);
+        }
+        let addr = self.allocator.allocate_byte_array(count as u32);
+        if data[0] == 97 {
+            // 'a'
+            eprintln!("problem found");
+        }
+        eprintln!(
+            "allocate to heap addr: {:08X} count: {count}",
+            addr.addr().0
+        );
 
         let start_idx = addr.addr().0 as usize;
         self.data[start_idx..start_idx + data.len()].copy_from_slice(data);

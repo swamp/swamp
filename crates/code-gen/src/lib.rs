@@ -1709,7 +1709,7 @@ impl FunctionCodeGen<'_> {
 
         match &binary_operator.kind {
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
-                match (&binary_operator.left.ty, &binary_operator.right.ty) {
+                let polarity = match (&binary_operator.left.ty, &binary_operator.right.ty) {
                     (Type::Bool, Type::Bool) => self.emit_binary_operator_cmp8(
                         &left_source,
                         &binary_operator.node,
@@ -1736,6 +1736,12 @@ impl FunctionCodeGen<'_> {
                         &right_source,
                     ),
                     _ => todo!(),
+                };
+
+                if matches!(binary_operator.kind, BinaryOperatorKind::Equal) {
+                    polarity
+                } else {
+                    polarity.invert_polarity()
                 }
             }
             _ => match (&binary_operator.left.ty, &binary_operator.right.ty) {
@@ -1975,7 +1981,7 @@ impl FunctionCodeGen<'_> {
         right_source: &FramePlacedType,
     ) -> GeneratedExpressionResult {
         self.builder
-            .add_cmp32(left_source, right_source, &node, "compare to z flag");
+            .add_cmp32(left_source, right_source, node, "compare to z flag");
 
         GeneratedExpressionResult {
             kind: GeneratedExpressionResultKind::ZFlagIsTrue,
@@ -2606,11 +2612,11 @@ impl FunctionCodeGen<'_> {
         match literal {
             Literal::IntLiteral(int) => {
                 self.builder
-                    .add_ld32(ctx.target(), *int, node, "int literal");
+                    .add_ldi32(ctx.target(), *int, node, "int literal");
             }
             Literal::FloatLiteral(fixed_point) => {
                 self.builder
-                    .add_ld32(ctx.target(), fixed_point.inner(), node, "float literal");
+                    .add_ldi32(ctx.target(), fixed_point.inner(), node, "float literal");
             }
             Literal::NoneLiteral => {
                 self.builder.add_ld8(ctx.target(), 0, node, "none literal");
@@ -2674,10 +2680,7 @@ impl FunctionCodeGen<'_> {
         let string_bytes = string.as_bytes();
         let string_byte_count = string_bytes.len();
 
-        let data_ptr = self
-            .state
-            .constants
-            .allocate_byte_array(string_bytes, string_byte_count as u32);
+        let data_ptr = self.state.constants.allocate_byte_array(string_bytes);
 
         let string_header = StringHeader {
             heap_offset: data_ptr.addr().0,
@@ -2694,16 +2697,14 @@ impl FunctionCodeGen<'_> {
         let string_header_in_heap_ptr = HeapMemoryAddress(
             self.state
                 .constants
-                .allocate_byte_array(&header_bytes, header_bytes.len() as u32)
+                .allocate_byte_array(&header_bytes)
                 .addr()
                 .0,
         );
-        let mem_size = STRING_PTR_SIZE;
-
         assert_eq!(ctx.target_size(), STRING_PTR_SIZE);
         self.builder.add_ld32(
             ctx.target(),
-            string_header_in_heap_ptr.0 as i32,
+            string_header_in_heap_ptr.0,
             node,
             "constant string",
         );
@@ -3466,7 +3467,7 @@ impl FunctionCodeGen<'_> {
 
                 let some_payload = old_variable_region.move_to_optional_some_payload();
 
-                self.builder.add_movlp_for_assignment(
+                self.builder.add_mov_for_assignment(
                     &placed_variable,
                     &some_payload,
                     binding.expr.node(),

@@ -156,7 +156,6 @@ impl Vm {
 
         // Copy data in frame memory
         vm.handlers[OpCode::Mov as usize] = HandlerType::Args3(Self::execute_mov);
-        vm.handlers[OpCode::MovLp as usize] = HandlerType::Args3(Self::execute_mov_lp);
         vm.handlers[OpCode::Mov32 as usize] = HandlerType::Args2(Self::execute_mov32);
 
         // Copy to and from heap
@@ -1065,7 +1064,7 @@ impl Vm {
         let dst_ptr = self.frame.get_frame_ptr_as_u32(dst_offset);
 
         unsafe {
-            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, 4);
+            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, 1);
         }
     }
 
@@ -1113,16 +1112,6 @@ impl Vm {
         }
     }
 
-    #[inline]
-    fn execute_mov_lp(&mut self, dst_offset: u16, src_offset: u16, size: u16) {
-        let src_ptr = self.frame.get_frame_ptr_as_u16(src_offset);
-        let dst_ptr = self.frame.get_frame_ptr_as_u16(dst_offset);
-
-        unsafe {
-            std::ptr::copy(src_ptr, dst_ptr, size as usize);
-        }
-    }
-
     #[cfg(feature = "debug_vm")]
     pub fn debug_opcode(&self, opcode: u8, operands: &[u16; 5]) {
         eprintln!(
@@ -1155,6 +1144,8 @@ impl Vm {
             frame_size: 0,               // Will be filled by ENTER
         };
 
+        self.frame.push(self.last_frame_size as usize);
+
         self.call_stack.push(return_info);
 
         self.ip = target as usize;
@@ -1169,13 +1160,10 @@ impl Vm {
 
     #[inline]
     fn execute_host_call(&mut self, function_id: u16, bytes_to_copy_from_frame_ptr: u16) {
-        let frame_ptr = unsafe {
-            self.frame
-                .get_frame_ptr(0)
-                .add(self.last_frame_size as usize)
-        };
-        let frame_size = self.frame.stack_memory_size - self.frame.frame_offset;
-        let heap = self.heap(); // Immutable borrow of self
+        eprintln!("host jump {:04X}", self.last_frame_size);
+        let frame_ptr = unsafe { self.frame.get_frame_ptr(self.last_frame_size) };
+        let frame_size = self.frame.stack_memory_size - self.last_frame_size as usize;
+        let heap = self.heap();
 
         let host_args = HostArgs::new(
             frame_ptr,

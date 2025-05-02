@@ -525,6 +525,7 @@ pub const MAP_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<MapIterator>() as
 pub const MAP_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
+#[repr(packed)]
 #[derive(Copy, Clone, Debug)]
 pub struct StringHeader {
     pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first

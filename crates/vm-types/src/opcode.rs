@@ -71,7 +71,7 @@ pub enum OpCode {
 
     // Frame copy
     Mov,
-    MovLp, // Copy overlapping
+    //    MovLp, // Copy overlapping
     Mov32,
 
     // Heap copy
@@ -232,7 +232,6 @@ impl OpCode {
             // Move
             Self::Mov => "mov",
             Self::Mov32 => "mov32",
-            Self::MovLp => "movlp",
             Self::MovMem => "movmem",
             Self::Stx => "stx",
 

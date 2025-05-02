@@ -70,7 +70,7 @@ impl Vm {
             ptr::copy_nonoverlapping(
                 &vec_iterator,
                 self.frame.get_frame_ptr(target_iterator_addr) as *mut VecIterator,
-                VEC_ITERATOR_SIZE.0 as usize,
+                1,
             );
         }
     }

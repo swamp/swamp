@@ -46,7 +46,7 @@ impl HeapMemory {
         Self {
             heap_memory,
             heap_memory_size,
-            heap_alloc_offset: 0,
+            heap_alloc_offset: constant_memory.len(),
             constant_memory_size: constant_memory.len(),
         }
     }
