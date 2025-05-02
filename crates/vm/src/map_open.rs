@@ -3,22 +3,32 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Vm;
+use crate::frame::FrameMemory;
+use crate::heap::HeapMemory;
 use std::hash::{DefaultHasher, Hasher};
 use std::{ptr, slice};
 use swamp_vm_types::{MAP_HEADER_SIZE, MapHeader};
 
 impl Vm {
     const MAX_PROBES: usize = 8;
-    const BUCKET_EMPTY: u8 = 0;
-    const BUCKET_TOMBSTONE: u8 = 1;
-    const BUCKET_OCCUPIED: u8 = 2;
+    pub const BUCKET_EMPTY: u8 = 0;
+    pub const BUCKET_TOMBSTONE: u8 = 1;
+    pub const BUCKET_OCCUPIED: u8 = 2;
 
     pub fn get_heap_map_header(&self, heap_addr: u32) -> *mut MapHeader {
         self.heap.get_heap_ptr(heap_addr as usize) as *mut MapHeader
     }
 
-    pub fn read_heap_map_header_via_frame(&self, frame_addr: u16) -> MapHeader {
-        unsafe { *(self.frame.get_heap_ptr_via_frame(frame_addr, &self.heap) as *const MapHeader) }
+    pub fn read_heap_map_header_via_frame(
+        frame: &FrameMemory,
+        frame_addr: u16,
+        heap: &HeapMemory,
+    ) -> MapHeader {
+        unsafe { *(frame.get_heap_ptr_via_frame(frame_addr, &heap) as *const MapHeader) }
+    }
+
+    pub fn read_heap_map_header_from_heap(heap_address: u32, heap: &HeapMemory) -> MapHeader {
+        unsafe { *(heap.get_heap_const_ptr(heap_address as usize) as *const MapHeader) }
     }
 
     pub const ELEMENT_COUNT_FACTOR: f32 = 1.5;
@@ -106,7 +116,7 @@ impl Vm {
         #[cfg(feature = "debug_vm")]
         {
             eprintln!(
-                "wants to insert hash: {hash:08X} starting at: {index} capacity: {}, key_size: {key_size}",
+                "wants to insert hash: {hash:08X} starting at: {index} capacity: {}, key_size: {key_size} value_size: {value_size}",
                 header.capacity
             );
         }
@@ -223,7 +233,8 @@ impl Vm {
         self_map_source_addr: u16,
         key_source: u16,
     ) {
-        let map_header = self.read_heap_map_header_via_frame(self_map_source_addr);
+        let map_header =
+            Self::read_heap_map_header_via_frame(&self.frame, self_map_source_addr, &self.heap);
         let buckets_ptr = self
             .heap
             .get_heap_const_ptr(map_header.heap_offset as usize);
@@ -254,7 +265,11 @@ impl Vm {
         self_const_map_source_addr: u16,
         key_source: u16,
     ) {
-        let map_header = self.read_heap_map_header_via_frame(self_const_map_source_addr);
+        let map_header = Self::read_heap_map_header_via_frame(
+            &self.frame,
+            self_const_map_source_addr,
+            &self.heap,
+        );
         let buckets_ptr = self.heap.get_heap_ptr(map_header.heap_offset as usize);
         let key_source_ptr = self.frame.get_frame_const_ptr(key_source);
         unsafe {
@@ -295,7 +310,7 @@ impl Vm {
         #[cfg(feature = "debug_vm")]
         {
             eprintln!(
-                "checks if has item with hash: {hash:08X} start index: {index} capacity: {capacity} key_size:{key_size}"
+                "checks if has item with hash: {hash:08X} start index: {index} capacity: {capacity} key_size:{key_size} value_size: {value_size}"
             );
         }
 
@@ -338,7 +353,8 @@ impl Vm {
         key_source: u16,
         src_value_addr: u16,
     ) {
-        let map_header = self.read_heap_map_header_via_frame(self_mut_map_source_addr);
+        let map_header =
+            Self::read_heap_map_header_via_frame(&self.frame, self_mut_map_source_addr, &self.heap);
         let buckets_ptr = self.heap.get_heap_ptr(map_header.heap_offset as usize);
         let key_source_ptr = self.frame.get_frame_const_ptr(key_source);
         let value_source_ptr = self.frame.get_frame_const_ptr(src_value_addr);

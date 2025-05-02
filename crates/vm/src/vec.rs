@@ -75,8 +75,8 @@ impl Vm {
         }
     }
 
-    pub fn vec_header_from_heap(&self, heap_offset: u32) -> VecHeader {
-        unsafe { *(self.heap.get_heap_const_ptr(heap_offset as usize) as *const VecHeader) }
+    pub fn vec_header_from_heap(heap: &HeapMemory, heap_offset: u32) -> VecHeader {
+        unsafe { *(heap.get_heap_const_ptr(heap_offset as usize) as *const VecHeader) }
     }
 
     pub fn vec_header_from_indirect_heap(
@@ -208,7 +208,7 @@ impl Vm {
         let (data_heap_offset, index) =
             unsafe { ((*vec_iterator).vec_header_heap_ptr, (*vec_iterator).index) };
 
-        let vec_header = self.vec_header_from_heap(data_heap_offset);
+        let vec_header = Self::vec_header_from_heap(&self.heap, data_heap_offset);
 
         if index == vec_header.count {
             self.ip = jump as usize;
@@ -238,7 +238,7 @@ impl Vm {
         let (data_heap_offset, index) =
             unsafe { ((*vec_iterator).vec_header_heap_ptr, (*vec_iterator).index) };
 
-        let vec_header = self.vec_header_from_heap(data_heap_offset);
+        let vec_header = Self::vec_header_from_heap(&self.heap, data_heap_offset);
 
         if index == vec_header.count {
             self.ip = jump as usize;

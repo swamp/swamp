@@ -8,8 +8,8 @@ use std::rc::Rc;
 use swamp_vm::Vm;
 use swamp_vm::host::HostArgs;
 
-pub fn register_context_aware<T: 'static, F>(
-    vm_ref: &mut Vm,
+pub fn register_context_aware<'vm, T: 'static, F>(
+    vm_ref: &'vm mut Vm,
     id: u16,
     context: &Rc<RefCell<T>>,
     mut callback: F,

@@ -4,6 +4,7 @@
  */
 use source_map_cache::SourceMap;
 use source_map_cache::SourceMapWrapper;
+use std::cell::RefCell;
 use std::io::stderr;
 use std::path::{Path, PathBuf};
 use std::ptr;
@@ -11,7 +12,7 @@ use swamp::prelude::SeqMap;
 use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_dep_loader::swamp_registry_path;
 use swamp_vm::{Vm, VmSetup};
-use swamp_vm_types::types::OffsetMemoryItem;
+use swamp_vm_types::types::{BasicType, OffsetMemoryItem};
 use swamp_vm_types::{MemoryOffset, StackMemoryAddress};
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -19,6 +20,7 @@ pub struct StderrWriter;
 
 use std::fmt::{self, Write as FmtWrite};
 use std::io::{self, Write as IoWrite};
+use std::rc::Rc;
 use swamp_vm::host::HostArgs;
 use test_log::tracing_subscriber;
 use tracing::info;
@@ -31,9 +33,29 @@ impl FmtWrite for StderrWriter {
     }
 }
 
-fn print_fn(mut args: HostArgs) {
+struct Context {
+    simulation_layout: BasicType,
+}
+
+fn print_fn(ctx: &mut Context, mut args: HostArgs) {
     let output = args.get_str();
     eprintln!("PRINT! {output}");
+    let mut stderr_adapter = StderrWriter;
+    /*
+       let frame = args.get_heap_raw;
+       let heap = args.heap_memory();
+
+       swamp_vm_pretty_print::print_value(
+           &mut stderr_adapter,
+           frame,
+           &heap,
+           StackMemoryAddress(0),
+           &ctx.simulation_layout,
+           "Simulation",
+       )
+           .unwrap();
+
+    */
 }
 
 fn main() {
@@ -76,11 +98,10 @@ fn main() {
         stack_memory_size: 16 * 1024 * 20,
         heap_memory_size: 1024 * 1024,
         constant_memory,
+        debug_enabled: false,
     };
 
     let mut vm = Vm::new(instructions, vm_setup);
-
-    vm.add_host_function(1, print_fn);
 
     for (_key, constant) in constants_in_order {
         info!(?constant.constant_ref, "ordered constant");
@@ -90,7 +111,7 @@ fn main() {
         vm.execute_from_ip(&constant.ip_range.start);
         unsafe {
             ptr::copy_nonoverlapping(
-                vm.frame().get_frame_ptr(0),
+                vm.frame().get_frame_const_ptr(0),
                 vm.heap()
                     .get_heap_ptr(constant.target_constant_memory.addr().0 as usize),
                 constant.target_constant_memory.size().0 as usize,
@@ -113,7 +134,7 @@ fn main() {
 
         swamp_vm_pretty_print::print_value(
             &mut stderr_adapter,
-            vm.frame(),
+            vm.frame_memory(),
             vm.heap(),
             StackMemoryAddress(0),
             &return_layout,
@@ -135,26 +156,46 @@ fn main() {
     let simulation_fn_id = simulation_fn.program_unique_id;
     let simulation_emit_info = emit_function_infos.get(&simulation_fn_id).unwrap();
 
+    let simulation_layout =
+        swamp_code_gen::layout::layout_type(&simulation_fn.signature.signature.return_type);
+    let vm_ref = Rc::new(RefCell::new(vm));
+    let context = Context {
+        simulation_layout: simulation_layout.clone(),
+    };
+
+    {
+        swamp_vm_host::register_context_aware::<Context, _>(
+            &mut vm_ref.borrow_mut(),
+            1,
+            &Rc::new(RefCell::new(context)),
+            print_fn,
+        );
+    }
+
     // It takes no parameters, so we can just run the function
     eprintln!("============= SIMULATION STARTS ============");
-    vm.reset_stack_and_heap_to_constant_limit();
-    vm.reset_debug();
-    vm.execute_from_ip(&simulation_emit_info.ip_range.start);
+    {
+        let mut vm = vm_ref.borrow_mut();
+        vm.reset_stack_and_heap_to_constant_limit();
+        vm.reset_debug();
+        vm.debug_enabled = true;
+        vm.execute_from_ip(&simulation_emit_info.ip_range.start);
+    }
 
     let mut f = String::new();
+    /*
 
-    let return_layout =
-        swamp_code_gen::layout::layout_type(&simulation_fn.signature.signature.return_type);
+       swamp_vm_pretty_print::print_value(
+           &mut stderr_adapter,
+           vm.frame_memory(),
+           vm.heap(),
+           StackMemoryAddress(0),
+           &simulation_layout,
+           "Simulation",
+       )
+       .unwrap();
 
-    swamp_vm_pretty_print::print_value(
-        &mut stderr_adapter,
-        vm.frame(),
-        vm.heap(),
-        StackMemoryAddress(0),
-        &return_layout,
-        "Simulation",
-    )
-    .unwrap();
+    */
 
     //info!(?program, "program");
 }

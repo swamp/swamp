@@ -25,6 +25,22 @@ pub struct MemoryAddress(pub u16);
 #[derive(Copy, Clone)]
 pub struct StackMemoryAddress(pub u32);
 
+impl Add<MemorySize> for StackMemoryAddress {
+    type Output = Self;
+
+    fn add(self, rhs: MemorySize) -> Self::Output {
+        Self(self.0 + u32::from(rhs.0))
+    }
+}
+
+impl Add<MemoryOffset> for StackMemoryAddress {
+    type Output = Self;
+
+    fn add(self, rhs: MemoryOffset) -> Self::Output {
+        Self(self.0 + u32::from(rhs.0))
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct CountU16(pub u16);
 

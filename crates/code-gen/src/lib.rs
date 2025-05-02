@@ -2337,7 +2337,7 @@ impl FunctionCodeGen<'_> {
     ) -> FrameMemoryRegion {
         self.argument_allocator.reset();
         // Layout return and arguments, must be continuous space
-        let argument_addr = reserve(&signature.return_type, &mut self.argument_allocator);
+        let _return_spot = reserve(&signature.return_type, &mut self.argument_allocator);
         //assert_eq!(argument_addr.addr.0, self.frame_size.0);
 
         let mut argument_final_targets = Vec::new();
@@ -2349,6 +2349,7 @@ impl FunctionCodeGen<'_> {
 
         let mut argument_temp_targets = Vec::new();
         // Layout arguments, must be continuous space
+        // Includes optional first self parameter
         for (index, type_for_parameter) in signature.parameters.iter().enumerate() {
             let argument_final_target = reserve(
                 &type_for_parameter.resolved_type,
@@ -2363,15 +2364,7 @@ impl FunctionCodeGen<'_> {
             argument_comments.push(format!("argument {}", type_for_parameter.name));
         }
 
-        let skip_count = if let Some(push_self) = self_region {
-            if push_self.size().0 != 0 {
-                self.builder.add_mov_for_assignment(
-                    argument_temp_targets[0].target(),
-                    &push_self,
-                    node,
-                    "<self>",
-                );
-            }
+        let skip_count = if let Some(push_self) = &self_region {
             1
         } else {
             0
@@ -2391,7 +2384,25 @@ impl FunctionCodeGen<'_> {
             );
         }
 
-        for (final_target, temp_target) in argument_final_targets.iter().zip(argument_temp_targets)
+        // Place self at correct place before the other arguments
+        if let Some(push_self) = self_region {
+            if push_self.size().0 != 0 {
+                self.builder.add_mov_for_assignment(
+                    &argument_final_targets[0], // Final target for self
+                    &push_self,                 // Source location of self
+                    node,
+                    "<self>",
+                );
+            }
+        }
+
+        // Copy evaluated non-self arguments from their temporary locations to their final locations
+        for (final_target, temp_target) in argument_final_targets
+            .iter()
+            .skip(skip_count) // Skips final_self if skip_count=1
+            .zip(
+                argument_temp_targets.iter().skip(skip_count), // Skips temp_self if skip_count=1
+            )
         {
             if temp_target.target().size().0 != 0 {
                 self.builder.add_mov_for_assignment(
@@ -2539,7 +2550,6 @@ impl FunctionCodeGen<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        self.copy_back_mutable_arguments(node, signature, maybe_self, arguments);
         let return_placed_type = self.return_frame_address(&signature.return_type);
         if return_placed_type.size().0 != 0 {
             self.builder.add_mov_for_assignment(
@@ -2549,6 +2559,9 @@ impl FunctionCodeGen<'_> {
                 "copy the return value to the caller",
             );
         }
+
+        self.copy_back_mutable_arguments(node, signature, maybe_self, arguments);
+
         GeneratedExpressionResult::default()
     }
 

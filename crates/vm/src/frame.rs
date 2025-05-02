@@ -1,6 +1,6 @@
 use crate::heap::HeapMemory;
 use crate::{ALIGNMENT, Vm};
-use std::{alloc, mem, ptr};
+use std::{alloc, mem, ptr, slice};
 
 pub struct FrameMemory {
     pub(crate) stack_memory: *mut u8,
@@ -64,12 +64,12 @@ impl FrameMemory {
     }
 
     #[must_use]
-    pub const fn frame_ptr(&self) -> *mut u8 {
+    pub fn frame_ptr(&self) -> *mut u8 {
         self.get_frame_ptr(0)
     }
 
     #[must_use]
-    pub const fn stack_ptr(&self) -> *mut u8 {
+    pub fn stack_ptr(&self) -> *mut u8 {
         self.get_frame_ptr(0)
     }
 
@@ -81,9 +81,15 @@ impl FrameMemory {
             self.frame_offset,
             self.stack_memory_size,
         );
-        // Ensure alignment
         debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
-        // Inline ptr_at functionality
+
+        #[cfg(feature = "debug_vm")]
+        {
+            if (self.frame_offset + offset as usize) < 4 {
+                eprintln!("problem");
+            }
+        }
+
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *mut u32 }
     }
 
@@ -95,17 +101,41 @@ impl FrameMemory {
         );
         // Ensure alignment
         debug_assert_eq!(offset % 2, 0, "Unaligned u16 access at offset {offset}",);
-        // Inline ptr_at functionality
+
+        #[cfg(feature = "debug_vm")]
+        {
+            if (self.frame_offset + offset as usize) < 4 {
+                eprintln!("problem");
+            }
+        }
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *mut u16 }
+    }
+
+    pub(crate) fn read_debug_stack_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
+        let slice = unsafe {
+            slice::from_raw_parts(
+                self.get_stack_const_ptr(start_offset as usize),
+                size as usize,
+            )
+        };
+
+        slice.to_vec()
     }
 
     #[inline(always)]
     #[must_use]
-    pub const fn get_frame_ptr(&self, offset: u16) -> *mut u8 {
+    pub fn get_frame_ptr(&self, offset: u16) -> *mut u8 {
         debug_assert!(
             (self.frame_offset + offset as usize) < self.stack_memory_size,
             "wrong frame addr"
         );
+
+        #[cfg(feature = "debug_vm")]
+        {
+            if (self.frame_offset + offset as usize) < 4 {
+                eprintln!("problem");
+            }
+        }
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) }
     }
 
@@ -121,6 +151,20 @@ impl FrameMemory {
 
     #[inline(always)]
     #[must_use]
+    pub const fn get_stack_const_ptr(&self, stack_offset: usize) -> *const u8 {
+        debug_assert!(stack_offset < self.stack_memory_size, "wrong stack addr");
+        unsafe { self.stack_memory.add(stack_offset) }
+    }
+
+    pub(crate) fn read_frame_debug_slice(&self, start_offset: u16, size: u16) -> Vec<u8> {
+        let slice =
+            unsafe { slice::from_raw_parts(self.get_frame_const_ptr(start_offset), size as usize) };
+
+        slice.to_vec()
+    }
+
+    #[inline(always)]
+    #[must_use]
     pub fn get_frame_ptr_as_i32(&self, offset: u16) -> *mut i32 {
         // Ensure alignment
         debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
@@ -129,6 +173,14 @@ impl FrameMemory {
             (self.frame_offset + offset as usize) < self.stack_memory_size,
             "wrong frame addr"
         );
+
+        #[cfg(feature = "debug_vm")]
+        {
+            if (self.frame_offset + offset as usize) < 4 {
+                eprintln!("problem");
+            }
+        }
+
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *mut i32 }
     }
 
@@ -142,7 +194,6 @@ impl FrameMemory {
             "wrong frame addr"
         );
 
-        // Inline ptr_at functionality
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *const i32 }
     }
 

@@ -79,6 +79,7 @@ pub struct Vm {
     pub flags: Flags,
     last_frame_size: u16,
     pub debug: Debug,
+    pub debug_enabled: bool,
 }
 
 impl Vm {}
@@ -103,6 +104,7 @@ pub struct VmSetup {
     pub stack_memory_size: usize,
     pub heap_memory_size: usize,
     pub constant_memory: Vec<u8>,
+    pub debug_enabled: bool,
 }
 
 /*
@@ -142,6 +144,7 @@ impl Vm {
                 call_depth: 0,
                 max_call_depth: 0,
             },
+            debug_enabled: setup.debug_enabled,
         };
 
         vm.handlers[OpCode::Alloc as usize] = HandlerType::Args2(Self::execute_alloc);
@@ -327,7 +330,7 @@ impl Vm {
         self.frame.reset_offset();
 
         #[cfg(feature = "debug_vm")]
-        {
+        if self.debug_enabled {
             eprintln!(
                 "start executing --------- frame {:X} heap: {:X}",
                 self.frame.frame_offset, self.heap.heap_alloc_offset
@@ -345,7 +348,13 @@ impl Vm {
             let opcode = instruction.opcode;
 
             #[cfg(feature = "debug_vm")]
-            {
+            if self.debug_enabled {
+                eprintln!(
+                    "STACK(0), stack_root:{:?} frame_offset: {:04X} frame:{:?}",
+                    self.frame.read_debug_stack_slice(0xcc, 4),
+                    self.frame.frame_offset,
+                    self.frame.read_frame_debug_slice(0, 8)
+                );
                 let operands = instruction.operands;
                 eprint!("> {:04X}: ", self.ip);
                 self.debug_opcode(opcode, &operands);
@@ -386,10 +395,6 @@ impl Vm {
 
             self.ip += 1;
         }
-    }
-
-    pub fn execute(&mut self) {
-        self.execute_from_ip(&InstructionPosition(0));
     }
 
     pub fn execute_from_ip(&mut self, ip: &InstructionPosition) {
@@ -696,7 +701,7 @@ impl Vm {
             *dst_ptr = lhs + rhs;
 
             #[cfg(feature = "debug_vm")]
-            {
+            if self.debug_enabled {
                 unsafe {
                     eprintln!("add {} = {} + {}", *dst_ptr, lhs, rhs);
                 }
@@ -729,7 +734,7 @@ impl Vm {
             *dst_ptr = lhs - rhs;
 
             #[cfg(feature = "debug_vm")]
-            {
+            if self.debug_enabled {
                 unsafe {
                     eprintln!("sub {} = {} - {}", *dst_ptr, lhs, rhs);
                 }
@@ -750,7 +755,7 @@ impl Vm {
         }
 
         #[cfg(feature = "debug_vm")]
-        {
+        if self.debug_enabled {
             unsafe {
                 eprintln!("mod {} = {} % {}", *dst_ptr, *lhs_ptr, *rhs_ptr);
             }
@@ -825,6 +830,10 @@ impl Vm {
 
         unsafe {
             *dst_ptr = squirrel_prng::squirrel_noise5(*src_ptr as u32, 0) as i32;
+            #[cfg(feature = "debug_vm")]
+            if self.debug_enabled {
+                eprintln!("prnd {} <- {}", *dst_ptr, *src_ptr);
+            }
         }
     }
 
@@ -1019,7 +1028,7 @@ impl Vm {
     fn execute_hlt(&mut self) {
         self.execution_complete = true;
         #[cfg(feature = "debug_vm")]
-        {
+        if self.debug_enabled {
             self.debug_output();
         }
     }
@@ -1040,9 +1049,12 @@ impl Vm {
             std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, size as usize);
         }
         #[cfg(feature = "debug_vm")]
-        {
+        if self.debug_enabled {
             unsafe {
-                eprintln!("mov {:X}", *dst_ptr);
+                eprintln!(
+                    "mov {:?}",
+                    self.frame.read_frame_debug_slice(dst_offset, size)
+                );
             }
         }
     }
@@ -1070,7 +1082,7 @@ impl Vm {
         let src_ptr = self.heap.get_heap_const_ptr(const_offset as usize);
 
         #[cfg(feature = "debug_vm")]
-        {
+        if self.debug_enabled {
             let slice = self.heap.read_debug_slice(const_offset, memory_size);
             eprintln!(
                 "memmove {dst_offset:04X} <- {const_offset:08X} size: {memory_size} data:{slice:?}",
@@ -1147,7 +1159,7 @@ impl Vm {
 
         self.ip = target as usize;
         #[cfg(feature = "debug_vm")]
-        {
+        if self.debug_enabled {
             self.debug.call_depth += 1;
             if self.debug.call_depth > self.debug.max_call_depth {
                 self.debug.max_call_depth = self.debug.call_depth;
@@ -1157,19 +1169,27 @@ impl Vm {
 
     #[inline]
     fn execute_host_call(&mut self, function_id: u16, bytes_to_copy_from_frame_ptr: u16) {
-        let callback: &mut Box<dyn FnMut(HostArgs)> =
-            self.host_functions.get_mut(&function_id).unwrap();
+        let frame_ptr = unsafe {
+            self.frame
+                .get_frame_ptr(0)
+                .add(self.last_frame_size as usize)
+        };
+        let frame_size = self.frame.stack_memory_size - self.frame.frame_offset;
+        let heap = self.heap(); // Immutable borrow of self
 
-        unsafe {
-            let host_args = HostArgs::new(
-                self.frame
-                    .get_frame_ptr(0)
-                    .add(self.last_frame_size as usize),
-                self.frame.stack_memory_size - self.frame.frame_offset,
-                self.heap.heap_memory,
-                self.heap.heap_memory_size,
-            );
+        let host_args = HostArgs::new(
+            frame_ptr,
+            frame_size,
+            heap.heap_memory,
+            heap.heap_memory_size,
+        );
+
+        // &mut Box<dyn FnMut(HostArgs)>
+
+        if let Some(callback) = self.host_functions.get_mut(&function_id) {
             callback(host_args);
+        } else {
+            panic!("problem");
         }
     }
 
@@ -1196,7 +1216,7 @@ impl Vm {
         // NOTE: Any return value is always at frame_offset + 0
 
         #[cfg(feature = "debug_vm")]
-        {
+        if self.debug_enabled {
             self.debug.call_depth -= 1;
         }
     }
