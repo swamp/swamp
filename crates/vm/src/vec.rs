@@ -159,6 +159,7 @@ impl Vm {
     pub fn execute_vec_push(&mut self, vec_frame_target: u16, item_to_push: u16) {
         let vec_header = self.vec_header_from_indirect_heap_mut(vec_frame_target);
         let (count, capacity) = unsafe { ((*vec_header).count, (*vec_header).capacity) };
+        let element_size = unsafe { (*vec_header).element_size } as usize;
 
         if count == capacity {
             assert!(capacity <= 16384, "capacity overrun");
@@ -167,29 +168,25 @@ impl Vm {
                 eprintln!("reallocating vector {count} of capacity {capacity}");
             }
             let new_capacity = capacity * 2;
-            let new_ptr = self.heap.heap_allocate(new_capacity as usize);
+            let new_ptr = self
+                .heap
+                .heap_allocate(new_capacity as usize * element_size);
             unsafe {
                 let source_items = self
                     .heap
                     .get_heap_const_ptr((*vec_header).heap_offset as usize);
                 let target_items = self.heap.get_heap_ptr(new_ptr as usize);
-                let element_size = (*vec_header).element_size;
-                ptr::copy_nonoverlapping(
-                    source_items,
-                    target_items,
-                    (count * element_size) as usize,
-                );
+                ptr::copy_nonoverlapping(source_items, target_items, count as usize * element_size);
                 (*vec_header).heap_offset = new_ptr;
                 (*vec_header).capacity = new_capacity;
             }
         }
         unsafe {
-            let element_size = (*vec_header).element_size as usize;
-            let target_items = self.heap.get_heap_ptr((*vec_header).heap_offset as usize);
+            let target_buckets = self.heap.get_heap_ptr((*vec_header).heap_offset as usize);
             let single_item_to_push = self.frame.get_frame_const_ptr(item_to_push);
             ptr::copy_nonoverlapping(
                 single_item_to_push,
-                target_items.add(count as usize * element_size),
+                target_buckets.add(count as usize * element_size),
                 element_size,
             );
             (*vec_header).count += 1;
