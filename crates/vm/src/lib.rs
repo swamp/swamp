@@ -346,12 +346,6 @@ impl Vm {
 
             #[cfg(feature = "debug_vm")]
             if self.debug_enabled {
-                eprintln!(
-                    "STACK(0), stack_root:{:?} frame_offset: {:04X} frame:{:?}",
-                    self.frame.read_debug_stack_slice(0xcc, 4),
-                    self.frame.frame_offset,
-                    self.frame.read_frame_debug_slice(0, 8)
-                );
                 let operands = instruction.operands;
                 eprint!("> {:04X}: ", self.ip);
                 self.debug_opcode(opcode, &operands);

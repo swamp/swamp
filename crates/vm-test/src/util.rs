@@ -5,11 +5,12 @@
 
 use source_map_cache::SourceMapWrapper;
 use swamp_code_gen::TopLevelGenState;
-use swamp_code_gen_program::code_gen_program;
+use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_compile::Program;
 use swamp_compile::compile_string;
 use swamp_vm::host::HostArgs;
 use swamp_vm::{Vm, VmSetup};
+use swamp_vm_types::InstructionPosition;
 
 fn emit_internal(code: &str) -> (TopLevelGenState, Program) {
     let (program, _main_module, source_map) = compile_string(code).unwrap();
@@ -18,7 +19,11 @@ fn emit_internal(code: &str) -> (TopLevelGenState, Program) {
         source_map: &source_map,
         current_dir: Default::default(),
     };
-    let code_gen = code_gen_program(&program, &source_map_wrapper);
+    let code_gen = code_gen_program(
+        &program,
+        &source_map_wrapper,
+        &CodeGenOptions { show_disasm: false },
+    );
 
     (code_gen, program)
 }
@@ -41,7 +46,7 @@ fn emit_internal_debug(code: &str) -> (TopLevelGenState, Program) {
 }
 
 fn exec_code_gen_state(code_gen_state: TopLevelGenState) -> Vm {
-    let (instructions, constant_functions, mut constants_memory) =
+    let (instructions, constant_functions, functions, mut constants_memory) =
         code_gen_state.take_instructions_and_constants();
 
     for (_constant_id, constant_func) in constant_functions {
@@ -49,6 +54,7 @@ fn exec_code_gen_state(code_gen_state: TopLevelGenState) -> Vm {
             stack_memory_size: 1024,
             heap_memory_size: 1024,
             constant_memory: constants_memory.clone(),
+            debug_enabled: false,
         };
 
         let mut vm = Vm::new(instructions.clone(), setup);
@@ -60,10 +66,11 @@ fn exec_code_gen_state(code_gen_state: TopLevelGenState) -> Vm {
         stack_memory_size: 1024,
         heap_memory_size: 1024,
         constant_memory: constants_memory,
+        debug_enabled: false,
     };
     let mut vm = Vm::new(instructions, setup);
 
-    vm.execute();
+    vm.execute_from_ip(&InstructionPosition(0));
 
     vm
 }
@@ -178,17 +185,19 @@ where
         .get_external_function_declaration(id)
         .unwrap();
 
-    let (instructions, _constants, constant_memory) = generator.take_instructions_and_constants();
+    let (instructions, _constants, _functions, constant_memory) =
+        generator.take_instructions_and_constants();
     let setup = VmSetup {
         stack_memory_size: 1024,
         heap_memory_size: 1024,
         constant_memory,
+        debug_enabled: false,
     };
     let mut vm = Vm::new(instructions, setup);
 
     vm.add_host_function(external_id.id as u16, callback);
 
-    vm.execute();
+    vm.execute_from_ip(&InstructionPosition(0));
 
     vm
 }

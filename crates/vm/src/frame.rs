@@ -89,13 +89,6 @@ impl FrameMemory {
         );
         debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
 
-        #[cfg(feature = "debug_vm")]
-        {
-            if (self.frame_offset + offset as usize) < 4 {
-                eprintln!("problem");
-            }
-        }
-
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *mut u32 }
     }
 
@@ -108,12 +101,6 @@ impl FrameMemory {
         // Ensure alignment
         debug_assert_eq!(offset % 2, 0, "Unaligned u16 access at offset {offset}",);
 
-        #[cfg(feature = "debug_vm")]
-        {
-            if (self.frame_offset + offset as usize) < 4 {
-                eprintln!("problem");
-            }
-        }
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *mut u16 }
     }
 
@@ -136,12 +123,6 @@ impl FrameMemory {
             "wrong frame addr"
         );
 
-        #[cfg(feature = "debug_vm")]
-        {
-            if (self.frame_offset + offset as usize) < 4 {
-                eprintln!("problem");
-            }
-        }
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) }
     }
 
@@ -179,13 +160,6 @@ impl FrameMemory {
             (self.frame_offset + offset as usize) < self.stack_memory_size,
             "wrong frame addr"
         );
-
-        #[cfg(feature = "debug_vm")]
-        {
-            if (self.frame_offset + offset as usize) < 4 {
-                eprintln!("problem");
-            }
-        }
 
         unsafe { self.stack_memory.add(self.frame_offset + offset as usize) as *mut i32 }
     }
