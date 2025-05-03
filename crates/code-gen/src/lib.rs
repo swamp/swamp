@@ -2685,14 +2685,12 @@ impl FunctionCodeGen<'_> {
         let string_header = StringHeader {
             heap_offset: data_ptr.addr().0,
             byte_count: string_byte_count as u32,
-            capacity: string_byte_count as u32,
         };
 
         // Convert string header to bytes (little-endian)
         let mut header_bytes = [0u8; 12];
         header_bytes[0..4].copy_from_slice(&string_header.heap_offset.to_le_bytes());
         header_bytes[4..8].copy_from_slice(&string_header.byte_count.to_le_bytes());
-        header_bytes[8..12].copy_from_slice(&string_header.capacity.to_le_bytes());
 
         let string_header_in_heap_ptr = HeapMemoryAddress(
             self.state

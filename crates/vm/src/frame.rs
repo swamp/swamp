@@ -45,22 +45,28 @@ impl FrameMemory {
         self.frame_offset = self.stack_offset;
     }
 
-    #[inline]
-    pub(crate) const fn push(&mut self, aligned_size: usize) {
-        // the functions frame of reference should be the stack offset
-        self.frame_offset = self.stack_offset;
-
-        // and we push the stack with the space of the local variables
+    /// Usually called on `Enter`
+    /// reserving space for local variables and arguments
+    /// it is a bit of a hack, but the current return values and arguments are not part of the stack
+    /// (it should be in theory), but that is to slightly increase performance to not having to update
+    /// SP to reflect the "pushed" return space and arguments.
+    #[inline(always)]
+    pub(crate) const fn inc_sp(&mut self, aligned_size: usize) {
         self.stack_offset += aligned_size;
     }
 
-    #[inline]
-    pub(crate) const fn pop(&mut self, previous_frame_offset: usize, frame_size_to_pop: usize) {
-        // Bring back the frame to the old frame
-        self.frame_offset = previous_frame_offset;
+    /// Usually called on a call
+    /// It sets the FP to the current SP. The stack pointer includes the current function frame size
+    /// but doesn't include return values and arguments.
+    #[inline(always)]
+    pub const fn set_fp(&mut self) {
+        self.frame_offset = self.stack_offset;
+    }
 
-        // "pop" the space for the local variables of the stack
-        self.stack_offset -= frame_size_to_pop;
+    #[inline]
+    pub(crate) const fn pop(&mut self, previous_frame_offset: usize, previous_stack_offset: usize) {
+        self.frame_offset = previous_frame_offset;
+        self.stack_offset = previous_stack_offset;
     }
 
     #[must_use]

@@ -54,7 +54,7 @@ pub struct Debug {
 pub struct CallFrame {
     return_address: usize,        // Instruction to return to
     previous_frame_offset: usize, // Previous frame position
-    frame_size: usize,            // Size of this frame
+    previous_stack_offset: usize, // Size of this frame
 }
 
 pub struct Vm {
@@ -77,7 +77,6 @@ pub struct Vm {
 
     // TODO: Error state
     pub flags: Flags,
-    last_frame_size: u16,
     pub debug: Debug,
     pub debug_enabled: bool,
 }
@@ -137,7 +136,6 @@ impl Vm {
             call_stack: vec![],
             host_functions: SeqMap::default(),
             handlers: [const { HandlerType::Args0(Self::execute_unimplemented) }; 256],
-            last_frame_size: 0,
             flags: Flags { z: false },
             debug: Debug {
                 opcodes_executed: 0,
@@ -339,7 +337,7 @@ impl Vm {
         self.call_stack.push(CallFrame {
             return_address: 1,
             previous_frame_offset: 0,
-            frame_size: 0,
+            previous_stack_offset: 0,
         });
 
         while !self.execution_complete {
@@ -1139,16 +1137,15 @@ impl Vm {
 
     fn execute_call(&mut self, target: u16) {
         let return_info = CallFrame {
-            return_address: self.ip + 1, // Instruction to return to
-            previous_frame_offset: self.frame.frame_offset, // Previous frame position
-            frame_size: 0,               // Will be filled by ENTER
+            return_address: self.ip + 1,
+            previous_frame_offset: self.frame.frame_offset,
+            previous_stack_offset: self.frame.stack_offset,
         };
 
-        self.frame.push(self.last_frame_size as usize);
-
+        self.frame.set_fp();
         self.call_stack.push(return_info);
-
         self.ip = target as usize;
+
         #[cfg(feature = "debug_vm")]
         if self.debug_enabled {
             self.debug.call_depth += 1;
@@ -1160,9 +1157,8 @@ impl Vm {
 
     #[inline]
     fn execute_host_call(&mut self, function_id: u16, bytes_to_copy_from_frame_ptr: u16) {
-        eprintln!("host jump {:04X}", self.last_frame_size);
-        let frame_ptr = unsafe { self.frame.get_frame_ptr(self.last_frame_size) };
-        let frame_size = self.frame.stack_memory_size - self.last_frame_size as usize;
+        let frame_ptr = self.frame.get_stack_const_ptr(self.frame.stack_offset);
+        let frame_size = bytes_to_copy_from_frame_ptr as usize;
         let heap = self.heap();
 
         let host_args = HostArgs::new(
@@ -1172,8 +1168,6 @@ impl Vm {
             heap.heap_memory_size,
         );
 
-        // &mut Box<dyn FnMut(HostArgs)>
-
         if let Some(callback) = self.host_functions.get_mut(&function_id) {
             callback(host_args);
         } else {
@@ -1181,21 +1175,20 @@ impl Vm {
         }
     }
 
-    #[inline]
-    fn execute_enter(&mut self, aligned_size: u16) {
-        let frame = self.call_stack.last_mut().unwrap();
-        frame.frame_size = aligned_size as usize;
-        self.last_frame_size = aligned_size;
-
-        self.frame.push(aligned_size as usize);
+    #[allow(clippy::missing_const_for_fn)]
+    #[inline(always)]
+    fn execute_enter(&mut self, frame_size_for_local_variables: u16) {
+        self.frame.inc_sp(frame_size_for_local_variables as usize);
     }
 
     #[inline]
     fn execute_ret(&mut self) {
         let call_frame = self.call_stack.pop().unwrap();
 
-        self.frame
-            .pop(call_frame.previous_frame_offset, call_frame.frame_size);
+        self.frame.pop(
+            call_frame.previous_frame_offset,
+            call_frame.previous_stack_offset,
+        );
 
         // going back to the old instruction
         self.ip = call_frame.return_address;

@@ -1,12 +1,13 @@
 use fixed32::Fp;
 use std::env::var;
-use std::fmt::Write;
+use std::fmt::{Display, Formatter, Write};
+use std::ops::Add;
 use std::{fmt, slice};
 use swamp_vm::Vm;
 use swamp_vm::frame::FrameMemory;
 use swamp_vm::heap::HeapMemory;
 use swamp_vm_types::types::{BasicType, BasicTypeKind, OffsetMemoryItem};
-use swamp_vm_types::{MemoryOffset, StackMemoryAddress};
+use swamp_vm_types::{HeapMemoryAddress, MemoryOffset, StackMemoryAddress};
 
 pub fn new_line_and_tab(f: &mut dyn Write, tabs: usize) -> std::fmt::Result {
     let tab_str = "..".repeat(tabs);
@@ -29,7 +30,15 @@ pub fn print_value(
         name: name.to_string(),
         ty: ty.clone(),
     };
-    print(f, frame, heap, origin, ty, name, 0)?;
+    print(
+        f,
+        frame,
+        heap,
+        PrintAddress::StackMemoryAddress(origin),
+        ty,
+        name,
+        0,
+    )?;
     writeln!(f)
 }
 
@@ -60,26 +69,62 @@ fn slice_to_u16_le(data: &[u8]) -> u16 {
     u16::from_le_bytes(bytes)
 }
 
+#[derive(Copy, Clone)]
+pub enum PrintAddress {
+    StackMemoryAddress(StackMemoryAddress),
+    HeapMemoryAddress(HeapMemoryAddress),
+}
+
+impl Display for PrintAddress {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            PrintAddress::StackMemoryAddress(stack_addr) => {
+                write!(f, "${:X}", stack_addr.0)
+            }
+            PrintAddress::HeapMemoryAddress(heap_addr) => {
+                write!(f, "%{:X}", heap_addr.0)
+            }
+        }
+    }
+}
+
+impl Add<MemoryOffset> for PrintAddress {
+    type Output = PrintAddress;
+
+    fn add(self, rhs: MemoryOffset) -> Self::Output {
+        match self {
+            PrintAddress::StackMemoryAddress(stack_addr) => {
+                Self::StackMemoryAddress(stack_addr + rhs)
+            }
+            PrintAddress::HeapMemoryAddress(heap_addr) => {
+                Self::HeapMemoryAddress(HeapMemoryAddress(heap_addr.0 + rhs.0 as u32))
+            }
+        }
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 fn print(
     f: &mut dyn Write,
     frame: &[u8],
     heap: &HeapMemory,
-    debug_origin: StackMemoryAddress,
+    debug_origin: PrintAddress,
     ty: &BasicType,
     name: &str,
     indent: usize,
 ) -> fmt::Result {
     write!(
         f,
-        "{:08X}:{:X} |>   {}: ",
-        debug_origin.0, ty.total_size.0, name,
+        "{}:{:X} |>   {}: ",
+        debug_origin,
+        ty.total_size.0,
+        tinter::blue(name),
     )?;
     match &ty.kind {
         BasicTypeKind::Empty => write!(f, "()"),
         BasicTypeKind::U8 => {
             let value = frame[0];
-            write!(f, "{value}")
+            write!(f, "{}", tinter::yellow(value))
         }
         BasicTypeKind::B8 => {
             let byte = frame[0];
@@ -88,27 +133,31 @@ fn print(
                 1 => true,
                 _ => panic!("illegal value for bool {byte}"),
             };
-            write!(f, "{value}")
+            write!(f, "{}", tinter::yellow(value))
         }
         BasicTypeKind::U16 => {
             let value = slice_to_u16_le(frame);
-            write!(f, "{value}")
+            write!(f, "{}", tinter::yellow(value))
         }
         BasicTypeKind::S32 => {
             let value = slice_to_i32_le(frame);
-            write!(f, "{value}")
+            write!(f, "{}", tinter::yellow(value))
         }
         BasicTypeKind::Fixed32 => {
             let int_value = slice_to_i32_le(frame);
 
-            write!(f, "{}", Fp::from_raw(int_value))
+            write!(f, "{}", tinter::yellow(Fp::from_raw(int_value)))
         }
         BasicTypeKind::U32 => {
             let value = slice_to_u32_le(frame);
-            write!(f, "{value}")
+            write!(f, "{}", tinter::yellow(value))
         }
 
-        BasicTypeKind::InternalStringPointer => write!(f, "str"),
+        BasicTypeKind::InternalStringPointer => {
+            let heap_addr = slice_to_u32_le(frame);
+            let str = Vm::read_string(heap_addr, heap);
+            write!(f, "\"{str}\" (%{heap_addr:X})")
+        }
         BasicTypeKind::InternalVecPointer(item_type) => {
             write!(f, "[")?;
             let header_offset = slice_to_u32_le(frame);
@@ -116,10 +165,22 @@ fn print(
             //let buckets = heap.get_heap_const_ptr(header.heap_offset as usize);
             for i in 0..header.count {
                 let item_offset = i as usize * header.element_size as usize;
+                let heap_addr = header.heap_offset as usize + item_offset;
 
-                let item_ptr = heap.get_heap_const_ptr(header.heap_offset as usize + item_offset);
-                let octet_slice =
+                let item_ptr = heap.get_heap_const_ptr(heap_addr);
+                let item_slice =
                     unsafe { slice::from_raw_parts(item_ptr, header.element_size as usize) };
+
+                new_line_and_tab(f, indent + 1)?;
+                print(
+                    f,
+                    item_slice,
+                    heap,
+                    PrintAddress::HeapMemoryAddress(HeapMemoryAddress(heap_addr as u32)),
+                    item_type,
+                    &format!("{i}"),
+                    indent + 1,
+                )?;
             }
             write!(f, "]")
         }
@@ -129,10 +190,11 @@ fn print(
             let header = Vm::read_heap_map_header_from_heap(map_header_heap_addr, heap);
             let buckets_ptr = heap.get_heap_const_ptr(header.heap_offset as usize);
             let pair_size = 1 + header.key_size + header.value_size;
-            eprintln!(
-                "header: {map_header_heap_addr:08X} {} {}",
-                header.key_size, header.value_size
-            );
+            write!(
+                f,
+                "header: {map_header_heap_addr:X} key_size:{} value_size:{} capacity:{}",
+                header.key_size, header.value_size, header.capacity,
+            )?;
             for i in 0..header.capacity {
                 let base_item_offset = i as usize * pair_size as usize;
                 let base_ptr = unsafe { buckets_ptr.add(base_item_offset) };
@@ -141,6 +203,7 @@ fn print(
                     let status_size = 1;
                     let source_key_ptr = unsafe { base_ptr.add(status_size) };
                     let source_value_ptr = unsafe { source_key_ptr.add(header.key_size as usize) };
+                    let source_key_heap_addr = header.heap_offset + 1;
 
                     let key_octet_slice =
                         unsafe { slice::from_raw_parts(source_key_ptr, header.key_size as usize) };
@@ -149,24 +212,29 @@ fn print(
                         f,
                         key_octet_slice,
                         heap,
-                        StackMemoryAddress(0),
+                        PrintAddress::HeapMemoryAddress(HeapMemoryAddress(
+                            source_key_heap_addr as u32,
+                        )),
                         key_type,
-                        &format!("{i}:KEY"),
+                        &format!("{i}"),
                         indent + 1,
                     )?;
 
+                    let source_value_heap_addr = source_key_heap_addr + header.key_size;
                     let value_octet_slice = unsafe {
                         slice::from_raw_parts(source_value_ptr, header.value_size as usize)
                     };
-                    new_line_and_tab(f, indent + 1)?;
+                    new_line_and_tab(f, indent + 2)?;
                     print(
                         f,
                         value_octet_slice,
                         heap,
-                        StackMemoryAddress(0),
+                        PrintAddress::HeapMemoryAddress(HeapMemoryAddress(
+                            source_value_heap_addr as u32,
+                        )),
                         value_type,
-                        &format!("{i}:VALUE"),
-                        indent + 1,
+                        &format!("{i}"),
+                        indent + 2,
                     )?;
                 }
             }
@@ -175,9 +243,9 @@ fn print(
         BasicTypeKind::InternalGridPointer => todo!(),
 
         BasicTypeKind::Struct(struct_type) => {
-            write!(f, "{} {{", struct_type.name)?;
+            write!(f, "{} {{", tinter::magenta(&struct_type.name))?;
             for (index, field_item) in struct_type.fields.iter().enumerate() {
-                new_line_and_tab(f, indent)?;
+                new_line_and_tab(f, indent + 1)?;
                 print(
                     f,
                     &frame[field_item.offset.0 as usize..],
@@ -216,9 +284,7 @@ fn print(
         BasicTypeKind::Tuple(tuple_type) => {
             write!(f, "(")?;
             for (index, tuple_item) in tuple_type.fields.iter().enumerate() {
-                if index > 0 {
-                    new_line_and_tab(f, indent)?;
-                }
+                new_line_and_tab(f, indent + 1)?;
                 print(
                     f,
                     &frame[tuple_item.offset.0 as usize..],
@@ -242,8 +308,7 @@ fn print(
                 write!(f, "none")
             } else {
                 let variant = tagged_union.get_variant_as_offset_item(variant_index);
-                write!(f, "{}:", variant.name)?;
-                new_line_and_tab(f, indent + 1)?;
+                //                new_line_and_tab(f, indent + 1)?;
                 print(
                     f,
                     &frame[variant.offset.0 as usize..],

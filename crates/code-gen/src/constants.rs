@@ -73,15 +73,6 @@ impl ConstantsManager {
             return HeapPlacedArray::new(HeapMemoryAddress(0), 0);
         }
         let addr = self.allocator.allocate_byte_array(count as u32);
-        if data[0] == 97 {
-            // 'a'
-            eprintln!("problem found");
-        }
-        eprintln!(
-            "allocate to heap addr: {:08X} count: {count}",
-            addr.addr().0
-        );
-
         let start_idx = addr.addr().0 as usize;
         self.data[start_idx..start_idx + data.len()].copy_from_slice(data);
 

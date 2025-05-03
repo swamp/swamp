@@ -4,8 +4,9 @@
  */
 
 use crate::Vm;
+use crate::heap::HeapMemory;
 use std::ptr;
-use swamp_vm_types::{STRING_HEADER_SIZE, StringHeader};
+use swamp_vm_types::{HEAP_PTR_ON_FRAME_SIZE, STRING_HEADER_SIZE, StringHeader};
 
 impl Vm {
     /*
@@ -105,6 +106,19 @@ impl Vm {
     }
          */
 
+    pub fn read_string(heap_addr: u32, heap: &HeapMemory) -> &str {
+        let string_header =
+            unsafe { *(heap.get_heap_const_ptr(heap_addr as usize) as *const StringHeader) };
+
+        let runes = unsafe { heap.get_heap_const_ptr(string_header.heap_offset as usize) };
+
+        unsafe {
+            let bytes = std::slice::from_raw_parts(runes, string_header.byte_count as usize);
+
+            std::str::from_utf8_unchecked(bytes)
+        }
+    }
+
     pub(crate) fn create_string(&mut self, string: &str) -> u32 {
         let rune_bytes = string.as_bytes();
         let runes_in_heap = self.heap.heap_allocate_with_data(rune_bytes);
@@ -112,7 +126,6 @@ impl Vm {
         let string_header = StringHeader {
             heap_offset: runes_in_heap,
             byte_count: rune_bytes.len() as u32,
-            capacity: rune_bytes.len() as u32,
         };
 
         let header_addr_in_heap = self.heap.heap_allocate(size_of::<StringHeader>());
