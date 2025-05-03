@@ -3,8 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Vm;
-use crate::frame::FrameMemory;
-use crate::heap::HeapMemory;
+use crate::memory::Memory;
 use std::hash::{DefaultHasher, Hasher};
 use std::{ptr, slice};
 use swamp_vm_types::{MAP_HEADER_SIZE, MapHeader};
@@ -16,18 +15,14 @@ impl Vm {
     pub const BUCKET_OCCUPIED: u8 = 2;
 
     pub fn get_heap_map_header(&self, heap_addr: u32) -> *mut MapHeader {
-        self.heap.get_heap_ptr(heap_addr as usize) as *mut MapHeader
+        self.memory.get_heap_ptr(heap_addr as usize) as *mut MapHeader
     }
 
-    pub fn read_heap_map_header_via_frame(
-        frame: &FrameMemory,
-        frame_addr: u16,
-        heap: &HeapMemory,
-    ) -> MapHeader {
-        unsafe { *(frame.get_heap_ptr_via_frame(frame_addr, &heap) as *const MapHeader) }
+    pub fn read_heap_map_header_via_frame(mem: &Memory, frame_addr: u16) -> MapHeader {
+        unsafe { *(mem.get_heap_ptr_via_frame(frame_addr) as *const MapHeader) }
     }
 
-    pub fn read_heap_map_header_from_heap(heap_address: u32, heap: &HeapMemory) -> MapHeader {
+    pub fn read_heap_map_header_from_heap(heap_address: u32, heap: &Memory) -> MapHeader {
         unsafe { *(heap.get_heap_const_ptr(heap_address as usize) as *const MapHeader) }
     }
 
@@ -49,11 +44,11 @@ impl Vm {
         let capacity = min_capacity.next_power_of_two() as u16;
 
         // The bucket doesn't have to be aligned since we will copy key and value in bytes
-        let buckets_heap_addr = self.heap.heap_allocate(
+        let buckets_heap_addr = self.memory.heap_allocate(
             (capacity * (1 + slice_pairs.key_size + slice_pairs.value_size)) as usize,
         );
 
-        let map_header_on_heap_addr = self.heap.heap_allocate(MAP_HEADER_SIZE.0 as usize);
+        let map_header_on_heap_addr = self.memory.heap_allocate(MAP_HEADER_SIZE.0 as usize);
         let map_header_ptr = self.get_heap_map_header(map_header_on_heap_addr);
 
         unsafe {
@@ -64,9 +59,9 @@ impl Vm {
             (*map_header_ptr).value_size = slice_pairs.value_size as u32;
         }
 
-        let buckets_ptr = self.heap.get_heap_ptr(buckets_heap_addr as usize);
+        let buckets_ptr = self.memory.get_heap_ptr(buckets_heap_addr as usize);
 
-        let slice_ptr = self.heap.get_heap_ptr(slice_pairs.heap_offset as usize);
+        let slice_ptr = self.memory.get_heap_ptr(slice_pairs.heap_offset as usize);
 
         let pair_size = slice_pairs.key_size + slice_pairs.value_size;
         for i in 0..slice_pairs.element_count {
@@ -81,7 +76,7 @@ impl Vm {
             assert!(worked, "problem with hashmap");
         }
 
-        unsafe { *self.frame.get_frame_ptr_as_u32(dst_offset) = map_header_on_heap_addr }
+        unsafe { *self.memory.get_frame_ptr_as_u32(dst_offset) = map_header_on_heap_addr }
     }
 
     const MAX_PROBE_DISTANCE: usize = 32; // TODO: tweak this, only guessing for now
@@ -233,10 +228,9 @@ impl Vm {
         self_map_source_addr: u16,
         key_source: u16,
     ) {
-        let map_header =
-            Self::read_heap_map_header_via_frame(&self.frame, self_map_source_addr, &self.heap);
+        let map_header = Self::read_heap_map_header_via_frame(&self.memory, self_map_source_addr);
         let buckets_ptr = self
-            .heap
+            .memory
             .get_heap_const_ptr(map_header.heap_offset as usize);
 
         #[cfg(feature = "debug_vm")]
@@ -247,8 +241,8 @@ impl Vm {
             );
         }
 
-        let key_source_ptr = self.frame.get_frame_const_ptr(key_source);
-        let value_dest_ptr = self.frame.get_frame_ptr(dst_value_addr);
+        let key_source_ptr = self.memory.get_frame_const_ptr(key_source);
+        let value_dest_ptr = self.memory.get_frame_ptr(dst_value_addr);
         unsafe {
             let worked = Self::lookup_open_addressing(
                 buckets_ptr,
@@ -265,13 +259,10 @@ impl Vm {
         self_const_map_source_addr: u16,
         key_source: u16,
     ) {
-        let map_header = Self::read_heap_map_header_via_frame(
-            &self.frame,
-            self_const_map_source_addr,
-            &self.heap,
-        );
-        let buckets_ptr = self.heap.get_heap_ptr(map_header.heap_offset as usize);
-        let key_source_ptr = self.frame.get_frame_const_ptr(key_source);
+        let map_header =
+            Self::read_heap_map_header_via_frame(&self.memory, self_const_map_source_addr);
+        let buckets_ptr = self.memory.get_heap_ptr(map_header.heap_offset as usize);
+        let key_source_ptr = self.memory.get_frame_const_ptr(key_source);
         unsafe {
             let found = Self::has_open_addressing(buckets_ptr, &map_header, key_source_ptr);
             self.flags.z = found;
@@ -354,10 +345,10 @@ impl Vm {
         src_value_addr: u16,
     ) {
         let map_header =
-            Self::read_heap_map_header_via_frame(&self.frame, self_mut_map_source_addr, &self.heap);
-        let buckets_ptr = self.heap.get_heap_ptr(map_header.heap_offset as usize);
-        let key_source_ptr = self.frame.get_frame_const_ptr(key_source);
-        let value_source_ptr = self.frame.get_frame_const_ptr(src_value_addr);
+            Self::read_heap_map_header_via_frame(&self.memory, self_mut_map_source_addr);
+        let buckets_ptr = self.memory.get_heap_ptr(map_header.heap_offset as usize);
+        let key_source_ptr = self.memory.get_frame_const_ptr(key_source);
+        let value_source_ptr = self.memory.get_frame_const_ptr(src_value_addr);
 
         #[cfg(feature = "debug_vm")]
         {

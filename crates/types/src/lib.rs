@@ -44,6 +44,8 @@ pub enum Type {
     MutableReference(Box<Type>),
 }
 
+impl Type {}
+
 impl Type {
     pub fn is_vec(&self) -> bool {
         match self {
@@ -300,6 +302,104 @@ impl Type {
                 .variants
                 .iter()
                 .all(|(_name, variant)| variant.types().iter().all(Self::is_concrete)),
+        }
+    }
+
+    pub fn is_collection(&self) -> bool {
+        self.is_vec() || self.is_grid() || self.is_stack() || self.is_map()
+    }
+
+    pub fn is_blittable_collection(&self) -> bool {
+        match self {
+            Self::NamedStruct(struct_type) => {
+                if self.is_collection() {
+                    struct_type
+                        .instantiated_type_parameters
+                        .iter()
+                        .all(Self::is_blittable)
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
+    pub fn is_blittable(&self) -> bool {
+        match self {
+            Self::Never => true, // HACK: Just for now
+            Self::Unit => true,
+
+            //| Self::Never
+            Self::Function(_)
+            | Self::Generic(_, _)
+            | Self::Blueprint(_)
+            | Self::Slice(_)
+            | Self::SlicePair(_, _)
+            | Self::Variable(_) => false,
+
+            Self::Float | Self::Int | Self::String | Self::Bool => true,
+
+            Self::Optional(inner) | Self::MutableReference(inner) => inner.is_blittable(),
+
+            Self::Tuple(types) => types.iter().all(Self::is_blittable),
+            Self::NamedStruct(struct_type) => {
+                if self.is_collection() {
+                    false
+                } else {
+                    struct_type
+                        .anon_struct_type
+                        .field_name_sorted_fields
+                        .iter()
+                        .all(|(_name, field)| field.field_type.is_blittable())
+                }
+            }
+            Self::AnonymousStruct(anon_struct_type) => anon_struct_type
+                .field_name_sorted_fields
+                .iter()
+                .all(|(_name, field)| field.field_type.is_blittable()),
+            Self::Enum(enum_type) => enum_type
+                .variants
+                .iter()
+                .all(|(_name, variant)| variant.types().iter().all(Self::is_blittable)),
+        }
+    }
+
+    pub fn is_surface_blittable(&self) -> bool {
+        match self {
+            Self::Unit
+            | Self::Never
+            | Self::Function(_)
+            | Self::Generic(_, _)
+            | Self::Blueprint(_)
+            | Self::Slice(_)
+            | Self::SlicePair(_, _)
+            | Self::Variable(_) => false,
+
+            Self::Float | Self::Int | Self::String | Self::Bool => true,
+
+            Self::Optional(inner) | Self::MutableReference(inner) => inner.is_surface_blittable(),
+
+            Self::Tuple(types) => types.iter().all(Self::is_surface_blittable),
+            Self::NamedStruct(struct_type) => {
+                if self.is_collection() {
+                    self.is_blittable_collection()
+                } else {
+                    struct_type
+                        .anon_struct_type
+                        .field_name_sorted_fields
+                        .iter()
+                        .all(|(_name, field)| field.field_type.is_surface_blittable())
+                }
+            }
+            Self::AnonymousStruct(anon_struct_type) => anon_struct_type
+                .field_name_sorted_fields
+                .iter()
+                .all(|(_name, field)| field.field_type.is_surface_blittable()),
+            Self::Enum(enum_type) => enum_type
+                .variants
+                .iter()
+                .all(|(_name, variant)| variant.types().iter().all(Self::is_surface_blittable)),
         }
     }
 

@@ -3,22 +3,22 @@ use swamp_vm_types::{SliceHeader, SlicePairHeader};
 
 impl Vm {
     pub(crate) fn slice_pair_header_from_frame(&self, frame_addr: u16) -> SlicePairHeader {
-        unsafe { *(self.frame.get_frame_const_ptr(frame_addr) as *const SlicePairHeader) }
+        unsafe { *(self.memory.get_frame_const_ptr(frame_addr) as *const SlicePairHeader) }
     }
 
     pub(crate) fn slice_header_from_frame(&self, frame_addr: u16) -> SliceHeader {
-        unsafe { *(self.frame.get_frame_const_ptr(frame_addr) as *const SliceHeader) }
+        unsafe { *(self.memory.get_frame_const_ptr(frame_addr) as *const SliceHeader) }
     }
 
     pub(crate) fn get_slice_header_ptr_on_frame(&self, frame_addr: u16) -> *mut SliceHeader {
-        self.frame.get_frame_const_ptr(frame_addr) as *mut SliceHeader
+        self.memory.get_frame_const_ptr(frame_addr) as *mut SliceHeader
     }
 
     pub(crate) fn get_slice_pair_header_ptr_on_frame(
         &self,
         frame_addr: u16,
     ) -> *mut SlicePairHeader {
-        self.frame.get_frame_const_ptr(frame_addr) as *mut SlicePairHeader
+        self.memory.get_frame_const_ptr(frame_addr) as *mut SlicePairHeader
     }
 
     pub fn execute_slice_from_heap(
@@ -32,7 +32,7 @@ impl Vm {
         unsafe {
             (*dst_ptr).element_size = element_size;
             (*dst_ptr).element_count = element_count;
-            (*dst_ptr).heap_offset = self.frame.read_heap_offset_via_frame(heap_addr_via_frame);
+            (*dst_ptr).heap_offset = self.memory.read_heap_offset_via_frame(heap_addr_via_frame);
         }
     }
 
@@ -49,8 +49,8 @@ impl Vm {
             (*dst_ptr).key_size = key_size;
             (*dst_ptr).value_size = value_size;
             (*dst_ptr).element_count = element_count;
-            (*dst_ptr).heap_offset = self.frame.read_heap_offset_via_frame(heap_addr_via_frame);
-            debug_assert!((*dst_ptr).heap_offset < self.heap.heap_memory_size as u32);
+            (*dst_ptr).heap_offset = self.memory.read_heap_offset_via_frame(heap_addr_via_frame);
+            debug_assert!((*dst_ptr).heap_offset < self.memory.memory_size as u32);
         }
     }
 }

@@ -5,11 +5,11 @@ use swamp_vm_types::{RangeHeader, RangeIterator};
 impl Vm {
     #[inline]
     pub fn range_header_from_frame(&self, frame_offset: u16) -> RangeHeader {
-        unsafe { *(self.frame.get_frame_const_ptr(frame_offset) as *const RangeHeader) }
+        unsafe { *(self.memory.get_frame_const_ptr(frame_offset) as *const RangeHeader) }
     }
 
     pub fn range_iterator_ptr_from_frame(&self, frame_offset: u16) -> *mut RangeIterator {
-        self.frame.get_frame_ptr(frame_offset) as *mut RangeIterator
+        self.memory.get_frame_ptr(frame_offset) as *mut RangeIterator
     }
 
     #[inline]
@@ -50,7 +50,7 @@ impl Vm {
 
             ptr::copy_nonoverlapping(
                 &vec_iterator,
-                self.frame
+                self.memory
                     .get_frame_ptr(target_iterator_addr)
                     .cast::<RangeIterator>(),
                 1, // bytes = count * sizeof(T)
@@ -75,7 +75,7 @@ impl Vm {
                 }
                 self.ip = jmp_absolute as usize;
             } else {
-                let target_int_ptr = self.frame.get_frame_ptr_as_i32(target_variable);
+                let target_int_ptr = self.memory.get_frame_ptr_as_i32(target_variable);
                 *target_int_ptr = (*range_iterator).index;
                 #[cfg(feature = "debug_vm")]
                 {

@@ -111,8 +111,8 @@ fn main() {
         vm.execute_from_ip(&constant.ip_range.start);
         unsafe {
             ptr::copy_nonoverlapping(
-                vm.frame().get_frame_const_ptr(0),
-                vm.heap()
+                vm.memory().get_frame_const_ptr(0),
+                vm.memory()
                     .get_heap_ptr(constant.target_constant_memory.addr().0 as usize),
                 constant.target_constant_memory.size().0 as usize,
             );
@@ -135,7 +135,7 @@ fn main() {
         swamp_vm_pretty_print::print_value(
             &mut stderr_adapter,
             vm.frame_memory(),
-            vm.heap(),
+            vm.memory(),
             StackMemoryAddress(0),
             &return_layout,
             &constant.constant_ref.assigned_name,
@@ -185,7 +185,7 @@ fn main() {
     swamp_vm_pretty_print::print_value(
         &mut stderr_adapter,
         vm.frame_memory(),
-        vm.heap(),
+        vm.memory(),
         StackMemoryAddress(0),
         &simulation_layout,
         "Simulation",

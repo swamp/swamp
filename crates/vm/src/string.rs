@@ -4,7 +4,7 @@
  */
 
 use crate::Vm;
-use crate::heap::HeapMemory;
+use crate::memory::Memory;
 use std::ptr;
 use swamp_vm_types::{HEAP_PTR_ON_FRAME_SIZE, STRING_HEADER_SIZE, StringHeader};
 
@@ -20,12 +20,12 @@ impl Vm {
     ) {
         let constant_offset = ((constant_upper as u32) << 16) | (constant_lower as u32);
 
-        let heap_offset = self.heap_allocate(byte_count as usize);
+        let heap_offset = self.memory_allocate(byte_count as usize);
 
         // Copy the constant slice to heap
         unsafe {
-            let source_constant = self.heap_ptr_immut_at(constant_offset as usize);
-            let dest_ptr = self.heap_ptr_at(heap_offset as usize);
+            let source_constant = self.memory_ptr_immut_at(constant_offset as usize);
+            let dest_ptr = self.memory_ptr_at(heap_offset as usize);
 
             ptr::copy_nonoverlapping(source_constant, dest_ptr, byte_count as usize);
         }
@@ -36,11 +36,11 @@ impl Vm {
             heap_offset,
         };
 
-        let header_offset = self.heap_allocate(STRING_HEADER_SIZE.into());
+        let header_offset = self.memory_allocate(STRING_HEADER_SIZE.into());
 
         // Copy String header to heap
         unsafe {
-            let header_ptr = self.heap_ptr_at(header_offset as usize) as *mut StringHeader;
+            let header_ptr = self.memory_ptr_at(header_offset as usize) as *mut StringHeader;
             ptr::write(header_ptr, string_header);
         }
 
@@ -56,7 +56,7 @@ impl Vm {
     fn get_string(&self, frame_offset: u16) -> (*const StringHeader, &str) {
         let header = self.frame_ptr_indirect_heap_immut_at(frame_offset) as *const StringHeader;
         unsafe {
-            let runes = self.heap_ptr_immut_at((*header).heap_offset as usize);
+            let runes = self.memory_ptr_immut_at((*header).heap_offset as usize);
 
             let bytes = std::slice::from_raw_parts(runes, (*header).byte_count as usize);
 
@@ -73,13 +73,13 @@ impl Vm {
 
         let byte_count = result.len();
 
-        let heap_runes_offset = self.heap_allocate(byte_count);
+        let heap_runes_offset = self.memory_allocate(byte_count);
 
         // Copy new runes to heap
         unsafe {
             ptr::copy_nonoverlapping(
                 result.as_bytes().as_ptr(),
-                self.heap_ptr_at(heap_runes_offset as usize),
+                self.memory_ptr_at(heap_runes_offset as usize),
                 byte_count,
             );
         }
@@ -90,11 +90,11 @@ impl Vm {
             heap_offset: heap_runes_offset,
         };
 
-        let header_offset = self.heap_allocate(STRING_HEADER_SIZE.into());
+        let header_offset = self.memory_allocate(STRING_HEADER_SIZE.into());
 
         // Copy String header to heap
         unsafe {
-            let header_ptr = self.heap_ptr_at(header_offset as usize) as *mut StringHeader;
+            let header_ptr = self.memory_ptr_at(header_offset as usize) as *mut StringHeader;
             ptr::write(header_ptr, string_header);
         }
 
@@ -106,7 +106,7 @@ impl Vm {
     }
          */
 
-    pub fn read_string(heap_addr: u32, heap: &HeapMemory) -> &str {
+    pub fn read_string(heap_addr: u32, heap: &Memory) -> &str {
         let string_header =
             unsafe { *(heap.get_heap_const_ptr(heap_addr as usize) as *const StringHeader) };
 
@@ -121,17 +121,17 @@ impl Vm {
 
     pub(crate) fn create_string(&mut self, string: &str) -> u32 {
         let rune_bytes = string.as_bytes();
-        let runes_in_heap = self.heap.heap_allocate_with_data(rune_bytes);
+        let runes_in_heap = self.memory.heap_allocate_with_data(rune_bytes);
 
         let string_header = StringHeader {
             heap_offset: runes_in_heap,
             byte_count: rune_bytes.len() as u32,
         };
 
-        let header_addr_in_heap = self.heap.heap_allocate(size_of::<StringHeader>());
+        let header_addr_in_heap = self.memory.heap_allocate(size_of::<StringHeader>());
 
         let header_ptr_in_heap =
-            self.heap.get_heap_ptr(header_addr_in_heap as usize) as *mut StringHeader;
+            self.memory.get_heap_ptr(header_addr_in_heap as usize) as *mut StringHeader;
 
         unsafe {
             *header_ptr_in_heap = string_header;

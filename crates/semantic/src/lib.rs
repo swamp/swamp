@@ -695,6 +695,8 @@ pub struct StartOfChain {
     pub node: Node,
 }
 
+impl StartOfChain {}
+
 impl StartOfChainKind {
     pub fn ty(&self) -> Type {
         match self {

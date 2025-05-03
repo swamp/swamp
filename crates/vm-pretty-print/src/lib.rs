@@ -4,8 +4,7 @@ use std::fmt::{Display, Formatter, Write};
 use std::ops::Add;
 use std::{fmt, slice};
 use swamp_vm::Vm;
-use swamp_vm::frame::FrameMemory;
-use swamp_vm::heap::HeapMemory;
+use swamp_vm::memory::Memory;
 use swamp_vm_types::types::{BasicType, BasicTypeKind, OffsetMemoryItem};
 use swamp_vm_types::{HeapMemoryAddress, MemoryOffset, StackMemoryAddress};
 
@@ -19,7 +18,7 @@ pub fn new_line_and_tab(f: &mut dyn Write, tabs: usize) -> std::fmt::Result {
 pub fn print_value(
     f: &mut dyn Write,
     frame: &[u8],
-    heap: &HeapMemory,
+    heap: &Memory,
     origin: StackMemoryAddress,
     ty: &BasicType,
     name: &str,
@@ -107,7 +106,7 @@ impl Add<MemoryOffset> for PrintAddress {
 fn print(
     f: &mut dyn Write,
     frame: &[u8],
-    heap: &HeapMemory,
+    heap: &Memory,
     debug_origin: PrintAddress,
     ty: &BasicType,
     name: &str,

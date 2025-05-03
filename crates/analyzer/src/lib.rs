@@ -27,6 +27,7 @@ use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::{FromStr, ParseBoolError};
 use std::task::Context;
+use swamp_ast::PostfixChain;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
 use swamp_semantic::instantiator::TypeVariableScope;
@@ -496,16 +497,20 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    pub fn debug_expression(&self, expr: &swamp_ast::Expression) {
+    pub fn debug_expression(&self, expr: &swamp_ast::Expression, description: &str) {
+        self.debug_line(expr.node.span.offset as usize, description);
+    }
+
+    pub fn debug_line(&self, offset: usize, description: &str) {
         let (line, _col) = self
             .shared
             .source_map
-            .get_span_location_utf8(self.shared.file_id, expr.node.span.offset as usize);
+            .get_span_location_utf8(self.shared.file_id, offset);
         let source_line = self
             .shared
             .source_map
             .get_source_line(self.shared.file_id, line);
-        info!(?line, ?source_line, "debug_expr");
+        info!(?line, ?source_line, description);
     }
 
     /// # Errors
@@ -2365,6 +2370,90 @@ impl<'a> Analyzer<'a> {
         ))
     }
 
+    pub fn check_mutable_assignment_is_valid(ty: &Type) -> bool {
+        let result = ty.is_surface_blittable();
+
+        if !result {
+            eprintln!("not work");
+        }
+
+        result
+    }
+
+    pub fn chain_is_owned_result(start_of_chain: &StartOfChain, chains: &Vec<Postfix>) -> bool {
+        if chains.is_empty() {
+            matches!(start_of_chain.kind, StartOfChainKind::Expression(_))
+        } else {
+            let mut is_owned_result =
+                matches!(start_of_chain.kind, StartOfChainKind::Expression(_));
+            for chain in chains {
+                match chain.kind {
+                    PostfixKind::StructField(_, _) => {
+                        is_owned_result = false;
+                    }
+                    PostfixKind::MemberCall(_, _) => {
+                        is_owned_result = true;
+                    }
+                    PostfixKind::OptionalChainingOperator => {
+                        is_owned_result = true;
+                    }
+                    PostfixKind::NoneCoalescingOperator(_) => {
+                        is_owned_result = true;
+                    }
+                }
+            }
+
+            is_owned_result
+        }
+    }
+
+    pub fn check_mutable_assignment(
+        &mut self,
+        source_expression: &Expression,
+        ty: &Type,
+    ) -> Result<(), Error> {
+        if matches!(
+            &source_expression.kind,
+            ExpressionKind::Literal(_) | ExpressionKind::IntrinsicCallEx(_, _)
+        ) {
+            return Ok(());
+        }
+
+        if let ExpressionKind::PostfixChain(start_chain, postfix) = &source_expression.kind {
+            if Self::chain_is_owned_result(start_chain, postfix) {
+                return Ok(());
+            }
+        }
+        let is_allowed_to_assign = Self::check_mutable_assignment_is_valid(ty);
+        self.debug_line(
+            source_expression.node.span.offset as usize,
+            "MUTABLE ASSIGNMENT",
+        );
+
+        if !is_allowed_to_assign {
+            error!(?ty, "assignment is wrong");
+            // return Err(self.create_err_resolved(ErrorKind::ArgumentIsNotMutable, &source_expression.node));
+        }
+
+        Ok(())
+    }
+
+    pub fn check_mutable_variable_assignment(
+        &mut self,
+        source_expression: &swamp_ast::Expression,
+        ty: &Type,
+        variable: &swamp_ast::Variable,
+    ) -> Result<(), Error> {
+        self.debug_expression(source_expression, "MUTABLE ASSIGNMENT TO VARIABLE");
+        let is_allowed_to_assign = Self::check_mutable_assignment_is_valid(ty);
+        if !is_allowed_to_assign {
+            error!(?ty, "variable is wrong");
+            //return Err(self.create_err(ErrorKind::ArgumentIsNotMutable, &variable.name));
+        }
+
+        Ok(())
+    }
+
     /// # Errors
     ///
     pub fn analyze_variable_assignment(
@@ -2402,11 +2491,18 @@ impl<'a> Analyzer<'a> {
                     &variable.name,
                 ));
             }
+            self.check_mutable_variable_assignment(source_expression, &ty, variable)?;
             ExpressionKind::VariableReassignment(found_var, Box::from(source_expr))
         } else {
             if !ty.can_be_stored_in_variable() {
                 let text = self.get_text(&variable.name);
                 error!(?text, ?required_type, ?source_expr, "variable is wrong");
+            }
+
+            // If it is mutable, we might need to clone the source
+            // so make some extra verification
+            if variable.is_mutable.is_some() {
+                self.check_mutable_variable_assignment(source_expression, &ty, variable)?;
             }
             let new_var = self.create_variable(variable, &ty)?;
             ExpressionKind::VariableDefinition(new_var, Box::from(source_expr))
@@ -2690,6 +2786,8 @@ impl<'a> Analyzer<'a> {
 
         let lhs_argument_context = TypeContext::new_argument(&ty);
         let source_expr = self.analyze_expression(ast_source_expression, &lhs_argument_context)?;
+
+        self.check_mutable_assignment(&source_expr, &ty)?;
 
         let mut_location = TargetAssignmentLocation(resolved_location);
 
