@@ -31,7 +31,11 @@ impl Context {
     }
 
     pub(crate) fn move_to_field_index(&self, index: usize) -> Self {
-        let offset_item = self.placed_type.ty().get_field_offset(index).unwrap();
+        let offset_item = self
+            .placed_type
+            .final_type()
+            .get_field_offset(index)
+            .unwrap();
         Self {
             placed_type: FramePlacedType::new(
                 self.placed_type.addr() + offset_item.offset,
@@ -75,6 +79,11 @@ impl Context {
     }
     pub const fn target_size(&self) -> MemorySize {
         self.placed_type.size()
+    }
+
+    #[must_use]
+    pub fn final_target_size(&self) -> MemorySize {
+        self.placed_type.underlying().total_size
     }
 
     #[must_use]

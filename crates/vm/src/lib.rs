@@ -79,6 +79,8 @@ pub struct Vm {
     pub debug_enabled: bool,
 }
 
+impl Vm {}
+
 const ALIGNMENT: usize = 8;
 const ALIGNMENT_REST: usize = ALIGNMENT - 1;
 const ALIGNMENT_MASK: usize = !ALIGNMENT_REST;
@@ -305,6 +307,10 @@ impl Vm {
     #[must_use]
     pub const fn memory(&self) -> &Memory {
         &self.memory
+    }
+
+    pub fn memory_mut(&mut self) -> &mut Memory {
+        &mut self.memory
     }
 
     pub fn execute_internal(&mut self) {

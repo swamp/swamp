@@ -236,7 +236,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
 fn layout_mutable_reference(analyzed_type: &Type) -> BasicType {
     let inner_type = layout_type(analyzed_type);
     BasicType {
-        kind: BasicTypeKind::IndirectHeapPointerOnFrame(Box::from(inner_type)),
+        kind: BasicTypeKind::MutablePointer(Box::from(inner_type)),
         total_size: HEAP_PTR_ON_FRAME_SIZE,
         max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
     }
@@ -442,7 +442,7 @@ pub fn layout_tuple(types: &[Type]) -> BasicType {
 pub fn layout_variables(
     _node: &Node,
     variables: &Vec<VariableRef>,
-    return_type: &Type,
+    exp_return_type: &Type,
 ) -> FrameAndVariableInfo {
     const TEMPORARY_SIZE: MemorySize = MemorySize(16 * 1024);
 
@@ -450,7 +450,10 @@ pub fn layout_variables(
         FrameMemoryAddress(0),
         MemorySize(32 * 1024),
     ));
-    let return_placed_type = reserve(return_type, &mut allocator);
+
+    let return_placed_type_pointer = layout_type(exp_return_type).create_mutable_pointer();
+
+    let return_placed_type = allocator.allocate_type(return_placed_type_pointer); //reserve(return_placed_type_pointer, &mut allocator);
 
     let mut enter_comment = "variables:\n".to_string();
 

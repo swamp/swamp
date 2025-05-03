@@ -4,6 +4,7 @@
  */
 use seq_map::SeqMap;
 use source_map_node::Node;
+use std::ops::Deref;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, CompleteFunctionInfo, FramePlacedType, FunctionInfo,
@@ -373,7 +374,10 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         assert!(
-            matches!(self_addr.ty().kind, BasicTypeKind::InternalVecPointer(_)),
+            matches!(
+                self_addr.underlying().kind,
+                BasicTypeKind::InternalVecPointer(_)
+            ),
             "what is this {:?}",
             self_addr.ty()
         );
@@ -569,8 +573,8 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         assert_eq!(
-            target.size(),
-            source.size(),
+            target.underlying().total_size,
+            source.underlying().total_size,
             "problem with move {target:?} {source:?}"
         );
         self.add_mov(target, source, source.size(), node, comment);
@@ -1439,13 +1443,13 @@ impl InstructionBuilder<'_> {
     }
 
     pub fn add_stz(&mut self, target: &FramePlacedType, node: &Node, comment: &str) {
-        assert_eq!(target.size().0, 1);
+        assert_eq!(target.underlying().total_size.0, 1);
         self.state
             .add_instruction(OpCode::Stz, &[target.addr().0], node, comment);
     }
 
     pub fn add_stnz(&mut self, target: &FramePlacedType, node: &Node, comment: &str) {
-        assert_eq!(target.size().0, 1);
+        assert_eq!(target.underlying().total_size.0, 1);
         self.state
             .add_instruction(OpCode::Stnz, &[target.addr().0], node, comment);
     }
@@ -1457,8 +1461,8 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert_eq!(a.size().0, 1);
-        assert_eq!(b.size().0, 1);
+        assert_eq!(a.underlying().total_size.0, 1);
+        assert_eq!(b.underlying().total_size.0, 1);
         self.state
             .add_instruction(OpCode::Cmp8, &[a.addr().0, b.addr().0], node, comment);
     }
@@ -1470,8 +1474,8 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert_eq!(a.size().0, 4);
-        assert_eq!(b.size().0, 4);
+        assert_eq!(a.underlying().total_size.0, 4);
+        assert_eq!(b.underlying().total_size.0, 4);
 
         self.state
             .add_instruction(OpCode::Cmp32, &[a.addr().0, b.addr().0], node, comment);
@@ -1608,10 +1612,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(matches!(
-            target.ty().kind,
-            BasicTypeKind::IndirectHeapPointerOnFrame(_)
-        ));
+        assert!(matches!(target.ty().kind, BasicTypeKind::MutablePointer(_)));
         assert_eq!(target.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
         // assert_ne!(size.0, 0); TODO: Bring this back
 
@@ -1628,10 +1629,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(matches!(
-            dest.ty().kind,
-            BasicTypeKind::IndirectHeapPointerOnFrame(_)
-        ));
+        assert!(matches!(dest.ty().kind, BasicTypeKind::MutablePointer(_)));
         assert_eq!(dest.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
         assert_ne!(size.0, 0);
 

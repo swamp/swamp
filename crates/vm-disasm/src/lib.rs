@@ -11,8 +11,8 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
     BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
     DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, PathInfo, b8_type, bytes_type,
-    float_type, indirect_heap_ptr_type, int_type, map_iter_type, map_type, range_iter_type,
-    range_type, slice_type, string_type, u8_type, u32_type, vec_iter_type, vec_type,
+    float_type, int_type, map_iter_type, map_type, pointer_type_again, range_iter_type, range_type,
+    slice_type, string_type, u8_type, u32_type, vec_iter_type, vec_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
@@ -628,12 +628,12 @@ pub fn disasm(
         }
 
         OpCode::Lea => &[
-            to_write_frame(operands[0], &indirect_heap_ptr_type(), frame_memory_info),
+            to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::LdAddPointer => &[
-            to_write_frame(operands[0], &indirect_heap_ptr_type(), frame_memory_info),
+            to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
         ],
@@ -641,14 +641,14 @@ pub fn disasm(
 
         OpCode::SliceFromHeap => &[
             to_write_frame(operands[0], &slice_type(), frame_memory_info),
-            to_read_frame(operands[1], &indirect_heap_ptr_type(), frame_memory_info),
+            to_read_frame(operands[1], &pointer_type_again(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
             DecoratedOperandAccessKind::CountU16(operands[3]),
         ],
 
         OpCode::SlicePairFromHeap => &[
             to_write_frame(operands[0], &slice_type(), frame_memory_info),
-            to_read_frame(operands[1], &indirect_heap_ptr_type(), frame_memory_info),
+            to_read_frame(operands[1], &pointer_type_again(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
             DecoratedOperandAccessKind::CountU16(operands[4]),
@@ -855,7 +855,7 @@ pub fn disasm(
         ],
 
         OpCode::Alloc => &[
-            to_write_frame(operands[0], &indirect_heap_ptr_type(), frame_memory_info),
+            to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(operands[1])),
         ],
 

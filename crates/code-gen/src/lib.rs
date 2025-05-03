@@ -35,7 +35,7 @@ use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FrameMemoryInfo, FramePlacedType, FunctionInfo, FunctionInfoKind,
-    HeapPlacedType, heap_ptr_size, int_type, show_frame_memory,
+    HeapPlacedType, int_type, pointer_type, show_frame_memory,
 };
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
@@ -630,6 +630,7 @@ impl TopLevelGenState {
             &in_data.all_variables_parameters_first,
             &in_data.return_type,
         );
+        assert!(frame_and_variable_info.return_placement.ty().is_pointer());
 
         let frame_size = frame_and_variable_info.frame_memory.size();
 
@@ -658,13 +659,6 @@ impl TopLevelGenState {
             &in_data.assigned_name,
             source_map_wrapper,
         );
-
-        /*
-        let ExpressionKind::Block(block_expressions) = &in_data.expression.kind else {
-            panic!("function body should be a block")
-        };
-
-         */
 
         let ctx = Context::new(frame_and_variable_info.return_placement);
         //info!(?in_data, "generate");
@@ -2204,7 +2198,7 @@ impl FunctionCodeGen<'_> {
     ) {
         let region = self.emit_lvalue_chain(argument, None);
 
-        if !region.ty().is_absolute_reference() {
+        if !region.ty().is_pointer() {
             if region.size().0 != 0 {
                 self.builder
                     .add_lea(ctx.target(), region.addr(), &argument.node, comment);
@@ -2344,28 +2338,18 @@ impl FunctionCodeGen<'_> {
 
      */
 
-    fn ensure_absolute_location(
+    fn ensure_absolute_target_pointer_location(
         &mut self,
         node: &Node,
-        target_pointer: &FramePlacedType,
+        call_return_slot: &FramePlacedType,
         return_ctx_to_check: &FramePlacedType,
     ) {
-        //        reserve(Type::MutableReference(Box::new(return_value.ty().clone()));
-        if !return_ctx_to_check.ty().is_absolute_reference() {
-            self.builder.add_lea(
-                target_pointer,
-                return_ctx_to_check.addr(),
-                node,
-                "converting",
-            );
-        } else {
-            self.builder.add_mov32(
-                target_pointer,
-                return_ctx_to_check,
-                node,
-                "copying return target",
-            );
-        }
+        self.builder.add_lea(
+            call_return_slot,
+            return_ctx_to_check.addr(),
+            node,
+            "placing pointer to real return target",
+        );
     }
 
     fn emit_arguments(
@@ -2374,33 +2358,33 @@ impl FunctionCodeGen<'_> {
         signature: &Signature,
         self_region: Option<FramePlacedType>,
         arguments: &Vec<MutRefOrImmutableExpression>,
-        ctx: Option<&Context>, // not sure it has return value
+        ctx: Option<&Context>, // not sure if it has return value
     ) -> FrameMemoryRegion {
         self.argument_allocator.reset();
         // Layout return and arguments, must be continuous space
         if let Some(return_ctx) = ctx {
             if return_ctx.target_size().0 > 0 {
-                let reserved_return_pointer = self
+                let (mutable_return_pointer_placed, needs_effective_address) =
+                    if return_ctx.ty().is_pointer() {
+                        (return_ctx.ty(), false)
+                    } else {
+                        (&return_ctx.ty().create_mutable_pointer(), true)
+                    };
+                assert!(
+                    mutable_return_pointer_placed.is_pointer(),
+                    "should have been an pointer return slot"
+                );
+                let return_value_slot = self
                     .argument_allocator
-                    .allocate(HEAP_PTR_ON_FRAME_SIZE, HEAP_PTR_ON_FRAME_ALIGNMENT);
-                let reserved_return_pointer_basic_type = BasicType {
-                    kind: BasicTypeKind::IndirectHeapPointerOnFrame(Box::from(
-                        return_ctx.ty().clone(),
-                    )),
-                    total_size: HEAP_PTR_ON_FRAME_SIZE,
-                    max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
-                };
+                    .allocate_type(mutable_return_pointer_placed.clone());
 
-                let reserved_return_pointer_placed_type = FramePlacedType::new(
-                    reserved_return_pointer,
-                    reserved_return_pointer_basic_type,
-                );
-
-                self.ensure_absolute_location(
-                    node,
-                    &reserved_return_pointer_placed_type,
-                    return_ctx.target(),
-                );
+                if needs_effective_address {
+                    self.ensure_absolute_target_pointer_location(
+                        node,
+                        &return_value_slot,
+                        return_ctx.target(),
+                    );
+                }
             }
         }
         //assert_eq!(argument_addr.addr.0, self.frame_size.0);
@@ -2641,7 +2625,7 @@ impl FunctionCodeGen<'_> {
             kind: BasicTypeKind::Tuple(gen_tuple_type.clone()),
         };
 
-        assert_eq!(gen_tuple_placed.total_size, ctx.target_size());
+        assert_eq!(gen_tuple_placed.total_size, ctx.final_target_size());
         assert_eq!(gen_tuple_type.fields.len(), expressions.len());
 
         for (offset_item, expr) in gen_tuple_type.fields.iter().zip(expressions) {
@@ -3067,7 +3051,10 @@ impl FunctionCodeGen<'_> {
             info!("problem");
         }
 
-        assert_eq!(ctx.target_size().0, gen_source_struct_type.total_size.0);
+        assert_eq!(
+            ctx.final_target_size().0,
+            gen_source_struct_type.total_size.0
+        );
         assert_eq!(
             source_order_expressions.len(),
             gen_source_struct_type.fields.len()
@@ -3103,7 +3090,7 @@ impl FunctionCodeGen<'_> {
 
         let heap_ptr_header_addr = ctx
             .target()
-            .move_with_offset(SLICE_PTR_OFFSET, heap_ptr_size());
+            .move_with_offset(SLICE_PTR_OFFSET, pointer_type());
 
         self.builder.add_alloc(
             &heap_ptr_header_addr,
@@ -3168,7 +3155,7 @@ impl FunctionCodeGen<'_> {
 
         let heap_ptr_header_addr = ctx
             .target()
-            .move_with_offset(SLICE_PTR_OFFSET, heap_ptr_size());
+            .move_with_offset(SLICE_PTR_OFFSET, pointer_type());
 
         self.builder.add_alloc(
             &heap_ptr_header_addr,
@@ -4184,12 +4171,12 @@ impl FunctionCodeGen<'_> {
     ) -> GeneratedExpressionResult {
         let inner = self.emit_expression_location(expr);
 
-        if !inner.ty().is_absolute_reference() {
+        if !inner.ty().is_pointer() {
             self.builder.add_lea(
                 ctx.target(),
                 inner.addr(),
                 node,
-                "wasn't an absolute reference, so converting",
+                "wasn't a pointer, so converting",
             );
         }
 

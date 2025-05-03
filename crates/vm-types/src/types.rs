@@ -256,7 +256,7 @@ pub enum BasicTypeKind {
     //InternalGridIterator,
     Slice(Box<BasicType>),
     SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
-    IndirectHeapPointerOnFrame(Box<BasicType>),
+    MutablePointer(Box<BasicType>),
 }
 
 impl Display for BasicTypeKind {
@@ -283,7 +283,7 @@ impl Display for BasicTypeKind {
             Self::Tuple(tuple_type) => write!(f, "({})", comma(&tuple_type.fields)),
             Self::Slice(a) => write!(f, "slice<{}>", a.kind),
             Self::SlicePair(a, b) => write!(f, "slice_pair<{a}, {b}>"),
-            Self::IndirectHeapPointerOnFrame(inner) => write!(f, "&{inner}"),
+            Self::MutablePointer(inner) => write!(f, "&mut {inner}"),
         }
     }
 }
@@ -364,9 +364,9 @@ impl Display for BasicTypeKind {
  */
 
 #[must_use]
-pub fn indirect_heap_ptr_type() -> BasicType {
+pub fn pointer_type_again() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::IndirectHeapPointerOnFrame(Box::from(unknown_type())),
+        kind: BasicTypeKind::MutablePointer(Box::from(unknown_type())),
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
     }
@@ -425,6 +425,7 @@ pub const fn range_iter_type() -> BasicType {
     }
 }
 
+#[must_use]
 pub fn slice_type() -> BasicType {
     BasicType {
         kind: BasicTypeKind::Slice(Box::from(u8_type())), // todo: fix
@@ -433,6 +434,7 @@ pub fn slice_type() -> BasicType {
     }
 }
 
+#[must_use]
 pub const fn unknown_type() -> BasicType {
     BasicType {
         kind: BasicTypeKind::Empty,
@@ -517,9 +519,9 @@ pub const fn b8_type() -> BasicType {
 }
 
 #[must_use]
-pub fn heap_ptr_size() -> BasicType {
+pub fn pointer_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::IndirectHeapPointerOnFrame(Box::from(unknown_type())),
+        kind: BasicTypeKind::MutablePointer(Box::from(unknown_type())),
         total_size: HEAP_PTR_ON_FRAME_SIZE,
         max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
     }
@@ -593,6 +595,8 @@ pub struct FramePlacedType {
     ty: BasicType,
 }
 
+impl FramePlacedType {}
+
 impl FramePlacedType {
     #[must_use]
     pub fn union_payload(&self, index: usize) -> Self {
@@ -608,6 +612,11 @@ impl FramePlacedType {
             addr: self.addr + tagged_union.payload_offset,
             ty: variant.ty.clone(),
         }
+    }
+
+    #[must_use]
+    pub fn underlying(&self) -> &BasicType {
+        self.ty.underlying()
     }
 }
 
@@ -637,6 +646,11 @@ impl FramePlacedType {
     #[must_use]
     pub const fn ty(&self) -> &BasicType {
         &self.ty
+    }
+
+    #[must_use]
+    pub fn final_type(&self) -> &BasicType {
+        &self.ty.underlying()
     }
 
     #[must_use]
@@ -696,8 +710,6 @@ pub struct BasicType {
     pub max_alignment: MemoryAlignment,
 }
 
-impl BasicType {}
-
 impl BasicType {
     #[must_use]
     pub const fn unwrap_info(
@@ -715,9 +727,27 @@ impl BasicType {
     }
 
     #[must_use]
-    pub const fn is_absolute_reference(&self) -> bool {
+    pub fn create_mutable_pointer(&self) -> Self {
+        debug_assert!(!self.is_pointer());
+
+        Self {
+            kind: BasicTypeKind::MutablePointer(Box::from(self.clone())),
+            total_size: HEAP_PTR_ON_FRAME_SIZE,
+            max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
+        }
+    }
+
+    pub fn underlying(&self) -> &Self {
         match &self.kind {
-            BasicTypeKind::IndirectHeapPointerOnFrame(_) => true,
+            BasicTypeKind::MutablePointer(inner) => inner,
+            _ => self,
+        }
+    }
+
+    #[must_use]
+    pub const fn is_pointer(&self) -> bool {
+        match &self.kind {
+            BasicTypeKind::MutablePointer(_) => true,
             _ => false,
         }
     }
@@ -760,29 +790,34 @@ impl BasicType {
 
     #[must_use]
     pub fn is_int(&self) -> bool {
-        matches!(self.kind, BasicTypeKind::S32)
-            && self.total_size.0 == 4
-            && self.max_alignment == MemoryAlignment::U32
+        let deref = &self.underlying();
+
+        matches!(deref.kind, BasicTypeKind::S32)
+            && deref.total_size.0 == 4
+            && deref.max_alignment == MemoryAlignment::U32
     }
     #[must_use]
     pub fn is_float(&self) -> bool {
-        matches!(self.kind, BasicTypeKind::Fixed32)
-            && self.total_size.0 == 4
-            && self.max_alignment == MemoryAlignment::U32
+        let deref = &self.underlying();
+        matches!(deref.kind, BasicTypeKind::Fixed32)
+            && deref.total_size.0 == 4
+            && deref.max_alignment == MemoryAlignment::U32
     }
 
     #[must_use]
     pub fn is_str(&self) -> bool {
-        matches!(self.kind, BasicTypeKind::InternalStringPointer)
-            && self.total_size == STRING_PTR_SIZE
-            && self.max_alignment == STRING_PTR_ALIGNMENT
+        let deref = &self.underlying();
+        matches!(deref.kind, BasicTypeKind::InternalStringPointer)
+            && deref.total_size == STRING_PTR_SIZE
+            && deref.max_alignment == STRING_PTR_ALIGNMENT
     }
 
     #[must_use]
     pub fn is_bool(&self) -> bool {
-        matches!(self.kind, BasicTypeKind::B8)
-            && self.total_size.0 == 1
-            && self.max_alignment == MemoryAlignment::U8
+        let deref = &self.underlying();
+        matches!(deref.kind, BasicTypeKind::B8)
+            && deref.total_size.0 == 1
+            && deref.max_alignment == MemoryAlignment::U8
     }
 }
 
@@ -1151,8 +1186,8 @@ pub fn write_basic_type(
         BasicTypeKind::InternalRangeHeader => {
             write!(f, "range")
         }
-        BasicTypeKind::IndirectHeapPointerOnFrame(inner) => {
-            write!(f, "&{inner}")
+        BasicTypeKind::MutablePointer(inner) => {
+            write!(f, "&mut {inner}")
         }
         BasicTypeKind::InternalVecPointer(x) => {
             write!(f, "vec<>")

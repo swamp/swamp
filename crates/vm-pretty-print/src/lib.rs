@@ -320,7 +320,7 @@ fn print(
             }
         }
 
-        BasicTypeKind::IndirectHeapPointerOnFrame(_) => todo!(),
+        BasicTypeKind::MutablePointer(_) => todo!(),
         BasicTypeKind::Slice(_) => panic!("slices should not be stored"),
         BasicTypeKind::SlicePair(_, _) => panic!("slice pairs should not be stored"),
         BasicTypeKind::InternalVecIterator => panic!("vec iterators should not be stored"),

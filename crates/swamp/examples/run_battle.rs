@@ -98,7 +98,7 @@ fn main() {
         stack_memory_size: 16 * 1024 * 20,
         heap_memory_size: 1024 * 1024,
         constant_memory,
-        debug_enabled: false,
+        debug_enabled: true,
     };
 
     let mut vm = Vm::new(instructions, vm_setup);
@@ -108,15 +108,13 @@ fn main() {
         // do not reset heap, all allocations from heap should remain (for now)
         // TODO: compact the heap after each constant
         vm.reset_frame();
-        vm.execute_from_ip(&constant.ip_range.start);
         unsafe {
-            ptr::copy_nonoverlapping(
-                vm.memory().get_frame_const_ptr(0),
-                vm.memory()
-                    .get_heap_ptr(constant.target_constant_memory.addr().0 as usize),
-                constant.target_constant_memory.size().0 as usize,
-            );
+            // Place pointer in return
+            *(vm.memory_mut().get_heap_u32_ptr_via_frame(0)) =
+                constant.target_constant_memory.addr().0;
         }
+        vm.execute_from_ip(&constant.ip_range.start);
+
         vm.protect_heap_up_to_current_allocator();
 
         let return_layout =
