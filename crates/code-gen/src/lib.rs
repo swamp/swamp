@@ -39,15 +39,16 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemorySize,
-    InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
-    MAP_HEADER_COUNT_OFFSET, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
-    MemoryAlignment, MemoryOffset, MemorySize, Meta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE,
-    SLICE_PAIR_HEADER_SIZE, SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT, STRING_HEADER_COUNT_OFFSET,
-    STRING_HEADER_SIZE, STRING_PTR_SIZE, StringHeader, TempFrameMemoryAddress,
-    VEC_HEADER_ALIGNMENT, VEC_HEADER_COUNT_OFFSET, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT,
-    VEC_ITERATOR_SIZE, VEC_PTR_SIZE, ZFlagPolarity,
+    GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
+    HeapMemoryAddress, HeapMemoryOffset, HeapMemorySize, InstructionPosition,
+    InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT, MAP_HEADER_COUNT_OFFSET,
+    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset,
+    MemorySize, Meta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT,
+    RANGE_ITERATOR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE,
+    SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT, STRING_HEADER_COUNT_OFFSET, STRING_HEADER_SIZE,
+    STRING_PTR_SIZE, StringHeader, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT,
+    VEC_HEADER_COUNT_OFFSET, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
+    VEC_PTR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -1577,6 +1578,9 @@ impl FunctionCodeGen<'_> {
             ExpressionKind::VariableAccess(variable_ref) => {
                 self.emit_variable_access(&expr.node, variable_ref, ctx)
             }
+            ExpressionKind::BorrowMutRef(expression) => {
+                self.emit_borrow_mutable_reference(&expr.node, expression, ctx)
+            }
             ExpressionKind::BinaryOp(operator) => self.emit_binary_operator(operator, ctx),
             ExpressionKind::UnaryOp(operator) => self.emit_unary_operator(operator, ctx),
             ExpressionKind::PostfixChain(start, chain) => {
@@ -2192,7 +2196,7 @@ impl FunctionCodeGen<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn emit_location_argument(
+    fn emit_absolute_pointer(
         &mut self,
         argument: &SingleLocationExpression,
         ctx: &Context,
@@ -2200,9 +2204,11 @@ impl FunctionCodeGen<'_> {
     ) {
         let region = self.emit_lvalue_chain(argument, None);
 
-        if region.size().0 != 0 {
-            self.builder
-                .add_mov_for_assignment(ctx.target(), &region, &argument.node, comment);
+        if !region.ty().is_absolute_reference() {
+            if region.size().0 != 0 {
+                self.builder
+                    .add_lea(ctx.target(), region.addr(), &argument.node, comment);
+            }
         }
     }
 
@@ -2281,6 +2287,7 @@ impl FunctionCodeGen<'_> {
         self.emit_variable_assignment(variable, expression, ctx)
     }
 
+    /*
     fn copy_back_mutable_arguments(
         &mut self,
         node: &Node,
@@ -2334,16 +2341,68 @@ impl FunctionCodeGen<'_> {
             }
         }
     }
+
+     */
+
+    fn ensure_absolute_location(
+        &mut self,
+        node: &Node,
+        target_pointer: &FramePlacedType,
+        return_ctx_to_check: &FramePlacedType,
+    ) {
+        //        reserve(Type::MutableReference(Box::new(return_value.ty().clone()));
+        if !return_ctx_to_check.ty().is_absolute_reference() {
+            self.builder.add_lea(
+                target_pointer,
+                return_ctx_to_check.addr(),
+                node,
+                "converting",
+            );
+        } else {
+            self.builder.add_mov32(
+                target_pointer,
+                return_ctx_to_check,
+                node,
+                "copying return target",
+            );
+        }
+    }
+
     fn emit_arguments(
         &mut self,
         node: &Node,
         signature: &Signature,
         self_region: Option<FramePlacedType>,
         arguments: &Vec<MutRefOrImmutableExpression>,
+        ctx: Option<&Context>, // not sure it has return value
     ) -> FrameMemoryRegion {
         self.argument_allocator.reset();
         // Layout return and arguments, must be continuous space
-        let _return_spot = reserve(&signature.return_type, &mut self.argument_allocator);
+        if let Some(return_ctx) = ctx {
+            if return_ctx.target_size().0 > 0 {
+                let reserved_return_pointer = self
+                    .argument_allocator
+                    .allocate(HEAP_PTR_ON_FRAME_SIZE, HEAP_PTR_ON_FRAME_ALIGNMENT);
+                let reserved_return_pointer_basic_type = BasicType {
+                    kind: BasicTypeKind::IndirectHeapPointerOnFrame(Box::from(
+                        return_ctx.ty().clone(),
+                    )),
+                    total_size: HEAP_PTR_ON_FRAME_SIZE,
+                    max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
+                };
+
+                let reserved_return_pointer_placed_type = FramePlacedType::new(
+                    reserved_return_pointer,
+                    reserved_return_pointer_basic_type,
+                );
+
+                self.ensure_absolute_location(
+                    node,
+                    &reserved_return_pointer_placed_type,
+                    return_ctx.target(),
+                );
+            }
+        }
         //assert_eq!(argument_addr.addr.0, self.frame_size.0);
 
         let mut argument_final_targets = Vec::new();
@@ -2370,11 +2429,7 @@ impl FunctionCodeGen<'_> {
             argument_comments.push(format!("argument {}", type_for_parameter.name));
         }
 
-        let skip_count = if let Some(push_self) = &self_region {
-            1
-        } else {
-            0
-        };
+        let skip_count = self_region.as_ref().map_or(0, |_push_self| 1);
 
         for ((argument_temp_target, argument_expr_or_loc), argument_comment) in
             argument_temp_targets
@@ -2490,6 +2545,7 @@ impl FunctionCodeGen<'_> {
                                     &internal_fn.signature.signature,
                                     Some(self_source_frame_placed.clone()),
                                     arguments,
+                                    final_target,
                                 );
                                 self.add_call(
                                     &element.node,
@@ -2497,6 +2553,7 @@ impl FunctionCodeGen<'_> {
                                     &format!("frame size: {}", self.total_frame_size),
                                 ); // will be fixed up later
 
+                                /*
                                 self.call_post_helper(
                                     &element.node,
                                     &internal_fn.signature.signature,
@@ -2504,6 +2561,8 @@ impl FunctionCodeGen<'_> {
                                     arguments,
                                     target_ctx,
                                 );
+
+                                 */
                             }
                         }
                         Function::External(external_function_def) => {
@@ -2548,6 +2607,7 @@ impl FunctionCodeGen<'_> {
         (self_source_frame_placed, z_flag_result)
     }
 
+    /*
     fn call_post_helper(
         &mut self,
         node: &Node,
@@ -2570,6 +2630,8 @@ impl FunctionCodeGen<'_> {
 
         GeneratedExpressionResult::default()
     }
+
+     */
 
     fn emit_tuple(&mut self, types: &[Type], expressions: &[Expression], ctx: &Context) {
         let gen_tuple_type = layout_tuple_items(types);
@@ -3590,7 +3652,13 @@ impl FunctionCodeGen<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        self.emit_arguments(node, &internal_fn.signature.signature, None, arguments);
+        self.emit_arguments(
+            node,
+            &internal_fn.signature.signature,
+            None,
+            arguments,
+            Some(ctx),
+        );
 
         self.add_call(
             node,
@@ -3598,7 +3666,9 @@ impl FunctionCodeGen<'_> {
             &format!("frame size: {}", self.total_frame_size),
         ); // will be fixed up later
 
-        self.call_post_helper(node, &internal_fn.signature.signature, None, arguments, ctx)
+        //self.call_post_helper(node, &internal_fn.signature.signature, None, arguments, ctx)
+
+        GeneratedExpressionResult::default()
     }
 
     fn emit_host_call(
@@ -3608,7 +3678,8 @@ impl FunctionCodeGen<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let memory_region = self.emit_arguments(node, &host_fn.signature, None, arguments);
+        let memory_region =
+            self.emit_arguments(node, &host_fn.signature, None, arguments, Some(ctx));
 
         self.builder.add_host_call(
             host_fn.id as u16,
@@ -3620,7 +3691,9 @@ impl FunctionCodeGen<'_> {
             ),
         );
 
-        self.call_post_helper(node, &host_fn.signature, None, arguments, ctx)
+        //self.call_post_helper(node, &host_fn.signature, None, arguments, ctx)
+
+        GeneratedExpressionResult::default()
     }
 
     fn emit_host_self_call(
@@ -3636,6 +3709,7 @@ impl FunctionCodeGen<'_> {
             &host_fn.signature,
             Some(self_frame_placed_type.clone()),
             arguments,
+            Some(ctx),
         );
 
         self.builder.add_host_call(
@@ -3648,6 +3722,7 @@ impl FunctionCodeGen<'_> {
             ),
         ); // will be fixed up later
 
+        /*
         self.call_post_helper(
             node,
             &host_fn.signature,
@@ -3655,6 +3730,9 @@ impl FunctionCodeGen<'_> {
             arguments,
             ctx,
         )
+
+         */
+        GeneratedExpressionResult::default()
     }
 
     fn merge_arguments_keep_literals(
@@ -4096,6 +4174,26 @@ impl FunctionCodeGen<'_> {
             &fake_lambda_expr,
             ctx,
         )
+    }
+
+    fn emit_borrow_mutable_reference(
+        &mut self,
+        node: &Node,
+        expr: &Expression,
+        ctx: &Context,
+    ) -> GeneratedExpressionResult {
+        let inner = self.emit_expression_location(expr);
+
+        if !inner.ty().is_absolute_reference() {
+            self.builder.add_lea(
+                ctx.target(),
+                inner.addr(),
+                node,
+                "wasn't an absolute reference, so converting",
+            );
+        }
+
+        GeneratedExpressionResult::default()
     }
 }
 

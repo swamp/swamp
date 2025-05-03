@@ -44,7 +44,7 @@ impl FunctionCodeGen<'_> {
                 self.emit_expression_materialize(found_expression, ctx);
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                self.emit_location_argument(location_expression, ctx, comment);
+                self.emit_absolute_pointer(location_expression, ctx, comment);
             }
         }
     }

@@ -71,11 +71,13 @@ pub enum OpCode {
 
     // Frame copy
     Mov,
-    //    MovLp, // Copy overlapping
     Mov32,
 
     // Heap copy
     MovMem, // Copy from heap region with offset to frame region
+
+    Lea,          // Load effective address
+    LdAddPointer, // Load a pointer, add to it and write it back
 
     Alloc, // For slices
     Stx,   // Copy from frame region to allocated region with offset
@@ -234,6 +236,8 @@ impl OpCode {
             Self::Mov32 => "mov32",
             Self::MovMem => "movmem",
             Self::Stx => "stx",
+            Self::Lea => "lea",
+            Self::LdAddPointer => "ptroff",
 
             // Load
             Self::Ld8 => "ld8",

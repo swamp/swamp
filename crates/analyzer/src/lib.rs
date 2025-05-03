@@ -730,7 +730,13 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::UnaryOp(operator, expression) => {
                 if let swamp_ast::UnaryOperator::BorrowMutRef(_node) = operator {
-                    self.analyze_expression(expression, context)?
+                    let inner_expr = self.analyze_expression(expression, context)?;
+                    let ty = inner_expr.ty.clone();
+                    self.create_expr(
+                        ExpressionKind::BorrowMutRef(Box::from(inner_expr)),
+                        Type::MutableReference(Box::from(ty)),
+                        &ast_expression.node,
+                    )
                 } else {
                     let (resolved_op, result_type) = self.analyze_unary_op(operator, expression)?;
                     self.create_expr(

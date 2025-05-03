@@ -137,6 +137,8 @@ impl Vm {
         // Copy data in frame memory
         vm.handlers[OpCode::Mov as usize] = HandlerType::Args3(Self::execute_mov);
         vm.handlers[OpCode::Mov32 as usize] = HandlerType::Args2(Self::execute_mov32);
+        vm.handlers[OpCode::Lea as usize] = HandlerType::Args2(Self::execute_lea);
+        vm.handlers[OpCode::LdAddPointer as usize] = HandlerType::Args3(Self::execute_compute_addr);
 
         // Copy to and from heap
         vm.handlers[OpCode::Stx as usize] = HandlerType::Args5(Self::execute_stx);
@@ -283,7 +285,6 @@ impl Vm {
         vm.handlers[OpCode::MapIterNext as usize] = HandlerType::Args3(Self::execute_map_iter_next);
         vm.handlers[OpCode::MapIterNextPair as usize] =
             HandlerType::Args2(Self::execute_map_iter_next_pair);
-        vm.handlers[OpCode::MapSet as usize] = HandlerType::Args2(Self::execute_map_iter_next_pair);
         vm.handlers[OpCode::MapLen as usize] = HandlerType::Args2(Self::execute_map_len);
          */
 
@@ -1039,6 +1040,26 @@ impl Vm {
 
         unsafe {
             std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, 1);
+        }
+    }
+
+    #[inline]
+    fn execute_lea(&mut self, dst_offset: u16, src_offset: u16) {
+        let absolute_source_addr = (self.memory.frame_offset as usize + src_offset as usize) as u32;
+        let dst_ptr = self.memory.get_frame_ptr_as_u32(dst_offset);
+
+        unsafe {
+            std::ptr::write(dst_ptr, absolute_source_addr);
+        }
+    }
+
+    #[inline]
+    fn execute_compute_addr(&mut self, dst_offset: u16, src_offset: u16, increase: u16) {
+        let new_absolute_pointer_addr = self.memory.read_frame_u32(src_offset) + increase as u32;
+        let dst_ptr = self.memory.get_frame_ptr_as_u32(dst_offset);
+
+        unsafe {
+            std::ptr::write(dst_ptr, new_absolute_pointer_addr);
         }
     }
 

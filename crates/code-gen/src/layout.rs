@@ -11,11 +11,12 @@ use swamp_vm_types::types::{
     OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo,
 };
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE,
-    MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
-    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, STRING_HEADER_ALIGNMENT,
-    STRING_HEADER_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT,
-    VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
+    FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
+    MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment,
+    MemoryOffset, MemorySize, SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE,
+    STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
+    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
+    adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
 /*
@@ -223,12 +224,21 @@ pub fn layout_type(ty: &Type) -> BasicType {
             &a.variants.values().cloned().collect::<Vec<_>>(),
         ),
         Type::Optional(inner_type) => layout_optional_type(inner_type),
-        Type::MutableReference(inner_type) => layout_type(inner_type),
+        Type::MutableReference(inner_type) => layout_mutable_reference(inner_type),
         Type::Function(_) => panic!("function types should not be a part of codegen"),
         Type::Never => panic!("'never' should not be a part of codegen"),
         Type::Generic(_, _) => panic!("generic should not be a part of codegen"),
         Type::Blueprint(_) => panic!("blueprint should not be a part of codegen"),
         Type::Variable(_) => panic!("type variable (generics) should not be a part of codegen"),
+    }
+}
+
+fn layout_mutable_reference(analyzed_type: &Type) -> BasicType {
+    let inner_type = layout_type(analyzed_type);
+    BasicType {
+        kind: BasicTypeKind::IndirectHeapPointerOnFrame(Box::from(inner_type)),
+        total_size: HEAP_PTR_ON_FRAME_SIZE,
+        max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
     }
 }
 

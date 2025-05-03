@@ -626,6 +626,17 @@ pub fn disasm(
                 DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
             ]
         }
+
+        OpCode::Lea => &[
+            to_write_frame(operands[0], &indirect_heap_ptr_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
+        ],
+
+        OpCode::LdAddPointer => &[
+            to_write_frame(operands[0], &indirect_heap_ptr_type(), frame_memory_info),
+            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
+        ],
         OpCode::Nop => &[],
 
         OpCode::SliceFromHeap => &[

@@ -256,7 +256,7 @@ pub enum BasicTypeKind {
     //InternalGridIterator,
     Slice(Box<BasicType>),
     SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
-    IndirectHeapPointerOnFrame,
+    IndirectHeapPointerOnFrame(Box<BasicType>),
 }
 
 impl Display for BasicTypeKind {
@@ -283,7 +283,7 @@ impl Display for BasicTypeKind {
             Self::Tuple(tuple_type) => write!(f, "({})", comma(&tuple_type.fields)),
             Self::Slice(a) => write!(f, "slice<{}>", a.kind),
             Self::SlicePair(a, b) => write!(f, "slice_pair<{a}, {b}>"),
-            Self::IndirectHeapPointerOnFrame => write!(f, "indirect heap ptr"),
+            Self::IndirectHeapPointerOnFrame(inner) => write!(f, "&{inner}"),
         }
     }
 }
@@ -364,9 +364,9 @@ impl Display for BasicTypeKind {
  */
 
 #[must_use]
-pub const fn indirect_heap_ptr_type() -> BasicType {
+pub fn indirect_heap_ptr_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::IndirectHeapPointerOnFrame,
+        kind: BasicTypeKind::IndirectHeapPointerOnFrame(Box::from(unknown_type())),
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
     }
@@ -517,9 +517,9 @@ pub const fn b8_type() -> BasicType {
 }
 
 #[must_use]
-pub const fn heap_ptr_size() -> BasicType {
+pub fn heap_ptr_size() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::IndirectHeapPointerOnFrame,
+        kind: BasicTypeKind::IndirectHeapPointerOnFrame(Box::from(unknown_type())),
         total_size: HEAP_PTR_ON_FRAME_SIZE,
         max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
     }
@@ -696,6 +696,8 @@ pub struct BasicType {
     pub max_alignment: MemoryAlignment,
 }
 
+impl BasicType {}
+
 impl BasicType {
     #[must_use]
     pub const fn unwrap_info(
@@ -709,6 +711,14 @@ impl BasicType {
                 tagged.payload_max_size,
             )),
             _ => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn is_absolute_reference(&self) -> bool {
+        match &self.kind {
+            BasicTypeKind::IndirectHeapPointerOnFrame(_) => true,
+            _ => false,
         }
     }
 
@@ -1141,8 +1151,8 @@ pub fn write_basic_type(
         BasicTypeKind::InternalRangeHeader => {
             write!(f, "range")
         }
-        BasicTypeKind::IndirectHeapPointerOnFrame => {
-            write!(f, "heap_ptr")
+        BasicTypeKind::IndirectHeapPointerOnFrame(inner) => {
+            write!(f, "&{inner}")
         }
         BasicTypeKind::InternalVecPointer(x) => {
             write!(f, "vec<>")

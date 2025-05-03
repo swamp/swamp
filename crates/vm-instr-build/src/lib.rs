@@ -527,6 +527,21 @@ impl InstructionBuilder<'_> {
         PatchPosition(position)
     }
 
+    pub fn add_lea(
+        &mut self,
+        target_heap: &FramePlacedType,
+        frame_address_to_convert: FrameMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::Lea,
+            &[target_heap.addr().0, frame_address_to_convert.0],
+            node,
+            comment,
+        );
+    }
+
     // Mov is more of a copy. Keeping the name Mov because it is old school and idiomatic.
     pub fn add_mov(
         &mut self,
@@ -1595,7 +1610,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             target.ty().kind,
-            BasicTypeKind::IndirectHeapPointerOnFrame
+            BasicTypeKind::IndirectHeapPointerOnFrame(_)
         ));
         assert_eq!(target.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
         // assert_ne!(size.0, 0); TODO: Bring this back
@@ -1615,7 +1630,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             dest.ty().kind,
-            BasicTypeKind::IndirectHeapPointerOnFrame
+            BasicTypeKind::IndirectHeapPointerOnFrame(_)
         ));
         assert_eq!(dest.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
         assert_ne!(size.0, 0);

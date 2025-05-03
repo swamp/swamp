@@ -1109,6 +1109,7 @@ impl<'a, C> Interpreter<'a, C> {
                 x
             }
             ExpressionKind::Lambda(a, b) => Value::Lambda(a.to_vec(), b.clone()),
+            &swamp_semantic::ExpressionKind::BorrowMutRef(_) => todo!(),
         };
 
         self.depth -= 1;
