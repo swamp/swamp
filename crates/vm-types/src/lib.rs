@@ -11,12 +11,12 @@ pub mod aligner;
 pub mod opcode;
 pub mod types;
 
-#[repr(C)] // do not use `packed` for now
+/// An instruction is always 6 bytes.
+#[repr(C)]
 #[derive(Clone)]
 pub struct BinaryInstruction {
     pub opcode: u8,
-    pub padding: u8, // this is just to be explicit about the actual padding.
-    pub operands: [u16; 5],
+    pub operands: [u8; 5], // Do not increase the size
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -68,15 +68,15 @@ pub struct FrameMemoryAddress(pub u16);
 
 impl Display for FrameMemoryAddress {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[frame {:04X} ({})]", self.0, self.0)
+        write!(f, "${:04X}", self.0)
     }
 }
 
 impl Add<MemoryOffset> for FrameMemoryAddress {
-    type Output = FrameMemoryAddress;
+    type Output = Self;
 
     fn add(self, rhs: MemoryOffset) -> Self::Output {
-        FrameMemoryAddress(self.0 + rhs.0)
+        Self(self.0 + rhs.0)
     }
 }
 

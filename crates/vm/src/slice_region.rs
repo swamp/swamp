@@ -1,55 +1,67 @@
-use crate::Vm;
+use crate::{Reg, u8s_to_u16};
+use crate::{Vm, get_reg};
 use swamp_vm_types::{SliceHeader, SlicePairHeader};
 
 impl Vm {
-    pub(crate) fn slice_pair_header_from_frame(&self, frame_addr: u16) -> SlicePairHeader {
-        unsafe { *(self.memory.get_frame_const_ptr(frame_addr) as *const SlicePairHeader) }
+    pub(crate) fn slice_pair_header_from_reg(&self, slice_header_reg: u8) -> SlicePairHeader {
+        unsafe { *(self.get_const_ptr_from_reg(slice_header_reg) as *const SlicePairHeader) }
     }
 
-    pub(crate) fn slice_header_from_frame(&self, frame_addr: u16) -> SliceHeader {
-        unsafe { *(self.memory.get_frame_const_ptr(frame_addr) as *const SliceHeader) }
+    pub(crate) fn slice_header_from_reg(&self, slice_header_reg: u8) -> SliceHeader {
+        unsafe { *(self.get_const_ptr_from_reg(slice_header_reg) as *const SliceHeader) }
     }
 
-    pub(crate) fn get_slice_header_ptr_on_frame(&self, frame_addr: u16) -> *mut SliceHeader {
-        self.memory.get_frame_const_ptr(frame_addr) as *mut SliceHeader
+    pub(crate) fn get_slice_header_ptr_on_frame(&self, slice_header_reg: u8) -> *mut SliceHeader {
+        self.get_ptr_from_reg(slice_header_reg) as *mut SliceHeader
     }
 
-    pub(crate) fn get_slice_pair_header_ptr_on_frame(
+    pub(crate) fn get_slice_pair_header_ptr_from_reg(
         &self,
-        frame_addr: u16,
+        slice_pair_reg: u8,
     ) -> *mut SlicePairHeader {
-        self.memory.get_frame_const_ptr(frame_addr) as *mut SlicePairHeader
+        self.get_ptr_from_reg(slice_pair_reg) as *mut SlicePairHeader
     }
 
     pub fn execute_slice_from_heap(
         &mut self,
-        dst_slice_header: u16,
-        heap_addr_via_frame: u16,
-        element_size: u16,
-        element_count: u16,
+        dst_slice_header_reg: u8,
+        memory_addr_reg: u8,
+        element_count_reg: u8,
+        element_size_reg: u8,
     ) {
-        let dst_ptr = self.get_slice_header_ptr_on_frame(dst_slice_header);
+        let dst_ptr = self.get_slice_header_ptr_on_frame(dst_slice_header_reg);
+
+        get_reg!(self, memory_addr_reg, Ptr => memory_addr);
+        get_reg!(self, element_count_reg, u32 => element_count);
+        get_reg!(self, element_size_reg, u32 => element_size);
+
         unsafe {
-            (*dst_ptr).element_size = element_size;
-            (*dst_ptr).element_count = element_count;
-            (*dst_ptr).heap_offset = self.memory.read_heap_offset_via_frame(heap_addr_via_frame);
+            (*dst_ptr).element_size = element_size as u16;
+            (*dst_ptr).element_count = element_count as u16;
+            (*dst_ptr).heap_offset = memory_addr;
         }
     }
 
     pub fn execute_slice_pair_from_heap(
         &mut self,
-        dst_slice_header: u16,
-        heap_addr_via_frame: u16,
-        key_size: u16,
-        value_size: u16,
-        element_count: u16,
+        dst_slice_header_reg: u8,
+        memory_addr_reg: u8,
+        key_size_reg: u8,
+        value_size_reg: u8,
+        element_count_reg: u8,
     ) {
-        let dst_ptr = self.get_slice_pair_header_ptr_on_frame(dst_slice_header);
+        let dst_ptr = self.get_slice_pair_header_ptr_from_reg(dst_slice_header_reg);
+
+        get_reg!(self, memory_addr_reg, Ptr => memory_addr);
+        get_reg!(self, element_count_reg, u32 => element_count);
+        get_reg!(self, key_size_reg, u32 => key_size);
+        get_reg!(self, value_size_reg, u32 => value_size);
+
         unsafe {
-            (*dst_ptr).key_size = key_size;
-            (*dst_ptr).value_size = value_size;
-            (*dst_ptr).element_count = element_count;
-            (*dst_ptr).heap_offset = self.memory.read_heap_offset_via_frame(heap_addr_via_frame);
+            (*dst_ptr).key_size = key_size as u16;
+            (*dst_ptr).value_size = value_size as u16;
+            (*dst_ptr).element_count = element_count as u16;
+            (*dst_ptr).heap_offset = memory_addr;
             debug_assert!((*dst_ptr).heap_offset < self.memory.memory_size as u32);
         }
     }

@@ -10,8 +10,8 @@ use swamp_vm_types::{VEC_HEADER_SIZE, VEC_ITERATOR_SIZE, VecHeader, VecIterator}
 
 impl Vm {
     #[inline]
-    pub fn execute_vec_from_slice(&mut self, target_vec_pointer: u16, source_slice_addr: u16) {
-        let slice_header = self.slice_header_from_frame(source_slice_addr);
+    pub fn execute_vec_from_slice(&mut self, target_vec_pointer: u8, source_slice_addr: u8) {
+        let slice_header = self.slice_header_from_reg(source_slice_addr);
 
         let slice_size = slice_header.element_size as usize * slice_header.element_count as usize;
         // Allocate space on the heap for the slice data.
@@ -58,7 +58,7 @@ impl Vm {
         }
     }
     #[inline]
-    pub fn execute_vec_iter_init(&mut self, target_iterator_addr: u16, vec_indirect: u16) {
+    pub fn execute_vec_iter_init(&mut self, target_iterator_addr: u8, vec_indirect: u8) {
         let vec_header_heap_ptr_as_offset = self.memory.read_heap_offset_via_frame(vec_indirect);
         unsafe {
             let vec_iterator = VecIterator {
@@ -78,18 +78,18 @@ impl Vm {
         unsafe { *(heap.get_heap_const_ptr(heap_offset as usize) as *const VecHeader) }
     }
 
-    pub fn vec_header_from_indirect_heap(frame: &Memory, frame_offset: u16) -> VecHeader {
+    pub fn vec_header_from_indirect_heap(frame: &Memory, frame_offset: u8) -> VecHeader {
         let heap_offset = frame.read_heap_offset_via_frame(frame_offset);
         unsafe { *(frame.get_heap_const_ptr(heap_offset as usize) as *const VecHeader) }
     }
 
-    pub fn vec_header_from_indirect_heap_mut(&self, frame_offset: u16) -> *mut VecHeader {
+    pub fn vec_header_from_indirect_heap_mut(&self, frame_offset: u8) -> *mut VecHeader {
         let heap_offset = self.memory.read_heap_offset_via_frame(frame_offset);
         self.memory.get_heap_const_ptr(heap_offset as usize) as *mut VecHeader
     }
 
     #[inline]
-    pub fn execute_vec_len(&mut self, int_target: u16, frame_source: u16) {
+    pub fn execute_vec_len(&mut self, int_target: u8, frame_source: u8) {
         let vec_header = Self::vec_header_from_indirect_heap(&self.memory, frame_source);
         unsafe {
             *self.memory.get_frame_ptr_as_i32(int_target) = vec_header.count as i32;
@@ -101,7 +101,7 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_vec_get(&mut self, item_target: u16, vec_indirect_source: u16, int_index: u16) {
+    pub fn execute_vec_get(&mut self, item_target: u8, vec_indirect_source: u8, int_index: u8) {
         let vec_index = self.memory.read_frame_i32(int_index) as usize;
         let vec_header = Self::vec_header_from_indirect_heap(&self.memory, vec_indirect_source);
         debug_assert!(
@@ -128,7 +128,7 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_vec_set(&mut self, vec_indirect_source: u16, int_index: u16, item_source: u16) {
+    pub fn execute_vec_set(&mut self, vec_indirect_source: u8, int_index: u8, item_source: u8) {
         let vec_index = self.memory.read_frame_i32(int_index) as usize;
         let vec_header = Self::vec_header_from_indirect_heap(&self.memory, vec_indirect_source);
         debug_assert!(vec_index < vec_header.count as usize);
@@ -149,7 +149,7 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_vec_push(&mut self, vec_frame_target: u16, item_to_push: u16) {
+    pub fn execute_vec_push(&mut self, vec_frame_target: u8, item_to_push: u8) {
         let vec_header = self.vec_header_from_indirect_heap_mut(vec_frame_target);
         let (count, capacity) = unsafe { ((*vec_header).count, (*vec_header).capacity) };
         let element_size = unsafe { (*vec_header).element_size } as usize;
@@ -189,10 +189,10 @@ impl Vm {
     #[inline]
     pub fn execute_vec_iter_next_pair(
         &mut self,
-        target_iterator_addr: u16,
-        key_variable: u16,
-        value_variable: u16,
-        jump: u16,
+        target_iterator_addr: u8,
+        key_variable: u8,
+        value_variable: u8,
+        jump: u8,
     ) {
         let vec_iterator = self.memory.get_frame_ptr(target_iterator_addr) as *mut VecIterator;
         let (data_heap_offset, index) =
@@ -220,9 +220,9 @@ impl Vm {
     #[inline]
     pub fn execute_vec_iter_next(
         &mut self,
-        target_iterator_addr: u16,
-        target_variable: u16,
-        jump: u16,
+        target_iterator_addr: u8,
+        target_variable: u8,
+        jump: u8,
     ) {
         let vec_iterator = self.memory.get_frame_ptr(target_iterator_addr) as *mut VecIterator;
         let (data_heap_offset, index) =

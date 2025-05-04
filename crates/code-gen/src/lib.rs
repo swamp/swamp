@@ -35,7 +35,7 @@ use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FrameMemoryInfo, FramePlacedType, FunctionInfo, FunctionInfoKind,
-    HeapPlacedType, int_type, pointer_type, show_frame_memory,
+    HeapPlacedType, TypedRegister, int_type, pointer_type, show_frame_memory,
 };
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
@@ -887,7 +887,7 @@ impl FunctionCodeGen<'_> {
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         self_type: Option<Type>,
-        self_addr: Option<FramePlacedType>,
+        self_addr: Option<TypedRegister>,
         arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
     ) -> GeneratedExpressionResult {
@@ -1473,14 +1473,14 @@ impl FunctionCodeGen<'_> {
     /// # Panics
     ///
     #[allow(clippy::single_match_else)]
-    pub fn emit_expression_location(&mut self, expr: &Expression) -> FramePlacedType {
+    pub fn emit_expression_location(&mut self, expr: &Expression) -> TypedRegister {
         self.emit_expression_location_internal(expr)
     }
 
     pub fn emit_expression_location_leave_z_flag(
         &mut self,
         expr: &Expression,
-    ) -> (FramePlacedType, GeneratedExpressionResult) {
+    ) -> (TypedRegister, GeneratedExpressionResult) {
         match &expr.kind {
             ExpressionKind::VariableAccess(var_ref) => {
                 let frame_address = self
@@ -1507,7 +1507,7 @@ impl FunctionCodeGen<'_> {
 
     /// # Panics
     ///
-    pub fn emit_expression_location_internal(&mut self, expr: &Expression) -> FramePlacedType {
+    pub fn emit_expression_location_internal(&mut self, expr: &Expression) -> TypedRegister {
         let (target_region, z_flag_state) = self.emit_expression_location_leave_z_flag(expr);
 
         self.materialize_z_flag_to_bool_if_needed(&target_region, z_flag_state, &expr.node);
@@ -1772,10 +1772,10 @@ impl FunctionCodeGen<'_> {
 
     fn emit_binary_operator_i32(
         &mut self,
-        left_source: &FramePlacedType,
+        left_source: &TypedRegister,
         node: &Node,
         binary_operator_kind: &BinaryOperatorKind,
-        right_source: &FramePlacedType,
+        right_source: &TypedRegister,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let mut kind = GeneratedExpressionResultKind::ZFlagUnmodified;
@@ -1842,10 +1842,10 @@ impl FunctionCodeGen<'_> {
     #[allow(clippy::unnecessary_wraps)]
     fn emit_binary_operator_f32(
         &mut self,
-        left_source: &FramePlacedType,
+        left_source: &TypedRegister,
         node: &Node,
         binary_operator_kind: &BinaryOperatorKind,
-        right_source: &FramePlacedType,
+        right_source: &TypedRegister,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let mut kind = GeneratedExpressionResultKind::ZFlagUnmodified;
@@ -1974,9 +1974,9 @@ impl FunctionCodeGen<'_> {
 
     fn emit_binary_operator_cmp32(
         &mut self,
-        left_source: &FramePlacedType,
+        left_source: &TypedRegister,
         node: &Node,
-        right_source: &FramePlacedType,
+        right_source: &TypedRegister,
     ) -> GeneratedExpressionResult {
         self.builder
             .add_cmp32(left_source, right_source, node, "compare to z flag");
@@ -1988,9 +1988,9 @@ impl FunctionCodeGen<'_> {
 
     fn emit_binary_operator_string_cmp(
         &mut self,
-        left_source: &FramePlacedType,
+        left_source: &TypedRegister,
         node: &Node,
-        right_source: &FramePlacedType,
+        right_source: &TypedRegister,
     ) -> GeneratedExpressionResult {
         self.builder
             .add_cmp8(left_source, right_source, &node, "compare bool");
@@ -2286,7 +2286,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         node: &Node,
         signature: &Signature,
-        maybe_self: Option<FramePlacedType>,
+        maybe_self: Option<TypedRegister>,
         arguments: &Vec<MutRefOrImmutableExpression>,
     ) {
         let arguments_memory_region = self.infinite_above_frame_size();
@@ -2341,8 +2341,8 @@ impl FunctionCodeGen<'_> {
     fn ensure_absolute_target_pointer_location(
         &mut self,
         node: &Node,
-        call_return_slot: &FramePlacedType,
-        return_ctx_to_check: &FramePlacedType,
+        call_return_slot: &TypedRegister,
+        return_ctx_to_check: &TypedRegister,
     ) {
         self.builder.add_lea(
             call_return_slot,
@@ -2356,7 +2356,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         node: &Node,
         signature: &Signature,
-        self_region: Option<FramePlacedType>,
+        self_region: Option<TypedRegister>,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: Option<&Context>, // not sure if it has return value
     ) -> FrameMemoryRegion {
@@ -2470,7 +2470,7 @@ impl FunctionCodeGen<'_> {
 
         let start_addr = argument_final_targets
             .first()
-            .map_or(FrameMemoryAddress(0), FramePlacedType::addr);
+            .map_or(FrameMemoryAddress(0), TypedRegister::addr);
 
         FrameMemoryRegion {
             addr: start_addr,
@@ -2484,7 +2484,7 @@ impl FunctionCodeGen<'_> {
         start_expression: &StartOfChain,
         chain: &[Postfix],
         final_target: Option<&Context>,
-    ) -> (FramePlacedType, GeneratedExpressionResult) {
+    ) -> (TypedRegister, GeneratedExpressionResult) {
         let mut self_source_frame_placed = self.emit_start_of_chain(start_expression);
         let mut z_flag_result = GeneratedExpressionResult::default();
         for (index, element) in chain.iter().enumerate() {
@@ -2596,7 +2596,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         node: &Node,
         signature: &Signature,
-        maybe_self: Option<FramePlacedType>,
+        maybe_self: Option<TypedRegister>,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
@@ -2630,7 +2630,7 @@ impl FunctionCodeGen<'_> {
 
         for (offset_item, expr) in gen_tuple_type.fields.iter().zip(expressions) {
             let target_addr = ctx.addr() + offset_item.offset;
-            let placed_target = FramePlacedType::new(target_addr, offset_item.ty.clone());
+            let placed_target = TypedRegister::new(target_addr, offset_item.ty.clone());
             let element_ctx = Context::new(placed_target);
             self.emit_expression_materialize(expr, &element_ctx);
         }
@@ -2883,7 +2883,7 @@ impl FunctionCodeGen<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn get_variable_region(&self, variable: &VariableRef) -> &FramePlacedType {
+    fn get_variable_region(&self, variable: &VariableRef) -> &TypedRegister {
         let frame_address = self
             .variable_offsets
             .get(&variable.unique_id_within_function)
@@ -2946,9 +2946,9 @@ impl FunctionCodeGen<'_> {
     fn emit_compound_assignment_i32(
         &mut self,
         node: &Node,
-        target: &FramePlacedType,
+        target: &TypedRegister,
         op: &CompoundOperatorKind,
-        source_ctx: &FramePlacedType,
+        source_ctx: &TypedRegister,
     ) {
         match op {
             CompoundOperatorKind::Add => {
@@ -2977,9 +2977,9 @@ impl FunctionCodeGen<'_> {
     fn emit_compound_assignment_f32(
         &mut self,
         node: &Node,
-        target: &FramePlacedType,
+        target: &TypedRegister,
         op: &CompoundOperatorKind,
-        source_ctx: &FramePlacedType,
+        source_ctx: &TypedRegister,
     ) {
         match op {
             CompoundOperatorKind::Add => {
@@ -3687,7 +3687,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
-        self_frame_placed_type: &FramePlacedType,
+        self_frame_placed_type: &TypedRegister,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
@@ -3951,8 +3951,8 @@ impl FunctionCodeGen<'_> {
         &mut self,
         node: &Node,
         collection_type: Collection,
-        collection_self_addr: &FramePlacedType,
-        target_variables: &[FramePlacedType],
+        collection_self_addr: &TypedRegister,
+        target_variables: &[TypedRegister],
     ) -> (InstructionPosition, PatchPosition) {
         let iterator_gen_type = collection_type.iterator_gen_type();
 
@@ -4038,7 +4038,7 @@ impl FunctionCodeGen<'_> {
     fn check_if_transformer_sets_z_flag(
         &mut self,
         transformer: Transformer,
-        in_value: &FramePlacedType,
+        in_value: &TypedRegister,
         node: &Node,
     ) -> GeneratedExpressionResultKind {
         match transformer {
@@ -4076,8 +4076,8 @@ impl FunctionCodeGen<'_> {
         &mut self,
         node: &Node,
         collection: Collection,
-        mut_collection: &FramePlacedType,
-        value: &FramePlacedType,
+        mut_collection: &TypedRegister,
+        value: &TypedRegister,
     ) {
         match collection {
             Collection::Vec => {

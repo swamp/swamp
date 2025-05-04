@@ -110,8 +110,7 @@ fn main() {
         vm.reset_frame();
         unsafe {
             // Place pointer in return
-            *(vm.memory_mut().get_heap_u32_ptr_via_frame(0)) =
-                constant.target_constant_memory.addr().0;
+            *(vm.memory_mut().get_frame_ptr_as_u32(0)) = constant.target_constant_memory.addr().0;
         }
         vm.execute_from_ip(&constant.ip_range.start);
 

@@ -8,6 +8,7 @@ use swamp_vm_types::HeapMemoryAddress;
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::DecoratedOperandAccessKind::MemorySize;
 use swamp_vm_types::types::{HeapPlacedArray, HeapPlacedType};
+use tracing::info;
 
 pub struct ConstantsAllocator {
     current_addr: u32,
@@ -27,6 +28,10 @@ impl ConstantsAllocator {
         let gen_type = layout_type(&ty);
         let alignment: usize = gen_type.max_alignment.into();
         let start_addr = align(self.current_addr as usize, alignment) as u32;
+        eprintln!(
+            "allocate constant {start_addr:08X}:{:X}",
+            gen_type.total_size.0
+        );
 
         self.current_addr = start_addr + gen_type.total_size.0 as u32;
         assert!(self.current_addr < self.max_size);

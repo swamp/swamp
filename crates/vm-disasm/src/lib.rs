@@ -10,9 +10,10 @@ use std::fmt::Write;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
     BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
-    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, PathInfo, b8_type, bytes_type,
-    float_type, int_type, map_iter_type, map_type, pointer_type_again, range_iter_type, range_type,
-    slice_type, string_type, u8_type, u32_type, vec_iter_type, vec_type,
+    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, FramePlacedType, PathInfo,
+    TypedRegister, b8_type, bytes_type, float_type, int_type, map_iter_type, map_type,
+    pointer_type_again, range_iter_type, range_type, slice_type, string_type, u8_type, u32_type,
+    vec_iter_type, vec_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
@@ -40,7 +41,6 @@ pub fn disasm_instructions_color(
     source_file_wrapper: &SourceMapWrapper,
 ) -> String {
     let mut string = String::new();
-    let mut last_frame_size: u16 = 0;
 
     let mut last_line_info = SourceFileLineInfo {
         row: usize::MAX,
@@ -50,9 +50,7 @@ pub fn disasm_instructions_color(
 
     for (ip_offset, instruction) in binary_instructions.iter().enumerate() {
         let ip_index = instruction_position_base.0 + ip_offset as u16;
-        if OpCode::Enter as u8 == instruction.opcode {
-            last_frame_size = instruction.operands[0];
-        }
+
         if let Some(found) = ip_infos.get(&InstructionPosition(ip_index)) {
             if last_line_info.file_id != found.file_id {
                 last_line_info = found.clone();
@@ -107,14 +105,10 @@ pub fn disasm_instructions_no_color(
     include_comments: bool,
 ) -> String {
     let mut string = String::new();
-    let mut last_frame_size: u16 = 0;
 
     for (ip_index, (instruction, comment)) in
         binary_instruction.iter().zip(descriptions).enumerate()
     {
-        if OpCode::Enter as u8 == instruction.opcode {
-            last_frame_size = instruction.operands[0];
-        }
         if let Some(found) = ip_infos.get(&InstructionPosition(ip_index as u16)) {
             string += &format!("- {found} -\n");
         }
@@ -161,7 +155,7 @@ pub fn disasm_color(
                 };
 
                 (
-                    format!("{}{}", "$".fg(color), format!("{:04X}", addr.0).fg(color)),
+                    format!("{}", addr.fg(color)),
                     memory_kind_color(memory_kind.clone()),
                 )
             }
@@ -173,7 +167,7 @@ pub fn disasm_color(
                 };
 
                 (
-                    format!("{}{}", "$".fg(color), format!("{:04X}", addr.0).fg(color)),
+                    format!("{}", format!("{addr}").fg(color)),
                     memory_kind_color(memory_kind.clone()),
                 )
             }
@@ -225,7 +219,7 @@ pub fn disasm_color(
             ) => (
                 format!(
                     "({})+{}",
-                    format!("${:04X}", frame_addr.0).red(),
+                    format!("{frame_addr}").red(),
                     format!("{:X}", memory_offset.0).red()
                 ),
                 memory_kind_color(memory_kind.clone()),
@@ -237,7 +231,7 @@ pub fn disasm_color(
             ) => (
                 format!(
                     "({})+{}",
-                    format!("${:04X}", frame_addr.0).green(),
+                    format!("{frame_addr}").green(),
                     format!("{:X}", memory_offset.0).green()
                 ),
                 memory_kind_color(memory_kind.clone()),
@@ -300,10 +294,10 @@ pub fn disasm_no_color(
     for operand in decorated.operands {
         let new_str = match operand.kind {
             DecoratedOperandAccessKind::ReadFrameAddress(addr, _memory_kind, _attr) => {
-                format!("{}{}", "$", format!("{:04X}", addr.0))
+                format!("{}{}", "$", format!("{}", addr))
             }
             DecoratedOperandAccessKind::WriteFrameAddress(addr, _memory_kind, _attr) => {
-                format!("{}{}", "$", format!("{:04X}", addr.0))
+                format!("{}{}", "$", format!("{}", addr))
             }
             DecoratedOperandAccessKind::HeapAddress(addr) => {
                 format!("{}{}", "%$", format!("{:08X}", addr.0))
@@ -368,14 +362,6 @@ pub fn disasm(
             &[
                 to_write_frame(operands[0], &int_type(), frame_memory_info),
                 DecoratedOperandAccessKind::ImmediateU32(data),
-            ]
-        }
-        OpCode::Ld16 => {
-            let data = operands[1] as u16;
-
-            &[
-                to_write_frame(operands[0], &int_type(), frame_memory_info),
-                DecoratedOperandAccessKind::ImmediateU16(data),
             ]
         }
 
@@ -583,49 +569,38 @@ pub fn disasm(
 
         OpCode::Stnz => &[to_write_frame(operands[0], &b8_type(), frame_memory_info)],
 
-        OpCode::Cmp8 => &[
-            to_read_frame(operands[0], &u8_type(), frame_memory_info),
-            to_read_frame(operands[1], &u8_type(), frame_memory_info),
-        ],
-
-        OpCode::Cmp32 => &[
+        OpCode::CmpReg => &[
             to_read_frame(operands[0], &u32_type(), frame_memory_info),
             to_read_frame(operands[1], &u32_type(), frame_memory_info),
         ],
 
-        OpCode::Cmp => &[
-            to_read_frame(operands[0], &bytes_type(), frame_memory_info),
-            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
-        ],
-
-        OpCode::Bnz | OpCode::Bz | OpCode::Call => &[to_jmp_ip(operands[0])],
+        OpCode::Bnz | OpCode::Bz | OpCode::Call => {
+            &[to_jmp_ip(u8_pair_to_u16(operands[0], operands[1]))]
+        }
         OpCode::NotZ => &[],
         OpCode::HostCall => &[
-            DecoratedOperandAccessKind::ImmediateU16(operands[0]),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[1])),
+            DecoratedOperandAccessKind::ImmediateU16(u8_pair_to_u16(operands[0], operands[1])),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
+                operands[2],
+                operands[3],
+            ))),
         ],
         OpCode::Enter => &[DecoratedOperandAccessKind::MemorySize(MemorySize(
-            operands[0],
+            u8_pair_to_u16(operands[0], operands[1]),
         ))],
-        OpCode::Jmp => &[to_jmp_ip(operands[0])],
-        OpCode::Mov => &[
+        OpCode::Jmp => &[to_jmp_ip(u8_pair_to_u16(operands[0], operands[1]))],
+        OpCode::MovMem => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
+                operands[2],
+                operands[3],
+            ))),
         ],
-        OpCode::Mov32 => &[
+        OpCode::MovReg => &[
             to_write_frame(operands[0], &u32_type(), frame_memory_info),
             to_read_frame(operands[1], &u32_type(), frame_memory_info),
         ],
-        OpCode::MovMem => {
-            let heap_mem_addr = ((operands[2] as u32) << 16) | operands[1] as u32;
-            &[
-                to_write_frame(operands[0], &bytes_type(), frame_memory_info),
-                DecoratedOperandAccessKind::HeapAddress(HeapMemoryAddress(heap_mem_addr)),
-                DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
-            ]
-        }
 
         OpCode::Lea => &[
             to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
@@ -635,23 +610,32 @@ pub fn disasm(
         OpCode::LdAddPointer => &[
             to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
+                operands[2],
+                operands[3],
+            ))),
         ],
         OpCode::Nop => &[],
 
         OpCode::SliceFromHeap => &[
             to_write_frame(operands[0], &slice_type(), frame_memory_info),
             to_read_frame(operands[1], &pointer_type_again(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
-            DecoratedOperandAccessKind::CountU16(operands[3]),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
+                operands[2],
+                operands[3],
+            ))),
+            DecoratedOperandAccessKind::CountU16(0),
         ],
 
         OpCode::SlicePairFromHeap => &[
             to_write_frame(operands[0], &slice_type(), frame_memory_info),
             to_read_frame(operands[1], &pointer_type_again(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
-            DecoratedOperandAccessKind::CountU16(operands[4]),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
+                operands[2],
+                operands[3],
+            ))),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(0)),
+            DecoratedOperandAccessKind::CountU16(0),
         ],
 
         OpCode::VecPop => &[
@@ -683,20 +667,20 @@ pub fn disasm(
 
         OpCode::VecIterInit => &[
             to_write_frame(operands[0], &vec_iter_type(), frame_memory_info),
-            DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
+            DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(0)),
         ],
 
         OpCode::VecIterNext => &[
             to_write_frame(operands[0], &vec_iter_type(), frame_memory_info),
             to_write_frame(operands[1], &bytes_type(), frame_memory_info),
-            to_jmp_ip(operands[2]),
+            to_jmp_ip(u8_pair_to_u16(operands[2], operands[3])),
         ],
 
         OpCode::VecIterNextPair => &[
             to_write_frame(operands[0], &vec_iter_type(), frame_memory_info),
             to_write_frame(operands[1], &bytes_type(), frame_memory_info),
             to_write_frame(operands[2], &bytes_type(), frame_memory_info),
-            to_jmp_ip(operands[3]),
+            to_jmp_ip(u8_pair_to_u16(operands[3], operands[4])),
         ],
 
         OpCode::VecClear => &[to_write_frame(operands[0], &vec_type(), frame_memory_info)],
@@ -719,18 +703,13 @@ pub fn disasm(
 
         OpCode::VecCreate => &[
             to_write_frame(operands[0], &vec_type(), frame_memory_info),
-            DecoratedOperandAccessKind::CountU16(operands[1]),
+            DecoratedOperandAccessKind::CountU16(u8_pair_to_u16(operands[1], operands[2])),
         ],
 
         OpCode::VecGet => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &vec_type(), frame_memory_info),
             to_read_frame(operands[2], &int_type(), frame_memory_info),
-        ],
-
-        OpCode::VecLen => &[
-            to_write_frame(operands[0], &int_type(), frame_memory_info),
-            to_read_frame(operands[1], &vec_type(), frame_memory_info),
         ],
 
         OpCode::VecGetRange => &[
@@ -742,9 +721,15 @@ pub fn disasm(
         OpCode::MapNewFromPairs => &[
             to_write_frame(operands[0], &map_type(), frame_memory_info),
             to_read_frame(operands[1], &slice_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[2])),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[3])),
-            DecoratedOperandAccessKind::CountU16(operands[4]),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
+                operands[2],
+                operands[3],
+            ))),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
+                operands[2],
+                operands[3],
+            ))),
+            DecoratedOperandAccessKind::CountU16(u8_pair_to_u16(operands[2], operands[3])),
         ],
 
         OpCode::MapIterInit => &[
@@ -755,14 +740,14 @@ pub fn disasm(
         OpCode::MapIterNext => &[
             to_write_frame(operands[0], &map_iter_type(), frame_memory_info),
             to_write_frame(operands[1], &bytes_type(), frame_memory_info),
-            to_jmp_ip(operands[2]),
+            to_jmp_ip(u8_pair_to_u16(operands[2], operands[3])),
         ],
 
         OpCode::MapIterNextPair => &[
             to_write_frame(operands[0], &map_iter_type(), frame_memory_info),
             to_write_frame(operands[1], &bytes_type(), frame_memory_info),
             to_write_frame(operands[2], &bytes_type(), frame_memory_info),
-            to_jmp_ip(operands[3]),
+            to_jmp_ip(u8_pair_to_u16(operands[3], operands[4])),
         ],
 
         OpCode::MapRemove => &[
@@ -774,11 +759,6 @@ pub fn disasm(
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &map_type(), frame_memory_info),
             to_read_frame(operands[2], &bytes_type(), frame_memory_info),
-        ],
-
-        OpCode::MapLen => &[
-            to_write_frame(operands[0], &int_type(), frame_memory_info),
-            to_read_frame(operands[1], &map_type(), frame_memory_info),
         ],
 
         OpCode::MapSet => &[
@@ -795,13 +775,13 @@ pub fn disasm(
 
         OpCode::RangeIterInit => &[
             to_write_frame(operands[0], &range_iter_type(), frame_memory_info),
-            DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(operands[1])),
+            DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(0)),
         ],
 
         OpCode::RangeIterNext => &[
             to_write_frame(operands[0], &range_iter_type(), frame_memory_info),
             to_write_frame(operands[1], &bytes_type(), frame_memory_info),
-            to_jmp_ip(operands[2]),
+            to_jmp_ip(u8_pair_to_u16(operands[2], operands[3])),
         ],
 
         OpCode::StringAppend => &[
@@ -856,38 +836,19 @@ pub fn disasm(
 
         OpCode::Alloc => &[
             to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(operands[1])),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(0)),
         ],
-
-        OpCode::Stx => {
-            let heap_mem_offset = ((operands[2] as u32) << 16) | operands[1] as u32;
-            &[
-                DecoratedOperandAccessKind::WriteIndirectHeapWithOffset(
-                    FrameMemoryAddress(operands[0]),
-                    HeapMemoryOffset(heap_mem_offset),
-                    None,
-                ),
-                DecoratedOperandAccessKind::ReadFrameAddress(
-                    FrameMemoryAddress(operands[3]),
-                    None,
-                    FrameMemoryAttribute {
-                        is_temporary: operands[3] >= frame_memory_info.variable_frame_size.0,
-                    },
-                ),
-                DecoratedOperandAccessKind::MemorySize(MemorySize(operands[4])),
-            ]
-        }
 
         OpCode::UnwrapJmpNone => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info), // todo: optional union type
-            to_jmp_ip(operands[2]),
+            to_jmp_ip(u8_pair_to_u16(operands[2], operands[3])),
         ],
 
         OpCode::UnwrapJmpSome => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info), // todo: optional union type
-            to_jmp_ip(operands[2]),
+            to_jmp_ip(u8_pair_to_u16(operands[2], operands[3])),
         ],
     };
 
@@ -905,32 +866,38 @@ pub fn disasm(
     }
 }
 
+fn u8_pair_to_u16(p1: u8, p2: u8) -> u16 {
+    (p1 as u16) << 8 | (p2 as u16)
+}
+
 fn to_write_frame(
-    addr: u16,
+    reg: u8,
     fallback_expected_type: &BasicType,
     frame_memory_info: &FrameMemoryInfo,
 ) -> DecoratedOperandAccessKind {
-    let maybe_path = frame_memory_info.find_path_to_address_items(FrameMemoryAddress(addr));
+    //let maybe_path = frame_memory_info.find_path_to_address_items(FrameMemoryAddress(addr));
+    //let is_temporary = maybe_path.is_none();
+    let maybe_path = None;
+    let is_temporary = false;
 
-    let is_temporary = maybe_path.is_none();
     DecoratedOperandAccessKind::WriteFrameAddress(
-        to_frame(addr),
+        to_frame(reg, fallback_expected_type),
         maybe_path,
         FrameMemoryAttribute { is_temporary },
     )
 }
 
 fn to_read_frame(
-    addr: u16,
+    reg: u8,
     fallback_expected_type: &BasicType,
     frame_memory_info: &FrameMemoryInfo,
 ) -> DecoratedOperandAccessKind {
-    let is_temporary = addr >= frame_memory_info.variable_frame_size.0;
-    let maybe_path = frame_memory_info.find_path_to_address_items(FrameMemoryAddress(addr));
     DecoratedOperandAccessKind::ReadFrameAddress(
-        to_frame(addr),
-        maybe_path,
-        FrameMemoryAttribute { is_temporary },
+        to_frame(reg, fallback_expected_type),
+        None,
+        FrameMemoryAttribute {
+            is_temporary: false,
+        },
     )
 }
 
@@ -938,6 +905,7 @@ fn to_jmp_ip(ip: u16) -> DecoratedOperandAccessKind {
     DecoratedOperandAccessKind::Ip(InstructionPosition(ip + 1))
 }
 
-fn to_frame(val: u16) -> FrameMemoryAddress {
-    FrameMemoryAddress(val)
+fn to_frame(val: u8, ty: &BasicType) -> TypedRegister {
+    let frame_placed = FramePlacedType::new(FrameMemoryAddress(0), ty.clone());
+    TypedRegister::new(val, frame_placed)
 }

@@ -8,7 +8,8 @@ use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
 use fixed32::Fp;
 use seq_map::SeqMap;
-use std::{ptr, slice};
+use std::cmp::PartialEq;
+use std::ptr;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
@@ -22,12 +23,114 @@ mod slice_region;
 mod string;
 mod vec;
 
+#[macro_export]
+macro_rules! u8s_to_u16 {
+    ($lsb:expr, $msb:expr) => {
+        // Cast bytes to u16 before shifting to prevent overflow and ensure correct bit manipulation.
+        // The most significant byte ($msb) is shifted left by 8 bits.
+        // The least significant byte ($lsb) remains in the lower 8 bits.
+        // The results are combined using a bitwise OR.
+        (($msb as u16) << 8) | ($lsb as u16)
+    };
+}
+
+#[macro_export]
+macro_rules! get_reg {
+    // This arm matches if the type token is `U8`
+    ($vm:expr, $reg_idx:expr, u8 => $binding_name:ident) => {
+        // The code generated here hardcodes the use of `Reg::U8`
+        let Reg::U8($binding_name) = $vm.registers[$reg_idx as usize] else {
+            panic!(
+                "Opcode expected U8 (Reg::U8) in R{}, but got {:?}",
+                $reg_idx, $vm.registers[$reg_idx as usize]
+            );
+        };
+    };
+
+    // This arm matches if the type token is `i32`
+    ($vm:expr, $reg_idx:expr, i32 => $binding_name:ident) => {
+        // The code generated here hardcodes the use of `Reg::I32`
+        let Reg::I32($binding_name) = $vm.registers[$reg_idx as usize] else {
+            // Panic message includes both the token name (i32) and the enum variant (Reg::I32)
+            panic!(
+                "Opcode expected i32 (Reg::I32) in R{}, but got {:?}",
+                $reg_idx, $vm.registers[$reg_idx as usize]
+            );
+        };
+    };
+
+    // This arm matches if the type token is `u32`
+    ($vm:expr, $reg_idx:expr, u32 => $binding_name:ident) => {
+        // The code generated here hardcodes the use of `Reg::U32`
+        let Reg::U32($binding_name) = $vm.registers[$reg_idx as usize] else {
+            panic!(
+                "Opcode expected u32 (Reg::U32) in R{}, but got {:?}",
+                $reg_idx, $vm.registers[$reg_idx as usize]
+            );
+        };
+    };
+
+    // This arm matches if the type token is `fixed32`
+    ($vm:expr, $reg_idx:expr, Fp => $binding_name:ident) => {
+        // The code generated here hardcodes the use of `Reg::Fixed32`
+        let Reg::Fixed32($binding_name) = $vm.registers[$reg_idx as usize] else {
+            panic!(
+                "Opcode expected fixed32 (Reg::Fixed32) in R{}, but got {:?}",
+                $reg_idx, $vm.registers[$reg_idx as usize]
+            );
+        };
+    };
+
+    // This arm matches if the type token is `bool`
+    ($vm:expr, $reg_idx:expr, bool => $binding_name:ident) => {
+        // Hardcodes Reg::Bool
+        let Reg::Bool($binding_name) = $vm.registers[$reg_idx as usize] else {
+            panic!(
+                "Opcode expected bool (Reg::Bool) in R{}, but got {:?}",
+                $reg_idx, $vm.registers[$reg_idx as usize]
+            );
+        };
+    };
+
+    // This arm matches if the type token is `Ptr`
+    ($vm:expr, $reg_idx:expr, Ptr => $binding_name:ident) => {
+        // Hardcodes Reg::Ptr
+        let Reg::Ptr($binding_name) = $vm.registers[$reg_idx as usize] else {
+            panic!(
+                "Opcode expected Ptr (Reg::Ptr) in R{}, but got {:?}",
+                $reg_idx, $vm.registers[$reg_idx as usize]
+            );
+        };
+    };
+
+    // Fallback for types not handled
+    ($vm:expr, $reg_idx:expr, $other_type:ty => $binding_name:ident) => {
+        compile_error!(concat!(
+            "Unsupported register type requested: ",
+            stringify!($other_type),
+            " for R",
+            stringify!($reg_idx)
+        ));
+    };
+}
+
+macro_rules! set_reg {
+    // $vm:expr is the VM state (self)
+    // $reg_idx:expr is the destination register index (dst_reg)
+    // as $variant:ident specifies the Reg enum variant (I32, U32, Ptr, etc.)
+    // <= $value:expr is the value to wrap and store (result)
+    ($vm:expr, $reg_idx:expr, as $variant:ident <- $value:expr) => {
+        // Generate the code to wrap the value in the correct Reg::Variant and store it
+        $vm.registers[$reg_idx as usize] = Reg::$variant($value);
+    };
+}
+
 type Handler0 = fn(&mut Vm);
-type Handler1 = fn(&mut Vm, u16);
-type Handler2 = fn(&mut Vm, u16, u16);
-type Handler3 = fn(&mut Vm, u16, u16, u16);
-type Handler4 = fn(&mut Vm, u16, u16, u16, u16);
-type Handler5 = fn(&mut Vm, u16, u16, u16, u16, u16);
+type Handler1 = fn(&mut Vm, u8);
+type Handler2 = fn(&mut Vm, u8, u8);
+type Handler3 = fn(&mut Vm, u8, u8, u8);
+type Handler4 = fn(&mut Vm, u8, u8, u8, u8);
+type Handler5 = fn(&mut Vm, u8, u8, u8, u8, u8);
 
 #[derive(Copy, Clone)]
 enum HandlerType {
@@ -45,7 +148,7 @@ pub struct Flags {
 
 #[derive(Debug, Default)]
 pub struct Debug {
-    pub opcodes_executed: u16,
+    pub opcodes_executed: u8,
     pub call_depth: usize,
     pub max_call_depth: usize,
 }
@@ -54,6 +157,16 @@ pub struct CallFrame {
     return_address: usize,        // Instruction to return to
     previous_frame_offset: usize, // Previous frame position
     previous_stack_offset: usize, // Size of this frame
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub enum Reg {
+    Bool(bool),
+    U8(u8),      // Used for enum tags and similar
+    U32(u32),    // Used for capacity, counts, etc
+    I32(i32),    // Integers
+    Fixed32(Fp), // Fixed point values (floats)
+    Ptr(u32),    // Pointer to something, u32 is enough for now
 }
 
 pub struct Vm {
@@ -72,6 +185,8 @@ pub struct Vm {
     host_functions: SeqMap<u16, HostFunctionCallback>,
 
     handlers: [HandlerType; 256],
+
+    pub registers: [Reg; 256],
 
     // TODO: Error state
     pub flags: Flags,
@@ -120,6 +235,7 @@ impl Vm {
             call_stack: vec![],
             host_functions: SeqMap::default(),
             handlers: [const { HandlerType::Args0(Self::execute_unimplemented) }; 256],
+            registers: [const { Reg::U8(0) }; 256],
             flags: Flags { z: false },
             debug: Debug {
                 opcodes_executed: 0,
@@ -129,21 +245,18 @@ impl Vm {
             debug_enabled: setup.debug_enabled,
         };
 
-        vm.handlers[OpCode::Alloc as usize] = HandlerType::Args2(Self::execute_alloc);
+        vm.handlers[OpCode::Alloc as usize] = HandlerType::Args3(Self::execute_alloc);
 
         // Load immediate
         vm.handlers[OpCode::Ld8 as usize] = HandlerType::Args2(Self::execute_ld8);
-        vm.handlers[OpCode::Ld16 as usize] = HandlerType::Args2(Self::execute_ld16);
-        vm.handlers[OpCode::Ld32 as usize] = HandlerType::Args3(Self::execute_ld32);
+        vm.handlers[OpCode::Ld32 as usize] = HandlerType::Args5(Self::execute_ld32);
 
         // Copy data in frame memory
-        vm.handlers[OpCode::Mov as usize] = HandlerType::Args3(Self::execute_mov);
-        vm.handlers[OpCode::Mov32 as usize] = HandlerType::Args2(Self::execute_mov32);
-        vm.handlers[OpCode::Lea as usize] = HandlerType::Args2(Self::execute_lea);
-        vm.handlers[OpCode::LdAddPointer as usize] = HandlerType::Args3(Self::execute_compute_addr);
+        vm.handlers[OpCode::MovReg as usize] = HandlerType::Args2(Self::execute_mov_reg);
+        vm.handlers[OpCode::Lea as usize] = HandlerType::Args3(Self::execute_lea);
+        vm.handlers[OpCode::LdAddPointer as usize] = HandlerType::Args4(Self::execute_compute_addr);
 
         // Copy to and from heap
-        vm.handlers[OpCode::Stx as usize] = HandlerType::Args5(Self::execute_stx);
         vm.handlers[OpCode::MovMem as usize] = HandlerType::Args4(Self::execute_mov_mem);
 
         // Comparisons - Int
@@ -159,9 +272,7 @@ impl Vm {
         vm.handlers[OpCode::GeF32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
 
         // Comparison
-        vm.handlers[OpCode::Cmp as usize] = HandlerType::Args3(Self::execute_cmp);
-        vm.handlers[OpCode::Cmp8 as usize] = HandlerType::Args2(Self::execute_cmp_8);
-        vm.handlers[OpCode::Cmp32 as usize] = HandlerType::Args2(Self::execute_cmp_32);
+        vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args2(Self::execute_cmp_reg);
 
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
 
@@ -175,11 +286,11 @@ impl Vm {
         // Logical Operations
 
         // Conditional jumps
-        vm.handlers[OpCode::Bnz as usize] = HandlerType::Args1(Self::execute_bnz);
-        vm.handlers[OpCode::Bz as usize] = HandlerType::Args1(Self::execute_bz);
+        vm.handlers[OpCode::Bnz as usize] = HandlerType::Args2(Self::execute_bnz);
+        vm.handlers[OpCode::Bz as usize] = HandlerType::Args2(Self::execute_bz);
 
         // Unconditional jump
-        vm.handlers[OpCode::Jmp as usize] = HandlerType::Args1(Self::execute_jmp);
+        vm.handlers[OpCode::Jmp as usize] = HandlerType::Args2(Self::execute_jmp);
 
         // Operators - Int
         vm.handlers[OpCode::NegI32 as usize] = HandlerType::Args2(Self::execute_neg_i32);
@@ -203,7 +314,7 @@ impl Vm {
         vm.handlers[OpCode::Enter as usize] = HandlerType::Args1(Self::execute_enter);
         vm.handlers[OpCode::Ret as usize] = HandlerType::Args0(Self::execute_ret);
 
-        vm.handlers[OpCode::HostCall as usize] = HandlerType::Args2(Self::execute_host_call);
+        vm.handlers[OpCode::HostCall as usize] = HandlerType::Args3(Self::execute_host_call);
 
         // Halt - return to host
         vm.handlers[OpCode::Hlt as usize] = HandlerType::Args0(Self::execute_hlt);
@@ -242,7 +353,7 @@ impl Vm {
         vm.handlers[OpCode::FloatCos as usize] = HandlerType::Args2(Self::execute_f32_cos);
         vm.handlers[OpCode::FloatAsin as usize] = HandlerType::Args2(Self::execute_f32_asin);
         vm.handlers[OpCode::FloatAcos as usize] = HandlerType::Args2(Self::execute_f32_acos);
-        vm.handlers[OpCode::FloatAtan2 as usize] = HandlerType::Args3(Self::execute_f32_atan2);
+        // vm.handlers[OpCode::FloatAtan2 as usize] = HandlerType::Args3(Self::execute_f32_atan2); // TODO:
         vm.handlers[OpCode::FloatToString as usize] =
             HandlerType::Args2(Self::execute_f32_to_string);
 
@@ -250,7 +361,7 @@ impl Vm {
 
         // Slices
         vm.handlers[OpCode::SliceFromHeap as usize] =
-            HandlerType::Args4(Self::execute_slice_from_heap);
+            HandlerType::Args5(Self::execute_slice_from_heap);
         vm.handlers[OpCode::SlicePairFromHeap as usize] =
             HandlerType::Args5(Self::execute_slice_pair_from_heap);
 
@@ -268,7 +379,6 @@ impl Vm {
         vm.handlers[OpCode::VecIterNextPair as usize] =
             HandlerType::Args4(Self::execute_vec_iter_next_pair);
         vm.handlers[OpCode::VecPush as usize] = HandlerType::Args2(Self::execute_vec_push);
-        vm.handlers[OpCode::VecLen as usize] = HandlerType::Args2(Self::execute_vec_len);
         vm.handlers[OpCode::VecGet as usize] = HandlerType::Args3(Self::execute_vec_get);
         vm.handlers[OpCode::VecSet as usize] = HandlerType::Args3(Self::execute_vec_set);
 
@@ -293,9 +403,9 @@ impl Vm {
         // Other ==========
         // Unwrap
         vm.handlers[OpCode::UnwrapJmpNone as usize] =
-            HandlerType::Args2(Self::execute_unwrap_jmp_none);
+            HandlerType::Args3(Self::execute_unwrap_jmp_none);
         vm.handlers[OpCode::UnwrapJmpSome as usize] =
-            HandlerType::Args2(Self::execute_unwrap_jmp_some);
+            HandlerType::Args3(Self::execute_unwrap_jmp_some);
 
         //assert_eq!(vm.handlers.len(), OpCode::HostCall as usize);
 
@@ -471,497 +581,359 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_ld32(&mut self, dst_offset: u16, lower_bits: u16, upper_bits: u16) {
-        let value = ((upper_bits as u32) << 16) | (lower_bits as u32);
+    fn execute_ld32(&mut self, dst_reg: u8, a: u8, b: u8, c: u8, d: u8) {
+        set_reg!(self, dst_reg, as U32 <- Self::u8s_to_32(a, b, c, d));
+    }
 
-        let dst_ptr = self.memory.get_frame_ptr_as_u32(dst_offset);
+    #[inline]
+    fn execute_ldi32(&mut self, dst_reg: u8, a: u8, b: u8, c: u8, d: u8) {
+        set_reg!(self, dst_reg, as I32 <- Self::u8s_to_32(a, b, c, d) as i32);
+    }
+    #[inline]
+    fn execute_ld8(&mut self, dst_reg: u8, octet: u8) {
+        set_reg!(self, dst_reg, as U8 <- octet);
+    }
+
+    #[inline]
+    pub fn execute_unwrap_jmp_some(&mut self, wrapped_ptr_reg: u8, jmp_ip_0: u8, jmp_ip_1: u8) {
+        get_reg!(self, wrapped_ptr_reg, Ptr => ptr_addr);
+        let ptr = self.memory.get_heap_const_ptr(ptr_addr as usize);
         unsafe {
-            *dst_ptr = value;
+            if *ptr != 0 {
+                self.ip = u8s_to_u16!(jmp_ip_0, jmp_ip_1) as usize;
+            }
         }
     }
 
     #[inline]
-    pub fn execute_unwrap_jmp_some(&mut self, optional_addr: u16, jmp_offset: u16) {
-        let tag_value = self.memory.read_frame_u8(optional_addr);
-        if tag_value != 0 {
-            self.ip = jmp_offset as usize;
-        }
-    }
-
-    #[inline]
-    pub fn execute_unwrap_jmp_none(&mut self, optional_addr: u16, jmp_offset: u16) {
-        let tag_value = self.memory.read_frame_u8(optional_addr);
-        if tag_value == 0 {
-            self.ip = jmp_offset as usize;
-        }
-    }
-
-    #[inline]
-    fn execute_ld16(&mut self, dst_offset: u16, data: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_u16(dst_offset);
+    pub fn execute_unwrap_jmp_none(&mut self, wrapped_ptr_reg: u8, jmp_ip_0: u8, jmp_ip_1: u8) {
+        get_reg!(self, wrapped_ptr_reg, Ptr => ptr_addr);
+        let ptr = self.memory.get_heap_const_ptr(ptr_addr as usize);
         unsafe {
-            *dst_ptr = data;
+            if *ptr == 0 {
+                self.ip = u8s_to_u16!(jmp_ip_0, jmp_ip_1) as usize;
+            }
         }
     }
 
     #[inline]
-    fn execute_alloc(&mut self, dst_offset: u16, memory_size: u16) {
+    fn execute_alloc(&mut self, dst_reg: u8, size_0: u8, size_1: u8) {
+        let memory_size = u8s_to_u16!(size_0, size_1);
         let data_ptr = self.memory.heap_allocate(memory_size as usize);
-        let dst_ptr = self.memory.get_frame_ptr_as_u32(dst_offset);
-        unsafe {
-            *dst_ptr = data_ptr;
-        }
-    }
-
-    #[inline]
-    fn execute_ld8(&mut self, dst_offset: u16, octet: u16) {
-        let dst_ptr = self.memory.get_frame_ptr(dst_offset);
-        unsafe {
-            *dst_ptr = octet as u8;
-        }
+        set_reg!(self, dst_reg, as Ptr <- data_ptr);
     }
 
     // Fixed Point special methods
     #[inline]
-    fn execute_mul_f32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
+    fn execute_mul_f32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, Fp => lhs);
+        get_reg!(self, rhs_reg, Fp => rhs);
 
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            *dst_ptr = (Fp::from_raw(lhs) * Fp::from_raw(rhs)).inner();
-        }
+        set_reg!(self, dst_reg, as Fixed32 <- lhs * rhs);
     }
 
     #[inline]
-    fn execute_div_f32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
+    fn execute_div_f32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, Fp => lhs);
+        get_reg!(self, rhs_reg, Fp => rhs);
 
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            *dst_ptr = (Fp::from_raw(lhs) / Fp::from_raw(rhs)).inner();
-        }
+        set_reg!(self, dst_reg, as Fixed32 <- lhs / rhs);
     }
 
     #[inline]
-    fn execute_f32_round(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
+    fn execute_f32_round(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, Fp => val);
 
-        unsafe {
-            *dst_ptr = Fp::from_raw(*val_ptr).round().into();
-        }
+        set_reg!(self, dst_reg, as Fixed32 <- val.round());
     }
 
     #[inline]
-    fn execute_f32_floor(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
+    fn execute_f32_floor(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, Fp => val);
 
-        unsafe {
-            *dst_ptr = Fp::from_raw(*val_ptr).floor().into();
-        }
+        set_reg!(self, dst_reg, as Fixed32 <- val.floor());
     }
 
     #[inline]
-    fn execute_f32_sqrt(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
+    fn execute_f32_sqrt(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, Fp => val);
 
-        unsafe {
-            *dst_ptr = Fp::from_raw(*val_ptr).sqrt().inner();
-        }
+        set_reg!(self, dst_reg, as Fixed32 <- val.sqrt());
     }
 
     #[inline]
-    fn execute_f32_sin(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
+    fn execute_f32_sin(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, Fp => val);
 
-        unsafe {
-            *dst_ptr = Fp::from_raw(*val_ptr).sin().inner();
-        }
+        set_reg!(self, dst_reg, as Fixed32 <- val.sin());
     }
 
     #[inline]
-    fn execute_f32_asin(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
+    fn execute_f32_asin(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, Fp => val);
 
-        unsafe {
-            *dst_ptr = Fp::from_raw(*val_ptr).asin().inner();
-        }
+        set_reg!(self, dst_reg, as Fixed32 <- val.asin());
     }
 
     #[inline]
-    fn execute_f32_cos(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
+    fn execute_f32_cos(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, Fp => val);
 
-        unsafe {
-            *dst_ptr = Fp::from_raw(*val_ptr).cos().inner();
-        }
+        set_reg!(self, dst_reg, as Fixed32 <- val.cos());
     }
 
     #[inline]
-    fn execute_f32_acos(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
-
-        unsafe {
-            *dst_ptr = Fp::from_raw(*val_ptr).acos().inner();
-        }
+    fn execute_f32_acos(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, Fp => val);
+        set_reg!(self, dst_reg, as Fixed32 <- val.acos());
     }
 
+    /*
     #[inline]
-    fn execute_f32_atan2(&mut self, dst_offset: u16, val_offset: u16, y_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
-
+    fn execute_f32_atan2(&mut self, dst_reg: u8, val_reg: u8, y_reg: u8) {
         // TODO: Implement atan2 in fixed32
         todo!()
     }
 
+     */
+
     #[inline]
-    fn execute_f32_to_string(&mut self, dst_string: u16, val_offset: u16) {
-        let dst_ptr = self.memory.get_heap_u32_ptr_via_frame(dst_string);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
-
-        let fp = unsafe { Fp::from_raw(*val_ptr) };
-
-        unsafe {
-            *dst_ptr = self.create_string(&fp.to_string());
-        }
+    fn execute_f32_to_string(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, Fp => val);
+        set_reg!(self, dst_reg, as Ptr <- self.create_string(&val.to_string()));
     }
 
     #[inline]
-    fn execute_f32_sign(&mut self, dst_offset: u16, val_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
-
-        unsafe {
-            let v = *val_ptr;
-            *dst_ptr = Fp::from(if v < 0 {
-                -1
-            } else if v > 0 {
-                1
-            } else {
-                0
-            })
-            .inner();
-
-            // TODO: signum() is/was incorrect in Fixed32 crate
-            //*dst_ptr = Fp::from_raw(*val_ptr).signum().inner();
-        }
+    fn execute_f32_sign(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, Fp => val);
+        // TODO: signum() is/was incorrect in Fixed32 crate
+        set_reg!(self, dst_reg, as Fixed32 <- Fp::from(if val < 0 {
+            -1
+        } else if val > 0 {
+            1
+        } else {
+            0
+        }));
     }
 
     #[inline]
-    fn execute_neg_i32(&mut self, dst_offset: u16, lhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
+    fn execute_neg_i32(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, i32 => val_reg);
 
-        unsafe {
-            let lhs = *lhs_ptr;
-            *dst_ptr = -lhs;
-        }
-    }
+        let result_option = val_reg.checked_neg();
 
-    #[inline]
-    fn execute_add_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset) as *mut i32;
-
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            *dst_ptr = lhs + rhs;
-
-            #[cfg(feature = "debug_vm")]
-            if self.debug_enabled {
-                unsafe {
-                    eprintln!("add {} = {} + {}", *dst_ptr, lhs, rhs);
-                }
+        match result_option {
+            Some(result) => {
+                set_reg!(self, dst_reg, as I32 <- result);
+            }
+            None => {
+                panic!(
+                    "VM Runtime Error: Signed 32-bit integer overflow during NEG_I32 (R{} = R{})",
+                    dst_reg, val_reg,
+                );
             }
         }
     }
 
     #[inline]
-    fn execute_mul_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
+    fn execute_add_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
 
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            *dst_ptr = lhs * rhs;
-        }
-    }
+        let result_option = lhs.checked_add(rhs);
 
-    #[inline]
-    fn execute_sub_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            *dst_ptr = lhs - rhs;
-
-            #[cfg(feature = "debug_vm")]
-            if self.debug_enabled {
-                unsafe {
-                    eprintln!("sub {} = {} - {}", *dst_ptr, lhs, rhs);
-                }
+        match result_option {
+            Some(result) => {
+                set_reg!(self, dst_reg, as I32 <- result);
+            }
+            None => {
+                panic!(
+                    "VM Runtime Error: Signed 32-bit integer overflow during ADD_I32 (R{} = R{} - R{})",
+                    dst_reg, lhs_reg, rhs_reg
+                );
             }
         }
     }
 
     #[inline]
-    fn execute_mod_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
+    fn execute_mul_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
 
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            *dst_ptr = ((lhs % rhs) + rhs) % rhs; // Swamp uses strict modulo instead of remainder
-        }
+        let result_option = lhs.checked_mul(rhs);
 
-        #[cfg(feature = "debug_vm")]
-        if self.debug_enabled {
-            unsafe {
-                eprintln!("mod {} = {} % {}", *dst_ptr, *lhs_ptr, *rhs_ptr);
+        match result_option {
+            Some(result) => {
+                set_reg!(self, dst_reg, as I32 <- result);
+            }
+            None => {
+                panic!(
+                    "VM Runtime Error: Signed 32-bit integer overflow during MUL_I32 (R{} = R{} - R{})",
+                    dst_reg, lhs_reg, rhs_reg
+                );
             }
         }
     }
 
     #[inline]
-    fn execute_div_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
+    fn execute_sub_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
 
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            *dst_ptr = lhs / rhs;
-        }
-    }
+        let result_option = lhs.checked_sub(rhs);
 
-    #[inline]
-    fn execute_lt_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            self.flags.z = lhs < rhs;
-        }
-    }
-
-    #[inline]
-    fn execute_le_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            self.flags.z = lhs <= rhs;
-        }
-    }
-
-    #[inline]
-    fn execute_gt_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            self.flags.z = lhs > rhs;
-        }
-    }
-
-    #[inline]
-    fn execute_ge_i32(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-            self.flags.z = lhs >= rhs;
-        }
-    }
-
-    #[inline]
-    fn execute_prnd_i32(&mut self, dst_offset: u16, src_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let src_ptr = self.memory.get_frame_const_ptr_as_i32(src_offset);
-
-        unsafe {
-            *dst_ptr = squirrel_prng::squirrel_noise5(*src_ptr as u32, 0) as i32;
-            #[cfg(feature = "debug_vm")]
-            if self.debug_enabled {
-                eprintln!("prnd {} <- {}", *dst_ptr, *src_ptr);
+        match result_option {
+            Some(result) => {
+                set_reg!(self, dst_reg, as I32 <- result);
+            }
+            None => {
+                panic!(
+                    "VM Runtime Error: Signed 32-bit integer overflow during SUB_I32 (R{} = R{} - R{})",
+                    dst_reg, lhs_reg, rhs_reg
+                );
             }
         }
     }
 
     #[inline]
-    fn execute_i32_to_string(&mut self, dst_string: u16, val_offset: u16) {
-        let dst_ptr = self.memory.get_heap_u32_ptr_via_frame(dst_string);
-        let val_ptr = self.memory.get_frame_const_ptr_as_i32(val_offset);
+    fn execute_mod_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
 
-        unsafe {
-            *dst_ptr = self.create_string(&(*val_ptr).to_string());
-        }
+        let result = ((lhs % rhs) + rhs) % rhs;
+        set_reg!(self, dst_reg, as I32 <- result);
     }
 
     #[inline]
-    fn execute_i32_to_f32(&mut self, float_dest: u16, int_source: u16) {
-        let source_ptr = self.memory.get_frame_const_ptr_as_i32(int_source);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(float_dest);
+    fn execute_div_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
 
-        unsafe {
-            *dst_ptr = Fp::from((*source_ptr) as i16).inner();
-        }
-    }
+        let result_option = lhs.checked_div(rhs);
 
-    #[inline]
-    fn execute_abs_i32(&mut self, dst_offset: u16, src_offset: u16) {
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-        let src_ptr = self.memory.get_frame_const_ptr_as_i32(src_offset);
-
-        unsafe {
-            let lhs = *src_ptr;
-
-            *dst_ptr = if lhs < 0 { -lhs } else { lhs }
-        }
-    }
-
-    #[inline]
-    fn execute_min_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-
-            if lhs < rhs {
-                *dst_ptr = lhs;
-            } else {
-                *dst_ptr = rhs;
+        match result_option {
+            Some(result) => {
+                set_reg!(self, dst_reg, as I32 <- result);
+            }
+            None => {
+                panic!(
+                    "VM Runtime Error: Signed 32-bit integer overflow during DIV_I32 (R{} = R{} - R{})",
+                    dst_reg, lhs_reg, rhs_reg
+                );
             }
         }
     }
 
     #[inline]
-    fn execute_max_i32(&mut self, dst_offset: u16, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_i32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_i32(rhs_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-
-        unsafe {
-            let lhs = *lhs_ptr;
-            let rhs = *rhs_ptr;
-
-            if lhs > rhs {
-                *dst_ptr = lhs;
-            } else {
-                *dst_ptr = rhs;
-            }
-        }
+    fn execute_lt_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
+        self.flags.z = lhs < rhs;
     }
 
     #[inline]
-    fn execute_clamp_i32(
-        &mut self,
-        dst_offset: u16,
-        v_offset: u16,
-        min_offset: u16,
-        max_offset: u16,
-    ) {
-        let v_ptr = self.memory.get_frame_const_ptr_as_i32(v_offset);
-        let min_ptr = self.memory.get_frame_const_ptr_as_i32(min_offset);
-        let max_ptr = self.memory.get_frame_const_ptr_as_i32(max_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_i32(dst_offset);
-
-        unsafe {
-            let v = *v_ptr;
-            let min = *min_ptr;
-            let max = *max_ptr;
-
-            let r = if v < min {
-                min
-            } else if v > max {
-                max
-            } else {
-                v
-            };
-
-            *dst_ptr = r;
-        }
+    fn execute_le_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
+        self.flags.z = lhs <= rhs;
     }
 
     #[inline]
-    fn execute_cmp(&mut self, lhs_offset: u16, rhs_offset: u16, count: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr(rhs_offset);
-
-        // SAFETY: The caller must ensure that lhs_offset, rhs_offset, and count
-        // define valid, readable memory ranges within the current stack frame.
-        unsafe {
-            let lhs_slice = slice::from_raw_parts(lhs_ptr, count as usize);
-            let rhs_slice = slice::from_raw_parts(rhs_ptr, count as usize);
-
-            self.flags.z = lhs_slice == rhs_slice
-        }
+    fn execute_gt_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
+        self.flags.z = lhs > rhs;
     }
 
     #[inline]
-    fn execute_cmp_8(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_ptr(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_ptr(rhs_offset);
+    fn execute_ge_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
 
-        unsafe {
-            self.flags.z = *lhs_ptr == *rhs_ptr;
-        }
+        self.flags.z = lhs >= rhs;
     }
 
     #[inline]
-    fn execute_cmp_32(&mut self, lhs_offset: u16, rhs_offset: u16) {
-        let lhs_ptr = self.memory.get_frame_const_ptr_as_u32(lhs_offset);
-        let rhs_ptr = self.memory.get_frame_const_ptr_as_u32(rhs_offset);
-
-        unsafe {
-            self.flags.z = *lhs_ptr == *rhs_ptr;
-        }
+    fn execute_prnd_i32(&mut self, dst_reg: u8, src_reg: u8) {
+        get_reg!(self, src_reg, i32 => src);
+        set_reg!(self, dst_reg, as I32 <- squirrel_prng::squirrel_noise5(src as u32, 0) as i32);
     }
 
     #[inline]
-    fn execute_eq_8_imm(&mut self, lhs_offset: u16, rhs_u8_in_u16: u16) {
-        let lhs_u8 = self.memory.read_frame_u8(lhs_offset);
-        self.flags.z = lhs_u8 < rhs_u8_in_u16 as u8;
+    fn execute_i32_to_string(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, i32 => val);
+
+        let memory_pointer_addr = self.create_string(&val.to_string());
+        set_reg!(self, dst_reg, as Ptr <- memory_pointer_addr);
     }
 
     #[inline]
-    fn execute_tst8(&mut self, lhs_offset: u16) {
-        let lhs_u8 = self.memory.read_frame_u8(lhs_offset);
-        self.flags.z = lhs_u8 == 1;
+    fn execute_i32_to_f32(&mut self, float_dest_reg: u8, int_source_reg: u8) {
+        get_reg!(self, int_source_reg, i32 => int_source);
+        set_reg!(self, float_dest_reg, as Fixed32 <- Fp::from(int_source as i16));
+    }
+
+    #[inline]
+    fn execute_abs_i32(&mut self, dst_reg: u8, val_reg: u8) {
+        get_reg!(self, val_reg, i32 => val);
+        set_reg!(self, dst_reg, as I32 <- if val < 0 { -val } else { val } );
+    }
+
+    #[inline]
+    fn execute_min_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
+
+        set_reg!(self, dst_reg, as I32 <- if lhs < rhs {
+            lhs
+        } else {
+            rhs
+        });
+    }
+
+    #[inline]
+    fn execute_max_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        get_reg!(self, lhs_reg, i32 => lhs);
+        get_reg!(self, rhs_reg, i32 => rhs);
+
+        set_reg!(self, dst_reg, as I32 <- if lhs > rhs {
+            lhs
+        } else {
+            rhs
+        });
+    }
+
+    #[inline]
+    fn execute_clamp_i32(&mut self, dst_reg: u8, val_reg: u8, min_reg: u8, max_reg: u8) {
+        get_reg!(self, val_reg, i32 => val);
+        get_reg!(self, min_reg, i32 => min_val);
+        get_reg!(self, max_reg, i32 => max_val);
+
+        set_reg!(self, dst_reg, as I32 <-  if val < min_val {
+            min_val
+        } else if val > max_val {
+            max_val
+        } else {
+            val
+        });
+    }
+
+    #[inline]
+    fn execute_cmp_reg(&mut self, lhs_reg: u8, rhs_reg: u8) {
+        self.flags.z = self.registers[lhs_reg as usize] == self.registers[rhs_reg as usize];
+    }
+
+    #[inline]
+    fn execute_eq_8_imm(&mut self, val_reg: u8, octet: u8) {
+        get_reg!(self, val_reg, u8 => compare);
+        self.flags.z = compare == octet;
+    }
+
+    #[inline]
+    fn execute_tst8(&mut self, val_reg: u8) {
+        get_reg!(self, val_reg, u8 => compare);
+        debug_assert!(compare == 0 || compare == 1);
+        self.flags.z = compare == 1;
     }
 
     #[inline]
@@ -970,38 +942,32 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_stz(&mut self, target: u16) {
-        let target_ptr = self.memory.get_frame_ptr(target);
-        unsafe {
-            *target_ptr = self.flags.z as u8;
-        }
+    fn execute_stz(&mut self, dst_reg: u8) {
+        set_reg!(self, dst_reg, as U8 <- self.flags.z as u8);
     }
 
     #[inline]
-    fn execute_stnz(&mut self, target: u16) {
-        let target_ptr = self.memory.get_frame_ptr(target);
-        unsafe {
-            *target_ptr = !self.flags.z as u8;
-        }
+    fn execute_stnz(&mut self, dst_reg: u8) {
+        set_reg!(self, dst_reg, as U8 <- !self.flags.z as u8);
     }
 
     #[inline]
-    fn execute_bnz(&mut self, absolute_ip: u16) {
+    fn execute_bnz(&mut self, ip_0: u8, ip_1: u8) {
         if !self.flags.z {
-            self.ip = absolute_ip as usize;
+            self.ip = u8s_to_u16!(ip_0, ip_1) as usize;
         }
     }
 
     #[inline]
-    fn execute_bz(&mut self, absolute_ip: u16) {
+    fn execute_bz(&mut self, ip_0: u8, ip_1: u8) {
         if self.flags.z {
-            self.ip = absolute_ip as usize;
+            self.ip = u8s_to_u16!(ip_0, ip_1) as usize;
         }
     }
 
     #[inline]
-    fn execute_jmp(&mut self, absolute_ip: u16) {
-        self.ip = absolute_ip as usize;
+    fn execute_jmp(&mut self, ip_0: u8, ip_1: u8) {
+        self.ip = u8s_to_u16!(ip_0, ip_1) as usize;
     }
 
     #[inline]
@@ -1021,103 +987,51 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_mov(&mut self, dst_offset: u16, src_offset: u16, size: u16) {
-        let src_ptr = self.memory.get_frame_ptr(src_offset);
-        let dst_ptr = self.memory.get_frame_ptr(dst_offset);
-
-        unsafe {
-            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, size as usize);
-        }
-        #[cfg(feature = "debug_vm")]
-        if self.debug_enabled {
-            unsafe {
-                eprintln!(
-                    "mov {:?}",
-                    self.memory.read_frame_debug_slice(dst_offset, size)
-                );
-            }
-        }
+    fn execute_mov_reg(&mut self, dst_reg: u8, src_reg: u8) {
+        self.registers[dst_reg as usize] = self.registers[src_reg as usize];
     }
 
     #[inline]
-    fn execute_mov32(&mut self, dst_offset: u16, src_offset: u16) {
-        let src_ptr = self.memory.get_frame_ptr_as_u32(src_offset);
-        let dst_ptr = self.memory.get_frame_ptr_as_u32(dst_offset);
-
-        unsafe {
-            std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, 1);
-        }
+    fn execute_lea(&mut self, dst_reg: u8, src_offset_0: u8, src_offset_1: u8) {
+        let ptr_addr = self.memory.frame_offset as u32;
+        set_reg!(self, dst_reg, as Ptr <-  ptr_addr + u8s_to_u16!(src_offset_0, src_offset_1) as u32);
     }
 
     #[inline]
-    fn execute_lea(&mut self, dst_offset: u16, src_offset: u16) {
-        let absolute_source_addr = (self.memory.frame_offset as usize + src_offset as usize) as u32;
-        let dst_ptr = self.memory.get_frame_ptr_as_u32(dst_offset);
-
-        unsafe {
-            std::ptr::write(dst_ptr, absolute_source_addr);
-        }
-    }
-
-    #[inline]
-    fn execute_compute_addr(&mut self, dst_offset: u16, src_offset: u16, increase: u16) {
-        let new_absolute_pointer_addr = self.memory.read_frame_u32(src_offset) + increase as u32;
-        let dst_ptr = self.memory.get_frame_ptr_as_u32(dst_offset);
-
-        unsafe {
-            std::ptr::write(dst_ptr, new_absolute_pointer_addr);
-        }
+    fn execute_compute_addr(
+        &mut self,
+        dst_reg: u8,
+        source_pointer_reg: u8,
+        src_offset_0: u8,
+        src_offset_1: u8,
+    ) {
+        get_reg!(self, source_pointer_reg, Ptr => ptr_addr);
+        set_reg!(self, dst_reg, as Ptr <-  ptr_addr + u8s_to_u16!(src_offset_0, src_offset_1) as u32);
     }
 
     #[inline]
     fn execute_mov_mem(
         &mut self,
-        dst_offset: u16,
-        const_lower: u16,
-        const_upper: u16,
-        memory_size: u16,
+        dst_pointer_reg: u8,
+        src_pointer_reg: u8,
+        memory_size_lower: u8,
+        memory_size_upper: u8,
     ) {
-        let const_offset = ((const_upper as u32) << 16) | (const_lower as u32);
+        get_reg!(self, dst_pointer_reg, Ptr => dst_addr);
+        get_reg!(self, src_pointer_reg, Ptr => src_addr);
 
-        eprintln!("MOV {dst_offset:X} <- {const_offset:X}");
+        let memory_size = u8s_to_u16!(memory_size_lower, memory_size_upper);
 
-        let dst_ptr = self.memory.get_frame_ptr(dst_offset);
-        let src_ptr = self.memory.get_heap_const_ptr(const_offset as usize);
+        let dst_ptr = self.memory.get_heap_ptr(dst_addr as usize);
+        let src_ptr = self.memory.get_heap_const_ptr(src_addr as usize);
 
-        #[cfg(feature = "debug_vm")]
-        if self.debug_enabled {
-            let slice = self.memory.read_debug_slice(const_offset, memory_size);
-            eprintln!(
-                "memmove {dst_offset:04X} <- {const_offset:08X} size: {memory_size} data:{slice:?}",
-            );
-        }
         unsafe {
             ptr::copy_nonoverlapping(src_ptr, dst_ptr, memory_size as usize);
         }
     }
 
-    #[inline]
-    fn execute_stx(
-        &mut self,
-        dst_offset: u16,
-        const_lower: u16,
-        const_upper: u16,
-        source_offset: u16,
-        memory_size: u16,
-    ) {
-        let indirect_offset = ((const_upper as u32) << 16) | (const_lower as u32);
-        let dst_heap_ptr = self
-            .memory
-            .get_heap_ptr_via_frame_with_offset(dst_offset, indirect_offset);
-        let source_ptr = self.memory.get_frame_const_ptr(source_offset);
-
-        unsafe {
-            ptr::copy_nonoverlapping(source_ptr, dst_heap_ptr, memory_size as usize);
-        }
-    }
-
     #[cfg(feature = "debug_vm")]
-    pub fn debug_opcode(&self, opcode: u8, operands: &[u16; 5]) {
+    pub fn debug_opcode(&self, opcode: u8, operands: &[u8; 5]) {
         eprintln!(
             "{:8} {}",
             OpCode::from(opcode),
@@ -1141,7 +1055,7 @@ impl Vm {
         );
     }
 
-    fn execute_call(&mut self, target: u16) {
+    fn execute_call(&mut self, target: u8) {
         let return_info = CallFrame {
             return_address: self.ip + 1,
             previous_frame_offset: self.memory.frame_offset,
@@ -1162,7 +1076,12 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_host_call(&mut self, function_id: u16, bytes_to_copy_from_frame_ptr: u16) {
+    fn execute_host_call(
+        &mut self,
+        function_id_lower: u8,
+        function_id_upper: u8,
+        bytes_to_copy_from_frame_ptr: u8,
+    ) {
         let heap = self.memory();
 
         let host_args = HostArgs::new(
@@ -1171,6 +1090,8 @@ impl Vm {
             heap.stack_offset,
             bytes_to_copy_from_frame_ptr as usize,
         );
+
+        let function_id = u8s_to_u16!(function_id_lower, function_id_upper);
 
         if let Some(callback) = self.host_functions.get_mut(&function_id) {
             callback(host_args);
@@ -1181,7 +1102,7 @@ impl Vm {
 
     #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    fn execute_enter(&mut self, frame_size_for_local_variables: u16) {
+    fn execute_enter(&mut self, frame_size_for_local_variables: u8) {
         self.memory.inc_sp(frame_size_for_local_variables as usize);
     }
 
@@ -1204,5 +1125,20 @@ impl Vm {
         if self.debug_enabled {
             self.debug.call_depth -= 1;
         }
+    }
+
+    #[inline]
+    fn u8s_to_32(a: u8, b: u8, c: u8, d: u8) -> u32 {
+        (a as u32) << 24 | (b as u32) << 16 | (c as u32) << 8 | (d as u32)
+    }
+
+    pub fn get_const_ptr_from_reg(&self, reg: u8) -> *const u8 {
+        get_reg!(self, reg, Ptr => ptr_addr);
+        self.memory.get_heap_const_ptr(ptr_addr as usize)
+    }
+
+    pub fn get_ptr_from_reg(&self, reg: u8) -> *mut u8 {
+        get_reg!(self, reg, Ptr => ptr_addr);
+        self.memory.get_heap_ptr(ptr_addr as usize)
     }
 }

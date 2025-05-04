@@ -473,8 +473,8 @@ pub fn layout_variables(
         trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
         writeln!(
             &mut enter_comment,
-            "  ${:04X}:{} {}",
-            var_frame_placed_type.addr().0,
+            "  {}:{} {}",
+            var_frame_placed_type.addr(),
             var_frame_placed_type.size().0,
             var_ref.assigned_name
         )

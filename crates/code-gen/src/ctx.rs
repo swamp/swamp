@@ -2,7 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use swamp_vm_types::types::{BasicType, FramePlacedType};
+use swamp_vm_types::types::{BasicType, FramePlacedType, TypedRegister};
 use swamp_vm_types::{FrameMemoryAddress, MemorySize};
 
 pub struct Context {
@@ -22,7 +22,7 @@ impl Context {
 }
 
 impl Context {
-    pub(crate) const fn target(&self) -> &FramePlacedType {
+    pub(crate) const fn target(&self) -> &TypedRegister {
         &self.placed_type
     }
     #[must_use]

@@ -45,10 +45,8 @@ pub enum OpCode {
     GeF32,
 
     // Comparison, set z flag
-    Eq8Imm, // Compares a byte in an address with an immediate 8 bit value. Updates the z flag
-    Cmp,    // Compare a memory area of bytes. Updates the z flag
-    Cmp8,   // Compare a single byte. Updates the z flag
-    Cmp32,  // Compare a 32 bit. Used for both Integer and Fixed point. Updates the z flag
+    Eq8Imm,
+    CmpReg, // Compare reg. Updates the z flag
     Tst8, // Load the byte into the z flag (zero = sets the z flag, any other value = clears the z flag)
 
     NotZ,
@@ -70,22 +68,23 @@ pub enum OpCode {
     Ret,
 
     // Frame copy
-    Mov,
-    Mov32,
+    MovReg,
 
     // Heap copy
     MovMem, // Copy from heap region with offset to frame region
 
+    Alloc, // For slices
+
+    // Loaders --------------
+
+    // Load immediate into reg
     Lea,          // Load effective address
     LdAddPointer, // Load a pointer, add to it and write it back
-
-    Alloc, // For slices
-    Stx,   // Copy from frame region to allocated region with offset
-
-    // Load immediate into frame memory
     Ld8,
-    Ld16,
     Ld32,
+
+    // Storers --- is that a word?
+    //StPointerWithOffset,
 
     // Type specific -----
 
@@ -134,7 +133,6 @@ pub enum OpCode {
     VecIterNextPair,
     VecFromSlice,
     VecPush,
-    VecLen,
     VecFetch,
     VecSet,
     VecRemoveIndex,
@@ -151,7 +149,6 @@ pub enum OpCode {
     MapIterNext,
     MapIterNextPair,
     MapNewFromPairs,
-    MapLen,
     MapRemove,
     MapHas,
     MapFetch,
@@ -210,10 +207,8 @@ impl OpCode {
             Self::GeF32 => "gef",
 
             // Byte/memory comparisons
-            Self::Eq8Imm => "eq8i",
-            Self::Cmp => "cmp",
-            Self::Cmp8 => "cmp8",
-            Self::Cmp32 => "cmp32",
+            Self::Eq8Imm => "eq8",
+            Self::CmpReg => "cmp",
             Self::Tst8 => "tst8",
             Self::NotZ => "notz",
 
@@ -232,16 +227,13 @@ impl OpCode {
             Self::Ret => "ret",
 
             // Move
-            Self::Mov => "mov",
-            Self::Mov32 => "mov32",
+            Self::MovReg => "mov",
             Self::MovMem => "movmem",
-            Self::Stx => "stx",
             Self::Lea => "lea",
             Self::LdAddPointer => "ptroff",
 
             // Load
             Self::Ld8 => "ld8",
-            Self::Ld16 => "ld16",
             Self::Ld32 => "ld32",
 
             Self::Alloc => "alloc",
@@ -290,7 +282,6 @@ impl OpCode {
             Self::VecIterNext => "vitern",
             Self::VecIterNextPair => "viternp",
             Self::VecFetch => "vget",
-            Self::VecLen => "vlen",
             Self::VecSet => "vset",
             Self::VecRemoveIndex => "vrem",
             Self::VecPop => "vpop",
@@ -310,7 +301,6 @@ impl OpCode {
             Self::MapHas => "mhas",
             Self::MapFetch => "mget",
             Self::MapSet => "mset",
-            Self::MapLen => "mlen",
 
             // String
             Self::StringAppend => "sapp",

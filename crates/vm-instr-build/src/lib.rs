@@ -4,11 +4,10 @@
  */
 use seq_map::SeqMap;
 use source_map_node::Node;
-use std::ops::Deref;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, CompleteFunctionInfo, FramePlacedType, FunctionInfo,
-    FunctionInfoKind, HeapPlacedType, OffsetMemoryItem,
+    FunctionInfoKind, HeapPlacedType, Immediate, OffsetMemoryItem, TypedRegister, VmType, int_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HEAP_PTR_ON_FRAME_SIZE,
@@ -25,6 +24,10 @@ pub struct InstructionBuilderState {
     pub functions: SeqMap<usize, CompleteFunctionInfo>,
     pub constants: SeqMap<usize, CompleteFunctionInfo>,
     pub meta: Vec<Meta>,
+}
+
+pub fn u16_to_u8_pair(v: u16) -> (u8, u8) {
+    ((v >> 8) as u8, (v & 0xff) as u8)
 }
 
 impl Default for InstructionBuilderState {
@@ -109,7 +112,10 @@ impl InstructionBuilderState {
 
         match instruction.opcode {
             CALL => {
-                instruction.operands[0] = ip.0 as u16 - 1;
+                let pair = u16_to_u8_pair(ip.0 - 1);
+
+                instruction.operands[0] = pair.0;
+                instruction.operands[1] = pair.1;
             }
             _ => panic!("Attempted to patch a non-call instruction at position {patch_position:?}"),
         }
@@ -123,14 +129,13 @@ impl InstructionBuilderState {
         self.add_instruction(OpCode::Hlt, &[], node, comment);
     }
 
-    fn add_instruction(&mut self, op_code: OpCode, operands: &[u16], node: &Node, comment: &str) {
-        let mut array: [u16; 5] = [0; 5];
+    fn add_instruction(&mut self, op_code: OpCode, operands: &[u8], node: &Node, comment: &str) {
+        let mut array: [u8; 5] = [0; 5];
         assert!(operands.len() <= 5);
         let len = operands.len();
         array[..len].copy_from_slice(&operands[..len]);
         self.instructions.push(BinaryInstruction {
             opcode: op_code as u8,
-            padding: 0,
             operands: array,
         });
         let meta = Meta {
@@ -144,12 +149,16 @@ impl InstructionBuilderState {
 
 pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
+    temp_reg: u8,
 }
 
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
-        Self { state }
+        Self {
+            state,
+            temp_reg: 32,
+        }
     }
 }
 
@@ -158,8 +167,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(OpCode::NotZ, &[], node, comment);
     }
     pub fn enter(&mut self, size: FrameMemorySize, node: &Node, comment: &str) {
+        let (lower, upper) = u16_to_u8_pair(size.0);
         self.state
-            .add_instruction(OpCode::Enter, &[size.0], node, comment);
+            .add_instruction(OpCode::Enter, &[lower, upper], node, comment);
     }
 
     #[must_use]
@@ -201,8 +211,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_unwrap_jmp_some_placeholder(
         &mut self,
-        target: &FramePlacedType,
-        check_optional: &FramePlacedType,
+        target: &TypedRegister,
+        check_optional: &TypedRegister,
         node: &Node,
         comment: &str,
     ) -> PatchPosition {
@@ -210,7 +220,7 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::UnwrapJmpSome,
-            &[target.addr().0, check_optional.addr().0, 0],
+            &[target.addressing(), check_optional.addressing(), 0],
             node,
             comment,
         );
@@ -222,8 +232,8 @@ impl InstructionBuilder<'_> {
     // If it is None, write the value at none_value_offset to result_offset, and jump to jump_ip (the end of the chain).
     pub fn add_unwrap_jmp_none_placeholder(
         &mut self,
-        target: &FramePlacedType,
-        check_optional: &FramePlacedType,
+        target: &TypedRegister,
+        check_optional: &TypedRegister,
         node: &Node,
         comment: &str,
     ) -> PatchPosition {
@@ -231,7 +241,7 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::UnwrapJmpNone,
-            &[target.addr().0, check_optional.addr().0, 0],
+            &[target.addressing(), check_optional.addressing(), 0],
             node,
             comment,
         );
@@ -241,9 +251,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_swap(
         &mut self,
-        vec_self_addr: &FramePlacedType,
-        int_index_a: &FramePlacedType,
-        int_index_b: &FramePlacedType,
+        vec_self_addr: &TypedRegister,
+        int_index_a: &TypedRegister,
+        int_index_b: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -255,9 +265,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::VecSwap,
             &[
-                vec_self_addr.addr().0,
-                int_index_a.addr().0,
-                int_index_b.addr().0,
+                vec_self_addr.addressing(),
+                int_index_a.addressing(),
+                int_index_b.addressing(),
             ],
             node,
             comment,
@@ -266,9 +276,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_subscript(
         &mut self,
-        target: &FramePlacedType,
-        self_addr: &FramePlacedType,
-        index: &FramePlacedType,
+        target: &TypedRegister,
+        self_addr: &TypedRegister,
+        index: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -278,7 +288,11 @@ impl InstructionBuilder<'_> {
         ));
         self.state.add_instruction(
             OpCode::VecGet,
-            &[target.addr().0, self_addr.addr().0, index.addr().0],
+            &[
+                target.addressing(),
+                self_addr.addressing(),
+                index.addressing(),
+            ],
             node,
             comment,
         );
@@ -286,9 +300,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_get(
         &mut self,
-        target: &FramePlacedType,
-        self_addr: &FramePlacedType,
-        index: &FramePlacedType,
+        target: &TypedRegister,
+        self_addr: &TypedRegister,
+        index: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -298,7 +312,11 @@ impl InstructionBuilder<'_> {
         ));
         self.state.add_instruction(
             OpCode::VecGet,
-            &[target.addr().0, self_addr.addr().0, index.addr().0],
+            &[
+                target.addressing(),
+                self_addr.addressing(),
+                index.addressing(),
+            ],
             node,
             comment,
         );
@@ -306,9 +324,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_get_range(
         &mut self,
-        target: &FramePlacedType,
-        vec_self_addr: &FramePlacedType,
-        range_header: &FramePlacedType,
+        target: &TypedRegister,
+        vec_self_addr: &TypedRegister,
+        range_header: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -320,9 +338,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::VecGetRange,
             &[
-                target.addr().0,
-                vec_self_addr.addr().0,
-                range_header.addr().0,
+                target.addressing(),
+                vec_self_addr.addressing(),
+                range_header.addressing(),
             ],
             node,
             comment,
@@ -331,9 +349,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_set(
         &mut self,
-        self_addr: &FramePlacedType,
-        index: &FramePlacedType,
-        value_addr: &FramePlacedType,
+        self_addr: &TypedRegister,
+        index: &TypedRegister,
+        value_addr: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -344,23 +362,11 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::VecSet,
-            &[self_addr.addr().0, index.addr().0, value_addr.addr().0],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_vec_len(
-        &mut self,
-        target: &FramePlacedType,
-        self_vec: &FramePlacedType,
-        node: &Node,
-        comment: &str,
-    ) {
-        matches!(self_vec.ty().kind, BasicTypeKind::InternalVecPointer(_));
-        self.state.add_instruction(
-            OpCode::VecLen,
-            &[target.addr().0, self_vec.addr().0],
+            &[
+                self_addr.addressing(),
+                index.addressing(),
+                value_addr.addressing(),
+            ],
             node,
             comment,
         );
@@ -368,8 +374,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_push(
         &mut self,
-        self_addr: &FramePlacedType,
-        element_item: &FramePlacedType,
+        self_addr: TypedRegister,
+        element_item: TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -384,7 +390,7 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::VecPush,
-            &[self_addr.addr().0, element_item.addr().0],
+            &[self_addr.addressing(), element_item.addressing()],
             node,
             comment,
         );
@@ -392,8 +398,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_pop(
         &mut self,
-        target_addr: &FramePlacedType,
-        self_addr: &FramePlacedType,
+        target_addr: &TypedRegister,
+        self_addr: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -403,7 +409,7 @@ impl InstructionBuilder<'_> {
         ));
         self.state.add_instruction(
             OpCode::VecPop,
-            &[target_addr.addr().0, self_addr.addr().0],
+            &[target_addr.addressing(), self_addr.addressing()],
             node,
             comment,
         );
@@ -411,8 +417,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_remove_index(
         &mut self,
-        self_addr: &FramePlacedType,
-        element_item: &FramePlacedType,
+        self_addr: &TypedRegister,
+        element_item: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -422,7 +428,7 @@ impl InstructionBuilder<'_> {
         ));
         self.state.add_instruction(
             OpCode::VecRemoveIndex,
-            &[self_addr.addr().0, element_item.addr().0],
+            &[self_addr.addressing(), element_item.addressing()],
             node,
             comment,
         );
@@ -430,9 +436,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_remove_index_get_value(
         &mut self,
-        target_addr: &FramePlacedType,
-        self_addr: &FramePlacedType,
-        element_item: &FramePlacedType,
+        target_addr: &TypedRegister,
+        self_addr: &TypedRegister,
+        element_item: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -443,9 +449,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::VecRemoveIndexGetValue,
             &[
-                target_addr.addr().0,
-                self_addr.addr().0,
-                element_item.addr().0,
+                target_addr.addressing(),
+                self_addr.addressing(),
+                element_item.addressing(),
             ],
             node,
             comment,
@@ -454,8 +460,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_iter_next_placeholder(
         &mut self,
-        iterator_target: &FramePlacedType,
-        closure_variable: &FramePlacedType,
+        iterator_target: &TypedRegister,
+        closure_variable: &TypedRegister,
         node: &Node,
         comment: &str,
     ) -> PatchPosition {
@@ -466,7 +472,11 @@ impl InstructionBuilder<'_> {
         let position = self.position();
         self.state.add_instruction(
             OpCode::VecIterNext,
-            &[iterator_target.addr().0, closure_variable.addr().0, 0],
+            &[
+                iterator_target.addressing(),
+                closure_variable.addressing(),
+                0,
+            ],
             node,
             comment,
         );
@@ -475,9 +485,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_iter_next_pair_placeholder(
         &mut self,
-        iterator_target: &FramePlacedType,
-        closure_variable: &FramePlacedType,
-        closure_variable_b: &FramePlacedType,
+        iterator_target: &TypedRegister,
+        closure_variable: &TypedRegister,
+        closure_variable_b: &TypedRegister,
         node: &Node,
         comment: &str,
     ) -> PatchPosition {
@@ -489,9 +499,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::VecIterNextPair,
             &[
-                iterator_target.addr().0,
-                closure_variable.addr().0,
-                closure_variable_b.addr().0,
+                iterator_target.addressing(),
+                closure_variable.addressing(),
+                closure_variable_b.addressing(),
                 0,
             ],
             node,
@@ -502,7 +512,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_eq_u8_immediate(
         &mut self,
-        source_addr: &FramePlacedType,
+        source_addr: &TypedRegister,
         immediate: u8,
         node: &Node,
         comment: &str,
@@ -510,7 +520,7 @@ impl InstructionBuilder<'_> {
         assert!(source_addr.size().0 >= 1);
         self.state.add_instruction(
             OpCode::Eq8Imm,
-            &[source_addr.addr().0, immediate as u16],
+            &[source_addr.addressing(), immediate],
             node,
             comment,
         );
@@ -533,104 +543,110 @@ impl InstructionBuilder<'_> {
 
     pub fn add_lea(
         &mut self,
-        target_heap: &FramePlacedType,
+        target_heap: &TypedRegister,
         frame_address_to_convert: FrameMemoryAddress,
         node: &Node,
         comment: &str,
     ) {
+        let pairs = u16_to_u8_pair(frame_address_to_convert.0);
         self.state.add_instruction(
             OpCode::Lea,
-            &[target_heap.addr().0, frame_address_to_convert.0],
+            &[target_heap.addressing(), pairs.0, pairs.1],
             node,
             comment,
         );
     }
 
-    // Mov is more of a copy. Keeping the name Mov because it is old school and idiomatic.
-    pub fn add_mov(
-        &mut self,
-        target: &FramePlacedType,
-        source: &FramePlacedType,
-        size: MemorySize,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert_ne!(size.0, 0);
-        self.state.add_instruction(
-            OpCode::Mov,
-            &[target.addr().0, source.addr().0, size.0],
-            node,
-            comment,
-        );
-    }
+    /*
+       // Mov is more of a copy. Keeping the name Mov because it is old school and idiomatic.
+       pub fn add_mov_for_assignment(
+           &mut self,
+           target: &TypedRegister,
+           source: &TypedRegister,
+           node: &Node,
+           comment: &str,
+       ) {
+           let decorated_reg = TypedRegister::new_vm_type(self.temp_reg, VmType::Immediate(Immediate::U32(source.size().0 as u32)));
 
-    // Mov is more of a copy. Keeping the name Mov because it is old school and idiomatic.
-    pub fn add_mov_for_assignment(
-        &mut self,
-        target: &FramePlacedType,
-        source: &FramePlacedType,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert_eq!(
-            target.underlying().total_size,
-            source.underlying().total_size,
-            "problem with move {target:?} {source:?}"
-        );
-        self.add_mov(target, source, source.size(), node, comment);
-    }
+           self.add_ld32(&decorated_reg, source.size().0 as u32, node, "size of source");
+
+           assert_eq!(
+               target.underlying().total_size,
+               source.underlying().total_size,
+               "problem with move {target:?} {source:?}"
+           );
+           self.add_mov_mem(target, source, decorated_reg, node, comment);
+       }
+
+    */
 
     // Mov is more of a copy. Keeping the name Mov because it is old school and idiomatic.
     pub fn add_mov_mem(
         &mut self,
-        target: &FramePlacedType,
-        source: HeapMemoryAddress,
+        target: &TypedRegister,
+        source: &TypedRegister,
         size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
         assert_ne!(size.0, 0);
 
-        let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(source.0);
+        let (lower_bits, upper_bits) = Self::u16_to_octets(size.0);
         self.state.add_instruction(
             OpCode::MovMem,
-            &[target.addr().0, lower_bits, upper_bits, size.0],
+            &[
+                target.addressing(),
+                source.addressing(),
+                lower_bits,
+                upper_bits,
+            ],
             node,
             comment,
         );
     }
 
+    /*
     // Mov is more of a copy. Keeping the name Mov because it is old school and idiomatic.
-    pub fn add_mov_mem_for_assignment(
+    pub fn add_mov_mem(
         &mut self,
-        target: &FramePlacedType,
-        source: &HeapPlacedType,
+        target: &TypedRegister,
+        source: &TypedRegister,
+        size: TypedRegister,
         node: &Node,
         comment: &str,
     ) {
-        self.add_mov_mem(target, source.addr(), source.size(), node, comment);
+        self.state.add_instruction(
+            OpCode::MovMem,
+            &[target.addressing(), source.addressing(), size.addressing()],
+            node,
+            comment,
+        );
     }
 
-    pub fn add_panic(&mut self, str: &FramePlacedType, node: &Node, comment: &str) {
+     */
+
+    pub fn add_panic(&mut self, str: &TypedRegister, node: &Node, comment: &str) {
         self.state
-            .add_instruction(OpCode::Panic, &[str.addr().0], node, comment);
+            .add_instruction(OpCode::Panic, &[str.addressing()], node, comment);
     }
 
     pub fn add_call(&mut self, function_ip: &InstructionPosition, node: &Node, comment: &str) {
+        let ip_bytes = Self::u16_to_octets(function_ip.0);
         self.state
-            .add_instruction(OpCode::Call, &[function_ip.0], node, comment);
+            .add_instruction(OpCode::Call, &[ip_bytes.0, ip_bytes.1], node, comment);
     }
 
     pub fn add_host_call(
         &mut self,
         host_function_id: u16,
-        arguments_size: MemorySize,
+        arguments_size: u8,
         node: &Node,
         comment: &str,
     ) {
+        let ip_bytes = Self::u16_to_octets(host_function_id);
         self.state.add_instruction(
             OpCode::HostCall,
-            &[host_function_id, arguments_size.0],
+            &[ip_bytes.0, ip_bytes.0, arguments_size],
             node,
             comment,
         );
@@ -658,6 +674,7 @@ impl InstructionBuilder<'_> {
         const UNWRAP_JMP_SOME: u8 = OpCode::UnwrapJmpSome as u8;
 
         let instruction = &mut self.state.instructions[patch_position.0.0 as usize];
+        /* TODO: FIX
 
         match instruction.opcode {
             JMP_IF_NOT => {
@@ -697,8 +714,10 @@ impl InstructionBuilder<'_> {
                 instruction.operands[2] = target_position.0 as u16 - 1;
             }
 
+
             _ => panic!("Attempted to patch a non-jump instruction at position {patch_position:?}"),
         }
+         */
     }
 
     // It takes ownership of the patch position
@@ -707,30 +726,32 @@ impl InstructionBuilder<'_> {
     }
 
     pub fn add_jmp(&mut self, ip: InstructionPosition, node: &Node, comment: &str) {
+        let ip_bytes = Self::u16_to_octets(ip.0 - 1);
         self.state
-            .add_instruction(OpCode::Jmp, &[ip.0 - 1], node, comment);
+            .add_instruction(OpCode::Jmp, &[ip_bytes.0, ip_bytes.1], node, comment);
     }
 
     // Slices
 
     pub fn add_slice_from_heap(
         &mut self,
-        slice_dst: &FramePlacedType,
-        heap_region: FrameMemoryAddress,
-        value_type: &BasicType,
-        element_count: u16,
+        slice_dst: &TypedRegister,
+        heap_region: &TypedRegister,
+        element_size: &TypedRegister,
+        element_count: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         assert_ne!(slice_dst.size().0, 0);
-        assert_ne!(value_type.total_size.0, 0);
+        assert_ne!(element_size.size().0, 0);
+
         self.state.add_instruction(
             OpCode::SliceFromHeap,
             &[
-                slice_dst.addr().0,
-                heap_region.0,
-                value_type.total_size.0,
-                element_count,
+                slice_dst.addressing(),
+                heap_region.addressing(),
+                element_size.addressing(),
+                element_count.addressing(),
             ],
             node,
             comment,
@@ -739,26 +760,26 @@ impl InstructionBuilder<'_> {
 
     pub fn add_slice_pair_from_heap(
         &mut self,
-        slice_dst: &FramePlacedType,
-        heap_region: FrameMemoryAddress,
-        key_type: &BasicType,
-        value_type: &BasicType,
-        element_count: u16,
+        slice_dst: &TypedRegister,
+        heap_region: &TypedRegister,
+        key_size: &TypedRegister,
+        value_size: &TypedRegister,
+        element_count: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         assert_ne!(slice_dst.size().0, 0);
-        assert_ne!(key_type.total_size.0, 0);
-        assert_ne!(value_type.total_size.0, 0);
+        assert_ne!(key_size.size().0, 0);
+        assert_ne!(value_size.size().0, 0);
 
         self.state.add_instruction(
             OpCode::SlicePairFromHeap,
             &[
-                slice_dst.addr().0,
-                heap_region.0,
-                key_type.total_size.0,
-                value_type.total_size.0,
-                element_count,
+                slice_dst.addressing(),
+                heap_region.addressing(),
+                key_size.addressing(),
+                value_size.addressing(),
+                element_count.addressing(),
             ],
             node,
             comment,
@@ -767,14 +788,17 @@ impl InstructionBuilder<'_> {
 
     pub fn add_map_iter_init(
         &mut self,
-        iterator_target: &FramePlacedType,
-        pointer_to_map_header: &FramePlacedType,
+        iterator_target: &TypedRegister,
+        pointer_to_map_header: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         self.state.add_instruction(
             OpCode::MapIterInit,
-            &[iterator_target.addr().0, pointer_to_map_header.addr().0],
+            &[
+                iterator_target.addressing(),
+                pointer_to_map_header.addressing(),
+            ],
             node,
             comment,
         );
@@ -782,15 +806,19 @@ impl InstructionBuilder<'_> {
 
     pub fn add_map_iter_next_placeholder(
         &mut self,
-        iterator_target: &FramePlacedType,
-        closure_variable: &FramePlacedType,
+        iterator_target: &TypedRegister,
+        closure_variable: &TypedRegister,
         node: &Node,
         comment: &str,
     ) -> PatchPosition {
         let position = self.position();
         self.state.add_instruction(
             OpCode::MapIterNext,
-            &[iterator_target.addr().0, closure_variable.addr().0, 0],
+            &[
+                iterator_target.addressing(),
+                closure_variable.addressing(),
+                0,
+            ],
             node,
             comment,
         );
@@ -799,9 +827,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_map_iter_next_pair_placeholder(
         &mut self,
-        iterator_target: &FramePlacedType,
-        closure_variable: &FramePlacedType,
-        closure_variable_b: &FramePlacedType,
+        iterator_target: &TypedRegister,
+        closure_variable: &TypedRegister,
+        closure_variable_b: &TypedRegister,
         node: &Node,
         comment: &str,
     ) -> PatchPosition {
@@ -809,9 +837,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::MapIterNextPair,
             &[
-                iterator_target.addr().0,
-                closure_variable.addr().0,
-                closure_variable_b.addr().0,
+                iterator_target.addressing(),
+                closure_variable.addressing(),
+                closure_variable_b.addressing(),
                 0,
             ],
             node,
@@ -822,8 +850,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_range_iter_next_placeholder(
         &mut self,
-        iterator_target: &FramePlacedType,
-        closure_variable: &FramePlacedType,
+        iterator_target: &TypedRegister,
+        closure_variable: &TypedRegister,
         node: &Node,
 
         comment: &str,
@@ -831,7 +859,11 @@ impl InstructionBuilder<'_> {
         let position = self.position();
         self.state.add_instruction(
             OpCode::RangeIterNext,
-            &[iterator_target.addr().0, closure_variable.addr().0, 0],
+            &[
+                iterator_target.addressing(),
+                closure_variable.addressing(),
+                0,
+            ],
             node,
             comment,
         );
@@ -840,40 +872,45 @@ impl InstructionBuilder<'_> {
 
     pub fn add_string_append(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         self.state.add_instruction(
             OpCode::StringAppend,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
         );
     }
 
-    pub fn add_vec_clear(&mut self, mut_self_addr: &FramePlacedType, node: &Node, comment: &str) {
-        self.state
-            .add_instruction(OpCode::VecClear, &[mut_self_addr.addr().0], node, comment);
+    pub fn add_vec_clear(&mut self, mut_self_addr: &TypedRegister, node: &Node, comment: &str) {
+        self.state.add_instruction(
+            OpCode::VecClear,
+            &[mut_self_addr.addressing()],
+            node,
+            comment,
+        );
     }
 
     pub fn add_vec_create(
         &mut self,
-        mut_self_addr: &FramePlacedType,
+        mut_self_addr: &TypedRegister,
         element_byte_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
+        let bytes = Self::u16_to_octets(element_byte_size.0);
         // assert_ne!(element_byte_size.0, 0); // TODO: Bring this back
         self.state.add_instruction(
             OpCode::VecCreate,
-            &[mut_self_addr.addr().0, element_byte_size.0],
+            &[mut_self_addr.addressing(), bytes.0, bytes.1],
             node,
             comment,
         );
@@ -881,14 +918,14 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_from_slice(
         &mut self,
-        target: &FramePlacedType,
-        source_slice_header: &FramePlacedType,
+        target: &TypedRegister,
+        source_slice_header: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         self.state.add_instruction(
             OpCode::VecFromSlice,
-            &[target.addr().0, source_slice_header.addr().0],
+            &[target.addressing(), source_slice_header.addressing()],
             node,
             comment,
         );
@@ -896,8 +933,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_range_iter_init(
         &mut self,
-        iterator_target: &FramePlacedType,
-        range_source_header: &FramePlacedType,
+        iterator_target: &TypedRegister,
+        range_source_header: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -906,7 +943,10 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::RangeIterInit,
-            &[iterator_target.addr().0, range_source_header.addr().0],
+            &[
+                iterator_target.addressing(),
+                range_source_header.addressing(),
+            ],
             node,
             comment,
         );
@@ -914,14 +954,17 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_iter_init(
         &mut self,
-        iterator_target: &FramePlacedType,
-        pointer_to_vec_header: &FramePlacedType,
+        iterator_target: &TypedRegister,
+        pointer_to_vec_header: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         self.state.add_instruction(
             OpCode::VecIterInit,
-            &[iterator_target.addr().0, pointer_to_vec_header.addr().0],
+            &[
+                iterator_target.addressing(),
+                pointer_to_vec_header.addressing(),
+            ],
             node,
             comment,
         );
@@ -929,18 +972,19 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_iter_next(
         &mut self,
-        iterator_target: &FramePlacedType,
-        closure_variable: &FramePlacedType,
+        iterator_target: &TypedRegister,
+        closure_variable: &TypedRegister,
         instruction_position: InstructionPosition,
         node: &Node,
         comment: &str,
     ) {
+        let bytes = Self::u16_to_octets(instruction_position.0);
         self.state.add_instruction(
             OpCode::VecIterNext,
             &[
-                iterator_target.addr().0,
-                closure_variable.addr().0,
-                instruction_position.0,
+                iterator_target.addressing(),
+                closure_variable.addressing(),
+                bytes.0,
             ],
             node,
             comment,
@@ -949,86 +993,91 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_iter_next_pair(
         &mut self,
-        iterator_target: &FramePlacedType,
-        closure_variable_key: &FramePlacedType,
-        closure_variable_value: &FramePlacedType,
+        iterator_target: &TypedRegister,
+        closure_variable_key: &TypedRegister,
+        closure_variable_value: &TypedRegister,
         instruction_position: InstructionPosition,
         node: &Node,
         comment: &str,
     ) {
+        let bytes = Self::u16_to_octets(instruction_position.0);
         self.state.add_instruction(
             OpCode::VecIterNextPair,
             &[
-                iterator_target.addr().0,
-                closure_variable_key.addr().0,
-                closure_variable_value.addr().0,
-                instruction_position.0,
+                iterator_target.addressing(),
+                closure_variable_key.addressing(),
+                closure_variable_value.addressing(),
+                bytes.0,
+                bytes.1,
             ],
             node,
             comment,
         );
     }
 
-    const fn convert_to_lower_and_upper(data: u32) -> (u16, u16) {
-        let lower_bits = (data & 0xFFFF) as u16;
-        let upper_bits = (data >> 16) as u16;
+    const fn convert_to_lower_and_upper(data: u32) -> (u8, u8, u8, u8) {
+        let a = (data & 0xFF) as u8;
+        let b = (data >> 8) as u8;
+        let c = (data >> 16) as u8;
+        let d = (data >> 24) as u8;
 
-        (lower_bits, upper_bits)
+        (a, b, c, d)
+    }
+
+    const fn u16_to_octets(data: u16) -> (u8, u8) {
+        let a = (data & 0xFF) as u8;
+        let b = (data >> 8) as u8;
+
+        (a, b)
     }
 
     pub fn add_ldi32(
         &mut self,
-        dst_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
         value: i32,
         node: &Node,
         comment: &str,
     ) {
-        let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(value as u32);
+        let bytes = Self::convert_to_lower_and_upper(value as u32);
 
         self.state.add_instruction(
             OpCode::Ld32,
-            &[dst_offset.addr().0, lower_bits, upper_bits],
+            &[dst_offset.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
             node,
             comment,
         );
     }
 
-    pub fn add_ld32(
-        &mut self,
-        dst_offset: &FramePlacedType,
-        value: u32,
-        node: &Node,
-        comment: &str,
-    ) {
-        let (lower_bits, upper_bits) = Self::convert_to_lower_and_upper(value);
+    pub fn add_ld32(&mut self, dst_offset: &TypedRegister, value: u32, node: &Node, comment: &str) {
+        let bytes = Self::convert_to_lower_and_upper(value);
 
         self.state.add_instruction(
             OpCode::Ld32,
-            &[dst_offset.addr().0, lower_bits, upper_bits],
+            &[dst_offset.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
             node,
             comment,
         );
     }
 
-    pub fn add_mov32(
+    pub fn add_mov_reg(
         &mut self,
-        dst_offset: &FramePlacedType,
-        src_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        src_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         self.state.add_instruction(
-            OpCode::Mov32,
-            &[dst_offset.addr().0, src_offset.addr().0],
+            OpCode::MovReg,
+            &[dst_offset.addressing(), src_offset.addressing()],
             node,
             comment,
         );
     }
 
-    pub fn add_ld8(&mut self, dst_offset: &FramePlacedType, value: u8, node: &Node, comment: &str) {
+    pub fn add_ld8(&mut self, dst_offset: &TypedRegister, value: u8, node: &Node, comment: &str) {
         self.state.add_instruction(
             OpCode::Ld8,
-            &[dst_offset.addr().0, value as u16],
+            &[dst_offset.addressing(), value],
             node,
             comment,
         );
@@ -1036,9 +1085,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_add_i32(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1048,9 +1097,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::AddI32,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
@@ -1059,9 +1108,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_mod_i32(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1072,9 +1121,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::ModI32,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
@@ -1083,9 +1132,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_div_i32(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1095,9 +1144,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::DivI32,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
@@ -1106,9 +1155,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_sub_i32(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1118,9 +1167,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::SubI32,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
@@ -1129,9 +1178,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_mul_i32(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1141,9 +1190,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::MulI32,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
@@ -1152,8 +1201,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_neg_i32(
         &mut self,
-        target: &FramePlacedType,
-        source: &FramePlacedType,
+        target: &TypedRegister,
+        source: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1161,7 +1210,7 @@ impl InstructionBuilder<'_> {
         assert!(source.ty().is_int());
         self.state.add_instruction(
             OpCode::NegI32,
-            &[target.addr().0, source.addr().0],
+            &[target.addressing(), source.addressing()],
             node,
             comment,
         );
@@ -1169,9 +1218,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_mod_f32(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1181,9 +1230,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::ModF32,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
@@ -1192,9 +1241,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_sub_f32(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1204,9 +1253,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::SubF32,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
@@ -1214,9 +1263,9 @@ impl InstructionBuilder<'_> {
     }
     pub fn add_mul_f32(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1226,9 +1275,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::MulF32,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
@@ -1236,9 +1285,9 @@ impl InstructionBuilder<'_> {
     }
     pub fn add_div_f32(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1248,9 +1297,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::DivF32,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
@@ -1259,9 +1308,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_add_f32(
         &mut self,
-        dst_offset: &FramePlacedType,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1271,9 +1320,9 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::AddF32,
             &[
-                dst_offset.addr().0,
-                lhs_offset.addr().0,
-                rhs_offset.addr().0,
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
             ],
             node,
             comment,
@@ -1282,8 +1331,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_neg_f32(
         &mut self,
-        target: &FramePlacedType,
-        source: &FramePlacedType,
+        target: &TypedRegister,
+        source: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1291,7 +1340,7 @@ impl InstructionBuilder<'_> {
         assert!(source.ty().is_float());
         self.state.add_instruction(
             OpCode::NegF32,
-            &[target.addr().0, source.addr().0],
+            &[target.addressing(), source.addressing()],
             node,
             comment,
         );
@@ -1299,8 +1348,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_lt_f32(
         &mut self,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1308,7 +1357,7 @@ impl InstructionBuilder<'_> {
         assert!(rhs_offset.ty().is_float());
         self.state.add_instruction(
             OpCode::LtF32,
-            &[lhs_offset.addr().0, rhs_offset.addr().0],
+            &[lhs_offset.addressing(), rhs_offset.addressing()],
             node,
             comment,
         );
@@ -1316,8 +1365,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_le_f32(
         &mut self,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1326,7 +1375,7 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::LeF32,
-            &[lhs_offset.addr().0, rhs_offset.addr().0],
+            &[lhs_offset.addressing(), rhs_offset.addressing()],
             node,
             comment,
         );
@@ -1334,8 +1383,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_gt_f32(
         &mut self,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1344,7 +1393,7 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::GtF32,
-            &[lhs_offset.addr().0, rhs_offset.addr().0],
+            &[lhs_offset.addressing(), rhs_offset.addressing()],
             node,
             comment,
         );
@@ -1352,8 +1401,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_ge_f32(
         &mut self,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1362,7 +1411,7 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::GeF32,
-            &[lhs_offset.addr().0, rhs_offset.addr().0],
+            &[lhs_offset.addressing(), rhs_offset.addressing()],
             node,
             comment,
         );
@@ -1370,8 +1419,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_lt_i32(
         &mut self,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1379,7 +1428,7 @@ impl InstructionBuilder<'_> {
         assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LtI32,
-            &[lhs_offset.addr().0, rhs_offset.addr().0],
+            &[lhs_offset.addressing(), rhs_offset.addressing()],
             node,
             comment,
         );
@@ -1387,8 +1436,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_le_i32(
         &mut self,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1396,7 +1445,7 @@ impl InstructionBuilder<'_> {
         assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LeI32,
-            &[lhs_offset.addr().0, rhs_offset.addr().0],
+            &[lhs_offset.addressing(), rhs_offset.addressing()],
             node,
             comment,
         );
@@ -1404,8 +1453,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_gt_i32(
         &mut self,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1413,7 +1462,7 @@ impl InstructionBuilder<'_> {
         assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::GtI32,
-            &[lhs_offset.addr().0, rhs_offset.addr().0],
+            &[lhs_offset.addressing(), rhs_offset.addressing()],
             node,
             comment,
         );
@@ -1421,8 +1470,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_ge_i32(
         &mut self,
-        lhs_offset: &FramePlacedType,
-        rhs_offset: &FramePlacedType,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1430,68 +1479,40 @@ impl InstructionBuilder<'_> {
         assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::GeI32,
-            &[lhs_offset.addr().0, rhs_offset.addr().0],
+            &[lhs_offset.addressing(), rhs_offset.addressing()],
             node,
             comment,
         );
     }
 
-    pub fn add_tst8(&mut self, addr: &FramePlacedType, node: &Node, comment: &str) {
+    pub fn add_tst8(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
         assert!(addr.size().0 >= 1);
         self.state
-            .add_instruction(OpCode::Tst8, &[addr.addr().0], node, comment);
+            .add_instruction(OpCode::Tst8, &[addr.addressing()], node, comment);
     }
 
-    pub fn add_stz(&mut self, target: &FramePlacedType, node: &Node, comment: &str) {
+    pub fn add_stz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
         assert_eq!(target.underlying().total_size.0, 1);
         self.state
-            .add_instruction(OpCode::Stz, &[target.addr().0], node, comment);
+            .add_instruction(OpCode::Stz, &[target.addressing()], node, comment);
     }
 
-    pub fn add_stnz(&mut self, target: &FramePlacedType, node: &Node, comment: &str) {
+    pub fn add_stnz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
         assert_eq!(target.underlying().total_size.0, 1);
         self.state
-            .add_instruction(OpCode::Stnz, &[target.addr().0], node, comment);
+            .add_instruction(OpCode::Stnz, &[target.addressing()], node, comment);
     }
 
-    pub fn add_cmp8(
+    pub fn add_cmp_reg(
         &mut self,
-        a: &FramePlacedType,
-        b: &FramePlacedType,
+        source_a: &TypedRegister,
+        source_b: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
-        assert_eq!(a.underlying().total_size.0, 1);
-        assert_eq!(b.underlying().total_size.0, 1);
-        self.state
-            .add_instruction(OpCode::Cmp8, &[a.addr().0, b.addr().0], node, comment);
-    }
-
-    pub fn add_cmp32(
-        &mut self,
-        a: &FramePlacedType,
-        b: &FramePlacedType,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert_eq!(a.underlying().total_size.0, 4);
-        assert_eq!(b.underlying().total_size.0, 4);
-
-        self.state
-            .add_instruction(OpCode::Cmp32, &[a.addr().0, b.addr().0], node, comment);
-    }
-
-    pub fn add_cmp(
-        &mut self,
-        source_a: &FramePlacedType,
-        source_b: &FramePlacedType,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert_eq!(source_a.size(), source_b.size());
         self.state.add_instruction(
-            OpCode::Cmp,
-            &[source_a.addr().0, source_b.addr().0, source_a.size().0],
+            OpCode::CmpReg,
+            &[source_a.addressing(), source_b.addressing()],
             node,
             comment,
         );
@@ -1500,8 +1521,8 @@ impl InstructionBuilder<'_> {
     // Collection specific
     pub fn add_map_new_from_slice(
         &mut self,
-        map_target_addr: &FramePlacedType,
-        slice_source_addr: &FramePlacedType,
+        map_target_addr: &TypedRegister,
+        slice_source_addr: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1511,7 +1532,7 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::MapNewFromPairs,
-            &[map_target_addr.addr().0, slice_source_addr.addr().0],
+            &[map_target_addr.addressing(), slice_source_addr.addressing()],
             node,
             comment,
         );
@@ -1519,31 +1540,15 @@ impl InstructionBuilder<'_> {
 
     pub fn add_map_has(
         &mut self,
-        self_addr: &FramePlacedType,
-        key_addr: &FramePlacedType,
+        self_addr: &TypedRegister,
+        key_addr: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
         self.state.add_instruction(
             OpCode::MapHas,
-            &[self_addr.addr().0, key_addr.addr().0],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_map_len(
-        &mut self,
-        target: &FramePlacedType,
-        self_addr: &FramePlacedType,
-        node: &Node,
-        comment: &str,
-    ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
-        self.state.add_instruction(
-            OpCode::MapLen,
-            &[target.addr().0, self_addr.addr().0],
+            &[self_addr.addressing(), key_addr.addressing()],
             node,
             comment,
         );
@@ -1551,15 +1556,15 @@ impl InstructionBuilder<'_> {
 
     pub fn add_map_remove(
         &mut self,
-        self_addr: &FramePlacedType,
-        key_addr: &FramePlacedType,
+        self_addr: &TypedRegister,
+        key_addr: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
         self.state.add_instruction(
             OpCode::MapRemove,
-            &[self_addr.addr().0, key_addr.addr().0],
+            &[self_addr.addressing(), key_addr.addressing()],
             node,
             comment,
         );
@@ -1567,16 +1572,20 @@ impl InstructionBuilder<'_> {
 
     pub fn add_map_fetch(
         &mut self,
-        target_addr: &FramePlacedType,
-        self_addr: &FramePlacedType,
-        key: &FramePlacedType,
+        target_addr: &TypedRegister,
+        self_addr: &TypedRegister,
+        key: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
         self.state.add_instruction(
             OpCode::MapFetch,
-            &[target_addr.addr().0, self_addr.addr().0, key.addr().0],
+            &[
+                target_addr.addressing(),
+                self_addr.addressing(),
+                key.addressing(),
+            ],
             node,
             comment,
         );
@@ -1584,9 +1593,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_map_set(
         &mut self,
-        self_addr: &FramePlacedType,
-        key: &FramePlacedType,
-        value: &FramePlacedType,
+        self_addr: &TypedRegister,
+        key: &TypedRegister,
+        value: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1594,20 +1603,23 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::MapSet,
-            &[self_addr.addr().0, key.addr().0, value.addr().0],
+            &[self_addr.addressing(), key.addressing(), value.addressing()],
             node,
             comment,
         );
     }
 
-    pub fn add_ld_u16(&mut self, dest: &FramePlacedType, data: u16, node: &Node, comment: &str) {
+    /*
+    pub fn add_ld_u16(&mut self, dest: &TypedRegister, data: u16, node: &Node, comment: &str) {
         self.state
-            .add_instruction(OpCode::Ld16, &[dest.addr().0, data], node, comment);
+            .add_instruction(OpCode::Ld16, &[dest.addressing(), data], node, comment);
     }
+
+     */
 
     pub fn add_alloc(
         &mut self,
-        target: &FramePlacedType,
+        target: &TypedRegister,
         size: MemorySize,
         node: &Node,
         comment: &str,
@@ -1615,52 +1627,10 @@ impl InstructionBuilder<'_> {
         assert!(matches!(target.ty().kind, BasicTypeKind::MutablePointer(_)));
         assert_eq!(target.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
         // assert_ne!(size.0, 0); TODO: Bring this back
-
-        self.state
-            .add_instruction(OpCode::Alloc, &[target.addr().0, size.0], node, comment);
-    }
-
-    pub fn add_stx(
-        &mut self,
-        dest: &FramePlacedType,
-        offset: HeapMemoryOffset,
-        source: &FramePlacedType,
-        size: FrameMemorySize,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert!(matches!(dest.ty().kind, BasicTypeKind::MutablePointer(_)));
-        assert_eq!(dest.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
-        assert_ne!(size.0, 0);
-
-        let (offset_lower, offset_upper) = Self::convert_to_lower_and_upper(offset.0);
+        let size_bytes = Self::u16_to_octets(size.0);
         self.state.add_instruction(
-            OpCode::Stx,
-            &[
-                dest.addr().0,
-                offset_lower,
-                offset_upper,
-                source.addr().0,
-                size.0,
-            ],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_stx_for_assignment(
-        &mut self,
-        dest: &FramePlacedType,
-        offset: HeapMemoryOffset,
-        source: &FramePlacedType,
-        node: &Node,
-        comment: &str,
-    ) {
-        self.add_stx(
-            dest,
-            offset,
-            source,
-            FrameMemorySize(source.size().0),
+            OpCode::Alloc,
+            &[target.addressing(), size_bytes.0, size_bytes.1],
             node,
             comment,
         );
@@ -1668,8 +1638,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_int_rnd(
         &mut self,
-        dest: &FramePlacedType,
-        self_int: &FramePlacedType,
+        dest: &TypedRegister,
+        self_int: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1677,7 +1647,7 @@ impl InstructionBuilder<'_> {
         assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntToRnd,
-            &[dest.addr().0, self_int.addr().0],
+            &[dest.addressing(), self_int.addressing()],
             node,
             comment,
         );
@@ -1685,8 +1655,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_int_min(
         &mut self,
-        dest: &FramePlacedType,
-        self_int: &FramePlacedType,
+        dest: &TypedRegister,
+        self_int: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1695,7 +1665,7 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::IntMin,
-            &[dest.addr().0, self_int.addr().0],
+            &[dest.addressing(), self_int.addressing()],
             node,
             comment,
         );
@@ -1703,8 +1673,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_int_max(
         &mut self,
-        dest: &FramePlacedType,
-        self_int: &FramePlacedType,
+        dest: &TypedRegister,
+        self_int: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1713,7 +1683,7 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::IntMax,
-            &[dest.addr().0, self_int.addr().0],
+            &[dest.addressing(), self_int.addressing()],
             node,
             comment,
         );
@@ -1721,8 +1691,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_int_clamp(
         &mut self,
-        dest: &FramePlacedType,
-        self_int: &FramePlacedType,
+        dest: &TypedRegister,
+        self_int: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1730,7 +1700,7 @@ impl InstructionBuilder<'_> {
         assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntClamp,
-            &[dest.addr().0, self_int.addr().0],
+            &[dest.addressing(), self_int.addressing()],
             node,
             comment,
         );
@@ -1738,8 +1708,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_int_abs(
         &mut self,
-        dest: &FramePlacedType,
-        self_int: &FramePlacedType,
+        dest: &TypedRegister,
+        self_int: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1747,7 +1717,7 @@ impl InstructionBuilder<'_> {
         assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntAbs,
-            &[dest.addr().0, self_int.addr().0],
+            &[dest.addressing(), self_int.addressing()],
             node,
             comment,
         );
@@ -1755,8 +1725,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_int_to_float(
         &mut self,
-        dest: &FramePlacedType,
-        self_int: &FramePlacedType,
+        dest: &TypedRegister,
+        self_int: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1764,7 +1734,7 @@ impl InstructionBuilder<'_> {
         assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntToFloat,
-            &[dest.addr().0, self_int.addr().0],
+            &[dest.addressing(), self_int.addressing()],
             node,
             comment,
         );
@@ -1772,8 +1742,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_int_to_string(
         &mut self,
-        dest: &FramePlacedType,
-        self_int: &FramePlacedType,
+        dest: &TypedRegister,
+        self_int: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1781,7 +1751,7 @@ impl InstructionBuilder<'_> {
         assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntToString,
-            &[dest.addr().0, self_int.addr().0],
+            &[dest.addressing(), self_int.addressing()],
             node,
             comment,
         );
@@ -1789,8 +1759,8 @@ impl InstructionBuilder<'_> {
 
     pub fn bool_to_string(
         &mut self,
-        dest_str: &FramePlacedType,
-        self_bool: &FramePlacedType,
+        dest_str: &TypedRegister,
+        self_bool: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1798,7 +1768,7 @@ impl InstructionBuilder<'_> {
         assert!(self_bool.ty().is_bool());
         self.state.add_instruction(
             OpCode::BoolToString,
-            &[dest_str.addr().0, self_bool.addr().0],
+            &[dest_str.addressing(), self_bool.addressing()],
             node,
             comment,
         );
@@ -1806,8 +1776,8 @@ impl InstructionBuilder<'_> {
 
     pub fn float_to_string(
         &mut self,
-        dest_str: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_str: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1815,7 +1785,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatToString,
-            &[dest_str.addr().0, self_float.addr().0],
+            &[dest_str.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1823,8 +1793,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_round(
         &mut self,
-        dest_int: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_int: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1832,7 +1802,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatRound,
-            &[dest_int.addr().0, self_float.addr().0],
+            &[dest_int.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1840,8 +1810,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_floor(
         &mut self,
-        dest_int: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_int: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1849,7 +1819,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatFloor,
-            &[dest_int.addr().0, self_float.addr().0],
+            &[dest_int.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1857,8 +1827,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_sqrt(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1866,7 +1836,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatSqrt,
-            &[dest_float.addr().0, self_float.addr().0],
+            &[dest_float.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1874,8 +1844,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_sign(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1883,7 +1853,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatSign,
-            &[dest_float.addr().0, self_float.addr().0],
+            &[dest_float.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1891,8 +1861,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_abs(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1900,7 +1870,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatAbs,
-            &[dest_float.addr().0, self_float.addr().0],
+            &[dest_float.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1908,8 +1878,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_prnd(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1917,7 +1887,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatPseudoRandom,
-            &[dest_float.addr().0, self_float.addr().0],
+            &[dest_float.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1925,8 +1895,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_sin(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1934,7 +1904,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatSin,
-            &[dest_float.addr().0, self_float.addr().0],
+            &[dest_float.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1942,8 +1912,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_cos(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1951,7 +1921,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatCos,
-            &[dest_float.addr().0, self_float.addr().0],
+            &[dest_float.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1959,8 +1929,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_acos(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1968,7 +1938,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatAcos,
-            &[dest_float.addr().0, self_float.addr().0],
+            &[dest_float.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1976,8 +1946,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_asin(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -1985,7 +1955,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatAsin,
-            &[dest_float.addr().0, self_float.addr().0],
+            &[dest_float.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -1993,8 +1963,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_atan2(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -2002,7 +1972,7 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatAtan2,
-            &[dest_float.addr().0, self_float.addr().0],
+            &[dest_float.addressing(), self_float.addressing()],
             node,
             comment,
         );
@@ -2010,9 +1980,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_min(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
-        other: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
+        other: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -2020,7 +1990,11 @@ impl InstructionBuilder<'_> {
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatMin,
-            &[dest_float.addr().0, self_float.addr().0, other.addr().0],
+            &[
+                dest_float.addressing(),
+                self_float.addressing(),
+                other.addressing(),
+            ],
             node,
             comment,
         );
@@ -2028,9 +2002,9 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_max(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
-        max_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
+        max_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -2039,7 +2013,11 @@ impl InstructionBuilder<'_> {
         assert!(max_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatMax,
-            &[dest_float.addr().0, self_float.addr().0, max_float.addr().0],
+            &[
+                dest_float.addressing(),
+                self_float.addressing(),
+                max_float.addressing(),
+            ],
             node,
             comment,
         );
@@ -2047,10 +2025,10 @@ impl InstructionBuilder<'_> {
 
     pub fn add_float_clamp(
         &mut self,
-        dest_float: &FramePlacedType,
-        self_float: &FramePlacedType,
-        min_float: &FramePlacedType,
-        max_float: &FramePlacedType,
+        dest_float: &TypedRegister,
+        self_float: &TypedRegister,
+        min_float: &TypedRegister,
+        max_float: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -2062,10 +2040,10 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::FloatClamp,
             &[
-                dest_float.addr().0,
-                min_float.addr().0,
-                self_float.addr().0,
-                max_float.addr().0,
+                dest_float.addressing(),
+                min_float.addressing(),
+                self_float.addressing(),
+                max_float.addressing(),
             ],
             node,
             comment,

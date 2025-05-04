@@ -4,20 +4,16 @@ use swamp_vm_types::{RangeHeader, RangeIterator};
 
 impl Vm {
     #[inline]
-    pub fn range_header_from_frame(&self, frame_offset: u16) -> RangeHeader {
+    pub fn range_header_from_frame(&self, frame_offset: u8) -> RangeHeader {
         unsafe { *(self.memory.get_frame_const_ptr(frame_offset) as *const RangeHeader) }
     }
 
-    pub fn range_iterator_ptr_from_frame(&self, frame_offset: u16) -> *mut RangeIterator {
+    pub fn range_iterator_ptr_from_frame(&self, frame_offset: u8) -> *mut RangeIterator {
         self.memory.get_frame_ptr(frame_offset) as *mut RangeIterator
     }
 
     #[inline]
-    pub fn execute_range_iter_init(
-        &mut self,
-        target_iterator_addr: u16,
-        range_header_on_frame: u16,
-    ) {
+    pub fn execute_range_iter_init(&mut self, target_iterator_addr: u8, range_header_on_frame: u8) {
         let range_header = self.range_header_from_frame(range_header_on_frame);
 
         let extra = i32::from(range_header.inclusive);
@@ -61,9 +57,9 @@ impl Vm {
     #[inline]
     pub fn execute_range_iter_next(
         &mut self,
-        target_iterator_addr: u16,
-        target_variable: u16,
-        jmp_absolute: u16,
+        target_iterator_addr: u8,
+        target_variable: u8,
+        jmp_absolute: u8,
     ) {
         let range_iterator = self.range_iterator_ptr_from_frame(target_iterator_addr);
 

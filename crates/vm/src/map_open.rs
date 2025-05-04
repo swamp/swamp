@@ -6,7 +6,7 @@ use crate::Vm;
 use crate::memory::Memory;
 use std::hash::{DefaultHasher, Hasher};
 use std::{ptr, slice};
-use swamp_vm_types::{MAP_HEADER_SIZE, MapHeader};
+use swamp_vm_types::{MAP_HEADER_SIZE, MapHeader, SlicePairHeader};
 
 impl Vm {
     const MAX_PROBES: usize = 8;
@@ -18,21 +18,9 @@ impl Vm {
         self.memory.get_heap_ptr(heap_addr as usize) as *mut MapHeader
     }
 
-    pub fn read_heap_map_header_via_frame(mem: &Memory, frame_addr: u16) -> MapHeader {
-        unsafe { *(mem.get_heap_ptr_via_frame(frame_addr) as *const MapHeader) }
-    }
-
-    pub fn read_heap_map_header_from_heap(heap_address: u32, heap: &Memory) -> MapHeader {
-        unsafe { *(heap.get_heap_const_ptr(heap_address as usize) as *const MapHeader) }
-    }
-
     pub const ELEMENT_COUNT_FACTOR: f32 = 1.5;
-    pub(crate) fn execute_map_open_addressing_from_slice(
-        &mut self,
-        dst_offset: u16,
-        slice_addr: u16,
-    ) {
-        let slice_pairs = self.slice_pair_header_from_frame(slice_addr);
+    pub(crate) fn execute_map_open_addressing_from_slice(&mut self, dst_offset: u8, slice_reg: u8) {
+        let slice_pairs = self.slice_pair_header_from_reg(slice_reg);
 
         debug_assert_ne!(slice_pairs.key_size, 0);
         debug_assert_ne!(slice_pairs.value_size, 0);
@@ -224,11 +212,11 @@ impl Vm {
 
     pub fn execute_map_open_addressing_get(
         &mut self,
-        dst_value_addr: u16,
-        self_map_source_addr: u16,
-        key_source: u16,
+        dst_value_addr: u8,
+        self_map_head_reg: u8,
+        key_source: u8,
     ) {
-        let map_header = Self::read_heap_map_header_via_frame(&self.memory, self_map_source_addr);
+        let map_header = Self::read_heap_map_header_reg(&self.memory, self_map_head_reg);
         let buckets_ptr = self
             .memory
             .get_heap_const_ptr(map_header.heap_offset as usize);
@@ -256,11 +244,11 @@ impl Vm {
 
     pub fn execute_map_open_addressing_has(
         &mut self,
-        self_const_map_source_addr: u16,
-        key_source: u16,
+        self_const_map_header_reg: u8,
+        key_source: u8,
     ) {
         let map_header =
-            Self::read_heap_map_header_via_frame(&self.memory, self_const_map_source_addr);
+            Self::read_heap_map_header_via_frame(&self.memory, self_const_map_header_reg);
         let buckets_ptr = self.memory.get_heap_ptr(map_header.heap_offset as usize);
         let key_source_ptr = self.memory.get_frame_const_ptr(key_source);
         unsafe {
@@ -340,12 +328,11 @@ impl Vm {
 
     pub fn execute_map_open_addressing_set(
         &mut self,
-        self_mut_map_source_addr: u16,
-        key_source: u16,
-        src_value_addr: u16,
+        self_map_header_reg: u8,
+        key_source: u8,
+        src_value_addr: u8,
     ) {
-        let map_header =
-            Self::read_heap_map_header_via_frame(&self.memory, self_mut_map_source_addr);
+        let map_header = Self::read_heap_map_header_via_frame(&self.memory, self_map_header_reg);
         let buckets_ptr = self.memory.get_heap_ptr(map_header.heap_offset as usize);
         let key_source_ptr = self.memory.get_frame_const_ptr(key_source);
         let value_source_ptr = self.memory.get_frame_const_ptr(src_value_addr);
@@ -452,7 +439,7 @@ impl Vm {
     }
 
     /*
-    fn map_remove_open_addressing(&mut self, dst_offset: u16, key_offset: u16) {
+    fn map_remove_open_addressing(&mut self, dst_offset: u8, key_offset: u8) {
         let dst_ptr = self.ptr_at_u16(self.frame_offset + dst_offset as usize);
 
         let capacity = unsafe { *dst_ptr.add(1) };

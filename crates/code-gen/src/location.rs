@@ -8,13 +8,13 @@ use source_map_node::Node;
 use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
-use swamp_vm_types::types::{BasicTypeKind, FramePlacedType};
+use swamp_vm_types::types::{BasicTypeKind, FramePlacedType, TypedRegister};
 
 impl FunctionCodeGen<'_> {
     pub(crate) fn emit_for_access_or_location(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
-    ) -> FramePlacedType {
+    ) -> TypedRegister {
         self.emit_expression_location_mut_ref_or_immutable(mut_or_immutable_expression)
     }
 
@@ -52,7 +52,7 @@ impl FunctionCodeGen<'_> {
     pub(crate) fn emit_expression_location_mut_ref_or_immutable(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
-    ) -> FramePlacedType {
+    ) -> TypedRegister {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
                 self.emit_expression_location(found_expression)
@@ -67,8 +67,8 @@ impl FunctionCodeGen<'_> {
     pub(crate) fn emit_lvalue_chain(
         &mut self,
         location_expression: &SingleLocationExpression,
-        source_value_to_assign: Option<FramePlacedType>,
-    ) -> FramePlacedType {
+        source_value_to_assign: Option<TypedRegister>,
+    ) -> TypedRegister {
         let mut frame_relative_base_address = self
             .variable_offsets
             .get(
@@ -88,7 +88,7 @@ impl FunctionCodeGen<'_> {
             chain_len
         };
 
-        // Loop over the consecutive accesses until we find the actual frame relative address (FramePlacedType)
+        // Loop over the consecutive accesses until we find the actual frame relative address (TypedRegister)
         for access in location_expression.access_chain.iter().take(accesses_count) {
             match &access.kind {
                 LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
@@ -197,9 +197,9 @@ impl FunctionCodeGen<'_> {
     fn emit_collection_set(
         &mut self,
         node: &Node,
-        self_collection: &FramePlacedType,
+        self_collection: &TypedRegister,
         key_or_index: &[Expression],
-        element_to_set: &FramePlacedType,
+        element_to_set: &TypedRegister,
     ) {
         let key_address = self.emit_expression_location(&key_or_index[0]);
         match &self_collection.ty().kind {

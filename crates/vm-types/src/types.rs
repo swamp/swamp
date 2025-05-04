@@ -4,12 +4,13 @@ use crate::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
     MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MAP_PTR_ALIGNMENT, MAP_PTR_SIZE,
     MemoryAlignment, MemoryOffset, MemorySize, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE,
-    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
-    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
+    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_SIZE, STRING_PTR_ALIGNMENT,
+    STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT,
+    VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
 };
 use seq_fmt::comma;
 use std::fmt::{Display, Formatter, Write};
+use std::ops::Add;
 use tracing::error;
 use yansi::Paint;
 
@@ -135,14 +136,14 @@ pub struct FrameMemoryAttribute {
 
 #[derive(Debug, Clone)]
 pub enum DecoratedOperandAccessKind {
-    ReadFrameAddress(FrameMemoryAddress, Option<PathInfo>, FrameMemoryAttribute),
-    WriteFrameAddress(FrameMemoryAddress, Option<PathInfo>, FrameMemoryAttribute),
+    ReadFrameAddress(TypedRegister, Option<PathInfo>, FrameMemoryAttribute),
+    WriteFrameAddress(TypedRegister, Option<PathInfo>, FrameMemoryAttribute),
     ReadIndirectPointer(FrameMemoryAddress),
     Ip(InstructionPosition),
     ImmediateU32(u32),
     ImmediateU16(u16),
     MemorySize(MemorySize),
-    ImmediateU8(u16),
+    ImmediateU8(u8),
     CountU16(u16),
     HeapAddress(HeapMemoryAddress),
     WriteIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
@@ -588,14 +589,82 @@ impl HeapPlacedType {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct TypedRegister {
+    pub index: u8,
+    pub basic_type: VmType,
+}
+
+impl TypedRegister {}
+
+impl Display for TypedRegister {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "R{} ({:?})", self.index, self.basic_type)
+    }
+}
+
+impl TypedRegister {
+    #[must_use]
+    pub fn new(index: u8, ty: FramePlacedType) -> Self {
+        Self {
+            index,
+            basic_type: VmType::FramePlaced(ty),
+        }
+    }
+
+    pub fn new_vm_type(index: u8, ty: VmType) -> Self {
+        Self {
+            index,
+            basic_type: ty,
+        }
+    }
+    pub fn addressing(&self) -> u8 {
+        self.index
+    }
+
+    #[must_use]
+    pub fn ty(&self) -> &BasicType {
+        let VmType::FramePlaced(fp) = &self.basic_type else {
+            panic!("")
+        };
+        fp.ty()
+    }
+
+    pub fn size(&self) -> MemorySize {
+        let VmType::FramePlaced(fp) = &self.basic_type else {
+            panic!("")
+        };
+        fp.size()
+    }
+
+    pub fn underlying(&self) -> &BasicType {
+        let VmType::FramePlaced(fp) = &self.basic_type else {
+            panic!("")
+        };
+        fp.underlying()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum Immediate {
+    U32(u32),
+    I32(i32),
+    Fixed32(i32),
+    Bool(bool),
+}
+
+#[derive(Clone, Debug)]
+pub enum VmType {
+    Immediate(Immediate),
+    FramePlaced(FramePlacedType),
+}
+
 /// Represents a type that has been allocated to a frame relative address
 #[derive(Clone, Debug)]
 pub struct FramePlacedType {
     addr: FrameMemoryAddress,
     ty: BasicType,
 }
-
-impl FramePlacedType {}
 
 impl FramePlacedType {
     #[must_use]
@@ -619,6 +688,8 @@ impl FramePlacedType {
         self.ty.underlying()
     }
 }
+
+const FRAME_MEMORY_ADDRESS_IS_POINTER_TAG: u16 = 0x8000;
 
 impl FramePlacedType {
     #[must_use]
@@ -650,7 +721,7 @@ impl FramePlacedType {
 
     #[must_use]
     pub fn final_type(&self) -> &BasicType {
-        &self.ty.underlying()
+        self.ty.underlying()
     }
 
     #[must_use]
@@ -1069,7 +1140,7 @@ pub fn show_memory_offset(
     _tabs: usize,
 ) -> std::fmt::Result {
     let result = origin + offset;
-    write!(f, "{:04X}+{:04X}", result.0.cyan(), offset.0.yellow())
+    write!(f, "{}+{:04X}", result, offset.0.yellow())
 }
 fn show_memory_size(size: MemorySize, f: &mut dyn Write, _tabs: usize) -> std::fmt::Result {
     write!(f, "{:X}", size.0.green())
