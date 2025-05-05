@@ -34,8 +34,9 @@ use swamp_types::{AnonymousStructType, Attribute, Attributes, EnumVariantType, S
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, FrameMemoryInfo, FramePlacedType, FunctionInfo, FunctionInfoKind,
-    HeapPlacedType, TypedRegister, int_type, pointer_type, show_frame_memory,
+    AssignmentTarget, BasicType, BasicTypeKind, FrameMemoryInfo, FramePlacedType, FunctionInfo,
+    FunctionInfoKind, HeapPlacedType, Immediate, TypedRegister, VmType, int_type, pointer_type,
+    show_frame_memory,
 };
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
@@ -44,11 +45,11 @@ use swamp_vm_types::{
     InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT, MAP_HEADER_COUNT_OFFSET,
     MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset,
     MemorySize, Meta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT,
-    RANGE_ITERATOR_SIZE, SLICE_COUNT_OFFSET, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE,
-    SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT, STRING_HEADER_COUNT_OFFSET, STRING_HEADER_SIZE,
-    STRING_PTR_SIZE, StringHeader, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT,
-    VEC_HEADER_COUNT_OFFSET, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
-    VEC_PTR_SIZE, ZFlagPolarity,
+    RANGE_ITERATOR_SIZE, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, SLICE_COUNT_OFFSET,
+    SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, SLICE_PTR_OFFSET, STRING_HEADER_ALIGNMENT,
+    STRING_HEADER_COUNT_OFFSET, STRING_HEADER_SIZE, STRING_PTR_SIZE, StringHeader,
+    TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_COUNT_OFFSET, VEC_HEADER_SIZE,
+    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_SIZE, ZFlagPolarity,
 };
 use tracing::{error, info};
 
@@ -69,6 +70,11 @@ pub enum TransformerResult {
     VecWithLambdaResult,
     VecFromSourceCollection,
     WrappedValueFromSourceCollection,
+}
+
+pub struct SpilledArgument {
+    pub index: u8,
+    pub frame_memory_region: FrameMemoryRegion,
 }
 
 impl Transformer {
@@ -451,7 +457,7 @@ pub fn reserve(ty: &Type, allocator: &mut ScopeAllocator) -> FramePlacedType {
 
 pub struct FrameAndVariableInfo {
     pub frame_memory: FrameMemoryInfo,
-    variable_offsets: SeqMap<usize, FramePlacedType>,
+    variable_offsets: SeqMap<usize, TypedRegister>,
     temp_allocator_region: FrameMemoryRegion,
     return_placement: FramePlacedType,
 }
@@ -660,7 +666,9 @@ impl TopLevelGenState {
             source_map_wrapper,
         );
 
-        let ctx = Context::new(frame_and_variable_info.return_placement);
+        let return_register = TypedRegister::new(0, frame_and_variable_info.return_placement);
+
+        let ctx = Context::new(return_register);
         //info!(?in_data, "generate");
         function_generator.emit_expression_materialize(&in_data.expression, &ctx);
 
@@ -753,14 +761,100 @@ impl TopLevelGenState {
     }
 }
 
+pub struct TempRegister {
+    pub register: TypedRegister,
+}
+
+impl TempRegister {
+    pub(crate) fn register(&self) -> &TypedRegister {
+        &self.register
+    }
+}
+
+impl TempRegister {
+    pub fn addressing(&self) -> u8 {
+        self.register.addressing()
+    }
+}
+
+pub struct RegisterInfo {
+    pub index: u8,
+}
+
+pub struct TempRegisterPool {
+    pub free_registers: Vec<RegisterInfo>,
+}
+
+impl TempRegisterPool {
+    pub fn new(start: u8, count: usize) -> Self {
+        let mut registers = Vec::new();
+        for index in start..(start + count as u8) {
+            registers.push(RegisterInfo { index });
+        }
+
+        Self {
+            free_registers: registers,
+        }
+    }
+    pub fn allocate(&mut self, ty: VmType) -> TempRegister {
+        let free_reg_info = self.free_registers.pop().unwrap();
+
+        TempRegister {
+            register: TypedRegister {
+                index: free_reg_info.index,
+                basic_type: ty,
+            },
+        }
+    }
+
+    pub fn free(&mut self, reg: &TempRegister) {
+        assert!(
+            !self
+                .free_registers
+                .iter()
+                .any(|info| info.index == reg.register.index)
+        );
+
+        self.free_registers.push(RegisterInfo {
+            index: reg.register.index,
+        });
+    }
+}
+
+pub struct RegisterPool {
+    pub start_index: u8,
+    pub end_index: u8,
+    pub current_index: u8,
+}
+
+impl RegisterPool {
+    pub fn new(start: u8, count: u8) -> Self {
+        Self {
+            start_index: start,
+            end_index: start + count,
+            current_index: start,
+        }
+    }
+    pub fn alloc_register(&mut self, ty: VmType) -> TypedRegister {
+        assert!(self.current_index + 1 < self.end_index, "out of registers");
+        let allocated_register = self.current_index;
+        self.current_index += 1;
+        TypedRegister {
+            index: allocated_register,
+            basic_type: ty,
+        }
+    }
+}
+
 pub struct FunctionCodeGen<'a> {
     state: &'a mut CodeGenState,
     builder: &'a mut InstructionBuilder<'a>, // also references things in CodeGenState
-    variable_offsets: SeqMap<usize, FramePlacedType>,
+    variable_registers: SeqMap<usize, TypedRegister>,
     total_frame_size: FrameMemorySize,
     variable_frame_size: FrameMemorySize,
-    temp_allocator: ScopeAllocator,
-    argument_allocator: ScopeAllocator,
+    temp_registers: TempRegisterPool,
+    argument_registers: TempRegisterPool,
+    temp_allocator: ScopeAllocator, // used for temporary
     debug_name: String,
     source_map_lookup: &'a SourceMapWrapper<'a>,
 }
@@ -770,7 +864,7 @@ impl<'a> FunctionCodeGen<'a> {
     pub fn new(
         state: &'a mut CodeGenState,
         builder: &'a mut InstructionBuilder<'a>,
-        variable_offsets: SeqMap<usize, FramePlacedType>,
+        variable_offsets: SeqMap<usize, TypedRegister>,
         frame_size: FrameMemorySize,
         temp_memory_region: FrameMemoryRegion,
         debug_name: &str,
@@ -780,14 +874,12 @@ impl<'a> FunctionCodeGen<'a> {
 
         Self {
             state,
-            variable_offsets,
+            variable_registers: variable_offsets,
             total_frame_size: frame_size,
             variable_frame_size: temp_memory_region.addr.as_size(),
+            argument_registers: TempRegisterPool::new(8, 32),
+            temp_registers: TempRegisterPool::new(40, 10),
             temp_allocator: ScopeAllocator::new(temp_memory_region),
-            argument_allocator: ScopeAllocator::new(FrameMemoryRegion::new(
-                FrameMemoryAddress(frame_size.0),
-                MemorySize(ARGUMENT_MAX_SIZE),
-            )),
             builder,
             debug_name: debug_name.to_string(),
             source_map_lookup,
@@ -822,7 +914,7 @@ impl FunctionCodeGen<'_> {
                 assert!(element_type.is_concrete());
 
                 self.builder.add_vec_from_slice(
-                    ctx.target(),
+                    ctx.target_register(),
                     &slice_region,
                     node,
                     "vec_from_slice",
@@ -847,7 +939,7 @@ impl FunctionCodeGen<'_> {
                 assert!(value_type.is_concrete_or_unit());
 
                 self.builder.add_map_new_from_slice(
-                    ctx.target(),
+                    ctx.target_register(),
                     &slice_region,
                     node,
                     "create map from temporary slice pair",
@@ -900,61 +992,91 @@ impl FunctionCodeGen<'_> {
 
             // Bool
             IntrinsicFunction::BoolToString => self.builder.bool_to_string(
-                ctx.target(),
+                ctx.target_register(),
                 &self_addr.unwrap(),
                 node,
                 "bool_to_string",
             ),
 
             // Fixed
-            IntrinsicFunction::FloatRound => {
-                self.builder
-                    .add_float_round(ctx.target(), &self_addr.unwrap(), node, "float round")
-            }
-            IntrinsicFunction::FloatFloor => {
-                self.builder
-                    .add_float_floor(ctx.target(), &self_addr.unwrap(), node, "float floor")
-            }
+            IntrinsicFunction::FloatRound => self.builder.add_float_round(
+                ctx.target_register(),
+                &self_addr.unwrap(),
+                node,
+                "float round",
+            ),
+            IntrinsicFunction::FloatFloor => self.builder.add_float_floor(
+                ctx.target_register(),
+                &self_addr.unwrap(),
+                node,
+                "float floor",
+            ),
             IntrinsicFunction::FloatSqrt => {
-                self.builder
-                    .add_float_sqrt(ctx.target(), &self_addr.unwrap(), node, "float sqr");
+                self.builder.add_float_sqrt(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "float sqr",
+                );
             }
             IntrinsicFunction::FloatSign => {
-                self.builder
-                    .add_float_sign(ctx.target(), &self_addr.unwrap(), node, "float sign");
+                self.builder.add_float_sign(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "float sign",
+                );
             }
             IntrinsicFunction::FloatAbs => {
-                self.builder
-                    .add_float_abs(ctx.target(), &self_addr.unwrap(), node, "float abs");
+                self.builder.add_float_abs(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "float abs",
+                );
             }
             IntrinsicFunction::FloatRnd => {
                 self.builder.add_float_prnd(
-                    ctx.target(),
+                    ctx.target_register(),
                     &self_addr.unwrap(),
                     node,
                     "float pseudo random",
                 );
             }
             IntrinsicFunction::FloatCos => {
-                self.builder
-                    .add_float_cos(ctx.target(), &self_addr.unwrap(), node, "float cos");
+                self.builder.add_float_cos(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "float cos",
+                );
             }
             IntrinsicFunction::FloatSin => {
-                self.builder
-                    .add_float_sin(ctx.target(), &self_addr.unwrap(), node, "float sin");
+                self.builder.add_float_sin(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "float sin",
+                );
             }
-            IntrinsicFunction::FloatAcos => {
-                self.builder
-                    .add_float_acos(ctx.target(), &self_addr.unwrap(), node, "float acos")
-            }
-            IntrinsicFunction::FloatAsin => {
-                self.builder
-                    .add_float_asin(ctx.target(), &self_addr.unwrap(), node, "float asin")
-            }
-            IntrinsicFunction::FloatAtan2 => {
-                self.builder
-                    .add_float_atan2(ctx.target(), &self_addr.unwrap(), node, "float atan2")
-            }
+            IntrinsicFunction::FloatAcos => self.builder.add_float_acos(
+                ctx.target_register(),
+                &self_addr.unwrap(),
+                node,
+                "float acos",
+            ),
+            IntrinsicFunction::FloatAsin => self.builder.add_float_asin(
+                ctx.target_register(),
+                &self_addr.unwrap(),
+                node,
+                "float asin",
+            ),
+            IntrinsicFunction::FloatAtan2 => self.builder.add_float_atan2(
+                ctx.target_register(),
+                &self_addr.unwrap(),
+                node,
+                "float atan2",
+            ),
             IntrinsicFunction::FloatMin => {
                 let float_arg = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
@@ -962,7 +1084,7 @@ impl FunctionCodeGen<'_> {
                 };
                 let float_region = self.emit_expression_location(float_arg_expr);
                 self.builder.add_float_min(
-                    ctx.target(),
+                    ctx.target_register(),
                     &self_addr.unwrap(),
                     &float_region,
                     node,
@@ -976,7 +1098,7 @@ impl FunctionCodeGen<'_> {
                 };
                 let float_region = self.emit_expression_location(float_arg_expr);
                 self.builder.add_float_max(
-                    ctx.target(),
+                    ctx.target_register(),
                     &self_addr.unwrap(),
                     &float_region,
                     node,
@@ -997,7 +1119,7 @@ impl FunctionCodeGen<'_> {
                 let float_b_region = self.emit_expression_location(float_b_expr);
 
                 self.builder.add_float_clamp(
-                    ctx.target(),
+                    ctx.target_register(),
                     &float_region,
                     &self_addr.unwrap(),
                     &float_b_region,
@@ -1006,7 +1128,7 @@ impl FunctionCodeGen<'_> {
                 );
             }
             IntrinsicFunction::FloatToString => self.builder.float_to_string(
-                ctx.target(),
+                ctx.target_register(),
                 &self_addr.unwrap(),
                 node,
                 "float_to_string",
@@ -1014,38 +1136,54 @@ impl FunctionCodeGen<'_> {
 
             // Int
             IntrinsicFunction::IntAbs => {
-                self.builder
-                    .add_int_abs(ctx.target(), &self_addr.unwrap(), node, "int abs");
+                self.builder.add_int_abs(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "int abs",
+                );
             }
 
             IntrinsicFunction::IntRnd => {
                 self.builder.add_int_rnd(
-                    ctx.target(),
+                    ctx.target_register(),
                     &self_addr.unwrap(),
                     node,
                     "int pseudo random",
                 );
             }
             IntrinsicFunction::IntMax => {
-                self.builder
-                    .add_int_max(ctx.target(), &self_addr.unwrap(), node, "int max");
+                self.builder.add_int_max(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "int max",
+                );
             }
             IntrinsicFunction::IntMin => {
-                self.builder
-                    .add_int_min(ctx.target(), &self_addr.unwrap(), node, "int min");
+                self.builder.add_int_min(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "int min",
+                );
             }
             IntrinsicFunction::IntClamp => {
-                self.builder
-                    .add_int_clamp(ctx.target(), &self_addr.unwrap(), node, "int clamp");
+                self.builder.add_int_clamp(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "int clamp",
+                );
             }
             IntrinsicFunction::IntToFloat => self.builder.add_int_to_float(
-                ctx.target(),
+                ctx.target_register(),
                 &self_addr.unwrap(),
                 node,
                 "int to float",
             ),
             IntrinsicFunction::IntToString => self.builder.add_int_to_string(
-                ctx.target(),
+                ctx.target_register(),
                 &self_addr.unwrap(),
                 node,
                 "int_to_string",
@@ -1053,8 +1191,8 @@ impl FunctionCodeGen<'_> {
 
             // String
             IntrinsicFunction::StringLen => {
-                self.builder.add_mov32(
-                    ctx.target(),
+                self.builder.add_ld32_immediate_value(
+                    ctx.target_register(),
                     &self_addr
                         .unwrap()
                         .move_with_offset(STRING_HEADER_COUNT_OFFSET, int_type()),
@@ -1077,15 +1215,15 @@ impl FunctionCodeGen<'_> {
                 };
                 let key_region = self.emit_expression_location(key_expr);
                 self.builder.add_vec_push(
-                    &self_addr.unwrap(), // mut self
-                    &key_region,
+                    self_addr.unwrap(), // mut self
+                    key_region,
                     node,
                     "vec push",
                 );
             }
             IntrinsicFunction::VecPop => {
                 self.builder.add_vec_pop(
-                    ctx.target(),
+                    ctx.target_register(),
                     &self_addr.unwrap(), // mut self
                     node,
                     "vec pop",
@@ -1112,7 +1250,7 @@ impl FunctionCodeGen<'_> {
                 };
                 let key_region = self.emit_expression_location(key_expr);
                 self.builder.add_vec_remove_index_get_value(
-                    ctx.target(),
+                    ctx.target_register(),
                     &self_addr.unwrap(), // mut self
                     &key_region,
                     node,
@@ -1133,7 +1271,7 @@ impl FunctionCodeGen<'_> {
                 };
                 let key_region = self.emit_expression_location(key_expr);
                 self.builder.add_vec_get(
-                    ctx.target(),
+                    ctx.target_register(),
                     &self_addr.unwrap(), // mut self
                     &key_region,
                     node,
@@ -1141,8 +1279,12 @@ impl FunctionCodeGen<'_> {
                 );
             }
             IntrinsicFunction::VecCreate => {
-                self.builder
-                    .add_vec_create(ctx.target(), MemorySize(0), node, "vec create"); // TODO: Fix to have proper element memory size
+                self.builder.add_vec_create(
+                    ctx.target_register(),
+                    MemorySize(0),
+                    node,
+                    "vec create",
+                ); // TODO: Fix to have proper element memory size
             }
             IntrinsicFunction::VecSubscript => {
                 let maybe_index_argument = &arguments[0];
@@ -1152,7 +1294,7 @@ impl FunctionCodeGen<'_> {
                 };
                 let index_region = self.emit_expression_location(index_expr);
                 self.builder.add_vec_subscript(
-                    ctx.target(),
+                    ctx.target_register(),
                     &self_addr.unwrap(),
                     &index_region,
                     node,
@@ -1196,7 +1338,7 @@ impl FunctionCodeGen<'_> {
                 let range_header_region = self.emit_expression_location(range_expr);
                 assert_eq!(range_header_region.size(), RANGE_HEADER_SIZE);
                 self.builder.add_vec_get_range(
-                    ctx.target(),
+                    ctx.target_register(),
                     &self_addr.unwrap(),  // mut self (string header)
                     &range_header_region, // range x..=y
                     node,
@@ -1215,12 +1357,19 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecWhile => todo!(), // Low prio
             IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
-            IntrinsicFunction::VecLen => self.builder.add_vec_len(
-                ctx.target(),
-                &self_addr.unwrap(),
-                node,
-                "get the vec length",
-            ),
+            IntrinsicFunction::VecLen => {
+                let typed_register = self_addr.unwrap();
+
+                self.builder
+                    .add_ld_addr_offset(&typed_register, VEC_HEADER_COUNT_OFFSET);
+
+                self.builder.add_vec_len(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "get the vec length",
+                )
+            }
             IntrinsicFunction::VecAny => todo!(), // Low prio
             IntrinsicFunction::VecAll => todo!(), // Low prio
             IntrinsicFunction::VecMap => todo!(), // Low prio
@@ -1295,8 +1444,12 @@ impl FunctionCodeGen<'_> {
                 // Never called directly
             }
             IntrinsicFunction::MapLen => {
-                self.builder
-                    .add_map_len(ctx.target(), &self_addr.unwrap(), node, "map len");
+                self.builder.add_map_len(
+                    ctx.target_register(),
+                    &self_addr.unwrap(),
+                    node,
+                    "map len",
+                );
             }
             IntrinsicFunction::MapSubscript => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
@@ -1304,7 +1457,7 @@ impl FunctionCodeGen<'_> {
                 };
                 let key = self.emit_expression_location(key_argument);
                 self.builder.add_map_fetch(
-                    ctx.target(),
+                    ctx.target_register(),
                     &self_addr.unwrap(),
                     &key,
                     node,
@@ -1412,7 +1565,7 @@ impl FunctionCodeGen<'_> {
         z_flag_result
     }
 
-    fn emit_intrinsic_map_remove(&mut self, map_region: &FramePlacedType, key_expr: &Expression) {
+    fn emit_intrinsic_map_remove(&mut self, map_region: &TypedRegister, key_expr: &Expression) {
         let key_region = self.emit_expression_location(key_expr);
 
         self.builder
@@ -1470,6 +1623,16 @@ impl FunctionCodeGen<'_> {
         Context::new(self.temp_memory_region_for_type(ty, comment))
     }
 
+    fn temp_space_for_register(&mut self, comment: &str) -> FrameMemoryRegion {
+        let start = self
+            .temp_allocator
+            .allocate(REG_ON_FRAME_SIZE, REG_ON_FRAME_ALIGNMENT);
+        FrameMemoryRegion {
+            addr: start,
+            size: REG_ON_FRAME_SIZE,
+        }
+    }
+
     /// # Panics
     ///
     #[allow(clippy::single_match_else)]
@@ -1484,7 +1647,7 @@ impl FunctionCodeGen<'_> {
         match &expr.kind {
             ExpressionKind::VariableAccess(var_ref) => {
                 let frame_address = self
-                    .variable_offsets
+                    .variable_registers
                     .get(&var_ref.unique_id_within_function)
                     .unwrap();
 
@@ -1502,7 +1665,7 @@ impl FunctionCodeGen<'_> {
 
         let z_flag_state = self.emit_expression(expr, &temp_ctx);
 
-        (temp_ctx.target().clone(), z_flag_state)
+        (temp_ctx.target_register().clone(), z_flag_state)
     }
 
     /// # Panics
@@ -1549,7 +1712,7 @@ impl FunctionCodeGen<'_> {
     pub fn emit_expression_materialize(&mut self, expr: &Expression, ctx: &Context) {
         let result = self.emit_expression(expr, ctx);
 
-        self.materialize_z_flag_to_bool_if_needed(ctx.target(), result, &expr.node);
+        self.materialize_z_flag_to_bool_if_needed(ctx.target_register(), result, &expr.node);
     }
 
     pub fn emit_expression(
@@ -1580,11 +1743,11 @@ impl FunctionCodeGen<'_> {
             ExpressionKind::PostfixChain(start, chain) => {
                 let (chain_placed_type, expression_result) =
                     self.emit_postfix_chain(start, chain, Some(ctx));
-                if chain_placed_type.addr() != ctx.target().addr()
+                if chain_placed_type.addr() != ctx.target_register().addr()
                     && chain_placed_type.size().0 != 0
                 {
                     self.builder.add_mov_for_assignment(
-                        ctx.target(),
+                        ctx.target_register(),
                         &chain_placed_type,
                         &expr.node,
                         "forced mov after chain",
@@ -1664,15 +1827,23 @@ impl FunctionCodeGen<'_> {
             UnaryOperatorKind::Negate => match &unary_operator.left.ty {
                 Type::Int => {
                     let left_source = self.emit_expression_location(&unary_operator.left);
-                    self.builder
-                        .add_neg_i32(ctx.target(), &left_source, node, "negate i32");
+                    self.builder.add_neg_i32(
+                        ctx.target_register(),
+                        &left_source,
+                        node,
+                        "negate i32",
+                    );
                     GeneratedExpressionResult::default()
                 }
 
                 Type::Float => {
                     let left_source = self.emit_expression_location(&unary_operator.left);
-                    self.builder
-                        .add_neg_f32(ctx.target(), &left_source, node, "negate f32");
+                    self.builder.add_neg_f32(
+                        ctx.target_register(),
+                        &left_source,
+                        node,
+                        "negate f32",
+                    );
                     GeneratedExpressionResult::default()
                 }
                 _ => panic!("negate should only be possible on Int and Float"),
@@ -1781,25 +1952,44 @@ impl FunctionCodeGen<'_> {
         let mut kind = GeneratedExpressionResultKind::ZFlagUnmodified;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
-                self.builder
-                    .add_add_i32(ctx.target(), left_source, right_source, node, "i32 add");
+                self.builder.add_add_i32(
+                    ctx.target_register(),
+                    left_source,
+                    right_source,
+                    node,
+                    "i32 add",
+                );
             }
-            BinaryOperatorKind::Subtract => {
-                self.builder
-                    .add_sub_i32(ctx.target(), left_source, right_source, node, "i32 sub")
-            }
+            BinaryOperatorKind::Subtract => self.builder.add_sub_i32(
+                ctx.target_register(),
+                left_source,
+                right_source,
+                node,
+                "i32 sub",
+            ),
             BinaryOperatorKind::Multiply => {
-                self.builder
-                    .add_mul_i32(ctx.target(), left_source, right_source, node, "i32 mul");
+                self.builder.add_mul_i32(
+                    ctx.target_register(),
+                    left_source,
+                    right_source,
+                    node,
+                    "i32 mul",
+                );
             }
-            BinaryOperatorKind::Divide => {
-                self.builder
-                    .add_div_i32(ctx.target(), left_source, right_source, node, "i32 div")
-            }
-            BinaryOperatorKind::Modulo => {
-                self.builder
-                    .add_mod_i32(ctx.target(), left_source, right_source, node, "i32 mod")
-            }
+            BinaryOperatorKind::Divide => self.builder.add_div_i32(
+                ctx.target_register(),
+                left_source,
+                right_source,
+                node,
+                "i32 div",
+            ),
+            BinaryOperatorKind::Modulo => self.builder.add_mod_i32(
+                ctx.target_register(),
+                left_source,
+                right_source,
+                node,
+                "i32 mod",
+            ),
             BinaryOperatorKind::LogicalOr => todo!(),
             BinaryOperatorKind::LogicalAnd => todo!(),
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => todo!(),
@@ -1851,26 +2041,47 @@ impl FunctionCodeGen<'_> {
         let mut kind = GeneratedExpressionResultKind::ZFlagUnmodified;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
-                self.builder
-                    .add_add_f32(ctx.target(), left_source, right_source, node, "f32 add");
+                self.builder.add_add_f32(
+                    ctx.target_register(),
+                    left_source,
+                    right_source,
+                    node,
+                    "f32 add",
+                );
             }
 
-            BinaryOperatorKind::Subtract => {
-                self.builder
-                    .add_sub_f32(ctx.target(), left_source, right_source, node, "f32 sub")
-            }
+            BinaryOperatorKind::Subtract => self.builder.add_sub_f32(
+                ctx.target_register(),
+                left_source,
+                right_source,
+                node,
+                "f32 sub",
+            ),
             BinaryOperatorKind::Multiply => {
-                self.builder
-                    .add_mul_f32(ctx.target(), left_source, right_source, node, "f32 add");
+                self.builder.add_mul_f32(
+                    ctx.target_register(),
+                    left_source,
+                    right_source,
+                    node,
+                    "f32 add",
+                );
             }
             BinaryOperatorKind::Divide => {
-                self.builder
-                    .add_div_f32(ctx.target(), left_source, right_source, node, "f32 div");
+                self.builder.add_div_f32(
+                    ctx.target_register(),
+                    left_source,
+                    right_source,
+                    node,
+                    "f32 div",
+                );
             }
-            BinaryOperatorKind::Modulo => {
-                self.builder
-                    .add_mod_f32(ctx.target(), left_source, right_source, node, "f32 mod")
-            }
+            BinaryOperatorKind::Modulo => self.builder.add_mod_f32(
+                ctx.target_register(),
+                left_source,
+                right_source,
+                node,
+                "f32 mod",
+            ),
             BinaryOperatorKind::LogicalOr => panic!("not supported"),
             BinaryOperatorKind::LogicalAnd => panic!("not supported"),
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => panic!("handled elsewhere"),
@@ -1910,16 +2121,16 @@ impl FunctionCodeGen<'_> {
 
     fn emit_binary_operator_string(
         &mut self,
-        left_source: &FramePlacedType,
+        left_source: &TypedRegister,
         node: &Node,
         binary_operator_kind: &BinaryOperatorKind,
-        right_source: &FramePlacedType,
+        right_source: &TypedRegister,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.builder.add_string_append(
-                    ctx.target(),
+                    ctx.target_register(),
                     left_source,
                     right_source,
                     node,
@@ -1937,35 +2148,16 @@ impl FunctionCodeGen<'_> {
         }
     }
 
-    fn emit_binary_operator_bytes_cmp(
-        &mut self,
-        left_source: &FramePlacedType,
-        node: &Node,
-        right_source: &FramePlacedType,
-    ) -> GeneratedExpressionResult {
-        self.builder.add_cmp(
-            left_source,
-            right_source,
-            //            left_source.size(),
-            &node,
-            "compare enum",
-        );
-
-        GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::ZFlagIsTrue,
-        }
-    }
-
     fn emit_binary_operator_cmp8(
         &mut self,
-        left_source: &FramePlacedType,
+        left_source: &TypedRegister,
         node: &Node,
-        right_source: &FramePlacedType,
+        right_source: &TypedRegister,
     ) -> GeneratedExpressionResult {
         assert_eq!(left_source.size().0, 1);
         assert_eq!(right_source.size().0, 1);
         self.builder
-            .add_cmp8(left_source, right_source, &node, "compare bool");
+            .add_cmp_8(left_source, right_source, &node, "compare bool");
 
         GeneratedExpressionResult {
             kind: GeneratedExpressionResultKind::ZFlagIsTrue,
@@ -1979,7 +2171,7 @@ impl FunctionCodeGen<'_> {
         right_source: &TypedRegister,
     ) -> GeneratedExpressionResult {
         self.builder
-            .add_cmp32(left_source, right_source, node, "compare to z flag");
+            .add_cmp_32(left_source, right_source, node, "compare to z flag");
 
         GeneratedExpressionResult {
             kind: GeneratedExpressionResultKind::ZFlagIsTrue,
@@ -1993,7 +2185,7 @@ impl FunctionCodeGen<'_> {
         right_source: &TypedRegister,
     ) -> GeneratedExpressionResult {
         self.builder
-            .add_cmp8(left_source, right_source, &node, "compare bool");
+            .add_cmp_8(left_source, right_source, &node, "compare bool");
 
         GeneratedExpressionResult {
             kind: GeneratedExpressionResultKind::ZFlagIsTrue,
@@ -2196,14 +2388,33 @@ impl FunctionCodeGen<'_> {
         ctx: &Context,
         comment: &str,
     ) {
-        let region = self.emit_lvalue_chain(argument, None);
-
-        if !region.ty().is_pointer() {
-            if region.size().0 != 0 {
-                self.builder
-                    .add_lea(ctx.target(), region.addr(), &argument.node, comment);
+        let region = self.emit_lvalue_chain(argument);
+        match region {
+            AssignmentTarget::Register(reg) => {}
+            AssignmentTarget::MemoryLocation(reg, offset) => {
+                self.builder.add_ld_addr_offset(
+                    ctx.target_register(),
+                    &reg,
+                    HeapMemoryOffset(offset.0 as u32),
+                    &argument.node,
+                    "forcing lvalue to be a complete pointer",
+                );
             }
         }
+
+        /*
+        if !region.ty().is_pointer() {
+            if region.size().0 != 0 {
+                self.builder.add_lea(
+                    ctx.target_register(),
+                    region.addr(),
+                    &argument.node,
+                    comment,
+                );
+            }
+        }
+
+         */
     }
 
     fn emit_variable_assignment(
@@ -2213,7 +2424,7 @@ impl FunctionCodeGen<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let target_relative_frame_pointer = self
-            .variable_offsets
+            .variable_registers
             .get(&variable.unique_id_within_function)
             .unwrap_or_else(|| {
                 panic!(
@@ -2239,7 +2450,7 @@ impl FunctionCodeGen<'_> {
         ctx: &Context,
     ) {
         let target_relative_frame_pointer = self
-            .variable_offsets
+            .variable_registers
             .get(&variable.unique_id_within_function)
             .unwrap_or_else(|| panic!("{}", variable.assigned_name));
 
@@ -2251,14 +2462,65 @@ impl FunctionCodeGen<'_> {
         self.emit_mut_or_immute(mut_or_immutable_expression, &init_ctx)
     }
 
+    fn copy_contents_to_memory(
+        &mut self,
+        node: &Node,
+        base_ptr_reg: &TypedRegister,
+        offset: MemoryOffset,
+        source_reg: &TypedRegister,
+    ) {
+        let binding = source_reg.basic_type.frame_placed_type().unwrap();
+        let underlying_type = binding.underlying();
+
+        let kind = &underlying_type.kind;
+        match kind {
+            BasicTypeKind::Empty => {
+                // No need to copy, it has zero size
+            }
+            BasicTypeKind::U8 | BasicTypeKind::B8 => {
+                self.builder.add_st8_from_pointer_with_offset(
+                    base_ptr_reg,
+                    offset,
+                    node,
+                    "assignment store",
+                );
+            }
+            BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
+                self.builder.add_st32_from_pointer_with_offset(
+                    base_ptr_reg,
+                    offset,
+                    node,
+                    "assignment store",
+                );
+            }
+
+            _ => self.builder.add_block_copy_with_offset(
+                base_ptr_reg,
+                offset,
+                source_reg,
+                underlying_type.total_size,
+                node,
+                "block copy struct-like",
+            ),
+        }
+    }
+
     fn emit_assignment(
         &mut self,
         node: &Node,
         lhs: &TargetAssignmentLocation,
         rhs: &Expression,
     ) -> GeneratedExpressionResult {
-        let frame_relative_source = self.emit_expression_location(rhs);
-        self.emit_lvalue_chain(&lhs.0, Some(frame_relative_source));
+        let assignment_target = self.emit_lvalue_chain(&lhs.0);
+        match assignment_target {
+            AssignmentTarget::Register(target_reg) => {
+                let ctx = Context::new(target_reg);
+                self.emit_expression_materialize(rhs, &ctx);
+            }
+            AssignmentTarget::MemoryLocation(base_target_ptr_reg, offset) => {
+                self.builder.add_st_indirect()
+            }
+        }
 
         GeneratedExpressionResult::default()
     }
@@ -2358,124 +2620,38 @@ impl FunctionCodeGen<'_> {
         signature: &Signature,
         self_region: Option<TypedRegister>,
         arguments: &Vec<MutRefOrImmutableExpression>,
-        ctx: Option<&Context>, // not sure if it has return value
-    ) -> FrameMemoryRegion {
-        self.argument_allocator.reset();
+        ctx: &Context,
+    ) -> Vec<SpilledArgument> {
+        let mut argument_registers = RegisterPool::new(1, 6);
         // Layout return and arguments, must be continuous space
-        if let Some(return_ctx) = ctx {
-            if return_ctx.target_size().0 > 0 {
-                let (mutable_return_pointer_placed, needs_effective_address) =
-                    if return_ctx.ty().is_pointer() {
-                        (return_ctx.ty(), false)
-                    } else {
-                        (&return_ctx.ty().create_mutable_pointer(), true)
-                    };
-                assert!(
-                    mutable_return_pointer_placed.is_pointer(),
-                    "should have been an pointer return slot"
-                );
-                let return_value_slot = self
-                    .argument_allocator
-                    .allocate_type(mutable_return_pointer_placed.clone());
 
-                if needs_effective_address {
-                    self.ensure_absolute_target_pointer_location(
-                        node,
-                        &return_value_slot,
-                        return_ctx.target(),
-                    );
-                }
-            }
-        }
         //assert_eq!(argument_addr.addr.0, self.frame_size.0);
 
-        let mut argument_final_targets = Vec::new();
-        let mut argument_comments = Vec::new();
+        let mut protected_argument_registers = Vec::new();
+        let mut spilled_arguments = Vec::new();
 
-        // TODO: Temporary targets can be skipped, and the final argument targets be used instead
-        // in the case that there are no nested calls. This will make the code slightly more complicated
-        // so I opted to put that on the todo list for now.
-
-        let mut argument_temp_targets = Vec::new();
-        // Layout arguments, must be continuous space
-        // Includes optional first self parameter
         for (index, type_for_parameter) in signature.parameters.iter().enumerate() {
-            let argument_final_target = reserve(
-                &type_for_parameter.resolved_type,
-                &mut self.argument_allocator,
-            );
-            let temporary = self.temp_space_for_type(&type_for_parameter.resolved_type, "argument");
-            assert_eq!(temporary.target().size(), argument_final_target.size());
+            let basic_type = layout_type(&type_for_parameter.resolved_type);
+            let argument_register = argument_registers.alloc_register(VmType::Basic(basic_type));
 
-            argument_final_targets.push(argument_final_target);
-            argument_temp_targets.push(temporary);
-
-            argument_comments.push(format!("argument {}", type_for_parameter.name));
-        }
-
-        let skip_count = self_region.as_ref().map_or(0, |_push_self| 1);
-
-        for ((argument_temp_target, argument_expr_or_loc), argument_comment) in
-            argument_temp_targets
-                .iter()
-                .skip(skip_count)
-                .zip(arguments)
-                .zip(argument_comments)
-        {
-            self.emit_argument(
-                argument_expr_or_loc,
-                argument_temp_target,
-                &argument_comment,
-            );
-        }
-
-        // Place self at correct place before the other arguments
-        if let Some(push_self) = self_region {
-            if push_self.size().0 != 0 {
-                self.builder.add_mov_for_assignment(
-                    &argument_final_targets[0], // Final target for self
-                    &push_self,                 // Source location of self
-                    node,
-                    "<self>",
-                );
+            if ctx.register_is_protected(&argument_register) {
+                let save_region = self.temp_space_for_register("emit_arguments");
+                self.builder
+                    .add_st_reg_to_frame(save_region.addr, &argument_register);
+                spilled_arguments.push(SpilledArgument {
+                    index: argument_register.index,
+                    frame_memory_region: save_region,
+                });
             }
+            let mut argument_ctx = ctx.clone();
+            argument_ctx.add_protected_registers(&protected_argument_registers);
+
+            let argument_expr_or_location = &arguments[index];
+            self.emit_argument(argument_expr_or_location, &argument_ctx, "arg");
+            protected_argument_registers.push(argument_register.clone());
         }
 
-        // Copy evaluated non-self arguments from their temporary locations to their final locations
-        for (final_target, temp_target) in argument_final_targets
-            .iter()
-            .skip(skip_count) // Skips final_self if skip_count=1
-            .zip(
-                argument_temp_targets.iter().skip(skip_count), // Skips temp_self if skip_count=1
-            )
-        {
-            if temp_target.target().size().0 != 0 {
-                self.builder.add_mov_for_assignment(
-                    final_target,
-                    temp_target.target(),
-                    node,
-                    "copy in to final argument target",
-                );
-            }
-        }
-
-        let memory_size = argument_final_targets
-            .last()
-            .map_or(MemorySize(0), |last_target| {
-                MemorySize(
-                    last_target.addr().add(last_target.size()).0
-                        - argument_final_targets[0].addr().0,
-                )
-            });
-
-        let start_addr = argument_final_targets
-            .first()
-            .map_or(FrameMemoryAddress(0), TypedRegister::addr);
-
-        FrameMemoryRegion {
-            addr: start_addr,
-            size: memory_size,
-        }
+        spilled_arguments
     }
 
     #[allow(clippy::too_many_lines)]
@@ -2564,7 +2740,7 @@ impl FunctionCodeGen<'_> {
                             &format!("not supported as a member call {function_to_call:?}")
                         ),
                     }
-                    self_source_frame_placed = target_ctx.target().clone();
+                    self_source_frame_placed = target_ctx.target_register().clone();
                 }
                 PostfixKind::OptionalChainingOperator => {
                     todo!()
@@ -2573,7 +2749,7 @@ impl FunctionCodeGen<'_> {
                     let target_ctx = &self.temp_space_for_type(&expression.ty, "");
 
                     let patch = self.builder.add_unwrap_jmp_some_placeholder(
-                        target_ctx.target(),
+                        target_ctx.target_register(),
                         &self_source_frame_placed,
                         &expression.node,
                         "none coalesce",
@@ -2583,7 +2759,7 @@ impl FunctionCodeGen<'_> {
 
                     self.builder.patch_jump_here(patch);
 
-                    self_source_frame_placed = target_ctx.target().clone();
+                    self_source_frame_placed = target_ctx.target_register().clone();
                 }
             }
         }
@@ -2643,7 +2819,11 @@ impl FunctionCodeGen<'_> {
         base_context: &Context,
     ) {
         for (field_index, expression) in source_order_expressions {
-            let field_placed_type = base_context.target().move_to_field(*field_index);
+            let field_placed_type = base_context
+                .target_register()
+                .ty()
+                .addr()
+                .move_to_field(*field_index);
             let field_ctx = Context::new(field_placed_type);
             self.emit_expression_materialize(expression, &field_ctx);
         }
@@ -2658,29 +2838,38 @@ impl FunctionCodeGen<'_> {
         match literal {
             Literal::IntLiteral(int) => {
                 self.builder
-                    .add_ldi32(ctx.target(), *int, node, "int literal");
+                    .add_ldi32(ctx.target_register(), *int, node, "int literal");
             }
             Literal::FloatLiteral(fixed_point) => {
-                self.builder
-                    .add_ldi32(ctx.target(), fixed_point.inner(), node, "float literal");
+                self.builder.add_ldi32(
+                    ctx.target_register(),
+                    fixed_point.inner(),
+                    node,
+                    "float literal",
+                );
             }
             Literal::NoneLiteral => {
-                self.builder.add_ld8(ctx.target(), 0, node, "none literal");
+                self.builder
+                    .add_ld8(ctx.target_register(), 0, node, "none literal");
             }
             Literal::BoolLiteral(truthy) => {
-                self.builder
-                    .add_ld8(ctx.target(), u8::from(*truthy), node, "bool literal");
+                self.builder.add_ld8(
+                    ctx.target_register(),
+                    u8::from(*truthy),
+                    node,
+                    "bool literal",
+                );
             }
             Literal::EnumVariantLiteral(_enum_type, a, b) => {
                 self.builder.add_ld8(
-                    ctx.target(),
+                    ctx.target_register(),
                     a.common().container_index,
                     node,
                     &format!("enum variant {} tag", a.common().assigned_name),
                 );
 
                 let inner_addr = ctx
-                    .target()
+                    .target_register()
                     .union_payload(a.common().container_index as usize);
                 let inner_ctx = Context::new(inner_addr);
 
@@ -2746,8 +2935,8 @@ impl FunctionCodeGen<'_> {
                 .0,
         );
         assert_eq!(ctx.target_size(), STRING_PTR_SIZE);
-        self.builder.add_ld32(
-            ctx.target(),
+        self.builder.add_ld32_immediate_value(
+            ctx.target_register(),
             string_header_in_heap_ptr.0,
             node,
             "constant string",
@@ -2761,7 +2950,7 @@ impl FunctionCodeGen<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         if let Some(found_value) = maybe_option {
-            let target_tag = ctx.target().move_to_optional_tag();
+            let target_tag = ctx.target_register().move_to_optional_tag();
             self.builder
                 .add_ld8(&target_tag, 1, node, "option Some tag"); // 1 signals `Some`
 
@@ -2769,7 +2958,7 @@ impl FunctionCodeGen<'_> {
             self.emit_expression_materialize(found_value, &some_payload_ctx); // Fills in more of the union
         } else {
             self.builder
-                .add_ld8(ctx.target(), 0, node, "option None tag"); // 0 signals `None`
+                .add_ld8(ctx.target_register(), 0, node, "option None tag"); // 0 signals `None`
             // No real need to clear the rest of the memory
         }
 
@@ -2883,9 +3072,9 @@ impl FunctionCodeGen<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn get_variable_region(&self, variable: &VariableRef) -> &TypedRegister {
+    fn get_variable_register(&self, variable: &VariableRef) -> &TypedRegister {
         let frame_address = self
-            .variable_offsets
+            .variable_registers
             .get(&variable.unique_id_within_function)
             .unwrap();
 
@@ -2898,9 +3087,9 @@ impl FunctionCodeGen<'_> {
         variable: &VariableRef,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let frame_placed_variable = self.get_variable_region(variable).clone();
+        let frame_placed_variable = self.get_variable_register(variable).clone();
         self.builder.add_mov_for_assignment(
-            ctx.target(),
+            ctx.target_register(),
             &frame_placed_variable,
             node,
             &format!("variable access {}", ctx.comment()),
@@ -2923,7 +3112,7 @@ impl FunctionCodeGen<'_> {
         op: &CompoundOperatorKind,
         source: &Expression,
     ) -> GeneratedExpressionResult {
-        let target_location = self.emit_lvalue_chain(&target_location.0, None);
+        let assignment_target = self.emit_lvalue_chain(&target_location.0);
 
         let source_info = self.emit_expression_location(source);
 
@@ -2931,10 +3120,20 @@ impl FunctionCodeGen<'_> {
 
         match &type_to_consider {
             Type::Int => {
-                self.emit_compound_assignment_i32(&source.node, &target_location, op, &source_info);
+                self.emit_compound_assignment_i32(
+                    &source.node,
+                    &assignment_target,
+                    op,
+                    &source_info,
+                );
             }
             Type::Float => {
-                self.emit_compound_assignment_f32(&source.node, &target_location, op, &source_info);
+                self.emit_compound_assignment_f32(
+                    &source.node,
+                    &assignment_target,
+                    op,
+                    &source_info,
+                );
             }
             Type::String => todo!(),
             _ => panic!("not allowed as a compound assignment"),
@@ -3079,6 +3278,7 @@ impl FunctionCodeGen<'_> {
         expressions: &[Expression],
         ctx: &Context,
     ) {
+        assert_eq!(ctx.target_size(), SLICE_HEADER_SIZE);
         let Type::Slice(element_type) = slice_type else {
             panic!("incorrect slice type")
         };
@@ -3086,20 +3286,22 @@ impl FunctionCodeGen<'_> {
         let element_gen_type = layout_type(element_type);
         let element_count = expressions.len() as u16;
         let total_slice_size = MemorySize(element_gen_type.total_size.0 * element_count);
-        assert_eq!(ctx.target_size(), SLICE_HEADER_SIZE);
 
-        let heap_ptr_header_addr = ctx
-            .target()
-            .move_with_offset(SLICE_PTR_OFFSET, pointer_type());
+        let base_ptr_reg = { self.temp_registers.allocate(VmType::TempPointer) };
 
         self.builder.add_alloc(
-            &heap_ptr_header_addr,
+            base_ptr_reg.register(),
             total_slice_size,
             node,
             "allocate slice",
         );
 
-        let temp_element_ctx = self.temp_allocator.reserve_ctx(element_type);
+        let element_temp_reg = self.temp_registers.allocate(VmType::TempPointer);
+        let temp_element_ctx = Context::new(element_temp_reg.register.clone());
+
+        let target_addr_temp_calculation_reg = self.temp_registers.allocate(VmType::TempPointer);
+
+        let elements_fit_inside_register = element_gen_type.can_be_contained_inside_register();
 
         for (index, expr) in expressions.iter().enumerate() {
             self.emit_expression_materialize(expr, &temp_element_ctx);
@@ -3107,20 +3309,57 @@ impl FunctionCodeGen<'_> {
             let heap_offset =
                 HeapMemoryOffset((index as u32) * element_gen_type.total_size.0 as u32);
 
-            self.builder.add_stx_for_assignment(
-                &heap_ptr_header_addr,
-                heap_offset,
-                temp_element_ctx.target(),
-                node,
-                "copy slice element",
-            );
+            if elements_fit_inside_register {
+                self.builder.add_st_indirect(
+                    base_ptr_reg.register(),
+                    heap_offset,
+                    temp_element_ctx.target_register(),
+                    node,
+                    "copy into slice",
+                );
+            } else {
+                // it is pointer base, so we need to copy it into the slice
+                self.builder.add_ld_addr_offset(
+                    target_addr_temp_calculation_reg.register(),
+                    base_ptr_reg.register(),
+                    heap_offset,
+                    node,
+                    "get the slice offset",
+                );
+                self.builder.add_mov_mem(
+                    target_addr_temp_calculation_reg.register(),
+                    temp_element_ctx.target_register(),
+                    element_gen_type.total_size,
+                    node,
+                    "copy 'struct' into slice",
+                );
+            }
         }
 
+        let element_size_reg = self
+            .temp_registers
+            .allocate(VmType::Immediate(Immediate::U32));
+        self.builder.add_ld32_immediate_value(
+            element_size_reg.register(),
+            element_gen_type.total_size.0 as u32,
+            node,
+            "set element size",
+        );
+        let element_count_reg = self
+            .temp_registers
+            .allocate(VmType::Immediate(Immediate::U32));
+        self.builder.add_ld32_immediate_value(
+            element_count_reg.register(),
+            element_count as u32,
+            node,
+            "set element count",
+        );
+
         self.builder.add_slice_from_heap(
-            ctx.target(),
-            heap_ptr_header_addr.addr(),
-            &element_gen_type,
-            element_count,
+            ctx.target_register(),
+            base_ptr_reg.register(),
+            element_size_reg.register(),
+            element_count_reg.register(),
             node,
             "slice literal",
         );
@@ -3154,7 +3393,7 @@ impl FunctionCodeGen<'_> {
         let total_slice_size = MemorySize(pair_size * element_count);
 
         let heap_ptr_header_addr = ctx
-            .target()
+            .target_register()
             .move_with_offset(SLICE_PTR_OFFSET, pointer_type());
 
         self.builder.add_alloc(
@@ -3193,7 +3432,7 @@ impl FunctionCodeGen<'_> {
         }
 
         self.builder.add_slice_pair_from_heap(
-            ctx.target(),
+            ctx.target_register(),
             heap_ptr_header_addr.addr(),
             &key_layout,
             &value_layout,
@@ -3356,7 +3595,7 @@ impl FunctionCodeGen<'_> {
         if let MutRefOrImmutableExpression::Expression(found_expr) = &arguments[0] {
             let memory = self.emit_expression_location(found_expr);
             self.builder
-                .add_vec_from_slice(ctx.target(), &memory, node, "create vec");
+                .add_vec_from_slice(ctx.target_register(), &memory, node, "create vec");
         } else {
             panic!("vec_from_slice");
         }
@@ -3499,7 +3738,7 @@ impl FunctionCodeGen<'_> {
 
         // if we are here all bindings are `Some`, so it is safe to get the payload
         for binding in bindings {
-            let placed_variable = self.get_variable_region(&binding.variable).clone();
+            let placed_variable = self.get_variable_register(&binding.variable).clone();
 
             if binding.has_expression() {
                 let var_ctx = Context::new(placed_variable);
@@ -3560,7 +3799,7 @@ impl FunctionCodeGen<'_> {
             if target_variable.is_unused {
             } else {
                 let frame_placed_target_variable =
-                    self.get_variable_region(target_variable).clone();
+                    self.get_variable_register(target_variable).clone();
 
                 //                assert_eq!(frame_placed_target_variable.size().0, offset_item.size.0);
 
@@ -3596,7 +3835,7 @@ impl FunctionCodeGen<'_> {
         assert_eq!(ctx.target_size(), constant_region.size());
 
         self.builder.add_mov_mem_for_assignment(
-            ctx.target(),
+            ctx.target_register(),
             constant_region,
             node,
             &format!("load constant '{}'", constant_reference.assigned_name),
@@ -3612,7 +3851,7 @@ impl FunctionCodeGen<'_> {
     ) -> GeneratedExpressionResult {
         let region = self.emit_expression_location(expr);
         self.builder.add_mov(
-            ctx.target(),
+            ctx.target_register(),
             &region,
             MemorySize(1),
             &expr.node,
@@ -3622,11 +3861,11 @@ impl FunctionCodeGen<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn emit_start_of_chain(&mut self, start: &StartOfChain) -> FramePlacedType {
+    fn emit_start_of_chain(&mut self, start: &StartOfChain) -> TypedRegister {
         match &start.kind {
             StartOfChainKind::Expression(expr) => self.emit_expression_location(expr),
             StartOfChainKind::Variable(variable) => {
-                let frame_placed_type = self.get_variable_region(variable);
+                let frame_placed_type = self.get_variable_register(variable);
                 frame_placed_type.clone()
             }
         }
@@ -3639,13 +3878,7 @@ impl FunctionCodeGen<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        self.emit_arguments(
-            node,
-            &internal_fn.signature.signature,
-            None,
-            arguments,
-            Some(ctx),
-        );
+        self.emit_arguments(node, &internal_fn.signature.signature, None, arguments, ctx);
 
         self.add_call(
             node,
@@ -3665,20 +3898,20 @@ impl FunctionCodeGen<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let memory_region =
-            self.emit_arguments(node, &host_fn.signature, None, arguments, Some(ctx));
+        let spilled_arguments = self.emit_arguments(node, &host_fn.signature, None, arguments, ctx);
 
+        let arg_count = arguments.len() as u8;
         self.builder.add_host_call(
             host_fn.id as u16,
-            memory_region.size,
+            arg_count,
             node,
             &format!(
                 "host: {} arguments_size:{}",
-                host_fn.assigned_name, memory_region.size.0
+                host_fn.assigned_name, arg_count
             ),
         );
 
-        //self.call_post_helper(node, &host_fn.signature, None, arguments, ctx)
+        self.emit_post_call(&spilled_arguments, node);
 
         GeneratedExpressionResult::default()
     }
@@ -3691,7 +3924,7 @@ impl FunctionCodeGen<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let memory_region = self.emit_arguments(
+        let spilled_arguments = self.emit_arguments(
             node,
             &host_fn.signature,
             Some(self_frame_placed_type.clone()),
@@ -3699,26 +3932,19 @@ impl FunctionCodeGen<'_> {
             Some(ctx),
         );
 
+        let arg_count = (1 + arguments.len()) as u8;
         self.builder.add_host_call(
             host_fn.id as u16,
-            memory_region.size,
+            arg_count,
             node,
             &format!(
                 "host self call: {} arguments_size:{}",
-                host_fn.assigned_name, memory_region.size.0
+                host_fn.assigned_name, arg_count,
             ),
         ); // will be fixed up later
 
-        /*
-        self.call_post_helper(
-            node,
-            &host_fn.signature,
-            Some(self_frame_placed_type.clone()),
-            arguments,
-            ctx,
-        )
+        self.emit_post_call(&spilled_arguments, node);
 
-         */
         GeneratedExpressionResult::default()
     }
 
@@ -3775,7 +4001,7 @@ impl FunctionCodeGen<'_> {
         node: &Node,
         source_collection_type: Collection,
         transformer: Transformer,
-        source_collection_self_region: &FramePlacedType,
+        source_collection_self_region: &TypedRegister,
         source_collection_analyzed_type: &Type,
         lambda_expression: &MutRefOrImmutableExpression,
         ctx: &Context,
@@ -3794,7 +4020,7 @@ impl FunctionCodeGen<'_> {
         let target_variables: Vec<_> = lambda_variables
             .iter()
             .map(|x| {
-                self.variable_offsets
+                self.variable_registers
                     .get(&x.unique_id_within_function)
                     .unwrap()
                     .clone()
@@ -3832,7 +4058,7 @@ impl FunctionCodeGen<'_> {
 
             assert_eq!(ctx.target_size(), VEC_PTR_SIZE);
             self.builder.add_vec_create(
-                ctx.target(),
+                ctx.target_register(),
                 element_size_in_target_vec,
                 node,
                 "target result vector",
@@ -3890,7 +4116,7 @@ impl FunctionCodeGen<'_> {
                     &lambda_result,
                     transformer.needs_tag_removed(),
                     source_collection_type,
-                    ctx.target(),
+                    ctx.target_register(),
                     node,
                 );
             }
@@ -3898,7 +4124,7 @@ impl FunctionCodeGen<'_> {
                 self.add_to_collection(
                     node,
                     source_collection_type,
-                    ctx.target(),
+                    ctx.target_register(),
                     primary_variable,
                 );
             }
@@ -3922,19 +4148,22 @@ impl FunctionCodeGen<'_> {
         match transformer.return_type() {
             TransformerResult::Bool => {
                 // It is a transformer that returns a bool, lets store z flag as bool it
-                self.builder
-                    .add_stz(ctx.target(), node, "transformer sets standard bool");
+                self.builder.add_stz(
+                    ctx.target_register(),
+                    node,
+                    "transformer sets standard bool",
+                );
             }
             TransformerResult::WrappedValueFromSourceCollection => {
                 let BasicTypeKind::Optional(tagged_union) = &ctx.ty().kind else {
                     panic!("expected optional");
                 };
 
-                let tag_target = ctx.target().move_to_optional_tag();
+                let tag_target = ctx.target_register().move_to_optional_tag();
                 self.builder
                     .add_ld8(&tag_target, 1, node, "mark tag as Some");
 
-                let some_payload_target = ctx.target().move_to_optional_some_payload();
+                let some_payload_target = ctx.target_register().move_to_optional_some_payload();
                 self.builder.add_mov_for_assignment(
                     &some_payload_target,
                     primary_variable,
@@ -4093,10 +4322,10 @@ impl FunctionCodeGen<'_> {
 
     fn transformer_add_to_collection(
         &mut self,
-        in_value: &FramePlacedType,
+        in_value: &TypedRegister,
         should_unwrap_value: bool,
         collection_type: Collection,
-        mut_collection: &FramePlacedType,
+        mut_collection: &TypedRegister,
         node: &Node,
     ) {
         let adjusted_region = if should_unwrap_value {
@@ -4110,7 +4339,7 @@ impl FunctionCodeGen<'_> {
     }
     fn materialize_z_flag_to_bool_if_needed(
         &mut self,
-        target: &FramePlacedType,
+        target: &TypedRegister,
         z_flag_state: GeneratedExpressionResult,
         node: &Node,
     ) {
@@ -4133,7 +4362,7 @@ impl FunctionCodeGen<'_> {
         &mut self,
         node: &Node,
         collection: Collection,
-        source_collection: &FramePlacedType,
+        source_collection: &TypedRegister,
         source_collection_type: &Type,
         for_pattern: &ForPattern,
         lambda_expr: &Expression,
@@ -4173,14 +4402,25 @@ impl FunctionCodeGen<'_> {
 
         if !inner.ty().is_pointer() {
             self.builder.add_lea(
-                ctx.target(),
-                inner.addr(),
+                ctx.target_register(),
+                inner.ty().addr(),
                 node,
                 "wasn't a pointer, so converting",
             );
         }
 
         GeneratedExpressionResult::default()
+    }
+
+    fn emit_post_call(&mut self, spilled_arguments: &[SpilledArgument], node: &Node) {
+        for arg in spilled_arguments {
+            self.builder.add_ld_reg_from_frame(
+                arg.index,
+                arg.frame_memory_region.addr,
+                node,
+                "restoring clobbered arguments",
+            );
+        }
     }
 }
 

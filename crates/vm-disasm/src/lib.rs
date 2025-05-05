@@ -12,12 +12,12 @@ use swamp_vm_types::types::{
     BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
     DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, FramePlacedType, PathInfo,
     TypedRegister, b8_type, bytes_type, float_type, int_type, map_iter_type, map_type,
-    pointer_type_again, range_iter_type, range_type, slice_type, string_type, u8_type, u32_type,
-    vec_iter_type, vec_type,
+    pointer_type, pointer_type_again, range_iter_type, range_type, slice_type, string_type,
+    u8_type, u32_type, vec_iter_type, vec_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    InstructionPosition, InstructionPositionOffset, MemorySize, Meta,
+    InstructionPosition, InstructionPositionOffset, MemoryOffset, MemorySize, Meta,
 };
 use yansi::{Color, Paint};
 
@@ -195,6 +195,10 @@ pub fn disasm_color(
                 format!("{}", format!("{:X}", data.0).yellow()),
                 format!("{}{}", "int:", data.0),
             ),
+            DecoratedOperandAccessKind::MemoryOffset(data) => (
+                format!("+{}", format!("{:X}", data.0).yellow()),
+                format!("{}{}", "int:", data.0),
+            ),
 
             DecoratedOperandAccessKind::ImmediateU32(data) => (
                 format!("{}", format!("{data:X}",).magenta()),
@@ -306,6 +310,9 @@ pub fn disasm_no_color(
                 format!("({}{})", "$", format!("{:04X}", addr.0))
             }
             DecoratedOperandAccessKind::MemorySize(data) => format!("{}", format!("{:X}", data.0)),
+            DecoratedOperandAccessKind::MemoryOffset(data) => {
+                format!("+{}", format!("{:X}", data.0))
+            }
 
             DecoratedOperandAccessKind::Ip(ip) => {
                 format!("{}{}", "@", format!("{:X}", ip.0))
@@ -356,12 +363,42 @@ pub fn disasm(
             frame_memory_info,
         )],
 
-        OpCode::Ld32 => {
+        OpCode::St32UsingPtrWithOffset => {
+            let data = ((operands[1] as u16) << 8) | operands[2] as u16;
+
+            &[
+                to_write_frame(operands[0], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(data)),
+                to_read_frame(operands[3], &int_type(), frame_memory_info),
+            ]
+        }
+
+        OpCode::St8UsingPtrWithOffset => {
+            let data = ((operands[1] as u16) << 8) | operands[2] as u16;
+
+            &[
+                to_write_frame(operands[0], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(data)),
+                to_read_frame(operands[3], &int_type(), frame_memory_info),
+            ]
+        }
+
+        OpCode::Ld32FromImmediateValue => {
             let data = ((operands[2] as u32) << 16) | operands[1] as u32;
 
             &[
                 to_write_frame(operands[0], &int_type(), frame_memory_info),
                 DecoratedOperandAccessKind::ImmediateU32(data),
+            ]
+        }
+
+        OpCode::Ld32FromPointerWithOffset => {
+            let data = ((operands[1] as u16) << 8) | operands[2] as u16;
+
+            &[
+                to_write_frame(operands[0], &int_type(), frame_memory_info),
+                to_read_frame(operands[3], &pointer_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(data)),
             ]
         }
 
@@ -569,9 +606,13 @@ pub fn disasm(
 
         OpCode::Stnz => &[to_write_frame(operands[0], &b8_type(), frame_memory_info)],
 
-        OpCode::CmpReg => &[
+        OpCode::Cmp32 => &[
             to_read_frame(operands[0], &u32_type(), frame_memory_info),
             to_read_frame(operands[1], &u32_type(), frame_memory_info),
+        ],
+        OpCode::Cmp8 => &[
+            to_read_frame(operands[0], &u8_type(), frame_memory_info),
+            to_read_frame(operands[1], &u8_type(), frame_memory_info),
         ],
 
         OpCode::Bnz | OpCode::Bz | OpCode::Call => {
@@ -615,6 +656,16 @@ pub fn disasm(
                 operands[3],
             ))),
         ],
+
+        OpCode::StIndirect => &[
+            to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
+            DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(u8_pair_to_u16(
+                operands[1],
+                operands[2],
+            ))),
+            to_read_frame(operands[3], &bytes_type(), frame_memory_info),
+        ],
+
         OpCode::Nop => &[],
 
         OpCode::SliceFromHeap => &[

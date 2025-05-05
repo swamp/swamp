@@ -1,20 +1,21 @@
-use crate::Vm;
+use crate::Reg;
+use crate::{Vm, set_reg};
 use std::ptr;
 use swamp_vm_types::{RangeHeader, RangeIterator};
 
 impl Vm {
     #[inline]
-    pub fn range_header_from_frame(&self, frame_offset: u8) -> RangeHeader {
-        unsafe { *(self.memory.get_frame_const_ptr(frame_offset) as *const RangeHeader) }
+    pub fn range_header_from_reg(&self, range_reg: u8) -> RangeHeader {
+        unsafe { *(self.get_const_ptr_from_reg(range_reg) as *const RangeHeader) }
     }
 
-    pub fn range_iterator_ptr_from_frame(&self, frame_offset: u8) -> *mut RangeIterator {
-        self.memory.get_frame_ptr(frame_offset) as *mut RangeIterator
+    pub fn range_iterator_ptr_from_reg(&self, range_iterator_reg: u8) -> *mut RangeIterator {
+        self.get_ptr_from_reg(range_iterator_reg) as *mut RangeIterator
     }
 
     #[inline]
-    pub fn execute_range_iter_init(&mut self, target_iterator_addr: u8, range_header_on_frame: u8) {
-        let range_header = self.range_header_from_frame(range_header_on_frame);
+    pub fn execute_range_iter_init(&mut self, target_iterator_reg: u8, range_header_reg: u8) {
+        let range_header = self.range_header_from_reg(range_header_reg);
 
         let extra = i32::from(range_header.inclusive);
 
@@ -37,6 +38,8 @@ impl Vm {
             eprintln!("range_iter_init {start} to {end} dir:{direction}");
         }
 
+        let iterator_target_ptr = self.range_iterator_ptr_from_reg(target_iterator_reg);
+
         unsafe {
             let vec_iterator = RangeIterator {
                 index: start,
@@ -46,9 +49,7 @@ impl Vm {
 
             ptr::copy_nonoverlapping(
                 &vec_iterator,
-                self.memory
-                    .get_frame_ptr(target_iterator_addr)
-                    .cast::<RangeIterator>(),
+                iterator_target_ptr,
                 1, // bytes = count * sizeof(T)
             );
         }
@@ -57,11 +58,11 @@ impl Vm {
     #[inline]
     pub fn execute_range_iter_next(
         &mut self,
-        target_iterator_addr: u8,
-        target_variable: u8,
+        target_iterator_reg: u8,
+        target_int_reg: u8,
         jmp_absolute: u8,
     ) {
-        let range_iterator = self.range_iterator_ptr_from_frame(target_iterator_addr);
+        let range_iterator = self.range_iterator_ptr_from_reg(target_iterator_reg);
 
         unsafe {
             if (*range_iterator).index == (*range_iterator).end {
@@ -71,13 +72,7 @@ impl Vm {
                 }
                 self.ip = jmp_absolute as usize;
             } else {
-                let target_int_ptr = self.memory.get_frame_ptr_as_i32(target_variable);
-                *target_int_ptr = (*range_iterator).index;
-                #[cfg(feature = "debug_vm")]
-                {
-                    eprintln!("range_iter_next. index: {}", *target_int_ptr);
-                }
-
+                set_reg!(self, target_int_reg, as I32 <- (*range_iterator).index);
                 (*range_iterator).index += (*range_iterator).direction;
             }
         }

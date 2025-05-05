@@ -1,5 +1,5 @@
 use crate::alloc::ScopeAllocator;
-use crate::{FrameAndVariableInfo, reserve};
+use crate::{FrameAndVariableInfo, RegisterPool, TempRegisterPool, reserve};
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::Write;
@@ -8,7 +8,7 @@ use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_types::aligner::align;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
-    OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo,
+    OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo, VmType,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
@@ -468,6 +468,8 @@ pub fn layout_variables(
 
     let mut variable_offsets = SeqMap::new();
 
+    let mut register_allocator = RegisterPool::new(8, 32);
+
     for var_ref in variables {
         let var_frame_placed_type = reserve(&var_ref.resolved_type, &mut allocator);
         trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
@@ -496,8 +498,11 @@ pub fn layout_variables(
             frame_placed_type: var_frame_placed_type.clone(),
         });
 
+        let register =
+            register_allocator.alloc_register(VmType::FramePlaced(var_frame_placed_type));
+
         variable_offsets
-            .insert(var_ref.unique_id_within_function, var_frame_placed_type)
+            .insert(var_ref.unique_id_within_function, register)
             .unwrap();
     }
 

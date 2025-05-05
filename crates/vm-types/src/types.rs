@@ -148,6 +148,7 @@ pub enum DecoratedOperandAccessKind {
     HeapAddress(HeapMemoryAddress),
     WriteIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
     ReadIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
+    MemoryOffset(MemoryOffset),
 }
 
 impl DecoratedOperandAccessKind {
@@ -258,6 +259,15 @@ pub enum BasicTypeKind {
     Slice(Box<BasicType>),
     SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
     MutablePointer(Box<BasicType>),
+}
+
+impl BasicTypeKind {
+    pub(crate) fn can_be_contained_inside_register(&self) -> bool {
+        matches!(
+            self,
+            Self::Empty | Self::U8 | Self::U16 | Self::U32 | Self::Fixed32
+        )
+    }
 }
 
 impl Display for BasicTypeKind {
@@ -589,10 +599,33 @@ impl HeapPlacedType {
     }
 }
 
+pub enum AssignmentTarget {
+    Register(TypedRegister),
+    MemoryLocation(TypedRegister, MemoryOffset),
+}
+
+impl AssignmentTarget {
+    #[must_use]
+    pub fn register(&self) -> &TypedRegister {
+        let Self::Register(reg) = self else {
+            panic!("must be reg")
+        };
+        reg
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct TypedRegister {
     pub index: u8,
     pub basic_type: VmType,
+}
+
+impl TypedRegister {}
+
+impl TypedRegister {
+    pub fn final_type(&self) -> BasicType {
+        self.basic_type.underlying()
+    }
 }
 
 impl TypedRegister {}
@@ -630,11 +663,23 @@ impl TypedRegister {
         fp.ty()
     }
 
+    pub fn frame_placed(&self) -> &FramePlacedType {
+        let VmType::FramePlaced(fp) = &self.basic_type else {
+            panic!("")
+        };
+
+        fp
+    }
+
     pub fn size(&self) -> MemorySize {
         let VmType::FramePlaced(fp) = &self.basic_type else {
             panic!("")
         };
         fp.size()
+    }
+
+    pub fn addr(&self) -> FrameMemoryAddress {
+        self.frame_placed().addr
     }
 
     pub fn underlying(&self) -> &BasicType {
@@ -647,16 +692,35 @@ impl TypedRegister {
 
 #[derive(Clone, Debug)]
 pub enum Immediate {
-    U32(u32),
-    I32(i32),
-    Fixed32(i32),
-    Bool(bool),
+    U32,
+    I32,
+    Fixed32,
+    Bool,
 }
 
 #[derive(Clone, Debug)]
 pub enum VmType {
     Immediate(Immediate),
     FramePlaced(FramePlacedType),
+    TempPointer,
+    Unknown,
+    Basic(BasicType),
+}
+
+impl VmType {
+    pub(crate) fn underlying(&self) -> BasicType {
+        self.frame_placed_type().unwrap().underlying().clone()
+    }
+}
+
+impl VmType {
+    pub fn frame_placed_type(&self) -> Option<FramePlacedType> {
+        if let Self::FramePlaced(found) = self {
+            Some(found.clone())
+        } else {
+            None
+        }
+    }
 }
 
 /// Represents a type that has been allocated to a frame relative address
@@ -779,6 +843,12 @@ pub struct BasicType {
     pub kind: BasicTypeKind,
     pub total_size: MemorySize,
     pub max_alignment: MemoryAlignment,
+}
+
+impl BasicType {
+    pub fn can_be_contained_inside_register(&self) -> bool {
+        self.kind.can_be_contained_inside_register()
+    }
 }
 
 impl BasicType {

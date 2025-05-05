@@ -2,16 +2,20 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::Vm;
 use crate::memory::Memory;
-use std::ops::Add;
+use crate::{Reg, set_reg};
+use crate::{Vm, get_reg};
 use std::ptr;
 use swamp_vm_types::{VEC_HEADER_SIZE, VEC_ITERATOR_SIZE, VecHeader, VecIterator};
 
 impl Vm {
+    pub fn get_vec_iterator_header_ptr_from_reg(&self, vec_iterator_reg: u8) -> *mut VecIterator {
+        self.get_ptr_from_reg(vec_iterator_reg) as *mut VecIterator
+    }
+
     #[inline]
-    pub fn execute_vec_from_slice(&mut self, target_vec_pointer: u8, source_slice_addr: u8) {
-        let slice_header = self.slice_header_from_reg(source_slice_addr);
+    pub fn execute_vec_from_slice(&mut self, target_vec_ptr_reg: u8, source_slice_ptr_reg: u8) {
+        let slice_header = self.slice_header_from_reg(source_slice_ptr_reg);
 
         let slice_size = slice_header.element_size as usize * slice_header.element_count as usize;
         // Allocate space on the heap for the slice data.
@@ -34,20 +38,15 @@ impl Vm {
             heap_offset,
         };
 
-        // Allocated heap memory for Vec header.
-        let header_offset: u32 = self.memory.heap_allocate(VEC_HEADER_SIZE.0 as usize);
+        let vec_header_addr: u32 = self.memory.heap_allocate(VEC_HEADER_SIZE.0 as usize);
 
-        // Copy the Vec header to Heap.
+        let vec_header_ptr = self.memory.get_heap_ptr(vec_header_addr as usize) as *mut VecHeader;
+
         unsafe {
-            let header_ptr = self.memory.get_heap_ptr(header_offset as usize) as *mut VecHeader;
-            ptr::write(header_ptr, vec_header);
+            ptr::write(vec_header_ptr, vec_header);
         }
 
-        // Copy the heap offset of the vec header to the frame.
-        unsafe {
-            let target_ptr = self.memory.get_frame_ptr_as_u32(target_vec_pointer);
-            ptr::write(target_ptr, header_offset);
-        }
+        set_reg!(self, target_vec_ptr_reg, as Ptr <- vec_header_addr);
 
         #[cfg(feature = "debug_vm")]
         {
@@ -58,19 +57,23 @@ impl Vm {
         }
     }
     #[inline]
-    pub fn execute_vec_iter_init(&mut self, target_iterator_addr: u8, vec_indirect: u8) {
-        let vec_header_heap_ptr_as_offset = self.memory.read_heap_offset_via_frame(vec_indirect);
-        unsafe {
-            let vec_iterator = VecIterator {
-                vec_header_heap_ptr: vec_header_heap_ptr_as_offset,
-                index: 0,
-            };
+    pub fn execute_vec_iter_init(
+        &mut self,
+        target_vec_iterator_header_reg: u8,
+        vec_header_reg: u8,
+    ) {
+        get_reg!(self, vec_header_reg, Ptr => vec_header_addr);
 
-            ptr::copy_nonoverlapping(
-                &vec_iterator,
-                self.memory.get_frame_ptr(target_iterator_addr) as *mut VecIterator,
-                1,
-            );
+        let vec_iterator = VecIterator {
+            vec_header_heap_ptr: vec_header_addr,
+            index: 0,
+        };
+
+        let vec_iterator_mut_ptr =
+            self.get_ptr_from_reg(target_vec_iterator_header_reg) as *mut VecIterator;
+
+        unsafe {
+            ptr::copy_nonoverlapping(&vec_iterator, vec_iterator_mut_ptr, 1);
         }
     }
 
@@ -78,44 +81,38 @@ impl Vm {
         unsafe { *(heap.get_heap_const_ptr(heap_offset as usize) as *const VecHeader) }
     }
 
-    pub fn vec_header_from_indirect_heap(frame: &Memory, frame_offset: u8) -> VecHeader {
-        let heap_offset = frame.read_heap_offset_via_frame(frame_offset);
-        unsafe { *(frame.get_heap_const_ptr(heap_offset as usize) as *const VecHeader) }
+    pub fn read_vec_header_from_ptr_reg(&self, vec_header_ptr_reg: u8) -> VecHeader {
+        let vec_header_const_ptr =
+            self.get_const_ptr_from_reg(vec_header_ptr_reg) as *const VecHeader;
+        unsafe { *vec_header_const_ptr }
     }
 
-    pub fn vec_header_from_indirect_heap_mut(&self, frame_offset: u8) -> *mut VecHeader {
-        let heap_offset = self.memory.read_heap_offset_via_frame(frame_offset);
-        self.memory.get_heap_const_ptr(heap_offset as usize) as *mut VecHeader
-    }
-
-    #[inline]
-    pub fn execute_vec_len(&mut self, int_target: u8, frame_source: u8) {
-        let vec_header = Self::vec_header_from_indirect_heap(&self.memory, frame_source);
-        unsafe {
-            *self.memory.get_frame_ptr_as_i32(int_target) = vec_header.count as i32;
-        }
-        #[cfg(feature = "debug_vm")]
-        {
-            eprintln!("vec_len {}", vec_header.count as i32);
-        }
+    pub fn get_vec_header_ptr_from_reg(&self, vec_header_ptr_reg: u8) -> *mut VecHeader {
+        self.get_ptr_from_reg(vec_header_ptr_reg) as *mut VecHeader
     }
 
     #[inline]
-    pub fn execute_vec_get(&mut self, item_target: u8, vec_indirect_source: u8, int_index: u8) {
-        let vec_index = self.memory.read_frame_i32(int_index) as usize;
-        let vec_header = Self::vec_header_from_indirect_heap(&self.memory, vec_indirect_source);
+    pub fn execute_vec_get(&mut self, element_target_reg: u8, vec_header_ptr_reg: u8, int_reg: u8) {
+        get_reg!(self, int_reg, i32 => vec_index);
+        let index = vec_index as usize;
+
+        let vec_header = self.read_vec_header_from_ptr_reg(vec_header_ptr_reg);
+
         debug_assert!(
-            vec_index < vec_header.count as usize,
+            index < vec_header.count as usize,
             "out of bounds for vector. index:{vec_index} out of {}",
             vec_header.count
         );
-        let item_target_ptr = self.memory.get_frame_ptr(item_target);
+
+        let item_target_ptr = self.get_ptr_from_reg(element_target_reg);
+
         unsafe {
             let base_ptr = self
                 .memory
                 .get_heap_const_ptr(vec_header.heap_offset as usize);
+
             ptr::copy_nonoverlapping(
-                base_ptr.add(vec_index * vec_header.element_size as usize),
+                base_ptr.add(index * vec_header.element_size as usize),
                 item_target_ptr,
                 vec_header.element_size as usize,
             );
@@ -128,16 +125,21 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_vec_set(&mut self, vec_indirect_source: u8, int_index: u8, item_source: u8) {
-        let vec_index = self.memory.read_frame_i32(int_index) as usize;
-        let vec_header = Self::vec_header_from_indirect_heap(&self.memory, vec_indirect_source);
-        debug_assert!(vec_index < vec_header.count as usize);
-        let item_source_ptr = self.memory.get_frame_const_ptr(item_source);
+    pub fn execute_vec_set(&mut self, vec_header_ptr_reg: u8, int_index_reg: u8, item_ptr_reg: u8) {
+        get_reg!(self, int_index_reg, i32 => vec_index);
+        let index = vec_index as usize;
+
+        let vec_header = self.read_vec_header_from_ptr_reg(vec_header_ptr_reg);
+
+        debug_assert!(index < vec_header.count as usize);
+
+        let item_source_ptr = self.get_ptr_from_reg(item_ptr_reg);
+        let base_ptr = self.memory.get_heap_ptr(vec_header.heap_offset as usize);
+
         unsafe {
-            let base_ptr = self.memory.get_heap_ptr(vec_header.heap_offset as usize);
             ptr::copy_nonoverlapping(
                 item_source_ptr,
-                base_ptr.add(vec_index * vec_header.count as usize),
+                base_ptr.add(index * vec_header.count as usize),
                 vec_header.element_size as usize,
             );
         }
@@ -149,8 +151,8 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_vec_push(&mut self, vec_frame_target: u8, item_to_push: u8) {
-        let vec_header = self.vec_header_from_indirect_heap_mut(vec_frame_target);
+    pub fn execute_vec_push(&mut self, vec_header_ptr_reg: u8, element_to_push_reg: u8) {
+        let vec_header = self.get_vec_header_ptr_from_reg(vec_header_ptr_reg);
         let (count, capacity) = unsafe { ((*vec_header).count, (*vec_header).capacity) };
         let element_size = unsafe { (*vec_header).element_size } as usize;
 
@@ -176,7 +178,7 @@ impl Vm {
         }
         unsafe {
             let target_buckets = self.memory.get_heap_ptr((*vec_header).heap_offset as usize);
-            let single_item_to_push = self.memory.get_frame_const_ptr(item_to_push);
+            let single_item_to_push = self.get_const_ptr_from_reg(element_to_push_reg);
             ptr::copy_nonoverlapping(
                 single_item_to_push,
                 target_buckets.add(count as usize * element_size),
@@ -189,12 +191,12 @@ impl Vm {
     #[inline]
     pub fn execute_vec_iter_next_pair(
         &mut self,
-        target_iterator_addr: u8,
-        key_variable: u8,
-        value_variable: u8,
+        vec_iterator_header_reg: u8,
+        target_key_reg: u8,
+        target_value_reg: u8,
         jump: u8,
     ) {
-        let vec_iterator = self.memory.get_frame_ptr(target_iterator_addr) as *mut VecIterator;
+        let vec_iterator = self.get_vec_iterator_header_ptr_from_reg(vec_iterator_header_reg);
         let (data_heap_offset, index) =
             unsafe { ((*vec_iterator).vec_header_heap_ptr, (*vec_iterator).index) };
 
@@ -206,13 +208,12 @@ impl Vm {
             let new_index = index + 1;
             let heap_data_offset = data_heap_offset + vec_header.element_size as u32 * index as u32;
             let source = self.memory.get_heap_const_ptr(heap_data_offset as usize);
-            let index_ptr = self.memory.get_frame_ptr_as_i32(key_variable);
-            let target_ptr = self.memory.get_frame_ptr(value_variable);
+            //let index_ptr = self.get_ptr_from_reg(target_key_reg);
+            set_reg!(self, target_key_reg, as I32 <- index as i32);
 
+            // TODO: Must either set_reg or get a pointer to the struct inside the vec
             unsafe {
-                ptr::copy_nonoverlapping(source, target_ptr, vec_header.element_size as usize);
                 (*vec_iterator).index = new_index;
-                *index_ptr = index as i32;
             }
         }
     }
@@ -220,11 +221,11 @@ impl Vm {
     #[inline]
     pub fn execute_vec_iter_next(
         &mut self,
-        target_iterator_addr: u8,
+        vec_iterator_header_reg: u8,
         target_variable: u8,
         jump: u8,
     ) {
-        let vec_iterator = self.memory.get_frame_ptr(target_iterator_addr) as *mut VecIterator;
+        let vec_iterator = self.get_vec_iterator_header_ptr_from_reg(vec_iterator_header_reg);
         let (data_heap_offset, index) =
             unsafe { ((*vec_iterator).vec_header_heap_ptr, (*vec_iterator).index) };
 
@@ -236,7 +237,7 @@ impl Vm {
             let new_index = index + 1;
             let heap_data_offset = data_heap_offset + vec_header.element_size as u32 * index as u32;
             let source = self.memory.get_heap_const_ptr(heap_data_offset as usize);
-            let target_ptr = self.memory.get_frame_ptr(target_variable);
+            let target_ptr = self.get_ptr_from_reg(target_variable);
 
             unsafe {
                 ptr::copy_nonoverlapping(source, target_ptr, vec_header.element_size as usize);

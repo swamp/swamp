@@ -12,7 +12,7 @@ use swamp_vm_types::types::{
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HEAP_PTR_ON_FRAME_SIZE,
     HeapMemoryAddress, HeapMemoryOffset, InstructionPosition, InstructionPositionOffset,
-    MemorySize, Meta, RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    MemoryOffset, MemorySize, Meta, RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::info;
 
@@ -151,6 +151,64 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
     temp_reg: u8,
 }
+
+impl<'a> InstructionBuilder<'a> {
+    pub fn add_block_copy_with_offset(
+        &self,
+        p0: &TypedRegister,
+        p1: MemoryOffset,
+        p2: &TypedRegister,
+        p3: MemorySize,
+        p4: &Node,
+        p5: &str,
+    ) {
+        todo!()
+    }
+}
+
+impl<'a> InstructionBuilder<'a> {
+    pub fn add_st32_from_pointer_with_offset(
+        &self,
+        p0: &TypedRegister,
+        p1: MemoryOffset,
+        p2: &Node,
+        p3: &str,
+    ) {
+        todo!()
+    }
+}
+
+impl<'a> InstructionBuilder<'a> {
+    pub fn add_ld_reg_from_frame(
+        &self,
+        reg: u8,
+        stored_in_frame: FrameMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        todo!()
+    }
+}
+
+impl<'a> InstructionBuilder<'a> {
+    pub fn add_st_reg_to_frame(&self, p0: FrameMemoryAddress, p1: &TypedRegister) {
+        todo!()
+    }
+}
+
+impl<'a> InstructionBuilder<'a> {
+    pub fn add_st8_from_pointer_with_offset(
+        &self,
+        p0: &TypedRegister,
+        p1: MemoryOffset,
+        p2: &Node,
+        p3: &str,
+    ) {
+        todo!()
+    }
+}
+
+impl<'a> InstructionBuilder<'a> {}
 
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
@@ -639,14 +697,14 @@ impl InstructionBuilder<'_> {
     pub fn add_host_call(
         &mut self,
         host_function_id: u16,
-        arguments_size: u8,
+        arguments_count: u8,
         node: &Node,
         comment: &str,
     ) {
         let ip_bytes = Self::u16_to_octets(host_function_id);
         self.state.add_instruction(
             OpCode::HostCall,
-            &[ip_bytes.0, ip_bytes.0, arguments_size],
+            &[ip_bytes.0, ip_bytes.0, arguments_count],
             node,
             comment,
         );
@@ -1031,6 +1089,42 @@ impl InstructionBuilder<'_> {
         (a, b)
     }
 
+    pub fn add_st32_using_ptr_with_offset(
+        &mut self,
+        base_ptr_reg: &TypedRegister,
+        offset: MemoryOffset,
+        u32_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        assert_eq!(u32_reg.ty().underlying().total_size.0, 4);
+        let bytes = u16_to_u8_pair(offset.0);
+        self.state.add_instruction(
+            OpCode::St32UsingPtrWithOffset,
+            &[base_ptr_reg.addressing(), bytes.0, bytes.1, u32_reg.index],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_st8_using_ptr_with_offset(
+        &mut self,
+        base_ptr_reg: &TypedRegister,
+        offset: MemoryOffset,
+        u8_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        assert_eq!(u8_reg.ty().underlying().total_size.0, 1);
+        let bytes = u16_to_u8_pair(offset.0);
+        self.state.add_instruction(
+            OpCode::St8UsingPtrWithOffset,
+            &[base_ptr_reg.addressing(), bytes.0, bytes.1, u8_reg.index],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_ldi32(
         &mut self,
         dst_offset: &TypedRegister,
@@ -1041,19 +1135,92 @@ impl InstructionBuilder<'_> {
         let bytes = Self::convert_to_lower_and_upper(value as u32);
 
         self.state.add_instruction(
-            OpCode::Ld32,
+            OpCode::Ld32FromImmediateValue,
             &[dst_offset.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
             node,
             comment,
         );
     }
 
-    pub fn add_ld32(&mut self, dst_offset: &TypedRegister, value: u32, node: &Node, comment: &str) {
+    pub fn add_ld32_immediate_value(
+        &mut self,
+        dst_offset: &TypedRegister,
+        value: u32,
+        node: &Node,
+        comment: &str,
+    ) {
         let bytes = Self::convert_to_lower_and_upper(value);
 
         self.state.add_instruction(
-            OpCode::Ld32,
+            OpCode::Ld32FromImmediateValue,
             &[dst_offset.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_ld32_from_pointer_with_offset_u16(
+        &mut self,
+        dst_reg: &TypedRegister,
+        base_ptr_reg: &TypedRegister,
+        offset: u16,
+        node: &Node,
+        comment: &str,
+    ) {
+        let bytes = u16_to_u8_pair(offset);
+
+        self.state.add_instruction(
+            OpCode::Ld32FromPointerWithOffset,
+            &[
+                dst_reg.addressing(),
+                base_ptr_reg.addressing(),
+                bytes.0,
+                bytes.1,
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_ld_addr_offset(
+        &mut self,
+        dst_reg: &TypedRegister,
+        pointer_reg: &TypedRegister,
+        offset: HeapMemoryOffset,
+        node: &Node,
+        comment: &str,
+    ) {
+        let pairs = u16_to_u8_pair(offset.0 as u16);
+        self.state.add_instruction(
+            OpCode::LdAddPointer,
+            &[
+                dst_reg.addressing(),
+                pointer_reg.addressing(),
+                pairs.0,
+                pairs.1,
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_st_indirect(
+        &mut self,
+        target_base_ptr_reg: &TypedRegister,
+        offset_from_base: HeapMemoryOffset,
+        source_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        let offset_bytes = u16_to_u8_pair(offset_from_base.0 as u16);
+        self.state.add_instruction(
+            OpCode::StIndirect,
+            &[
+                target_base_ptr_reg.addressing(),
+                offset_bytes.0,
+                offset_bytes.1,
+                source_reg.addressing(),
+            ],
             node,
             comment,
         );
@@ -1503,7 +1670,7 @@ impl InstructionBuilder<'_> {
             .add_instruction(OpCode::Stnz, &[target.addressing()], node, comment);
     }
 
-    pub fn add_cmp_reg(
+    pub fn add_cmp_8(
         &mut self,
         source_a: &TypedRegister,
         source_b: &TypedRegister,
@@ -1511,7 +1678,22 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         self.state.add_instruction(
-            OpCode::CmpReg,
+            OpCode::Cmp8,
+            &[source_a.addressing(), source_b.addressing()],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_cmp_32(
+        &mut self,
+        source_a: &TypedRegister,
+        source_b: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::Cmp32,
             &[source_a.addressing(), source_b.addressing()],
             node,
             comment,
@@ -1619,18 +1801,21 @@ impl InstructionBuilder<'_> {
 
     pub fn add_alloc(
         &mut self,
-        target: &TypedRegister,
+        target_ptr_reg: &TypedRegister,
         size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
-        assert!(matches!(target.ty().kind, BasicTypeKind::MutablePointer(_)));
-        assert_eq!(target.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
+        assert!(matches!(
+            target_ptr_reg.ty().kind,
+            BasicTypeKind::MutablePointer(_)
+        ));
+        assert_eq!(target_ptr_reg.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
         // assert_ne!(size.0, 0); TODO: Bring this back
         let size_bytes = Self::u16_to_octets(size.0);
         self.state.add_instruction(
             OpCode::Alloc,
-            &[target.addressing(), size_bytes.0, size_bytes.1],
+            &[target_ptr_reg.addressing(), size_bytes.0, size_bytes.1],
             node,
             comment,
         );

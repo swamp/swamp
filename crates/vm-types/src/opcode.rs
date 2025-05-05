@@ -46,7 +46,8 @@ pub enum OpCode {
 
     // Comparison, set z flag
     Eq8Imm,
-    CmpReg, // Compare reg. Updates the z flag
+    Cmp8,
+    Cmp32,
     Tst8, // Load the byte into the z flag (zero = sets the z flag, any other value = clears the z flag)
 
     NotZ,
@@ -81,7 +82,8 @@ pub enum OpCode {
     Lea,          // Load effective address
     LdAddPointer, // Load a pointer, add to it and write it back
     Ld8,
-    Ld32,
+    Ld32FromImmediateValue,
+    Ld32FromPointerWithOffset,
 
     // Storers --- is that a word?
     //StPointerWithOffset,
@@ -163,6 +165,9 @@ pub enum OpCode {
 
     // Other
     HostCall, // calls back into host
+    StIndirect,
+    St32UsingPtrWithOffset,
+    St8UsingPtrWithOffset,
 }
 
 impl OpCode {
@@ -208,13 +213,15 @@ impl OpCode {
 
             // Byte/memory comparisons
             Self::Eq8Imm => "eq8",
-            Self::CmpReg => "cmp",
+            Self::Cmp8 => "cmp8",
+            Self::Cmp32 => "cmp32",
             Self::Tst8 => "tst8",
             Self::NotZ => "notz",
 
             // Store Z flag
             Self::Stz => "stz",
             Self::Stnz => "stnz",
+            Self::StIndirect => "stoff",
 
             // Branches
             Self::Bnz => "bnz",
@@ -234,7 +241,10 @@ impl OpCode {
 
             // Load
             Self::Ld8 => "ld8",
-            Self::Ld32 => "ld32",
+            Self::Ld32FromImmediateValue | Self::Ld32FromPointerWithOffset => "ldw",
+
+            Self::St32UsingPtrWithOffset => "stw",
+            Self::St8UsingPtrWithOffset => "stb",
 
             Self::Alloc => "alloc",
 

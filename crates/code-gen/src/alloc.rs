@@ -76,11 +76,6 @@ impl ScopeAllocator {
         self.allocate_type(gen_type)
     }
 
-    pub fn reserve_ctx(&mut self, ty: &Type) -> Context {
-        let placed_type = self.reserve(ty);
-        Context::new(placed_type)
-    }
-
     #[must_use]
     pub const fn create_scope(&self) -> Self {
         Self {

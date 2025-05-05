@@ -441,6 +441,9 @@ pub const BOOL_SIZE: u16 = 1;
 pub const HEAP_PTR_ON_FRAME_SIZE: MemorySize = MemorySize(4);
 pub const HEAP_PTR_ON_FRAME_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
+pub const REG_ON_FRAME_SIZE: MemorySize = MemorySize(4);
+pub const REG_ON_FRAME_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct VecHeader {

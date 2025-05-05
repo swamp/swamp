@@ -114,6 +114,7 @@ macro_rules! get_reg {
     };
 }
 
+#[macro_export]
 macro_rules! set_reg {
     // $vm:expr is the VM state (self)
     // $reg_idx:expr is the destination register index (dst_reg)
@@ -186,7 +187,7 @@ pub struct Vm {
 
     handlers: [HandlerType; 256],
 
-    pub registers: [Reg; 256],
+    pub registers: [Reg; 256], // Normal CPUs have around 31 general purpose registers
 
     // TODO: Error state
     pub flags: Flags,
@@ -249,12 +250,14 @@ impl Vm {
 
         // Load immediate
         vm.handlers[OpCode::Ld8 as usize] = HandlerType::Args2(Self::execute_ld8);
-        vm.handlers[OpCode::Ld32 as usize] = HandlerType::Args5(Self::execute_ld32);
+        vm.handlers[OpCode::Ld32FromImmediateValue as usize] =
+            HandlerType::Args5(Self::execute_ld32);
 
         // Copy data in frame memory
         vm.handlers[OpCode::MovReg as usize] = HandlerType::Args2(Self::execute_mov_reg);
         vm.handlers[OpCode::Lea as usize] = HandlerType::Args3(Self::execute_lea);
-        vm.handlers[OpCode::LdAddPointer as usize] = HandlerType::Args4(Self::execute_compute_addr);
+        vm.handlers[OpCode::LdAddPointer as usize] =
+            HandlerType::Args4(Self::execute_ld_addr_offset);
 
         // Copy to and from heap
         vm.handlers[OpCode::MovMem as usize] = HandlerType::Args4(Self::execute_mov_mem);
@@ -272,16 +275,16 @@ impl Vm {
         vm.handlers[OpCode::GeF32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
 
         // Comparison
-        vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args2(Self::execute_cmp_reg);
+        // TODO: vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args2(Self::execute_cmp_reg);
 
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
 
         // Z flag
         vm.handlers[OpCode::Tst8 as usize] = HandlerType::Args1(Self::execute_tst8);
 
-        vm.handlers[OpCode::NotZ as usize] = HandlerType::Args0(Self::execute_notz); // needed for normalized Z
-        vm.handlers[OpCode::Stz as usize] = HandlerType::Args1(Self::execute_stz);
-        vm.handlers[OpCode::Stnz as usize] = HandlerType::Args1(Self::execute_stnz);
+        vm.handlers[OpCode::NotZ as usize] = HandlerType::Args0(Self::execute_not_z); // needed for normalized Z
+        vm.handlers[OpCode::Stz as usize] = HandlerType::Args1(Self::execute_st_z);
+        vm.handlers[OpCode::Stnz as usize] = HandlerType::Args1(Self::execute_st_nz);
 
         // Logical Operations
 
@@ -327,7 +330,8 @@ impl Vm {
          */
 
         // Int
-        vm.handlers[OpCode::IntToRnd as usize] = HandlerType::Args2(Self::execute_prnd_i32);
+        vm.handlers[OpCode::IntToRnd as usize] =
+            HandlerType::Args2(Self::execute_pseudo_random_i32);
         vm.handlers[OpCode::IntMin as usize] = HandlerType::Args3(Self::execute_min_i32);
         vm.handlers[OpCode::IntMax as usize] = HandlerType::Args3(Self::execute_max_i32);
         vm.handlers[OpCode::IntClamp as usize] = HandlerType::Args4(Self::execute_clamp_i32);
@@ -339,7 +343,7 @@ impl Vm {
 
         // Float (Fixed Point)
         vm.handlers[OpCode::FloatPseudoRandom as usize] =
-            HandlerType::Args2(Self::execute_prnd_i32);
+            HandlerType::Args2(Self::execute_pseudo_random_i32);
         vm.handlers[OpCode::FloatMin as usize] = HandlerType::Args3(Self::execute_min_i32);
         vm.handlers[OpCode::FloatMax as usize] = HandlerType::Args3(Self::execute_max_i32);
         vm.handlers[OpCode::FloatClamp as usize] = HandlerType::Args4(Self::execute_clamp_i32);
@@ -361,7 +365,7 @@ impl Vm {
 
         // Slices
         vm.handlers[OpCode::SliceFromHeap as usize] =
-            HandlerType::Args5(Self::execute_slice_from_heap);
+            HandlerType::Args4(Self::execute_slice_from_heap);
         vm.handlers[OpCode::SlicePairFromHeap as usize] =
             HandlerType::Args5(Self::execute_slice_pair_from_heap);
 
@@ -410,7 +414,6 @@ impl Vm {
         //assert_eq!(vm.handlers.len(), OpCode::HostCall as usize);
 
         // Optional: Zero out the memory for safety?
-        unsafe {}
 
         vm
     }
@@ -854,7 +857,7 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_prnd_i32(&mut self, dst_reg: u8, src_reg: u8) {
+    fn execute_pseudo_random_i32(&mut self, dst_reg: u8, src_reg: u8) {
         get_reg!(self, src_reg, i32 => src);
         set_reg!(self, dst_reg, as I32 <- squirrel_prng::squirrel_noise5(src as u32, 0) as i32);
     }
@@ -937,17 +940,17 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_notz(&mut self) {
+    fn execute_not_z(&mut self) {
         self.flags.z = !self.flags.z;
     }
 
     #[inline]
-    fn execute_stz(&mut self, dst_reg: u8) {
+    fn execute_st_z(&mut self, dst_reg: u8) {
         set_reg!(self, dst_reg, as U8 <- self.flags.z as u8);
     }
 
     #[inline]
-    fn execute_stnz(&mut self, dst_reg: u8) {
+    fn execute_st_nz(&mut self, dst_reg: u8) {
         set_reg!(self, dst_reg, as U8 <- !self.flags.z as u8);
     }
 
@@ -998,7 +1001,7 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_compute_addr(
+    fn execute_ld_addr_offset(
         &mut self,
         dst_reg: u8,
         source_pointer_reg: u8,
