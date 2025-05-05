@@ -197,10 +197,11 @@ impl<'a> InstructionBuilder<'a> {
 }
 
 impl<'a> InstructionBuilder<'a> {
-    pub fn add_st8_from_pointer_with_offset(
+    pub fn add_st8_to_pointer_with_offset(
         &self,
         p0: &TypedRegister,
         p1: MemoryOffset,
+        src: &TypedRegister,
         p2: &Node,
         p3: &str,
     ) {
@@ -265,46 +266,6 @@ impl InstructionBuilder<'_> {
             ZFlagPolarity::Normal => self.add_jmp_if_not_equal_placeholder(node, comment),
             ZFlagPolarity::Inverted => self.add_jmp_if_equal_placeholder(node, comment),
         }
-    }
-
-    pub fn add_unwrap_jmp_some_placeholder(
-        &mut self,
-        target: &TypedRegister,
-        check_optional: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) -> PatchPosition {
-        let position = self.position();
-
-        self.state.add_instruction(
-            OpCode::UnwrapJmpSome,
-            &[target.addressing(), check_optional.addressing(), 0],
-            node,
-            comment,
-        );
-
-        PatchPosition(position)
-    }
-
-    // If the value at option_offset is Some, unwrap and write to result_offset, then continue.
-    // If it is None, write the value at none_value_offset to result_offset, and jump to jump_ip (the end of the chain).
-    pub fn add_unwrap_jmp_none_placeholder(
-        &mut self,
-        target: &TypedRegister,
-        check_optional: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) -> PatchPosition {
-        let position = self.position();
-
-        self.state.add_instruction(
-            OpCode::UnwrapJmpNone,
-            &[target.addressing(), check_optional.addressing(), 0],
-            node,
-            comment,
-        );
-
-        PatchPosition(position)
     }
 
     pub fn add_vec_swap(
@@ -432,8 +393,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_push(
         &mut self,
-        self_addr: TypedRegister,
-        element_item: TypedRegister,
+        self_addr: &TypedRegister,
+        element_item: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -608,7 +569,7 @@ impl InstructionBuilder<'_> {
     ) {
         let pairs = u16_to_u8_pair(frame_address_to_convert.0);
         self.state.add_instruction(
-            OpCode::Lea,
+            OpCode::LdPtrFromEffectiveAddress,
             &[target_heap.addressing(), pairs.0, pairs.1],
             node,
             comment,
@@ -728,8 +689,8 @@ impl InstructionBuilder<'_> {
 
         const RANGE_ITER_NEXT: u8 = OpCode::RangeIterNext as u8;
 
-        const UNWRAP_JMP_NONE: u8 = OpCode::UnwrapJmpNone as u8;
-        const UNWRAP_JMP_SOME: u8 = OpCode::UnwrapJmpSome as u8;
+        //const UNWRAP_JMP_NONE: u8 = OpCode::UnwrapJmpNone as u8;
+        //const UNWRAP_JMP_SOME: u8 = OpCode::UnwrapJmpSome as u8;
 
         let instruction = &mut self.state.instructions[patch_position.0.0 as usize];
         /* TODO: FIX
@@ -1163,11 +1124,11 @@ impl InstructionBuilder<'_> {
         &mut self,
         dst_reg: &TypedRegister,
         base_ptr_reg: &TypedRegister,
-        offset: u16,
+        offset: MemoryOffset,
         node: &Node,
         comment: &str,
     ) {
-        let bytes = u16_to_u8_pair(offset);
+        let bytes = u16_to_u8_pair(offset.0);
 
         self.state.add_instruction(
             OpCode::Ld32FromPointerWithOffset,
@@ -1192,7 +1153,7 @@ impl InstructionBuilder<'_> {
     ) {
         let pairs = u16_to_u8_pair(offset.0 as u16);
         self.state.add_instruction(
-            OpCode::LdAddPointer,
+            OpCode::LdPtrFromPointerWithOffset,
             &[
                 dst_reg.addressing(),
                 pointer_reg.addressing(),
@@ -1243,7 +1204,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_ld8(&mut self, dst_offset: &TypedRegister, value: u8, node: &Node, comment: &str) {
         self.state.add_instruction(
-            OpCode::Ld8,
+            OpCode::Ld8FromImmediateValue,
             &[dst_offset.addressing(), value],
             node,
             comment,
@@ -1655,7 +1616,7 @@ impl InstructionBuilder<'_> {
     pub fn add_tst8(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
         assert!(addr.size().0 >= 1);
         self.state
-            .add_instruction(OpCode::Tst8, &[addr.addressing()], node, comment);
+            .add_instruction(OpCode::LdzFromU8Ptr, &[addr.addressing()], node, comment);
     }
 
     pub fn add_stz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {

@@ -249,14 +249,15 @@ impl Vm {
         vm.handlers[OpCode::Alloc as usize] = HandlerType::Args3(Self::execute_alloc);
 
         // Load immediate
-        vm.handlers[OpCode::Ld8 as usize] = HandlerType::Args2(Self::execute_ld8);
+        vm.handlers[OpCode::Ld8FromImmediateValue as usize] = HandlerType::Args2(Self::execute_ld8);
         vm.handlers[OpCode::Ld32FromImmediateValue as usize] =
             HandlerType::Args5(Self::execute_ld32);
 
         // Copy data in frame memory
         vm.handlers[OpCode::MovReg as usize] = HandlerType::Args2(Self::execute_mov_reg);
-        vm.handlers[OpCode::Lea as usize] = HandlerType::Args3(Self::execute_lea);
-        vm.handlers[OpCode::LdAddPointer as usize] =
+        vm.handlers[OpCode::LdPtrFromEffectiveAddress as usize] =
+            HandlerType::Args3(Self::execute_lea);
+        vm.handlers[OpCode::LdPtrFromPointerWithOffset as usize] =
             HandlerType::Args4(Self::execute_ld_addr_offset);
 
         // Copy to and from heap
@@ -280,7 +281,7 @@ impl Vm {
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
 
         // Z flag
-        vm.handlers[OpCode::Tst8 as usize] = HandlerType::Args1(Self::execute_tst8);
+        vm.handlers[OpCode::LdzFromU8Ptr as usize] = HandlerType::Args1(Self::execute_tst8);
 
         vm.handlers[OpCode::NotZ as usize] = HandlerType::Args0(Self::execute_not_z); // needed for normalized Z
         vm.handlers[OpCode::Stz as usize] = HandlerType::Args1(Self::execute_st_z);
@@ -406,10 +407,13 @@ impl Vm {
 
         // Other ==========
         // Unwrap
+        /*
         vm.handlers[OpCode::UnwrapJmpNone as usize] =
             HandlerType::Args3(Self::execute_unwrap_jmp_none);
         vm.handlers[OpCode::UnwrapJmpSome as usize] =
             HandlerType::Args3(Self::execute_unwrap_jmp_some);
+
+         */
 
         //assert_eq!(vm.handlers.len(), OpCode::HostCall as usize);
 
@@ -597,6 +601,7 @@ impl Vm {
         set_reg!(self, dst_reg, as U8 <- octet);
     }
 
+    /*
     #[inline]
     pub fn execute_unwrap_jmp_some(&mut self, wrapped_ptr_reg: u8, jmp_ip_0: u8, jmp_ip_1: u8) {
         get_reg!(self, wrapped_ptr_reg, Ptr => ptr_addr);
@@ -618,6 +623,8 @@ impl Vm {
             }
         }
     }
+
+     */
 
     #[inline]
     fn execute_alloc(&mut self, dst_reg: u8, size_0: u8, size_1: u8) {

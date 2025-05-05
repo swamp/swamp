@@ -36,7 +36,7 @@ use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPos
 use swamp_vm_types::types::{
     AssignmentTarget, BasicType, BasicTypeKind, FrameMemoryInfo, FramePlacedType, FunctionInfo,
     FunctionInfoKind, HeapPlacedType, Immediate, TypedRegister, VmType, int_type, pointer_type,
-    show_frame_memory,
+    show_frame_memory, u8_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
@@ -762,7 +762,7 @@ impl TopLevelGenState {
 }
 
 pub struct TempRegister {
-    pub register: TypedRegister,
+    register: TypedRegister,
 }
 
 impl TempRegister {
@@ -782,7 +782,7 @@ pub struct RegisterInfo {
 }
 
 pub struct TempRegisterPool {
-    pub free_registers: Vec<RegisterInfo>,
+    free_registers: Vec<RegisterInfo>,
 }
 
 impl TempRegisterPool {
@@ -807,7 +807,7 @@ impl TempRegisterPool {
         }
     }
 
-    pub fn free(&mut self, reg: &TempRegister) {
+    pub fn free(&mut self, reg: TempRegister) {
         assert!(
             !self
                 .free_registers
@@ -1191,11 +1191,10 @@ impl FunctionCodeGen<'_> {
 
             // String
             IntrinsicFunction::StringLen => {
-                self.builder.add_ld32_immediate_value(
+                self.builder.add_ld32_from_pointer_with_offset_u16(
                     ctx.target_register(),
-                    &self_addr
-                        .unwrap()
-                        .move_with_offset(STRING_HEADER_COUNT_OFFSET, int_type()),
+                    &self_addr.unwrap(),
+                    STRING_HEADER_COUNT_OFFSET,
                     node,
                     "get the length",
                 );
@@ -1215,8 +1214,8 @@ impl FunctionCodeGen<'_> {
                 };
                 let key_region = self.emit_expression_location(key_expr);
                 self.builder.add_vec_push(
-                    self_addr.unwrap(), // mut self
-                    key_region,
+                    &self_addr.unwrap(), // mut self
+                    &key_region,
                     node,
                     "vec push",
                 );
@@ -1358,17 +1357,13 @@ impl FunctionCodeGen<'_> {
             IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
             IntrinsicFunction::VecLen => {
-                let typed_register = self_addr.unwrap();
-
-                self.builder
-                    .add_ld_addr_offset(&typed_register, VEC_HEADER_COUNT_OFFSET);
-
-                self.builder.add_vec_len(
+                self.builder.add_ld32_from_pointer_with_offset_u16(
                     ctx.target_register(),
                     &self_addr.unwrap(),
+                    VEC_HEADER_COUNT_OFFSET,
                     node,
                     "get the vec length",
-                )
+                );
             }
             IntrinsicFunction::VecAny => todo!(), // Low prio
             IntrinsicFunction::VecAll => todo!(), // Low prio
@@ -1444,11 +1439,12 @@ impl FunctionCodeGen<'_> {
                 // Never called directly
             }
             IntrinsicFunction::MapLen => {
-                self.builder.add_map_len(
+                self.builder.add_ld32_from_pointer_with_offset_u16(
                     ctx.target_register(),
                     &self_addr.unwrap(),
+                    MAP_HEADER_COUNT_OFFSET,
                     node,
-                    "map len",
+                    "get the map length",
                 );
             }
             IntrinsicFunction::MapSubscript => {
@@ -1621,6 +1617,22 @@ impl FunctionCodeGen<'_> {
 
     pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> Context {
         Context::new(self.temp_memory_region_for_type(ty, comment))
+    }
+
+    pub fn temp_space_for_size_and_align(
+        &mut self,
+        size: MemorySize,
+        align: MemoryAlignment,
+        node: &Node,
+    ) -> TempRegister {
+        let addr = self.temp_allocator.allocate(size, align);
+
+        let reg = self.temp_registers.allocate(VmType::TempPointer);
+
+        self.builder
+            .add_lea(reg.register(), addr, node, "temp space");
+
+        reg
     }
 
     fn temp_space_for_register(&mut self, comment: &str) -> FrameMemoryRegion {
@@ -2478,7 +2490,7 @@ impl FunctionCodeGen<'_> {
                 // No need to copy, it has zero size
             }
             BasicTypeKind::U8 | BasicTypeKind::B8 => {
-                self.builder.add_st8_from_pointer_with_offset(
+                self.builder.add_st8_to_pointer_with_offset(
                     base_ptr_reg,
                     offset,
                     node,
@@ -2705,7 +2717,7 @@ impl FunctionCodeGen<'_> {
                                     &internal_fn.signature.signature,
                                     Some(self_source_frame_placed.clone()),
                                     arguments,
-                                    final_target,
+                                    final_target.unwrap(),
                                 );
                                 self.add_call(
                                     &element.node,
@@ -2747,6 +2759,12 @@ impl FunctionCodeGen<'_> {
                 }
                 PostfixKind::NoneCoalescingOperator(expression) => {
                     let target_ctx = &self.temp_space_for_type(&expression.ty, "");
+
+                    self.builder.add_tst8(
+                        &self_source_frame_placed,
+                        &element.node,
+                        "test if optional tag is Some",
+                    );
 
                     let patch = self.builder.add_unwrap_jmp_some_placeholder(
                         target_ctx.target_register(),
@@ -2793,7 +2811,13 @@ impl FunctionCodeGen<'_> {
 
      */
 
-    fn emit_tuple(&mut self, types: &[Type], expressions: &[Expression], ctx: &Context) {
+    fn emit_tuple(
+        &mut self,
+        types: &[Type],
+        expressions: &[Expression],
+        ctx: &Context,
+        node: &Node,
+    ) {
         let gen_tuple_type = layout_tuple_items(types);
         let gen_tuple_placed = BasicType {
             total_size: gen_tuple_type.total_size,
@@ -2804,12 +2828,20 @@ impl FunctionCodeGen<'_> {
         assert_eq!(gen_tuple_placed.total_size, ctx.final_target_size());
         assert_eq!(gen_tuple_type.fields.len(), expressions.len());
 
+        let temp_materialize_reg = self.temp_registers.allocate(VmType::Unknown);
+        let placed_target = temp_materialize_reg.register();
+
         for (offset_item, expr) in gen_tuple_type.fields.iter().zip(expressions) {
-            let target_addr = ctx.addr() + offset_item.offset;
-            let placed_target = TypedRegister::new(target_addr, offset_item.ty.clone());
-            let element_ctx = Context::new(placed_target);
+            let element_ctx = Context::new(placed_target.clone());
             self.emit_expression_materialize(expr, &element_ctx);
+            self.copy_contents_to_memory(
+                node,
+                ctx.target_register(),
+                offset_item.offset,
+                element_ctx.target_register(),
+            );
         }
+        self.temp_registers.free(temp_materialize_reg);
     }
 
     fn emit_anonymous_struct(
@@ -2879,7 +2911,7 @@ impl FunctionCodeGen<'_> {
                         let EnumVariantType::Tuple(tuple_type) = a else {
                             panic!();
                         };
-                        self.emit_tuple(&tuple_type.fields_in_order, expressions, &inner_ctx);
+                        self.emit_tuple(&tuple_type.fields_in_order, expressions, &inner_ctx, node);
                     }
                     EnumLiteralData::Struct(sorted_expressions) => {
                         let EnumVariantType::Struct(variant_struct_type) = a else {
@@ -2895,7 +2927,7 @@ impl FunctionCodeGen<'_> {
                 }
             }
             Literal::TupleLiteral(tuple_type, expressions) => {
-                self.emit_tuple(tuple_type, expressions, ctx)
+                self.emit_tuple(tuple_type, expressions, ctx, node)
             }
             Literal::StringLiteral(str) => {
                 self.emit_string_literal(node, str, ctx);
@@ -2949,13 +2981,31 @@ impl FunctionCodeGen<'_> {
         maybe_option: Option<&Expression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        if let Some(found_value) = maybe_option {
-            let target_tag = ctx.target_register().move_to_optional_tag();
-            self.builder
-                .add_ld8(&target_tag, 1, node, "option Some tag"); // 1 signals `Some`
-
-            let some_payload_ctx = ctx.move_to_optional_some_payload();
-            self.emit_expression_materialize(found_value, &some_payload_ctx); // Fills in more of the union
+        if let Some(some_expression) = maybe_option {
+            let target_tag = ctx
+                .target_register()
+                .frame_placed()
+                .ty()
+                .optional_info()
+                .unwrap();
+            {
+                let tag_reg = self.temp_registers.allocate(VmType::Basic(u8_type()));
+                self.builder
+                    .add_ld8(tag_reg.register(), 1, node, "load the tag Some (1)");
+                self.builder.add_st8_to_pointer_with_offset(
+                    ctx.target_register(),
+                    target_tag.tag_offset,
+                    tag_reg.register(),
+                    node,
+                    "store optional Some tag",
+                );
+                self.temp_registers.free(tag_reg);
+            }
+            {
+                let payload_reg = self.temp_registers.allocate(VmType::Unknown);
+                let some_payload_ctx = Context::new(payload_reg.register);
+                self.emit_expression_materialize(some_expression, &some_payload_ctx); // Fills in more of the union
+            }
         } else {
             self.builder
                 .add_ld8(ctx.target_register(), 0, node, "option None tag"); // 0 signals `None`
@@ -3929,7 +3979,7 @@ impl FunctionCodeGen<'_> {
             &host_fn.signature,
             Some(self_frame_placed_type.clone()),
             arguments,
-            Some(ctx),
+            ctx,
         );
 
         let arg_count = (1 + arguments.len()) as u8;
@@ -4066,7 +4116,7 @@ impl FunctionCodeGen<'_> {
         }
 
         // 2. Initialize the iterator and generate code to fetch the next element.
-        let (continue_iteration_label, iteration_complete_patch_position) = self
+        let (continue_iteration_label, iteration_complete_patch_position, temp_reg) = self
             .iter_init_and_next(
                 node,
                 source_collection_type,
@@ -4145,6 +4195,8 @@ impl FunctionCodeGen<'_> {
             self.builder.patch_jump_here(found_skip_early);
         }
 
+        self.temp_registers.free(temp_reg);
+
         match transformer.return_type() {
             TransformerResult::Bool => {
                 // It is a transformer that returns a bool, lets store z flag as bool it
@@ -4182,16 +4234,18 @@ impl FunctionCodeGen<'_> {
         collection_type: Collection,
         collection_self_addr: &TypedRegister,
         target_variables: &[TypedRegister],
-    ) -> (InstructionPosition, PatchPosition) {
+    ) -> (InstructionPosition, PatchPosition, TempRegister) {
         let iterator_gen_type = collection_type.iterator_gen_type();
 
-        let iterator_target = self.temp_allocator.allocate_type(iterator_gen_type);
-
+        let iterator_target_placed = self.temp_allocator.allocate_type(iterator_gen_type);
+        let iterator_target = self
+            .temp_registers
+            .allocate(VmType::FramePlaced(iterator_target_placed));
         let iter_next_position = InstructionPosition(self.builder.position().0 + 1);
         let placeholder = match collection_type {
             Collection::Vec => {
                 self.builder.add_vec_iter_init(
-                    &iterator_target,
+                    iterator_target.register(),
                     collection_self_addr,
                     node,
                     "vec init",
@@ -4199,7 +4253,7 @@ impl FunctionCodeGen<'_> {
 
                 if target_variables.len() == 2 {
                     self.builder.add_vec_iter_next_pair_placeholder(
-                        &iterator_target,
+                        iterator_target.register(),
                         &target_variables[0],
                         &target_variables[1],
                         node,
@@ -4207,7 +4261,7 @@ impl FunctionCodeGen<'_> {
                     )
                 } else {
                     self.builder.add_vec_iter_next_placeholder(
-                        &iterator_target,
+                        iterator_target.register(),
                         &target_variables[0],
                         node,
                         "vec iter next single",
@@ -4216,7 +4270,7 @@ impl FunctionCodeGen<'_> {
             }
             Collection::Map => {
                 self.builder.add_map_iter_init(
-                    &iterator_target,
+                    iterator_target.register(),
                     collection_self_addr,
                     node,
                     "map init",
@@ -4224,7 +4278,7 @@ impl FunctionCodeGen<'_> {
 
                 if target_variables.len() == 2 {
                     self.builder.add_map_iter_next_pair_placeholder(
-                        &iterator_target,
+                        iterator_target.register(),
                         &target_variables[0],
                         &target_variables[1],
                         node,
@@ -4232,7 +4286,7 @@ impl FunctionCodeGen<'_> {
                     )
                 } else {
                     self.builder.add_map_iter_next_placeholder(
-                        &iterator_target,
+                        iterator_target.register(),
                         &target_variables[0],
                         node,
                         "map next_single",
@@ -4242,7 +4296,7 @@ impl FunctionCodeGen<'_> {
             Collection::Grid => todo!(),
             Collection::Range => {
                 self.builder.add_range_iter_init(
-                    &iterator_target,
+                    iterator_target.register(),
                     collection_self_addr,
                     node,
                     "range init",
@@ -4250,7 +4304,7 @@ impl FunctionCodeGen<'_> {
 
                 assert_eq!(target_variables.len(), 1);
                 self.builder.add_range_iter_next_placeholder(
-                    &iterator_target,
+                    iterator_target.register(),
                     &target_variables[0],
                     node,
                     "range iter next single",
@@ -4261,7 +4315,7 @@ impl FunctionCodeGen<'_> {
             Collection::String => todo!(),
         };
 
-        (iter_next_position, placeholder)
+        (iter_next_position, placeholder, iterator_target)
     }
 
     fn check_if_transformer_sets_z_flag(
@@ -4403,7 +4457,7 @@ impl FunctionCodeGen<'_> {
         if !inner.ty().is_pointer() {
             self.builder.add_lea(
                 ctx.target_register(),
-                inner.ty().addr(),
+                inner.addr(),
                 node,
                 "wasn't a pointer, so converting",
             );

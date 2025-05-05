@@ -48,7 +48,6 @@ pub enum OpCode {
     Eq8Imm,
     Cmp8,
     Cmp32,
-    Tst8, // Load the byte into the z flag (zero = sets the z flag, any other value = clears the z flag)
 
     NotZ,
 
@@ -79,14 +78,18 @@ pub enum OpCode {
     // Loaders --------------
 
     // Load immediate into reg
-    Lea,          // Load effective address
-    LdAddPointer, // Load a pointer, add to it and write it back
-    Ld8,
+    LdPtrFromEffectiveAddress,  // Load effective address
+    LdPtrFromPointerWithOffset, // Load a pointer, add to it and write it back
+    Ld8FromImmediateValue,
     Ld32FromImmediateValue,
     Ld32FromPointerWithOffset,
 
+    LdzFromU8Ptr, // Load the byte into the z flag (zero = sets the z flag, any other value = clears the z flag)
+
     // Storers --- is that a word?
-    //StPointerWithOffset,
+    StIndirect,
+    St32UsingPtrWithOffset,
+    St8UsingPtrWithOffset,
 
     // Type specific -----
 
@@ -160,14 +163,11 @@ pub enum OpCode {
     StringAppend,
 
     // Optional Unwrap
-    UnwrapJmpSome,
-    UnwrapJmpNone,
+    //UnwrapJmpSome,
+    //UnwrapJmpNone,
 
     // Other
     HostCall, // calls back into host
-    StIndirect,
-    St32UsingPtrWithOffset,
-    St8UsingPtrWithOffset,
 }
 
 impl OpCode {
@@ -180,8 +180,8 @@ impl OpCode {
             Self::Panic => "panic",
             Self::Brk => "brk",
 
-            Self::UnwrapJmpNone => "unw_none",
-            Self::UnwrapJmpSome => "unw_some",
+            //Self::UnwrapJmpNone => "unw_none",
+            //Self::UnwrapJmpSome => "unw_some",
 
             // Integer arithmetic
             Self::AddI32 => "add",
@@ -215,7 +215,7 @@ impl OpCode {
             Self::Eq8Imm => "eq8",
             Self::Cmp8 => "cmp8",
             Self::Cmp32 => "cmp32",
-            Self::Tst8 => "tst8",
+            Self::LdzFromU8Ptr => "tst8",
             Self::NotZ => "notz",
 
             // Store Z flag
@@ -236,11 +236,11 @@ impl OpCode {
             // Move
             Self::MovReg => "mov",
             Self::MovMem => "movmem",
-            Self::Lea => "lea",
-            Self::LdAddPointer => "ptroff",
+            Self::LdPtrFromEffectiveAddress => "lea",
+            Self::LdPtrFromPointerWithOffset => "ptroff",
 
             // Load
-            Self::Ld8 => "ld8",
+            Self::Ld8FromImmediateValue => "ld8",
             Self::Ld32FromImmediateValue | Self::Ld32FromPointerWithOffset => "ldw",
 
             Self::St32UsingPtrWithOffset => "stw",

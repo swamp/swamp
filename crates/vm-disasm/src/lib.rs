@@ -402,7 +402,7 @@ pub fn disasm(
             ]
         }
 
-        OpCode::Ld8 => {
+        OpCode::Ld8FromImmediateValue => {
             let data = operands[1];
 
             &[
@@ -600,7 +600,7 @@ pub fn disasm(
             ]
         }
 
-        OpCode::Tst8 => &[to_read_frame(operands[0], &u8_type(), frame_memory_info)],
+        OpCode::LdzFromU8Ptr => &[to_read_frame(operands[0], &u8_type(), frame_memory_info)],
 
         OpCode::Stz => &[to_write_frame(operands[0], &b8_type(), frame_memory_info)],
 
@@ -643,12 +643,12 @@ pub fn disasm(
             to_read_frame(operands[1], &u32_type(), frame_memory_info),
         ],
 
-        OpCode::Lea => &[
+        OpCode::LdPtrFromEffectiveAddress => &[
             to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
         ],
 
-        OpCode::LdAddPointer => &[
+        OpCode::LdPtrFromPointerWithOffset => &[
             to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
@@ -888,18 +888,6 @@ pub fn disasm(
         OpCode::Alloc => &[
             to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(0)),
-        ],
-
-        OpCode::UnwrapJmpNone => &[
-            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
-            to_read_frame(operands[1], &bytes_type(), frame_memory_info), // todo: optional union type
-            to_jmp_ip(u8_pair_to_u16(operands[2], operands[3])),
-        ],
-
-        OpCode::UnwrapJmpSome => &[
-            to_write_frame(operands[0], &bytes_type(), frame_memory_info),
-            to_read_frame(operands[1], &bytes_type(), frame_memory_info), // todo: optional union type
-            to_jmp_ip(u8_pair_to_u16(operands[2], operands[3])),
         ],
     };
 
