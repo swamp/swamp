@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use source_map_cache::SourceMapWrapper;
-use swamp_code_gen::{GenOptions, TopLevelGenState, disasm_whole_program};
+use swamp_code_gen::{TopLevelGenState, disasm_whole_program};
 use swamp_compile::Program;
 use swamp_semantic::Function;
 

@@ -21,7 +21,7 @@ use swamp_ast::{
 };
 use swamp_ast::{AttributeLiteralKind, Function};
 use swamp_ast::{Postfix, PostfixChain};
-use tracing::{error, info};
+use tracing::error;
 
 pub struct ParseResult<'a> {
     #[allow(dead_code)]

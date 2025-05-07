@@ -11,9 +11,9 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemoryRegion,
-    InstructionPosition, InstructionPositionOffset, MemoryOffset, MemorySize, Meta,
-    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
+    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::info;
 
@@ -253,7 +253,7 @@ impl InstructionBuilder<'_> {
     pub fn add_jmp_if_equal_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
         let position = self.position();
 
-        self.state.add_instruction(OpCode::Bz, &[0], node, comment);
+        self.state.add_instruction(OpCode::BEq, &[0], node, comment);
 
         PatchPosition(position)
     }
@@ -265,7 +265,7 @@ impl InstructionBuilder<'_> {
     ) -> PatchPosition {
         let position = self.position();
 
-        self.state.add_instruction(OpCode::Bnz, &[0], node, comment);
+        self.state.add_instruction(OpCode::BNe, &[0], node, comment);
 
         PatchPosition(position)
     }
@@ -569,7 +569,7 @@ impl InstructionBuilder<'_> {
     pub fn add_jump_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
         let position = self.position();
 
-        self.state.add_instruction(OpCode::Jmp, &[0], node, comment);
+        self.state.add_instruction(OpCode::B, &[0], node, comment);
 
         PatchPosition(position)
     }
@@ -692,9 +692,9 @@ impl InstructionBuilder<'_> {
         patch_position: PatchPosition,
         target_position: &InstructionPosition,
     ) {
-        const JMP_IF_NOT: u8 = OpCode::Bz as u8;
-        const JMP_IF: u8 = OpCode::Bnz as u8;
-        const JMP: u8 = OpCode::Jmp as u8;
+        const JMP_IF_NOT: u8 = OpCode::BEq as u8;
+        const JMP_IF: u8 = OpCode::BNe as u8;
+        const JMP: u8 = OpCode::B as u8;
 
         const VEC_ITER_NEXT: u8 = OpCode::VecIterNext as u8;
         const VEC_ITER_NEXT_PAIR: u8 = OpCode::VecIterNextPair as u8;
@@ -761,7 +761,7 @@ impl InstructionBuilder<'_> {
     pub fn add_jmp(&mut self, ip: InstructionPosition, node: &Node, comment: &str) {
         let ip_bytes = Self::u16_to_octets(ip.0 - 1);
         self.state
-            .add_instruction(OpCode::Jmp, &[ip_bytes.0, ip_bytes.1], node, comment);
+            .add_instruction(OpCode::B, &[ip_bytes.0, ip_bytes.1], node, comment);
     }
 
     pub fn add_frame_memory_clear(

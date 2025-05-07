@@ -609,7 +609,7 @@ pub fn disasm(
             ))),
         ],
 
-        OpCode::Bnz | OpCode::Bz | OpCode::Call => {
+        OpCode::BNe | OpCode::BEq | OpCode::Call => {
             &[to_jmp_ip(u8_pair_to_u16(operands[0], operands[1]))]
         }
         OpCode::NotZ => &[],
@@ -623,7 +623,7 @@ pub fn disasm(
         OpCode::Enter => &[DecoratedOperandAccessKind::MemorySize(MemorySize(
             u8_pair_to_u16(operands[0], operands[1]),
         ))],
-        OpCode::Jmp => &[to_jmp_ip(u8_pair_to_u16(operands[0], operands[1]))],
+        OpCode::B => &[to_jmp_ip(u8_pair_to_u16(operands[0], operands[1]))],
         OpCode::BlockCopy => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),

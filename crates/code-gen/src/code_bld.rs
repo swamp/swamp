@@ -4,8 +4,8 @@ use crate::layout::{layout_struct_type, layout_tuple_items, layout_type};
 use crate::reg_pool::{RegisterPool, TempRegister, TempRegisterPool};
 use crate::{
     CodeGenState, Collection, DetailedLocationResolved, DetailedLocationRevised, FunctionFixup,
-    GeneratedExpressionResult, GeneratedExpressionResultKind, SpilledArgument, TopLevelGenState,
-    Transformer, TransformerResult, single_intrinsic_fn,
+    GeneratedExpressionResult, GeneratedExpressionResultKind, SpilledArgument, Transformer,
+    TransformerResult, single_intrinsic_fn,
 };
 use seq_map::SeqMap;
 use source_map_node::Node;

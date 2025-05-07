@@ -17,7 +17,7 @@ use swamp_vm_types::{
     SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, STRING_PTR_ALIGNMENT,
     STRING_PTR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
 };
-use tracing::trace;
+use tracing::{info, trace};
 
 #[derive(Copy, Clone)]
 struct VariantLayout {
@@ -459,7 +459,9 @@ pub fn layout_variables(
 
     let mut variable_offsets = SeqMap::new();
 
-    let mut register_allocator = RegisterPool::new(8, 32);
+    let mut register_allocator = RegisterPool::new(8, 64);
+
+    info!(len = variables.len(), "variables");
 
     for var_ref in variables {
         let var_frame_placed_type = reserve(&var_ref.resolved_type, &mut allocator);

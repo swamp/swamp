@@ -45,11 +45,11 @@ pub enum OpCode {
     NotZ, // Invert z flag
 
     // Conditional branching
-    Bnz,
-    Bz,
+    BNe,
+    BEq,
 
     // Unconditional branching
-    Jmp,
+    B,
 
     // Call, frame and return
     Call, // Introduce CallLong if needed
@@ -166,9 +166,6 @@ impl OpCode {
             Self::Panic => "panic",
             Self::Brk => "brk",
 
-            //Self::UnwrapJmpNone => "unw_none",
-            //Self::UnwrapJmpSome => "unw_some",
-
             // Integer arithmetic
             Self::AddU32 => "add",
             Self::MulU32 => "mul",
@@ -179,9 +176,9 @@ impl OpCode {
             Self::DivI32 => "sdiv",
 
             // Float arithmetic
-            Self::MulF32 => "mulf",
-            Self::ModF32 => "modf",
-            Self::DivF32 => "divf",
+            Self::MulF32 => "fmul",
+            Self::ModF32 => "fmod",
+            Self::DivF32 => "fdiv",
 
             // Integer comparisons
             Self::LtI32 => "lt",
@@ -193,7 +190,7 @@ impl OpCode {
             Self::Eq8Imm => "eq8",
             Self::CmpReg => "cmp",
             Self::CmpBlock => "cmpblk",
-            Self::MovToZFromReg => "tst8",
+            Self::MovToZFromReg => "tst",
             Self::FrameMemClr => "memclrf",
 
             // Store Z flag
@@ -202,9 +199,9 @@ impl OpCode {
             Self::MovFromNotZToReg => "stnz",
 
             // Branches
-            Self::Bnz => "bnz",
-            Self::Bz => "bz",
-            Self::Jmp => "jmp",
+            Self::BNe => "b.ne",
+            Self::BEq => "b.eq",
+            Self::B => "b",
 
             // Call/Frame/Return
             Self::Call => "call",
@@ -217,8 +214,7 @@ impl OpCode {
             Self::LdPtrFromEffectiveAddress => "lea",
 
             // Load
-            Self::Mov8FromImmediateValue | Self::Ld8FromPointerWithOffset => "ld8",
-
+            Self::Mov8FromImmediateValue | Self::Ld8FromPointerWithOffset => "ldb",
             Self::Mov32FromImmediateValue | Self::Ld32FromPointerWithOffset => "ldw",
 
             Self::St32UsingPtrWithOffset => "stw",

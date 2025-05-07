@@ -202,11 +202,11 @@ impl Vm {
         // Logical Operations
 
         // Conditional jumps
-        vm.handlers[OpCode::Bnz as usize] = HandlerType::Args2(Self::execute_bnz);
-        vm.handlers[OpCode::Bz as usize] = HandlerType::Args2(Self::execute_bz);
+        vm.handlers[OpCode::BNe as usize] = HandlerType::Args2(Self::execute_bnz);
+        vm.handlers[OpCode::BEq as usize] = HandlerType::Args2(Self::execute_bz);
 
         // Unconditional jump
-        vm.handlers[OpCode::Jmp as usize] = HandlerType::Args2(Self::execute_jmp);
+        vm.handlers[OpCode::B as usize] = HandlerType::Args2(Self::execute_jmp);
 
         // Operators - Int
         vm.handlers[OpCode::AddU32 as usize] = HandlerType::Args3(Self::execute_add_u32);

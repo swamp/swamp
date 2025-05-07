@@ -104,7 +104,7 @@ fn main() {
     let mut vm = Vm::new(instructions, vm_setup);
 
     for (_key, constant) in constants_in_order {
-        info!(?constant.constant_ref, "ordered constant");
+        //info!(?constant.constant_ref, "ordered constant");
         // do not reset heap, all allocations from heap should remain (for now)
         // TODO: compact the heap after each constant
         vm.reset_frame();

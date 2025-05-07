@@ -700,6 +700,8 @@ impl TopLevelGenState {
     ) -> (InstructionPosition, InstructionPosition, FunctionInfo) {
         let start_ip = self.ip();
 
+        eprintln!("function name {}", in_data.assigned_name);
+
         let frame_and_variable_info = layout_variables(
             &in_data.function_name_node,
             &in_data.all_variables_parameters_first,
