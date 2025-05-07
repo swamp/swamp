@@ -482,25 +482,6 @@ pub fn disasm(
             to_read_frame(operands[2], &float_type(), frame_memory_info),
         ],
 
-        OpCode::LtF32 => &[
-            to_read_frame(operands[0], &float_type(), frame_memory_info),
-            to_read_frame(operands[1], &float_type(), frame_memory_info),
-        ],
-
-        OpCode::LeF32 => &[
-            to_read_frame(operands[0], &float_type(), frame_memory_info),
-            to_read_frame(operands[1], &float_type(), frame_memory_info),
-        ],
-
-        OpCode::GtF32 => &[
-            to_read_frame(operands[0], &float_type(), frame_memory_info),
-            to_read_frame(operands[1], &float_type(), frame_memory_info),
-        ],
-        OpCode::GeF32 => &[
-            to_read_frame(operands[0], &float_type(), frame_memory_info),
-            to_read_frame(operands[1], &float_type(), frame_memory_info),
-        ],
-
         OpCode::LtI32 => &[
             to_read_frame(operands[0], &int_type(), frame_memory_info),
             to_read_frame(operands[1], &int_type(), frame_memory_info),
@@ -608,19 +589,15 @@ pub fn disasm(
             ]
         }
 
-        OpCode::LdzFromU8Ptr => &[to_read_frame(operands[0], &u8_type(), frame_memory_info)],
+        OpCode::MovToZFromReg => &[to_read_frame(operands[0], &u8_type(), frame_memory_info)],
 
-        OpCode::Stz => &[to_write_frame(operands[0], &b8_type(), frame_memory_info)],
+        OpCode::MovFromZToReg => &[to_write_frame(operands[0], &b8_type(), frame_memory_info)],
 
-        OpCode::Stnz => &[to_write_frame(operands[0], &b8_type(), frame_memory_info)],
+        OpCode::MovFromNotZToReg => &[to_write_frame(operands[0], &b8_type(), frame_memory_info)],
 
-        OpCode::Cmp32 => &[
+        OpCode::CmpReg => &[
             to_read_frame(operands[0], &u32_type(), frame_memory_info),
             to_read_frame(operands[1], &u32_type(), frame_memory_info),
-        ],
-        OpCode::Cmp8 => &[
-            to_read_frame(operands[0], &u8_type(), frame_memory_info),
-            to_read_frame(operands[1], &u8_type(), frame_memory_info),
         ],
 
         OpCode::CmpBlock => &[
@@ -647,7 +624,7 @@ pub fn disasm(
             u8_pair_to_u16(operands[0], operands[1]),
         ))],
         OpCode::Jmp => &[to_jmp_ip(u8_pair_to_u16(operands[0], operands[1]))],
-        OpCode::MovMem => &[
+        OpCode::BlockCopy => &[
             to_write_frame(operands[0], &bytes_type(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
@@ -673,15 +650,6 @@ pub fn disasm(
         OpCode::LdPtrFromEffectiveAddress => &[
             to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
-        ],
-
-        OpCode::StIndirect => &[
-            to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
-            DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(u8_pair_to_u16(
-                operands[1],
-                operands[2],
-            ))),
-            to_read_frame(operands[3], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::Nop => &[],

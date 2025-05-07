@@ -626,7 +626,7 @@ impl InstructionBuilder<'_> {
 
         let (lower_bits, upper_bits) = Self::u16_to_octets(size.0);
         self.state.add_instruction(
-            OpCode::MovMem,
+            OpCode::BlockCopy,
             &[
                 target.addressing(),
                 source.addressing(),
@@ -1179,28 +1179,6 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_st_indirect(
-        &mut self,
-        target_base_ptr_reg: &TypedRegister,
-        offset_from_base: MemoryOffset,
-        source_reg: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        let offset_bytes = u16_to_u8_pair(offset_from_base.0);
-        self.state.add_instruction(
-            OpCode::StIndirect,
-            &[
-                target_base_ptr_reg.addressing(),
-                offset_bytes.0,
-                offset_bytes.1,
-                source_reg.addressing(),
-            ],
-            node,
-            comment,
-        );
-    }
-
     pub fn add_mov_reg(
         &mut self,
         dst_offset: &TypedRegister,
@@ -1494,77 +1472,6 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_lt_f32(
-        &mut self,
-        lhs_offset: &TypedRegister,
-        rhs_offset: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert!(lhs_offset.ty().is_float());
-        assert!(rhs_offset.ty().is_float());
-        self.state.add_instruction(
-            OpCode::LtF32,
-            &[lhs_offset.addressing(), rhs_offset.addressing()],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_le_f32(
-        &mut self,
-        lhs_offset: &TypedRegister,
-        rhs_offset: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert!(lhs_offset.ty().is_float());
-        assert!(rhs_offset.ty().is_float());
-
-        self.state.add_instruction(
-            OpCode::LeF32,
-            &[lhs_offset.addressing(), rhs_offset.addressing()],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_gt_f32(
-        &mut self,
-        lhs_offset: &TypedRegister,
-        rhs_offset: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert!(lhs_offset.ty().is_float());
-        assert!(rhs_offset.ty().is_float());
-
-        self.state.add_instruction(
-            OpCode::GtF32,
-            &[lhs_offset.addressing(), rhs_offset.addressing()],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_ge_f32(
-        &mut self,
-        lhs_offset: &TypedRegister,
-        rhs_offset: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert!(lhs_offset.ty().is_float());
-        assert!(rhs_offset.ty().is_float());
-
-        self.state.add_instruction(
-            OpCode::GeF32,
-            &[lhs_offset.addressing(), rhs_offset.addressing()],
-            node,
-            comment,
-        );
-    }
-
     pub fn add_lt_i32(
         &mut self,
         lhs_offset: &TypedRegister,
@@ -1635,37 +1542,26 @@ impl InstructionBuilder<'_> {
 
     pub fn add_tst_u8(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
         self.state
-            .add_instruction(OpCode::LdzFromU8Ptr, &[addr.addressing()], node, comment);
+            .add_instruction(OpCode::MovToZFromReg, &[addr.addressing()], node, comment);
     }
 
     pub fn add_stz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
         assert_eq!(target.underlying().total_size.0, 1);
         self.state
-            .add_instruction(OpCode::Stz, &[target.addressing()], node, comment);
+            .add_instruction(OpCode::MovFromZToReg, &[target.addressing()], node, comment);
     }
 
     pub fn add_stnz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
         assert_eq!(target.underlying().total_size.0, 1);
-        self.state
-            .add_instruction(OpCode::Stnz, &[target.addressing()], node, comment);
-    }
-
-    pub fn add_cmp_8(
-        &mut self,
-        source_a: &TypedRegister,
-        source_b: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
         self.state.add_instruction(
-            OpCode::Cmp8,
-            &[source_a.addressing(), source_b.addressing()],
+            OpCode::MovFromNotZToReg,
+            &[target.addressing()],
             node,
             comment,
         );
     }
 
-    pub fn add_cmp_32(
+    pub fn add_cmp_reg(
         &mut self,
         source_a: &TypedRegister,
         source_b: &TypedRegister,
@@ -1673,7 +1569,7 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         self.state.add_instruction(
-            OpCode::Cmp32,
+            OpCode::CmpReg,
             &[source_a.addressing(), source_b.addressing()],
             node,
             comment,

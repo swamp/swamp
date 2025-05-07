@@ -31,29 +31,18 @@ pub enum OpCode {
 
     // Comparisons
     // Reads or sets the z flag
-    // Integer
+    // Integer and Float
     LtI32,
     LeI32,
     GtI32,
     GeI32,
 
-    // Fixed point
-    LtF32,
-    LeF32,
-    GtF32,
-    GeF32,
-
     // Comparison, set z flag
     Eq8Imm,
-    Cmp8,
-    Cmp32,
+    CmpReg,
     CmpBlock,
 
-    NotZ,
-
-    // Store z flag
-    Stz,
-    Stnz,
+    NotZ, // Invert z flag
 
     // Conditional branching
     Bnz,
@@ -67,14 +56,10 @@ pub enum OpCode {
     Enter,
     Ret,
 
-    // Frame copy
-    MovReg,
-
-    // Heap copy
-    MovMem, // Copy from heap region with offset to frame region
+    BlockCopy, // Copy from heap region with offset to frame region
     FrameMemClr,
 
-    Alloc, // For slices
+    Alloc, // Mainly for slices
 
     // Loaders --------------
 
@@ -82,14 +67,17 @@ pub enum OpCode {
     LdPtrFromEffectiveAddress, // Load effective address
     Ld8FromPointerWithOffset,
     Ld32FromPointerWithOffset,
-    LdzFromU8Ptr, // Load the byte into the z flag (zero = sets the z flag, any other value = clears the z flag)
 
-    // Storers --- is that a word?
-    StIndirect,
+    // Storers ---
     St32UsingPtrWithOffset,
     St8UsingPtrWithOffset,
 
-    // mov immediate
+    // Movers
+    MovReg,
+    MovToZFromReg, // Load the byte into the z flag (zero = sets the z flag, any other value = clears the z flag)
+    MovFromZToReg,
+    MovFromNotZToReg,
+    // Mov immediate
     Mov8FromImmediateValue,
     Mov32FromImmediateValue,
 
@@ -164,10 +152,6 @@ pub enum OpCode {
     // String
     StringAppend,
 
-    // Optional Unwrap
-    //UnwrapJmpSome,
-    //UnwrapJmpNone,
-
     // Other
     HostCall, // calls back into host
 }
@@ -205,25 +189,17 @@ impl OpCode {
             Self::GtI32 => "gt",
             Self::GeI32 => "ge",
 
-            // Float comparisons
-            Self::LtF32 => "ltf",
-            Self::LeF32 => "lef",
-            Self::GtF32 => "gtf",
-            Self::GeF32 => "gef",
-
             // Byte/memory comparisons
             Self::Eq8Imm => "eq8",
-            Self::Cmp8 => "cmp8",
-            Self::Cmp32 => "cmp32",
+            Self::CmpReg => "cmp",
             Self::CmpBlock => "cmpblk",
-            Self::LdzFromU8Ptr => "tst8",
+            Self::MovToZFromReg => "tst8",
             Self::FrameMemClr => "memclrf",
 
             // Store Z flag
             Self::NotZ => "notz",
-            Self::Stz => "stz",
-            Self::Stnz => "stnz",
-            Self::StIndirect => "stoff",
+            Self::MovFromZToReg => "stz",
+            Self::MovFromNotZToReg => "stnz",
 
             // Branches
             Self::Bnz => "bnz",
@@ -237,7 +213,7 @@ impl OpCode {
 
             // Move
             Self::MovReg => "mov",
-            Self::MovMem => "movmem",
+            Self::BlockCopy => "movmem",
             Self::LdPtrFromEffectiveAddress => "lea",
 
             // Load

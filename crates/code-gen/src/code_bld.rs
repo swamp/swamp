@@ -353,17 +353,17 @@ impl CodeBuilder<'_> {
         match &binary_operator.kind {
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
                 let polarity = match (&binary_operator.left.ty, &binary_operator.right.ty) {
-                    (Type::Bool, Type::Bool) => self.emit_binary_operator_cmp8(
+                    (Type::Bool, Type::Bool) => self.emit_binary_operator_reg(
                         &left_source,
                         &binary_operator.node,
                         &right_source,
                     ),
-                    (Type::Int, Type::Int) => self.emit_binary_operator_cmp32(
+                    (Type::Int, Type::Int) => self.emit_binary_operator_reg(
                         &left_source,
                         &binary_operator.node,
                         &right_source,
                     ),
-                    (Type::Float, Type::Float) => self.emit_binary_operator_cmp32(
+                    (Type::Float, Type::Float) => self.emit_binary_operator_reg(
                         &left_source,
                         &binary_operator.node,
                         &right_source,
@@ -556,22 +556,22 @@ impl CodeBuilder<'_> {
             }*/
             BinaryOperatorKind::LessThan => {
                 self.builder
-                    .add_lt_f32(left_source, right_source, node, "f32 lt");
+                    .add_lt_i32(left_source, right_source, node, "f32 lt");
                 kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             BinaryOperatorKind::LessEqual => {
                 self.builder
-                    .add_le_f32(left_source, right_source, node, "f32 le");
+                    .add_le_i32(left_source, right_source, node, "f32 le");
                 kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             BinaryOperatorKind::GreaterThan => {
                 self.builder
-                    .add_gt_f32(left_source, right_source, node, "f32 gt");
+                    .add_gt_i32(left_source, right_source, node, "f32 gt");
                 kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
             BinaryOperatorKind::GreaterEqual => {
                 self.builder
-                    .add_ge_f32(left_source, right_source, node, "f32 ge");
+                    .add_ge_i32(left_source, right_source, node, "f32 ge");
                 kind = GeneratedExpressionResultKind::ZFlagIsTrue;
             }
         }
@@ -617,21 +617,21 @@ impl CodeBuilder<'_> {
         assert_eq!(left_source.size().0, 1);
         assert_eq!(right_source.size().0, 1);
         self.builder
-            .add_cmp_8(left_source, right_source, &node, "compare bool");
+            .add_cmp_reg(left_source, right_source, &node, "compare bool");
 
         GeneratedExpressionResult {
             kind: GeneratedExpressionResultKind::ZFlagIsTrue,
         }
     }
 
-    fn emit_binary_operator_cmp32(
+    fn emit_binary_operator_reg(
         &mut self,
         left_source: &TypedRegister,
         node: &Node,
         right_source: &TypedRegister,
     ) -> GeneratedExpressionResult {
         self.builder
-            .add_cmp_32(left_source, right_source, node, "compare to z flag");
+            .add_cmp_reg(left_source, right_source, node, "compare to z flag");
 
         GeneratedExpressionResult {
             kind: GeneratedExpressionResultKind::ZFlagIsTrue,
@@ -645,7 +645,7 @@ impl CodeBuilder<'_> {
         right_source: &TypedRegister,
     ) -> GeneratedExpressionResult {
         self.builder
-            .add_cmp_8(left_source, right_source, &node, "compare bool");
+            .add_cmp_reg(left_source, right_source, node, "compare bool");
 
         GeneratedExpressionResult {
             kind: GeneratedExpressionResultKind::ZFlagIsTrue,

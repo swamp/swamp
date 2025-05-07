@@ -179,7 +179,7 @@ impl Vm {
             HandlerType::Args3(Self::execute_lea);
 
         // Copy to and from heap
-        vm.handlers[OpCode::MovMem as usize] = HandlerType::Args4(Self::execute_mov_mem);
+        vm.handlers[OpCode::BlockCopy as usize] = HandlerType::Args4(Self::execute_mov_mem);
 
         // Comparisons - Int
         vm.handlers[OpCode::LtI32 as usize] = HandlerType::Args2(Self::execute_lt_i32);
@@ -187,23 +187,17 @@ impl Vm {
         vm.handlers[OpCode::GtI32 as usize] = HandlerType::Args2(Self::execute_gt_i32);
         vm.handlers[OpCode::GeI32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
 
-        // Comparisons - Float (Fixed Point)
-        vm.handlers[OpCode::LtF32 as usize] = HandlerType::Args2(Self::execute_lt_i32);
-        vm.handlers[OpCode::LeF32 as usize] = HandlerType::Args2(Self::execute_le_i32);
-        vm.handlers[OpCode::GtF32 as usize] = HandlerType::Args2(Self::execute_gt_i32);
-        vm.handlers[OpCode::GeF32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
-
         // Comparison
         // TODO: vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args2(Self::execute_cmp_reg);
 
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
 
         // Z flag
-        vm.handlers[OpCode::LdzFromU8Ptr as usize] = HandlerType::Args1(Self::execute_tst8);
+        vm.handlers[OpCode::MovToZFromReg as usize] = HandlerType::Args1(Self::execute_tst8);
 
         vm.handlers[OpCode::NotZ as usize] = HandlerType::Args0(Self::execute_not_z); // needed for normalized Z
-        vm.handlers[OpCode::Stz as usize] = HandlerType::Args1(Self::execute_st_z);
-        vm.handlers[OpCode::Stnz as usize] = HandlerType::Args1(Self::execute_st_nz);
+        vm.handlers[OpCode::MovFromZToReg as usize] = HandlerType::Args1(Self::execute_st_z);
+        vm.handlers[OpCode::MovFromNotZToReg as usize] = HandlerType::Args1(Self::execute_st_nz);
 
         // Logical Operations
 
