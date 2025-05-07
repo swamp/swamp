@@ -2,7 +2,6 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::Reg;
 use crate::Vm;
 use crate::memory::Memory;
 use crate::set_reg;
@@ -59,7 +58,7 @@ impl Vm {
         );
 
         let map_header_addr = self.memory.heap_allocate(MAP_HEADER_SIZE.0 as usize);
-        set_reg!(self, dst_reg, as Ptr <- map_header_addr);
+        set_reg!(self, dst_reg, map_header_addr);
         let map_header_ptr = self.get_map_header_mut(map_header_addr);
 
         unsafe {

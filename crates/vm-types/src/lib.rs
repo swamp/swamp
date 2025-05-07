@@ -16,7 +16,7 @@ pub mod types;
 #[derive(Clone)]
 pub struct BinaryInstruction {
     pub opcode: u8,
-    pub operands: [u8; 5], // Do not increase the size
+    pub operands: [u8; 8], // Do not increase the size
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -260,6 +260,14 @@ impl Add<MemorySize> for MemoryOffset {
     type Output = Self;
 
     fn add(self, rhs: MemorySize) -> Self {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Add<Self> for MemoryOffset {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self {
         Self(self.0 + rhs.0)
     }
 }

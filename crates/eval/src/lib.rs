@@ -441,7 +441,7 @@ impl<'a, C> Interpreter<'a, C> {
                             .map_err(|_| self.create_err(RuntimeErrorKind::ExpectedStruct, node))?;
                         fields[*index].clone()
                     }
-                    LocationAccessKind::IntrinsicCallMut(intrinsic_fn, arguments) => self
+                    LocationAccessKind::IntrinsicSubscript(intrinsic_fn, arguments) => self
                         .eval_intrinsic_postfix_mut_return(
                             node,
                             &value_ref,
@@ -1147,7 +1147,7 @@ impl<'a, C> Interpreter<'a, C> {
                                 Vec::with_capacity(source_order_field_values.len());
                             field_values
                                 .resize_with(source_order_field_values.len(), Default::default);
-                            for (index, resolved_expression) in source_order_field_values {
+                            for (index, _, resolved_expression) in source_order_field_values {
                                 let value = self.evaluate_expression(resolved_expression)?;
                                 field_values[*index] = Rc::new(RefCell::new(value));
                             }

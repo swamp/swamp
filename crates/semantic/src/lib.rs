@@ -561,7 +561,7 @@ pub enum PostfixKind {
 #[derive(Debug, Clone)]
 pub enum LocationAccessKind {
     FieldIndex(AnonymousStructType, usize),
-    IntrinsicCallMut(IntrinsicFunction, Vec<Expression>),
+    IntrinsicSubscript(IntrinsicFunction, Vec<Expression>),
 }
 
 #[derive(Debug, Clone)]
@@ -1115,7 +1115,7 @@ impl ProgramState {
 pub enum EnumLiteralData {
     Nothing,
     Tuple(Vec<Expression>),
-    Struct(Vec<(usize, Expression)>),
+    Struct(Vec<(usize, Option<Node>, Expression)>),
 }
 
 impl Debug for EnumLiteralData {

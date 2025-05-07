@@ -460,17 +460,14 @@ impl Analyzer<'_> {
         struct_to_instantiate: &AnonymousStructType,
         ast_fields: &Vec<swamp_ast::FieldExpression>,
         allow_rest: bool,
-    ) -> Result<Vec<(usize, Expression)>, Error> {
+    ) -> Result<Vec<(usize, Option<Node>, Expression)>, Error> {
         let (source_order_expressions, missing_fields) = self
             .place_anon_struct_fields_that_exist_and_return_missing(
                 struct_to_instantiate,
                 ast_fields,
             )?;
 
-        let mut mapped: Vec<(usize, Expression)> = source_order_expressions
-            .into_iter()
-            .map(|(a, _b, c)| (a, c))
-            .collect::<Vec<_>>();
+        let mut mapped: Vec<(usize, Option<Node>, Expression)> = source_order_expressions;
 
         if allow_rest {
             // Call `default()` for the missing fields
@@ -489,7 +486,7 @@ impl Analyzer<'_> {
                 let default_expression =
                     self.create_default_value_for_type(node, &field.field_type)?;
 
-                mapped.push((field_index, default_expression));
+                mapped.push((field_index, None, default_expression));
             }
         } else if !missing_fields.is_empty() {
             return Err(self.create_err(

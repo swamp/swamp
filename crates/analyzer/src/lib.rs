@@ -15,19 +15,14 @@ pub mod prelude;
 mod structure;
 pub mod types;
 pub mod variable;
-
 use crate::call::MaybeBorrowMutRefExpression;
 use crate::err::{Error, ErrorKind};
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
-use std::env::var;
-use std::fmt::Arguments;
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::{FromStr, ParseBoolError};
-use std::task::Context;
-use swamp_ast::PostfixChain;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
 use swamp_semantic::instantiator::TypeVariableScope;
@@ -37,7 +32,7 @@ use swamp_semantic::{
     BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState, InternalMainExpression,
     LocationAccess, LocationAccessKind, MutRefOrImmutableExpression, MutableReferenceKind,
     NormalPattern, Postfix, PostfixKind, SingleLocationExpression, TargetAssignmentLocation,
-    TypeWithMut, UnaryOperatorKind, WhenBinding,
+    TypeWithMut, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::all_types_are_concrete_or_unit;
@@ -2651,7 +2646,7 @@ impl<'a> Analyzer<'a> {
 
                         self.add_location_item(
                             &mut items,
-                            LocationAccessKind::IntrinsicCallMut(
+                            LocationAccessKind::IntrinsicSubscript(
                                 intrinsic_to_call,
                                 vec![analyzed_key_expression, create_if_not_exists_bool_expr],
                             ),

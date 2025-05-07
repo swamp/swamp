@@ -6,9 +6,7 @@ use crate::layout::layout_type;
 use swamp_types::Type;
 use swamp_vm_types::HeapMemoryAddress;
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
-use swamp_vm_types::types::DecoratedOperandAccessKind::MemorySize;
 use swamp_vm_types::types::{HeapPlacedArray, HeapPlacedType};
-use tracing::info;
 
 pub struct ConstantsAllocator {
     current_addr: u32,

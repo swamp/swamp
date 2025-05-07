@@ -4,7 +4,6 @@
  */
 
 use crate::Collection;
-use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_types::Type;
 use swamp_vm_types::types::{BasicType, BasicTypeKind, FramePlacedType, unknown_type};

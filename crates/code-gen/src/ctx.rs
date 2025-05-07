@@ -40,50 +40,13 @@ impl Context {
 }
 
 impl Context {
-    pub(crate) const fn target_register(&self) -> &TypedRegister {
+    pub(crate) const fn register(&self) -> &TypedRegister {
         &self.target_register
     }
     #[must_use]
     pub fn comment(&self) -> &str {
         &self.comment
     }
-
-    /*
-    pub(crate) fn move_to_field_index(&self, index: usize) -> Self {
-        let offset_item = self
-            .target_register
-            .final_type()
-            .get_field_offset(index)
-            .unwrap();
-        Self {
-            target_register: FramePlacedType::new(
-                self.target_register.addr() + offset_item.offset,
-                offset_item.ty.clone(),
-            ),
-            comment: String::new(),
-        }
-    }
-    #[must_use]
-    pub fn move_to_optional_tag(&self) -> Self {
-        let new_placed_type = self.target_register.move_to_optional_tag();
-
-        Self {
-            target_register: new_placed_type,
-            comment: String::new(),
-        }
-    }
-
-    #[must_use]
-    pub fn move_to_optional_some_payload(&self) -> Self {
-        let new_placed_type = self.target_register.move_to_optional_some_payload();
-
-        Self {
-            target_register: new_placed_type,
-            comment: String::new(),
-        }
-    }
-
-     */
 }
 
 impl Context {

@@ -14,19 +14,18 @@ pub enum OpCode {
     Brk,   // Breakpoint. pause execution, keep all relevant state
 
     // Operators
-    // i32
-    AddI32,
-    MulI32,
+    // u32 and i32
+    AddU32,
+    MulU32,
+    SubU32,
+
+    // i32 specific
     NegI32,
-    SubI32,
     ModI32,
     DivI32,
 
     // Fixed
-    AddF32,
     MulF32,
-    NegF32,
-    SubF32,
     ModF32,
     DivF32,
 
@@ -48,6 +47,7 @@ pub enum OpCode {
     Eq8Imm,
     Cmp8,
     Cmp32,
+    CmpBlock,
 
     NotZ,
 
@@ -72,24 +72,26 @@ pub enum OpCode {
 
     // Heap copy
     MovMem, // Copy from heap region with offset to frame region
+    FrameMemClr,
 
     Alloc, // For slices
 
     // Loaders --------------
 
     // Load immediate into reg
-    LdPtrFromEffectiveAddress,  // Load effective address
-    LdPtrFromPointerWithOffset, // Load a pointer, add to it and write it back
-    Ld8FromImmediateValue,
-    Ld32FromImmediateValue,
+    LdPtrFromEffectiveAddress, // Load effective address
+    Ld8FromPointerWithOffset,
     Ld32FromPointerWithOffset,
-
     LdzFromU8Ptr, // Load the byte into the z flag (zero = sets the z flag, any other value = clears the z flag)
 
     // Storers --- is that a word?
     StIndirect,
     St32UsingPtrWithOffset,
     St8UsingPtrWithOffset,
+
+    // mov immediate
+    Mov8FromImmediateValue,
+    Mov32FromImmediateValue,
 
     // Type specific -----
 
@@ -184,18 +186,16 @@ impl OpCode {
             //Self::UnwrapJmpSome => "unw_some",
 
             // Integer arithmetic
-            Self::AddI32 => "add",
-            Self::MulI32 => "mul",
-            Self::NegI32 => "neg",
-            Self::SubI32 => "sub",
-            Self::ModI32 => "mod",
-            Self::DivI32 => "div",
+            Self::AddU32 => "add",
+            Self::MulU32 => "mul",
+            Self::SubU32 => "sub",
+
+            Self::NegI32 => "sneg",
+            Self::ModI32 => "smod",
+            Self::DivI32 => "sdiv",
 
             // Float arithmetic
-            Self::AddF32 => "addf",
             Self::MulF32 => "mulf",
-            Self::NegF32 => "negf",
-            Self::SubF32 => "subf",
             Self::ModF32 => "modf",
             Self::DivF32 => "divf",
 
@@ -215,10 +215,12 @@ impl OpCode {
             Self::Eq8Imm => "eq8",
             Self::Cmp8 => "cmp8",
             Self::Cmp32 => "cmp32",
+            Self::CmpBlock => "cmpblk",
             Self::LdzFromU8Ptr => "tst8",
-            Self::NotZ => "notz",
+            Self::FrameMemClr => "memclrf",
 
             // Store Z flag
+            Self::NotZ => "notz",
             Self::Stz => "stz",
             Self::Stnz => "stnz",
             Self::StIndirect => "stoff",
@@ -237,11 +239,11 @@ impl OpCode {
             Self::MovReg => "mov",
             Self::MovMem => "movmem",
             Self::LdPtrFromEffectiveAddress => "lea",
-            Self::LdPtrFromPointerWithOffset => "ptroff",
 
             // Load
-            Self::Ld8FromImmediateValue => "ld8",
-            Self::Ld32FromImmediateValue | Self::Ld32FromPointerWithOffset => "ldw",
+            Self::Mov8FromImmediateValue | Self::Ld8FromPointerWithOffset => "ld8",
+
+            Self::Mov32FromImmediateValue | Self::Ld32FromPointerWithOffset => "ldw",
 
             Self::St32UsingPtrWithOffset => "stw",
             Self::St8UsingPtrWithOffset => "stb",

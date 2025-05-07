@@ -2,16 +2,17 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::FunctionCodeGen;
+use crate::DetailedLocationRevised;
+use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
 use swamp_vm_types::MemoryOffset;
-use swamp_vm_types::types::{AssignmentTarget, BasicTypeKind, TypedRegister};
+use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType};
 
-impl FunctionCodeGen<'_> {
+impl CodeBuilder<'_> {
     pub(crate) fn emit_for_access_or_location(
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
@@ -50,113 +51,11 @@ impl FunctionCodeGen<'_> {
         }
     }
 
-    pub(crate) fn emit_expression_location_mut_ref_or_immutable(
-        &mut self,
-        mut_or_immutable_expression: &MutRefOrImmutableExpression,
-    ) -> TypedRegister {
-        match &mut_or_immutable_expression {
-            MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.emit_expression_location(found_expression)
-            }
-            MutRefOrImmutableExpression::Location(location_expression) => {
-                let x = self.emit_lvalue_chain(location_expression);
-                // TODO: FIX THIS
-                if let AssignmentTarget::Register(found) = x {
-                    found
-                } else {
-                    panic!("expected register")
-                }
-            }
-        }
-    }
-
-    /*
-           if let Some(value_to_assign) = source_value_to_assign {
-               let mut collection_access_index = None;
-               let mut collection_args = None;
-
-               for (i, access) in location_expression.access_chain.iter().enumerate() {
-                   if let LocationAccessKind::IntrinsicCallMut(_, args) = &access.kind {
-                       collection_access_index = Some(i);
-                       collection_args = Some(args.clone());
-                   }
-               }
-
-               // Check what kind of access the last one was
-               if let Some(last) = location_expression.access_chain.last() {
-                   match &last.kind {
-                       LocationAccessKind::IntrinsicCallMut(_, args) => {
-                           // Direct collection access - set element directly
-                           self.emit_collection_set(
-                               node,
-                               &current_register,
-                               args,
-                               &value_to_assign,
-                           );
-                       }
-                       LocationAccessKind::FieldIndex(_, field_index) => {
-                           // Field access - set the field
-                           let field_target = current_register.move_to_field(*field_index);
-                           self.builder.add_mov_for_assignment(
-                               &field_target,
-                               &value_to_assign,
-                               node,
-                               &format!("assign to field {}", field_target.ty()),
-                           );
-
-                           // If this field is inside an object from a collection, copy the object back
-                           if let (Some(idx), Some(args)) = (collection_access_index, &collection_args)
-                           {
-                               // We need the container and address of the object that contains the field
-                               // Get the container by going back in the chain to before the collection access
-                               let mut container = self
-                                   .variable_registers
-                                   .get(
-                                       &location_expression
-                                           .starting_variable
-                                           .unique_id_within_function,
-                                   )
-                                   .unwrap()
-                                   .clone();
-
-                               for i in 0..idx {
-                                   match &location_expression.access_chain[i].kind {
-                                       LocationAccessKind::FieldIndex(_, field_idx) => {
-                                           container = container.move_to_field(*field_idx);
-                                       }
-                                       _ => {} // Skip other access types (shouldn't happen before collection)
-                                   }
-                               }
-
-                               // Copy the modified object back to the collection
-                               self.emit_collection_set(
-                                   node,
-                                   &container,
-                                   args,
-                                   &current_register,
-                               );
-                           }
-                       }
-                   }
-               } else {
-                   // Direct variable assignment (no access chain)
-                   self.builder.add_mov_for_assignment(
-                       &current_register,
-                       &value_to_assign,
-                       node,
-                       "direct variable assignment",
-                   );
-               }
-           }
-
-
-    */
-
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_lvalue_chain(
         &mut self,
         location_expression: &SingleLocationExpression,
-    ) -> AssignmentTarget {
+    ) -> DetailedLocationRevised {
         let mut current_register = self
             .variable_registers
             .get(
@@ -185,17 +84,18 @@ impl FunctionCodeGen<'_> {
             match &access.kind {
                 LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
                     let x = current_register.basic_type.frame_placed_type().unwrap();
-                    let ty = x.underlying();
+                    let ty = x.ty().underlying();
                     let offset_item = ty.get_field_offset(*field_index).unwrap();
 
                     last_memory_offset = offset_item.offset;
                 }
-                LocationAccessKind::IntrinsicCallMut(
+                LocationAccessKind::IntrinsicSubscript(
                     _intrinsic_function,
                     arguments_to_the_intrinsic,
                 ) => {
                     // Fetching from vector, map, etc. are done using intrinsic calls
-                    let ctx = self.temp_space_for_type(&access.ty, "intrinsic call mut"); // TODO: should be more generic pointer
+                    let (ctx, temp_reg) =
+                        self.temp_space_for_type(&access.ty, "intrinsic subscript lvalue"); // TODO: should be more generic pointer
                     self.emit_collection_get(
                         node,
                         &current_register,
@@ -203,13 +103,17 @@ impl FunctionCodeGen<'_> {
                         &ctx,
                     );
 
-                    current_register = ctx.target_register().clone();
+                    current_register = ctx.register().clone();
                     last_memory_offset = MemoryOffset(0);
                 }
             }
         }
 
-        AssignmentTarget::MemoryLocation(current_register, last_memory_offset)
+        DetailedLocationRevised::Memory {
+            base_ptr_reg: current_register,
+            offset: last_memory_offset,
+            ty: VmType::TempPointer,
+        }
     }
 
     fn emit_collection_set(
@@ -264,7 +168,7 @@ impl FunctionCodeGen<'_> {
                 assert!(key_address.ty().is_int());
                 assert_eq!(expected_item_type.total_size, ctx.target_size());
                 self.builder.add_vec_get(
-                    ctx.target_register(),
+                    ctx.register(),
                     self_collection,
                     &key_address,
                     node,
@@ -273,7 +177,7 @@ impl FunctionCodeGen<'_> {
             }
             BasicTypeKind::InternalMapPointer(_, _) => {
                 self.builder.add_map_fetch(
-                    ctx.target_register(),
+                    ctx.register(),
                     self_collection,
                     &key_address,
                     node,

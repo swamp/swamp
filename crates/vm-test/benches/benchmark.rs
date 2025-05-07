@@ -6,6 +6,7 @@
 use std::time::{Duration, Instant};
 use swamp_vm::Vm;
 use swamp_vm_test::util::exec_internal;
+use swamp_vm_types::InstructionPosition;
 
 fn setup_vm() -> Vm {
     exec_internal(
@@ -42,7 +43,7 @@ fn main() {
             if i % 1_000 == 0 {
                 println!("  Warm-up iteration {i}");
             }
-            vm.execute();
+            vm.execute_from_ip(&InstructionPosition(0));
             vm.reset();
         }
 
@@ -59,7 +60,7 @@ fn main() {
 
     let start = Instant::now();
     for _ in 0..execution_count {
-        vm.execute();
+        vm.execute_from_ip(&InstructionPosition(0));
         vm.reset();
     }
     let duration = start.elapsed();
@@ -77,7 +78,7 @@ fn main() {
         let mut vm = setup_vm();
 
         let start = Instant::now();
-        vm.execute();
+        vm.execute_from_ip(&InstructionPosition(0));
         let execution_time = start.elapsed();
         total_execution_time += execution_time;
     }
@@ -90,7 +91,7 @@ fn main() {
     let start = Instant::now();
     for _ in 0..vm_count {
         let mut vm = setup_vm();
-        vm.execute();
+        vm.execute_from_ip(&InstructionPosition(0));
     }
     let duration = start.elapsed();
     summary(duration, vm_count, None);

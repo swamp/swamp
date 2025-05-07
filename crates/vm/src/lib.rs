@@ -36,93 +36,20 @@ macro_rules! u8s_to_u16 {
 
 #[macro_export]
 macro_rules! get_reg {
-    // This arm matches if the type token is `U8`
-    ($vm:expr, $reg_idx:expr, u8 => $binding_name:ident) => {
-        // The code generated here hardcodes the use of `Reg::U8`
-        let Reg::U8($binding_name) = $vm.registers[$reg_idx as usize] else {
-            panic!(
-                "Opcode expected U8 (Reg::U8) in R{}, but got {:?}",
-                $reg_idx, $vm.registers[$reg_idx as usize]
-            );
-        };
-    };
-
-    // This arm matches if the type token is `i32`
-    ($vm:expr, $reg_idx:expr, i32 => $binding_name:ident) => {
-        // The code generated here hardcodes the use of `Reg::I32`
-        let Reg::I32($binding_name) = $vm.registers[$reg_idx as usize] else {
-            // Panic message includes both the token name (i32) and the enum variant (Reg::I32)
-            panic!(
-                "Opcode expected i32 (Reg::I32) in R{}, but got {:?}",
-                $reg_idx, $vm.registers[$reg_idx as usize]
-            );
-        };
-    };
-
-    // This arm matches if the type token is `u32`
-    ($vm:expr, $reg_idx:expr, u32 => $binding_name:ident) => {
-        // The code generated here hardcodes the use of `Reg::U32`
-        let Reg::U32($binding_name) = $vm.registers[$reg_idx as usize] else {
-            panic!(
-                "Opcode expected u32 (Reg::U32) in R{}, but got {:?}",
-                $reg_idx, $vm.registers[$reg_idx as usize]
-            );
-        };
-    };
-
-    // This arm matches if the type token is `fixed32`
-    ($vm:expr, $reg_idx:expr, Fp => $binding_name:ident) => {
-        // The code generated here hardcodes the use of `Reg::Fixed32`
-        let Reg::Fixed32($binding_name) = $vm.registers[$reg_idx as usize] else {
-            panic!(
-                "Opcode expected fixed32 (Reg::Fixed32) in R{}, but got {:?}",
-                $reg_idx, $vm.registers[$reg_idx as usize]
-            );
-        };
-    };
-
-    // This arm matches if the type token is `bool`
-    ($vm:expr, $reg_idx:expr, bool => $binding_name:ident) => {
-        // Hardcodes Reg::Bool
-        let Reg::Bool($binding_name) = $vm.registers[$reg_idx as usize] else {
-            panic!(
-                "Opcode expected bool (Reg::Bool) in R{}, but got {:?}",
-                $reg_idx, $vm.registers[$reg_idx as usize]
-            );
-        };
-    };
-
-    // This arm matches if the type token is `Ptr`
-    ($vm:expr, $reg_idx:expr, Ptr => $binding_name:ident) => {
-        // Hardcodes Reg::Ptr
-        let Reg::Ptr($binding_name) = $vm.registers[$reg_idx as usize] else {
-            panic!(
-                "Opcode expected Ptr (Reg::Ptr) in R{}, but got {:?}",
-                $reg_idx, $vm.registers[$reg_idx as usize]
-            );
-        };
-    };
-
-    // Fallback for types not handled
-    ($vm:expr, $reg_idx:expr, $other_type:ty => $binding_name:ident) => {
-        compile_error!(concat!(
-            "Unsupported register type requested: ",
-            stringify!($other_type),
-            " for R",
-            stringify!($reg_idx)
-        ));
+    ($vm:expr, $reg_idx:expr) => {
+        $vm.registers[$reg_idx as usize]
     };
 }
 
 #[macro_export]
 macro_rules! set_reg {
-    // $vm:expr is the VM state (self)
-    // $reg_idx:expr is the destination register index (dst_reg)
-    // as $variant:ident specifies the Reg enum variant (I32, U32, Ptr, etc.)
-    // <= $value:expr is the value to wrap and store (result)
-    ($vm:expr, $reg_idx:expr, as $variant:ident <- $value:expr) => {
-        // Generate the code to wrap the value in the correct Reg::Variant and store it
-        $vm.registers[$reg_idx as usize] = Reg::$variant($value);
+    // Stores a value into a register, converting it to u32
+    // $vm:expr is the VM state (e.g., `&mut self`)
+    // $reg_idx:expr is the destination register index (e.g., `dst_reg`)
+    // $value:expr is the value to store (must be convertible to u32)
+    ($vm:expr, $reg_idx:expr, $value:expr) => {
+        // Use `as u32` to convert the value to the register's storage type
+        $vm.registers[$reg_idx as usize] = $value as u32;
     };
 }
 
@@ -160,15 +87,7 @@ pub struct CallFrame {
     previous_stack_offset: usize, // Size of this frame
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub enum Reg {
-    Bool(bool),
-    U8(u8),      // Used for enum tags and similar
-    U32(u32),    // Used for capacity, counts, etc
-    I32(i32),    // Integers
-    Fixed32(Fp), // Fixed point values (floats)
-    Ptr(u32),    // Pointer to something, u32 is enough for now
-}
+type Reg = u32;
 
 pub struct Vm {
     // Memory
@@ -236,7 +155,7 @@ impl Vm {
             call_stack: vec![],
             host_functions: SeqMap::default(),
             handlers: [const { HandlerType::Args0(Self::execute_unimplemented) }; 256],
-            registers: [const { Reg::U8(0) }; 256],
+            registers: [const { 0 }; 256],
             flags: Flags { z: false },
             debug: Debug {
                 opcodes_executed: 0,
@@ -249,16 +168,15 @@ impl Vm {
         vm.handlers[OpCode::Alloc as usize] = HandlerType::Args3(Self::execute_alloc);
 
         // Load immediate
-        vm.handlers[OpCode::Ld8FromImmediateValue as usize] = HandlerType::Args2(Self::execute_ld8);
-        vm.handlers[OpCode::Ld32FromImmediateValue as usize] =
+        vm.handlers[OpCode::Mov8FromImmediateValue as usize] =
+            HandlerType::Args2(Self::execute_ld8);
+        vm.handlers[OpCode::Mov32FromImmediateValue as usize] =
             HandlerType::Args5(Self::execute_ld32);
 
         // Copy data in frame memory
         vm.handlers[OpCode::MovReg as usize] = HandlerType::Args2(Self::execute_mov_reg);
         vm.handlers[OpCode::LdPtrFromEffectiveAddress as usize] =
             HandlerType::Args3(Self::execute_lea);
-        vm.handlers[OpCode::LdPtrFromPointerWithOffset as usize] =
-            HandlerType::Args4(Self::execute_ld_addr_offset);
 
         // Copy to and from heap
         vm.handlers[OpCode::MovMem as usize] = HandlerType::Args4(Self::execute_mov_mem);
@@ -297,19 +215,15 @@ impl Vm {
         vm.handlers[OpCode::Jmp as usize] = HandlerType::Args2(Self::execute_jmp);
 
         // Operators - Int
+        vm.handlers[OpCode::AddU32 as usize] = HandlerType::Args3(Self::execute_add_u32);
+        vm.handlers[OpCode::MulU32 as usize] = HandlerType::Args3(Self::execute_mul_u32);
+        vm.handlers[OpCode::SubU32 as usize] = HandlerType::Args3(Self::execute_sub_u32);
+
         vm.handlers[OpCode::NegI32 as usize] = HandlerType::Args2(Self::execute_neg_i32);
-        vm.handlers[OpCode::AddI32 as usize] = HandlerType::Args3(Self::execute_add_i32);
-        vm.handlers[OpCode::MulI32 as usize] = HandlerType::Args3(Self::execute_mul_i32);
-        vm.handlers[OpCode::SubI32 as usize] = HandlerType::Args3(Self::execute_sub_i32);
         vm.handlers[OpCode::ModI32 as usize] = HandlerType::Args3(Self::execute_mod_i32);
         vm.handlers[OpCode::DivI32 as usize] = HandlerType::Args3(Self::execute_div_i32);
 
         // Operators - Float (Fixed Point)
-        vm.handlers[OpCode::NegF32 as usize] = HandlerType::Args2(Self::execute_neg_i32);
-        vm.handlers[OpCode::AddI32 as usize] = HandlerType::Args3(Self::execute_add_i32);
-        vm.handlers[OpCode::SubI32 as usize] = HandlerType::Args3(Self::execute_sub_i32);
-        vm.handlers[OpCode::ModI32 as usize] = HandlerType::Args3(Self::execute_mod_i32);
-
         vm.handlers[OpCode::DivF32 as usize] = HandlerType::Args3(Self::execute_div_f32);
         vm.handlers[OpCode::MulF32 as usize] = HandlerType::Args3(Self::execute_mul_f32);
 
@@ -589,16 +503,16 @@ impl Vm {
 
     #[inline]
     fn execute_ld32(&mut self, dst_reg: u8, a: u8, b: u8, c: u8, d: u8) {
-        set_reg!(self, dst_reg, as U32 <- Self::u8s_to_32(a, b, c, d));
+        set_reg!(self, dst_reg, Self::u8s_to_32(a, b, c, d));
     }
 
     #[inline]
     fn execute_ldi32(&mut self, dst_reg: u8, a: u8, b: u8, c: u8, d: u8) {
-        set_reg!(self, dst_reg, as I32 <- Self::u8s_to_32(a, b, c, d) as i32);
+        set_reg!(self, dst_reg, Self::u8s_to_32(a, b, c, d) as i32);
     }
     #[inline]
     fn execute_ld8(&mut self, dst_reg: u8, octet: u8) {
-        set_reg!(self, dst_reg, as U8 <- octet);
+        set_reg!(self, dst_reg, octet);
     }
 
     /*
@@ -630,72 +544,72 @@ impl Vm {
     fn execute_alloc(&mut self, dst_reg: u8, size_0: u8, size_1: u8) {
         let memory_size = u8s_to_u16!(size_0, size_1);
         let data_ptr = self.memory.heap_allocate(memory_size as usize);
-        set_reg!(self, dst_reg, as Ptr <- data_ptr);
+        set_reg!(self, dst_reg, data_ptr);
     }
 
     // Fixed Point special methods
     #[inline]
     fn execute_mul_f32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, Fp => lhs);
-        get_reg!(self, rhs_reg, Fp => rhs);
-
-        set_reg!(self, dst_reg, as Fixed32 <- lhs * rhs);
+        let lhs = Fp::from(get_reg!(self, lhs_reg) as i16);
+        let rhs = Fp::from(get_reg!(self, rhs_reg) as i16);
+        set_reg!(self, dst_reg, (lhs * rhs).inner());
     }
 
     #[inline]
     fn execute_div_f32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, Fp => lhs);
-        get_reg!(self, rhs_reg, Fp => rhs);
+        let lhs = Fp::from(get_reg!(self, lhs_reg) as i16);
+        let rhs = Fp::from(get_reg!(self, rhs_reg) as i16);
 
-        set_reg!(self, dst_reg, as Fixed32 <- lhs / rhs);
+        set_reg!(self, dst_reg, (lhs / rhs).inner());
     }
 
     #[inline]
     fn execute_f32_round(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, Fp => val);
+        let val = Fp::from(get_reg!(self, val_reg) as i16);
 
-        set_reg!(self, dst_reg, as Fixed32 <- val.round());
+        set_reg!(self, dst_reg, val.round().inner());
     }
 
     #[inline]
     fn execute_f32_floor(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, Fp => val);
+        let val = Fp::from(get_reg!(self, val_reg) as i16);
 
-        set_reg!(self, dst_reg, as Fixed32 <- val.floor());
+        set_reg!(self, dst_reg, val.floor().inner());
     }
 
     #[inline]
     fn execute_f32_sqrt(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, Fp => val);
+        let val = Fp::from(get_reg!(self, val_reg) as i16);
 
-        set_reg!(self, dst_reg, as Fixed32 <- val.sqrt());
+        set_reg!(self, dst_reg, val.sqrt().inner());
     }
 
     #[inline]
     fn execute_f32_sin(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, Fp => val);
+        let val = Fp::from(get_reg!(self, val_reg) as i16);
 
-        set_reg!(self, dst_reg, as Fixed32 <- val.sin());
+        set_reg!(self, dst_reg, val.sin().inner());
     }
 
     #[inline]
     fn execute_f32_asin(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, Fp => val);
+        let val = Fp::from(get_reg!(self, val_reg) as i16);
 
-        set_reg!(self, dst_reg, as Fixed32 <- val.asin());
+        set_reg!(self, dst_reg, val.asin().inner());
     }
 
     #[inline]
     fn execute_f32_cos(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, Fp => val);
+        let val = Fp::from(get_reg!(self, val_reg) as i16);
 
-        set_reg!(self, dst_reg, as Fixed32 <- val.cos());
+        set_reg!(self, dst_reg, val.cos().inner());
     }
 
     #[inline]
     fn execute_f32_acos(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, Fp => val);
-        set_reg!(self, dst_reg, as Fixed32 <- val.acos());
+        let val = Fp::from(get_reg!(self, val_reg) as i16);
+
+        set_reg!(self, dst_reg, val.acos().inner());
     }
 
     /*
@@ -709,32 +623,38 @@ impl Vm {
 
     #[inline]
     fn execute_f32_to_string(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, Fp => val);
-        set_reg!(self, dst_reg, as Ptr <- self.create_string(&val.to_string()));
+        let val = Fp::from(get_reg!(self, val_reg) as i16);
+
+        set_reg!(self, dst_reg, self.create_string(&val.to_string()));
     }
 
     #[inline]
     fn execute_f32_sign(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, Fp => val);
+        let val = Fp::from(get_reg!(self, val_reg) as i16);
         // TODO: signum() is/was incorrect in Fixed32 crate
-        set_reg!(self, dst_reg, as Fixed32 <- Fp::from(if val < 0 {
-            -1
-        } else if val > 0 {
-            1
-        } else {
-            0
-        }));
+        set_reg!(
+            self,
+            dst_reg,
+            Fp::from(if val < 0 {
+                -1
+            } else if val > 0 {
+                1
+            } else {
+                0
+            })
+            .inner()
+        );
     }
 
     #[inline]
     fn execute_neg_i32(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, i32 => val_reg);
+        let val = Fp::from(get_reg!(self, val_reg) as i16);
 
-        let result_option = val_reg.checked_neg();
+        let result_option = val.inner().checked_neg();
 
         match result_option {
             Some(result) => {
-                set_reg!(self, dst_reg, as I32 <- result);
+                set_reg!(self, dst_reg, result);
             }
             None => {
                 panic!(
@@ -746,84 +666,48 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_add_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+    const fn execute_add_u32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        let lhs = get_reg!(self, lhs_reg);
+        let rhs = get_reg!(self, rhs_reg);
 
-        let result_option = lhs.checked_add(rhs);
-
-        match result_option {
-            Some(result) => {
-                set_reg!(self, dst_reg, as I32 <- result);
-            }
-            None => {
-                panic!(
-                    "VM Runtime Error: Signed 32-bit integer overflow during ADD_I32 (R{} = R{} - R{})",
-                    dst_reg, lhs_reg, rhs_reg
-                );
-            }
-        }
+        set_reg!(self, dst_reg, lhs.wrapping_add(rhs));
     }
 
     #[inline]
-    fn execute_mul_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+    const fn execute_mul_u32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        let lhs = get_reg!(self, lhs_reg);
+        let rhs = get_reg!(self, rhs_reg);
 
-        let result_option = lhs.checked_mul(rhs);
-
-        match result_option {
-            Some(result) => {
-                set_reg!(self, dst_reg, as I32 <- result);
-            }
-            None => {
-                panic!(
-                    "VM Runtime Error: Signed 32-bit integer overflow during MUL_I32 (R{} = R{} - R{})",
-                    dst_reg, lhs_reg, rhs_reg
-                );
-            }
-        }
+        set_reg!(self, dst_reg, lhs.wrapping_mul(rhs));
     }
 
     #[inline]
-    fn execute_sub_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+    const fn execute_sub_u32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        let lhs = get_reg!(self, lhs_reg);
+        let rhs = get_reg!(self, rhs_reg);
 
-        let result_option = lhs.checked_sub(rhs);
-
-        match result_option {
-            Some(result) => {
-                set_reg!(self, dst_reg, as I32 <- result);
-            }
-            None => {
-                panic!(
-                    "VM Runtime Error: Signed 32-bit integer overflow during SUB_I32 (R{} = R{} - R{})",
-                    dst_reg, lhs_reg, rhs_reg
-                );
-            }
-        }
+        set_reg!(self, dst_reg, lhs.wrapping_sub(rhs));
     }
 
     #[inline]
     fn execute_mod_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+        let lhs = get_reg!(self, lhs_reg) as i32;
+        let rhs = get_reg!(self, rhs_reg) as i32;
 
         let result = ((lhs % rhs) + rhs) % rhs;
-        set_reg!(self, dst_reg, as I32 <- result);
+        set_reg!(self, dst_reg, result);
     }
 
     #[inline]
     fn execute_div_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+        let lhs = get_reg!(self, lhs_reg) as i32;
+        let rhs = get_reg!(self, rhs_reg) as i32;
 
         let result_option = lhs.checked_div(rhs);
 
         match result_option {
             Some(result) => {
-                set_reg!(self, dst_reg, as I32 <- result);
+                set_reg!(self, dst_reg, result);
             }
             None => {
                 panic!(
@@ -836,96 +720,95 @@ impl Vm {
 
     #[inline]
     fn execute_lt_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+        let lhs = get_reg!(self, lhs_reg) as i32;
+        let rhs = get_reg!(self, rhs_reg) as i32;
         self.flags.z = lhs < rhs;
     }
 
     #[inline]
     fn execute_le_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+        let lhs = get_reg!(self, lhs_reg) as i32;
+        let rhs = get_reg!(self, rhs_reg) as i32;
         self.flags.z = lhs <= rhs;
     }
 
     #[inline]
     fn execute_gt_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+        let lhs = get_reg!(self, lhs_reg) as i32;
+        let rhs = get_reg!(self, rhs_reg) as i32;
         self.flags.z = lhs > rhs;
     }
 
     #[inline]
     fn execute_ge_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+        let lhs = get_reg!(self, lhs_reg) as i32;
+        let rhs = get_reg!(self, rhs_reg) as i32;
 
         self.flags.z = lhs >= rhs;
     }
 
     #[inline]
     fn execute_pseudo_random_i32(&mut self, dst_reg: u8, src_reg: u8) {
-        get_reg!(self, src_reg, i32 => src);
-        set_reg!(self, dst_reg, as I32 <- squirrel_prng::squirrel_noise5(src as u32, 0) as i32);
+        let src = get_reg!(self, src_reg);
+        set_reg!(
+            self,
+            dst_reg,
+            squirrel_prng::squirrel_noise5(src as u32, 0) as i32
+        );
     }
 
     #[inline]
     fn execute_i32_to_string(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, i32 => val);
+        let val = get_reg!(self, val_reg) as i32;
 
-        let memory_pointer_addr = self.create_string(&val.to_string());
-        set_reg!(self, dst_reg, as Ptr <- memory_pointer_addr);
+        set_reg!(self, dst_reg, self.create_string(&val.to_string()));
     }
 
     #[inline]
     fn execute_i32_to_f32(&mut self, float_dest_reg: u8, int_source_reg: u8) {
-        get_reg!(self, int_source_reg, i32 => int_source);
-        set_reg!(self, float_dest_reg, as Fixed32 <- Fp::from(int_source as i16));
+        let int_source = get_reg!(self, int_source_reg) as i32;
+        set_reg!(self, float_dest_reg, Fp::from(int_source as i16).inner());
     }
 
     #[inline]
     fn execute_abs_i32(&mut self, dst_reg: u8, val_reg: u8) {
-        get_reg!(self, val_reg, i32 => val);
-        set_reg!(self, dst_reg, as I32 <- if val < 0 { -val } else { val } );
+        let val = get_reg!(self, val_reg) as i32;
+        set_reg!(self, dst_reg, if val < 0 { -val } else { val });
     }
 
     #[inline]
     fn execute_min_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+        let lhs = get_reg!(self, lhs_reg) as i32;
+        let rhs = get_reg!(self, rhs_reg) as i32;
 
-        set_reg!(self, dst_reg, as I32 <- if lhs < rhs {
-            lhs
-        } else {
-            rhs
-        });
+        set_reg!(self, dst_reg, if lhs < rhs { lhs } else { rhs });
     }
 
     #[inline]
     fn execute_max_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        get_reg!(self, lhs_reg, i32 => lhs);
-        get_reg!(self, rhs_reg, i32 => rhs);
+        let lhs = get_reg!(self, lhs_reg) as i32;
+        let rhs = get_reg!(self, rhs_reg) as i32;
 
-        set_reg!(self, dst_reg, as I32 <- if lhs > rhs {
-            lhs
-        } else {
-            rhs
-        });
+        set_reg!(self, dst_reg, if lhs > rhs { lhs } else { rhs });
     }
 
     #[inline]
     fn execute_clamp_i32(&mut self, dst_reg: u8, val_reg: u8, min_reg: u8, max_reg: u8) {
-        get_reg!(self, val_reg, i32 => val);
-        get_reg!(self, min_reg, i32 => min_val);
-        get_reg!(self, max_reg, i32 => max_val);
+        let val = get_reg!(self, val_reg) as i32;
+        let min_val = get_reg!(self, min_reg) as i32;
+        let max_val = get_reg!(self, max_reg) as i32;
 
-        set_reg!(self, dst_reg, as I32 <-  if val < min_val {
-            min_val
-        } else if val > max_val {
-            max_val
-        } else {
-            val
-        });
+        set_reg!(
+            self,
+            dst_reg,
+            if val < min_val {
+                min_val
+            } else if val > max_val {
+                max_val
+            } else {
+                val
+            }
+        );
     }
 
     #[inline]
@@ -935,15 +818,14 @@ impl Vm {
 
     #[inline]
     fn execute_eq_8_imm(&mut self, val_reg: u8, octet: u8) {
-        get_reg!(self, val_reg, u8 => compare);
-        self.flags.z = compare == octet;
+        let compare = get_reg!(self, val_reg);
+        self.flags.z = compare == octet as u32;
     }
 
     #[inline]
     fn execute_tst8(&mut self, val_reg: u8) {
-        get_reg!(self, val_reg, u8 => compare);
-        debug_assert!(compare == 0 || compare == 1);
-        self.flags.z = compare == 1;
+        let val = get_reg!(self, val_reg);
+        self.flags.z = val != 0;
     }
 
     #[inline]
@@ -953,12 +835,12 @@ impl Vm {
 
     #[inline]
     fn execute_st_z(&mut self, dst_reg: u8) {
-        set_reg!(self, dst_reg, as U8 <- self.flags.z as u8);
+        set_reg!(self, dst_reg, self.flags.z);
     }
 
     #[inline]
     fn execute_st_nz(&mut self, dst_reg: u8) {
-        set_reg!(self, dst_reg, as U8 <- !self.flags.z as u8);
+        set_reg!(self, dst_reg, !self.flags.z);
     }
 
     #[inline]
@@ -1004,19 +886,11 @@ impl Vm {
     #[inline]
     fn execute_lea(&mut self, dst_reg: u8, src_offset_0: u8, src_offset_1: u8) {
         let ptr_addr = self.memory.frame_offset as u32;
-        set_reg!(self, dst_reg, as Ptr <-  ptr_addr + u8s_to_u16!(src_offset_0, src_offset_1) as u32);
-    }
-
-    #[inline]
-    fn execute_ld_addr_offset(
-        &mut self,
-        dst_reg: u8,
-        source_pointer_reg: u8,
-        src_offset_0: u8,
-        src_offset_1: u8,
-    ) {
-        get_reg!(self, source_pointer_reg, Ptr => ptr_addr);
-        set_reg!(self, dst_reg, as Ptr <-  ptr_addr + u8s_to_u16!(src_offset_0, src_offset_1) as u32);
+        set_reg!(
+            self,
+            dst_reg,
+            ptr_addr + u8s_to_u16!(src_offset_0, src_offset_1) as u32
+        );
     }
 
     #[inline]
@@ -1027,12 +901,12 @@ impl Vm {
         memory_size_lower: u8,
         memory_size_upper: u8,
     ) {
-        get_reg!(self, dst_pointer_reg, Ptr => dst_addr);
-        get_reg!(self, src_pointer_reg, Ptr => src_addr);
+        let dest_addr = get_reg!(self, dst_pointer_reg);
+        let src_addr = get_reg!(self, src_pointer_reg);
 
         let memory_size = u8s_to_u16!(memory_size_lower, memory_size_upper);
 
-        let dst_ptr = self.memory.get_heap_ptr(dst_addr as usize);
+        let dst_ptr = self.memory.get_heap_ptr(dest_addr as usize);
         let src_ptr = self.memory.get_heap_const_ptr(src_addr as usize);
 
         unsafe {
@@ -1041,7 +915,7 @@ impl Vm {
     }
 
     #[cfg(feature = "debug_vm")]
-    pub fn debug_opcode(&self, opcode: u8, operands: &[u8; 5]) {
+    pub fn debug_opcode(&self, opcode: u8, operands: &[u8; 8]) {
         eprintln!(
             "{:8} {}",
             OpCode::from(opcode),
@@ -1143,12 +1017,12 @@ impl Vm {
     }
 
     pub fn get_const_ptr_from_reg(&self, reg: u8) -> *const u8 {
-        get_reg!(self, reg, Ptr => ptr_addr);
+        let ptr_addr = get_reg!(self, reg);
         self.memory.get_heap_const_ptr(ptr_addr as usize)
     }
 
     pub fn get_ptr_from_reg(&self, reg: u8) -> *mut u8 {
-        get_reg!(self, reg, Ptr => ptr_addr);
+        let ptr_addr = get_reg!(self, reg);
         self.memory.get_heap_ptr(ptr_addr as usize)
     }
 }

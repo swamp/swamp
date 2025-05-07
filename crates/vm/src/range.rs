@@ -1,4 +1,3 @@
-use crate::Reg;
 use crate::{Vm, set_reg};
 use std::ptr;
 use swamp_vm_types::{RangeHeader, RangeIterator};
@@ -72,7 +71,7 @@ impl Vm {
                 }
                 self.ip = jmp_absolute as usize;
             } else {
-                set_reg!(self, target_int_reg, as I32 <- (*range_iterator).index);
+                set_reg!(self, target_int_reg, (*range_iterator).index);
                 (*range_iterator).index += (*range_iterator).direction;
             }
         }

@@ -16,8 +16,8 @@ use swamp_vm_types::types::{
     u8_type, u32_type, vec_iter_type, vec_type,
 };
 use swamp_vm_types::{
-    BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    InstructionPosition, InstructionPositionOffset, MemoryOffset, MemorySize, Meta,
+    BinaryInstruction, FrameMemoryAddress, InstructionPosition, InstructionPositionOffset,
+    MemoryOffset, MemorySize, Meta,
 };
 use yansi::{Color, Paint};
 
@@ -147,7 +147,7 @@ pub fn disasm_color(
         let operand_addr = operand.kind.path_info();
 
         let (new_str, comment_str) = match &operand.kind {
-            DecoratedOperandAccessKind::ReadFrameAddress(addr, memory_kind, attr) => {
+            DecoratedOperandAccessKind::ReadRegister(addr, memory_kind, attr) => {
                 let color = if attr.is_temporary {
                     Color::BrightGreen
                 } else {
@@ -159,7 +159,7 @@ pub fn disasm_color(
                     memory_kind_color(memory_kind.clone()),
                 )
             }
-            DecoratedOperandAccessKind::WriteFrameAddress(addr, memory_kind, attr) => {
+            DecoratedOperandAccessKind::WriteRegister(addr, memory_kind, attr) => {
                 let color = if attr.is_temporary {
                     Color::BrightMagenta
                 } else {
@@ -216,6 +216,12 @@ pub fn disasm_color(
                 format!("{}", format!("{data:04X}",).yellow()),
                 format!("{}", "count"),
             ),
+            DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => {
+                (format!("{}", format!("{data}",).yellow()), String::new())
+            }
+            DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => {
+                (format!("{}", format!("{data}",).red()), String::new())
+            }
             DecoratedOperandAccessKind::WriteIndirectHeapWithOffset(
                 frame_addr,
                 memory_offset,
@@ -297,10 +303,10 @@ pub fn disasm_no_color(
 
     for operand in decorated.operands {
         let new_str = match operand.kind {
-            DecoratedOperandAccessKind::ReadFrameAddress(addr, _memory_kind, _attr) => {
+            DecoratedOperandAccessKind::ReadRegister(addr, _memory_kind, _attr) => {
                 format!("{}{}", "$", format!("{}", addr))
             }
-            DecoratedOperandAccessKind::WriteFrameAddress(addr, _memory_kind, _attr) => {
+            DecoratedOperandAccessKind::WriteRegister(addr, _memory_kind, _attr) => {
                 format!("{}{}", "$", format!("{}", addr))
             }
             DecoratedOperandAccessKind::HeapAddress(addr) => {
@@ -321,6 +327,12 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::ImmediateU16(data) => format!("{}", format!("{data:04X}",)),
             DecoratedOperandAccessKind::ImmediateU8(data) => format!("{}", format!("{data:02X}",)),
             DecoratedOperandAccessKind::CountU16(data) => format!("{}", format!("{data:04X}",)),
+            DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => {
+                format!("{}", format!("{data}",))
+            }
+            DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => {
+                format!("{}", format!("{data}",))
+            }
             DecoratedOperandAccessKind::WriteIndirectHeapWithOffset(a, b, _c) => {
                 format!("{}", format!("{:08X}+{:08X}", a.0, b.0))
             }
@@ -383,7 +395,7 @@ pub fn disasm(
             ]
         }
 
-        OpCode::Ld32FromImmediateValue => {
+        OpCode::Mov32FromImmediateValue => {
             let data = ((operands[2] as u32) << 16) | operands[1] as u32;
 
             &[
@@ -402,7 +414,17 @@ pub fn disasm(
             ]
         }
 
-        OpCode::Ld8FromImmediateValue => {
+        OpCode::Ld8FromPointerWithOffset => {
+            let data = ((operands[1] as u16) << 8) | operands[2] as u16;
+
+            &[
+                to_write_frame(operands[0], &b8_type(), frame_memory_info),
+                to_read_frame(operands[3], &pointer_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(data)),
+            ]
+        }
+
+        OpCode::Mov8FromImmediateValue => {
             let data = operands[1];
 
             &[
@@ -412,17 +434,17 @@ pub fn disasm(
         }
 
         // Integer
-        OpCode::AddI32 => &[
+        OpCode::AddU32 => &[
             to_write_frame(operands[0], &int_type(), frame_memory_info),
             to_read_frame(operands[1], &int_type(), frame_memory_info),
             to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
-        OpCode::SubI32 => &[
+        OpCode::SubU32 => &[
             to_write_frame(operands[0], &int_type(), frame_memory_info),
             to_read_frame(operands[1], &int_type(), frame_memory_info),
             to_read_frame(operands[2], &int_type(), frame_memory_info),
         ],
-        OpCode::MulI32 => &[
+        OpCode::MulU32 => &[
             to_write_frame(operands[0], &int_type(), frame_memory_info),
             to_read_frame(operands[1], &int_type(), frame_memory_info),
             to_read_frame(operands[2], &int_type(), frame_memory_info),
@@ -443,11 +465,6 @@ pub fn disasm(
         ],
 
         // Fixed
-        OpCode::AddF32 => &[
-            to_write_frame(operands[0], &float_type(), frame_memory_info),
-            to_read_frame(operands[1], &float_type(), frame_memory_info),
-            to_read_frame(operands[2], &float_type(), frame_memory_info),
-        ],
         OpCode::MulF32 => &[
             to_write_frame(operands[0], &float_type(), frame_memory_info),
             to_read_frame(operands[1], &float_type(), frame_memory_info),
@@ -463,15 +480,6 @@ pub fn disasm(
             to_write_frame(operands[0], &float_type(), frame_memory_info),
             to_read_frame(operands[1], &float_type(), frame_memory_info),
             to_read_frame(operands[2], &float_type(), frame_memory_info),
-        ],
-        OpCode::SubF32 => &[
-            to_write_frame(operands[0], &float_type(), frame_memory_info),
-            to_read_frame(operands[1], &float_type(), frame_memory_info),
-            to_read_frame(operands[2], &float_type(), frame_memory_info),
-        ],
-        OpCode::NegF32 => &[
-            to_write_frame(operands[0], &float_type(), frame_memory_info),
-            to_read_frame(operands[1], &float_type(), frame_memory_info),
         ],
 
         OpCode::LtF32 => &[
@@ -615,6 +623,15 @@ pub fn disasm(
             to_read_frame(operands[1], &u8_type(), frame_memory_info),
         ],
 
+        OpCode::CmpBlock => &[
+            to_read_frame(operands[0], &u32_type(), frame_memory_info),
+            to_read_frame(operands[1], &u32_type(), frame_memory_info),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
+                operands[2],
+                operands[3],
+            ))),
+        ],
+
         OpCode::Bnz | OpCode::Bz | OpCode::Call => {
             &[to_jmp_ip(u8_pair_to_u16(operands[0], operands[1]))]
         }
@@ -638,6 +655,16 @@ pub fn disasm(
                 operands[3],
             ))),
         ],
+
+        OpCode::FrameMemClr => &[
+            DecoratedOperandAccessKind::WriteFrameMemoryAddress(FrameMemoryAddress(
+                u8_pair_to_u16(operands[0], operands[1]),
+            )),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
+                operands[2],
+                operands[3],
+            ))),
+        ],
         OpCode::MovReg => &[
             to_write_frame(operands[0], &u32_type(), frame_memory_info),
             to_read_frame(operands[1], &u32_type(), frame_memory_info),
@@ -646,15 +673,6 @@ pub fn disasm(
         OpCode::LdPtrFromEffectiveAddress => &[
             to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
             to_read_frame(operands[1], &bytes_type(), frame_memory_info),
-        ],
-
-        OpCode::LdPtrFromPointerWithOffset => &[
-            to_write_frame(operands[0], &pointer_type_again(), frame_memory_info),
-            to_read_frame(operands[1], &bytes_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
-                operands[2],
-                operands[3],
-            ))),
         ],
 
         OpCode::StIndirect => &[
@@ -919,7 +937,7 @@ fn to_write_frame(
     let maybe_path = None;
     let is_temporary = false;
 
-    DecoratedOperandAccessKind::WriteFrameAddress(
+    DecoratedOperandAccessKind::WriteRegister(
         to_frame(reg, fallback_expected_type),
         maybe_path,
         FrameMemoryAttribute { is_temporary },
@@ -931,7 +949,7 @@ fn to_read_frame(
     fallback_expected_type: &BasicType,
     frame_memory_info: &FrameMemoryInfo,
 ) -> DecoratedOperandAccessKind {
-    DecoratedOperandAccessKind::ReadFrameAddress(
+    DecoratedOperandAccessKind::ReadRegister(
         to_frame(reg, fallback_expected_type),
         None,
         FrameMemoryAttribute {

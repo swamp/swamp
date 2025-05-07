@@ -10,9 +10,10 @@ use swamp_vm_types::types::{
     FunctionInfoKind, HeapPlacedType, Immediate, OffsetMemoryItem, TypedRegister, VmType, int_type,
 };
 use swamp_vm_types::{
-    BinaryInstruction, FrameMemoryAddress, FrameMemorySize, HEAP_PTR_ON_FRAME_SIZE,
-    HeapMemoryAddress, HeapMemoryOffset, InstructionPosition, InstructionPositionOffset,
-    MemoryOffset, MemorySize, Meta, RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
+    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemoryRegion,
+    InstructionPosition, InstructionPositionOffset, MemoryOffset, MemorySize, Meta,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::info;
 
@@ -28,6 +29,15 @@ pub struct InstructionBuilderState {
 
 pub fn u16_to_u8_pair(v: u16) -> (u8, u8) {
     ((v >> 8) as u8, (v & 0xff) as u8)
+}
+
+fn u32_to_bytes(a: u32) -> (u8, u8, u8, u8) {
+    (
+        (a >> 24 & 0xff) as u8,
+        (a >> 16 & 0xff) as u8,
+        (a >> 8 & 0xff) as u8,
+        (a & 0xff) as u8,
+    )
 }
 
 impl Default for InstructionBuilderState {
@@ -130,7 +140,7 @@ impl InstructionBuilderState {
     }
 
     fn add_instruction(&mut self, op_code: OpCode, operands: &[u8], node: &Node, comment: &str) {
-        let mut array: [u8; 5] = [0; 5];
+        let mut array: [u8; 8] = [0; 8];
         assert!(operands.len() <= 5);
         let len = operands.len();
         array[..len].copy_from_slice(&operands[..len]);
@@ -153,65 +163,6 @@ pub struct InstructionBuilder<'a> {
 }
 
 impl<'a> InstructionBuilder<'a> {
-    pub fn add_block_copy_with_offset(
-        &self,
-        p0: &TypedRegister,
-        p1: MemoryOffset,
-        p2: &TypedRegister,
-        p3: MemorySize,
-        p4: &Node,
-        p5: &str,
-    ) {
-        todo!()
-    }
-}
-
-impl<'a> InstructionBuilder<'a> {
-    pub fn add_st32_from_pointer_with_offset(
-        &self,
-        p0: &TypedRegister,
-        p1: MemoryOffset,
-        p2: &Node,
-        p3: &str,
-    ) {
-        todo!()
-    }
-}
-
-impl<'a> InstructionBuilder<'a> {
-    pub fn add_ld_reg_from_frame(
-        &self,
-        reg: u8,
-        stored_in_frame: FrameMemoryAddress,
-        node: &Node,
-        comment: &str,
-    ) {
-        todo!()
-    }
-}
-
-impl<'a> InstructionBuilder<'a> {
-    pub fn add_st_reg_to_frame(&self, p0: FrameMemoryAddress, p1: &TypedRegister) {
-        todo!()
-    }
-}
-
-impl<'a> InstructionBuilder<'a> {
-    pub fn add_st8_to_pointer_with_offset(
-        &self,
-        p0: &TypedRegister,
-        p1: MemoryOffset,
-        src: &TypedRegister,
-        p2: &Node,
-        p3: &str,
-    ) {
-        todo!()
-    }
-}
-
-impl<'a> InstructionBuilder<'a> {}
-
-impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
         Self {
@@ -222,6 +173,69 @@ impl<'a> InstructionBuilder<'a> {
 }
 
 impl InstructionBuilder<'_> {
+    pub fn add_block_copy_with_offset(
+        &self,
+        p0: &TypedRegister,
+        p1: MemoryOffset,
+        p2: &TypedRegister,
+        p8: MemoryOffset,
+        p3: MemorySize,
+        p4: &Node,
+        p5: &str,
+    ) {
+        todo!()
+    }
+
+    pub fn add_ld_reg_from_frame(
+        &self,
+        reg: u8,
+        stored_in_frame: FrameMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        todo!()
+    }
+    pub fn add_st_reg_to_frame(&self, p0: FrameMemoryAddress, p1: &TypedRegister) {
+        todo!()
+    }
+
+    /// # Panics
+    /// if the register doesn't hold a primitive
+    pub fn add_load_primitive(
+        &mut self,
+        target: &TypedRegister,
+        base: &TypedRegister,
+        offset: MemoryOffset,
+        node: &Node,
+        comment: &str,
+    ) {
+        // Choose the appropriate load instruction based on the target register's type
+        match target.underlying().kind {
+            BasicTypeKind::Fixed32 | BasicTypeKind::U32 | BasicTypeKind::S32 => {
+                self.add_ld32_from_pointer_with_offset_u16(
+                    target,
+                    base,
+                    offset,
+                    node,
+                    &format!("{comment} (load int)"),
+                );
+            }
+            BasicTypeKind::B8 => {
+                self.add_ld8_from_pointer_with_offset_u16(
+                    target,
+                    base,
+                    offset,
+                    node,
+                    &format!("{comment} (load bool)"),
+                );
+            }
+            _ => panic!(
+                "Unsupported primitive type in add_load_primitive: {:?}",
+                target.basic_type
+            ),
+        }
+    }
+
     pub fn add_not_z(&mut self, node: &Node, comment: &str) {
         self.state.add_instruction(OpCode::NotZ, &[], node, comment);
     }
@@ -750,6 +764,22 @@ impl InstructionBuilder<'_> {
             .add_instruction(OpCode::Jmp, &[ip_bytes.0, ip_bytes.1], node, comment);
     }
 
+    pub fn add_frame_memory_clear(
+        &mut self,
+        frame_region: FrameMemoryRegion,
+        node: &Node,
+        comment: &str,
+    ) {
+        let addr_bytes = u16_to_u8_pair(frame_region.addr.0);
+        let size_bytes = u16_to_u8_pair(frame_region.size.0);
+        self.state.add_instruction(
+            OpCode::FrameMemClr,
+            &[addr_bytes.0, addr_bytes.1, size_bytes.0, size_bytes.1],
+            node,
+            comment,
+        );
+    }
+
     // Slices
 
     pub fn add_slice_from_heap(
@@ -1086,24 +1116,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_ldi32(
-        &mut self,
-        dst_offset: &TypedRegister,
-        value: i32,
-        node: &Node,
-        comment: &str,
-    ) {
-        let bytes = Self::convert_to_lower_and_upper(value as u32);
-
-        self.state.add_instruction(
-            OpCode::Ld32FromImmediateValue,
-            &[dst_offset.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_ld32_immediate_value(
+    pub fn add_mov_32_immediate_value(
         &mut self,
         dst_offset: &TypedRegister,
         value: u32,
@@ -1113,7 +1126,7 @@ impl InstructionBuilder<'_> {
         let bytes = Self::convert_to_lower_and_upper(value);
 
         self.state.add_instruction(
-            OpCode::Ld32FromImmediateValue,
+            OpCode::Mov32FromImmediateValue,
             &[dst_offset.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
             node,
             comment,
@@ -1143,22 +1156,23 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_ld_addr_offset(
+    pub fn add_ld8_from_pointer_with_offset_u16(
         &mut self,
         dst_reg: &TypedRegister,
-        pointer_reg: &TypedRegister,
-        offset: HeapMemoryOffset,
+        base_ptr_reg: &TypedRegister,
+        offset: MemoryOffset,
         node: &Node,
         comment: &str,
     ) {
-        let pairs = u16_to_u8_pair(offset.0 as u16);
+        let bytes = u16_to_u8_pair(offset.0);
+
         self.state.add_instruction(
-            OpCode::LdPtrFromPointerWithOffset,
+            OpCode::Ld8FromPointerWithOffset,
             &[
                 dst_reg.addressing(),
-                pointer_reg.addressing(),
-                pairs.0,
-                pairs.1,
+                base_ptr_reg.addressing(),
+                bytes.0,
+                bytes.1,
             ],
             node,
             comment,
@@ -1168,12 +1182,12 @@ impl InstructionBuilder<'_> {
     pub fn add_st_indirect(
         &mut self,
         target_base_ptr_reg: &TypedRegister,
-        offset_from_base: HeapMemoryOffset,
+        offset_from_base: MemoryOffset,
         source_reg: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
-        let offset_bytes = u16_to_u8_pair(offset_from_base.0 as u16);
+        let offset_bytes = u16_to_u8_pair(offset_from_base.0);
         self.state.add_instruction(
             OpCode::StIndirect,
             &[
@@ -1202,16 +1216,22 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_ld8(&mut self, dst_offset: &TypedRegister, value: u8, node: &Node, comment: &str) {
+    pub fn add_mov8_immediate(
+        &mut self,
+        dst_offset: &TypedRegister,
+        value: u8,
+        node: &Node,
+        comment: &str,
+    ) {
         self.state.add_instruction(
-            OpCode::Ld8FromImmediateValue,
+            OpCode::Mov8FromImmediateValue,
             &[dst_offset.addressing(), value],
             node,
             comment,
         );
     }
 
-    pub fn add_add_i32(
+    pub fn add_add_u32(
         &mut self,
         dst_offset: &TypedRegister,
         lhs_offset: &TypedRegister,
@@ -1223,7 +1243,7 @@ impl InstructionBuilder<'_> {
         assert!(lhs_offset.ty().is_int());
         assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
-            OpCode::AddI32,
+            OpCode::AddU32,
             &[
                 dst_offset.addressing(),
                 lhs_offset.addressing(),
@@ -1281,7 +1301,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_sub_i32(
+    pub fn add_sub_u32(
         &mut self,
         dst_offset: &TypedRegister,
         lhs_offset: &TypedRegister,
@@ -1293,7 +1313,7 @@ impl InstructionBuilder<'_> {
         assert!(lhs_offset.ty().is_int());
         assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
-            OpCode::SubI32,
+            OpCode::SubU32,
             &[
                 dst_offset.addressing(),
                 lhs_offset.addressing(),
@@ -1316,7 +1336,7 @@ impl InstructionBuilder<'_> {
         assert!(lhs_offset.ty().is_int());
         assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
-            OpCode::MulI32,
+            OpCode::MulU32,
             &[
                 dst_offset.addressing(),
                 lhs_offset.addressing(),
@@ -1379,7 +1399,7 @@ impl InstructionBuilder<'_> {
         assert!(lhs_offset.ty().is_float());
         assert!(rhs_offset.ty().is_float());
         self.state.add_instruction(
-            OpCode::SubF32,
+            OpCode::SubU32,
             &[
                 dst_offset.addressing(),
                 lhs_offset.addressing(),
@@ -1446,7 +1466,7 @@ impl InstructionBuilder<'_> {
         assert!(lhs_offset.ty().is_float());
         assert!(rhs_offset.ty().is_float());
         self.state.add_instruction(
-            OpCode::AddF32,
+            OpCode::AddU32,
             &[
                 dst_offset.addressing(),
                 lhs_offset.addressing(),
@@ -1467,7 +1487,7 @@ impl InstructionBuilder<'_> {
         assert!(target.ty().is_float());
         assert!(source.ty().is_float());
         self.state.add_instruction(
-            OpCode::NegF32,
+            OpCode::NegI32,
             &[target.addressing(), source.addressing()],
             node,
             comment,
@@ -1613,8 +1633,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_tst8(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
-        assert!(addr.size().0 >= 1);
+    pub fn add_tst_u8(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
         self.state
             .add_instruction(OpCode::LdzFromU8Ptr, &[addr.addressing()], node, comment);
     }
@@ -1656,6 +1675,28 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::Cmp32,
             &[source_a.addressing(), source_b.addressing()],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_block_cmp(
+        &mut self,
+        first_ptr: &TypedRegister,
+        second_ptr: &TypedRegister,
+        size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        let bytes = u16_to_u8_pair(size.0);
+        self.state.add_instruction(
+            OpCode::CmpBlock,
+            &[
+                first_ptr.addressing(),
+                second_ptr.addressing(),
+                bytes.0,
+                bytes.1,
+            ],
             node,
             comment,
         );

@@ -1,4 +1,4 @@
-use crate::{Reg, u8s_to_u16};
+use crate::u8s_to_u16;
 use crate::{Vm, get_reg};
 use swamp_vm_types::{SliceHeader, SlicePairHeader};
 
@@ -31,9 +31,9 @@ impl Vm {
     ) {
         let dst_ptr = self.get_slice_header_ptr_on_frame(dst_slice_header_reg);
 
-        get_reg!(self, memory_addr_reg, Ptr => memory_addr);
-        get_reg!(self, element_count_reg, u32 => element_count);
-        get_reg!(self, element_size_reg, u32 => element_size);
+        let memory_addr = get_reg!(self, memory_addr_reg);
+        let element_count = get_reg!(self, element_count_reg);
+        let element_size = get_reg!(self, element_size_reg);
 
         unsafe {
             (*dst_ptr).element_size = element_size as u16;
@@ -52,10 +52,10 @@ impl Vm {
     ) {
         let dst_ptr = self.get_slice_pair_header_ptr_from_reg(dst_slice_header_reg);
 
-        get_reg!(self, memory_addr_reg, Ptr => memory_addr);
-        get_reg!(self, element_count_reg, u32 => element_count);
-        get_reg!(self, key_size_reg, u32 => key_size);
-        get_reg!(self, value_size_reg, u32 => value_size);
+        let memory_addr = get_reg!(self, memory_addr_reg);
+        let element_count = get_reg!(self, element_count_reg);
+        let key_size = get_reg!(self, key_size_reg);
+        let value_size = get_reg!(self, value_size_reg);
 
         unsafe {
             (*dst_ptr).key_size = key_size as u16;

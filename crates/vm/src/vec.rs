@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::Memory;
-use crate::{Reg, set_reg};
+use crate::set_reg;
 use crate::{Vm, get_reg};
 use std::ptr;
 use swamp_vm_types::{VEC_HEADER_SIZE, VEC_ITERATOR_SIZE, VecHeader, VecIterator};
@@ -46,7 +46,7 @@ impl Vm {
             ptr::write(vec_header_ptr, vec_header);
         }
 
-        set_reg!(self, target_vec_ptr_reg, as Ptr <- vec_header_addr);
+        set_reg!(self, target_vec_ptr_reg, vec_header_addr);
 
         #[cfg(feature = "debug_vm")]
         {
@@ -62,7 +62,7 @@ impl Vm {
         target_vec_iterator_header_reg: u8,
         vec_header_reg: u8,
     ) {
-        get_reg!(self, vec_header_reg, Ptr => vec_header_addr);
+        let vec_header_addr = get_reg!(self, vec_header_reg);
 
         let vec_iterator = VecIterator {
             vec_header_heap_ptr: vec_header_addr,
@@ -93,7 +93,7 @@ impl Vm {
 
     #[inline]
     pub fn execute_vec_get(&mut self, element_target_reg: u8, vec_header_ptr_reg: u8, int_reg: u8) {
-        get_reg!(self, int_reg, i32 => vec_index);
+        let vec_index = get_reg!(self, int_reg);
         let index = vec_index as usize;
 
         let vec_header = self.read_vec_header_from_ptr_reg(vec_header_ptr_reg);
@@ -126,7 +126,7 @@ impl Vm {
 
     #[inline]
     pub fn execute_vec_set(&mut self, vec_header_ptr_reg: u8, int_index_reg: u8, item_ptr_reg: u8) {
-        get_reg!(self, int_index_reg, i32 => vec_index);
+        let vec_index = get_reg!(self, int_index_reg);
         let index = vec_index as usize;
 
         let vec_header = self.read_vec_header_from_ptr_reg(vec_header_ptr_reg);
@@ -209,7 +209,7 @@ impl Vm {
             let heap_data_offset = data_heap_offset + vec_header.element_size as u32 * index as u32;
             let source = self.memory.get_heap_const_ptr(heap_data_offset as usize);
             //let index_ptr = self.get_ptr_from_reg(target_key_reg);
-            set_reg!(self, target_key_reg, as I32 <- index as i32);
+            set_reg!(self, target_key_reg, index);
 
             // TODO: Must either set_reg or get a pointer to the struct inside the vec
             unsafe {

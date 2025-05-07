@@ -136,8 +136,8 @@ pub struct FrameMemoryAttribute {
 
 #[derive(Debug, Clone)]
 pub enum DecoratedOperandAccessKind {
-    ReadFrameAddress(TypedRegister, Option<PathInfo>, FrameMemoryAttribute),
-    WriteFrameAddress(TypedRegister, Option<PathInfo>, FrameMemoryAttribute),
+    ReadRegister(TypedRegister, Option<PathInfo>, FrameMemoryAttribute),
+    WriteRegister(TypedRegister, Option<PathInfo>, FrameMemoryAttribute),
     ReadIndirectPointer(FrameMemoryAddress),
     Ip(InstructionPosition),
     ImmediateU32(u32),
@@ -146,6 +146,8 @@ pub enum DecoratedOperandAccessKind {
     ImmediateU8(u8),
     CountU16(u16),
     HeapAddress(HeapMemoryAddress),
+    WriteFrameMemoryAddress(FrameMemoryAddress),
+    ReadFrameMemoryAddress(FrameMemoryAddress),
     WriteIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
     ReadIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
     MemoryOffset(MemoryOffset),
@@ -155,8 +157,8 @@ impl DecoratedOperandAccessKind {
     #[must_use]
     pub const fn path_info(&self) -> Option<&PathInfo> {
         match self {
-            Self::ReadFrameAddress(addr, maybe_path_info, b) => maybe_path_info.as_ref(),
-            Self::WriteFrameAddress(addr, maybe_path_info, _attr) => maybe_path_info.as_ref(),
+            Self::ReadRegister(addr, maybe_path_info, b) => maybe_path_info.as_ref(),
+            Self::WriteRegister(addr, maybe_path_info, _attr) => maybe_path_info.as_ref(),
             Self::WriteIndirectHeapWithOffset(addr, _x, maybe_path_info) => {
                 maybe_path_info.as_ref()
             }
@@ -267,6 +269,18 @@ impl BasicTypeKind {
             self,
             Self::Empty | Self::U8 | Self::U16 | Self::U32 | Self::Fixed32
         )
+    }
+
+    pub fn is_mutable_reference(&self) -> bool {
+        matches!(self, BasicTypeKind::MutablePointer(..))
+    }
+
+    pub fn union_info(&self) -> &TaggedUnion {
+        if let Self::TaggedUnion(union) = self {
+            union
+        } else {
+            panic!("wrong type")
+        }
     }
 }
 
@@ -599,36 +613,17 @@ impl HeapPlacedType {
     }
 }
 
-pub enum AssignmentTarget {
-    Register(TypedRegister),
-    MemoryLocation(TypedRegister, MemoryOffset),
-}
-
-impl AssignmentTarget {
-    #[must_use]
-    pub fn register(&self) -> &TypedRegister {
-        let Self::Register(reg) = self else {
-            panic!("must be reg")
-        };
-        reg
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct TypedRegister {
     pub index: u8,
     pub basic_type: VmType,
 }
 
-impl TypedRegister {}
-
 impl TypedRegister {
     pub fn final_type(&self) -> BasicType {
         self.basic_type.underlying()
     }
 }
-
-impl TypedRegister {}
 
 impl Display for TypedRegister {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
@@ -686,7 +681,7 @@ impl TypedRegister {
         let VmType::FramePlaced(fp) = &self.basic_type else {
             panic!("")
         };
-        fp.underlying()
+        fp.ty.underlying()
     }
 }
 
@@ -708,8 +703,18 @@ pub enum VmType {
 }
 
 impl VmType {
-    pub(crate) fn underlying(&self) -> BasicType {
-        self.frame_placed_type().unwrap().underlying().clone()
+    pub fn is_pointer(&self) -> bool {
+        match self {
+            VmType::FramePlaced(fp) => fp.ty.is_pointer(),
+            VmType::TempPointer => true,
+            _ => false,
+        }
+    }
+}
+
+impl VmType {
+    pub fn underlying(&self) -> BasicType {
+        self.frame_placed_type().unwrap().ty.underlying().clone()
     }
 }
 
@@ -728,29 +733,6 @@ impl VmType {
 pub struct FramePlacedType {
     addr: FrameMemoryAddress,
     ty: BasicType,
-}
-
-impl FramePlacedType {
-    #[must_use]
-    pub fn union_payload(&self, index: usize) -> Self {
-        let (BasicTypeKind::TaggedUnion(tagged_union) | BasicTypeKind::Optional(tagged_union)) =
-            &self.ty.kind
-        else {
-            panic!("should not work")
-        };
-
-        let variant = &tagged_union.variants[index];
-
-        Self {
-            addr: self.addr + tagged_union.payload_offset,
-            ty: variant.ty.clone(),
-        }
-    }
-
-    #[must_use]
-    pub fn underlying(&self) -> &BasicType {
-        self.ty.underlying()
-    }
 }
 
 const FRAME_MEMORY_ADDRESS_IS_POINTER_TAG: u16 = 0x8000;
@@ -845,9 +827,27 @@ pub struct BasicType {
     pub max_alignment: MemoryAlignment,
 }
 
+impl BasicType {}
+
+impl BasicType {
+    #[must_use]
+    pub fn get_variant(&self, variant_index: usize) -> &TaggedUnionVariant {
+        match &self.kind {
+            BasicTypeKind::TaggedUnion(tagged) | BasicTypeKind::Optional(tagged) => {
+                tagged.get_variant_by_index(variant_index)
+            }
+            _ => panic!("type is not a tagged union"),
+        }
+    }
+}
+
 impl BasicType {
     pub fn can_be_contained_inside_register(&self) -> bool {
         self.kind.can_be_contained_inside_register()
+    }
+
+    pub fn is_mutable_reference(&self) -> bool {
+        self.kind.is_mutable_reference()
     }
 }
 
@@ -865,6 +865,10 @@ impl BasicType {
             )),
             _ => None,
         }
+    }
+
+    pub fn union_info(&self) -> &TaggedUnion {
+        self.kind.union_info()
     }
 
     #[must_use]

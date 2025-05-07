@@ -1,5 +1,6 @@
 use crate::alloc::ScopeAllocator;
-use crate::{FrameAndVariableInfo, RegisterPool, TempRegisterPool, reserve};
+use crate::reg_pool::RegisterPool;
+use crate::{FrameAndVariableInfo, reserve};
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::Write;
@@ -12,21 +13,11 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
-    MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment,
-    MemoryOffset, MemorySize, SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE,
-    STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
-    adjust_size_to_alignment, align_to,
+    MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
+    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, STRING_PTR_ALIGNMENT,
+    STRING_PTR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
-/*
-pub fn type_size_and_alignment(ty: &Type) -> (MemorySize, MemoryAlignment) {
-    let complex_type = layout_type(ty, "size_and_alignment");
-
-    (complex_type.total_size, complex_type.max_alignment)
-}
-
- */
 
 #[derive(Copy, Clone)]
 struct VariantLayout {
