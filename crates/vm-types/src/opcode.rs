@@ -216,8 +216,11 @@ impl OpCode {
             Self::LdPtrFromEffectiveAddress => "lea",
 
             // Load
-            Self::Mov8FromImmediateValue | Self::Ld8FromPointerWithOffset => "ldb",
-            Self::Mov32FromImmediateValue | Self::Ld32FromPointerWithOffset => "ldw",
+            Self::Mov8FromImmediateValue => "movb",
+            Self::Mov32FromImmediateValue => "movw",
+
+            Self::Ld8FromPointerWithOffset => "ldb",
+            Self::Ld32FromPointerWithOffset => "ldw",
             Self::LdRegFromFrame => "ldfp",
 
             Self::St32UsingPtrWithOffset => "stw",

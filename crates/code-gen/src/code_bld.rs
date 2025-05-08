@@ -420,10 +420,16 @@ impl CodeBuilder<'_> {
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let left_source = self.emit_expression_location(&binary_operator.left, ctx);
-        let right_source = self.emit_expression_location(&binary_operator.right, ctx);
+        let left_temp_dest = self.temp_space_for_type(&binary_operator.left.ty, "binary op left");
+        let left_source = left_temp_dest.register();
+        self.emit_expression_materialize(left_temp_dest.register(), &binary_operator.left, ctx);
 
-        match &binary_operator.kind {
+        let right_temp_dest =
+            self.temp_space_for_type(&binary_operator.right.ty, "binary op right");
+        let right_source = right_temp_dest.register();
+        self.emit_expression_materialize(right_temp_dest.register(), &binary_operator.right, ctx);
+
+        let result = match &binary_operator.kind {
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
                 let polarity = match (&binary_operator.left.ty, &binary_operator.right.ty) {
                     (Type::Bool, Type::Bool) => self.emit_binary_operator_reg(
@@ -488,7 +494,12 @@ impl CodeBuilder<'_> {
                 ),
                 _ => todo!(),
             },
-        }
+        };
+
+        self.temp_registers
+            .free_multiple(vec![left_temp_dest, right_temp_dest]);
+
+        result
     }
 
     fn emit_binary_operator_i32(
@@ -583,14 +594,13 @@ impl CodeBuilder<'_> {
                 self.builder
                     .add_add_f32(target_reg, left_source, right_source, node, "f32 add");
             }
-
             BinaryOperatorKind::Subtract => {
                 self.builder
                     .add_sub_f32(target_reg, left_source, right_source, node, "f32 sub")
             }
             BinaryOperatorKind::Multiply => {
                 self.builder
-                    .add_mul_f32(target_reg, left_source, right_source, node, "f32 add");
+                    .add_mul_f32(target_reg, left_source, right_source, node, "f32 mul");
             }
             BinaryOperatorKind::Divide => {
                 self.builder
