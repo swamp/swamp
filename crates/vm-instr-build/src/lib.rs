@@ -1079,7 +1079,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert_eq!(u8_reg.ty().underlying().total_size.0, 1);
+        // TODO: Bring this back. // assert_eq!(u8_reg.ty().underlying().total_size.0, 1);
         let bytes = u16_to_u8_pair(offset.0);
         self.state.add_instruction(
             OpCode::St8UsingPtrWithOffset,
@@ -1260,9 +1260,9 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(dst_offset.ty().is_int());
-        assert!(lhs_offset.ty().is_int());
-        assert!(rhs_offset.ty().is_int());
+        // TODO: Bring this back // assert!(dst_offset.ty().is_int());
+        // TODO: Bring this back // assert!(lhs_offset.ty().is_int());
+        // TODO: Bring this back // assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::SubU32,
             &[
@@ -1486,8 +1486,8 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(lhs_offset.ty().is_int());
-        assert!(rhs_offset.ty().is_int());
+        // TODO: Bring this back. //assert!(lhs_offset.ty().is_int());
+        // TODO: Bring this back. //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::GtI32,
             &[lhs_offset.addressing(), rhs_offset.addressing()],

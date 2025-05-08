@@ -56,7 +56,7 @@ impl CodeBuilder<'_> {
         &mut self,
         location_expression: &SingleLocationExpression,
     ) -> DetailedLocation {
-        let mut current_register = self
+        let mut start_reg = self
             .variable_registers
             .get(
                 &location_expression
@@ -77,43 +77,35 @@ impl CodeBuilder<'_> {
         };
         */
 
-        let mut last_memory_offset = MemoryOffset(0);
+        let mut current_location = DetailedLocation::Register { reg: start_reg };
 
         // Loop over the consecutive accesses until we find the actual frame relative address (TypedRegister)
         for access in location_expression.access_chain.iter().take(accesses_count) {
             match &access.kind {
                 LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
-                    let x = current_register.ty.frame_placed_type().unwrap();
-                    let ty = x.ty().underlying();
+                    let ty = current_location.get_type().underlying();
                     let offset_item = ty.get_field_offset(*field_index).unwrap();
 
-                    last_memory_offset = offset_item.offset;
+                    current_location = current_location.add_offset(
+                        offset_item.offset,
+                        VmType::new_unknown_placement(offset_item.ty.clone()),
+                    );
                 }
                 LocationAccessKind::IntrinsicSubscript(
                     _intrinsic_function,
                     arguments_to_the_intrinsic,
                 ) => {
                     // Fetching from vector, map, etc. are done using intrinsic calls
-                    let (ctx, temp_reg) =
-                        self.temp_space_for_type(&access.ty, "intrinsic subscript lvalue"); // TODO: should be more generic pointer
-                    self.emit_collection_get(
+                    current_location = self.emit_collection_get(
                         node,
-                        &current_register,
+                        &current_location,
                         arguments_to_the_intrinsic,
-                        &ctx,
                     );
-
-                    current_register = ctx.register().clone();
-                    last_memory_offset = MemoryOffset(0);
                 }
             }
         }
 
-        DetailedLocation::Memory {
-            base_ptr_reg: current_register,
-            offset: last_memory_offset,
-            ty: VmType::new_unknown_placement(unknown_type()),
-        }
+        current_location
     }
 
     fn emit_collection_set(
@@ -155,39 +147,40 @@ impl CodeBuilder<'_> {
     fn emit_collection_get(
         &mut self,
         node: &Node,
-        self_collection: &TypedRegister,
+        self_collection: &DetailedLocation,
         key_or_index: &[Expression],
-        ctx: &Context,
-    ) {
+    ) -> DetailedLocation {
         // TODO: Fix this
-        return;
+        return self_collection.clone();
+        /*
+               let key_address = self.emit_expression_location(&key_or_index[0]);
+               match &self_collection.underlying().kind {
+                   BasicTypeKind::InternalStringPointer => {
+                       todo!()
+                   }
+                   BasicTypeKind::InternalVecPointer(expected_item_type) => {
+                       assert!(key_address.ty().is_int());
+                       assert_eq!(expected_item_type.total_size, ctx.target_size());
+                       self.builder.add_vec_get(
+                           ctx.register(),
+                           self_collection,
+                           &key_address,
+                           node,
+                           "collection get (vec)",
+                       );
+                   }
+                   BasicTypeKind::InternalMapPointer(_, _) => {
+                       self.builder.add_map_fetch(
+                           ctx.register(),
+                           self_collection,
+                           &key_address,
+                           node,
+                           "collection get (map)",
+                       );
+                   }
+                   _ => panic!("unknown collection"),
+               }
 
-        let key_address = self.emit_expression_location(&key_or_index[0]);
-        match &self_collection.underlying().kind {
-            BasicTypeKind::InternalStringPointer => {
-                todo!()
-            }
-            BasicTypeKind::InternalVecPointer(expected_item_type) => {
-                assert!(key_address.ty().is_int());
-                assert_eq!(expected_item_type.total_size, ctx.target_size());
-                self.builder.add_vec_get(
-                    ctx.register(),
-                    self_collection,
-                    &key_address,
-                    node,
-                    "collection get (vec)",
-                );
-            }
-            BasicTypeKind::InternalMapPointer(_, _) => {
-                self.builder.add_map_fetch(
-                    ctx.register(),
-                    self_collection,
-                    &key_address,
-                    node,
-                    "collection get (map)",
-                );
-            }
-            _ => panic!("unknown collection"),
-        }
+        */
     }
 }

@@ -1,5 +1,9 @@
+use std::backtrace::Backtrace;
+use std::hint::assert_unchecked;
 use swamp_vm_types::types::{TypedRegister, VmType};
+use tracing::info;
 
+#[derive(Debug)]
 pub struct TempRegister {
     pub(crate) register: TypedRegister,
 }
@@ -8,14 +12,12 @@ impl TempRegister {
     pub(crate) fn register(&self) -> &TypedRegister {
         &self.register
     }
-}
-
-impl TempRegister {
     pub fn addressing(&self) -> u8 {
         self.register.addressing()
     }
 }
 
+#[derive(Debug)]
 pub struct RegisterInfo {
     pub index: u8,
 }
@@ -23,8 +25,6 @@ pub struct RegisterInfo {
 pub struct TempRegisterPool {
     free_registers: Vec<RegisterInfo>,
 }
-
-impl TempRegisterPool {}
 
 impl TempRegisterPool {
     pub fn new(start: u8, count: usize) -> Self {
@@ -38,12 +38,17 @@ impl TempRegisterPool {
         }
     }
     pub fn allocate(&mut self, ty: VmType) -> TempRegister {
+        assert!(!self.free_registers.is_empty(), "out of temp registers");
         let free_reg_info = self.free_registers.pop().unwrap();
+
+        info!(?free_reg_info, "lending out temp reg");
+        let backtrace = Backtrace::capture();
+        println!("Current call stack:\n{}", backtrace);
 
         TempRegister {
             register: TypedRegister {
                 index: free_reg_info.index,
-                ty: ty,
+                ty,
             },
         }
     }
@@ -55,6 +60,8 @@ impl TempRegisterPool {
                 .iter()
                 .any(|info| info.index == reg.register.index)
         );
+
+        info!(?reg, "free temp reg");
 
         self.free_registers.push(RegisterInfo {
             index: reg.register.index,
@@ -93,7 +100,7 @@ impl RegisterPool {
         self.current_index += 1;
         TypedRegister {
             index: allocated_register,
-            ty: ty,
+            ty,
         }
     }
 }
