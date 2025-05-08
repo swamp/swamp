@@ -264,11 +264,15 @@ pub enum BasicTypeKind {
 }
 
 impl BasicTypeKind {
-    pub(crate) fn can_be_contained_inside_register(&self) -> bool {
+    pub(crate) fn is_represented_as_primitive_inside_register(&self) -> bool {
         matches!(
             self,
             Self::Empty | Self::U8 | Self::U16 | Self::U32 | Self::Fixed32
         )
+    }
+
+    pub fn is_represented_as_a_pointer_inside_register(&self) -> bool {
+        !self.is_represented_as_primitive_inside_register()
     }
 
     pub fn is_mutable_reference(&self) -> bool {
@@ -716,8 +720,12 @@ impl VmType {
         }
     }
 
-    pub fn is_pointer(&self) -> bool {
-        self.basic_type.is_pointer()
+    pub fn is_mutable_reference_semantic(&self) -> bool {
+        self.basic_type.is_mutable_reference()
+    }
+
+    pub fn is_represented_as_pointer_inside_register(&self) -> bool {
+        self.basic_type.is_represented_as_a_pointer_in_reg()
     }
     pub fn underlying(&self) -> BasicType {
         self.basic_type.underlying().clone()
@@ -840,7 +848,7 @@ impl BasicType {
 
 impl BasicType {
     pub fn can_be_contained_inside_register(&self) -> bool {
-        self.kind.can_be_contained_inside_register()
+        self.kind.is_represented_as_primitive_inside_register()
     }
 
     pub fn is_mutable_reference(&self) -> bool {
@@ -870,7 +878,7 @@ impl BasicType {
 
     #[must_use]
     pub fn create_mutable_pointer(&self) -> Self {
-        debug_assert!(!self.is_pointer());
+        debug_assert!(!self.is_mutable_reference());
 
         Self {
             kind: BasicTypeKind::MutablePointer(Box::from(self.clone())),
@@ -887,11 +895,8 @@ impl BasicType {
     }
 
     #[must_use]
-    pub const fn is_pointer(&self) -> bool {
-        match &self.kind {
-            BasicTypeKind::MutablePointer(_) => true,
-            _ => false,
-        }
+    pub fn is_represented_as_a_pointer_in_reg(&self) -> bool {
+        self.kind.is_represented_as_a_pointer_inside_register()
     }
 
     #[must_use]

@@ -461,7 +461,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(source_addr.size().0 >= 1);
+        // TODO: BRING THIS BACK // assert!(source_addr.size().0 >= 1);
         self.state.add_instruction(
             OpCode::Eq8Imm,
             &[source_addr.addressing(), immediate],

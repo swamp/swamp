@@ -71,8 +71,8 @@ impl CodeBuilder<'_> {
         source_reg: &TypedRegister,
         node: &Node,
     ) {
-        if source_reg.ty.is_pointer() {
-            if target_reg.ty().is_pointer() {
+        if source_reg.ty.is_mutable_reference_semantic() {
+            if target_reg.ty().is_mutable_reference() {
                 self.builder.add_mov_reg(
                     &target_reg,
                     &source_reg,
@@ -111,7 +111,7 @@ impl CodeBuilder<'_> {
         node: &Node,
     ) {
         let source_type = type_at_offset;
-        if source_type.is_pointer() {
+        if source_type.is_represented_as_pointer_inside_register() {
             if target_reg.ty().is_mutable_reference() {
                 self.builder.add_load_primitive(
                     &target_reg,
@@ -3204,7 +3204,7 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         let inner = self.emit_expression_location(expr);
 
-        if !inner.ty().is_pointer() {
+        if !inner.ty().is_mutable_reference() {
             self.builder.add_lea(
                 ctx.register(),
                 inner.addr(),
