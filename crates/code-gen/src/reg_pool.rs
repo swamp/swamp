@@ -41,9 +41,9 @@ impl TempRegisterPool {
         assert!(!self.free_registers.is_empty(), "out of temp registers");
         let free_reg_info = self.free_registers.pop().unwrap();
 
-        info!(?free_reg_info, "lending out temp reg");
-        let backtrace = Backtrace::capture();
-        println!("Current call stack:\n{}", backtrace);
+        //info!(?free_reg_info, "lending out temp reg");
+        //let backtrace = Backtrace::capture();
+        //println!("Current call stack:\n{}", backtrace);
 
         TempRegister {
             register: TypedRegister {
@@ -62,7 +62,7 @@ impl TempRegisterPool {
         );
 
         let kind = reg.register().underlying().kind;
-        info!(?kind, "free temp reg");
+        //info!(?kind, "free temp reg");
 
         self.free_registers.push(RegisterInfo {
             index: reg.register.index,
@@ -71,7 +71,7 @@ impl TempRegisterPool {
 
     pub(crate) fn free_multiple(&mut self, registers: Vec<TempRegister>) {
         for temp in registers {
-            self.free(temp)
+            self.free(temp);
         }
     }
 }

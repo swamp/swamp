@@ -46,12 +46,19 @@ pub enum Type {
 
 impl Type {}
 
+impl Type {}
+
 impl Type {
     pub fn is_vec(&self) -> bool {
         match self {
             Type::NamedStruct(named_struct) => named_struct.is_vec(),
             _ => false,
         }
+    }
+
+    #[must_use]
+    pub fn is_unit(&self) -> bool {
+        matches!(self, Self::Unit)
     }
 
     pub fn is_map(&self) -> bool {

@@ -473,6 +473,15 @@ pub const fn unknown_type() -> BasicType {
 }
 
 #[must_use]
+pub const fn unit_type() -> BasicType {
+    BasicType {
+        kind: BasicTypeKind::Empty,
+        total_size: MemorySize(0),
+        max_alignment: MemoryAlignment::U8,
+    }
+}
+
+#[must_use]
 pub fn vec_type() -> BasicType {
     BasicType {
         kind: BasicTypeKind::InternalVecPointer(Box::from(unknown_type())),
@@ -640,7 +649,7 @@ impl TypedRegister {
 
 impl Display for TypedRegister {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "R{} ({:?})", self.index, self.ty)
+        write!(f, "r{}", self.index)
     }
 }
 

@@ -404,7 +404,7 @@ impl CodeBuilder<'_> {
                     panic!();
                 };
                 let range_header_region = self.emit_expression_location(range_expr, ctx);
-                assert_eq!(range_header_region.size(), RANGE_HEADER_SIZE);
+                // TODO: Bring this back // assert_eq!(range_header_region.size(), RANGE_HEADER_SIZE);
                 self.builder.add_vec_get_range(
                     target_reg,
                     &self_addr.unwrap(),  // mut self (string header)

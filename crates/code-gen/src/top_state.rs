@@ -1,6 +1,6 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::layout_variables;
+use crate::layout::{layout_type, layout_variables};
 use crate::reg_pool::TempRegisterPool;
 use crate::state::{CodeGenState, GenOptions};
 use crate::{
@@ -228,11 +228,13 @@ impl TopLevelGenState {
             source_map_wrapper,
         );
 
-        let return_register =
-            TypedRegister::new_vm_type(0, VmType::new_unknown_placement(unknown_type()));
-
         let ctx = Context::default();
         //info!(?in_data, "generate");
+
+        let return_basic_type = layout_type(&in_data.return_type);
+        let return_register =
+            TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
+
         function_code_builder.emit_expression_materialize(
             &return_register,
             &in_data.expression,
