@@ -16,7 +16,7 @@ use swamp_semantic::{
 use swamp_types::Attributes;
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
-    CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, TypedRegister, VmType,
+    CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, TypedRegister, VmType, unknown_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, InstructionPosition, InstructionPositionOffset, InstructionRange, Meta,
@@ -225,9 +225,11 @@ impl TopLevelGenState {
             frame_and_variable_info.frame_registers,
             temp_pool,
             frame_and_variable_info.rest_of_frame_allocator,
+            source_map_wrapper,
         );
 
-        let return_register = TypedRegister::new_vm_type(0, VmType::Unknown);
+        let return_register =
+            TypedRegister::new_vm_type(0, VmType::new_unknown_placement(unknown_type()));
 
         let ctx = Context::new(return_register);
         //info!(?in_data, "generate");

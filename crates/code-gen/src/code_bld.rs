@@ -9,6 +9,7 @@ use crate::{
     single_intrinsic_fn,
 };
 use seq_map::SeqMap;
+use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use swamp_semantic::{
     AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
@@ -21,8 +22,8 @@ use swamp_semantic::{
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, FramePlacedType, HeapPlacedType, Immediate, TypedRegister, VmType,
-    int_type, pointer_type, u8_type, u32_type,
+    BasicType, BasicTypeKind, FramePlacedType, HeapPlacedType, TypedRegister, VmType, int_type,
+    pointer_type, u8_type, u32_type, unknown_type,
 };
 use swamp_vm_types::{
     FrameMemoryRegion, HeapMemoryAddress, HeapMemoryOffset, HeapMemorySize, InstructionPosition,
@@ -39,6 +40,7 @@ pub(crate) struct CodeBuilder<'a> {
     frame_memory_registers: RegisterPool,
     temp_registers: TempRegisterPool,
     frame_allocator: ScopeAllocator,
+    pub source_map_lookup: &'a SourceMapWrapper<'a>,
 }
 
 impl<'a> CodeBuilder<'a> {
@@ -49,6 +51,7 @@ impl<'a> CodeBuilder<'a> {
         frame_memory_registers: RegisterPool,
         temp_registers: TempRegisterPool,
         temp_allocator: ScopeAllocator,
+        source_map_lookup: &'a source_map_cache::SourceMapWrapper<'a>,
     ) -> Self {
         Self {
             state,
@@ -57,6 +60,7 @@ impl<'a> CodeBuilder<'a> {
             frame_memory_registers,
             temp_registers,
             frame_allocator: temp_allocator,
+            source_map_lookup,
         }
     }
 }
@@ -67,7 +71,7 @@ impl CodeBuilder<'_> {
         source_reg: &TypedRegister,
         node: &Node,
     ) {
-        if source_reg.basic_type.is_pointer() {
+        if source_reg.ty.is_pointer() {
             if target_reg.ty().is_pointer() {
                 self.builder.add_mov_reg(
                     &target_reg,
@@ -204,12 +208,22 @@ impl CodeBuilder<'_> {
         }
     }
 
+    fn debug_node(&self, node: &Node) {
+        let line_info = self.source_map_lookup.get_line(&node.span);
+        let span_text = self.source_map_lookup.get_text_span(&node.span);
+        eprintln!(
+            "{}:{}:{}> {}",
+            line_info.relative_file_name, line_info.row, line_info.col, span_text,
+        );
+        //info!(?source_code_line, "generating");
+    }
+
     pub fn emit_expression(
         &mut self,
         expr: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        //self.debug_node(&expr.node);
+        self.debug_node(&expr.node);
 
         match &expr.kind {
             ExpressionKind::ConstantAccess(constant_ref) => {
@@ -843,7 +857,9 @@ impl CodeBuilder<'_> {
                 offset,
                 ..
             } => {
-                let temp_offset_reg = self.temp_registers.allocate(VmType::Basic(u32_type()));
+                let temp_offset_reg = self
+                    .temp_registers
+                    .allocate(VmType::new_unknown_placement(u32_type()));
                 self.builder.add_mov_32_immediate_value(
                     temp_offset_reg.register(),
                     offset.0 as u32,
@@ -915,7 +931,7 @@ impl CodeBuilder<'_> {
         offset: MemoryOffset,
         comment: &str,
     ) {
-        let binding = target_reg.basic_type.frame_placed_type().unwrap();
+        let binding = target_reg.ty.frame_placed_type().unwrap();
         let underlying_type = binding.ty().underlying();
 
         let kind = &underlying_type.kind;
@@ -942,7 +958,9 @@ impl CodeBuilder<'_> {
                 );
             }
             _ => {
-                let temp = self.temp_registers.allocate(VmType::Unknown);
+                let temp = self
+                    .temp_registers
+                    .allocate(VmType::new_unknown_placement(unknown_type()));
                 self.builder.add_mov_32_immediate_value(
                     temp.register(),
                     offset.0 as u32,
@@ -979,8 +997,7 @@ impl CodeBuilder<'_> {
         source_reg: &TypedRegister,
         comment: &str,
     ) {
-        let binding = source_reg.basic_type.frame_placed_type().unwrap();
-        let underlying_type = binding.ty().underlying();
+        let underlying_type = source_reg.underlying();
 
         let kind = &underlying_type.kind;
         match kind {
@@ -1084,36 +1101,57 @@ impl CodeBuilder<'_> {
         &mut self,
         node: &Node,
         signature: &Signature,
-        self_region: Option<&TypedRegister>,
+        self_variable: Option<&TypedRegister>,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> Vec<SpilledArgument> {
         let mut argument_registers = RegisterPool::new(1, 6);
-        // Layout return and arguments, must be continuous space
-
-        //assert_eq!(argument_addr.addr.0, self.frame_size.0);
 
         let mut protected_argument_registers = Vec::new();
         let mut spilled_arguments = Vec::new();
 
-        for (index, type_for_parameter) in signature.parameters.iter().enumerate() {
+        for (index_in_signature, type_for_parameter) in signature.parameters.iter().enumerate() {
             let basic_type = layout_type(&type_for_parameter.resolved_type);
-            let argument_register = argument_registers.alloc_register(VmType::Basic(basic_type));
+            let argument_register =
+                argument_registers.alloc_register(VmType::new_unknown_placement(basic_type));
 
             if ctx.register_is_protected(&argument_register) {
                 let save_region = self.temp_frame_space_for_register("emit_arguments");
-                self.builder
-                    .add_st_reg_to_frame(save_region.addr, &argument_register);
+                self.builder.add_st_reg_to_frame(
+                    save_region.addr,
+                    &argument_register,
+                    node,
+                    "spill register to stack memory",
+                );
                 spilled_arguments.push(SpilledArgument {
-                    index: argument_register.index,
+                    register: argument_register.clone(),
                     frame_memory_region: save_region,
                 });
             }
             let mut argument_ctx = ctx.clone();
             argument_ctx.add_protected_registers(&protected_argument_registers);
 
-            let argument_expr_or_location = &arguments[index];
-            self.emit_argument(argument_expr_or_location, &argument_ctx, "arg");
+            if index_in_signature == 0 && self_variable.is_some() {
+                let self_reg = self_variable.as_ref().unwrap();
+
+                if self_reg.index != argument_register.index {
+                    self.builder.add_mov_reg(
+                        &argument_register,
+                        self_reg,
+                        node,
+                        "move self_variable to first argument register",
+                    );
+                }
+            } else {
+                let argument_vector_index = if self_variable.is_some() {
+                    index_in_signature - 1
+                } else {
+                    index_in_signature
+                };
+                let argument_expr_or_location = &arguments[argument_vector_index];
+                self.emit_argument(argument_expr_or_location, &argument_ctx, "arg");
+            }
+
             protected_argument_registers.push(argument_register.clone());
         }
 
@@ -1140,7 +1178,9 @@ impl CodeBuilder<'_> {
         let mut current_location = self.emit_start_of_chain(start_expression);
         let mut z_flag_result = GeneratedExpressionResult::default();
 
-        let temp_reg = self.temp_registers.allocate(VmType::Unknown);
+        let temp_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(unknown_type()));
 
         for (index, element) in chain.iter().enumerate() {
             let is_last = index == chain.len() - 1;
@@ -1150,17 +1190,21 @@ impl CodeBuilder<'_> {
                         layout_type(&Type::AnonymousStruct(anonymous_struct.clone()));
                     let offset_item = struct_layout.get_field_offset(*field_index).unwrap();
 
-                    current_location = current_location
-                        .add_offset(offset_item.offset, VmType::Basic(offset_item.ty.clone()));
+                    current_location = current_location.add_offset(
+                        offset_item.offset,
+                        VmType::new_unknown_placement(offset_item.ty.clone()),
+                    );
+                    info!(?current_location, "after field offset lookup");
                 }
                 PostfixKind::MemberCall(function_to_call, arguments) => {
-                    &self.temp_space_for_type(&function_to_call.signature().return_type, "");
+                    let (return_ctx, return_temp_reg) =
+                        self.temp_space_for_type(&function_to_call.signature().return_type, "");
                     let resolved_location = self
                         .emit_load_primitive_from_detailed_location_if_needed(
                             &current_location,
                             &element.node,
                         );
-                    let target_ctx = Context::new(temp_reg.register.clone());
+                    //let target_ctx = Context::new(temp_reg.register.clone());
 
                     match &**function_to_call {
                         Function::Internal(internal_fn) => {
@@ -1178,7 +1222,7 @@ impl CodeBuilder<'_> {
                                     Some(element.ty.clone()),
                                     Some(resolved_location.register()),
                                     &merged_arguments,
-                                    &target_ctx,
+                                    &return_ctx,
                                 );
 
                                 if is_last {
@@ -1203,7 +1247,7 @@ impl CodeBuilder<'_> {
                                 external_function_def,
                                 resolved_location.register(),
                                 arguments,
-                                &target_ctx,
+                                &return_ctx,
                             );
                         }
                         Function::Intrinsic(_intr) => {}
@@ -1214,12 +1258,13 @@ impl CodeBuilder<'_> {
                     }
 
                     if let DetailedLocationResolved::TempRegister(temp_reg) = resolved_location {
-                        self.temp_registers.free(temp_reg)
+                        self.temp_registers.free(temp_reg);
                     }
 
                     current_location = DetailedLocation::Register {
-                        reg: target_ctx.register().clone(),
+                        reg: return_ctx.register().clone(),
                     };
+                    info!(?current_location, "after member call");
                 }
                 PostfixKind::OptionalChainingOperator => {
                     todo!()
@@ -1253,6 +1298,7 @@ impl CodeBuilder<'_> {
                     current_location = DetailedLocation::Register {
                         reg: target_ctx.register().clone(),
                     };
+                    info!(?current_location, "after none coalesce");
                 }
             }
         }
@@ -1303,7 +1349,9 @@ impl CodeBuilder<'_> {
         assert_eq!(gen_tuple_placed.total_size, ctx.final_target_size());
         assert_eq!(gen_tuple_type.fields.len(), expressions.len());
 
-        let temp_materialize_reg = self.temp_registers.allocate(VmType::Unknown);
+        let temp_materialize_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(unknown_type()));
         let placed_target = temp_materialize_reg.register();
 
         for (offset_item, expr) in gen_tuple_type.fields.iter().zip(expressions) {
@@ -1372,9 +1420,11 @@ impl CodeBuilder<'_> {
             }
             Literal::EnumVariantLiteral(_enum_type, a, b) => {
                 let variant_index = a.common().container_index as usize;
-                let temp_payload_reg = self.temp_registers.allocate(VmType::Unknown);
+                let temp_payload_reg = self
+                    .temp_registers
+                    .allocate(VmType::new_unknown_placement(unknown_type()));
 
-                let enum_union = ctx.register().underlying().union_info();
+                let enum_union = ctx.register().underlying().union_info().clone();
                 self.builder.add_mov8_immediate(
                     temp_payload_reg.register(),
                     variant_index as u8,
@@ -1473,7 +1523,7 @@ impl CodeBuilder<'_> {
                 .addr()
                 .0,
         );
-        assert_eq!(ctx.target_size(), STRING_PTR_SIZE);
+        // TODO: Bring this back // assert_eq!(ctx.target_size(), STRING_PTR_SIZE);
         self.builder.add_mov_32_immediate_value(
             ctx.register(),
             string_header_in_heap_ptr.0,
@@ -1489,9 +1539,17 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         if let Some(some_expression) = maybe_option {
-            let target_tag = ctx.register().frame_placed().ty().optional_info().unwrap();
+            let target_tag = ctx
+                .register()
+                .frame_placed()
+                .ty()
+                .optional_info()
+                .unwrap()
+                .clone();
             {
-                let tag_reg = self.temp_registers.allocate(VmType::Basic(u8_type()));
+                let tag_reg = self
+                    .temp_registers
+                    .allocate(VmType::new_unknown_placement(u8_type()));
                 self.builder.add_mov8_immediate(
                     tag_reg.register(),
                     1,
@@ -1508,7 +1566,9 @@ impl CodeBuilder<'_> {
                 self.temp_registers.free(tag_reg);
             }
             {
-                let payload_reg = self.temp_registers.allocate(VmType::Unknown);
+                let payload_reg = self
+                    .temp_registers
+                    .allocate(VmType::new_unknown_placement(unknown_type()));
                 let some_payload_ctx = Context::new(payload_reg.register);
                 self.emit_expression_materialize(some_expression, &some_payload_ctx); // Fills in more of the union
             }
@@ -1644,7 +1704,7 @@ impl CodeBuilder<'_> {
         frame_address
     }
 
-    fn get_variable_frame_placed(&self, variable: &VariableRef) -> &FramePlacedType {
+    fn get_variable_frame_placed(&self, variable: &VariableRef) -> FramePlacedType {
         let frame_address = self
             .variable_registers
             .get(&variable.unique_id_within_function)
@@ -1835,7 +1895,7 @@ impl CodeBuilder<'_> {
         let frame_placed_type = self.frame_allocator.allocate_type(ty.clone());
 
         self.frame_memory_registers
-            .alloc_register(VmType::FramePlaced(frame_placed_type))
+            .alloc_register(VmType::new_frame_placed(frame_placed_type))
     }
 
     fn emit_struct_literal_helper(
@@ -1873,7 +1933,9 @@ impl CodeBuilder<'_> {
         self.builder
             .add_frame_memory_clear(frame_placed.region(), node, "clear memory for now");
 
-        let temp_register_to_materialize_to = self.temp_registers.allocate(VmType::Unknown);
+        let temp_register_to_materialize_to = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(unknown_type()));
         let temp_ctx = Context::new(temp_register_to_materialize_to.register().clone());
 
         for (offset_item, (field_index, _node, expression)) in gen_source_struct_type
@@ -1939,8 +2001,13 @@ impl CodeBuilder<'_> {
         let element_count = expressions.len() as u16;
         let total_slice_size = MemorySize(element_gen_type.total_size.0 * element_count);
 
-        let base_ptr_reg = { self.temp_registers.allocate(VmType::TempPointer) };
-        let element_size_reg = self.temp_registers.allocate(VmType::TempPointer);
+        let base_ptr_reg = {
+            self.temp_registers
+                .allocate(VmType::new_unknown_placement(unknown_type()))
+        };
+        let element_size_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(unknown_type()));
 
         self.builder.add_mov_32_immediate_value(
             element_size_reg.register(),
@@ -1956,7 +2023,9 @@ impl CodeBuilder<'_> {
             "allocate slice",
         );
 
-        let element_temp_reg = self.temp_registers.allocate(VmType::TempPointer);
+        let element_temp_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(unknown_type()));
         let temp_element_ctx = Context::new(element_temp_reg.register.clone());
 
         for (index, expr) in expressions.iter().enumerate() {
@@ -1981,7 +2050,7 @@ impl CodeBuilder<'_> {
 
         let element_count_reg = self
             .temp_registers
-            .allocate(VmType::Immediate(Immediate::U32));
+            .allocate(VmType::new_unknown_placement(u32_type()));
 
         self.builder.add_mov_32_immediate_value(
             element_count_reg.register(),
@@ -2392,7 +2461,7 @@ impl CodeBuilder<'_> {
                 };
                 let old_variable_region = self.emit_expression_location(variable_access_expression);
 
-                let tagged_union_binding = old_variable_region.basic_type.underlying();
+                let tagged_union_binding = old_variable_region.ty.underlying();
                 let tagged_union = tagged_union_binding.optional_info().unwrap();
 
                 self.builder.add_block_copy_with_offset(
@@ -2858,7 +2927,9 @@ impl CodeBuilder<'_> {
                 };
 
                 //let tag_target = ctx.target_register().move_to_optional_tag();
-                let tag_target = self.temp_registers.allocate(VmType::Basic(u8_type()));
+                let tag_target = self
+                    .temp_registers
+                    .allocate(VmType::new_unknown_placement(u8_type()));
 
                 self.builder.add_mov8_immediate(
                     &tag_target.register(),
@@ -2898,7 +2969,7 @@ impl CodeBuilder<'_> {
         let iterator_target_placed = self.frame_allocator.allocate_type(iterator_gen_type);
         let iterator_target = self
             .temp_registers
-            .allocate(VmType::FramePlaced(iterator_target_placed));
+            .allocate(VmType::new_frame_placed(iterator_target_placed));
         let iter_next_position = InstructionPosition(self.builder.position().0 + 1);
         let placeholder = match collection_type {
             Collection::Vec => {
@@ -3041,9 +3112,9 @@ impl CodeBuilder<'_> {
         node: &Node,
     ) {
         let (register_to_be_inserted_in_collection, maybe_temp) = if should_unwrap_value {
-            let tagged_union = in_value.underlying().optional_info().unwrap();
+            let tagged_union = in_value.underlying().optional_info().unwrap().clone();
             let some_variant = tagged_union.get_variant_by_index(1);
-            let payload_vm_type = VmType::Basic(some_variant.ty.clone());
+            let payload_vm_type = VmType::new_unknown_placement(some_variant.ty.clone());
             let temp_reg = self.temp_registers.allocate(payload_vm_type.clone());
             let (_tag_offset, _tag_size, payload_offset, _) =
                 in_value.underlying().unwrap_info().unwrap();
@@ -3148,7 +3219,7 @@ impl CodeBuilder<'_> {
     fn emit_post_call(&mut self, spilled_arguments: &[SpilledArgument], node: &Node) {
         for arg in spilled_arguments {
             self.builder.add_ld_reg_from_frame(
-                arg.index,
+                &arg.register,
                 arg.frame_memory_region.addr,
                 node,
                 "restoring clobbered arguments",
@@ -3166,7 +3237,9 @@ impl CodeBuilder<'_> {
     pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> (Context, TempRegister) {
         let layout = layout_type(ty);
 
-        let temp_reg = self.temp_registers.allocate(VmType::Basic(layout));
+        let temp_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(layout));
         let ctx = Context::new(temp_reg.register.clone());
 
         (ctx, temp_reg)
@@ -3196,7 +3269,7 @@ impl CodeBuilder<'_> {
 
             ExpressionKind::PostfixChain(start_of_chain, chain) => {
                 return (
-                    TypedRegister::new_vm_type(255, VmType::Unknown),
+                    TypedRegister::new_vm_type(255, VmType::new_unknown_placement(unknown_type())),
                     self.emit_rvalue_postfix_chain(start_of_chain, chain, None),
                 );
             }
@@ -3211,7 +3284,7 @@ impl CodeBuilder<'_> {
         self.temp_registers.free(temp_reg);
 
         (
-            TypedRegister::new_vm_type(255, VmType::Unknown),
+            TypedRegister::new_vm_type(255, VmType::new_unknown_placement(unknown_type())),
             z_flag_state,
         )
     }

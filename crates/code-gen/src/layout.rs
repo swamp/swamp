@@ -482,8 +482,8 @@ pub fn layout_variables(
             frame_placed_type: var_frame_placed_type.clone(),
         });
 
-        let register =
-            frame_register_allocator.alloc_register(VmType::FramePlaced(var_frame_placed_type));
+        let register = frame_register_allocator
+            .alloc_register(VmType::new_frame_placed(var_frame_placed_type));
 
         variable_offsets
             .insert(var_ref.unique_id_within_function, register)

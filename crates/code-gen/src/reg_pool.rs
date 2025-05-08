@@ -43,7 +43,7 @@ impl TempRegisterPool {
         TempRegister {
             register: TypedRegister {
                 index: free_reg_info.index,
-                basic_type: ty,
+                ty: ty,
             },
         }
     }
@@ -93,7 +93,7 @@ impl RegisterPool {
         self.current_index += 1;
         TypedRegister {
             index: allocated_register,
-            basic_type: ty,
+            ty: ty,
         }
     }
 }

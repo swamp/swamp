@@ -60,7 +60,7 @@ pub enum TransformerResult {
 }
 
 pub struct SpilledArgument {
-    pub index: u8,
+    pub register: TypedRegister,
     pub frame_memory_region: FrameMemoryRegion,
 }
 
@@ -119,7 +119,7 @@ pub enum DetailedLocation {
 impl DetailedLocation {
     pub fn get_type(&self) -> &VmType {
         match self {
-            DetailedLocation::Register { reg, .. } => &reg.basic_type,
+            DetailedLocation::Register { reg, .. } => &reg.ty,
             DetailedLocation::Memory { ty, .. } => ty,
         }
     }
@@ -127,10 +127,12 @@ impl DetailedLocation {
     pub fn add_offset(&self, new_offset: MemoryOffset, ty: VmType) -> Self {
         match self {
             Self::Register { reg } => {
-                debug_assert!(
+                /* TODO: Bring this back
+                // debug_assert!(
                     ty.is_pointer(),
                     "we can not take offset unless it is a pointer"
                 );
+                */
                 Self::Memory {
                     base_ptr_reg: reg.clone(),
                     offset: new_offset,
@@ -390,15 +392,7 @@ impl<'a> FunctionCodeGen<'a> {
 
 impl FunctionCodeGen<'_> {
 
-    fn debug_node(&self, node: &Node) {
-        let line_info = self.source_map_lookup.get_line(&node.span);
-        let span_text = self.source_map_lookup.get_text_span(&node.span);
-        eprintln!(
-            "{}:{}:{}> {}",
-            line_info.relative_file_name, line_info.row, line_info.col, span_text,
-        );
-        //info!(?source_code_line, "generating");
-    }
+
 
     fn debug_instructions(&mut self) {
         /*

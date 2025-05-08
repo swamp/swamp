@@ -71,6 +71,7 @@ pub enum OpCode {
     // Storers ---
     St32UsingPtrWithOffset,
     St8UsingPtrWithOffset,
+    StRegToFrame,
 
     // Movers
     MovReg,
@@ -154,6 +155,7 @@ pub enum OpCode {
 
     // Other
     HostCall, // calls back into host
+    LdRegFromFrame,
 }
 
 impl OpCode {
@@ -216,9 +218,12 @@ impl OpCode {
             // Load
             Self::Mov8FromImmediateValue | Self::Ld8FromPointerWithOffset => "ldb",
             Self::Mov32FromImmediateValue | Self::Ld32FromPointerWithOffset => "ldw",
+            Self::LdRegFromFrame => "ldfp",
 
             Self::St32UsingPtrWithOffset => "stw",
             Self::St8UsingPtrWithOffset => "stb",
+
+            Self::StRegToFrame => "stfp",
 
             Self::Alloc => "alloc",
 

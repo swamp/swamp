@@ -10,7 +10,7 @@ use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
 use swamp_vm_types::MemoryOffset;
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType};
+use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType, unknown_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_for_access_or_location(
@@ -83,7 +83,7 @@ impl CodeBuilder<'_> {
         for access in location_expression.access_chain.iter().take(accesses_count) {
             match &access.kind {
                 LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
-                    let x = current_register.basic_type.frame_placed_type().unwrap();
+                    let x = current_register.ty.frame_placed_type().unwrap();
                     let ty = x.ty().underlying();
                     let offset_item = ty.get_field_offset(*field_index).unwrap();
 
@@ -112,7 +112,7 @@ impl CodeBuilder<'_> {
         DetailedLocation::Memory {
             base_ptr_reg: current_register,
             offset: last_memory_offset,
-            ty: VmType::TempPointer,
+            ty: VmType::new_unknown_placement(unknown_type()),
         }
     }
 
@@ -159,8 +159,11 @@ impl CodeBuilder<'_> {
         key_or_index: &[Expression],
         ctx: &Context,
     ) {
+        // TODO: Fix this
+        return;
+
         let key_address = self.emit_expression_location(&key_or_index[0]);
-        match &self_collection.ty().kind {
+        match &self_collection.underlying().kind {
             BasicTypeKind::InternalStringPointer => {
                 todo!()
             }

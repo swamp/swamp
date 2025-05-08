@@ -616,35 +616,32 @@ impl HeapPlacedType {
 #[derive(Clone, Debug)]
 pub struct TypedRegister {
     pub index: u8,
-    pub basic_type: VmType,
+    pub ty: VmType,
 }
 
 impl TypedRegister {
     pub fn final_type(&self) -> BasicType {
-        self.basic_type.underlying()
+        self.ty.underlying()
     }
 }
 
 impl Display for TypedRegister {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "R{} ({:?})", self.index, self.basic_type)
+        write!(f, "R{} ({:?})", self.index, self.ty)
     }
 }
 
 impl TypedRegister {
     #[must_use]
-    pub fn new(index: u8, ty: FramePlacedType) -> Self {
+    pub fn new_frame_placed(index: u8, frame_placed: FramePlacedType) -> Self {
         Self {
             index,
-            basic_type: VmType::FramePlaced(ty),
+            ty: VmType::new_frame_placed(frame_placed),
         }
     }
 
     pub fn new_vm_type(index: u8, ty: VmType) -> Self {
-        Self {
-            index,
-            basic_type: ty,
-        }
+        Self { index, ty: ty }
     }
     pub fn addressing(&self) -> u8 {
         self.index
@@ -652,79 +649,78 @@ impl TypedRegister {
 
     #[must_use]
     pub fn ty(&self) -> &BasicType {
-        let VmType::FramePlaced(fp) = &self.basic_type else {
-            panic!("")
-        };
-        fp.ty()
+        &self.ty.basic_type
     }
 
-    pub fn frame_placed(&self) -> &FramePlacedType {
-        let VmType::FramePlaced(fp) = &self.basic_type else {
+    pub fn frame_placed(&self) -> FramePlacedType {
+        if let Some(fp) = self.ty.frame_placed_type() {
+            fp
+        } else {
             panic!("")
-        };
-
-        fp
+        }
     }
 
     pub fn size(&self) -> MemorySize {
-        let VmType::FramePlaced(fp) = &self.basic_type else {
-            panic!("")
-        };
-        fp.size()
+        self.ty.basic_type.total_size
     }
 
     pub fn addr(&self) -> FrameMemoryAddress {
         self.frame_placed().addr
     }
 
-    pub fn underlying(&self) -> &BasicType {
-        let VmType::FramePlaced(fp) = &self.basic_type else {
-            panic!("")
-        };
-        fp.ty.underlying()
+    pub fn underlying(&self) -> BasicType {
+        self.ty.underlying()
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum Immediate {
-    U32,
-    I32,
-    Fixed32,
-    Bool,
+pub enum VmTypeOrigin {
+    Unknown,
+    Frame(FrameMemoryAddress),
+    Heap(HeapMemoryAddress),
 }
 
 #[derive(Clone, Debug)]
-pub enum VmType {
-    Immediate(Immediate),
-    FramePlaced(FramePlacedType),
-    TempPointer,
-    Unknown,
-    Basic(BasicType),
+pub struct VmType {
+    pub basic_type: BasicType,
+    pub origin: VmTypeOrigin,
 }
 
 impl VmType {
-    pub fn is_pointer(&self) -> bool {
-        match self {
-            VmType::FramePlaced(fp) => fp.ty.is_pointer(),
-            VmType::TempPointer => true,
-            _ => false,
+    pub fn new_frame_placed(frame_placed: FramePlacedType) -> Self {
+        Self {
+            basic_type: frame_placed.ty.clone(),
+            origin: VmTypeOrigin::Frame(frame_placed.addr),
         }
     }
-}
 
-impl VmType {
-    pub fn underlying(&self) -> BasicType {
-        self.frame_placed_type().unwrap().ty.underlying().clone()
+    pub fn new_unknown_placement(basic_type: BasicType) -> Self {
+        Self {
+            basic_type,
+            origin: VmTypeOrigin::Unknown,
+        }
     }
-}
 
-impl VmType {
+    pub fn new_basic_with_origin(basic_type: BasicType, origin: VmTypeOrigin) -> Self {
+        Self { basic_type, origin }
+    }
+
     pub fn frame_placed_type(&self) -> Option<FramePlacedType> {
-        if let Self::FramePlaced(found) = self {
-            Some(found.clone())
+        if let VmTypeOrigin::Frame(address) = self.origin {
+            Some(FramePlacedType {
+                addr: address,
+                ty: self.basic_type.clone(),
+            })
         } else {
             None
         }
+    }
+
+    pub fn is_pointer(&self) -> bool {
+        self.basic_type.is_pointer()
+    }
+    pub fn underlying(&self) -> BasicType {
+        self.basic_type.underlying().clone()
     }
 }
 
@@ -742,6 +738,7 @@ impl FramePlacedType {
     pub const fn new(addr: FrameMemoryAddress, ty: BasicType) -> Self {
         Self { addr, ty }
     }
+
     #[must_use]
     pub const fn region(&self) -> FrameMemoryRegion {
         FrameMemoryRegion {
