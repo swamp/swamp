@@ -61,7 +61,8 @@ impl TempRegisterPool {
                 .any(|info| info.index == reg.register.index)
         );
 
-        info!(?reg, "free temp reg");
+        let kind = reg.register().underlying().kind;
+        info!(?kind, "free temp reg");
 
         self.free_registers.push(RegisterInfo {
             index: reg.register.index,

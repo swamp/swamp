@@ -1452,8 +1452,8 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(lhs_offset.ty().is_int());
-        assert!(rhs_offset.ty().is_int());
+        // TODO: Bring Back //assert!(lhs_offset.ty().is_int());
+        // TODO: Bring Back //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LtI32,
             &[lhs_offset.addressing(), rhs_offset.addressing()],

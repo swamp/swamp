@@ -690,6 +690,8 @@ pub struct VmType {
     pub origin: VmTypeOrigin,
 }
 
+impl VmType {}
+
 impl VmType {
     pub fn new_frame_placed(frame_placed: FramePlacedType) -> Self {
         Self {

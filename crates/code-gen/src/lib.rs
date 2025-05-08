@@ -117,7 +117,7 @@ pub enum DetailedLocation {
 }
 
 impl DetailedLocation {
-    pub fn get_type(&self) -> &VmType {
+    pub fn vm_type(&self) -> &VmType {
         match self {
             DetailedLocation::Register { reg, .. } => &reg.ty,
             DetailedLocation::Memory { ty, .. } => ty,

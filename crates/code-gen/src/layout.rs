@@ -450,7 +450,7 @@ pub fn layout_variables(
 
     let mut variable_offsets = SeqMap::new();
 
-    let mut frame_register_allocator = RegisterPool::new(8, 64);
+    let mut frame_register_allocator = RegisterPool::new(8, 82);
 
     info!(len = variables.len(), "variables");
 

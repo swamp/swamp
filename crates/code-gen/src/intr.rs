@@ -27,7 +27,7 @@ impl CodeBuilder<'_> {
                     panic!("problem");
                 };
 
-                let slice_region = self.emit_expression_location(expr);
+                let slice_region = self.emit_expression_location(expr, ctx);
 
                 let slice_type = arguments[0].ty();
 
@@ -51,7 +51,7 @@ impl CodeBuilder<'_> {
                     panic!("problem");
                 };
 
-                let slice_region = self.emit_expression_location(expr);
+                let slice_region = self.emit_expression_location(expr, ctx);
 
                 let slice_type = arguments[0].ty();
 
@@ -77,7 +77,7 @@ impl CodeBuilder<'_> {
                     (None, None)
                 } else {
                     let self_region =
-                        self.emit_expression_location_mut_ref_or_immutable(&arguments[0]);
+                        self.emit_expression_location_mut_ref_or_immutable(&arguments[0], ctx);
                     (Some(self_region), Some(arguments[0].ty().clone()))
                 };
                 let rest_args = if arguments.len() > 1 {
@@ -186,7 +186,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
-                let float_region = self.emit_expression_location(float_arg_expr);
+                let float_region = self.emit_expression_location(float_arg_expr, ctx);
                 self.builder.add_float_min(
                     ctx.register(),
                     &self_addr.unwrap(),
@@ -200,7 +200,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
-                let float_region = self.emit_expression_location(float_arg_expr);
+                let float_region = self.emit_expression_location(float_arg_expr, ctx);
                 self.builder.add_float_max(
                     ctx.register(),
                     &self_addr.unwrap(),
@@ -214,13 +214,13 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
-                let float_region = self.emit_expression_location(float_arg_expr);
+                let float_region = self.emit_expression_location(float_arg_expr, ctx);
 
                 let float_b = &arguments[1];
                 let MutRefOrImmutableExpression::Expression(float_b_expr) = float_b else {
                     panic!();
                 };
-                let float_b_region = self.emit_expression_location(float_b_expr);
+                let float_b_region = self.emit_expression_location(float_b_expr, ctx);
 
                 self.builder.add_float_clamp(
                     ctx.register(),
@@ -300,7 +300,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
-                let key_region = self.emit_expression_location(key_expr);
+                let key_region = self.emit_expression_location(key_expr, ctx);
                 self.builder.add_vec_push(
                     &self_addr.unwrap(), // mut self
                     &key_region,
@@ -322,7 +322,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!();
                 };
-                let index_region = self.emit_expression_location(index_expr);
+                let index_region = self.emit_expression_location(index_expr, ctx);
                 self.builder.add_vec_remove_index(
                     &self_addr.unwrap(),
                     &index_region,
@@ -335,7 +335,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
-                let key_region = self.emit_expression_location(key_expr);
+                let key_region = self.emit_expression_location(key_expr, ctx);
                 self.builder.add_vec_remove_index_get_value(
                     ctx.register(),
                     &self_addr.unwrap(), // mut self
@@ -356,7 +356,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
-                let key_region = self.emit_expression_location(key_expr);
+                let key_region = self.emit_expression_location(key_expr, ctx);
                 self.builder.add_vec_get(
                     ctx.register(),
                     &self_addr.unwrap(), // mut self
@@ -375,7 +375,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!();
                 };
-                let index_region = self.emit_expression_location(index_expr);
+                let index_region = self.emit_expression_location(index_expr, ctx);
                 self.builder.add_vec_subscript(
                     ctx.register(),
                     &self_addr.unwrap(),
@@ -391,7 +391,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!();
                 };
-                let index_region = self.emit_expression_location(index_expr);
+                let index_region = self.emit_expression_location(index_expr, ctx);
                 // TODO:
 
                 /*
@@ -418,7 +418,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!();
                 };
-                let range_header_region = self.emit_expression_location(range_expr);
+                let range_header_region = self.emit_expression_location(range_expr, ctx);
                 assert_eq!(range_header_region.size(), RANGE_HEADER_SIZE);
                 self.builder.add_vec_get_range(
                     ctx.register(),
@@ -454,8 +454,8 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecMap => todo!(), // Low prio
             IntrinsicFunction::VecFilterMap => todo!(), // Low prio
             IntrinsicFunction::VecSwap => {
-                let index_a = self.emit_for_access_or_location(&arguments[0]);
-                let index_b = self.emit_for_access_or_location(&arguments[1]);
+                let index_a = self.emit_for_access_or_location(&arguments[0], ctx);
+                let index_b = self.emit_for_access_or_location(&arguments[1], ctx);
                 self.builder.add_vec_swap(
                     &self_addr.unwrap(),
                     &index_a,
@@ -505,7 +505,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                let key = self.emit_expression_location(key_argument);
+                let key = self.emit_expression_location(key_argument, ctx);
                 self.builder
                     .add_map_has(&self_addr.unwrap(), &key, node, "map_has");
                 z_flag_result.kind = GeneratedExpressionResultKind::ZFlagIsTrue;
@@ -514,7 +514,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                self.emit_intrinsic_map_remove(&self_addr.unwrap(), key_argument);
+                self.emit_intrinsic_map_remove(&self_addr.unwrap(), key_argument, ctx);
             }
             IntrinsicFunction::MapIter => {
                 // Never called directly
@@ -535,7 +535,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                let key = self.emit_expression_location(key_argument);
+                let key = self.emit_expression_location(key_argument, ctx);
                 self.builder.add_map_fetch(
                     ctx.register(),
                     &self_addr.unwrap(),
@@ -645,8 +645,13 @@ impl CodeBuilder<'_> {
         z_flag_result
     }
 
-    fn emit_intrinsic_map_remove(&mut self, map_region: &TypedRegister, key_expr: &Expression) {
-        let key_region = self.emit_expression_location(key_expr);
+    fn emit_intrinsic_map_remove(
+        &mut self,
+        map_region: &TypedRegister,
+        key_expr: &Expression,
+        ctx: &Context,
+    ) {
+        let key_region = self.emit_expression_location(key_expr, ctx);
 
         self.builder
             .add_map_remove(map_region, &key_region, &key_expr.node, "");
