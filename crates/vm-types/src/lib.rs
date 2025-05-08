@@ -430,6 +430,9 @@ pub struct Meta {
     pub node: Node,
 }
 
+#[derive(Debug)]
+pub struct PatchPosition(pub InstructionPosition);
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct InstructionPosition(pub u16);
 

@@ -9,21 +9,17 @@ use swamp_vm_types::types::{
     BasicType, BasicTypeKind, CompleteFunctionInfo, FramePlacedType, FunctionInfo,
     FunctionInfoKind, HeapPlacedType, Immediate, OffsetMemoryItem, TypedRegister, VmType, int_type,
 };
-use swamp_vm_types::{
+pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
     HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, RANGE_HEADER_SIZE,
+    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
     RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use tracing::info;
 
-#[derive(Debug)]
-pub struct PatchPosition(pub InstructionPosition);
-
+/// Keeps track of all the instructions, and the corresponding meta information (comments and node).
 pub struct InstructionBuilderState {
     pub instructions: Vec<BinaryInstruction>,
-    pub functions: SeqMap<usize, CompleteFunctionInfo>,
-    pub constants: SeqMap<usize, CompleteFunctionInfo>,
     pub meta: Vec<Meta>,
 }
 
@@ -50,8 +46,6 @@ impl InstructionBuilderState {
     pub fn new() -> Self {
         Self {
             instructions: Vec::new(),
-            functions: SeqMap::default(),
-            constants: SeqMap::default(),
             meta: Vec::new(),
         }
     }
@@ -59,58 +53,6 @@ impl InstructionBuilderState {
     #[must_use]
     pub fn position(&self) -> InstructionPosition {
         InstructionPosition(self.instructions.len() as u16)
-    }
-    // Could be a constant function
-    // should probably be called function_like
-    pub fn add_function(
-        &mut self,
-        function_info: FunctionInfo,
-        node: &Node,
-        comment: &str,
-    ) -> InstructionBuilder {
-        self.add_function_helper(function_info, node, comment)
-    }
-
-    pub fn add_function_helper(
-        &mut self,
-        function_info: FunctionInfo,
-        node: &Node,
-        comment: &str,
-    ) -> InstructionBuilder {
-        let complete_info = CompleteFunctionInfo {
-            ip: self.position(),
-            size: InstructionPositionOffset(0),
-            info: function_info.clone(),
-        };
-        if let FunctionInfoKind::Constant(constant_id) = function_info.kind {
-            self.constants.insert(constant_id, complete_info).unwrap();
-        } else if let FunctionInfoKind::Normal(normal_id) = function_info.kind {
-            if self.functions.contains_key(&normal_id) {
-                // TODO: improve monomorph
-                info!("skipping");
-            } else {
-                self.functions.insert(normal_id, complete_info).unwrap();
-            }
-        }
-
-        let mut function_instruction_builder = InstructionBuilder::new(self);
-
-        function_instruction_builder.enter(function_info.frame_memory.size(), node, comment);
-
-        function_instruction_builder
-    }
-
-    pub fn add_constant_function(
-        &mut self,
-        constant_info: FunctionInfo,
-        node: &Node,
-        comment: &str,
-    ) -> InstructionBuilder {
-        let FunctionInfoKind::Constant(_id) = constant_info.kind else {
-            panic!("must be constant")
-        };
-
-        self.add_function_helper(constant_info, node, comment)
     }
 
     /// # Panics
@@ -1546,13 +1488,13 @@ impl InstructionBuilder<'_> {
     }
 
     pub fn add_stz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
-        assert_eq!(target.underlying().total_size.0, 1);
+        //assert_eq!(target.underlying().total_size.0, 1);
         self.state
             .add_instruction(OpCode::MovFromZToReg, &[target.addressing()], node, comment);
     }
 
     pub fn add_stnz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
-        assert_eq!(target.underlying().total_size.0, 1);
+        // assert_eq!(target.underlying().total_size.0, 1);
         self.state.add_instruction(
             OpCode::MovFromNotZToReg,
             &[target.addressing()],

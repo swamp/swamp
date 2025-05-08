@@ -437,34 +437,25 @@ pub fn layout_variables(
 ) -> FrameAndVariableInfo {
     const TEMPORARY_SIZE: MemorySize = MemorySize(16 * 1024);
 
-    let mut allocator = ScopeAllocator::new(FrameMemoryRegion::new(
+    let mut local_frame_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
         MemorySize(32 * 1024),
     ));
 
-    let return_placed_type_pointer = layout_type(exp_return_type).create_mutable_pointer();
-
-    let return_placed_type = allocator.allocate_type(return_placed_type_pointer); //reserve(return_placed_type_pointer, &mut allocator);
+    //    let return_placed_type_pointer = layout_type(exp_return_type).create_mutable_pointer();
+    //let return_placed_type = allocator.allocate_type(return_placed_type_pointer); //reserve(return_placed_type_pointer, &mut allocator);
 
     let mut enter_comment = "variables:\n".to_string();
-
     let mut frame_memory_infos = Vec::new();
-    if return_placed_type.size().0 != 0 {
-        // Only add return if it is non-zero. Otherwise, the debug code is hard to follow.
-        frame_memory_infos.push(FrameAddressInfo {
-            kind: FrameAddressInfoKind::Return,
-            frame_placed_type: return_placed_type.clone(),
-        });
-    }
 
     let mut variable_offsets = SeqMap::new();
 
-    let mut register_allocator = RegisterPool::new(8, 64);
+    let mut frame_register_allocator = RegisterPool::new(8, 64);
 
     info!(len = variables.len(), "variables");
 
     for var_ref in variables {
-        let var_frame_placed_type = reserve(&var_ref.resolved_type, &mut allocator);
+        let var_frame_placed_type = reserve(&var_ref.resolved_type, &mut local_frame_allocator);
         trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
         writeln!(
             &mut enter_comment,
@@ -492,14 +483,14 @@ pub fn layout_variables(
         });
 
         let register =
-            register_allocator.alloc_register(VmType::FramePlaced(var_frame_placed_type));
+            frame_register_allocator.alloc_register(VmType::FramePlaced(var_frame_placed_type));
 
         variable_offsets
             .insert(var_ref.unique_id_within_function, register)
             .unwrap();
     }
 
-    let variable_space = allocator.addr().as_size();
+    let variable_space = local_frame_allocator.addr().as_size();
     let allocate_for_temp = if variable_space.0 > (TEMPORARY_SIZE.0 / 2) {
         TEMPORARY_SIZE
     } else {
@@ -508,11 +499,11 @@ pub fn layout_variables(
     };
 
     let temp_allocator_region = FrameMemoryRegion {
-        addr: allocator.allocate(allocate_for_temp, MemoryAlignment::U64),
+        addr: local_frame_allocator.allocate(allocate_for_temp, MemoryAlignment::U64),
         size: allocate_for_temp,
     };
 
-    let frame_size = allocator.addr().as_size();
+    let frame_size = local_frame_allocator.addr().as_size();
 
     FrameAndVariableInfo {
         frame_memory: FrameMemoryInfo {
@@ -520,8 +511,9 @@ pub fn layout_variables(
             total_frame_size: frame_size,
             variable_frame_size: temp_allocator_region.addr.as_size(),
         },
-        return_placement: return_placed_type,
         temp_allocator_region,
         variable_offsets,
+        frame_registers: frame_register_allocator,
+        rest_of_frame_allocator: local_frame_allocator,
     }
 }

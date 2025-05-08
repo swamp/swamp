@@ -2,10 +2,11 @@ use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
 use crate::layout::{layout_struct_type, layout_tuple_items, layout_type};
 use crate::reg_pool::{RegisterPool, TempRegister, TempRegisterPool};
+use crate::state::{CodeGenState, FunctionFixup};
 use crate::{
-    CodeGenState, Collection, DetailedLocationResolved, DetailedLocationRevised, FunctionFixup,
-    GeneratedExpressionResult, GeneratedExpressionResultKind, SpilledArgument, Transformer,
-    TransformerResult, single_intrinsic_fn,
+    Collection, DetailedLocation, DetailedLocationResolved, GeneratedExpressionResult,
+    GeneratedExpressionResultKind, SpilledArgument, Transformer, TransformerResult,
+    single_intrinsic_fn,
 };
 use seq_map::SeqMap;
 use source_map_node::Node;
@@ -35,11 +36,9 @@ pub(crate) struct CodeBuilder<'a> {
     pub state: &'a mut CodeGenState,
     pub(crate) builder: &'a mut InstructionBuilder<'a>,
     pub(crate) variable_registers: SeqMap<usize, TypedRegister>,
-    temp_allocator: ScopeAllocator,
     frame_memory_registers: RegisterPool,
     temp_registers: TempRegisterPool,
-    constant_offsets: SeqMap<ConstantId, HeapPlacedType>,
-    function_fixups: Vec<FunctionFixup>,
+    frame_allocator: ScopeAllocator,
 }
 
 impl<'a> CodeBuilder<'a> {
@@ -47,19 +46,17 @@ impl<'a> CodeBuilder<'a> {
         state: &'a mut CodeGenState,
         builder: &'a mut InstructionBuilder<'a>,
         variable_registers: SeqMap<usize, TypedRegister>,
-        constant_offsets: SeqMap<ConstantId, HeapPlacedType>,
         frame_memory_registers: RegisterPool,
+        temp_registers: TempRegisterPool,
         temp_allocator: ScopeAllocator,
     ) -> Self {
         Self {
             state,
             builder,
             variable_registers,
-            constant_offsets,
             frame_memory_registers,
-            temp_registers: TempRegisterPool::new(40, 10),
-            temp_allocator,
-            function_fixups: Vec::new(),
+            temp_registers,
+            frame_allocator: temp_allocator,
         }
     }
 }
@@ -146,14 +143,14 @@ impl CodeBuilder<'_> {
     fn emit_load_from_location(
         &mut self,
         target_reg: &TypedRegister,
-        location: &DetailedLocationRevised,
+        location: &DetailedLocation,
         node: &Node,
     ) {
         match location {
-            DetailedLocationRevised::Register { reg } => {
+            DetailedLocation::Register { reg } => {
                 self.emit_copy_register(target_reg, reg, node);
             }
-            DetailedLocationRevised::Memory {
+            DetailedLocation::Memory {
                 base_ptr_reg,
                 offset,
                 ty,
@@ -165,14 +162,12 @@ impl CodeBuilder<'_> {
 
     fn emit_load_primitive_from_detailed_location_if_needed(
         &mut self,
-        location: &DetailedLocationRevised,
+        location: &DetailedLocation,
         node: &Node,
     ) -> DetailedLocationResolved {
         match location {
-            DetailedLocationRevised::Register { reg } => {
-                DetailedLocationResolved::Register(reg.clone())
-            }
-            DetailedLocationRevised::Memory {
+            DetailedLocation::Register { reg } => DetailedLocationResolved::Register(reg.clone()),
+            DetailedLocation::Memory {
                 base_ptr_reg,
                 offset,
                 ty,
@@ -193,7 +188,7 @@ impl CodeBuilder<'_> {
     fn emit_store_primitive_from_detailed_location_if_needed(
         &mut self,
         location: &DetailedLocationResolved,
-        original: &DetailedLocationRevised,
+        original: &DetailedLocation,
         node: &Node,
     ) {
         match location {
@@ -842,8 +837,8 @@ impl CodeBuilder<'_> {
     ) {
         let region = self.emit_lvalue_chain(argument);
         match region {
-            DetailedLocationRevised::Register { reg } => {}
-            DetailedLocationRevised::Memory {
+            DetailedLocation::Register { reg } => {}
+            DetailedLocation::Memory {
                 base_ptr_reg,
                 offset,
                 ..
@@ -1031,11 +1026,11 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         let assignment_target = self.emit_lvalue_chain(&lhs.0);
         match assignment_target {
-            DetailedLocationRevised::Register { reg } => {
+            DetailedLocation::Register { reg } => {
                 let ctx = Context::new(reg);
                 self.emit_expression_materialize(rhs, &ctx);
             }
-            DetailedLocationRevised::Memory {
+            DetailedLocation::Memory {
                 base_ptr_reg,
                 offset,
                 ..
@@ -1127,7 +1122,7 @@ impl CodeBuilder<'_> {
 
     fn temp_frame_space_for_register(&mut self, comment: &str) -> FrameMemoryRegion {
         let start = self
-            .temp_allocator
+            .frame_allocator
             .allocate(REG_ON_FRAME_SIZE, REG_ON_FRAME_ALIGNMENT);
         FrameMemoryRegion {
             addr: start,
@@ -1222,7 +1217,7 @@ impl CodeBuilder<'_> {
                         self.temp_registers.free(temp_reg)
                     }
 
-                    current_location = DetailedLocationRevised::Register {
+                    current_location = DetailedLocation::Register {
                         reg: target_ctx.register().clone(),
                     };
                 }
@@ -1255,7 +1250,7 @@ impl CodeBuilder<'_> {
 
                     self.builder.patch_jump_here(patch);
 
-                    current_location = DetailedLocationRevised::Register {
+                    current_location = DetailedLocation::Register {
                         reg: target_ctx.register().clone(),
                     };
                 }
@@ -1456,7 +1451,10 @@ impl CodeBuilder<'_> {
         let string_bytes = string.as_bytes();
         let string_byte_count = string_bytes.len();
 
-        let data_ptr = self.state.constants.allocate_byte_array(string_bytes);
+        let data_ptr = self
+            .state
+            .constants_manager
+            .allocate_byte_array(string_bytes);
 
         let string_header = StringHeader {
             heap_offset: data_ptr.addr().0,
@@ -1470,7 +1468,7 @@ impl CodeBuilder<'_> {
 
         let string_header_in_heap_ptr = HeapMemoryAddress(
             self.state
-                .constants
+                .constants_manager
                 .allocate_byte_array(&header_bytes)
                 .addr()
                 .0,
@@ -1691,7 +1689,7 @@ impl CodeBuilder<'_> {
             MutRefOrImmutableExpression::Location(location_expression) => {
                 let x = self.emit_lvalue_chain(location_expression);
                 // TODO: FIX THIS
-                if let DetailedLocationRevised::Register { reg } = x {
+                if let DetailedLocation::Register { reg } = x {
                     reg
                 } else {
                     panic!("expected register")
@@ -1834,7 +1832,7 @@ impl CodeBuilder<'_> {
     }
 
     fn allocate_frame_space_and_assign_register(&mut self, ty: &BasicType) -> TypedRegister {
-        let frame_placed_type = self.temp_allocator.allocate_type(ty.clone());
+        let frame_placed_type = self.frame_allocator.allocate_type(ty.clone());
 
         self.frame_memory_registers
             .alloc_register(VmType::FramePlaced(frame_placed_type))
@@ -2476,7 +2474,11 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         //info!(?constant_reference, "looking up constant");
-        let constant_region = self.constant_offsets.get(&constant_reference.id).unwrap();
+        let constant_region = self
+            .state
+            .constant_offsets
+            .get(&constant_reference.id)
+            .unwrap();
         assert_eq!(ctx.target_size(), constant_region.size());
 
         self.builder.add_mov_32_immediate_value(
@@ -2513,14 +2515,14 @@ impl CodeBuilder<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn emit_start_of_chain(&mut self, start: &StartOfChain) -> DetailedLocationRevised {
+    fn emit_start_of_chain(&mut self, start: &StartOfChain) -> DetailedLocation {
         match &start.kind {
-            StartOfChainKind::Expression(expr) => DetailedLocationRevised::Register {
+            StartOfChainKind::Expression(expr) => DetailedLocation::Register {
                 reg: self.emit_expression_location(expr),
             },
             StartOfChainKind::Variable(variable) => {
                 let variable_reg = self.get_variable_register(variable);
-                DetailedLocationRevised::Register {
+                DetailedLocation::Register {
                     reg: variable_reg.clone(),
                 }
             }
@@ -2581,7 +2583,7 @@ impl CodeBuilder<'_> {
 
         */
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
-        self.function_fixups.push(FunctionFixup {
+        self.state.function_fixups.push(FunctionFixup {
             patch_position,
             fn_id: internal_fn.program_unique_id,
             internal_function_definition: internal_fn.clone(),
@@ -2893,7 +2895,7 @@ impl CodeBuilder<'_> {
     ) -> (InstructionPosition, PatchPosition, TempRegister) {
         let iterator_gen_type = collection_type.iterator_gen_type();
 
-        let iterator_target_placed = self.temp_allocator.allocate_type(iterator_gen_type);
+        let iterator_target_placed = self.frame_allocator.allocate_type(iterator_gen_type);
         let iterator_target = self
             .temp_registers
             .allocate(VmType::FramePlaced(iterator_target_placed));

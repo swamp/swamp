@@ -2,7 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::DetailedLocationRevised;
+use crate::DetailedLocation;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
@@ -55,7 +55,7 @@ impl CodeBuilder<'_> {
     pub(crate) fn emit_lvalue_chain(
         &mut self,
         location_expression: &SingleLocationExpression,
-    ) -> DetailedLocationRevised {
+    ) -> DetailedLocation {
         let mut current_register = self
             .variable_registers
             .get(
@@ -109,7 +109,7 @@ impl CodeBuilder<'_> {
             }
         }
 
-        DetailedLocationRevised::Memory {
+        DetailedLocation::Memory {
             base_ptr_reg: current_register,
             offset: last_memory_offset,
             ty: VmType::TempPointer,
