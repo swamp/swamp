@@ -624,6 +624,15 @@ pub struct TypedRegister {
 }
 
 impl TypedRegister {
+    pub fn new_empty_reserved() -> Self {
+        Self {
+            index: 0xff,
+            ty: VmType::new_unknown_placement(unknown_type()),
+        }
+    }
+}
+
+impl TypedRegister {
     pub fn final_type(&self) -> BasicType {
         self.ty.underlying()
     }

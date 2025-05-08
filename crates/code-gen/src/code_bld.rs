@@ -13,6 +13,7 @@ use crate::{
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
+use std::os::macos::raw::stat;
 use swamp_semantic::{
     AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
     CompoundOperatorKind, ConstantId, ConstantRef, EnumLiteralData, Expression, ExpressionKind,
@@ -258,48 +259,20 @@ impl CodeBuilder<'_> {
         //info!(?source_code_line, "generating");
     }
 
-    pub fn emit_expression(
+    pub fn emit_expression_statement(
         &mut self,
         expr: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        self.debug_node(&expr.node);
-
         match &expr.kind {
-            ExpressionKind::ConstantAccess(constant_ref) => {
-                self.emit_constant_access(&expr.node, constant_ref, ctx)
-            }
             ExpressionKind::TupleDestructuring(variables, tuple_types, tuple_expression) => {
                 self.emit_tuple_destructuring(variables, tuple_types, tuple_expression, ctx)
             }
             ExpressionKind::Assignment(target_mut_location_expr, source_expr) => {
                 self.emit_assignment(&expr.node, target_mut_location_expr, source_expr, ctx)
             }
-            ExpressionKind::VariableAccess(variable_ref) => {
-                self.emit_variable_access_as_rvalue(&expr.node, variable_ref, ctx)
-            }
-            ExpressionKind::BorrowMutRef(expression) => {
-                self.emit_borrow_mutable_reference(&expr.node, expression, ctx)
-            }
-            ExpressionKind::BinaryOp(operator) => self.emit_binary_operator(operator, ctx),
-            ExpressionKind::UnaryOp(operator) => self.emit_unary_operator(operator, ctx),
-            ExpressionKind::PostfixChain(start, chain) => {
-                self.emit_rvalue_postfix_chain(start, chain, ctx)
-            }
-            ExpressionKind::VariableDefinition(variable, expression) => {
-                self.emit_variable_definition(variable, expression, ctx)
-            }
             ExpressionKind::VariableReassignment(variable, expression) => {
                 self.emit_variable_reassignment(variable, expression, ctx)
-            }
-            ExpressionKind::AnonymousStructLiteral(anon_struct) => {
-                self.emit_anonymous_struct_literal(anon_struct, &expr.ty, &expr.node, ctx)
-            }
-            ExpressionKind::Literal(basic_literal) => {
-                self.emit_literal(&expr.node, basic_literal, ctx)
-            }
-            ExpressionKind::Option(maybe_option) => {
-                self.emit_option_expression(&expr.node, maybe_option.as_deref(), ctx)
             }
             ExpressionKind::ForLoop(for_pattern, collection, lambda_expr) => {
                 self.emit_for_loop(&expr.node, for_pattern, collection, lambda_expr, ctx)
@@ -307,26 +280,100 @@ impl CodeBuilder<'_> {
             ExpressionKind::WhileLoop(condition, expression) => {
                 self.emit_while_loop(condition, expression, ctx)
             }
-            ExpressionKind::Block(expressions) => self.emit_block(expressions, ctx),
-            ExpressionKind::Match(match_expr) => self.emit_match(match_expr, ctx),
-            ExpressionKind::Guard(guards) => self.emit_guard(guards, ctx),
-            ExpressionKind::If(conditional, true_expr, false_expr) => {
-                self.emit_if(conditional, true_expr, false_expr.as_deref(), ctx)
+
+            // These can be both depending on return type:
+            ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => self
+                .emit_single_intrinsic_call(
+                    &TypedRegister::new_empty_reserved(),
+                    &expr.node,
+                    intrinsic_fn,
+                    arguments,
+                    ctx,
+                ),
+            ExpressionKind::InternalCall(internal, arguments) => {
+                self.emit_internal_call(None, &expr.node, internal, arguments, ctx)
             }
-            ExpressionKind::When(bindings, true_expr, false_expr) => {
-                self.emit_when(bindings, true_expr, false_expr.as_deref(), ctx)
+            ExpressionKind::HostCall(host_fn, arguments) => {
+                self.emit_host_call(&expr.node, host_fn, arguments, ctx)
             }
+
+            _ => {
+                panic!("not a statement")
+            }
+        }
+    }
+
+    pub fn emit_expression(
+        &mut self,
+        target_reg: &TypedRegister,
+        expr: &Expression,
+        ctx: &Context,
+    ) -> GeneratedExpressionResult {
+        self.debug_node(&expr.node);
+
+        match &expr.kind {
+            _ => panic!("not an expression, probably a statement "),
+            ExpressionKind::ConstantAccess(constant_ref) => {
+                self.emit_constant_access(target_reg, &expr.node, constant_ref, ctx)
+            }
+
             ExpressionKind::CompoundAssignment(target_location, operator_kind, source_expr) => {
                 self.compound_assignment(target_location, operator_kind, source_expr, ctx)
             }
-            ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => {
-                self.emit_single_intrinsic_call(&expr.node, intrinsic_fn, arguments, ctx)
+            ExpressionKind::VariableAccess(variable_ref) => {
+                self.emit_variable_access_as_rvalue(target_reg, &expr.node, variable_ref, ctx)
             }
-            ExpressionKind::CoerceOptionToBool(a) => self.emit_coerce_option_to_bool(a, ctx),
+            ExpressionKind::BorrowMutRef(expression) => {
+                self.emit_borrow_mutable_reference(target_reg, &expr.node, expression, ctx)
+            }
+            ExpressionKind::BinaryOp(operator) => {
+                self.emit_binary_operator(target_reg, operator, ctx)
+            }
+            ExpressionKind::UnaryOp(operator) => {
+                self.emit_unary_operator(target_reg, operator, ctx)
+            }
+            ExpressionKind::PostfixChain(start, chain) => {
+                self.emit_rvalue_postfix_chain(target_reg, start, chain, ctx)
+            }
+            ExpressionKind::VariableDefinition(variable, expression) => {
+                self.emit_variable_definition(variable, expression, ctx)
+            }
 
-            ExpressionKind::InternalCall(internal, arguments) => {
-                self.emit_internal_call(&expr.node, internal, arguments, ctx)
+            ExpressionKind::AnonymousStructLiteral(anon_struct) => self
+                .emit_anonymous_struct_literal(target_reg, anon_struct, &expr.ty, &expr.node, ctx),
+            ExpressionKind::Literal(basic_literal) => {
+                self.emit_literal(target_reg, &expr.node, basic_literal, ctx)
             }
+            ExpressionKind::Option(maybe_option) => {
+                self.emit_option_expression(target_reg, &expr.node, maybe_option.as_deref(), ctx)
+            }
+
+            ExpressionKind::Block(expressions) => self.emit_block(target_reg, expressions, ctx),
+            ExpressionKind::Match(match_expr) => self.emit_match(target_reg, match_expr, ctx),
+            ExpressionKind::Guard(guards) => self.emit_guard(target_reg, guards, ctx),
+            ExpressionKind::If(conditional, true_expr, false_expr) => self.emit_if(
+                target_reg,
+                conditional,
+                true_expr,
+                false_expr.as_deref(),
+                ctx,
+            ),
+            ExpressionKind::When(bindings, true_expr, false_expr) => {
+                self.emit_when(target_reg, bindings, true_expr, false_expr.as_deref(), ctx)
+            }
+
+            ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => self
+                .emit_single_intrinsic_call(target_reg, &expr.node, intrinsic_fn, arguments, ctx),
+            ExpressionKind::CoerceOptionToBool(a) => {
+                self.emit_coerce_option_to_bool(target_reg, a, ctx)
+            }
+            ExpressionKind::InternalCall(internal, arguments) => self.emit_internal_call(
+                Option::from(target_reg),
+                &expr.node,
+                internal,
+                arguments,
+                ctx,
+            ),
             ExpressionKind::HostCall(host_fn, arguments) => {
                 self.emit_host_call(&expr.node, host_fn, arguments, ctx)
             }
@@ -343,6 +390,7 @@ impl CodeBuilder<'_> {
 
     fn emit_unary_operator(
         &mut self,
+        target_reg: &TypedRegister,
         unary_operator: &UnaryOperator,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
@@ -359,14 +407,14 @@ impl CodeBuilder<'_> {
                 Type::Int => {
                     let left_source = self.emit_expression_location(&unary_operator.left, ctx);
                     self.builder
-                        .add_neg_i32(ctx.register(), &left_source, node, "negate i32");
+                        .add_neg_i32(target_reg, &left_source, node, "negate i32");
                     GeneratedExpressionResult::default()
                 }
 
                 Type::Float => {
                     let left_source = self.emit_expression_location(&unary_operator.left, ctx);
                     self.builder
-                        .add_neg_f32(ctx.register(), &left_source, node, "negate f32");
+                        .add_neg_f32(target_reg, &left_source, node, "negate f32");
                     GeneratedExpressionResult::default()
                 }
                 _ => panic!("negate should only be possible on Int and Float"),
@@ -378,6 +426,7 @@ impl CodeBuilder<'_> {
 
     fn emit_binary_operator(
         &mut self,
+        target_reg: &TypedRegister,
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
@@ -385,14 +434,15 @@ impl CodeBuilder<'_> {
 
         match &binary_operator.kind {
             BinaryOperatorKind::LogicalOr | BinaryOperatorKind::LogicalAnd => {
-                self.emit_binary_operator_logical(binary_operator, ctx)
+                self.emit_binary_operator_logical(target_reg, binary_operator, ctx)
             }
-            _ => self.emit_binary_operator_normal(binary_operator, ctx),
+            _ => self.emit_binary_operator_normal(target_reg, binary_operator, ctx),
         }
     }
 
     fn emit_binary_operator_normal(
         &mut self,
+        target_reg: &TypedRegister,
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
@@ -439,6 +489,7 @@ impl CodeBuilder<'_> {
             _ => match (&binary_operator.left.ty, &binary_operator.right.ty) {
                 //(Type::Bool, Type::Bool) => self.emit_binary_operator_logical(binary_operator),
                 (Type::Int, Type::Int) => self.emit_binary_operator_i32(
+                    target_reg,
                     &left_source,
                     &binary_operator.node,
                     &binary_operator.kind,
@@ -446,6 +497,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 ),
                 (Type::Float, Type::Float) => self.emit_binary_operator_f32(
+                    target_reg,
                     &left_source,
                     &binary_operator.node,
                     &binary_operator.kind,
@@ -453,6 +505,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 ),
                 (Type::String, Type::String) => self.emit_binary_operator_string(
+                    target_reg,
                     &left_source,
                     &binary_operator.node,
                     &binary_operator.kind,
@@ -466,6 +519,7 @@ impl CodeBuilder<'_> {
 
     fn emit_binary_operator_i32(
         &mut self,
+        target_reg: &TypedRegister,
         left_source: &TypedRegister,
         node: &Node,
         binary_operator_kind: &BinaryOperatorKind,
@@ -477,7 +531,7 @@ impl CodeBuilder<'_> {
             BinaryOperatorKind::Add => {
                 self.builder.add_add_u32(
                     // u32 is the same as i32 when it comes to wrapping_add
-                    ctx.register(),
+                    target_reg,
                     left_source,
                     right_source,
                     node,
@@ -486,24 +540,19 @@ impl CodeBuilder<'_> {
             }
             BinaryOperatorKind::Subtract => {
                 self.builder
-                    .add_sub_u32(ctx.register(), left_source, right_source, node, "i32 sub")
+                    .add_sub_u32(target_reg, left_source, right_source, node, "i32 sub")
             }
             BinaryOperatorKind::Multiply => {
-                self.builder.add_mul_i32(
-                    ctx.register(),
-                    left_source,
-                    right_source,
-                    node,
-                    "i32 mul",
-                );
+                self.builder
+                    .add_mul_i32(target_reg, left_source, right_source, node, "i32 mul");
             }
             BinaryOperatorKind::Divide => {
                 self.builder
-                    .add_div_i32(ctx.register(), left_source, right_source, node, "i32 div")
+                    .add_div_i32(target_reg, left_source, right_source, node, "i32 div")
             }
             BinaryOperatorKind::Modulo => {
                 self.builder
-                    .add_mod_i32(ctx.register(), left_source, right_source, node, "i32 mod")
+                    .add_mod_i32(target_reg, left_source, right_source, node, "i32 mod")
             }
             BinaryOperatorKind::LogicalOr => todo!(),
             BinaryOperatorKind::LogicalAnd => todo!(),
@@ -547,6 +596,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::unnecessary_wraps)]
     fn emit_binary_operator_f32(
         &mut self,
+        target_reg: &TypedRegister,
         left_source: &TypedRegister,
         node: &Node,
         binary_operator_kind: &BinaryOperatorKind,
@@ -556,40 +606,25 @@ impl CodeBuilder<'_> {
         let mut kind = GeneratedExpressionResultKind::ZFlagUnmodified;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
-                self.builder.add_add_f32(
-                    ctx.register(),
-                    left_source,
-                    right_source,
-                    node,
-                    "f32 add",
-                );
+                self.builder
+                    .add_add_f32(target_reg, left_source, right_source, node, "f32 add");
             }
 
             BinaryOperatorKind::Subtract => {
                 self.builder
-                    .add_sub_f32(ctx.register(), left_source, right_source, node, "f32 sub")
+                    .add_sub_f32(target_reg, left_source, right_source, node, "f32 sub")
             }
             BinaryOperatorKind::Multiply => {
-                self.builder.add_mul_f32(
-                    ctx.register(),
-                    left_source,
-                    right_source,
-                    node,
-                    "f32 add",
-                );
+                self.builder
+                    .add_mul_f32(target_reg, left_source, right_source, node, "f32 add");
             }
             BinaryOperatorKind::Divide => {
-                self.builder.add_div_f32(
-                    ctx.register(),
-                    left_source,
-                    right_source,
-                    node,
-                    "f32 div",
-                );
+                self.builder
+                    .add_div_f32(target_reg, left_source, right_source, node, "f32 div");
             }
             BinaryOperatorKind::Modulo => {
                 self.builder
-                    .add_mod_f32(ctx.register(), left_source, right_source, node, "f32 mod")
+                    .add_mod_f32(target_reg, left_source, right_source, node, "f32 mod")
             }
             BinaryOperatorKind::LogicalOr => panic!("not supported"),
             BinaryOperatorKind::LogicalAnd => panic!("not supported"),
@@ -630,6 +665,7 @@ impl CodeBuilder<'_> {
 
     fn emit_binary_operator_string(
         &mut self,
+        target_reg: &TypedRegister,
         left_source: &TypedRegister,
         node: &Node,
         binary_operator_kind: &BinaryOperatorKind,
@@ -639,7 +675,7 @@ impl CodeBuilder<'_> {
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.builder.add_string_append(
-                    ctx.register(),
+                    target_reg,
                     left_source,
                     right_source,
                     node,
@@ -722,6 +758,7 @@ impl CodeBuilder<'_> {
 
     fn emit_binary_operator_logical(
         &mut self,
+        target_reg: &TypedRegister,
         binary_operator: &BinaryOperator,
         context: &Context,
     ) -> GeneratedExpressionResult {
@@ -833,6 +870,7 @@ impl CodeBuilder<'_> {
 
     fn emit_if(
         &mut self,
+        target_reg: &TypedRegister,
         condition: &BooleanExpression,
         true_expr: &Expression,
         maybe_false_expr: Option<&Expression>,
@@ -842,7 +880,7 @@ impl CodeBuilder<'_> {
 
         // True expression just takes over our target
         // Both to reuse the current target, and for the fact when there is no else
-        self.emit_expression_materialize(true_expr, ctx);
+        self.emit_expression_materialize(target_reg, true_expr, ctx);
 
         if let Some(false_expr) = maybe_false_expr {
             // we need to help the true expression to jump over false
@@ -855,7 +893,7 @@ impl CodeBuilder<'_> {
             self.builder.patch_jump_here(jump_on_false_condition);
 
             // Else expression also can just take over our if target
-            self.emit_expression_materialize(false_expr, ctx);
+            self.emit_expression_materialize(target_reg, false_expr, ctx);
 
             self.builder.patch_jump_here(skip_false_if_true);
         } else {
@@ -872,15 +910,15 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         // `while` loops are only for side effects, make sure that the target size is zero (Unit)
-        assert_eq!(ctx.target_size().0, 0);
+        //assert_eq!(target_reg.size.0, 0);
 
         let ip_for_condition = self.builder.position();
 
         let jump_on_false_condition = self.emit_condition_context(condition, ctx);
 
         // Expression is only for side effects
-        let (unit_ctx, temp_reg) = self.temp_space_for_type(&Type::Unit, "while body expression");
-        self.emit_expression_materialize(expression, &unit_ctx);
+        let temp_reg = self.temp_space_for_type(&Type::Unit, "while body expression");
+        self.emit_expression_materialize(temp_reg.register(), expression, ctx);
 
         // Always jump to the condition again to see if it is true
         self.builder
@@ -895,6 +933,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_absolute_pointer(
         &mut self,
+        target_reg: &TypedRegister,
         argument: &SingleLocationExpression,
         ctx: &Context,
         comment: &str,
@@ -917,7 +956,7 @@ impl CodeBuilder<'_> {
                     "set offset in temp register",
                 );
                 self.builder.add_add_u32(
-                    ctx.register(),
+                    target_reg,
                     &base_ptr_reg,
                     temp_offset_reg.register(),
                     &argument.node,
@@ -943,14 +982,10 @@ impl CodeBuilder<'_> {
                     "could not find id {} {}",
                     variable.unique_id_within_function, variable.assigned_name
                 )
-            });
+            })
+            .clone();
 
-        let init_ctx = ctx.with_target(
-            target_relative_frame_pointer.clone(),
-            "variable assignment target",
-        );
-
-        self.emit_expression_materialize(expression, &init_ctx);
+        self.emit_expression_materialize(&target_relative_frame_pointer, expression, ctx);
 
         GeneratedExpressionResult::default()
     }
@@ -964,14 +999,14 @@ impl CodeBuilder<'_> {
         let target_relative_frame_pointer = self
             .variable_registers
             .get(&variable.unique_id_within_function)
-            .unwrap_or_else(|| panic!("{}", variable.assigned_name));
+            .unwrap_or_else(|| panic!("{}", variable.assigned_name))
+            .clone();
 
-        let init_ctx = ctx.with_target(
-            target_relative_frame_pointer.clone(),
-            "variable assignment target",
-        );
-
-        self.emit_mut_or_immute(mut_or_immutable_expression, &init_ctx)
+        self.emit_mut_or_immute(
+            &target_relative_frame_pointer,
+            mut_or_immutable_expression,
+            ctx,
+        )
     }
     fn load_register_contents_from_memory(
         &mut self,
@@ -1095,18 +1130,13 @@ impl CodeBuilder<'_> {
         let assignment_target = self.emit_lvalue_chain(&lhs.0, ctx);
         match assignment_target {
             DetailedLocation::Register { reg } => {
-                let ctx = Context::new(reg);
-                self.emit_expression_materialize(rhs, &ctx);
+                self.emit_expression_materialize(&reg, rhs, &ctx);
             }
             DetailedLocation::Memory {
                 base_ptr_reg,
                 offset,
                 ..
             } => {
-                let ctx = Context::new(TypedRegister::new_vm_type(
-                    255,
-                    VmType::new_unknown_placement(int_type()),
-                ));
                 let rhs_reg = self.emit_expression_location(rhs, &ctx);
                 self.store_register_contents_to_memory(
                     node,
@@ -1154,6 +1184,7 @@ impl CodeBuilder<'_> {
 
     fn emit_arguments(
         &mut self,
+        maybe_return_register_param: Option<&TypedRegister>,
         node: &Node,
         signature: &Signature,
         self_variable: Option<&TypedRegister>,
@@ -1183,6 +1214,7 @@ impl CodeBuilder<'_> {
                     frame_memory_region: save_region,
                 });
             }
+
             let mut argument_ctx = ctx.clone();
             argument_ctx.add_protected_registers(&protected_argument_registers);
 
@@ -1204,7 +1236,12 @@ impl CodeBuilder<'_> {
                     index_in_signature
                 };
                 let argument_expr_or_location = &arguments[argument_vector_index];
-                self.emit_argument(argument_expr_or_location, &argument_ctx, "arg");
+                self.emit_argument(
+                    &argument_register,
+                    argument_expr_or_location,
+                    &argument_ctx,
+                    "arg",
+                );
             }
 
             protected_argument_registers.push(argument_register.clone());
@@ -1226,11 +1263,12 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
     fn emit_rvalue_postfix_chain(
         &mut self,
+        target_reg: &TypedRegister,
         start_expression: &StartOfChain,
         chain: &[Postfix],
-        final_target: &Context,
+        ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let mut current_location = self.emit_start_of_chain(start_expression, final_target);
+        let mut current_location = self.emit_start_of_chain(start_expression, ctx);
         let mut z_flag_result = GeneratedExpressionResult::default();
 
         for (index, element) in chain.iter().enumerate() {
@@ -1248,7 +1286,7 @@ impl CodeBuilder<'_> {
                     //info!(?current_location, "after field offset lookup");
                 }
                 PostfixKind::MemberCall(function_to_call, arguments) => {
-                    let (return_ctx, return_temp_reg) =
+                    let return_temp_reg =
                         self.temp_space_for_type(&function_to_call.signature().return_type, "");
                     let resolved_location = self
                         .emit_load_primitive_from_detailed_location_if_needed(
@@ -1268,12 +1306,13 @@ impl CodeBuilder<'_> {
                                 );
 
                                 let z_result = self.emit_single_intrinsic_call_with_self(
+                                    target_reg,
                                     &start_expression.node,
                                     intrinsic_fn,
                                     Some(element.ty.clone()),
                                     Some(resolved_location.register()),
                                     &merged_arguments,
-                                    &return_ctx,
+                                    ctx,
                                 );
 
                                 if is_last {
@@ -1281,11 +1320,12 @@ impl CodeBuilder<'_> {
                                 }
                             } else {
                                 let spilled_argument_registers = self.emit_arguments(
+                                    None,
                                     &start_expression.node,
                                     &internal_fn.signature.signature,
                                     Some(resolved_location.register()),
                                     arguments,
-                                    final_target,
+                                    ctx,
                                 );
                                 self.add_call(&element.node, internal_fn, "frame size: unknown");
 
@@ -1294,11 +1334,12 @@ impl CodeBuilder<'_> {
                         }
                         Function::External(external_function_def) => {
                             self.emit_host_self_call(
+                                None,
                                 &start_expression.node,
                                 external_function_def,
                                 resolved_location.register(),
                                 arguments,
-                                &return_ctx,
+                                ctx,
                             );
                         }
                         Function::Intrinsic(_intr) => {}
@@ -1315,7 +1356,7 @@ impl CodeBuilder<'_> {
                     }
 
                     current_location = DetailedLocation::Register {
-                        reg: return_ctx.register().clone(),
+                        reg: target_reg.clone(),
                     };
                     info!(?current_location, "after member call");
                 }
@@ -1323,7 +1364,7 @@ impl CodeBuilder<'_> {
                     todo!()
                 }
                 PostfixKind::NoneCoalescingOperator(expression) => {
-                    let (target_ctx, temp_reg) = self.temp_space_for_type(&expression.ty, "");
+                    let temp_reg = self.temp_space_for_type(&expression.ty, "");
 
                     // materialize an u8
                     let resolved_location = self
@@ -1346,14 +1387,14 @@ impl CodeBuilder<'_> {
                         self.temp_registers.free(temp_reg);
                     }
 
-                    self.emit_expression_materialize(expression, &target_ctx);
+                    self.emit_expression_materialize(target_reg, expression, ctx);
 
                     self.temp_registers.free(temp_reg);
 
                     self.builder.patch_jump_here(patch);
 
                     current_location = DetailedLocation::Register {
-                        reg: target_ctx.register().clone(),
+                        reg: target_reg.clone(),
                     };
                     info!(?current_location, "after none coalesce");
                 }
@@ -1391,6 +1432,7 @@ impl CodeBuilder<'_> {
 
     fn emit_tuple(
         &mut self,
+        target_reg: &TypedRegister,
         types: &[Type],
         expressions: &[Expression],
         ctx: &Context,
@@ -1412,13 +1454,12 @@ impl CodeBuilder<'_> {
         let placed_target = temp_materialize_reg.register();
 
         for (offset_item, expr) in gen_tuple_type.fields.iter().zip(expressions) {
-            let element_ctx = Context::new(placed_target.clone());
-            self.emit_expression_materialize(expr, &element_ctx);
+            self.emit_expression_materialize(placed_target, expr, ctx);
             self.store_register_contents_to_memory(
                 node,
-                ctx.register(),
+                target_reg,
                 offset_item.offset,
-                element_ctx.register(),
+                placed_target,
                 "emit tuple",
             );
         }
@@ -1427,12 +1468,14 @@ impl CodeBuilder<'_> {
 
     fn emit_anonymous_struct(
         &mut self,
+        target_reg: &TypedRegister,
         anon_struct_type: &AnonymousStructType,
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         node: &Node,
         base_context: &Context,
     ) {
         self.emit_struct_literal_helper(
+            target_reg,
             &anon_struct_type,
             source_order_expressions,
             node,
@@ -1442,6 +1485,7 @@ impl CodeBuilder<'_> {
 
     fn emit_literal(
         &mut self,
+        target_reg: &TypedRegister,
         node: &Node,
         literal: &Literal,
         ctx: &Context,
@@ -1449,7 +1493,7 @@ impl CodeBuilder<'_> {
         match literal {
             Literal::IntLiteral(int) => {
                 self.builder.add_mov_32_immediate_value(
-                    ctx.register(),
+                    target_reg,
                     *int as u32,
                     node,
                     "int literal",
@@ -1457,7 +1501,7 @@ impl CodeBuilder<'_> {
             }
             Literal::FloatLiteral(fixed_point) => {
                 self.builder.add_mov_32_immediate_value(
-                    ctx.register(),
+                    target_reg,
                     fixed_point.inner() as u32,
                     node,
                     "float literal",
@@ -1465,11 +1509,11 @@ impl CodeBuilder<'_> {
             }
             Literal::NoneLiteral => {
                 self.builder
-                    .add_mov8_immediate(ctx.register(), 0, node, "none literal");
+                    .add_mov8_immediate(target_reg, 0, node, "none literal");
             }
             Literal::BoolLiteral(truthy) => {
                 self.builder.add_mov8_immediate(
-                    ctx.register(),
+                    target_reg,
                     u8::from(*truthy),
                     node,
                     "bool literal",
@@ -1497,14 +1541,12 @@ impl CodeBuilder<'_> {
                     &format!("enum variant {} tag", a.common().assigned_name),
                 );
                 self.builder.add_st8_using_ptr_with_offset(
-                    ctx.register(),
+                    target_reg,
                     layout_enum.tag_offset,
                     temp_payload_reg.register(),
                     &node,
                     "put enum tag in place",
                 );
-
-                let payload_ctx = Context::new(temp_payload_reg.register().clone());
 
                 match b {
                     EnumLiteralData::Nothing => {}
@@ -1513,9 +1555,10 @@ impl CodeBuilder<'_> {
                             panic!();
                         };
                         self.emit_tuple(
+                            target_reg,
                             &tuple_type.fields_in_order,
                             expressions,
-                            &payload_ctx,
+                            ctx,
                             node,
                         );
                     }
@@ -1525,19 +1568,18 @@ impl CodeBuilder<'_> {
                         };
 
                         self.emit_anonymous_struct(
+                            target_reg,
                             &variant_struct_type.anon_struct,
                             sorted_expressions,
                             node,
-                            &payload_ctx,
+                            ctx,
                         );
                     }
                 }
 
-                let variant_info = layout_enum.get_variant_by_index(variant_index);
-
                 self.store_register_contents_to_memory(
                     node,
-                    ctx.register(),
+                    target_reg,
                     layout_enum.payload_offset,
                     payload_ctx.register(),
                     "copy enum payload into target",
@@ -1546,13 +1588,13 @@ impl CodeBuilder<'_> {
                 self.temp_registers.free(temp_payload_reg);
             }
             Literal::TupleLiteral(tuple_type, expressions) => {
-                self.emit_tuple(tuple_type, expressions, ctx, node)
+                self.emit_tuple(target_reg, tuple_type, expressions, ctx, node)
             }
             Literal::StringLiteral(str) => {
-                self.emit_string_literal(node, str, ctx);
+                self.emit_string_literal(target_reg, node, str, ctx);
             }
             Literal::Slice(slice_type, expressions) => {
-                self.emit_slice_literal(node, slice_type, expressions, ctx);
+                self.emit_slice_literal(target_reg, node, slice_type, expressions, ctx);
             }
             Literal::SlicePair(slice_pair_type, pairs) => {
                 self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
@@ -1562,7 +1604,13 @@ impl CodeBuilder<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn emit_string_literal(&mut self, node: &Node, string: &str, ctx: &Context) {
+    fn emit_string_literal(
+        &mut self,
+        target_reg: &TypedRegister,
+        node: &Node,
+        string: &str,
+        ctx: &Context,
+    ) {
         let string_bytes = string.as_bytes();
         let string_byte_count = string_bytes.len();
 
@@ -1590,7 +1638,7 @@ impl CodeBuilder<'_> {
         );
         // TODO: Bring this back // assert_eq!(ctx.target_size(), STRING_PTR_SIZE);
         self.builder.add_mov_32_immediate_value(
-            ctx.register(),
+            target_reg,
             string_header_in_heap_ptr.0,
             node,
             "constant string",
@@ -1599,12 +1647,13 @@ impl CodeBuilder<'_> {
 
     fn emit_option_expression(
         &mut self,
+        target_reg: &TypedRegister,
         node: &Node,
         maybe_option: Option<&Expression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         if let Some(some_expression) = maybe_option {
-            let target_tag = ctx.register().underlying().optional_info().unwrap().clone();
+            let target_tag = target_reg.underlying().optional_info().unwrap().clone();
             {
                 let tag_reg = self
                     .temp_registers
@@ -1616,7 +1665,7 @@ impl CodeBuilder<'_> {
                     "load the tag Some (1)",
                 );
                 self.builder.add_st8_using_ptr_with_offset(
-                    ctx.register(),
+                    target_reg,
                     target_tag.tag_offset,
                     tag_reg.register(),
                     node,
@@ -1628,23 +1677,27 @@ impl CodeBuilder<'_> {
                 let payload_reg = self
                     .temp_registers
                     .allocate(VmType::new_unknown_placement(unknown_type()));
-                let some_payload_ctx = Context::new(payload_reg.register().clone());
-                self.emit_expression_materialize(some_expression, &some_payload_ctx); // Fills in more of the union
+                self.emit_expression_materialize(payload_reg.register(), some_expression, ctx); // Fills in more of the union
                 self.temp_registers.free(payload_reg);
             }
         } else {
             self.builder
-                .add_mov8_immediate(ctx.register(), 0, node, "option None tag"); // 0 signals `None`
+                .add_mov8_immediate(target_reg, 0, node, "option None tag"); // 0 signals `None`
             // No real need to clear the rest of the memory
         }
 
         GeneratedExpressionResult::default()
     }
 
-    pub fn emit_expression_materialize(&mut self, expr: &Expression, ctx: &Context) {
-        let result = self.emit_expression(expr, ctx);
+    pub fn emit_expression_materialize(
+        &mut self,
+        target_reg: &TypedRegister,
+        expr: &Expression,
+        ctx: &Context,
+    ) {
+        let result = self.emit_expression(target_reg, expr, ctx);
 
-        self.materialize_z_flag_to_bool_if_needed(ctx.register(), result, &expr.node);
+        self.materialize_z_flag_to_bool_if_needed(target_reg, result, &expr.node);
     }
 
     fn emit_for_loop(
@@ -1663,7 +1716,7 @@ impl CodeBuilder<'_> {
 
         let collection_type = &iterable.resolved_expression.ty();
 
-        let gen_collection =
+        let collection_reg =
             self.emit_expression_location_mut_ref_or_immutable(&iterable.resolved_expression, ctx);
         match collection_type {
             Type::String => {
@@ -1672,9 +1725,10 @@ impl CodeBuilder<'_> {
             Type::NamedStruct(named_type) => {
                 if named_type.is_vec() {
                     self.emit_for_loop_lambda(
+                        target_reg,
                         node,
                         Collection::Vec,
-                        &gen_collection,
+                        &collection_reg,
                         collection_type,
                         for_pattern,
                         &lambda_non_capturing_expr,
@@ -1682,9 +1736,10 @@ impl CodeBuilder<'_> {
                     )
                 } else if named_type.is_map() {
                     self.emit_for_loop_lambda(
+                        target_reg,
                         node,
                         Collection::Map,
-                        &gen_collection,
+                        &collection_reg,
                         collection_type,
                         for_pattern,
                         &lambda_non_capturing_expr,
@@ -1692,9 +1747,10 @@ impl CodeBuilder<'_> {
                     )
                 } else if named_type.is_range() {
                     self.emit_for_loop_lambda(
+                        target_reg,
                         node,
                         Collection::Range,
-                        &gen_collection,
+                        &collection_reg,
                         collection_type,
                         for_pattern,
                         &lambda_non_capturing_expr,
@@ -1740,16 +1796,15 @@ impl CodeBuilder<'_> {
 
     fn emit_block(
         &mut self,
+        target_reg: &TypedRegister,
         expressions: &[Expression],
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         if let Some((last, others)) = expressions.split_last() {
             for expr in others {
-                let (temp_context, reg) = self.temp_space_for_type(&Type::Unit, "block target");
-                self.emit_expression_materialize(expr, &temp_context);
-                self.temp_registers.free(reg);
+                self.emit_expression_statement(expr, ctx);
             }
-            self.emit_expression_materialize(last, ctx);
+            self.emit_expression_materialize(target_reg, last, ctx);
         }
 
         GeneratedExpressionResult::default()
@@ -1775,16 +1830,17 @@ impl CodeBuilder<'_> {
 
     fn emit_variable_access_as_rvalue(
         &mut self,
+        target_reg: &TypedRegister,
         node: &Node, // Variable access node
         variable: &VariableRef,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let frame_placed_variable = self.get_variable_register(variable).clone();
         self.builder.add_mov_reg(
-            ctx.register(),
+            target_reg,
             &frame_placed_variable,
             node,
-            &format!("variable access {}", ctx.comment()),
+            &format!("variable access"),
         );
 
         GeneratedExpressionResult::default()
@@ -1934,6 +1990,7 @@ impl CodeBuilder<'_> {
 
     fn emit_anonymous_struct_literal(
         &mut self,
+        target_reg: &TypedRegister,
         anon_struct_literal: &AnonymousStructLiteral,
         ty: &Type,
         node: &Node,
@@ -1946,6 +2003,7 @@ impl CodeBuilder<'_> {
         };
 
         self.emit_struct_literal_helper(
+            target_reg,
             &anon_struct_type,
             &anon_struct_literal.source_order_expressions,
             node,
@@ -1962,6 +2020,7 @@ impl CodeBuilder<'_> {
 
     fn emit_struct_literal_helper(
         &mut self,
+        target_reg: &TypedRegister,
         struct_type_ref: &AnonymousStructType,
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         node: &Node,
@@ -1969,14 +2028,11 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         let gen_source_struct_type = layout_struct_type(struct_type_ref, "");
 
-        if ctx.target_size() != gen_source_struct_type.total_size {
+        if target_reg.size() != gen_source_struct_type.total_size {
             info!("problem");
         }
 
-        assert_eq!(
-            ctx.final_target_size().0,
-            gen_source_struct_type.total_size.0
-        );
+        assert_eq!(target_reg.size().0, gen_source_struct_type.total_size.0);
         assert_eq!(
             source_order_expressions.len(),
             gen_source_struct_type.fields.len()
@@ -2009,14 +2065,17 @@ impl CodeBuilder<'_> {
             let temp_register_to_materialize_to = self
                 .temp_registers
                 .allocate(VmType::new_unknown_placement(real_offset_item.ty.clone()));
-            let temp_ctx = Context::new(temp_register_to_materialize_to.register().clone());
-            self.emit_expression_materialize(expression, &temp_ctx);
+            self.emit_expression_materialize(
+                temp_register_to_materialize_to.register(),
+                expression,
+                ctx,
+            );
 
             self.store_register_contents_to_memory(
                 node,
                 &allocated_struct_ptr_base_register,
                 real_offset_item.offset,
-                temp_ctx.register(),
+                temp_register_to_materialize_to.register(),
                 "fill in struct field",
             );
 
@@ -2056,12 +2115,13 @@ impl CodeBuilder<'_> {
 
     fn emit_slice_literal(
         &mut self,
+        target_reg: &TypedRegister,
         node: &Node,
         slice_type: &Type,
         expressions: &[Expression],
         ctx: &Context,
     ) {
-        assert_eq!(ctx.target_size(), SLICE_HEADER_SIZE);
+        assert_eq!(target_reg.size(), SLICE_HEADER_SIZE);
         let Type::Slice(element_type) = slice_type else {
             panic!("incorrect slice type")
         };
@@ -2095,16 +2155,15 @@ impl CodeBuilder<'_> {
         let element_temp_reg = self
             .temp_registers
             .allocate(VmType::new_unknown_placement(unknown_type()));
-        let temp_element_ctx = Context::new(element_temp_reg.register.clone());
 
         for (index, expr) in expressions.iter().enumerate() {
-            self.emit_expression_materialize(expr, &temp_element_ctx);
+            self.emit_expression_materialize(element_temp_reg.register(), expr, ctx);
 
             self.store_register_contents_to_memory(
                 node,
                 base_ptr_reg.register(),
                 MemoryOffset(0),
-                temp_element_ctx.register(),
+                element_temp_reg.register(),
                 "copy into slice",
             );
 
@@ -2129,7 +2188,7 @@ impl CodeBuilder<'_> {
         );
 
         self.builder.add_slice_from_heap(
-            ctx.register(),
+            target_reg,
             base_ptr_reg.register(),
             element_size_reg.register(),
             element_count_reg.register(),
@@ -2367,6 +2426,7 @@ impl CodeBuilder<'_> {
 
     fn emit_intrinsic_vec_from_slice(
         &mut self,
+        target_reg: &TypedRegister,
         node: &Node,
         arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
@@ -2374,13 +2434,18 @@ impl CodeBuilder<'_> {
         if let MutRefOrImmutableExpression::Expression(found_expr) = &arguments[0] {
             let memory = self.emit_expression_location(found_expr, ctx);
             self.builder
-                .add_vec_from_slice(ctx.register(), &memory, node, "create vec");
+                .add_vec_from_slice(target_reg, &memory, node, "create vec");
         } else {
             panic!("vec_from_slice");
         }
     }
 
-    fn emit_match(&mut self, match_expr: &Match, ctx: &Context) -> GeneratedExpressionResult {
+    fn emit_match(
+        &mut self,
+        target_reg: &TypedRegister,
+        match_expr: &Match,
+        ctx: &Context,
+    ) -> GeneratedExpressionResult {
         let region_to_match = self.emit_for_access_or_location(&match_expr.expression, ctx);
 
         let mut jump_to_exit_placeholders = Vec::new();
@@ -2439,7 +2504,7 @@ impl CodeBuilder<'_> {
                 None
             };
 
-            self.emit_expression_materialize(&arm.expression, ctx);
+            self.emit_expression_materialize(target_reg, &arm.expression, ctx);
 
             if !is_last {
                 let jump_to_exit_placeholder = self.builder.add_jump_placeholder(
@@ -2464,7 +2529,12 @@ impl CodeBuilder<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn emit_guard(&mut self, guards: &Vec<Guard>, ctx: &Context) -> GeneratedExpressionResult {
+    fn emit_guard(
+        &mut self,
+        target_reg: &TypedRegister,
+        guards: &Vec<Guard>,
+        ctx: &Context,
+    ) -> GeneratedExpressionResult {
         let mut jump_to_exit_placeholders = Vec::new();
         for guard in guards {
             if let Some(condition) = &guard.condition {
@@ -2474,7 +2544,7 @@ impl CodeBuilder<'_> {
                 //&guard.result.node,
                 //"guard condition",
                 //);
-                self.emit_expression_materialize(&guard.result, ctx);
+                self.emit_expression_materialize(target_reg, &guard.result, ctx);
                 let jump_to_exit_placeholder = self.builder.add_jump_placeholder(
                     &guard.result.debug_last_expression().node,
                     "jump to exit",
@@ -2483,7 +2553,7 @@ impl CodeBuilder<'_> {
                 self.builder.patch_jump_here(skip_expression_patch);
             } else {
                 // _ -> wildcard
-                self.emit_expression_materialize(&guard.result, ctx);
+                self.emit_expression_materialize(target_reg, &guard.result, ctx);
             }
         }
 
@@ -2496,6 +2566,7 @@ impl CodeBuilder<'_> {
 
     fn emit_when(
         &mut self,
+        target_reg: &TypedRegister,
         bindings: &Vec<WhenBinding>,
         true_expr: &Expression,
         maybe_false_expr: Option<&Expression>,
@@ -2520,8 +2591,7 @@ impl CodeBuilder<'_> {
             let placed_variable = self.get_variable_register(&binding.variable).clone();
 
             if binding.has_expression() {
-                let var_ctx = Context::new(placed_variable);
-                self.emit_mut_or_immute(&binding.expr, &var_ctx);
+                self.emit_mut_or_immute(&placed_variable, &binding.expr, &ctx);
             } else {
                 let MutRefOrImmutableExpression::Expression(variable_access_expression) =
                     &binding.expr
@@ -2546,7 +2616,7 @@ impl CodeBuilder<'_> {
             }
         }
 
-        self.emit_expression_materialize(true_expr, ctx);
+        self.emit_expression_materialize(target_reg, true_expr, ctx);
         let maybe_jump_over_false = if let Some(else_expr) = maybe_false_expr {
             Some(
                 self.builder
@@ -2561,7 +2631,7 @@ impl CodeBuilder<'_> {
         }
 
         if let Some(else_expr) = maybe_false_expr {
-            self.emit_expression_materialize(else_expr, ctx);
+            self.emit_expression_materialize(target_reg, else_expr, ctx);
             self.builder.patch_jump_here(maybe_jump_over_false.unwrap());
         }
 
@@ -2610,6 +2680,7 @@ impl CodeBuilder<'_> {
 
     fn emit_constant_access(
         &mut self,
+        target_reg: &TypedRegister,
         node: &Node,
         constant_reference: &ConstantRef,
         ctx: &Context,
@@ -2620,10 +2691,10 @@ impl CodeBuilder<'_> {
             .constant_offsets
             .get(&constant_reference.id)
             .unwrap();
-        assert_eq!(ctx.target_size(), constant_region.size());
+        assert_eq!(target_reg.size(), constant_region.size());
 
         self.builder.add_mov_32_immediate_value(
-            ctx.register(),
+            target_reg,
             constant_region.addr().0,
             node,
             &format!("load constant '{}'", constant_reference.assigned_name),
@@ -2634,6 +2705,7 @@ impl CodeBuilder<'_> {
 
     fn emit_coerce_option_to_bool(
         &mut self,
+        target_reg: &TypedRegister,
         expr: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
@@ -2646,7 +2718,7 @@ impl CodeBuilder<'_> {
 
         // Move the tag portion to the target variable
         self.builder.add_ld8_from_pointer_with_offset_u16(
-            ctx.register(),
+            target_reg,
             &base_pointer_of_tagged_union_reg,
             tag_offset,
             &expr.node,
@@ -2672,12 +2744,20 @@ impl CodeBuilder<'_> {
 
     fn emit_internal_call(
         &mut self,
+        target_reg: Option<&TypedRegister>,
         node: &Node,
         internal_fn: &InternalFunctionDefinitionRef,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        self.emit_arguments(node, &internal_fn.signature.signature, None, arguments, ctx);
+        self.emit_arguments(
+            target_reg,
+            node,
+            &internal_fn.signature.signature,
+            None,
+            arguments,
+            ctx,
+        );
 
         self.add_call(node, internal_fn, &format!("call")); // will be fixed up later
 
@@ -2739,7 +2819,8 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let spilled_arguments = self.emit_arguments(node, &host_fn.signature, None, arguments, ctx);
+        let spilled_arguments =
+            self.emit_arguments(None, node, &host_fn.signature, None, arguments, ctx);
 
         let arg_count = arguments.len() as u8;
         self.builder.add_host_call(
@@ -2759,6 +2840,7 @@ impl CodeBuilder<'_> {
 
     fn emit_host_self_call(
         &mut self,
+        maybe_return: Option<&TypedRegister>,
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
         self_frame_placed_type: &TypedRegister,
@@ -2766,6 +2848,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let spilled_arguments = self.emit_arguments(
+            maybe_return,
             node,
             &host_fn.signature,
             Some(self_frame_placed_type),
@@ -2838,6 +2921,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_arguments)]
     pub fn iterate_over_collection_with_lambda(
         &mut self,
+        target_reg: &TypedRegister,
         node: &Node,
         source_collection_type: Collection,
         transformer: Transformer,
@@ -2896,9 +2980,9 @@ impl CodeBuilder<'_> {
                 _ => panic!("should not happen"),
             };
 
-            assert_eq!(ctx.target_size(), VEC_PTR_SIZE);
+            assert_eq!(target_reg.size(), VEC_PTR_SIZE);
             self.builder.add_vec_create(
-                ctx.register(),
+                target_reg,
                 element_size_in_target_vec,
                 node,
                 "target result vector",
@@ -2956,17 +3040,12 @@ impl CodeBuilder<'_> {
                     &lambda_result,
                     transformer.needs_tag_removed(),
                     source_collection_type,
-                    ctx.register(),
+                    target_reg,
                     node,
                 );
             }
             TransformerResult::VecFromSourceCollection => {
-                self.add_to_collection(
-                    node,
-                    source_collection_type,
-                    ctx.register(),
-                    primary_variable,
-                );
+                self.add_to_collection(node, source_collection_type, target_reg, primary_variable);
             }
         }
 
@@ -2991,10 +3070,10 @@ impl CodeBuilder<'_> {
             TransformerResult::Bool => {
                 // It is a transformer that returns a bool, lets store z flag as bool it
                 self.builder
-                    .add_stz(ctx.register(), node, "transformer sets standard bool");
+                    .add_stz(target_reg, node, "transformer sets standard bool");
             }
             TransformerResult::WrappedValueFromSourceCollection => {
-                let BasicTypeKind::Optional(tagged_union) = &ctx.ty().kind else {
+                let BasicTypeKind::Optional(tagged_union) = &target_reg.ty().kind else {
                     panic!("expected optional");
                 };
 
@@ -3236,6 +3315,7 @@ impl CodeBuilder<'_> {
 
     fn emit_for_loop_lambda(
         &mut self,
+        target_reg: &TypedRegister,
         node: &Node,
         collection: Collection,
         source_collection: &TypedRegister,
@@ -3258,6 +3338,7 @@ impl CodeBuilder<'_> {
         });
 
         self.iterate_over_collection_with_lambda(
+            target_reg,
             node,
             collection,
             Transformer::For,
@@ -3270,6 +3351,7 @@ impl CodeBuilder<'_> {
 
     fn emit_borrow_mutable_reference(
         &mut self,
+        target_register: &TypedRegister,
         node: &Node,
         expr: &Expression,
         ctx: &Context,
@@ -3278,7 +3360,7 @@ impl CodeBuilder<'_> {
 
         if !inner.ty().is_mutable_reference() {
             self.builder.add_lea(
-                ctx.register(),
+                target_register,
                 inner.addr(),
                 node,
                 "wasn't a pointer, so converting",
@@ -3306,15 +3388,14 @@ impl CodeBuilder<'_> {
         self.emit_expression_location_internal(expr, ctx)
     }
 
-    pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> (Context, TempRegister) {
+    pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
         let layout = layout_type(ty);
 
         let temp_reg = self
             .temp_registers
             .allocate(VmType::new_unknown_placement(layout));
-        let ctx = Context::new(temp_reg.register.clone());
 
-        (ctx, temp_reg)
+        temp_reg
     }
 
     pub fn emit_expression_location_leave_z_flag(
@@ -3343,16 +3424,16 @@ impl CodeBuilder<'_> {
             ExpressionKind::PostfixChain(start_of_chain, chain) => {
                 return (
                     TypedRegister::new_vm_type(255, VmType::new_unknown_placement(unknown_type())),
-                    self.emit_rvalue_postfix_chain(start_of_chain, chain, ctx),
+                    self.emit_rvalue_postfix_chain(target_reg, start_of_chain, chain, ctx),
                 );
             }
 
             _ => {}
         }
 
-        let (temp_ctx, temp_reg) = self.temp_space_for_type(&expr.ty, "expression");
+        let temp_reg = self.temp_space_for_type(&expr.ty, "expression");
 
-        let z_flag_state = self.emit_expression(expr, &temp_ctx);
+        let z_flag_state = self.emit_expression(temp_reg.register(), expr, ctx);
 
         self.temp_registers.free(temp_reg);
 

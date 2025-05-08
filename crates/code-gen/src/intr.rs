@@ -16,6 +16,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::single_match_else)]
     pub fn emit_single_intrinsic_call(
         &mut self,
+        target_reg: &TypedRegister,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         arguments: &[MutRefOrImmutableExpression],
@@ -37,12 +38,8 @@ impl CodeBuilder<'_> {
 
                 assert!(element_type.is_concrete());
 
-                self.builder.add_vec_from_slice(
-                    ctx.register(),
-                    &slice_region,
-                    node,
-                    "vec_from_slice",
-                );
+                self.builder
+                    .add_vec_from_slice(target_reg, &slice_region, node, "vec_from_slice");
                 GeneratedExpressionResult::default()
             }
 
@@ -63,7 +60,7 @@ impl CodeBuilder<'_> {
                 assert!(value_type.is_concrete_or_unit());
 
                 self.builder.add_map_new_from_slice(
-                    ctx.register(),
+                    target_reg,
                     &slice_region,
                     node,
                     "create map from temporary slice pair",
@@ -86,6 +83,7 @@ impl CodeBuilder<'_> {
                     &vec![]
                 };
                 self.emit_single_intrinsic_call_with_self(
+                    target_reg,
                     node,
                     intrinsic_fn,
                     maybe_self_type,
@@ -100,6 +98,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
     pub fn emit_single_intrinsic_call_with_self(
         &mut self,
+        target_reg: &TypedRegister,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         self_type: Option<Type>,
@@ -115,45 +114,35 @@ impl CodeBuilder<'_> {
             }
 
             // Bool
-            IntrinsicFunction::BoolToString => self.builder.bool_to_string(
-                ctx.register(),
-                &self_addr.unwrap(),
-                node,
-                "bool_to_string",
-            ),
+            IntrinsicFunction::BoolToString => {
+                self.builder
+                    .bool_to_string(target_reg, &self_addr.unwrap(), node, "bool_to_string")
+            }
 
             // Fixed
-            IntrinsicFunction::FloatRound => self.builder.add_float_round(
-                ctx.register(),
-                &self_addr.unwrap(),
-                node,
-                "float round",
-            ),
-            IntrinsicFunction::FloatFloor => self.builder.add_float_floor(
-                ctx.register(),
-                &self_addr.unwrap(),
-                node,
-                "float floor",
-            ),
+            IntrinsicFunction::FloatRound => {
+                self.builder
+                    .add_float_round(target_reg, &self_addr.unwrap(), node, "float round")
+            }
+            IntrinsicFunction::FloatFloor => {
+                self.builder
+                    .add_float_floor(target_reg, &self_addr.unwrap(), node, "float floor")
+            }
             IntrinsicFunction::FloatSqrt => {
                 self.builder
-                    .add_float_sqrt(ctx.register(), &self_addr.unwrap(), node, "float sqr");
+                    .add_float_sqrt(target_reg, &self_addr.unwrap(), node, "float sqr");
             }
             IntrinsicFunction::FloatSign => {
-                self.builder.add_float_sign(
-                    ctx.register(),
-                    &self_addr.unwrap(),
-                    node,
-                    "float sign",
-                );
+                self.builder
+                    .add_float_sign(target_reg, &self_addr.unwrap(), node, "float sign");
             }
             IntrinsicFunction::FloatAbs => {
                 self.builder
-                    .add_float_abs(ctx.register(), &self_addr.unwrap(), node, "float abs");
+                    .add_float_abs(target_reg, &self_addr.unwrap(), node, "float abs");
             }
             IntrinsicFunction::FloatRnd => {
                 self.builder.add_float_prnd(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(),
                     node,
                     "float pseudo random",
@@ -161,26 +150,24 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::FloatCos => {
                 self.builder
-                    .add_float_cos(ctx.register(), &self_addr.unwrap(), node, "float cos");
+                    .add_float_cos(target_reg, &self_addr.unwrap(), node, "float cos");
             }
             IntrinsicFunction::FloatSin => {
                 self.builder
-                    .add_float_sin(ctx.register(), &self_addr.unwrap(), node, "float sin");
+                    .add_float_sin(target_reg, &self_addr.unwrap(), node, "float sin");
             }
             IntrinsicFunction::FloatAcos => {
                 self.builder
-                    .add_float_acos(ctx.register(), &self_addr.unwrap(), node, "float acos")
+                    .add_float_acos(target_reg, &self_addr.unwrap(), node, "float acos")
             }
             IntrinsicFunction::FloatAsin => {
                 self.builder
-                    .add_float_asin(ctx.register(), &self_addr.unwrap(), node, "float asin")
+                    .add_float_asin(target_reg, &self_addr.unwrap(), node, "float asin")
             }
-            IntrinsicFunction::FloatAtan2 => self.builder.add_float_atan2(
-                ctx.register(),
-                &self_addr.unwrap(),
-                node,
-                "float atan2",
-            ),
+            IntrinsicFunction::FloatAtan2 => {
+                self.builder
+                    .add_float_atan2(target_reg, &self_addr.unwrap(), node, "float atan2")
+            }
             IntrinsicFunction::FloatMin => {
                 let float_arg = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
@@ -188,7 +175,7 @@ impl CodeBuilder<'_> {
                 };
                 let float_region = self.emit_expression_location(float_arg_expr, ctx);
                 self.builder.add_float_min(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(),
                     &float_region,
                     node,
@@ -202,7 +189,7 @@ impl CodeBuilder<'_> {
                 };
                 let float_region = self.emit_expression_location(float_arg_expr, ctx);
                 self.builder.add_float_max(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(),
                     &float_region,
                     node,
@@ -223,7 +210,7 @@ impl CodeBuilder<'_> {
                 let float_b_region = self.emit_expression_location(float_b_expr, ctx);
 
                 self.builder.add_float_clamp(
-                    ctx.register(),
+                    target_reg,
                     &float_region,
                     &self_addr.unwrap(),
                     &float_b_region,
@@ -232,7 +219,7 @@ impl CodeBuilder<'_> {
                 );
             }
             IntrinsicFunction::FloatToString => self.builder.float_to_string(
-                ctx.register(),
+                target_reg,
                 &self_addr.unwrap(),
                 node,
                 "float_to_string",
@@ -241,12 +228,12 @@ impl CodeBuilder<'_> {
             // Int
             IntrinsicFunction::IntAbs => {
                 self.builder
-                    .add_int_abs(ctx.register(), &self_addr.unwrap(), node, "int abs");
+                    .add_int_abs(target_reg, &self_addr.unwrap(), node, "int abs");
             }
 
             IntrinsicFunction::IntRnd => {
                 self.builder.add_int_rnd(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(),
                     node,
                     "int pseudo random",
@@ -254,24 +241,22 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::IntMax => {
                 self.builder
-                    .add_int_max(ctx.register(), &self_addr.unwrap(), node, "int max");
+                    .add_int_max(target_reg, &self_addr.unwrap(), node, "int max");
             }
             IntrinsicFunction::IntMin => {
                 self.builder
-                    .add_int_min(ctx.register(), &self_addr.unwrap(), node, "int min");
+                    .add_int_min(target_reg, &self_addr.unwrap(), node, "int min");
             }
             IntrinsicFunction::IntClamp => {
                 self.builder
-                    .add_int_clamp(ctx.register(), &self_addr.unwrap(), node, "int clamp");
+                    .add_int_clamp(target_reg, &self_addr.unwrap(), node, "int clamp");
             }
-            IntrinsicFunction::IntToFloat => self.builder.add_int_to_float(
-                ctx.register(),
-                &self_addr.unwrap(),
-                node,
-                "int to float",
-            ),
+            IntrinsicFunction::IntToFloat => {
+                self.builder
+                    .add_int_to_float(target_reg, &self_addr.unwrap(), node, "int to float")
+            }
             IntrinsicFunction::IntToString => self.builder.add_int_to_string(
-                ctx.register(),
+                target_reg,
                 &self_addr.unwrap(),
                 node,
                 "int_to_string",
@@ -280,7 +265,7 @@ impl CodeBuilder<'_> {
             // String
             IntrinsicFunction::StringLen => {
                 self.builder.add_ld32_from_pointer_with_offset_u16(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(),
                     STRING_HEADER_COUNT_OFFSET,
                     node,
@@ -310,7 +295,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::VecPop => {
                 self.builder.add_vec_pop(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(), // mut self
                     node,
                     "vec pop",
@@ -337,7 +322,7 @@ impl CodeBuilder<'_> {
                 };
                 let key_region = self.emit_expression_location(key_expr, ctx);
                 self.builder.add_vec_remove_index_get_value(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(), // mut self
                     &key_region,
                     node,
@@ -358,7 +343,7 @@ impl CodeBuilder<'_> {
                 };
                 let key_region = self.emit_expression_location(key_expr, ctx);
                 self.builder.add_vec_get(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(), // mut self
                     &key_region,
                     node,
@@ -367,7 +352,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::VecCreate => {
                 self.builder
-                    .add_vec_create(ctx.register(), MemorySize(0), node, "vec create"); // TODO: Fix to have proper element memory size
+                    .add_vec_create(target_reg, MemorySize(0), node, "vec create"); // TODO: Fix to have proper element memory size
             }
             IntrinsicFunction::VecSubscript => {
                 let maybe_index_argument = &arguments[0];
@@ -377,7 +362,7 @@ impl CodeBuilder<'_> {
                 };
                 let index_region = self.emit_expression_location(index_expr, ctx);
                 self.builder.add_vec_subscript(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(),
                     &index_region,
                     node,
@@ -421,7 +406,7 @@ impl CodeBuilder<'_> {
                 let range_header_region = self.emit_expression_location(range_expr, ctx);
                 assert_eq!(range_header_region.size(), RANGE_HEADER_SIZE);
                 self.builder.add_vec_get_range(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(),  // mut self (string header)
                     &range_header_region, // range x..=y
                     node,
@@ -442,7 +427,7 @@ impl CodeBuilder<'_> {
 
             IntrinsicFunction::VecLen => {
                 self.builder.add_ld32_from_pointer_with_offset_u16(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(),
                     VEC_HEADER_COUNT_OFFSET,
                     node,
@@ -475,6 +460,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::VecFilter => {
                 self.iterate_over_collection_with_lambda(
+                    target_reg,
                     node,
                     Collection::Vec,
                     Transformer::Filter,
@@ -487,6 +473,7 @@ impl CodeBuilder<'_> {
 
             IntrinsicFunction::VecFind => {
                 self.iterate_over_collection_with_lambda(
+                    target_reg,
                     node,
                     Collection::Vec,
                     Transformer::Find,
@@ -524,7 +511,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::MapLen => {
                 self.builder.add_ld32_from_pointer_with_offset_u16(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(),
                     MAP_HEADER_COUNT_OFFSET,
                     node,
@@ -537,7 +524,7 @@ impl CodeBuilder<'_> {
                 };
                 let key = self.emit_expression_location(key_argument, ctx);
                 self.builder.add_map_fetch(
-                    ctx.register(),
+                    target_reg,
                     &self_addr.unwrap(),
                     &key,
                     node,

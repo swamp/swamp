@@ -231,9 +231,13 @@ impl TopLevelGenState {
         let return_register =
             TypedRegister::new_vm_type(0, VmType::new_unknown_placement(unknown_type()));
 
-        let ctx = Context::new(return_register);
+        let ctx = Context::default();
         //info!(?in_data, "generate");
-        function_code_builder.emit_expression_materialize(&in_data.expression, &ctx);
+        function_code_builder.emit_expression_materialize(
+            &return_register,
+            &in_data.expression,
+            &ctx,
+        );
 
         self.finalize_function(&GenOptions {
             is_halt_function: is_called_by_host,

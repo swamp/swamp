@@ -26,31 +26,34 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_mut_or_immute(
         &mut self,
+        target_reg: &TypedRegister,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
         ctx: &Context,
     ) {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.emit_expression_materialize(found_expression, ctx);
+                self.emit_expression_materialize(target_reg, found_expression, ctx);
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                self.emit_lvalue_chain(location_expression, ctx);
+                let location = self.emit_lvalue_chain(location_expression, ctx);
+                //TODO: move location to target_reg // self.emit_ptr_reg_from_detailed_location()
             }
         }
     }
 
     pub(crate) fn emit_argument(
         &mut self,
+        target_reg: &TypedRegister,
         argument: &MutRefOrImmutableExpression,
         ctx: &Context,
         comment: &str,
     ) {
         match &argument {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.emit_expression_materialize(found_expression, ctx);
+                self.emit_expression_materialize(target_reg, found_expression, ctx);
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                self.emit_absolute_pointer(location_expression, ctx, comment);
+                self.emit_absolute_pointer(target_reg, location_expression, ctx, comment);
             }
         }
     }
