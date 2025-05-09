@@ -121,8 +121,9 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
         ErrorKind::DuplicateFieldInStructInstantiation(_) => {
             Report::build(Kind::Error, 34, "duplicate field in struct literal", span)
         }
-        ErrorKind::NoDefaultImplemented(_resolved_type) => {
+        ErrorKind::NoDefaultImplemented(resolved_type) => {
             Report::build(Kind::Error, 35, "no default() function", span)
+                .with_note(&format!("{}", resolved_type))
         }
         ErrorKind::GuardHasNoType => Report::build(Kind::Error, 36, "guard has no type", span),
         ErrorKind::NoneNeedsExpectedTypeHint => {
