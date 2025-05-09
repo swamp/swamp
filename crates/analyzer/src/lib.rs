@@ -854,6 +854,11 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
         ty: &Type,
     ) -> Result<ExpressionKind, Error> {
+        let default_func = self.lookup_associated_function(ty, "default").unwrap();
+        if !default_func.signature().return_type.compatible_with(ty) {
+            panic!("wrong default!!!!");
+        }
+
         self.create_static_call("default", &[], node, ty)
     }
 

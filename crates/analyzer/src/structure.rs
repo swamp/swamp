@@ -2,6 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use tracing::info;
 use crate::err::{Error, ErrorKind};
 use crate::{Analyzer, TypeContext};
 use seq_map::SeqMap;
@@ -15,10 +16,10 @@ use swamp_types::StructLikeType;
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
-    fn analyze_struct_init_calling_default(
+    fn analyze_struct_init_calling_default_first_and_then_overwrite(
         &mut self,
-        function: &FunctionRef,
-        super_type: &Type,
+        expected_struct_type_default_function: &FunctionRef,
+        expected_struct_type: &Type,
         anon_struct_type: &AnonymousStructType,
         source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
         node: &swamp_ast::Node,
@@ -27,12 +28,15 @@ impl Analyzer<'_> {
 
         self.push_block_scope("struct_instantiation");
 
-        let temp_var = self.create_local_variable_generated("__generated", true, super_type)?;
+        let temp_var = self.create_local_variable_generated("__generated", true, expected_struct_type)?;
+
+        info!(?temp_var, "creating a temp var");
 
         // temp_var = StructType::default()
-        let return_type = *function.signature().return_type.clone();
+        let return_type = *expected_struct_type_default_function.signature().return_type.clone();
+        assert!(return_type.compatible_with(expected_struct_type));
 
-        let default_call_kind = self.create_default_static_call(node, super_type)?;
+        let default_call_kind = self.create_default_static_call(node, expected_struct_type)?;
 
         let static_call = self.create_expr(default_call_kind, return_type, node);
 
@@ -48,8 +52,11 @@ impl Analyzer<'_> {
             source_order_expressions
         {
             let node = field_source_expression.node.clone();
-
             let field_expression_type = field_source_expression.ty.clone();
+            let field_name = self.get_text_resolved(&resolved_field_name_node.unwrap()).to_string();
+            let field_type = anon_struct_type.field_name_sorted_fields.get(&field_name).unwrap();
+            info!(field_name, ?field_target_index, ?field_expression_type, x=?field_type.field_type, ?field_source_expression, "overwriting field index");
+
 
             let kind = LocationAccessKind::FieldIndex(anon_struct_type.clone(), field_target_index);
 
@@ -87,6 +94,8 @@ impl Analyzer<'_> {
         let ty = temp_var.resolved_type.clone();
         let access_variable =
             self.create_expr(ExpressionKind::VariableAccess(temp_var), ty.clone(), node);
+
+        assert!(ty.compatible_with(expected_struct_type));
 
         expressions.push(access_variable); // make sure the block returns the overwritten temp_var
 
@@ -191,7 +200,7 @@ impl Analyzer<'_> {
     ) -> Result<Expression, Error> {
         // First check what we should compare the anonymous struct literal to. Either it is "pure" and then we
         // compare it against itself or otherwise a type that the context require (a named or an anonymous struct type).
-        let (super_type, anon_struct_type) = if let Some(expected_type) = context.expected_type {
+        let (assignable_to_struct_type, anon_struct_type) = if let Some(expected_type) = context.expected_type {
             match expected_type {
                 Type::NamedStruct(named_struct_type) => {
                     //maybe_named_struct = Some(named_struct.clone());
@@ -216,7 +225,7 @@ impl Analyzer<'_> {
 
         self.analyze_struct_init(
             node,
-            super_type,
+            assignable_to_struct_type,
             anon_struct_type,
             ast_fields,
             rest_was_specified,
@@ -333,26 +342,28 @@ impl Analyzer<'_> {
     fn make_solution_for_missing_fields(
         &mut self,
         node: &swamp_ast::Node,
-        super_type: &Type,
+        expected_struct_type: &Type,
         anon_struct_type: &AnonymousStructType,
         source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
         missing_fields: SeqSet<String>,
     ) -> Result<Expression, crate::err::Error> {
-        // First check if the super type has a default function (trait)
+        // First, check if the super type has a default function (trait)
         let maybe_default = {
             self.shared
                 .state
                 .instantiator
                 .associated_impls
-                .get_member_function(super_type, "default")
+                .get_member_function(expected_struct_type, "default")
                 .cloned()
         };
 
         // if it has a `default` function, call that to get a starting value
         let expr = if let Some(function) = maybe_default {
-            self.analyze_struct_init_calling_default(
+            info!(?expected_struct_type, ?function,  "the super type has a default function, calling it to get a starting value");
+            assert!(function.signature().return_type.compatible_with(expected_struct_type));
+            self.analyze_struct_init_calling_default_first_and_then_overwrite(
                 &function,
-                super_type,
+                expected_struct_type,
                 anon_struct_type,
                 source_order_expressions,
                 node,
@@ -369,7 +380,7 @@ impl Analyzer<'_> {
                 anon_struct_type,
                 source_order_expressions,
                 missing_fields,
-                super_type,
+                expected_struct_type,
                 &node,
             )?
         };

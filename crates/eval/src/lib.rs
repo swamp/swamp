@@ -24,6 +24,7 @@ use swamp_core_extra::map2::Map2;
 use swamp_core_extra::prelude::ValueError;
 use swamp_core_extra::value::ValueRef;
 use swamp_core_extra::value::{Value, convert_vec_to_rc_refcell, format_value};
+use swamp_pretty_print::{ExpressionDisplay, SourceMapDisplay};
 use swamp_semantic::prelude::*;
 use swamp_semantic::{
     BinaryOperatorKind, CompoundOperatorKind, ConstantId, ForPattern, Function,
@@ -178,10 +179,24 @@ pub fn eval_constants<C>(
     eval_constants: &mut Constants,
     program_state: &ProgramState,
     context: &mut C,
+    source_map_lookup: Option<&dyn SourceMapLookup>,
 ) -> Result<(), RuntimeError> {
     for constant in &program_state.constants_in_dependency_order {
         let mut interpreter = Interpreter::<C>::new(externals, eval_constants, context);
         let value = interpreter.evaluate_expression(&constant.expr)?;
+        if constant.assigned_name == "CARD_LIB" {
+            let pretty_printer = SourceMapDisplay {
+                source_map: source_map_lookup.unwrap(),
+            };
+
+            let expr_display = ExpressionDisplay {
+                expression: &constant.expr,
+                source_map_display: &pretty_printer,
+            };
+
+            eprintln!( "eval constant {expr_display}");
+
+        }
         eval_constants.set(constant.id, value);
     }
 
@@ -781,6 +796,7 @@ impl<'a, C> Interpreter<'a, C> {
     #[allow(clippy::too_many_lines)]
     #[inline]
     fn evaluate_expression(&mut self, expr: &Expression) -> Result<Value, RuntimeError> {
+        // self.debug_expr(expr);
         self.depth += 1;
         let value = match &expr.kind {
             // Illegal in this context
@@ -2470,6 +2486,14 @@ impl<'a, C> Interpreter<'a, C> {
                         (struct_ref.clone(), fields_ref.clone())
                     };
 
+                    let same = compare_anonymous_struct_types(
+                        expected_struct_type,
+                        &encountered_struct_type.anonymous_struct_type
+                    );
+                    if !same {
+                        eprintln!( "wrong struct type must be \n'{expected_struct_type:?}'\n, but encountered \n'{:?}'", encountered_struct_type.anonymous_struct_type);
+                        panic!("wrong struct type");
+                    }
                     debug_assert!(compare_anonymous_struct_types(
                         expected_struct_type,
                         &encountered_struct_type.anonymous_struct_type
