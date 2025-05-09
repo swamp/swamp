@@ -699,11 +699,6 @@ pub fn disasm(
             to_read_reg(operands[1], &bytes_type(), frame_memory_info),
         ],
 
-        OpCode::VecFetch => &[
-            to_write_reg(operands[0], &vec_type(), frame_memory_info),
-            to_read_reg(operands[1], &int_type(), frame_memory_info),
-        ],
-
         OpCode::VecSwap => &[
             to_write_reg(operands[0], &vec_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),

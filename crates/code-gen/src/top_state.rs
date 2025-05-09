@@ -216,7 +216,7 @@ impl TopLevelGenState {
             "prologue",
         );
 
-        let temp_pool = TempRegisterPool::new(90, 64);
+        let temp_pool = TempRegisterPool::new(128, 32);
 
         let mut function_code_builder = CodeBuilder::new(
             &mut self.codegen_state,

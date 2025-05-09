@@ -1175,7 +1175,7 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> Vec<SpilledArgument> {
-        let mut argument_registers = RegisterPool::new(1, 12);
+        let mut argument_registers = RegisterPool::new(1, 10);
 
         let mut protected_argument_registers = Vec::new();
         let mut spilled_arguments = Vec::new();

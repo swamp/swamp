@@ -129,7 +129,6 @@ pub enum OpCode {
     VecIterNextPair,
     VecFromSlice,
     VecPush,
-    VecFetch,
     VecSet,
     VecRemoveIndex,
     VecPop,
@@ -256,6 +255,9 @@ impl OpCode {
             Self::IntClamp => "iclamp",
             Self::IntToString => "itos",
 
+            // Other
+            Self::HostCall => "host",
+
             // Bool
             Self::BoolToString => "btos",
 
@@ -273,7 +275,6 @@ impl OpCode {
             Self::VecIterInit => "viter",
             Self::VecIterNext => "vitern",
             Self::VecIterNextPair => "viternp",
-            Self::VecFetch => "vget",
             Self::VecSet => "vset",
             Self::VecRemoveIndex => "vrem",
             Self::VecPop => "vpop",
@@ -296,9 +297,6 @@ impl OpCode {
 
             // String
             Self::StringAppend => "sapp",
-
-            // Other
-            Self::HostCall => "host",
         }
     }
 }
