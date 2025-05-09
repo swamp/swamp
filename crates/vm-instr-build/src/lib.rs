@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use source_map_node::Node;
+use swamp_vm_types::HeapMemoryAddress;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
@@ -1111,6 +1112,23 @@ impl InstructionBuilder<'_> {
         );
     }
 
+    pub fn add_ld32_from_absolute_memory_address(
+        &mut self,
+        dst_reg: &TypedRegister,
+        absolute_mem_addr: &HeapMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        let bytes = u32_to_bytes(absolute_mem_addr.0);
+
+        self.state.add_instruction(
+            OpCode::Ld32FromAbsoluteAddress,
+            &[dst_reg.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_ld32_from_pointer_with_offset_u16(
         &mut self,
         dst_reg: &TypedRegister,
@@ -1129,6 +1147,23 @@ impl InstructionBuilder<'_> {
                 bytes.0,
                 bytes.1,
             ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_ld8_from_absolute_memory_address(
+        &mut self,
+        dst_reg: &TypedRegister,
+        absolute_mem_addr: &HeapMemoryAddress,
+        node: &Node,
+        comment: &str,
+    ) {
+        let bytes = u32_to_bytes(absolute_mem_addr.0);
+
+        self.state.add_instruction(
+            OpCode::Ld8FromAbsoluteAddress,
+            &[dst_reg.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
             node,
             comment,
         );

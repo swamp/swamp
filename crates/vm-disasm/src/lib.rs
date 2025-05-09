@@ -16,8 +16,8 @@ use swamp_vm_types::types::{
     u8_type, u32_type, vec_iter_type, vec_type,
 };
 use swamp_vm_types::{
-    BinaryInstruction, FrameMemoryAddress, InstructionPosition, InstructionPositionOffset,
-    MemoryOffset, MemorySize, Meta,
+    BinaryInstruction, FrameMemoryAddress, HeapMemoryAddress, InstructionPosition,
+    InstructionPositionOffset, MemoryOffset, MemorySize, Meta,
 };
 use yansi::{Color, Paint};
 
@@ -419,6 +419,15 @@ pub fn disasm(
             ]
         }
 
+        OpCode::Ld32FromAbsoluteAddress => {
+            let data = u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
+
+            &[
+                to_write_reg(operands[0], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::HeapAddress(HeapMemoryAddress(data)),
+            ]
+        }
+
         OpCode::LdRegFromFrame => {
             let data = ((operands[1] as u16) << 8) | operands[2] as u16;
 
@@ -435,6 +444,15 @@ pub fn disasm(
                 to_write_reg(operands[0], &b8_type(), frame_memory_info),
                 to_read_reg(operands[3], &pointer_type(), frame_memory_info),
                 DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(data)),
+            ]
+        }
+
+        OpCode::Ld8FromAbsoluteAddress => {
+            let data = u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
+
+            &[
+                to_write_reg(operands[0], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::HeapAddress(HeapMemoryAddress(data)),
             ]
         }
 

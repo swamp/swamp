@@ -155,6 +155,8 @@ pub enum OpCode {
     // Other
     HostCall, // calls back into host
     LdRegFromFrame,
+    Ld8FromAbsoluteAddress,
+    Ld32FromAbsoluteAddress,
 }
 
 impl OpCode {
@@ -218,8 +220,8 @@ impl OpCode {
             Self::Mov8FromImmediateValue => "movb",
             Self::Mov32FromImmediateValue => "movw",
 
-            Self::Ld8FromPointerWithOffset => "ldb",
-            Self::Ld32FromPointerWithOffset => "ldw",
+            Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ldb",
+            Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ldw",
             Self::LdRegFromFrame => "ldfp",
 
             Self::St32UsingPtrWithOffset => "stw",

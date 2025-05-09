@@ -106,6 +106,71 @@ impl CodeBuilder<'_> {
         }
     }
 
+    fn emit_load_primitive_from_absolute_memory_address(
+        &mut self,
+        target_reg: &TypedRegister,
+        source_offset: HeapMemoryAddress,
+        type_at_offset: &VmType,
+        node: &Node,
+    ) {
+        match type_at_offset.basic_type.kind {
+            BasicTypeKind::Empty => {
+                // No need to copy, it has zero size
+            }
+            BasicTypeKind::U8 | BasicTypeKind::B8 => {
+                self.builder.add_ld8_from_absolute_memory_address(
+                    target_reg,
+                    &source_offset,
+                    node,
+                    "load u8 primitive from memory",
+                );
+            }
+            BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
+                self.builder.add_ld32_from_absolute_memory_address(
+                    target_reg,
+                    &source_offset,
+                    node,
+                    "load u32 primitive from memory",
+                );
+            }
+            _ => panic!("this is not a primitive {type_at_offset:?}"),
+        }
+    }
+
+    fn emit_load_primitive_from_memory(
+        &mut self,
+        target_reg: &TypedRegister,
+        base_ptr_reg: &TypedRegister,
+        source_offset: MemoryOffset,
+        type_at_offset: &VmType,
+        node: &Node,
+    ) {
+        match type_at_offset.basic_type.kind {
+            BasicTypeKind::Empty => {
+                // No need to copy, it has zero size
+            }
+            BasicTypeKind::U8 | BasicTypeKind::B8 => {
+                self.builder.add_ld8_from_pointer_with_offset_u16(
+                    target_reg,
+                    base_ptr_reg,
+                    source_offset,
+                    node,
+                    "load u8 primitive from memory",
+                );
+            }
+            BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
+                self.builder.add_ld32_from_pointer_with_offset_u16(
+                    target_reg,
+                    base_ptr_reg,
+                    source_offset,
+                    node,
+                    "load u32 primitive from memory",
+                );
+            }
+            _ => panic!("this is not a primitive {type_at_offset:?}"),
+        }
+    }
+
     fn emit_load_from_memory(
         &mut self,
         target_reg: &TypedRegister,
@@ -2701,12 +2766,26 @@ impl CodeBuilder<'_> {
             .unwrap();
         // TODO: Bring this back// assert_eq!(target_reg.size(), constant_region.size());
 
-        self.builder.add_mov_32_immediate_value(
-            target_reg,
-            constant_region.addr().0,
-            node,
-            &format!("load constant '{}'", constant_reference.assigned_name),
-        );
+        if constant_region.ty().is_represented_as_a_pointer_in_reg() {
+            // Just copy the pointer to the target register
+            self.builder.add_mov_32_immediate_value(
+                target_reg,
+                constant_region.addr().0,
+                node,
+                &format!(
+                    "load constant pointer '{}' {:?}",
+                    constant_reference.assigned_name,
+                    constant_region.ty()
+                ),
+            );
+        } else {
+            self.emit_load_primitive_from_absolute_memory_address(
+                target_reg,
+                constant_region.addr(),
+                &VmType::new_unknown_placement(constant_region.ty().clone()),
+                node,
+            );
+        }
 
         GeneratedExpressionResult::default()
     }

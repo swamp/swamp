@@ -263,11 +263,13 @@ pub enum BasicTypeKind {
     MutablePointer(Box<BasicType>),
 }
 
+impl BasicTypeKind {}
+
 impl BasicTypeKind {
     pub(crate) fn is_represented_as_primitive_inside_register(&self) -> bool {
         matches!(
             self,
-            Self::Empty | Self::U8 | Self::U16 | Self::U32 | Self::Fixed32
+            Self::Empty | Self::U8 | Self::U16 | Self::S32 | Self::U32 | Self::Fixed32
         )
     }
 
@@ -710,11 +712,20 @@ pub struct VmType {
 
 impl VmType {}
 
+impl VmType {}
+
 impl VmType {
     pub fn new_frame_placed(frame_placed: FramePlacedType) -> Self {
         Self {
             basic_type: frame_placed.ty.clone(),
             origin: VmTypeOrigin::Frame(frame_placed.addr),
+        }
+    }
+
+    pub fn new_heap_placement(basic_type: BasicType, heap_address: HeapMemoryAddress) -> Self {
+        Self {
+            basic_type: basic_type.clone(),
+            origin: VmTypeOrigin::Heap(heap_address),
         }
     }
 
@@ -850,6 +861,26 @@ pub struct BasicType {
     pub kind: BasicTypeKind,
     pub total_size: MemorySize,
     pub max_alignment: MemoryAlignment,
+}
+
+impl BasicType {
+    pub fn referenced_type(&self) -> &BasicType {
+        match &self.kind {
+            BasicTypeKind::MutablePointer(inner_type) => inner_type,
+            _ => panic!("can not take out referenced type {self:?}"),
+        }
+    }
+}
+
+impl BasicType {
+    #[must_use]
+    pub fn make_pointer(&self) -> Self {
+        Self {
+            kind: BasicTypeKind::MutablePointer(Box::new(self.clone())),
+            total_size: HEAP_PTR_ON_FRAME_SIZE,
+            max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
+        }
+    }
 }
 
 impl BasicType {}
