@@ -9,7 +9,8 @@ use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_types::aligner::align;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FrameAddressInfo, FrameAddressInfoKind, FrameMemoryInfo,
-    OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo, VmType,
+    OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo,
+    VariableRegister, VmType,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
@@ -488,7 +489,13 @@ pub fn layout_variables(
             &format!("var {}", var_ref.assigned_name),
         );
 
-        variable_registers.push(register.clone());
+        variable_registers.push(VariableRegister {
+            variable: VariableInfo {
+                is_mutable: var_ref.is_mutable(),
+                name: var_ref.assigned_name.clone(),
+            },
+            register: register.clone(),
+        });
 
         variable_offsets
             .insert(var_ref.unique_id_within_function, register)

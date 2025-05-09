@@ -1100,11 +1100,17 @@ pub struct FrameAddressInfo {
 }
 
 #[derive(Clone, Debug)]
+pub struct VariableRegister {
+    pub variable: VariableInfo,
+    pub register: TypedRegister,
+}
+
+#[derive(Clone, Debug)]
 pub struct FrameMemoryInfo {
     pub infos: Vec<FrameAddressInfo>,
     pub total_frame_size: FrameMemorySize,
     pub variable_frame_size: FrameMemorySize,
-    pub variable_registers: Vec<TypedRegister>,
+    pub variable_registers: Vec<VariableRegister>,
 }
 
 #[derive(Clone)]
@@ -1486,10 +1492,11 @@ pub fn show_frame_memory(
     for reg in &frame_relative_infos.variable_registers {
         writeln!(
             f,
-            "{}: {} {}",
-            tinter::yellow(format!("r{}", reg.index)),
-            reg.ty,
-            reg.comment
+            "{}: {}: {} {}",
+            tinter::yellow(format!("r{}", reg.register.index)),
+            reg.variable.name,
+            reg.register.ty,
+            reg.register.comment
         )?;
     }
 
