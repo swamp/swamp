@@ -632,6 +632,13 @@ impl HeapPlacedType {
 pub struct TypedRegister {
     pub index: u8,
     pub ty: VmType,
+    pub comment: String,
+}
+
+impl TypedRegister {
+    pub fn comment(&self) -> &str {
+        &self.comment
+    }
 }
 
 impl TypedRegister {
@@ -639,6 +646,7 @@ impl TypedRegister {
         Self {
             index: 0xff,
             ty: VmType::new_unknown_placement(unknown_type()),
+            comment: String::new(),
         }
     }
 }
@@ -661,11 +669,21 @@ impl TypedRegister {
         Self {
             index,
             ty: VmType::new_frame_placed(frame_placed),
+            comment: String::new(),
         }
     }
 
-    pub fn new_vm_type(index: u8, ty: VmType) -> Self {
-        Self { index, ty: ty }
+    pub const fn new_vm_type(index: u8, ty: VmType) -> Self {
+        Self {
+            index,
+            ty,
+            comment: String::new(),
+        }
+    }
+
+    pub fn with_comment(&mut self, comment: &str) -> &mut Self {
+        self.comment = comment.to_string();
+        self
     }
     pub fn addressing(&self) -> u8 {
         self.index
@@ -704,15 +722,27 @@ pub enum VmTypeOrigin {
     Heap(HeapMemoryAddress),
 }
 
+impl Display for VmTypeOrigin {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VmTypeOrigin::Unknown => Ok(()),
+            VmTypeOrigin::Frame(addr) => write!(f, "frame {addr}"),
+            VmTypeOrigin::Heap(addr) => write!(f, "heap {addr}"),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct VmType {
     pub basic_type: BasicType,
     pub origin: VmTypeOrigin,
 }
 
-impl VmType {}
-
-impl VmType {}
+impl Display for VmType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.basic_type, self.origin)
+    }
+}
 
 impl VmType {
     pub fn new_frame_placed(frame_placed: FramePlacedType) -> Self {
@@ -1074,6 +1104,7 @@ pub struct FrameMemoryInfo {
     pub infos: Vec<FrameAddressInfo>,
     pub total_frame_size: FrameMemorySize,
     pub variable_frame_size: FrameMemorySize,
+    pub variable_registers: Vec<TypedRegister>,
 }
 
 #[derive(Clone)]
@@ -1450,6 +1481,16 @@ pub fn show_frame_memory(
         write!(f, " ")?;
         write_basic_type(&mem.frame_placed_type.ty, addr, f, 0)?;
         writeln!(f)?;
+    }
+
+    for reg in &frame_relative_infos.variable_registers {
+        writeln!(
+            f,
+            "{}: {} {}",
+            tinter::yellow(format!("r{}", reg.index)),
+            reg.ty,
+            reg.comment
+        )?;
     }
 
     Ok(())

@@ -1,7 +1,4 @@
-use std::backtrace::Backtrace;
-use std::hint::assert_unchecked;
 use swamp_vm_types::types::{TypedRegister, VmType};
-use tracing::info;
 
 #[derive(Debug)]
 pub struct TempRegister {
@@ -37,7 +34,7 @@ impl TempRegisterPool {
             free_registers: registers,
         }
     }
-    pub fn allocate(&mut self, ty: VmType) -> TempRegister {
+    pub fn allocate(&mut self, ty: VmType, comment: &str) -> TempRegister {
         assert!(!self.free_registers.is_empty(), "out of temp registers");
         let free_reg_info = self.free_registers.pop().unwrap();
 
@@ -49,6 +46,7 @@ impl TempRegisterPool {
             register: TypedRegister {
                 index: free_reg_info.index,
                 ty,
+                comment: comment.to_string(),
             },
         }
     }
@@ -90,7 +88,7 @@ impl RegisterPool {
             current_index: start,
         }
     }
-    pub fn alloc_register(&mut self, ty: VmType) -> TypedRegister {
+    pub fn alloc_register(&mut self, ty: VmType, comment: &str) -> TypedRegister {
         assert!(
             self.current_index + 1 < self.end_index,
             "out of registers {} {}",
@@ -102,6 +100,7 @@ impl RegisterPool {
         TypedRegister {
             index: allocated_register,
             ty,
+            comment: comment.to_string(),
         }
     }
 }

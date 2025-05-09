@@ -56,6 +56,11 @@ impl StackMemoryAddress {
 
 #[derive(Debug, Copy, Clone)]
 pub struct HeapMemoryAddress(pub u32);
+impl Display for HeapMemoryAddress {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "${:08X}", self.0)
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct HeapMemoryRegion {

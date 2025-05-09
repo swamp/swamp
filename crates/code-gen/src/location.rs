@@ -105,9 +105,10 @@ impl CodeBuilder<'_> {
                     arguments_to_the_intrinsic,
                 ) => {
                     let layout_item_type = layout_type(&access.ty);
-                    let get_item_target_reg = self
-                        .temp_registers
-                        .allocate(VmType::new_unknown_placement(layout_item_type));
+                    let get_item_target_reg = self.temp_registers.allocate(
+                        VmType::new_unknown_placement(layout_item_type),
+                        "intrinsic subscript",
+                    );
                     let (collection_reg, maybe_temp_collection_reg) =
                         self.emit_ptr_reg_from_detailed_location(current_location, &access.node);
 

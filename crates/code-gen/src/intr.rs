@@ -228,16 +228,12 @@ impl CodeBuilder<'_> {
             // Int
             IntrinsicFunction::IntAbs => {
                 self.builder
-                    .add_int_abs(target_reg, &self_addr.unwrap(), node, "int abs");
+                    .add_int_abs(target_reg, self_addr.unwrap(), node, "int abs");
             }
 
             IntrinsicFunction::IntRnd => {
-                self.builder.add_int_rnd(
-                    target_reg,
-                    &self_addr.unwrap(),
-                    node,
-                    "int pseudo random",
-                );
+                self.builder
+                    .add_int_rnd(target_reg, self_addr.unwrap(), node, "int pseudo random");
             }
             IntrinsicFunction::IntMax => {
                 self.builder
@@ -252,8 +248,12 @@ impl CodeBuilder<'_> {
                     .add_int_clamp(target_reg, &self_addr.unwrap(), node, "int clamp");
             }
             IntrinsicFunction::IntToFloat => {
-                self.builder
-                    .add_int_to_float(target_reg, &self_addr.unwrap(), node, "int to float")
+                self.builder.add_int_to_float(
+                    target_reg,
+                    &self_addr.unwrap(),
+                    node,
+                    &format!("int to float {}", self_addr.unwrap().comment()),
+                );
             }
             IntrinsicFunction::IntToString => self.builder.add_int_to_string(
                 target_reg,

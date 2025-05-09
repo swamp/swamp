@@ -112,6 +112,7 @@ impl CodeBuilder<'_> {
         source_offset: HeapMemoryAddress,
         type_at_offset: &VmType,
         node: &Node,
+        comment: &str,
     ) {
         match type_at_offset.basic_type.kind {
             BasicTypeKind::Empty => {
@@ -122,7 +123,7 @@ impl CodeBuilder<'_> {
                     target_reg,
                     &source_offset,
                     node,
-                    "load u8 primitive from memory",
+                    &format!("{} - load u8 primitive from memory", comment),
                 );
             }
             BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
@@ -130,7 +131,7 @@ impl CodeBuilder<'_> {
                     target_reg,
                     &source_offset,
                     node,
-                    "load u32 primitive from memory",
+                    &format!("{} - load u32 primitive from memory", comment),
                 );
             }
             _ => panic!("this is not a primitive {type_at_offset:?}"),
@@ -245,7 +246,9 @@ impl CodeBuilder<'_> {
                 offset,
                 ty,
             } => {
-                let temp_reg_target = self.temp_registers.allocate(ty.clone());
+                let temp_reg_target = self
+                    .temp_registers
+                    .allocate(ty.clone(), "emit load primitive from location");
                 self.emit_load_from_memory(
                     temp_reg_target.register(),
                     base_ptr_reg,
@@ -270,16 +273,17 @@ impl CodeBuilder<'_> {
                 offset,
                 ty,
             } => {
-                let offset_temp_reg = self
-                    .temp_registers
-                    .allocate(VmType::new_unknown_placement(u32_type()));
+                let offset_temp_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(u32_type()),
+                    "emit_ptr_reg_from_location_offset",
+                );
                 self.builder.add_mov_32_immediate_value(
                     offset_temp_reg.register(),
                     offset.0 as u32,
                     node,
                     "load offset",
                 );
-                let final_ptr_target_reg = self.temp_registers.allocate(ty);
+                let final_ptr_target_reg = self.temp_registers.allocate(ty, "final_ptr_target_reg");
                 self.builder.add_add_u32(
                     &base_ptr_reg,
                     &base_ptr_reg,
@@ -989,15 +993,23 @@ impl CodeBuilder<'_> {
     ) {
         let region = self.emit_lvalue_chain(argument, ctx);
         match region {
-            DetailedLocation::Register { reg } => {}
+            DetailedLocation::Register { reg } => {
+                self.builder.add_mov_reg(
+                    target_reg,
+                    &reg,
+                    &argument.node,
+                    &format!("copy reg that has pointer {comment}"),
+                );
+            }
             DetailedLocation::Memory {
                 base_ptr_reg,
                 offset,
                 ..
             } => {
-                let temp_offset_reg = self
-                    .temp_registers
-                    .allocate(VmType::new_unknown_placement(u32_type()));
+                let temp_offset_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(u32_type()),
+                    "emit_absolute_pointer: temp_offset_reg",
+                );
                 self.builder.add_mov_32_immediate_value(
                     temp_offset_reg.register(),
                     offset.0 as u32,
@@ -1092,9 +1104,10 @@ impl CodeBuilder<'_> {
                 );
             }
             _ => {
-                let temp = self
-                    .temp_registers
-                    .allocate(VmType::new_unknown_placement(unknown_type()));
+                let temp = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(unknown_type()),
+                    "load register contents from memory",
+                );
                 self.builder.add_mov_32_immediate_value(
                     temp.register(),
                     offset.0 as u32,
@@ -1240,6 +1253,15 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> Vec<SpilledArgument> {
+        if let Some(return_param_reg) = maybe_return_register_param {
+            let return_reg = TypedRegister::new_vm_type(0, return_param_reg.ty.clone());
+            self.builder.add_mov_reg(
+                &return_reg,
+                return_param_reg,
+                node,
+                "copy in the return pointer into R0",
+            );
+        }
         let mut argument_registers = RegisterPool::new(1, 10);
 
         let mut protected_argument_registers = Vec::new();
@@ -1247,8 +1269,10 @@ impl CodeBuilder<'_> {
 
         for (index_in_signature, type_for_parameter) in signature.parameters.iter().enumerate() {
             let basic_type = layout_type(&type_for_parameter.resolved_type);
-            let argument_register =
-                argument_registers.alloc_register(VmType::new_unknown_placement(basic_type));
+            let argument_register = argument_registers.alloc_register(
+                VmType::new_unknown_placement(basic_type),
+                &format!("emit arguments {index_in_signature}"),
+            );
 
             if ctx.register_is_protected(&argument_register) {
                 let save_region = self.temp_frame_space_for_register("emit_arguments");
@@ -1275,7 +1299,10 @@ impl CodeBuilder<'_> {
                         &argument_register,
                         self_reg,
                         node,
-                        "move self_variable to first argument register",
+                        &format!(
+                            "move self_variable ({:?}) to first argument register",
+                            self_reg.ty
+                        ),
                     );
                 }
             } else {
@@ -1503,9 +1530,10 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back. //assert_eq!(gen_tuple_placed.total_size, ctx.final_target_size());
         // TODO: Bring this back. //assert_eq!(gen_tuple_type.fields.len(), expressions.len());
 
-        let temp_materialize_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(unknown_type()));
+        let temp_materialize_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(unknown_type()),
+            "emit_materialize for tuple element",
+        );
         let placed_target = temp_materialize_reg.register();
 
         for (offset_item, expr) in gen_tuple_type.fields.iter().zip(expressions) {
@@ -1585,9 +1613,10 @@ impl CodeBuilder<'_> {
                     layout_enum_into_tagged_union(&enum_type.assigned_name, &variants);
                 let layout_variant = layout_enum.get_variant_by_index(variant_index);
 
-                let temp_payload_reg = self
-                    .temp_registers
-                    .allocate(VmType::new_unknown_placement(layout_variant.ty.clone()));
+                let temp_payload_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(layout_variant.ty.clone()),
+                    "variant literal payload",
+                );
 
                 self.builder.add_mov8_immediate(
                     temp_payload_reg.register(),
@@ -1712,7 +1741,7 @@ impl CodeBuilder<'_> {
             {
                 let tag_reg = self
                     .temp_registers
-                    .allocate(VmType::new_unknown_placement(u8_type()));
+                    .allocate(VmType::new_unknown_placement(u8_type()), "emit_option tag");
                 self.builder.add_mov8_immediate(
                     tag_reg.register(),
                     1,
@@ -1729,9 +1758,10 @@ impl CodeBuilder<'_> {
                 self.temp_registers.free(tag_reg);
             }
             {
-                let payload_reg = self
-                    .temp_registers
-                    .allocate(VmType::new_unknown_placement(unknown_type()));
+                let payload_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(unknown_type()),
+                    "emit_option_expression",
+                );
                 self.emit_expression_materialize(payload_reg.register(), some_expression, ctx); // Fills in more of the union
                 self.temp_registers.free(payload_reg);
             }
@@ -1771,9 +1801,10 @@ impl CodeBuilder<'_> {
 
         let collection_type = &iterable.resolved_expression.ty();
         let collection_basic_type = layout_type(collection_type);
-        let discard_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(collection_basic_type));
+        let discard_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(collection_basic_type),
+            "emit_for_loop_discard",
+        );
 
         let collection_reg =
             self.emit_expression_location_mut_ref_or_immutable(&iterable.resolved_expression, ctx);
@@ -1862,9 +1893,10 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         if let Some((last, others)) = expressions.split_last() {
-            let unit_temp_reg = self
-                .temp_registers
-                .allocate(VmType::new_unknown_placement(unit_type()));
+            let unit_temp_reg = self.temp_registers.allocate(
+                VmType::new_unknown_placement(unit_type()),
+                "emit_block empty",
+            );
             for expr in others {
                 ///info!("this is others in block");
                 self.emit_expression_materialize(unit_temp_reg.register(), expr, ctx);
@@ -1909,7 +1941,7 @@ impl CodeBuilder<'_> {
             target_reg,
             &frame_placed_variable,
             node,
-            &format!("variable access"),
+            &format!("variable access {}", tinter::red(&variable.assigned_name)),
         );
 
         GeneratedExpressionResult::default()
@@ -2086,8 +2118,10 @@ impl CodeBuilder<'_> {
     fn allocate_frame_space_and_assign_register(&mut self, ty: &BasicType) -> TypedRegister {
         let frame_placed_type = self.frame_allocator.allocate_type(ty.clone());
 
-        self.frame_memory_registers
-            .alloc_register(VmType::new_frame_placed(frame_placed_type))
+        self.frame_memory_registers.alloc_register(
+            VmType::new_frame_placed(frame_placed_type),
+            "allocate frame space",
+        )
     }
 
     fn emit_struct_literal_helper(
@@ -2134,9 +2168,10 @@ impl CodeBuilder<'_> {
             .zip(source_order_expressions)
         {
             let real_offset_item = struct_type.get_field_offset(*field_index).unwrap();
-            let temp_register_to_materialize_to = self
-                .temp_registers
-                .allocate(VmType::new_unknown_placement(real_offset_item.ty.clone()));
+            let temp_register_to_materialize_to = self.temp_registers.allocate(
+                VmType::new_unknown_placement(real_offset_item.ty.clone()),
+                &format!("struct literal {field_index}"),
+            );
             self.emit_expression_materialize(
                 temp_register_to_materialize_to.register(),
                 expression,
@@ -2203,12 +2238,15 @@ impl CodeBuilder<'_> {
         let total_slice_size = MemorySize(element_gen_type.total_size.0 * element_count);
 
         let base_ptr_reg = {
-            self.temp_registers
-                .allocate(VmType::new_unknown_placement(unknown_type()))
+            self.temp_registers.allocate(
+                VmType::new_unknown_placement(unknown_type()),
+                "emit_slice_base",
+            )
         };
-        let element_size_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(unknown_type()));
+        let element_size_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(unknown_type()),
+            "element_size_reg",
+        );
 
         self.builder.add_mov_32_immediate_value(
             element_size_reg.register(),
@@ -2224,9 +2262,10 @@ impl CodeBuilder<'_> {
             "allocate slice",
         );
 
-        let element_temp_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(unknown_type()));
+        let element_temp_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(unknown_type()),
+            "emit_slice_literal",
+        );
 
         for (index, expr) in expressions.iter().enumerate() {
             self.emit_expression_materialize(element_temp_reg.register(), expr, ctx);
@@ -2248,9 +2287,10 @@ impl CodeBuilder<'_> {
             );
         }
 
-        let element_count_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(u32_type()));
+        let element_count_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(u32_type()),
+            "emit slice literal",
+        );
 
         self.builder.add_mov_32_immediate_value(
             element_count_reg.register(),
@@ -2784,6 +2824,11 @@ impl CodeBuilder<'_> {
                 constant_region.addr(),
                 &VmType::new_unknown_placement(constant_region.ty().clone()),
                 node,
+                &format!(
+                    "load constant primitive '{}' {:?}",
+                    constant_reference.assigned_name,
+                    constant_region.ty()
+                ),
             );
         }
 
@@ -3172,9 +3217,10 @@ impl CodeBuilder<'_> {
                 };
 
                 //let tag_target = ctx.target_register().move_to_optional_tag();
-                let tag_target = self
-                    .temp_registers
-                    .allocate(VmType::new_unknown_placement(u8_type()));
+                let tag_target = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(u8_type()),
+                    "iterate over collection target",
+                );
 
                 self.builder.add_mov8_immediate(
                     &tag_target.register(),
@@ -3212,9 +3258,10 @@ impl CodeBuilder<'_> {
         let iterator_gen_type = collection_type.iterator_gen_type();
 
         let iterator_target_placed = self.frame_allocator.allocate_type(iterator_gen_type);
-        let iterator_target = self
-            .temp_registers
-            .allocate(VmType::new_frame_placed(iterator_target_placed));
+        let iterator_target = self.temp_registers.allocate(
+            VmType::new_frame_placed(iterator_target_placed),
+            "iter_init_and_next",
+        );
         let iter_next_position = InstructionPosition(self.builder.position().0 + 1);
         let placeholder = match collection_type {
             Collection::Vec => {
@@ -3360,7 +3407,9 @@ impl CodeBuilder<'_> {
             let tagged_union = in_value.underlying().optional_info().unwrap().clone();
             let some_variant = tagged_union.get_variant_by_index(1);
             let payload_vm_type = VmType::new_unknown_placement(some_variant.ty.clone());
-            let temp_reg = self.temp_registers.allocate(payload_vm_type.clone());
+            let temp_reg = self
+                .temp_registers
+                .allocate(payload_vm_type.clone(), "transform add to collection");
             let (_tag_offset, _tag_size, payload_offset, _) =
                 in_value.underlying().unwrap_info().unwrap();
             self.emit_load_from_memory(
@@ -3485,9 +3534,10 @@ impl CodeBuilder<'_> {
     pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
         let layout = layout_type(ty);
 
-        let temp_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(layout));
+        let temp_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(layout),
+            &format!("temp space {comment}"),
+        );
 
         temp_reg
     }

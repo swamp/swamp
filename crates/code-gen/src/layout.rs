@@ -454,6 +454,7 @@ pub fn layout_variables(
 
     info!(len = variables.len(), "variables");
 
+    let mut variable_registers = Vec::new();
     for var_ref in variables {
         let var_frame_placed_type = reserve(&var_ref.resolved_type, &mut local_frame_allocator);
         trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
@@ -482,8 +483,12 @@ pub fn layout_variables(
             frame_placed_type: var_frame_placed_type.clone(),
         });
 
-        let register = frame_register_allocator
-            .alloc_register(VmType::new_frame_placed(var_frame_placed_type));
+        let register = frame_register_allocator.alloc_register(
+            VmType::new_frame_placed(var_frame_placed_type),
+            &format!("var {}", var_ref.assigned_name),
+        );
+
+        variable_registers.push(register.clone());
 
         variable_offsets
             .insert(var_ref.unique_id_within_function, register)
@@ -510,6 +515,7 @@ pub fn layout_variables(
             infos: frame_memory_infos,
             total_frame_size: frame_size,
             variable_frame_size: temp_allocator_region.addr.as_size(),
+            variable_registers,
         },
         temp_allocator_region,
         variable_offsets,
