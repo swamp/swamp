@@ -9,10 +9,7 @@ use std::fmt::{Display, Formatter};
 use swamp_modules::modules::{ModuleRef, Modules};
 use swamp_modules::symtbl::{FuncDef, Symbol, SymbolTable, TypeGenerator};
 use swamp_semantic::prelude::*;
-use swamp_semantic::{
-    AssociatedImpls, MutRefOrImmutableExpression, MutableReferenceKind, Postfix, PostfixKind,
-    SingleLocationExpression, TargetAssignmentLocation,
-};
+use swamp_semantic::{AnonymousStructLiteral, AssociatedImpls, MutRefOrImmutableExpression, MutableReferenceKind, Postfix, PostfixKind, SingleLocationExpression, TargetAssignmentLocation};
 use swamp_types::*;
 use yansi::{Color, Paint};
 
@@ -478,6 +475,9 @@ impl SourceMapDisplay<'_> {
                 write!(f, "intrinsic_call{intrinsic_func_def:?}")?;
                 self.show_arguments(f, args, tabs + 1)
             }
+            ExpressionKind::AnonymousStructLiteral(anon) => {
+                self.show_struct_literal(f, anon, tabs+1)
+            }
             _ => todo!(),
         }
     }
@@ -940,22 +940,20 @@ impl SourceMapDisplay<'_> {
         }
     }
 
-    /*
     fn show_struct_literal(
         &self,
         f: &mut Formatter,
-        struct_instantiation: &StructInstantiation,
+        struct_instantiation: &AnonymousStructLiteral,
         tabs: usize,
     ) -> std::fmt::Result {
         write!(
             f,
             "{} {{",
-            struct_instantiation.struct_type_ref.assigned_name.green()
+            struct_instantiation.struct_like_type.assigned_name.green()
         )?;
-        for (index, expression) in &struct_instantiation.source_order_expressions {
-            let borrow = struct_instantiation.struct_type_ref.clone();
+        for (index, node, expression) in &struct_instantiation.source_order_expressions {
+            let borrow = struct_instantiation.struct_like_type.anonymous_struct_type.clone();
             let (name, _struct_field) = borrow
-                .anon_struct_type
                 .field_name_sorted_fields
                 .iter()
                 .collect::<Vec<_>>()[*index];
@@ -970,8 +968,6 @@ impl SourceMapDisplay<'_> {
 
         Ok(())
     }
-
-     */
 
     fn show_type_variable(
         &self,

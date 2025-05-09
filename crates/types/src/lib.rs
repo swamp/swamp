@@ -448,7 +448,7 @@ pub fn comma_seq_nl<K: Clone + Hash + Eq + Display, V: Display>(
     result
 }
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct StructTypeField {
     pub identifier: Option<Node>,
     pub field_type: Type,
