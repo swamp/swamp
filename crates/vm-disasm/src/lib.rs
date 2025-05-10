@@ -382,11 +382,13 @@ pub fn disasm(
         }
 
         OpCode::StRegToFrame => {
-            let data = ((operands[1] as u16) << 8) | operands[2] as u16;
+            let frame_ptr_offset = u16::from_le_bytes([operands[0], operands[1]]);
 
             &[
-                DecoratedOperandAccessKind::WriteFrameMemoryAddress(FrameMemoryAddress(data)),
-                to_read_reg(operands[3], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::WriteFrameMemoryAddress(FrameMemoryAddress(
+                    frame_ptr_offset,
+                )),
+                to_read_reg(operands[2], &int_type(), frame_memory_info),
             ]
         }
 
@@ -429,11 +431,13 @@ pub fn disasm(
         }
 
         OpCode::LdRegFromFrame => {
-            let data = ((operands[1] as u16) << 8) | operands[2] as u16;
+            let frame_pointer_offset = u16::from_le_bytes([operands[1], operands[2]]);
 
             &[
                 to_write_reg(operands[0], &int_type(), frame_memory_info),
-                DecoratedOperandAccessKind::ReadFrameMemoryAddress(FrameMemoryAddress(data)),
+                DecoratedOperandAccessKind::ReadFrameMemoryAddress(FrameMemoryAddress(
+                    frame_pointer_offset,
+                )),
             ]
         }
 

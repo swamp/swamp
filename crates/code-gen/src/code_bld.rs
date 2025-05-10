@@ -26,8 +26,8 @@ use swamp_semantic::{
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, FramePlacedType, HeapPlacedType, TypedRegister, VmType, int_type,
-    pointer_type, u8_type, u32_type, unit_type, unknown_type,
+    BasicType, BasicTypeKind, FramePlacedType, HeapPlacedType, TypedRegister, VariableRegister,
+    VmType, int_type, pointer_type, u8_type, u32_type, unit_type, unknown_type,
 };
 use swamp_vm_types::{
     FrameMemoryRegion, HeapMemoryAddress, HeapMemoryOffset, HeapMemorySize, InstructionPosition,
@@ -233,7 +233,13 @@ impl CodeBuilder<'_> {
                 offset,
                 ty,
             } => {
-                self.emit_load_from_memory(target_reg, base_ptr_reg, *offset, ty, node, comment);
+                self.emit_ptr_reg_from_base_and_offset(
+                    target_reg,
+                    base_ptr_reg,
+                    *offset,
+                    node,
+                    comment,
+                );
             }
         }
     }
@@ -265,6 +271,34 @@ impl CodeBuilder<'_> {
                 DetailedLocationResolved::TempRegister(temp_reg_target)
             }
         }
+    }
+
+    pub fn emit_ptr_reg_from_base_and_offset(
+        &mut self,
+        target_reg: &TypedRegister,
+        base_ptr_reg: &TypedRegister,
+        offset: MemoryOffset,
+        node: &Node,
+        comment: &str,
+    ) {
+        let offset_temp_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(u32_type()),
+            "emit_ptr_reg_from_location_offset",
+        );
+        self.builder.add_mov_32_immediate_value(
+            offset_temp_reg.register(),
+            offset.0 as u32,
+            node,
+            "load offset",
+        );
+        self.builder.add_add_u32(
+            &target_reg,
+            &base_ptr_reg,
+            offset_temp_reg.register(),
+            node,
+            "add base pointer reg",
+        );
+        self.temp_registers.free(offset_temp_reg);
     }
 
     pub(crate) fn emit_ptr_reg_from_detailed_location(
@@ -1259,14 +1293,22 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> Vec<SpilledArgument> {
+        let mut all_mutable_arguments_including_hidden = Vec::new();
         if let Some(return_param_reg) = maybe_return_register_param {
             let return_reg = TypedRegister::new_vm_type(0, return_param_reg.ty.clone());
-            self.builder.add_mov_reg(
-                &return_reg,
-                return_param_reg,
-                node,
-                "copy in the return pointer into R0",
-            );
+            if return_param_reg
+                .ty
+                .is_represented_as_pointer_inside_register()
+            {
+                self.builder.add_mov_reg(
+                    &return_reg,
+                    return_param_reg,
+                    node,
+                    "copy in the return pointer into R0",
+                );
+            } else {
+                all_mutable_arguments_including_hidden.push(return_param_reg);
+            }
         }
         let mut argument_registers = RegisterPool::new(1, 10);
 
@@ -1326,9 +1368,9 @@ impl CodeBuilder<'_> {
                     "arg",
                 );
                 if debug_pos == self.builder.position() {
-                    eprintln!("problem with {argument_expr_or_location:?}");
+                    // eprintln!("problem with {argument_expr_or_location:?}");
                 }
-                assert_ne!(debug_pos, self.builder.position());
+                //assert_ne!(debug_pos, self.builder.position());
             }
 
             protected_argument_registers.push(argument_register.clone());
@@ -2916,7 +2958,7 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        self.emit_arguments(
+        let spilled_arguments = self.emit_arguments(
             target_reg,
             node,
             &internal_fn.signature.signature,
@@ -2927,7 +2969,7 @@ impl CodeBuilder<'_> {
 
         self.add_call(node, internal_fn, &format!("call")); // will be fixed up later
 
-        //self.call_post_helper(node, &internal_fn.signature.signature, None, arguments, ctx)
+        self.emit_post_call(&spilled_arguments, node, "restore spilled after call");
 
         GeneratedExpressionResult::default()
     }
@@ -3555,7 +3597,7 @@ impl CodeBuilder<'_> {
                 &arg.register,
                 arg.frame_memory_region.addr,
                 node,
-                &format!("restoring clobbered arguments {comment}"),
+                &format!("restoring spilled arguments {comment}"),
             );
         }
     }

@@ -553,7 +553,7 @@ impl InstructionBuilder<'_> {
         let size_bytes = u16_to_u8_pair(memory_size.0);
 
         self.state.add_instruction(
-            OpCode::StRegToFrame,
+            OpCode::BlockCopy,
             &[
                 target_base_ptr_reg.addressing(),
                 target_offset_bytes.0,
@@ -1199,6 +1199,9 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        if dst_offset.index == src_offset.index {
+            return;
+        }
         self.state.add_instruction(
             OpCode::MovReg,
             &[dst_offset.addressing(), src_offset.addressing()],

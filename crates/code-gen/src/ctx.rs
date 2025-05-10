@@ -8,7 +8,17 @@ use swamp_vm_types::types::TypedRegister;
 pub struct Context {
     protected_registers: Vec<u8>,
 }
+
 impl Context {
+    pub(crate) fn new_from_parameters(start: u8, last: u8) -> Self {
+        let mut v = Vec::new();
+        for x in start..last {
+            v.push(x);
+        }
+        Self {
+            protected_registers: v,
+        }
+    }
     pub(crate) fn register_is_protected(&self, register: &TypedRegister) -> bool {
         self.protected_registers
             .iter()

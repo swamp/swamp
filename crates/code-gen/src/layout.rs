@@ -551,6 +551,8 @@ pub fn layout_variables(
 
     let frame_size = local_frame_allocator.addr().as_size();
 
+    let highest_register_used = frame_register_allocator.current_index;
+
     FrameAndVariableInfo {
         frame_memory: FrameMemoryInfo {
             infos: frame_memory_infos,
@@ -563,5 +565,6 @@ pub fn layout_variables(
         parameter_and_variable_offsets: parameter_and_variable_registers,
         frame_registers: frame_register_allocator,
         rest_of_frame_allocator: local_frame_allocator,
+        highest_register_used,
     }
 }

@@ -67,6 +67,9 @@ pub enum OpCode {
     LdPtrFromEffectiveAddress, // Load effective address
     Ld8FromPointerWithOffset,
     Ld32FromPointerWithOffset,
+    LdRegFromFrame,
+    Ld8FromAbsoluteAddress,
+    Ld32FromAbsoluteAddress,
 
     // Storers ---
     St32UsingPtrWithOffset,
@@ -154,9 +157,6 @@ pub enum OpCode {
 
     // Other
     HostCall, // calls back into host
-    LdRegFromFrame,
-    Ld8FromAbsoluteAddress,
-    Ld32FromAbsoluteAddress,
 }
 
 impl OpCode {

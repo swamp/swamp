@@ -195,8 +195,6 @@ impl TopLevelGenState {
             &in_data.return_type,
         );
 
-        let frame_size = frame_and_variable_info.frame_memory.size();
-
         let mut function_info = FunctionInfo {
             kind: in_data.kind.clone(),
             frame_memory: frame_and_variable_info.frame_memory,
@@ -224,6 +222,8 @@ impl TopLevelGenState {
 
         let temp_pool = TempRegisterPool::new(128, 32);
 
+        let ctx = Context::new_from_parameters(0, frame_and_variable_info.highest_register_used);
+
         let mut function_code_builder = CodeBuilder::new(
             &mut self.codegen_state,
             &mut instruction_builder,
@@ -234,7 +234,6 @@ impl TopLevelGenState {
             source_map_wrapper,
         );
 
-        let ctx = Context::default();
         //info!(?in_data, "generate");
 
         let return_basic_type = layout_type(&in_data.return_type);

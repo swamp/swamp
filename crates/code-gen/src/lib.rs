@@ -340,6 +340,7 @@ pub struct FrameAndVariableInfo {
     temp_allocator_region: FrameMemoryRegion,
     frame_registers: RegisterPool,
     rest_of_frame_allocator: ScopeAllocator,
+    highest_register_used: u8,
 }
 
 #[derive(Debug)]
