@@ -67,7 +67,7 @@ pub fn disasm_function(
     let mut previous_node: Option<FileLineInfo> = None;
 
     for (offset, _inst) in instructions.iter().enumerate() {
-        let absolute_ip = ip_offset.0 + offset as u16;
+        let absolute_ip = ip_offset.0 + offset as u32;
         let meta = &meta[offset];
         let file_line_info = if is_valid_file_id(meta.node.span.file_id) {
             Some(source_map_wrapper.get_line(&meta.node.span))
@@ -104,7 +104,7 @@ pub fn disasm_function(
                     file_id: meta.node.span.file_id as usize,
                 };
                 ip_infos
-                    .insert(InstructionPosition(absolute_ip as u16), mapped)
+                    .insert(InstructionPosition(absolute_ip as u32), mapped)
                     .unwrap();
             }
         }
@@ -130,10 +130,10 @@ pub fn disasm_whole_program(
     instructions: &[BinaryInstruction],
     meta: &[Meta],
 ) {
-    let mut current_ip: u16 = 0;
+    let mut current_ip: u32 = 0;
 
     let instruction_count = instructions.len();
-    while current_ip < (instructions.len() - 1) as u16 {
+    while current_ip < (instructions.len() - 1) as u32 {
         if let Some(function_debug_info) =
             function_debug_infos.get(&InstructionPosition(current_ip))
         {

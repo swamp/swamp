@@ -17,7 +17,7 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, HeapMemoryAddress, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta,
+    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, ProgramCounterDelta,
 };
 use yansi::{Color, Paint};
 
@@ -49,9 +49,9 @@ pub fn disasm_instructions_color(
     let mut expected_next_row_to_show = 1;
 
     for (ip_offset, instruction) in binary_instructions.iter().enumerate() {
-        let ip_index = instruction_position_base.0 + ip_offset as u16;
+        let absolute_pc = instruction_position_base.0 + ip_offset as u32;
 
-        if let Some(found) = ip_infos.get(&InstructionPosition(ip_index)) {
+        if let Some(found) = ip_infos.get(&InstructionPosition(absolute_pc)) {
             if last_line_info.file_id != found.file_id {
                 last_line_info = found.clone();
                 expected_next_row_to_show = found.row;
@@ -81,8 +81,13 @@ pub fn disasm_instructions_color(
         writeln!(
             string,
             "     {:04X}> {}",
-            ip_index,
-            disasm_color(instruction, memory_infos, &meta[ip_offset])
+            absolute_pc,
+            disasm_color(
+                instruction,
+                memory_infos,
+                &meta[ip_offset],
+                &InstructionPosition(absolute_pc)
+            )
         )
         .expect("TODO: panic message");
     }
@@ -109,7 +114,7 @@ pub fn disasm_instructions_no_color(
     for (ip_index, (instruction, comment)) in
         binary_instruction.iter().zip(descriptions).enumerate()
     {
-        if let Some(found) = ip_infos.get(&InstructionPosition(ip_index as u16)) {
+        if let Some(found) = ip_infos.get(&InstructionPosition(ip_index as u32)) {
             string += &format!("- {found} -\n");
         }
 
@@ -135,6 +140,7 @@ pub fn disasm_color(
     binary_instruction: &BinaryInstruction,
     memory_infos: &FrameMemoryInfo,
     meta: &Meta,
+    current_pc: &InstructionPosition,
 ) -> String {
     let decorated = disasm(binary_instruction, memory_infos);
 
@@ -187,7 +193,15 @@ pub fn disasm_color(
                     String::new(),
                 )
             }
-            DecoratedOperandAccessKind::Ip(ip) => (
+            DecoratedOperandAccessKind::DeltaPc(delta) => (
+                format!(
+                    "{}{}",
+                    format!("{}", delta.0).bright_cyan(),
+                    (*current_pc + *delta).0
+                ),
+                String::new(),
+            ),
+            DecoratedOperandAccessKind::AbsolutePc(ip) => (
                 format!("{}{}", "@".cyan(), format!("{:X}", ip.0).bright_cyan()),
                 String::new(),
             ),
@@ -320,7 +334,10 @@ pub fn disasm_no_color(
                 format!("+{}", format!("{:X}", data.0))
             }
 
-            DecoratedOperandAccessKind::Ip(ip) => {
+            DecoratedOperandAccessKind::DeltaPc(delta) => {
+                format!("{}{}", "", format!("{}", delta.0))
+            }
+            DecoratedOperandAccessKind::AbsolutePc(ip) => {
                 format!("{}{}", "@", format!("{:X}", ip.0))
             }
             DecoratedOperandAccessKind::ImmediateU32(data) => format!("{}", format!("{data:08X}",)),
@@ -645,9 +662,16 @@ pub fn disasm(
             ))),
         ],
 
-        OpCode::BNe | OpCode::BEq | OpCode::Call => {
-            &[to_jmp_ip(u8_pair_to_u16(operands[0], operands[1]))]
-        }
+        OpCode::BNe | OpCode::BEq => &[to_branch_offset(i16::from_le_bytes([
+            operands[0],
+            operands[1],
+        ]))],
+        OpCode::Call => &[to_absolute_branch_pc(u32::from_le_bytes([
+            operands[0],
+            operands[1],
+            operands[2],
+            operands[3],
+        ]))],
         OpCode::NotZ => &[],
         OpCode::HostCall => &[
             DecoratedOperandAccessKind::ImmediateU16(u8_pair_to_u16(operands[0], operands[1])),
@@ -659,7 +683,10 @@ pub fn disasm(
         OpCode::Enter => &[DecoratedOperandAccessKind::MemorySize(MemorySize(
             u8_pair_to_u16(operands[0], operands[1]),
         ))],
-        OpCode::B => &[to_jmp_ip(u8_pair_to_u16(operands[0], operands[1]))],
+        OpCode::B => &[to_branch_offset(i16::from_le_bytes([
+            operands[0],
+            operands[1],
+        ]))],
         OpCode::BlockCopy => &[
             to_write_reg(operands[0], &bytes_type(), frame_memory_info),
             to_read_reg(operands[1], &bytes_type(), frame_memory_info),
@@ -741,14 +768,14 @@ pub fn disasm(
         OpCode::VecIterNext => &[
             to_write_reg(operands[0], &vec_iter_type(), frame_memory_info),
             to_write_reg(operands[1], &bytes_type(), frame_memory_info),
-            to_jmp_ip(u8_pair_to_u16(operands[2], operands[3])),
+            to_branch_offset(i16::from_le_bytes([operands[2], operands[3]])),
         ],
 
         OpCode::VecIterNextPair => &[
             to_write_reg(operands[0], &vec_iter_type(), frame_memory_info),
             to_write_reg(operands[1], &bytes_type(), frame_memory_info),
             to_write_reg(operands[2], &bytes_type(), frame_memory_info),
-            to_jmp_ip(u8_pair_to_u16(operands[3], operands[4])),
+            to_branch_offset(i16::from_le_bytes([operands[3], operands[4]])),
         ],
 
         OpCode::VecClear => &[to_write_reg(operands[0], &vec_type(), frame_memory_info)],
@@ -808,14 +835,14 @@ pub fn disasm(
         OpCode::MapIterNext => &[
             to_write_reg(operands[0], &map_iter_type(), frame_memory_info),
             to_write_reg(operands[1], &bytes_type(), frame_memory_info),
-            to_jmp_ip(u8_pair_to_u16(operands[2], operands[3])),
+            to_branch_offset(i16::from_le_bytes([operands[2], operands[3]])),
         ],
 
         OpCode::MapIterNextPair => &[
             to_write_reg(operands[0], &map_iter_type(), frame_memory_info),
             to_write_reg(operands[1], &bytes_type(), frame_memory_info),
             to_write_reg(operands[2], &bytes_type(), frame_memory_info),
-            to_jmp_ip(u8_pair_to_u16(operands[3], operands[4])),
+            to_branch_offset(i16::from_le_bytes([operands[3], operands[4]])),
         ],
 
         OpCode::MapRemove => &[
@@ -849,7 +876,7 @@ pub fn disasm(
         OpCode::RangeIterNext => &[
             to_write_reg(operands[0], &range_iter_type(), frame_memory_info),
             to_write_reg(operands[1], &bytes_type(), frame_memory_info),
-            to_jmp_ip(u8_pair_to_u16(operands[2], operands[3])),
+            to_branch_offset(i16::from_le_bytes([operands[2], operands[3]])),
         ],
 
         OpCode::StringAppend => &[
@@ -957,8 +984,12 @@ fn to_read_reg(
     )
 }
 
-fn to_jmp_ip(ip: u16) -> DecoratedOperandAccessKind {
-    DecoratedOperandAccessKind::Ip(InstructionPosition(ip + 1))
+fn to_branch_offset(delta: i16) -> DecoratedOperandAccessKind {
+    DecoratedOperandAccessKind::DeltaPc(ProgramCounterDelta(delta))
+}
+
+fn to_absolute_branch_pc(ip: u32) -> DecoratedOperandAccessKind {
+    DecoratedOperandAccessKind::AbsolutePc(InstructionPosition(ip))
 }
 
 fn to_frame(val: u8, ty: &BasicType) -> TypedRegister {

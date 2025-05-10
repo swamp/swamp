@@ -3,10 +3,10 @@ use crate::{
     HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemoryRegion,
     InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
     MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MAP_PTR_ALIGNMENT, MAP_PTR_SIZE,
-    MemoryAlignment, MemoryOffset, MemorySize, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_SIZE, STRING_PTR_ALIGNMENT,
-    STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT,
-    VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
+    MemoryAlignment, MemoryOffset, MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_SIZE,
+    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
+    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
 };
 use seq_fmt::comma;
 use std::fmt::{Display, Formatter, Write};
@@ -139,7 +139,8 @@ pub enum DecoratedOperandAccessKind {
     ReadRegister(TypedRegister, Option<PathInfo>, FrameMemoryAttribute),
     WriteRegister(TypedRegister, Option<PathInfo>, FrameMemoryAttribute),
     ReadIndirectPointer(FrameMemoryAddress),
-    Ip(InstructionPosition),
+    DeltaPc(ProgramCounterDelta),
+    AbsolutePc(InstructionPosition),
     ImmediateU32(u32),
     ImmediateU16(u16),
     MemorySize(MemorySize),

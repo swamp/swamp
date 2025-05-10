@@ -69,7 +69,7 @@ impl Vm {
                 {
                     eprintln!("range_iter_next complete. jumping {jmp_absolute:X}");
                 }
-                self.ip = jmp_absolute as usize;
+                self.pc = jmp_absolute as usize;
             } else {
                 set_reg!(self, target_int_reg, (*range_iterator).index);
                 (*range_iterator).index += (*range_iterator).direction;

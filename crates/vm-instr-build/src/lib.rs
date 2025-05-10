@@ -3,7 +3,6 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use source_map_node::Node;
-use swamp_vm_types::HeapMemoryAddress;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
@@ -12,6 +11,7 @@ pub use swamp_vm_types::{
     InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
     RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
+use swamp_vm_types::{HeapMemoryAddress, ProgramCounterDelta};
 
 /// Keeps track of all the instructions, and the corresponding meta information (comments and node).
 pub struct InstructionBuilderState {
@@ -45,7 +45,7 @@ impl InstructionBuilderState {
 
     #[must_use]
     pub fn position(&self) -> InstructionPosition {
-        InstructionPosition(self.instructions.len() as u16)
+        InstructionPosition(self.instructions.len() as u32)
     }
 
     /// # Panics
@@ -57,10 +57,12 @@ impl InstructionBuilderState {
 
         match instruction.opcode {
             CALL => {
-                let pair = u16_to_u8_pair(ip.0 - 1);
+                let bytes = u32_to_bytes(ip.0);
 
-                instruction.operands[0] = pair.0;
-                instruction.operands[1] = pair.1;
+                instruction.operands[0] = bytes.0;
+                instruction.operands[1] = bytes.1;
+                instruction.operands[2] = bytes.2;
+                instruction.operands[3] = bytes.3;
             }
             _ => panic!("Attempted to patch a non-call instruction at position {patch_position:?}"),
         }
@@ -156,7 +158,7 @@ impl InstructionBuilder<'_> {
 
     #[must_use]
     pub fn position(&self) -> InstructionPosition {
-        InstructionPosition(self.state.instructions.len() as u16)
+        InstructionPosition(self.state.instructions.len() as u32)
     }
 
     pub fn add_jmp_if_equal_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
@@ -504,32 +506,45 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_ld_reg_from_frame(
+    pub fn add_ld_regs_from_frame(
         &mut self,
         target_reg: &TypedRegister,
         stored_in_frame: FrameMemoryAddress,
+        count: u8,
         node: &Node,
         comment: &str,
     ) {
         let address_bytes = stored_in_frame.0.to_le_bytes();
         self.state.add_instruction(
             OpCode::LdRegFromFrame,
-            &[target_reg.addressing(), address_bytes[0], address_bytes[1]],
+            &[
+                target_reg.addressing(),
+                address_bytes[0],
+                address_bytes[1],
+                count,
+            ],
             node,
             comment,
         );
     }
-    pub fn add_st_reg_to_frame(
+
+    pub fn add_st_regs_to_frame(
         &mut self,
         frame_mem: FrameMemoryAddress,
         source_reg: &TypedRegister,
+        count: u8,
         node: &Node,
         comment: &str,
     ) {
         let address_bytes = frame_mem.0.to_le_bytes();
         self.state.add_instruction(
             OpCode::StRegToFrame,
-            &[address_bytes[0], address_bytes[1], source_reg.addressing()],
+            &[
+                address_bytes[0],
+                address_bytes[1],
+                source_reg.addressing(),
+                count,
+            ],
             node,
             comment,
         );
@@ -640,9 +655,13 @@ impl InstructionBuilder<'_> {
     }
 
     pub fn add_call(&mut self, function_ip: &InstructionPosition, node: &Node, comment: &str) {
-        let ip_bytes = Self::u16_to_octets(function_ip.0);
-        self.state
-            .add_instruction(OpCode::Call, &[ip_bytes.0, ip_bytes.1], node, comment);
+        let ip_bytes = function_ip.0.to_le_bytes();
+        self.state.add_instruction(
+            OpCode::Call,
+            &[ip_bytes[0], ip_bytes[1], ip_bytes[2], ip_bytes[3]],
+            node,
+            comment,
+        );
     }
 
     pub fn add_host_call(
@@ -734,10 +753,19 @@ impl InstructionBuilder<'_> {
         self.patch_jump(jump_position, &self.position());
     }
 
-    pub fn add_jmp(&mut self, ip: InstructionPosition, node: &Node, comment: &str) {
-        let ip_bytes = Self::u16_to_octets(ip.0 - 1);
+    pub fn add_jmp(&mut self, pc: InstructionPosition, node: &Node, comment: &str) {
+        let delta_bytes = self.calculate_pc_delta_bytes(pc);
         self.state
-            .add_instruction(OpCode::B, &[ip_bytes.0, ip_bytes.1], node, comment);
+            .add_instruction(OpCode::B, &[delta_bytes[0], delta_bytes[1]], node, comment);
+    }
+
+    fn calculate_pc_delta(&self, pc: InstructionPosition) -> ProgramCounterDelta {
+        ProgramCounterDelta(((pc.0 as i32) - (self.position().0 as i32)) as i16)
+    }
+    fn calculate_pc_delta_bytes(&self, pc: InstructionPosition) -> [u8; 2] {
+        let delta = self.calculate_pc_delta(pc);
+
+        delta.0.to_le_bytes()
     }
 
     pub fn add_frame_memory_clear(
@@ -1003,13 +1031,14 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let bytes = Self::u16_to_octets(instruction_position.0);
+        let bytes = self.calculate_pc_delta_bytes(instruction_position);
         self.state.add_instruction(
             OpCode::VecIterNext,
             &[
                 iterator_target.addressing(),
                 closure_variable.addressing(),
-                bytes.0,
+                bytes[0],
+                bytes[1],
             ],
             node,
             comment,
@@ -1025,15 +1054,15 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let bytes = Self::u16_to_octets(instruction_position.0);
+        let bytes = self.calculate_pc_delta_bytes(instruction_position);
         self.state.add_instruction(
             OpCode::VecIterNextPair,
             &[
                 iterator_target.addressing(),
                 closure_variable_key.addressing(),
                 closure_variable_value.addressing(),
-                bytes.0,
-                bytes.1,
+                bytes[0],
+                bytes[1],
             ],
             node,
             comment,

@@ -456,11 +456,22 @@ pub struct Meta {
 #[derive(Debug)]
 pub struct PatchPosition(pub InstructionPosition);
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct InstructionPosition(pub u16);
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct InstructionPosition(pub u32);
+
+impl Add<ProgramCounterDelta> for InstructionPosition {
+    type Output = Self;
+
+    fn add(self, rhs: ProgramCounterDelta) -> Self::Output {
+        Self(((self.0 as i32) + (rhs.0 as i32)) as u32)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct ProgramCounterDelta(pub i16);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct InstructionPositionOffset(pub u16);
+pub struct InstructionPositionOffset(pub u32);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct InstructionRange {

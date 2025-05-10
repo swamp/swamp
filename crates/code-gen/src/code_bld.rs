@@ -8,8 +8,8 @@ use crate::reg_pool::{RegisterPool, TempRegister, TempRegisterPool};
 use crate::state::{CodeGenState, FunctionFixup};
 use crate::{
     Collection, DetailedLocation, DetailedLocationResolved, GeneratedExpressionResult,
-    GeneratedExpressionResultKind, SpilledRegister, Transformer, TransformerResult,
-    single_intrinsic_fn,
+    GeneratedExpressionResultKind, SpilledRegister, SpilledRegisterRegion, Transformer,
+    TransformerResult, single_intrinsic_fn,
 };
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
@@ -1324,9 +1324,10 @@ impl CodeBuilder<'_> {
 
             if ctx.register_is_protected(&argument_register) {
                 let save_region = self.temp_frame_space_for_register("emit_arguments");
-                self.builder.add_st_reg_to_frame(
+                self.builder.add_st_regs_to_frame(
                     save_region.addr,
                     &argument_register,
+                    1,
                     node,
                     "spill register to stack memory",
                 );
@@ -3604,9 +3605,10 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) {
         for arg in spilled_arguments {
-            self.builder.add_ld_reg_from_frame(
+            self.builder.add_ld_regs_from_frame(
                 &arg.register,
                 arg.frame_memory_region.addr,
+                1, // TODO: Calculate a count for all spilled registers
                 node,
                 &format!("restoring spilled arguments {comment}"),
             );

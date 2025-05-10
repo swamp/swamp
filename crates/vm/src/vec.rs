@@ -203,7 +203,7 @@ impl Vm {
         let vec_header = Self::vec_header_from_heap(&self.memory, data_heap_offset);
 
         if index == vec_header.count {
-            self.ip = jump as usize;
+            self.pc = jump as usize;
         } else {
             let new_index = index + 1;
             let heap_data_offset = data_heap_offset + vec_header.element_size as u32 * index as u32;
@@ -232,7 +232,7 @@ impl Vm {
         let vec_header = Self::vec_header_from_heap(&self.memory, data_heap_offset);
 
         if index == vec_header.count {
-            self.ip = jump as usize;
+            self.pc = jump as usize;
         } else {
             let new_index = index + 1;
             let heap_data_offset = data_heap_offset + vec_header.element_size as u32 * index as u32;

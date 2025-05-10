@@ -63,6 +63,11 @@ pub struct SpilledRegister {
     pub register: TypedRegister,
     pub frame_memory_region: FrameMemoryRegion,
 }
+pub struct SpilledRegisterRegion {
+    pub registers: Vec<TypedRegister>,
+    pub frame_memory_region: FrameMemoryRegion,
+    pub count: u8,
+}
 
 impl Transformer {
     pub(crate) const fn return_type(self) -> TransformerResult {

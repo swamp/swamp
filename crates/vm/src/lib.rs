@@ -35,6 +35,28 @@ macro_rules! u8s_to_u16 {
 }
 
 #[macro_export]
+macro_rules! i16_from_u8s {
+    ($lsb:expr, $msb:expr) => {
+        // Cast bytes to u16 before shifting to prevent overflow and ensure correct bit manipulation.
+        // The most significant byte ($msb) is shifted left by 8 bits.
+        // The least significant byte ($lsb) remains in the lower 8 bits.
+        // The results are combined using a bitwise OR.
+        ((($msb as u16) << 8) | ($lsb as u16)) as i16
+    };
+}
+
+#[macro_export]
+macro_rules! u32_from_u8s {
+    ($lsb:expr, $msb:expr, $msb2:expr, $msb3:expr) => {
+        // Cast bytes to u16 before shifting to prevent overflow and ensure correct bit manipulation.
+        // The most significant byte ($msb) is shifted left by 8 bits.
+        // The least significant byte ($lsb) remains in the lower 8 bits.
+        // The results are combined using a bitwise OR.
+        (($msb3 as u32) << 24) | (($msb2 as u32) << 16) | (($msb as u32) << 8) | ($lsb as u32)
+    };
+}
+
+#[macro_export]
 macro_rules! get_reg {
     ($vm:expr, $reg_idx:expr) => {
         $vm.registers[$reg_idx as usize]
@@ -94,7 +116,7 @@ pub struct Vm {
     memory: Memory,
 
     // Execution state
-    ip: usize,                            // Instruction pointer
+    pc: usize,                            // Instruction pointer
     instructions: Vec<BinaryInstruction>, // Bytecode
     execution_complete: bool,             // Flag for completion
 
@@ -149,7 +171,7 @@ impl Vm {
 
         let mut vm = Self {
             memory, // Raw memory pointer
-            ip: 0,
+            pc: 0,
             instructions,
             execution_complete: false,
             call_stack: vec![],
@@ -206,7 +228,7 @@ impl Vm {
         vm.handlers[OpCode::BEq as usize] = HandlerType::Args2(Self::execute_bz);
 
         // Unconditional jump
-        vm.handlers[OpCode::B as usize] = HandlerType::Args2(Self::execute_jmp);
+        vm.handlers[OpCode::B as usize] = HandlerType::Args4(Self::execute_jmp);
 
         // Operators - Int
         vm.handlers[OpCode::AddU32 as usize] = HandlerType::Args3(Self::execute_add_u32);
@@ -359,19 +381,21 @@ impl Vm {
         });
 
         while !self.execution_complete {
-            let instruction = &self.instructions[self.ip];
+            let instruction = &self.instructions[self.pc];
             let opcode = instruction.opcode;
 
             #[cfg(feature = "debug_vm")]
             if self.debug_enabled {
                 let operands = instruction.operands;
-                eprint!("> {:04X}: ", self.ip);
+                eprint!("> {:04X}: ", self.pc);
                 self.debug_opcode(opcode, &operands);
                 self.debug.opcodes_executed += 1;
 
                 //    let s = hexify::format_hex(&self.frame_memory()[..16]);
                 //  eprintln!("mem: {s}");
             }
+
+            self.pc += 1; // IP must be added BEFORE handling the instruction
 
             match self.handlers[opcode as usize] {
                 HandlerType::Args0(handler) => handler(self),
@@ -401,18 +425,16 @@ impl Vm {
                     instruction.operands[4],
                 ),
             }
-
-            self.ip += 1;
         }
     }
 
     pub fn execute_from_ip(&mut self, ip: &InstructionPosition) {
-        self.ip = ip.0 as usize;
+        self.pc = ip.0 as usize;
         self.execute_internal();
     }
 
     fn execute_unimplemented(&mut self) {
-        let unknown_opcode = OpCode::from(self.instructions[self.ip].opcode);
+        let unknown_opcode = OpCode::from(self.instructions[self.pc].opcode);
         eprintln!("error: opcode not implemented: {unknown_opcode} {unknown_opcode:?}");
         eprintln!("VM runtime halted.");
         self.debug_output();
@@ -443,7 +465,7 @@ impl Vm {
         self.memory.reset();
         self.memory.reset_allocator();
 
-        self.ip = 0;
+        self.pc = 0;
         self.execution_complete = false;
         self.call_stack.clear();
     }
@@ -452,7 +474,7 @@ impl Vm {
         self.memory.reset_allocator();
         self.reset_frame();
         self.execution_complete = false;
-        self.ip = 0;
+        self.pc = 0;
 
         #[cfg(feature = "debug_vm")]
         {
@@ -491,7 +513,7 @@ impl Vm {
 
     pub fn load_bytecode(&mut self, instructions: Vec<BinaryInstruction>) {
         self.instructions = instructions;
-        self.ip = 0;
+        self.pc = 0;
         self.execution_complete = false;
     }
 
@@ -838,22 +860,24 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_bnz(&mut self, ip_0: u8, ip_1: u8) {
+    const fn execute_bnz(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
         if !self.flags.z {
-            self.ip = u8s_to_u16!(ip_0, ip_1) as usize;
+            self.pc =
+                (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
         }
     }
 
     #[inline]
-    fn execute_bz(&mut self, ip_0: u8, ip_1: u8) {
+    const fn execute_bz(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
         if self.flags.z {
-            self.ip = u8s_to_u16!(ip_0, ip_1) as usize;
+            self.pc =
+                (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
         }
     }
 
     #[inline]
-    fn execute_jmp(&mut self, ip_0: u8, ip_1: u8) {
-        self.ip = u8s_to_u16!(ip_0, ip_1) as usize;
+    fn execute_jmp(&mut self, ip_0: u8, ip_1: u8, ip_2: u8, ip_3: u8) {
+        self.pc = u32_from_u8s!(ip_0, ip_1, ip_2, ip_3) as usize;
     }
 
     #[inline]
@@ -935,14 +959,14 @@ impl Vm {
 
     fn execute_call(&mut self, target: u8) {
         let return_info = CallFrame {
-            return_address: self.ip + 1,
+            return_address: self.pc + 1,
             previous_frame_offset: self.memory.frame_offset,
             previous_stack_offset: self.memory.stack_offset,
         };
 
         self.memory.set_fp();
         self.call_stack.push(return_info);
-        self.ip = target as usize;
+        self.pc = target as usize;
 
         #[cfg(feature = "debug_vm")]
         if self.debug_enabled {
@@ -994,8 +1018,8 @@ impl Vm {
         );
 
         // going back to the old instruction
-        self.ip = call_frame.return_address;
-        self.ip -= 1; // Adjust for automatic increment
+        self.pc = call_frame.return_address;
+        self.pc -= 1; // Adjust for automatic increment
 
         // NOTE: Any return value is always at frame_offset + 0
 

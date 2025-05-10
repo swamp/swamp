@@ -6,7 +6,7 @@ use crate::reg_pool::TempRegisterPool;
 use crate::state::{CodeGenState, GenOptions};
 use crate::{
     ConstantInfo, FunctionInData, FunctionIp, FunctionIpKind, FunctionIps, GenFunctionInfo,
-    SpilledRegister,
+    SpilledRegister, SpilledRegisterRegion,
 };
 use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
@@ -378,7 +378,7 @@ impl TopLevelGenState {
 
     #[must_use]
     pub fn ip(&self) -> InstructionPosition {
-        InstructionPosition(self.builder_state.instructions.len() as u16)
+        InstructionPosition(self.builder_state.instructions.len() as u32)
     }
     #[must_use]
     pub fn meta(&self) -> &[Meta] {
