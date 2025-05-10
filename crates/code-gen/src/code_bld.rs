@@ -8,7 +8,7 @@ use crate::reg_pool::{RegisterPool, TempRegister, TempRegisterPool};
 use crate::state::{CodeGenState, FunctionFixup};
 use crate::{
     Collection, DetailedLocation, DetailedLocationResolved, GeneratedExpressionResult,
-    GeneratedExpressionResultKind, SpilledArgument, Transformer, TransformerResult,
+    GeneratedExpressionResultKind, SpilledRegister, Transformer, TransformerResult,
     single_intrinsic_fn,
 };
 use seq_map::SeqMap;
@@ -376,7 +376,7 @@ impl CodeBuilder<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        self.debug_node(&expr.node);
+        //self.debug_node(&expr.node);
         //        info!(t=?expr.ty, v=?expr.kind, "emit_expression");
 
         match &expr.kind {
@@ -1292,7 +1292,7 @@ impl CodeBuilder<'_> {
         self_variable: Option<&TypedRegister>,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
-    ) -> Vec<SpilledArgument> {
+    ) -> Vec<SpilledRegister> {
         let mut all_mutable_arguments_including_hidden = Vec::new();
         if let Some(return_param_reg) = maybe_return_register_param {
             let return_reg = TypedRegister::new_vm_type(0, return_param_reg.ty.clone());
@@ -1330,7 +1330,7 @@ impl CodeBuilder<'_> {
                     node,
                     "spill register to stack memory",
                 );
-                spilled_arguments.push(SpilledArgument {
+                spilled_arguments.push(SpilledRegister {
                     register: argument_register.clone(),
                     frame_memory_region: save_region,
                 });
@@ -1383,6 +1383,9 @@ impl CodeBuilder<'_> {
         let start = self
             .frame_allocator
             .allocate(REG_ON_FRAME_SIZE, REG_ON_FRAME_ALIGNMENT);
+
+        //info!(?start, comment, "allocating register space on frame");
+
         FrameMemoryRegion {
             addr: start,
             size: REG_ON_FRAME_SIZE,
@@ -1433,7 +1436,7 @@ impl CodeBuilder<'_> {
                             if let Some((intrinsic_fn, intrinsic_arguments)) =
                                 single_intrinsic_fn(&internal_fn.body)
                             {
-                                info!(?intrinsic_fn, "intrinsic");
+                                //info!(?intrinsic_fn, "intrinsic");
                                 let merged_arguments = Self::merge_arguments_keep_literals(
                                     arguments,
                                     intrinsic_arguments,
@@ -1973,7 +1976,7 @@ impl CodeBuilder<'_> {
                 self.emit_expression_materialize(unit_temp_reg.register(), expr, ctx);
             }
             self.temp_registers.free(unit_temp_reg);
-            info!(?last.ty, ?target_reg.ty, "this is the last in the block!");
+            //            info!(?last.ty, ?target_reg.ty, "this is the last in the block!");
             self.emit_expression_materialize(target_reg, last, ctx);
         } else {
             // empty blocks are allowed for side effects
@@ -2630,7 +2633,6 @@ impl CodeBuilder<'_> {
         match_expr: &Match,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        info!(?target_reg, "match!");
         let region_to_match = self.emit_for_access_or_location(&match_expr.expression, ctx);
 
         let mut jump_to_exit_placeholders = Vec::new();
@@ -3588,7 +3590,16 @@ impl CodeBuilder<'_> {
 
     fn emit_post_call(
         &mut self,
-        spilled_arguments: &[SpilledArgument],
+        spilled_arguments: &[SpilledRegister],
+        node: &Node,
+        comment: &str,
+    ) {
+        self.emit_restore_spilled_registers(spilled_arguments, node, comment);
+    }
+
+    pub fn emit_restore_spilled_registers(
+        &mut self,
+        spilled_arguments: &[SpilledRegister],
         node: &Node,
         comment: &str,
     ) {

@@ -438,11 +438,11 @@ pub fn layout_variables(
     variables: &Vec<VariableRef>,
     exp_return_type: &Type,
 ) -> FrameAndVariableInfo {
-    const TEMPORARY_SIZE: MemorySize = MemorySize(16 * 1024);
+    const TEMPORARY_SIZE: MemorySize = MemorySize(8 * 1024);
 
     let mut local_frame_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
-        MemorySize(32 * 1024),
+        MemorySize(16 * 1024),
     ));
 
     //    let return_placed_type_pointer = layout_type(exp_return_type).create_mutable_pointer();
@@ -452,13 +452,13 @@ pub fn layout_variables(
     let mut frame_memory_infos = Vec::new();
 
     let mut parameter_and_variable_registers = SeqMap::new();
-    let mut parameter_allocator = RegisterPool::new(1, 10); // TODO: Should only have 6 parameters as max
+    let mut frame_register_allocator = RegisterPool::new(1, 96); // Should start at register 7
 
     let mut parameter_registers = Vec::new();
     for var_ref in parameters {
         let parameter_basic_type = layout_type(&var_ref.resolved_type);
 
-        let register = parameter_allocator.alloc_register(
+        let register = frame_register_allocator.alloc_register(
             VmType::new_contained_in_register(parameter_basic_type),
             &format!("param {}", var_ref.assigned_name),
         );
@@ -476,9 +476,7 @@ pub fn layout_variables(
             .unwrap();
     }
 
-    let mut frame_register_allocator = RegisterPool::new(12, 96); // Should start at register 7
-
-    info!(len = variables.len(), "variables");
+    //info!(len = variables.len(), "variables");
 
     let mut variable_registers = Vec::new();
     for var_ref in variables {
@@ -558,13 +556,14 @@ pub fn layout_variables(
             infos: frame_memory_infos,
             total_frame_size: frame_size,
             variable_frame_size: temp_allocator_region.addr.as_size(),
+            frame_size_for_variables_except_temp: variable_space,
             variable_registers,
         },
         temp_allocator_region,
         parameters: parameter_registers.clone(),
         parameter_and_variable_offsets: parameter_and_variable_registers,
         frame_registers: frame_register_allocator,
-        rest_of_frame_allocator: local_frame_allocator,
+        //rest_of_frame_allocator: local_frame_allocator,
         highest_register_used,
     }
 }

@@ -1,3 +1,4 @@
+use crate::alloc::ScopeAllocator;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::{layout_type, layout_variables};
@@ -5,6 +6,7 @@ use crate::reg_pool::TempRegisterPool;
 use crate::state::{CodeGenState, GenOptions};
 use crate::{
     ConstantInfo, FunctionInData, FunctionIp, FunctionIpKind, FunctionIps, GenFunctionInfo,
+    SpilledRegister,
 };
 use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
@@ -16,7 +18,8 @@ use swamp_semantic::{
 use swamp_types::Attributes;
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
-    CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, TypedRegister, VmType, unknown_type,
+    CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, TypedRegister, VariableRegister, VmType,
+    is_callee_save, unknown_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, InstructionPosition, InstructionPositionOffset, InstructionRange, Meta,
@@ -178,6 +181,46 @@ impl TopLevelGenState {
         self.codegen_state.function_fixups.clear();
     }
 
+    pub fn function_prologue(
+        instruction_builder: &mut InstructionBuilder,
+        function_info: &FunctionInfo,
+        temp_frame_allocator: &mut ScopeAllocator,
+    ) -> Vec<SpilledRegister> {
+        instruction_builder.enter(
+            function_info.frame_memory.size(),
+            &Node::default(),
+            "prologue",
+        );
+
+        let mut saved_registers = Vec::new();
+
+        for variable_reg in &function_info.frame_memory.variable_registers {
+            if is_callee_save(variable_reg.register.index) {
+                let frame_placed =
+                    temp_frame_allocator.allocate_type(variable_reg.register.ty.underlying());
+                let spilled = SpilledRegister {
+                    register: variable_reg.register.clone(),
+                    frame_memory_region: frame_placed.region(),
+                };
+                saved_registers.push(spilled);
+            }
+        }
+
+        saved_registers
+    }
+
+    fn function_epilogue(
+        instruction_builder: &mut CodeBuilder,
+        spilled_registers: &[SpilledRegister],
+        node: &Node,
+    ) {
+        instruction_builder.emit_restore_spilled_registers(
+            spilled_registers,
+            node,
+            "function epilogue",
+        );
+    }
+
     pub fn emit_function_preamble(
         &mut self,
         in_data: &FunctionInData,
@@ -185,8 +228,6 @@ impl TopLevelGenState {
         is_called_by_host: bool,
     ) -> (InstructionPosition, InstructionPosition, FunctionInfo) {
         let start_ip = self.ip();
-
-        eprintln!("function name {}", in_data.assigned_name);
 
         let frame_and_variable_info = layout_variables(
             &in_data.function_name_node,
@@ -214,10 +255,13 @@ impl TopLevelGenState {
 
         let mut instruction_builder = InstructionBuilder::new(&mut self.builder_state);
 
-        instruction_builder.enter(
-            function_info.frame_memory.size(),
-            &Node::default(),
-            "prologue",
+        let mut temp_frame_allocator =
+            ScopeAllocator::new(frame_and_variable_info.temp_allocator_region);
+
+        let spilled_registers = Self::function_prologue(
+            &mut instruction_builder,
+            &function_info,
+            &mut temp_frame_allocator,
         );
 
         let temp_pool = TempRegisterPool::new(128, 32);
@@ -230,7 +274,7 @@ impl TopLevelGenState {
             frame_and_variable_info.parameter_and_variable_offsets,
             frame_and_variable_info.frame_registers,
             temp_pool,
-            frame_and_variable_info.rest_of_frame_allocator,
+            temp_frame_allocator,
             source_map_wrapper,
         );
 
@@ -244,6 +288,12 @@ impl TopLevelGenState {
             &return_register,
             &in_data.expression,
             &ctx,
+        );
+
+        Self::function_epilogue(
+            &mut function_code_builder,
+            &spilled_registers,
+            &in_data.expression.node,
         );
 
         self.finalize_function(&GenOptions {

@@ -2431,10 +2431,6 @@ impl<'a> Analyzer<'a> {
             }
         }
         let is_allowed_to_assign = Self::check_mutable_assignment_is_valid(ty);
-        self.debug_line(
-            source_expression.node.span.offset as usize,
-            "MUTABLE ASSIGNMENT",
-        );
 
         if !is_allowed_to_assign {
             error!(?ty, "assignment is wrong");
@@ -2450,7 +2446,6 @@ impl<'a> Analyzer<'a> {
         ty: &Type,
         variable: &swamp_ast::Variable,
     ) -> Result<(), Error> {
-        self.debug_expression(source_expression, "MUTABLE ASSIGNMENT TO VARIABLE");
         let is_allowed_to_assign = Self::check_mutable_assignment_is_valid(ty);
         if !is_allowed_to_assign {
             error!(?ty, "variable is wrong");

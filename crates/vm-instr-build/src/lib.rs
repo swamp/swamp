@@ -20,16 +20,13 @@ pub struct InstructionBuilderState {
 }
 
 pub fn u16_to_u8_pair(v: u16) -> (u8, u8) {
-    ((v >> 8) as u8, (v & 0xff) as u8)
+    let bytes = v.to_le_bytes();
+    (bytes[0], bytes[1])
 }
 
 fn u32_to_bytes(a: u32) -> (u8, u8, u8, u8) {
-    (
-        (a >> 24 & 0xff) as u8,
-        (a >> 16 & 0xff) as u8,
-        (a >> 8 & 0xff) as u8,
-        (a & 0xff) as u8,
-    )
+    let bytes = a.to_le_bytes();
+    (bytes[0], bytes[1], bytes[2], bytes[3])
 }
 
 impl Default for InstructionBuilderState {
@@ -514,10 +511,10 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let address_bytes = u16_to_u8_pair(stored_in_frame.0);
+        let address_bytes = stored_in_frame.0.to_le_bytes();
         self.state.add_instruction(
             OpCode::LdRegFromFrame,
-            &[target_reg.addressing(), address_bytes.0, address_bytes.1],
+            &[target_reg.addressing(), address_bytes[0], address_bytes[1]],
             node,
             comment,
         );
@@ -529,10 +526,10 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let pairs = u16_to_u8_pair(frame_mem.0);
+        let address_bytes = frame_mem.0.to_le_bytes();
         self.state.add_instruction(
             OpCode::StRegToFrame,
-            &[pairs.0, pairs.1, source_reg.addressing()],
+            &[address_bytes[0], address_bytes[1], source_reg.addressing()],
             node,
             comment,
         );

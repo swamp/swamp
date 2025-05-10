@@ -32,12 +32,12 @@ use swamp_vm_types::types::{
     TypedRegister, VariableRegister, VmType,
 };
 use swamp_vm_types::{
-    CountU16, FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, InstructionPosition,
-    InstructionRange, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT,
-    MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset, MemorySize, RANGE_HEADER_ALIGNMENT,
-    RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_ALIGNMENT,
-    STRING_HEADER_SIZE, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
-    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
+    CountU16, FrameMemoryRegion, FrameMemorySize, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
+    InstructionPosition, InstructionRange, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE,
+    MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
+    RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE,
+    STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT,
+    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 
 #[derive(Copy, Clone)]
@@ -59,7 +59,7 @@ pub enum TransformerResult {
     WrappedValueFromSourceCollection,
 }
 
-pub struct SpilledArgument {
+pub struct SpilledRegister {
     pub register: TypedRegister,
     pub frame_memory_region: FrameMemoryRegion,
 }
@@ -339,7 +339,7 @@ pub struct FrameAndVariableInfo {
     parameter_and_variable_offsets: SeqMap<usize, TypedRegister>,
     temp_allocator_region: FrameMemoryRegion,
     frame_registers: RegisterPool,
-    rest_of_frame_allocator: ScopeAllocator,
+    //rest_of_frame_allocator: ScopeAllocator,
     highest_register_used: u8,
 }
 

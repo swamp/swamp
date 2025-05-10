@@ -628,6 +628,11 @@ impl HeapPlacedType {
     }
 }
 
+#[must_use]
+pub const fn is_callee_save(reg_index: u8) -> bool {
+    reg_index >= 7
+}
+
 #[derive(Clone, Debug)]
 pub struct TypedRegister {
     pub index: u8,
@@ -1120,6 +1125,7 @@ pub struct FrameMemoryInfo {
     pub total_frame_size: FrameMemorySize,
     pub variable_frame_size: FrameMemorySize,
     pub variable_registers: Vec<VariableRegister>,
+    pub frame_size_for_variables_except_temp: FrameMemorySize,
 }
 
 #[derive(Clone)]
@@ -1499,5 +1505,10 @@ pub fn show_frame_memory(
         writeln!(f)?;
     }
 
+    writeln!(
+        f,
+        "frame size for variables: {:0}",
+        frame_relative_infos.frame_size_for_variables_except_temp
+    )?;
     Ok(())
 }
