@@ -719,16 +719,16 @@ impl TypedRegister {
 pub enum VmTypeOrigin {
     Unknown,
     InsideReg,
-    Frame(FrameMemoryAddress),
-    Heap(HeapMemoryAddress),
+    Frame(FrameMemoryRegion),
+    Heap(HeapMemoryRegion),
 }
 
 impl Display for VmTypeOrigin {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unknown => Ok(()),
-            Self::Frame(addr) => write!(f, "frame {addr}"),
-            Self::Heap(addr) => write!(f, "heap {addr}"),
+            Self::Frame(region) => write!(f, "frame {region}"),
+            Self::Heap(region) => write!(f, "heap {region}"),
             Self::InsideReg => write!(f, "contained"),
         }
     }
@@ -750,14 +750,14 @@ impl VmType {
     pub fn new_frame_placed(frame_placed: FramePlacedType) -> Self {
         Self {
             basic_type: frame_placed.ty.clone(),
-            origin: VmTypeOrigin::Frame(frame_placed.addr),
+            origin: VmTypeOrigin::Frame(frame_placed.region()),
         }
     }
 
-    pub fn new_heap_placement(basic_type: BasicType, heap_address: HeapMemoryAddress) -> Self {
+    pub fn new_heap_placement(basic_type: BasicType, heap_region: HeapMemoryRegion) -> Self {
         Self {
             basic_type: basic_type.clone(),
-            origin: VmTypeOrigin::Heap(heap_address),
+            origin: VmTypeOrigin::Heap(heap_region),
         }
     }
 
@@ -780,9 +780,9 @@ impl VmType {
     }
 
     pub fn frame_placed_type(&self) -> Option<FramePlacedType> {
-        if let VmTypeOrigin::Frame(address) = self.origin {
+        if let VmTypeOrigin::Frame(region) = self.origin {
             Some(FramePlacedType {
-                addr: address,
+                addr: region.addr,
                 ty: self.basic_type.clone(),
             })
         } else {

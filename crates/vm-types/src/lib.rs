@@ -68,6 +68,12 @@ pub struct HeapMemoryRegion {
     pub size: MemorySize,
 }
 
+impl Display for HeapMemoryRegion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.addr, self.size)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct FrameMemoryAddress(pub u16);
 
@@ -89,6 +95,12 @@ impl Add<MemoryOffset> for FrameMemoryAddress {
 pub struct FrameMemoryRegion {
     pub addr: FrameMemoryAddress,
     pub size: MemorySize,
+}
+
+impl Display for FrameMemoryRegion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.addr, self.size)
+    }
 }
 
 impl Default for FrameMemoryRegion {
@@ -328,6 +340,12 @@ impl Div<Self> for HeapMemorySize {
 
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]
 pub struct MemorySize(pub u16);
+
+impl Display for MemorySize {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "{:X}", self.0)
+    }
+}
 
 impl Into<usize> for MemorySize {
     fn into(self) -> usize {
