@@ -718,6 +718,7 @@ impl TypedRegister {
 #[derive(Clone, Debug)]
 pub enum VmTypeOrigin {
     Unknown,
+    InsideReg,
     Frame(FrameMemoryAddress),
     Heap(HeapMemoryAddress),
 }
@@ -725,9 +726,10 @@ pub enum VmTypeOrigin {
 impl Display for VmTypeOrigin {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            VmTypeOrigin::Unknown => Ok(()),
-            VmTypeOrigin::Frame(addr) => write!(f, "frame {addr}"),
-            VmTypeOrigin::Heap(addr) => write!(f, "heap {addr}"),
+            Self::Unknown => Ok(()),
+            Self::Frame(addr) => write!(f, "frame {addr}"),
+            Self::Heap(addr) => write!(f, "heap {addr}"),
+            Self::InsideReg => write!(f, "contained"),
         }
     }
 }
@@ -756,6 +758,13 @@ impl VmType {
         Self {
             basic_type: basic_type.clone(),
             origin: VmTypeOrigin::Heap(heap_address),
+        }
+    }
+
+    pub fn new_contained_in_register(basic_type: BasicType) -> VmType {
+        Self {
+            basic_type: basic_type.clone(),
+            origin: VmTypeOrigin::InsideReg,
         }
     }
 

@@ -431,6 +431,7 @@ pub fn layout_tuple(types: &[Type]) -> BasicType {
 
 /// # Errors
 ///
+#[allow(clippy::too_many_lines)]
 pub fn layout_variables(
     _node: &Node,
     parameters: &Vec<VariableRef>,
@@ -456,9 +457,9 @@ pub fn layout_variables(
     let mut parameter_registers = Vec::new();
     for var_ref in parameters {
         let parameter_basic_type = layout_type(&var_ref.resolved_type);
-        info!(?var_ref, "!!!parameter");
+
         let register = parameter_allocator.alloc_register(
-            VmType::new_unknown_placement(parameter_basic_type),
+            VmType::new_contained_in_register(parameter_basic_type),
             &format!("param {}", var_ref.assigned_name),
         );
 
@@ -481,37 +482,46 @@ pub fn layout_variables(
 
     let mut variable_registers = Vec::new();
     for var_ref in variables {
-        let var_frame_placed_type = reserve(&var_ref.resolved_type, &mut local_frame_allocator);
-        trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
-        writeln!(
-            &mut enter_comment,
-            "  {}:{} {}",
-            var_frame_placed_type.addr(),
-            var_frame_placed_type.size().0,
-            var_ref.assigned_name
-        )
-        .unwrap();
+        let basic_type = layout_type(&var_ref.resolved_type);
+        let register = if basic_type.is_represented_as_a_pointer_in_reg() {
+            // TODO: Should have a check if the variable needs the storage (if it is in an assignment in a copy)
+            let var_frame_placed_type = local_frame_allocator.allocate_type(basic_type);
+            trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
+            writeln!(
+                &mut enter_comment,
+                "  {}:{} {}",
+                var_frame_placed_type.addr(),
+                var_frame_placed_type.size().0,
+                var_ref.assigned_name
+            )
+            .unwrap();
 
-        let kind = match var_ref.variable_type {
-            VariableType::Local => VariableInfoKind::Variable(VariableInfo {
-                is_mutable: var_ref.is_mutable(),
-                name: var_ref.assigned_name.clone(),
-            }),
-            VariableType::Parameter => VariableInfoKind::Parameter(VariableInfo {
-                is_mutable: var_ref.is_mutable(),
-                name: var_ref.assigned_name.clone(),
-            }),
+            let kind = match var_ref.variable_type {
+                VariableType::Local => VariableInfoKind::Variable(VariableInfo {
+                    is_mutable: var_ref.is_mutable(),
+                    name: var_ref.assigned_name.clone(),
+                }),
+                VariableType::Parameter => VariableInfoKind::Parameter(VariableInfo {
+                    is_mutable: var_ref.is_mutable(),
+                    name: var_ref.assigned_name.clone(),
+                }),
+            };
+
+            frame_memory_infos.push(FrameAddressInfo {
+                kind,
+                frame_placed_type: var_frame_placed_type.clone(),
+            });
+
+            frame_register_allocator.alloc_register(
+                VmType::new_frame_placed(var_frame_placed_type),
+                &format!("var mut {}", var_ref.assigned_name),
+            )
+        } else {
+            frame_register_allocator.alloc_register(
+                VmType::new_contained_in_register(basic_type),
+                &format!("var immute {}", var_ref.assigned_name),
+            )
         };
-
-        frame_memory_infos.push(FrameAddressInfo {
-            kind,
-            frame_placed_type: var_frame_placed_type.clone(),
-        });
-
-        let register = frame_register_allocator.alloc_register(
-            VmType::new_frame_placed(var_frame_placed_type),
-            &format!("var {}", var_ref.assigned_name),
-        );
 
         variable_registers.push(VariableRegister {
             variable: VariableInfo {

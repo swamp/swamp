@@ -1084,8 +1084,7 @@ impl CodeBuilder<'_> {
         offset: MemoryOffset,
         comment: &str,
     ) {
-        let binding = target_reg.ty.frame_placed_type().unwrap();
-        let underlying_type = binding.ty().underlying();
+        let underlying_type = target_reg.underlying();
 
         let kind = &underlying_type.kind;
         match kind {
