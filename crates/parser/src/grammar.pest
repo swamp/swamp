@@ -67,9 +67,9 @@ struct_field_list = {
 }
 rest_fields       = { ".." }
 
-array_literal = { "[" ~ (expression ~ (COMMA ~ expression)*)? ~ "]" }
+array_literal = { "[" ~ (expression ~ (COMMA ~ expression)*)? ~ TRAILING_COMMA ~ "]" }
 empty_map_marker= { ":" }
-map_literal   = { "[" ~ (empty_map_marker | (map_entry ~ (COMMA ~ map_entry)*)?) ~ "]" }
+map_literal   = { "[" ~ (empty_map_marker | (map_entry ~ (COMMA ~ map_entry)*)?) ~ TRAILING_COMMA ~ "]" }
 map_entry     = { expression ~ ":" ~ expression }
 
 /*
