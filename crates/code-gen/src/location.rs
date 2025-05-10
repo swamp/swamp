@@ -109,8 +109,12 @@ impl CodeBuilder<'_> {
                         VmType::new_unknown_placement(layout_item_type),
                         "intrinsic subscript",
                     );
-                    let (collection_reg, maybe_temp_collection_reg) =
-                        self.emit_ptr_reg_from_detailed_location(current_location, &access.node);
+                    let (collection_reg, maybe_temp_collection_reg) = self
+                        .emit_ptr_reg_from_detailed_location(
+                            current_location,
+                            &access.node,
+                            "lvalue chain",
+                        );
 
                     // Fetching from vector, map, etc. are done using intrinsic calls
 

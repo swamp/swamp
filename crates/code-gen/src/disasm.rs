@@ -1,8 +1,10 @@
 use seq_map::SeqMap;
 use source_map_cache::{FileLineInfo, SourceMapLookup, SourceMapWrapper};
 use source_map_node::FileId;
+use std::fmt;
+use std::fmt::Write;
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
-use swamp_vm_types::types::{FrameMemoryInfo, FunctionInfo, show_frame_memory};
+use swamp_vm_types::types::{FrameMemoryInfo, FunctionInfo, VariableRegister, show_frame_memory};
 use swamp_vm_types::{BinaryInstruction, InstructionPosition, InstructionPositionOffset, Meta};
 
 fn different_file_info(span_a: &FileLineInfo, span_b: &FileLineInfo) -> bool {
@@ -12,9 +14,39 @@ fn different_file_info(span_a: &FileLineInfo, span_b: &FileLineInfo) -> bool {
 pub fn is_valid_file_id(file_id: FileId) -> bool {
     file_id != 0 && file_id != 0xffff
 }
+pub fn show_parameters_and_variables(
+    parameters: &[VariableRegister],
+    variables: &[VariableRegister],
+    f: &mut dyn Write,
+) -> Result<(), fmt::Error> {
+    for reg in parameters {
+        writeln!(
+            f,
+            "{}: {}: {} {}",
+            tinter::yellow(format!("r{}", reg.register.index)),
+            reg.variable.name,
+            reg.register.ty,
+            reg.register.comment
+        )?;
+    }
+
+    for reg in variables {
+        writeln!(
+            f,
+            "{}: {}: {} {}",
+            tinter::yellow(format!("r{}", reg.register.index)),
+            reg.variable.name,
+            reg.register.ty,
+            reg.register.comment
+        )?;
+    }
+
+    Ok(())
+}
 
 pub fn disasm_function(
     frame_relative_infos: &FrameMemoryInfo,
+    parameters: &[VariableRegister],
     instructions: &[BinaryInstruction],
     meta: &[Meta],
     ip_offset: InstructionPositionOffset,
@@ -23,6 +55,12 @@ pub fn disasm_function(
     let mut header_output = String::new();
 
     show_frame_memory(frame_relative_infos, &mut header_output).unwrap();
+
+    show_parameters_and_variables(
+        parameters,
+        &frame_relative_infos.variable_registers,
+        &mut header_output,
+    );
 
     let mut ip_infos = SeqMap::new();
 
@@ -109,6 +147,7 @@ pub fn disasm_whole_program(
 
             let output_string = disasm_function(
                 &function_debug_info.frame_memory,
+                &*function_debug_info.parameters,
                 instructions_slice,
                 meta_slice,
                 InstructionPositionOffset(current_ip),

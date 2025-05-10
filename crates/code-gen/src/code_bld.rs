@@ -35,6 +35,7 @@ use swamp_vm_types::{
     SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, SLICE_PTR_OFFSET, STRING_PTR_SIZE, StringHeader,
     VEC_PTR_SIZE,
 };
+use tracing::field::debug;
 use tracing::{error, info};
 
 pub(crate) struct CodeBuilder<'a> {
@@ -74,6 +75,7 @@ impl CodeBuilder<'_> {
         target_reg: &TypedRegister,
         source_reg: &TypedRegister,
         node: &Node,
+        comment: &str,
     ) {
         if source_reg.ty.is_mutable_reference_semantic() {
             if target_reg.ty().is_mutable_reference() {
@@ -81,7 +83,7 @@ impl CodeBuilder<'_> {
                     &target_reg,
                     &source_reg,
                     node,
-                    "emit_copy_register. ptr to ptr.",
+                    &format!("emit_copy_register. ptr to ptr. {}", comment),
                 );
             } else {
                 let size = source_reg.size();
@@ -93,7 +95,7 @@ impl CodeBuilder<'_> {
                     MemoryOffset(0),
                     size,
                     node,
-                    "emit_copy_register. copy struct.",
+                    &format!("emit_copy_register.copy struct. {}", comment),
                 );
             }
         } else {
@@ -101,7 +103,7 @@ impl CodeBuilder<'_> {
                 &target_reg,
                 &source_reg,
                 node,
-                "emit_copy_register. primitive to primitive.",
+                &format!("emit_copy_register. primitive to primitive. {}", comment),
             );
         }
     }
@@ -179,6 +181,7 @@ impl CodeBuilder<'_> {
         source_offset: MemoryOffset,
         type_at_offset: &VmType,
         node: &Node,
+        comment: &str,
     ) {
         let source_type = type_at_offset;
         if source_type.is_represented_as_pointer_inside_register() {
@@ -188,7 +191,7 @@ impl CodeBuilder<'_> {
                     base_ptr_reg,
                     source_offset,
                     node,
-                    "emit_copy_register. ptr to ptr (mutable reference).",
+                    &format!("emit_copy_register. ptr to ptr (mutable reference). {comment}"),
                 );
             } else {
                 let size = target_reg.size();
@@ -200,7 +203,7 @@ impl CodeBuilder<'_> {
                     source_offset,
                     size,
                     node,
-                    "block copy",
+                    &format!("block copy {comment}"),
                 );
             }
         } else {
@@ -209,7 +212,7 @@ impl CodeBuilder<'_> {
                 base_ptr_reg,
                 source_offset,
                 node,
-                "emit primitive value. ptr to primitive reg",
+                &format!("emit primitive value. ptr to primitive reg {comment}"),
             );
         }
     }
@@ -219,17 +222,18 @@ impl CodeBuilder<'_> {
         target_reg: &TypedRegister,
         location: &DetailedLocation,
         node: &Node,
+        comment: &str,
     ) {
         match location {
             DetailedLocation::Register { reg } => {
-                self.emit_copy_register(target_reg, reg, node);
+                self.emit_copy_register(target_reg, reg, node, comment);
             }
             DetailedLocation::Memory {
                 base_ptr_reg,
                 offset,
                 ty,
             } => {
-                self.emit_load_from_memory(target_reg, base_ptr_reg, *offset, ty, node);
+                self.emit_load_from_memory(target_reg, base_ptr_reg, *offset, ty, node, comment);
             }
         }
     }
@@ -238,6 +242,7 @@ impl CodeBuilder<'_> {
         &mut self,
         location: &DetailedLocation,
         node: &Node,
+        comment: &str,
     ) -> DetailedLocationResolved {
         match location {
             DetailedLocation::Register { reg } => DetailedLocationResolved::Register(reg.clone()),
@@ -255,6 +260,7 @@ impl CodeBuilder<'_> {
                     *offset,
                     ty,
                     node,
+                    &format!("load primitive from detailed location {comment}"),
                 );
                 DetailedLocationResolved::TempRegister(temp_reg_target)
             }
@@ -265,6 +271,7 @@ impl CodeBuilder<'_> {
         &mut self,
         location: DetailedLocation,
         node: &Node,
+        comment: &str,
     ) -> (TypedRegister, Option<TempRegister>) {
         match location {
             DetailedLocation::Register { reg } => (reg, None),
@@ -1271,7 +1278,7 @@ impl CodeBuilder<'_> {
             let basic_type = layout_type(&type_for_parameter.resolved_type);
             let argument_register = argument_registers.alloc_register(
                 VmType::new_unknown_placement(basic_type),
-                &format!("emit arguments {index_in_signature}"),
+                &format!("emit argument {index_in_signature}"),
             );
 
             if ctx.register_is_protected(&argument_register) {
@@ -1312,12 +1319,17 @@ impl CodeBuilder<'_> {
                     index_in_signature
                 };
                 let argument_expr_or_location = &arguments[argument_vector_index];
+                let debug_pos = self.builder.position();
                 self.emit_argument(
                     &argument_register,
                     argument_expr_or_location,
                     &argument_ctx,
                     "arg",
                 );
+                if debug_pos == self.builder.position() {
+                    eprintln!("problem with {argument_expr_or_location:?}");
+                }
+                assert_ne!(debug_pos, self.builder.position());
             }
 
             protected_argument_registers.push(argument_register.clone());
@@ -1371,6 +1383,7 @@ impl CodeBuilder<'_> {
                         .emit_load_primitive_from_detailed_location_if_needed(
                             &current_location,
                             &element.node,
+                            &format!("emit_rvalue_postfix member call "),
                         );
                     //let target_ctx = Context::new(temp_reg.register.clone());
 
@@ -1393,6 +1406,7 @@ impl CodeBuilder<'_> {
                                     Some(resolved_location.register()),
                                     &merged_arguments,
                                     ctx,
+                                    &format!("rvalue intrinsic call "),
                                 );
 
                                 if is_last {
@@ -1407,9 +1421,17 @@ impl CodeBuilder<'_> {
                                     arguments,
                                     ctx,
                                 );
-                                self.add_call(&element.node, internal_fn, "frame size: unknown");
+                                self.add_call(
+                                    &element.node,
+                                    internal_fn,
+                                    &format!("emit_rvalue call"),
+                                );
 
-                                self.emit_post_call(&spilled_argument_registers, &element.node);
+                                self.emit_post_call(
+                                    &spilled_argument_registers,
+                                    &element.node,
+                                    &format!("emit_rvalue postcall"),
+                                );
                             }
                         }
                         Function::External(external_function_def) => {
@@ -1451,6 +1473,7 @@ impl CodeBuilder<'_> {
                         .emit_load_primitive_from_detailed_location_if_needed(
                             &current_location,
                             &element.node,
+                            "",
                         );
 
                     self.builder.add_tst_u8(
@@ -1482,6 +1505,13 @@ impl CodeBuilder<'_> {
 
             //info!(t=?element.ty, index, t=?current_location.vm_type(), ?element.kind, "after element");
         }
+
+        self.emit_load_from_location(
+            target_reg,
+            &current_location,
+            &start_expression.node,
+            "rvalue postfix chain",
+        );
 
         z_flag_result
     }
@@ -1530,13 +1560,13 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back. //assert_eq!(gen_tuple_placed.total_size, ctx.final_target_size());
         // TODO: Bring this back. //assert_eq!(gen_tuple_type.fields.len(), expressions.len());
 
-        let temp_materialize_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(unknown_type()),
-            "emit_materialize for tuple element",
-        );
-        let placed_target = temp_materialize_reg.register();
-
         for (offset_item, expr) in gen_tuple_type.fields.iter().zip(expressions) {
+            let temp_materialize_reg = self.temp_registers.allocate(
+                VmType::new_unknown_placement(offset_item.ty.clone()),
+                "emit_materialize for tuple element",
+            );
+            let placed_target = temp_materialize_reg.register();
+
             self.emit_expression_materialize(placed_target, expr, ctx);
             self.store_register_contents_to_memory(
                 node,
@@ -1545,8 +1575,8 @@ impl CodeBuilder<'_> {
                 placed_target,
                 "emit tuple",
             );
+            self.temp_registers.free(temp_materialize_reg);
         }
-        self.temp_registers.free(temp_materialize_reg);
     }
 
     fn emit_anonymous_struct(
@@ -1990,6 +2020,7 @@ impl CodeBuilder<'_> {
         let resolved = self.emit_load_primitive_from_detailed_location_if_needed(
             &assignment_target,
             &target_location.0.node,
+            "compound_assignment",
         );
 
         let source_info = self.emit_expression_location(source, ctx);
@@ -2969,7 +3000,7 @@ impl CodeBuilder<'_> {
             ),
         );
 
-        self.emit_post_call(&spilled_arguments, node);
+        self.emit_post_call(&spilled_arguments, node, "host call");
 
         GeneratedExpressionResult::default()
     }
@@ -3003,7 +3034,7 @@ impl CodeBuilder<'_> {
             ),
         ); // will be fixed up later
 
-        self.emit_post_call(&spilled_arguments, node);
+        self.emit_post_call(&spilled_arguments, node, "host_self_call");
 
         GeneratedExpressionResult::default()
     }
@@ -3418,6 +3449,7 @@ impl CodeBuilder<'_> {
                 payload_offset,
                 &payload_vm_type,
                 node,
+                "transformer add to collection",
             );
             (temp_reg.register.clone(), Some(temp_reg))
         } else {
@@ -3513,13 +3545,18 @@ impl CodeBuilder<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn emit_post_call(&mut self, spilled_arguments: &[SpilledArgument], node: &Node) {
+    fn emit_post_call(
+        &mut self,
+        spilled_arguments: &[SpilledArgument],
+        node: &Node,
+        comment: &str,
+    ) {
         for arg in spilled_arguments {
             self.builder.add_ld_reg_from_frame(
                 &arg.register,
                 arg.frame_memory_region.addr,
                 node,
-                "restoring clobbered arguments",
+                &format!("restoring clobbered arguments {comment}"),
             );
         }
     }

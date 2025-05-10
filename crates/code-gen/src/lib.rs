@@ -23,13 +23,13 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     ConstantId, ConstantRef, Expression, ExpressionKind, InternalFunctionDefinitionRef,
-    InternalFunctionId, MutRefOrImmutableExpression, VariableRef,
+    InternalFunctionId, MutRefOrImmutableExpression, Variable, VariableRef,
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::PatchPosition;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FrameMemoryInfo, FramePlacedType, FunctionInfoKind, HeapPlacedType,
-    TypedRegister, VmType,
+    TypedRegister, VariableRegister, VmType,
 };
 use swamp_vm_types::{
     CountU16, FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, InstructionPosition,
@@ -335,7 +335,8 @@ pub fn reserve(ty: &Type, allocator: &mut ScopeAllocator) -> FramePlacedType {
 
 pub struct FrameAndVariableInfo {
     pub frame_memory: FrameMemoryInfo,
-    variable_offsets: SeqMap<usize, TypedRegister>,
+    parameters: Vec<VariableRegister>,
+    parameter_and_variable_offsets: SeqMap<usize, TypedRegister>,
     temp_allocator_region: FrameMemoryRegion,
     frame_registers: RegisterPool,
     rest_of_frame_allocator: ScopeAllocator,
@@ -346,7 +347,8 @@ pub struct FunctionInData {
     pub function_name_node: Node,
     pub kind: FunctionInfoKind,
     pub assigned_name: String,
-    pub all_variables_parameters_first: Vec<VariableRef>,
+    pub parameter_variables: Vec<VariableRef>,
+    pub function_variables: Vec<VariableRef>,
     pub return_type: Type,
     pub expression: Expression,
 }

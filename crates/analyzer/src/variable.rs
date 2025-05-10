@@ -57,13 +57,17 @@ impl Analyzer<'_> {
         variable: &Node,
         is_mutable: Option<&Node>,
         variable_type_ref: &Type,
-    ) -> Result<VariableRef, Error> {
-        self.create_local_variable_resolved(
+    ) -> Result<(), Error> {
+        let (variable_ref, _name_str, _should_be_inserted) = self.create_variable_like_resolved(
             variable,
             is_mutable,
             variable_type_ref,
             VariableType::Parameter,
-        )
+        )?;
+
+        self.function_parameters.push(variable_ref);
+
+        Ok(())
     }
 
     pub(crate) fn create_local_variable(
@@ -83,7 +87,6 @@ impl Analyzer<'_> {
             &self.to_node(variable),
             Option::from(&self.to_node_option(is_mutable)),
             variable_type_ref,
-            VariableType::Local,
         )
     }
 
@@ -104,8 +107,28 @@ impl Analyzer<'_> {
         variable: &Node,
         is_mutable: Option<&Node>,
         variable_type_ref: &Type,
-        variable_type: VariableType,
     ) -> Result<VariableRef, Error> {
+        let (variable_ref, variable_str, should_insert_in_scope) = self
+            .create_variable_like_resolved(
+                variable,
+                is_mutable,
+                variable_type_ref,
+                VariableType::Local,
+            )?;
+        if should_insert_in_scope {
+            self.function_variables.push(variable_ref.clone());
+        }
+
+        Ok(variable_ref)
+    }
+
+    pub(crate) fn create_variable_like_resolved(
+        &mut self,
+        variable: &Node,
+        is_mutable: Option<&Node>,
+        variable_type_ref: &Type,
+        variable_type: VariableType,
+    ) -> Result<(VariableRef, String, bool), Error> {
         if let Some(_existing_variable) = self.try_find_local_variable(variable) {
             return Err(
                 self.create_err_resolved(ErrorKind::OverwriteVariableNotAllowedHere, variable)
@@ -142,14 +165,14 @@ impl Analyzer<'_> {
         if !should_insert_in_scope && is_mutable.is_some() {
             return Err(self.create_err_resolved(ErrorKind::UnusedVariablesCanNotBeMut, variable));
         }
+
         if should_insert_in_scope {
             variables
-                .insert(variable_str, variable_ref.clone())
+                .insert(variable_str.clone(), variable_ref.clone())
                 .expect("should have checked earlier for variable");
-            self.function_variables.push(variable_ref.clone());
         }
 
-        Ok(variable_ref)
+        Ok((variable_ref, variable_str, should_insert_in_scope))
     }
 
     #[allow(clippy::unnecessary_wraps)]

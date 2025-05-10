@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use swamp_vm_types::types::{TypedRegister, VmType};
 
 #[derive(Debug)]
@@ -20,14 +21,14 @@ pub struct RegisterInfo {
 }
 
 pub struct TempRegisterPool {
-    free_registers: Vec<RegisterInfo>,
+    free_registers: VecDeque<RegisterInfo>,
 }
 
 impl TempRegisterPool {
     pub fn new(start: u8, count: usize) -> Self {
-        let mut registers = Vec::new();
+        let mut registers = VecDeque::new();
         for index in start..(start + count as u8) {
-            registers.push(RegisterInfo { index });
+            registers.push_back(RegisterInfo { index });
         }
 
         Self {
@@ -36,7 +37,7 @@ impl TempRegisterPool {
     }
     pub fn allocate(&mut self, ty: VmType, comment: &str) -> TempRegister {
         assert!(!self.free_registers.is_empty(), "out of temp registers");
-        let free_reg_info = self.free_registers.pop().unwrap();
+        let free_reg_info = self.free_registers.pop_front().unwrap();
 
         //info!(?free_reg_info, "lending out temp reg");
         //let backtrace = Backtrace::capture();
@@ -62,7 +63,7 @@ impl TempRegisterPool {
         let kind = reg.register().underlying().kind;
         //info!(?kind, "free temp reg");
 
-        self.free_registers.push(RegisterInfo {
+        self.free_registers.push_front(RegisterInfo {
             index: reg.register.index,
         });
     }

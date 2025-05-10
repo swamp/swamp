@@ -188,6 +188,7 @@ pub struct Analyzer<'a> {
     pub shared: SharedState<'a>,
     scope: FunctionScopeState,
     function_variables: Vec<VariableRef>,
+    function_parameters: Vec<VariableRef>,
     global: FunctionScopeState,
     module_path: Vec<String>,
 }
@@ -224,6 +225,7 @@ impl<'a> Analyzer<'a> {
             shared,
             module_path: module_path.to_vec(),
             function_variables: Vec::new(),
+            function_parameters: Vec::new(),
         }
     }
 
@@ -231,11 +233,13 @@ impl<'a> Analyzer<'a> {
         self.global.block_scope_stack = take(&mut self.scope.block_scope_stack);
         self.scope = FunctionScopeState::new();
         self.function_variables.clear();
+        self.function_parameters.clear();
     }
 
     fn stop_function(&mut self) {
         self.scope.block_scope_stack = take(&mut self.global.block_scope_stack);
         self.function_variables.clear();
+        self.function_parameters.clear();
     }
 
     fn analyze_if_expression(
@@ -520,7 +524,8 @@ impl<'a> Analyzer<'a> {
         let analyzed_expr = self.analyze_expression(ast_expression, &context)?;
         let main_expr = InternalMainExpression {
             expression: analyzed_expr,
-            function_scope_state: self.function_variables.clone(),
+            function_variables: self.function_variables.clone(),
+            function_parameters: self.function_parameters.clone(),
             program_unique_id: self.shared.state.allocate_internal_function_id(),
         };
 

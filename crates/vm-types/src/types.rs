@@ -1071,13 +1071,13 @@ impl Display for VariableInfo {
 }
 
 #[derive(Clone, Debug)]
-pub enum FrameAddressInfoKind {
+pub enum VariableInfoKind {
     Variable(VariableInfo),
     Parameter(VariableInfo),
     Return,
 }
 
-impl Display for FrameAddressInfoKind {
+impl Display for VariableInfoKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Variable(var_info) => {
@@ -1095,7 +1095,7 @@ impl Display for FrameAddressInfoKind {
 
 #[derive(Clone, Debug)]
 pub struct FrameAddressInfo {
-    pub kind: FrameAddressInfoKind,
+    pub kind: VariableInfoKind,
     pub frame_placed_type: FramePlacedType,
 }
 
@@ -1280,6 +1280,7 @@ pub enum FunctionInfoKind {
 pub struct FunctionInfo {
     pub kind: FunctionInfoKind,
     pub frame_memory: FrameMemoryInfo,
+    pub parameters: Vec<VariableRegister>,
     pub name: String,
     pub ip_range: InstructionRange,
 }
@@ -1472,32 +1473,21 @@ pub fn show_frame_memory(
         show_frame_region(mem.frame_placed_type.region(), f, 0)?;
         write!(f, " ")?;
         match &mem.kind {
-            FrameAddressInfoKind::Variable(v) => {
+            VariableInfoKind::Variable(v) => {
                 write!(f, "var ")?;
                 write_identifier_and_colon(&v.name, f)?;
             }
-            FrameAddressInfoKind::Parameter(v) => {
+            VariableInfoKind::Parameter(v) => {
                 write!(f, "param ")?;
                 write_identifier_and_colon(&v.name, f)?;
             }
-            FrameAddressInfoKind::Return => {
+            VariableInfoKind::Return => {
                 write!(f, "return:")?;
             }
         }
         write!(f, " ")?;
         write_basic_type(&mem.frame_placed_type.ty, addr, f, 0)?;
         writeln!(f)?;
-    }
-
-    for reg in &frame_relative_infos.variable_registers {
-        writeln!(
-            f,
-            "{}: {}: {} {}",
-            tinter::yellow(format!("r{}", reg.register.index)),
-            reg.variable.name,
-            reg.register.ty,
-            reg.register.comment
-        )?;
     }
 
     Ok(())

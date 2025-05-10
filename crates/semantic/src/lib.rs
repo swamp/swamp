@@ -59,7 +59,8 @@ pub struct LocalIdentifier(pub Node);
 #[derive(Debug)]
 pub struct InternalMainExpression {
     pub expression: Expression,
-    pub function_scope_state: Vec<VariableRef>,
+    pub function_parameters: Vec<VariableRef>,
+    pub function_variables: Vec<VariableRef>,
     pub program_unique_id: InternalFunctionId,
 }
 
@@ -71,7 +72,8 @@ pub struct InternalFunctionDefinition {
     pub associated_with_type: Option<Type>,
     pub defined_in_module_path: Vec<String>,
     pub signature: GenericAwareSignature,
-    pub parameter_and_variables: Vec<VariableRef>,
+    pub parameters: Vec<VariableRef>,
+    pub function_variables: Vec<VariableRef>,
     pub program_unique_id: InternalFunctionId,
     pub attributes: Attributes,
 }
@@ -79,13 +81,19 @@ pub struct InternalFunctionDefinition {
 impl InternalFunctionDefinition {
     #[must_use]
     pub fn all_parameters_and_variables_are_concrete(&self) -> bool {
-        for var in &self.parameter_and_variables {
+        for var in &self.parameters {
             if !var.resolved_type.is_concrete() || var.resolved_type.is_function_type() {
                 //warn!(?var.assigned_name, ?var.resolved_type, "skipping function due to not concrete parameters or variables");
                 return false;
             }
         }
 
+        for var in &self.function_variables {
+            if !var.resolved_type.is_concrete() || var.resolved_type.is_function_type() {
+                //warn!(?var.assigned_name, ?var.resolved_type, "skipping function due to not concrete parameters or variables");
+                return false;
+            }
+        }
         true
     }
 }
@@ -110,7 +118,8 @@ impl Default for InternalFunctionDefinition {
                 generic_type_variables: vec![],
             },
             //variable_scopes: FunctionScopeState::new(),
-            parameter_and_variables: Vec::new(),
+            parameters: Vec::new(),
+            function_variables: Vec::new(),
             program_unique_id: 0,
             attributes: Attributes::default(),
         }

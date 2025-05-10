@@ -90,9 +90,9 @@ impl Instantiator {
         internal: &InternalFunctionDefinition,
         current_self: &Type,
         type_variables: &TypeVariableScope,
-    ) -> Result<Vec<VariableRef>, SemanticError> {
-        internal
-            .parameter_and_variables
+    ) -> Result<(Vec<VariableRef>, Vec<VariableRef>), SemanticError> {
+        let parameters: Result<Vec<VariableRef>, SemanticError> = internal
+            .parameters
             .iter()
             .map(|var| {
                 //                info!(?var, "instantiating variable");
@@ -120,7 +120,43 @@ impl Instantiator {
                     is_unused: var.is_unused,
                 }))
             })
-            .collect()
+            .collect();
+
+        let variables: Result<Vec<VariableRef>, SemanticError> = internal
+            .function_variables
+            .iter()
+            .map(|var| {
+                //                info!(?var, "instantiating variable");
+                let instantiated_type = self.instantiate_type_in_signature(
+                    current_self,
+                    &var.resolved_type,
+                    type_variables,
+                )?;
+
+                //              info!(?var.assigned_name, ?var.resolved_type, ?instantiated_type, "instantiated variable");
+
+                assert!(
+                    instantiated_type.can_be_parameter(),
+                    "instantiate of variable went wrong {instantiated_type} {var:?}"
+                ); // TODO: Should have separate checks for actual variables
+                Ok(VariableRef::new(Variable {
+                    name: var.name.clone(),
+                    variable_type: var.variable_type.clone(),
+                    assigned_name: var.assigned_name.clone(),
+                    resolved_type: instantiated_type,
+                    mutable_node: var.mutable_node.clone(),
+                    scope_index: var.scope_index,
+                    variable_index: var.variable_index,
+                    unique_id_within_function: var.unique_id_within_function,
+                    is_unused: var.is_unused,
+                }))
+            })
+            .collect();
+        if parameters.is_err() || variables.is_err() {
+            eprintln!("something went wrong")
+        }
+
+        Ok((parameters?, variables?))
     }
 
     /// # Errors
@@ -213,7 +249,7 @@ impl Instantiator {
 
                     let new_func = match &**func_ref {
                         Function::Internal(internal) => {
-                            let instantiated_variables = self
+                            let (instantiated_parameters, instantiated_variables) = self
                                 .instantiate_parameters_and_variables(
                                     internal,
                                     &instantiated_type,
@@ -230,7 +266,8 @@ impl Instantiator {
                                     signature: new_signature.clone(),
                                     generic_type_variables: generics_to_keep,
                                 },
-                                parameter_and_variables: instantiated_variables,
+                                parameters: instantiated_parameters,
+                                function_variables: instantiated_variables,
                                 program_unique_id: internal.program_unique_id,
                                 attributes: internal.attributes.clone(),
                             });

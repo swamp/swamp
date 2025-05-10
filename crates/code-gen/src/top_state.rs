@@ -74,7 +74,8 @@ impl TopLevelGenState {
             function_name_node: internal_fn_def.name.0.clone(),
             kind: FunctionInfoKind::Normal(internal_fn_def.program_unique_id as usize),
             assigned_name: internal_fn_def.assigned_name.clone(),
-            all_variables_parameters_first: internal_fn_def.parameter_and_variables.clone(),
+            function_variables: internal_fn_def.function_variables.clone(),
+            parameter_variables: internal_fn_def.parameters.clone(),
             return_type: *internal_fn_def.signature.signature.return_type.clone(),
             expression: internal_fn_def.body.clone(),
         };
@@ -123,7 +124,8 @@ impl TopLevelGenState {
     ) {
         let variable_and_frame_memory = layout_variables(
             &main.expression.node,
-            &main.function_scope_state,
+            &main.function_parameters,
+            &main.function_variables,
             &main.expression.ty,
         );
 
@@ -131,7 +133,8 @@ impl TopLevelGenState {
             function_name_node: main.expression.node.clone(),
             kind: FunctionInfoKind::Normal(main.program_unique_id as usize),
             assigned_name: "main_expr".to_string(),
-            all_variables_parameters_first: main.function_scope_state.clone(),
+            function_variables: main.function_variables.clone(),
+            parameter_variables: main.function_parameters.clone(),
             return_type: main.expression.ty.clone(),
             expression: main.expression.clone(),
         };
@@ -142,6 +145,7 @@ impl TopLevelGenState {
         let function_info = FunctionInfo {
             kind: FunctionInfoKind::Normal(main.program_unique_id as usize),
             frame_memory: variable_and_frame_memory.frame_memory,
+            parameters: variable_and_frame_memory.parameters,
             name: "main".to_string(),
             ip_range: InstructionRange {
                 start: start_ip.clone(),
@@ -186,7 +190,8 @@ impl TopLevelGenState {
 
         let frame_and_variable_info = layout_variables(
             &in_data.function_name_node,
-            &in_data.all_variables_parameters_first,
+            &in_data.parameter_variables,
+            &in_data.function_variables,
             &in_data.return_type,
         );
 
@@ -195,6 +200,7 @@ impl TopLevelGenState {
         let mut function_info = FunctionInfo {
             kind: in_data.kind.clone(),
             frame_memory: frame_and_variable_info.frame_memory,
+            parameters: frame_and_variable_info.parameters,
             name: in_data.assigned_name.clone(),
             ip_range: InstructionRange {
                 start: start_ip.clone(),
@@ -221,7 +227,7 @@ impl TopLevelGenState {
         let mut function_code_builder = CodeBuilder::new(
             &mut self.codegen_state,
             &mut instruction_builder,
-            frame_and_variable_info.variable_offsets,
+            frame_and_variable_info.parameter_and_variable_offsets,
             frame_and_variable_info.frame_registers,
             temp_pool,
             frame_and_variable_info.rest_of_frame_allocator,
@@ -269,7 +275,8 @@ impl TopLevelGenState {
                 function_name_node: constant.name.clone(),
                 kind: FunctionInfoKind::Constant(constant.id as usize),
                 assigned_name: constant.assigned_name.clone(),
-                all_variables_parameters_first: constant.function_scope_state.clone(),
+                function_variables: constant.function_scope_state.clone(),
+                parameter_variables: vec![],
                 return_type: constant.resolved_type.clone(),
                 expression: constant.expr.clone(),
             };

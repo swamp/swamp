@@ -441,11 +441,10 @@ impl Analyzer<'_> {
 
                 // Set up scope for function body
                 for param in &parameters {
-                    self.create_local_variable_resolved(
+                    self.create_parameter_resolved(
                         &param.node.as_ref().unwrap().name,
                         param.node.as_ref().unwrap().is_mutable.as_ref(),
                         &param.resolved_type.clone(),
-                        VariableType::Parameter,
                     )?;
                 }
                 let function_name = self
@@ -479,7 +478,8 @@ impl Analyzer<'_> {
                     assigned_name: self.get_text(&function_data.declaration.name).to_string(),
                     associated_with_type: None,
                     defined_in_module_path: self.module_path.clone(),
-                    parameter_and_variables: self.function_variables.clone(),
+                    function_variables: self.function_variables.clone(),
+                    parameters: self.function_parameters.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
                     attributes: attributes.clone(),
                 };
@@ -811,7 +811,8 @@ impl Analyzer<'_> {
                     defined_in_module_path: self.module_path.clone(),
                     associated_with_type: Some(self_type.clone()),
                     //variable_scopes: self.scope.clone(),
-                    parameter_and_variables: self.function_variables.clone(),
+                    function_variables: self.function_variables.clone(),
+                    parameters: self.function_parameters.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
                     attributes,
                 };

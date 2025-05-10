@@ -90,6 +90,7 @@ impl CodeBuilder<'_> {
                     self_arg.as_ref(),
                     rest_args,
                     ctx,
+                    "single intrinsic call",
                 )
             }
         }
@@ -105,6 +106,7 @@ impl CodeBuilder<'_> {
         self_addr: Option<&TypedRegister>,
         arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
+        comment: &str,
     ) -> GeneratedExpressionResult {
         let mut z_flag_result = GeneratedExpressionResult::default();
         match intrinsic_fn {

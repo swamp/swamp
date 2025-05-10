@@ -132,7 +132,7 @@ impl InstructionBuilder<'_> {
                     &format!("{comment} (load int)"),
                 );
             }
-            BasicTypeKind::B8 => {
+            BasicTypeKind::B8 | BasicTypeKind::U8 => {
                 self.add_ld8_from_pointer_with_offset_u16(
                     target,
                     base,
