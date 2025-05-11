@@ -17,9 +17,9 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, HeapMemoryAddress, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, ProgramCounterDelta,
+    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, ProgramCounterDelta, RegIndex,
 };
-use yansi::{Color, Paint};
+//use yansi::{Color, Paint};
 
 #[derive(Eq, PartialEq, Clone)]
 pub struct SourceFileLineInfo {
@@ -69,7 +69,7 @@ pub fn disasm_instructions_color(
                     string,
                     "{:4} {} {}",
                     row_to_display,
-                    "|".green(),
+                    tinter::green("|"),
                     convert_tabs_to_spaces(line),
                 )
                 .expect("TODO: panic message");
@@ -95,10 +95,7 @@ pub fn disasm_instructions_color(
     string
 }
 fn memory_kind_color(kind: Option<PathInfo>) -> String {
-    kind.map_or_else(
-        || "temp addr".to_string(),
-        |path_info| path_info.convert_to_string(),
-    )
+    kind.map_or_else(|| String::new(), |path_info| path_info.convert_to_string())
 }
 
 #[must_use]
@@ -144,7 +141,7 @@ pub fn disasm_color(
 ) -> String {
     let decorated = disasm(binary_instruction, memory_infos);
 
-    let name = format!("{:7}", decorated.name.blue());
+    let name = format!("{:7}", tinter::blue(decorated.name));
 
     let mut converted_operands = Vec::new();
     let mut converted_comments = Vec::new();
@@ -155,87 +152,101 @@ pub fn disasm_color(
         let (new_str, comment_str) = match &operand.kind {
             DecoratedOperandAccessKind::ReadRegister(addr, memory_kind, attr) => {
                 let color = if attr.is_temporary {
-                    Color::BrightGreen
+                    tinter::Color::BrightGreen
                 } else {
-                    Color::Green
+                    tinter::Color::Green
                 };
 
                 (
-                    format!("{}", addr.fg(color)),
+                    format!("{}", tinter::color(color, addr)),
                     memory_kind_color(memory_kind.clone()),
                 )
             }
             DecoratedOperandAccessKind::WriteRegister(addr, memory_kind, attr) => {
                 let color = if attr.is_temporary {
-                    Color::BrightMagenta
+                    tinter::Color::BrightMagenta
                 } else {
-                    Color::Red
+                    tinter::Color::Red
                 };
 
                 (
-                    format!("{}", format!("{addr}").fg(color)),
+                    format!("{}", tinter::color(color, format!("{addr}"))),
                     memory_kind_color(memory_kind.clone()),
                 )
             }
             DecoratedOperandAccessKind::HeapAddress(addr) => {
-                let color = Color::Green;
+                let color = tinter::Color::Green;
 
                 (
-                    format!("{}{}", "%$".fg(color), format!("{:08X}", addr.0).fg(color)),
+                    format!(
+                        "{}{}",
+                        tinter::color(color, "%$"),
+                        tinter::color(color, format!("{:08X}", addr.0))
+                    ),
                     String::new(),
                 )
             }
             DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
-                let color = Color::Green;
+                let color = tinter::Color::Green;
 
                 (
-                    format!("({}{})", "$".fg(color), format!("{:04X}", addr.0).fg(color)),
+                    format!(
+                        "({}{})",
+                        tinter::color(color, "$"),
+                        tinter::color(color, format!("{:04X}", addr.0))
+                    ),
                     String::new(),
                 )
             }
             DecoratedOperandAccessKind::DeltaPc(delta) => (
                 format!(
-                    "{}{}",
-                    format!("{}", delta.0).bright_cyan(),
+                    "{} {:04X}",
+                    tinter::bright_cyan(format!("{}", delta.0)),
                     (*current_pc + *delta).0
                 ),
                 String::new(),
             ),
             DecoratedOperandAccessKind::AbsolutePc(ip) => (
-                format!("{}{}", "@".cyan(), format!("{:X}", ip.0).bright_cyan()),
+                format!(
+                    "{}{}",
+                    tinter::cyan("@"),
+                    tinter::bright_cyan(format!("{:X}", ip.0))
+                ),
                 String::new(),
             ),
             DecoratedOperandAccessKind::MemorySize(data) => (
-                format!("{}", format!("{:X}", data.0).yellow()),
+                format!("{}", tinter::yellow(format!("{:X}", data.0))),
                 format!("{}{}", "int:", data.0),
             ),
             DecoratedOperandAccessKind::MemoryOffset(data) => (
-                format!("+{}", format!("{:X}", data.0).yellow()),
+                format!("+{}", tinter::yellow(format!("{:X}", data.0))),
                 format!("{}{}", "int:", data.0),
             ),
 
             DecoratedOperandAccessKind::ImmediateU32(data) => (
-                format!("{}", format!("{data:X}",).magenta()),
+                format!("{}", tinter::magenta(format!("{data:X}",))),
                 format!("{}{}", "int:", *data as i32),
             ),
             DecoratedOperandAccessKind::ImmediateU16(data) => (
-                format!("{}", format!("{data:X}",).magenta()),
+                format!("{}", tinter::magenta(format!("{data:X}",))),
                 format!("{}{}", "int:", *data as i32),
             ),
             DecoratedOperandAccessKind::ImmediateU8(data) => (
-                format!("{}", format!("{data:02X}",).magenta()),
+                format!("{}", tinter::magenta(format!("{data:02X}"))),
                 format!("{}{}", "int:", *data as i8),
             ),
             DecoratedOperandAccessKind::CountU16(data) => (
-                format!("{}", format!("{data:04X}",).yellow()),
+                format!("{}", tinter::yellow(format!("{data:04X}",))),
                 format!("{}", "count"),
             ),
-            DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => {
-                (format!("{}", format!("{data}",).yellow()), String::new())
-            }
-            DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => {
-                (format!("{}", format!("{data}",).red()), String::new())
-            }
+            DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => (
+                format!("{}", tinter::yellow(format!("{data}",))),
+                String::new(),
+            ),
+            DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => (
+                format!("{}", tinter::red(format!("{data}",))),
+                String::new(),
+            ),
             DecoratedOperandAccessKind::WriteIndirectHeapWithOffset(
                 frame_addr,
                 memory_offset,
@@ -243,8 +254,8 @@ pub fn disasm_color(
             ) => (
                 format!(
                     "({})+{}",
-                    format!("{frame_addr}").red(),
-                    format!("{:X}", memory_offset.0).red()
+                    tinter::red(format!("{frame_addr}")),
+                    tinter::red(format!("{:X}", memory_offset.0))
                 ),
                 memory_kind_color(memory_kind.clone()),
             ),
@@ -255,10 +266,17 @@ pub fn disasm_color(
             ) => (
                 format!(
                     "({})+{}",
-                    format!("{frame_addr}").green(),
-                    format!("{:X}", memory_offset.0).green()
+                    tinter::green(format!("{frame_addr}")),
+                    tinter::green(format!("{:X}", memory_offset.0))
                 ),
                 memory_kind_color(memory_kind.clone()),
+            ),
+            DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => {
+                (format!("[{} #{}]", base_reg, offset.0), String::new())
+            }
+            DecoratedOperandAccessKind::ReadBaseRegWithOffset(base_reg, offset) => (
+                format!("[{} #{}]", tinter::green(base_reg), offset.0),
+                String::new(),
             ),
         };
         converted_operands.push(new_str);
@@ -297,7 +315,11 @@ pub fn disasm_color(
     let print_comment = if total_comment.is_empty() {
         String::new()
     } else {
-        format!(" {} {}", ";".bright_black(), total_comment.bright_black())
+        format!(
+            " {} {}",
+            tinter::bright_black(";"),
+            tinter::bright_black(total_comment)
+        )
     };
 
     format!("{} {}{}", name, converted_operands.join(" "), print_comment)
@@ -356,6 +378,12 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::ReadIndirectHeapWithOffset(a, b, _c) => {
                 format!("{}", format!("{:08X}+{:08X}", a.0, b.0))
             }
+            DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => {
+                format!("[R{} #{}]", base_reg, offset.0)
+            }
+            DecoratedOperandAccessKind::ReadBaseRegWithOffset(base_reg, offset) => {
+                format!("[R{} #{}]", base_reg, offset.0)
+            }
         };
         converted_operands.push(new_str);
     }
@@ -389,11 +417,25 @@ pub fn disasm(
         OpCode::Panic => &[to_read_reg(operands[0], &string_type(), frame_memory_info)],
 
         OpCode::St32UsingPtrWithOffset => {
-            let data = ((operands[1] as u16) << 8) | operands[2] as u16;
+            let offset = u16::from_le_bytes([operands[1], operands[2]]);
 
             &[
-                to_write_reg(operands[0], &int_type(), frame_memory_info),
-                DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(data)),
+                DecoratedOperandAccessKind::WriteBaseRegWithOffset(
+                    RegIndex(operands[0]),
+                    MemoryOffset(offset),
+                ),
+                to_read_reg(operands[3], &int_type(), frame_memory_info),
+            ]
+        }
+
+        OpCode::St8UsingPtrWithOffset => {
+            let offset = u16::from_le_bytes([operands[1], operands[2]]);
+
+            &[
+                DecoratedOperandAccessKind::WriteBaseRegWithOffset(
+                    RegIndex(operands[0]),
+                    MemoryOffset(offset),
+                ),
                 to_read_reg(operands[3], &int_type(), frame_memory_info),
             ]
         }
@@ -406,16 +448,6 @@ pub fn disasm(
                     frame_ptr_offset,
                 )),
                 to_read_reg(operands[2], &int_type(), frame_memory_info),
-            ]
-        }
-
-        OpCode::St8UsingPtrWithOffset => {
-            let data = ((operands[1] as u16) << 8) | operands[2] as u16;
-
-            &[
-                to_write_reg(operands[0], &int_type(), frame_memory_info),
-                DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(data)),
-                to_read_reg(operands[3], &int_type(), frame_memory_info),
             ]
         }
 
@@ -433,8 +465,10 @@ pub fn disasm(
 
             &[
                 to_write_reg(operands[0], &int_type(), frame_memory_info),
-                to_read_reg(operands[3], &pointer_type(), frame_memory_info),
-                DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(data)),
+                DecoratedOperandAccessKind::ReadBaseRegWithOffset(
+                    RegIndex(operands[3]),
+                    MemoryOffset(data),
+                ),
             ]
         }
 
@@ -964,7 +998,7 @@ fn to_write_reg(
     let is_temporary = false;
 
     DecoratedOperandAccessKind::WriteRegister(
-        to_frame(reg, fallback_expected_type),
+        to_register(reg, fallback_expected_type),
         maybe_path,
         FrameMemoryAttribute { is_temporary },
     )
@@ -976,7 +1010,7 @@ fn to_read_reg(
     frame_memory_info: &FrameMemoryInfo,
 ) -> DecoratedOperandAccessKind {
     DecoratedOperandAccessKind::ReadRegister(
-        to_frame(reg, fallback_expected_type),
+        to_register(reg, fallback_expected_type),
         None,
         FrameMemoryAttribute {
             is_temporary: false,
@@ -992,7 +1026,7 @@ fn to_absolute_branch_pc(ip: u32) -> DecoratedOperandAccessKind {
     DecoratedOperandAccessKind::AbsolutePc(InstructionPosition(ip))
 }
 
-fn to_frame(val: u8, ty: &BasicType) -> TypedRegister {
+fn to_register(val: u8, ty: &BasicType) -> TypedRegister {
     let frame_placed = FramePlacedType::new(FrameMemoryAddress(0), ty.clone());
     TypedRegister::new_frame_placed(val, frame_placed)
 }

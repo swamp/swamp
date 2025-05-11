@@ -4,7 +4,7 @@ use crate::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
     MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MAP_PTR_ALIGNMENT, MAP_PTR_SIZE,
     MemoryAlignment, MemoryOffset, MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT,
-    RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_SIZE,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, RegIndex, STRING_HEADER_SIZE,
     STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
     VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
 };
@@ -143,15 +143,17 @@ pub enum DecoratedOperandAccessKind {
     AbsolutePc(InstructionPosition),
     ImmediateU32(u32),
     ImmediateU16(u16),
-    MemorySize(MemorySize),
     ImmediateU8(u8),
     CountU16(u16),
+    MemorySize(MemorySize),
     HeapAddress(HeapMemoryAddress),
     WriteFrameMemoryAddress(FrameMemoryAddress),
     ReadFrameMemoryAddress(FrameMemoryAddress),
     WriteIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
     ReadIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
     MemoryOffset(MemoryOffset),
+    WriteBaseRegWithOffset(RegIndex, MemoryOffset),
+    ReadBaseRegWithOffset(RegIndex, MemoryOffset),
 }
 
 impl DecoratedOperandAccessKind {

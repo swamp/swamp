@@ -109,7 +109,7 @@ pub struct CallFrame {
     previous_stack_offset: usize, // Size of this frame
 }
 
-type Reg = u32;
+type RegContents = u32;
 
 pub struct Vm {
     // Memory
@@ -128,7 +128,7 @@ pub struct Vm {
 
     handlers: [HandlerType; 256],
 
-    pub registers: [Reg; 256], // Normal CPUs have around 31 general purpose registers
+    pub registers: [RegContents; 256], // Normal CPUs have around 31 general purpose registers
 
     // TODO: Error state
     pub flags: Flags,

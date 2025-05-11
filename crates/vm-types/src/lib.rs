@@ -19,6 +19,15 @@ pub struct BinaryInstruction {
     pub operands: [u8; 8], // Do not increase the size
 }
 
+#[derive(Clone, Debug)]
+pub struct RegIndex(pub u8);
+
+impl Display for RegIndex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "r{}", self.0)
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct MemoryAddress(pub u16);
 
@@ -464,6 +473,16 @@ impl Add<ProgramCounterDelta> for InstructionPosition {
 
     fn add(self, rhs: ProgramCounterDelta) -> Self::Output {
         Self(((self.0 as i32) + (rhs.0 as i32)) as u32)
+    }
+}
+
+impl Sub<Self> for InstructionPosition {
+    type Output = ProgramCounterDelta;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        assert!(self.0 >= rhs.0);
+
+        ProgramCounterDelta(((self.0 as i32) - (rhs.0 as i32)) as i16)
     }
 }
 

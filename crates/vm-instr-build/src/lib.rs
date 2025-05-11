@@ -164,7 +164,8 @@ impl InstructionBuilder<'_> {
     pub fn add_jmp_if_equal_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
         let position = self.position();
 
-        self.state.add_instruction(OpCode::BEq, &[0], node, comment);
+        self.state
+            .add_instruction(OpCode::BEq, &[0, 0], node, comment);
 
         PatchPosition(position)
     }
@@ -176,7 +177,8 @@ impl InstructionBuilder<'_> {
     ) -> PatchPosition {
         let position = self.position();
 
-        self.state.add_instruction(OpCode::BNe, &[0], node, comment);
+        self.state
+            .add_instruction(OpCode::BNe, &[0, 0], node, comment);
 
         PatchPosition(position)
     }
@@ -485,7 +487,8 @@ impl InstructionBuilder<'_> {
     pub fn add_jump_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
         let position = self.position();
 
-        self.state.add_instruction(OpCode::B, &[0], node, comment);
+        self.state
+            .add_instruction(OpCode::B, &[0, 0], node, comment);
 
         PatchPosition(position)
     }
@@ -702,50 +705,27 @@ impl InstructionBuilder<'_> {
         //const UNWRAP_JMP_SOME: u8 = OpCode::UnwrapJmpSome as u8;
 
         let instruction = &mut self.state.instructions[patch_position.0.0 as usize];
-        /* TODO: FIX
+        let delta = *target_position - patch_position.0;
+        let delta_bytes = delta.0.to_le_bytes();
 
         match instruction.opcode {
-            JMP_IF_NOT => {
-                instruction.operands[0] = target_position.0 as u16 - 1;
-            }
-            JMP_IF => {
-                instruction.operands[0] = target_position.0 as u16 - 1;
-            }
-            JMP => {
-                instruction.operands[0] = target_position.0 as u16 - 1;
+            JMP_IF_NOT | JMP_IF | JMP => {
+                instruction.operands[0] = delta_bytes[0];
+                instruction.operands[1] = delta_bytes[1];
             }
 
-            VEC_ITER_NEXT => {
-                instruction.operands[2] = target_position.0 as u16 - 1;
+            VEC_ITER_NEXT | MAP_ITER_NEXT | RANGE_ITER_NEXT => {
+                instruction.operands[2] = delta_bytes[0];
+                instruction.operands[3] = delta_bytes[1];
             }
 
-            MAP_ITER_NEXT => {
-                instruction.operands[2] = target_position.0 as u16 - 1;
+            VEC_ITER_NEXT_PAIR | MAP_ITER_NEXT_PAIR => {
+                instruction.operands[3] = delta_bytes[0];
+                instruction.operands[4] = delta_bytes[1];
             }
-
-            RANGE_ITER_NEXT => {
-                instruction.operands[2] = target_position.0 as u16 - 1;
-            }
-
-            VEC_ITER_NEXT_PAIR => {
-                instruction.operands[3] = target_position.0 as u16 - 1;
-            }
-
-            MAP_ITER_NEXT_PAIR => {
-                instruction.operands[3] = target_position.0 as u16 - 1;
-            }
-
-            UNWRAP_JMP_NONE => {
-                instruction.operands[2] = target_position.0 as u16 - 1;
-            }
-            UNWRAP_JMP_SOME => {
-                instruction.operands[2] = target_position.0 as u16 - 1;
-            }
-
 
             _ => panic!("Attempted to patch a non-jump instruction at position {patch_position:?}"),
         }
-         */
     }
 
     // It takes ownership of the patch position
