@@ -154,6 +154,7 @@ pub enum DecoratedOperandAccessKind {
     MemoryOffset(MemoryOffset),
     WriteBaseRegWithOffset(RegIndex, MemoryOffset),
     ReadBaseRegWithOffset(RegIndex, MemoryOffset),
+    CountU8(u8),
 }
 
 impl DecoratedOperandAccessKind {

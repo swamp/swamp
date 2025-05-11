@@ -104,7 +104,7 @@ pub fn code_gen_program(
         source_map_lookup,
     );
 
-    // TODO: Bring this back // code_gen.finalize();
+    code_gen.finalize();
 
     if options.show_disasm {
         disasm_whole_program(

@@ -235,6 +235,10 @@ pub fn disasm_color(
                 format!("{}", tinter::magenta(format!("{data:02X}"))),
                 format!("{}{}", "int:", *data as i8),
             ),
+            DecoratedOperandAccessKind::CountU8(data) => (
+                format!("{}", tinter::yellow(format!("{data:02X}",))),
+                format!("{}", "count"),
+            ),
             DecoratedOperandAccessKind::CountU16(data) => (
                 format!("{}", tinter::yellow(format!("{data:04X}",))),
                 format!("{}", "count"),
@@ -366,6 +370,7 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::ImmediateU16(data) => format!("{}", format!("{data:04X}",)),
             DecoratedOperandAccessKind::ImmediateU8(data) => format!("{}", format!("{data:02X}",)),
             DecoratedOperandAccessKind::CountU16(data) => format!("{}", format!("{data:04X}",)),
+            DecoratedOperandAccessKind::CountU8(data) => format!("{}", format!("{data:02X}",)),
             DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => {
                 format!("{}", format!("{data}",))
             }
@@ -448,6 +453,7 @@ pub fn disasm(
                     frame_ptr_offset,
                 )),
                 to_read_reg(operands[2], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::CountU8(operands[3]),
             ]
         }
 
@@ -489,6 +495,7 @@ pub fn disasm(
                 DecoratedOperandAccessKind::ReadFrameMemoryAddress(FrameMemoryAddress(
                     frame_pointer_offset,
                 )),
+                DecoratedOperandAccessKind::CountU8(operands[3]),
             ]
         }
 
@@ -984,7 +991,7 @@ pub fn disasm(
 }
 
 fn u8_pair_to_u16(p1: u8, p2: u8) -> u16 {
-    (p1 as u16) << 8 | (p2 as u16)
+    u16::from_le_bytes([p1, p2])
 }
 
 fn to_write_reg(
