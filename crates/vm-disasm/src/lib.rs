@@ -752,10 +752,13 @@ pub fn disasm(
             to_read_reg(operands[1], &u32_type(), frame_memory_info),
         ],
 
-        OpCode::LdPtrFromEffectiveAddress => &[
-            to_write_reg(operands[0], &pointer_type_again(), frame_memory_info),
-            to_read_reg(operands[1], &bytes_type(), frame_memory_info),
-        ],
+        OpCode::LdPtrFromEffectiveAddress => {
+            let data = u16::from_le_bytes([operands[1], operands[2]]);
+            &[
+                to_write_reg(operands[0], &pointer_type_again(), frame_memory_info),
+                DecoratedOperandAccessKind::ReadFrameMemoryAddress(FrameMemoryAddress(data)),
+            ]
+        }
 
         OpCode::Nop => &[],
 

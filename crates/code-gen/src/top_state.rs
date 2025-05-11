@@ -6,7 +6,7 @@ use crate::reg_pool::TempRegisterPool;
 use crate::state::{CodeGenState, GenOptions};
 use crate::{
     ConstantInfo, FunctionInData, FunctionIp, FunctionIpKind, FunctionIps, GenFunctionInfo,
-    SpilledRegister, SpilledRegisterRegion,
+    SpilledRegister,
 };
 use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
@@ -19,7 +19,7 @@ use swamp_types::Attributes;
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
     CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, TypedRegister, VariableRegister, VmType,
-    is_callee_save, unknown_type,
+    VmTypeOrigin, is_callee_save, unknown_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, InstructionPosition, InstructionPositionOffset, InstructionRange, Meta,
@@ -185,6 +185,7 @@ impl TopLevelGenState {
         instruction_builder: &mut InstructionBuilder,
         function_info: &FunctionInfo,
         temp_frame_allocator: &mut ScopeAllocator,
+        node: &Node,
     ) -> Vec<SpilledRegister> {
         instruction_builder.enter(
             function_info.frame_memory.size(),
@@ -203,6 +204,17 @@ impl TopLevelGenState {
                     frame_memory_region: frame_placed.region(),
                 };
                 saved_registers.push(spilled);
+            }
+        }
+
+        for variable_reg in &function_info.frame_memory.variable_registers {
+            if let VmTypeOrigin::Frame(frame_region) = variable_reg.register.ty.origin {
+                instruction_builder.add_lea(
+                    &variable_reg.register,
+                    frame_region.addr,
+                    node,
+                    "define frame placed register",
+                );
             }
         }
 
@@ -262,6 +274,7 @@ impl TopLevelGenState {
             &mut instruction_builder,
             &function_info,
             &mut temp_frame_allocator,
+            &in_data.function_name_node,
         );
 
         let temp_pool = TempRegisterPool::new(128, 32);
