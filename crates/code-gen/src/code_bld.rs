@@ -242,12 +242,13 @@ impl CodeBuilder<'_> {
                 offset,
                 ty,
             } => {
-                self.emit_ptr_reg_from_base_and_offset(
+                self.emit_load_from_memory(
                     target_reg,
                     base_ptr_reg,
                     *offset,
+                    ty,
                     node,
-                    comment,
+                    "load from location",
                 );
             }
         }
@@ -305,7 +306,7 @@ impl CodeBuilder<'_> {
             &base_ptr_reg,
             offset_temp_reg.register(),
             node,
-            "add base pointer reg",
+            "add base pointer to target reg",
         );
         self.temp_registers.free(offset_temp_reg);
     }
