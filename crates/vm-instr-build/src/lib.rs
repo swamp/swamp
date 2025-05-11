@@ -48,6 +48,28 @@ impl InstructionBuilderState {
         InstructionPosition(self.instructions.len() as u32)
     }
 
+    pub fn patch_enter(
+        &mut self,
+        patch_position: PatchPosition,
+        frame_memory_size: FrameMemorySize,
+    ) {
+        const ENTER: u8 = OpCode::Enter as u8;
+
+        let instruction = &mut self.instructions[patch_position.0.0 as usize];
+
+        match instruction.opcode {
+            ENTER => {
+                let bytes = frame_memory_size.0.to_le_bytes();
+
+                instruction.operands[0] = bytes[0];
+                instruction.operands[1] = bytes[1];
+            }
+            _ => {
+                panic!("Attempted to patch a non-enter instruction at position {patch_position:?}")
+            }
+        }
+    }
+
     /// # Panics
     ///
     pub fn patch_call(&mut self, patch_position: PatchPosition, ip: &InstructionPosition) {
@@ -150,15 +172,22 @@ impl InstructionBuilder<'_> {
     pub fn add_not_z(&mut self, node: &Node, comment: &str) {
         self.state.add_instruction(OpCode::NotZ, &[], node, comment);
     }
-    pub fn enter(&mut self, size: FrameMemorySize, node: &Node, comment: &str) {
-        let (lower, upper) = u16_to_u8_pair(size.0);
-        self.state
-            .add_instruction(OpCode::Enter, &[lower, upper], node, comment);
-    }
 
     #[must_use]
     pub fn position(&self) -> InstructionPosition {
         InstructionPosition(self.state.instructions.len() as u32)
+    }
+
+    pub fn add_enter_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
+        let patch_position = PatchPosition(self.position());
+        self.state
+            .add_instruction(OpCode::Enter, &[0, 0], node, comment);
+
+        patch_position
+    }
+
+    pub fn patch_enter(&mut self, size: FrameMemorySize, patch_position: PatchPosition) {
+        self.state.patch_enter(patch_position, size);
     }
 
     pub fn add_jmp_if_equal_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {

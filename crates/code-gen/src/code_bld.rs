@@ -30,10 +30,10 @@ use swamp_vm_types::types::{
     VmType, int_type, pointer_type, u8_type, u32_type, unit_type, unknown_type,
 };
 use swamp_vm_types::{
-    FrameMemoryRegion, HeapMemoryAddress, HeapMemoryOffset, HeapMemorySize, InstructionPosition,
-    MemoryAlignment, MemoryOffset, MemorySize, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
-    SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, SLICE_PTR_OFFSET, STRING_PTR_SIZE, StringHeader,
-    VEC_PTR_SIZE,
+    FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset, HeapMemorySize,
+    InstructionPosition, MemoryAlignment, MemoryOffset, MemorySize, REG_ON_FRAME_ALIGNMENT,
+    REG_ON_FRAME_SIZE, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, SLICE_PTR_OFFSET,
+    STRING_PTR_SIZE, StringHeader, VEC_PTR_SIZE,
 };
 use tracing::field::debug;
 use tracing::{error, info};
@@ -106,6 +106,15 @@ impl CodeBuilder<'_> {
                 &format!("emit_copy_register. primitive to primitive. {}", comment),
             );
         }
+    }
+
+    pub fn total_frame_size(&self) -> FrameMemorySize {
+        self.frame_allocator.addr().as_size()
+    }
+
+    pub fn patch_enter(&mut self, patch_position: PatchPosition) {
+        self.builder
+            .patch_enter(self.total_frame_size(), patch_position);
     }
 
     fn emit_load_primitive_from_absolute_memory_address(

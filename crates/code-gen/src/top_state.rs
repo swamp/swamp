@@ -186,12 +186,9 @@ impl TopLevelGenState {
         function_info: &FunctionInfo,
         temp_frame_allocator: &mut ScopeAllocator,
         node: &Node,
-    ) -> Vec<SpilledRegister> {
-        instruction_builder.enter(
-            function_info.frame_memory.size(),
-            &Node::default(),
-            "prologue",
-        );
+    ) -> (Vec<SpilledRegister>, PatchPosition) {
+        let enter_patch_position =
+            instruction_builder.add_enter_placeholder(&Node::default(), "prologue");
 
         let mut saved_registers = Vec::new();
 
@@ -218,7 +215,7 @@ impl TopLevelGenState {
             }
         }
 
-        saved_registers
+        (saved_registers, enter_patch_position)
     }
 
     fn function_epilogue(
@@ -270,7 +267,7 @@ impl TopLevelGenState {
         let mut temp_frame_allocator =
             ScopeAllocator::new(frame_and_variable_info.temp_allocator_region);
 
-        let spilled_registers = Self::function_prologue(
+        let (spilled_registers, enter_patch_position) = Self::function_prologue(
             &mut instruction_builder,
             &function_info,
             &mut temp_frame_allocator,
@@ -302,6 +299,8 @@ impl TopLevelGenState {
             &in_data.expression,
             &ctx,
         );
+
+        function_code_builder.patch_enter(enter_patch_position);
 
         Self::function_epilogue(
             &mut function_code_builder,
