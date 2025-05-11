@@ -1030,8 +1030,8 @@ impl Vm {
     }
 
     #[inline]
-    fn u8s_to_32(a: u8, b: u8, c: u8, d: u8) -> u32 {
-        (a as u32) << 24 | (b as u32) << 16 | (c as u32) << 8 | (d as u32)
+    const fn u8s_to_32(a: u8, b: u8, c: u8, d: u8) -> u32 {
+        u32::from_le_bytes([a, b, c, d])
     }
 
     pub fn get_const_ptr_from_reg(&self, reg: u8) -> *const u8 {

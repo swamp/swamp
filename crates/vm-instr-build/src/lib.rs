@@ -1049,20 +1049,12 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    const fn convert_to_lower_and_upper(data: u32) -> (u8, u8, u8, u8) {
-        let a = (data & 0xFF) as u8;
-        let b = (data >> 8) as u8;
-        let c = (data >> 16) as u8;
-        let d = (data >> 24) as u8;
-
-        (a, b, c, d)
+    fn convert_to_lower_and_upper(data: u32) -> (u8, u8, u8, u8) {
+        data.to_le_bytes().into()
     }
 
-    const fn u16_to_octets(data: u16) -> (u8, u8) {
-        let a = (data & 0xFF) as u8;
-        let b = (data >> 8) as u8;
-
-        (a, b)
+    fn u16_to_octets(data: u16) -> (u8, u8) {
+        data.to_le_bytes().into()
     }
 
     pub fn add_st32_using_ptr_with_offset(

@@ -458,22 +458,23 @@ pub fn disasm(
         }
 
         OpCode::Mov32FromImmediateValue => {
-            let data = ((operands[2] as u32) << 16) | operands[1] as u32;
+            let immediate_value =
+                u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
 
             &[
                 to_write_reg(operands[0], &int_type(), frame_memory_info),
-                DecoratedOperandAccessKind::ImmediateU32(data),
+                DecoratedOperandAccessKind::ImmediateU32(immediate_value),
             ]
         }
 
         OpCode::Ld32FromPointerWithOffset => {
-            let data = ((operands[1] as u16) << 8) | operands[2] as u16;
+            let offset = u16::from_le_bytes([operands[1], operands[2]]);
 
             &[
                 to_write_reg(operands[0], &int_type(), frame_memory_info),
                 DecoratedOperandAccessKind::ReadBaseRegWithOffset(
                     RegIndex(operands[3]),
-                    MemoryOffset(data),
+                    MemoryOffset(offset),
                 ),
             ]
         }
