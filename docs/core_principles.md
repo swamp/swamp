@@ -17,6 +17,27 @@ I dislike and want to avoid the following:
   garbage collection is just one root, it still takes time to do a deep clone of
   the root object.
 
+For optimal performance and to avoid garbage collection for core game data, the
+fundamental rule is: Persistent Game State must always be stored in designated
+containers as blittable types. This ensures that the authoritative state of the
+game is self-contained, efficiently managed, and ready for each new tick without
+any essential/useful data residing on the general heap.
+
+While an extreme ideal might ban all general-purpose heap collections (like Vec
+or Map) from Swamp for maximum theoretical control, I think we might have a more
+practical approach, at least short term. Swamp may still allow such collections,
+but their use is strictly confined to temporary operations during an
+update/tick. Any data from these temporary structures that needs to persist must
+be transferred (e.g., via memcpy for blittable data) into the elements of our
+the containers. Once this is done, all memory associated with these temporary
+collections can be entirely discarded, for instance, by resetting an arena heap
+allocator.
+
+This approach provides the best of both worlds: the robustness and performance
+of a GC-free, data-oriented architecture for persistent game state, alongside
+the flexibility for programmers to use familiar collection types for transient,
+scoped tasks.
+
 ## 1. The World Model
 
 ### Principle 1.1: One World to Rule Them All
