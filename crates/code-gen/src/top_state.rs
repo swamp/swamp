@@ -6,7 +6,7 @@ use crate::reg_pool::TempRegisterPool;
 use crate::state::{CodeGenState, GenOptions};
 use crate::{
     ConstantInfo, FunctionInData, FunctionIp, FunctionIpKind, FunctionIps, GenFunctionInfo,
-    SpilledRegister,
+    SpilledRegister, SpilledRegisterRegion,
 };
 use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
@@ -22,7 +22,9 @@ use swamp_vm_types::types::{
     VmTypeOrigin, is_callee_save, unknown_type,
 };
 use swamp_vm_types::{
-    BinaryInstruction, InstructionPosition, InstructionPositionOffset, InstructionRange, Meta,
+    BinaryInstruction, FrameMemoryRegion, FrameMemorySize, InstructionPosition,
+    InstructionPositionOffset, InstructionRange, MemoryOffset, MemorySize, Meta,
+    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
 use tracing::error;
 
@@ -186,23 +188,68 @@ impl TopLevelGenState {
         function_info: &FunctionInfo,
         temp_frame_allocator: &mut ScopeAllocator,
         node: &Node,
-    ) -> (Vec<SpilledRegister>, PatchPosition) {
+    ) -> (Option<SpilledRegisterRegion>, PatchPosition) {
         let enter_patch_position =
             instruction_builder.add_enter_placeholder(&Node::default(), "prologue");
 
         let mut saved_registers = Vec::new();
+        let maybe_first_reg_position_that_needs_to_be_spilled = function_info
+            .frame_memory
+            .variable_registers
+            .iter()
+            .position(|reg| is_callee_save(reg.register.index));
 
-        for variable_reg in &function_info.frame_memory.variable_registers {
-            if is_callee_save(variable_reg.register.index) {
-                let frame_placed =
-                    temp_frame_allocator.allocate_type(variable_reg.register.ty.underlying());
+        let maybe_spilled = maybe_first_reg_position_that_needs_to_be_spilled.map(|first_index| {
+            let variable_registers_that_needs_to_be_spilled: Vec<_> = function_info
+                .frame_memory
+                .variable_registers
+                .iter()
+                .skip(first_index)
+                .collect();
+
+            for variable_reg in &variable_registers_that_needs_to_be_spilled {
+                let frame_placed_addr =
+                    temp_frame_allocator.allocate(REG_ON_FRAME_SIZE, REG_ON_FRAME_ALIGNMENT);
+
+                let frame_region = FrameMemoryRegion {
+                    addr: frame_placed_addr,
+                    size: REG_ON_FRAME_SIZE,
+                };
+
                 let spilled = SpilledRegister {
                     register: variable_reg.register.clone(),
-                    frame_memory_region: frame_placed.region(),
+                    frame_memory_region: frame_region,
                 };
                 saved_registers.push(spilled);
             }
-        }
+
+            let registers_that_needs_to_be_spilled: Vec<_> =
+                variable_registers_that_needs_to_be_spilled
+                    .iter()
+                    .map(|var_reg| var_reg.register.clone())
+                    .collect();
+
+            let first = saved_registers.first().unwrap();
+            let first_address = first.frame_memory_region.addr;
+            let last_frame_location = saved_registers.last().unwrap();
+            let last_addr = last_frame_location.frame_memory_region.addr
+                + MemoryOffset(last_frame_location.frame_memory_region.size.0);
+            let total_frame_size_for_vars = MemorySize(last_addr.0 - first_address.0);
+            instruction_builder.add_st_regs_to_frame(
+                first_address,
+                &registers_that_needs_to_be_spilled[0],
+                variable_registers_that_needs_to_be_spilled.len() as u8,
+                node,
+                "save registers to stack (that will be later used in function)",
+            );
+            SpilledRegisterRegion {
+                registers: registers_that_needs_to_be_spilled,
+                frame_memory_region: FrameMemoryRegion {
+                    addr: first_address,
+                    size: total_frame_size_for_vars,
+                },
+            }
+        });
 
         for variable_reg in &function_info.frame_memory.variable_registers {
             if let VmTypeOrigin::Frame(frame_region) = variable_reg.register.ty.origin {
@@ -215,19 +262,23 @@ impl TopLevelGenState {
             }
         }
 
-        (saved_registers, enter_patch_position)
+        (maybe_spilled, enter_patch_position)
     }
 
     fn function_epilogue(
         instruction_builder: &mut CodeBuilder,
-        spilled_registers: &[SpilledRegister],
+        maybe_spilled_registers: Option<SpilledRegisterRegion>,
         node: &Node,
     ) {
-        instruction_builder.emit_restore_spilled_registers(
-            spilled_registers,
-            node,
-            "function epilogue",
-        );
+        if let Some(spilled_register_region) = maybe_spilled_registers {
+            instruction_builder.add_ld_regs_from_frame(
+                &spilled_register_region.registers[0],
+                spilled_register_region.frame_memory_region.addr,
+                spilled_register_region.registers.len() as u8,
+                node,
+                &format!("restoring spilled arguments in epilogue"),
+            );
+        }
     }
 
     pub fn emit_function_preamble(
@@ -267,7 +318,7 @@ impl TopLevelGenState {
         let mut temp_frame_allocator =
             ScopeAllocator::new(frame_and_variable_info.temp_allocator_region);
 
-        let (spilled_registers, enter_patch_position) = Self::function_prologue(
+        let (maybe_spilled_registers, enter_patch_position) = Self::function_prologue(
             &mut instruction_builder,
             &function_info,
             &mut temp_frame_allocator,
@@ -304,7 +355,7 @@ impl TopLevelGenState {
 
         Self::function_epilogue(
             &mut function_code_builder,
-            &spilled_registers,
+            maybe_spilled_registers,
             &in_data.expression.node,
         );
 

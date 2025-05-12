@@ -66,7 +66,6 @@ pub struct SpilledRegister {
 pub struct SpilledRegisterRegion {
     pub registers: Vec<TypedRegister>,
     pub frame_memory_region: FrameMemoryRegion,
-    pub count: u8,
 }
 
 impl Transformer {

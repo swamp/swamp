@@ -1124,11 +1124,18 @@ pub struct VariableRegister {
 }
 
 #[derive(Clone, Debug)]
+pub struct VariableRegisterRange {
+    pub start: u8,
+    pub count: u8,
+}
+
+#[derive(Clone, Debug)]
 pub struct FrameMemoryInfo {
     pub infos: Vec<FrameAddressInfo>,
     pub total_frame_size: FrameMemorySize,
     pub variable_frame_size: FrameMemorySize,
     pub variable_registers: Vec<VariableRegister>,
+    //    pub variable_register_range: VariableRegisterRange,
     pub frame_size_for_variables_except_temp: FrameMemorySize,
 }
 

@@ -30,10 +30,10 @@ use swamp_vm_types::types::{
     VmType, int_type, pointer_type, u8_type, u32_type, unit_type, unknown_type,
 };
 use swamp_vm_types::{
-    FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset, HeapMemorySize,
-    InstructionPosition, MemoryAlignment, MemoryOffset, MemorySize, REG_ON_FRAME_ALIGNMENT,
-    REG_ON_FRAME_SIZE, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, SLICE_PTR_OFFSET,
-    STRING_PTR_SIZE, StringHeader, VEC_PTR_SIZE,
+    FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
+    HeapMemorySize, InstructionPosition, MemoryAlignment, MemoryOffset, MemorySize,
+    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE,
+    SLICE_PTR_OFFSET, STRING_PTR_SIZE, StringHeader, VEC_PTR_SIZE,
 };
 use tracing::field::debug;
 use tracing::{error, info};
@@ -47,6 +47,8 @@ pub(crate) struct CodeBuilder<'a> {
     frame_allocator: ScopeAllocator,
     pub source_map_lookup: &'a SourceMapWrapper<'a>,
 }
+
+impl<'a> CodeBuilder<'a> {}
 
 impl<'a> CodeBuilder<'a> {
     pub fn new(
@@ -106,6 +108,18 @@ impl CodeBuilder<'_> {
                 &format!("emit_copy_register. primitive to primitive. {}", comment),
             );
         }
+    }
+
+    pub(crate) fn add_ld_regs_from_frame(
+        &mut self,
+        start_reg: &TypedRegister,
+        start_address: FrameMemoryAddress,
+        count: u8,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.builder
+            .add_ld_regs_from_frame(start_reg, start_address, count, node, comment);
     }
 
     pub fn total_frame_size(&self) -> FrameMemorySize {
@@ -499,14 +513,14 @@ impl CodeBuilder<'_> {
             },
             UnaryOperatorKind::Negate => match &unary_operator.left.ty {
                 Type::Int => {
-                    let left_source = self.emit_expression_location(&unary_operator.left, ctx);
+                    let left_source = self.emit_rvalue(&unary_operator.left, ctx);
                     self.builder
                         .add_neg_i32(target_reg, &left_source, node, "negate i32");
                     GeneratedExpressionResult::default()
                 }
 
                 Type::Float => {
-                    let left_source = self.emit_expression_location(&unary_operator.left, ctx);
+                    let left_source = self.emit_rvalue(&unary_operator.left, ctx);
                     self.builder
                         .add_neg_f32(target_reg, &left_source, node, "negate f32");
                     GeneratedExpressionResult::default()
@@ -926,7 +940,7 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         match &condition.kind {
             ExpressionKind::CoerceOptionToBool(option_union_expr) => {
-                let region = self.emit_expression_location(option_union_expr, ctx);
+                let region = self.emit_rvalue(option_union_expr, ctx);
                 // We can shortcut this, since we know that the tag location is basically a bool value
                 self.builder.add_tst_u8(
                     &region,
@@ -940,7 +954,7 @@ impl CodeBuilder<'_> {
             _ => {}
         }
 
-        let (reg, mut gen_result) = self.emit_expression_location_leave_z_flag(condition, ctx);
+        let (reg, mut gen_result) = self.emit_rvalue_leave_z_flag_if_possible(condition, ctx);
 
         if gen_result.kind == GeneratedExpressionResultKind::ZFlagUnmodified {
             self.builder.add_tst_u8(
@@ -1249,7 +1263,7 @@ impl CodeBuilder<'_> {
                 offset,
                 ..
             } => {
-                let rhs_reg = self.emit_expression_location(rhs, &ctx);
+                let rhs_reg = self.emit_rvalue(rhs, &ctx);
                 self.store_register_contents_to_memory(
                     node,
                     &base_ptr_reg,
@@ -1612,7 +1626,19 @@ impl CodeBuilder<'_> {
             kind: BasicTypeKind::Tuple(gen_tuple_type.clone()),
         };
 
-        // TODO: Bring this back. //assert_eq!(gen_tuple_placed.total_size, ctx.final_target_size());
+        let frame_placed_tuple = self.frame_allocator.allocate_type(gen_tuple_placed);
+        self.builder.add_lea(
+            target_reg,
+            frame_placed_tuple.addr(),
+            node,
+            &format!(
+                "store the pointer to the frame allocated tuple in reg size:{} ty:{}",
+                frame_placed_tuple.size(),
+                frame_placed_tuple.ty()
+            ),
+        );
+
+        // TODO: Bring this back. //assert_eq!(gen_tuple_placed.total_size, target_reg.size());
         // TODO: Bring this back. //assert_eq!(gen_tuple_type.fields.len(), expressions.len());
 
         for (offset_item, expr) in gen_tuple_type.fields.iter().zip(expressions) {
@@ -1620,15 +1646,16 @@ impl CodeBuilder<'_> {
                 VmType::new_unknown_placement(offset_item.ty.clone()),
                 "emit_materialize for tuple element",
             );
-            let placed_target = temp_materialize_reg.register();
+            //let materialized_item_in_tuple_reg = temp_materialize_reg.register();
 
-            self.emit_expression_materialize(placed_target, expr, ctx);
+            let rvalue_reg = self.emit_rvalue(expr, ctx);
+
             self.store_register_contents_to_memory(
                 node,
                 target_reg,
                 offset_item.offset,
-                placed_target,
-                "emit tuple",
+                &rvalue_reg,
+                &format!("emit tuple item {}", offset_item.name),
             );
             self.temp_registers.free(temp_materialize_reg);
         }
@@ -2047,7 +2074,7 @@ impl CodeBuilder<'_> {
     ) -> TypedRegister {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.emit_expression_location(found_expression, ctx)
+                self.emit_rvalue(found_expression, ctx)
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
                 let x = self.emit_lvalue_chain(location_expression, ctx);
@@ -2078,7 +2105,7 @@ impl CodeBuilder<'_> {
             "compound_assignment",
         );
 
-        let source_info = self.emit_expression_location(source, ctx);
+        let source_info = self.emit_rvalue(source, ctx);
 
         let type_to_consider = Self::referenced_or_not_type(&source.ty);
 
@@ -2630,7 +2657,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         if let MutRefOrImmutableExpression::Expression(found_expr) = &arguments[0] {
-            let memory = self.emit_expression_location(found_expr, ctx);
+            let memory = self.emit_rvalue(found_expr, ctx);
             self.builder
                 .add_vec_from_slice(target_reg, &memory, node, "create vec");
         } else {
@@ -2796,8 +2823,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!("must be expression");
                 };
-                let old_variable_region =
-                    self.emit_expression_location(variable_access_expression, ctx);
+                let old_variable_region = self.emit_rvalue(variable_access_expression, ctx);
 
                 let tagged_union_binding = old_variable_region.ty.underlying();
                 let tagged_union = tagged_union_binding.optional_info().unwrap();
@@ -2844,8 +2870,7 @@ impl CodeBuilder<'_> {
         context: &Context,
     ) -> GeneratedExpressionResult {
         let node = &source_tuple_expression.node;
-        let tuple_base_pointer_reg =
-            self.emit_expression_location(source_tuple_expression, context);
+        let tuple_base_pointer_reg = self.emit_rvalue(source_tuple_expression, context);
 
         let tuple_type = layout_tuple_items(tuple_type);
         // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
@@ -2928,7 +2953,7 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         //info!(?target_reg.ty, "it wants to coerce this to bool");
 
-        let base_pointer_of_tagged_union_reg = self.emit_expression_location(expr, ctx);
+        let base_pointer_of_tagged_union_reg = self.emit_rvalue(expr, ctx);
 
         /* TODO: Bring this back // let (tag_offset, tag_size, ..) = base_pointer_of_tagged_union_reg
             .underlying()
@@ -2952,7 +2977,7 @@ impl CodeBuilder<'_> {
     fn emit_start_of_chain(&mut self, start: &StartOfChain, ctx: &Context) -> DetailedLocation {
         match &start.kind {
             StartOfChainKind::Expression(expr) => DetailedLocation::Register {
-                reg: self.emit_expression_location(expr, ctx),
+                reg: self.emit_rvalue(expr, ctx),
             },
             StartOfChainKind::Variable(variable) => {
                 let variable_reg = self.get_variable_register(variable);
@@ -3220,7 +3245,7 @@ impl CodeBuilder<'_> {
             );
 
         // 3. Inline the lambda code for the current element(s).
-        let lambda_result = self.emit_expression_location(lambda_expr, ctx);
+        let lambda_result = self.emit_rvalue(lambda_expr, ctx);
 
         // 4. If the transformer supports early exit, set the Z flag based on the lambda result.
         let transformer_z_flag_state =
@@ -3585,7 +3610,7 @@ impl CodeBuilder<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let inner = self.emit_expression_location(expr, ctx);
+        let inner = self.emit_rvalue(expr, ctx);
 
         if !inner.ty().is_mutable_reference() {
             self.builder.add_lea(
@@ -3628,8 +3653,12 @@ impl CodeBuilder<'_> {
     /// # Panics
     ///
     #[allow(clippy::single_match_else)]
-    pub fn emit_expression_location(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
-        self.emit_expression_location_internal(expr, ctx)
+    pub fn emit_rvalue(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
+        let (target_region, z_flag_state) = self.emit_rvalue_leave_z_flag_if_possible(expr, ctx);
+
+        self.materialize_z_flag_to_bool_if_needed(&target_region, z_flag_state, &expr.node);
+
+        target_region
     }
 
     pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
@@ -3643,7 +3672,7 @@ impl CodeBuilder<'_> {
         temp_reg
     }
 
-    pub fn emit_expression_location_leave_z_flag(
+    pub fn emit_rvalue_leave_z_flag_if_possible(
         &mut self,
         expr: &Expression,
         ctx: &Context,
@@ -3655,15 +3684,7 @@ impl CodeBuilder<'_> {
                     .get(&var_ref.unique_id_within_function)
                     .unwrap();
 
-                self.builder
-                    .add_tst_u8(frame_address, &expr.node, "tst8 variable");
-
-                return (
-                    frame_address.clone(),
-                    GeneratedExpressionResult {
-                        kind: GeneratedExpressionResultKind::ZFlagIsTrue,
-                    },
-                );
+                return (frame_address.clone(), GeneratedExpressionResult::default());
             }
 
             _ => {}
@@ -3676,19 +3697,5 @@ impl CodeBuilder<'_> {
         self.temp_registers.free(temp_reg);
 
         (hack, z_flag_state)
-    }
-
-    /// # Panics
-    ///
-    pub fn emit_expression_location_internal(
-        &mut self,
-        expr: &Expression,
-        ctx: &Context,
-    ) -> TypedRegister {
-        let (target_region, z_flag_state) = self.emit_expression_location_leave_z_flag(expr, ctx);
-
-        self.materialize_z_flag_to_bool_if_needed(&target_region, z_flag_state, &expr.node);
-
-        target_region
     }
 }
