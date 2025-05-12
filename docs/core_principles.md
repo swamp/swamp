@@ -347,6 +347,13 @@ the container's name.
 1. Container with Inline Element Structure Definition:
 
 ```rust
+
+struct RootWorld {
+  monsters: Sparse<Monster, 512>,
+  active_projectiles: Sparse<ProjectileData, 2048>,
+  time: Int,
+}
+
 // Declares a container named 'Monster'.
 // 'Monster' also becomes the distinct handle type for its elements.
 // Capacity is 512 elements.
@@ -374,7 +381,7 @@ struct ProjectileData {
 // Declares a container 'ActiveProjectile' using 'ProjectileData' for its
 // element structure.
 // 'ActiveProjectile' becomes the handle type for this container. Capacity 2048.
-container ActiveProjectile: ProjectileData[2048]
+
 ```
 
 8.3 Using Handle Types
