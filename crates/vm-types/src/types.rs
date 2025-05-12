@@ -9,7 +9,7 @@ use crate::{
     VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
 };
 use seq_fmt::comma;
-use std::fmt::{Display, Formatter, Write};
+use std::fmt::{Debug, Display, Formatter, Write};
 use std::ops::Add;
 use tracing::error;
 use yansi::Paint;
@@ -637,7 +637,7 @@ pub const fn is_callee_save(reg_index: u8) -> bool {
     reg_index >= 7
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct TypedRegister {
     pub index: u8,
     pub ty: VmType,
@@ -663,6 +663,12 @@ impl TypedRegister {
 impl TypedRegister {
     pub fn final_type(&self) -> BasicType {
         self.ty.underlying()
+    }
+}
+
+impl Debug for TypedRegister {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "r{} ({} - {})", self.index, self.ty, self.comment)
     }
 }
 

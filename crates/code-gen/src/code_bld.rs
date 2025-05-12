@@ -658,8 +658,13 @@ impl CodeBuilder<'_> {
                 );
             }
             BinaryOperatorKind::Subtract => {
-                self.builder
-                    .add_sub_u32(target_reg, left_source, right_source, node, "i32 sub")
+                self.builder.add_sub_u32(
+                    target_reg,
+                    left_source,
+                    right_source,
+                    node,
+                    &format!("i32 sub {target_reg:?} = {left_source:?} - {right_source:?}"),
+                );
             }
             BinaryOperatorKind::Multiply => {
                 self.builder
@@ -1063,7 +1068,7 @@ impl CodeBuilder<'_> {
                     target_reg,
                     &reg,
                     &argument.node,
-                    &format!("copy reg that has pointer {comment}"),
+                    &format!("copy reg that has pointer {target_reg:?} <- {reg:?} {comment}"),
                 );
             }
             DetailedLocation::Memory {
@@ -1328,7 +1333,7 @@ impl CodeBuilder<'_> {
                     &return_reg,
                     return_param_reg,
                     node,
-                    "copy in the return pointer into R0",
+                    &format!("copy in the return pointer into R0 <- {return_param_reg:?}"),
                 );
             } else {
                 all_mutable_arguments_including_hidden.push(return_param_reg);
@@ -1353,7 +1358,7 @@ impl CodeBuilder<'_> {
                     &argument_register,
                     1,
                     node,
-                    "spill register to stack memory",
+                    &format!("spill register to stack memory {argument_register:?}"),
                 );
                 spilled_arguments.push(SpilledRegister {
                     register: argument_register.clone(),
@@ -1627,6 +1632,13 @@ impl CodeBuilder<'_> {
         };
 
         let frame_placed_tuple = self.frame_allocator.allocate_type(gen_tuple_placed);
+
+        self.builder.add_frame_memory_clear(
+            frame_placed_tuple.region(),
+            node,
+            "clear memory for tuple",
+        );
+
         self.builder.add_lea(
             target_reg,
             frame_placed_tuple.addr(),
@@ -2257,17 +2269,27 @@ impl CodeBuilder<'_> {
             gen_source_struct_type.fields.len()
         );
 
-        // reserve space for it on the frame (stack)
-        let allocated_struct_ptr_base_register =
-            self.allocate_frame_space_and_assign_register(&BasicType {
-                kind: BasicTypeKind::Struct(gen_source_struct_type.clone()),
-                total_size: gen_source_struct_type.total_size,
-                max_alignment: gen_source_struct_type.max_alignment,
-            });
+        let basic_type_for_struct = BasicType {
+            kind: BasicTypeKind::Struct(gen_source_struct_type.clone()),
+            total_size: gen_source_struct_type.total_size,
+            max_alignment: gen_source_struct_type.max_alignment,
+        };
 
-        let frame_placed = allocated_struct_ptr_base_register.frame_placed();
-        self.builder
-            .add_frame_memory_clear(frame_placed.region(), node, "clear memory for now");
+        // reserve space for it on the frame (stack)
+        let frame_placed_struct_literal = self.frame_allocator.allocate_type(basic_type_for_struct);
+
+        self.builder.add_frame_memory_clear(
+            frame_placed_struct_literal.region(),
+            node,
+            "clear memory for struct literal",
+        );
+
+        self.builder.add_lea(
+            target_reg,
+            frame_placed_struct_literal.addr(),
+            node,
+            "put pointer to struct literal in target reg",
+        );
 
         let struct_type = BasicType {
             total_size: gen_source_struct_type.total_size,
@@ -2275,31 +2297,33 @@ impl CodeBuilder<'_> {
             kind: BasicTypeKind::Struct(gen_source_struct_type.clone()),
         };
 
-        for (_offset_item, (field_index, _node, expression)) in gen_source_struct_type
+        for (offset_item, (field_index, _node, expression)) in gen_source_struct_type
             .fields
             .iter()
             .zip(source_order_expressions)
         {
             let real_offset_item = struct_type.get_field_offset(*field_index).unwrap();
+            /*
             let temp_register_to_materialize_to = self.temp_registers.allocate(
                 VmType::new_unknown_placement(real_offset_item.ty.clone()),
                 &format!("struct literal {field_index}"),
             );
-            self.emit_expression_materialize(
-                temp_register_to_materialize_to.register(),
-                expression,
-                ctx,
-            );
+
+             */
+            let field_rvalue = self.emit_rvalue(expression, ctx);
 
             self.store_register_contents_to_memory(
                 node,
-                &allocated_struct_ptr_base_register,
+                target_reg,
                 real_offset_item.offset,
-                temp_register_to_materialize_to.register(),
-                "fill in struct field",
+                &field_rvalue,
+                &format!(
+                    "fill in struct field {} ({})",
+                    offset_item.name, field_index
+                ),
             );
 
-            self.temp_registers.free(temp_register_to_materialize_to);
+            //self.temp_registers.free(temp_register_to_materialize_to);
         }
 
         GeneratedExpressionResult::default()
