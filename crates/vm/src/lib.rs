@@ -986,7 +986,7 @@ impl Vm {
         &mut self,
         function_id_lower: u8,
         function_id_upper: u8,
-        bytes_to_copy_from_frame_ptr: u8,
+        register_count: u8,
     ) {
         let heap = self.memory();
 
@@ -994,7 +994,8 @@ impl Vm {
             heap.memory,
             heap.memory_size,
             heap.stack_offset,
-            bytes_to_copy_from_frame_ptr as usize,
+            self.registers.as_ptr(),
+            register_count as usize + 1,
         );
 
         let function_id = u8s_to_u16!(function_id_lower, function_id_upper);
@@ -1002,7 +1003,7 @@ impl Vm {
         if let Some(callback) = self.host_functions.get_mut(&function_id) {
             callback(host_args);
         } else {
-            panic!("problem");
+            panic!("could not find host function: {function_id}");
         }
     }
 

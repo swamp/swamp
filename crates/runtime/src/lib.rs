@@ -1,5 +1,4 @@
 mod err_wrt;
-mod print;
 mod trace;
 
 use source_map_cache::{SourceMap, SourceMapWrapper};

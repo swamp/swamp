@@ -706,7 +706,7 @@ impl InstructionBuilder<'_> {
         let ip_bytes = Self::u16_to_octets(host_function_id);
         self.state.add_instruction(
             OpCode::HostCall,
-            &[ip_bytes.0, ip_bytes.0, arguments_count],
+            &[ip_bytes.0, ip_bytes.1, arguments_count],
             node,
             comment,
         );

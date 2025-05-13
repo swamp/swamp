@@ -1,5 +1,9 @@
 use std::path::PathBuf;
 use swamp_runtime::RunConstantsOptions;
+use swamp_std::print::register_print;
+
+#[derive(Debug, Default, Clone, Copy)]
+struct TestContext;
 
 #[must_use]
 pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
@@ -23,9 +27,13 @@ pub fn very_basic() {
         &code_gen_result.instructions,
         &code_gen_result.prepared_constant_memory,
     );
+
+    register_print::<TestContext>(&mut vm, &code_gen_result.program.modules, TestContext);
+
     let run_first_options = RunConstantsOptions {
         stderr_adapter: None,
     };
+
     swamp_runtime::run_first_time(
         &mut vm,
         code_gen_result.constants_in_order,
@@ -38,15 +46,15 @@ pub fn very_basic() {
         .get(crate_main_path)
         .unwrap();
 
-    let add_fn = main_module
-        .symbol_table
-        .get_internal_function("add")
-        .unwrap();
-
-    let function_to_run = code_gen_result
-        .functions
-        .get(&add_fn.program_unique_id)
-        .unwrap();
-
-    swamp_runtime::run_function(&mut vm, function_to_run);
+    for internal_fn in main_module.symbol_table.internal_functions() {
+        let function_to_run = code_gen_result
+            .functions
+            .get(&internal_fn.program_unique_id)
+            .unwrap();
+        eprintln!(
+            "running '{}'",
+            function_to_run.internal_function_definition.assigned_name
+        );
+        swamp_runtime::run_function(&mut vm, function_to_run);
+    }
 }
