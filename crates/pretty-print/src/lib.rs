@@ -376,7 +376,6 @@ impl SourceMapDisplay<'_> {
         expr: &Expression,
         tabs: usize,
     ) -> std::fmt::Result {
-        info!(?expr.kind, "show_expression");
         match &expr.kind {
             ExpressionKind::ConstantAccess(a) => {
                 write!(f, "{}", a.assigned_name.magenta())

@@ -41,6 +41,7 @@ impl CodeBuilder<'_> {
         }
     }
 
+    /*
     pub(crate) fn emit_argument(
         &mut self,
         target_reg: &TypedRegister,
@@ -57,6 +58,8 @@ impl CodeBuilder<'_> {
             }
         }
     }
+
+     */
 
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_lvalue_chain(

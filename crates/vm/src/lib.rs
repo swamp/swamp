@@ -571,64 +571,65 @@ impl Vm {
     // Fixed Point special methods
     #[inline]
     fn execute_mul_f32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        let lhs = Fp::from(get_reg!(self, lhs_reg) as i16);
-        let rhs = Fp::from(get_reg!(self, rhs_reg) as i16);
+        let lhs = Fp::from_raw(get_reg!(self, lhs_reg) as i32);
+        let rhs = Fp::from_raw(get_reg!(self, rhs_reg) as i32);
+        eprintln!("MUL: {lhs} {rhs}");
         set_reg!(self, dst_reg, (lhs * rhs).inner());
     }
 
     #[inline]
     fn execute_div_f32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
-        let lhs = Fp::from(get_reg!(self, lhs_reg) as i16);
-        let rhs = Fp::from(get_reg!(self, rhs_reg) as i16);
+        let lhs = Fp::from_raw(get_reg!(self, lhs_reg) as i32);
+        let rhs = Fp::from_raw(get_reg!(self, rhs_reg) as i32);
 
         set_reg!(self, dst_reg, (lhs / rhs).inner());
     }
 
     #[inline]
     fn execute_f32_round(&mut self, dst_reg: u8, val_reg: u8) {
-        let val = Fp::from(get_reg!(self, val_reg) as i16);
+        let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
         set_reg!(self, dst_reg, val.round().inner());
     }
 
     #[inline]
     fn execute_f32_floor(&mut self, dst_reg: u8, val_reg: u8) {
-        let val = Fp::from(get_reg!(self, val_reg) as i16);
+        let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
         set_reg!(self, dst_reg, val.floor().inner());
     }
 
     #[inline]
     fn execute_f32_sqrt(&mut self, dst_reg: u8, val_reg: u8) {
-        let val = Fp::from(get_reg!(self, val_reg) as i16);
+        let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
         set_reg!(self, dst_reg, val.sqrt().inner());
     }
 
     #[inline]
     fn execute_f32_sin(&mut self, dst_reg: u8, val_reg: u8) {
-        let val = Fp::from(get_reg!(self, val_reg) as i16);
+        let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
         set_reg!(self, dst_reg, val.sin().inner());
     }
 
     #[inline]
     fn execute_f32_asin(&mut self, dst_reg: u8, val_reg: u8) {
-        let val = Fp::from(get_reg!(self, val_reg) as i16);
+        let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
         set_reg!(self, dst_reg, val.asin().inner());
     }
 
     #[inline]
     fn execute_f32_cos(&mut self, dst_reg: u8, val_reg: u8) {
-        let val = Fp::from(get_reg!(self, val_reg) as i16);
+        let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
         set_reg!(self, dst_reg, val.cos().inner());
     }
 
     #[inline]
     fn execute_f32_acos(&mut self, dst_reg: u8, val_reg: u8) {
-        let val = Fp::from(get_reg!(self, val_reg) as i16);
+        let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
         set_reg!(self, dst_reg, val.acos().inner());
     }
@@ -644,14 +645,14 @@ impl Vm {
 
     #[inline]
     fn execute_f32_to_string(&mut self, dst_reg: u8, val_reg: u8) {
-        let val = Fp::from(get_reg!(self, val_reg) as i16);
+        let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
         set_reg!(self, dst_reg, self.create_string(&val.to_string()));
     }
 
     #[inline]
     fn execute_f32_sign(&mut self, dst_reg: u8, val_reg: u8) {
-        let val = Fp::from(get_reg!(self, val_reg) as i16);
+        let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
         // TODO: signum() is/was incorrect in Fixed32 crate
         set_reg!(
             self,
@@ -669,21 +670,8 @@ impl Vm {
 
     #[inline]
     fn execute_neg_i32(&mut self, dst_reg: u8, val_reg: u8) {
-        let val = Fp::from(get_reg!(self, val_reg) as i16);
-
-        let result_option = val.inner().checked_neg();
-
-        match result_option {
-            Some(result) => {
-                set_reg!(self, dst_reg, result);
-            }
-            None => {
-                panic!(
-                    "VM Runtime Error: Signed 32-bit integer overflow during NEG_I32 (R{} = R{})",
-                    dst_reg, val_reg,
-                );
-            }
-        }
+        let val = get_reg!(self, val_reg) as i32;
+        set_reg!(self, dst_reg, -val);
     }
 
     #[inline]

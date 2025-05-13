@@ -5,7 +5,7 @@ use std::{print}
 fn add() {
 		print("Hello, world!")
 		a = 10 + 42
-		print('a:{a}')
+		print('a:{a}') // string interpolation works in new runtime!
     assert(a == 52, "add doesn't work")
 }
 
@@ -15,15 +15,14 @@ fn div() {
 }
 
 
-/*
 #[test]
 fn float_mul() {
-    assert(1.5 * 8.0 == 12.0, "float mul problem")
+		r = 1.5 * 8.0
+		print('r:{r}') // string interpolation works in new runtime!
+    assert(r == 12.0, "float mul problem")
 }
 
 #[test]
 fn float_div() {
     assert(-42.0 / 4.0 == -10.5, "float div doesn't work")
 }
-
-*/

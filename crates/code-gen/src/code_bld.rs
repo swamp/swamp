@@ -1407,12 +1407,6 @@ impl CodeBuilder<'_> {
                 };
                 let argument_expr_or_location = &arguments[argument_vector_index];
                 let debug_pos = self.builder.position();
-                self.emit_argument(
-                    &argument_register,
-                    argument_expr_or_location,
-                    &argument_ctx,
-                    "arg",
-                );
 
                 match argument_expr_or_location {
                     MutRefOrImmutableExpression::Location(lvalue) => {
