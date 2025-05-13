@@ -1,0 +1,22 @@
+enum Color {
+  Red,
+  Green,
+  Blue,
+}
+
+impl Color {
+  fn to_string(self) -> String {
+    match self {
+      Red => "Red",
+      Green => "Green",
+      Blue => "Blue",
+    }
+  }
+}
+
+#[test]
+fn literal_enum() {
+  a = Color::Red
+  //print('a:{a}')
+  //assert(a == Color::Red, 'enum value is wrong')
+}

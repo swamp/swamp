@@ -20,7 +20,7 @@ pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
 
 #[test_log::test]
 pub fn very_basic() {
-    let crate_main_path = &["crate".to_string(), "arithmetic".to_string()];
+    let crate_main_path = &["crate".to_string(), "lib".to_string()];
     let test_dir = get_fixture_dir(&["basic"]);
     let code_gen_result = swamp_runtime::compile_and_run(&test_dir, crate_main_path);
     let mut vm = swamp_runtime::create_vm_with_standard_settings(
@@ -40,21 +40,25 @@ pub fn very_basic() {
         run_first_options,
     );
 
-    let main_module = code_gen_result
-        .program
-        .modules
-        .get(crate_main_path)
-        .unwrap();
-
-    for internal_fn in main_module.symbol_table.internal_functions() {
-        let function_to_run = code_gen_result
-            .functions
-            .get(&internal_fn.program_unique_id)
-            .unwrap();
-        eprintln!(
-            "running '{}'",
-            function_to_run.internal_function_definition.assigned_name
-        );
-        swamp_runtime::run_function(&mut vm, function_to_run);
+    for (module_name, module) in code_gen_result.program.modules.modules() {
+        let mut has_shown_mod_name = false;
+        for internal_fn in module.symbol_table.internal_functions() {
+            if !internal_fn.attributes.has_attribute("test") {
+                continue;
+            }
+            if !has_shown_mod_name {
+                eprintln!("switching to module {module_name:?}");
+                has_shown_mod_name = true;
+            }
+            let function_to_run = code_gen_result
+                .functions
+                .get(&internal_fn.program_unique_id)
+                .unwrap();
+            eprintln!(
+                "running test '{}'",
+                function_to_run.internal_function_definition.assigned_name
+            );
+            swamp_runtime::run_function(&mut vm, function_to_run);
+        }
     }
 }

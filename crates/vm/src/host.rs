@@ -17,7 +17,7 @@ pub struct HostArgs {
 
 impl HostArgs {
     #[must_use]
-    pub fn new(
+    pub unsafe fn new(
         all_memory: *const u8,
         all_memory_len: usize,
         stack_offset: usize,

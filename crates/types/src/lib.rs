@@ -1056,12 +1056,20 @@ pub fn all_types_are_variables(types: &[Type]) -> bool {
 #[derive(Debug, Clone, Default)]
 pub struct Attributes(pub Vec<Attribute>);
 
+impl Attributes {}
+
 impl Attributes {
+    #[must_use]
     pub fn get_attributes(&self, name: &str) -> Vec<&Attribute> {
         self.0
             .iter()
             .filter(|attr| attr.path.name == name)
             .collect()
+    }
+
+    #[must_use]
+    pub fn has_attribute(&self, name: &str) -> bool {
+        self.0.iter().any(|attr| attr.path.name == name)
     }
 }
 

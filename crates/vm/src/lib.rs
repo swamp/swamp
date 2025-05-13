@@ -1119,20 +1119,22 @@ impl Vm {
     ) {
         let heap = self.memory();
 
-        let host_args = HostArgs::new(
-            heap.memory,
-            heap.memory_size,
-            heap.stack_offset,
-            self.registers.as_ptr(),
-            register_count as usize + 1,
-        );
-
         let function_id = u8s_to_u16!(function_id_lower, function_id_upper);
 
-        if let Some(callback) = self.host_functions.get_mut(&function_id) {
-            callback(host_args);
-        } else {
-            panic!("could not find host function: {function_id}");
+        unsafe {
+            let host_args = HostArgs::new(
+                heap.memory,
+                heap.memory_size,
+                heap.stack_offset,
+                self.registers.as_ptr(),
+                register_count as usize + 1,
+            );
+
+            if let Some(callback) = self.host_functions.get_mut(&function_id) {
+                callback(host_args);
+            } else {
+                panic!("could not find host function: {function_id}");
+            }
         }
     }
 

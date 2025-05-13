@@ -1,0 +1,27 @@
+use core::{assert}
+use std::{print}
+
+#[test]
+fn modulo_op() {
+  mod1 = 10 % 3
+  //print('mod1:{mod1}')
+  assert(mod1 == 1, "modulo operator (10 % 3) failed")
+  mod2 = 10 % 2
+  //print('mod2:{mod2}')
+  assert(mod2 == 0, "modulo operator (10 % 2) failed")
+}
+
+#[test]
+fn order_of_operations() {
+  val1 = 10 + 2 * 3  // Should be 10 + 6 = 16
+  print('val1 (order_op):{val1}')
+  assert(val1 == 16, "Order of operations (mul before add) failed")
+
+  val2 = (10 + 2) * 3 // Should be 12 * 3 = 36
+  print('val2 (order_op):{val2}')
+  assert(val2 == 36, "Order of operations (parentheses) failed")
+
+  val3 = 10 / 2 - 1 // Should be 5 - 1 = 4
+  print('val3 (order_op):{val3}')
+  assert(val3 == 4, "Order of operations (div before sub) failed")
+}

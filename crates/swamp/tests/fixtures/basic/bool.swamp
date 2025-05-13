@@ -1,0 +1,12 @@
+use core::{assert}
+use std::{print}
+
+#[test]
+fn boolean_literals() {
+  is_true = true
+  is_false = false
+  print('is_true:{is_true}, is_false:{is_false}')
+  assert(is_true == true, "true literal is not true")
+  assert(is_false == false, "false literal is not false")
+  assert(is_true != is_false, "true should not be equal to false")
+}

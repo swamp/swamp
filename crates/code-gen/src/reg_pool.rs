@@ -39,10 +39,6 @@ impl TempRegisterPool {
         assert!(!self.free_registers.is_empty(), "out of temp registers");
         let free_reg_info = self.free_registers.pop_front().unwrap();
 
-        //info!(?free_reg_info, "lending out temp reg");
-        //let backtrace = Backtrace::capture();
-        //println!("Current call stack:\n{}", backtrace);
-
         TempRegister {
             register: TypedRegister {
                 index: free_reg_info.index,
@@ -59,9 +55,6 @@ impl TempRegisterPool {
                 .iter()
                 .any(|info| info.index == reg.register.index)
         );
-
-        let kind = reg.register().underlying().kind;
-        //info!(?kind, "free temp reg");
 
         self.free_registers.push_front(RegisterInfo {
             index: reg.register.index,
