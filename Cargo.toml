@@ -37,5 +37,5 @@ members = [
     "crates/vm-pretty-print",
 
     # Evaluator, hopefully soon deprecated
-    "crates/eval",
+    "crates/eval", "crates/runtime",
 ]

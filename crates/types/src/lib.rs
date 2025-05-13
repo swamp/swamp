@@ -48,6 +48,8 @@ impl Type {}
 
 impl Type {}
 
+impl Type {}
+
 impl Type {
     pub fn is_vec(&self) -> bool {
         match self {
@@ -328,6 +330,14 @@ impl Type {
                     false
                 }
             }
+            _ => false,
+        }
+    }
+
+    pub const fn is_direct(&self) -> bool {
+        match self {
+            Self::Unit => true,
+            Self::Float | Self::Int | Self::String | Self::Bool => true,
             _ => false,
         }
     }

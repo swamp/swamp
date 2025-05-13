@@ -39,6 +39,14 @@ use swamp_types::all_types_are_concrete_or_unit;
 use swamp_types::prelude::*;
 use tracing::{error, info};
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum AssignmentMode {
+    OwnedValue,
+    CopyBlittable,
+    Clone,
+    CopySharedPtr,
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum LocationSide {
     Lhs,
@@ -2386,55 +2394,97 @@ impl<'a> Analyzer<'a> {
         result
     }
 
-    pub fn chain_is_owned_result(start_of_chain: &StartOfChain, chains: &Vec<Postfix>) -> bool {
-        if chains.is_empty() {
-            matches!(start_of_chain.kind, StartOfChainKind::Expression(_))
+    pub fn chain_is_owned_result(
+        start_of_chain: &StartOfChain,
+        chains: &Vec<Postfix>,
+    ) -> (bool, bool) {
+        let mut is_owned_result = matches!(start_of_chain.kind, StartOfChainKind::Expression(_));
+        let mut is_mutable = if let StartOfChainKind::Variable(var) = &start_of_chain.kind {
+            var.is_mutable()
         } else {
-            let mut is_owned_result =
-                matches!(start_of_chain.kind, StartOfChainKind::Expression(_));
-            for chain in chains {
-                match chain.kind {
-                    PostfixKind::StructField(_, _) => {
-                        is_owned_result = false;
-                    }
-                    PostfixKind::MemberCall(_, _) => {
-                        is_owned_result = true;
-                    }
-                    PostfixKind::OptionalChainingOperator => {
-                        is_owned_result = true;
-                    }
-                    PostfixKind::NoneCoalescingOperator(_) => {
-                        is_owned_result = true;
-                    }
+            false
+        };
+
+        for chain in chains {
+            match chain.kind {
+                PostfixKind::StructField(_, _) => {
+                    is_owned_result = false;
+                }
+                PostfixKind::MemberCall(_, _) => {
+                    is_owned_result = true;
+                    is_mutable = false;
+                }
+                PostfixKind::OptionalChainingOperator => {
+                    is_owned_result = true;
+                    is_mutable = false;
+                }
+                PostfixKind::NoneCoalescingOperator(_) => {
+                    is_owned_result = true;
+                    is_mutable = false;
                 }
             }
+        }
 
-            is_owned_result
+        (is_owned_result, is_mutable)
+    }
+
+    pub fn check_assignment_mode(
+        &mut self,
+        lhs_is_mutable: bool,
+        source_expression: &Expression,
+        ty: &Type,
+    ) -> AssignmentMode {
+        if matches!(
+            &source_expression.kind,
+            ExpressionKind::Literal(_) | ExpressionKind::IntrinsicCallEx(_, _)
+        ) {
+            return AssignmentMode::OwnedValue;
+        }
+
+        if ty.is_direct() {
+            return AssignmentMode::OwnedValue;
+        }
+
+        if let ExpressionKind::PostfixChain(start_chain, postfix) = &source_expression.kind {
+            let (chain_is_owned, chain_is_mutable) =
+                Self::chain_is_owned_result(start_chain, postfix);
+            if lhs_is_mutable {
+                if chain_is_mutable {
+                    if ty.is_blittable() {
+                        return AssignmentMode::CopyBlittable;
+                    } else {
+                        return AssignmentMode::Clone;
+                    }
+                } else {
+                    if lhs_is_mutable {
+                        if chain_is_owned {
+                            return AssignmentMode::OwnedValue;
+                        } else {
+                            return AssignmentMode::Clone;
+                        }
+                    } else {
+                        return AssignmentMode::CopySharedPtr;
+                    }
+                }
+            } else {
+                // if not mutable, it is always ok
+            }
+        }
+
+        if ty.is_surface_blittable() {
+            AssignmentMode::CopyBlittable
+        } else {
+            AssignmentMode::Clone
         }
     }
 
     pub fn check_mutable_assignment(
         &mut self,
-        source_expression: &Expression,
-        ty: &Type,
+        assignment_mode: AssignmentMode,
+        node: &Node,
     ) -> Result<(), Error> {
-        if matches!(
-            &source_expression.kind,
-            ExpressionKind::Literal(_) | ExpressionKind::IntrinsicCallEx(_, _)
-        ) {
-            return Ok(());
-        }
-
-        if let ExpressionKind::PostfixChain(start_chain, postfix) = &source_expression.kind {
-            if Self::chain_is_owned_result(start_chain, postfix) {
-                return Ok(());
-            }
-        }
-        let is_allowed_to_assign = Self::check_mutable_assignment_is_valid(ty);
-
-        if !is_allowed_to_assign {
-            error!(?ty, "assignment is wrong");
-            // return Err(self.create_err_resolved(ErrorKind::ArgumentIsNotMutable, &source_expression.node));
+        if assignment_mode == AssignmentMode::Clone {
+            return Err(self.create_err_resolved(ErrorKind::ArgumentIsNotMutable, node));
         }
 
         Ok(())
@@ -2773,6 +2823,8 @@ impl<'a> Analyzer<'a> {
         Ok(expr)
     }
 
+    fn analyze_assignment_mode(lhs: SingleLocationExpression) {}
+
     fn analyze_assignment(
         &mut self,
         target_location: &swamp_ast::Expression,
@@ -2788,7 +2840,9 @@ impl<'a> Analyzer<'a> {
         let lhs_argument_context = TypeContext::new_argument(&ty);
         let source_expr = self.analyze_expression(ast_source_expression, &lhs_argument_context)?;
 
-        self.check_mutable_assignment(&source_expr, &ty)?;
+        let assignment_mode = self.check_assignment_mode(true, &source_expr, &ty); // TODO: Fill in correct lhs_is_mutable
+
+        self.check_mutable_assignment(assignment_mode, &source_expr.node)?;
 
         let mut_location = TargetAssignmentLocation(resolved_location);
 

@@ -1129,6 +1129,12 @@ pub struct VariableRegister {
     pub register: TypedRegister,
 }
 
+impl Display for VariableRegister {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.register, self.variable)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct VariableRegisterRange {
     pub start: u8,

@@ -23,9 +23,9 @@ impl Analyzer<'_> {
         &self,
         attribute_identifier: &swamp_ast::QualifiedIdentifier,
     ) -> AttributeIdentifier {
-        AttributeIdentifier {
-            name: self.get_text(&attribute_identifier.name).to_string(),
-        }
+        let text = self.get_text(&attribute_identifier.name).to_string();
+        eprintln!("TEXT FOUND!!! {text}");
+        AttributeIdentifier { name: text }
     }
 
     fn analyze_attribute_arguments(&self, args: &[swamp_ast::AttributeArg]) -> Vec<AttributeArg> {

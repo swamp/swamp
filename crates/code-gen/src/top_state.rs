@@ -257,7 +257,7 @@ impl TopLevelGenState {
                     &variable_reg.register,
                     frame_region.addr,
                     node,
-                    "define frame placed register",
+                    &format!("define frame placed register {variable_reg}"),
                 );
             }
         }

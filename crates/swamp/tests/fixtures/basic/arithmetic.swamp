@@ -1,0 +1,7 @@
+use core::{assert}
+
+#[test]
+#[host_call]
+fn add() {
+    assert(10 + 42 == 52, "add doesn't work")
+}

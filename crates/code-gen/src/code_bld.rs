@@ -1378,7 +1378,7 @@ impl CodeBuilder<'_> {
                         self_reg,
                         node,
                         &format!(
-                            "move self_variable ({:?}) to first argument register",
+                            "move self_variable ({}) to first argument register",
                             self_reg.ty
                         ),
                     );

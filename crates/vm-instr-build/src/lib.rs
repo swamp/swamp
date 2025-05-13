@@ -735,7 +735,8 @@ impl InstructionBuilder<'_> {
 
         let instruction = &mut self.state.instructions[patch_position.0.0 as usize];
         let delta = *target_position - patch_position.0;
-        let delta_bytes = delta.0.to_le_bytes();
+        let raw = delta.0 - 1; // when running, the PC has already advanced one step
+        let delta_bytes = raw.to_le_bytes();
 
         match instruction.opcode {
             JMP_IF_NOT | JMP_IF | JMP => {

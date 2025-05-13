@@ -21,7 +21,7 @@ use swamp_ast::{
 };
 use swamp_ast::{AttributeLiteralKind, Function};
 use swamp_ast::{Postfix, PostfixChain};
-use tracing::error;
+use tracing::{error, info};
 
 pub struct ParseResult<'a> {
     #[allow(dead_code)]
@@ -308,6 +308,7 @@ impl AstParser {
         while let Some(attr_pair) = inner.peek() {
             if attr_pair.as_rule() == Rule::attribute {
                 let attr = self.parse_attribute(&inner.next().unwrap())?;
+                info!(?attr, "FOUND ATTRIBUTE");
                 attributes.push(attr);
             } else {
                 break;

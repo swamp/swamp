@@ -98,7 +98,7 @@ pub struct Flags {
 
 #[derive(Debug, Default)]
 pub struct Debug {
-    pub opcodes_executed: u8,
+    pub opcodes_executed: u32,
     pub call_depth: usize,
     pub max_call_depth: usize,
 }
@@ -210,7 +210,7 @@ impl Vm {
         vm.handlers[OpCode::GeI32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
 
         // Comparison
-        // TODO: vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args2(Self::execute_cmp_reg);
+        vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args2(Self::execute_cmp_reg);
 
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
 
@@ -395,6 +395,10 @@ impl Vm {
                 //  eprintln!("mem: {s}");
             }
 
+            if self.debug.opcodes_executed > 20 {
+                return;
+            }
+
             self.pc += 1; // IP must be added BEFORE handling the instruction
 
             match self.handlers[opcode as usize] {
@@ -434,7 +438,7 @@ impl Vm {
     }
 
     fn execute_unimplemented(&mut self) {
-        let unknown_opcode = OpCode::from(self.instructions[self.pc].opcode);
+        let unknown_opcode = OpCode::from(self.instructions[self.pc - 1].opcode);
         eprintln!("error: opcode not implemented: {unknown_opcode} {unknown_opcode:?}");
         eprintln!("VM runtime halted.");
         self.debug_output();

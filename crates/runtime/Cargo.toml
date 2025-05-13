@@ -1,10 +1,10 @@
 [package]
-name = "swamp"
+name = "swamp-runtime"
 version = "0.1.16"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
-description = "script language for embedding"
+description = "runtime for swamp"
 
 [dependencies]
 # Parser
@@ -37,7 +37,6 @@ swamp-vm = { path = "../vm", version = "0.1.16", features = ["debug_vm"]}
 swamp-vm-types = { path = "../vm-types", version = "0.1.16"}
 swamp-vm-pretty-print = { path = "../vm-pretty-print", version = "0.1.16"}
 swamp-vm-host = { path = "../vm-host", version = "0.1.16"}
-swamp-runtime = { path = "../runtime", version = "0.1.16" }
 
 # Source Map
 source-map-cache = "0.0.2"
