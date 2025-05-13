@@ -79,9 +79,7 @@ impl Vm {
         let str_b = self.get_string(string_b);
         let result = str_a.to_string() + str_b;
 
-        let result_addr = self.create_string(&result);
-
-        set_reg!(self, target_string_addr, result_addr);
+        self.create_string(target_string_addr, &result);
     }
 
     #[inline]
@@ -105,7 +103,10 @@ impl Vm {
         }
     }
 
-    pub(crate) fn create_string(&mut self, string: &str) -> u32 {
+    /// Strings immutable, can not be altered after it has been created.
+    /// They can be safely shared and the pointer can be blittable when inside composite types.
+    /// It is stored in the heap, and the pointer serves as the 'handle' to the string.
+    pub(crate) fn create_string(&mut self, dst_reg: u8, string: &str) {
         let rune_bytes = string.as_bytes();
         let runes_in_heap = self.memory.heap_allocate_with_data(rune_bytes);
 
@@ -114,7 +115,7 @@ impl Vm {
             byte_count: rune_bytes.len() as u32,
         };
 
-        let header_addr_in_heap = self.memory.heap_allocate(size_of::<StringHeader>());
+        let header_addr_in_heap = self.memory.heap_allocate_secret(size_of::<StringHeader>());
 
         let header_ptr_in_heap =
             self.memory.get_heap_ptr(header_addr_in_heap as usize) as *mut StringHeader;
@@ -123,6 +124,6 @@ impl Vm {
             *header_ptr_in_heap = string_header;
         }
 
-        header_addr_in_heap
+        set_reg!(self, dst_reg, header_addr_in_heap);
     }
 }

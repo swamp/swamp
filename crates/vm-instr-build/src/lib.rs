@@ -1120,7 +1120,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert_eq!(u32_reg.ty().underlying().total_size.0, 4);
+        //assert_eq!(u32_reg.ty().underlying().total_size.0, 4);
         let bytes = u16_to_u8_pair(offset.0);
         self.state.add_instruction(
             OpCode::St32UsingPtrWithOffset,

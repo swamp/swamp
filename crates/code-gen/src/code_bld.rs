@@ -1163,6 +1163,16 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) {
         let underlying_type = target_reg.underlying();
+        if underlying_type.is_represented_as_a_pointer_in_reg() {
+            self.builder.add_ld32_from_pointer_with_offset_u16(
+                target_reg,
+                base_ptr_reg,
+                offset,
+                node,
+                comment,
+            );
+            return;
+        }
 
         let kind = &underlying_type.kind;
         match kind {
@@ -1230,6 +1240,17 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) {
         let underlying_type = source_reg.underlying();
+
+        if underlying_type.is_represented_as_a_pointer_in_reg() {
+            self.builder.add_st32_using_ptr_with_offset(
+                base_ptr_reg,
+                offset,
+                source_reg,
+                node,
+                comment,
+            );
+            return;
+        }
 
         let kind = &underlying_type.kind;
         match kind {

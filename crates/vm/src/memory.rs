@@ -88,6 +88,10 @@ impl Memory {
 
     #[inline]
     pub(crate) fn heap_allocate(&mut self, size: usize) -> u32 {
+        todo!()
+    }
+    #[inline]
+    pub(crate) fn heap_allocate_secret(&mut self, size: usize) -> u32 {
         if size == 0 {
             eprintln!("heap_allocate zero");
             return 0;
@@ -112,7 +116,7 @@ impl Memory {
 
     #[inline]
     pub(crate) fn heap_allocate_with_data(&mut self, octets: &[u8]) -> u32 {
-        let offset = self.heap_allocate(octets.len());
+        let offset = self.heap_allocate_secret(octets.len());
         debug_assert_ne!(offset, 0);
         {
             unsafe {

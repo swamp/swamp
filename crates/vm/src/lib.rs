@@ -187,7 +187,7 @@ impl Vm {
             debug_enabled: setup.debug_enabled,
         };
 
-        vm.handlers[OpCode::Alloc as usize] = HandlerType::Args3(Self::execute_alloc);
+        //vm.handlers[OpCode::Alloc as usize] = HandlerType::Args3(Self::execute_alloc);
 
         // Store
         vm.handlers[OpCode::StRegToFrame as usize] =
@@ -272,6 +272,7 @@ impl Vm {
 
         // Halt - return to host
         vm.handlers[OpCode::Hlt as usize] = HandlerType::Args0(Self::execute_hlt);
+        vm.handlers[OpCode::Panic as usize] = HandlerType::Args1(Self::execute_panic);
 
         // Bool
         vm.handlers[OpCode::BoolToString as usize] =
@@ -665,7 +666,7 @@ impl Vm {
     fn execute_f32_to_string(&mut self, dst_reg: u8, val_reg: u8) {
         let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
-        set_reg!(self, dst_reg, self.create_string(&val.to_string()));
+        self.create_string(dst_reg, &val.to_string())
     }
 
     #[inline]
@@ -791,14 +792,14 @@ impl Vm {
     fn execute_i32_to_string(&mut self, dst_reg: u8, val_reg: u8) {
         let val = get_reg!(self, val_reg) as i32;
 
-        set_reg!(self, dst_reg, self.create_string(&val.to_string()));
+        self.create_string(dst_reg, &val.to_string());
     }
 
     #[inline]
     fn execute_bool_to_string(&mut self, dst_reg: u8, val_reg: u8) {
         let val = get_reg!(self, val_reg) != 0;
 
-        set_reg!(self, dst_reg, self.create_string(&val.to_string()));
+        self.create_string(dst_reg, &val.to_string());
     }
 
     #[inline]
@@ -908,6 +909,19 @@ impl Vm {
         if self.debug_enabled {
             self.debug_output();
         }
+    }
+
+    #[inline]
+    fn execute_panic(&mut self, panic_reason_reg: u8) {
+        self.execution_complete = true;
+        #[cfg(feature = "debug_vm")]
+        if self.debug_enabled {
+            self.debug_output();
+        }
+
+        let heap_addr = get_reg!(self, panic_reason_reg);
+        let str = Self::read_string(heap_addr, &self.memory);
+        panic!("vm panic: '{str}'");
     }
 
     fn debug_output(&self) {
