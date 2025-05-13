@@ -79,7 +79,6 @@ impl Vm {
         let str_b = self.get_string(string_b);
         let result = str_a.to_string() + str_b;
 
-        eprintln!("append: '{result}'");
         let result_addr = self.create_string(&result);
 
         set_reg!(self, target_string_addr, result_addr);

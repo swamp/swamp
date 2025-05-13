@@ -24,7 +24,6 @@ impl Analyzer<'_> {
         attribute_identifier: &swamp_ast::QualifiedIdentifier,
     ) -> AttributeIdentifier {
         let text = self.get_text(&attribute_identifier.name).to_string();
-        eprintln!("TEXT FOUND!!! {text}");
         AttributeIdentifier { name: text }
     }
 

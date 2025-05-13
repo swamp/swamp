@@ -192,10 +192,19 @@ impl Vm {
         // Store
         vm.handlers[OpCode::StRegToFrame as usize] =
             HandlerType::Args4(Self::execute_st_regs_to_frame);
+        vm.handlers[OpCode::St32UsingPtrWithOffset as usize] =
+            HandlerType::Args4(Self::execute_stw_using_base_ptr_and_offset);
+        vm.handlers[OpCode::St8UsingPtrWithOffset as usize] =
+            HandlerType::Args4(Self::execute_stb_using_base_ptr_and_offset);
 
         // Load
         vm.handlers[OpCode::LdRegFromFrame as usize] =
             HandlerType::Args4(Self::execute_ld_regs_from_frame);
+
+        vm.handlers[OpCode::Ld32FromPointerWithOffset as usize] =
+            HandlerType::Args4(Self::execute_ldw_from_base_ptr_and_offset);
+        vm.handlers[OpCode::Ld8FromPointerWithOffset as usize] =
+            HandlerType::Args4(Self::execute_ldb_from_base_ptr_and_offset);
 
         // Load immediate
         vm.handlers[OpCode::Mov8FromImmediateValue as usize] =
@@ -210,6 +219,8 @@ impl Vm {
 
         // Copy to and from heap
         vm.handlers[OpCode::BlockCopy as usize] = HandlerType::Args4(Self::execute_mov_mem);
+        vm.handlers[OpCode::FrameMemClr as usize] =
+            HandlerType::Args4(Self::execute_frame_memory_clear);
 
         // Comparisons - Int
         vm.handlers[OpCode::LtI32 as usize] = HandlerType::Args2(Self::execute_lt_i32);
@@ -905,7 +916,74 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_ld_regs_from_frame(&mut self, start_reg: u8, a: u8, b: u8, count: u8) {
+    fn execute_stw_using_base_ptr_and_offset(
+        &mut self,
+        base_ptr_reg: u8,
+        offset_lower: u8,
+        offset_upper: u8,
+        src_reg: u8,
+    ) {
+        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        //let const_reg_ptr = &self.registers[start_reg as usize] as *const u32;
+        let ptr_to_write_to = self.get_ptr_from_reg_with_offset(base_ptr_reg, offset) as *mut u32;
+        let value_to_copy = get_reg!(self, src_reg);
+
+        unsafe {
+            ptr::write(ptr_to_write_to, value_to_copy);
+        }
+    }
+
+    #[inline]
+    fn execute_stb_using_base_ptr_and_offset(
+        &mut self,
+        base_ptr_reg: u8,
+        offset_lower: u8,
+        offset_upper: u8,
+        src_reg: u8,
+    ) {
+        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        //let const_reg_ptr = &self.registers[start_reg as usize] as *const u32;
+        let ptr_to_write_to = self.get_ptr_from_reg_with_offset(base_ptr_reg, offset);
+        let value_to_copy = get_reg!(self, src_reg) as u8;
+
+        unsafe {
+            ptr::write(ptr_to_write_to, value_to_copy);
+        }
+    }
+
+    #[inline]
+    pub fn execute_ldb_from_base_ptr_and_offset(
+        &mut self,
+        dst_reg: u8,
+        base_ptr_reg: u8,
+        offset_lower: u8,
+        offset_upper: u8,
+    ) {
+        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        let ptr_to_read_from = self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset);
+        unsafe {
+            set_reg!(self, dst_reg, *ptr_to_read_from);
+        }
+    }
+
+    #[inline]
+    pub fn execute_ldw_from_base_ptr_and_offset(
+        &mut self,
+        dst_reg: u8,
+        base_ptr_reg: u8,
+        offset_lower: u8,
+        offset_upper: u8,
+    ) {
+        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        let ptr_to_read_from =
+            self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset) as *const u32;
+        unsafe {
+            set_reg!(self, dst_reg, *ptr_to_read_from);
+        }
+    }
+
+    #[inline]
+    pub fn execute_ld_regs_from_frame(&mut self, start_reg: u8, a: u8, b: u8, count: u8) {
         let offset = u8s_to_u16!(a, b);
         let target_reg_ptr = &mut self.registers[start_reg as usize] as *mut u32;
         let source_frame_start = self.memory.get_frame_const_ptr_as_u32(offset);
@@ -922,6 +1000,24 @@ impl Vm {
             dst_reg,
             ptr_addr + u8s_to_u16!(src_offset_0, src_offset_1) as u32
         );
+    }
+
+    #[inline]
+    pub fn execute_frame_memory_clear(
+        &mut self,
+        dst_pointer_frame_lower: u8,
+        dst_pointer_frame_upper: u8,
+        memory_size_lower: u8,
+        memory_size_upper: u8,
+    ) {
+        let frame_offset = u8s_to_u16!(dst_pointer_frame_lower, dst_pointer_frame_upper);
+        let total_bytes = u8s_to_u16!(memory_size_lower, memory_size_upper);
+
+        let dst_ptr = self.memory.get_frame_ptr(frame_offset);
+
+        unsafe {
+            ptr::write_bytes(dst_ptr, 0, total_bytes as usize);
+        }
     }
 
     #[inline]
@@ -1048,13 +1144,27 @@ impl Vm {
         u32::from_le_bytes([a, b, c, d])
     }
 
+    #[inline]
     pub fn get_const_ptr_from_reg(&self, reg: u8) -> *const u8 {
         let ptr_addr = get_reg!(self, reg);
         self.memory.get_heap_const_ptr(ptr_addr as usize)
     }
 
+    #[inline]
+    pub fn get_const_ptr_from_reg_with_offset(&self, reg: u8, offset: u16) -> *const u8 {
+        let ptr_addr = get_reg!(self, reg) + offset as u32;
+        self.memory.get_heap_const_ptr(ptr_addr as usize)
+    }
+
+    #[inline]
     pub fn get_ptr_from_reg(&self, reg: u8) -> *mut u8 {
         let ptr_addr = get_reg!(self, reg);
+        self.memory.get_heap_ptr(ptr_addr as usize)
+    }
+
+    #[inline]
+    pub fn get_ptr_from_reg_with_offset(&self, reg: u8, offset: u16) -> *mut u8 {
+        let ptr_addr = get_reg!(self, reg) + offset as u32;
         self.memory.get_heap_ptr(ptr_addr as usize)
     }
 }

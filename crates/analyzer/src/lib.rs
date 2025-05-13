@@ -1552,12 +1552,10 @@ impl<'a> Analyzer<'a> {
         string_parts: &[swamp_ast::StringPart],
     ) -> Result<Expression, Error> {
         let mut last_expression: Option<Expression> = None;
-        info!("string interpolation starts");
         for part in string_parts {
             let created_expression = match part {
                 swamp_ast::StringPart::Literal(string_node, processed_string) => {
                     let string_literal = Literal::StringLiteral(processed_string.to_string());
-                    info!(?processed_string, "string interpolation literal:");
                     let basic_literal = ExpressionKind::Literal(string_literal);
                     self.create_expr(basic_literal, Type::String, string_node)
                 }
@@ -1565,7 +1563,6 @@ impl<'a> Analyzer<'a> {
                     let any_context = TypeContext::new_anything_argument();
 
                     let expr = self.analyze_expression(expression, &any_context)?;
-                    info!(?expr, "string interpolation expression raw");
 
                     let ty = expr.ty.clone();
 
@@ -1608,7 +1605,6 @@ impl<'a> Analyzer<'a> {
 
                         let result =
                             self.create_expr(call_expr_kind, Type::String, &expression.node);
-                        info!(?result, "string interpolation expression call result");
                         result
                     }
                 }
@@ -1632,33 +1628,7 @@ impl<'a> Analyzer<'a> {
             last_expression = Some(x_last_expr);
         }
 
-        info!(?last_expression, "string interpolation done");
-
-        let lookup = SourceMapWrapper {
-            source_map: self.shared.source_map,
-            current_dir: Default::default(),
-        };
-
-        let source_map_display = SourceMapDisplay {
-            source_map: &lookup,
-        };
-
         let last = last_expression.unwrap();
-        let expr_display = ExpressionDisplay {
-            expression: &last,
-            source_map_display: &source_map_display,
-        };
-        eprintln!("expr:\n{expr_display}");
-        // HACK TODO: REMOVE THIS
-        /*
-        {
-            let string_literal = Literal::StringLiteral("not implemented".to_string());
-            let basic_literal = ExpressionKind::Literal(string_literal);
-            let hack_expr = self.create_expr(basic_literal, Type::String, &node);
-            last_expression = Some(hack_expr);
-        }
-
-         */
 
         Ok(last)
     }
