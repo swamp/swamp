@@ -121,6 +121,8 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -948,6 +950,21 @@ impl InstructionBuilder<'_> {
                 lhs_offset.addressing(),
                 rhs_offset.addressing(),
             ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_string_cmp(
+        &mut self,
+        a: &TypedRegister,
+        b: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::StringCmp,
+            &[a.addressing(), b.addressing()],
             node,
             comment,
         );

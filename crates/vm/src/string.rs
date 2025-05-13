@@ -84,6 +84,14 @@ impl Vm {
         set_reg!(self, target_string_addr, result_addr);
     }
 
+    #[inline]
+    pub fn execute_string_cmp(&mut self, string_a: u8, string_b: u8) {
+        let str_a = self.get_string(string_a);
+        let str_b = self.get_string(string_b);
+
+        self.flags.z = str_a == str_b;
+    }
+
     pub fn read_string(heap_addr: u32, heap: &Memory) -> &str {
         let string_header =
             unsafe { *(heap.get_heap_const_ptr(heap_addr as usize) as *const StringHeader) };

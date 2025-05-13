@@ -930,6 +930,11 @@ pub fn disasm(
             to_read_reg(operands[2], &string_type(), frame_memory_info),
         ],
 
+        OpCode::StringCmp => &[
+            to_read_reg(operands[0], &string_type(), frame_memory_info),
+            to_read_reg(operands[1], &string_type(), frame_memory_info),
+        ],
+
         OpCode::IntToRnd => &[
             to_write_reg(operands[0], &int_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),

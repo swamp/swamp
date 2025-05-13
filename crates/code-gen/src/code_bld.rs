@@ -858,7 +858,7 @@ impl CodeBuilder<'_> {
         right_source: &TypedRegister,
     ) -> GeneratedExpressionResult {
         self.builder
-            .add_cmp_reg(left_source, right_source, node, "compare bool");
+            .add_string_cmp(left_source, right_source, node, "compare strings");
 
         GeneratedExpressionResult {
             kind: GeneratedExpressionResultKind::ZFlagIsTrue,

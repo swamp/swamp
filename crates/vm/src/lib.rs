@@ -280,6 +280,8 @@ impl Vm {
         vm.handlers[OpCode::StringAppend as usize] =
             HandlerType::Args3(Self::execute_string_append);
 
+        vm.handlers[OpCode::StringCmp as usize] = HandlerType::Args2(Self::execute_string_cmp);
+
         // Int
         vm.handlers[OpCode::IntToRnd as usize] =
             HandlerType::Args2(Self::execute_pseudo_random_i32);
