@@ -1346,7 +1346,7 @@ impl CodeBuilder<'_> {
                 all_mutable_arguments_including_hidden.push(return_param_reg);
             }
 
-            if return_reg.ty.needs_copy_back_for_mutable() {
+            if !signature.return_type.is_unit() && return_reg.ty.needs_copy_back_for_mutable() {
                 copy_back_mutable_reg_pairs.push(MutableReturnReg {
                     target_location_after_call: DetailedLocation::Register {
                         reg: return_param_reg.clone(),

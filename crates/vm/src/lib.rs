@@ -263,7 +263,7 @@ impl Vm {
         vm.handlers[OpCode::MulF32 as usize] = HandlerType::Args3(Self::execute_mul_f32);
 
         // Call, enter, ret
-        vm.handlers[OpCode::Call as usize] = HandlerType::Args1(Self::execute_call);
+        vm.handlers[OpCode::Call as usize] = HandlerType::Args4(Self::execute_call);
         vm.handlers[OpCode::Enter as usize] = HandlerType::Args1(Self::execute_enter);
         vm.handlers[OpCode::Ret as usize] = HandlerType::Args0(Self::execute_ret);
 
@@ -271,6 +271,10 @@ impl Vm {
 
         // Halt - return to host
         vm.handlers[OpCode::Hlt as usize] = HandlerType::Args0(Self::execute_hlt);
+
+        // Bool
+        vm.handlers[OpCode::BoolToString as usize] =
+            HandlerType::Args2(Self::execute_bool_to_string);
 
         // String
         vm.handlers[OpCode::StringAppend as usize] =
@@ -709,6 +713,9 @@ impl Vm {
         set_reg!(self, dst_reg, lhs.wrapping_sub(rhs));
     }
 
+    /// This is the mathematical modulo, *not* the remainder.
+    /// Like how it is done in Lua and Python
+    /// <https://en.wikipedia.org/wiki/Modulo#In_programming_languages>
     #[inline]
     fn execute_mod_i32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
@@ -780,6 +787,13 @@ impl Vm {
     #[inline]
     fn execute_i32_to_string(&mut self, dst_reg: u8, val_reg: u8) {
         let val = get_reg!(self, val_reg) as i32;
+
+        set_reg!(self, dst_reg, self.create_string(&val.to_string()));
+    }
+
+    #[inline]
+    fn execute_bool_to_string(&mut self, dst_reg: u8, val_reg: u8) {
+        let val = get_reg!(self, val_reg) != 0;
 
         set_reg!(self, dst_reg, self.create_string(&val.to_string()));
     }
@@ -1066,7 +1080,14 @@ impl Vm {
         );
     }
 
-    fn execute_call(&mut self, target: u8) {
+    fn execute_call(
+        &mut self,
+        absolute_pc_a: u8,
+        absolute_pc_b: u8,
+        absolute_pc_c: u8,
+        absolute_pc_d: u8,
+    ) {
+        let absolute_pc = u32_from_u8s!(absolute_pc_a, absolute_pc_b, absolute_pc_c, absolute_pc_d);
         let return_info = CallFrame {
             return_address: self.pc + 1,
             previous_frame_offset: self.memory.frame_offset,
@@ -1075,7 +1096,7 @@ impl Vm {
 
         self.memory.set_fp();
         self.call_stack.push(return_info);
-        self.pc = target as usize;
+        self.pc = absolute_pc as usize;
 
         #[cfg(feature = "debug_vm")]
         if self.debug_enabled {

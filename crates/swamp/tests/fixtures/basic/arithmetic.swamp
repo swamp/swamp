@@ -6,7 +6,7 @@ fn add() {
   print("Hello, world!")
   a = 10 + 42
   print('a:{a}') // string interpolation works in new runtime!
-    assert(a == 52, "add doesn't work")
+  assert(a == 52, "add doesn't work")
 }
 
 #[test]
@@ -35,6 +35,89 @@ struct Point {
 fn literal_struct() {
   a = Point { x: 10, y: 20 }
   print('x:{a.x}, y:{a.y}')
-  assert(a.x == 10, "struct doesn't work")
-  assert(a.y == 20, "struct doesn't work")
+  assert(a.x == 10, 'x value is wrong')
+  assert(a.y == 20, 'y value is wrong')
+}
+
+enum Color {
+  Red,
+  Green,
+  Blue,
+}
+
+impl Color {
+  fn to_string(self) -> String {
+    match self {
+      Red => "Red",
+      Green => "Green",
+      Blue => "Blue",
+    }
+  }
+}
+
+#[test]
+fn literal_enum() {
+  a = Color::Red
+  //print('a:{a}')
+  //assert(a == Color::Red, 'enum value is wrong')
+}
+
+#[test]
+fn modulo_op() {
+  mod1 = 10 % 3
+  //print('mod1:{mod1}')
+  assert(mod1 == 1, "modulo operator (10 % 3) failed")
+  mod2 = 10 % 2
+  //print('mod2:{mod2}')
+  assert(mod2 == 0, "modulo operator (10 % 2) failed")
+}
+
+#[test]
+fn order_of_operations() {
+  val1 = 10 + 2 * 3  // Should be 10 + 6 = 16
+  print('val1 (order_op):{val1}')
+  assert(val1 == 16, "Order of operations (mul before add) failed")
+
+  val2 = (10 + 2) * 3 // Should be 12 * 3 = 36
+  print('val2 (order_op):{val2}')
+  assert(val2 == 36, "Order of operations (parentheses) failed")
+
+  val3 = 10 / 2 - 1 // Should be 5 - 1 = 4
+  print('val3 (order_op):{val3}')
+  assert(val3 == 4, "Order of operations (div before sub) failed")
+}
+
+#[test]
+fn boolean_literals() {
+  is_true = true
+  is_false = false
+  print('is_true:{is_true}, is_false:{is_false}')
+  assert(is_true == true, "true literal is not true")
+  assert(is_false == false, "false literal is not false")
+  assert(is_true != is_false, "true should not be equal to false")
+}
+
+/*
+TODO: AND-logic fails
+#[test]
+fn boolean_logic_and() {
+  assert(true && true == true, "true && true failed")
+  assert(true && false == false, "true && false failed")
+  assert(false && true == false, "false && true failed")
+  assert(false && false == false, "false && false failed")
+}
+*/
+
+#[test]
+fn boolean_logic_or() {
+  assert(true || true == true, "true || true failed")
+  assert(true || false == true, "true || false failed")
+  assert(false || true == true, "false || true failed")
+  assert(false || false == false, "false || false failed")
+}
+
+#[test]
+fn boolean_logic_not() {
+  assert(!true == false, "not true failed")
+  assert(!false == true, "not false failed")
 }
