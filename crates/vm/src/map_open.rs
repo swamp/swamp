@@ -272,12 +272,12 @@ impl Vm {
         let key_source_ptr = self.get_const_ptr_from_reg(key_source);
         unsafe {
             let found = Self::has_open_addressing(buckets_ptr, &map_header, key_source_ptr);
-            self.flags.z = found;
+            self.flags.t = found;
         }
 
         #[cfg(feature = "debug_vm")]
         {
-            eprintln!("map has: {}", self.flags.z);
+            eprintln!("map has: {}", self.flags.t);
         }
     }
 

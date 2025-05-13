@@ -93,7 +93,7 @@ enum HandlerType {
 }
 
 pub struct Flags {
-    z: bool,
+    t: bool,
 }
 
 #[derive(Debug, Default)]
@@ -178,7 +178,7 @@ impl Vm {
             host_functions: SeqMap::default(),
             handlers: [const { HandlerType::Args0(Self::execute_unimplemented) }; 256],
             registers: [const { 0 }; 256],
-            flags: Flags { z: false },
+            flags: Flags { t: false },
             debug: Debug {
                 opcodes_executed: 0,
                 call_depth: 0,
@@ -234,17 +234,18 @@ impl Vm {
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
 
         // Z flag
-        vm.handlers[OpCode::MovToZFromReg as usize] = HandlerType::Args1(Self::execute_tst8);
+        vm.handlers[OpCode::MovToTFlagFromReg as usize] = HandlerType::Args1(Self::execute_tst8);
 
-        vm.handlers[OpCode::NotZ as usize] = HandlerType::Args0(Self::execute_not_z); // needed for normalized Z
-        vm.handlers[OpCode::MovFromZToReg as usize] = HandlerType::Args1(Self::execute_st_z);
-        vm.handlers[OpCode::MovFromNotZToReg as usize] = HandlerType::Args1(Self::execute_st_nz);
+        vm.handlers[OpCode::NotT as usize] = HandlerType::Args0(Self::execute_not_z); // needed for normalized Z
+        vm.handlers[OpCode::MovFromTFlagToReg as usize] = HandlerType::Args1(Self::execute_st_z);
+        vm.handlers[OpCode::MovFromNotTFlagToReg as usize] =
+            HandlerType::Args1(Self::execute_st_nz);
 
         // Logical Operations
 
         // Conditional jumps
-        vm.handlers[OpCode::BNe as usize] = HandlerType::Args2(Self::execute_bnz);
-        vm.handlers[OpCode::BEq as usize] = HandlerType::Args2(Self::execute_bz);
+        vm.handlers[OpCode::BFalse as usize] = HandlerType::Args2(Self::execute_bnz);
+        vm.handlers[OpCode::BTrue as usize] = HandlerType::Args2(Self::execute_bz);
 
         // Unconditional jump
         vm.handlers[OpCode::B as usize] = HandlerType::Args4(Self::execute_jmp);
@@ -384,7 +385,7 @@ impl Vm {
 
     pub fn execute_internal(&mut self) {
         self.execution_complete = false;
-        self.flags.z = false;
+        self.flags.t = false;
         self.call_stack.clear();
         self.memory.reset_offset();
 
@@ -751,21 +752,21 @@ impl Vm {
     fn execute_lt_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
-        self.flags.z = lhs < rhs;
+        self.flags.t = lhs < rhs;
     }
 
     #[inline]
     fn execute_le_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
-        self.flags.z = lhs <= rhs;
+        self.flags.t = lhs <= rhs;
     }
 
     #[inline]
     fn execute_gt_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
-        self.flags.z = lhs > rhs;
+        self.flags.t = lhs > rhs;
     }
 
     #[inline]
@@ -773,7 +774,7 @@ impl Vm {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
 
-        self.flags.z = lhs >= rhs;
+        self.flags.t = lhs >= rhs;
     }
 
     #[inline]
@@ -849,39 +850,39 @@ impl Vm {
 
     #[inline]
     fn execute_cmp_reg(&mut self, lhs_reg: u8, rhs_reg: u8) {
-        self.flags.z = self.registers[lhs_reg as usize] == self.registers[rhs_reg as usize];
+        self.flags.t = self.registers[lhs_reg as usize] == self.registers[rhs_reg as usize];
     }
 
     #[inline]
     fn execute_eq_8_imm(&mut self, val_reg: u8, octet: u8) {
         let compare = get_reg!(self, val_reg);
-        self.flags.z = compare == octet as u32;
+        self.flags.t = compare == octet as u32;
     }
 
     #[inline]
     fn execute_tst8(&mut self, val_reg: u8) {
         let val = get_reg!(self, val_reg);
-        self.flags.z = val != 0;
+        self.flags.t = val != 0;
     }
 
     #[inline]
     fn execute_not_z(&mut self) {
-        self.flags.z = !self.flags.z;
+        self.flags.t = !self.flags.t;
     }
 
     #[inline]
     fn execute_st_z(&mut self, dst_reg: u8) {
-        set_reg!(self, dst_reg, self.flags.z);
+        set_reg!(self, dst_reg, self.flags.t);
     }
 
     #[inline]
     fn execute_st_nz(&mut self, dst_reg: u8) {
-        set_reg!(self, dst_reg, !self.flags.z);
+        set_reg!(self, dst_reg, !self.flags.t);
     }
 
     #[inline]
     const fn execute_bnz(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
-        if !self.flags.z {
+        if !self.flags.t {
             self.pc =
                 (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
         }
@@ -889,7 +890,7 @@ impl Vm {
 
     #[inline]
     const fn execute_bz(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
-        if self.flags.z {
+        if self.flags.t {
             self.pc =
                 (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
         }

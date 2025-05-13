@@ -497,7 +497,7 @@ impl CodeBuilder<'_> {
                 let key = self.emit_rvalue(key_argument, ctx);
                 self.builder
                     .add_map_has(&self_addr.unwrap(), &key, node, "map_has");
-                z_flag_result.kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                z_flag_result.kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
             IntrinsicFunction::MapRemove => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {

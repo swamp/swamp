@@ -684,11 +684,11 @@ pub fn disasm(
             ]
         }
 
-        OpCode::MovToZFromReg => &[to_read_reg(operands[0], &u8_type(), frame_memory_info)],
+        OpCode::MovToTFlagFromReg => &[to_read_reg(operands[0], &u8_type(), frame_memory_info)],
 
-        OpCode::MovFromZToReg => &[to_write_reg(operands[0], &b8_type(), frame_memory_info)],
+        OpCode::MovFromTFlagToReg => &[to_write_reg(operands[0], &b8_type(), frame_memory_info)],
 
-        OpCode::MovFromNotZToReg => &[to_write_reg(operands[0], &b8_type(), frame_memory_info)],
+        OpCode::MovFromNotTFlagToReg => &[to_write_reg(operands[0], &b8_type(), frame_memory_info)],
 
         OpCode::CmpReg => &[
             to_read_reg(operands[0], &u32_type(), frame_memory_info),
@@ -704,7 +704,7 @@ pub fn disasm(
             ))),
         ],
 
-        OpCode::BNe | OpCode::BEq => &[to_branch_offset(i16::from_le_bytes([
+        OpCode::BFalse | OpCode::BTrue => &[to_branch_offset(i16::from_le_bytes([
             operands[0],
             operands[1],
         ]))],
@@ -714,7 +714,7 @@ pub fn disasm(
             operands[2],
             operands[3],
         ]))],
-        OpCode::NotZ => &[],
+        OpCode::NotT => &[],
         OpCode::HostCall => &[
             DecoratedOperandAccessKind::ImmediateU16(u8_pair_to_u16(operands[0], operands[1])),
             DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(

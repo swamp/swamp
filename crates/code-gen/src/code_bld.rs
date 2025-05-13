@@ -547,7 +547,7 @@ impl CodeBuilder<'_> {
 
         match &binary_operator.kind {
             BinaryOperatorKind::LogicalOr | BinaryOperatorKind::LogicalAnd => {
-                self.emit_binary_operator_logical(target_reg, binary_operator, ctx)
+                self.emit_binary_operator_logical(binary_operator, ctx)
             }
             _ => self.emit_binary_operator_normal(target_reg, binary_operator, ctx),
         }
@@ -650,7 +650,7 @@ impl CodeBuilder<'_> {
         right_source: &TypedRegister,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let mut kind = GeneratedExpressionResultKind::ZFlagUnmodified;
+        let mut kind = GeneratedExpressionResultKind::TFlagIsIndeterminate;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.builder.add_add_u32(
@@ -700,22 +700,22 @@ impl CodeBuilder<'_> {
             BinaryOperatorKind::LessThan => {
                 self.builder
                     .add_lt_i32(left_source, right_source, node, "i32 lt");
-                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
             BinaryOperatorKind::LessEqual => {
                 self.builder
                     .add_le_i32(left_source, right_source, node, "i32 le");
-                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
             BinaryOperatorKind::GreaterThan => {
                 self.builder
                     .add_gt_i32(left_source, right_source, node, "i32 gt");
-                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
             BinaryOperatorKind::GreaterEqual => {
                 self.builder
                     .add_ge_i32(left_source, right_source, node, "i32 ge");
-                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
         }
 
@@ -732,7 +732,7 @@ impl CodeBuilder<'_> {
         right_source: &TypedRegister,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let mut kind = GeneratedExpressionResultKind::ZFlagUnmodified;
+        let mut kind = GeneratedExpressionResultKind::TFlagIsIndeterminate;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.builder
@@ -769,22 +769,22 @@ impl CodeBuilder<'_> {
             BinaryOperatorKind::LessThan => {
                 self.builder
                     .add_lt_i32(left_source, right_source, node, "f32 lt");
-                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
             BinaryOperatorKind::LessEqual => {
                 self.builder
                     .add_le_i32(left_source, right_source, node, "f32 le");
-                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
             BinaryOperatorKind::GreaterThan => {
                 self.builder
                     .add_gt_i32(left_source, right_source, node, "f32 gt");
-                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
             BinaryOperatorKind::GreaterEqual => {
                 self.builder
                     .add_ge_i32(left_source, right_source, node, "f32 ge");
-                kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
         }
 
@@ -817,7 +817,7 @@ impl CodeBuilder<'_> {
         }
 
         GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::ZFlagUnmodified,
+            kind: GeneratedExpressionResultKind::TFlagIsIndeterminate,
         }
     }
 
@@ -833,7 +833,7 @@ impl CodeBuilder<'_> {
             .add_cmp_reg(left_source, right_source, &node, "compare bool");
 
         GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::ZFlagIsTrue,
+            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
         }
     }
 
@@ -847,7 +847,7 @@ impl CodeBuilder<'_> {
             .add_cmp_reg(left_source, right_source, node, "compare to z flag");
 
         GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::ZFlagIsTrue,
+            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
         }
     }
 
@@ -861,7 +861,7 @@ impl CodeBuilder<'_> {
             .add_string_cmp(left_source, right_source, node, "compare strings");
 
         GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::ZFlagIsTrue,
+            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
         }
     }
 
@@ -880,20 +880,19 @@ impl CodeBuilder<'_> {
         );
 
         GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::ZFlagIsTrue,
+            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
         }
     }
 
     fn emit_binary_operator_logical(
         &mut self,
-        target_reg: &TypedRegister,
         binary_operator: &BinaryOperator,
         context: &Context,
     ) -> GeneratedExpressionResult {
         let node = &binary_operator.node;
 
         // the logical is always normalized
-        let kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+        let kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
 
         match binary_operator.kind {
             BinaryOperatorKind::LogicalOr => {
@@ -901,7 +900,7 @@ impl CodeBuilder<'_> {
 
                 let jump_after_patch = self
                     .builder
-                    .add_jmp_if_equal_placeholder(node, "skip rhs `or` expression");
+                    .add_jmp_if_true_placeholder(node, "OR: skip rhs because lhs is true");
 
                 self.emit_expression_to_normalized_z_flag(&binary_operator.right, context);
 
@@ -912,7 +911,7 @@ impl CodeBuilder<'_> {
 
                 let jump_after_patch = self
                     .builder
-                    .add_jmp_if_not_equal_placeholder(node, "skip rhs `and` expression");
+                    .add_jmp_if_not_true_placeholder(node, "AND: skip rhs because lhs is false");
 
                 self.emit_expression_to_normalized_z_flag(&binary_operator.right, context);
 
@@ -958,7 +957,7 @@ impl CodeBuilder<'_> {
                     "shortcut directly to z-flag",
                 );
                 return GeneratedExpressionResult {
-                    kind: GeneratedExpressionResultKind::ZFlagIsTrue,
+                    kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
                 };
             }
             _ => {}
@@ -966,13 +965,13 @@ impl CodeBuilder<'_> {
 
         let (reg, mut gen_result) = self.emit_rvalue_leave_z_flag_if_possible(condition, ctx);
 
-        if gen_result.kind == GeneratedExpressionResultKind::ZFlagUnmodified {
+        if gen_result.kind == GeneratedExpressionResultKind::TFlagIsIndeterminate {
             self.builder.add_tst_u8(
                 &reg,
                 &condition.node,
                 "convert to boolean expression (update z flag)",
             );
-            gen_result.kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+            gen_result.kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
         }
 
         gen_result
@@ -980,9 +979,12 @@ impl CodeBuilder<'_> {
 
     fn emit_expression_to_normalized_z_flag(&mut self, condition: &Expression, ctx: &Context) {
         let result = self.emit_expression_to_z_flag(condition, ctx);
-        assert_ne!(result.kind, GeneratedExpressionResultKind::ZFlagUnmodified);
+        assert_ne!(
+            result.kind,
+            GeneratedExpressionResultKind::TFlagIsIndeterminate
+        );
 
-        if result.kind == GeneratedExpressionResultKind::ZFlagIsInversion {
+        if result.kind == GeneratedExpressionResultKind::TFlagIsTrueWhenClear {
             self.builder
                 .add_not_z(&condition.node, "normalized z is required");
         }
@@ -3310,8 +3312,8 @@ impl CodeBuilder<'_> {
         // 5. Conditionally skip result insertion if early exit is triggered.
         let maybe_skip_early = if matches!(
             transformer_z_flag_state,
-            GeneratedExpressionResultKind::ZFlagIsTrue
-                | GeneratedExpressionResultKind::ZFlagIsInversion
+            GeneratedExpressionResultKind::TFlagIsTrueWhenSet
+                | GeneratedExpressionResultKind::TFlagIsTrueWhenClear
         ) {
             // The z flag is set so we can act on it
             let skip_early = self.builder.add_jmp_if_not_equal_polarity_placeholder(
@@ -3512,32 +3514,32 @@ impl CodeBuilder<'_> {
         node: &Node,
     ) -> GeneratedExpressionResultKind {
         match transformer {
-            Transformer::For => GeneratedExpressionResultKind::ZFlagUnmodified,
+            Transformer::For => GeneratedExpressionResultKind::TFlagIsIndeterminate,
             Transformer::Filter => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 self.builder
                     .add_tst_u8(in_value, node, "filter bool to z flag");
-                GeneratedExpressionResultKind::ZFlagIsTrue
+                GeneratedExpressionResultKind::TFlagIsTrueWhenSet
             }
             Transformer::Find => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 self.builder
                     .add_tst_u8(in_value, node, "find: bool to z flag");
-                GeneratedExpressionResultKind::ZFlagIsInversion
+                GeneratedExpressionResultKind::TFlagIsTrueWhenClear
             }
-            Transformer::Map => GeneratedExpressionResultKind::ZFlagUnmodified,
+            Transformer::Map => GeneratedExpressionResultKind::TFlagIsIndeterminate,
             Transformer::Any => {
                 self.builder.add_tst_u8(in_value, node, "any, check tag");
-                GeneratedExpressionResultKind::ZFlagIsInversion
+                GeneratedExpressionResultKind::TFlagIsTrueWhenClear
             }
             Transformer::All => {
                 self.builder.add_tst_u8(in_value, node, "all, check tag");
-                GeneratedExpressionResultKind::ZFlagIsTrue
+                GeneratedExpressionResultKind::TFlagIsTrueWhenSet
             }
             Transformer::FilterMap => {
                 self.builder
                     .add_tst_u8(in_value, node, "filter map, check tag");
-                GeneratedExpressionResultKind::ZFlagIsTrue
+                GeneratedExpressionResultKind::TFlagIsTrueWhenSet
             }
         }
     }
@@ -3609,14 +3611,14 @@ impl CodeBuilder<'_> {
         node: &Node,
     ) {
         match z_flag_state.kind {
-            GeneratedExpressionResultKind::ZFlagUnmodified => {
+            GeneratedExpressionResultKind::TFlagIsIndeterminate => {
                 // intentionally do nothing
             }
-            GeneratedExpressionResultKind::ZFlagIsTrue => {
+            GeneratedExpressionResultKind::TFlagIsTrueWhenSet => {
                 self.builder
                     .add_stz(target, node, "materialize positive z flag");
             }
-            GeneratedExpressionResultKind::ZFlagIsInversion => {
+            GeneratedExpressionResultKind::TFlagIsTrueWhenClear => {
                 self.builder
                     .add_stnz(target, node, "materialize inverse z flag");
             }

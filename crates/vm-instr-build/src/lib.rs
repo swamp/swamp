@@ -172,7 +172,7 @@ impl InstructionBuilder<'_> {
     }
 
     pub fn add_not_z(&mut self, node: &Node, comment: &str) {
-        self.state.add_instruction(OpCode::NotZ, &[], node, comment);
+        self.state.add_instruction(OpCode::NotT, &[], node, comment);
     }
 
     #[must_use]
@@ -196,9 +196,13 @@ impl InstructionBuilder<'_> {
         let position = self.position();
 
         self.state
-            .add_instruction(OpCode::BEq, &[0, 0], node, comment);
+            .add_instruction(OpCode::BTrue, &[0, 0], node, comment);
 
         PatchPosition(position)
+    }
+
+    pub fn add_jmp_if_true_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
+        self.add_jmp_if_equal_placeholder(node, comment)
     }
 
     pub fn add_jmp_if_not_equal_placeholder(
@@ -209,9 +213,13 @@ impl InstructionBuilder<'_> {
         let position = self.position();
 
         self.state
-            .add_instruction(OpCode::BNe, &[0, 0], node, comment);
+            .add_instruction(OpCode::BFalse, &[0, 0], node, comment);
 
         PatchPosition(position)
+    }
+
+    pub fn add_jmp_if_not_true_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
+        self.add_jmp_if_not_equal_placeholder(node, comment)
     }
 
     pub fn add_jmp_if_not_equal_polarity_placeholder(
@@ -221,8 +229,8 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) -> PatchPosition {
         match polarity {
-            ZFlagPolarity::Normal => self.add_jmp_if_not_equal_placeholder(node, comment),
-            ZFlagPolarity::Inverted => self.add_jmp_if_equal_placeholder(node, comment),
+            ZFlagPolarity::TrueWhenSet => self.add_jmp_if_not_equal_placeholder(node, comment),
+            ZFlagPolarity::TrueWhenClear => self.add_jmp_if_equal_placeholder(node, comment),
         }
     }
 
@@ -721,8 +729,8 @@ impl InstructionBuilder<'_> {
         patch_position: PatchPosition,
         target_position: &InstructionPosition,
     ) {
-        const JMP_IF_NOT: u8 = OpCode::BEq as u8;
-        const JMP_IF: u8 = OpCode::BNe as u8;
+        const JMP_IF_NOT: u8 = OpCode::BTrue as u8;
+        const JMP_IF: u8 = OpCode::BFalse as u8;
         const JMP: u8 = OpCode::B as u8;
 
         const VEC_ITER_NEXT: u8 = OpCode::VecIterNext as u8;
@@ -1602,20 +1610,28 @@ impl InstructionBuilder<'_> {
     }
 
     pub fn add_tst_u8(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
-        self.state
-            .add_instruction(OpCode::MovToZFromReg, &[addr.addressing()], node, comment);
+        self.state.add_instruction(
+            OpCode::MovToTFlagFromReg,
+            &[addr.addressing()],
+            node,
+            comment,
+        );
     }
 
     pub fn add_stz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
         //assert_eq!(target.underlying().total_size.0, 1);
-        self.state
-            .add_instruction(OpCode::MovFromZToReg, &[target.addressing()], node, comment);
+        self.state.add_instruction(
+            OpCode::MovFromTFlagToReg,
+            &[target.addressing()],
+            node,
+            comment,
+        );
     }
 
     pub fn add_stnz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
         // assert_eq!(target.underlying().total_size.0, 1);
         self.state.add_instruction(
-            OpCode::MovFromNotZToReg,
+            OpCode::MovFromNotTFlagToReg,
             &[target.addressing()],
             node,
             comment,

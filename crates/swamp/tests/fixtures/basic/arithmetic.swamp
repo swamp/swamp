@@ -97,16 +97,19 @@ fn boolean_literals() {
   assert(is_true != is_false, "true should not be equal to false")
 }
 
-/*
-TODO: AND-logic fails
 #[test]
 fn boolean_logic_and() {
+  assert((true && true) == true, "true && true failed")
+  assert((true && false) == false, "true && false failed")
+  assert((false && true) == false, "false && true failed")
+  assert((false && false) == false, "false && false failed")
+}
+
+#[test]
+fn boolean_logic_and_no_parens() {
   assert(true && true == true, "true && true failed")
   assert(true && false == false, "true && false failed")
-  assert(false && true == false, "false && true failed")
-  assert(false && false == false, "false && false failed")
 }
-*/
 
 #[test]
 fn boolean_logic_or() {

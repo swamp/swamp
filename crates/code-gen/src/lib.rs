@@ -235,9 +235,9 @@ pub struct FunctionIp {
 
 #[derive(PartialEq, Debug)]
 pub enum GeneratedExpressionResultKind {
-    ZFlagUnmodified,
-    ZFlagIsTrue,
-    ZFlagIsInversion,
+    TFlagIsIndeterminate,
+    TFlagIsTrueWhenSet,
+    TFlagIsTrueWhenClear,
 }
 
 pub struct GeneratedExpressionResult {
@@ -255,19 +255,19 @@ impl GeneratedExpressionResult {
 impl GeneratedExpressionResultKind {
     pub(crate) fn invert_polarity(&self) -> Self {
         match self {
-            Self::ZFlagUnmodified => {
+            Self::TFlagIsIndeterminate => {
                 panic!("can not invert polarity. status is unknown")
             }
-            Self::ZFlagIsTrue => Self::ZFlagIsInversion,
-            Self::ZFlagIsInversion => Self::ZFlagIsTrue,
+            Self::TFlagIsTrueWhenSet => Self::TFlagIsTrueWhenClear,
+            Self::TFlagIsTrueWhenClear => Self::TFlagIsTrueWhenSet,
         }
     }
 
     pub(crate) fn polarity(&self) -> ZFlagPolarity {
         match self {
-            Self::ZFlagUnmodified => panic!("polarity is undefined"),
-            Self::ZFlagIsTrue => ZFlagPolarity::Normal,
-            Self::ZFlagIsInversion => ZFlagPolarity::Inverted,
+            Self::TFlagIsIndeterminate => panic!("polarity is undefined"),
+            Self::TFlagIsTrueWhenSet => ZFlagPolarity::TrueWhenSet,
+            Self::TFlagIsTrueWhenClear => ZFlagPolarity::TrueWhenClear,
         }
     }
 }
@@ -281,7 +281,7 @@ impl GeneratedExpressionResult {
 impl Default for GeneratedExpressionResult {
     fn default() -> Self {
         Self {
-            kind: GeneratedExpressionResultKind::ZFlagUnmodified,
+            kind: GeneratedExpressionResultKind::TFlagIsIndeterminate,
         }
     }
 }

@@ -321,8 +321,8 @@ impl MemoryOffset {
 }
 
 pub enum ZFlagPolarity {
-    Normal,
-    Inverted,
+    TrueWhenSet,
+    TrueWhenClear,
 }
 
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]

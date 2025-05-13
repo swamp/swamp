@@ -42,11 +42,11 @@ pub enum OpCode {
     CmpReg,
     CmpBlock,
 
-    NotZ, // Invert z flag
+    NotT, // Invert z flag
 
     // Conditional branching
-    BNe,
-    BEq,
+    BFalse,
+    BTrue,
 
     // Unconditional branching
     B,
@@ -78,9 +78,9 @@ pub enum OpCode {
 
     // Movers
     MovReg,
-    MovToZFromReg, // Load the byte into the z flag (zero = sets the z flag, any other value = clears the z flag)
-    MovFromZToReg,
-    MovFromNotZToReg,
+    MovToTFlagFromReg, // Load the byte into the z flag (zero = clears the t flag, any other value = sets the t flag)
+    MovFromTFlagToReg,
+    MovFromNotTFlagToReg,
     // Mov immediate
     Mov8FromImmediateValue,
     Mov32FromImmediateValue,
@@ -194,17 +194,17 @@ impl OpCode {
             Self::Eq8Imm => "eq8",
             Self::CmpReg => "cmp",
             Self::CmpBlock => "cmpblk",
-            Self::MovToZFromReg => "tst",
+            Self::MovToTFlagFromReg => "tst",
             Self::FrameMemClr => "memclrf",
 
-            // Store Z flag
-            Self::NotZ => "notz",
-            Self::MovFromZToReg => "stz",
-            Self::MovFromNotZToReg => "stnz",
+            // Store T flag
+            Self::NotT => "nott",
+            Self::MovFromTFlagToReg => "stt",
+            Self::MovFromNotTFlagToReg => "stnt",
 
             // Branches
-            Self::BNe => "b.ne",
-            Self::BEq => "b.eq",
+            Self::BFalse => "b.false",
+            Self::BTrue => "b.true",
             Self::B => "b",
 
             // Call/Frame/Return
