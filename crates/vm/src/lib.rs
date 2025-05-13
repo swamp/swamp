@@ -128,7 +128,7 @@ pub struct Vm {
 
     handlers: [HandlerType; 256],
 
-    pub registers: [RegContents; 256], // Normal CPUs have around 31 general purpose registers
+    pub registers: [u32; 256], // Normal CPUs have around 31 general purpose registers
 
     // TODO: Error state
     pub flags: Flags,
@@ -188,6 +188,14 @@ impl Vm {
         };
 
         vm.handlers[OpCode::Alloc as usize] = HandlerType::Args3(Self::execute_alloc);
+
+        // Store
+        vm.handlers[OpCode::StRegToFrame as usize] =
+            HandlerType::Args4(Self::execute_st_regs_to_frame);
+
+        // Load
+        vm.handlers[OpCode::LdRegFromFrame as usize] =
+            HandlerType::Args4(Self::execute_ld_regs_from_frame);
 
         // Load immediate
         vm.handlers[OpCode::Mov8FromImmediateValue as usize] =
@@ -254,11 +262,8 @@ impl Vm {
         vm.handlers[OpCode::Hlt as usize] = HandlerType::Args0(Self::execute_hlt);
 
         // String
-        /* TODO: BRING THIS BACK
         vm.handlers[OpCode::StringAppend as usize] =
             HandlerType::Args3(Self::execute_string_append);
-
-         */
 
         // Int
         vm.handlers[OpCode::IntToRnd as usize] =
@@ -393,10 +398,6 @@ impl Vm {
 
                 //    let s = hexify::format_hex(&self.frame_memory()[..16]);
                 //  eprintln!("mem: {s}");
-            }
-
-            if self.debug.opcodes_executed > 20 {
-                return;
             }
 
             self.pc += 1; // IP must be added BEFORE handling the instruction
@@ -903,6 +904,26 @@ impl Vm {
     #[inline]
     fn execute_mov_reg(&mut self, dst_reg: u8, src_reg: u8) {
         self.registers[dst_reg as usize] = self.registers[src_reg as usize];
+    }
+
+    #[inline]
+    fn execute_st_regs_to_frame(&mut self, a: u8, b: u8, start_reg: u8, count: u8) {
+        let offset = u8s_to_u16!(a, b);
+        let const_reg_ptr = &self.registers[start_reg as usize] as *const u32;
+        let target_ptr = self.memory.get_frame_ptr_as_u32(offset);
+        unsafe {
+            ptr::copy_nonoverlapping(const_reg_ptr, target_ptr, count as usize);
+        }
+    }
+
+    #[inline]
+    fn execute_ld_regs_from_frame(&mut self, start_reg: u8, a: u8, b: u8, count: u8) {
+        let offset = u8s_to_u16!(a, b);
+        let target_reg_ptr = &mut self.registers[start_reg as usize] as *mut u32;
+        let source_frame_start = self.memory.get_frame_const_ptr_as_u32(offset);
+        unsafe {
+            ptr::copy_nonoverlapping(source_frame_start, target_reg_ptr, count as usize);
+        }
     }
 
     #[inline]

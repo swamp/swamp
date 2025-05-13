@@ -3,9 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::RegContents;
-use crate::memory::Memory;
 use std::{mem, slice};
-use swamp_vm_types::{HEAP_PTR_ON_FRAME_SIZE, StringHeader, VEC_PTR_SIZE};
+use swamp_vm_types::StringHeader;
 
 pub struct HostArgs {
     register_index: usize, // Current register being processed
@@ -13,7 +12,6 @@ pub struct HostArgs {
     all_memory: *const u8,
     all_memory_len: usize,
     registers: Vec<u32>,
-    //register_count: usize,
     stack_offset: usize,
 }
 

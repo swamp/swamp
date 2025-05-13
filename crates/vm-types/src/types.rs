@@ -9,6 +9,7 @@ use crate::{
     VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
 };
 use seq_fmt::comma;
+use std::cmp::PartialEq;
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::ops::Add;
 use tracing::error;
@@ -283,6 +284,10 @@ impl BasicTypeKind {
 
     pub fn is_mutable_reference(&self) -> bool {
         matches!(self, BasicTypeKind::MutablePointer(..))
+    }
+
+    pub fn needs_copy_back_when_mutable(&self) -> bool {
+        !self.is_represented_as_a_pointer_inside_register()
     }
 
     pub fn union_info(&self) -> &TaggedUnion {
@@ -755,6 +760,8 @@ pub struct VmType {
     pub origin: VmTypeOrigin,
 }
 
+impl VmType {}
+
 impl Display for VmType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", self.basic_type, self.origin)
@@ -805,13 +812,27 @@ impl VmType {
         }
     }
 
+    #[must_use]
     pub fn is_mutable_reference_semantic(&self) -> bool {
         self.basic_type.is_mutable_reference()
     }
 
+    #[must_use]
     pub fn is_represented_as_pointer_inside_register(&self) -> bool {
         self.basic_type.is_represented_as_a_pointer_in_reg()
     }
+
+    #[must_use]
+    pub fn needs_allocated_space_for_return_in_reg0(&self) -> bool {
+        self.basic_type.is_represented_as_a_pointer_in_reg()
+            && !matches!(self.basic_type.kind, BasicTypeKind::InternalStringPointer)
+    }
+
+    pub fn needs_copy_back_for_mutable(&self) -> bool {
+        !self.basic_type.is_represented_as_a_pointer_in_reg()
+            || matches!(self.basic_type.kind, BasicTypeKind::InternalStringPointer)
+    }
+    #[must_use]
     pub fn underlying(&self) -> BasicType {
         self.basic_type.underlying().clone()
     }
@@ -915,6 +936,12 @@ pub struct BasicType {
     pub kind: BasicTypeKind,
     pub total_size: MemorySize,
     pub max_alignment: MemoryAlignment,
+}
+
+impl BasicType {
+    pub fn should_be_copied_back_when_mutable_arg_or_return(&self) -> bool {
+        todo!()
+    }
 }
 
 impl BasicType {

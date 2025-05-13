@@ -18,13 +18,15 @@ pub mod variable;
 use crate::call::MaybeBorrowMutRefExpression;
 use crate::err::{Error, ErrorKind};
 use seq_map::SeqMap;
-use source_map_cache::SourceMap;
+use source_map_cache::{SourceMap, SourceMapWrapper};
 use source_map_node::{FileId, Node, Span};
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::{FromStr, ParseBoolError};
+use swamp_modules::modules::pretty_print;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
+use swamp_pretty_print::{ExpressionDisplay, SourceMapDisplay};
 use swamp_semantic::instantiator::TypeVariableScope;
 use swamp_semantic::prelude::*;
 use swamp_semantic::type_var_stack::SemanticContext;
@@ -1550,11 +1552,12 @@ impl<'a> Analyzer<'a> {
         string_parts: &[swamp_ast::StringPart],
     ) -> Result<Expression, Error> {
         let mut last_expression: Option<Expression> = None;
-
+        info!("string interpolation starts");
         for part in string_parts {
             let created_expression = match part {
                 swamp_ast::StringPart::Literal(string_node, processed_string) => {
                     let string_literal = Literal::StringLiteral(processed_string.to_string());
+                    info!(?processed_string, "string interpolation literal:");
                     let basic_literal = ExpressionKind::Literal(string_literal);
                     self.create_expr(basic_literal, Type::String, string_node)
                 }
@@ -1562,6 +1565,8 @@ impl<'a> Analyzer<'a> {
                     let any_context = TypeContext::new_anything_argument();
 
                     let expr = self.analyze_expression(expression, &any_context)?;
+                    info!(?expr, "string interpolation expression raw");
+
                     let ty = expr.ty.clone();
 
                     let maybe_to_string = self
@@ -1573,15 +1578,15 @@ impl<'a> Analyzer<'a> {
 
                     if ty == Type::String {
                         expr
-                    } else if let Type::Optional(inner_type) = ty {
-                        // TODO: FIX THIS
-                        let string_literal = Literal::StringLiteral("not implemented".to_string());
-                        let basic_literal = ExpressionKind::Literal(string_literal);
-                        self.create_expr(basic_literal, Type::String, &expression.node)
                     } else {
+                        let underlying = if let Type::Optional(inner_type) = ty {
+                            *inner_type.clone()
+                        } else {
+                            ty.clone()
+                        };
                         if maybe_to_string.is_none() {
                             return Err(self.create_err(
-                                ErrorKind::MissingToString(ty.clone()),
+                                ErrorKind::MissingToString(underlying.clone()),
                                 &expression.node,
                             ));
                         }
@@ -1591,7 +1596,7 @@ impl<'a> Analyzer<'a> {
                             "to_string",
                             &[expr_as_param.clone()],
                             &expression.node,
-                            &ty,
+                            &underlying,
                         )?;
 
                         /*
@@ -1600,7 +1605,11 @@ impl<'a> Analyzer<'a> {
                             self.analyze_format_specifier(Option::from(format_specifier));
 
                          */
-                        self.create_expr(call_expr_kind, Type::String, &expression.node)
+
+                        let result =
+                            self.create_expr(call_expr_kind, Type::String, &expression.node);
+                        info!(?result, "string interpolation expression call result");
+                        result
                     }
                 }
             };
@@ -1623,13 +1632,35 @@ impl<'a> Analyzer<'a> {
             last_expression = Some(x_last_expr);
         }
 
-        // HACK TODO: REMOVE THIS
-        let string_literal = Literal::StringLiteral("not implemented".to_string());
-        let basic_literal = ExpressionKind::Literal(string_literal);
-        let hack_expr = self.create_expr(basic_literal, Type::String, &node);
-        last_expression = Some(hack_expr);
+        info!(?last_expression, "string interpolation done");
 
-        Ok(last_expression.unwrap())
+        let lookup = SourceMapWrapper {
+            source_map: self.shared.source_map,
+            current_dir: Default::default(),
+        };
+
+        let source_map_display = SourceMapDisplay {
+            source_map: &lookup,
+        };
+
+        let last = last_expression.unwrap();
+        let expr_display = ExpressionDisplay {
+            expression: &last,
+            source_map_display: &source_map_display,
+        };
+        eprintln!("expr:\n{expr_display}");
+        // HACK TODO: REMOVE THIS
+        /*
+        {
+            let string_literal = Literal::StringLiteral("not implemented".to_string());
+            let basic_literal = ExpressionKind::Literal(string_literal);
+            let hack_expr = self.create_expr(basic_literal, Type::String, &node);
+            last_expression = Some(hack_expr);
+        }
+
+         */
+
+        Ok(last)
     }
 
     pub(crate) fn analyze_identifier(

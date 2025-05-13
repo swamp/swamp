@@ -38,6 +38,11 @@ use swamp_vm_types::{
 use tracing::field::debug;
 use tracing::{error, info};
 
+struct MutableReturnReg {
+    pub target_location_after_call: DetailedLocation,
+    pub parameter_reg: TypedRegister,
+}
+
 pub(crate) struct CodeBuilder<'a> {
     pub state: &'a mut CodeGenState,
     pub(crate) builder: &'a mut InstructionBuilder<'a>,
@@ -1201,7 +1206,6 @@ impl CodeBuilder<'_> {
                   node,
                   comment,
               )*/
-              ,
         }
     }
 
@@ -1315,19 +1319,22 @@ impl CodeBuilder<'_> {
 
     fn emit_arguments(
         &mut self,
-        maybe_return_register_param: Option<&TypedRegister>,
+        target_reg: Option<&TypedRegister>,
         node: &Node,
         signature: &Signature,
         self_variable: Option<&TypedRegister>,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
-    ) -> Vec<SpilledRegister> {
+    ) -> (Vec<SpilledRegister>, Vec<MutableReturnReg>) {
         let mut all_mutable_arguments_including_hidden = Vec::new();
-        if let Some(return_param_reg) = maybe_return_register_param {
+
+        let mut copy_back_mutable_reg_pairs = Vec::new();
+
+        if let Some(return_param_reg) = target_reg {
             let return_reg = TypedRegister::new_vm_type(0, return_param_reg.ty.clone());
             if return_param_reg
                 .ty
-                .is_represented_as_pointer_inside_register()
+                .needs_allocated_space_for_return_in_reg0()
             {
                 self.builder.add_mov_reg(
                     &return_reg,
@@ -1338,6 +1345,15 @@ impl CodeBuilder<'_> {
             } else {
                 all_mutable_arguments_including_hidden.push(return_param_reg);
             }
+
+            if return_reg.ty.needs_copy_back_for_mutable() {
+                copy_back_mutable_reg_pairs.push(MutableReturnReg {
+                    target_location_after_call: DetailedLocation::Register {
+                        reg: return_param_reg.clone(),
+                    },
+                    parameter_reg: return_reg,
+                });
+            }
         }
         let mut argument_registers = RegisterPool::new(1, 10);
 
@@ -1345,9 +1361,9 @@ impl CodeBuilder<'_> {
         let mut spilled_arguments = Vec::new();
 
         for (index_in_signature, type_for_parameter) in signature.parameters.iter().enumerate() {
-            let basic_type = layout_type(&type_for_parameter.resolved_type);
+            let parameter_basic_type = layout_type(&type_for_parameter.resolved_type);
             let argument_register = argument_registers.alloc_register(
-                VmType::new_unknown_placement(basic_type),
+                VmType::new_unknown_placement(parameter_basic_type.clone()),
                 &format!("emit argument {index_in_signature}"),
             );
 
@@ -1397,6 +1413,22 @@ impl CodeBuilder<'_> {
                     &argument_ctx,
                     "arg",
                 );
+
+                match argument_expr_or_location {
+                    MutRefOrImmutableExpression::Location(lvalue) => {
+                        let detailed_location = self.emit_lvalue_chain(lvalue, ctx);
+                        if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
+                            copy_back_mutable_reg_pairs.push(MutableReturnReg {
+                                target_location_after_call: detailed_location,
+                                parameter_reg: argument_register.clone(),
+                            })
+                        }
+                    }
+                    MutRefOrImmutableExpression::Expression(expr) => {
+                        self.emit_expression_materialize(&argument_register, expr, &argument_ctx)
+                    }
+                }
+
                 if debug_pos == self.builder.position() {
                     // eprintln!("problem with {argument_expr_or_location:?}");
                 }
@@ -1406,7 +1438,7 @@ impl CodeBuilder<'_> {
             protected_argument_registers.push(argument_register.clone());
         }
 
-        spilled_arguments
+        (spilled_arguments, copy_back_mutable_reg_pairs)
     }
 
     fn temp_frame_space_for_register(&mut self, comment: &str) -> FrameMemoryRegion {
@@ -1487,7 +1519,7 @@ impl CodeBuilder<'_> {
                                     z_flag_result = z_result;
                                 }
                             } else {
-                                let spilled_argument_registers = self.emit_arguments(
+                                let (spilled_argument_registers, copy_back) = self.emit_arguments(
                                     Some(target_reg),
                                     &start_expression.node,
                                     &internal_fn.signature.signature,
@@ -1503,6 +1535,7 @@ impl CodeBuilder<'_> {
 
                                 self.emit_post_call(
                                     &spilled_argument_registers,
+                                    &copy_back,
                                     &element.node,
                                     &format!("emit_rvalue postcall"),
                                 );
@@ -3020,7 +3053,7 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let spilled_arguments = self.emit_arguments(
+        let (spilled_arguments, copy_back) = self.emit_arguments(
             target_reg,
             node,
             &internal_fn.signature.signature,
@@ -3031,7 +3064,12 @@ impl CodeBuilder<'_> {
 
         self.add_call(node, internal_fn, &format!("call")); // will be fixed up later
 
-        self.emit_post_call(&spilled_arguments, node, "restore spilled after call");
+        self.emit_post_call(
+            &spilled_arguments,
+            &copy_back,
+            node,
+            "restore spilled after call",
+        );
 
         GeneratedExpressionResult::default()
     }
@@ -3089,7 +3127,7 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let spilled_arguments =
+        let (spilled_arguments, copy_back) =
             self.emit_arguments(None, node, &host_fn.signature, None, arguments, ctx);
 
         let arg_count = arguments.len() as u8;
@@ -3103,7 +3141,7 @@ impl CodeBuilder<'_> {
             ),
         );
 
-        self.emit_post_call(&spilled_arguments, node, "host call");
+        self.emit_post_call(&spilled_arguments, &copy_back, node, "host call");
 
         GeneratedExpressionResult::default()
     }
@@ -3117,7 +3155,7 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let spilled_arguments = self.emit_arguments(
+        let (spilled_arguments, copy_backs) = self.emit_arguments(
             maybe_return,
             node,
             &host_fn.signature,
@@ -3137,7 +3175,7 @@ impl CodeBuilder<'_> {
             ),
         ); // will be fixed up later
 
-        self.emit_post_call(&spilled_arguments, node, "host_self_call");
+        self.emit_post_call(&spilled_arguments, &copy_backs, node, "host_self_call");
 
         GeneratedExpressionResult::default()
     }
@@ -3651,9 +3689,29 @@ impl CodeBuilder<'_> {
     fn emit_post_call(
         &mut self,
         spilled_arguments: &[SpilledRegister],
+        copy_back: &[MutableReturnReg],
         node: &Node,
         comment: &str,
     ) {
+        for copy_back in copy_back {
+            match &copy_back.target_location_after_call {
+                DetailedLocation::Register { reg } => {
+                    self.builder
+                        .add_mov_reg(reg, &copy_back.parameter_reg, node, "copy back reg");
+                }
+                DetailedLocation::Memory {
+                    base_ptr_reg,
+                    offset,
+                    ..
+                } => self.store_register_contents_to_memory(
+                    node,
+                    base_ptr_reg,
+                    *offset,
+                    &copy_back.parameter_reg,
+                    "copy back from mem",
+                ),
+            }
+        }
         self.emit_restore_spilled_registers(spilled_arguments, node, comment);
     }
 

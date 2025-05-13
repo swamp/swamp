@@ -14,6 +14,7 @@ use swamp_semantic::{
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
 };
 use swamp_types::*;
+use tracing::info;
 use yansi::{Color, Paint};
 
 pub struct SourceMapDisplay<'a> {
@@ -375,14 +376,18 @@ impl SourceMapDisplay<'_> {
         expr: &Expression,
         tabs: usize,
     ) -> std::fmt::Result {
+        info!(?expr.kind, "show_expression");
         match &expr.kind {
             ExpressionKind::ConstantAccess(a) => {
                 write!(f, "{}", a.assigned_name.magenta())
             }
             ExpressionKind::VariableAccess(var) => self.show_variable(f, var),
 
-            ExpressionKind::BinaryOp(_) => {
-                write!(f, "BinaryOp()")
+            ExpressionKind::BinaryOp(op) => {
+                self.show_expression(f, &op.left, tabs + 1)?;
+                Self::new_line_and_tab(f, tabs + 1)?;
+                self.show_expression(f, &op.right, tabs + 1)?;
+                Self::new_line_and_tab(f, tabs + 1)
             }
             ExpressionKind::UnaryOp(_) => {
                 write!(f, "UnaryOp()")
@@ -467,7 +472,16 @@ impl SourceMapDisplay<'_> {
                 write!(f, "intrinsic_call{intrinsic_func_def:?}")?;
                 self.show_arguments(f, args, tabs + 1)
             }
-            _ => todo!(),
+            ExpressionKind::InternalCall(call, arguments) => {
+                write!(
+                    f,
+                    "call {} '{}'",
+                    call.program_unique_id, call.assigned_name
+                )?;
+                Self::new_line_and_tab(f, tabs + 1)?;
+                self.show_arguments(f, arguments, tabs + 1)
+            }
+            _ => todo!("not implemented {:?}", expr.kind),
         }
     }
 

@@ -3,10 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use crate::Vm;
 use crate::memory::Memory;
-use std::ptr;
-use swamp_vm_types::{HEAP_PTR_ON_FRAME_SIZE, STRING_HEADER_SIZE, StringHeader};
+use crate::{Vm, set_reg};
+use swamp_vm_types::StringHeader;
 
 impl Vm {
     /*
@@ -52,59 +51,39 @@ impl Vm {
 
     }
 
-    #[inline]
-    fn get_string(&self, frame_offset: u16) -> (*const StringHeader, &str) {
-        let header = self.frame_ptr_indirect_heap_immut_at(frame_offset) as *const StringHeader;
-        unsafe {
-            let runes = self.memory_ptr_immut_at((*header).heap_offset as usize);
 
-            let bytes = std::slice::from_raw_parts(runes, (*header).byte_count as usize);
 
-            (header, std::str::from_utf8_unchecked(bytes))
-        }
+         */
+    pub fn read_string_header_from_ptr_reg(&self, vec_header_ptr_reg: u8) -> StringHeader {
+        let vec_header_const_ptr =
+            self.get_const_ptr_from_reg(vec_header_ptr_reg) as *const StringHeader;
+        unsafe { *vec_header_const_ptr }
     }
 
     #[inline]
-    pub fn execute_string_append(&mut self, target_string_addr: u16, string_a: u16, string_b: u16) {
-        let (_header, str_a) = self.get_string(string_a);
-        let (_header, str_b) = self.get_string(string_b);
+    fn get_string(&self, reg: u8) -> &str {
+        let header = self.read_string_header_from_ptr_reg(reg);
+        unsafe {
+            let runes = self
+                .memory()
+                .get_heap_const_ptr(header.heap_offset as usize);
 
+            let bytes = std::slice::from_raw_parts(runes, header.byte_count as usize);
+
+            std::str::from_utf8_unchecked(bytes)
+        }
+    }
+    #[inline]
+    pub fn execute_string_append(&mut self, target_string_addr: u8, string_a: u8, string_b: u8) {
+        let str_a = self.get_string(string_a);
+        let str_b = self.get_string(string_b);
         let result = str_a.to_string() + str_b;
 
-        let byte_count = result.len();
+        eprintln!("append: '{result}'");
+        let result_addr = self.create_string(&result);
 
-        let heap_runes_offset = self.memory_allocate(byte_count);
-
-        // Copy new runes to heap
-        unsafe {
-            ptr::copy_nonoverlapping(
-                result.as_bytes().as_ptr(),
-                self.memory_ptr_at(heap_runes_offset as usize),
-                byte_count,
-            );
-        }
-
-        let string_header = StringHeader {
-            byte_count: result.len() as u16,
-            capacity: result.len() as u16,
-            heap_offset: heap_runes_offset,
-        };
-
-        let header_offset = self.memory_allocate(STRING_HEADER_SIZE.into());
-
-        // Copy String header to heap
-        unsafe {
-            let header_ptr = self.memory_ptr_at(header_offset as usize) as *mut StringHeader;
-            ptr::write(header_ptr, string_header);
-        }
-
-        // Copy the heap offset of the string header to the frame.
-        unsafe {
-            let target_ptr = self.frame_ptr_at(target_string_addr) as *mut u32;
-            ptr::write(target_ptr, header_offset);
-        }
+        set_reg!(self, target_string_addr, result_addr);
     }
-         */
 
     pub fn read_string(heap_addr: u32, heap: &Memory) -> &str {
         let string_header =
