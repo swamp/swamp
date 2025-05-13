@@ -52,7 +52,7 @@ pub enum OpCode {
     B,
 
     // Call, frame and return
-    Call, // Introduce CallLong if needed
+    Call,
     Enter,
     Ret,
 

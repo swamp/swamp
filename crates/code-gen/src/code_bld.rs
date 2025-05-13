@@ -4,7 +4,7 @@ use crate::layout::{
     layout_enum_into_tagged_union, layout_optional_type, layout_struct_type, layout_tuple_items,
     layout_type,
 };
-use crate::reg_pool::{RegisterPool, TempRegister, TempRegisterPool};
+use crate::reg_pool::{HwmTempRegisterPool, RegisterPool, TempRegister};
 use crate::state::{CodeGenState, FunctionFixup};
 use crate::{
     Collection, DetailedLocation, DetailedLocationResolved, GeneratedExpressionResult,
@@ -48,7 +48,7 @@ pub(crate) struct CodeBuilder<'a> {
     pub(crate) builder: &'a mut InstructionBuilder<'a>,
     pub(crate) variable_registers: SeqMap<usize, TypedRegister>,
     frame_memory_registers: RegisterPool,
-    pub(crate) temp_registers: TempRegisterPool,
+    pub(crate) temp_registers: HwmTempRegisterPool,
     frame_allocator: ScopeAllocator,
     pub source_map_lookup: &'a SourceMapWrapper<'a>,
 }
@@ -61,7 +61,7 @@ impl<'a> CodeBuilder<'a> {
         builder: &'a mut InstructionBuilder<'a>,
         variable_registers: SeqMap<usize, TypedRegister>,
         frame_memory_registers: RegisterPool,
-        temp_registers: TempRegisterPool,
+        temp_registers: HwmTempRegisterPool,
         temp_allocator: ScopeAllocator,
         source_map_lookup: &'a source_map_cache::SourceMapWrapper<'a>,
     ) -> Self {
@@ -310,6 +310,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        let hwm = self.temp_registers.save_mark();
         let offset_temp_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(u32_type()),
             "emit_ptr_reg_from_location_offset",
@@ -327,7 +328,8 @@ impl CodeBuilder<'_> {
             node,
             "add base pointer to target reg",
         );
-        self.temp_registers.free(offset_temp_reg);
+
+        self.temp_registers.restore_to_mark(hwm);
     }
 
     pub(crate) fn emit_ptr_reg_from_detailed_location(
@@ -343,6 +345,7 @@ impl CodeBuilder<'_> {
                 offset,
                 ty,
             } => {
+                let hwm = self.temp_registers.save_mark();
                 let offset_temp_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u32_type()),
                     "emit_ptr_reg_from_location_offset",
@@ -361,7 +364,7 @@ impl CodeBuilder<'_> {
                     node,
                     "add base pointer reg",
                 );
-                self.temp_registers.free(offset_temp_reg);
+                self.temp_registers.restore_to_mark(hwm);
                 (
                     final_ptr_target_reg.register().clone(),
                     Some(final_ptr_target_reg),
@@ -559,6 +562,8 @@ impl CodeBuilder<'_> {
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
+        let hwm = self.temp_registers.save_mark();
+
         let left_temp_dest = self.temp_space_for_type(&binary_operator.left.ty, "binary op left");
         let left_source = left_temp_dest.register();
         self.emit_expression_materialize(left_temp_dest.register(), &binary_operator.left, ctx);
@@ -635,8 +640,7 @@ impl CodeBuilder<'_> {
             },
         };
 
-        self.temp_registers
-            .free_multiple(vec![left_temp_dest, right_temp_dest]);
+        self.temp_registers.restore_to_mark(hwm);
 
         result
     }
@@ -1042,6 +1046,8 @@ impl CodeBuilder<'_> {
         // `while` loops are only for side effects, make sure that the target size is zero (Unit)
         //assert_eq!(target_reg.size.0, 0);
 
+        let hwm = self.temp_registers.save_mark();
+
         let ip_for_condition = self.builder.position();
 
         let jump_on_false_condition = self.emit_condition_context(condition, ctx);
@@ -1054,7 +1060,7 @@ impl CodeBuilder<'_> {
         self.builder
             .add_jmp(ip_for_condition, &expression.node, "jmp to while condition");
 
-        self.temp_registers.free(temp_reg);
+        self.temp_registers.restore_to_mark(hwm);
 
         self.builder.patch_jump_here(jump_on_false_condition);
 
@@ -1083,6 +1089,8 @@ impl CodeBuilder<'_> {
                 offset,
                 ..
             } => {
+                let hwm = self.temp_registers.save_mark();
+
                 let temp_offset_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u32_type()),
                     "emit_absolute_pointer: temp_offset_reg",
@@ -1101,7 +1109,7 @@ impl CodeBuilder<'_> {
                     "forcing lvalue to be a complete pointer",
                 );
 
-                self.temp_registers.free(temp_offset_reg);
+                self.temp_registers.restore_to_mark(hwm);
             }
         }
     }
@@ -1180,6 +1188,8 @@ impl CodeBuilder<'_> {
                 );
             }
             _ => {
+                let hwm = self.temp_registers.save_mark();
+
                 let temp = self.temp_registers.allocate(
                     VmType::new_unknown_placement(unknown_type()),
                     "load register contents from memory",
@@ -1197,7 +1207,7 @@ impl CodeBuilder<'_> {
                     node,
                     "store offset",
                 );
-                self.temp_registers.free(temp);
+                self.temp_registers.restore_to_mark(hwm);
             } /*
               _ => self.builder.add_block_copy_with_offset(
                   base_ptr_reg,
@@ -1421,7 +1431,13 @@ impl CodeBuilder<'_> {
                         }
                     }
                     MutRefOrImmutableExpression::Expression(expr) => {
-                        self.emit_expression_materialize(&argument_register, expr, &argument_ctx)
+                        let source_reg = self.emit_rvalue(expr, &argument_ctx);
+                        self.builder.add_mov_reg(
+                            &argument_register,
+                            &source_reg,
+                            &expr.node,
+                            "copy reg result into arg",
+                        );
                     }
                 }
 
@@ -1479,8 +1495,9 @@ impl CodeBuilder<'_> {
                     //info!(?current_location, "after field offset lookup");
                 }
                 PostfixKind::MemberCall(function_to_call, arguments) => {
-                    let return_temp_reg =
-                        self.temp_space_for_type(&function_to_call.signature().return_type, "");
+                    let hwm = self.temp_registers.save_mark();
+                    //let return_temp_reg =
+                    //  self.temp_space_for_type(&function_to_call.signature().return_type, "");
                     let resolved_location = self
                         .emit_load_primitive_from_detailed_location_if_needed(
                             &current_location,
@@ -1554,11 +1571,7 @@ impl CodeBuilder<'_> {
                         ),
                     }
 
-                    self.temp_registers.free(return_temp_reg);
-
-                    if let DetailedLocationResolved::TempRegister(temp_reg) = resolved_location {
-                        self.temp_registers.free(temp_reg);
-                    }
+                    self.temp_registers.restore_to_mark(hwm);
 
                     current_location = DetailedLocation::Register {
                         reg: target_reg.clone(),
@@ -1569,6 +1582,7 @@ impl CodeBuilder<'_> {
                     todo!()
                 }
                 PostfixKind::NoneCoalescingOperator(expression) => {
+                    let hwm = self.temp_registers.save_mark();
                     let temp_reg = self.temp_space_for_type(&expression.ty, "");
 
                     // materialize an u8
@@ -1589,13 +1603,16 @@ impl CodeBuilder<'_> {
                         .builder
                         .add_jmp_if_equal_placeholder(&element.node, "jump if some");
 
+                    /*
                     if let DetailedLocationResolved::TempRegister(temp_reg) = resolved_location {
                         self.temp_registers.free(temp_reg);
                     }
 
+                     */
+
                     self.emit_expression_materialize(target_reg, expression, ctx);
 
-                    self.temp_registers.free(temp_reg);
+                    self.temp_registers.restore_to_mark(hwm);
 
                     self.builder.patch_jump_here(patch);
 
@@ -1683,6 +1700,8 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back. //assert_eq!(gen_tuple_type.fields.len(), expressions.len());
 
         for (offset_item, expr) in gen_tuple_type.fields.iter().zip(expressions) {
+            let hwm = self.temp_registers.save_mark();
+
             let temp_materialize_reg = self.temp_registers.allocate(
                 VmType::new_unknown_placement(offset_item.ty.clone()),
                 "emit_materialize for tuple element",
@@ -1698,7 +1717,7 @@ impl CodeBuilder<'_> {
                 &rvalue_reg,
                 &format!("emit tuple item {}", offset_item.name),
             );
-            self.temp_registers.free(temp_materialize_reg);
+            self.temp_registers.restore_to_mark(hwm);
         }
     }
 
@@ -1766,6 +1785,8 @@ impl CodeBuilder<'_> {
                     layout_enum_into_tagged_union(&enum_type.assigned_name, &variants);
                 let layout_variant = layout_enum.get_variant_by_index(variant_index);
 
+                let hwm = self.temp_registers.save_mark();
+
                 let temp_payload_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(layout_variant.ty.clone()),
                     "variant literal payload",
@@ -1822,7 +1843,7 @@ impl CodeBuilder<'_> {
                     "copy enum payload into target",
                 );
 
-                self.temp_registers.free(temp_payload_reg);
+                self.temp_registers.restore_to_mark(hwm);
             }
             Literal::TupleLiteral(tuple_type, expressions) => {
                 self.emit_tuple(target_reg, tuple_type, expressions, ctx, node)
@@ -1891,6 +1912,7 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         if let Some(some_expression) = maybe_option {
             let target_tag = target_reg.underlying().optional_info().unwrap().clone();
+            let hwm = self.temp_registers.save_mark();
             {
                 let tag_reg = self
                     .temp_registers
@@ -1908,7 +1930,6 @@ impl CodeBuilder<'_> {
                     node,
                     "store optional Some tag",
                 );
-                self.temp_registers.free(tag_reg);
             }
             {
                 let payload_reg = self.temp_registers.allocate(
@@ -1916,8 +1937,8 @@ impl CodeBuilder<'_> {
                     "emit_option_expression",
                 );
                 self.emit_expression_materialize(payload_reg.register(), some_expression, ctx); // Fills in more of the union
-                self.temp_registers.free(payload_reg);
             }
+            self.temp_registers.restore_to_mark(hwm);
         } else {
             self.builder
                 .add_mov8_immediate(target_reg, 0, node, "option None tag"); // 0 signals `None`
@@ -1953,6 +1974,8 @@ impl CodeBuilder<'_> {
         // check if it has reached its end
 
         let collection_type = &iterable.resolved_expression.ty();
+        let hwm = self.temp_registers.save_mark();
+
         let collection_basic_type = layout_type(collection_type);
         let discard_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(collection_basic_type),
@@ -2034,7 +2057,7 @@ impl CodeBuilder<'_> {
             }
         };
 
-        self.temp_registers.free(discard_reg);
+        self.temp_registers.restore_to_mark(hwm);
 
         GeneratedExpressionResult::default()
     }
@@ -2046,6 +2069,8 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         if let Some((last, others)) = expressions.split_last() {
+            let hwm = self.temp_registers.save_mark();
+
             let unit_temp_reg = self.temp_registers.allocate(
                 VmType::new_unknown_placement(unit_type()),
                 "emit_block empty",
@@ -2054,7 +2079,7 @@ impl CodeBuilder<'_> {
                 ///info!("this is others in block");
                 self.emit_expression_materialize(unit_temp_reg.register(), expr, ctx);
             }
-            self.temp_registers.free(unit_temp_reg);
+            self.temp_registers.restore_to_mark(hwm);
             //            info!(?last.ty, ?target_reg.ty, "this is the last in the block!");
             self.emit_expression_materialize(target_reg, last, ctx);
         } else {
@@ -2140,6 +2165,9 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let assignment_target = self.emit_lvalue_chain(&target_location.0, ctx);
+
+        let hwm = self.temp_registers.save_mark();
+
         let resolved = self.emit_load_primitive_from_detailed_location_if_needed(
             &assignment_target,
             &target_location.0.node,
@@ -2177,9 +2205,13 @@ impl CodeBuilder<'_> {
             &target_location.0.node,
         );
 
+        /*
         if let DetailedLocationResolved::TempRegister(temp_reg) = resolved {
             self.temp_registers.free(temp_reg);
         }
+
+         */
+        self.temp_registers.restore_to_mark(hwm);
 
         GeneratedExpressionResult::default()
     }
@@ -2304,22 +2336,6 @@ impl CodeBuilder<'_> {
             max_alignment: gen_source_struct_type.max_alignment,
         };
 
-        // reserve space for it on the frame (stack)
-        let frame_placed_struct_literal = self.frame_allocator.allocate_type(basic_type_for_struct);
-
-        self.builder.add_frame_memory_clear(
-            frame_placed_struct_literal.region(),
-            node,
-            "clear memory for struct literal",
-        );
-
-        self.builder.add_lea(
-            target_reg,
-            frame_placed_struct_literal.addr(),
-            node,
-            "put pointer to struct literal in target reg",
-        );
-
         let struct_type = BasicType {
             total_size: gen_source_struct_type.total_size,
             max_alignment: gen_source_struct_type.max_alignment,
@@ -2403,6 +2419,8 @@ impl CodeBuilder<'_> {
         let element_count = expressions.len() as u16;
         let total_slice_size = MemorySize(element_gen_type.total_size.0 * element_count);
 
+        let hwm = self.temp_registers.save_mark();
+
         let base_ptr_reg = {
             self.temp_registers.allocate(
                 VmType::new_unknown_placement(unknown_type()),
@@ -2474,8 +2492,7 @@ impl CodeBuilder<'_> {
             "slice literal",
         );
 
-        self.temp_registers
-            .free_multiple(vec![base_ptr_reg, element_size_reg, element_count_reg]);
+        self.temp_registers.restore_to_mark(hwm);
     }
 
     fn emit_slice_pair_literal(
@@ -3293,6 +3310,8 @@ impl CodeBuilder<'_> {
             );
         }
 
+        let hwm = self.temp_registers.save_mark();
+
         // 2. Initialize the iterator and generate code to fetch the next element.
         let (continue_iteration_label, iteration_complete_patch_position, temp_reg) = self
             .iter_init_and_next(
@@ -3368,8 +3387,6 @@ impl CodeBuilder<'_> {
             self.builder.patch_jump_here(found_skip_early);
         }
 
-        self.temp_registers.free(temp_reg);
-
         match transformer.return_type() {
             TransformerResult::Bool => {
                 // It is a transformer that returns a bool, lets store z flag as bool it
@@ -3405,14 +3422,14 @@ impl CodeBuilder<'_> {
                     "copy Tag value of (1)",
                 );
 
-                self.temp_registers.free(tag_target);
-
                 //self.copy_contents_to_memory(node, primary_variable, tagged_union.payload_offset, )
 
                 // TODO: Unsure how to copy to memory in a good way
             }
             _ => {}
         }
+
+        self.temp_registers.restore_to_mark(hwm);
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -3571,6 +3588,8 @@ impl CodeBuilder<'_> {
         mut_collection: &TypedRegister,
         node: &Node,
     ) {
+        let hwm = self.temp_registers.save_mark();
+
         let (register_to_be_inserted_in_collection, maybe_temp) = if should_unwrap_value {
             let tagged_union = in_value.underlying().optional_info().unwrap().clone();
             let some_variant = tagged_union.get_variant_by_index(1);
@@ -3600,9 +3619,7 @@ impl CodeBuilder<'_> {
             &register_to_be_inserted_in_collection,
         );
 
-        if let Some(temp_reg) = maybe_temp {
-            self.temp_registers.free(temp_reg);
-        }
+        self.temp_registers.restore_to_mark(hwm);
     }
     fn materialize_z_flag_to_bool_if_needed(
         &mut self,
@@ -3772,7 +3789,6 @@ impl CodeBuilder<'_> {
 
         let z_flag_state = self.emit_expression(temp_reg.register(), expr, ctx);
         let hack = temp_reg.register.clone();
-        self.temp_registers.free(temp_reg);
 
         (hack, z_flag_state)
     }

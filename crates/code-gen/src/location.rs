@@ -140,8 +140,6 @@ impl CodeBuilder<'_> {
             }
         }
 
-        self.temp_registers.free_multiple(temp_regs);
-
         current_location
     }
 

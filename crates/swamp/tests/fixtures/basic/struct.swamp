@@ -6,7 +6,6 @@ struct Point {
   y: Int,
 }
 
-
 impl Point {
 	fn add(self, other: Point) -> Point {
 		Point { x: self.x + other.x, y: self.y + other.y }
@@ -22,7 +21,6 @@ fn add_points() {
 	assert(c.x == 40, 'x value is wrong')
 	assert(c.y == 60, 'y value is wrong')
 }
-
 
 #[test]
 fn literal_struct() {

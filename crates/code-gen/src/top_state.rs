@@ -2,7 +2,7 @@ use crate::alloc::ScopeAllocator;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::{layout_type, layout_variables};
-use crate::reg_pool::TempRegisterPool;
+use crate::reg_pool::HwmTempRegisterPool;
 use crate::state::{CodeGenState, GenOptions};
 use crate::{
     ConstantInfo, FunctionInData, FunctionIp, FunctionIpKind, FunctionIps, GenFunctionInfo,
@@ -260,6 +260,12 @@ impl TopLevelGenState {
                     node,
                     &format!("define frame placed register {variable_reg}"),
                 );
+
+                instruction_builder.add_frame_memory_clear(
+                    frame_region,
+                    node,
+                    &format!("clear memory for indirect variable {variable_reg}"),
+                );
             }
         }
 
@@ -326,7 +332,7 @@ impl TopLevelGenState {
             &in_data.function_name_node,
         );
 
-        let temp_pool = TempRegisterPool::new(128, 32);
+        let temp_pool = HwmTempRegisterPool::new(128, 32);
 
         let ctx = Context::new_from_parameters(0, frame_and_variable_info.highest_register_used);
 

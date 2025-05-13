@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use swamp_vm_types::types::{TypedRegister, VmType};
 
 #[derive(Debug)]
@@ -20,51 +19,74 @@ pub struct RegisterInfo {
     pub index: u8,
 }
 
-pub struct TempRegisterPool {
-    free_registers: VecDeque<RegisterInfo>,
+#[derive(Debug)]
+pub struct HwmTempRegisterPool {
+    start_index: u8,
+    capacity: u8,
+    num_allocated: u8,
 }
 
-impl TempRegisterPool {
+impl HwmTempRegisterPool {
+    #[must_use]
     pub fn new(start: u8, count: usize) -> Self {
-        let mut registers = VecDeque::new();
-        for index in start..(start + count as u8) {
-            registers.push_back(RegisterInfo { index });
+        if count == 0 {
+            return Self {
+                start_index: start,
+                capacity: 0,
+                num_allocated: 0,
+            };
         }
+        assert!(
+            count <= u8::MAX as usize + 1,
+            "Register count too large for u8 capacity"
+        );
+        assert!(
+            start.checked_add((count - 1) as u8).is_some(),
+            "Register index range would overflow u8"
+        );
 
         Self {
-            free_registers: registers,
+            start_index: start,
+            capacity: count as u8,
+            num_allocated: 0, // Initially, no registers are allocated
         }
     }
+
+    /// # Panics
+    /// if out of registers
     pub fn allocate(&mut self, ty: VmType, comment: &str) -> TempRegister {
-        assert!(!self.free_registers.is_empty(), "out of temp registers");
-        let free_reg_info = self.free_registers.pop_front().unwrap();
+        assert!(
+            (self.num_allocated < self.capacity),
+            "HwmTempRegisterPool: Out of temporary registers. Requested for: '{comment}'",
+        );
+
+        let register_index = self.start_index + self.num_allocated;
+        self.num_allocated += 1;
 
         TempRegister {
             register: TypedRegister {
-                index: free_reg_info.index,
+                index: register_index,
                 ty,
                 comment: comment.to_string(),
             },
         }
     }
 
-    pub fn free(&mut self, reg: TempRegister) {
-        assert!(
-            !self
-                .free_registers
-                .iter()
-                .any(|info| info.index == reg.register.index)
-        );
-
-        self.free_registers.push_front(RegisterInfo {
-            index: reg.register.index,
-        });
+    #[must_use]
+    pub const fn save_mark(&self) -> u8 {
+        self.num_allocated
     }
 
-    pub(crate) fn free_multiple(&mut self, registers: Vec<TempRegister>) {
-        for temp in registers {
-            self.free(temp);
-        }
+    /// # Panics
+    ///
+    pub fn restore_to_mark(&mut self, mark: u8) {
+        assert!(
+            (mark <= self.num_allocated),
+            "HwmTempRegisterPool: Invalid mark {} provided. Current allocation count is {}.",
+            mark,
+            self.num_allocated
+        );
+        self.num_allocated = mark;
     }
 }
 
