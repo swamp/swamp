@@ -928,7 +928,7 @@ impl<'a> Analyzer<'a> {
         let mut analyzed_type_parameters = Vec::new();
 
         for analyzed_type in &type_name_to_find.generic_params {
-            let ty = self.analyze_type(analyzed_type)?;
+            let ty = self.analyze_type(analyzed_type.get_type())?;
 
             analyzed_type_parameters.push(ty);
         }
@@ -1120,11 +1120,15 @@ impl<'a> Analyzer<'a> {
         ast_node: &swamp_ast::Node,
         maybe_associated_to_type: Option<Type>,
         func_def: Function,
-        maybe_generic_arguments: &Option<Vec<swamp_ast::Type>>,
+        maybe_generic_arguments: &Option<Vec<swamp_ast::GenericParameter>>,
         arguments: &[swamp_ast::Expression],
     ) -> Result<Expression, Error> {
         let signature = if let Some(found_generic_arguments) = maybe_generic_arguments {
-            let analyzed_generic_argument_types = self.analyze_types(found_generic_arguments)?;
+            let types: Vec<_> = found_generic_arguments
+                .iter()
+                .map(|param| param.get_type().clone())
+                .collect();
+            let analyzed_generic_argument_types = self.analyze_types(&types)?;
             if let Some(found_associated_to_type) = maybe_associated_to_type {
                 self.instantiate_signature_if_needed(
                     &func_def.node(),
@@ -1603,7 +1607,7 @@ impl<'a> Analyzer<'a> {
                         .associated_impls
                         .get_internal_member_function(&ty, "to_string");
 
-                    if ty == Type::String {
+                    if matches!(ty, Type::String) {
                         expr
                     } else {
                         let underlying = if let Type::Optional(inner_type) = ty {
@@ -3066,7 +3070,7 @@ impl<'a> Analyzer<'a> {
         type_that_member_is_on: &Type,
         is_mutable: bool,
         member_name: &swamp_ast::Node,
-        ast_maybe_generic_arguments: Option<Vec<swamp_ast::Type>>,
+        ast_maybe_generic_arguments: Option<Vec<swamp_ast::GenericParameter>>,
         arguments: &[swamp_ast::Expression],
         suffixes: &mut Vec<Postfix>,
     ) -> Result<Type, Error> {
@@ -3077,7 +3081,7 @@ impl<'a> Analyzer<'a> {
         let generic_arguments = if let Some(ast_generic_arguments) = ast_maybe_generic_arguments {
             let mut resolved_types = Vec::new();
             for ast_type in ast_generic_arguments {
-                resolved_types.push(self.analyze_type(&ast_type)?);
+                resolved_types.push(self.analyze_type(&ast_type.get_type())?);
             }
             resolved_types
         } else {

@@ -4,6 +4,7 @@
  */
 use crate::Analyzer;
 use crate::err::Error;
+use swamp_ast::QualifiedTypeIdentifier;
 use swamp_types::{Signature, Type, TypeForParameter};
 
 impl Analyzer<'_> {
@@ -80,7 +81,13 @@ impl Analyzer<'_> {
             }
             swamp_ast::Type::Tuple(types) => Type::Tuple(self.analyze_types(types)?),
             swamp_ast::Type::Named(ast_type_reference) => {
-                self.analyze_named_type(ast_type_reference)?
+                if let Some(found_special_type) =
+                    self.analyze_maybe_special_type(ast_type_reference)
+                {
+                    found_special_type
+                } else {
+                    self.analyze_named_type(ast_type_reference)?
+                }
             }
             swamp_ast::Type::Unit => Type::Unit,
             swamp_ast::Type::Optional(inner_type_ast, _node) => {
@@ -124,5 +131,12 @@ impl Analyzer<'_> {
         }
 
         Ok(vec)
+    }
+
+    fn analyze_maybe_special_type(&self, type_name: &QualifiedTypeIdentifier) -> Option<Type> {
+        let text = self.get_text(&type_name.name.0);
+        match text {
+            _ => None,
+        }
     }
 }

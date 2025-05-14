@@ -6,6 +6,7 @@ use crate::Analyzer;
 use crate::err::{Error, ErrorKind};
 use seq_map::SeqMap;
 use std::rc::Rc;
+use swamp_ast::GenericParameter;
 use swamp_semantic::{
     ExternalFunctionDefinition, Function, InternalFunctionDefinition, LocalIdentifier,
     SemanticError, UseItem, VariableType,
@@ -611,11 +612,13 @@ impl Analyzer<'_> {
             .type_variables
             .iter()
             .map(|x| {
-                swamp_ast::Type::Named(swamp_ast::QualifiedTypeIdentifier {
-                    name: swamp_ast::LocalTypeIdentifier(x.0.clone()),
-                    module_path: None,
-                    generic_params: vec![],
-                })
+                swamp_ast::GenericParameter::Type(swamp_ast::Type::Named(
+                    swamp_ast::QualifiedTypeIdentifier {
+                        name: swamp_ast::LocalTypeIdentifier(x.0.clone()),
+                        module_path: None,
+                        generic_params: vec![],
+                    },
+                ))
             })
             .collect();
 

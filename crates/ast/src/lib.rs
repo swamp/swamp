@@ -38,7 +38,7 @@ impl Debug for Node {
 pub struct QualifiedTypeIdentifier {
     pub name: LocalTypeIdentifier,
     pub module_path: Option<ModulePath>,
-    pub generic_params: Vec<Type>,
+    pub generic_params: Vec<GenericParameter>,
 }
 
 impl QualifiedTypeIdentifier {
@@ -61,7 +61,7 @@ impl QualifiedTypeIdentifier {
     pub fn new_with_generics(
         name: LocalTypeIdentifier,
         module_path: Vec<Node>,
-        generic_params: Vec<Type>,
+        generic_params: Vec<GenericParameter>,
     ) -> Self {
         let module_path = if module_path.is_empty() {
             None
@@ -81,7 +81,7 @@ impl QualifiedTypeIdentifier {
 pub struct QualifiedIdentifier {
     pub name: Node,
     pub module_path: Option<ModulePath>,
-    pub generic_params: Vec<Type>,
+    pub generic_params: Vec<GenericParameter>,
 }
 
 impl QualifiedIdentifier {
@@ -104,7 +104,7 @@ impl QualifiedIdentifier {
     pub fn new_with_generics(
         name: Node,
         module_path: Vec<Node>,
-        generic_params: Vec<Type>,
+        generic_params: Vec<GenericParameter>,
     ) -> Self {
         let module_path = if module_path.is_empty() {
             None
@@ -397,8 +397,8 @@ impl Debug for Expression {
 pub enum Postfix {
     FieldAccess(Node),
     Subscript(Expression),
-    MemberCall(Node, Option<Vec<Type>>, Vec<Expression>),
-    FunctionCall(Node, Option<Vec<Type>>, Vec<Expression>),
+    MemberCall(Node, Option<Vec<GenericParameter>>, Vec<Expression>),
+    FunctionCall(Node, Option<Vec<GenericParameter>>, Vec<Expression>),
     OptionalChainingOperator(Node),     // ?-postfix
     NoneCoalescingOperator(Expression), // ??-postfix
 }
@@ -535,6 +535,30 @@ pub enum EnumVariantType {
 pub struct TypeForParameter {
     pub ast_type: Type,
     pub is_mutable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum GenericParameter {
+    Type(Type),
+    UnsignedInt(Node),
+}
+
+impl GenericParameter {
+    pub fn get_unsigned_int_node(&self) -> &Node {
+        let Self::UnsignedInt(node) = self else {
+            panic!("wasn't unsigned int")
+        };
+        node
+    }
+}
+
+impl GenericParameter {
+    pub fn get_type(&self) -> &Type {
+        let Self::Type(ty) = self else {
+            panic!("wasn't type")
+        };
+        ty
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]

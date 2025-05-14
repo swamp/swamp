@@ -10,7 +10,6 @@ use pest::{Parser, Position};
 use pest_derive::Parser;
 use std::iter::Peekable;
 use std::str::Chars;
-use swamp_ast::LiteralKind;
 use swamp_ast::{
     AssignmentOperatorKind, BinaryOperatorKind, CompoundOperator, CompoundOperatorKind,
     EnumVariantLiteral, ExpressionKind, FieldExpression, FieldName, ForPattern, ForVar,
@@ -20,6 +19,7 @@ use swamp_ast::{
     TypeVariable, VariableBinding, prelude::*,
 };
 use swamp_ast::{AttributeLiteralKind, Function};
+use swamp_ast::{GenericParameter, LiteralKind};
 use swamp_ast::{Postfix, PostfixChain};
 use tracing::error;
 
@@ -711,7 +711,7 @@ impl AstParser {
     fn parse_member_call_postfix(
         &self,
         pair: &Pair<Rule>,
-    ) -> Result<(FieldName, Option<Vec<Type>>, Vec<Expression>), ParseError> {
+    ) -> Result<(FieldName, Option<Vec<GenericParameter>>, Vec<Expression>), ParseError> {
         debug_assert_eq!(pair.as_rule(), Rule::member_call_postfix);
 
         let mut inner = pair.clone().into_inner();
@@ -722,7 +722,7 @@ impl AstParser {
         let dot_id = Self::next_pair(&mut ma_inner)?;
         let member_identifier = self.parse_dot_identifier(&dot_id)?;
 
-        let mut generic_args: Option<Vec<Type>> = None;
+        let mut generic_args: Option<Vec<GenericParameter>> = None;
         // Peek at the next rule without consuming it
         if let Some(peeked_pair) = inner.peek() {
             if peeked_pair.as_rule() == Rule::generic_arguments {
@@ -1702,16 +1702,25 @@ impl AstParser {
         ))
     }
 
-    fn parse_generic_arguments(&self, pair: &Pair<Rule>) -> Result<Vec<Type>, ParseError> {
+    fn parse_generic_arguments(
+        &self,
+        pair: &Pair<Rule>,
+    ) -> Result<Vec<GenericParameter>, ParseError> {
         debug_assert_eq!(pair.as_rule(), Rule::generic_arguments);
 
         let inner_pairs = pair.clone().into_inner();
         let mut generic_types = Vec::new();
 
-        for type_pair in inner_pairs {
-            if type_pair.as_rule() == Rule::type_name {
-                generic_types.push(self.parse_type(type_pair)?);
-            }
+        for generic_parameter_pair in inner_pairs {
+            let generic_parameter = match generic_parameter_pair.as_rule() {
+                Rule::type_name => GenericParameter::Type(self.parse_type(generic_parameter_pair)?),
+                Rule::unsigned_int_lit => {
+                    GenericParameter::UnsignedInt(self.to_node(&generic_parameter_pair))
+                }
+                _ => panic!("unknown generic parameter"),
+            };
+
+            generic_types.push(generic_parameter);
         }
 
         Ok(generic_types)
@@ -2255,11 +2264,11 @@ impl AstParser {
     fn parse_function_call_postfix(
         &self,
         pair: &Pair<Rule>,
-    ) -> Result<(Option<Vec<Type>>, Vec<Expression>), ParseError> {
+    ) -> Result<(Option<Vec<GenericParameter>>, Vec<Expression>), ParseError> {
         debug_assert_eq!(pair.as_rule(), Rule::function_call_postfix);
         let mut inner = pair.clone().into_inner();
 
-        let mut generic_args: Option<Vec<Type>> = None;
+        let mut generic_args: Option<Vec<GenericParameter>> = None;
         let args_pair: Pair<Rule>; // To hold the function_call_args pair
 
         if let Some(first_inner) = inner.peek() {
