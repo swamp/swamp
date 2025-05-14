@@ -10,7 +10,8 @@ use std::fmt::{Display, Formatter};
 pub enum OpCode {
     Nop,
     Hlt,   // Return to the host
-    Panic, // Stop executing and return to host
+    Panic, // Stop executing and return to host. String provides reason.
+    Trap,  // Provides a reason code.
     Brk,   // Breakpoint. pause execution, keep all relevant state
 
     // Operators
@@ -36,6 +37,9 @@ pub enum OpCode {
     LeI32,
     GtI32,
     GeI32,
+
+    // Unsigned int
+    GeU32,
 
     // Comparison, set z flag
     Eq8Imm,
@@ -168,6 +172,7 @@ impl OpCode {
             Self::Nop => "nop",
             Self::Hlt => "hlt",
             Self::Panic => "panic",
+            Self::Trap => "trap",
             Self::Brk => "brk",
 
             // Integer arithmetic
@@ -185,10 +190,12 @@ impl OpCode {
             Self::DivF32 => "fdiv",
 
             // Integer comparisons
-            Self::LtI32 => "lt",
-            Self::LeI32 => "le",
-            Self::GtI32 => "gt",
-            Self::GeI32 => "ge",
+            Self::LtI32 => "slt",
+            Self::LeI32 => "sle",
+            Self::GtI32 => "sgt",
+            Self::GeI32 => "sge",
+
+            Self::GeU32 => "ge",
 
             // Byte/memory comparisons
             Self::Eq8Imm => "eq8",
@@ -197,10 +204,10 @@ impl OpCode {
             Self::MovToTFlagFromReg => "tst",
             Self::FrameMemClr => "memclrf",
 
-            // Store T flag
-            Self::NotT => "nott",
-            Self::MovFromTFlagToReg => "stt",
-            Self::MovFromNotTFlagToReg => "stnt",
+            // Store T flag (maybe rename to Predicate flag?)
+            Self::NotT => "notpf",
+            Self::MovFromTFlagToReg => "movpf",
+            Self::MovFromNotTFlagToReg => "movnpf",
 
             // Branches
             Self::BFalse => "b.false",

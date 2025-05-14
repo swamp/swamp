@@ -441,6 +441,9 @@ impl<'a, C> Interpreter<'a, C> {
                             .map_err(|_| self.create_err(RuntimeErrorKind::ExpectedStruct, node))?;
                         fields[*index].clone()
                     }
+                    LocationAccessKind::Subscript(_, _) => {
+                        todo!()
+                    }
                     LocationAccessKind::IntrinsicSubscript(intrinsic_fn, arguments) => self
                         .eval_intrinsic_postfix_mut_return(
                             node,
@@ -2533,6 +2536,10 @@ impl<'a, C> Interpreter<'a, C> {
                     ));
 
                     val_ref = fields[*index].clone();
+                }
+
+                PostfixKind::Subscript(x, y) => {
+                    todo!()
                 }
 
                 PostfixKind::MemberCall(function_ref, arguments) => {

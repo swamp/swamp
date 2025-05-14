@@ -33,8 +33,8 @@ use swamp_semantic::type_var_stack::SemanticContext;
 use swamp_semantic::{
     BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState, InternalMainExpression,
     LocationAccess, LocationAccessKind, MutRefOrImmutableExpression, MutableReferenceKind,
-    NormalPattern, Postfix, PostfixKind, SingleLocationExpression, TargetAssignmentLocation,
-    TypeWithMut, WhenBinding,
+    NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceType,
+    TargetAssignmentLocation, TypeWithMut, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::all_types_are_concrete_or_unit;
@@ -593,7 +593,9 @@ impl<'a> Analyzer<'a> {
                 &ast_expression.node,
             )?
         } else {
-            self.coerce_unrestricted_type(&ast_expression.node, expr)?
+            expr
+            //todo!()
+            // TODO: self.coerce_unrestricted_type(&ast_expression.node, expr)?
         };
 
         Ok(expr)
@@ -603,72 +605,73 @@ impl<'a> Analyzer<'a> {
         todo!()
     }
 
-    fn coerce_unrestricted_type(
-        &mut self,
-        ast_node: &swamp_ast::Node,
-        expr: Expression,
-    ) -> Result<Expression, Error> {
-        let expr = match &expr.ty {
-            Type::Slice(analyzed_element_type) => {
-                let vec_blueprint = self
-                    .shared
-                    .core_symbol_table
-                    .get_blueprint("Vec")
-                    .unwrap()
-                    .clone();
-                let created_type = self
-                    .shared
-                    .state
-                    .instantiator
-                    .instantiate_blueprint_and_members(
-                        &vec_blueprint,
-                        &[*analyzed_element_type.clone()],
-                    )?;
-                assert!(analyzed_element_type.is_concrete());
-                let mut_or_immut = MutRefOrImmutableExpression::Expression(expr);
+    /*
+        fn coerce_unrestricted_type(
+            &mut self,
+            ast_node: &swamp_ast::Node,
+            expr: Expression,
+        ) -> Result<Expression, Error> {
+            let expr = match &expr.ty {
+                Type::Slice(analyzed_element_type) => {
+                    let vec_blueprint = self
+                        .shared
+                        .core_symbol_table
+                        .get_blueprint("Vec")
+                        .unwrap()
+                        .clone();
+                    let created_type = self
+                        .shared
+                        .state
+                        .instantiator
+                        .instantiate_blueprint_and_members(
+                            &vec_blueprint,
+                            &[*analyzed_element_type.clone()],
+                        )?;
+                    assert!(analyzed_element_type.is_concrete());
+                    let mut_or_immut = MutRefOrImmutableExpression::Expression(expr);
 
-                let call_kind = self.create_static_member_intrinsic_call(
-                    "new_from_slice",
-                    &[mut_or_immut],
-                    &ast_node,
-                    &created_type,
-                )?;
-
-                self.create_expr(call_kind, created_type, ast_node)
-            }
-            Type::SlicePair(analyzed_key_type, analyzed_value_type) => {
-                let map_blueprint = self
-                    .shared
-                    .core_symbol_table
-                    .get_blueprint("Map")
-                    .unwrap()
-                    .clone();
-
-                let created_type = self
-                    .shared
-                    .state
-                    .instantiator
-                    .instantiate_blueprint_and_members(
-                        &map_blueprint,
-                        &[*analyzed_key_type.clone(), *analyzed_value_type.clone()],
+                    let call_kind = self.create_static_member_intrinsic_call(
+                        "new_from_slice",
+                        &[mut_or_immut],
+                        &ast_node,
+                        &created_type,
                     )?;
 
-                let mut_or_immut = MutRefOrImmutableExpression::Expression(expr);
+                    self.create_expr(call_kind, created_type, ast_node)
+                }
+                Type::SlicePair(analyzed_key_type, analyzed_value_type) => {
+                    let map_blueprint = self
+                        .shared
+                        .core_symbol_table
+                        .get_blueprint("Map")
+                        .unwrap()
+                        .clone();
 
-                let call_kind = self.create_static_member_intrinsic_call(
-                    "new_from_slice_pair",
-                    &[mut_or_immut],
-                    &ast_node,
-                    &created_type,
-                )?;
+                    let created_type = self
+                        .shared
+                        .state
+                        .instantiator
+                        .instantiate_blueprint_and_members(
+                            &map_blueprint,
+                            &[*analyzed_key_type.clone(), *analyzed_value_type.clone()],
+                        )?;
 
-                self.create_expr(call_kind, created_type, ast_node)
-            }
-            _ => expr,
-        };
-        Ok(expr)
-    }
+                    let mut_or_immut = MutRefOrImmutableExpression::Expression(expr);
 
+                    let call_kind = self.create_static_member_intrinsic_call(
+                        "new_from_slice_pair",
+                        &[mut_or_immut],
+                        &ast_node,
+                        &created_type,
+                    )?;
+
+                    self.create_expr(call_kind, created_type, ast_node)
+                }
+                _ => expr,
+            };
+            Ok(expr)
+        }
+    */
     /// # Errors
     ///
     #[allow(clippy::too_many_lines)]
@@ -1232,6 +1235,81 @@ impl<'a> Analyzer<'a> {
                     tv.resolved_type = return_type.clone();
                     // keep previous `is_mutable`
                 }
+
+                swamp_ast::Postfix::Subscript(index_expr) => {
+                    let collection_type = tv.resolved_type.clone();
+                    if let Type::Slice(element_type_in_slice, fixed_size) = &collection_type {
+                        let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                        let unsigned_int_expression =
+                            self.analyze_expression(index_expr, &unsigned_int_context)?;
+
+                        let slice_type = SliceType {
+                            element: Box::new(*element_type_in_slice.clone()),
+                            fixed_size: *fixed_size,
+                        };
+
+                        self.add_postfix(
+                            &mut suffixes,
+                            PostfixKind::Subscript(slice_type, unsigned_int_expression),
+                            collection_type.clone(),
+                            &index_expr.node,
+                        );
+
+                        // Keep previous mutable
+                        tv.resolved_type = *element_type_in_slice.clone();
+                    } else {
+                        eprintln!("xwhat is this: {collection_type:?}");
+                        todo!()
+                    }
+                    /*
+
+                    let temp_lookup_context = TypeContext::new_anything_argument();
+                    let temp_analyzed_expr =
+                        self.analyze_expression(index_expr, &temp_lookup_context)?;
+
+                    let mut subscript_function_name = "subscript";
+
+                    if let Type::NamedStruct(named_struct) = temp_analyzed_expr.ty {
+                        if named_struct.assigned_name == "Range"
+                            && named_struct.module_path == vec!["core-0.0.0".to_string()]
+                        {
+                            subscript_function_name = "subscript_range";
+                        }
+                    };
+
+                    if let Some(found) = self
+                        .shared
+                        .state
+                        .instantiator
+                        .associated_impls
+                        .get_member_function(&tv.resolved_type, subscript_function_name)
+                        .cloned()
+                    {
+                        let cloned = found.clone();
+                        let required_type = &found.signature().parameters[1].resolved_type;
+                        let subscript_lookup_context = TypeContext::new_argument(&required_type);
+                        let analyzed_expr =
+                            self.analyze_expression(index_expr, &subscript_lookup_context)?;
+
+                        let return_type = *found.signature().return_type.clone();
+
+                        let argument = MutRefOrImmutableExpression::Expression(analyzed_expr);
+                        self.add_postfix(
+                            &mut suffixes,
+                            PostfixKind::MemberCall(cloned, vec![argument]),
+                            return_type.clone(),
+                            &index_expr.node,
+                        );
+                        tv.resolved_type = return_type.clone();
+                    } else {
+                        return Err(
+                            self.create_err(ErrorKind::MissingSubscriptMember, &index_expr.node)
+                        );
+                    }
+
+                     */
+                }
+
                 swamp_ast::Postfix::MemberCall(member_name, generic_arguments, ast_arguments) => {
                     let member_name_str = self.get_text(member_name).to_string();
 
@@ -1286,54 +1364,6 @@ impl<'a> Analyzer<'a> {
 
                      */
                     panic!("can only have function call at the start of a postfix chain")
-                }
-
-                swamp_ast::Postfix::Subscript(index_expr) => {
-                    let _collection_type = tv.resolved_type.clone();
-
-                    let temp_lookup_context = TypeContext::new_anything_argument();
-                    let temp_analyzed_expr =
-                        self.analyze_expression(index_expr, &temp_lookup_context)?;
-
-                    let mut subscript_function_name = "subscript";
-
-                    if let Type::NamedStruct(named_struct) = temp_analyzed_expr.ty {
-                        if named_struct.assigned_name == "Range"
-                            && named_struct.module_path == vec!["core-0.0.0".to_string()]
-                        {
-                            subscript_function_name = "subscript_range";
-                        }
-                    };
-
-                    if let Some(found) = self
-                        .shared
-                        .state
-                        .instantiator
-                        .associated_impls
-                        .get_member_function(&tv.resolved_type, subscript_function_name)
-                        .cloned()
-                    {
-                        let cloned = found.clone();
-                        let required_type = &found.signature().parameters[1].resolved_type;
-                        let subscript_lookup_context = TypeContext::new_argument(&required_type);
-                        let analyzed_expr =
-                            self.analyze_expression(index_expr, &subscript_lookup_context)?;
-
-                        let return_type = *found.signature().return_type.clone();
-
-                        let argument = MutRefOrImmutableExpression::Expression(analyzed_expr);
-                        self.add_postfix(
-                            &mut suffixes,
-                            PostfixKind::MemberCall(cloned, vec![argument]),
-                            return_type.clone(),
-                            &index_expr.node,
-                        );
-                        tv.resolved_type = return_type.clone();
-                    } else {
-                        return Err(
-                            self.create_err(ErrorKind::MissingSubscriptMember, &index_expr.node)
-                        );
-                    }
                 }
 
                 swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
@@ -1731,7 +1761,7 @@ impl<'a> Analyzer<'a> {
         context: &TypeContext,
     ) -> Result<(Type, Type, Vec<(Expression, Expression)>), Error> {
         let maybe_key_and_value_type = if let Some(expected_type) = context.expected_type {
-            if let Type::SlicePair(key_type, value_type) = expected_type {
+            if let Type::SlicePair(key_type, value_type, _) = expected_type {
                 Some((*key_type.clone(), *value_type.clone()))
             } else {
                 if let Type::NamedStruct(named) = expected_type {
@@ -1751,7 +1781,7 @@ impl<'a> Analyzer<'a> {
             context.expected_type.map_or_else(
                 || Ok((Type::Unit, Type::Unit, vec![])),
                 |expected_type| {
-                    if let Type::SlicePair(key_type, value_type) = expected_type {
+                    if let Type::SlicePair(key_type, value_type, _) = expected_type {
                         Ok((*key_type.clone(), *value_type.clone(), vec![]))
                     } else if let Type::NamedStruct(named) = expected_type {
                         Ok((
@@ -1805,7 +1835,7 @@ impl<'a> Analyzer<'a> {
         context: &TypeContext,
     ) -> Result<(Type, Vec<Expression>), Error> {
         let maybe_expected_element_type = if let Some(expected_type) = context.expected_type {
-            if let Type::Slice(inner_type) = expected_type {
+            if let Type::Slice(inner_type, _) = expected_type {
                 Some(*inner_type.clone())
             } else {
                 if let Type::NamedStruct(named) = expected_type {
@@ -1822,7 +1852,7 @@ impl<'a> Analyzer<'a> {
             context.expected_type.map_or_else(
                 || Ok((Type::Unit, vec![])),
                 |expected_type| {
-                    if let Type::Slice(_inner_type) = expected_type {
+                    if let Type::Slice(_inner_type, _) = expected_type {
                         Ok((expected_type.clone(), vec![]))
                     } else if let Type::NamedStruct(named) = expected_type {
                         Ok((named.instantiated_type_parameters[0].clone(), vec![]))
@@ -1977,6 +2007,12 @@ impl<'a> Analyzer<'a> {
             },
             |rest| i32::from_str_radix(rest, 16),
         )
+    }
+
+    fn str_to_unsigned_int(text: &str) -> Result<u32, ParseIntError> {
+        let text = text.replace('_', "");
+        text.strip_prefix("0x")
+            .map_or_else(|| text.parse::<u32>(), |rest| u32::from_str_radix(rest, 16))
     }
 
     fn str_to_float(text: &str) -> Result<f32, ParseFloatError> {
@@ -2411,6 +2447,9 @@ impl<'a> Analyzer<'a> {
                 PostfixKind::StructField(_, _) => {
                     is_owned_result = false;
                 }
+                PostfixKind::Subscript(_, _) => {
+                    is_owned_result = false;
+                }
                 PostfixKind::MemberCall(_, _) => {
                     is_owned_result = true;
                     is_mutable = false;
@@ -2650,6 +2689,7 @@ impl<'a> Analyzer<'a> {
                     //let field_name_resolved = self.to_node(field_name_node)
                     let (struct_type_ref, index, return_type) =
                         self.analyze_struct_field(field_name_node, &ty)?;
+
                     self.add_location_item(
                         &mut items,
                         LocationAccessKind::FieldIndex(struct_type_ref.clone(), index),
@@ -2660,6 +2700,29 @@ impl<'a> Analyzer<'a> {
                     ty = return_type.clone();
                 }
                 swamp_ast::Postfix::Subscript(key_expression) => {
+                    let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                    let unsigned_int_expr =
+                        self.analyze_expression(key_expression, &unsigned_int_context)?;
+
+                    if let Type::Slice(element_type, fixed_size) = &ty {
+                        let slice_type = SliceType {
+                            element: Box::new(*element_type.clone()),
+                            fixed_size: *fixed_size,
+                        };
+                        self.add_location_item(
+                            &mut items,
+                            LocationAccessKind::Subscript(slice_type, unsigned_int_expr),
+                            *element_type.clone(),
+                            &key_expression.node,
+                        );
+
+                        ty = *element_type.clone();
+                    } else {
+                        eprintln!("what is this: {ty}");
+                        todo!()
+                    }
+
+                    /*
                     let is_last_in_chain = i == chain.postfixes.len() - 1;
                     let create_if_not_exists =
                         is_last_in_chain && location_side == LocationSide::Lhs;
@@ -2708,6 +2771,8 @@ impl<'a> Analyzer<'a> {
                         return Err(self
                             .create_err(ErrorKind::MissingSubscriptMember, &key_expression.node));
                     }
+
+                     */
                 }
 
                 swamp_ast::Postfix::MemberCall(node, _generic_arguments, _regular_args) => {
@@ -3067,6 +3132,7 @@ impl<'a> Analyzer<'a> {
         Ok(last_type)
     }
 
+    /*
     fn late_coerce_slice_pair(
         &mut self,
         ast_node: &swamp_ast::Node,
@@ -3109,6 +3175,7 @@ impl<'a> Analyzer<'a> {
         Ok(self.create_expr(call_kind, *return_type.clone(), ast_node))
     }
 
+
     fn late_coerce_slice(
         &mut self,
         ast_node: &swamp_ast::Node,
@@ -3148,6 +3215,8 @@ impl<'a> Analyzer<'a> {
         Ok(self.create_expr(call_kind, *return_type.clone(), ast_node))
     }
 
+    */
+
     fn types_did_not_match_try_late_coerce_expression(
         &mut self,
         expr: Expression,
@@ -3177,11 +3246,15 @@ impl<'a> Analyzer<'a> {
                     return Ok(wrapped);
                 }
             }
-        } else if let Type::Slice(encountered_type_slice_type) = encountered_type {
+        }
+        /*
+        else if let Type::Slice(encountered_type_slice_type) = encountered_type {
             return self.late_coerce_slice(node, expected_type, &expr);
         } else if let Type::SlicePair(first_type, second_type) = encountered_type {
             return self.late_coerce_slice_pair(node, expected_type, &expr);
-        } else if matches!(expected_type, &Type::Bool) {
+
+        } */
+        else if matches!(expected_type, &Type::Bool) {
             // if it has a mut or immutable optional, then it works well to wrap it
             if encountered_type.inner_optional_mut_or_immutable().is_some() {
                 let wrapped = self.create_expr(
@@ -3225,7 +3298,7 @@ impl<'a> Analyzer<'a> {
             Symbol::TypeGenerator(type_gen) => match type_gen.kind {
                 TypeGeneratorKind::Slice => {
                     //assert!(analyzed_type_parameters[0].is_concrete());
-                    Type::Slice(Box::new(analyzed_type_parameters[0].clone()))
+                    Type::Slice(Box::new(analyzed_type_parameters[0].clone()), 0)
                 }
                 TypeGeneratorKind::SlicePair => {
                     //assert!(analyzed_type_parameters[0].is_concrete());
@@ -3233,6 +3306,7 @@ impl<'a> Analyzer<'a> {
                     Type::SlicePair(
                         Box::new(analyzed_type_parameters[0].clone()),
                         Box::new(analyzed_type_parameters[1].clone()),
+                        0,
                     )
                 }
             },

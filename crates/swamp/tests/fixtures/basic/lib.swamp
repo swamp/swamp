@@ -6,3 +6,4 @@ mod operator
 mod struct
 mod enum
 mod tuple
+mod slice

@@ -27,7 +27,8 @@ impl Analyzer<'_> {
                 let (encountered_element_type, resolved_items) =
                     self.analyze_slice_type_helper(ast_node, items, context)?;
 
-                let slice_type = Type::Slice(Box::new(encountered_element_type.clone()));
+                let slice_type =
+                    Type::Slice(Box::new(encountered_element_type.clone()), items.len());
 
                 (
                     Literal::Slice(slice_type.clone(), resolved_items),
@@ -44,6 +45,7 @@ impl Analyzer<'_> {
                 let slice_pair_type = Type::SlicePair(
                     Box::new(encountered_key_type),
                     Box::new(encountered_value_type),
+                    entries.len(),
                 );
 
                 (

@@ -2370,18 +2370,9 @@ impl AstParser {
                 let elements = self.parse_tuple_type_elements(&pair)?;
                 Ok(Type::Tuple(elements))
             }
-            Rule::slice_pair_type => {
-                let mut inner = pair.into_inner();
-                let key_type = self.parse_type(Self::next_pair(&mut inner)?)?;
-                let value_type = self.parse_type(Self::next_pair(&mut inner)?)?;
-                Ok(Type::SlicePair(Box::new(key_type), Box::new(value_type)))
-            }
+            Rule::slice_pair_type => self.parse_slice_pair_type(&pair),
 
-            Rule::slice_type => {
-                let inner = self.next_inner_pair(&pair)?;
-                let element_type = self.parse_type(inner)?;
-                Ok(Type::Slice(Box::new(element_type)))
-            }
+            Rule::slice_type => self.parse_slice_type(&pair),
 
             Rule::struct_type => {
                 let element_type = self.parse_struct_type(&pair)?;
@@ -2395,6 +2386,33 @@ impl AstParser {
                 &pair,
             )),
         }
+    }
+
+    fn parse_slice_pair_type(&self, pair: &Pair<Rule>) -> Result<Type, ParseError> {
+        let mut inner = pair.clone().into_inner();
+        let key_type = self.parse_type(Self::next_pair(&mut inner)?)?;
+        let value_type = self.parse_type(Self::next_pair(&mut inner)?)?;
+        let maybe_next = inner.next();
+        let size_node = maybe_next.map(|found_size_pair| self.to_node(&found_size_pair));
+
+        Ok(Type::SlicePair(
+            Box::new(key_type),
+            Box::new(value_type),
+            size_node,
+        ))
+    }
+
+    fn parse_slice_type(&self, pair: &Pair<Rule>) -> Result<Type, ParseError> {
+        let mut inner = pair.clone().into_inner();
+        let element_type = self.parse_type(inner.next().unwrap())?;
+        let maybe_next = inner.next();
+        let size_node = if let Some(found_size_pair) = maybe_next {
+            Some(self.to_node(&found_size_pair))
+        } else {
+            None
+        };
+
+        Ok(Type::Slice(Box::new(element_type), size_node))
     }
 
     #[allow(unused)] // TODO: Use this again

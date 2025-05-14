@@ -32,7 +32,7 @@ impl CodeBuilder<'_> {
 
                 let slice_type = arguments[0].ty();
 
-                let Type::Slice(element_type) = slice_type else {
+                let Type::Slice(element_type, _) = slice_type else {
                     panic!("problem");
                 };
 
@@ -52,7 +52,7 @@ impl CodeBuilder<'_> {
 
                 let slice_type = arguments[0].ty();
 
-                let Type::SlicePair(key_type, value_type) = slice_type else {
+                let Type::SlicePair(key_type, value_type, _) = slice_type else {
                     panic!("problem");
                 };
 

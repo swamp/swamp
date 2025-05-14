@@ -332,7 +332,7 @@ impl TopLevelGenState {
             &in_data.function_name_node,
         );
 
-        let temp_pool = HwmTempRegisterPool::new(128, 32);
+        let temp_pool = HwmTempRegisterPool::new(128, 64);
 
         let ctx = Context::new_from_parameters(0, frame_and_variable_info.highest_register_used);
 

@@ -418,7 +418,7 @@ pub fn disasm(
 
     let operands_slice: &[DecoratedOperandAccessKind] = match opcode {
         OpCode::Hlt | OpCode::Ret | OpCode::Brk => &[],
-
+        OpCode::Trap => &[DecoratedOperandAccessKind::ImmediateU8(operands[0])],
         OpCode::Panic => &[to_read_reg(operands[0], &string_type(), frame_memory_info)],
 
         OpCode::St32UsingPtrWithOffset => {
@@ -596,6 +596,10 @@ pub fn disasm(
             to_read_reg(operands[1], &int_type(), frame_memory_info),
         ],
 
+        OpCode::GeU32 => &[
+            to_read_reg(operands[0], &int_type(), frame_memory_info),
+            to_read_reg(operands[1], &int_type(), frame_memory_info),
+        ],
         OpCode::FloatToString => &[
             to_write_reg(operands[0], &string_type(), frame_memory_info),
             to_read_reg(operands[1], &float_type(), frame_memory_info),

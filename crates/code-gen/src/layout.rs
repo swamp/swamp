@@ -157,24 +157,27 @@ pub fn layout_enum(name: &str, variants: &[EnumVariantType]) -> BasicType {
     }
 }
 
-fn layout_slice(value_type: &Type, name: &str) -> BasicType {
+fn layout_slice(value_type: &Type, fixed_size: usize, name: &str) -> BasicType {
     let basic = layout_type(value_type);
+    let total_size = fixed_size * basic.total_size.0 as usize;
     BasicType {
+        max_alignment: basic.max_alignment,
         kind: BasicTypeKind::Slice(Box::from(basic)),
-        total_size: SLICE_HEADER_SIZE,
-        max_alignment: SLICE_HEADER_ALIGNMENT,
+        total_size: MemorySize(total_size as u16),
     }
 }
 
-fn layout_slice_pair(a_type: &Type, b_type: &Type) -> BasicType {
+fn layout_slice_pair(a_type: &Type, b_type: &Type, fixed_size: usize) -> BasicType {
     let tuple_type = layout_tuple_items(&[a_type.clone(), b_type.clone()]);
     let key_type = &tuple_type.fields[0];
     let value_type = &tuple_type.fields[1];
 
+    let total_size = fixed_size * tuple_type.total_size.0 as usize;
+
     BasicType {
         kind: BasicTypeKind::SlicePair(Box::new(key_type.clone()), Box::new(value_type.clone())),
-        total_size: SLICE_PAIR_HEADER_SIZE,
-        max_alignment: SLICE_HEADER_ALIGNMENT,
+        total_size: MemorySize(total_size as u16),
+        max_alignment: tuple_type.max_alignment,
     }
 }
 
@@ -202,8 +205,8 @@ pub fn layout_type(ty: &Type) -> BasicType {
             STRING_PTR_SIZE,
             STRING_PTR_ALIGNMENT,
         ),
-        Type::Slice(inner_type) => layout_slice(inner_type, "slice"),
-        Type::SlicePair(a, b) => layout_slice_pair(a, b),
+        Type::Slice(inner_type, size) => layout_slice(inner_type, *size, "slice"),
+        Type::SlicePair(a, b, size) => layout_slice_pair(a, b, *size),
         Type::Tuple(types) => layout_tuple(types),
         Type::NamedStruct(named_struct_type) => {
             layout_named_struct(named_struct_type) // NOTE: memory_offset removed

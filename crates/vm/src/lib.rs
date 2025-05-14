@@ -228,6 +228,8 @@ impl Vm {
         vm.handlers[OpCode::GtI32 as usize] = HandlerType::Args2(Self::execute_gt_i32);
         vm.handlers[OpCode::GeI32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
 
+        vm.handlers[OpCode::GeU32 as usize] = HandlerType::Args2(Self::execute_ge_u32);
+
         // Comparison
         vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args2(Self::execute_cmp_reg);
 
@@ -774,6 +776,14 @@ impl Vm {
     fn execute_ge_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
+
+        self.flags.t = lhs >= rhs;
+    }
+
+    #[inline]
+    fn execute_ge_u32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+        let lhs = get_reg!(self, lhs_reg);
+        let rhs = get_reg!(self, rhs_reg);
 
         self.flags.t = lhs >= rhs;
     }

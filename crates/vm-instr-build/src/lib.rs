@@ -123,6 +123,8 @@ pub struct InstructionBuilder<'a> {
 
 impl<'a> InstructionBuilder<'a> {}
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -1609,6 +1611,23 @@ impl InstructionBuilder<'_> {
         );
     }
 
+    pub fn add_ge_u32(
+        &mut self,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        // TODO: bring this back //assert!(lhs_offset.ty().is_int());
+        // TODO: bring this back //assert!(rhs_offset.ty().is_int());
+        self.state.add_instruction(
+            OpCode::GeU32,
+            &[lhs_offset.addressing(), rhs_offset.addressing()],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_tst_u8(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
         self.state.add_instruction(
             OpCode::MovToTFlagFromReg,
@@ -1636,6 +1655,11 @@ impl InstructionBuilder<'_> {
             node,
             comment,
         );
+    }
+
+    pub fn add_trap(&mut self, trap_code: u8, node: &Node, comment: &str) {
+        self.state
+            .add_instruction(OpCode::Trap, &[trap_code], node, comment);
     }
 
     pub fn add_cmp_reg(

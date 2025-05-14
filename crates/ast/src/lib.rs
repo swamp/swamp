@@ -540,8 +540,8 @@ pub struct TypeForParameter {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum Type {
     // Composite
-    Slice(Box<Type>),                // Value array
-    SlicePair(Box<Type>, Box<Type>), // Key : Value
+    Slice(Box<Type>, Option<Node>),                // Value array
+    SlicePair(Box<Type>, Box<Type>, Option<Node>), // Key : Value
     AnonymousStruct(AnonymousStructType),
     Unit,
     Tuple(Vec<Type>),

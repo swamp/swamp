@@ -47,12 +47,13 @@ basic_literal = { tuple_lit | float_lit | int_lit | string_lit | bool_lit | none
 
 none_lit       =  { "none" }
 int_lit = @{ "-"? ~ ( hex_int | dec_int ) }
+unsigned_int_lit = @{ ( hex_int | dec_int ) }
 dec_int = { ASCII_DIGIT ~ ( "_"? ~ ASCII_DIGIT )* }
 hex_int = { "0x" ~ ASCII_HEX_DIGIT ~ ( "_"? ~ ASCII_HEX_DIGIT )* }
 float_lit      = @{ ("+" | "-")? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 string_lit     = @{ "\"" ~ ("\\\"" | !"\"" ~ ANY)* ~ "\"" }
 bool_lit       =  @{ "true" | "false" }
-tuple_lit      =  { "(" ~ expression ~ (COMMA ~ expression)* ~ ")" }
+tuple_lit      =  { "(" ~ expression ~ (COMMA ~ expression)* ~ TRAILING_COMMA ~ ")" }
 enum_literal   =  { qualified_type_identifier ~ SCOPE_OPERATOR ~ type_identifier ~ (struct_literal_optional_field_list | tuple_fields)? }
 struct_literal =  { qualified_type_identifier ~ struct_literal_optional_field_list }
 
@@ -190,10 +191,10 @@ qualified_type_identifier
 | unit_type
 }
 
-slice_type    = { "[" ~ type_name ~ "]" }
-slice_pair_type      = { "[" ~ type_name ~ ":" ~ type_name ~ "]" }
+slice_type    = { "[" ~ type_name ~ (";" ~ unsigned_int_lit)? ~ "]" }
+slice_pair_type      = { "[" ~ type_name ~ ":" ~ type_name ~ (";" ~ unsigned_int_lit)? ~ "]" }
 
-tuple_type    = { "(" ~ type_name ~ (COMMA ~ type_name)* ~ ")" }
+tuple_type    = { "(" ~ type_name ~ (COMMA ~ type_name)* ~ TRAILING_COMMA ~ ")" }
 //  "(" ~ type_name ~ (COMMA ~ type_name)* ~ ")"
 
 struct_type    = { ("{" ~ struct_type_fields ~ "}") }
@@ -359,7 +360,7 @@ return_type    = { "->" ~ type_name }
 Loop Constructs and Control Flow
 =============================================================
 */
-for_loop    = {  "for"  ~ for_pattern   ~ "in"  ~ arg_expression ~ ("|" ~ guard_clause)? ~ expression }
+for_loop    = {  "for"  ~ for_pattern   ~ "in"  ~ arg_expression ~ expression }
 for_pattern = { for_pair | maybe_mut_identifier }
 for_pair    = { maybe_mut_identifier ~ COMMA ~ maybe_mut_identifier }
 

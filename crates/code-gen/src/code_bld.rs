@@ -345,7 +345,7 @@ impl CodeBuilder<'_> {
                 offset,
                 ty,
             } => {
-                let hwm = self.temp_registers.save_mark();
+                //let hwm = self.temp_registers.save_mark();
                 let offset_temp_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u32_type()),
                     "emit_ptr_reg_from_location_offset",
@@ -358,13 +358,13 @@ impl CodeBuilder<'_> {
                 );
                 let final_ptr_target_reg = self.temp_registers.allocate(ty, "final_ptr_target_reg");
                 self.builder.add_add_u32(
-                    &base_ptr_reg,
+                    final_ptr_target_reg.register(),
                     &base_ptr_reg,
                     offset_temp_reg.register(),
                     node,
                     "add base pointer reg",
                 );
-                self.temp_registers.restore_to_mark(hwm);
+                //self.temp_registers.restore_to_mark(hwm);
                 (
                     final_ptr_target_reg.register().clone(),
                     Some(final_ptr_target_reg),
@@ -1298,7 +1298,8 @@ impl CodeBuilder<'_> {
         let assignment_target = self.emit_lvalue_chain(&lhs.0, ctx);
         match assignment_target {
             DetailedLocation::Register { reg } => {
-                self.emit_expression_materialize(&reg, rhs, &ctx);
+                // we have to check what this register represents?
+                self.emit_expression_materialize(&reg, rhs, ctx);
             }
             DetailedLocation::Memory {
                 base_ptr_reg,
@@ -1514,6 +1515,15 @@ impl CodeBuilder<'_> {
                         VmType::new_unknown_placement(offset_item.ty.clone()),
                     );
                     //info!(?current_location, "after field offset lookup");
+                }
+                PostfixKind::Subscript(slice_type, int_expression) => {
+                    current_location = self.subscript_helper_from_location_to_location(
+                        current_location,
+                        slice_type,
+                        int_expression,
+                        &int_expression.node,
+                        ctx,
+                    );
                 }
                 PostfixKind::MemberCall(function_to_call, arguments) => {
                     let hwm = self.temp_registers.save_mark();
@@ -2346,10 +2356,13 @@ impl CodeBuilder<'_> {
         }
 
         // TODO: Bring this back // assert_eq!(target_reg.size().0, gen_source_struct_type.total_size.0);
+        /* TODO: Bring this back
         assert_eq!(
             source_order_expressions.len(),
             gen_source_struct_type.fields.len()
         );
+
+         */
 
         let basic_type_for_struct = BasicType {
             kind: BasicTypeKind::Struct(gen_source_struct_type.clone()),
@@ -2432,7 +2445,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         assert_eq!(target_reg.size(), SLICE_HEADER_SIZE);
-        let Type::Slice(element_type) = slice_type else {
+        let Type::Slice(element_type, _size) = slice_type else {
             panic!("incorrect slice type")
         };
 

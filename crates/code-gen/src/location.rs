@@ -6,14 +6,13 @@ use crate::DetailedLocation;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use crate::reg_pool::TempRegister;
 use source_map_node::Node;
 use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
+    SliceType,
 };
-use swamp_types::Type;
 use swamp_vm_types::MemoryOffset;
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType, unknown_type};
+use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType, int_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_for_access_or_location(
@@ -61,6 +60,116 @@ impl CodeBuilder<'_> {
 
      */
 
+    pub fn subscript_helper_from_location_to_location(
+        &mut self,
+        detailed_location_to_slice: DetailedLocation,
+        slice_type: &SliceType,
+        int_expr: &Expression,
+        node: &Node,
+        ctx: &Context,
+    ) -> DetailedLocation {
+        let element_basic_type = layout_type(&slice_type.element);
+        let (ptr_to_slice_reg, _) = self.emit_ptr_reg_from_detailed_location(
+            detailed_location_to_slice,
+            node,
+            "get the pointer to the start of the slice",
+        );
+        //let basic_slice_type = layout_type(&Type::Slice(Box::new(*slice_type.element.clone()), slice_type.fixed_size));
+        let new_base_pointer_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(element_basic_type),
+            "reg for result",
+        );
+
+        self.subscript_helper(
+            new_base_pointer_reg.register(),
+            &ptr_to_slice_reg,
+            slice_type,
+            int_expr,
+            node,
+            ctx,
+        );
+
+        // We continue the chain from the calculated pointer
+        DetailedLocation::Memory {
+            ty: new_base_pointer_reg.register.ty.clone(),
+            base_ptr_reg: new_base_pointer_reg.register,
+            offset: MemoryOffset(0),
+        }
+    }
+
+    pub fn subscript_helper(
+        &mut self,
+        target_reg: &TypedRegister,
+        ptr_to_slice_reg: &TypedRegister,
+        slice_type: &SliceType,
+        int_expr: &Expression,
+        node: &Node,
+        ctx: &Context,
+    ) {
+        let index_int_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(int_type()),
+            "subscript unsigned int",
+        );
+        self.emit_expression_materialize(index_int_reg.register(), int_expr, ctx);
+
+        let element_capacity_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(int_type()),
+            "element capacity",
+        );
+
+        self.builder.add_mov_32_immediate_value(
+            element_capacity_reg.register(),
+            slice_type.fixed_size as u32,
+            node,
+            "set the capacity",
+        );
+
+        // Bounds check it
+        self.builder.add_ge_u32(
+            index_int_reg.register(),
+            element_capacity_reg.register(),
+            node,
+            "check if it is >= capacity",
+        );
+        let patch = self
+            .builder
+            .add_jmp_if_not_true_placeholder(node, "jump over panic if within bounds");
+        self.builder.add_trap(5, node, "out of bounds trap");
+        self.builder.patch_jump_here(patch);
+
+        let element_basic_type = layout_type(&slice_type.element);
+
+        let element_size_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(int_type()),
+            "reg for immediate element size",
+        );
+        self.builder.add_mov_32_immediate_value(
+            element_size_reg.register(),
+            element_basic_type.total_size.0 as u32,
+            node,
+            "element_size",
+        );
+
+        let offset_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(int_type()), "temp for offset");
+        self.builder.add_mul_i32(
+            offset_reg.register(),
+            index_int_reg.register(),
+            element_size_reg.register(),
+            node,
+            "offset = index * element_size",
+        );
+
+        self.builder.add_add_u32(
+            target_reg,
+            &ptr_to_slice_reg,
+            offset_reg.register(),
+            node,
+            "result = base_ptr + element_size * index",
+        );
+    }
+
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_lvalue_chain(
         &mut self,
@@ -101,6 +210,15 @@ impl CodeBuilder<'_> {
                     current_location = current_location.add_offset(
                         offset_item.offset,
                         VmType::new_unknown_placement(offset_item.ty.clone()),
+                    );
+                }
+                LocationAccessKind::Subscript(slice_type, int_expr) => {
+                    current_location = self.subscript_helper_from_location_to_location(
+                        current_location,
+                        slice_type,
+                        int_expr,
+                        &int_expr.node,
+                        ctx,
                     );
                 }
                 LocationAccessKind::IntrinsicSubscript(

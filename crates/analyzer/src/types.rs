@@ -38,8 +38,14 @@ impl Analyzer<'_> {
                 let struct_ref = self.analyze_anonymous_struct_type(ast_struct)?;
                 Type::AnonymousStruct(struct_ref)
             }
-            swamp_ast::Type::Slice(ast_type) => {
-                let analyzed_element_type = self.analyze_slice_type(ast_type)?;
+            swamp_ast::Type::Slice(ast_type, maybe_fixed_size) => {
+                // TODO: maybe_fixed_size
+                let element_type = self.analyze_slice_type(ast_type)?;
+                let int_str = self.get_text(&maybe_fixed_size.clone().unwrap());
+                let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
+
+                Type::Slice(Box::new(element_type), int_value)
+                /*
                 let vec_blueprint = self
                     .shared
                     .core_symbol_table
@@ -50,8 +56,11 @@ impl Analyzer<'_> {
                     .state
                     .instantiator
                     .instantiate_blueprint_and_members(&vec_blueprint, &[analyzed_element_type])?
+
+                 */
             }
-            swamp_ast::Type::SlicePair(key_type, value_type) => {
+            swamp_ast::Type::SlicePair(key_type, value_type, maybe_fixed_size) => {
+                // TODO: maybe fixed size
                 let analyzed_key_type = self.analyze_slice_type(key_type)?;
                 let analyzed_value_type = self.analyze_slice_type(value_type)?;
                 let map_blueprint = self

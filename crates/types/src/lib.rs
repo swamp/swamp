@@ -23,8 +23,8 @@ pub enum Type {
     Unit,  // Empty or nothing
     Never, // Not even empty since control flow has escaped with break or return.
 
-    Slice(Box<Type>),
-    SlicePair(Box<Type>, Box<Type>),
+    Slice(Box<Type>, usize),
+    SlicePair(Box<Type>, Box<Type>, usize),
 
     // Containers
     Tuple(Vec<Type>),
@@ -102,8 +102,8 @@ impl Type {
 
     pub fn primary_element_type(&self) -> Option<&Self> {
         match self {
-            Self::Slice(element_type) => Some(element_type),
-            Self::SlicePair(_key, value_type) => Some(value_type),
+            Self::Slice(element_type, _) => Some(element_type),
+            Self::SlicePair(_key, value_type, _) => Some(value_type),
             Self::NamedStruct(ns) => {
                 if ns.is_vec() || ns.is_stack() {
                     Some(&ns.instantiated_type_parameters[0])
@@ -292,11 +292,11 @@ impl Type {
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
-            Self::Optional(inner) | Self::MutableReference(inner) | Self::Slice(inner) => {
+            Self::Optional(inner) | Self::MutableReference(inner) | Self::Slice(inner, _) => {
                 inner.is_concrete()
             }
 
-            Self::SlicePair(a, b) => a.is_concrete() && b.is_concrete(),
+            Self::SlicePair(a, b, _) => a.is_concrete() && b.is_concrete(),
             Self::Tuple(types) => types.iter().all(Self::is_concrete),
             Self::NamedStruct(struct_type) => struct_type
                 .anon_struct_type
@@ -351,8 +351,8 @@ impl Type {
             Self::Function(_)
             | Self::Generic(_, _)
             | Self::Blueprint(_)
-            | Self::Slice(_)
-            | Self::SlicePair(_, _)
+            | Self::Slice(_, _)
+            | Self::SlicePair(_, _, _)
             | Self::Variable(_) => false,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -389,8 +389,8 @@ impl Type {
             | Self::Function(_)
             | Self::Generic(_, _)
             | Self::Blueprint(_)
-            | Self::Slice(_)
-            | Self::SlicePair(_, _)
+            | Self::Slice(_, _)
+            | Self::SlicePair(_, _, _)
             | Self::Variable(_) => false,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -454,8 +454,8 @@ impl Type {
             | Self::Function(_)
             | Self::Generic(_, _)
             | Self::Blueprint(_)
-            | Self::SlicePair(_, _)
-            | Self::Slice(_)
+            | Self::SlicePair(_, _, _)
+            | Self::Slice(_, _)
             | Self::MutableReference(_)
             | Self::Variable(_) => false,
 
@@ -512,10 +512,10 @@ impl Debug for Type {
             Self::Generic(blueprint, non_concrete_arguments) => {
                 write!(f, "{blueprint:?}<{non_concrete_arguments:?}>")
             }
-            Self::Slice(value_type) => {
+            Self::Slice(value_type, size) => {
                 write!(f, "Slice<{value_type:?}>")
             }
-            Self::SlicePair(key_type, value_type) => {
+            Self::SlicePair(key_type, value_type, size) => {
                 write!(f, "SlicePair<{key_type:?}, {value_type:?}>")
             }
             Self::Blueprint(blueprint) => {
@@ -546,10 +546,10 @@ impl Display for Type {
             Self::Generic(blueprint, non_concrete_arguments) => {
                 write!(f, "{blueprint:?}<{non_concrete_arguments:?}>")
             }
-            Self::Slice(value_type) => {
+            Self::Slice(value_type, slice) => {
                 write!(f, "Slice<{value_type:?}>")
             }
-            Self::SlicePair(key_type, value_type) => {
+            Self::SlicePair(key_type, value_type, slice) => {
                 write!(f, "SlicePair<{key_type:?}, {value_type:?}>")
             }
             Self::Blueprint(blueprint) => {
@@ -617,10 +617,10 @@ impl Type {
             }
 
             (
-                Self::SlicePair(a_key_type, a_value_type),
-                Self::SlicePair(b_key_type, b_value_type),
+                Self::SlicePair(a_key_type, a_value_type, slice),
+                Self::SlicePair(b_key_type, b_value_type, slice2),
             ) => a_key_type == b_key_type && (a_value_type == b_value_type),
-            (Self::Slice(inner_type_a), Self::Slice(inner_type_b)) => {
+            (Self::Slice(inner_type_a, slice3), Self::Slice(inner_type_b, slice4)) => {
                 inner_type_a.compatible_with(inner_type_b)
             }
 

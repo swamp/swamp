@@ -568,6 +568,9 @@ impl SourceMapDisplay<'_> {
                     .clone();
                 write!(f, ".{}", name.bright_blue())
             }
+            PostfixKind::Subscript(slice_type, index_expr) => {
+                todo!()
+            }
             PostfixKind::MemberCall(_function_ref, b) => write!(f, "membercall {b:?}"),
             PostfixKind::OptionalChainingOperator => todo!(),
             PostfixKind::NoneCoalescingOperator(_) => todo!(),
@@ -678,8 +681,8 @@ impl SourceMapDisplay<'_> {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }
             Type::Blueprint(blueprint) => self.show_blueprint(f, blueprint, tabs),
-            Type::Slice(value) => todo!(),
-            Type::SlicePair(key, value) => todo!(),
+            Type::Slice(value, _size) => todo!(),
+            Type::SlicePair(key, value, _size) => todo!(),
             Type::Variable(var) => self.show_type_variable(f, var, tabs),
             Type::Never => write!(f, "!"),
         }
@@ -718,8 +721,8 @@ impl SourceMapDisplay<'_> {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }
             Type::Blueprint(blueprint) => self.show_blueprint(f, blueprint, tabs),
-            Type::Slice(value) => todo!(),
-            Type::SlicePair(key, value) => todo!(),
+            Type::Slice(value, _) => todo!(),
+            Type::SlicePair(key, value, _) => todo!(),
             Type::Variable(var) => self.show_type_variable(f, var, tabs),
             Type::Never => write!(f, "!"),
         }
