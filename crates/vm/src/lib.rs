@@ -642,7 +642,6 @@ impl Vm {
     fn execute_mul_f32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
         let lhs = Fp::from_raw(get_reg!(self, lhs_reg) as i32);
         let rhs = Fp::from_raw(get_reg!(self, rhs_reg) as i32);
-        eprintln!("MUL: {lhs} {rhs}");
         set_reg!(self, dst_reg, (lhs * rhs).inner());
     }
 

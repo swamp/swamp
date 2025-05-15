@@ -810,7 +810,7 @@ impl CodeBuilder<'_> {
                     left_source,
                     right_source,
                     node,
-                    "string add",
+                    "string append",
                 );
             }
 
@@ -846,8 +846,12 @@ impl CodeBuilder<'_> {
         node: &Node,
         right_source: &TypedRegister,
     ) -> GeneratedExpressionResult {
-        self.builder
-            .add_cmp_reg(left_source, right_source, node, "compare to z flag");
+        self.builder.add_cmp_reg(
+            left_source,
+            right_source,
+            node,
+            "compare reg and set result to P flag",
+        );
 
         GeneratedExpressionResult {
             kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
@@ -969,11 +973,8 @@ impl CodeBuilder<'_> {
         let (reg, mut gen_result) = self.emit_rvalue_leave_z_flag_if_possible(condition, ctx);
 
         if gen_result.kind == GeneratedExpressionResultKind::TFlagIsIndeterminate {
-            self.builder.add_tst_u8(
-                &reg,
-                &condition.node,
-                "convert to boolean expression (update z flag)",
-            );
+            self.builder
+                .add_tst_u8(&reg, &condition.node, "set P flag from register");
             gen_result.kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
         }
 
@@ -2082,7 +2083,7 @@ impl CodeBuilder<'_> {
             target_reg,
             string_header_in_heap_ptr.0,
             node,
-            "constant string",
+            &format!("constant string '{string}'"),
         );
     }
 
@@ -3831,11 +3832,11 @@ impl CodeBuilder<'_> {
             }
             GeneratedExpressionResultKind::TFlagIsTrueWhenSet => {
                 self.builder
-                    .add_stz(target, node, "materialize positive z flag");
+                    .add_stz(target, node, "materialize positive P flag");
             }
             GeneratedExpressionResultKind::TFlagIsTrueWhenClear => {
                 self.builder
-                    .add_stnz(target, node, "materialize inverse z flag");
+                    .add_stnz(target, node, "materialize inverse P flag");
             }
         }
     }

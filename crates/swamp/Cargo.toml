@@ -49,3 +49,4 @@ tiny-ver = "0.1.2"
 [dev-dependencies]
 test-log = { version = "0.2.16", features = ["trace", "log", "color"] }
 tracing = "0.1.40"
+time-dilation = "0.1.10"

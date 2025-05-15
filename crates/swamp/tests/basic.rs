@@ -1,6 +1,7 @@
 use std::path::PathBuf;
-use swamp_runtime::RunConstantsOptions;
+use swamp_runtime::{RunConstantsOptions, RunOptions};
 use swamp_std::print::register_print;
+use time_dilation::ScopedTimer;
 
 #[derive(Debug, Default, Clone, Copy)]
 struct TestContext;
@@ -21,6 +22,8 @@ pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
 #[test_log::test]
 pub fn very_basic() {
     const SHOULD_RUN: bool = true;
+    const RUN_ITERATIONS: usize = 1024;
+    const DEBUG_OUTPUT: bool = false;
 
     let crate_main_path = &["crate".to_string(), "lib".to_string()];
     let test_dir = get_fixture_dir(&["basic"]);
@@ -42,25 +45,42 @@ pub fn very_basic() {
             run_first_options,
         );
 
-        for (module_name, module) in code_gen_result.program.modules.modules() {
-            let mut has_shown_mod_name = false;
-            for internal_fn in module.symbol_table.internal_functions() {
-                if !internal_fn.attributes.has_attribute("test") {
-                    continue;
+        {
+            let bootstrap_timer = ScopedTimer::new("run tests a bunch of times");
+
+            for _ in 0..RUN_ITERATIONS {
+                for (module_name, module) in code_gen_result.program.modules.modules() {
+                    let mut has_shown_mod_name = false;
+                    for internal_fn in module.symbol_table.internal_functions() {
+                        if !internal_fn.attributes.has_attribute("test") {
+                            continue;
+                        }
+                        if DEBUG_OUTPUT {
+                            if !has_shown_mod_name {
+                                eprintln!("switching to module {module_name:?}");
+                                has_shown_mod_name = true;
+                            }
+                        }
+                        let function_to_run = code_gen_result
+                            .functions
+                            .get(&internal_fn.program_unique_id)
+                            .unwrap();
+
+                        if DEBUG_OUTPUT {
+                            eprintln!(
+                                "running test '{}'",
+                                function_to_run.internal_function_definition.assigned_name
+                            );
+                        }
+                        swamp_runtime::run_function(
+                            &mut vm,
+                            function_to_run,
+                            RunOptions {
+                                debug_opcodes: false,
+                            },
+                        );
+                    }
                 }
-                if !has_shown_mod_name {
-                    eprintln!("switching to module {module_name:?}");
-                    has_shown_mod_name = true;
-                }
-                let function_to_run = code_gen_result
-                    .functions
-                    .get(&internal_fn.program_unique_id)
-                    .unwrap();
-                eprintln!(
-                    "running test '{}'",
-                    function_to_run.internal_function_definition.assigned_name
-                );
-                swamp_runtime::run_function(&mut vm, function_to_run);
             }
         }
     }

@@ -17,6 +17,11 @@ pub struct RunConstantsOptions {
     pub stderr_adapter: Option<Box<dyn FmtWrite>>,
 }
 
+pub struct RunOptions {
+    //pub stderr_adapter: Option<Box<dyn FmtWrite>>,
+    pub debug_opcodes: bool,
+}
+
 pub fn run_constants_in_order(
     vm: &mut Vm,
     constants_in_order: SeqMap<ConstantId, ConstantInfo>,
@@ -138,13 +143,13 @@ pub fn run_first_time(
     run_constants_in_order(vm, constants_in_order, options);
 }
 
-pub fn run_function(vm: &mut Vm, function_to_run: &GenFunctionInfo) {
+pub fn run_function(vm: &mut Vm, function_to_run: &GenFunctionInfo, run_options: RunOptions) {
     // It takes no parameters, so we can just run the function
-    eprintln!("============= RUN STARTS ============");
+    //eprintln!("============= RUN STARTS ============");
     {
         vm.reset_stack_and_heap_to_constant_limit();
         vm.reset_debug();
-        vm.debug_enabled = true;
+        vm.debug_enabled = run_options.debug_opcodes;
         vm.execute_from_ip(&function_to_run.ip_range.start);
     }
 }

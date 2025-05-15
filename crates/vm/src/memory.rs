@@ -35,7 +35,7 @@ impl Memory {
         let aligned_start_of_heap = align(constant_memory.len(), ALIGNMENT);
         let aligned_start_of_stack = align(memory_size / 2, ALIGNMENT);
 
-        eprintln!("START: {aligned_start_of_heap:X} stack: {aligned_start_of_stack}");
+        eprintln!("START: heap_start: {aligned_start_of_heap:X} stack: {aligned_start_of_stack:X}");
 
         Self {
             memory,
@@ -90,7 +90,6 @@ impl Memory {
     pub(crate) fn heap_allocate(&mut self, size: usize) -> u32 {
         todo!()
     }
-    #[inline]
     pub(crate) fn heap_allocate_secret(&mut self, size: usize) -> u32 {
         if size == 0 {
             eprintln!("heap_allocate zero");
@@ -99,10 +98,13 @@ impl Memory {
         let aligned_size = (size + ALIGNMENT_REST) & ALIGNMENT_MASK;
         let aligned_offset = (self.heap_alloc_offset + ALIGNMENT_REST) & ALIGNMENT_MASK;
 
+        /*
         eprintln!(
             "heap_allocate original_size:{size}, aligned_size: {aligned_size} offset: {aligned_offset:08X} ({aligned_offset}) max_heap_size: {}",
             self.memory_size
         );
+
+         */
 
         debug_assert!(
             aligned_offset + aligned_size <= self.memory_size,
@@ -114,7 +116,6 @@ impl Memory {
         aligned_offset as u32
     }
 
-    #[inline]
     pub(crate) fn heap_allocate_with_data(&mut self, octets: &[u8]) -> u32 {
         let offset = self.heap_allocate_secret(octets.len());
         debug_assert_ne!(offset, 0);
