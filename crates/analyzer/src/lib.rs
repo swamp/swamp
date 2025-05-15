@@ -1266,7 +1266,7 @@ impl<'a> Analyzer<'a> {
                             // Keep previous mutable
                             tv.resolved_type = *element_type_in_slice.clone();
                         }
-                        Type::VecStorage(element_type, _known_capacity) => {
+                        Type::VecStorage(element_type, _) | Type::Vec(element_type) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
                                 self.analyze_expression(index_expr, &unsigned_int_context)?;
