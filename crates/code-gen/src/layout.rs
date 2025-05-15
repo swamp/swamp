@@ -3,6 +3,7 @@ use crate::reg_pool::RegisterPool;
 use crate::{FrameAndVariableInfo, reserve};
 use seq_map::SeqMap;
 use source_map_node::Node;
+use std::cmp::max;
 use std::fmt::Write;
 use swamp_semantic::{VariableRef, VariableType};
 use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
@@ -14,9 +15,10 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
-    MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
-    SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE, STRING_PTR_ALIGNMENT,
-    STRING_PTR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
+    MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT,
+    PTR_SIZE, SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE,
+    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
+    adjust_size_to_alignment, align_to,
 };
 use tracing::{info, trace};
 
@@ -205,6 +207,24 @@ pub fn layout_type(ty: &Type) -> BasicType {
             STRING_PTR_SIZE,
             STRING_PTR_ALIGNMENT,
         ),
+        Type::Vec(element_type) => {
+            let element_type_basic = layout_type(element_type);
+            basic_type(
+                BasicTypeKind::InternalVecPointer(Box::from(element_type_basic)),
+                PTR_SIZE,
+                PTR_ALIGNMENT,
+            )
+        }
+        Type::VecStorage(element_type, fixed_size_element_count) => {
+            let element_type_basic = layout_type(element_type);
+            let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count;
+            let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
+            basic_type(
+                BasicTypeKind::InternalVecIterator,
+                MemorySize(total_size as u16),
+                max_alignment,
+            )
+        }
         Type::Slice(inner_type, size) => layout_slice(inner_type, *size, "slice"),
         Type::SlicePair(a, b, size) => layout_slice_pair(a, b, *size),
         Type::Tuple(types) => layout_tuple(types),

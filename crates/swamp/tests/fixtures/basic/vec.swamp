@@ -1,0 +1,7 @@
+struct Thing {
+		b: Int,
+}
+
+struct Another {
+		array: Vec<Thing, 10>, // Not working yet, but compiles at least
+}

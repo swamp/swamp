@@ -42,13 +42,10 @@ pub enum Type {
     Variable(String),
 
     MutableReference(Box<Type>),
+
+    VecStorage(Box<Type>, usize),
+    Vec(Box<Type>),
 }
-
-impl Type {}
-
-impl Type {}
-
-impl Type {}
 
 impl Type {
     pub fn is_vec(&self) -> bool {
@@ -290,6 +287,10 @@ impl Type {
             | Self::Blueprint(_)
             | Self::Variable(_) => false,
 
+            Self::Vec(_) => false,
+
+            Self::VecStorage(_, _) => true,
+
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
             Self::Optional(inner) | Self::MutableReference(inner) | Self::Slice(inner, _) => {
@@ -353,8 +354,10 @@ impl Type {
             | Self::Blueprint(_)
             | Self::Slice(_, _)
             | Self::SlicePair(_, _, _)
+            | Self::Vec(_)
             | Self::Variable(_) => false,
 
+            Self::VecStorage(_, _) => true,
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
             Self::Optional(inner) | Self::MutableReference(inner) => inner.is_blittable(),
@@ -379,44 +382,6 @@ impl Type {
                 .variants
                 .iter()
                 .all(|(_name, variant)| variant.types().iter().all(Self::is_blittable)),
-        }
-    }
-
-    pub fn is_surface_blittable(&self) -> bool {
-        match self {
-            Self::Unit
-            | Self::Never
-            | Self::Function(_)
-            | Self::Generic(_, _)
-            | Self::Blueprint(_)
-            | Self::Slice(_, _)
-            | Self::SlicePair(_, _, _)
-            | Self::Variable(_) => false,
-
-            Self::Float | Self::Int | Self::String | Self::Bool => true,
-
-            Self::Optional(inner) | Self::MutableReference(inner) => inner.is_surface_blittable(),
-
-            Self::Tuple(types) => types.iter().all(Self::is_surface_blittable),
-            Self::NamedStruct(struct_type) => {
-                if self.is_collection() {
-                    self.is_blittable_collection()
-                } else {
-                    struct_type
-                        .anon_struct_type
-                        .field_name_sorted_fields
-                        .iter()
-                        .all(|(_name, field)| field.field_type.is_surface_blittable())
-                }
-            }
-            Self::AnonymousStruct(anon_struct_type) => anon_struct_type
-                .field_name_sorted_fields
-                .iter()
-                .all(|(_name, field)| field.field_type.is_surface_blittable()),
-            Self::Enum(enum_type) => enum_type
-                .variants
-                .iter()
-                .all(|(_name, variant)| variant.types().iter().all(Self::is_surface_blittable)),
         }
     }
 
@@ -457,7 +422,10 @@ impl Type {
             | Self::SlicePair(_, _, _)
             | Self::Slice(_, _)
             | Self::MutableReference(_)
+            | Self::Vec(_)
             | Self::Variable(_) => false,
+
+            Self::VecStorage(_, _) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
@@ -515,6 +483,12 @@ impl Debug for Type {
             Self::Slice(value_type, size) => {
                 write!(f, "Slice<{value_type:?}>")
             }
+            Self::VecStorage(value_type, size) => {
+                write!(f, "VecStorage<{value_type:?}, {size}>")
+            }
+            Self::Vec(value_type) => {
+                write!(f, "Vec<{value_type:?}>")
+            }
             Self::SlicePair(key_type, value_type, size) => {
                 write!(f, "SlicePair<{key_type:?}, {value_type:?}>")
             }
@@ -546,6 +520,13 @@ impl Display for Type {
             Self::Generic(blueprint, non_concrete_arguments) => {
                 write!(f, "{blueprint:?}<{non_concrete_arguments:?}>")
             }
+            Self::VecStorage(value_type, size) => {
+                write!(f, "VecStorage<{value_type:?}, {size}>")
+            }
+            Self::Vec(value_type) => {
+                write!(f, "Vec<{value_type:?}>")
+            }
+
             Self::Slice(value_type, slice) => {
                 write!(f, "Slice<{value_type:?}>")
             }

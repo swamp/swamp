@@ -502,6 +502,9 @@ pub const INT_SIZE: u16 = 4;
 pub const FLOAT_SIZE: u16 = 4;
 pub const BOOL_SIZE: u16 = 1;
 
+pub const PTR_SIZE: MemorySize = MemorySize(4);
+pub const PTR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+
 pub const HEAP_PTR_ON_FRAME_SIZE: MemorySize = MemorySize(4);
 pub const HEAP_PTR_ON_FRAME_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 

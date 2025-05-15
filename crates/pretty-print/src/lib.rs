@@ -14,7 +14,6 @@ use swamp_semantic::{
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
 };
 use swamp_types::*;
-use tracing::info;
 use yansi::{Color, Paint};
 
 pub struct SourceMapDisplay<'a> {
@@ -683,6 +682,8 @@ impl SourceMapDisplay<'_> {
             Type::Blueprint(blueprint) => self.show_blueprint(f, blueprint, tabs),
             Type::Slice(value, _size) => todo!(),
             Type::SlicePair(key, value, _size) => todo!(),
+            Type::VecStorage(_, _) => todo!(),
+            Type::Vec(_) => todo!(),
             Type::Variable(var) => self.show_type_variable(f, var, tabs),
             Type::Never => write!(f, "!"),
         }
@@ -723,6 +724,8 @@ impl SourceMapDisplay<'_> {
             Type::Blueprint(blueprint) => self.show_blueprint(f, blueprint, tabs),
             Type::Slice(value, _) => todo!(),
             Type::SlicePair(key, value, _) => todo!(),
+            Type::Vec(_) => todo!(),
+            Type::VecStorage(_, _) => todo!(),
             Type::Variable(var) => self.show_type_variable(f, var, tabs),
             Type::Never => write!(f, "!"),
         }

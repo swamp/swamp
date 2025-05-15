@@ -222,6 +222,7 @@ pub fn quick_deserialize(resolved_type: &Type, buf: &[u8], depth: usize) -> (Val
         &swamp_types::Type::Variable(_) => todo!(),
         &swamp_types::Type::Generic(_, _) => todo!(),
         &swamp_types::Type::Blueprint(_) => todo!(),
+        &swamp_types::Type::VecStorage(_, _) | &swamp_types::Type::Vec(_) => todo!(),
     };
 
     (val, octet_size)

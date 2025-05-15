@@ -7,3 +7,4 @@ mod struct
 mod enum
 mod tuple
 mod slice
+mod vec

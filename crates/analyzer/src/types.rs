@@ -82,7 +82,7 @@ impl Analyzer<'_> {
             swamp_ast::Type::Tuple(types) => Type::Tuple(self.analyze_types(types)?),
             swamp_ast::Type::Named(ast_type_reference) => {
                 if let Some(found_special_type) =
-                    self.analyze_maybe_special_type(ast_type_reference)
+                    self.analyze_maybe_special_type(ast_type_reference)?
                 {
                     found_special_type
                 } else {
@@ -133,10 +133,28 @@ impl Analyzer<'_> {
         Ok(vec)
     }
 
-    fn analyze_maybe_special_type(&self, type_name: &QualifiedTypeIdentifier) -> Option<Type> {
+    fn analyze_maybe_special_type(
+        &mut self,
+        type_name: &swamp_ast::QualifiedTypeIdentifier,
+    ) -> Result<Option<Type>, Error> {
         let text = self.get_text(&type_name.name.0);
         match text {
-            _ => None,
+            "Vec" => {
+                let len = type_name.generic_params.len();
+                let ty = self.analyze_type(type_name.generic_params[0].get_type())?;
+                if len == 1 {
+                    Ok(Some(Type::Vec(Box::new(ty))))
+                } else if len == 2 {
+                    // storage type
+                    let size_node = type_name.generic_params[1].get_unsigned_int_node();
+                    let int_str = self.get_text(&size_node);
+                    let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
+                    Ok(Some(Type::VecStorage(Box::new(ty), int_value)))
+                } else {
+                    panic!("strange Vec type")
+                }
+            }
+            _ => Ok(None),
         }
     }
 }

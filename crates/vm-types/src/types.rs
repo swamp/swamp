@@ -250,6 +250,7 @@ pub enum BasicTypeKind {
     U32,
     InternalStringPointer,
     InternalVecPointer(Box<BasicType>),
+    InternalVecStorage(Box<BasicType>, usize),
     InternalMapPointer(Box<BasicType>, Box<BasicType>),
     InternalGridPointer,
     Struct(StructType),
@@ -312,6 +313,7 @@ impl Display for BasicTypeKind {
             Self::InternalStringPointer => write!(f, "String"),
             Self::InternalRangeHeader => write!(f, "Range"),
             Self::InternalVecPointer(item_type) => write!(f, "Vec<{item_type}>"),
+            Self::InternalVecStorage(item_type, size) => write!(f, "Vec<{item_type}, {size}>"),
             Self::InternalMapPointer(key, value) => write!(f, "Map<{key}, {value}>"),
             Self::InternalGridPointer => write!(f, "Grid"),
             Self::InternalVecIterator => write!(f, "Vec::Iterator"),
@@ -1490,8 +1492,11 @@ pub fn write_basic_type(
         BasicTypeKind::MutablePointer(inner) => {
             write!(f, "&mut {inner}")
         }
-        BasicTypeKind::InternalVecPointer(x) => {
-            write!(f, "vec<>")
+        BasicTypeKind::InternalVecPointer(element_type) => {
+            write!(f, "vec<{element_type}>")
+        }
+        BasicTypeKind::InternalVecStorage(element_type, size) => {
+            write!(f, "vec<{element_type}, {size}>")
         }
         BasicTypeKind::InternalMapPointer(key, value) => {
             write!(f, "map<{key}, {value}>")

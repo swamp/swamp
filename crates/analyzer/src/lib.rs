@@ -45,7 +45,6 @@ use tracing::{error, info};
 pub enum AssignmentMode {
     OwnedValue,
     CopyBlittable,
-    Clone,
     CopySharedPtr,
 }
 
@@ -2425,16 +2424,6 @@ impl<'a> Analyzer<'a> {
         ))
     }
 
-    pub fn check_mutable_assignment_is_valid(ty: &Type) -> bool {
-        let result = ty.is_surface_blittable();
-
-        if !result {
-            eprintln!("not work");
-        }
-
-        result
-    }
-
     pub fn chain_is_owned_result(
         start_of_chain: &StartOfChain,
         chains: &Vec<Postfix>,
@@ -2494,17 +2483,13 @@ impl<'a> Analyzer<'a> {
                 Self::chain_is_owned_result(start_chain, postfix);
             if lhs_is_mutable {
                 if chain_is_mutable {
-                    if ty.is_blittable() {
-                        return AssignmentMode::CopyBlittable;
-                    } else {
-                        return AssignmentMode::Clone;
-                    }
+                    return AssignmentMode::CopyBlittable;
                 } else {
                     if lhs_is_mutable {
                         if chain_is_owned {
                             return AssignmentMode::OwnedValue;
                         } else {
-                            return AssignmentMode::Clone;
+                            return AssignmentMode::CopyBlittable;
                         }
                     } else {
                         return AssignmentMode::CopySharedPtr;
@@ -2515,11 +2500,7 @@ impl<'a> Analyzer<'a> {
             }
         }
 
-        if ty.is_surface_blittable() {
-            AssignmentMode::CopyBlittable
-        } else {
-            AssignmentMode::Clone
-        }
+        AssignmentMode::CopyBlittable
     }
 
     pub fn check_mutable_assignment(
@@ -2527,10 +2508,6 @@ impl<'a> Analyzer<'a> {
         assignment_mode: AssignmentMode,
         node: &Node,
     ) -> Result<(), Error> {
-        if assignment_mode == AssignmentMode::Clone {
-            return Err(self.create_err_resolved(ErrorKind::ArgumentIsNotMutable, node));
-        }
-
         Ok(())
     }
 
@@ -2540,11 +2517,11 @@ impl<'a> Analyzer<'a> {
         ty: &Type,
         variable: &swamp_ast::Variable,
     ) -> Result<(), Error> {
-        let is_allowed_to_assign = Self::check_mutable_assignment_is_valid(ty);
-        if !is_allowed_to_assign {
-            error!(?ty, "variable is wrong");
-            //return Err(self.create_err(ErrorKind::ArgumentIsNotMutable, &variable.name));
-        }
+        //let is_allowed_to_assign = Self::check_mutable_assignment_is_valid(ty);
+        //if !is_allowed_to_assign {
+        //  error!(?ty, "variable is wrong");
+        //return Err(self.create_err(ErrorKind::ArgumentIsNotMutable, &variable.name));
+        //}
 
         Ok(())
     }
