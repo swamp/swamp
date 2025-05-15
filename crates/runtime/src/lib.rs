@@ -19,7 +19,8 @@ pub struct RunConstantsOptions {
 
 pub struct RunOptions {
     //pub stderr_adapter: Option<Box<dyn FmtWrite>>,
-    pub debug_opcodes: bool,
+    pub debug_stats_enabled: bool,
+    pub debug_opcodes_enabled: bool,
 }
 
 pub fn run_constants_in_order(
@@ -46,11 +47,6 @@ pub fn run_constants_in_order(
         assert_eq!(
             constant.target_constant_memory.size(),
             return_layout.total_size
-        );
-
-        eprintln!(
-            "value: written to %${:08X} --------",
-            constant.target_constant_memory.addr().0
         );
 
         if let Some(x) = &mut options.stderr_adapter {
@@ -129,7 +125,8 @@ pub fn create_vm_with_standard_settings(
         stack_memory_size: 16 * 1024 * 20,
         heap_memory_size: 1024 * 1024,
         constant_memory: prepared_constant_memory.to_vec(),
-        debug_enabled: true,
+        debug_opcodes_enabled: false,
+        debug_stats_enabled: false,
     };
 
     Vm::new(instructions.to_vec(), vm_setup)
@@ -148,8 +145,9 @@ pub fn run_function(vm: &mut Vm, function_to_run: &GenFunctionInfo, run_options:
     //eprintln!("============= RUN STARTS ============");
     {
         vm.reset_stack_and_heap_to_constant_limit();
-        vm.reset_debug();
-        vm.debug_enabled = run_options.debug_opcodes;
+        //vm.reset_debug();
+        vm.debug_opcodes_enabled = run_options.debug_opcodes_enabled;
+        vm.debug_stats_enabled = run_options.debug_stats_enabled;
         vm.execute_from_ip(&function_to_run.ip_range.start);
     }
 }

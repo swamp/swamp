@@ -5,8 +5,8 @@ use swamp_vm::Vm;
 use swamp_vm::host::HostArgs;
 
 fn print_fn<C>(_ctx: &mut C, mut args: HostArgs) {
-    //let output = args.get_str();
-    //eprintln!("print: {output}");
+    let output = args.get_str();
+    eprintln!("print: {output}");
 }
 
 pub fn register_print<C: 'static>(vm: &mut Vm, modules: &Modules, context: C) {

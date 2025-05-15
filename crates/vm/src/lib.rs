@@ -107,7 +107,7 @@ pub struct Flags {
 
 #[derive(Debug, Default)]
 pub struct Debug {
-    pub opcodes_executed: u32,
+    pub opcodes_executed: usize,
     pub call_depth: usize,
     pub max_call_depth: usize,
 }
@@ -142,7 +142,8 @@ pub struct Vm {
     // TODO: Error state
     pub flags: Flags,
     pub debug: Debug,
-    pub debug_enabled: bool,
+    pub debug_stats_enabled: bool,
+    pub debug_opcodes_enabled: bool,
 }
 
 impl Vm {}
@@ -155,7 +156,8 @@ pub struct VmSetup {
     pub stack_memory_size: usize,
     pub heap_memory_size: usize,
     pub constant_memory: Vec<u8>,
-    pub debug_enabled: bool,
+    pub debug_stats_enabled: bool,
+    pub debug_opcodes_enabled: bool,
 }
 
 /*
@@ -193,10 +195,16 @@ impl Vm {
                 call_depth: 0,
                 max_call_depth: 0,
             },
-            debug_enabled: setup.debug_enabled,
+            debug_stats_enabled: setup.debug_stats_enabled,
+            debug_opcodes_enabled: setup.debug_opcodes_enabled,
         };
 
         //vm.handlers[OpCode::Alloc as usize] = HandlerType::Args3(Self::execute_alloc);
+
+        /*
+            TODO: @idea: Instead of storing function pointers, the instructions vector itself
+            contains pointers directly to the next instruction's handler code.
+        */
 
         // Store
         vm.handlers[OpCode::StRegToFrame as usize] =
@@ -410,7 +418,7 @@ impl Vm {
         self.memory.reset_offset();
 
         #[cfg(feature = "debug_vm")]
-        if self.debug_enabled {
+        if self.debug_opcodes_enabled {
             eprintln!(
                 "start executing --------- frame {:X} heap: {:X}",
                 self.memory.frame_offset, self.memory.heap_alloc_offset
@@ -428,14 +436,15 @@ impl Vm {
             let opcode = instruction.opcode;
 
             #[cfg(feature = "debug_vm")]
-            if self.debug_enabled {
+            if self.debug_opcodes_enabled {
                 let operands = instruction.operands;
                 eprint!("> {:04X}: ", self.pc);
                 self.debug_opcode(opcode, &operands);
-                self.debug.opcodes_executed += 1;
+            }
 
-                //    let s = hexify::format_hex(&self.frame_memory()[..16]);
-                //  eprintln!("mem: {s}");
+            #[cfg(feature = "debug_vm")]
+            if self.debug_stats_enabled {
+                self.debug.opcodes_executed += 1;
             }
 
             self.pc += 1; // IP must be added BEFORE handling the instruction
@@ -548,11 +557,6 @@ impl Vm {
         self.reset_frame();
         self.execution_complete = false;
         self.pc = 0;
-
-        #[cfg(feature = "debug_vm")]
-        {
-            self.reset_debug();
-        }
     }
 
     pub fn protect_heap_up_to_current_allocator(&mut self) {
@@ -963,7 +967,7 @@ impl Vm {
     fn execute_hlt(&mut self) {
         self.execution_complete = true;
         #[cfg(feature = "debug_vm")]
-        if self.debug_enabled {
+        if self.debug_opcodes_enabled {
             self.debug_output();
         }
     }
@@ -972,7 +976,7 @@ impl Vm {
     fn execute_panic(&mut self, panic_reason_reg: u8) {
         self.execution_complete = true;
         #[cfg(feature = "debug_vm")]
-        if self.debug_enabled {
+        if self.debug_opcodes_enabled {
             self.debug_output();
         }
 
@@ -1258,7 +1262,7 @@ impl Vm {
         self.pc = absolute_pc as usize;
 
         #[cfg(feature = "debug_vm")]
-        if self.debug_enabled {
+        if self.debug_opcodes_enabled {
             self.debug.call_depth += 1;
             if self.debug.call_depth > self.debug.max_call_depth {
                 self.debug.max_call_depth = self.debug.call_depth;
@@ -1316,7 +1320,7 @@ impl Vm {
         // NOTE: Any return value is always at frame_offset + 0
 
         #[cfg(feature = "debug_vm")]
-        if self.debug_enabled {
+        if self.debug_opcodes_enabled {
             self.debug.call_depth -= 1;
         }
     }
