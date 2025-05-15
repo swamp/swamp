@@ -8,10 +8,7 @@ I dislike and want to avoid the following:
   having the managing of collections like stacks and lists spread out on to very
   small "entities".
 
-- **heap allocation** during runtime. It shouldn't be needed, except for things
-  like string appends?
-
-- **variable sized heap allocations**.
+- **heap allocation** during runtime. It can be done in the engine for certain containers, like SlotMap or similar concepts.
 
 - **garbage collection**. Even though it is allocated in an arena and the
   garbage collection is just one root, it still takes time to do a deep clone of
@@ -22,21 +19,6 @@ fundamental rule is: Persistent Game State must always be stored in designated
 containers as blittable types. This ensures that the authoritative state of the
 game is self-contained, efficiently managed, and ready for each new tick without
 any essential/useful data residing on the general heap.
-
-While an extreme ideal might ban all general-purpose heap collections (like Vec
-or Map) from Swamp for maximum theoretical control, I think we might have a more
-practical approach, at least short term. Swamp may still allow such collections,
-but their use is strictly confined to temporary operations during an
-update/tick. Any data from these temporary structures that needs to persist must
-be transferred (e.g., via memcpy for blittable data) into the elements of our
-the containers. Once this is done, all memory associated with these temporary
-collections can be entirely discarded, for instance, by resetting an arena heap
-allocator.
-
-This approach provides the best of both worlds: the robustness and performance
-of a GC-free, data-oriented architecture for persistent game state, alongside
-the flexibility for programmers to use familiar collection types for transient,
-scoped tasks.
 
 ## 1. The World Model
 
@@ -349,16 +331,15 @@ the container's name.
 ```rust
 
 struct RootWorld {
-  monsters: Sparse<Monster, 512>,
-  active_projectiles: Sparse<ProjectileData, 2048>,
+  monsters: [Monster; 512],
+  active_projectiles: [ProjectileData; 2048],
   time: Int,
 }
 
-// Declares a container named 'Monster'.
 // 'Monster' also becomes the distinct handle type for its elements.
 // Capacity is 512 elements.
 // The structure of each 'Monster' element is defined "inline":
-container Monster[512] {
+struct Monster[512] {
   position: Vector2,         // { x: Int, y: Int}
   health: Int,
   target_entity: GameEntity,  // 'GameEntity' would be another handle type
@@ -431,7 +412,7 @@ container GameEntity[1024] {
 ## Questions
 
 - Maybe we need containers that are hashmaps, so a value is hashed to an index
-  and linear probing and similar.
+  and linear probing and similar. Or should those be solved a "normal" collections?
 
 ## Reference Handle
 
@@ -460,3 +441,45 @@ mana: Int = entity.main_spell.mana
 // there can also be ways to get these safely, with `?.` but should rarely be needed
 mana: Int? = entity.main_spell?.mana
 ```
+
+
+## Vec and Slices ideas
+
+### Slice Type: `[T]`
+- A non-owning view into a contiguous sequence of elements in memory
+- Memory representation: `{element_ptr: *T, len: u16}`
+- Source-agnostic: The slice can come from a Vec, Map, Stack or similar
+- Immutable by default, offering read-only operations
+- No capacity concept, cannot be resized
+- Core operations: get(), len(), iter(), etc
+
+### Mutable Slice Type: `mut [T]`
+- A non-owning view with mutable access to the underlying elements
+- Identical memory representation to immutable slices: `{element_ptr: *T, len: u16}`
+- Mutability is enforced by the compiler, not in the runtime representation
+- Allows modification of existing elements (set, indexed assignment)
+- Cannot add or remove elements (length remains fixed)
+- Will have more advanced functionality in the future, like `sort_in_place()`
+
+### Fixed Array Type: `[T; N]`
+- Raw storage of N contiguous elements of type T
+- Allocated at compile time with fixed size
+- Contains no metadata/header fields (no length or capacity tracking)
+- Direct element access via indexing
+- Cannot grow or shrink
+- Size is part of the type and known at compile time
+
+### Owning Vector Type: `Vec<T, N>`
+- Owner/storage type with inline element storage
+- Memory layout: `{len: u16, capacity: u16, elements: [T; N]}`
+- The capacity field is populated during code generation, to the known fixed size capacity N
+- Provides dynamic length management within capacity constraints
+- Full suite of container operations (push, pop, etc.)
+
+### Vector Pointer Type: `Vec<T>`
+- A pointer to a `Vec<T, N>` instance
+- Can not be stored, only used for passing as arguments to functions
+- Represents a fully capable reference to a vector storage
+- Contains same operations as the owning vector type
+
+Slice mutability is a checked at compile time, and is not any different in runtime.
