@@ -304,6 +304,7 @@ impl Vm {
 
         // Halt - return to host
         vm.handlers[OpCode::Hlt as usize] = HandlerType::Args0(Self::execute_hlt);
+        vm.handlers[OpCode::Trap as usize] = HandlerType::Args1(Self::execute_trap);
         vm.handlers[OpCode::Panic as usize] = HandlerType::Args1(Self::execute_panic);
 
         // Bool
@@ -975,6 +976,17 @@ impl Vm {
         if self.debug_opcodes_enabled {
             self.debug_output();
         }
+    }
+
+    #[inline]
+    fn execute_trap(&mut self, trap_code: u8) {
+        self.execution_complete = true;
+        #[cfg(feature = "debug_vm")]
+        if self.debug_opcodes_enabled {
+            self.debug_output();
+        }
+
+        panic!("vm trap: '{trap_code}'");
     }
 
     #[inline]
