@@ -731,7 +731,7 @@ pub fn disasm(
             operands[0],
             operands[1],
         ]))],
-        OpCode::BlockCopy => {
+        OpCode::BlockCopyWithOffsets => {
             let dst_offset = u16::from_le_bytes([operands[1], operands[2]]);
             let src_offset = u16::from_le_bytes([operands[4], operands[5]]);
 
@@ -750,6 +750,15 @@ pub fn disasm(
                 ]))),
             ]
         }
+
+        OpCode::BlockCopy => &[
+            to_write_reg(operands[0], &bytes_type(), frame_memory_info),
+            to_read_reg(operands[1], &bytes_type(), frame_memory_info),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u16::from_le_bytes([
+                operands[2],
+                operands[3],
+            ]))),
+        ],
 
         OpCode::FrameMemClr => &[
             DecoratedOperandAccessKind::WriteFrameMemoryAddress(FrameMemoryAddress(

@@ -233,7 +233,9 @@ impl Vm {
             HandlerType::Args3(Self::execute_lea);
 
         // Copy to and from heap
-        vm.handlers[OpCode::BlockCopy as usize] = HandlerType::Args8(Self::execute_mov_mem);
+        vm.handlers[OpCode::BlockCopyWithOffsets as usize] =
+            HandlerType::Args8(Self::execute_mov_mem_with_offsets);
+        vm.handlers[OpCode::BlockCopy as usize] = HandlerType::Args4(Self::execute_mov_mem);
         vm.handlers[OpCode::FrameMemClr as usize] =
             HandlerType::Args4(Self::execute_frame_memory_clear);
 
@@ -1141,7 +1143,7 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_mov_mem(
+    fn execute_mov_mem_with_offsets(
         &mut self,
         dst_pointer_reg: u8,
         dst_offset_lower: u8,
@@ -1156,6 +1158,27 @@ impl Vm {
         let dst_offset = u8s_to_u16!(dst_offset_lower, dst_offset_upper);
         let dest_addr = get_reg!(self, dst_pointer_reg) + dst_offset as u32;
         let src_addr = get_reg!(self, src_pointer_reg) + src_offset as u32;
+
+        let memory_size = u8s_to_u16!(memory_size_lower, memory_size_upper);
+
+        let dst_ptr = self.memory.get_heap_ptr(dest_addr as usize);
+        let src_ptr = self.memory.get_heap_const_ptr(src_addr as usize);
+
+        unsafe {
+            ptr::copy_nonoverlapping(src_ptr, dst_ptr, memory_size as usize);
+        }
+    }
+
+    #[inline]
+    fn execute_mov_mem(
+        &mut self,
+        dst_pointer_reg: u8,
+        src_pointer_reg: u8,
+        memory_size_lower: u8,
+        memory_size_upper: u8,
+    ) {
+        let dest_addr = get_reg!(self, dst_pointer_reg);
+        let src_addr = get_reg!(self, src_pointer_reg);
 
         let memory_size = u8s_to_u16!(memory_size_lower, memory_size_upper);
 

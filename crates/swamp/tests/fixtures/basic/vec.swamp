@@ -7,7 +7,7 @@ struct Thing {
 }
 
 struct Another {
-  array: Vec<Thing, 10>,
+  things: Vec<Thing, 3>,
 }
 
 
@@ -15,22 +15,25 @@ struct Another {
 fn vec_assign_and_subscript() {
 
   another = Another {
-    array: [
+    things: [
       Thing { a: 11, b:  1 },
       Thing { b:  2, a: 12 }, // Intentionally swapped
       Thing { a: 13, b:  3 },
     ]
   }
 
-  second_thing = another.array[1]
-
-  assert(second_thing.a == 12, 'second_thing.b is wrong')
+  second_thing = another.things[1]
+  assert(second_thing.a == 12, 'second_thing.a is wrong')
   assert(second_thing.b == 2, 'second_thing.b is wrong')
-  print('amazing if this works: a: {second_thing.a} b: {second_thing.b}')
+  print('second_thing: a: {second_thing.a} b: {second_thing.b}')
 
-  assert(another.array[0].a == 11, 'another.array[0].a is wrong')
-  assert(another.array[1].b == 2, 'another.array[1].b is wrong')
-  assert(another.array[2].b == 3, 'another.array[2].b is wrong')
+  assert(another.things[0].a == 11, 'another.things[0].a is wrong')
+  assert(another.things[0].b == 1, 'another.things[0].a is wrong')
+  assert(another.things[1].a == 12, 'another.things[1].b is wrong')
+  assert(another.things[1].b == 2, 'another.things[1].b is wrong')
+  assert(another.things[2].a == 13, 'another.things[2].a is wrong')
+  assert(another.things[2].b == 3, 'another.things[2].b is wrong')
+
 }
 
 

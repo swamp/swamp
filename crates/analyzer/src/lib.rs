@@ -3362,8 +3362,15 @@ impl<'a> Analyzer<'a> {
                 }
             }
         }
-        if let Type::VecStorage(element_type, size) = expected_type {
-            return Ok(expr);
+        if let Type::VecStorage(vec_element_type, vec_capacity) = expected_type {
+            if let Type::FixedSlice(slice_element_type, fixed_slice_len) = &encountered_type {
+                if vec_element_type.compatible_with(slice_element_type)
+                    && fixed_slice_len <= vec_capacity
+                {
+                    return Ok(expr);
+                }
+                //  TODO : Add better error message
+            }
         }
         /*else if let Type::FixedSlice(encountered_type_slice_type, ..) = encountered_type {
             return self.late_coerce_slice(node, expected_type, encountered_type_slice_type, &expr);

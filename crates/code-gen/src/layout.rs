@@ -17,7 +17,7 @@ use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
     MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT,
     PTR_SIZE, SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE,
-    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
+    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
     adjust_size_to_alignment, align_to,
 };
 use tracing::{info, trace};
@@ -217,7 +217,8 @@ pub fn layout_type(ty: &Type) -> BasicType {
         }
         Type::VecStorage(element_type, fixed_size_element_count) => {
             let element_type_basic = layout_type(element_type);
-            let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count;
+            let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count
+                + VEC_HEADER_SIZE.0 as usize;
             let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
             basic_type(
                 BasicTypeKind::InternalVecStorage(

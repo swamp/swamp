@@ -60,7 +60,8 @@ pub enum OpCode {
     Enter,
     Ret,
 
-    BlockCopy, // Copy from heap region with offset to frame region
+    BlockCopyWithOffsets, // Copy from heap region with offset to frame region
+    BlockCopy,            // Copy without offsets
     FrameMemClr,
 
     Alloc, // Mainly for slices
@@ -73,6 +74,7 @@ pub enum OpCode {
     Ld16FromPointerWithOffset,
     Ld32FromPointerWithOffset,
     LdRegFromFrame,
+
     Ld8FromAbsoluteAddress,
     Ld32FromAbsoluteAddress,
 
@@ -224,7 +226,7 @@ impl OpCode {
 
             // Move
             Self::MovReg => "mov",
-            Self::BlockCopy => "movmem",
+            Self::BlockCopyWithOffsets | Self::BlockCopy => "blkcpy",
             Self::LdPtrFromEffectiveAddress => "lea",
 
             // Load

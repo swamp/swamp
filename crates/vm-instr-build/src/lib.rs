@@ -611,7 +611,7 @@ impl InstructionBuilder<'_> {
         let size_bytes = u16_to_u8_pair(memory_size.0);
 
         self.state.add_instruction(
-            OpCode::BlockCopy,
+            OpCode::BlockCopyWithOffsets,
             &[
                 target_base_ptr_reg.addressing(),
                 target_offset_bytes.0,
@@ -619,6 +619,29 @@ impl InstructionBuilder<'_> {
                 source_base_ptr_reg.addressing(),
                 source_offset_bytes.0,
                 source_offset_bytes.1,
+                size_bytes.0,
+                size_bytes.1,
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_block_copy(
+        &mut self,
+        target_base_ptr_reg: &TypedRegister,
+        source_base_ptr_reg: &TypedRegister,
+        memory_size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        let size_bytes = u16_to_u8_pair(memory_size.0);
+
+        self.state.add_instruction(
+            OpCode::BlockCopy,
+            &[
+                target_base_ptr_reg.addressing(),
+                source_base_ptr_reg.addressing(),
                 size_bytes.0,
                 size_bytes.1,
             ],
@@ -650,6 +673,8 @@ impl InstructionBuilder<'_> {
 
     */
 
+    /*
+
     // Mov is more of a copy. Keeping the name Mov because it is old school and idiomatic.
     pub fn add_mov_mem(
         &mut self,
@@ -674,6 +699,8 @@ impl InstructionBuilder<'_> {
             comment,
         );
     }
+
+     */
 
     /*
     // Mov is more of a copy. Keeping the name Mov because it is old school and idiomatic.

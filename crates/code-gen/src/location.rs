@@ -8,8 +8,7 @@ use crate::ctx::Context;
 use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::{
-    Expression, FixedSliceType, LocationAccessKind, MutRefOrImmutableExpression,
-    SingleLocationExpression,
+    Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
 use swamp_vm_types::MemoryOffset;
 use swamp_vm_types::types::{
@@ -69,17 +68,20 @@ impl CodeBuilder<'_> {
         int_expr: &Expression,
         bounds_check: BoundsCheck,
         node: &Node,
+        comment: &str,
         ctx: &Context,
     ) -> DetailedLocation {
         let (ptr_to_slice_reg, _) = self.emit_ptr_reg_from_detailed_location(
             detailed_location_to_slice,
             node,
-            "get the pointer to the start of the slice",
+            &format!(
+                "{comment} (get the the base pointer to the start of where to subscript from)"
+            ),
         );
         //let basic_slice_type = layout_type(&Type::Slice(Box::new(*slice_type.element.clone()), slice_type.fixed_size));
         let new_base_pointer_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(element_basic_type.clone()),
-            "reg for result",
+            &format!("{comment} (new_base_pointer reg temp)"),
         );
 
         self.subscript_helper(
@@ -89,6 +91,7 @@ impl CodeBuilder<'_> {
             bounds_check,
             int_expr,
             node,
+            comment,
             ctx,
         );
 
@@ -108,6 +111,7 @@ impl CodeBuilder<'_> {
         bounds_check: BoundsCheck,
         int_expr: &Expression,
         node: &Node,
+        comment: &str,
         ctx: &Context,
     ) {
         let index_int_reg = self.temp_registers.allocate(
@@ -139,7 +143,7 @@ impl CodeBuilder<'_> {
             index_int_reg.register(),
             &reg_to_use_for_upper_bound,
             node,
-            "check if it is >= capacity",
+            &format!("check if it is >= capacity {comment}"),
         );
         let patch = self
             .builder
@@ -151,13 +155,13 @@ impl CodeBuilder<'_> {
 
         let element_size_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(int_type()),
-            "reg for immediate element size",
+            &format!("reg for immediate element size: {comment}"),
         );
         self.builder.add_mov_32_immediate_value(
             element_size_reg.register(),
             element_basic_type.total_size.0 as u32,
             node,
-            "element_size",
+            &format!("element_size: {comment}"),
         );
 
         let offset_reg = self
@@ -168,7 +172,7 @@ impl CodeBuilder<'_> {
             index_int_reg.register(),
             element_size_reg.register(),
             node,
-            "offset = index * element_size",
+            &format!("offset = index * element_size ({comment})"),
         );
 
         self.builder.add_add_u32(
@@ -176,7 +180,7 @@ impl CodeBuilder<'_> {
             &ptr_to_slice_reg,
             offset_reg.register(),
             node,
-            "result = base_ptr + element_size * index",
+            &format!("result = base_ptr + element_size * index ({comment})"),
         );
     }
 
@@ -230,6 +234,7 @@ impl CodeBuilder<'_> {
                         int_expr,
                         BoundsCheck::KnownSizeAtCompileTime(slice_type.fixed_size as u16),
                         &int_expr.node,
+                        "subscript",
                         ctx,
                     );
                 }

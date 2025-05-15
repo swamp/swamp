@@ -97,14 +97,12 @@ impl CodeBuilder<'_> {
             } else {
                 let size = source_reg.size();
 
-                self.builder.add_block_copy_with_offset(
-                    &target_reg,
-                    MemoryOffset(0),
-                    &source_reg,
-                    MemoryOffset(0),
+                self.builder.add_block_copy(
+                    target_reg,
+                    source_reg,
                     size,
                     node,
-                    &format!("emit_copy_register.copy struct. {}", comment),
+                    &format!("emit_copy_register.copy struct. {comment}"),
                 );
             }
         } else {
@@ -315,20 +313,20 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
         let offset_temp_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(u32_type()),
-            "emit_ptr_reg_from_location_offset",
+            &format!("{comment} (temp register for offset)"),
         );
         self.builder.add_mov_32_immediate_value(
             offset_temp_reg.register(),
             offset.0 as u32,
             node,
-            "load offset",
+            &format!("{comment} (set offset value to get from base to register)"),
         );
         self.builder.add_add_u32(
             &target_reg,
             &base_ptr_reg,
             offset_temp_reg.register(),
             node,
-            "add base pointer to target reg",
+            &format!("{comment} (add offset to base ptr reg to get new base ptr)"),
         );
 
         self.temp_registers.restore_to_mark(hwm);
@@ -350,13 +348,13 @@ impl CodeBuilder<'_> {
                 //let hwm = self.temp_registers.save_mark();
                 let offset_temp_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u32_type()),
-                    "emit_ptr_reg_from_location_offset",
+                    &format!("{comment} (emit_ptr_reg_from_location_offset)"),
                 );
                 self.builder.add_mov_32_immediate_value(
                     offset_temp_reg.register(),
                     offset.0 as u32,
                     node,
-                    "load offset",
+                    &format!("{comment} (load offset value)"),
                 );
                 let final_ptr_target_reg = self.temp_registers.allocate(ty, "final_ptr_target_reg");
                 self.builder.add_add_u32(
@@ -364,7 +362,7 @@ impl CodeBuilder<'_> {
                     &base_ptr_reg,
                     offset_temp_reg.register(),
                     node,
-                    "add base pointer reg",
+                    &format!("{comment} (add to resolved new base_ptr)"),
                 );
                 //self.temp_registers.restore_to_mark(hwm);
                 (
@@ -1646,6 +1644,7 @@ impl CodeBuilder<'_> {
                         int_expression,
                         BoundsCheck::KnownSizeAtCompileTime(slice_type.fixed_size as u16),
                         &int_expression.node,
+                        "emit rvalue",
                         ctx,
                     );
                 }
@@ -1673,6 +1672,7 @@ impl CodeBuilder<'_> {
                         int_expression,
                         BoundsCheck::RegisterWithMaxCount(vec_count_reg.register),
                         &int_expression.node,
+                        "rvalue",
                         ctx,
                     );
                 }
