@@ -933,6 +933,11 @@ impl FramePlacedType {
     }
 }
 
+pub enum BoundsCheck {
+    KnownSizeAtCompileTime(u16),
+    RegisterWithMaxCount(TypedRegister),
+}
+
 #[derive(Clone, Debug)]
 pub struct BasicType {
     pub kind: BasicTypeKind,

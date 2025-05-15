@@ -32,10 +32,10 @@ use swamp_semantic::instantiator::TypeVariableScope;
 use swamp_semantic::prelude::*;
 use swamp_semantic::type_var_stack::SemanticContext;
 use swamp_semantic::{
-    BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState, InternalMainExpression,
-    LocationAccess, LocationAccessKind, MutRefOrImmutableExpression, MutableReferenceKind,
-    NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceType,
-    TargetAssignmentLocation, TypeWithMut, WhenBinding,
+    BinaryOperatorKind, BlockScope, BlockScopeMode, FixedSliceType, FunctionScopeState,
+    InternalMainExpression, LocationAccess, LocationAccessKind, MutRefOrImmutableExpression,
+    MutableReferenceKind, NormalPattern, Postfix, PostfixKind, SingleLocationExpression,
+    TargetAssignmentLocation, TypeWithMut, VecType, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::all_types_are_concrete_or_unit;
@@ -1242,29 +1242,55 @@ impl<'a> Analyzer<'a> {
 
                 swamp_ast::Postfix::Subscript(index_expr) => {
                     let collection_type = tv.resolved_type.clone();
-                    if let Type::FixedSlice(element_type_in_slice, fixed_size) = &collection_type {
-                        let unsigned_int_context = TypeContext::new_argument(&Type::Int);
-                        let unsigned_int_expression =
-                            self.analyze_expression(index_expr, &unsigned_int_context)?;
+                    match &collection_type {
+                        Type::FixedSlice(element_type_in_slice, fixed_size) => {
+                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                            let unsigned_int_expression =
+                                self.analyze_expression(index_expr, &unsigned_int_context)?;
 
-                        let slice_type = SliceType {
-                            element: Box::new(*element_type_in_slice.clone()),
-                            fixed_size: *fixed_size,
-                        };
+                            let slice_type = FixedSliceType {
+                                element: Box::new(*element_type_in_slice.clone()),
+                                fixed_size: *fixed_size,
+                            };
 
-                        self.add_postfix(
-                            &mut suffixes,
-                            PostfixKind::Subscript(slice_type, unsigned_int_expression),
-                            collection_type.clone(),
-                            &index_expr.node,
-                        );
+                            self.add_postfix(
+                                &mut suffixes,
+                                PostfixKind::FixedSliceSubscript(
+                                    slice_type,
+                                    unsigned_int_expression,
+                                ),
+                                collection_type.clone(),
+                                &index_expr.node,
+                            );
 
-                        // Keep previous mutable
-                        tv.resolved_type = *element_type_in_slice.clone();
-                    } else {
-                        eprintln!("xwhat is this: {collection_type:?}");
-                        todo!()
+                            // Keep previous mutable
+                            tv.resolved_type = *element_type_in_slice.clone();
+                        }
+                        Type::VecStorage(element_type, _known_capacity) => {
+                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                            let unsigned_int_expression =
+                                self.analyze_expression(index_expr, &unsigned_int_context)?;
+
+                            let vec_type = VecType {
+                                element: element_type.clone(),
+                            };
+
+                            self.add_postfix(
+                                &mut suffixes,
+                                PostfixKind::VecSubscript(vec_type, unsigned_int_expression),
+                                *element_type.clone(),
+                                &index_expr.node,
+                            );
+
+                            // Keep previous mutable
+                            tv.resolved_type = *element_type.clone();
+                        }
+                        _ => {
+                            eprintln!("xwhat is this: {collection_type:?}");
+                            todo!()
+                        }
                     }
+
                     /*
 
                     let temp_lookup_context = TypeContext::new_anything_argument();
@@ -2441,7 +2467,7 @@ impl<'a> Analyzer<'a> {
                 PostfixKind::StructField(_, _) => {
                     is_owned_result = false;
                 }
-                PostfixKind::Subscript(_, _) => {
+                PostfixKind::FixedSliceSubscript(_, _) => {
                     is_owned_result = false;
                 }
                 PostfixKind::MemberCall(_, _) => {
@@ -2456,6 +2482,7 @@ impl<'a> Analyzer<'a> {
                     is_owned_result = true;
                     is_mutable = false;
                 }
+                swamp_semantic::PostfixKind::VecSubscript(_, _) => todo!(),
             }
         }
 
@@ -2690,7 +2717,7 @@ impl<'a> Analyzer<'a> {
                         self.analyze_expression(key_expression, &unsigned_int_context)?;
 
                     if let Type::FixedSlice(element_type, fixed_size) = &ty {
-                        let slice_type = SliceType {
+                        let slice_type = FixedSliceType {
                             element: Box::new(*element_type.clone()),
                             fixed_size: *fixed_size,
                         };

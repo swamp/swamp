@@ -26,8 +26,9 @@ use swamp_semantic::{
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, FramePlacedType, HeapPlacedType, TypedRegister, VariableRegister,
-    VmType, int_type, pointer_type, u8_type, u16_type, u32_type, unit_type, unknown_type,
+    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, HeapPlacedType, TypedRegister,
+    VariableRegister, VmType, int_type, pointer_type, u8_type, u16_type, u32_type, unit_type,
+    unknown_type,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
@@ -1636,15 +1637,46 @@ impl CodeBuilder<'_> {
                     );
                     //info!(?current_location, "after field offset lookup");
                 }
-                PostfixKind::Subscript(slice_type, int_expression) => {
+                PostfixKind::FixedSliceSubscript(slice_type, int_expression) => {
+                    let element_basic_type = layout_type(&slice_type.element);
+
                     current_location = self.subscript_helper_from_location_to_location(
                         current_location,
-                        slice_type,
+                        &element_basic_type,
                         int_expression,
+                        BoundsCheck::KnownSizeAtCompileTime(slice_type.fixed_size as u16),
                         &int_expression.node,
                         ctx,
                     );
                 }
+
+                PostfixKind::VecSubscript(vec_type, int_expression) => {
+                    let element_basic_type = layout_type(&vec_type.element);
+                    let vec_count_reg = self
+                        .temp_registers
+                        .allocate(VmType::new_unknown_placement(u16_type()), "vec count");
+                    let vec_header_ptr_reg = current_location.base_register().unwrap();
+                    self.builder.add_ld16_from_pointer_with_offset_u16(
+                        vec_count_reg.register(),
+                        vec_header_ptr_reg,
+                        VEC_HEADER_COUNT_OFFSET,
+                        &int_expression.node,
+                        "load vec count for bounds check",
+                    );
+                    let payload_location = current_location.add_offset(
+                        VEC_HEADER_PAYLOAD_OFFSET,
+                        VmType::new_unknown_placement(element_basic_type.clone()),
+                    );
+                    current_location = self.subscript_helper_from_location_to_location(
+                        payload_location,
+                        &element_basic_type,
+                        int_expression,
+                        BoundsCheck::RegisterWithMaxCount(vec_count_reg.register),
+                        &int_expression.node,
+                        ctx,
+                    );
+                }
+
                 PostfixKind::MemberCall(function_to_call, arguments) => {
                     let hwm = self.temp_registers.save_mark();
                     //let return_temp_reg =

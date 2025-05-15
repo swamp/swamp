@@ -2538,7 +2538,10 @@ impl<'a, C> Interpreter<'a, C> {
                     val_ref = fields[*index].clone();
                 }
 
-                PostfixKind::Subscript(x, y) => {
+                PostfixKind::FixedSliceSubscript(x, y) => {
+                    todo!()
+                }
+                PostfixKind::VecSubscript(x, y) => {
                     todo!()
                 }
 

@@ -125,6 +125,8 @@ impl<'a> InstructionBuilder<'a> {}
 
 impl<'a> InstructionBuilder<'a> {}
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -1214,6 +1216,29 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::Ld32FromAbsoluteAddress,
             &[dst_reg.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_ld16_from_pointer_with_offset_u16(
+        &mut self,
+        dst_reg: &TypedRegister,
+        base_ptr_reg: &TypedRegister,
+        offset: MemoryOffset,
+        node: &Node,
+        comment: &str,
+    ) {
+        let bytes = u16_to_u8_pair(offset.0);
+
+        self.state.add_instruction(
+            OpCode::Ld16FromPointerWithOffset,
+            &[
+                dst_reg.addressing(),
+                base_ptr_reg.addressing(),
+                bytes.0,
+                bytes.1,
+            ],
             node,
             comment,
         );

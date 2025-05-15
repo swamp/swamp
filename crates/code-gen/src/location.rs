@@ -8,11 +8,13 @@ use crate::ctx::Context;
 use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::{
-    Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
-    SliceType,
+    Expression, FixedSliceType, LocationAccessKind, MutRefOrImmutableExpression,
+    SingleLocationExpression,
 };
 use swamp_vm_types::MemoryOffset;
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType, int_type};
+use swamp_vm_types::types::{
+    BasicType, BasicTypeKind, BoundsCheck, TypedRegister, VmType, int_type,
+};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_for_access_or_location(
@@ -63,12 +65,12 @@ impl CodeBuilder<'_> {
     pub fn subscript_helper_from_location_to_location(
         &mut self,
         detailed_location_to_slice: DetailedLocation,
-        slice_type: &SliceType,
+        element_basic_type: &BasicType,
         int_expr: &Expression,
+        bounds_check: BoundsCheck,
         node: &Node,
         ctx: &Context,
     ) -> DetailedLocation {
-        let element_basic_type = layout_type(&slice_type.element);
         let (ptr_to_slice_reg, _) = self.emit_ptr_reg_from_detailed_location(
             detailed_location_to_slice,
             node,
@@ -76,14 +78,15 @@ impl CodeBuilder<'_> {
         );
         //let basic_slice_type = layout_type(&Type::Slice(Box::new(*slice_type.element.clone()), slice_type.fixed_size));
         let new_base_pointer_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(element_basic_type),
+            VmType::new_unknown_placement(element_basic_type.clone()),
             "reg for result",
         );
 
         self.subscript_helper(
             new_base_pointer_reg.register(),
             &ptr_to_slice_reg,
-            slice_type,
+            &element_basic_type,
+            bounds_check,
             int_expr,
             node,
             ctx,
@@ -101,7 +104,8 @@ impl CodeBuilder<'_> {
         &mut self,
         target_reg: &TypedRegister,
         ptr_to_slice_reg: &TypedRegister,
-        slice_type: &SliceType,
+        element_basic_type: &BasicType,
+        bounds_check: BoundsCheck,
         int_expr: &Expression,
         node: &Node,
         ctx: &Context,
@@ -112,22 +116,28 @@ impl CodeBuilder<'_> {
         );
         self.emit_expression_materialize(index_int_reg.register(), int_expr, ctx);
 
-        let element_capacity_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(int_type()),
-            "element capacity",
-        );
+        let reg_to_use_for_upper_bound = match bounds_check {
+            BoundsCheck::KnownSizeAtCompileTime(max_length) => {
+                let element_capacity_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(int_type()),
+                    "element capacity",
+                );
+                self.builder.add_mov_16_immediate_value(
+                    element_capacity_reg.register(),
+                    max_length,
+                    node,
+                    "set the capacity",
+                );
 
-        self.builder.add_mov_32_immediate_value(
-            element_capacity_reg.register(),
-            slice_type.fixed_size as u32,
-            node,
-            "set the capacity",
-        );
+                element_capacity_reg.register
+            }
+            BoundsCheck::RegisterWithMaxCount(reg) => reg,
+        };
 
         // Bounds check it
         self.builder.add_ge_u32(
             index_int_reg.register(),
-            element_capacity_reg.register(),
+            &reg_to_use_for_upper_bound,
             node,
             "check if it is >= capacity",
         );
@@ -137,7 +147,7 @@ impl CodeBuilder<'_> {
         self.builder.add_trap(5, node, "out of bounds trap");
         self.builder.patch_jump_here(patch);
 
-        let element_basic_type = layout_type(&slice_type.element);
+        //let element_basic_type = layout_type(&slice_type.element);
 
         let element_size_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(int_type()),
@@ -213,10 +223,12 @@ impl CodeBuilder<'_> {
                     );
                 }
                 LocationAccessKind::Subscript(slice_type, int_expr) => {
+                    let element_gen_type = layout_type(&slice_type.element);
                     current_location = self.subscript_helper_from_location_to_location(
                         current_location,
-                        slice_type,
+                        &element_gen_type,
                         int_expr,
+                        BoundsCheck::KnownSizeAtCompileTime(slice_type.fixed_size as u16),
                         &int_expr.node,
                         ctx,
                     );

@@ -208,6 +208,8 @@ impl Vm {
 
         vm.handlers[OpCode::Ld32FromPointerWithOffset as usize] =
             HandlerType::Args4(Self::execute_ldw_from_base_ptr_and_offset);
+        vm.handlers[OpCode::Ld16FromPointerWithOffset as usize] =
+            HandlerType::Args4(Self::execute_ldh_from_base_ptr_and_offset);
         vm.handlers[OpCode::Ld8FromPointerWithOffset as usize] =
             HandlerType::Args4(Self::execute_ldb_from_base_ptr_and_offset);
 
@@ -1043,6 +1045,22 @@ impl Vm {
         let offset = u8s_to_u16!(offset_lower, offset_upper);
         let ptr_to_read_from =
             self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset) as *const u32;
+        unsafe {
+            set_reg!(self, dst_reg, *ptr_to_read_from);
+        }
+    }
+
+    #[inline]
+    pub fn execute_ldh_from_base_ptr_and_offset(
+        &mut self,
+        dst_reg: u8,
+        base_ptr_reg: u8,
+        offset_lower: u8,
+        offset_upper: u8,
+    ) {
+        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        let ptr_to_read_from =
+            self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset) as *const u16;
         unsafe {
             set_reg!(self, dst_reg, *ptr_to_read_from);
         }

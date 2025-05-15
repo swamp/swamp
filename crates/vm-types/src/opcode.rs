@@ -70,14 +70,16 @@ pub enum OpCode {
     // Load immediate into reg
     LdPtrFromEffectiveAddress, // Load effective address
     Ld8FromPointerWithOffset,
+    Ld16FromPointerWithOffset,
     Ld32FromPointerWithOffset,
     LdRegFromFrame,
     Ld8FromAbsoluteAddress,
     Ld32FromAbsoluteAddress,
 
     // Storers ---
-    St32UsingPtrWithOffset,
     St8UsingPtrWithOffset,
+    St16UsingPtrWithOffset,
+    St32UsingPtrWithOffset,
     StRegToFrame,
 
     // Movers
@@ -87,6 +89,7 @@ pub enum OpCode {
     MovFromNotTFlagToReg,
     // Mov immediate
     Mov8FromImmediateValue,
+    Mov16FromImmediateValue,
     Mov32FromImmediateValue,
 
     // Type specific -----
@@ -162,8 +165,6 @@ pub enum OpCode {
 
     // Other
     HostCall, // calls back into host
-    Mov16FromImmediateValue,
-    St16UsingPtrWithOffset,
 }
 
 impl OpCode {
@@ -232,6 +233,7 @@ impl OpCode {
             Self::Mov32FromImmediateValue => "movw",
 
             Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ldb",
+            Self::Ld16FromPointerWithOffset /*| Self::Ld32FromAbsoluteAddress*/ => "ldh",
             Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ldw",
             Self::LdRegFromFrame => "ldfp",
 

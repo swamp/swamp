@@ -567,7 +567,10 @@ impl SourceMapDisplay<'_> {
                     .clone();
                 write!(f, ".{}", name.bright_blue())
             }
-            PostfixKind::Subscript(slice_type, index_expr) => {
+            PostfixKind::FixedSliceSubscript(slice_type, index_expr) => {
+                todo!()
+            }
+            PostfixKind::VecSubscript(_, _) => {
                 todo!()
             }
             PostfixKind::MemberCall(_function_ref, b) => write!(f, "membercall {b:?}"),

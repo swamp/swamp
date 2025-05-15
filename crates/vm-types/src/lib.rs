@@ -520,7 +520,7 @@ pub struct VecHeader {
     pub element_size: u16, // size (in bytes) of each element; useful for iterator
 }
 pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u16);
-pub const VEC_HEADER_PAYLOAD_OFFSET: MemorySize = MemorySize(size_of::<VecHeader>() as u16);
+pub const VEC_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(size_of::<VecHeader>() as u16);
 pub const VEC_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
 pub const VEC_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(0);
 pub const VEC_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(2);

@@ -488,6 +488,18 @@ pub fn disasm(
             ]
         }
 
+        OpCode::Ld16FromPointerWithOffset => {
+            let offset = u16::from_le_bytes([operands[2], operands[3]]);
+
+            &[
+                to_write_reg(operands[0], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::ReadBaseRegWithOffset(
+                    RegIndex(operands[1]),
+                    MemoryOffset(offset),
+                ),
+            ]
+        }
+
         OpCode::Ld32FromPointerWithOffset => {
             let offset = u16::from_le_bytes([operands[2], operands[3]]);
 
