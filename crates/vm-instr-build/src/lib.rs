@@ -246,7 +246,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             vec_self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer(_)
+            BasicTypeKind::InternalVecView(_)
         ));
         assert_eq!(int_index_a.size(), int_index_b.size());
         self.state.add_instruction(
@@ -297,7 +297,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer(_)
+            BasicTypeKind::InternalVecView(_)
         ));
         self.state.add_instruction(
             OpCode::VecGet,
@@ -321,7 +321,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             vec_self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer(_)
+            BasicTypeKind::InternalVecView(_)
         ));
 
         self.state.add_instruction(
@@ -346,7 +346,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer(_)
+            BasicTypeKind::InternalVecView(_)
         ));
 
         self.state.add_instruction(
@@ -371,7 +371,7 @@ impl InstructionBuilder<'_> {
         assert!(
             matches!(
                 self_addr.underlying().kind,
-                BasicTypeKind::InternalVecPointer(_)
+                BasicTypeKind::InternalVecView(_)
             ),
             "what is this {:?}",
             self_addr.ty()
@@ -394,7 +394,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer(_)
+            BasicTypeKind::InternalVecView(_)
         ));
         self.state.add_instruction(
             OpCode::VecPop,
@@ -436,7 +436,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecPointer(_)
+            BasicTypeKind::InternalVecView(_)
         ));
         self.state.add_instruction(
             OpCode::VecRemoveIndexGetValue,
@@ -1132,6 +1132,24 @@ impl InstructionBuilder<'_> {
         );
     }
 
+    pub fn add_st16_using_ptr_with_offset(
+        &mut self,
+        base_ptr_reg: &TypedRegister,
+        offset: MemoryOffset,
+        u16_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        //assert_eq!(u16_reg.ty().underlying().total_size.0, 2);
+        let bytes = u16_to_u8_pair(offset.0);
+        self.state.add_instruction(
+            OpCode::St16UsingPtrWithOffset,
+            &[base_ptr_reg.addressing(), bytes.0, bytes.1, u16_reg.index],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_st8_using_ptr_with_offset(
         &mut self,
         base_ptr_reg: &TypedRegister,
@@ -1145,6 +1163,23 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::St8UsingPtrWithOffset,
             &[base_ptr_reg.addressing(), bytes.0, bytes.1, u8_reg.index],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_mov_16_immediate_value(
+        &mut self,
+        dst_offset: &TypedRegister,
+        value: u16,
+        node: &Node,
+        comment: &str,
+    ) {
+        let bytes = Self::u16_to_octets(value);
+
+        self.state.add_instruction(
+            OpCode::Mov16FromImmediateValue,
+            &[dst_offset.addressing(), bytes.0, bytes.1],
             node,
             comment,
         );

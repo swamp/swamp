@@ -13,9 +13,9 @@ fn very_basic_vec() {
 
   a = Another {
     array: [
-      Thing { a: 11, b: 1 },
-      Thing { a: 12, b: 2 },
-      Thing { a: 13, b: 3 },
+      Thing { a: 11, b:  1 },
+      Thing { b:  2, a: 12 }, // Intentionally swapped
+      Thing { a: 13, b:  3 },
     ]
   }
 

@@ -27,13 +27,14 @@ use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FramePlacedType, HeapPlacedType, TypedRegister, VariableRegister,
-    VmType, int_type, pointer_type, u8_type, u32_type, unit_type, unknown_type,
+    VmType, int_type, pointer_type, u8_type, u16_type, u32_type, unit_type, unknown_type,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
     HeapMemorySize, InstructionPosition, MemoryAlignment, MemoryOffset, MemorySize,
     REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE,
-    SLICE_PTR_OFFSET, STRING_PTR_SIZE, StringHeader, VEC_PTR_SIZE,
+    SLICE_PTR_OFFSET, STRING_PTR_SIZE, StringHeader, VEC_HEADER_CAPACITY_OFFSET,
+    VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
 };
 use tracing::field::debug;
 use tracing::{error, info};
@@ -416,12 +417,11 @@ impl CodeBuilder<'_> {
                 self.emit_tuple_destructuring(variables, tuple_types, tuple_expression, ctx)
             }
             ExpressionKind::Assignment(target_mut_location_expr, source_expr) => {
-                self.emit_assignment(&expr.node, target_mut_location_expr, source_expr, ctx)
+                self.emit_assignment(target_mut_location_expr, source_expr, &expr.node, ctx)
             }
             ExpressionKind::VariableDefinition(variable, expression) => {
                 self.emit_variable_definition(variable, expression, ctx)
             }
-
             ExpressionKind::VariableReassignment(variable, expression) => {
                 self.emit_variable_reassignment(variable, expression, ctx)
             }
@@ -1131,7 +1131,7 @@ impl CodeBuilder<'_> {
             })
             .clone();
 
-        self.emit_expression_materialize(&target_register, expression, ctx);
+        self.emit_assignment_like(&target_register, target_register.ty(), expression, ctx);
 
         GeneratedExpressionResult::default()
     }
@@ -1288,18 +1288,138 @@ impl CodeBuilder<'_> {
         }
     }
 
+    // When initializing a VecStorage with a slice literal
+    fn emit_vec_storage_init(
+        &mut self,
+        target_addr: &TypedRegister, // Points to VecStorage
+        slice_literal: &[Expression],
+        element_type: &BasicType,
+        capacity: usize,
+        debug_vec_storage_type: &BasicType,
+        node: &Node,
+        ctx: &Context,
+    ) {
+        let length_value_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(u16_type()), "vec length");
+        self.builder.add_mov_16_immediate_value(
+            length_value_reg.register(),
+            slice_literal.len() as u16,
+            node,
+            &format!("{debug_vec_storage_type}::length value"),
+        );
+        self.builder.add_st16_using_ptr_with_offset(
+            target_addr,
+            MemoryOffset(0), // Offset for length field
+            length_value_reg.register(),
+            node,
+            &format!("set {debug_vec_storage_type}::length"),
+        );
+
+        let capacity_value_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(u16_type()), "vec capacity");
+        self.builder.add_mov_16_immediate_value(
+            capacity_value_reg.register(),
+            capacity as u16,
+            node,
+            &format!("{debug_vec_storage_type}::capacity value"),
+        );
+        self.builder.add_st16_using_ptr_with_offset(
+            target_addr,
+            MemoryOffset(2), // Offset for capacity field
+            capacity_value_reg.register(),
+            node,
+            &format!("set {debug_vec_storage_type}::capacity"),
+        );
+
+        let elements_offset_immediate_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(u32_type()),
+            &format!("{debug_vec_storage_type}::elements"),
+        );
+        self.builder.add_mov_32_immediate_value(
+            elements_offset_immediate_reg.register(),
+            VEC_HEADER_PAYLOAD_OFFSET.0 as u32,
+            node,
+            &format!("{debug_vec_storage_type}::elements offset value"),
+        );
+
+        let elements_addr_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(u32_type()),
+            &format!("{debug_vec_storage_type}::elements"),
+        );
+        self.builder.add_add_u32(
+            elements_addr_reg.register(),
+            target_addr,
+            elements_offset_immediate_reg.register(),
+            node,
+            &format!("{debug_vec_storage_type}::elements result"),
+        );
+
+        self.emit_slice_literal_helper(
+            elements_addr_reg.register(),
+            element_type,
+            slice_literal,
+            ctx,
+        );
+    }
+
+    fn emit_assignment_conversion(
+        &mut self,
+        target_addr: &TypedRegister,
+        target_location_type: &BasicType,
+        rhs: &Expression,
+        ctx: &Context,
+    ) -> bool {
+        if let (
+            BasicTypeKind::InternalVecStorage(element_type, capacity),
+            ExpressionKind::Literal(Literal::Slice(_, elements)),
+        ) = (&target_location_type.kind, &rhs.kind)
+        {
+            // Special case: VecStorage initialization from slice literal
+            self.emit_vec_storage_init(
+                target_addr,
+                elements,
+                element_type,
+                *capacity,
+                target_location_type,
+                &rhs.node,
+                ctx,
+            );
+            true
+        } else {
+            false
+        }
+    }
+
+    fn emit_assignment_like(
+        &mut self,
+        target_reg: &TypedRegister,
+        target_location_type: &BasicType,
+        rhs: &Expression,
+        ctx: &Context,
+    ) {
+        if self.emit_assignment_conversion(target_reg, target_location_type, rhs, ctx) {
+        } else {
+            // we have to check what this register represents?
+            self.emit_expression_materialize(target_reg, rhs, ctx);
+        }
+    }
+
     fn emit_assignment(
         &mut self,
-        node: &Node,
         lhs: &TargetAssignmentLocation,
         rhs: &Expression,
+        node: &Node,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let assignment_target = self.emit_lvalue_chain(&lhs.0, ctx);
+
         match assignment_target {
             DetailedLocation::Register { reg } => {
-                // we have to check what this register represents?
-                self.emit_expression_materialize(&reg, rhs, ctx);
+                let target_location_type = layout_type(&lhs.0.ty);
+
+                self.emit_assignment_like(&reg, &target_location_type, rhs, ctx);
             }
             DetailedLocation::Memory {
                 base_ptr_reg,
@@ -1883,7 +2003,7 @@ impl CodeBuilder<'_> {
                 self.emit_string_literal(target_reg, node, str, ctx);
             }
             Literal::Slice(slice_type, expressions) => {
-                self.emit_slice_literal(target_reg, node, slice_type, expressions, ctx);
+                self.emit_slice_literal(target_reg, slice_type, expressions, node, ctx);
             }
             Literal::SlicePair(slice_pair_type, pairs) => {
                 self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
@@ -2347,6 +2467,7 @@ impl CodeBuilder<'_> {
         base_ptr_reg: &TypedRegister,
         offset_to_element_from_base_ptr_reg: HeapMemoryOffset,
         source_expression: &Expression,
+        comment: &str,
         ctx: &Context,
     ) {
         let offset_to_element = offset_to_element_from_base_ptr_reg.0;
@@ -2376,10 +2497,15 @@ impl CodeBuilder<'_> {
                 base_ptr_reg,
                 immediate_offset_reg.register(),
                 element_node,
-                "total base_ptr to target element",
+                &format!("{comment} (total base_ptr to target element)"),
             );
 
-            self.emit_expression_materialize(temp_base_reg.register(), source_expression, ctx);
+            self.emit_assignment_like(
+                temp_base_reg.register(),
+                element_gen_type,
+                source_expression,
+                ctx,
+            );
 
             self.temp_registers.restore_to_mark(hwm);
         } else {
@@ -2390,7 +2516,7 @@ impl CodeBuilder<'_> {
                 base_ptr_reg,
                 MemoryOffset(offset_to_element as u16),
                 &direct_type_rvalue_reg,
-                "copy slice element into storage",
+                &format!("{comment} (store register in memory)"),
             );
         }
     }
@@ -2435,6 +2561,10 @@ impl CodeBuilder<'_> {
                 base_ptr_reg,
                 HeapMemoryOffset(real_offset_item.offset.0 as u32),
                 source_expression,
+                &format!(
+                    "store expression into struct field {}:{}",
+                    field_index, offset_item.name
+                ),
                 ctx,
             );
 
@@ -2489,9 +2619,9 @@ impl CodeBuilder<'_> {
     fn emit_slice_literal(
         &mut self,
         base_ptr_reg: &TypedRegister,
-        node: &Node,
         slice_type_inside_type: &Type,
         expressions: &[Expression],
+        node: &Node,
         ctx: &Context,
     ) {
         let Type::FixedSlice(actual_element_type, actual_slice_fixed_len) = slice_type_inside_type
@@ -2501,32 +2631,29 @@ impl CodeBuilder<'_> {
         debug_assert_eq!(*actual_slice_fixed_len, expressions.len());
 
         let element_gen_type = layout_type(actual_element_type);
-        self.emit_slice_literal_helper(base_ptr_reg, node, &element_gen_type, expressions, ctx);
+        self.emit_slice_literal_helper(base_ptr_reg, &element_gen_type, expressions, ctx);
     }
 
     fn emit_slice_literal_helper(
         &mut self,
         base_ptr_reg: &TypedRegister,
-        node: &Node,
         element_gen_type: &BasicType,
         expressions: &[Expression],
         ctx: &Context,
     ) {
         // We assume that the target_reg holds a starting pointer where we can put the slice
-
-        let element_count = expressions.len() as u16;
         let element_size = element_gen_type.total_size.0;
 
         let hwm = self.temp_registers.save_mark();
 
         for (index, expr) in expressions.iter().enumerate() {
             let offset_to_element = index as u32 * element_size as u32;
-            let element_node = &expr.node;
             self.emit_expression_into_target_memory(
                 element_gen_type,
                 base_ptr_reg,
                 HeapMemoryOffset(offset_to_element),
                 expr,
+                &format!("store slice element {index} of type {element_gen_type} into memory"),
                 ctx,
             );
         }

@@ -445,6 +445,18 @@ pub fn disasm(
             ]
         }
 
+        OpCode::St16UsingPtrWithOffset => {
+            let offset = u16::from_le_bytes([operands[1], operands[2]]);
+
+            &[
+                DecoratedOperandAccessKind::WriteBaseRegWithOffset(
+                    RegIndex(operands[0]),
+                    MemoryOffset(offset),
+                ),
+                to_read_reg(operands[3], &int_type(), frame_memory_info),
+            ]
+        }
+
         OpCode::StRegToFrame => {
             let frame_ptr_offset = u16::from_le_bytes([operands[0], operands[1]]);
 
@@ -454,6 +466,15 @@ pub fn disasm(
                 )),
                 to_read_reg(operands[2], &int_type(), frame_memory_info),
                 DecoratedOperandAccessKind::CountU8(operands[3]),
+            ]
+        }
+
+        OpCode::Mov16FromImmediateValue => {
+            let immediate_value = u16::from_le_bytes([operands[1], operands[2]]);
+
+            &[
+                to_write_reg(operands[0], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::ImmediateU16(immediate_value),
             ]
         }
 

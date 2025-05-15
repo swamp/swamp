@@ -48,11 +48,14 @@ macro_rules! i16_from_u8s {
 #[macro_export]
 macro_rules! u32_from_u8s {
     ($lsb:expr, $msb:expr, $msb2:expr, $msb3:expr) => {
-        // Cast bytes to u16 before shifting to prevent overflow and ensure correct bit manipulation.
-        // The most significant byte ($msb) is shifted left by 8 bits.
-        // The least significant byte ($lsb) remains in the lower 8 bits.
-        // The results are combined using a bitwise OR.
         (($msb3 as u32) << 24) | (($msb2 as u32) << 16) | (($msb as u32) << 8) | ($lsb as u32)
+    };
+}
+
+#[macro_export]
+macro_rules! u16_from_u8s {
+    ($lsb:expr, $msb:expr) => {
+        (($msb as u16) << 8) | ($lsb as u16)
     };
 }
 
@@ -194,6 +197,8 @@ impl Vm {
             HandlerType::Args4(Self::execute_st_regs_to_frame);
         vm.handlers[OpCode::St32UsingPtrWithOffset as usize] =
             HandlerType::Args4(Self::execute_stw_using_base_ptr_and_offset);
+        vm.handlers[OpCode::St16UsingPtrWithOffset as usize] =
+            HandlerType::Args4(Self::execute_sth_using_base_ptr_and_offset);
         vm.handlers[OpCode::St8UsingPtrWithOffset as usize] =
             HandlerType::Args4(Self::execute_stb_using_base_ptr_and_offset);
 
@@ -208,9 +213,11 @@ impl Vm {
 
         // Load immediate
         vm.handlers[OpCode::Mov8FromImmediateValue as usize] =
-            HandlerType::Args2(Self::execute_ld8);
+            HandlerType::Args2(Self::execute_mov_8);
+        vm.handlers[OpCode::Mov16FromImmediateValue as usize] =
+            HandlerType::Args3(Self::execute_mov_16);
         vm.handlers[OpCode::Mov32FromImmediateValue as usize] =
-            HandlerType::Args5(Self::execute_ld32);
+            HandlerType::Args5(Self::execute_mov_32);
 
         // Copy data in frame memory
         vm.handlers[OpCode::MovReg as usize] = HandlerType::Args2(Self::execute_mov_reg);
@@ -544,16 +551,17 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_ld32(&mut self, dst_reg: u8, a: u8, b: u8, c: u8, d: u8) {
+    fn execute_mov_32(&mut self, dst_reg: u8, a: u8, b: u8, c: u8, d: u8) {
         set_reg!(self, dst_reg, Self::u8s_to_32(a, b, c, d));
     }
 
     #[inline]
-    fn execute_ldi32(&mut self, dst_reg: u8, a: u8, b: u8, c: u8, d: u8) {
-        set_reg!(self, dst_reg, Self::u8s_to_32(a, b, c, d) as i32);
+    fn execute_mov_16(&mut self, dst_reg: u8, a: u8, b: u8) {
+        set_reg!(self, dst_reg, u16_from_u8s!(a, b));
     }
+
     #[inline]
-    fn execute_ld8(&mut self, dst_reg: u8, octet: u8) {
+    fn execute_mov_8(&mut self, dst_reg: u8, octet: u8) {
         set_reg!(self, dst_reg, octet);
     }
 
@@ -974,6 +982,23 @@ impl Vm {
         }
     }
 
+    #[inline]
+    fn execute_sth_using_base_ptr_and_offset(
+        &mut self,
+        base_ptr_reg: u8,
+        offset_lower: u8,
+        offset_upper: u8,
+        src_reg: u8,
+    ) {
+        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        //let const_reg_ptr = &self.registers[start_reg as usize] as *const u32;
+        let ptr_to_write_to = self.get_ptr_from_reg_with_offset(base_ptr_reg, offset) as *mut u16;
+        let value_to_copy = get_reg!(self, src_reg) as u16;
+
+        unsafe {
+            ptr::write(ptr_to_write_to, value_to_copy);
+        }
+    }
     #[inline]
     fn execute_stb_using_base_ptr_and_offset(
         &mut self,

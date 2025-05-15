@@ -162,6 +162,8 @@ pub enum OpCode {
 
     // Other
     HostCall, // calls back into host
+    Mov16FromImmediateValue,
+    St16UsingPtrWithOffset,
 }
 
 impl OpCode {
@@ -226,6 +228,7 @@ impl OpCode {
 
             // Load
             Self::Mov8FromImmediateValue => "movb",
+            Self::Mov16FromImmediateValue => "movh",
             Self::Mov32FromImmediateValue => "movw",
 
             Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ldb",
@@ -233,6 +236,7 @@ impl OpCode {
             Self::LdRegFromFrame => "ldfp",
 
             Self::St32UsingPtrWithOffset => "stw",
+            Self::St16UsingPtrWithOffset => "sth",
             Self::St8UsingPtrWithOffset => "stb",
 
             Self::StRegToFrame => "stfp",

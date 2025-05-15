@@ -157,7 +157,7 @@ fn print(
             let str = Vm::read_string(heap_addr, heap);
             write!(f, "\"{str}\" (%{heap_addr:X})")
         }
-        BasicTypeKind::InternalVecPointer(item_type)
+        BasicTypeKind::InternalVecView(item_type)
         | BasicTypeKind::InternalVecStorage(item_type, _) => {
             write!(f, "[")?;
             let header_offset = slice_to_u32_le(frame);

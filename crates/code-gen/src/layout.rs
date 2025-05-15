@@ -210,7 +210,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
         Type::Vec(element_type) => {
             let element_type_basic = layout_type(element_type);
             basic_type(
-                BasicTypeKind::InternalVecPointer(Box::from(element_type_basic)),
+                BasicTypeKind::InternalVecView(Box::from(element_type_basic)),
                 PTR_SIZE,
                 PTR_ALIGNMENT,
             )
@@ -220,7 +220,10 @@ pub fn layout_type(ty: &Type) -> BasicType {
             let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count;
             let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
             basic_type(
-                BasicTypeKind::InternalVecIterator,
+                BasicTypeKind::InternalVecStorage(
+                    Box::from(element_type_basic),
+                    *fixed_size_element_count,
+                ),
                 MemorySize(total_size as u16),
                 max_alignment,
             )
@@ -262,7 +265,7 @@ fn layout_mutable_reference(analyzed_type: &Type) -> BasicType {
 fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
     if named_struct_type.is_vec() {
         return basic_type(
-            BasicTypeKind::InternalVecPointer(Box::from(layout_type(
+            BasicTypeKind::InternalVecView(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
             ))),
             VEC_PTR_SIZE,
@@ -287,7 +290,7 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
 
     if named_struct_type.is_grid() {
         return basic_type(
-            BasicTypeKind::InternalVecPointer(Box::from(layout_type(
+            BasicTypeKind::InternalVecView(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
             ))),
             VEC_PTR_SIZE,
@@ -296,7 +299,7 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
     }
     if named_struct_type.is_stack() {
         return basic_type(
-            BasicTypeKind::InternalVecPointer(Box::from(layout_type(
+            BasicTypeKind::InternalVecView(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
             ))),
             VEC_PTR_SIZE,
@@ -306,7 +309,7 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
 
     if named_struct_type.is_queue() {
         return basic_type(
-            BasicTypeKind::InternalVecPointer(Box::from(layout_type(
+            BasicTypeKind::InternalVecView(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
             ))),
             VEC_PTR_SIZE,
