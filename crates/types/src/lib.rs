@@ -594,6 +594,9 @@ impl Type {
             | (Self::Bool, Self::Bool)
             | (Self::Unit, Self::Unit) => true,
 
+            (Self::Vec(vec_element), Self::VecStorage(storage_element, _size)) => {
+                vec_element.compatible_with(storage_element)
+            }
             (Self::Enum(a), Self::Enum(b)) => a == b,
 
             (Self::NamedStruct(a), Self::NamedStruct(b)) => compare_struct_types(a, b),
