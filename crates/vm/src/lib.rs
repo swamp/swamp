@@ -199,12 +199,17 @@ impl Vm {
             debug_opcodes_enabled: setup.debug_opcodes_enabled,
         };
 
-        //vm.handlers[OpCode::Alloc as usize] = HandlerType::Args3(Self::execute_alloc);
-
         /*
             TODO: @idea: Instead of storing function pointers, the instructions vector itself
-            contains pointers directly to the next instruction's handler code.
+            includes the pointer to the instruction's handler code.
+
+            type HandlerPointer = fn(&mut Vm, &FixedSizeOperandBlock);
+            type FixedSizeOperandBlock = [u8; 8];
+
+            BinaryInstruction has a field for HandlerPointer.
         */
+
+        //vm.handlers[OpCode::Alloc as usize] = HandlerType::Args3(Self::execute_alloc);
 
         // Store
         vm.handlers[OpCode::StRegToFrame as usize] =
