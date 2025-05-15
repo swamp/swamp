@@ -174,7 +174,7 @@ pub fn disasm_color(
                     memory_kind_color(memory_kind.clone()),
                 )
             }
-            DecoratedOperandAccessKind::HeapAddress(addr) => {
+            DecoratedOperandAccessKind::AbsoluteMemoryPosition(addr) => {
                 let color = tinter::Color::Green;
 
                 (
@@ -218,11 +218,6 @@ pub fn disasm_color(
                 format!("{}", tinter::yellow(format!("{:X}", data.0))),
                 format!("{}{}", "int:", data.0),
             ),
-            DecoratedOperandAccessKind::MemoryOffset(data) => (
-                format!("+{}", tinter::yellow(format!("{:X}", data.0))),
-                format!("{}{}", "int:", data.0),
-            ),
-
             DecoratedOperandAccessKind::ImmediateU32(data) => (
                 format!("{}", tinter::magenta(format!("{data:X}",))),
                 format!("{}{}", "int:", *data as i32),
@@ -250,30 +245,6 @@ pub fn disasm_color(
             DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => (
                 format!("{}", tinter::red(format!("{data}",))),
                 String::new(),
-            ),
-            DecoratedOperandAccessKind::WriteIndirectHeapWithOffset(
-                frame_addr,
-                memory_offset,
-                memory_kind,
-            ) => (
-                format!(
-                    "({})+{}",
-                    tinter::red(format!("{frame_addr}")),
-                    tinter::red(format!("{:X}", memory_offset.0))
-                ),
-                memory_kind_color(memory_kind.clone()),
-            ),
-            DecoratedOperandAccessKind::ReadIndirectHeapWithOffset(
-                frame_addr,
-                memory_offset,
-                memory_kind,
-            ) => (
-                format!(
-                    "({})+{}",
-                    tinter::green(format!("{frame_addr}")),
-                    tinter::green(format!("{:X}", memory_offset.0))
-                ),
-                memory_kind_color(memory_kind.clone()),
             ),
             DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => {
                 (format!("[{} #{}]", base_reg, offset.0), String::new())
@@ -349,16 +320,13 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::WriteRegister(addr, _memory_kind, _attr) => {
                 format!("{}{}", "$", format!("{}", addr))
             }
-            DecoratedOperandAccessKind::HeapAddress(addr) => {
+            DecoratedOperandAccessKind::AbsoluteMemoryPosition(addr) => {
                 format!("{}{}", "%$", format!("{:08X}", addr.0))
             }
             DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
                 format!("({}{})", "$", format!("{:04X}", addr.0))
             }
             DecoratedOperandAccessKind::MemorySize(data) => format!("{}", format!("{:X}", data.0)),
-            DecoratedOperandAccessKind::MemoryOffset(data) => {
-                format!("+{}", format!("{:X}", data.0))
-            }
 
             DecoratedOperandAccessKind::DeltaPc(delta) => {
                 format!("{}{}", "", format!("{}", delta.0))
@@ -376,12 +344,6 @@ pub fn disasm_no_color(
             }
             DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => {
                 format!("{}", format!("{data}",))
-            }
-            DecoratedOperandAccessKind::WriteIndirectHeapWithOffset(a, b, _c) => {
-                format!("{}", format!("{:08X}+{:08X}", a.0, b.0))
-            }
-            DecoratedOperandAccessKind::ReadIndirectHeapWithOffset(a, b, _c) => {
-                format!("{}", format!("{:08X}+{:08X}", a.0, b.0))
             }
             DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => {
                 format!("[R{} #{}]", base_reg, offset.0)
@@ -488,6 +450,19 @@ pub fn disasm(
             ]
         }
 
+        OpCode::Ld8FromPointerWithOffset => {
+            let offset = ((operands[1] as u16) << 8) | operands[2] as u16;
+
+            &[
+                to_write_reg(operands[0], &b8_type(), frame_memory_info),
+                to_read_reg(operands[3], &pointer_type(), frame_memory_info),
+                DecoratedOperandAccessKind::ReadBaseRegWithOffset(
+                    RegIndex(operands[1]),
+                    MemoryOffset(offset),
+                ),
+            ]
+        }
+
         OpCode::Ld16FromPointerWithOffset => {
             let offset = u16::from_le_bytes([operands[2], operands[3]]);
 
@@ -517,7 +492,7 @@ pub fn disasm(
 
             &[
                 to_write_reg(operands[0], &int_type(), frame_memory_info),
-                DecoratedOperandAccessKind::HeapAddress(HeapMemoryAddress(data)),
+                DecoratedOperandAccessKind::AbsoluteMemoryPosition(HeapMemoryAddress(data)),
             ]
         }
 
@@ -533,22 +508,12 @@ pub fn disasm(
             ]
         }
 
-        OpCode::Ld8FromPointerWithOffset => {
-            let data = ((operands[1] as u16) << 8) | operands[2] as u16;
-
-            &[
-                to_write_reg(operands[0], &b8_type(), frame_memory_info),
-                to_read_reg(operands[3], &pointer_type(), frame_memory_info),
-                DecoratedOperandAccessKind::MemoryOffset(MemoryOffset(data)),
-            ]
-        }
-
         OpCode::Ld8FromAbsoluteAddress => {
             let data = u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
 
             &[
                 to_write_reg(operands[0], &int_type(), frame_memory_info),
-                DecoratedOperandAccessKind::HeapAddress(HeapMemoryAddress(data)),
+                DecoratedOperandAccessKind::AbsoluteMemoryPosition(HeapMemoryAddress(data)),
             ]
         }
 
@@ -766,14 +731,25 @@ pub fn disasm(
             operands[0],
             operands[1],
         ]))],
-        OpCode::BlockCopy => &[
-            to_write_reg(operands[0], &bytes_type(), frame_memory_info),
-            to_read_reg(operands[1], &bytes_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
-                operands[2],
-                operands[3],
-            ))),
-        ],
+        OpCode::BlockCopy => {
+            let dst_offset = u16::from_le_bytes([operands[1], operands[2]]);
+            let src_offset = u16::from_le_bytes([operands[4], operands[5]]);
+
+            &[
+                DecoratedOperandAccessKind::WriteBaseRegWithOffset(
+                    RegIndex(operands[0]),
+                    MemoryOffset(dst_offset),
+                ),
+                DecoratedOperandAccessKind::ReadBaseRegWithOffset(
+                    RegIndex(operands[3]),
+                    MemoryOffset(src_offset),
+                ),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(u16::from_le_bytes([
+                    operands[6],
+                    operands[7],
+                ]))),
+            ]
+        }
 
         OpCode::FrameMemClr => &[
             DecoratedOperandAccessKind::WriteFrameMemoryAddress(FrameMemoryAddress(

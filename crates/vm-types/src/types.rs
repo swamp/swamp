@@ -137,24 +137,21 @@ pub struct FrameMemoryAttribute {
 
 #[derive(Debug, Clone)]
 pub enum DecoratedOperandAccessKind {
-    ReadRegister(TypedRegister, Option<PathInfo>, FrameMemoryAttribute),
-    WriteRegister(TypedRegister, Option<PathInfo>, FrameMemoryAttribute),
-    ReadIndirectPointer(FrameMemoryAddress),
-    DeltaPc(ProgramCounterDelta),
-    AbsolutePc(InstructionPosition),
-    ImmediateU32(u32),
-    ImmediateU16(u16),
-    ImmediateU8(u8),
-    CountU16(u16),
+    WriteRegister(TypedRegister, Option<PathInfo>, FrameMemoryAttribute), // register is modified
+    ReadRegister(TypedRegister, Option<PathInfo>, FrameMemoryAttribute), // register is only read from
+    ReadIndirectPointer(FrameMemoryAddress), // TODO: should probably be removed
+    DeltaPc(ProgramCounterDelta),            // for branch
+    AbsolutePc(InstructionPosition),         // e.g. call
     MemorySize(MemorySize),
-    HeapAddress(HeapMemoryAddress),
-    WriteFrameMemoryAddress(FrameMemoryAddress),
-    ReadFrameMemoryAddress(FrameMemoryAddress),
-    WriteIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
-    ReadIndirectHeapWithOffset(FrameMemoryAddress, HeapMemoryOffset, Option<PathInfo>),
-    MemoryOffset(MemoryOffset),
+    AbsoluteMemoryPosition(HeapMemoryAddress), // only for loading constants?
+    WriteFrameMemoryAddress(FrameMemoryAddress), // e.g. store to frame
+    ReadFrameMemoryAddress(FrameMemoryAddress), // e.g., load reg from frame
     WriteBaseRegWithOffset(RegIndex, MemoryOffset),
     ReadBaseRegWithOffset(RegIndex, MemoryOffset),
+    ImmediateU8(u8),
+    ImmediateU16(u16),
+    ImmediateU32(u32),
+    CountU16(u16),
     CountU8(u8),
 }
 
@@ -164,10 +161,6 @@ impl DecoratedOperandAccessKind {
         match self {
             Self::ReadRegister(addr, maybe_path_info, b) => maybe_path_info.as_ref(),
             Self::WriteRegister(addr, maybe_path_info, _attr) => maybe_path_info.as_ref(),
-            Self::WriteIndirectHeapWithOffset(addr, _x, maybe_path_info) => {
-                maybe_path_info.as_ref()
-            }
-            Self::ReadIndirectHeapWithOffset(_, addr, maybe_path_info) => maybe_path_info.as_ref(),
             _ => None,
         }
     }

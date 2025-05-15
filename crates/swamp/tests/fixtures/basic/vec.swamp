@@ -12,7 +12,7 @@ struct Another {
 
 
 #[test]
-fn very_basic_vec() {
+fn vec_assign_and_subscript() {
 
   another = Another {
     array: [
@@ -21,6 +21,12 @@ fn very_basic_vec() {
       Thing { a: 13, b:  3 },
     ]
   }
+
+  second_thing = another.array[1]
+
+  assert(second_thing.a == 12, 'second_thing.b is wrong')
+  assert(second_thing.b == 2, 'second_thing.b is wrong')
+  print('amazing if this works: a: {second_thing.a} b: {second_thing.b}')
 
   assert(another.array[0].a == 11, 'another.array[0].a is wrong')
   assert(another.array[1].b == 2, 'another.array[1].b is wrong')

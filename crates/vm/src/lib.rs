@@ -84,6 +84,9 @@ type Handler2 = fn(&mut Vm, u8, u8);
 type Handler3 = fn(&mut Vm, u8, u8, u8);
 type Handler4 = fn(&mut Vm, u8, u8, u8, u8);
 type Handler5 = fn(&mut Vm, u8, u8, u8, u8, u8);
+type Handler6 = fn(&mut Vm, u8, u8, u8, u8, u8, u8);
+type Handler7 = fn(&mut Vm, u8, u8, u8, u8, u8, u8, u8);
+type Handler8 = fn(&mut Vm, u8, u8, u8, u8, u8, u8, u8, u8);
 
 #[derive(Copy, Clone)]
 enum HandlerType {
@@ -93,6 +96,9 @@ enum HandlerType {
     Args3(Handler3),
     Args4(Handler4),
     Args5(Handler5),
+    Args6(Handler6),
+    Args7(Handler7),
+    Args8(Handler8),
 }
 
 pub struct Flags {
@@ -227,7 +233,7 @@ impl Vm {
             HandlerType::Args3(Self::execute_lea);
 
         // Copy to and from heap
-        vm.handlers[OpCode::BlockCopy as usize] = HandlerType::Args4(Self::execute_mov_mem);
+        vm.handlers[OpCode::BlockCopy as usize] = HandlerType::Args8(Self::execute_mov_mem);
         vm.handlers[OpCode::FrameMemClr as usize] =
             HandlerType::Args4(Self::execute_frame_memory_clear);
 
@@ -458,6 +464,36 @@ impl Vm {
                     instruction.operands[2],
                     instruction.operands[3],
                     instruction.operands[4],
+                ),
+                HandlerType::Args6(handler) => handler(
+                    self,
+                    instruction.operands[0],
+                    instruction.operands[1],
+                    instruction.operands[2],
+                    instruction.operands[3],
+                    instruction.operands[4],
+                    instruction.operands[5],
+                ),
+                HandlerType::Args7(handler) => handler(
+                    self,
+                    instruction.operands[0],
+                    instruction.operands[1],
+                    instruction.operands[2],
+                    instruction.operands[3],
+                    instruction.operands[4],
+                    instruction.operands[5],
+                    instruction.operands[6],
+                ),
+                HandlerType::Args8(handler) => handler(
+                    self,
+                    instruction.operands[0],
+                    instruction.operands[1],
+                    instruction.operands[2],
+                    instruction.operands[3],
+                    instruction.operands[4],
+                    instruction.operands[5],
+                    instruction.operands[6],
+                    instruction.operands[7],
                 ),
             }
         }
@@ -1108,12 +1144,18 @@ impl Vm {
     fn execute_mov_mem(
         &mut self,
         dst_pointer_reg: u8,
+        dst_offset_lower: u8,
+        dst_offset_upper: u8,
         src_pointer_reg: u8,
+        src_offset_lower: u8,
+        src_offset_upper: u8,
         memory_size_lower: u8,
         memory_size_upper: u8,
     ) {
-        let dest_addr = get_reg!(self, dst_pointer_reg);
-        let src_addr = get_reg!(self, src_pointer_reg);
+        let src_offset = u8s_to_u16!(src_offset_lower, src_offset_upper);
+        let dst_offset = u8s_to_u16!(dst_offset_lower, dst_offset_upper);
+        let dest_addr = get_reg!(self, dst_pointer_reg) + dst_offset as u32;
+        let src_addr = get_reg!(self, src_pointer_reg) + src_offset as u32;
 
         let memory_size = u8s_to_u16!(memory_size_lower, memory_size_upper);
 
@@ -1145,6 +1187,31 @@ impl Vm {
                 HandlerType::Args5(_) => format!(
                     "{:04X}, {:04X}, {:04X}, {:04X}, {:04X}",
                     operands[0], operands[1], operands[2], operands[3], operands[4],
+                ),
+                HandlerType::Args6(_) => format!(
+                    "{:04X}, {:04X}, {:04X}, {:04X}, {:04X}, {:04X}",
+                    operands[0], operands[1], operands[2], operands[3], operands[4], operands[5],
+                ),
+                HandlerType::Args7(_) => format!(
+                    "{:04X}, {:04X}, {:04X}, {:04X}, {:04X}, {:04X}, {:04X}",
+                    operands[0],
+                    operands[1],
+                    operands[2],
+                    operands[3],
+                    operands[4],
+                    operands[5],
+                    operands[6],
+                ),
+                HandlerType::Args8(_) => format!(
+                    "{:04X}, {:04X}, {:04X}, {:04X}, {:04X}, {:04X}, {:04X}, {:04X}",
+                    operands[0],
+                    operands[1],
+                    operands[2],
+                    operands[3],
+                    operands[4],
+                    operands[5],
+                    operands[6],
+                    operands[7],
                 ),
             }
         );
