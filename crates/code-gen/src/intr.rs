@@ -23,26 +23,6 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         match intrinsic_fn {
-            IntrinsicFunction::VecFromSlice => {
-                let MutRefOrImmutableExpression::Expression(expr) = &arguments[0] else {
-                    panic!("problem");
-                };
-
-                let slice_region = self.emit_rvalue(expr, ctx);
-
-                let slice_type = arguments[0].ty();
-
-                let Type::FixedSlice(element_type, _) = slice_type else {
-                    panic!("problem");
-                };
-
-                assert!(element_type.is_concrete());
-
-                self.builder
-                    .add_vec_from_slice(target_reg, &slice_region, node, "vec_from_slice");
-                GeneratedExpressionResult::default()
-            }
-
             IntrinsicFunction::MapFromSlicePair => {
                 let MutRefOrImmutableExpression::Expression(expr) = &arguments[0] else {
                     panic!("problem");
@@ -276,9 +256,6 @@ impl CodeBuilder<'_> {
             }
 
             // Vec
-            IntrinsicFunction::VecFromSlice => {
-                panic!("no self in vec from slice")
-            }
             IntrinsicFunction::MapFromSlicePair => {
                 panic!("no self in mac from slice")
             }

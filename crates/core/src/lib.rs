@@ -1346,28 +1346,6 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             .unwrap();
     }
 
-    let slice_to_self = Signature {
-        parameters: [TypeForParameter {
-            name: "slice".to_string(),
-            resolved_type: Type::Never, // TODO: Should have proper slice generic
-            is_mutable: false,
-            node: None,
-        }]
-        .into(),
-        return_type: Box::new(Type::Never),
-    };
-    let slice_to_self_functions = [IntrinsicFunction::VecFromSlice];
-    for intrinsic_fn in slice_to_self_functions {
-        let name = intrinsic_fn.to_string();
-        core_ns
-            .add_intrinsic_function(IntrinsicFunctionDefinition {
-                name,
-                intrinsic: intrinsic_fn,
-                signature: slice_to_self.clone(),
-            })
-            .unwrap();
-    }
-
     let self_to_int = Signature {
         parameters: [TypeForParameter {
             name: "self".to_string(),

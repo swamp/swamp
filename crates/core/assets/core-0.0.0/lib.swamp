@@ -309,15 +309,7 @@ impl Vec<T> {
         "" // TODO:
     }
 
-    /// Creates a new vector from a Slice.
-    ///
-    /// # Parameters
-    /// - `slice`: The Slice containing the initial elements.
-    ///
-    /// Uses intrinsic function `vec_from_slice` to create the vector.
-    fn new_from_slice(slice: Slice<T>) -> Vec<T> {
-        vec_from_slice(slice)
-    }
+
 
     fn iter(self) -> (Int, T) {
         vec_iter(self)
@@ -916,7 +908,7 @@ impl Stack<T> {
     ///
     /// Uses intrinsic function `vec_from_slice` to create the vector.
     fn new_from_slice(slice: Slice<T>) -> Stack<T> {
-        vec_from_slice(slice)
+        vec_create()
     }
 
     fn iter(self) -> (Int, T) {

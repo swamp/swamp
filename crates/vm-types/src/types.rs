@@ -735,7 +735,7 @@ pub enum VmTypeOrigin {
     Unknown,
     InsideReg,
     Frame(FrameMemoryRegion),
-    Heap(HeapMemoryRegion),
+    Heap(HeapMemoryRegion), // Constants only?
 }
 
 impl Display for VmTypeOrigin {

@@ -44,7 +44,6 @@ pub enum IntrinsicFunction {
 
     // Vec
     VecCreate, // create from empty
-    VecFromSlice,
     VecPush,
     VecPop,
     VecRemoveIndex,
@@ -162,7 +161,6 @@ impl fmt::Display for IntrinsicFunction {
             Self::StringLen => "string_len",
 
             // Vec
-            Self::VecFromSlice => "vec_from_slice",
             Self::VecPush => "vec_push",
             Self::VecPop => "vec_pop",
             Self::VecRemoveIndex => "vec_remove_index",

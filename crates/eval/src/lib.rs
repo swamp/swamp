@@ -1427,11 +1427,6 @@ impl<'a, C> Interpreter<'a, C> {
                 Value::Unit
             }
 
-            IntrinsicFunction::VecFromSlice => {
-                let (slice_type, values) = value_ref.borrow().expect_slice()?;
-                Value::Vec(slice_type, values)
-            }
-
             IntrinsicFunction::VecCreate => Value::Vec(Type::Unit, vec![]),
 
             IntrinsicFunction::VecPush => {
