@@ -23,6 +23,7 @@ use source_map_node::{FileId, Node, Span};
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::{FromStr, ParseBoolError};
+use swamp_ast::AttributeLiteralKind::Int;
 use swamp_modules::modules::pretty_print;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
@@ -1241,7 +1242,7 @@ impl<'a> Analyzer<'a> {
 
                 swamp_ast::Postfix::Subscript(index_expr) => {
                     let collection_type = tv.resolved_type.clone();
-                    if let Type::Slice(element_type_in_slice, fixed_size) = &collection_type {
+                    if let Type::FixedSlice(element_type_in_slice, fixed_size) = &collection_type {
                         let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                         let unsigned_int_expression =
                             self.analyze_expression(index_expr, &unsigned_int_context)?;
@@ -1764,7 +1765,7 @@ impl<'a> Analyzer<'a> {
         context: &TypeContext,
     ) -> Result<(Type, Type, Vec<(Expression, Expression)>), Error> {
         let maybe_key_and_value_type = if let Some(expected_type) = context.expected_type {
-            if let Type::SlicePair(key_type, value_type, _) = expected_type {
+            if let Type::FixedSlicePair(key_type, value_type, _) = expected_type {
                 Some((*key_type.clone(), *value_type.clone()))
             } else {
                 if let Type::NamedStruct(named) = expected_type {
@@ -1784,7 +1785,7 @@ impl<'a> Analyzer<'a> {
             context.expected_type.map_or_else(
                 || Ok((Type::Unit, Type::Unit, vec![])),
                 |expected_type| {
-                    if let Type::SlicePair(key_type, value_type, _) = expected_type {
+                    if let Type::FixedSlicePair(key_type, value_type, _) = expected_type {
                         Ok((*key_type.clone(), *value_type.clone(), vec![]))
                     } else if let Type::NamedStruct(named) = expected_type {
                         Ok((
@@ -1838,13 +1839,13 @@ impl<'a> Analyzer<'a> {
         context: &TypeContext,
     ) -> Result<(Type, Vec<Expression>), Error> {
         let maybe_expected_element_type = if let Some(expected_type) = context.expected_type {
-            if let Type::Slice(inner_type, _) = expected_type {
+            if let Type::FixedSlice(inner_type, _) = expected_type {
                 Some(*inner_type.clone())
             } else {
-                if let Type::NamedStruct(named) = expected_type {
-                    Some(named.instantiated_type_parameters[0].clone())
-                } else {
-                    return Err(self.create_err(ErrorKind::ExpectedSlice, &node));
+                match &expected_type {
+                    // We can infer the slice type from target
+                    Type::VecStorage(element_type, _) => Some(*element_type.clone()),
+                    _ => return Err(self.create_err(ErrorKind::ExpectedSlice, node)),
                 }
             }
         } else {
@@ -1855,7 +1856,7 @@ impl<'a> Analyzer<'a> {
             context.expected_type.map_or_else(
                 || Ok((Type::Unit, vec![])),
                 |expected_type| {
-                    if let Type::Slice(_inner_type, _) = expected_type {
+                    if let Type::FixedSlice(_inner_type, _) = expected_type {
                         Ok((expected_type.clone(), vec![]))
                     } else if let Type::NamedStruct(named) = expected_type {
                         Ok((named.instantiated_type_parameters[0].clone(), vec![]))
@@ -2685,7 +2686,7 @@ impl<'a> Analyzer<'a> {
                     let unsigned_int_expr =
                         self.analyze_expression(key_expression, &unsigned_int_context)?;
 
-                    if let Type::Slice(element_type, fixed_size) = &ty {
+                    if let Type::FixedSlice(element_type, fixed_size) = &ty {
                         let slice_type = SliceType {
                             element: Box::new(*element_type.clone()),
                             fixed_size: *fixed_size,
@@ -2842,13 +2843,11 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn analyze_assignment_compound(
+    fn analyze_expression_for_assignment_compound(
         &mut self,
         target_expression: &swamp_ast::Expression,
-        ast_op: &swamp_ast::CompoundOperator,
         ast_source_expression: &swamp_ast::Expression,
-    ) -> Result<Expression, Error> {
-        let resolved_op = self.analyze_compound_operator(ast_op);
+    ) -> Result<(TargetAssignmentLocation, Expression), Error> {
         let any_argument_context = TypeContext::new_anything_argument();
         let source_expr = self.analyze_expression(ast_source_expression, &any_argument_context)?;
         let source_expr_type_context = TypeContext::new_argument(&source_expr.ty);
@@ -2858,6 +2857,112 @@ impl<'a> Analyzer<'a> {
             &source_expr_type_context,
             LocationSide::Rhs,
         )?);
+
+        Ok((resolved_location, source_expr))
+    }
+
+    /*
+    fn try_convert_for_assignment(
+        &mut self,
+        expr: &Expression,
+        target_type: &Type,
+        ast_node: &swamp_ast::Expression,
+    ) -> Result<Option<Expression>, Error> {
+        match (target_type, &expr.ty) {
+            // Conversion cases that require transformation
+            (Type::VecStorage(target_elem, capacity), Type::FixedSlice(source_elem, _)) => {
+                // Create conversion with checks
+                // ...
+            }
+
+            (Type::String, Type::Int) => {
+                // Create int-to-string conversion
+                // ...
+            }
+
+            // No conversion possible
+            _ => Ok(None),
+        }
+    }
+
+     */
+
+    fn is_type_assignment_compatible(target: &Type, source: &Type) -> bool {
+        if target.compatible_with(source) {
+            true
+        } else {
+            match (target, source) {
+                (
+                    Type::VecStorage(vec_element_type, capacity),
+                    Type::FixedSlice(slice_element_type, len),
+                ) => vec_element_type.compatible_with(slice_element_type) && len <= capacity,
+                _ => false,
+            }
+        }
+    }
+
+    fn analyze_expression_for_assignment(
+        &mut self,
+        ast_target_location_expression: &swamp_ast::Expression,
+        ast_source_expression: &swamp_ast::Expression,
+    ) -> Result<(TargetAssignmentLocation, Expression), Error> {
+        let any_argument_context = TypeContext::new_anything_argument();
+        let resolved_location = self.analyze_to_location(
+            ast_target_location_expression,
+            &any_argument_context,
+            LocationSide::Lhs,
+        )?;
+
+        let target_type = resolved_location.ty.clone();
+        assert!(target_type.is_concrete());
+
+        let base_context = TypeContext::new_anything_argument();
+        let source_expr = self.analyze_expression(ast_source_expression, &base_context)?;
+
+        /*
+        // previously checked for exact type
+        let lhs_argument_context = TypeContext::new_argument(&ty);
+        let source_expr = self.analyze_expression(ast_source_expression, &lhs_argument_context)?;
+         */
+
+        let final_expr = if Self::is_type_assignment_compatible(&target_type, &source_expr.ty) {
+            source_expr
+        }
+        /*else if let Some(converted) =
+            self.try_convert_for_assignment(&source_expr, &target_type, ast_source_expression)?
+
+        {
+            converted
+        }         */
+        else {
+            return Err(self.create_err(
+                ErrorKind::IncompatibleTypesForAssignment {
+                    expected: target_type.clone(),
+                    found: source_expr.ty,
+                },
+                &ast_source_expression.node,
+            ));
+        };
+
+        let assignment_mode = self.check_assignment_mode(true, &final_expr, &target_type); // TODO: Fill in correct lhs_is_mutable
+
+        self.check_mutable_assignment(assignment_mode, &final_expr.node)?;
+
+        let mut_location = TargetAssignmentLocation(resolved_location);
+
+        Ok((mut_location, final_expr))
+    }
+
+    fn analyze_assignment_compound(
+        &mut self,
+        target_expression: &swamp_ast::Expression,
+        ast_op: &swamp_ast::CompoundOperator,
+        ast_source_expression: &swamp_ast::Expression,
+    ) -> Result<Expression, Error> {
+        let resolved_op = self.analyze_compound_operator(ast_op);
+
+        let (resolved_location, source_expr) = self
+            .analyze_expression_for_assignment_compound(target_expression, ast_source_expression)?;
 
         let kind = ExpressionKind::CompoundAssignment(
             resolved_location,
@@ -2877,22 +2982,8 @@ impl<'a> Analyzer<'a> {
         target_location: &swamp_ast::Expression,
         ast_source_expression: &swamp_ast::Expression,
     ) -> Result<Expression, Error> {
-        let any_argument_context = TypeContext::new_anything_argument();
-        let resolved_location =
-            self.analyze_to_location(target_location, &any_argument_context, LocationSide::Lhs)?;
-
-        let ty = resolved_location.ty.clone();
-        assert!(ty.is_concrete());
-
-        let lhs_argument_context = TypeContext::new_argument(&ty);
-        let source_expr = self.analyze_expression(ast_source_expression, &lhs_argument_context)?;
-
-        let assignment_mode = self.check_assignment_mode(true, &source_expr, &ty); // TODO: Fill in correct lhs_is_mutable
-
-        self.check_mutable_assignment(assignment_mode, &source_expr.node)?;
-
-        let mut_location = TargetAssignmentLocation(resolved_location);
-
+        let (mut_location, source_expr) =
+            self.analyze_expression_for_assignment(target_location, ast_source_expression)?;
         let kind = ExpressionKind::Assignment(Box::from(mut_location), Box::from(source_expr));
 
         let expr = self.create_expr(kind, Type::Unit, &target_location.node); // Assignments are always of type Unit
@@ -3227,11 +3318,11 @@ impl<'a> Analyzer<'a> {
                     return Ok(wrapped);
                 }
             }
+        } else if let Type::FixedSlice(encountered_type_slice_type, ..) = encountered_type {
+            return self.late_coerce_slice(node, expected_type, encountered_type_slice_type, &expr);
         }
         /*
-        else if let Type::Slice(encountered_type_slice_type) = encountered_type {
-            return self.late_coerce_slice(node, expected_type, &expr);
-        } else if let Type::SlicePair(first_type, second_type) = encountered_type {
+        else if let Type::SlicePair(first_type, second_type) = encountered_type {
             return self.late_coerce_slice_pair(node, expected_type, &expr);
 
         } */
@@ -3279,12 +3370,12 @@ impl<'a> Analyzer<'a> {
             Symbol::TypeGenerator(type_gen) => match type_gen.kind {
                 TypeGeneratorKind::Slice => {
                     //assert!(analyzed_type_parameters[0].is_concrete());
-                    Type::Slice(Box::new(analyzed_type_parameters[0].clone()), 0)
+                    Type::FixedSlice(Box::new(analyzed_type_parameters[0].clone()), 0)
                 }
                 TypeGeneratorKind::SlicePair => {
                     //assert!(analyzed_type_parameters[0].is_concrete());
                     //assert!(analyzed_type_parameters[1].is_concrete());
-                    Type::SlicePair(
+                    Type::FixedSlicePair(
                         Box::new(analyzed_type_parameters[0].clone()),
                         Box::new(analyzed_type_parameters[1].clone()),
                         0,
@@ -3295,5 +3386,32 @@ impl<'a> Analyzer<'a> {
         };
 
         Ok(ty)
+    }
+
+    fn late_coerce_slice(
+        &self,
+        node: &swamp_ast::Node,
+        expected: &Type,
+        encountered: &Type,
+        expr: &Expression,
+    ) -> Result<Expression, Error> {
+        match expected {
+            Type::VecStorage(_, _) => Ok(self.create_expr(
+                ExpressionKind::IntrinsicCallEx(
+                    IntrinsicFunction::VecFromSlice,
+                    vec![MutRefOrImmutableExpression::Expression(expr.clone())],
+                ),
+                expected.clone(),
+                node,
+            )),
+            //Type::Vec(_) => {}
+            _ => Err(self.create_err(
+                ErrorKind::IncompatibleTypes {
+                    expected: expected.clone(),
+                    found: encountered.clone(),
+                },
+                node,
+            )),
+        }
     }
 }

@@ -225,8 +225,10 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 max_alignment,
             )
         }
-        Type::Slice(inner_type, size) => layout_slice(inner_type, *size, "slice"),
-        Type::SlicePair(a, b, size) => layout_slice_pair(a, b, *size),
+        Type::FixedSlice(inner_type, size) => layout_slice(inner_type, *size, "slice"),
+        Type::FixedSlicePair(a, b, size) => layout_slice_pair(a, b, *size),
+        Type::DynamicSlice(inner_type) => todo!(),
+        Type::DynamicSlicePair(a, b) => todo!(),
         Type::Tuple(types) => layout_tuple(types),
         Type::NamedStruct(named_struct_type) => {
             layout_named_struct(named_struct_type) // NOTE: memory_offset removed

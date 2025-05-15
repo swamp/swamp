@@ -680,8 +680,10 @@ impl SourceMapDisplay<'_> {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }
             Type::Blueprint(blueprint) => self.show_blueprint(f, blueprint, tabs),
-            Type::Slice(value, _size) => todo!(),
-            Type::SlicePair(key, value, _size) => todo!(),
+            Type::FixedSlice(value, _size) => todo!(),
+            Type::FixedSlicePair(key, value, _size) => todo!(),
+            Type::DynamicSlice(value) => todo!(),
+            Type::DynamicSlicePair(key, value) => todo!(),
             Type::VecStorage(_, _) => todo!(),
             Type::Vec(_) => todo!(),
             Type::Variable(var) => self.show_type_variable(f, var, tabs),
@@ -722,8 +724,10 @@ impl SourceMapDisplay<'_> {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }
             Type::Blueprint(blueprint) => self.show_blueprint(f, blueprint, tabs),
-            Type::Slice(value, _) => todo!(),
-            Type::SlicePair(key, value, _) => todo!(),
+            Type::FixedSlice(value, _) => todo!(),
+            Type::FixedSlicePair(key, value, _) => todo!(),
+            Type::DynamicSlice(value) => todo!(),
+            Type::DynamicSlicePair(key, value) => todo!(),
             Type::Vec(_) => todo!(),
             Type::VecStorage(_, _) => todo!(),
             Type::Variable(var) => self.show_type_variable(f, var, tabs),

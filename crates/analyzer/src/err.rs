@@ -84,6 +84,7 @@ pub enum ErrorKind {
     ExpectedLambda,
     ExpectedSlice,
     MissingToString(Type),
+    IncompatibleTypesForAssignment { expected: Type, found: Type },
 }
 
 impl From<SemanticError> for Error {

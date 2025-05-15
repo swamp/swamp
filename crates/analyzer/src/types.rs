@@ -45,7 +45,7 @@ impl Analyzer<'_> {
                 let int_str = self.get_text(&maybe_fixed_size.clone().unwrap());
                 let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
-                Type::Slice(Box::new(element_type), int_value)
+                Type::FixedSlice(Box::new(element_type), int_value)
                 /*
                 let vec_blueprint = self
                     .shared

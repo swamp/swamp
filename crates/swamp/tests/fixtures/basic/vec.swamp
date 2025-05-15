@@ -1,7 +1,15 @@
 struct Thing {
-		b: Int,
+  b: Int,
 }
 
 struct Another {
-		array: Vec<Thing, 10>, // Not working yet, but compiles at least
+  array: Vec<Thing, 10>,
+}
+
+
+#[test]
+fn very_basic_vec() {
+
+  a = Another { array: [ Thing { b: 1 }, Thing { b: 2 }, Thing { b: 3 } ] }
+
 }

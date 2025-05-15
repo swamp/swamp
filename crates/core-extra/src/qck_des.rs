@@ -34,10 +34,10 @@ pub fn quick_deserialize(resolved_type: &Type, buf: &[u8], depth: usize) -> (Val
         Type::Bool => (Value::Bool(buf[0] != 0), 1),
         Type::Unit => (Value::Unit, 0),
         Type::Never => panic!("can not deserialize never type"),
-        Type::Slice(_value_type, _size) => {
+        Type::FixedSlice(_value_type, _size) => {
             todo!()
         }
-        Type::SlicePair(_key_type, _value_type, _size) => {
+        Type::FixedSlicePair(_key_type, _value_type, _size) => {
             todo!()
         }
         Type::MutableReference(_) => todo!(),
@@ -223,6 +223,7 @@ pub fn quick_deserialize(resolved_type: &Type, buf: &[u8], depth: usize) -> (Val
         &swamp_types::Type::Generic(_, _) => todo!(),
         &swamp_types::Type::Blueprint(_) => todo!(),
         &swamp_types::Type::VecStorage(_, _) | &swamp_types::Type::Vec(_) => todo!(),
+        &swamp_types::Type::DynamicSlice(_) | &swamp_types::Type::DynamicSlicePair(_, _) => todo!(),
     };
 
     (val, octet_size)

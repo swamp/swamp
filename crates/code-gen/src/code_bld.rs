@@ -2444,8 +2444,8 @@ impl CodeBuilder<'_> {
         expressions: &[Expression],
         ctx: &Context,
     ) {
-        assert_eq!(target_reg.size(), SLICE_HEADER_SIZE);
-        let Type::Slice(element_type, _size) = slice_type else {
+        //assert_eq!(target_reg.size(), SLICE_HEADER_SIZE);
+        let Type::FixedSlice(element_type, _size) = slice_type else {
             panic!("incorrect slice type")
         };
 

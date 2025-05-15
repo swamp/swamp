@@ -93,6 +93,13 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
                     "required_type: {expected}, encountered type: {found}"
                 ))
         }
+        ErrorKind::IncompatibleTypesForAssignment { expected, found } => {
+            Report::build(Kind::Error, 23, "incompatible types for assignment", span)
+                //.with_label("first_type", a.clone())
+                .with_note(&format!(
+                    "required_type: {expected}, encountered type: {found}"
+                ))
+        }
         ErrorKind::UnknownMemberFunction => {
             Report::build(Kind::Error, 24, "unknown member function", span)
         }
