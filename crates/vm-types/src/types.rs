@@ -757,6 +757,8 @@ pub struct VmType {
 
 impl VmType {}
 
+impl VmType {}
+
 impl Display for VmType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", self.basic_type, self.origin)
@@ -815,6 +817,10 @@ impl VmType {
     #[must_use]
     pub fn is_represented_as_pointer_inside_register(&self) -> bool {
         self.basic_type.is_represented_as_a_pointer_in_reg()
+    }
+
+    pub fn can_be_contained_inside_register(&self) -> bool {
+        self.basic_type.can_be_contained_inside_register()
     }
 
     #[must_use]
