@@ -1120,7 +1120,7 @@ impl CodeBuilder<'_> {
         expression: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let target_relative_frame_pointer = self
+        let target_register = self
             .variable_registers
             .get(&variable.unique_id_within_function)
             .unwrap_or_else(|| {
@@ -1131,7 +1131,7 @@ impl CodeBuilder<'_> {
             })
             .clone();
 
-        self.emit_expression_materialize(&target_relative_frame_pointer, expression, ctx);
+        self.emit_expression_materialize(&target_register, expression, ctx);
 
         GeneratedExpressionResult::default()
     }
@@ -2341,9 +2341,63 @@ impl CodeBuilder<'_> {
         )
     }
 
+    fn emit_expression_into_target_memory(
+        &mut self,
+        element_gen_type: &BasicType,
+        base_ptr_reg: &TypedRegister,
+        offset_to_element_from_base_ptr_reg: HeapMemoryOffset,
+        source_expression: &Expression,
+        ctx: &Context,
+    ) {
+        let offset_to_element = offset_to_element_from_base_ptr_reg.0;
+        let element_node = &source_expression.node;
+
+        if element_gen_type.is_represented_as_a_pointer_in_reg() {
+            let hwm = self.temp_registers.save_mark();
+
+            let temp_base_reg = self.temp_registers.allocate(
+                VmType::new_unknown_placement(u32_type()),
+                "holds the temporary base_reg",
+            );
+            let immediate_offset_reg = self.temp_registers.allocate(
+                VmType::new_unknown_placement(u32_type()),
+                "holds the temporary immediate offset",
+            );
+
+            // It is a indirect complex type, then we create a pointer for them directly place the literal
+            self.builder.add_mov_32_immediate_value(
+                immediate_offset_reg.register(),
+                offset_to_element,
+                element_node,
+                "offset to the target element",
+            );
+            self.builder.add_add_u32(
+                temp_base_reg.register(),
+                base_ptr_reg,
+                immediate_offset_reg.register(),
+                element_node,
+                "total base_ptr to target element",
+            );
+
+            self.emit_expression_materialize(temp_base_reg.register(), source_expression, ctx);
+
+            self.temp_registers.restore_to_mark(hwm);
+        } else {
+            let direct_type_rvalue_reg = self.emit_rvalue(source_expression, ctx);
+
+            self.store_register_contents_to_memory(
+                element_node,
+                base_ptr_reg,
+                MemoryOffset(offset_to_element as u16),
+                &direct_type_rvalue_reg,
+                "copy slice element into storage",
+            );
+        }
+    }
+
     fn emit_struct_literal_helper(
         &mut self,
-        target_reg: &TypedRegister,
+        base_ptr_reg: &TypedRegister,
         struct_type_ref: &AnonymousStructType,
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         node: &Node,
@@ -2351,7 +2405,7 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         let gen_source_struct_type = layout_struct_type(struct_type_ref, "");
 
-        if target_reg.size() != gen_source_struct_type.total_size {
+        if base_ptr_reg.size() != gen_source_struct_type.total_size {
             info!("problem");
         }
 
@@ -2361,14 +2415,7 @@ impl CodeBuilder<'_> {
             source_order_expressions.len(),
             gen_source_struct_type.fields.len()
         );
-
-         */
-
-        let basic_type_for_struct = BasicType {
-            kind: BasicTypeKind::Struct(gen_source_struct_type.clone()),
-            total_size: gen_source_struct_type.total_size,
-            max_alignment: gen_source_struct_type.max_alignment,
-        };
+        */
 
         let struct_type = BasicType {
             total_size: gen_source_struct_type.total_size,
@@ -2376,19 +2423,22 @@ impl CodeBuilder<'_> {
             kind: BasicTypeKind::Struct(gen_source_struct_type.clone()),
         };
 
-        for (offset_item, (field_index, _node, expression)) in gen_source_struct_type
+        for (offset_item, (field_index, _node, source_expression)) in gen_source_struct_type
             .fields
             .iter()
             .zip(source_order_expressions)
         {
             let real_offset_item = struct_type.get_field_offset(*field_index).unwrap();
-            /*
-            let temp_register_to_materialize_to = self.temp_registers.allocate(
-                VmType::new_unknown_placement(real_offset_item.ty.clone()),
-                &format!("struct literal {field_index}"),
+
+            self.emit_expression_into_target_memory(
+                &offset_item.ty,
+                base_ptr_reg,
+                HeapMemoryOffset(real_offset_item.offset.0 as u32),
+                source_expression,
+                ctx,
             );
 
-             */
+            /*
             let field_rvalue = self.emit_rvalue(expression, ctx);
 
             self.store_register_contents_to_memory(
@@ -2402,7 +2452,7 @@ impl CodeBuilder<'_> {
                 ),
             );
 
-            //self.temp_registers.free(temp_register_to_materialize_to);
+             */
         }
 
         GeneratedExpressionResult::default()
@@ -2469,46 +2519,16 @@ impl CodeBuilder<'_> {
 
         let hwm = self.temp_registers.save_mark();
 
-        let temp_base_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            "holds the temporary base_reg",
-        );
-        let immediate_offset_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            "holds the temporary immediate offset",
-        );
-
         for (index, expr) in expressions.iter().enumerate() {
             let offset_to_element = index as u32 * element_size as u32;
             let element_node = &expr.node;
-            if element_gen_type.is_represented_as_a_pointer_in_reg() {
-                // It is a indirect complex type, then we create a pointer for them directly place the literal
-                self.builder.add_mov_32_immediate_value(
-                    immediate_offset_reg.register(),
-                    offset_to_element,
-                    element_node,
-                    "offset to the target element",
-                );
-                self.builder.add_add_u32(
-                    temp_base_reg.register(),
-                    base_ptr_reg,
-                    immediate_offset_reg.register(),
-                    element_node,
-                    "total base_ptr to target element",
-                );
-
-                self.emit_expression_materialize(temp_base_reg.register(), expr, ctx);
-            } else {
-                let direct_type_rvalue_reg = self.emit_rvalue(expr, ctx);
-
-                self.store_register_contents_to_memory(
-                    node,
-                    base_ptr_reg,
-                    MemoryOffset(offset_to_element as u16),
-                    &direct_type_rvalue_reg,
-                    "copy slice element into storage",
-                );
-            }
+            self.emit_expression_into_target_memory(
+                element_gen_type,
+                base_ptr_reg,
+                HeapMemoryOffset(offset_to_element),
+                expr,
+                ctx,
+            );
         }
 
         self.temp_registers.restore_to_mark(hwm);

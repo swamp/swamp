@@ -2540,9 +2540,12 @@ impl<'a> Analyzer<'a> {
             .as_ref()
             .map(|found_variable| found_variable.resolved_type.clone());
 
-        let context = TypeContext::new_unsure_argument(required_type.as_ref());
-
-        let source_expr = self.analyze_expression(source_expression, &context)?;
+        let source_expr = if let Some(target_type) = &required_type {
+            self.analyze_expression_for_assignment_with_target_type(target_type, source_expression)?
+        } else {
+            let any_type_context = TypeContext::new_anything_argument();
+            self.analyze_expression(source_expression, &any_type_context)?
+        };
         let ty = source_expr.ty.clone();
         if !ty.can_be_stored_in_variable() {
             let debug_text = self.get_text(&variable.name);
@@ -2901,19 +2904,11 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn analyze_expression_for_assignment(
+    fn analyze_expression_for_assignment_with_target_type(
         &mut self,
-        ast_target_location_expression: &swamp_ast::Expression,
+        target_type: &Type,
         ast_source_expression: &swamp_ast::Expression,
-    ) -> Result<(TargetAssignmentLocation, Expression), Error> {
-        let any_argument_context = TypeContext::new_anything_argument();
-        let resolved_location = self.analyze_to_location(
-            ast_target_location_expression,
-            &any_argument_context,
-            LocationSide::Lhs,
-        )?;
-
-        let target_type = resolved_location.ty.clone();
+    ) -> Result<Expression, Error> {
         assert!(target_type.is_concrete());
 
         let base_context = TypeContext::new_anything_argument();
@@ -2948,7 +2943,28 @@ impl<'a> Analyzer<'a> {
 
         self.check_mutable_assignment(assignment_mode, &final_expr.node)?;
 
+        Ok(final_expr)
+    }
+
+    fn analyze_expression_for_assignment(
+        &mut self,
+        ast_target_location_expression: &swamp_ast::Expression,
+        ast_source_expression: &swamp_ast::Expression,
+    ) -> Result<(TargetAssignmentLocation, Expression), Error> {
+        let any_argument_context = TypeContext::new_anything_argument();
+        let resolved_location = self.analyze_to_location(
+            ast_target_location_expression,
+            &any_argument_context,
+            LocationSide::Lhs,
+        )?;
+
+        let target_type = resolved_location.ty.clone();
         let mut_location = TargetAssignmentLocation(resolved_location);
+
+        let final_expr = self.analyze_expression_for_assignment_with_target_type(
+            &target_type,
+            ast_source_expression,
+        )?;
 
         Ok((mut_location, final_expr))
     }
@@ -3318,9 +3334,15 @@ impl<'a> Analyzer<'a> {
                     return Ok(wrapped);
                 }
             }
-        } else if let Type::FixedSlice(encountered_type_slice_type, ..) = encountered_type {
+        }
+        if let Type::VecStorage(element_type, size) = expected_type {
+            return Ok(expr);
+        }
+        /*else if let Type::FixedSlice(encountered_type_slice_type, ..) = encountered_type {
             return self.late_coerce_slice(node, expected_type, encountered_type_slice_type, &expr);
         }
+        */
+
         /*
         else if let Type::SlicePair(first_type, second_type) = encountered_type {
             return self.late_coerce_slice_pair(node, expected_type, &expr);
@@ -3396,6 +3418,7 @@ impl<'a> Analyzer<'a> {
         expr: &Expression,
     ) -> Result<Expression, Error> {
         match expected {
+            /*
             Type::VecStorage(_, _) => Ok(self.create_expr(
                 ExpressionKind::IntrinsicCallEx(
                     IntrinsicFunction::VecFromSlice,
@@ -3404,6 +3427,8 @@ impl<'a> Analyzer<'a> {
                 expected.clone(),
                 node,
             )),
+
+             */
             //Type::Vec(_) => {}
             _ => Err(self.create_err(
                 ErrorKind::IncompatibleTypes {
