@@ -4,7 +4,7 @@
  */
 
 use source_map_cache::SourceMapWrapper;
-use swamp_code_gen::TopLevelGenState;
+use swamp_code_gen::top_state::TopLevelGenState;
 use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_compile::Program;
 use swamp_compile::compile_string;
@@ -54,7 +54,8 @@ fn exec_code_gen_state(code_gen_state: TopLevelGenState) -> Vm {
             stack_memory_size: 1024,
             heap_memory_size: 1024,
             constant_memory: constants_memory.clone(),
-            debug_enabled: false,
+            debug_stats_enabled: false,
+            debug_opcodes_enabled: false,
         };
 
         let mut vm = Vm::new(instructions.clone(), setup);
@@ -66,7 +67,8 @@ fn exec_code_gen_state(code_gen_state: TopLevelGenState) -> Vm {
         stack_memory_size: 1024,
         heap_memory_size: 1024,
         constant_memory: constants_memory,
-        debug_enabled: false,
+        debug_stats_enabled: false,
+        debug_opcodes_enabled: false,
     };
     let mut vm = Vm::new(instructions, setup);
 
@@ -191,7 +193,8 @@ where
         stack_memory_size: 1024,
         heap_memory_size: 1024,
         constant_memory,
-        debug_enabled: false,
+        debug_stats_enabled: false,
+        debug_opcodes_enabled: false,
     };
     let mut vm = Vm::new(instructions, setup);
 
