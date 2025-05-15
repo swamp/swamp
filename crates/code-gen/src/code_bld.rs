@@ -2438,93 +2438,78 @@ impl CodeBuilder<'_> {
 
     fn emit_slice_literal(
         &mut self,
-        target_reg: &TypedRegister,
+        base_ptr_reg: &TypedRegister,
         node: &Node,
-        slice_type: &Type,
+        slice_type_inside_type: &Type,
         expressions: &[Expression],
         ctx: &Context,
     ) {
-        //assert_eq!(target_reg.size(), SLICE_HEADER_SIZE);
-        let Type::FixedSlice(element_type, _size) = slice_type else {
-            panic!("incorrect slice type")
+        let Type::FixedSlice(actual_element_type, actual_slice_fixed_len) = slice_type_inside_type
+        else {
+            panic!("internal error")
         };
+        debug_assert_eq!(*actual_slice_fixed_len, expressions.len());
 
-        let element_gen_type = layout_type(element_type);
+        let element_gen_type = layout_type(actual_element_type);
+        self.emit_slice_literal_helper(base_ptr_reg, node, &element_gen_type, expressions, ctx);
+    }
+
+    fn emit_slice_literal_helper(
+        &mut self,
+        base_ptr_reg: &TypedRegister,
+        node: &Node,
+        element_gen_type: &BasicType,
+        expressions: &[Expression],
+        ctx: &Context,
+    ) {
+        // We assume that the target_reg holds a starting pointer where we can put the slice
+
         let element_count = expressions.len() as u16;
-        let total_slice_size = MemorySize(element_gen_type.total_size.0 * element_count);
+        let element_size = element_gen_type.total_size.0;
 
         let hwm = self.temp_registers.save_mark();
 
-        let base_ptr_reg = {
-            self.temp_registers.allocate(
-                VmType::new_unknown_placement(unknown_type()),
-                "emit_slice_base",
-            )
-        };
-        let element_size_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(unknown_type()),
-            "element_size_reg",
+        let temp_base_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(u32_type()),
+            "holds the temporary base_reg",
         );
-
-        self.builder.add_mov_32_immediate_value(
-            element_size_reg.register(),
-            element_gen_type.total_size.0 as u32,
-            node,
-            "element total size",
-        );
-
-        self.builder.add_alloc(
-            base_ptr_reg.register(),
-            total_slice_size,
-            node,
-            "allocate slice",
-        );
-
-        let element_temp_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(unknown_type()),
-            "emit_slice_literal",
+        let immediate_offset_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(u32_type()),
+            "holds the temporary immediate offset",
         );
 
         for (index, expr) in expressions.iter().enumerate() {
-            self.emit_expression_materialize(element_temp_reg.register(), expr, ctx);
+            let offset_to_element = index as u32 * element_size as u32;
+            let element_node = &expr.node;
+            if element_gen_type.is_represented_as_a_pointer_in_reg() {
+                // It is a indirect complex type, then we create a pointer for them directly place the literal
+                self.builder.add_mov_32_immediate_value(
+                    immediate_offset_reg.register(),
+                    offset_to_element,
+                    element_node,
+                    "offset to the target element",
+                );
+                self.builder.add_add_u32(
+                    temp_base_reg.register(),
+                    base_ptr_reg,
+                    immediate_offset_reg.register(),
+                    element_node,
+                    "total base_ptr to target element",
+                );
 
-            self.store_register_contents_to_memory(
-                node,
-                base_ptr_reg.register(),
-                MemoryOffset(0),
-                element_temp_reg.register(),
-                "copy into slice",
-            );
+                self.emit_expression_materialize(temp_base_reg.register(), expr, ctx);
+            } else {
+                let direct_type_rvalue_reg = self.emit_rvalue(expr, ctx);
 
-            self.builder.add_add_u32(
-                base_ptr_reg.register(),
-                base_ptr_reg.register(),
-                element_size_reg.register(),
-                node,
-                "move destination ptr forward by element size",
-            );
+                self.store_register_contents_to_memory(
+                    node,
+                    base_ptr_reg,
+                    MemoryOffset(offset_to_element as u16),
+                    &direct_type_rvalue_reg,
+                    "copy slice element into storage",
+                );
+            }
         }
-
-        let element_count_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            "emit slice literal",
-        );
-
-        self.builder.add_mov_32_immediate_value(
-            element_count_reg.register(),
-            element_count as u32,
-            node,
-            "set element count",
-        );
-
-        self.builder.add_slice_from_heap(
-            target_reg,
-            base_ptr_reg.register(),
-            element_size_reg.register(),
-            element_count_reg.register(),
-            node,
-            "slice literal",
-        );
 
         self.temp_registers.restore_to_mark(hwm);
     }
