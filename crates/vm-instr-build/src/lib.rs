@@ -175,7 +175,7 @@ impl InstructionBuilder<'_> {
         }
     }
 
-    pub fn add_not_z(&mut self, node: &Node, comment: &str) {
+    pub fn add_not_t(&mut self, node: &Node, comment: &str) {
         self.state.add_instruction(OpCode::NotT, &[], node, comment);
     }
 

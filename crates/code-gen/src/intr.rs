@@ -88,7 +88,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
         comment: &str,
     ) -> GeneratedExpressionResult {
-        let mut z_flag_result = GeneratedExpressionResult::default();
+        let mut t_flag_result = GeneratedExpressionResult::default();
         match intrinsic_fn {
             IntrinsicFunction::RuntimePanic => {
                 self.builder
@@ -474,7 +474,7 @@ impl CodeBuilder<'_> {
                 let key = self.emit_simple_rvalue(key_argument, ctx);
                 self.builder
                     .add_map_has(&self_addr.unwrap(), &key, node, "map_has");
-                z_flag_result.kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
+                t_flag_result.kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
             IntrinsicFunction::MapRemove => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
@@ -608,7 +608,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::Float2Magnitude => {}
         }
 
-        z_flag_result
+        t_flag_result
     }
 
     fn emit_intrinsic_map_remove(

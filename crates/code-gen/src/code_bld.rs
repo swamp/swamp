@@ -429,7 +429,6 @@ impl CodeBuilder<'_> {
             ExpressionKind::WhileLoop(condition, expression) => {
                 self.emit_while_loop(condition, expression, ctx)
             }
-
             ExpressionKind::ConstantAccess(constant_ref) => {
                 self.emit_constant_access(target_reg, &expr.node, constant_ref, ctx)
             }
@@ -512,7 +511,7 @@ impl CodeBuilder<'_> {
         let result = match &unary_operator.kind {
             UnaryOperatorKind::Not => match &unary_operator.left.ty {
                 Type::Bool => {
-                    let bool_result = self.emit_expression_to_z_flag(&unary_operator.left, ctx);
+                    let bool_result = self.emit_expression_to_t_flag(&unary_operator.left, ctx);
                     bool_result.invert_polarity()
                 }
                 _ => panic!("unknown not"),
@@ -902,24 +901,24 @@ impl CodeBuilder<'_> {
 
         match binary_operator.kind {
             BinaryOperatorKind::LogicalOr => {
-                self.emit_expression_to_normalized_z_flag(&binary_operator.left, context);
+                self.emit_expression_to_normalized_t_flag(&binary_operator.left, context);
 
                 let jump_after_patch = self
                     .builder
                     .add_jmp_if_true_placeholder(node, "OR: skip rhs because lhs is true");
 
-                self.emit_expression_to_normalized_z_flag(&binary_operator.right, context);
+                self.emit_expression_to_normalized_t_flag(&binary_operator.right, context);
 
                 self.builder.patch_jump_here(jump_after_patch);
             }
             BinaryOperatorKind::LogicalAnd => {
-                self.emit_expression_to_normalized_z_flag(&binary_operator.left, context);
+                self.emit_expression_to_normalized_t_flag(&binary_operator.left, context);
 
                 let jump_after_patch = self
                     .builder
                     .add_jmp_if_not_true_placeholder(node, "AND: skip rhs because lhs is false");
 
-                self.emit_expression_to_normalized_z_flag(&binary_operator.right, context);
+                self.emit_expression_to_normalized_t_flag(&binary_operator.right, context);
 
                 self.builder.patch_jump_here(jump_after_patch);
             }
@@ -937,7 +936,7 @@ impl CodeBuilder<'_> {
         condition: &BooleanExpression,
         ctx: &Context,
     ) -> PatchPosition {
-        let result = self.emit_expression_to_z_flag(&condition.expression, ctx);
+        let result = self.emit_expression_to_t_flag(&condition.expression, ctx);
 
         let jump_on_false_condition = self.builder.add_jmp_if_not_equal_polarity_placeholder(
             &result.polarity(),
@@ -948,7 +947,7 @@ impl CodeBuilder<'_> {
         jump_on_false_condition
     }
 
-    fn emit_expression_to_z_flag(
+    fn emit_expression_to_t_flag(
         &mut self,
         condition: &Expression,
         ctx: &Context,
@@ -969,7 +968,7 @@ impl CodeBuilder<'_> {
             _ => {}
         }
 
-        let (reg, mut gen_result) = self.emit_rvalue_leave_z_flag_if_possible(condition, ctx);
+        let (reg, mut gen_result) = self.emit_rvalue_leave_t_flag_if_possible(condition, ctx);
 
         if gen_result.kind == GeneratedExpressionResultKind::TFlagIsIndeterminate {
             self.builder
@@ -980,8 +979,8 @@ impl CodeBuilder<'_> {
         gen_result
     }
 
-    fn emit_expression_to_normalized_z_flag(&mut self, condition: &Expression, ctx: &Context) {
-        let result = self.emit_expression_to_z_flag(condition, ctx);
+    fn emit_expression_to_normalized_t_flag(&mut self, condition: &Expression, ctx: &Context) {
+        let result = self.emit_expression_to_t_flag(condition, ctx);
         assert_ne!(
             result.kind,
             GeneratedExpressionResultKind::TFlagIsIndeterminate
@@ -989,16 +988,16 @@ impl CodeBuilder<'_> {
 
         if result.kind == GeneratedExpressionResultKind::TFlagIsTrueWhenClear {
             self.builder
-                .add_not_z(&condition.node, "normalized z is required");
+                .add_not_t(&condition.node, "normalized z is required");
         }
     }
 
-    fn emit_boolean_expression_z_flag(
+    fn emit_boolean_expression_t_flag(
         &mut self,
         condition: &BooleanExpression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        self.emit_expression_to_z_flag(&condition.expression, ctx)
+        self.emit_expression_to_t_flag(&condition.expression, ctx)
     }
 
     fn emit_if(
@@ -1616,7 +1615,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let mut current_location = self.emit_start_of_chain(start_expression, ctx);
-        let mut z_flag_result = GeneratedExpressionResult::default();
+        let mut t_flag_result = GeneratedExpressionResult::default();
 
         //info!(t=?current_location.vm_type(), "start r value chain");
 
@@ -1712,7 +1711,7 @@ impl CodeBuilder<'_> {
                                 );
 
                                 if is_last {
-                                    z_flag_result = z_result;
+                                    t_flag_result = z_result;
                                 }
                             } else {
                                 let (spilled_argument_registers, copy_back) = self.emit_arguments(
@@ -1816,7 +1815,7 @@ impl CodeBuilder<'_> {
             "rvalue postfix chain",
         );
 
-        z_flag_result
+        t_flag_result
     }
 
     /*
@@ -2139,7 +2138,7 @@ impl CodeBuilder<'_> {
     ) {
         let result = self.emit_expression(target_reg, expr, ctx);
 
-        self.materialize_z_flag_to_bool_if_needed(target_reg, result, &expr.node);
+        self.materialize_t_flag_to_bool_if_needed(target_reg, result, &expr.node);
     }
 
     fn emit_for_loop(
@@ -3031,7 +3030,7 @@ impl CodeBuilder<'_> {
         let mut jump_to_exit_placeholders = Vec::new();
         for guard in guards {
             if let Some(condition) = &guard.condition {
-                //                let result = self.emit_boolean_expression_z_flag(condition)?;
+                //                let result = self.emit_boolean_expression_t_flag(condition)?;
                 let skip_expression_patch = self.emit_condition_context(condition, ctx);
                 //&result.polarity(),
                 //&guard.result.node,
@@ -3523,18 +3522,18 @@ impl CodeBuilder<'_> {
         let lambda_result = self.emit_simple_rvalue(lambda_expr, ctx);
 
         // 4. If the transformer supports early exit, set the Z flag based on the lambda result.
-        let transformer_z_flag_state =
-            self.check_if_transformer_sets_z_flag(transformer, &lambda_result, node);
+        let transformer_t_flag_state =
+            self.check_if_transformer_sets_t_flag(transformer, &lambda_result, node);
 
         // 5. Conditionally skip result insertion if early exit is triggered.
         let maybe_skip_early = if matches!(
-            transformer_z_flag_state,
+            transformer_t_flag_state,
             GeneratedExpressionResultKind::TFlagIsTrueWhenSet
                 | GeneratedExpressionResultKind::TFlagIsTrueWhenClear
         ) {
             // The z flag is set so we can act on it
             let skip_early = self.builder.add_jmp_if_not_equal_polarity_placeholder(
-                &transformer_z_flag_state.polarity(),
+                &transformer_t_flag_state.polarity(),
                 node,
                 "skip early",
             );
@@ -3722,7 +3721,7 @@ impl CodeBuilder<'_> {
         (iter_next_position, placeholder, iterator_target)
     }
 
-    fn check_if_transformer_sets_z_flag(
+    fn check_if_transformer_sets_t_flag(
         &mut self,
         transformer: Transformer,
         in_value: &TypedRegister,
@@ -3819,13 +3818,13 @@ impl CodeBuilder<'_> {
 
         self.temp_registers.restore_to_mark(hwm);
     }
-    fn materialize_z_flag_to_bool_if_needed(
+    fn materialize_t_flag_to_bool_if_needed(
         &mut self,
         target: &TypedRegister,
-        z_flag_state: GeneratedExpressionResult,
+        t_flag_state: GeneratedExpressionResult,
         node: &Node,
     ) {
-        match z_flag_state.kind {
+        match t_flag_state.kind {
             GeneratedExpressionResultKind::TFlagIsIndeterminate => {
                 // intentionally do nothing
             }
@@ -3955,9 +3954,9 @@ impl CodeBuilder<'_> {
     /// the returned register always contains a simple (primitive) value.
     #[allow(clippy::single_match_else)]
     pub fn emit_simple_rvalue(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
-        let (target_region, z_flag_state) = self.emit_rvalue_leave_z_flag_if_possible(expr, ctx);
+        let (target_region, t_flag_state) = self.emit_rvalue_leave_t_flag_if_possible(expr, ctx);
 
-        self.materialize_z_flag_to_bool_if_needed(&target_region, z_flag_state, &expr.node);
+        self.materialize_t_flag_to_bool_if_needed(&target_region, t_flag_state, &expr.node);
 
         target_region
     }
@@ -3973,7 +3972,7 @@ impl CodeBuilder<'_> {
         temp_reg
     }
 
-    pub fn emit_rvalue_leave_z_flag_if_possible(
+    pub fn emit_rvalue_leave_t_flag_if_possible(
         &mut self,
         expr: &Expression,
         ctx: &Context,
@@ -3992,10 +3991,9 @@ impl CodeBuilder<'_> {
         }
 
         let temp_reg = self.temp_space_for_type(&expr.ty, "expression");
-
-        let z_flag_state = self.emit_expression(temp_reg.register(), expr, ctx);
+        let t_flag_state = self.emit_expression(temp_reg.register(), expr, ctx);
         let hack = temp_reg.register.clone();
 
-        (hack, z_flag_state)
+        (hack, t_flag_state)
     }
 }
