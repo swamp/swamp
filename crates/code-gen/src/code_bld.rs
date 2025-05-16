@@ -3957,6 +3957,35 @@ impl CodeBuilder<'_> {
         target_region
     }
 
+    /// Emits code to evaluate an expression of a complex type (e.g., struct, vec)
+    /// and materializes (constructs or copies) its instance directly into a pre-allocated
+    /// memory location specified by a target pointer `target_ptr_reg`.
+    ///
+    /// For complex rvalues, the rvalue need a pointer to write the expression into. The function
+    /// never reserves or allocates memory for the target, the target memory is already allocated.
+    /// After it returns, the expression has been written (materialized) into the `target_ptr_reg`.
+    ///
+    /// # Example Usage Context
+    /// 1. Assignment: `complex_lvalue = complex_literal_expr;`
+    /// ```ignore
+    /// let reg_addr_lhs = self.emit_lvalue(complex_lvalue.expression_node(), ctx);
+    /// self.emit_complex_rvalue(reg_addr_lhs, complex_literal_expr, ctx);
+    /// ```
+    /// 2. Materializing an RValue argument: `foo(StructLiteral{...})`
+    /// ```ignore
+    /// let reg_temp_stack_addr = alloc_for_type(complex_literal_type);
+    /// self.emit_complex_rvalue(reg_temp_stack_addr, StructLiteral_expr, ctx);
+    /// // use reg_temp_stack_addr to the function
+    /// ```
+    pub fn emit_complex_rvalue(
+        &mut self,
+        target_ptr_reg: &TypedRegister,
+        expression: &Expression,
+        ctx: &Context,
+    ) {
+        // TODO:
+    }
+
     pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
         let layout = layout_type(ty);
 

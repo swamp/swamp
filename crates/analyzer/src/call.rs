@@ -15,8 +15,16 @@ pub struct MaybeBorrowMutRefExpression {
 }
 
 impl Analyzer<'_> {
-    /// # Errors
-    ///
+    /*
+    TODO: @ideas
+    The analyzer should be more explicit in how the values are transferred, to make it easier and more consistent for the code generator.
+
+    - PassSimpleValue (For simple (primitive) type parameters, not mut, e.g. `a: Int`)
+    - PassSimpleValueWithCopyback (For **mut** simple (primitive) parameters, e.g. `mut a: Int`)
+    - PassComplexAddressFromLValue (For complex type parameters, argument is LValue. can be used for both `mut` and not mut, but is mandatory if is mut)
+    - PassComplexAddressFromRValueMaterialization (For complex type parameters, argument is RValue. Param must NOT be mut)
+
+    */
     pub fn analyze_argument(
         &mut self,
         fn_parameter: &TypeForParameter,
