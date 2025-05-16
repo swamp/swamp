@@ -7,8 +7,7 @@ use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
 use swamp_vm_types::types::TypedRegister;
 use swamp_vm_types::{
-    MAP_HEADER_COUNT_OFFSET, MemorySize, RANGE_HEADER_SIZE, STRING_HEADER_COUNT_OFFSET,
-    VEC_HEADER_COUNT_OFFSET,
+    MAP_HEADER_COUNT_OFFSET, MemorySize, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
 };
 
 impl CodeBuilder<'_> {

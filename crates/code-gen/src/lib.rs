@@ -23,21 +23,20 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     ConstantId, ConstantRef, Expression, ExpressionKind, InternalFunctionDefinitionRef,
-    InternalFunctionId, MutRefOrImmutableExpression, Variable, VariableRef,
+    InternalFunctionId, MutRefOrImmutableExpression, VariableRef,
 };
 use swamp_types::Type;
-use swamp_vm_instr_build::PatchPosition;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FrameMemoryInfo, FramePlacedType, FunctionInfoKind, HeapPlacedType,
     TypedRegister, VariableRegister, VmType,
 };
 use swamp_vm_types::{
-    CountU16, FrameMemoryRegion, FrameMemorySize, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
-    InstructionPosition, InstructionRange, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE,
-    MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
-    RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE,
-    STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT,
-    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
+    CountU16, FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, InstructionPosition,
+    InstructionRange, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT,
+    MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset, MemorySize, RANGE_HEADER_ALIGNMENT,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_ALIGNMENT,
+    STRING_HEADER_SIZE, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
+    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 
 #[derive(Copy, Clone)]

@@ -1,6 +1,6 @@
+use crate::FrameAndVariableInfo;
 use crate::alloc::ScopeAllocator;
 use crate::reg_pool::RegisterPool;
-use crate::{FrameAndVariableInfo, reserve};
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::cmp::max;
@@ -16,11 +16,10 @@ use swamp_vm_types::types::{
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
     MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT,
-    PTR_SIZE, SLICE_HEADER_ALIGNMENT, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE,
-    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
-    adjust_size_to_alignment, align_to,
+    PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT,
+    VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
 };
-use tracing::{info, trace};
+use tracing::trace;
 
 #[derive(Copy, Clone)]
 struct VariantLayout {

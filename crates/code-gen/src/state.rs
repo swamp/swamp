@@ -1,10 +1,8 @@
 use crate::constants::ConstantsManager;
 use crate::{ConstantInfo, FunctionIps, GenFunctionInfo};
 use seq_map::SeqMap;
-use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
 use swamp_semantic::{ConstantId, ConstantRef, InternalFunctionDefinitionRef, InternalFunctionId};
-use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_types::types::{CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, HeapPlacedType};
 use swamp_vm_types::{InstructionPosition, InstructionPositionOffset, PatchPosition};
 use tracing::info;

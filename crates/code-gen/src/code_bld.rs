@@ -8,35 +8,31 @@ use crate::reg_pool::{HwmTempRegisterPool, RegisterPool, TempRegister};
 use crate::state::{CodeGenState, FunctionFixup};
 use crate::{
     Collection, DetailedLocation, DetailedLocationResolved, GeneratedExpressionResult,
-    GeneratedExpressionResultKind, SpilledRegister, SpilledRegisterRegion, Transformer,
-    TransformerResult, single_intrinsic_fn,
+    GeneratedExpressionResultKind, SpilledRegister, Transformer, TransformerResult,
+    single_intrinsic_fn,
 };
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use swamp_semantic::{
     AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
-    CompoundOperatorKind, ConstantId, ConstantRef, EnumLiteralData, Expression, ExpressionKind,
+    CompoundOperatorKind, ConstantRef, EnumLiteralData, Expression, ExpressionKind,
     ExternalFunctionDefinitionRef, ForPattern, Function, Guard, InternalFunctionDefinitionRef,
     Iterable, Literal, Match, MutRefOrImmutableExpression, NormalPattern, Pattern, Postfix,
     PostfixKind, SingleLocationExpression, StartOfChain, StartOfChainKind,
     TargetAssignmentLocation, UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
-use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
+use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, HeapPlacedType, TypedRegister,
-    VariableRegister, VmType, int_type, pointer_type, u8_type, u16_type, u32_type, unit_type,
-    unknown_type,
+    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, TypedRegister, VmType, u8_type,
+    u16_type, u32_type, unit_type, unknown_type,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    HeapMemorySize, InstructionPosition, MemoryAlignment, MemoryOffset, MemorySize,
-    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, SLICE_HEADER_SIZE, SLICE_PAIR_HEADER_SIZE,
-    SLICE_PTR_OFFSET, STRING_PTR_SIZE, StringHeader, VEC_HEADER_CAPACITY_OFFSET,
+    InstructionPosition, MemoryOffset, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, StringHeader,
     VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
 };
-use tracing::field::debug;
 use tracing::{error, info};
 
 struct MutableReturnReg {
