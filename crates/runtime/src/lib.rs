@@ -1,9 +1,7 @@
 mod err_wrt;
 mod trace;
-
 use source_map_cache::{SourceMap, SourceMapWrapper};
 use std::fmt::Write as FmtWrite;
-use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
@@ -13,6 +11,7 @@ use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionId};
 use swamp_vm::{Vm, VmSetup};
 use swamp_vm_types::{BinaryInstruction, StackMemoryAddress};
+
 pub struct RunConstantsOptions {
     pub stderr_adapter: Option<Box<dyn FmtWrite>>,
 }

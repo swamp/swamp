@@ -1,4 +1,3 @@
-use crate::u8s_to_u16;
 use crate::{Vm, get_reg};
 use swamp_vm_types::{SliceHeader, SlicePairHeader};
 

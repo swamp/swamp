@@ -8,7 +8,6 @@ use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
 use fixed32::Fp;
 use seq_map::SeqMap;
-use std::cmp::PartialEq;
 use std::ptr;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
@@ -640,12 +639,15 @@ impl Vm {
 
      */
 
+    /*
     #[inline]
     fn execute_alloc(&mut self, dst_reg: u8, size_0: u8, size_1: u8) {
         let memory_size = u8s_to_u16!(size_0, size_1);
         let data_ptr = self.memory.heap_allocate(memory_size as usize);
         set_reg!(self, dst_reg, data_ptr);
     }
+
+     */
 
     // Fixed Point special methods
     #[inline]
