@@ -11,10 +11,6 @@ struct Another {
 }
 
 
-fn something(things: Vec<Thing>) {
-  temp = things[0]
-  //print('things: {things[0].a}')
-}
 
 #[test]
 fn vec_assign_and_subscript() {
@@ -39,5 +35,4 @@ fn vec_assign_and_subscript() {
   assert(another.things[2].a == 13, 'another.things[2].a is wrong')
   assert(another.things[2].b == 3, 'another.things[2].b is wrong')
 
-   something(another.things)
 }
