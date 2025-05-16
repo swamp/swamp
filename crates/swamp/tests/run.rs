@@ -46,7 +46,8 @@ fn compile_and_run() {
         stack_memory_size: 16 * 1024,
         heap_memory_size: 1024 * 1024,
         constant_memory,
-        debug_enabled: false,
+        debug_stats_enabled: false,
+        debug_opcodes_enabled: false,
     };
 
     let mut vm = Vm::new(instructions, vm_setup);

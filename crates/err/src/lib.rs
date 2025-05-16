@@ -7,7 +7,6 @@ mod dep;
 pub mod loader;
 pub mod parse;
 pub mod prelude;
-pub mod runtime;
 pub mod script_resolve;
 pub mod semantic;
 

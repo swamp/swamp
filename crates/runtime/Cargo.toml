@@ -27,9 +27,6 @@ swamp-compile = { path = "../compile", version = "0.1.16" }
 
 swamp-error-report = { path = "../err", version = "0.1.16" }
 
-# Runner
-swamp-eval = { path = "../eval", version = "0.1.16" }
-
 # Upcoming Runtime
 swamp-code-gen-program = { path = "../code-gen-program", version = "0.1.16" }
 swamp-code-gen = { path = "../code-gen", version = "0.1.16" }

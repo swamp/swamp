@@ -4,6 +4,6 @@
  */
 pub use crate::{
     ScriptResolveError, analyze::show_analyzer_error, dep::show_dependency_error,
-    parse::show_parse_error, runtime::show_runtime_error,
-    script_resolve::show_script_resolve_error, semantic::show_semantic_error,
+    parse::show_parse_error, script_resolve::show_script_resolve_error,
+    semantic::show_semantic_error,
 };

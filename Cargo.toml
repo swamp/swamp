@@ -38,6 +38,4 @@ members = [
     "crates/vm-debug-types",
     "crates/vm-pretty-print",
     "crates/runtime",
-    # Evaluator, hopefully soon deprecated
-    "crates/eval",
 ]
