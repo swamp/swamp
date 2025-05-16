@@ -286,7 +286,7 @@ impl CodeBuilder<'_> {
         element_to_set: &TypedRegister,
         ctx: &Context,
     ) {
-        let key_address = self.emit_rvalue(&key_or_index[0], ctx);
+        let key_address = self.emit_simple_rvalue(&key_or_index[0], ctx);
         match &self_collection.ty().kind {
             BasicTypeKind::InternalStringPointer => {
                 todo!()
@@ -324,7 +324,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         // TODO: Fix this
-        let key_address = self.emit_rvalue(&key_or_index[0], ctx);
+        let key_address = self.emit_simple_rvalue(&key_or_index[0], ctx);
 
         match &self_collection.underlying().kind {
             BasicTypeKind::InternalStringPointer => {

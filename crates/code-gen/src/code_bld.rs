@@ -519,14 +519,14 @@ impl CodeBuilder<'_> {
             },
             UnaryOperatorKind::Negate => match &unary_operator.left.ty {
                 Type::Int => {
-                    let left_source = self.emit_rvalue(&unary_operator.left, ctx);
+                    let left_source = self.emit_simple_rvalue(&unary_operator.left, ctx);
                     self.builder
                         .add_neg_i32(target_reg, &left_source, node, "negate i32");
                     GeneratedExpressionResult::default()
                 }
 
                 Type::Float => {
-                    let left_source = self.emit_rvalue(&unary_operator.left, ctx);
+                    let left_source = self.emit_simple_rvalue(&unary_operator.left, ctx);
                     self.builder
                         .add_neg_f32(target_reg, &left_source, node, "negate f32");
                     GeneratedExpressionResult::default()
@@ -955,7 +955,7 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         match &condition.kind {
             ExpressionKind::CoerceOptionToBool(option_union_expr) => {
-                let region = self.emit_rvalue(option_union_expr, ctx);
+                let region = self.emit_simple_rvalue(option_union_expr, ctx);
                 // We can shortcut this, since we know that the tag location is basically a bool value
                 self.builder.add_tst_u8(
                     &region,
@@ -1425,7 +1425,7 @@ impl CodeBuilder<'_> {
                 offset,
                 ..
             } => {
-                let rhs_reg = self.emit_rvalue(rhs, &ctx);
+                let rhs_reg = self.emit_simple_rvalue(rhs, &ctx);
                 self.store_register_contents_to_memory(
                     node,
                     &base_ptr_reg,
@@ -1572,7 +1572,7 @@ impl CodeBuilder<'_> {
                         }
                     }
                     MutRefOrImmutableExpression::Expression(expr) => {
-                        let source_reg = self.emit_rvalue(expr, &argument_ctx);
+                        let source_reg = self.emit_simple_rvalue(expr, &argument_ctx);
                         self.builder.add_mov_reg(
                             &argument_register,
                             &source_reg,
@@ -1891,7 +1891,7 @@ impl CodeBuilder<'_> {
             );
             //let materialized_item_in_tuple_reg = temp_materialize_reg.register();
 
-            let rvalue_reg = self.emit_rvalue(expr, ctx);
+            let rvalue_reg = self.emit_simple_rvalue(expr, ctx);
 
             self.store_register_contents_to_memory(
                 node,
@@ -2323,7 +2323,7 @@ impl CodeBuilder<'_> {
     ) -> TypedRegister {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.emit_rvalue(found_expression, ctx)
+                self.emit_simple_rvalue(found_expression, ctx)
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
                 let x = self.emit_lvalue_chain(location_expression, ctx);
@@ -2357,7 +2357,7 @@ impl CodeBuilder<'_> {
             "compound_assignment",
         );
 
-        let source_info = self.emit_rvalue(source, ctx);
+        let source_info = self.emit_simple_rvalue(source, ctx);
 
         let type_to_consider = Self::referenced_or_not_type(&source.ty);
 
@@ -2541,7 +2541,7 @@ impl CodeBuilder<'_> {
 
             self.temp_registers.restore_to_mark(hwm);
         } else {
-            let direct_type_rvalue_reg = self.emit_rvalue(source_expression, ctx);
+            let direct_type_rvalue_reg = self.emit_simple_rvalue(source_expression, ctx);
 
             self.store_register_contents_to_memory(
                 element_node,
@@ -2925,7 +2925,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         if let MutRefOrImmutableExpression::Expression(found_expr) = &arguments[0] {
-            let memory = self.emit_rvalue(found_expr, ctx);
+            let memory = self.emit_simple_rvalue(found_expr, ctx);
             self.builder
                 .add_vec_from_slice(target_reg, &memory, node, "create vec");
         } else {
@@ -3091,7 +3091,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!("must be expression");
                 };
-                let old_variable_region = self.emit_rvalue(variable_access_expression, ctx);
+                let old_variable_region = self.emit_simple_rvalue(variable_access_expression, ctx);
 
                 let tagged_union_binding = old_variable_region.ty.underlying();
                 let tagged_union = tagged_union_binding.optional_info().unwrap();
@@ -3138,7 +3138,7 @@ impl CodeBuilder<'_> {
         context: &Context,
     ) -> GeneratedExpressionResult {
         let node = &source_tuple_expression.node;
-        let tuple_base_pointer_reg = self.emit_rvalue(source_tuple_expression, context);
+        let tuple_base_pointer_reg = self.emit_simple_rvalue(source_tuple_expression, context);
 
         let tuple_type = layout_tuple_items(tuple_type);
         // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
@@ -3221,7 +3221,7 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         //info!(?target_reg.ty, "it wants to coerce this to bool");
 
-        let base_pointer_of_tagged_union_reg = self.emit_rvalue(expr, ctx);
+        let base_pointer_of_tagged_union_reg = self.emit_simple_rvalue(expr, ctx);
 
         /* TODO: Bring this back // let (tag_offset, tag_size, ..) = base_pointer_of_tagged_union_reg
             .underlying()
@@ -3245,7 +3245,7 @@ impl CodeBuilder<'_> {
     fn emit_start_of_chain(&mut self, start: &StartOfChain, ctx: &Context) -> DetailedLocation {
         match &start.kind {
             StartOfChainKind::Expression(expr) => DetailedLocation::Register {
-                reg: self.emit_rvalue(expr, ctx),
+                reg: self.emit_simple_rvalue(expr, ctx),
             },
             StartOfChainKind::Variable(variable) => {
                 let variable_reg = self.get_variable_register(variable);
@@ -3520,7 +3520,7 @@ impl CodeBuilder<'_> {
             );
 
         // 3. Inline the lambda code for the current element(s).
-        let lambda_result = self.emit_rvalue(lambda_expr, ctx);
+        let lambda_result = self.emit_simple_rvalue(lambda_expr, ctx);
 
         // 4. If the transformer supports early exit, set the Z flag based on the lambda result.
         let transformer_z_flag_state =
@@ -3883,7 +3883,7 @@ impl CodeBuilder<'_> {
         expr: &Expression,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let inner = self.emit_rvalue(expr, ctx);
+        let inner = self.emit_simple_rvalue(expr, ctx);
 
         if !inner.ty().is_mutable_reference() {
             self.builder.add_lea(
@@ -3943,10 +3943,18 @@ impl CodeBuilder<'_> {
         }
     }
 
-    /// # Panics
+    /// Emits code to resolve an expression of a simple (primitive) type to its value,
+    /// placing that value into a register.
     ///
+    /// This function is typically used to prepare operands for simple arithmetic, logical,
+    /// or comparison operations, or for passing simple-type arguments by value.
+    ///
+    /// For simple rvalues, we do not need a target to materialize (write) into, we
+    /// only need the register to use in, for example, in the operands for an operator.
+    /// it can allocate a temporary register if needed, but not allocate any memory.
+    /// the returned register always contains a simple (primitive) value.
     #[allow(clippy::single_match_else)]
-    pub fn emit_rvalue(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
+    pub fn emit_simple_rvalue(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
         let (target_region, z_flag_state) = self.emit_rvalue_leave_z_flag_if_possible(expr, ctx);
 
         self.materialize_z_flag_to_bool_if_needed(&target_region, z_flag_state, &expr.node);
