@@ -585,6 +585,7 @@ pub enum LocationAccessKind {
     FieldIndex(AnonymousStructType, usize),
     IntrinsicSubscript(IntrinsicFunction, Vec<Expression>),
     Subscript(FixedSliceType, Expression),
+    SubscriptVec(Box<Type>, Expression),
 }
 
 #[derive(Debug, Clone)]

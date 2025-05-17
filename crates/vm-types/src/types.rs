@@ -986,7 +986,7 @@ impl BasicType {
 
 impl BasicType {
     pub fn should_be_copied_back_when_mutable_arg_or_return(&self) -> bool {
-        todo!()
+        !self.is_represented_as_a_pointer_in_reg()
     }
 }
 

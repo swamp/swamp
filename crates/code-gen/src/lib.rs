@@ -15,6 +15,7 @@ mod location;
 pub mod reg_pool;
 pub mod state;
 pub mod top_state;
+mod vec;
 
 use crate::alloc::ScopeAllocator;
 use crate::reg_pool::{RegisterPool, TempRegister};

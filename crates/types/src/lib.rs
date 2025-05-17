@@ -49,12 +49,21 @@ pub enum Type {
     Vec(Box<Type>),
 }
 
+impl Type {}
+
 impl Type {
     pub fn is_vec(&self) -> bool {
         match self {
             Type::NamedStruct(named_struct) => named_struct.is_vec(),
             _ => false,
         }
+    }
+
+    pub fn is_simple(&self) -> bool {
+        matches!(
+            self,
+            Type::Int | Type::Float | Type::String | Type::Bool | Type::Unit
+        )
     }
 
     #[must_use]
@@ -597,6 +606,12 @@ impl Type {
             (Self::Vec(vec_element), Self::VecStorage(storage_element, _size)) => {
                 vec_element.compatible_with(storage_element)
             }
+            // TODO: These are not technically the same, so it should probably be in a can_be_converted from, in a special
+            // analyze_assignment_like() helper
+            (Self::VecStorage(storage_element, _size), Self::Vec(vec_element)) => {
+                vec_element.compatible_with(storage_element)
+            }
+
             (Self::Enum(a), Self::Enum(b)) => a == b,
 
             (Self::NamedStruct(a), Self::NamedStruct(b)) => compare_struct_types(a, b),

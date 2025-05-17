@@ -2713,22 +2713,39 @@ impl<'a> Analyzer<'a> {
                     let unsigned_int_expr =
                         self.analyze_expression(key_expression, &unsigned_int_context)?;
 
-                    if let Type::FixedSlice(element_type, fixed_size) = &ty {
-                        let slice_type = FixedSliceType {
-                            element: Box::new(*element_type.clone()),
-                            fixed_size: *fixed_size,
-                        };
-                        self.add_location_item(
-                            &mut items,
-                            LocationAccessKind::Subscript(slice_type, unsigned_int_expr),
-                            *element_type.clone(),
-                            &key_expression.node,
-                        );
+                    match &ty {
+                        Type::FixedSlice(element_type, fixed_size) => {
+                            let slice_type = FixedSliceType {
+                                element: Box::new(*element_type.clone()),
+                                fixed_size: *fixed_size,
+                            };
+                            self.add_location_item(
+                                &mut items,
+                                LocationAccessKind::Subscript(slice_type, unsigned_int_expr),
+                                *element_type.clone(),
+                                &key_expression.node,
+                            );
 
-                        ty = *element_type.clone();
-                    } else {
-                        eprintln!("what is this: {ty}");
-                        todo!()
+                            ty = *element_type.clone();
+                        }
+
+                        Type::Vec(element_type) => {
+                            self.add_location_item(
+                                &mut items,
+                                LocationAccessKind::SubscriptVec(
+                                    element_type.clone(),
+                                    unsigned_int_expr,
+                                ),
+                                *element_type.clone(),
+                                &key_expression.node,
+                            );
+                            ty = *element_type.clone();
+                        }
+
+                        _ => {
+                            eprintln!("what is this: {ty}");
+                            todo!()
+                        }
                     }
 
                     /*

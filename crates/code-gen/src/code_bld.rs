@@ -7,9 +7,9 @@ use crate::layout::{
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool, TempRegister};
 use crate::state::{CodeGenState, FunctionFixup};
 use crate::{
-    Collection, DetailedLocation, DetailedLocationResolved, GeneratedExpressionResult,
-    GeneratedExpressionResultKind, SpilledRegister, Transformer, TransformerResult,
-    single_intrinsic_fn,
+    single_intrinsic_fn, Collection, DetailedLocation, DetailedLocationResolved,
+    GeneratedExpressionResult, GeneratedExpressionResultKind, SpilledRegister, Transformer,
+    TransformerResult,
 };
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
@@ -25,12 +25,12 @@ use swamp_semantic::{
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, TypedRegister, VmType, u8_type,
-    u16_type, u32_type, unit_type, unknown_type,
+    u16_type, u32_type, u8_type, unit_type, unknown_type, BasicType, BasicTypeKind,
+    BoundsCheck, FramePlacedType, TypedRegister, VmType,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    InstructionPosition, MemoryOffset, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, StringHeader,
+    InstructionPosition, MemoryOffset, StringHeader, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
     VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
 };
 use tracing::{error, info};
@@ -1459,7 +1459,7 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         let assignment_target = self.emit_lvalue_chain(&lhs.0, ctx);
 
-        match assignment_target {
+        match &assignment_target {
             DetailedLocation::Register { reg } => {
                 let target_location_type = layout_type(&lhs.0.ty);
 
@@ -1470,14 +1470,23 @@ impl CodeBuilder<'_> {
                 offset,
                 ..
             } => {
-                let rhs_reg = self.emit_simple_rvalue(rhs, &ctx);
-                self.store_register_contents_to_memory(
-                    node,
-                    &base_ptr_reg,
-                    offset,
-                    &rhs_reg,
-                    "assignment",
-                );
+                if rhs.ty.is_simple() {
+                    let rhs_reg = self.emit_simple_rvalue(rhs, &ctx);
+                    self.store_register_contents_to_memory(
+                        node,
+                        &base_ptr_reg,
+                        *offset,
+                        &rhs_reg,
+                        "assignment",
+                    );
+                } else {
+                    let absolute_ptr_reg = self.emit_ptr_reg_from_detailed_location(
+                        &assignment_target,
+                        node,
+                        "get absolute pointer for complex rvalue materialize",
+                    );
+                    self.emit_complex_rvalue(&absolute_ptr_reg, rhs, ctx);
+                }
             }
         }
 
@@ -1695,35 +1704,12 @@ impl CodeBuilder<'_> {
                 }
 
                 PostfixKind::VecSubscript(vec_type, int_expression) => {
-                    let element_basic_type = layout_type(&vec_type.element);
-                    let vec_count_reg = self
-                        .temp_registers
-                        .allocate(VmType::new_unknown_placement(u16_type()), "vec count");
-                    let vec_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
+                    current_location = self.vec_subscript_helper(
                         &current_location,
-                        &int_expression.node,
-                        "get vec header absolute pointer",
-                    );
-                    self.builder.add_ld16_from_pointer_with_offset_u16(
-                        vec_count_reg.register(),
-                        &vec_header_ptr_reg,
-                        VEC_HEADER_COUNT_OFFSET,
-                        &int_expression.node,
-                        "load vec count for bounds check",
-                    );
-                    let payload_location = current_location.add_offset(
-                        VEC_HEADER_PAYLOAD_OFFSET,
-                        VmType::new_unknown_placement(element_basic_type.clone()),
-                    );
-                    current_location = self.subscript_helper_from_location_to_location(
-                        payload_location,
-                        &element_basic_type,
+                        &vec_type.element,
                         int_expression,
-                        BoundsCheck::RegisterWithMaxCount(vec_count_reg.register),
-                        &int_expression.node,
-                        "rvalue",
                         ctx,
-                    );
+                    )
                 }
 
                 PostfixKind::MemberCall(function_to_call, arguments) => {
@@ -4037,7 +4023,7 @@ impl CodeBuilder<'_> {
         expression: &Expression,
         ctx: &Context,
     ) {
-        // TODO:
+        self.emit_expression_materialize(target_ptr_reg, expression, ctx)
     }
 
     pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
