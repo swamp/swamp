@@ -11,7 +11,10 @@ struct Another {
 }
 
 fn something(things: Vec<Thing>) {
-
+  thing = things[0]
+  assert(thing.a == 42, 'thing.a is wrong')
+  assert(thing.b == -1024, 'thing.b is wrong')
+  print('thing: a:{thing.a} b: {thing.b}')
 }
 
 #[test]
@@ -37,4 +40,15 @@ fn vec_assign_and_subscript() {
   assert(another.things[2].a == 13, 'another.things[2].a is wrong')
   assert(another.things[2].b == 3, 'another.things[2].b is wrong')
 
+}
+
+#[test]
+fn parameter_passing() {
+  another = Another {
+    things: [
+      Thing { b:  -1024, a: 42 }, // Intentionally swapped
+    ]
+  }
+
+  something(another.things)
 }

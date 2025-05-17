@@ -217,8 +217,11 @@ impl CodeBuilder<'_> {
                     &format!("emit_copy_register. ptr to ptr (mutable reference). {comment}"),
                 );
             } else {
-                let size = target_reg.size();
+                self.builder
+                    .add_mov_reg(target_reg, base_ptr_reg, node, "copy pointer reg to reg");
 
+                /*
+                let size = target_reg.size();
                 self.builder.add_block_copy_with_offset(
                     target_reg,
                     MemoryOffset(0),
@@ -228,6 +231,8 @@ impl CodeBuilder<'_> {
                     node,
                     &format!("block copy {comment}"),
                 );
+
+                 */
             }
         } else {
             self.builder.add_load_primitive(
@@ -329,12 +334,12 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_ptr_reg_from_detailed_location(
         &mut self,
-        location: DetailedLocation,
+        location: &DetailedLocation,
         node: &Node,
         comment: &str,
-    ) -> (TypedRegister, Option<TempRegister>) {
+    ) -> TypedRegister {
         match location {
-            DetailedLocation::Register { reg } => (reg, None),
+            DetailedLocation::Register { reg } => reg.clone(),
             DetailedLocation::Memory {
                 base_ptr_reg,
                 offset,
@@ -351,7 +356,9 @@ impl CodeBuilder<'_> {
                     node,
                     &format!("{comment} (load offset value)"),
                 );
-                let final_ptr_target_reg = self.temp_registers.allocate(ty, "final_ptr_target_reg");
+                let final_ptr_target_reg = self
+                    .temp_registers
+                    .allocate(ty.clone(), "final_ptr_target_reg");
                 self.builder.add_add_u32(
                     final_ptr_target_reg.register(),
                     &base_ptr_reg,
@@ -359,11 +366,7 @@ impl CodeBuilder<'_> {
                     node,
                     &format!("{comment} (add to resolved new base_ptr)"),
                 );
-                //self.temp_registers.restore_to_mark(hwm);
-                (
-                    final_ptr_target_reg.register().clone(),
-                    Some(final_ptr_target_reg),
-                )
+                final_ptr_target_reg.register().clone()
             }
         }
     }
@@ -1108,6 +1111,53 @@ impl CodeBuilder<'_> {
         }
     }
 
+    pub(crate) fn emit_absolute_pointer_if_needed(
+        &mut self,
+        target_reg: &TypedRegister,
+        argument: &SingleLocationExpression,
+        ctx: &Context,
+        comment: &str,
+    ) {
+        let region = self.emit_lvalue_chain(argument, ctx);
+        match region {
+            DetailedLocation::Register { reg } => {
+                self.builder.add_mov_reg(
+                    target_reg,
+                    &reg,
+                    &argument.node,
+                    &format!("copy reg that has pointer {target_reg:?} <- {reg:?} {comment}"),
+                );
+            }
+            DetailedLocation::Memory {
+                base_ptr_reg,
+                offset,
+                ..
+            } => {
+                let hwm = self.temp_registers.save_mark();
+
+                let temp_offset_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(u32_type()),
+                    "emit_absolute_pointer: temp_offset_reg",
+                );
+                self.builder.add_mov_32_immediate_value(
+                    temp_offset_reg.register(),
+                    offset.0 as u32,
+                    &argument.node,
+                    "set offset in temp register",
+                );
+                self.builder.add_add_u32(
+                    target_reg,
+                    &base_ptr_reg,
+                    temp_offset_reg.register(),
+                    &argument.node,
+                    "forcing lvalue to be a complete pointer",
+                );
+
+                self.temp_registers.restore_to_mark(hwm);
+            }
+        }
+    }
+
     fn emit_variable_assignment(
         &mut self,
         variable: &VariableRef,
@@ -1649,10 +1699,14 @@ impl CodeBuilder<'_> {
                     let vec_count_reg = self
                         .temp_registers
                         .allocate(VmType::new_unknown_placement(u16_type()), "vec count");
-                    let vec_header_ptr_reg = current_location.base_register().unwrap();
+                    let vec_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
+                        &current_location,
+                        &int_expression.node,
+                        "get vec header absolute pointer",
+                    );
                     self.builder.add_ld16_from_pointer_with_offset_u16(
                         vec_count_reg.register(),
-                        vec_header_ptr_reg,
+                        &vec_header_ptr_reg,
                         VEC_HEADER_COUNT_OFFSET,
                         &int_expression.node,
                         "load vec count for bounds check",

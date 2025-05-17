@@ -73,8 +73,8 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) -> DetailedLocation {
-        let (ptr_to_slice_reg, _) = self.emit_ptr_reg_from_detailed_location(
-            detailed_location_to_slice,
+        let ptr_to_slice_reg = self.emit_ptr_reg_from_detailed_location(
+            &detailed_location_to_slice,
             node,
             &format!(
                 "{comment} (get the the base pointer to the start of where to subscript from)"
@@ -214,7 +214,6 @@ impl CodeBuilder<'_> {
         */
 
         let mut current_location = DetailedLocation::Register { reg: start_reg };
-        let mut temp_regs = Vec::new();
 
         // Loop over the consecutive accesses until we find the actual frame relative address (TypedRegister)
         for access in location_expression.access_chain.iter().take(accesses_count) {
@@ -249,12 +248,11 @@ impl CodeBuilder<'_> {
                         VmType::new_unknown_placement(layout_item_type),
                         "intrinsic subscript",
                     );
-                    let (collection_reg, maybe_temp_collection_reg) = self
-                        .emit_ptr_reg_from_detailed_location(
-                            current_location,
-                            &access.node,
-                            "lvalue chain",
-                        );
+                    let collection_reg = self.emit_ptr_reg_from_detailed_location(
+                        &current_location,
+                        &access.node,
+                        "lvalue chain",
+                    );
 
                     // Fetching from vector, map, etc. are done using intrinsic calls
 
@@ -265,10 +263,6 @@ impl CodeBuilder<'_> {
                         get_item_target_reg.register(),
                         ctx,
                     );
-
-                    if let Some(save_temp_reg) = maybe_temp_collection_reg {
-                        temp_regs.push(save_temp_reg);
-                    }
 
                     current_location = DetailedLocation::Register {
                         reg: get_item_target_reg.register,
