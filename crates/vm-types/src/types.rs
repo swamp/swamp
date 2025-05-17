@@ -262,7 +262,35 @@ pub enum BasicTypeKind {
     MutablePointer(Box<BasicType>),
 }
 
-impl BasicTypeKind {}
+impl BasicTypeKind {
+    pub(crate) fn manifestation(&self) -> Manifestation {
+        if self.is_represented_as_primitive_inside_register() {
+            Manifestation::DirectInsideRegister
+        } else {
+            Manifestation::IndirectAsPointer
+        }
+    }
+}
+
+pub enum Manifestation {
+    DirectInsideRegister,
+    IndirectAsPointer,
+}
+
+impl Manifestation {
+    pub fn string(&self) -> &str {
+        match self {
+            Manifestation::DirectInsideRegister => "simple",
+            Manifestation::IndirectAsPointer => "complex (ptr)",
+        }
+    }
+}
+
+impl Display for Manifestation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.string())
+    }
+}
 
 impl BasicTypeKind {
     pub(crate) fn is_represented_as_primitive_inside_register(&self) -> bool {
@@ -744,7 +772,7 @@ impl Display for VmTypeOrigin {
             Self::Unknown => Ok(()),
             Self::Frame(region) => write!(f, "frame {region}"),
             Self::Heap(region) => write!(f, "heap {region}"),
-            Self::InsideReg => write!(f, "contained"),
+            Self::InsideReg => write!(f, "reg"),
         }
     }
 }
@@ -755,13 +783,15 @@ pub struct VmType {
     pub origin: VmTypeOrigin,
 }
 
-impl VmType {}
-
-impl VmType {}
-
 impl Display for VmType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.basic_type, self.origin)
+        write!(
+            f,
+            "{} {} {}",
+            tinter::bright_green(&self.basic_type),
+            self.origin,
+            tinter::bright_magenta(self.manifestation())
+        )
     }
 }
 
@@ -771,6 +801,10 @@ impl VmType {
             basic_type: frame_placed.ty.clone(),
             origin: VmTypeOrigin::Frame(frame_placed.region()),
         }
+    }
+
+    pub fn manifestation(&self) -> Manifestation {
+        self.basic_type.manifestation()
     }
 
     pub fn new_heap_placement(basic_type: BasicType, heap_region: HeapMemoryRegion) -> Self {
@@ -942,6 +976,12 @@ pub struct BasicType {
     pub kind: BasicTypeKind,
     pub total_size: MemorySize,
     pub max_alignment: MemoryAlignment,
+}
+
+impl BasicType {
+    pub(crate) fn manifestation(&self) -> Manifestation {
+        self.kind.manifestation()
+    }
 }
 
 impl BasicType {

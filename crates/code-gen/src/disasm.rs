@@ -22,11 +22,10 @@ pub fn show_parameters_and_variables(
     for reg in parameters {
         writeln!(
             f,
-            "{}: {}: {} {}",
+            "{}: {}: {} ",
             tinter::yellow(format!("r{}", reg.register.index)),
-            reg.variable.name,
-            reg.register.ty,
-            reg.register.comment
+            tinter::bright_cyan(&reg.variable.name),
+            &reg.register.ty,
         )?;
     }
 
@@ -35,7 +34,7 @@ pub fn show_parameters_and_variables(
             f,
             "{}: {}: {} {}",
             tinter::yellow(format!("r{}", reg.register.index)),
-            reg.variable.name,
+            tinter::blue(&reg.variable.name),
             reg.register.ty,
             reg.register.comment
         )?;
@@ -60,7 +59,8 @@ pub fn disasm_function(
         parameters,
         &frame_relative_infos.variable_registers,
         &mut header_output,
-    );
+    )
+    .expect("should work");
 
     let mut ip_infos = SeqMap::new();
 

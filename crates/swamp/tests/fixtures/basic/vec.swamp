@@ -10,7 +10,9 @@ struct Another {
   things: Vec<Thing, 3>,
 }
 
+fn something(things: Vec<Thing>) {
 
+}
 
 #[test]
 fn vec_assign_and_subscript() {
