@@ -2352,7 +2352,10 @@ impl CodeBuilder<'_> {
                 target_reg,
                 &variable_register,
                 node,
-                &format!("variable access {}", tinter::red(&variable.assigned_name)),
+                &format!(
+                    "variable access {}. Both are immutable.",
+                    tinter::red(&variable.assigned_name)
+                ),
             );
         } else {
             if target_reg
@@ -2373,7 +2376,10 @@ impl CodeBuilder<'_> {
                     target_reg,
                     &variable_register,
                     node,
-                    &format!("variable access {}", tinter::red(&variable.assigned_name)),
+                    &format!(
+                        "variable access {}. it is a simple type.",
+                        tinter::red(&variable.assigned_name)
+                    ),
                 );
             }
         }

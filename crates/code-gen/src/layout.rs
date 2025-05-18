@@ -245,6 +245,8 @@ pub fn layout_type(ty: &Type) -> BasicType {
         ),
         Type::Optional(inner_type) => layout_optional_type(inner_type),
         Type::MutableReference(inner_type) => layout_mutable_reference(inner_type),
+        Type::ImmutableReference(inner_type) => layout_constant_reference(inner_type),
+
         Type::Function(_) => panic!("function types should not be a part of codegen"),
         Type::Never => panic!("'never' should not be a part of codegen"),
         Type::Generic(_, _) => panic!("generic should not be a part of codegen"),
@@ -256,10 +258,13 @@ pub fn layout_type(ty: &Type) -> BasicType {
 fn layout_mutable_reference(analyzed_type: &Type) -> BasicType {
     let inner_type = layout_type(analyzed_type);
     BasicType {
+        total_size: inner_type.total_size,
+        max_alignment: inner_type.max_alignment,
         kind: BasicTypeKind::MutablePointer(Box::from(inner_type)),
-        total_size: HEAP_PTR_ON_FRAME_SIZE,
-        max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
     }
+}
+fn layout_constant_reference(analyzed_type: &Type) -> BasicType {
+    layout_type(analyzed_type)
 }
 
 fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {

@@ -679,6 +679,10 @@ impl SourceMapDisplay<'_> {
                 write!(f, "{}", "mut ref".red())?;
                 self.show_type_short(f, base_type, tabs)
             }
+            Type::ImmutableReference(base_type) => {
+                write!(f, "{}", "ref".red())?;
+                self.show_type_short(f, base_type, tabs)
+            }
             Type::Generic(blueprint, concrete_types) => {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }
@@ -721,6 +725,10 @@ impl SourceMapDisplay<'_> {
             Type::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
             Type::MutableReference(base_type) => {
                 write!(f, "{}", "mut ref".red());
+                self.show_type_short(f, base_type, tabs)
+            }
+            Type::ImmutableReference(base_type) => {
+                write!(f, "{}", "ref".red());
                 self.show_type_short(f, base_type, tabs)
             }
             Type::Generic(blueprint, concrete_types) => {

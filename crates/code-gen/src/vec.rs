@@ -47,7 +47,7 @@ impl CodeBuilder<'_> {
             int_expression,
             BoundsCheck::RegisterWithMaxCount(vec_count_reg.register),
             &int_expression.node,
-            "rvalue",
+            &format!("rvalue {analyzed_element_type}"),
             ctx,
         )
     }

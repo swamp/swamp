@@ -44,6 +44,7 @@ pub enum Type {
     Variable(String),
 
     MutableReference(Box<Type>),
+    ImmutableReference(Box<Type>),
 
     VecStorage(Box<Type>, usize),
     Vec(Box<Type>),
@@ -318,6 +319,7 @@ impl Type {
 
             Self::Optional(inner)
             | Self::MutableReference(inner)
+            | Self::ImmutableReference(inner)
             | Self::FixedSlice(inner, _)
             | Self::DynamicSlice(inner) => inner.is_concrete(),
 
@@ -385,7 +387,9 @@ impl Type {
             Self::VecStorage(_, _) => true,
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
-            Self::Optional(inner) | Self::MutableReference(inner) => inner.is_blittable(),
+            Self::Optional(inner)
+            | Self::MutableReference(inner)
+            | Self::ImmutableReference(inner) => inner.is_blittable(),
 
             Self::Tuple(types) => types.iter().all(Self::is_blittable),
             Self::NamedStruct(struct_type) => {
@@ -449,6 +453,7 @@ impl Type {
             | Self::DynamicSlicePair(_, _)
             | Self::DynamicSlice(_)
             | Self::MutableReference(_)
+            | Self::ImmutableReference(_)
             | Self::Vec(_)
             | Self::Variable(_) => false,
 
@@ -502,7 +507,8 @@ impl Debug for Type {
                 write!(f, "{function_type_signature:?}")
             }
             Self::Optional(base_type) => write!(f, "{base_type:?}?"),
-            Self::MutableReference(base_type) => write!(f, "mut ref {base_type:?}?"),
+            Self::MutableReference(base_type) => write!(f, "mut & {base_type:?}"),
+            Self::ImmutableReference(base_type) => write!(f, "const & {base_type:?}"),
             Self::Variable(variable_name) => write!(f, "<|{variable_name}|>"),
             Self::Generic(blueprint, non_concrete_arguments) => {
                 write!(f, "{blueprint:?}<{non_concrete_arguments:?}>")
@@ -547,7 +553,8 @@ impl Display for Type {
             Self::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name),
             Self::Function(signature) => write!(f, "function {signature}"),
             Self::Optional(base_type) => write!(f, "{base_type}?"),
-            Self::MutableReference(base_type) => write!(f, "mut ref {base_type:?}?"),
+            Self::MutableReference(base_type) => write!(f, "mut & {base_type:?}"),
+            Self::ImmutableReference(base_type) => write!(f, "const & {base_type:?}"),
             Self::Variable(variable_name) => write!(f, "<|{variable_name}|>"),
 
             Self::Generic(blueprint, non_concrete_arguments) => {

@@ -18,8 +18,11 @@ fn reading_things(things: Vec<Thing>) {
 }
 
 fn writing_second_element_in_things(mut things: Vec<Thing>) {
+  print('before things[1]: a:{things[1].a} b: {things[1].b}')
   new_thing = Thing { a: 100, b: 200 }
+  print('new_thing: a:{new_thing.a} b: {new_thing.b}')
   things[1] = new_thing
+  print('after things[1]: a:{things[1].a} b: {things[1].b}')
 }
 
 fn writing_second_b_in_things(mut things: Vec<Thing>) {
@@ -94,7 +97,7 @@ fn mut_parameter_passing_one_field() {
  }
 
 
-//#[test]
+#[test]
 fn mut_parameter_passing_whole_element() {
 
   mut another = Another {
@@ -114,8 +117,7 @@ fn mut_parameter_passing_whole_element() {
   // Call the function that mutates the second element
   writing_second_element_in_things(&another.things)
 
-
-  // Check that first element is unchanged
+  // Check that first element is unchanged after mutation of the second element
   assert(another.things[0].a == 42, 'after mutation: things[0].a has been changed!')
   assert(another.things[0].b == -1024, 'after mutation: things[0].b has been changed!')
 

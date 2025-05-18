@@ -59,13 +59,14 @@ impl Analyzer<'_> {
                 kind,
             }];
 
+            let actual_type = Type::MutableReference(Box::new(field_expression_type));
             let created_location = SingleLocationExpression {
                 kind: MutableReferenceKind::MutStructFieldRef(
                     anon_struct_type.clone(),
                     field_target_index,
                 ),
                 node: node.clone(),
-                ty: field_expression_type,
+                ty: actual_type,
                 starting_variable: temp_var.clone(),
                 access_chain: single_chain,
             };

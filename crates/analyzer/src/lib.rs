@@ -1239,7 +1239,7 @@ impl<'a> Analyzer<'a> {
 
                 swamp_ast::Postfix::Subscript(index_expr) => {
                     let collection_type = tv.resolved_type.clone();
-                    match &collection_type {
+                    match &collection_type.underlying() {
                         Type::FixedSlice(element_type_in_slice, fixed_size) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
@@ -2730,13 +2730,14 @@ impl<'a> Analyzer<'a> {
                         }
 
                         Type::Vec(element_type) => {
+                            let mut_type = Box::from(Type::MutableReference(element_type.clone()));
                             self.add_location_item(
                                 &mut items,
                                 LocationAccessKind::SubscriptVec(
-                                    element_type.clone(),
+                                    mut_type.clone(),
                                     unsigned_int_expr,
                                 ),
-                                *element_type.clone(),
+                                *mut_type,
                                 &key_expression.node,
                             );
                             ty = *element_type.clone();
@@ -2961,24 +2962,25 @@ impl<'a> Analyzer<'a> {
         let source_expr = self.analyze_expression(ast_source_expression, &lhs_argument_context)?;
          */
 
-        let final_expr = if Self::is_type_assignment_compatible(&target_type, &source_expr.ty) {
-            source_expr
-        }
-        /*else if let Some(converted) =
-            self.try_convert_for_assignment(&source_expr, &target_type, ast_source_expression)?
+        let final_expr =
+            if Self::is_type_assignment_compatible(&target_type.underlying(), &source_expr.ty) {
+                source_expr
+            }
+            /*else if let Some(converted) =
+                self.try_convert_for_assignment(&source_expr, &target_type, ast_source_expression)?
 
-        {
-            converted
-        }         */
-        else {
-            return Err(self.create_err(
-                ErrorKind::IncompatibleTypesForAssignment {
-                    expected: target_type.clone(),
-                    found: source_expr.ty,
-                },
-                &ast_source_expression.node,
-            ));
-        };
+            {
+                converted
+            }         */
+            else {
+                return Err(self.create_err(
+                    ErrorKind::IncompatibleTypesForAssignment {
+                        expected: target_type.clone(),
+                        found: source_expr.ty,
+                    },
+                    &ast_source_expression.node,
+                ));
+            };
 
         let assignment_mode = self.check_assignment_mode(true, &final_expr, &target_type); // TODO: Fill in correct lhs_is_mutable
 
@@ -3000,12 +3002,11 @@ impl<'a> Analyzer<'a> {
         )?;
 
         let target_type = resolved_location.ty.clone();
+        let mut_type = Type::MutableReference(Box::from(target_type));
         let mut_location = TargetAssignmentLocation(resolved_location);
 
-        let final_expr = self.analyze_expression_for_assignment_with_target_type(
-            &target_type,
-            ast_source_expression,
-        )?;
+        let final_expr = self
+            .analyze_expression_for_assignment_with_target_type(&mut_type, ast_source_expression)?;
 
         Ok((mut_location, final_expr))
     }
