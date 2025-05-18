@@ -10,10 +10,9 @@ repository = "https://github.com/swamp/swamp"
 # Swamp VM
 swamp-vm-types = { path = "../vm-types", version = "0.1.16" }
 swamp-vm-instr-build = { path = "../vm-instr-build", version = "0.1.16" }
-swamp-vm-debug-types = { path = "../vm-debug-types", version = "0.1.16" }
 swamp-vm-disasm = { path = "../vm-disasm", version = "0.1.16" }
 
-# Swamp
+# Swamp Analyzer
 swamp-semantic = { path = "../semantic", version = "0.1.16" }
 swamp-types = { path = "../types", version = "0.1.16" }
 
@@ -22,6 +21,5 @@ source-map-node = "0.0.1"
 source-map-cache = "0.0.2"
 
 seq-map = "0.0.13"
-
 tinter = "0.1.0"
 tracing = "0.1.40"

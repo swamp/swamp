@@ -35,7 +35,6 @@ members = [
     "crates/vm-types",
     "crates/vm-instr-build",
     "crates/vm-host",
-    "crates/vm-debug-types",
     "crates/vm-pretty-print",
     "crates/runtime",
     "crates/test-runner",
