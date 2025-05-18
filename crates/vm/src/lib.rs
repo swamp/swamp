@@ -4,6 +4,7 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
 use fixed32::Fp;
@@ -119,6 +120,13 @@ pub struct CallFrame {
 
 type RegContents = u32;
 
+#[derive(Eq, PartialEq)]
+pub enum VmState {
+    Normal,
+    Panic(String),
+    Trap(u8),
+}
+
 pub struct Vm {
     // Memory
     memory: Memory,
@@ -143,9 +151,9 @@ pub struct Vm {
     pub debug: Debug,
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
-}
 
-impl Vm {}
+    pub state: VmState,
+}
 
 const ALIGNMENT: usize = 8;
 const ALIGNMENT_REST: usize = ALIGNMENT - 1;
@@ -196,6 +204,7 @@ impl Vm {
             },
             debug_stats_enabled: setup.debug_stats_enabled,
             debug_opcodes_enabled: setup.debug_opcodes_enabled,
+            state: Normal,
         };
 
         /*
@@ -987,13 +996,18 @@ impl Vm {
         if self.debug_opcodes_enabled {
             self.debug_output();
         }
+        self.state = VmState::Trap(trap_code);
 
-        panic!("vm trap: '{trap_code}'");
+        #[cfg(feature = "debug_vm")]
+        if self.debug_stats_enabled {
+            eprintln!("vm trap: '{trap_code}'");
+        }
     }
 
     #[inline]
     fn execute_panic(&mut self, panic_reason_reg: u8) {
         self.execution_complete = true;
+
         #[cfg(feature = "debug_vm")]
         if self.debug_opcodes_enabled {
             self.debug_output();
@@ -1001,7 +1015,13 @@ impl Vm {
 
         let heap_addr = get_reg!(self, panic_reason_reg);
         let str = Self::read_string(heap_addr, &self.memory);
-        panic!("vm panic: '{str}'");
+
+        #[cfg(feature = "debug_vm")]
+        if self.debug_stats_enabled {
+            eprintln!("panic: {str}")
+        }
+
+        self.state = VmState::Panic(str.to_string());
     }
 
     fn debug_output(&self) {

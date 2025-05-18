@@ -263,6 +263,11 @@ impl Variable {
     pub const fn is_mutable(&self) -> bool {
         self.mutable_node.is_some()
     }
+
+    #[must_use]
+    pub const fn is_immutable(&self) -> bool {
+        !self.is_mutable()
+    }
 }
 
 pub type VariableRef = Rc<Variable>;

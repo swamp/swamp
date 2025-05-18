@@ -2713,7 +2713,7 @@ impl<'a> Analyzer<'a> {
                     let unsigned_int_expr =
                         self.analyze_expression(key_expression, &unsigned_int_context)?;
 
-                    match &ty {
+                    match &ty.underlying() {
                         Type::FixedSlice(element_type, fixed_size) => {
                             let slice_type = FixedSliceType {
                                 element: Box::new(*element_type.clone()),

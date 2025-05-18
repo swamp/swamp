@@ -2,16 +2,16 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::DetailedLocation;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use crate::DetailedLocation;
 use source_map_node::Node;
 use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
 use swamp_vm_types::types::{
-    int_type, u16_type, BasicType, BasicTypeKind, BoundsCheck, TypedRegister, VmType,
+    BasicType, BasicTypeKind, BoundsCheck, TypedRegister, VmType, int_type, u16_type,
 };
 use swamp_vm_types::{MemoryOffset, VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET};
 
@@ -240,7 +240,12 @@ impl CodeBuilder<'_> {
                     );
                 }
                 LocationAccessKind::SubscriptVec(element_type, int_expression) => {
-                    current_location = self.vec_subscript_helper(&current_location, element_type, int_expression, ctx)
+                    current_location = self.vec_subscript_helper(
+                        &current_location,
+                        element_type,
+                        int_expression,
+                        ctx,
+                    )
                 }
                 LocationAccessKind::IntrinsicSubscript(
                     _intrinsic_function,

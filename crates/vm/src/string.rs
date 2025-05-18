@@ -55,20 +55,27 @@ impl Vm {
 
          */
     pub fn read_string_header_from_ptr_reg(&self, vec_header_ptr_reg: u8) -> StringHeader {
-        let vec_header_const_ptr =
+        let header_storage_ptr_value =
             self.get_const_ptr_from_reg(vec_header_ptr_reg) as *const StringHeader;
-        unsafe { *vec_header_const_ptr }
+
+        let vec_header_const_ptr_typed = header_storage_ptr_value as *const StringHeader;
+
+        let header_value: StringHeader =
+            unsafe { std::ptr::read_unaligned(vec_header_const_ptr_typed) };
+
+        header_value
     }
 
     #[inline]
     fn get_string(&self, reg: u8) -> &str {
         let header = self.read_string_header_from_ptr_reg(reg);
+        let byte_count = header.byte_count;
         unsafe {
             let runes = self
                 .memory()
                 .get_heap_const_ptr(header.heap_offset as usize);
 
-            let bytes = std::slice::from_raw_parts(runes, header.byte_count as usize);
+            let bytes = std::slice::from_raw_parts(runes, byte_count as usize);
 
             std::str::from_utf8_unchecked(bytes)
         }
@@ -84,8 +91,8 @@ impl Vm {
 
     #[inline]
     pub fn execute_string_cmp(&mut self, string_a: u8, string_b: u8) {
-        let str_a = self.get_string(string_a);
-        let str_b = self.get_string(string_b);
+        let str_a = self.get_string(string_a).to_string();
+        let str_b = self.get_string(string_b).to_string();
 
         self.flags.t = str_a == str_b;
     }

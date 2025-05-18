@@ -41,6 +41,8 @@ swamp-std = {path = "../std", version = "0.1.16"}
 source-map-cache = "0.0.2"
 source-map-node = "0.0.1"
 
+tinter = "0.1.0"
+
 tiny-ver = "0.1.2"
 
 [dev-dependencies]

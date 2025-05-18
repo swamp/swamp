@@ -49,6 +49,15 @@ pub enum Type {
     Vec(Box<Type>),
 }
 
+impl Type {
+    pub fn underlying(&self) -> &Type {
+        match self {
+            Type::MutableReference(x) => x,
+            _ => self,
+        }
+    }
+}
+
 impl Type {}
 
 impl Type {

@@ -14,10 +14,10 @@ fn simple_tuple() {
 #[test]
 fn create_and_destructure_simple_tuple() {
   val1, str_val, bool_val = (100, "swamp_tuple", true)
-  print('create_and_destructure_simple_tuple: val1:{val1}, str_val:"{str_val}", bool_val:{bool_val}')
   assert(val1 == 100, 'Simple destructure: val1 is wrong')
   assert(str_val == "swamp_tuple", 'Simple destructure: str_val is wrong')
   assert(bool_val == true, 'Simple destructure: bool_val is wrong')
+  print('create_and_destructure_simple_tuple: val1:{val1}, str_val:"{str_val}", bool_val:{bool_val}')
 
   my_tuple = (200, "another example", false)
   item_a, item_b, item_c = my_tuple

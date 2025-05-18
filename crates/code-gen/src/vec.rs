@@ -1,10 +1,10 @@
+use crate::DetailedLocation;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use crate::DetailedLocation;
 use swamp_semantic::Expression;
 use swamp_types::Type;
-use swamp_vm_types::types::{u16_type, BoundsCheck, VmType};
+use swamp_vm_types::types::{BoundsCheck, VmType, u16_type};
 use swamp_vm_types::{VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET};
 
 impl CodeBuilder<'_> {
@@ -12,7 +12,7 @@ impl CodeBuilder<'_> {
     ///
     /// The function targets a vec-like structured with a `u16` length prefix followed by
     /// contiguous element data in memory. It uses the provided `int_expression` as the
-    /// index for the lookup. Calls the `subscript_helper_from_location_to_location` to 
+    /// index for the lookup. Calls the `subscript_helper_from_location_to_location` to
     /// emit the bounds checking.
     pub fn vec_subscript_helper(
         &mut self,

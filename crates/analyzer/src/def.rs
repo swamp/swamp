@@ -442,10 +442,16 @@ impl Analyzer<'_> {
 
                 // Set up scope for function body
                 for param in &parameters {
+                    let param_type = &param.resolved_type;
+                    let actual_type = if param.node.as_ref().unwrap().is_mutable() {
+                        Type::MutableReference(Box::new(param_type.clone()))
+                    } else {
+                        param_type.clone()
+                    };
                     self.create_parameter_resolved(
                         &param.node.as_ref().unwrap().name,
                         param.node.as_ref().unwrap().is_mutable.as_ref(),
-                        &param.resolved_type.clone(),
+                        &actual_type,
                     )?;
                 }
                 let function_name = self
@@ -744,9 +750,14 @@ impl Analyzer<'_> {
                 let mut parameters = Vec::new();
 
                 if let Some(found_self) = &function_data.declaration.self_parameter {
+                    let actual_self_type = if found_self.is_mutable.is_some() {
+                        Type::MutableReference(Box::from(self_type.clone()))
+                    } else {
+                        self_type.clone()
+                    };
                     parameters.push(TypeForParameter {
                         name: self.get_text(&found_self.self_node).to_string(),
-                        resolved_type: self_type.clone(),
+                        resolved_type: actual_self_type,
                         is_mutable: found_self.is_mutable.is_some(),
                         node: Option::from(ParameterNode {
                             name: self.to_node(&found_self.self_node),
@@ -756,7 +767,10 @@ impl Analyzer<'_> {
                 }
 
                 for param in &function_data.declaration.params {
-                    let resolved_type = self.analyze_type(&param.param_type)?;
+                    let mut resolved_type = self.analyze_type(&param.param_type)?;
+                    if param.variable.is_mutable.is_some() {
+                        resolved_type = Type::MutableReference(Box::from(resolved_type));
+                    }
 
                     parameters.push(TypeForParameter {
                         name: self.get_text(&param.variable.name).to_string(),

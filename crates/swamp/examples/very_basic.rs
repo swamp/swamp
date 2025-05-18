@@ -1,10 +1,32 @@
 use std::path::Path;
+use swamp_modules::modules::pretty_module_name;
 use swamp_runtime::{RunConstantsOptions, RunOptions};
 use swamp_std::print::register_print;
+use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
+use tracing::error;
 
 #[derive(Debug, Default, Clone, Copy)]
 struct TestContext;
+
+pub fn colorize_parts(parts: &[String]) -> String {
+    let new_parts: Vec<_> = parts
+        .iter()
+        .map(|x| format!("{}", tinter::bright_cyan(x)))
+        .collect();
+
+    new_parts.join("::")
+}
+
+pub fn colorful_module_name(parts: &[String]) -> String {
+    let x = if parts[0] == "crate" {
+        &parts[1..]
+    } else {
+        parts
+    };
+
+    colorize_parts(x)
+}
 
 pub fn very_basic(test_dir: &Path) {
     const SHOULD_RUN: bool = true;
@@ -41,7 +63,7 @@ pub fn very_basic(test_dir: &Path) {
                     }
                     if DEBUG_OUTPUT {
                         if !has_shown_mod_name {
-                            eprintln!(">> module {module_name:?}");
+                            //eprintln!(">> module {module_name:?}");
                             has_shown_mod_name = true;
                         }
                     }
@@ -49,12 +71,14 @@ pub fn very_basic(test_dir: &Path) {
                         .functions
                         .get(&internal_fn.program_unique_id)
                         .unwrap();
+                    let complete_name = format!(
+                        "{}:{}",
+                        colorful_module_name(module_name),
+                        tinter::blue(&function_to_run.internal_function_definition.assigned_name)
+                    );
 
                     if DEBUG_OUTPUT {
-                        eprintln!(
-                            "running test '{}'",
-                            function_to_run.internal_function_definition.assigned_name
-                        );
+                        eprintln!("running test '{}'", complete_name);
                     }
                     for _ in 0..RUN_ITERATIONS {
                         swamp_runtime::run_function(
@@ -65,6 +89,23 @@ pub fn very_basic(test_dir: &Path) {
                                 debug_opcodes_enabled: false,
                             },
                         );
+                        if vm.state != VmState::Normal {
+                            break;
+                        }
+                    }
+
+                    match &vm.state {
+                        VmState::Panic(message) => {
+                            error!(message, "PANIC!");
+                            eprintln!("❌ Panic {complete_name} {message}");
+                        }
+                        VmState::Normal => {
+                            eprintln!("✅ {complete_name} worked!");
+                        }
+                        VmState::Trap(trap_code) => {
+                            error!(trap_code, "TRAP");
+                            eprintln!("❌ trap {complete_name} {trap_code}");
+                        }
                     }
                 }
             }

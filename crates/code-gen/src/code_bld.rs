@@ -7,13 +7,14 @@ use crate::layout::{
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool, TempRegister};
 use crate::state::{CodeGenState, FunctionFixup};
 use crate::{
-    single_intrinsic_fn, Collection, DetailedLocation, DetailedLocationResolved,
-    GeneratedExpressionResult, GeneratedExpressionResultKind, SpilledRegister, Transformer,
-    TransformerResult,
+    Collection, DetailedLocation, DetailedLocationResolved, GeneratedExpressionResult,
+    GeneratedExpressionResultKind, SpilledRegister, Transformer, TransformerResult,
+    single_intrinsic_fn,
 };
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
+use std::env::var;
 use swamp_semantic::{
     AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
     CompoundOperatorKind, ConstantRef, EnumLiteralData, Expression, ExpressionKind,
@@ -25,12 +26,12 @@ use swamp_semantic::{
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::types::{
-    u16_type, u32_type, u8_type, unit_type, unknown_type, BasicType, BasicTypeKind,
-    BoundsCheck, FramePlacedType, TypedRegister, VmType,
+    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, TypedRegister, VmType, u8_type,
+    u16_type, u32_type, unit_type, unknown_type,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    InstructionPosition, MemoryOffset, StringHeader, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
+    InstructionPosition, MemoryOffset, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, StringHeader,
     VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
 };
 use tracing::{error, info};
@@ -2095,13 +2096,20 @@ impl CodeBuilder<'_> {
             .constants_manager
             .allocate_byte_array(string_bytes);
 
+        eprintln!(
+            "[SWAMP_COMPILER_DEBUG] emit_string_literal: input='{}', len={}, character_bytes {:?} saved to address: {data_ptr:?}",
+            string,
+            string.len(),
+            string_bytes
+        );
+
         let string_header = StringHeader {
             heap_offset: data_ptr.addr().0,
             byte_count: string_byte_count as u32,
         };
 
         // Convert string header to bytes (little-endian)
-        let mut header_bytes = [0u8; 12];
+        let mut header_bytes = [0u8; 8];
         header_bytes[0..4].copy_from_slice(&string_header.heap_offset.to_le_bytes());
         header_bytes[4..8].copy_from_slice(&string_header.byte_count.to_le_bytes());
 
@@ -2112,7 +2120,11 @@ impl CodeBuilder<'_> {
                 .addr()
                 .0,
         );
-        // TODO: Bring this back // assert_eq!(ctx.target_size(), STRING_PTR_SIZE);
+
+        eprintln!(
+            "[SWAMP_COMPILER_DEBUG] emit_string_literal: string header bytes ='{header_bytes:?}' header saved to address: {string_header_in_heap_ptr}"
+        );
+
         self.builder.add_mov_32_immediate_value(
             target_reg,
             string_header_in_heap_ptr.0,
@@ -2332,13 +2344,39 @@ impl CodeBuilder<'_> {
         variable: &VariableRef,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let frame_placed_variable = self.get_variable_register(variable).clone();
-        self.builder.add_mov_reg(
-            target_reg,
-            &frame_placed_variable,
-            node,
-            &format!("variable access {}", tinter::red(&variable.assigned_name)),
-        );
+        // If both are immutable, it is safe to copy the contents. works for both simple and complex types.
+        let variable_register = self.get_variable_register(variable).clone();
+
+        if target_reg.ty.is_immutable() && variable.is_immutable() {
+            self.builder.add_mov_reg(
+                target_reg,
+                &variable_register,
+                node,
+                &format!("variable access {}", tinter::red(&variable.assigned_name)),
+            );
+        } else {
+            if target_reg
+                .ty
+                .basic_type
+                .is_represented_as_a_pointer_in_reg()
+            {
+                let target_region = variable_register.ty.frame_placed_type().unwrap();
+                self.builder.add_block_copy(
+                    target_reg,
+                    &variable_register,
+                    target_region.size(),
+                    node,
+                    "materialize (write) contents of variable into target",
+                );
+            } else {
+                self.builder.add_mov_reg(
+                    target_reg,
+                    &variable_register,
+                    node,
+                    &format!("variable access {}", tinter::red(&variable.assigned_name)),
+                );
+            }
+        }
 
         GeneratedExpressionResult::default()
     }

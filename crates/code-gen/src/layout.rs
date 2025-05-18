@@ -511,6 +511,7 @@ pub fn layout_variables(
         let basic_type = layout_type(&var_ref.resolved_type);
         let register = if basic_type.is_represented_as_a_pointer_in_reg() {
             // TODO: Should have a check if the variable needs the storage (if it is in an assignment in a copy)
+
             let var_frame_placed_type = local_frame_allocator.allocate_type(basic_type);
             trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
             writeln!(

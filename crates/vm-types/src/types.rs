@@ -262,6 +262,8 @@ pub enum BasicTypeKind {
     MutablePointer(Box<BasicType>),
 }
 
+impl BasicTypeKind {}
+
 impl BasicTypeKind {
     pub(crate) fn manifestation(&self) -> Manifestation {
         if self.is_represented_as_primitive_inside_register() {
@@ -296,7 +298,7 @@ impl BasicTypeKind {
     pub(crate) fn is_represented_as_primitive_inside_register(&self) -> bool {
         matches!(
             self,
-            Self::Empty | Self::U8 | Self::U16 | Self::S32 | Self::U32 | Self::Fixed32
+            Self::Empty | Self::B8 | Self::U8 | Self::U16 | Self::S32 | Self::U32 | Self::Fixed32
         )
     }
 
@@ -306,6 +308,10 @@ impl BasicTypeKind {
 
     pub fn is_mutable_reference(&self) -> bool {
         matches!(self, BasicTypeKind::MutablePointer(..))
+    }
+
+    pub(crate) fn is_immutable(&self) -> bool {
+        !self.is_mutable_reference()
     }
 
     pub fn needs_copy_back_when_mutable(&self) -> bool {
@@ -783,6 +789,8 @@ pub struct VmType {
     pub origin: VmTypeOrigin,
 }
 
+impl VmType {}
+
 impl Display for VmType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -801,6 +809,9 @@ impl VmType {
             basic_type: frame_placed.ty.clone(),
             origin: VmTypeOrigin::Frame(frame_placed.region()),
         }
+    }
+    pub fn is_immutable(&self) -> bool {
+        self.basic_type.kind.is_immutable()
     }
 
     pub fn manifestation(&self) -> Manifestation {
