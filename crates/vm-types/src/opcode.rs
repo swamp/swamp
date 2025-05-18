@@ -17,6 +17,7 @@ pub enum OpCode {
     // Operators
     // u32 and i32
     AddU32,
+    // TODO: Add u32 with immediate, Rd, Rm, #immediate
     MulU32,
     SubU32,
 
@@ -75,6 +76,8 @@ pub enum OpCode {
     Ld32FromPointerWithOffset,
     LdRegFromFrame,
 
+    // TODO: LEA Rddest, [Rbase + ImmediateOffset]
+    // TODO: LEA.SI Rdest, Rbase, Rindex, ScaleImmediate
     Ld8FromAbsoluteAddress,
     Ld32FromAbsoluteAddress,
 

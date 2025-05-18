@@ -253,11 +253,16 @@ pub fn disasm_color(
                 format!("{}", tinter::red(format!("{data}",))),
                 String::new(),
             ),
-            DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => {
-                (format!("[{} #{}]", base_reg, offset.0), String::new())
-            }
+            DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => (
+                format!("[{} #{}]", tinter::red(base_reg), tinter::yellow(offset.0)),
+                String::new(),
+            ),
             DecoratedOperandAccessKind::ReadBaseRegWithOffset(base_reg, offset) => (
-                format!("[{} #{}]", tinter::green(base_reg), offset.0),
+                format!(
+                    "[{} #{}]",
+                    tinter::green(base_reg),
+                    tinter::yellow(offset.0)
+                ),
                 String::new(),
             ),
         };

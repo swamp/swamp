@@ -25,6 +25,13 @@ fn writing_second_element_in_things(mut things: Vec<Thing>) {
   print('after things[1]: a:{things[1].a} b: {things[1].b}')
 }
 
+
+fn writing_second_element_in_things_directly(mut things: Vec<Thing>) {
+  print('before things[1]: a:{things[1].a} b: {things[1].b}')
+  things[1] = Thing { a: 100, b: 200 }
+  print('after things[1]: a:{things[1].a} b: {things[1].b}')
+}
+
 fn writing_second_b_in_things(mut things: Vec<Thing>) {
   things[1].b = -999
 }
@@ -116,6 +123,37 @@ fn mut_parameter_passing_whole_element() {
 
   // Call the function that mutates the second element
   writing_second_element_in_things(&another.things)
+
+  // Check that first element is unchanged after mutation of the second element
+  assert(another.things[0].a == 42, 'after mutation: things[0].a has been changed!')
+  assert(another.things[0].b == -1024, 'after mutation: things[0].b has been changed!')
+
+  // Check that second element.b is changed
+  assert(another.things[1].a == 100, 'after mutation: things[1].a should have been changed')
+  assert(another.things[1].b == 200, 'after mutation: things[1].b should have been changed')
+
+ }
+
+
+#[test]
+fn mut_parameter_passing_whole_element_directly() {
+
+  mut another = Another {
+    things: [
+      Thing { b:  -1024, a: 42 }, // Intentionally swapped
+      Thing { a:  32, b: 8086 },
+    ]
+  }
+
+  // Check that the values has been set correctly
+  assert(another.things[0].a == 42, 'initial values: things[0].a is wrong')
+  assert(another.things[0].b == -1024, 'initial values: things[0].b is wrong')
+
+  assert(another.things[1].a == 32, 'initial values: things[1].a has been changed!')
+  assert(another.things[1].b == 8086, 'initial values: things[1].b has been changed!')
+
+  // Call the function that mutates the second element
+  writing_second_element_in_things_directly(&another.things)
 
   // Check that first element is unchanged after mutation of the second element
   assert(another.things[0].a == 42, 'after mutation: things[0].a has been changed!')

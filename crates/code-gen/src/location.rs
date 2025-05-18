@@ -149,7 +149,7 @@ impl CodeBuilder<'_> {
         );
         let patch = self
             .builder
-            .add_jmp_if_not_true_placeholder(node, "jump over panic if within bounds");
+            .add_jmp_if_not_true_placeholder(node, "jump over trap if within bounds");
         self.builder.add_trap(5, node, "out of bounds trap");
         self.builder.patch_jump_here(patch);
 
