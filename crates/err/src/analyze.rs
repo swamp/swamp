@@ -100,8 +100,9 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
                     "required_type: {expected}, encountered type: {found}"
                 ))
         }
-        ErrorKind::UnknownMemberFunction => {
+        ErrorKind::UnknownMemberFunction(checked_type) => {
             Report::build(Kind::Error, 24, "unknown member function", span)
+                .with_note(&format!("searched type {checked_type}"))
         }
         ErrorKind::ExpressionsNotAllowedInLetPattern => Report::build(
             Kind::Error,

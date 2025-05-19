@@ -23,6 +23,7 @@ use source_map_node::{FileId, Node, Span};
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::{FromStr, ParseBoolError};
+use swamp_ast::GenericParameter;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
 use swamp_semantic::instantiator::TypeVariableScope;
@@ -1144,9 +1145,8 @@ impl<'a> Analyzer<'a> {
             func_def.signature().clone()
         };
 
-        let resolved_node = self.to_node(ast_node);
         let analyzed_arguments =
-            self.analyze_and_verify_parameters(&resolved_node, &signature.parameters, arguments)?;
+            self.analyze_and_verify_parameters(&ast_node, &signature.parameters, arguments)?;
 
         let expr_kind = match &func_def {
             Function::Internal(internal) => {
@@ -1339,13 +1339,27 @@ impl<'a> Analyzer<'a> {
 
                 swamp_ast::Postfix::MemberCall(member_name, generic_arguments, ast_arguments) => {
                     let member_name_str = self.get_text(member_name).to_string();
+                    let underlying_type = tv.resolved_type.underlying().lowest_common_denominator();
 
+                    let (kind, return_type) = self.analyze_member_call(
+                        &underlying_type,
+                        &member_name_str,
+                        generic_arguments.clone(),
+                        ast_arguments,
+                        tv.is_mutable,
+                        member_name,
+                    )?;
+
+                    self.add_postfix(&mut suffixes, kind, return_type.clone(), member_name);
+                    tv.resolved_type = return_type.clone();
+                    tv.is_mutable = false;
+                    /*
                     if let Some(_found_member) = self
                         .shared
                         .state
                         .instantiator
                         .associated_impls
-                        .get_member_function(&tv.resolved_type, &member_name_str)
+                        .get_member_function(&underlying_type, &member_name_str)
                     {
                         let return_type = self.analyze_postfix_member_call(
                             &tv.resolved_type,
@@ -1360,8 +1374,13 @@ impl<'a> Analyzer<'a> {
                         tv.resolved_type = return_type.clone();
                         tv.is_mutable = false;
                     } else {
-                        return Err(self.create_err(ErrorKind::UnknownMemberFunction, member_name));
+                        return Err(self.create_err(
+                            ErrorKind::UnknownMemberFunction(underlying_type.clone()),
+                            member_name,
+                        ));
                     }
+
+                     */
                 }
                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, arguments) => {
                     /*
@@ -3191,19 +3210,97 @@ impl<'a> Analyzer<'a> {
         Ok(signature)
     }
 
-    fn analyze_postfix_member_call(
+    fn analyze_normal_member_call(
         &mut self,
         type_that_member_is_on: &Type,
+        found_function: &FunctionRef,
+        generic_arguments: Vec<Type>,
+        ast_arguments: &[swamp_ast::Expression],
         is_mutable: bool,
-        member_name: &swamp_ast::Node,
+        node: &swamp_ast::Node,
+    ) -> Result<Signature, Error> {
+        let resolved_node = self.to_node(node);
+        let signature = self.instantiate_signature_if_needed(
+            &resolved_node,
+            type_that_member_is_on,
+            &found_function,
+            &generic_arguments,
+        )?;
+
+        Ok(signature)
+    }
+
+    fn vec_member_signature(
+        &mut self,
+        self_type: &Type,
+        element_type: &Type,
+        field_name_str: &str,
+        node: &swamp_ast::Node,
+    ) -> Result<(IntrinsicFunction, Signature), Error> {
+        let self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: true,
+            node: None,
+        };
+        let intrinsic_and_signature = match field_name_str {
+            "push" => (
+                IntrinsicFunction::VecPush,
+                Signature {
+                    parameters: vec![
+                        self_type_param,
+                        TypeForParameter {
+                            name: "element".to_string(),
+                            resolved_type: element_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: Box::new(Type::Unit),
+                },
+            ),
+            _ => {
+                return Err(self.create_err(
+                    ErrorKind::UnknownMemberFunction(Type::Vec(Box::from(element_type.clone()))),
+                    node,
+                ));
+            }
+        };
+        Ok(intrinsic_and_signature)
+    }
+
+    fn check_intrinsic_member_signature(
+        &mut self,
+        type_that_member_is_on: &Type,
+        field_name_str: &str,
+        node: &swamp_ast::Node,
+    ) -> Result<(IntrinsicFunction, Signature), Error> {
+        let ty = type_that_member_is_on
+            .underlying()
+            .lowest_common_denominator();
+        match ty {
+            Type::Vec(ref element_type) => self.vec_member_signature(
+                &type_that_member_is_on,
+                &element_type,
+                field_name_str,
+                node,
+            ),
+            _ => Err(self.create_err(
+                ErrorKind::UnknownMemberFunction(type_that_member_is_on.clone()),
+                node,
+            )),
+        }
+    }
+
+    fn analyze_member_call(
+        &mut self,
+        type_that_member_is_on: &Type,
+        field_name_str: &str,
         ast_maybe_generic_arguments: Option<Vec<swamp_ast::GenericParameter>>,
-        arguments: &[swamp_ast::Expression],
-        suffixes: &mut Vec<Postfix>,
-    ) -> Result<Type, Error> {
-        let field_name_str = self.get_text(member_name).to_string();
-
-        let resolved_node = self.to_node(member_name);
-
+        ast_arguments: &[swamp_ast::Expression],
+        is_mutable: bool,
+        node: &swamp_ast::Node,
+    ) -> Result<(PostfixKind, Type), Error> {
         let generic_arguments = if let Some(ast_generic_arguments) = ast_maybe_generic_arguments {
             let mut resolved_types = Vec::new();
             for ast_type in ast_generic_arguments {
@@ -3222,37 +3319,85 @@ impl<'a> Analyzer<'a> {
             .get_member_function(type_that_member_is_on, &field_name_str)
             .cloned();
 
-        let Some(found_function) = maybe_function else {
-            return Err(self.create_err(ErrorKind::NotValidLocationStartingPoint, member_name));
+        let (function_ref, instantiated_signature) = if let Some(found_function) = maybe_function {
+            let signature = self.analyze_normal_member_call(
+                type_that_member_is_on,
+                &found_function,
+                generic_arguments,
+                ast_arguments,
+                is_mutable,
+                node,
+            )?;
+            (found_function, signature)
+        } else {
+            let (intrinsic_fn, signature) = self.check_intrinsic_member_signature(
+                type_that_member_is_on,
+                &field_name_str,
+                node,
+            )?;
+            let def = IntrinsicFunctionDefinition {
+                name: field_name_str.to_string(),
+                signature,
+                intrinsic: intrinsic_fn,
+            };
+            let function_ref = FunctionRef::from(Function::Intrinsic(
+                IntrinsicFunctionDefinitionRef::from(def.clone()),
+            ));
+            (function_ref, def.signature)
         };
 
-        let signature = self.instantiate_signature_if_needed(
-            &resolved_node,
-            type_that_member_is_on,
-            &found_function,
-            &generic_arguments,
-        )?;
-
-        let self_type = &signature.parameters[0];
+        let self_type = &instantiated_signature.parameters[0];
+        info!(
+            ?self_type,
+            ?type_that_member_is_on,
+            self_type.is_mutable,
+            is_mutable,
+            "self and type"
+        );
         if !self_type
             .resolved_type
             .compatible_with(type_that_member_is_on)
             || self_type.is_mutable && !is_mutable
         {
-            return Err(self.create_err_resolved(ErrorKind::SelfNotCorrectType, &resolved_node));
+            return Err(self.create_err(ErrorKind::SelfNotCorrectType, &node));
         }
 
         let resolved_arguments = self.analyze_and_verify_parameters(
-            &resolved_node,
-            &signature.parameters[1..],
-            arguments,
+            &node,
+            &instantiated_signature.parameters[1..],
+            ast_arguments,
         )?;
 
-        let kind = PostfixKind::MemberCall(found_function.clone(), resolved_arguments);
+        Ok((
+            PostfixKind::MemberCall(function_ref, resolved_arguments),
+            *instantiated_signature.return_type.clone(),
+        ))
+    }
 
+    fn analyze_postfix_member_call(
+        &mut self,
+        type_that_member_is_on: &Type,
+        is_mutable: bool,
+        member_name: &swamp_ast::Node,
+        ast_maybe_generic_arguments: Option<Vec<swamp_ast::GenericParameter>>,
+        ast_arguments: &[swamp_ast::Expression],
+        suffixes: &mut Vec<Postfix>,
+    ) -> Result<Type, Error> {
+        let field_name_str = self.get_text(member_name).to_string();
+
+        let resolved_node = self.to_node(member_name);
+
+        let (kind, return_type) = self.analyze_member_call(
+            type_that_member_is_on,
+            &field_name_str,
+            ast_maybe_generic_arguments,
+            ast_arguments,
+            is_mutable,
+            member_name,
+        )?;
         let postfix = Postfix {
             node: resolved_node.clone(),
-            ty: *signature.return_type.clone(),
+            ty: return_type.clone(),
             kind,
         };
 

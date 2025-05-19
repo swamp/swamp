@@ -121,12 +121,6 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
-impl<'a> InstructionBuilder<'a> {}
-
-impl<'a> InstructionBuilder<'a> {}
-
-impl<'a> InstructionBuilder<'a> {}
-
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -370,6 +364,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        /*
         assert!(
             matches!(
                 self_addr.underlying().kind,
@@ -379,6 +374,8 @@ impl InstructionBuilder<'_> {
             self_addr.ty()
         );
 
+
+         */
         self.state.add_instruction(
             OpCode::VecPush,
             &[self_addr.addressing(), element_item.addressing()],
@@ -547,6 +544,34 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::LdPtrFromEffectiveAddress,
             &[target_heap.addressing(), pairs.0, pairs.1],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_lea_base_ptr_index_imm_element_size(
+        &mut self,
+        dest_reg: &TypedRegister,
+        base_ptr: &TypedRegister,
+        base_ptr_offset: MemoryOffset,
+        index: &TypedRegister,
+        size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        let pairs = u16_to_u8_pair(size.0);
+        let base_ptr_offset_bytes = u16_to_u8_pair(base_ptr_offset.0);
+        self.state.add_instruction(
+            OpCode::LoadEffectiveAddressIndexMultiplier,
+            &[
+                dest_reg.addressing(),
+                base_ptr.addressing(),
+                base_ptr_offset_bytes.0,
+                base_ptr_offset_bytes.1,
+                index.addressing(),
+                pairs.0,
+                pairs.1,
+            ],
             node,
             comment,
         );
@@ -1390,6 +1415,33 @@ impl InstructionBuilder<'_> {
         );
     }
 
+    pub fn add_add_u32_imm(
+        &mut self,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_immediate: u32,
+        node: &Node,
+        comment: &str,
+    ) {
+        // TODO: Bring this back //assert!(dst_offset.ty().is_int());
+        // TODO: Bring this back //assert!(lhs_offset.ty().is_int());
+        // TODO: Bring this back //assert!(rhs_offset.ty().is_int());
+        let immediate_bytes = u32_to_bytes(rhs_immediate);
+        self.state.add_instruction(
+            OpCode::AddU32Imm,
+            &[
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                immediate_bytes.0,
+                immediate_bytes.1,
+                immediate_bytes.2,
+                immediate_bytes.3,
+            ],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_mod_i32(
         &mut self,
         dst_offset: &TypedRegister,
@@ -1641,6 +1693,23 @@ impl InstructionBuilder<'_> {
         // TODO: Bring Back //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LtI32,
+            &[lhs_offset.addressing(), rhs_offset.addressing()],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_lt_u32(
+        &mut self,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        // TODO: Bring Back //assert!(lhs_offset.ty().is_int());
+        // TODO: Bring Back //assert!(rhs_offset.ty().is_int());
+        self.state.add_instruction(
+            OpCode::LtU32,
             &[lhs_offset.addressing(), rhs_offset.addressing()],
             node,
             comment,

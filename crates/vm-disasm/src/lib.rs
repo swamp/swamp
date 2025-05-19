@@ -13,8 +13,8 @@ use swamp_vm_types::types::{
     BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
     DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, FramePlacedType, PathInfo,
     TypedRegister, b8_type, bytes_type, float_type, int_type, map_iter_type, map_type,
-    pointer_type, pointer_type_again, range_iter_type, range_type, slice_type, string_type,
-    u8_type, u32_type, vec_iter_type, vec_type,
+    pointer_type_again, range_iter_type, range_type, slice_type, string_type, u8_type, u32_type,
+    vec_iter_type, vec_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, HeapMemoryAddress, InstructionPosition,
@@ -543,6 +543,15 @@ pub fn disasm(
             to_read_reg(operands[1], &int_type(), frame_memory_info),
             to_read_reg(operands[2], &int_type(), frame_memory_info),
         ],
+        OpCode::AddU32Imm => {
+            let immediate_value =
+                u32::from_le_bytes([operands[2], operands[3], operands[4], operands[5]]);
+            &[
+                to_write_reg(operands[0], &int_type(), frame_memory_info),
+                to_read_reg(operands[1], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::ImmediateU32(immediate_value),
+            ]
+        }
         OpCode::SubU32 => &[
             to_write_reg(operands[0], &int_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
@@ -604,7 +613,10 @@ pub fn disasm(
             to_read_reg(operands[0], &int_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
         ],
-
+        OpCode::LtU32 => &[
+            to_read_reg(operands[0], &int_type(), frame_memory_info),
+            to_read_reg(operands[1], &int_type(), frame_memory_info),
+        ],
         OpCode::GeU32 => &[
             to_read_reg(operands[0], &int_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
@@ -793,6 +805,19 @@ pub fn disasm(
             ]
         }
 
+        OpCode::LoadEffectiveAddressIndexMultiplier => {
+            let dst_offset = u16::from_le_bytes([operands[2], operands[3]]);
+            let element_size = u16::from_le_bytes([operands[5], operands[6]]);
+            &[
+                to_write_reg(operands[0], &pointer_type_again(), frame_memory_info),
+                DecoratedOperandAccessKind::WriteBaseRegWithOffset(
+                    RegIndex(operands[1]),
+                    MemoryOffset(dst_offset),
+                ),
+                to_read_reg(operands[4], &u32_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
+            ]
+        }
         OpCode::Nop => &[],
 
         OpCode::SliceFromHeap => &[

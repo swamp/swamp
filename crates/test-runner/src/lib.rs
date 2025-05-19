@@ -32,6 +32,14 @@ pub struct TestRunOptions {
     pub iteration_count: usize,
     pub debug_output: bool,
     pub print_output: bool,
+    pub debug_opcodes: bool,
+}
+
+pub fn init_logger() {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_writer(std::io::stderr)
+        .init();
 }
 
 pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
@@ -91,7 +99,7 @@ pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
                             function_to_run,
                             RunOptions {
                                 debug_stats_enabled: true,
-                                debug_opcodes_enabled: false,
+                                debug_opcodes_enabled: options.debug_opcodes,
                             },
                         );
                         if vm.state != VmState::Normal {

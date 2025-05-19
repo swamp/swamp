@@ -294,6 +294,7 @@ impl Range {
     }
 }
 
+/*
 struct Vec<T>
 
 impl Vec<T> {
@@ -629,7 +630,7 @@ impl Vec<T> {
         vec_len(self) == 0
     }
 }
-
+*/
 
 struct Map<K, V>
 

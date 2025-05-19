@@ -15,6 +15,7 @@ use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use std::env::var;
+use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
     CompoundOperatorKind, ConstantRef, EnumLiteralData, Expression, ExpressionKind,
@@ -1281,7 +1282,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn store_register_contents_to_memory(
+    pub(crate) fn store_register_contents_to_memory(
         &mut self,
         node: &Node,
         base_ptr_reg: &TypedRegister,
@@ -1788,7 +1789,22 @@ impl CodeBuilder<'_> {
                                 ctx,
                             );
                         }
-                        Function::Intrinsic(_intr) => {}
+                        Function::Intrinsic(intrinsic_def) => {
+                            let z_result = self.emit_single_intrinsic_call_with_self(
+                                target_reg,
+                                &start_expression.node,
+                                &intrinsic_def.intrinsic,
+                                Some(element.ty.clone()),
+                                Some(resolved_location.register()),
+                                &arguments,
+                                ctx,
+                                &format!("rvalue intrinsic call "),
+                            );
+
+                            if is_last {
+                                t_flag_result = z_result;
+                            }
+                        }
                         _ => panic!(
                             "{}",
                             &format!("not supported as a member call {function_to_call:?}")

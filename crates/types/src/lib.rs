@@ -51,6 +51,15 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn lowest_common_denominator(&self) -> Type {
+        match self {
+            Self::VecStorage(inner, _size) => Self::Vec(Box::from(*inner.clone())),
+            _ => self.clone(),
+        }
+    }
+}
+
+impl Type {
     pub fn underlying(&self) -> &Type {
         match self {
             Type::MutableReference(x) => x,
@@ -618,6 +627,8 @@ impl Type {
             | (Self::String, Self::String)
             | (Self::Bool, Self::Bool)
             | (Self::Unit, Self::Unit) => true,
+
+            (Self::Vec(element_a), Self::Vec(element_b)) => element_a.compatible_with(element_b),
 
             (Self::Vec(vec_element), Self::VecStorage(storage_element, _size)) => {
                 vec_element.compatible_with(storage_element)

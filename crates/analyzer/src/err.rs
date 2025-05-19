@@ -48,7 +48,7 @@ pub enum ErrorKind {
     MapKeyTypeMismatch { expected: Type, found: Type },
     MapValueTypeMismatch { expected: Type, found: Type },
     IncompatibleTypes { expected: Type, found: Type },
-    UnknownMemberFunction,
+    UnknownMemberFunction(Type),
     ExpressionsNotAllowedInLetPattern,
     UnknownField,
     EnumVariantHasNoFields,

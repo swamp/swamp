@@ -254,6 +254,9 @@ impl Vm {
         vm.handlers[OpCode::LdPtrFromEffectiveAddress as usize] =
             HandlerType::Args3(Self::execute_lea);
 
+        vm.handlers[OpCode::LoadEffectiveAddressIndexMultiplier as usize] =
+            HandlerType::Args7(Self::execute_lea_base_ptr_offset_index_element_size);
+
         // Copy to and from heap
         vm.handlers[OpCode::BlockCopyWithOffsets as usize] =
             HandlerType::Args8(Self::execute_mov_mem_with_offsets);
@@ -268,6 +271,7 @@ impl Vm {
         vm.handlers[OpCode::GeI32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
 
         vm.handlers[OpCode::GeU32 as usize] = HandlerType::Args2(Self::execute_ge_u32);
+        vm.handlers[OpCode::LtU32 as usize] = HandlerType::Args2(Self::execute_lt_u32);
 
         // Comparison
         vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args2(Self::execute_cmp_reg);
@@ -294,6 +298,7 @@ impl Vm {
 
         // Operators - Int
         vm.handlers[OpCode::AddU32 as usize] = HandlerType::Args3(Self::execute_add_u32);
+        vm.handlers[OpCode::AddU32Imm as usize] = HandlerType::Args6(Self::execute_add_u32_imm);
         vm.handlers[OpCode::MulU32 as usize] = HandlerType::Args3(Self::execute_mul_u32);
         vm.handlers[OpCode::SubU32 as usize] = HandlerType::Args3(Self::execute_sub_u32);
 
@@ -777,6 +782,22 @@ impl Vm {
     }
 
     #[inline]
+    const fn execute_add_u32_imm(
+        &mut self,
+        dst_reg: u8,
+        lhs_reg: u8,
+        rhs_1: u8,
+        rhs_2: u8,
+        rhs_3: u8,
+        rhs_4: u8,
+    ) {
+        let rhs = u32_from_u8s!(rhs_1, rhs_2, rhs_3, rhs_4);
+        let lhs = get_reg!(self, lhs_reg);
+
+        set_reg!(self, dst_reg, lhs.wrapping_add(rhs));
+    }
+
+    #[inline]
     const fn execute_mul_u32(&mut self, dst_reg: u8, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg);
         let rhs = get_reg!(self, rhs_reg);
@@ -859,6 +880,14 @@ impl Vm {
         let rhs = get_reg!(self, rhs_reg);
 
         self.flags.t = lhs >= rhs;
+    }
+
+    #[inline]
+    fn execute_lt_u32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+        let lhs = get_reg!(self, lhs_reg);
+        let rhs = get_reg!(self, rhs_reg);
+
+        self.flags.t = lhs < rhs;
     }
 
     #[inline]
@@ -1170,6 +1199,24 @@ impl Vm {
             dst_reg,
             ptr_addr + u8s_to_u16!(src_offset_0, src_offset_1) as u32
         );
+    }
+
+    #[inline]
+    fn execute_lea_base_ptr_offset_index_element_size(
+        &mut self,
+        dst_reg: u8,
+        base_ptr_reg: u8,
+        base_ptr_offset_0: u8,
+        base_ptr_offset_1: u8,
+        index_reg: u8,
+        element_size_lower: u8,
+        element_size_upper: u8,
+    ) {
+        let element_size = u16_from_u8s!(element_size_lower, element_size_upper) as u32;
+        let new_addr = get_reg!(self, base_ptr_reg)
+            + u8s_to_u16!(base_ptr_offset_0, base_ptr_offset_1) as u32
+            + get_reg!(self, index_reg) * element_size;
+        set_reg!(self, dst_reg, new_addr);
     }
 
     #[inline]

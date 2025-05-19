@@ -61,12 +61,12 @@ impl Analyzer<'_> {
     ///
     pub fn analyze_and_verify_parameters(
         &mut self,
-        node: &Node,
+        node: &swamp_ast::Node,
         fn_parameters: &[TypeForParameter],
         arguments: &[swamp_ast::Expression],
     ) -> Result<Vec<MutRefOrImmutableExpression>, Error> {
         if fn_parameters.len() != arguments.len() {
-            return Err(self.create_err_resolved(
+            return Err(self.create_err(
                 ErrorKind::WrongNumberOfArguments(fn_parameters.len(), arguments.len()),
                 node,
             ));

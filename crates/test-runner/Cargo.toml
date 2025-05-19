@@ -14,7 +14,13 @@ swamp-std = {path = "../std", version = "0.1.16"}
 swamp-vm = { path = "../vm", version = "0.1.16", features = ["debug_vm"]}
 
 tinter = "0.1.0"
-tracing = "0.1.40"
 time-dilation = "0.1.10"
+
+tracing-log = "0.2.0"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.1", features = [
+    "registry",
+    "env-filter",
+] }
 
 [dev-dependencies]

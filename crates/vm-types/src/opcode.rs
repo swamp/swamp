@@ -41,6 +41,7 @@ pub enum OpCode {
 
     // Unsigned int
     GeU32,
+    LtU32,
 
     // Comparison, set z flag
     Eq8Imm,
@@ -170,6 +171,8 @@ pub enum OpCode {
 
     // Other
     HostCall, // calls back into host
+    AddU32Imm,
+    LoadEffectiveAddressIndexMultiplier,
 }
 
 impl OpCode {
@@ -185,6 +188,7 @@ impl OpCode {
 
             // Integer arithmetic
             Self::AddU32 => "add",
+            Self::AddU32Imm => "add",
             Self::MulU32 => "mul",
             Self::SubU32 => "sub",
 
@@ -204,6 +208,7 @@ impl OpCode {
             Self::GeI32 => "sge",
 
             Self::GeU32 => "ge",
+            Self::LtU32 => "lt",
 
             // Byte/memory comparisons
             Self::Eq8Imm => "cmp",
@@ -230,7 +235,8 @@ impl OpCode {
             // Move
             Self::MovReg => "mov",
             Self::BlockCopyWithOffsets | Self::BlockCopy => "blkcpy",
-            Self::LdPtrFromEffectiveAddress => "lea",
+            Self::LdPtrFromEffectiveAddress | Self::LoadEffectiveAddressIndexMultiplier => "lea",
+
 
             // Load
             Self::Mov8FromImmediateValue => "movb",

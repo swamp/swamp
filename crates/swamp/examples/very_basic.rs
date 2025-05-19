@@ -1,8 +1,10 @@
 use std::path::Path;
 
-use swamp_test_runner::{TestRunOptions, run_tests};
+use swamp_test_runner::{TestRunOptions, init_logger, run_tests};
 
 pub fn very_basic(test_dir: &Path) {
+    init_logger();
+
     run_tests(
         test_dir,
         TestRunOptions {
@@ -10,6 +12,7 @@ pub fn very_basic(test_dir: &Path) {
             print_output: false,
             iteration_count: 2,
             debug_output: false,
+            debug_opcodes: false,
         },
     )
 }
