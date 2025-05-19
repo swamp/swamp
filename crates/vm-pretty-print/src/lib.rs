@@ -163,25 +163,7 @@ fn print(
             let header_offset = slice_to_u32_le(frame);
             let header = Vm::vec_header_from_heap(heap, header_offset);
             //let buckets = heap.get_heap_const_ptr(header.heap_offset as usize);
-            for i in 0..header.count {
-                let item_offset = i as usize * header.element_size as usize;
-                let heap_addr = header.heap_offset as usize + item_offset;
-
-                let item_ptr = heap.get_heap_const_ptr(heap_addr);
-                let item_slice =
-                    unsafe { slice::from_raw_parts(item_ptr, header.element_size as usize) };
-
-                new_line_and_tab(f, indent + 1)?;
-                print(
-                    f,
-                    item_slice,
-                    heap,
-                    PrintAddress::HeapMemoryAddress(HeapMemoryAddress(heap_addr as u32)),
-                    item_type,
-                    &format!("{i}"),
-                    indent + 1,
-                )?;
-            }
+            for i in 0..header.count {}
             write!(f, "]")
         }
         BasicTypeKind::InternalMapPointer(key_type, value_type) => {

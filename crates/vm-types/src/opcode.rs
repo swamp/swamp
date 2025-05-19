@@ -144,7 +144,7 @@ pub enum OpCode {
     VecIterNext,
     VecIterNextPair,
     VecFromSlice,
-    VecPush,
+    VecPushAddr,
     VecSet,
     VecRemoveIndex,
     VecPop,
@@ -298,7 +298,7 @@ impl OpCode {
 
             // Vec
             Self::VecFromSlice => "vfrom",
-            Self::VecPush => "vpush",
+            Self::VecPushAddr => "vpush",
             Self::VecIterInit => "viter",
             Self::VecIterNext => "vitern",
             Self::VecIterNextPair => "viternp",

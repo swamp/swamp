@@ -6,10 +6,9 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
-use swamp_vm_types::types::{TypedRegister, VmType, pointer_type, u16_type};
+use swamp_vm_types::types::{TypedRegister, VmType, pointer_type};
 use swamp_vm_types::{
-    MAP_HEADER_COUNT_OFFSET, MemorySize, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_CAPACITY_OFFSET,
-    VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET,
+    MAP_HEADER_COUNT_OFFSET, MemorySize, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
 };
 
 impl CodeBuilder<'_> {
@@ -268,72 +267,17 @@ impl CodeBuilder<'_> {
                 };
                 let element_gen_type = layout_type(&element_expr.ty);
 
-                let temp_len_reg = self
-                    .temp_registers
-                    .allocate(VmType::new_contained_in_register(u16_type()), "Vec len");
-                let temp_capacity_reg = self
-                    .temp_registers
-                    .allocate(VmType::new_contained_in_register(u16_type()), "Vec len");
-
-                self.builder.add_ld16_from_pointer_with_offset_u16(
-                    temp_len_reg.register(),
-                    &self_addr.unwrap(),
-                    VEC_HEADER_COUNT_OFFSET,
-                    node,
-                    "vec len",
+                let temp_element_ptr = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(pointer_type()),
+                    "pointer to new element",
                 );
 
-                self.builder.add_ld16_from_pointer_with_offset_u16(
-                    temp_capacity_reg.register(),
-                    &self_addr.unwrap(),
-                    VEC_HEADER_CAPACITY_OFFSET,
-                    node,
-                    "vec capacity",
-                );
-
-                self.builder.add_lt_u32(
-                    temp_len_reg.register(),
-                    temp_capacity_reg.register(),
-                    node,
-                    " check if len < capacity",
-                );
-
-                let patch = self.builder.add_jmp_if_true_placeholder(
-                    node,
-                    "jump over trap if len within capacity bounds",
-                );
-                self.builder.add_trap(5, node, "out of capacity trap");
-                self.builder.patch_jump_here(patch);
-
-                // fill in the element
-
-                let temp_element_ptr = self
-                    .temp_registers
-                    .allocate(VmType::new_contained_in_register(pointer_type()), "Vec len");
-
-                self.builder.add_lea_base_ptr_index_imm_element_size(
+                self.builder.add_vec_push_addr(
                     temp_element_ptr.register(),
                     &self_addr.unwrap(),
-                    VEC_HEADER_PAYLOAD_OFFSET,
-                    temp_len_reg.register(),
                     element_gen_type.total_size,
                     node,
-                    "[start_ptr + payload_offset] + len * element_size",
-                );
-
-                self.builder.add_add_u32_imm(
-                    temp_len_reg.register(),
-                    temp_len_reg.register(),
-                    1,
-                    node,
-                    "increase len",
-                );
-                self.builder.add_st16_using_ptr_with_offset(
-                    &self_addr.unwrap(),
-                    VEC_HEADER_COUNT_OFFSET,
-                    temp_len_reg.register(),
-                    node,
-                    "store new len",
+                    "set pointer to new element",
                 );
 
                 self.emit_expression_materialize(temp_element_ptr.register(), element_expr, ctx);

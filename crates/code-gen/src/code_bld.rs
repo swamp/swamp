@@ -3871,8 +3871,13 @@ impl CodeBuilder<'_> {
     ) {
         match collection {
             Collection::Vec => {
-                self.builder
-                    .add_vec_push(mut_collection, value, node, "push");
+                self.builder.add_vec_push_addr(
+                    mut_collection,
+                    value,
+                    value.ty.basic_type.total_size,
+                    node,
+                    "push",
+                );
             }
             Collection::Map => todo!(),
             Collection::Grid => todo!(),

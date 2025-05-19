@@ -514,10 +514,9 @@ pub const REG_ON_FRAME_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct VecHeader {
-    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory) // must be first
-    pub count: u16,       // must be second. useful for iterator
-    pub capacity: u16,    // capacity is always third
-    pub element_size: u16, // size (in bytes) of each element; useful for iterator
+    pub count: u16, // must be second. useful for iterator
+    pub capacity: u16, // capacity is always third
+                    // TODO: decide if it is worth it: pub element_size: u16, // size (in bytes) of each element; useful for iterator
 }
 pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u16);
 pub const VEC_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(size_of::<VecHeader>() as u16);

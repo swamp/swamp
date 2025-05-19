@@ -387,7 +387,7 @@ impl Vm {
         vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args3(Self::execute_vec_iter_next);
         vm.handlers[OpCode::VecIterNextPair as usize] =
             HandlerType::Args4(Self::execute_vec_iter_next_pair);
-        vm.handlers[OpCode::VecPush as usize] = HandlerType::Args2(Self::execute_vec_push);
+        vm.handlers[OpCode::VecPushAddr as usize] = HandlerType::Args4(Self::execute_vec_push_addr);
         vm.handlers[OpCode::VecGet as usize] = HandlerType::Args3(Self::execute_vec_get);
         vm.handlers[OpCode::VecSet as usize] = HandlerType::Args3(Self::execute_vec_set);
 

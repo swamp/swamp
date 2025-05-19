@@ -357,13 +357,52 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_vec_push(
+    pub fn add_vec_push_addr(
         &mut self,
-        self_addr: &TypedRegister,
-        element_item: &TypedRegister,
+        target_reg: &TypedRegister,
+        vec_self_reg: &TypedRegister,
+        element_item: MemorySize,
         node: &Node,
         comment: &str,
     ) {
+        /*
+           let temp_len_reg = self
+            .temp_registers
+            .allocate(VmType::new_contained_in_register(u16_type()), "Vec len");
+        let temp_capacity_reg = self
+            .temp_registers
+            .allocate(VmType::new_contained_in_register(u16_type()), "Vec len");
+
+        self.builder.add_ld16_from_pointer_with_offset_u16(
+            temp_len_reg.register(),
+            &self_addr.unwrap(),
+            VEC_HEADER_COUNT_OFFSET,
+            node,
+            "vec len",
+        );
+
+        self.builder.add_ld16_from_pointer_with_offset_u16(
+            temp_capacity_reg.register(),
+            &self_addr.unwrap(),
+            VEC_HEADER_CAPACITY_OFFSET,
+            node,
+            "vec capacity",
+        );
+
+        self.builder.add_lt_u32(
+            temp_len_reg.register(),
+            temp_capacity_reg.register(),
+            node,
+            " check if len < capacity",
+        );
+
+        let patch = self.builder.add_jmp_if_true_placeholder(
+            node,
+            "jump over trap if len within capacity bounds",
+        );
+        self.builder.add_trap(5, node, "out of capacity trap");
+        self.builder.patch_jump_here(patch);*/
+
         /*
         assert!(
             matches!(
@@ -376,9 +415,15 @@ impl InstructionBuilder<'_> {
 
 
          */
+        let element_size_bytes = u16_to_u8_pair(element_item.0);
         self.state.add_instruction(
-            OpCode::VecPush,
-            &[self_addr.addressing(), element_item.addressing()],
+            OpCode::VecPushAddr,
+            &[
+                target_reg.addressing(),
+                vec_self_reg.addressing(),
+                element_size_bytes.0,
+                element_size_bytes.1,
+            ],
             node,
             comment,
         );
