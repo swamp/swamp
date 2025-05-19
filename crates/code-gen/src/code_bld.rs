@@ -28,7 +28,7 @@ use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, TypedRegister, VmType, u8_type,
-    u16_type, u32_type, unit_type, unknown_type,
+    u16_type, u32_type, unit_type, unknown_type, vec_type,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
@@ -2737,7 +2737,7 @@ impl CodeBuilder<'_> {
            }
     */
 
-    fn emit_slice_literal(
+    pub(crate) fn emit_slice_literal(
         &mut self,
         base_ptr_reg: &TypedRegister,
         slice_type_inside_type: &Type,
@@ -3006,17 +3006,36 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_intrinsic_vec_from_slice(
+    fn emit_intrinsic_vec_init_capacity_set_payload_addr(
         &mut self,
-        target_reg: &TypedRegister,
-        node: &Node,
+        target_vec_reg: &TypedRegister,
         arguments: &[MutRefOrImmutableExpression],
+        node: &Node,
         ctx: &Context,
     ) {
         if let MutRefOrImmutableExpression::Expression(found_expr) = &arguments[0] {
+            let hwm = self.temp_registers.save_mark();
+            let element_base_ptr_reg = self.temp_registers.allocate(
+                VmType::new_unknown_placement(vec_type()),
+                "element base ptr",
+            );
+            let BasicTypeKind::InternalVecStorage(element_type, fixed_size_capacity) =
+                &target_vec_reg.ty.basic_type.kind
+            else {
+                panic!("mut have storage");
+            };
+
+            self.builder.add_vec_init_fill_capacity_addr(
+                target_vec_reg,
+                &element_base_ptr_reg.register,
+                *fixed_size_capacity as u16,
+                0,
+                node,
+                "init vec",
+            );
+
             let memory = self.emit_simple_rvalue(found_expr, ctx);
-            self.builder
-                .add_vec_from_slice(target_reg, &memory, node, "create vec");
+            self.temp_registers.restore_to_mark(hwm);
         } else {
             panic!("vec_from_slice");
         }

@@ -381,7 +381,7 @@ impl Vm {
             HandlerType::Args3(Self::execute_range_iter_next);
 
         // Vec
-        vm.handlers[OpCode::VecFromSlice as usize] =
+        vm.handlers[OpCode::VecCreateWithCapacityAddr as usize] =
             HandlerType::Args2(Self::execute_vec_from_slice);
         vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args2(Self::execute_vec_iter_init);
         vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args3(Self::execute_vec_iter_next);

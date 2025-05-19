@@ -1105,16 +1105,27 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_vec_from_slice(
+    pub fn add_vec_init_fill_capacity_addr(
         &mut self,
         target: &TypedRegister,
-        source_slice_header: &TypedRegister,
+        vec_to_init: &TypedRegister,
+        capacity: u16,
+        len: u16,
         node: &Node,
         comment: &str,
     ) {
+        let capacity_bytes = u16_to_u8_pair(capacity);
+        let len_bytes = u16_to_u8_pair(len);
         self.state.add_instruction(
-            OpCode::VecFromSlice,
-            &[target.addressing(), source_slice_header.addressing()],
+            OpCode::VecCreateWithCapacityAddr,
+            &[
+                target.addressing(),
+                vec_to_init.addressing(),
+                len_bytes.0,
+                len_bytes.1,
+                capacity_bytes.0,
+                capacity_bytes.1,
+            ],
             node,
             comment,
         );

@@ -138,6 +138,9 @@ impl Vm {
 
         let address_of_new_element =
             vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32 + len as u32 * size_of_each_element;
+        eprintln!(
+            "vec_addr: {address_of_new_element} = [{vec_addr} + offset] + {len} * {size_of_each_element}"
+        );
         set_reg!(self, dst_reg, address_of_new_element);
     }
 

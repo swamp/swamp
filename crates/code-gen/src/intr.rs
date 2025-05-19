@@ -6,9 +6,10 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
-use swamp_vm_types::types::{TypedRegister, VmType, pointer_type};
+use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType, pointer_type, vec_type};
 use swamp_vm_types::{
-    MAP_HEADER_COUNT_OFFSET, MemorySize, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
+    MAP_HEADER_COUNT_OFFSET, MemoryOffset, MemorySize, STRING_HEADER_COUNT_OFFSET,
+    VEC_HEADER_COUNT_OFFSET,
 };
 
 impl CodeBuilder<'_> {
@@ -280,7 +281,22 @@ impl CodeBuilder<'_> {
                     "set pointer to new element",
                 );
 
-                self.emit_expression_materialize(temp_element_ptr.register(), element_expr, ctx);
+                if element_gen_type.is_simple_primitive() {
+                    let source_reg = self.emit_simple_rvalue(element_expr, ctx);
+                    self.store_primitive_to_memory(
+                        temp_element_ptr.register(),
+                        MemoryOffset(0),
+                        source_reg,
+                        node,
+                        "store a primitive to the vec",
+                    );
+                } else {
+                    self.emit_expression_materialize(
+                        temp_element_ptr.register(),
+                        element_expr,
+                        ctx,
+                    );
+                }
             }
 
             IntrinsicFunction::VecPop => {
@@ -344,6 +360,41 @@ impl CodeBuilder<'_> {
                 self.builder
                     .add_vec_create(target_reg, MemorySize(0), node, "vec create"); // TODO: Fix to have proper element memory size
             }
+            IntrinsicFunction::VecFromSlice => {
+                let maybe_key_argument = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(slice_expression) = maybe_key_argument
+                else {
+                    panic!();
+                };
+
+                let element_base_ptr_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(vec_type()),
+                    "element base ptr",
+                );
+                let BasicTypeKind::InternalVecStorage(element_type, fixed_size_capacity) =
+                    &target_reg.ty.basic_type.kind
+                else {
+                    panic!("mut have storage");
+                };
+
+                self.builder.add_vec_init_fill_capacity_addr(
+                    target_reg,
+                    element_base_ptr_reg.register(),
+                    *fixed_size_capacity as u16,
+                    0,
+                    node,
+                    "vec create",
+                ); // TODO: Fix to have proper element memory size
+
+                // let slice_register = self.emit_slice_literal( element_base_ptr_reg.register(), element_type, node, ctx);
+
+                self.emit_expression_materialize(
+                    element_base_ptr_reg.register(),
+                    slice_expression,
+                    ctx,
+                );
+            }
+
             IntrinsicFunction::VecSubscript => {
                 let maybe_index_argument = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(index_expr) = maybe_index_argument
@@ -632,5 +683,45 @@ impl CodeBuilder<'_> {
 
         self.builder
             .add_map_remove(map_region, &key_region, &key_expr.node, "");
+    }
+
+    fn store_primitive_to_memory(
+        &mut self,
+        memory_base_ptr_reg: &TypedRegister,
+        offset: MemoryOffset,
+        source_primitive_reg: TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        match source_primitive_reg.ty.basic_type.kind {
+            BasicTypeKind::U8 | BasicTypeKind::B8 => {
+                self.builder.add_st8_using_ptr_with_offset(
+                    memory_base_ptr_reg,
+                    offset,
+                    &source_primitive_reg,
+                    node,
+                    comment,
+                );
+            }
+            BasicTypeKind::U16 => {
+                self.builder.add_st16_using_ptr_with_offset(
+                    memory_base_ptr_reg,
+                    offset,
+                    &source_primitive_reg,
+                    node,
+                    comment,
+                );
+            }
+            BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
+                self.builder.add_st32_using_ptr_with_offset(
+                    memory_base_ptr_reg,
+                    offset,
+                    &source_primitive_reg,
+                    node,
+                    comment,
+                );
+            }
+            _ => panic!("this is not a primitive"),
+        }
     }
 }

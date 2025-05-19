@@ -12,7 +12,7 @@ pub fn very_basic(test_dir: &Path) {
             print_output: false,
             iteration_count: 2,
             debug_output: false,
-            debug_opcodes: false,
+            debug_opcodes: true,
         },
     )
 }

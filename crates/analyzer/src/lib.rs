@@ -1900,6 +1900,9 @@ impl<'a> Analyzer<'a> {
                 |expected_type| {
                     if let Type::FixedSlice(_inner_type, _) = expected_type {
                         Ok((expected_type.clone(), vec![]))
+                    } else if let Type::VecStorage(inner_type, fixed_size) = expected_type {
+                        info!(?inner_type, "vec storage");
+                        Ok((expected_type.clone(), vec![]))
                     } else if let Type::NamedStruct(named) = expected_type {
                         Ok((named.instantiated_type_parameters[0].clone(), vec![]))
                     } else {
@@ -2748,7 +2751,7 @@ impl<'a> Analyzer<'a> {
                             ty = *element_type.clone();
                         }
 
-                        Type::Vec(element_type) => {
+                        Type::Vec(element_type) | Type::VecStorage(element_type, _) => {
                             let mut_type = Box::from(Type::MutableReference(element_type.clone()));
                             self.add_location_item(
                                 &mut items,
@@ -3347,13 +3350,7 @@ impl<'a> Analyzer<'a> {
         };
 
         let self_type = &instantiated_signature.parameters[0];
-        info!(
-            ?self_type,
-            ?type_that_member_is_on,
-            self_type.is_mutable,
-            is_mutable,
-            "self and type"
-        );
+
         if !self_type
             .resolved_type
             .compatible_with(type_that_member_is_on)

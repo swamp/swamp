@@ -846,7 +846,7 @@ pub fn disasm(
             to_write_reg(operands[1], &vec_type(), frame_memory_info),
         ],
 
-        OpCode::VecFromSlice => &[
+        OpCode::VecCreateWithCapacityAddr => &[
             to_write_reg(operands[0], &bytes_type(), frame_memory_info),
             to_read_reg(operands[1], &bytes_type(), frame_memory_info),
         ],

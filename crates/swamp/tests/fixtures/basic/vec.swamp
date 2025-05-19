@@ -192,9 +192,13 @@ fn push() {
       Thing { a:  32, b: 8086 },
     ]
   }
+  assert(another.things[1].a == 32, 'another.things[1].a is wrong')
+  assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
 
   another.things.push(Thing { a: 100, b: 200 })
   print('another.things[2]: a:{another.things[2].a} b: {another.things[2].b}')
+  assert(another.things[1].a == 32, 'another.things[1].a is wrong')
+  assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
   assert(another.things[2].a == 100, 'another.things[2].a is wrong')
   assert(another.things[2].b == 200, 'another.things[2].b is wrong')
 

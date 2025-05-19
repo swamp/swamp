@@ -1040,6 +1040,10 @@ impl BasicType {
         self.kind.is_represented_as_primitive_inside_register()
     }
 
+    pub fn is_simple_primitive(&self) -> bool {
+        self.kind.is_represented_as_primitive_inside_register()
+    }
+
     pub fn is_mutable_reference(&self) -> bool {
         self.kind.is_mutable_reference()
     }
