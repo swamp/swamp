@@ -1114,6 +1114,9 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        //debug_assert!(len > 0);
+        debug_assert!(capacity > 0);
+
         let capacity_bytes = u16_to_u8_pair(capacity);
         let len_bytes = u16_to_u8_pair(len);
         self.state.add_instruction(

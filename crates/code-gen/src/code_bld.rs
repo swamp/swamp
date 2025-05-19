@@ -1413,14 +1413,19 @@ impl CodeBuilder<'_> {
             VmType::new_unknown_placement(u32_type()),
             &format!("{debug_vec_storage_type}::elements"),
         );
-        self.builder.add_vec_init_fill_capacity_and_element_addr(
-            target_addr,
-            elements_base_ptr_reg.register(),
-            capacity as u16,
-            0,
-            node,
-            "initialize vec from slice",
-        );
+
+        let len = slice_literal.len();
+        debug_assert!(capacity >= len);
+        if capacity > 0 || len > 0 {
+            self.builder.add_vec_init_fill_capacity_and_element_addr(
+                target_addr,
+                elements_base_ptr_reg.register(),
+                capacity as u16,
+                len as u16,
+                node,
+                "initialize vec from slice",
+            );
+        }
 
         self.emit_slice_literal_helper(
             elements_base_ptr_reg.register(),
@@ -2620,22 +2625,12 @@ impl CodeBuilder<'_> {
                 VmType::new_unknown_placement(u32_type()),
                 "holds the temporary base_reg",
             );
-            let immediate_offset_reg = self.temp_registers.allocate(
-                VmType::new_unknown_placement(u32_type()),
-                "holds the temporary immediate offset",
-            );
 
             // It is a indirect complex type, then we create a pointer for them directly place the literal
-            self.builder.add_mov_32_immediate_value(
-                immediate_offset_reg.register(),
-                offset_to_element,
-                element_node,
-                "offset to the target element",
-            );
-            self.builder.add_add_u32(
+            self.builder.add_add_u32_imm(
                 temp_base_reg.register(),
                 base_ptr_reg,
-                immediate_offset_reg.register(),
+                offset_to_element,
                 element_node,
                 &format!("{comment} (total base_ptr to target element)"),
             );

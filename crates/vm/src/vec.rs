@@ -6,7 +6,7 @@ use crate::memory::Memory;
 use crate::{Vm, get_reg, u16_from_u8s};
 use crate::{VmState, set_reg, u8s_to_u16};
 use std::ptr;
-use swamp_vm_types::{VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE, VecHeader, VecIterator};
+use swamp_vm_types::{VEC_HEADER_PAYLOAD_OFFSET, VecHeader, VecIterator};
 
 impl Vm {
     pub fn get_vec_iterator_header_ptr_from_reg(&self, vec_iterator_reg: u8) -> *mut VecIterator {

@@ -782,7 +782,7 @@ impl Vm {
     }
 
     #[inline]
-    const fn execute_add_u32_imm(
+    fn execute_add_u32_imm(
         &mut self,
         dst_reg: u8,
         lhs_reg: u8,
@@ -791,8 +791,8 @@ impl Vm {
         rhs_3: u8,
         rhs_4: u8,
     ) {
-        let rhs = u32_from_u8s!(rhs_1, rhs_2, rhs_3, rhs_4);
         let lhs = get_reg!(self, lhs_reg);
+        let rhs = u32_from_u8s!(rhs_1, rhs_2, rhs_3, rhs_4);
 
         set_reg!(self, dst_reg, lhs.wrapping_add(rhs));
     }
