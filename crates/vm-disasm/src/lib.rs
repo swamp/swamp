@@ -203,7 +203,7 @@ pub fn disasm_color(
                 format!(
                     "{} {:04X}",
                     tinter::bright_cyan(format!("{}", delta.0)),
-                    (*current_pc + *delta).0
+                    (*current_pc + ProgramCounterDelta(1) + *delta).0
                 ),
                 String::new(),
             ),
