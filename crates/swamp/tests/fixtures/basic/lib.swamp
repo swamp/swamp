@@ -4,9 +4,9 @@ mod string
 mod bool
 mod operator
 mod struct
-mod enum
 mod tuple
 mod slice
 mod vec
 mod int
 mod float
+mod enum

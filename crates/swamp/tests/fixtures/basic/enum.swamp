@@ -1,3 +1,6 @@
+use core::{assert}
+use std::{print}
+
 enum Color {
   Red,
   Green,
@@ -17,6 +20,17 @@ impl Color {
 #[test]
 fn literal_enum() {
   a = Color::Red
-  //print('a:{a}')
-  //assert(a == Color::Red, 'enum value is wrong')
+  print('a: `{a}`')
+  assert(a == Color::Red, "enum value is wrong")
+}
+
+#[test]
+fn matching() {
+  a = Color::Green
+  result = match a {
+    Red => 0,
+    Green => 1,
+    Blue => 2,
+  }
+  assert(result == 1, "enum value is wrong")
 }

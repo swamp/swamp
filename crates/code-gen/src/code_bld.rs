@@ -593,11 +593,16 @@ impl CodeBuilder<'_> {
                         &binary_operator.node,
                         &right_source,
                     ),
-                    (Type::Enum(a), Type::Enum(b)) => self.emit_binary_operator_block_cmp(
-                        &left_source,
-                        &binary_operator.node,
-                        &right_source,
-                    ),
+                    (Type::Enum(a), Type::Enum(b)) => {
+                        // TODO: Make simpler case if enum variants are without payload
+                        // a.are_all_variants_without_payload()
+
+                        self.emit_binary_operator_block_cmp(
+                            &left_source,
+                            &binary_operator.node,
+                            &right_source,
+                        )
+                    }
                     _ => todo!(),
                 };
 
@@ -2096,13 +2101,6 @@ impl CodeBuilder<'_> {
             .constants_manager
             .allocate_byte_array(string_bytes);
 
-        eprintln!(
-            "[SWAMP_COMPILER_DEBUG] emit_string_literal: input='{}', len={}, character_bytes {:?} saved to address: {data_ptr:?}",
-            string,
-            string.len(),
-            string_bytes
-        );
-
         let string_header = StringHeader {
             heap_offset: data_ptr.addr().0,
             byte_count: string_byte_count as u32,
@@ -2119,10 +2117,6 @@ impl CodeBuilder<'_> {
                 .allocate_byte_array(&header_bytes)
                 .addr()
                 .0,
-        );
-
-        eprintln!(
-            "[SWAMP_COMPILER_DEBUG] emit_string_literal: string header bytes ='{header_bytes:?}' header saved to address: {string_header_in_heap_ptr}"
         );
 
         self.builder.add_mov_32_immediate_value(
@@ -3018,7 +3012,7 @@ impl CodeBuilder<'_> {
         match_expr: &Match,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let region_to_match = self.emit_for_access_or_location(&match_expr.expression, ctx);
+        let enum_ptr_reg = self.emit_for_access_or_location(&match_expr.expression, ctx);
 
         let mut jump_to_exit_placeholders = Vec::new();
 
@@ -3027,6 +3021,20 @@ impl CodeBuilder<'_> {
         } else {
             match_expr.arms.len()
         };
+
+        let enum_tag_temp_reg = self.temp_registers.allocate(
+            VmType::new_contained_in_register(u8_type()),
+            "temp reg for enum tag",
+        ); // TODO: support different tag sizes
+
+        self.builder.add_ld8_from_pointer_with_offset_u16(
+            enum_tag_temp_reg.register(),
+            &enum_ptr_reg,
+            MemoryOffset(0), // TODO: take offset from tag union info
+            &match_expr.expression.node(),
+            "read enum tag",
+        );
+
         for (index, arm) in match_expr.arms.iter().enumerate() {
             let is_last = index == arm_len_to_consider - 1;
 
@@ -3036,7 +3044,7 @@ impl CodeBuilder<'_> {
                     NormalPattern::PatternList(_) => None,
                     NormalPattern::EnumPattern(enum_variant, maybe_patterns) => {
                         self.builder.add_eq_u8_immediate(
-                            &region_to_match,
+                            enum_tag_temp_reg.register(),
                             enum_variant.common().container_index,
                             &arm.expression.node,
                             "check for enum variant",

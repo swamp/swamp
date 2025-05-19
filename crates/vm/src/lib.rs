@@ -10,7 +10,7 @@ use crate::memory::Memory;
 use fixed32::Fp;
 use seq_map::SeqMap;
 use std::fmt::Write;
-use std::{fmt, ptr};
+use std::ptr;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
@@ -271,6 +271,7 @@ impl Vm {
 
         // Comparison
         vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args2(Self::execute_cmp_reg);
+        vm.handlers[OpCode::CmpBlock as usize] = HandlerType::Args4(Self::execute_cmp_block);
 
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
 
@@ -289,7 +290,7 @@ impl Vm {
         vm.handlers[OpCode::BTrue as usize] = HandlerType::Args2(Self::execute_bz);
 
         // Unconditional jump
-        vm.handlers[OpCode::B as usize] = HandlerType::Args4(Self::execute_jmp);
+        vm.handlers[OpCode::B as usize] = HandlerType::Args2(Self::execute_b);
 
         // Operators - Int
         vm.handlers[OpCode::AddU32 as usize] = HandlerType::Args3(Self::execute_add_u32);
@@ -980,8 +981,9 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_jmp(&mut self, ip_0: u8, ip_1: u8, ip_2: u8, ip_3: u8) {
-        self.pc = u32_from_u8s!(ip_0, ip_1, ip_2, ip_3) as usize;
+    fn execute_b(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
+        self.pc =
+            (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
     }
 
     #[inline]
@@ -1233,6 +1235,30 @@ impl Vm {
 
         unsafe {
             ptr::copy_nonoverlapping(src_ptr, dst_ptr, memory_size as usize);
+        }
+    }
+
+    #[inline]
+    fn execute_cmp_block(
+        &mut self,
+        src_addr_reg_a: u8,
+        src_addr_reg_b: u8,
+        size_lower: u8,
+        size_upper: u8,
+    ) {
+        let size = u16_from_u8s!(size_lower, size_upper) as usize;
+
+        let arc_addr_a = get_reg!(self, src_addr_reg_a);
+        let src_addr_b = get_reg!(self, src_addr_reg_b);
+
+        let src_ptr_a = self.memory.get_heap_const_ptr(arc_addr_a as usize);
+        let src_ptr_b = self.memory.get_heap_const_ptr(src_addr_b as usize);
+
+        unsafe {
+            let slice_a = std::slice::from_raw_parts(src_ptr_a, size);
+            let slice_b = std::slice::from_raw_parts(src_ptr_b, size);
+
+            self.flags.t = slice_a == slice_b;
         }
     }
 

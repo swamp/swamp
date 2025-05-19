@@ -463,11 +463,10 @@ pub fn disasm(
         }
 
         OpCode::Ld8FromPointerWithOffset => {
-            let offset = ((operands[1] as u16) << 8) | operands[2] as u16;
+            let offset = u16::from_le_bytes([operands[2], operands[3]]);
 
             &[
                 to_write_reg(operands[0], &b8_type(), frame_memory_info),
-                to_read_reg(operands[3], &pointer_type(), frame_memory_info),
                 DecoratedOperandAccessKind::ReadBaseRegWithOffset(
                     RegIndex(operands[1]),
                     MemoryOffset(offset),

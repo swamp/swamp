@@ -871,6 +871,12 @@ impl EnumType {
         self.variants.get(&name.to_string())
     }
 
+    pub fn are_all_variants_without_payload(&self) -> bool {
+        self.variants
+            .iter()
+            .all(|(_name, variant)| matches!(variant, EnumVariantType::Nothing(_)))
+    }
+
     #[must_use]
     pub fn get_variant_from_index(&self, index: usize) -> Option<&EnumVariantType> {
         Some(self.variants.values().collect::<Vec<_>>()[index])

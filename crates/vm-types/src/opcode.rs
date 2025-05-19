@@ -206,7 +206,7 @@ impl OpCode {
             Self::GeU32 => "ge",
 
             // Byte/memory comparisons
-            Self::Eq8Imm => "eq8",
+            Self::Eq8Imm => "cmp",
             Self::CmpReg => "cmp",
             Self::CmpBlock => "cmpblk",
             Self::MovToTFlagFromReg => "tst",
