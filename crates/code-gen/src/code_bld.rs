@@ -1350,6 +1350,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
+        /*
         let length_value_reg = self
             .temp_registers
             .allocate(VmType::new_unknown_placement(u16_type()), "vec length");
@@ -1407,8 +1408,22 @@ impl CodeBuilder<'_> {
             &format!("{debug_vec_storage_type}::elements result"),
         );
 
+         */
+        let elements_base_ptr_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(u32_type()),
+            &format!("{debug_vec_storage_type}::elements"),
+        );
+        self.builder.add_vec_init_fill_capacity_and_element_addr(
+            target_addr,
+            elements_base_ptr_reg.register(),
+            capacity as u16,
+            0,
+            node,
+            "initialize vec from slice",
+        );
+
         self.emit_slice_literal_helper(
-            elements_addr_reg.register(),
+            elements_base_ptr_reg.register(),
             element_type,
             slice_literal,
             ctx,

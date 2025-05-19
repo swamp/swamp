@@ -1107,8 +1107,8 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_init_fill_capacity_and_element_addr(
         &mut self,
-        target: &TypedRegister,
-        vec_to_init: &TypedRegister,
+        target_vec_to_init: &TypedRegister,
+        element_target_reg: &TypedRegister,
         capacity: u16,
         len: u16,
         node: &Node,
@@ -1117,10 +1117,10 @@ impl InstructionBuilder<'_> {
         let capacity_bytes = u16_to_u8_pair(capacity);
         let len_bytes = u16_to_u8_pair(len);
         self.state.add_instruction(
-            OpCode::VecCreateWithCapacityAddr,
+            OpCode::VecInitWithLenAndCapacityAddr,
             &[
-                target.addressing(),
-                vec_to_init.addressing(),
+                target_vec_to_init.addressing(),
+                element_target_reg.addressing(),
                 len_bytes.0,
                 len_bytes.1,
                 capacity_bytes.0,

@@ -143,7 +143,7 @@ pub enum OpCode {
     VecIterInit,
     VecIterNext,
     VecIterNextPair,
-    VecCreateWithCapacityAddr,
+    VecInitWithLenAndCapacityAddr,
     VecPushAddr,
     VecSet,
     VecRemoveIndex,
@@ -297,7 +297,7 @@ impl OpCode {
             Self::RangeIterNext => "ritern",
 
             // Vec
-            Self::VecCreateWithCapacityAddr => "vfrom",
+            Self::VecInitWithLenAndCapacityAddr => "vfrom",
             Self::VecPushAddr => "vpush",
             Self::VecIterInit => "viter",
             Self::VecIterNext => "vitern",

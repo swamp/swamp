@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::Memory;
-use crate::{Vm, get_reg};
+use crate::{Vm, get_reg, u16_from_u8s};
 use crate::{VmState, set_reg, u8s_to_u16};
 use std::ptr;
 use swamp_vm_types::{VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE, VecHeader, VecIterator};
@@ -14,47 +14,28 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_vec_from_slice(&mut self, target_vec_ptr_reg: u8, source_slice_ptr_reg: u8) {
-        let slice_header = self.slice_header_from_reg(source_slice_ptr_reg);
-
-        let slice_size = slice_header.element_size as usize * slice_header.element_count as usize;
-        // Allocate space on the heap for the slice data.
-        let heap_offset: u32 = self.memory.heap_allocate(slice_size);
-
-        // Copy the slice from Frame to Heap.
+    pub fn execute_vec_from_slice(
+        &mut self,
+        target_vec_ptr_reg: u8,
+        element_ptr_reg: u8,
+        len_lower: u8,
+        len_upper: u8,
+        capacity_lower: u8,
+        capacity_upper: u8,
+    ) {
+        let vec_addr = get_reg!(self, target_vec_ptr_reg);
+        let mut_vec_ptr = self.memory.get_heap_ptr(vec_addr as usize) as *mut VecHeader;
+        let len = u16_from_u8s!(len_lower, len_upper);
+        let capacity = u16_from_u8s!(capacity_lower, capacity_upper);
         unsafe {
-            let dest_ptr = self.memory.get_heap_ptr(heap_offset as usize);
-            let src_ptr = self
-                .memory
-                .get_heap_const_ptr(slice_header.heap_offset as usize);
-
-            ptr::copy_nonoverlapping(src_ptr, dest_ptr, slice_size);
+            (*mut_vec_ptr).capacity = capacity;
+            (*mut_vec_ptr).count = len;
         }
 
-        let vec_header = VecHeader {
-            count: slice_header.element_count,
-            capacity: slice_header.element_count,
-            //element_size: slice_header.element_size,
-        };
-
-        let vec_header_addr: u32 = self.memory.heap_allocate(VEC_HEADER_SIZE.0 as usize);
-
-        let vec_header_ptr = self.memory.get_heap_ptr(vec_header_addr as usize) as *mut VecHeader;
-
-        unsafe {
-            ptr::write(vec_header_ptr, vec_header);
-        }
-
-        set_reg!(self, target_vec_ptr_reg, vec_header_addr);
-
-        #[cfg(feature = "debug_vm")]
-        {
-            eprintln!(
-                "creating vec from slice count:{} of capacity {} ",
-                vec_header.count, vec_header.capacity,
-            );
-        }
+        let element_addr = vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32;
+        set_reg!(self, element_ptr_reg, element_addr);
     }
+
     #[inline]
     pub fn execute_vec_iter_init(
         &mut self,

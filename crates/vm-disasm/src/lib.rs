@@ -216,8 +216,8 @@ pub fn disasm_color(
                 String::new(),
             ),
             DecoratedOperandAccessKind::MemorySize(data) => (
-                format!("{}", tinter::yellow(format!("{:X}", data.0))),
-                format!("{}{}", "int:", data.0),
+                format!("#{}", tinter::yellow(format!("{}", data.0))),
+                format!("{}{:04X}", "hex:", data.0),
             ),
             DecoratedOperandAccessKind::ImmediateU32(data) => (
                 format!("{}", tinter::magenta(format!("0x{data:X}",))),
@@ -238,12 +238,12 @@ pub fn disasm_color(
                 format!("{}{}", "int:", *data as i8),
             ),
             DecoratedOperandAccessKind::CountU8(data) => (
-                format!("#{}", tinter::yellow(format!("{data:02X}",))),
-                format!("{}", "count"),
+                format!("#{}", tinter::yellow(format!("{data}",))),
+                format!("{}: {:02X}", "count", *data),
             ),
             DecoratedOperandAccessKind::CountU16(data) => (
-                format!("{}", tinter::yellow(format!("{data:04X}",))),
-                format!("{}", "count"),
+                format!("#{}", tinter::yellow(format!("{data}",))),
+                format!("{}: {:04X}", "count", *data),
             ),
             DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => (
                 format!("{}", tinter::yellow(format!("{data}",))),
@@ -846,11 +846,6 @@ pub fn disasm(
             to_write_reg(operands[1], &vec_type(), frame_memory_info),
         ],
 
-        OpCode::VecCreateWithCapacityAddr => &[
-            to_write_reg(operands[0], &bytes_type(), frame_memory_info),
-            to_read_reg(operands[1], &bytes_type(), frame_memory_info),
-        ],
-
         OpCode::VecSwap => &[
             to_write_reg(operands[0], &vec_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
@@ -887,6 +882,17 @@ pub fn disasm(
             to_write_reg(operands[0], &vec_type(), frame_memory_info),
             to_read_reg(operands[1], &bytes_type(), frame_memory_info),
         ],
+
+        OpCode::VecInitWithLenAndCapacityAddr => {
+            let length_count = u16::from_le_bytes([operands[2], operands[3]]);
+            let capacity_count = u16::from_le_bytes([operands[4], operands[5]]);
+            &[
+                to_write_reg(operands[0], &bytes_type(), frame_memory_info),
+                to_read_reg(operands[1], &bytes_type(), frame_memory_info),
+                DecoratedOperandAccessKind::CountU16(length_count),
+                DecoratedOperandAccessKind::CountU16(capacity_count),
+            ]
+        }
 
         OpCode::VecRemoveIndex => &[
             to_write_reg(operands[0], &vec_type(), frame_memory_info),
