@@ -220,7 +220,7 @@ pub fn disasm_color(
                 format!("{}{}", "int:", data.0),
             ),
             DecoratedOperandAccessKind::ImmediateU32(data) => (
-                format!("{}", tinter::magenta(format!("{data:X}",))),
+                format!("{}", tinter::magenta(format!("0x{data:X}",))),
                 format!(
                     "{}{} {}{}",
                     "int:",
@@ -230,15 +230,15 @@ pub fn disasm_color(
                 ),
             ),
             DecoratedOperandAccessKind::ImmediateU16(data) => (
-                format!("{}", tinter::magenta(format!("{data:X}",))),
+                format!("{}", tinter::magenta(format!("0x{data:X}",))),
                 format!("{}{}", "int:", *data as i32),
             ),
             DecoratedOperandAccessKind::ImmediateU8(data) => (
-                format!("{}", tinter::magenta(format!("{data:02X}"))),
+                format!("{}", tinter::magenta(format!("0x{data:02X}"))),
                 format!("{}{}", "int:", *data as i8),
             ),
             DecoratedOperandAccessKind::CountU8(data) => (
-                format!("{}", tinter::yellow(format!("{data:02X}",))),
+                format!("#{}", tinter::yellow(format!("{data:02X}",))),
                 format!("{}", "count"),
             ),
             DecoratedOperandAccessKind::CountU16(data) => (

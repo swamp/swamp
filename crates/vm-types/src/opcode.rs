@@ -241,18 +241,18 @@ impl OpCode {
             // Load
             Self::Mov8FromImmediateValue => "movb",
             Self::Mov16FromImmediateValue => "movh",
-            Self::Mov32FromImmediateValue => "movw",
+            Self::Mov32FromImmediateValue => "mov",
 
-            Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ldb",
-            Self::Ld16FromPointerWithOffset /*| Self::Ld32FromAbsoluteAddress*/ => "ldh",
-            Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ldw",
-            Self::LdRegFromFrame => "ldfp",
+            Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ldrb",
+            Self::Ld16FromPointerWithOffset /*| Self::Ld32FromAbsoluteAddress*/ => "ldrh",
+            Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ldr",
+            Self::LdRegFromFrame => "ldmf",
 
-            Self::St32UsingPtrWithOffset => "stw",
-            Self::St16UsingPtrWithOffset => "sth",
-            Self::St8UsingPtrWithOffset => "stb",
+            Self::St32UsingPtrWithOffset => "str",
+            Self::St16UsingPtrWithOffset => "strh",
+            Self::St8UsingPtrWithOffset => "strb",
 
-            Self::StRegToFrame => "stfp",
+            Self::StRegToFrame => "stmf",
 
             Self::Alloc => "alloc",
 
