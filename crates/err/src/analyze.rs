@@ -15,6 +15,12 @@ use swamp_analyzer::err::{Error, ErrorKind};
 pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
     let span = &err.node.span;
     let mut b = match &err.kind {
+        ErrorKind::CapacityNotEnough {
+            size_requested,
+            capacity,
+        } => Report::build(Kind::Error, 5, "storage capacity not enough", span).with_note(
+            &format!("size_requested: {size_requested} capacity {capacity}"),
+        ),
         ErrorKind::MissingToString(ty) => {
             Report::build(Kind::Error, 5, "missing to_string()", span)
                 .with_note(&format!("type: {ty}"))

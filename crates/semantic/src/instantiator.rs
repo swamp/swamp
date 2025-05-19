@@ -514,12 +514,6 @@ impl Instantiator {
                 Type::Optional(Box::new(new_type))
             }
 
-            Type::FixedSlice(inner_type, slice) => {
-                let new_type =
-                    self.instantiate_type_if_needed(current_self, inner_type, type_variables)?;
-                Type::FixedSlice(Box::new(new_type), *slice)
-            }
-
             Type::Function(inner_signature) => {
                 let new_inner_signature = self.instantiate_signature(
                     current_self.unwrap(),
@@ -528,14 +522,6 @@ impl Instantiator {
                 )?;
 
                 Type::Function(new_inner_signature)
-            }
-
-            Type::FixedSlicePair(key_type, value_type, size) => {
-                let new_key_type =
-                    self.instantiate_type_if_needed(current_self, key_type, type_variables)?;
-                let new_value_type =
-                    self.instantiate_type_if_needed(current_self, value_type, type_variables)?;
-                Type::FixedSlicePair(Box::new(new_key_type), Box::new(new_value_type), *size)
             }
 
             _ => ty.clone(),

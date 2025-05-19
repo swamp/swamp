@@ -27,8 +27,7 @@ impl Analyzer<'_> {
                 let (encountered_element_type, resolved_items) =
                     self.analyze_slice_type_helper(ast_node, items, context)?;
 
-                let slice_type =
-                    Type::FixedSlice(Box::new(encountered_element_type.clone()), items.len());
+                let slice_type = Type::DynamicSlice(Box::new(encountered_element_type));
 
                 (
                     Literal::Slice(slice_type.clone(), resolved_items),
@@ -42,10 +41,9 @@ impl Analyzer<'_> {
 
                 assert!(!matches!(encountered_key_type, Type::Unit));
                 assert!(!matches!(encountered_value_type, Type::Unit));
-                let slice_pair_type = Type::FixedSlicePair(
+                let slice_pair_type = Type::DynamicSlicePair(
                     Box::new(encountered_key_type),
                     Box::new(encountered_value_type),
-                    entries.len(),
                 );
 
                 (

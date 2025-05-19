@@ -33,7 +33,7 @@ impl CodeBuilder<'_> {
 
                 let slice_type = arguments[0].ty();
 
-                let Type::FixedSlicePair(key_type, value_type, _) = slice_type else {
+                let Type::DynamicSlicePair(key_type, value_type) = slice_type else {
                     panic!("problem");
                 };
 
@@ -377,7 +377,7 @@ impl CodeBuilder<'_> {
                     panic!("mut have storage");
                 };
 
-                self.builder.add_vec_init_fill_capacity_addr(
+                self.builder.add_vec_init_fill_capacity_and_element_addr(
                     target_reg,
                     element_base_ptr_reg.register(),
                     *fixed_size_capacity as u16,

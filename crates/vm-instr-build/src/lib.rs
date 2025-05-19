@@ -1105,7 +1105,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_vec_init_fill_capacity_addr(
+    pub fn add_vec_init_fill_capacity_and_element_addr(
         &mut self,
         target: &TypedRegister,
         vec_to_init: &TypedRegister,

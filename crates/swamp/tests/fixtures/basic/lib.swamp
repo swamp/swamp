@@ -1,4 +1,4 @@
-/*mod arithmetic
+mod arithmetic
 mod logical
 mod string
 mod bool
@@ -8,5 +8,5 @@ mod tuple
 mod int
 mod float
 mod enum
-mod vec*/
+mod vec
 mod slice

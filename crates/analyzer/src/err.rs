@@ -45,14 +45,26 @@ pub enum ErrorKind {
     UnknownTypeReference,
     SemanticError(SemanticError),
     ExpectedOptional,
-    MapKeyTypeMismatch { expected: Type, found: Type },
-    MapValueTypeMismatch { expected: Type, found: Type },
-    IncompatibleTypes { expected: Type, found: Type },
+    MapKeyTypeMismatch {
+        expected: Type,
+        found: Type,
+    },
+    MapValueTypeMismatch {
+        expected: Type,
+        found: Type,
+    },
+    IncompatibleTypes {
+        expected: Type,
+        found: Type,
+    },
     UnknownMemberFunction(Type),
     ExpressionsNotAllowedInLetPattern,
     UnknownField,
     EnumVariantHasNoFields,
-    TooManyTupleFields { max: usize, got: usize },
+    TooManyTupleFields {
+        max: usize,
+        got: usize,
+    },
     ExpectedBooleanExpression,
     NotAnIterator,
     IntConversionError(ParseIntError),
@@ -84,7 +96,14 @@ pub enum ErrorKind {
     ExpectedLambda,
     ExpectedSlice,
     MissingToString(Type),
-    IncompatibleTypesForAssignment { expected: Type, found: Type },
+    IncompatibleTypesForAssignment {
+        expected: Type,
+        found: Type,
+    },
+    CapacityNotEnough {
+        size_requested: usize,
+        capacity: usize,
+    },
 }
 
 impl From<SemanticError> for Error {

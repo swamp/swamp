@@ -19,6 +19,7 @@ use swamp_vm_types::{
     PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT,
     VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
 };
+use tracing::info;
 use tracing::trace;
 
 #[derive(Copy, Clone)]
@@ -160,6 +161,7 @@ pub fn layout_enum(name: &str, variants: &[EnumVariantType]) -> BasicType {
 
 fn layout_slice(value_type: &Type, fixed_size: usize, name: &str) -> BasicType {
     let basic = layout_type(value_type);
+    info!(?basic, "creating slice with basic element");
     let total_size = fixed_size * basic.total_size.0 as usize;
     BasicType {
         max_alignment: basic.max_alignment,
@@ -228,8 +230,6 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 max_alignment,
             )
         }
-        Type::FixedSlice(inner_type, size) => layout_slice(inner_type, *size, "slice"),
-        Type::FixedSlicePair(a, b, size) => layout_slice_pair(a, b, *size),
         Type::DynamicSlice(inner_type) => todo!(),
         Type::DynamicSlicePair(a, b) => todo!(),
         Type::Tuple(types) => layout_tuple(types),

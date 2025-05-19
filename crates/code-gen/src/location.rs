@@ -229,6 +229,8 @@ impl CodeBuilder<'_> {
                 }
                 LocationAccessKind::Subscript(slice_type, int_expr) => {
                     let element_gen_type = layout_type(&slice_type.element);
+                    todo!()
+                    /*
                     current_location = self.subscript_helper_from_location_to_location(
                         current_location,
                         &element_gen_type,
@@ -238,6 +240,8 @@ impl CodeBuilder<'_> {
                         "subscript",
                         ctx,
                     );
+
+                     */
                 }
                 LocationAccessKind::SubscriptVec(element_type, int_expression) => {
                     current_location = self.vec_subscript_helper(

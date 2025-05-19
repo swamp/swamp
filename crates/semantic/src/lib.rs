@@ -577,9 +577,8 @@ pub struct Postfix {
 }
 
 #[derive(Debug, Clone)]
-pub struct FixedSliceType {
+pub struct SliceType {
     pub element: Box<Type>,
-    pub fixed_size: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -593,7 +592,7 @@ pub enum PostfixKind {
     MemberCall(FunctionRef, Vec<MutRefOrImmutableExpression>),
     OptionalChainingOperator,           // ? operator
     NoneCoalescingOperator(Expression), // ?? operator
-    FixedSliceSubscript(FixedSliceType, Expression),
+    SliceSubscript(SliceType, Expression),
     VecSubscript(VecType, Expression),
 }
 
@@ -601,7 +600,7 @@ pub enum PostfixKind {
 pub enum LocationAccessKind {
     FieldIndex(AnonymousStructType, usize),
     IntrinsicSubscript(IntrinsicFunction, Vec<Expression>),
-    Subscript(FixedSliceType, Expression),
+    Subscript(SliceType, Expression),
     SubscriptVec(Box<Type>, Expression),
 }
 

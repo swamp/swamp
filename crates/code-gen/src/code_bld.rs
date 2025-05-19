@@ -1696,9 +1696,11 @@ impl CodeBuilder<'_> {
                     );
                     //info!(?current_location, "after field offset lookup");
                 }
-                PostfixKind::FixedSliceSubscript(slice_type, int_expression) => {
+                PostfixKind::SliceSubscript(slice_type, int_expression) => {
                     let element_basic_type = layout_type(&slice_type.element);
 
+                    todo!()
+                    /*
                     current_location = self.subscript_helper_from_location_to_location(
                         current_location,
                         &element_basic_type,
@@ -1708,6 +1710,8 @@ impl CodeBuilder<'_> {
                         "emit rvalue",
                         ctx,
                     );
+
+                     */
                 }
 
                 PostfixKind::VecSubscript(vec_type, int_expression) => {
@@ -2745,11 +2749,9 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        let Type::FixedSlice(actual_element_type, actual_slice_fixed_len) = slice_type_inside_type
-        else {
+        let Type::DynamicSlice(actual_element_type) = slice_type_inside_type else {
             panic!("internal error")
         };
-        debug_assert_eq!(*actual_slice_fixed_len, expressions.len());
 
         let element_gen_type = layout_type(actual_element_type);
         self.emit_slice_literal_helper(base_ptr_reg, &element_gen_type, expressions, ctx);
@@ -3025,7 +3027,7 @@ impl CodeBuilder<'_> {
                 panic!("mut have storage");
             };
 
-            self.builder.add_vec_init_fill_capacity_addr(
+            self.builder.add_vec_init_fill_capacity_and_element_addr(
                 target_vec_reg,
                 &element_base_ptr_reg.register,
                 *fixed_size_capacity as u16,

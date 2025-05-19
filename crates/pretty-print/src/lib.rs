@@ -567,7 +567,7 @@ impl SourceMapDisplay<'_> {
                     .clone();
                 write!(f, ".{}", name.bright_blue())
             }
-            PostfixKind::FixedSliceSubscript(slice_type, index_expr) => {
+            PostfixKind::SliceSubscript(slice_type, index_expr) => {
                 todo!()
             }
             PostfixKind::VecSubscript(_, _) => {
@@ -687,8 +687,6 @@ impl SourceMapDisplay<'_> {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }
             Type::Blueprint(blueprint) => self.show_blueprint(f, blueprint, tabs),
-            Type::FixedSlice(value, _size) => todo!(),
-            Type::FixedSlicePair(key, value, _size) => todo!(),
             Type::DynamicSlice(value) => todo!(),
             Type::DynamicSlicePair(key, value) => todo!(),
             Type::VecStorage(_, _) => todo!(),
@@ -735,8 +733,6 @@ impl SourceMapDisplay<'_> {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }
             Type::Blueprint(blueprint) => self.show_blueprint(f, blueprint, tabs),
-            Type::FixedSlice(value, _) => todo!(),
-            Type::FixedSlicePair(key, value, _) => todo!(),
             Type::DynamicSlice(value) => todo!(),
             Type::DynamicSlicePair(key, value) => todo!(),
             Type::Vec(_) => todo!(),

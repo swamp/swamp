@@ -1328,6 +1328,7 @@ impl Grid<T> {
     }
 }
 
+/*
 
 struct SparseId
 
@@ -1445,7 +1446,7 @@ impl Sparse<T> {
     }
 
 }
-
+*/
 
 /// Calculates the magnitude of a 2D vector.
 ///

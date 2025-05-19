@@ -30,9 +30,9 @@ use swamp_semantic::instantiator::TypeVariableScope;
 use swamp_semantic::prelude::*;
 use swamp_semantic::type_var_stack::SemanticContext;
 use swamp_semantic::{
-    BinaryOperatorKind, BlockScope, BlockScopeMode, FixedSliceType, FunctionScopeState,
-    InternalMainExpression, LocationAccess, LocationAccessKind, MutRefOrImmutableExpression,
-    MutableReferenceKind, NormalPattern, Postfix, PostfixKind, SingleLocationExpression,
+    BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState, InternalMainExpression,
+    LocationAccess, LocationAccessKind, MutRefOrImmutableExpression, MutableReferenceKind,
+    NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceType,
     TargetAssignmentLocation, TypeWithMut, VecType, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
@@ -1240,22 +1240,18 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::Subscript(index_expr) => {
                     let collection_type = tv.resolved_type.clone();
                     match &collection_type.underlying() {
-                        Type::FixedSlice(element_type_in_slice, fixed_size) => {
+                        Type::DynamicSlice(element_type_in_slice) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
                                 self.analyze_expression(index_expr, &unsigned_int_context)?;
 
-                            let slice_type = FixedSliceType {
+                            let slice_type = SliceType {
                                 element: Box::new(*element_type_in_slice.clone()),
-                                fixed_size: *fixed_size,
                             };
 
                             self.add_postfix(
                                 &mut suffixes,
-                                PostfixKind::FixedSliceSubscript(
-                                    slice_type,
-                                    unsigned_int_expression,
-                                ),
+                                PostfixKind::SliceSubscript(slice_type, unsigned_int_expression),
                                 collection_type.clone(),
                                 &index_expr.node,
                             );
@@ -1807,7 +1803,7 @@ impl<'a> Analyzer<'a> {
         context: &TypeContext,
     ) -> Result<(Type, Type, Vec<(Expression, Expression)>), Error> {
         let maybe_key_and_value_type = if let Some(expected_type) = context.expected_type {
-            if let Type::FixedSlicePair(key_type, value_type, _) = expected_type {
+            if let Type::DynamicSlicePair(key_type, value_type) = expected_type {
                 Some((*key_type.clone(), *value_type.clone()))
             } else {
                 if let Type::NamedStruct(named) = expected_type {
@@ -1827,7 +1823,7 @@ impl<'a> Analyzer<'a> {
             context.expected_type.map_or_else(
                 || Ok((Type::Unit, Type::Unit, vec![])),
                 |expected_type| {
-                    if let Type::FixedSlicePair(key_type, value_type, _) = expected_type {
+                    if let Type::DynamicSlicePair(key_type, value_type) = expected_type {
                         Ok((*key_type.clone(), *value_type.clone(), vec![]))
                     } else if let Type::NamedStruct(named) = expected_type {
                         Ok((
@@ -1881,7 +1877,7 @@ impl<'a> Analyzer<'a> {
         context: &TypeContext,
     ) -> Result<(Type, Vec<Expression>), Error> {
         let maybe_expected_element_type = if let Some(expected_type) = context.expected_type {
-            if let Type::FixedSlice(inner_type, _) = expected_type {
+            if let Type::DynamicSlice(inner_type) = expected_type {
                 Some(*inner_type.clone())
             } else {
                 match &expected_type {
@@ -1898,11 +1894,12 @@ impl<'a> Analyzer<'a> {
             context.expected_type.map_or_else(
                 || Ok((Type::Unit, vec![])),
                 |expected_type| {
-                    if let Type::FixedSlice(_inner_type, _) = expected_type {
-                        Ok((expected_type.clone(), vec![]))
+                    if let Type::DynamicSlice(inner_type) = expected_type {
+                        info!(?inner_type, "slice of inner type was expected");
+                        Ok((*inner_type.clone(), vec![]))
                     } else if let Type::VecStorage(inner_type, fixed_size) = expected_type {
                         info!(?inner_type, "vec storage");
-                        Ok((expected_type.clone(), vec![]))
+                        Ok((*inner_type.clone(), vec![]))
                     } else if let Type::NamedStruct(named) = expected_type {
                         Ok((named.instantiated_type_parameters[0].clone(), vec![]))
                     } else {
@@ -2486,7 +2483,7 @@ impl<'a> Analyzer<'a> {
                 PostfixKind::StructField(_, _) => {
                     is_owned_result = false;
                 }
-                PostfixKind::FixedSliceSubscript(_, _) => {
+                PostfixKind::SliceSubscript(_, _) => {
                     is_owned_result = false;
                 }
                 PostfixKind::MemberCall(_, _) => {
@@ -2736,10 +2733,9 @@ impl<'a> Analyzer<'a> {
                         self.analyze_expression(key_expression, &unsigned_int_context)?;
 
                     match &ty.underlying() {
-                        Type::FixedSlice(element_type, fixed_size) => {
-                            let slice_type = FixedSliceType {
+                        Type::DynamicSlice(element_type) => {
+                            let slice_type = SliceType {
                                 element: Box::new(*element_type.clone()),
-                                fixed_size: *fixed_size,
                             };
                             self.add_location_item(
                                 &mut items,
@@ -2961,8 +2957,8 @@ impl<'a> Analyzer<'a> {
             match (target, source) {
                 (
                     Type::VecStorage(vec_element_type, capacity),
-                    Type::FixedSlice(slice_element_type, len),
-                ) => vec_element_type.compatible_with(slice_element_type) && len <= capacity,
+                    Type::DynamicSlice(slice_element_type),
+                ) => vec_element_type.compatible_with(slice_element_type),
                 _ => false,
             }
         }
@@ -3520,11 +3516,16 @@ impl<'a> Analyzer<'a> {
             }
         }
         if let Type::VecStorage(vec_element_type, vec_capacity) = expected_type {
-            if let Type::FixedSlice(slice_element_type, fixed_slice_len) = &encountered_type {
-                if vec_element_type.compatible_with(slice_element_type)
-                    && fixed_slice_len <= vec_capacity
-                {
+            if let Type::DynamicSlice(slice_element_type) = &encountered_type {
+                if vec_element_type.compatible_with(slice_element_type) {
                     return Ok(expr);
+                } else {
+                    panic!(
+                        "{}",
+                        format!(
+                            "types are not the same {vec_element_type} slice {slice_element_type}"
+                        )
+                    );
                 }
                 //  TODO : Add better error message
             }
@@ -3582,16 +3583,16 @@ impl<'a> Analyzer<'a> {
             }
             Symbol::TypeGenerator(type_gen) => match type_gen.kind {
                 TypeGeneratorKind::Slice => {
+                    info!(x=?analyzed_type_parameters[0], "slice created");
                     //assert!(analyzed_type_parameters[0].is_concrete());
-                    Type::FixedSlice(Box::new(analyzed_type_parameters[0].clone()), 0)
+                    Type::DynamicSlice(Box::new(analyzed_type_parameters[0].clone()))
                 }
                 TypeGeneratorKind::SlicePair => {
                     //assert!(analyzed_type_parameters[0].is_concrete());
                     //assert!(analyzed_type_parameters[1].is_concrete());
-                    Type::FixedSlicePair(
+                    Type::DynamicSlicePair(
                         Box::new(analyzed_type_parameters[0].clone()),
                         Box::new(analyzed_type_parameters[1].clone()),
-                        0,
                     )
                 }
             },
