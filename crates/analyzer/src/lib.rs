@@ -1895,10 +1895,8 @@ impl<'a> Analyzer<'a> {
                 || Ok((Type::Unit, vec![])),
                 |expected_type| {
                     if let Type::DynamicSlice(inner_type) = expected_type {
-                        info!(?inner_type, "slice of inner type was expected");
                         Ok((*inner_type.clone(), vec![]))
-                    } else if let Type::VecStorage(inner_type, fixed_size) = expected_type {
-                        info!(?inner_type, "vec storage");
+                    } else if let Type::VecStorage(inner_type, _fixed_size) = expected_type {
                         Ok((*inner_type.clone(), vec![]))
                     } else if let Type::NamedStruct(named) = expected_type {
                         Ok((named.instantiated_type_parameters[0].clone(), vec![]))

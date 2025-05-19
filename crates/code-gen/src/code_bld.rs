@@ -2656,10 +2656,6 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         let gen_source_struct_type = layout_struct_type(struct_type_ref, "");
 
-        if base_ptr_reg.size() != gen_source_struct_type.total_size {
-            info!("problem");
-        }
-
         // TODO: Bring this back // assert_eq!(target_reg.size().0, gen_source_struct_type.total_size.0);
         /* TODO: Bring this back
         assert_eq!(

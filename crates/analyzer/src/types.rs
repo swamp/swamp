@@ -4,7 +4,6 @@
  */
 use crate::Analyzer;
 use crate::err::Error;
-use swamp_ast::QualifiedTypeIdentifier;
 use swamp_types::{Signature, Type, TypeForParameter};
 
 impl Analyzer<'_> {
@@ -31,8 +30,6 @@ impl Analyzer<'_> {
 
     /// # Errors
     ///
-    /// # Panics
-    /// if `Vec` wasn't added in core.
     pub fn analyze_type(&mut self, ast_type: &swamp_ast::Type) -> Result<Type, Error> {
         let resolved = match ast_type {
             swamp_ast::Type::AnonymousStruct(ast_struct) => {
@@ -40,25 +37,15 @@ impl Analyzer<'_> {
                 Type::AnonymousStruct(struct_ref)
             }
             swamp_ast::Type::Slice(ast_type, maybe_fixed_size) => {
-                // TODO: maybe_fixed_size
                 let element_type = self.analyze_slice_type(ast_type)?;
-                let int_str = self.get_text(&maybe_fixed_size.clone().unwrap());
-                let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
+                if let Some(fixed_size) = maybe_fixed_size {
+                    let int_str = self.get_text(&fixed_size);
+                    let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
-                Type::VecStorage(Box::new(element_type), int_value)
-                /*
-                let vec_blueprint = self
-                    .shared
-                    .core_symbol_table
-                    .get_blueprint("Vec")
-                    .unwrap()
-                    .clone();
-                self.shared
-                    .state
-                    .instantiator
-                    .instantiate_blueprint_and_members(&vec_blueprint, &[analyzed_element_type])?
-
-                 */
+                    Type::VecStorage(Box::new(element_type), int_value)
+                } else {
+                    Type::Vec(Box::new(element_type))
+                }
             }
             swamp_ast::Type::SlicePair(key_type, value_type, maybe_fixed_size) => {
                 // TODO: maybe fixed size
@@ -139,6 +126,7 @@ impl Analyzer<'_> {
     ) -> Result<Option<Type>, Error> {
         let text = self.get_text(&type_name.name.0);
         match text {
+            /*
             "Vec" => {
                 let len = type_name.generic_params.len();
                 let ty = self.analyze_type(type_name.generic_params[0].get_type())?;
@@ -154,6 +142,9 @@ impl Analyzer<'_> {
                     panic!("strange Vec type")
                 }
             }
+
+             */
+            // TODO: use for Sparse, Grid, Queue, etc
             _ => Ok(None),
         }
     }

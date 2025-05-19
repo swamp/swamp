@@ -1255,6 +1255,8 @@ impl Queue<T> {
 	}
 }
 
+/*
+
 struct Grid<T>
 
 /// A two-dimensional grid that stores values of type `T`.
@@ -1327,6 +1329,7 @@ impl Grid<T> {
       grid_get_column(self, x)
     }
 }
+*/
 
 /*
 
