@@ -148,6 +148,18 @@ pub type InternalFunctionId = u16;
 
 pub type ConstantId = u32;
 
+pub fn pretty_module_name(parts: &[String]) -> String {
+    if parts[0] == "crate" {
+        parts[1..].join("::")
+    } else {
+        parts.join("::")
+    }
+}
+
+pub fn formal_module_name(parts: &[String]) -> String {
+    parts.join("::")
+}
+
 #[derive(Eq, PartialEq)]
 pub struct ExternalFunctionDefinition {
     pub name: Option<Node>,

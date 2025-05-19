@@ -8,3 +8,5 @@ mod enum
 mod tuple
 mod slice
 mod vec
+mod int
+mod float

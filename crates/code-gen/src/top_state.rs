@@ -13,7 +13,7 @@ use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
 use swamp_semantic::{
     ConstantId, ConstantRef, InternalFunctionDefinitionRef, InternalFunctionId,
-    InternalMainExpression,
+    InternalMainExpression, pretty_module_name,
 };
 use swamp_types::Attributes;
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
@@ -76,10 +76,16 @@ impl TopLevelGenState {
         //info!(internal_fn_def.assigned_name, "gen_function");
         assert_ne!(internal_fn_def.program_unique_id, 0);
 
+        let complete_function_name = format!(
+            "{}::{}",
+            pretty_module_name(&internal_fn_def.defined_in_module_path),
+            internal_fn_def.assigned_name
+        );
+
         let in_data = FunctionInData {
             function_name_node: internal_fn_def.name.0.clone(),
             kind: FunctionInfoKind::Normal(internal_fn_def.program_unique_id as usize),
-            assigned_name: internal_fn_def.assigned_name.clone(),
+            assigned_name: complete_function_name,
             function_variables: internal_fn_def.function_variables.clone(),
             parameter_variables: internal_fn_def.parameters.clone(),
             return_type: *internal_fn_def.signature.signature.return_type.clone(),

@@ -19,18 +19,6 @@ impl Default for Modules {
     }
 }
 
-pub fn pretty_module_name(parts: &[String]) -> String {
-    if parts[0] == "crate" {
-        parts[1..].join("::")
-    } else {
-        parts.join("::")
-    }
-}
-
-pub fn formal_module_name(parts: &[String]) -> String {
-    parts.join("::")
-}
-
 pub struct Module {
     pub main_expression: Option<InternalMainExpression>,
     pub symbol_table: SymbolTable,

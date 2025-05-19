@@ -32,6 +32,7 @@ fn writing_second_element_in_things_directly(mut things: Vec<Thing>) {
   print('after things[1]: a:{things[1].a} b: {things[1].b}')
 }
 
+
 fn writing_second_b_in_things(mut things: Vec<Thing>) {
   things[1].b = -999
 }
@@ -164,3 +165,21 @@ fn mut_parameter_passing_whole_element_directly() {
   assert(another.things[1].b == 200, 'after mutation: things[1].b should have been changed')
 
  }
+
+
+fn returning_a_thing(a: Bool) -> Thing {
+  if a {
+    Thing { a: 22, b: 44 }
+  } else {
+    Thing { a: 33, b: 55 }
+  }
+}
+
+
+#[test]
+fn fill_thing_from_returning() {
+  thing = returning_a_thing(true)
+  assert(thing.a == 22, 'thing.a is wrong')
+  assert(thing.b == 44, 'thing.b is wrong')
+}
+

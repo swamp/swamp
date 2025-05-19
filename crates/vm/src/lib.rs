@@ -9,7 +9,8 @@ use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
 use fixed32::Fp;
 use seq_map::SeqMap;
-use std::ptr;
+use std::fmt::Write;
+use std::{fmt, ptr};
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
@@ -356,6 +357,8 @@ impl Vm {
         // vm.handlers[OpCode::FloatAtan2 as usize] = HandlerType::Args3(Self::execute_f32_atan2); // TODO:
         vm.handlers[OpCode::FloatToString as usize] =
             HandlerType::Args2(Self::execute_f32_to_string);
+        vm.handlers[OpCode::FloatPseudoRandom as usize] =
+            HandlerType::Args2(Self::execute_pseudo_random_i32);
 
         // Collections ==========
 
@@ -678,7 +681,8 @@ impl Vm {
     fn execute_f32_round(&mut self, dst_reg: u8, val_reg: u8) {
         let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
-        set_reg!(self, dst_reg, val.round().inner());
+        let int_val: i16 = val.round().into();
+        set_reg!(self, dst_reg, int_val);
     }
 
     #[inline]

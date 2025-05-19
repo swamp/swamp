@@ -9,7 +9,7 @@ use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionId};
-use swamp_vm::{Vm, VmSetup};
+use swamp_vm::{Vm, VmSetup, VmState};
 use swamp_vm_types::{BinaryInstruction, StackMemoryAddress};
 
 pub struct RunConstantsOptions {
@@ -145,6 +145,7 @@ pub fn run_function(vm: &mut Vm, function_to_run: &GenFunctionInfo, run_options:
     {
         vm.reset_stack_and_heap_to_constant_limit();
         //vm.reset_debug();
+        vm.state = VmState::Normal;
         vm.debug_opcodes_enabled = run_options.debug_opcodes_enabled;
         vm.debug_stats_enabled = run_options.debug_stats_enabled;
         vm.execute_from_ip(&function_to_run.ip_range.start);

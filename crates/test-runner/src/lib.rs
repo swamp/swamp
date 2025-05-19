@@ -83,9 +83,8 @@ pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
                         tinter::blue(&function_to_run.internal_function_definition.assigned_name)
                     );
 
-                    if options.debug_output {
-                        eprintln!("running test '{}'", complete_name);
-                    }
+                    eprintln!("🚀starting test '{}'", complete_name);
+
                     for _ in 0..options.iteration_count {
                         swamp_runtime::run_function(
                             &mut vm,

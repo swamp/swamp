@@ -1,0 +1,27 @@
+use core::{assert}
+use std::{print}
+
+#[test]
+fn to_float() {
+  assert(23.to_float() == 23.0, "to_float(23) is wrong")
+}
+
+#[test]
+fn default_int() {
+  assert(Int::default() == 0, "default() is wrong")
+}
+
+#[test]
+fn rnd() {
+  assert(99.rnd() == 1_177_730_931, "rnd(99) is wrong")
+}
+
+#[test]
+fn max() {
+  assert(3.max(-3) == 3, "max(3, -3) is wrong")
+}
+
+#[test]
+fn to_string() {
+  assert(3.to_string() == "3", "to_string(3) is wrong")
+}

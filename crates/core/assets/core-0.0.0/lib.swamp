@@ -1503,3 +1503,17 @@ fn assert(condition: Bool, message: String) {
         panic(message)
     }
 }
+
+/// Asserts that two values are equal, panics with a message if not equal.
+///
+/// # Parameters
+/// - `a`: The condition to check
+/// - `b`: The condition to check
+/// - `message`: The error message to display if condition is false
+/*
+fn assert_eq<T>(a: T, b: T, message: String) {
+    if a != b {
+        panic('{a} != {b} {message}')
+    }
+}
+*/
