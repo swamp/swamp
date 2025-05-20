@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
+    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
 };
 use swamp_vm_types::{HeapMemoryAddress, ProgramCounterDelta};
 
@@ -2028,8 +2028,6 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        // TODO: matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
-
         self.state.add_instruction(
             OpCode::MapGetOrReserveEntryLocation,
             &[

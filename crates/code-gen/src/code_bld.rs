@@ -7,9 +7,9 @@ use crate::layout::{
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool, TempRegister};
 use crate::state::{CodeGenState, FunctionFixup};
 use crate::{
-    Collection, DetailedLocation, DetailedLocationResolved, GeneratedExpressionResult,
-    GeneratedExpressionResultKind, SpilledRegister, Transformer, TransformerResult,
-    single_intrinsic_fn,
+    single_intrinsic_fn, Collection, DetailedLocation, DetailedLocationResolved,
+    GeneratedExpressionResult, GeneratedExpressionResultKind, SpilledRegister, Transformer,
+    TransformerResult,
 };
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
@@ -27,13 +27,13 @@ use swamp_semantic::{
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, TupleType, TypedRegister, VmType,
-    u8_type, u16_type, u32_type, unit_type, unknown_type, vec_type,
+    u16_type, u32_type, u8_type, unit_type, unknown_type, vec_type, BasicType,
+    BasicTypeKind, BoundsCheck, FramePlacedType, TupleType, TypedRegister, VmType, VmTypeOrigin,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    InstructionPosition, MAP_HEADER_COUNT_OFFSET, MAP_HEADER_KEY_SIZE_OFFSET, MemoryOffset,
-    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, StringHeader, VEC_HEADER_COUNT_OFFSET,
+    InstructionPosition, MemoryOffset, StringHeader, MAP_HEADER_COUNT_OFFSET,
+    MAP_HEADER_KEY_SIZE_OFFSET, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, VEC_HEADER_COUNT_OFFSET,
     VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
 };
 use tracing::{error, info};
@@ -1340,6 +1340,55 @@ impl CodeBuilder<'_> {
         }
     }
 
+    pub(crate) fn store_expression_to_memory(
+        &mut self,
+        target_ptr_reg: &TypedRegister,
+        expr: &Expression,
+        node: &Node,
+        ctx: &Context,
+        comment: &str,
+    ) {
+        //let underlying_type = expr.ty.underlying();
+        let gen_type = layout_type(&expr.ty);
+
+        if gen_type.is_represented_as_a_pointer_in_reg() {
+            self.emit_expression_materialize(target_ptr_reg, expr, ctx);
+            // it has already used the target_ptr_reg as a pointer
+            return;
+        }
+
+        let source_reg = self.emit_simple_rvalue(expr, ctx);
+
+        let offset = MemoryOffset(0);
+
+        let kind = &gen_type.kind;
+        match kind {
+            BasicTypeKind::Empty => {
+                // No need to copy, it has zero size
+            }
+            BasicTypeKind::U8 | BasicTypeKind::B8 => {
+                self.builder.add_st8_using_ptr_with_offset(
+                    target_ptr_reg,
+                    offset,
+                    &source_reg,
+                    node,
+                    comment,
+                );
+            }
+            BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
+                self.builder.add_st32_using_ptr_with_offset(
+                    target_ptr_reg,
+                    offset,
+                    &source_reg,
+                    node,
+                    comment,
+                );
+            }
+
+            _ => panic!("unknown simple type"),
+        }
+    }
+
     // When initializing a VecStorage with a slice literal
     fn emit_vec_storage_init(
         &mut self,
@@ -1436,13 +1485,12 @@ impl CodeBuilder<'_> {
         );
     }
 
-    fn emit_map_storage_init(
+    fn emit_map_storage_init_from_slice_pair_literal(
         &mut self,
         target_map_header_ptr_reg: &TypedRegister, // Points to MapStorage
         slice_pair_literal: &[(Expression, Expression)],
         key_value_tuple_type: &TupleType,
         capacity: usize,
-        debug_vec_storage_type: &BasicType,
         node: &Node,
         ctx: &Context,
     ) {
@@ -1461,10 +1509,16 @@ impl CodeBuilder<'_> {
             );
         }
 
-        let key_value_temp_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            &format!("key temp"),
-        );
+        let key_is_primitive = key_value_tuple_type.fields[0].ty.is_simple_primitive();
+        let key_storage_register = if key_is_primitive {
+            self.allocate_frame_space_and_assign_register(&u32_type())
+        } else {
+            let key_temp_register = self.temp_registers.allocate(
+                VmType::new_unknown_placement(u32_type()),
+                &format!("key temp"),
+            );
+            key_temp_register.register
+        };
 
         let element_target_temp_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(u32_type()),
@@ -1472,15 +1526,25 @@ impl CodeBuilder<'_> {
         );
 
         for (key_expr, value_expr) in slice_pair_literal {
-            self.emit_expression_materialize(key_value_temp_reg.register(), key_expr, ctx);
+            //self.emit_expression_materialize(&key_storage_register, key_expr, ctx);
+
+            self.store_expression_to_memory(
+                &key_storage_register,
+                value_expr,
+                node,
+                ctx,
+                "store expression to memory if needed",
+            );
+
             self.builder.add_map_get_or_reserve_entry_location(
                 element_target_temp_reg.register(),
                 target_map_header_ptr_reg,
-                key_value_temp_reg.register(),
+                &key_storage_register,
                 node,
                 "find existing or create a map entry to write into",
             );
-            self.emit_expression_materialize(element_target_temp_reg.register(), value_expr, ctx);
+
+ 
         }
 
         self.temp_registers.restore_to_mark(hwm);
@@ -1514,12 +1578,11 @@ impl CodeBuilder<'_> {
                 BasicTypeKind::InternalMapStorage(element_type, capacity),
                 ExpressionKind::Literal(Literal::SlicePair(_, key_value_pairs_vec)),
             ) => {
-                self.emit_map_storage_init(
+                self.emit_map_storage_init_from_slice_pair_literal(
                     target_addr,
                     key_value_pairs_vec,
                     element_type,
                     *capacity,
-                    target_location_type,
                     &rhs.node,
                     ctx,
                 );

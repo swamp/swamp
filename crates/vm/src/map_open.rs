@@ -291,12 +291,12 @@ impl Vm {
         &mut self,
         dst_entry_address: u8,
         self_map_header_reg: u8,
-        key_source: u8,
+        key_source_ptr_reg: u8,
     ) {
         let (map_header, map_header_addr) = self.read_map_header(self_map_header_reg);
-        let key_source_address = get_reg!(self, key_source) as usize;
+        let key_source_address = get_reg!(self, key_source_ptr_reg) as usize;
         let buckets_start_addr = (map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
-
+        
         let mut entry_address = unsafe {
             Self::lookup_open_addressing(
                 &self.memory,
@@ -454,7 +454,7 @@ impl Vm {
                     #[cfg(feature = "debug_vm")]
                     {
                         eprintln!(
-                            "matching key {key_slice:?} {existing_key_slice:?}. copying to value out"
+                            "matching key {key_slice:?} {existing_key_slice:?}. returning this existing entry at {index}"
                         );
                     }
                     // Keys match! return the pointer.
