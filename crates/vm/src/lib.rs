@@ -391,12 +391,19 @@ impl Vm {
         vm.handlers[OpCode::VecGet as usize] = HandlerType::Args3(Self::execute_vec_get);
         vm.handlers[OpCode::VecSet as usize] = HandlerType::Args3(Self::execute_vec_set);
 
+        /*
         vm.handlers[OpCode::MapNewFromPairs as usize] =
             HandlerType::Args2(Self::execute_map_open_addressing_from_slice);
-        vm.handlers[OpCode::MapFetch as usize] =
-            HandlerType::Args3(Self::execute_map_open_addressing_get);
-        vm.handlers[OpCode::MapSet as usize] =
-            HandlerType::Args3(Self::execute_map_open_addressing_set);
+
+
+         */
+
+        vm.handlers[OpCode::MapInitWithCapacityAndKeySizeAddr as usize] =
+            HandlerType::Args7(Self::execute_map_open_addressing_init);
+        vm.handlers[OpCode::MapGetEntryLocation as usize] =
+            HandlerType::Args3(Self::execute_map_open_addressing_get_entry_location);
+        vm.handlers[OpCode::MapGetOrReserveEntryLocation as usize] =
+            HandlerType::Args3(Self::execute_map_open_addressing_get_or_reserve_entry);
         vm.handlers[OpCode::MapHas as usize] =
             HandlerType::Args2(Self::execute_map_open_addressing_has);
 
@@ -1462,6 +1469,12 @@ impl Vm {
     pub fn get_ptr_from_reg(&self, reg: u8) -> *mut u8 {
         let ptr_addr = get_reg!(self, reg);
         self.memory.get_heap_ptr(ptr_addr as usize)
+    }
+
+    #[inline]
+    pub fn get_ptr_and_addr_from_reg(&self, reg: u8) -> (*mut u8, u32) {
+        let ptr_addr = get_reg!(self, reg);
+        (self.memory.get_heap_ptr(ptr_addr as usize), ptr_addr)
     }
 
     #[inline]

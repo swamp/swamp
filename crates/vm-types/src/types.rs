@@ -2,9 +2,9 @@ use crate::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HEAP_PTR_ON_FRAME_ALIGNMENT,
     HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemoryRegion,
     InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
-    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MAP_PTR_ALIGNMENT, MAP_PTR_SIZE,
-    MemoryAlignment, MemoryOffset, MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT,
-    RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, RegIndex, STRING_HEADER_SIZE,
+    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset,
+    MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, RegIndex, STRING_HEADER_SIZE,
     STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
     VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
 };
@@ -552,8 +552,8 @@ pub fn map_type() -> BasicType {
             Box::from(unknown_type()),
             Box::from(unknown_type()),
         ),
-        total_size: MAP_PTR_SIZE,
-        max_alignment: MAP_PTR_ALIGNMENT,
+        total_size: MAP_HEADER_SIZE,
+        max_alignment: MAP_HEADER_ALIGNMENT,
     }
 }
 

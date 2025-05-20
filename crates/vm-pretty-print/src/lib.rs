@@ -170,6 +170,7 @@ fn print(
         }
         BasicTypeKind::InternalMapPointer(key_type, value_type) => {
             write!(f, "[")?;
+            /*
             let map_header_heap_addr = slice_to_u32_le(frame);
             let header = Vm::read_map_header_from_heap(map_header_heap_addr, heap);
             let buckets_ptr = heap.get_heap_const_ptr(header.heap_offset as usize);
@@ -222,6 +223,8 @@ fn print(
                     )?;
                 }
             }
+
+             */
             write!(f, "]")
         }
         BasicTypeKind::InternalGridPointer => todo!(),

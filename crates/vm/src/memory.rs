@@ -86,6 +86,13 @@ impl Memory {
         unsafe { self.memory.add(offset) }
     }
 
+    pub unsafe fn get_heap_offset(&self, ptr: *const u8) -> u32 {
+        // Assuming ptr is guaranteed to be within bounds or this
+        // will cause a panic if subtraction results in overflow (ptr < heap_base)
+        // or if cast to u32 overflows (for extremely large heaps on 64-bit)
+        (ptr as usize - self.memory as usize) as u32
+    }
+
     #[inline]
     pub(crate) fn heap_allocate(&mut self, size: usize) -> u32 {
         todo!()

@@ -571,19 +571,19 @@ pub const GRID_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct MapHeader {
-    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
-    pub element_count: u32, // Count should be second
-    pub capacity: u32,
-    pub key_size: u32,
-    pub value_size: u32,
+    pub element_count: u16, // Count should be first
+    pub capacity: u16,      // Capacity always second
+    pub key_size: u16,
+    pub element_size: u16,
 }
 
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
-pub const MAP_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
-
-pub const MAP_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
-pub const MAP_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
+pub const MAP_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(0);
+pub const MAP_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(2);
+pub const MAP_HEADER_KEY_SIZE_OFFSET: MemoryOffset = MemoryOffset(4);
+pub const MAP_HEADER_VALUE_SIZE_OFFSET: MemoryOffset = MemoryOffset(6);
+pub const MAP_BUCKETS_OFFSET: MemoryOffset = MemoryOffset(MAP_HEADER_SIZE.0);
 
 #[repr(C)]
 pub struct MapIterator {

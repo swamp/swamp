@@ -310,15 +310,7 @@ impl CodeBuilder<'_> {
                     "copy back collection set (vec)",
                 );
             }
-            BasicTypeKind::InternalMapPointer(_, _) => {
-                self.builder.add_map_set(
-                    self_collection,
-                    &key_address,
-                    element_to_set,
-                    node,
-                    " copy back collection set (map)",
-                );
-            }
+            BasicTypeKind::InternalMapPointer(_, _) => {}
             _ => panic!("unknown collection"),
         }
     }

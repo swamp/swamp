@@ -15,9 +15,9 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
-    MAP_HEADER_SIZE, MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
-    PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
-    VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
+    MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE,
+    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
+    adjust_size_to_alignment, align_to,
 };
 use tracing::info;
 use tracing::trace;
@@ -298,21 +298,6 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
             ))),
             VEC_PTR_SIZE,
             VEC_PTR_ALIGNMENT,
-        );
-    }
-
-    if named_struct_type.is_map() {
-        let analyzed_key_type = &named_struct_type.instantiated_type_parameters[0];
-        assert!(analyzed_key_type.is_concrete());
-        let key_type = layout_type(analyzed_key_type);
-
-        let analyzed_value_type = &named_struct_type.instantiated_type_parameters[1];
-        assert!(analyzed_value_type.is_concrete());
-        let value_type = layout_type(analyzed_value_type);
-        return basic_type(
-            BasicTypeKind::InternalMapPointer(Box::from(key_type), Box::from(value_type)),
-            MAP_PTR_SIZE,
-            MAP_PTR_ALIGNMENT,
         );
     }
 

@@ -27,13 +27,14 @@ use swamp_semantic::{
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, TypedRegister, VmType, u8_type,
-    u16_type, u32_type, unit_type, unknown_type, vec_type,
+    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, TupleType, TypedRegister, VmType,
+    u8_type, u16_type, u32_type, unit_type, unknown_type, vec_type,
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    InstructionPosition, MemoryOffset, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, StringHeader,
-    VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
+    InstructionPosition, MAP_HEADER_COUNT_OFFSET, MAP_HEADER_KEY_SIZE_OFFSET, MemoryOffset,
+    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, StringHeader, VEC_HEADER_COUNT_OFFSET,
+    VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
 };
 use tracing::{error, info};
 
@@ -1435,6 +1436,56 @@ impl CodeBuilder<'_> {
         );
     }
 
+    fn emit_map_storage_init(
+        &mut self,
+        target_map_header_ptr_reg: &TypedRegister, // Points to MapStorage
+        slice_pair_literal: &[(Expression, Expression)],
+        key_value_tuple_type: &TupleType,
+        capacity: usize,
+        debug_vec_storage_type: &BasicType,
+        node: &Node,
+        ctx: &Context,
+    ) {
+        let hwm = self.temp_registers.save_mark();
+
+        let len = slice_pair_literal.len();
+        debug_assert!(capacity >= len);
+        if capacity > 0 || len > 0 {
+            self.builder.add_map_init_set_capacity(
+                target_map_header_ptr_reg,
+                capacity as u16,
+                key_value_tuple_type.fields[0].ty.total_size,
+                key_value_tuple_type.total_size,
+                node,
+                "initialize map",
+            );
+        }
+
+        let key_value_temp_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(u32_type()),
+            &format!("key temp"),
+        );
+
+        let element_target_temp_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(u32_type()),
+            &format!("key temp"),
+        );
+
+        for (key_expr, value_expr) in slice_pair_literal {
+            self.emit_expression_materialize(key_value_temp_reg.register(), key_expr, ctx);
+            self.builder.add_map_get_or_reserve_entry_location(
+                element_target_temp_reg.register(),
+                target_map_header_ptr_reg,
+                key_value_temp_reg.register(),
+                node,
+                "find existing or create a map entry to write into",
+            );
+            self.emit_expression_materialize(element_target_temp_reg.register(), value_expr, ctx);
+        }
+
+        self.temp_registers.restore_to_mark(hwm);
+    }
+
     fn emit_assignment_conversion(
         &mut self,
         target_addr: &TypedRegister,
@@ -1442,24 +1493,39 @@ impl CodeBuilder<'_> {
         rhs: &Expression,
         ctx: &Context,
     ) -> bool {
-        if let (
-            BasicTypeKind::InternalVecStorage(element_type, capacity),
-            ExpressionKind::Literal(Literal::Slice(_, elements)),
-        ) = (&target_location_type.kind, &rhs.kind)
-        {
-            // Special case: VecStorage initialization from slice literal
-            self.emit_vec_storage_init(
-                target_addr,
-                elements,
-                element_type,
-                *capacity,
-                target_location_type,
-                &rhs.node,
-                ctx,
-            );
-            true
-        } else {
-            false
+        match (&target_location_type.kind, &rhs.kind) {
+            (
+                BasicTypeKind::InternalVecStorage(element_type, capacity),
+                ExpressionKind::Literal(Literal::Slice(_, elements)),
+            ) => {
+                self.emit_vec_storage_init(
+                    target_addr,
+                    elements,
+                    element_type,
+                    *capacity,
+                    target_location_type,
+                    &rhs.node,
+                    ctx,
+                );
+                true
+            }
+
+            (
+                BasicTypeKind::InternalMapStorage(element_type, capacity),
+                ExpressionKind::Literal(Literal::SlicePair(_, key_value_pairs_vec)),
+            ) => {
+                self.emit_map_storage_init(
+                    target_addr,
+                    key_value_pairs_vec,
+                    element_type,
+                    *capacity,
+                    target_location_type,
+                    &rhs.node,
+                    ctx,
+                );
+                true
+            }
+            _ => false,
         }
     }
 
@@ -1743,18 +1809,13 @@ impl CodeBuilder<'_> {
                     )
                 }
 
-                PostfixKind::MapSubscript(map_type, int_expression) => {
-                    // TODO: add code here
-                    /*
+                PostfixKind::MapSubscript(map_type, key_expression) => {
                     current_location = self.map_subscript_helper(
                         &current_location,
                         &map_type.key,
-                        &map_type.value,
-                        int_expression,
+                        key_expression,
                         ctx,
                     )
-
-                     */
                 }
 
                 PostfixKind::MemberCall(function_to_call, arguments) => {

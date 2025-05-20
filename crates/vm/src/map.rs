@@ -14,7 +14,6 @@ use std::ptr;
 /// |----------------|--------------|------|--------------|----------------------------------|
 /// | 0              | length       | u16  | 2            | Number of entries in the map     |
 /// | 2              | capacity     | u16  | 2            | Total bucket count (power of 2)  |
-/// | 4              | buckets_ptr  | u16  | 2            | Pointer to bucket array          |
 /// | 6              | key_size     | u16  | 2            | Key size in bytes                |
 /// | 8              | value_size   | u16  | 2            | Value size in bytes              |
 ///

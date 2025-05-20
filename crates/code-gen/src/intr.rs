@@ -564,7 +564,7 @@ impl CodeBuilder<'_> {
                     panic!("must be expression for key");
                 };
                 let key = self.emit_simple_rvalue(key_argument, ctx);
-                self.builder.add_map_fetch(
+                self.builder.add_map_get_entry_location(
                     target_reg,
                     &self_addr.unwrap(),
                     &key,

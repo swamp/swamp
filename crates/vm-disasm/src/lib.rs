@@ -936,6 +936,16 @@ pub fn disasm(
             DecoratedOperandAccessKind::CountU16(u8_pair_to_u16(operands[2], operands[3])),
         ],
 
+        OpCode::MapInitWithCapacityAndKeySizeAddr => {
+            let capacity_count = u16::from_le_bytes([operands[1], operands[2]]);
+            let key_memory_size = u16::from_le_bytes([operands[3], operands[4]]);
+            &[
+                to_write_reg(operands[0], &bytes_type(), frame_memory_info),
+                DecoratedOperandAccessKind::CountU16(capacity_count),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(key_memory_size)),
+            ]
+        }
+
         OpCode::MapIterInit => &[
             to_write_reg(operands[0], &map_iter_type(), frame_memory_info),
             to_read_reg(operands[1], &map_type(), frame_memory_info),
@@ -959,13 +969,13 @@ pub fn disasm(
             to_read_reg(operands[1], &bytes_type(), frame_memory_info),
         ],
 
-        OpCode::MapFetch => &[
+        OpCode::MapGetEntryLocation => &[
             to_write_reg(operands[0], &bytes_type(), frame_memory_info),
             to_read_reg(operands[1], &map_type(), frame_memory_info),
             to_read_reg(operands[2], &bytes_type(), frame_memory_info),
         ],
 
-        OpCode::MapSet => &[
+        OpCode::MapGetOrReserveEntryLocation => &[
             to_write_reg(operands[0], &map_type(), frame_memory_info),
             to_read_reg(operands[1], &bytes_type(), frame_memory_info),
             to_read_reg(operands[2], &bytes_type(), frame_memory_info),

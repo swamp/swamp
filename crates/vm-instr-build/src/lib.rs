@@ -121,6 +121,8 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -1134,6 +1136,37 @@ impl InstructionBuilder<'_> {
         );
     }
 
+    pub fn add_map_init_set_capacity(
+        &mut self,
+        target_map_to_init: &TypedRegister,
+        capacity: u16,
+        key_size: MemorySize,
+        tuple_element_size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        debug_assert!(capacity > 0);
+
+        let capacity_bytes = u16_to_u8_pair(capacity);
+        let key_size_bytes = u16_to_u8_pair(key_size.0);
+        let tuple_element_size_bytes = u16_to_u8_pair(tuple_element_size.0);
+        //let value_size_bytes = u16_to_u8_pair(value_size.0);
+        self.state.add_instruction(
+            OpCode::MapInitWithCapacityAndKeySizeAddr,
+            &[
+                target_map_to_init.addressing(),
+                capacity_bytes.0,
+                capacity_bytes.1,
+                key_size_bytes.0,
+                key_size_bytes.1,
+                tuple_element_size_bytes.0,
+                tuple_element_size_bytes.1,
+            ],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_range_iter_init(
         &mut self,
         iterator_target: &TypedRegister,
@@ -1966,20 +1999,20 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_map_fetch(
+    pub fn add_map_get_entry_location(
         &mut self,
-        target_addr: &TypedRegister,
-        self_addr: &TypedRegister,
+        target_entry_addr: &TypedRegister,
+        map_self_addr: &TypedRegister,
         key: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
+        //TODO: Bring this back: //matches!(map_self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
         self.state.add_instruction(
-            OpCode::MapFetch,
+            OpCode::MapGetEntryLocation,
             &[
-                target_addr.addressing(),
-                self_addr.addressing(),
+                target_entry_addr.addressing(),
+                map_self_addr.addressing(),
                 key.addressing(),
             ],
             node,
@@ -1987,19 +2020,23 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_map_set(
+    pub fn add_map_get_or_reserve_entry_location(
         &mut self,
+        target_entry_reg: &TypedRegister,
         self_addr: &TypedRegister,
         key: &TypedRegister,
-        value: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
+        // TODO: matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
 
         self.state.add_instruction(
-            OpCode::MapSet,
-            &[self_addr.addressing(), key.addressing(), value.addressing()],
+            OpCode::MapGetOrReserveEntryLocation,
+            &[
+                target_entry_reg.addressing(),
+                self_addr.addressing(),
+                key.addressing(),
+            ],
             node,
             comment,
         );

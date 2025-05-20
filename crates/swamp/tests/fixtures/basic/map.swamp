@@ -19,5 +19,5 @@ fn map() {
       1: Thing { a: 13, b:  3 },
     ]
   }
-  print('another.things[2].a: {another.things[2].a}')
+  print('another.things[99].a: {another.things[99].a}')
 }
