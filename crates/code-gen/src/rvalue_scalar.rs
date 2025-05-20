@@ -1,4 +1,3 @@
-use crate::GeneratedExpressionResult;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
@@ -27,6 +26,15 @@ impl CodeBuilder<'_> {
         match &expr.kind {
             ExpressionKind::ConstantAccess(constant_ref) => {
                 self.emit_constant_access(target_reg, &expr.node, constant_ref, ctx);
+            }
+            ExpressionKind::VariableAccess(variable_ref) => {
+                let variable_register = self.get_variable_register(variable_ref).clone();
+                self.builder.add_mov_reg(
+                    target_reg,
+                    &variable_register,
+                    &expr.node,
+                    "extra copy var access",
+                );
             }
             ExpressionKind::BorrowMutRef(expression) => {
                 self.emit_borrow_mutable_reference(target_reg, &expr.node, expression, ctx)

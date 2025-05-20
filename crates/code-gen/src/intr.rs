@@ -8,8 +8,8 @@ use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType, pointer_type, vec_type};
 use swamp_vm_types::{
-    MAP_HEADER_COUNT_OFFSET, MemoryOffset, MemorySize, STRING_HEADER_COUNT_OFFSET,
-    VEC_HEADER_COUNT_OFFSET,
+    AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
+    STRING_HEADER_COUNT_OFFSET, ScalarMemoryLocation, VEC_HEADER_COUNT_OFFSET,
 };
 
 impl CodeBuilder<'_> {
@@ -281,7 +281,20 @@ impl CodeBuilder<'_> {
                     "set pointer to new element",
                 );
 
-                self.emit_expression_to_memory
+                let location = AggregateMemoryLocation {
+                    location: MemoryLocation {
+                        base_ptr_reg: temp_element_ptr.register,
+                        offset: MemoryOffset(0),
+                        ty: element_gen_type.clone(),
+                    },
+                };
+
+                self.emit_expression_to_lvalue_location(
+                    location.location,
+                    element_expr,
+                    "nono",
+                    ctx,
+                );
             }
 
             IntrinsicFunction::VecPop => {
@@ -346,6 +359,7 @@ impl CodeBuilder<'_> {
                     .add_vec_create(target_reg, MemorySize(0), node, "vec create"); // TODO: Fix to have proper element memory size
             }
             IntrinsicFunction::VecFromSlice => {
+                /*
                 let maybe_key_argument = &arguments[0];
                 let MutRefOrImmutableExpression::Expression(slice_expression) = maybe_key_argument
                 else {
@@ -378,6 +392,9 @@ impl CodeBuilder<'_> {
                     slice_expression,
                     ctx,
                 );
+
+                 */
+                todo!()
             }
 
             IntrinsicFunction::VecSubscript => {
@@ -668,5 +685,34 @@ impl CodeBuilder<'_> {
 
         self.builder
             .add_map_remove(map_region, &key_region, &key_expr.node, "");
+    }
+
+    fn emit_expression_to_lvalue_location(
+        &mut self,
+        memory_location: MemoryLocation,
+        expr: &Expression,
+        comment: &str,
+        ctx: &Context,
+    ) {
+        if memory_location.ty.is_simple_primitive() {
+            self.emit_scalar_rvalue(expr, ctx);
+            self.emit_scalar_rvalue_to_lvalue(
+                &ScalarMemoryLocation {
+                    location: memory_location,
+                },
+                expr,
+                comment,
+                ctx,
+            )
+        } else {
+            self.emit_aggregate_rvalue_to_lvalue(
+                &AggregateMemoryLocation {
+                    location: memory_location,
+                },
+                expr,
+                comment,
+                ctx,
+            );
+        }
     }
 }

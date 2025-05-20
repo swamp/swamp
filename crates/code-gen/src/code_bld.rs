@@ -1409,22 +1409,8 @@ impl CodeBuilder<'_> {
             );
         }
 
-        let key_is_primitive = key_value_tuple_type.fields[0].ty.is_simple_primitive();
-        let key_storage_register = if key_is_primitive {
-            self.allocate_frame_space_and_assign_register(&u32_type())
-        } else {
-            let key_temp_register = self.temp_registers.allocate(
-                VmType::new_unknown_placement(u32_type()),
-                &format!("key temp"),
-            );
-            key_temp_register.register
-        };
-
-        let aggregate_location = MemoryLocation {
-            base_ptr_reg: key_storage_register.clone(),
-            offset: MemoryOffset(0),
-            ty: key_storage_register.ty.basic_type.clone(),
-        };
+        let aggregate_location =
+            self.allocate_frame_space_and_assign_register(&u32_type(), "key storage");
 
         let element_target_temp_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(u32_type()),
@@ -1443,7 +1429,7 @@ impl CodeBuilder<'_> {
             self.builder.add_map_get_or_reserve_entry_location(
                 element_target_temp_reg.register(),
                 target_map_header_ptr_reg,
-                &key_storage_register,
+                &aggregate_location.base_ptr_reg,
                 node,
                 "find existing or create a map entry to write into",
             );
@@ -1629,13 +1615,27 @@ impl CodeBuilder<'_> {
                         }
                     }
                     MutRefOrImmutableExpression::Expression(expr) => {
-                        let source_reg = self.emit_scalar_rvalue(expr, &argument_ctx);
-                        self.builder.add_mov_reg(
-                            &argument_register,
-                            &source_reg,
-                            &expr.node,
-                            "copy reg result into arg",
-                        );
+                        if self.rvalue_needs_memory_location_to_materialize_in(expr) {
+                            let gen_type = layout_type(&expr.ty);
+                            let temp_reg = self.allocate_frame_space_and_assign_register(
+                                &gen_type,
+                                "temp mem for argument",
+                            );
+                            self.emit_expression_into_target_memory(
+                                &temp_reg,
+                                expr,
+                                "materialize into temp argument mem",
+                                ctx,
+                            );
+                        } else {
+                            let source_reg = self.emit_scalar_rvalue(expr, &argument_ctx);
+                            self.builder.add_mov_reg(
+                                &argument_register,
+                                &source_reg,
+                                &expr.node,
+                                "copy reg result into arg",
+                            );
+                        }
                     }
                 }
 
@@ -2235,7 +2235,7 @@ impl CodeBuilder<'_> {
         target_reg: &TypedRegister,
         expressions: &[Expression],
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         if let Some((last, others)) = expressions.split_last() {
             for expr in others {
                 //i nfo!("this is others in block");
@@ -2246,8 +2246,6 @@ impl CodeBuilder<'_> {
         } else {
             // empty blocks are allowed for side effects
         }
-
-        GeneratedExpressionResult::default()
     }
 
     pub(crate) fn get_variable_register(&self, variable: &VariableRef) -> &TypedRegister {
@@ -2375,16 +2373,26 @@ impl CodeBuilder<'_> {
         )
     }
 
-    fn allocate_frame_space_and_assign_register(&mut self, ty: &BasicType) -> TypedRegister {
+    pub fn allocate_frame_space_and_assign_register(
+        &mut self,
+        ty: &BasicType,
+        comment: &str,
+    ) -> MemoryLocation {
         let frame_placed_type = self.frame_allocator.allocate_type(ty.clone());
 
-        self.frame_memory_registers.alloc_register(
+        let reg = self.frame_memory_registers.alloc_register(
             VmType::new_frame_placed(frame_placed_type),
             "allocate frame space",
-        )
+        );
+
+        MemoryLocation {
+            base_ptr_reg: reg,
+            offset: MemoryOffset(0),
+            ty: ty.clone(),
+        }
     }
 
-    fn emit_expression_into_target_memory(
+    pub fn emit_expression_into_target_memory(
         &mut self,
         target_lvalue_location: &MemoryLocation,
         //        element_gen_type: &BasicType,
@@ -2847,7 +2855,7 @@ impl CodeBuilder<'_> {
         target_reg: &TypedRegister,
         match_expr: &Match,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         let enum_ptr_reg = self.emit_for_access_or_location(&match_expr.expression, ctx);
 
         let mut jump_to_exit_placeholders = Vec::new();
@@ -2941,8 +2949,6 @@ impl CodeBuilder<'_> {
         for placeholder in jump_to_exit_placeholders {
             self.builder.patch_jump_here(placeholder);
         }
-
-        GeneratedExpressionResult::default()
     }
 
     pub(crate) fn emit_guard(
@@ -3838,5 +3844,12 @@ impl CodeBuilder<'_> {
         );
 
         temp_reg
+    }
+
+    fn rvalue_needs_memory_location_to_materialize_in(&self, expr: &Expression) -> bool {
+        matches!(
+            expr.kind,
+            ExpressionKind::Literal(_) | ExpressionKind::AnonymousStructLiteral(_)
+        )
     }
 }

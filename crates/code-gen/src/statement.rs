@@ -1,7 +1,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::{layout_tuple_items, layout_type};
-use crate::{Collection, DetailedLocation, GeneratedExpressionResult, Transformer};
+use crate::{Collection, DetailedLocation, Transformer};
 use source_map_node::Node;
 use swamp_semantic::{
     BooleanExpression, CompoundOperatorKind, Expression, ExpressionKind, ForPattern, Iterable,
@@ -9,6 +9,7 @@ use swamp_semantic::{
 };
 use swamp_types::Type;
 use swamp_vm_types::types::{TypedRegister, VmType};
+use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
@@ -17,7 +18,7 @@ impl CodeBuilder<'_> {
                 self.emit_tuple_destructuring(variables, tuple_types, tuple_expression, ctx)
             }
             ExpressionKind::Assignment(target_mut_location_expr, source_expr) => {
-                self.emit_assignment(target_mut_location_expr, source_expr, &expr.node, ctx)
+                self.emit_assignment(target_mut_location_expr, source_expr, "", ctx)
             }
             ExpressionKind::VariableDefinition(variable, expression) => {
                 self.emit_variable_definition(variable, expression, ctx)
@@ -34,7 +35,11 @@ impl CodeBuilder<'_> {
             ExpressionKind::WhileLoop(condition, expression) => {
                 self.emit_while_loop(condition, expression, ctx)
             }
-            _ => panic!("this is not a statement!"),
+            ExpressionKind::HostCall(host_fn, arguments) => {
+                debug_assert!(host_fn.signature.return_type.is_unit());
+                self.emit_host_call(&expr.node, host_fn, arguments, ctx);
+            }
+            _ => panic!("this is not a statement! {expr:?}"),
         }
     }
     fn emit_variable_definition(
@@ -63,7 +68,17 @@ impl CodeBuilder<'_> {
             })
             .clone();
 
-        self.emit_assignment_like(&target_register, target_register.ty(), expression, ctx);
+        let memory_location = MemoryLocation {
+            base_ptr_reg: target_register.clone(),
+            offset: MemoryOffset(0),
+            ty: target_register.ty.underlying().clone(),
+        };
+        self.emit_expression_into_target_memory(
+            &memory_location,
+            expression,
+            "variable assignment",
+            ctx,
+        );
     }
 
     fn emit_variable_reassignment(
@@ -78,11 +93,28 @@ impl CodeBuilder<'_> {
         &mut self,
         lhs: &TargetAssignmentLocation,
         rhs: &Expression,
-        node: &Node,
+        comment: &str,
         ctx: &Context,
     ) {
         let assignment_target = self.emit_lvalue_location(&lhs.0, ctx);
-
+        let memory_location = match &assignment_target {
+            DetailedLocation::Register { reg } => MemoryLocation {
+                base_ptr_reg: reg.clone(),
+                offset: MemoryOffset(0),
+                ty: assignment_target.vm_type().basic_type.clone(),
+            },
+            DetailedLocation::Memory {
+                base_ptr_reg,
+                offset,
+                ty,
+            } => MemoryLocation {
+                base_ptr_reg: base_ptr_reg.clone(),
+                offset: offset.clone(),
+                ty: ty.underlying().clone(),
+            },
+        };
+        self.emit_expression_into_target_memory(&memory_location, rhs, comment, ctx);
+        /*
         match &assignment_target {
             DetailedLocation::Register { reg } => {
                 let target_location_type = layout_type(&lhs.0.ty);
@@ -113,6 +145,8 @@ impl CodeBuilder<'_> {
                 }
             }
         }
+
+         */
     }
 
     fn emit_tuple_destructuring(
@@ -353,11 +387,15 @@ impl CodeBuilder<'_> {
             _ => panic!("not allowed as a compound assignment"),
         }
 
+        /*
+        TODO:
         self.emit_store_primitive_from_detailed_location_if_needed(
             &resolved,
             &assignment_target,
             &target_location.0.node,
         );
+
+         */
 
         /*
         if let DetailedLocationResolved::TempRegister(temp_reg) = resolved {
