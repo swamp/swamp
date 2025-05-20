@@ -47,7 +47,7 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        debug_assert!(expr.ty.is_scalar());
+        //debug_assert!(expr.ty.is_scalar());
 
         let scalar_register = self.emit_scalar_rvalue(expr, ctx);
         self.store_scalar_to_memory(
@@ -82,7 +82,11 @@ impl CodeBuilder<'_> {
                     comment,
                 );
             }
-            BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
+            BasicTypeKind::S32
+            | BasicTypeKind::Fixed32
+            | BasicTypeKind::U32
+            | BasicTypeKind::InternalStringPointer => {
+                // Strings are scalars for now
                 self.builder.add_st32_using_ptr_with_offset(
                     &scalar_lvalue_location.location,
                     &source_scalar_reg,
@@ -90,7 +94,7 @@ impl CodeBuilder<'_> {
                     comment,
                 );
             }
-            _ => panic!("this is not a primitive"),
+            _ => panic!("this is not a primitive {}", source_scalar_reg.ty),
         }
     }
 }

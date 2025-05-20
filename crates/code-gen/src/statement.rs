@@ -8,11 +8,13 @@ use swamp_semantic::{
     MutRefOrImmutableExpression, TargetAssignmentLocation, VariableRef,
 };
 use swamp_types::Type;
-use swamp_vm_types::types::{TypedRegister, VmType};
+use swamp_vm_types::types::{TypedRegister, VmType, unit_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
+use tracing::info;
 
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
+        debug_assert!(matches!(expr.ty, Type::Unit));
         match &expr.kind {
             ExpressionKind::TupleDestructuring(variables, tuple_types, tuple_expression) => {
                 self.emit_tuple_destructuring(variables, tuple_types, tuple_expression, ctx)
@@ -35,10 +37,11 @@ impl CodeBuilder<'_> {
             ExpressionKind::WhileLoop(condition, expression) => {
                 self.emit_while_loop(condition, expression, ctx)
             }
-            ExpressionKind::HostCall(host_fn, arguments) => {
-                debug_assert!(host_fn.signature.return_type.is_unit());
-                self.emit_host_call(&expr.node, host_fn, arguments, ctx);
+            _ => {
+                info!(?expr, "fallback");
+                let _ignore = self.emit_scalar_rvalue(expr, ctx);
             }
+
             _ => panic!("this is not a statement! {expr:?}"),
         }
     }
@@ -68,17 +71,21 @@ impl CodeBuilder<'_> {
             })
             .clone();
 
-        let memory_location = MemoryLocation {
-            base_ptr_reg: target_register.clone(),
-            offset: MemoryOffset(0),
-            ty: target_register.ty.underlying().clone(),
-        };
-        self.emit_expression_into_target_memory(
-            &memory_location,
-            expression,
-            "variable assignment",
-            ctx,
-        );
+        if variable.resolved_type.is_primitive() {
+            self.emit_scalar_rvalue_to_specific_register(&target_register, expression, ctx);
+        } else {
+            let memory_location = MemoryLocation {
+                base_ptr_reg: target_register.clone(),
+                offset: MemoryOffset(0),
+                ty: target_register.ty.underlying().clone(),
+            };
+            self.emit_expression_into_target_memory(
+                &memory_location,
+                expression,
+                "variable assignment",
+                ctx,
+            );
+        }
     }
 
     fn emit_variable_reassignment(

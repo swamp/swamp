@@ -23,7 +23,7 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryRegion, FrameMemorySize, InstructionPosition,
-    InstructionPositionOffset, InstructionRange, MemoryOffset, MemorySize, Meta,
+    InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset, MemorySize, Meta,
     REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
 use tracing::error;
@@ -358,11 +358,26 @@ impl TopLevelGenState {
         let return_register =
             TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
-        function_code_builder.emit_scalar_rvalue_to_specific_register(
-            &return_register,
-            &in_data.expression,
-            &ctx,
-        );
+        if in_data.return_type.is_primitive() {
+            function_code_builder.emit_scalar_rvalue_to_specific_register(
+                &return_register,
+                &in_data.expression,
+                &ctx,
+            );
+        } else {
+            let memory_location = MemoryLocation {
+                ty: return_register.ty.basic_type.clone(),
+                base_ptr_reg: return_register,
+                offset: MemoryOffset(0),
+            };
+
+            function_code_builder.emit_expression_into_target_memory(
+                &memory_location,
+                &in_data.expression,
+                "function root expression",
+                &ctx,
+            );
+        }
 
         function_code_builder.patch_enter(enter_patch_position);
 

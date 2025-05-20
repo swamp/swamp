@@ -483,6 +483,129 @@ impl CodeBuilder<'_> {
         }
     }
 
+    pub fn emit_binary_operator_relational_i32_to_t_flag_only(
+        &mut self,
+        left_source: &TypedRegister,
+        binary_operator: &BinaryOperator,
+        right_source: &TypedRegister,
+    ) -> GeneratedExpressionResult {
+        let node = &binary_operator.node;
+        match &binary_operator.kind {
+            BinaryOperatorKind::LessThan => {
+                self.builder
+                    .add_lt_i32(left_source, right_source, node, "i32 lt");
+            }
+            BinaryOperatorKind::LessEqual => {
+                self.builder
+                    .add_le_i32(left_source, right_source, node, "i32 le");
+            }
+            BinaryOperatorKind::GreaterThan => {
+                self.builder
+                    .add_gt_i32(left_source, right_source, node, "i32 gt");
+            }
+            BinaryOperatorKind::GreaterEqual => {
+                self.builder
+                    .add_ge_i32(left_source, right_source, node, "i32 ge");
+            }
+            _ => {
+                panic!("was not a condition")
+            }
+        }
+        GeneratedExpressionResult {
+            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
+        }
+    }
+
+    pub fn emit_binary_operator_relational_f32_to_t_flag_only(
+        &mut self,
+        left_source: &TypedRegister,
+        binary_operator: BinaryOperator,
+        right_source: &TypedRegister,
+    ) -> GeneratedExpressionResultKind {
+        let node = &binary_operator.node;
+        match &binary_operator.kind {
+            BinaryOperatorKind::LessThan => {
+                self.builder
+                    .add_lt_i32(left_source, right_source, node, "f32 lt");
+            }
+            BinaryOperatorKind::LessEqual => {
+                self.builder
+                    .add_le_i32(left_source, right_source, node, "f32 le");
+            }
+            BinaryOperatorKind::GreaterThan => {
+                self.builder
+                    .add_gt_i32(left_source, right_source, node, "f32 gt");
+            }
+            BinaryOperatorKind::GreaterEqual => {
+                self.builder
+                    .add_ge_i32(left_source, right_source, node, "f32 ge");
+            }
+            _ => panic!("not a relational operator"),
+        }
+        GeneratedExpressionResultKind::TFlagIsTrueWhenSet
+    }
+
+    pub fn emit_binary_operator_relational_to_t_flag_only(
+        &mut self,
+        left_source: &TypedRegister,
+        binary_operator: &BinaryOperator,
+        right_source: &TypedRegister,
+    ) -> GeneratedExpressionResult {
+        match &left_source.ty.basic_type.kind {
+            BasicTypeKind::S32 => self.emit_binary_operator_relational_i32_to_t_flag_only(
+                left_source,
+                binary_operator,
+                right_source,
+            ),
+            BasicTypeKind::Fixed32 => self.emit_binary_operator_relational_i32_to_t_flag_only(
+                left_source,
+                binary_operator,
+                right_source,
+            ),
+            _ => panic!("this is not a condition"),
+        }
+    }
+
+    pub fn emit_binary_operator_equal_to_t_flag_only(
+        &mut self,
+        left_source: &TypedRegister,
+        is_equal: bool,
+        right_source: &TypedRegister,
+        node: &Node,
+        ctx: &Context,
+    ) -> GeneratedExpressionResult {
+        let polarity = match (
+            &left_source.ty.basic_type.kind,
+            &right_source.ty.basic_type.kind,
+        ) {
+            (BasicTypeKind::B8, BasicTypeKind::B8) => {
+                self.emit_binary_operator_equal_reg(&left_source, node, &right_source)
+            }
+            (BasicTypeKind::S32, BasicTypeKind::S32) => {
+                self.emit_binary_operator_equal_reg(&left_source, node, &right_source)
+            }
+            (BasicTypeKind::Fixed32, BasicTypeKind::Fixed32) => {
+                self.emit_binary_operator_equal_reg(&left_source, node, &right_source)
+            }
+            (BasicTypeKind::InternalStringPointer, BasicTypeKind::InternalStringPointer) => {
+                self.emit_binary_operator_string_cmp(&left_source, node, &right_source)
+            }
+            (BasicTypeKind::TaggedUnion(a), BasicTypeKind::TaggedUnion(b)) => {
+                // TODO: Make simpler case if enum variants are without payload
+                // a.are_all_variants_without_payload()
+
+                self.emit_binary_operator_block_cmp(&left_source, node, &right_source)
+            }
+            _ => todo!(),
+        };
+
+        if is_equal {
+            polarity
+        } else {
+            polarity.invert_polarity()
+        }
+    }
+
     fn emit_binary_operator_normal(
         &mut self,
         target_reg: &TypedRegister,
@@ -491,50 +614,41 @@ impl CodeBuilder<'_> {
     ) {
         let hwm = self.temp_registers.save_mark();
 
+        info!(?binary_operator.kind, "binary operator");
+
         let left_source = self.emit_scalar_rvalue(&binary_operator.left, ctx);
         let right_source = self.emit_scalar_rvalue(&binary_operator.right, ctx);
 
-        let result = match &binary_operator.kind {
+        match &binary_operator.kind {
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
-                let polarity = match (&binary_operator.left.ty, &binary_operator.right.ty) {
-                    (Type::Bool, Type::Bool) => self.emit_binary_operator_reg(
-                        &left_source,
-                        &binary_operator.node,
-                        &right_source,
-                    ),
-                    (Type::Int, Type::Int) => self.emit_binary_operator_reg(
-                        &left_source,
-                        &binary_operator.node,
-                        &right_source,
-                    ),
-                    (Type::Float, Type::Float) => self.emit_binary_operator_reg(
-                        &left_source,
-                        &binary_operator.node,
-                        &right_source,
-                    ),
-                    (Type::String, Type::String) => self.emit_binary_operator_string_cmp(
-                        &left_source,
-                        &binary_operator.node,
-                        &right_source,
-                    ),
-                    (Type::Enum(a), Type::Enum(b)) => {
-                        // TODO: Make simpler case if enum variants are without payload
-                        // a.are_all_variants_without_payload()
-
-                        self.emit_binary_operator_block_cmp(
-                            &left_source,
-                            &binary_operator.node,
-                            &right_source,
-                        )
-                    }
-                    _ => todo!(),
-                };
-
-                if matches!(binary_operator.kind, BinaryOperatorKind::Equal) {
-                    polarity
-                } else {
-                    polarity.invert_polarity()
-                }
+                let is_equal_polarity = matches!(binary_operator.kind, BinaryOperatorKind::Equal);
+                let t_flag = self.emit_binary_operator_equal_to_t_flag_only(
+                    &left_source,
+                    is_equal_polarity,
+                    &right_source,
+                    &binary_operator.node,
+                    ctx,
+                );
+                self.materialize_t_flag_to_bool_if_needed(
+                    target_reg,
+                    t_flag,
+                    &binary_operator.node,
+                );
+            }
+            BinaryOperatorKind::GreaterEqual
+            | BinaryOperatorKind::GreaterThan
+            | BinaryOperatorKind::LessThan
+            | BinaryOperatorKind::LessEqual => {
+                let t_flag = self.emit_binary_operator_relational_to_t_flag_only(
+                    &left_source,
+                    binary_operator,
+                    &right_source,
+                );
+                self.materialize_t_flag_to_bool_if_needed(
+                    target_reg,
+                    t_flag,
+                    &binary_operator.node,
+                );
             }
             _ => match (&binary_operator.left.ty, &binary_operator.right.ty) {
                 //(Type::Bool, Type::Bool) => self.emit_binary_operator_logical(binary_operator),
@@ -577,7 +691,7 @@ impl CodeBuilder<'_> {
         binary_operator_kind: &BinaryOperatorKind,
         right_source: &TypedRegister,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         let mut kind = GeneratedExpressionResultKind::TFlagIsIndeterminate;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
@@ -614,40 +728,18 @@ impl CodeBuilder<'_> {
             BinaryOperatorKind::LogicalOr => todo!(),
             BinaryOperatorKind::LogicalAnd => todo!(),
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => todo!(),
-            /*
-            {
-                self.builder
-                    .add_cmp32(left_source, right_source, node, "i32 cmp");
-                if let BinaryOperatorKind::Equal = binary_operator_kind {
-                    kind = GeneratedExpressionResultKind::ZFlagIsTrue;
-                } else {
-                    kind = GeneratedExpressionResultKind::ZFlagIsInversion;
-                }
-            }
-             */
-            BinaryOperatorKind::LessThan => {
-                self.builder
-                    .add_lt_i32(left_source, right_source, node, "i32 lt");
-                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
-            }
-            BinaryOperatorKind::LessEqual => {
-                self.builder
-                    .add_le_i32(left_source, right_source, node, "i32 le");
-                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
-            }
-            BinaryOperatorKind::GreaterThan => {
-                self.builder
-                    .add_gt_i32(left_source, right_source, node, "i32 gt");
-                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
-            }
-            BinaryOperatorKind::GreaterEqual => {
-                self.builder
-                    .add_ge_i32(left_source, right_source, node, "i32 ge");
-                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
-            }
+            _ => todo!(), /*
+                          {
+                              self.builder
+                                  .add_cmp32(left_source, right_source, node, "i32 cmp");
+                              if let BinaryOperatorKind::Equal = binary_operator_kind {
+                                  kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                              } else {
+                                  kind = GeneratedExpressionResultKind::ZFlagIsInversion;
+                              }
+                          }
+                           */
         }
-
-        GeneratedExpressionResult { kind }
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -659,7 +751,7 @@ impl CodeBuilder<'_> {
         binary_operator_kind: &BinaryOperatorKind,
         right_source: &TypedRegister,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         let mut kind = GeneratedExpressionResultKind::TFlagIsIndeterminate;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
@@ -685,38 +777,16 @@ impl CodeBuilder<'_> {
             BinaryOperatorKind::LogicalOr => panic!("not supported"),
             BinaryOperatorKind::LogicalAnd => panic!("not supported"),
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => panic!("handled elsewhere"),
-            /*{
-                self.builder
-                    .add_cmp32(left_source, right_source, node, "f32 eq");
-                if let BinaryOperatorKind::Equal = binary_operator_kind {
-                    kind = GeneratedExpressionResultKind::ZFlagIsTrue;
-                } else {
-                    kind = GeneratedExpressionResultKind::ZFlagIsInversion;
-                }
-            }*/
-            BinaryOperatorKind::LessThan => {
-                self.builder
-                    .add_lt_i32(left_source, right_source, node, "f32 lt");
-                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
-            }
-            BinaryOperatorKind::LessEqual => {
-                self.builder
-                    .add_le_i32(left_source, right_source, node, "f32 le");
-                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
-            }
-            BinaryOperatorKind::GreaterThan => {
-                self.builder
-                    .add_gt_i32(left_source, right_source, node, "f32 gt");
-                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
-            }
-            BinaryOperatorKind::GreaterEqual => {
-                self.builder
-                    .add_ge_i32(left_source, right_source, node, "f32 ge");
-                kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
-            }
+            _ => panic!("unknown"), /*{
+                                        self.builder
+                                            .add_cmp32(left_source, right_source, node, "f32 eq");
+                                        if let BinaryOperatorKind::Equal = binary_operator_kind {
+                                            kind = GeneratedExpressionResultKind::ZFlagIsTrue;
+                                        } else {
+                                            kind = GeneratedExpressionResultKind::ZFlagIsInversion;
+                                        }
+                                    }*/
         }
-
-        GeneratedExpressionResult { kind }
     }
 
     fn emit_binary_operator_string(
@@ -727,7 +797,7 @@ impl CodeBuilder<'_> {
         binary_operator_kind: &BinaryOperatorKind,
         right_source: &TypedRegister,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.builder.add_string_append(
@@ -742,10 +812,6 @@ impl CodeBuilder<'_> {
             BinaryOperatorKind::Equal => todo!(),
             BinaryOperatorKind::NotEqual => todo!(),
             _ => panic!("illegal string operator"),
-        }
-
-        GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::TFlagIsIndeterminate,
         }
     }
 
@@ -765,7 +831,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_binary_operator_reg(
+    fn emit_binary_operator_equal_reg(
         &mut self,
         left_source: &TypedRegister,
         node: &Node,
@@ -899,7 +965,22 @@ impl CodeBuilder<'_> {
                 BinaryOperatorKind::LogicalAnd => {
                     return self.emit_binary_operator_logical_to_t_flag(operator, ctx);
                 }
-                _ => panic!("binary operator does not provide us with t flag"),
+                BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
+                    let left = self.emit_scalar_rvalue(&operator.left, ctx);
+                    let right = self.emit_scalar_rvalue(&operator.left, ctx);
+                    let is_equal_polarity = matches!(operator.kind, BinaryOperatorKind::Equal);
+                    return self.emit_binary_operator_equal_to_t_flag_only(
+                        &left,
+                        is_equal_polarity,
+                        &right,
+                        &operator.node,
+                        ctx,
+                    );
+                }
+                _ => panic!(
+                    "binary operator does not provide us with t flag {:?}",
+                    condition.kind
+                ),
             },
             ExpressionKind::UnaryOp(operator) => match &operator.kind {
                 UnaryOperatorKind::Not => {
@@ -2112,7 +2193,7 @@ impl CodeBuilder<'_> {
 
      */
 
-    fn emit_string_literal(
+    pub(crate) fn emit_string_literal(
         &mut self,
         target_reg: &TypedRegister,
         node: &Node,
@@ -2241,8 +2322,12 @@ impl CodeBuilder<'_> {
                 //i nfo!("this is others in block");
                 self.emit_statement(expr, ctx);
             }
-            //            info!(?last.ty, ?target_reg.ty, "this is the last in the block!");
-            self.emit_scalar_rvalue_to_specific_register(target_reg, last, ctx);
+            if last.ty.is_unit() {
+                self.emit_statement(last, ctx);
+            } else {
+                //            info!(?last.ty, ?target_reg.ty, "this is the last in the block!");
+                self.emit_scalar_rvalue_to_specific_register(target_reg, last, ctx);
+            }
         } else {
             // empty blocks are allowed for side effects
         }
@@ -2400,7 +2485,9 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        if source_expression.ty.is_scalar() {
+        let hwm = self.temp_registers.save_mark();
+
+        if source_expression.ty.is_primitive() {
             self.emit_scalar_rvalue_to_lvalue(
                 &ScalarMemoryLocation {
                     location: target_lvalue_location.clone(),
@@ -2419,6 +2506,7 @@ impl CodeBuilder<'_> {
                 ctx,
             )
         }
+        self.temp_registers.restore_to_mark(hwm);
         /*
         let offset_to_element = target_lvalue_location.0;
         let element_node = &source_expression.node;
@@ -3146,6 +3234,7 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) {
+        info!(?internal_fn, "internal call");
         let (spilled_arguments, copy_back) = self.emit_arguments(
             target_reg,
             node,
@@ -3846,10 +3935,18 @@ impl CodeBuilder<'_> {
         temp_reg
     }
 
-    fn rvalue_needs_memory_location_to_materialize_in(&self, expr: &Expression) -> bool {
-        matches!(
-            expr.kind,
-            ExpressionKind::Literal(_) | ExpressionKind::AnonymousStructLiteral(_)
-        )
+    pub(crate) fn rvalue_needs_memory_location_to_materialize_in(&self, expr: &Expression) -> bool {
+        match &expr.kind {
+            ExpressionKind::AnonymousStructLiteral(_) => true,
+            ExpressionKind::Literal(literal) => match literal {
+                Literal::EnumVariantLiteral(_, _, _) => true,
+                Literal::TupleLiteral(_, _) => true,
+                Literal::Slice(_, _) => true,
+                Literal::SlicePair(_, _) => true,
+                _ => false,
+            },
+            ExpressionKind::Option(_) => true,
+            _ => false,
+        }
     }
 }

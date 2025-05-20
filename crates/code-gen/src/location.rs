@@ -32,7 +32,7 @@ impl CodeBuilder<'_> {
     ) {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                if found_expression.ty.is_scalar() {
+                if found_expression.ty.is_primitive() {
                     self.emit_scalar_rvalue_to_specific_register(target_reg, found_expression, ctx);
                 }
             }

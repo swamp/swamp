@@ -1,7 +1,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use swamp_semantic::{Expression, ExpressionKind};
+use swamp_semantic::{Expression, ExpressionKind, Literal};
 use swamp_vm_types::types::{TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
@@ -22,8 +22,61 @@ impl CodeBuilder<'_> {
         expr: &Expression,
         ctx: &Context,
     ) {
-        debug_assert!(expr.ty.is_scalar(), "must have scalar type");
+        let node = &expr.node;
+
+        if self.rvalue_needs_memory_location_to_materialize_in(&expr) {
+            let temp_materialization_target = self.allocate_frame_space_and_assign_register(
+                target_reg.ty(),
+                "rvalue temporary materialization",
+            );
+            return self.emit_expression_into_target_memory(
+                &temp_materialization_target,
+                expr,
+                "emitting to target temp memory",
+                ctx,
+            );
+        }
+
+        let hwm = self.temp_registers.save_mark();
+
+        //debug_assert!(expr.ty.is_scalar(), "must have scalar type {}", expr.ty);
         match &expr.kind {
+            ExpressionKind::Literal(basic_literal) => match basic_literal {
+                Literal::StringLiteral(str) => {
+                    self.emit_string_literal(target_reg, node, str, ctx);
+                }
+                Literal::IntLiteral(int) => {
+                    self.builder.add_mov_32_immediate_value(
+                        target_reg,
+                        *int as u32,
+                        node,
+                        "int literal",
+                    );
+                }
+                Literal::FloatLiteral(fixed_point) => {
+                    self.builder.add_mov_32_immediate_value(
+                        target_reg,
+                        fixed_point.inner() as u32,
+                        node,
+                        "float literal",
+                    );
+                }
+                Literal::NoneLiteral => {
+                    self.builder
+                        .add_mov8_immediate(target_reg, 0, node, "none literal");
+                }
+                Literal::BoolLiteral(truthy) => {
+                    self.builder.add_mov8_immediate(
+                        target_reg,
+                        u8::from(*truthy),
+                        node,
+                        "bool literal",
+                    );
+                }
+                _ => {
+                    panic!("not a scalar literal {:?}", basic_literal)
+                }
+            },
             ExpressionKind::ConstantAccess(constant_ref) => {
                 self.emit_constant_access(target_reg, &expr.node, constant_ref, ctx);
             }
@@ -96,6 +149,8 @@ impl CodeBuilder<'_> {
             }
             _ => panic!("not an expression, probably a statement {:?} ", expr.kind),
         }
+
+        self.temp_registers.restore_to_mark(hwm);
     }
 
     pub fn emit_scalar_rvalue(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {

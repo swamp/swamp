@@ -84,7 +84,7 @@ impl Type {
         }
     }
 
-    pub fn is_scalar(&self) -> bool {
+    pub fn is_primitive(&self) -> bool {
         matches!(
             self,
             Type::Int | Type::Float | Type::String | Type::Bool | Type::Unit
