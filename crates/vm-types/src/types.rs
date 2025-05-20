@@ -244,6 +244,7 @@ pub enum BasicTypeKind {
     InternalStringPointer,
     InternalVecView(Box<BasicType>),
     InternalVecStorage(Box<BasicType>, usize),
+    InternalMapStorage(Box<TupleType>, usize),
     InternalMapPointer(Box<BasicType>, Box<BasicType>),
     InternalGridPointer,
     Struct(StructType),
@@ -341,6 +342,11 @@ impl Display for BasicTypeKind {
             Self::InternalRangeHeader => write!(f, "Range"),
             Self::InternalVecView(item_type) => write!(f, "Vec<{item_type}>"),
             Self::InternalVecStorage(item_type, size) => write!(f, "Vec<{item_type}, {size}>"),
+            Self::InternalMapStorage(tuple_type, size) => write!(
+                f,
+                "MapStorage<{}, {}, {size}>",
+                tuple_type.fields[0], tuple_type.fields[1],
+            ),
             Self::InternalMapPointer(key, value) => write!(f, "Map<{key}, {value}>"),
             Self::InternalGridPointer => write!(f, "Grid"),
             Self::InternalVecIterator => write!(f, "Vec::Iterator"),
@@ -1552,16 +1558,23 @@ pub fn write_basic_type(
             write!(f, "&mut {inner}")
         }
         BasicTypeKind::InternalVecView(element_type) => {
-            write!(f, "vec<{element_type}>")
+            write!(f, "Vec<{element_type}>")
         }
         BasicTypeKind::InternalVecStorage(element_type, size) => {
-            write!(f, "vec<{element_type}, {size}>")
+            write!(f, "VecStorage<{element_type}, {size}>")
         }
         BasicTypeKind::InternalMapPointer(key, value) => {
-            write!(f, "map<{key}, {value}>")
+            write!(f, "Map<{key}, {value}>")
+        }
+        BasicTypeKind::InternalMapStorage(tuple_type, size) => {
+            write!(
+                f,
+                "MapStorage<{}, {}, {size}>",
+                tuple_type.fields[0], tuple_type.fields[1]
+            )
         }
         BasicTypeKind::InternalGridPointer => {
-            write!(f, "grid<>")
+            write!(f, "Grid<>")
         }
         BasicTypeKind::InternalVecIterator => {
             write!(f, "vec_iter")

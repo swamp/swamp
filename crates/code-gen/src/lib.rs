@@ -12,6 +12,7 @@ pub mod disasm;
 pub mod intr;
 pub mod layout;
 mod location;
+mod map;
 pub mod reg_pool;
 pub mod state;
 pub mod top_state;

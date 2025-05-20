@@ -573,6 +573,9 @@ impl SourceMapDisplay<'_> {
             PostfixKind::VecSubscript(_, _) => {
                 todo!()
             }
+            PostfixKind::MapSubscript(_, _) => {
+                todo!()
+            }
             PostfixKind::MemberCall(_function_ref, b) => write!(f, "membercall {b:?}"),
             PostfixKind::OptionalChainingOperator => todo!(),
             PostfixKind::NoneCoalescingOperator(_) => todo!(),
@@ -691,6 +694,8 @@ impl SourceMapDisplay<'_> {
             Type::DynamicSlicePair(key, value) => todo!(),
             Type::VecStorage(_, _) => todo!(),
             Type::Vec(_) => todo!(),
+            Type::MapStorage(_, _, _) => todo!(),
+            Type::Map(_, _) => todo!(),
             Type::Variable(var) => self.show_type_variable(f, var, tabs),
             Type::Never => write!(f, "!"),
         }
@@ -737,6 +742,8 @@ impl SourceMapDisplay<'_> {
             Type::DynamicSlicePair(key, value) => todo!(),
             Type::Vec(_) => todo!(),
             Type::VecStorage(_, _) => todo!(),
+            Type::Map(_, _) => todo!(),
+            Type::MapStorage(_, _, _) => todo!(),
             Type::Variable(var) => self.show_type_variable(f, var, tabs),
             Type::Never => write!(f, "!"),
         }

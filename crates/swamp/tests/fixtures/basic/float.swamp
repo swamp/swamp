@@ -6,6 +6,7 @@ fn round() {
   assert(100.9.round() == 101, "round is wrong")
 }
 
+// TODO: floor gives wrong result, must be fixed
 //#[test]
 fn floor() {
   print('floor {100.9.floor()}')

@@ -587,6 +587,12 @@ pub struct VecType {
 }
 
 #[derive(Debug, Clone)]
+pub struct MapType {
+    pub key: Box<Type>,
+    pub value: Box<Type>,
+}
+
+#[derive(Debug, Clone)]
 pub enum PostfixKind {
     StructField(AnonymousStructType, usize),
     MemberCall(FunctionRef, Vec<MutRefOrImmutableExpression>),
@@ -594,6 +600,7 @@ pub enum PostfixKind {
     NoneCoalescingOperator(Expression), // ?? operator
     SliceSubscript(SliceType, Expression),
     VecSubscript(VecType, Expression),
+    MapSubscript(MapType, Expression),
 }
 
 #[derive(Debug, Clone)]

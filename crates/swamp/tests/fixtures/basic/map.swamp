@@ -1,0 +1,23 @@
+use core::{assert}
+use std::{print}
+
+struct Thing {
+  a: Int,
+  b: Int,
+}
+
+struct Another {
+  things: [Int: Thing; 3],
+}
+
+#[test]
+fn map() {
+  another = Another {
+    things: [
+      2: Thing { a: 11, b:  1 },
+      99: Thing { b:  2, a: 12 }, // Intentionally swapped
+      1: Thing { a: 13, b:  3 },
+    ]
+  }
+  print('another.things[2].a: {another.things[2].a}')
+}

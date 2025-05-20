@@ -1,5 +1,4 @@
 use fixed32::Fp;
-use std::env::var;
 use std::fmt::{Display, Formatter, Write};
 use std::ops::Add;
 use std::{fmt, slice};
@@ -165,6 +164,9 @@ fn print(
             //let buckets = heap.get_heap_const_ptr(header.heap_offset as usize);
             for i in 0..header.count {}
             write!(f, "]")
+        }
+        BasicTypeKind::InternalMapStorage(tuple_type, size) => {
+            todo!()
         }
         BasicTypeKind::InternalMapPointer(key_type, value_type) => {
             write!(f, "[")?;

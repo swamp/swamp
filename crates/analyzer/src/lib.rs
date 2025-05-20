@@ -31,7 +31,7 @@ use swamp_semantic::prelude::*;
 use swamp_semantic::type_var_stack::SemanticContext;
 use swamp_semantic::{
     BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState, InternalMainExpression,
-    LocationAccess, LocationAccessKind, MutRefOrImmutableExpression, MutableReferenceKind,
+    LocationAccess, LocationAccessKind, MapType, MutRefOrImmutableExpression, MutableReferenceKind,
     NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceType,
     TargetAssignmentLocation, TypeWithMut, VecType, WhenBinding,
 };
@@ -1278,6 +1278,27 @@ impl<'a> Analyzer<'a> {
                             // Keep previous mutable
                             tv.resolved_type = *element_type.clone();
                         }
+                        Type::MapStorage(key_type, value_type, _)
+                        | Type::Map(key_type, value_type) => {
+                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                            let unsigned_int_expression =
+                                self.analyze_expression(index_expr, &unsigned_int_context)?;
+
+                            let map_type = MapType {
+                                key: Box::from(*key_type.clone()),
+                                value: Box::from(*value_type.clone()),
+                            };
+
+                            self.add_postfix(
+                                &mut suffixes,
+                                PostfixKind::MapSubscript(map_type, unsigned_int_expression),
+                                *value_type.clone(),
+                                &index_expr.node,
+                            );
+
+                            // Keep previous mutable
+                            tv.resolved_type = *value_type.clone();
+                        }
                         _ => {
                             eprintln!("xwhat is this: {collection_type:?}");
                             todo!()
@@ -1796,7 +1817,7 @@ impl<'a> Analyzer<'a> {
         Ok((resolved_entries, key_type, value_type))
     }
 
-    fn analyze_slice_pair_for_real(
+    fn analyze_slice_pair_key_and_value_types(
         &mut self,
         node: &swamp_ast::Node,
         items: &[(swamp_ast::Expression, swamp_ast::Expression)],
@@ -1806,13 +1827,10 @@ impl<'a> Analyzer<'a> {
             if let Type::DynamicSlicePair(key_type, value_type) = expected_type {
                 Some((*key_type.clone(), *value_type.clone()))
             } else {
-                if let Type::NamedStruct(named) = expected_type {
-                    Some((
-                        named.instantiated_type_parameters[0].clone(),
-                        named.instantiated_type_parameters[1].clone(),
-                    ))
-                } else {
-                    return Err(self.create_err(ErrorKind::ExpectedSlice, &node));
+                match expected_type {
+                    Type::MapStorage(key, value, _) => Some((*key.clone(), *value.clone())),
+                    Type::Map(key, value) => Some((*key.clone(), *value.clone())),
+                    _ => return Err(self.create_err(ErrorKind::ExpectedSlice, &node)),
                 }
             }
         } else {
@@ -2496,7 +2514,8 @@ impl<'a> Analyzer<'a> {
                     is_owned_result = true;
                     is_mutable = false;
                 }
-                swamp_semantic::PostfixKind::VecSubscript(_, _) => todo!(),
+                PostfixKind::VecSubscript(_, _) => todo!(),
+                PostfixKind::MapSubscript(_, _) => todo!(),
             }
         }
 
@@ -3522,6 +3541,24 @@ impl<'a> Analyzer<'a> {
                         "{}",
                         format!(
                             "types are not the same {vec_element_type} slice {slice_element_type}"
+                        )
+                    );
+                }
+                //  TODO : Add better error message
+            }
+        }
+
+        if let Type::MapStorage(storage_key, storage_value, _) = expected_type {
+            if let Type::DynamicSlicePair(slice_key, slice_value) = &encountered_type {
+                if slice_key.compatible_with(storage_key)
+                    && slice_value.compatible_with(storage_value)
+                {
+                    return Ok(expr);
+                } else {
+                    panic!(
+                        "{}",
+                        format!(
+                            "types are not the same {storage_key} {storage_value} slice {slice_key} {slice_value}"
                         )
                     );
                 }

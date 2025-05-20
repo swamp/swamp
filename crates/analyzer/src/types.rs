@@ -30,6 +30,19 @@ impl Analyzer<'_> {
 
     /// # Errors
     ///
+    pub fn analyze_slice_pair_key_and_value_type(
+        &mut self,
+        ast_key_type: &swamp_ast::Type,
+        ast_value_type: &swamp_ast::Type,
+    ) -> Result<(Type, Type), Error> {
+        let key_type = self.analyze_type(ast_key_type)?;
+        let value_type = self.analyze_type(ast_value_type)?;
+
+        Ok((key_type, value_type))
+    }
+
+    /// # Errors
+    ///
     pub fn analyze_type(&mut self, ast_type: &swamp_ast::Type) -> Result<Type, Error> {
         let resolved = match ast_type {
             swamp_ast::Type::AnonymousStruct(ast_struct) => {
@@ -47,24 +60,17 @@ impl Analyzer<'_> {
                     Type::Vec(Box::new(element_type))
                 }
             }
-            swamp_ast::Type::SlicePair(key_type, value_type, maybe_fixed_size) => {
-                // TODO: maybe fixed size
-                let analyzed_key_type = self.analyze_slice_type(key_type)?;
-                let analyzed_value_type = self.analyze_slice_type(value_type)?;
-                let map_blueprint = self
-                    .shared
-                    .core_symbol_table
-                    .get_blueprint("Map")
-                    .unwrap()
-                    .clone();
+            swamp_ast::Type::SlicePair(ast_key_type, ast_value_type, maybe_fixed_size) => {
+                let (key_type, value_type) =
+                    self.analyze_slice_pair_key_and_value_type(ast_key_type, ast_value_type)?;
+                if let Some(fixed_size) = maybe_fixed_size {
+                    let int_str = self.get_text(&fixed_size);
+                    let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
-                self.shared
-                    .state
-                    .instantiator
-                    .instantiate_blueprint_and_members(
-                        &map_blueprint,
-                        &[analyzed_key_type, analyzed_value_type],
-                    )?
+                    Type::MapStorage(Box::new(key_type), Box::new(value_type), int_value)
+                } else {
+                    Type::Map(Box::new(key_type), Box::new(value_type))
+                }
             }
             swamp_ast::Type::Tuple(types) => Type::Tuple(self.analyze_types(types)?),
             swamp_ast::Type::Named(ast_type_reference) => {

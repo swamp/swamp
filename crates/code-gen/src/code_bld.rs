@@ -1743,6 +1743,20 @@ impl CodeBuilder<'_> {
                     )
                 }
 
+                PostfixKind::MapSubscript(map_type, int_expression) => {
+                    // TODO: add code here
+                    /*
+                    current_location = self.map_subscript_helper(
+                        &current_location,
+                        &map_type.key,
+                        &map_type.value,
+                        int_expression,
+                        ctx,
+                    )
+
+                     */
+                }
+
                 PostfixKind::MemberCall(function_to_call, arguments) => {
                     let hwm = self.temp_registers.save_mark();
                     //let return_temp_reg =

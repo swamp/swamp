@@ -46,6 +46,8 @@ pub enum Type {
 
     VecStorage(Box<Type>, usize),
     Vec(Box<Type>),
+    MapStorage(Box<Type>, Box<Type>, usize),
+    Map(Box<Type>, Box<Type>),
 }
 
 impl Type {
@@ -314,8 +316,9 @@ impl Type {
             | Self::Variable(_) => false,
 
             Self::Vec(_) => false,
-
             Self::VecStorage(_, _) => true,
+            Self::Map(_, _) => false,
+            Self::MapStorage(_, _, _) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
             Self::DynamicSlicePair(a, b) => a.is_concrete() && b.is_concrete(),
@@ -382,9 +385,12 @@ impl Type {
             | Self::DynamicSlice(_)
             | Self::DynamicSlicePair(_, _)
             | Self::Vec(_)
+            | Self::Map(_, _)
             | Self::Variable(_) => false,
 
             Self::VecStorage(_, _) => true,
+            Self::MapStorage(_, _, _) => true,
+
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
             Self::Optional(inner)
@@ -453,9 +459,11 @@ impl Type {
             | Self::MutableReference(_)
             | Self::ImmutableReference(_)
             | Self::Vec(_)
+            | Self::Map(_, _)
             | Self::Variable(_) => false,
 
             Self::VecStorage(_, _) => true,
+            Self::MapStorage(_, _, _) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
@@ -520,6 +528,12 @@ impl Debug for Type {
             Self::Vec(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
             }
+            Self::MapStorage(key_type, value_type, size) => {
+                write!(f, "MapStorage<{key_type:?}, {value_type:?}, {size}>")
+            }
+            Self::Map(key_type, value_type) => {
+                write!(f, "Map<{key_type:?}, {value_type:?}>")
+            }
             Self::DynamicSlicePair(key_type, value_type) => {
                 write!(f, "SlicePair<{key_type:?}, {value_type:?}>")
             }
@@ -558,7 +572,12 @@ impl Display for Type {
             Self::Vec(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
             }
-
+            Self::MapStorage(key_type, value_type, size) => {
+                write!(f, "MapStorage<{key_type}, {value_type}, {size}>")
+            }
+            Self::Map(key_type, value_type) => {
+                write!(f, "Map<{key_type}, {value_type}>")
+            }
             Self::DynamicSlice(value_type) => {
                 write!(f, "Slice<{value_type:?}>")
             }

@@ -37,7 +37,7 @@ impl Analyzer<'_> {
 
             swamp_ast::LiteralKind::SlicePair(entries) => {
                 let (encountered_key_type, encountered_value_type, resolved_items) =
-                    self.analyze_slice_pair_for_real(ast_node, entries, context)?;
+                    self.analyze_slice_pair_key_and_value_types(ast_node, entries, context)?;
 
                 assert!(!matches!(encountered_key_type, Type::Unit));
                 assert!(!matches!(encountered_value_type, Type::Unit));

@@ -15,9 +15,9 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
-    MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT,
-    PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT,
-    VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
+    MAP_HEADER_SIZE, MAP_PTR_ALIGNMENT, MAP_PTR_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
+    PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
+    VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
 };
 use tracing::info;
 use tracing::trace;
@@ -224,6 +224,29 @@ pub fn layout_type(ty: &Type) -> BasicType {
             basic_type(
                 BasicTypeKind::InternalVecStorage(
                     Box::from(element_type_basic),
+                    *fixed_size_element_count,
+                ),
+                MemorySize(total_size as u16),
+                max_alignment,
+            )
+        }
+
+        Type::Map(key_type, element_type) => {
+            let element_type_basic = layout_type(element_type);
+            basic_type(
+                BasicTypeKind::InternalVecView(Box::from(element_type_basic)),
+                PTR_SIZE,
+                PTR_ALIGNMENT,
+            )
+        }
+        Type::MapStorage(key_type, element_type, fixed_size_element_count) => {
+            let tuple_gen_type = layout_tuple_items(&[*key_type.clone(), *element_type.clone()]);
+            let total_size = tuple_gen_type.total_size.0 as usize * fixed_size_element_count
+                + MAP_HEADER_SIZE.0 as usize;
+            let max_alignment = max(tuple_gen_type.max_alignment, MemoryAlignment::U16);
+            basic_type(
+                BasicTypeKind::InternalMapStorage(
+                    Box::from(tuple_gen_type),
                     *fixed_size_element_count,
                 ),
                 MemorySize(total_size as u16),
