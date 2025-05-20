@@ -296,7 +296,7 @@ impl Vm {
         let (map_header, map_header_addr) = self.read_map_header(self_map_header_reg);
         let key_source_address = get_reg!(self, key_source_ptr_reg) as usize;
         let buckets_start_addr = (map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
-        
+
         let mut entry_address = unsafe {
             Self::lookup_open_addressing(
                 &self.memory,

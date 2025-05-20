@@ -7,9 +7,9 @@ use crate::layout::{
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool, TempRegister};
 use crate::state::{CodeGenState, FunctionFixup};
 use crate::{
-    single_intrinsic_fn, Collection, DetailedLocation, DetailedLocationResolved,
-    GeneratedExpressionResult, GeneratedExpressionResultKind, SpilledRegister, Transformer,
-    TransformerResult,
+    Collection, DetailedLocation, DetailedLocationResolved, GeneratedExpressionResult,
+    GeneratedExpressionResultKind, SpilledRegister, Transformer, TransformerResult,
+    single_intrinsic_fn,
 };
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
@@ -27,14 +27,15 @@ use swamp_semantic::{
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::types::{
-    u16_type, u32_type, u8_type, unit_type, unknown_type, vec_type, BasicType,
-    BasicTypeKind, BoundsCheck, FramePlacedType, TupleType, TypedRegister, VmType, VmTypeOrigin,
+    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, TupleType, TypedRegister, VmType,
+    VmTypeOrigin, b8_type, u8_type, u16_type, u32_type, unit_type, unknown_type, vec_type,
 };
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, HeapMemoryOffset,
-    InstructionPosition, MemoryOffset, StringHeader, MAP_HEADER_COUNT_OFFSET,
-    MAP_HEADER_KEY_SIZE_OFFSET, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, VEC_HEADER_COUNT_OFFSET,
-    VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
+    AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
+    HeapMemoryAddress, HeapMemoryOffset, InstructionPosition, MAP_HEADER_COUNT_OFFSET,
+    MAP_HEADER_KEY_SIZE_OFFSET, MemoryLocation, MemoryOffset, MemorySize, PointerLocation,
+    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, ScalarMemoryLocation, StringHeader,
+    VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
 };
 use tracing::{error, info};
 
@@ -276,7 +277,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_load_primitive_from_detailed_location_if_needed(
+    pub(crate) fn emit_load_primitive_from_detailed_location_if_needed(
         &mut self,
         location: &DetailedLocation,
         node: &Node,
@@ -374,7 +375,8 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_store_primitive_from_detailed_location_if_needed(
+    /*
+    pub(crate) fn emit_store_primitive_from_detailed_location_if_needed(
         &mut self,
         location: &DetailedLocationResolved,
         original: &DetailedLocation,
@@ -393,6 +395,8 @@ impl CodeBuilder<'_> {
         }
     }
 
+     */
+
     fn debug_node(&self, node: &Node) {
         let line_info = self.source_map_lookup.get_line(&node.span);
         let span_text = self.source_map_lookup.get_text_span(&node.span);
@@ -403,114 +407,12 @@ impl CodeBuilder<'_> {
         //info!(?source_code_line, "generating");
     }
 
-    pub fn emit_expression(
+    pub fn emit_unary_operator_logical_to_t_flag(
         &mut self,
-        target_reg: &TypedRegister,
-        expr: &Expression,
-        ctx: &Context,
-    ) -> GeneratedExpressionResult {
-        //self.debug_node(&expr.node);
-        //        info!(t=?expr.ty, v=?expr.kind, "emit_expression");
-
-        match &expr.kind {
-            ExpressionKind::TupleDestructuring(variables, tuple_types, tuple_expression) => {
-                self.emit_tuple_destructuring(variables, tuple_types, tuple_expression, ctx)
-            }
-            ExpressionKind::Assignment(target_mut_location_expr, source_expr) => {
-                self.emit_assignment(target_mut_location_expr, source_expr, &expr.node, ctx)
-            }
-            ExpressionKind::VariableDefinition(variable, expression) => {
-                self.emit_variable_definition(variable, expression, ctx)
-            }
-            ExpressionKind::VariableReassignment(variable, expression) => {
-                self.emit_variable_reassignment(variable, expression, ctx)
-            }
-            ExpressionKind::ForLoop(for_pattern, collection, lambda_expr) => {
-                self.emit_for_loop(&expr.node, for_pattern, collection, lambda_expr, ctx)
-            }
-            ExpressionKind::WhileLoop(condition, expression) => {
-                self.emit_while_loop(condition, expression, ctx)
-            }
-            ExpressionKind::ConstantAccess(constant_ref) => {
-                self.emit_constant_access(target_reg, &expr.node, constant_ref, ctx)
-            }
-
-            ExpressionKind::CompoundAssignment(target_location, operator_kind, source_expr) => {
-                self.compound_assignment(target_location, operator_kind, source_expr, ctx)
-            }
-            ExpressionKind::VariableAccess(variable_ref) => {
-                self.emit_variable_access_as_rvalue(target_reg, &expr.node, variable_ref, ctx)
-            }
-            ExpressionKind::BorrowMutRef(expression) => {
-                self.emit_borrow_mutable_reference(target_reg, &expr.node, expression, ctx)
-            }
-            ExpressionKind::BinaryOp(operator) => {
-                self.emit_binary_operator(target_reg, operator, ctx)
-            }
-            ExpressionKind::UnaryOp(operator) => {
-                self.emit_unary_operator(target_reg, operator, ctx)
-            }
-            ExpressionKind::PostfixChain(start, chain) => {
-                self.emit_rvalue_postfix_chain(target_reg, start, chain, ctx)
-            }
-            ExpressionKind::AnonymousStructLiteral(anon_struct) => self
-                .emit_anonymous_struct_literal(target_reg, anon_struct, &expr.ty, &expr.node, ctx),
-            ExpressionKind::Literal(basic_literal) => {
-                self.emit_literal(target_reg, &expr.node, basic_literal, ctx)
-            }
-            ExpressionKind::Option(maybe_option) => {
-                self.emit_option_expression(target_reg, &expr.node, maybe_option.as_deref(), ctx)
-            }
-
-            ExpressionKind::Block(expressions) => self.emit_block(target_reg, expressions, ctx),
-            ExpressionKind::Match(match_expr) => self.emit_match(target_reg, match_expr, ctx),
-            ExpressionKind::Guard(guards) => self.emit_guard(target_reg, guards, ctx),
-            ExpressionKind::If(conditional, true_expr, false_expr) => self.emit_if(
-                target_reg,
-                conditional,
-                true_expr,
-                false_expr.as_deref(),
-                ctx,
-            ),
-            ExpressionKind::When(bindings, true_expr, false_expr) => {
-                self.emit_when(target_reg, bindings, true_expr, false_expr.as_deref(), ctx)
-            }
-
-            ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => self
-                .emit_single_intrinsic_call(target_reg, &expr.node, intrinsic_fn, arguments, ctx),
-            ExpressionKind::CoerceOptionToBool(a) => {
-                self.emit_coerce_option_to_bool(target_reg, a, ctx)
-            }
-            ExpressionKind::InternalCall(internal, arguments) => self.emit_internal_call(
-                Option::from(target_reg),
-                &expr.node,
-                internal,
-                arguments,
-                ctx,
-            ),
-            ExpressionKind::HostCall(host_fn, arguments) => {
-                self.emit_host_call(&expr.node, host_fn, arguments, ctx)
-            }
-
-            // Low priority
-            ExpressionKind::VariableBinding(_, _) => todo!(), // only used for `when` expressions
-
-            // Illegal
-            ExpressionKind::Lambda(_vec, _x) => {
-                panic!("something went wrong. non-capturing lambdas can not be evaluated")
-            }
-            _ => panic!("not an expression, probably a statement {:?} ", expr.kind),
-        }
-    }
-
-    fn emit_unary_operator(
-        &mut self,
-        target_reg: &TypedRegister,
         unary_operator: &UnaryOperator,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let node = &unary_operator.node;
-        let result = match &unary_operator.kind {
+        match &unary_operator.kind {
             UnaryOperatorKind::Not => match &unary_operator.left.ty {
                 Type::Bool => {
                     let bool_result = self.emit_expression_to_t_flag(&unary_operator.left, ctx);
@@ -518,38 +420,64 @@ impl CodeBuilder<'_> {
                 }
                 _ => panic!("unknown not"),
             },
+            _ => panic!("unary operator do not provide t flag"),
+        }
+    }
+
+    pub(crate) fn emit_unary_operator(
+        &mut self,
+        target_reg: &TypedRegister,
+        unary_operator: &UnaryOperator,
+        ctx: &Context,
+    ) {
+        let node = &unary_operator.node;
+        match &unary_operator.kind {
+            UnaryOperatorKind::Not => match &unary_operator.left.ty {
+                Type::Bool => {
+                    let t_flag = self.emit_unary_operator_logical_to_t_flag(unary_operator, ctx);
+                    self.materialize_t_flag_to_bool_if_needed(
+                        target_reg,
+                        t_flag,
+                        &unary_operator.node,
+                    );
+                }
+                _ => panic!("unknown not op"),
+            },
+
             UnaryOperatorKind::Negate => match &unary_operator.left.ty {
                 Type::Int => {
-                    let left_source = self.emit_simple_rvalue(&unary_operator.left, ctx);
+                    let left_source = self.emit_scalar_rvalue(&unary_operator.left, ctx);
                     self.builder
                         .add_neg_i32(target_reg, &left_source, node, "negate i32");
-                    GeneratedExpressionResult::default()
                 }
 
                 Type::Float => {
-                    let left_source = self.emit_simple_rvalue(&unary_operator.left, ctx);
+                    let left_source = self.emit_scalar_rvalue(&unary_operator.left, ctx);
                     self.builder
                         .add_neg_f32(target_reg, &left_source, node, "negate f32");
-                    GeneratedExpressionResult::default()
                 }
                 _ => panic!("negate should only be possible on Int and Float"),
             },
         };
-
-        result
     }
 
-    fn emit_binary_operator(
+    pub(crate) fn emit_binary_operator(
         &mut self,
         target_reg: &TypedRegister,
         binary_operator: &BinaryOperator,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         //info!(left=?binary_operator.left.ty, right=?binary_operator.right.ty, "binary_op");
 
         match &binary_operator.kind {
             BinaryOperatorKind::LogicalOr | BinaryOperatorKind::LogicalAnd => {
-                self.emit_binary_operator_logical(binary_operator, ctx)
+                let t_flag_result =
+                    self.emit_binary_operator_logical_to_t_flag(binary_operator, ctx);
+                self.materialize_t_flag_to_bool_if_needed(
+                    target_reg,
+                    t_flag_result,
+                    &binary_operator.node,
+                )
             }
             _ => self.emit_binary_operator_normal(target_reg, binary_operator, ctx),
         }
@@ -560,17 +488,11 @@ impl CodeBuilder<'_> {
         target_reg: &TypedRegister,
         binary_operator: &BinaryOperator,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         let hwm = self.temp_registers.save_mark();
 
-        let left_temp_dest = self.temp_space_for_type(&binary_operator.left.ty, "binary op left");
-        let left_source = left_temp_dest.register();
-        self.emit_expression_materialize(left_temp_dest.register(), &binary_operator.left, ctx);
-
-        let right_temp_dest =
-            self.temp_space_for_type(&binary_operator.right.ty, "binary op right");
-        let right_source = right_temp_dest.register();
-        self.emit_expression_materialize(right_temp_dest.register(), &binary_operator.right, ctx);
+        let left_source = self.emit_scalar_rvalue(&binary_operator.left, ctx);
+        let right_source = self.emit_scalar_rvalue(&binary_operator.right, ctx);
 
         let result = match &binary_operator.kind {
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
@@ -645,8 +567,6 @@ impl CodeBuilder<'_> {
         };
 
         self.temp_registers.restore_to_mark(hwm);
-
-        result
     }
 
     fn emit_binary_operator_i32(
@@ -896,7 +816,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_binary_operator_logical(
+    fn emit_binary_operator_logical_to_t_flag(
         &mut self,
         binary_operator: &BinaryOperator,
         context: &Context,
@@ -938,7 +858,7 @@ impl CodeBuilder<'_> {
         GeneratedExpressionResult { kind }
     }
 
-    fn emit_condition_context(
+    pub(crate) fn emit_condition_context(
         &mut self,
         condition: &BooleanExpression,
         ctx: &Context,
@@ -961,7 +881,7 @@ impl CodeBuilder<'_> {
     ) -> GeneratedExpressionResult {
         match &condition.kind {
             ExpressionKind::CoerceOptionToBool(option_union_expr) => {
-                let region = self.emit_simple_rvalue(option_union_expr, ctx);
+                let region = self.emit_scalar_rvalue(option_union_expr, ctx);
                 // We can shortcut this, since we know that the tag location is basically a bool value
                 self.builder.add_tst_u8(
                     &region,
@@ -972,18 +892,38 @@ impl CodeBuilder<'_> {
                     kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
                 };
             }
+            ExpressionKind::BinaryOp(operator) => match &operator.kind {
+                BinaryOperatorKind::LogicalOr => {
+                    return self.emit_binary_operator_logical_to_t_flag(operator, ctx);
+                }
+                BinaryOperatorKind::LogicalAnd => {
+                    return self.emit_binary_operator_logical_to_t_flag(operator, ctx);
+                }
+                _ => panic!("binary operator does not provide us with t flag"),
+            },
+            ExpressionKind::UnaryOp(operator) => match &operator.kind {
+                UnaryOperatorKind::Not => {
+                    return self.emit_unary_operator_logical_to_t_flag(operator, ctx);
+                }
+                _ => panic!("unary operator does not provide us with t flag"),
+            },
             _ => {}
         }
 
-        let (reg, mut gen_result) = self.emit_rvalue_leave_t_flag_if_possible(condition, ctx);
+        let temp_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(u32_type()), "temp");
 
-        if gen_result.kind == GeneratedExpressionResultKind::TFlagIsIndeterminate {
-            self.builder
-                .add_tst_u8(&reg, &condition.node, "set P flag from register");
-            gen_result.kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
+        self.emit_bool_rvalue_to_specific_register(temp_reg.register(), condition, ctx);
+
+        self.builder.add_tst_u8(
+            &temp_reg.register(),
+            &condition.node,
+            "set P flag from register",
+        );
+        GeneratedExpressionResult {
+            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
         }
-
-        gen_result
     }
 
     fn emit_expression_to_normalized_t_flag(&mut self, condition: &Expression, ctx: &Context) {
@@ -1007,19 +947,19 @@ impl CodeBuilder<'_> {
         self.emit_expression_to_t_flag(&condition.expression, ctx)
     }
 
-    fn emit_if(
+    pub(crate) fn emit_if(
         &mut self,
         target_reg: &TypedRegister,
         condition: &BooleanExpression,
         true_expr: &Expression,
         maybe_false_expr: Option<&Expression>,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         let jump_on_false_condition = self.emit_condition_context(condition, ctx);
 
         // True expression just takes over our target
         // Both to reuse the current target, and for the fact when there is no else
-        self.emit_expression_materialize(target_reg, true_expr, ctx);
+        self.emit_scalar_rvalue_to_specific_register(target_reg, true_expr, ctx);
 
         if let Some(false_expr) = maybe_false_expr {
             // we need to help the true expression to jump over false
@@ -1032,44 +972,12 @@ impl CodeBuilder<'_> {
             self.builder.patch_jump_here(jump_on_false_condition);
 
             // Else expression also can just take over our if target
-            self.emit_expression_materialize(target_reg, false_expr, ctx);
+            self.emit_scalar_rvalue_to_specific_register(target_reg, false_expr, ctx);
 
             self.builder.patch_jump_here(skip_false_if_true);
         } else {
             self.builder.patch_jump_here(jump_on_false_condition);
         }
-
-        GeneratedExpressionResult::default()
-    }
-
-    fn emit_while_loop(
-        &mut self,
-        condition: &BooleanExpression,
-        expression: &Expression,
-        ctx: &Context,
-    ) -> GeneratedExpressionResult {
-        // `while` loops are only for side effects, make sure that the target size is zero (Unit)
-        //assert_eq!(target_reg.size.0, 0);
-
-        let hwm = self.temp_registers.save_mark();
-
-        let ip_for_condition = self.builder.position();
-
-        let jump_on_false_condition = self.emit_condition_context(condition, ctx);
-
-        // Expression is only for side effects
-        let temp_reg = self.temp_space_for_type(&Type::Unit, "while body expression");
-        self.emit_expression_materialize(temp_reg.register(), expression, ctx);
-
-        // Always jump to the condition again to see if it is true
-        self.builder
-            .add_jmp(ip_for_condition, &expression.node, "jmp to while condition");
-
-        self.temp_registers.restore_to_mark(hwm);
-
-        self.builder.patch_jump_here(jump_on_false_condition);
-
-        GeneratedExpressionResult::default()
     }
 
     pub(crate) fn emit_absolute_pointer(
@@ -1079,7 +987,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
         comment: &str,
     ) {
-        let region = self.emit_lvalue_chain(argument, ctx);
+        let region = self.emit_lvalue_location(argument, ctx);
         match region {
             DetailedLocation::Register { reg } => {
                 self.builder.add_mov_reg(
@@ -1126,7 +1034,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
         comment: &str,
     ) {
-        let region = self.emit_lvalue_chain(argument, ctx);
+        let region = self.emit_lvalue_location(argument, ctx);
         match region {
             DetailedLocation::Register { reg } => {
                 self.builder.add_mov_reg(
@@ -1166,28 +1074,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_variable_assignment(
-        &mut self,
-        variable: &VariableRef,
-        expression: &Expression,
-        ctx: &Context,
-    ) -> GeneratedExpressionResult {
-        let target_register = self
-            .variable_registers
-            .get(&variable.unique_id_within_function)
-            .unwrap_or_else(|| {
-                panic!(
-                    "could not find id {} {}",
-                    variable.unique_id_within_function, variable.assigned_name
-                )
-            })
-            .clone();
-
-        self.emit_assignment_like(&target_register, target_register.ty(), expression, ctx);
-
-        GeneratedExpressionResult::default()
-    }
-
     fn emit_variable_binding(
         &mut self,
         variable: &VariableRef,
@@ -1206,7 +1092,7 @@ impl CodeBuilder<'_> {
             ctx,
         )
     }
-    fn load_register_contents_from_memory(
+    pub(crate) fn load_register_contents_from_memory(
         &mut self,
         node: &Node,
         target_reg: &TypedRegister,
@@ -1283,6 +1169,7 @@ impl CodeBuilder<'_> {
         }
     }
 
+    /*
     pub(crate) fn store_register_contents_to_memory(
         &mut self,
         node: &Node,
@@ -1340,6 +1227,9 @@ impl CodeBuilder<'_> {
         }
     }
 
+     */
+
+    /*
     pub(crate) fn store_expression_to_memory(
         &mut self,
         target_ptr_reg: &TypedRegister,
@@ -1389,10 +1279,12 @@ impl CodeBuilder<'_> {
         }
     }
 
+     */
+
     // When initializing a VecStorage with a slice literal
     fn emit_vec_storage_init(
         &mut self,
-        target_addr: &TypedRegister, // Points to VecStorage
+        vec_storage_lvalue_memory_location: &PointerLocation, // Points to VecStorage
         slice_literal: &[Expression],
         element_type: &BasicType,
         capacity: usize,
@@ -1468,7 +1360,7 @@ impl CodeBuilder<'_> {
         debug_assert!(capacity >= len);
         if capacity > 0 || len > 0 {
             self.builder.add_vec_init_fill_capacity_and_element_addr(
-                target_addr,
+                vec_storage_lvalue_memory_location,
                 elements_base_ptr_reg.register(),
                 capacity as u16,
                 len as u16,
@@ -1477,8 +1369,16 @@ impl CodeBuilder<'_> {
             );
         }
 
-        self.emit_slice_literal_helper(
-            elements_base_ptr_reg.register(),
+        let elements_base_ptr_reg = AggregateMemoryLocation {
+            location: MemoryLocation {
+                base_ptr_reg: elements_base_ptr_reg.register,
+                offset: MemoryOffset(0),
+                ty: element_type.clone(),
+            },
+        };
+
+        self.emit_slice_literal_into_target_lvalue_memory_location(
+            &elements_base_ptr_reg,
             element_type,
             slice_literal,
             ctx,
@@ -1520,6 +1420,12 @@ impl CodeBuilder<'_> {
             key_temp_register.register
         };
 
+        let aggregate_location = MemoryLocation {
+            base_ptr_reg: key_storage_register.clone(),
+            offset: MemoryOffset(0),
+            ty: key_storage_register.ty.basic_type.clone(),
+        };
+
         let element_target_temp_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(u32_type()),
             &format!("key temp"),
@@ -1527,13 +1433,11 @@ impl CodeBuilder<'_> {
 
         for (key_expr, value_expr) in slice_pair_literal {
             //self.emit_expression_materialize(&key_storage_register, key_expr, ctx);
-
-            self.store_expression_to_memory(
-                &key_storage_register,
+            self.emit_expression_into_target_memory(
+                &aggregate_location,
                 value_expr,
-                node,
-                ctx,
                 "store expression to memory if needed",
+                ctx,
             );
 
             self.builder.add_map_get_or_reserve_entry_location(
@@ -1543,8 +1447,6 @@ impl CodeBuilder<'_> {
                 node,
                 "find existing or create a map entry to write into",
             );
-
- 
         }
 
         self.temp_registers.restore_to_mark(hwm);
@@ -1563,7 +1465,9 @@ impl CodeBuilder<'_> {
                 ExpressionKind::Literal(Literal::Slice(_, elements)),
             ) => {
                 self.emit_vec_storage_init(
-                    target_addr,
+                    &PointerLocation {
+                        ptr_reg: target_addr.clone(),
+                    },
                     elements,
                     element_type,
                     *capacity,
@@ -1592,7 +1496,8 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_assignment_like(
+    /*
+    pub(crate) fn emit_assignment_like(
         &mut self,
         target_reg: &TypedRegister,
         target_location_type: &BasicType,
@@ -1606,66 +1511,8 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_assignment(
-        &mut self,
-        lhs: &TargetAssignmentLocation,
-        rhs: &Expression,
-        node: &Node,
-        ctx: &Context,
-    ) -> GeneratedExpressionResult {
-        let assignment_target = self.emit_lvalue_chain(&lhs.0, ctx);
+     */
 
-        match &assignment_target {
-            DetailedLocation::Register { reg } => {
-                let target_location_type = layout_type(&lhs.0.ty);
-
-                self.emit_assignment_like(&reg, &target_location_type, rhs, ctx);
-            }
-            DetailedLocation::Memory {
-                base_ptr_reg,
-                offset,
-                ..
-            } => {
-                if rhs.ty.is_simple() {
-                    let rhs_reg = self.emit_simple_rvalue(rhs, &ctx);
-                    self.store_register_contents_to_memory(
-                        node,
-                        &base_ptr_reg,
-                        *offset,
-                        &rhs_reg,
-                        "assignment",
-                    );
-                } else {
-                    let absolute_ptr_reg = self.emit_ptr_reg_from_detailed_location(
-                        &assignment_target,
-                        node,
-                        "get absolute pointer for complex rvalue materialize",
-                    );
-                    self.emit_complex_rvalue(&absolute_ptr_reg, rhs, ctx);
-                }
-            }
-        }
-
-        GeneratedExpressionResult::default()
-    }
-
-    fn emit_variable_definition(
-        &mut self,
-        variable: &VariableRef,
-        expression: &Expression,
-        ctx: &Context,
-    ) -> GeneratedExpressionResult {
-        self.emit_variable_assignment(variable, expression, ctx)
-    }
-
-    fn emit_variable_reassignment(
-        &mut self,
-        variable: &VariableRef,
-        expression: &Expression,
-        ctx: &Context,
-    ) -> GeneratedExpressionResult {
-        self.emit_variable_assignment(variable, expression, ctx)
-    }
     fn ensure_absolute_target_pointer_location(
         &mut self,
         node: &Node,
@@ -1773,7 +1620,7 @@ impl CodeBuilder<'_> {
 
                 match argument_expr_or_location {
                     MutRefOrImmutableExpression::Location(lvalue) => {
-                        let detailed_location = self.emit_lvalue_chain(lvalue, ctx);
+                        let detailed_location = self.emit_lvalue_location(lvalue, ctx);
                         if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
                             copy_back_mutable_reg_pairs.push(MutableReturnReg {
                                 target_location_after_call: detailed_location,
@@ -1782,7 +1629,7 @@ impl CodeBuilder<'_> {
                         }
                     }
                     MutRefOrImmutableExpression::Expression(expr) => {
-                        let source_reg = self.emit_simple_rvalue(expr, &argument_ctx);
+                        let source_reg = self.emit_scalar_rvalue(expr, &argument_ctx);
                         self.builder.add_mov_reg(
                             &argument_register,
                             &source_reg,
@@ -1818,13 +1665,13 @@ impl CodeBuilder<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn emit_rvalue_postfix_chain(
+    pub(crate) fn emit_scalar_rvalue_postfix_chain(
         &mut self,
         target_reg: &TypedRegister,
         start_expression: &StartOfChain,
         chain: &[Postfix],
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         let mut current_location = self.emit_start_of_chain(start_expression, ctx);
         let mut t_flag_result = GeneratedExpressionResult::default();
 
@@ -2012,7 +1859,7 @@ impl CodeBuilder<'_> {
 
                      */
 
-                    self.emit_expression_materialize(target_reg, expression, ctx);
+                    self.emit_scalar_rvalue_to_specific_register(target_reg, expression, ctx);
 
                     self.temp_registers.restore_to_mark(hwm);
 
@@ -2034,8 +1881,6 @@ impl CodeBuilder<'_> {
             &start_expression.node,
             "rvalue postfix chain",
         );
-
-        t_flag_result
     }
 
     /*
@@ -2064,15 +1909,16 @@ impl CodeBuilder<'_> {
 
      */
 
-    fn emit_tuple(
+    fn emit_tuple_literal_into_memory(
         &mut self,
-        target_reg: &TypedRegister,
+        aggregate_lvalue_location: &AggregateMemoryLocation,
         types: &[Type],
         expressions: &[Expression],
         ctx: &Context,
         node: &Node,
     ) {
         let gen_tuple_type = layout_tuple_items(types);
+        /*
         let gen_tuple_placed = BasicType {
             total_size: gen_tuple_type.total_size,
             max_alignment: gen_tuple_type.max_alignment,
@@ -2097,6 +1943,7 @@ impl CodeBuilder<'_> {
                 frame_placed_tuple.ty()
             ),
         );
+            */
 
         // TODO: Bring this back. //assert_eq!(gen_tuple_placed.total_size, target_reg.size());
         // TODO: Bring this back. //assert_eq!(gen_tuple_type.fields.len(), expressions.len());
@@ -2110,36 +1957,35 @@ impl CodeBuilder<'_> {
             );
             //let materialized_item_in_tuple_reg = temp_materialize_reg.register();
 
-            let rvalue_reg = self.emit_simple_rvalue(expr, ctx);
-
-            self.store_register_contents_to_memory(
-                node,
-                target_reg,
-                offset_item.offset,
-                &rvalue_reg,
+            self.emit_expression_into_target_memory(
+                &aggregate_lvalue_location.location,
+                &expr,
                 &format!("emit tuple item {}", offset_item.name),
+                ctx,
             );
             self.temp_registers.restore_to_mark(hwm);
         }
     }
 
-    fn emit_anonymous_struct(
+    fn emit_anonymous_struct_into_memory(
         &mut self,
-        target_reg: &TypedRegister,
+        aggregate_lvalue_memory_location: &AggregateMemoryLocation,
         anon_struct_type: &AnonymousStructType,
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         node: &Node,
         base_context: &Context,
     ) {
-        self.emit_struct_literal_helper(
-            target_reg,
+        self.emit_struct_literal_into_memory_location(
+            aggregate_lvalue_memory_location,
             &anon_struct_type,
             source_order_expressions,
             node,
+            "store struct into memory",
             base_context,
         );
     }
 
+    /*
     fn emit_literal(
         &mut self,
         target_reg: &TypedRegister,
@@ -2227,7 +2073,7 @@ impl CodeBuilder<'_> {
                             panic!()
                         };
 
-                        self.emit_anonymous_struct(
+                        self.emit_anonymous_struct_into_memory(
                             target_reg,
                             &variant_struct_type.anon_struct,
                             sorted_expressions,
@@ -2263,6 +2109,8 @@ impl CodeBuilder<'_> {
 
         GeneratedExpressionResult::default()
     }
+
+     */
 
     fn emit_string_literal(
         &mut self,
@@ -2305,20 +2153,29 @@ impl CodeBuilder<'_> {
         );
     }
 
-    fn emit_option_expression(
+    pub(crate) fn emit_option_expression(
         &mut self,
-        target_reg: &TypedRegister,
+        memory_lvalue_location: &AggregateMemoryLocation,
         node: &Node,
         maybe_option: Option<&Expression>,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
+        let hwm = self.temp_registers.save_mark();
+
+        let tag_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(u8_type()), "emit_option tag");
+
         if let Some(some_expression) = maybe_option {
-            let target_tag = target_reg.underlying().optional_info().unwrap().clone();
-            let hwm = self.temp_registers.save_mark();
+            let union_information = memory_lvalue_location
+                .location
+                .ty
+                .underlying()
+                .optional_info()
+                .unwrap()
+                .clone();
+
             {
-                let tag_reg = self
-                    .temp_registers
-                    .allocate(VmType::new_unknown_placement(u8_type()), "emit_option tag");
                 self.builder.add_mov8_immediate(
                     tag_reg.register(),
                     1,
@@ -2326,30 +2183,40 @@ impl CodeBuilder<'_> {
                     "load the tag Some (1)",
                 );
                 self.builder.add_st8_using_ptr_with_offset(
-                    target_reg,
-                    target_tag.tag_offset,
+                    &memory_lvalue_location
+                        .offset(union_information.tag_offset, b8_type())
+                        .location,
                     tag_reg.register(),
                     node,
                     "store optional Some tag",
                 );
             }
             {
-                let payload_reg = self.temp_registers.allocate(
-                    VmType::new_unknown_placement(unknown_type()),
-                    "emit_option_expression",
-                );
-                self.emit_expression_materialize(payload_reg.register(), some_expression, ctx); // Fills in more of the union
+                let payload_location = &memory_lvalue_location
+                    .offset(union_information.payload_offset, b8_type())
+                    .location;
+                self.emit_expression_into_target_memory(
+                    payload_location,
+                    some_expression,
+                    "store option payload",
+                    ctx,
+                ); // Fills in more of the union
             }
-            self.temp_registers.restore_to_mark(hwm);
         } else {
             self.builder
-                .add_mov8_immediate(target_reg, 0, node, "option None tag"); // 0 signals `None`
-            // No real need to clear the rest of the memory
-        }
+                .add_mov8_immediate(tag_reg.register(), 0, node, "option None tag"); // 0 signals `None`
 
-        GeneratedExpressionResult::default()
+            self.builder.add_st8_using_ptr_with_offset(
+                &memory_lvalue_location.location,
+                tag_reg.register(),
+                node,
+                "store optional Some tag",
+            );
+        }
+        self.temp_registers.restore_to_mark(hwm);
     }
 
+    /*
     pub fn emit_expression_materialize(
         &mut self,
         target_reg: &TypedRegister,
@@ -2361,129 +2228,21 @@ impl CodeBuilder<'_> {
         self.materialize_t_flag_to_bool_if_needed(target_reg, result, &expr.node);
     }
 
-    fn emit_for_loop(
-        &mut self,
-        node: &Node,
-        for_pattern: &ForPattern,
-        iterable: &Iterable,
-        lambda_non_capturing_expr: &Box<Expression>,
-        ctx: &Context,
-    ) -> GeneratedExpressionResult {
-        // Add check if the collection is empty, to skip everything
+     */
 
-        // get some kind of iteration pointer
-
-        // check if it has reached its end
-
-        let collection_type = &iterable.resolved_expression.ty();
-        let hwm = self.temp_registers.save_mark();
-
-        let collection_basic_type = layout_type(collection_type);
-        let discard_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(collection_basic_type),
-            "emit_for_loop_discard",
-        );
-
-        let collection_reg =
-            self.emit_expression_location_mut_ref_or_immutable(&iterable.resolved_expression, ctx);
-        match collection_type {
-            Type::String => {
-                todo!();
-            }
-            Type::NamedStruct(named_type) => {
-                if named_type.is_vec() {
-                    self.emit_for_loop_lambda(
-                        discard_reg.register(),
-                        node,
-                        Collection::Vec,
-                        &collection_reg,
-                        collection_type,
-                        for_pattern,
-                        &lambda_non_capturing_expr,
-                        ctx,
-                    )
-                } else if named_type.is_map() {
-                    self.emit_for_loop_lambda(
-                        discard_reg.register(),
-                        node,
-                        Collection::Map,
-                        &collection_reg,
-                        collection_type,
-                        for_pattern,
-                        &lambda_non_capturing_expr,
-                        ctx,
-                    )
-                } else if named_type.is_range() {
-                    self.emit_for_loop_lambda(
-                        discard_reg.register(),
-                        node,
-                        Collection::Range,
-                        &collection_reg,
-                        collection_type,
-                        for_pattern,
-                        &lambda_non_capturing_expr,
-                        ctx,
-                    )
-                } else if named_type.is_stack() {
-                    /*
-                    self.emit_for_loop_lambda(
-                        node,
-                        Collection::Stack,
-                        &gen_collection,
-                        collection_type,
-                        for_pattern,
-                        &lambda_non_capturing_expr,
-                        ctx,
-                    )?
-
-                     */
-                } else if named_type.is_grid() {
-                    /*
-                    self.emit_for_loop_lambda(
-                        node,
-                        Collection::Grid,
-                        &gen_collection,
-                        collection_type,
-                        for_pattern,
-                        &lambda_non_capturing_expr,
-                        ctx,
-                    )?
-
-                     */
-                } else {
-                    panic!("can not iterate this collection");
-                }
-            }
-            _ => {
-                panic!("can not iterate this collection");
-            }
-        };
-
-        self.temp_registers.restore_to_mark(hwm);
-
-        GeneratedExpressionResult::default()
-    }
-
-    fn emit_block(
+    pub(crate) fn emit_block_to_scalar_rvalue_to_specific_register(
         &mut self,
         target_reg: &TypedRegister,
         expressions: &[Expression],
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         if let Some((last, others)) = expressions.split_last() {
-            let hwm = self.temp_registers.save_mark();
-
-            let unit_temp_reg = self.temp_registers.allocate(
-                VmType::new_unknown_placement(unit_type()),
-                "emit_block empty",
-            );
             for expr in others {
-                ///info!("this is others in block");
-                self.emit_expression_materialize(unit_temp_reg.register(), expr, ctx);
+                //i nfo!("this is others in block");
+                self.emit_statement(expr, ctx);
             }
-            self.temp_registers.restore_to_mark(hwm);
             //            info!(?last.ty, ?target_reg.ty, "this is the last in the block!");
-            self.emit_expression_materialize(target_reg, last, ctx);
+            self.emit_scalar_rvalue_to_specific_register(target_reg, last, ctx);
         } else {
             // empty blocks are allowed for side effects
         }
@@ -2491,7 +2250,7 @@ impl CodeBuilder<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn get_variable_register(&self, variable: &VariableRef) -> &TypedRegister {
+    pub(crate) fn get_variable_register(&self, variable: &VariableRef) -> &TypedRegister {
         let frame_address = self
             .variable_registers
             .get(&variable.unique_id_within_function)
@@ -2509,7 +2268,7 @@ impl CodeBuilder<'_> {
         frame_address.frame_placed()
     }
 
-    fn emit_variable_access_as_rvalue(
+    pub(crate) fn emit_variable_access_as_rvalue(
         &mut self,
         target_reg: &TypedRegister,
         node: &Node, // Variable access node
@@ -2559,7 +2318,7 @@ impl CodeBuilder<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn referenced_or_not_type(ty: &Type) -> Type {
+    pub(crate) fn referenced_or_not_type(ty: &Type) -> Type {
         if let Type::MutableReference(inner_type) = ty {
             *inner_type.clone()
         } else {
@@ -2574,10 +2333,10 @@ impl CodeBuilder<'_> {
     ) -> TypedRegister {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.emit_simple_rvalue(found_expression, ctx)
+                self.emit_scalar_rvalue(found_expression, ctx)
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                let x = self.emit_lvalue_chain(location_expression, ctx);
+                let x = self.emit_lvalue_location(location_expression, ctx);
                 // TODO: FIX THIS
                 if let DetailedLocation::Register { reg } = x {
                     reg
@@ -2591,133 +2350,13 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn compound_assignment(
+    pub(crate) fn emit_anonymous_struct_literal_into_memory_location(
         &mut self,
-        target_location: &TargetAssignmentLocation,
-        op: &CompoundOperatorKind,
-        source: &Expression,
-        ctx: &Context,
-    ) -> GeneratedExpressionResult {
-        let assignment_target = self.emit_lvalue_chain(&target_location.0, ctx);
-
-        let hwm = self.temp_registers.save_mark();
-
-        let resolved = self.emit_load_primitive_from_detailed_location_if_needed(
-            &assignment_target,
-            &target_location.0.node,
-            "compound_assignment",
-        );
-
-        let source_info = self.emit_simple_rvalue(source, ctx);
-
-        let type_to_consider = Self::referenced_or_not_type(&source.ty);
-
-        match &type_to_consider {
-            Type::Int => {
-                self.emit_compound_assignment_i32(
-                    &source.node,
-                    resolved.register(),
-                    op,
-                    &source_info,
-                );
-            }
-            Type::Float => {
-                self.emit_compound_assignment_f32(
-                    &source.node,
-                    resolved.register(),
-                    op,
-                    &source_info,
-                );
-            }
-            Type::String => todo!(),
-            _ => panic!("not allowed as a compound assignment"),
-        }
-
-        self.emit_store_primitive_from_detailed_location_if_needed(
-            &resolved,
-            &assignment_target,
-            &target_location.0.node,
-        );
-
-        /*
-        if let DetailedLocationResolved::TempRegister(temp_reg) = resolved {
-            self.temp_registers.free(temp_reg);
-        }
-
-         */
-        self.temp_registers.restore_to_mark(hwm);
-
-        GeneratedExpressionResult::default()
-    }
-
-    fn emit_compound_assignment_i32(
-        &mut self,
-        node: &Node,
-        target: &TypedRegister,
-        op: &CompoundOperatorKind,
-        source_ctx: &TypedRegister,
-    ) {
-        match op {
-            CompoundOperatorKind::Add => {
-                self.builder
-                    .add_add_u32(target, target, source_ctx, node, "+=  (i32)");
-            }
-            CompoundOperatorKind::Sub => {
-                self.builder
-                    .add_sub_u32(target, target, source_ctx, node, "-=  (i32)")
-            }
-            CompoundOperatorKind::Mul => {
-                self.builder
-                    .add_mul_i32(target, target, source_ctx, node, "*=  (i32)")
-            }
-            CompoundOperatorKind::Div => {
-                self.builder
-                    .add_div_i32(target, target, source_ctx, node, "/=  (i32)")
-            }
-            CompoundOperatorKind::Modulo => {
-                self.builder
-                    .add_mod_i32(target, target, source_ctx, node, "%=  (i32)")
-            }
-        }
-    }
-
-    fn emit_compound_assignment_f32(
-        &mut self,
-        node: &Node,
-        target: &TypedRegister,
-        op: &CompoundOperatorKind,
-        source_ctx: &TypedRegister,
-    ) {
-        match op {
-            CompoundOperatorKind::Add => {
-                self.builder
-                    .add_add_f32(target, target, source_ctx, node, "+=  (f32)");
-            }
-            CompoundOperatorKind::Sub => {
-                self.builder
-                    .add_sub_f32(target, target, source_ctx, node, "-=  (f32)")
-            }
-            CompoundOperatorKind::Mul => {
-                self.builder
-                    .add_mul_f32(target, target, source_ctx, node, "*=  (f32)")
-            }
-            CompoundOperatorKind::Div => {
-                self.builder
-                    .add_div_f32(target, target, source_ctx, node, "/=  (f32)")
-            }
-            CompoundOperatorKind::Modulo => {
-                self.builder
-                    .add_mod_f32(target, target, source_ctx, node, "%=  (f32)")
-            }
-        }
-    }
-
-    fn emit_anonymous_struct_literal(
-        &mut self,
-        target_reg: &TypedRegister,
+        lvalue_location: &AggregateMemoryLocation,
         anon_struct_literal: &AnonymousStructLiteral,
         ty: &Type,
         node: &Node,
+        comment: &str,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let anon_struct_type = match ty {
@@ -2726,11 +2365,12 @@ impl CodeBuilder<'_> {
             _ => panic!("internal error with struct literal"),
         };
 
-        self.emit_struct_literal_helper(
-            target_reg,
+        self.emit_struct_literal_into_memory_location(
+            &lvalue_location,
             &anon_struct_type,
             &anon_struct_literal.source_order_expressions,
             node,
+            comment,
             ctx,
         )
     }
@@ -2746,14 +2386,33 @@ impl CodeBuilder<'_> {
 
     fn emit_expression_into_target_memory(
         &mut self,
-        element_gen_type: &BasicType,
-        base_ptr_reg: &TypedRegister,
-        offset_to_element_from_base_ptr_reg: HeapMemoryOffset,
+        target_lvalue_location: &MemoryLocation,
+        //        element_gen_type: &BasicType,
         source_expression: &Expression,
         comment: &str,
         ctx: &Context,
     ) {
-        let offset_to_element = offset_to_element_from_base_ptr_reg.0;
+        if source_expression.ty.is_scalar() {
+            self.emit_scalar_rvalue_to_lvalue(
+                &ScalarMemoryLocation {
+                    location: target_lvalue_location.clone(),
+                },
+                source_expression,
+                comment,
+                ctx,
+            );
+        } else {
+            self.emit_aggregate_rvalue_to_lvalue(
+                &AggregateMemoryLocation {
+                    location: target_lvalue_location.clone(),
+                },
+                source_expression,
+                comment,
+                ctx,
+            )
+        }
+        /*
+        let offset_to_element = target_lvalue_location.0;
         let element_node = &source_expression.node;
 
         if element_gen_type.is_represented_as_a_pointer_in_reg() {
@@ -2792,14 +2451,17 @@ impl CodeBuilder<'_> {
                 &format!("{comment} (store register in memory)"),
             );
         }
+
+         */
     }
 
-    fn emit_struct_literal_helper(
+    fn emit_struct_literal_into_memory_location(
         &mut self,
-        base_ptr_reg: &TypedRegister,
+        lvalue_location: &AggregateMemoryLocation,
         struct_type_ref: &AnonymousStructType,
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         node: &Node,
+        comment: &str,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let gen_source_struct_type = layout_struct_type(struct_type_ref, "");
@@ -2824,11 +2486,11 @@ impl CodeBuilder<'_> {
             .zip(source_order_expressions)
         {
             let real_offset_item = struct_type.get_field_offset(*field_index).unwrap();
+            let modified_lvalue_location =
+                lvalue_location.offset(real_offset_item.offset, real_offset_item.ty.clone());
 
             self.emit_expression_into_target_memory(
-                &offset_item.ty,
-                base_ptr_reg,
-                HeapMemoryOffset(real_offset_item.offset.0 as u32),
+                &modified_lvalue_location.location,
                 source_expression,
                 &format!(
                     "store expression into struct field {}:{}",
@@ -2836,22 +2498,6 @@ impl CodeBuilder<'_> {
                 ),
                 ctx,
             );
-
-            /*
-            let field_rvalue = self.emit_rvalue(expression, ctx);
-
-            self.store_register_contents_to_memory(
-                node,
-                target_reg,
-                real_offset_item.offset,
-                &field_rvalue,
-                &format!(
-                    "fill in struct field {} ({})",
-                    offset_item.name, field_index
-                ),
-            );
-
-             */
         }
 
         GeneratedExpressionResult::default()
@@ -2885,6 +2531,7 @@ impl CodeBuilder<'_> {
            }
     */
 
+    /*
     pub(crate) fn emit_slice_literal(
         &mut self,
         base_ptr_reg: &TypedRegister,
@@ -2898,12 +2545,19 @@ impl CodeBuilder<'_> {
         };
 
         let element_gen_type = layout_type(actual_element_type);
-        self.emit_slice_literal_helper(base_ptr_reg, &element_gen_type, expressions, ctx);
+        self.emit_slice_literal_into_target_lvalue_memory_location(
+            base_ptr_reg,
+            &element_gen_type,
+            expressions,
+            ctx,
+        );
     }
 
-    fn emit_slice_literal_helper(
+
+     */
+    fn emit_slice_literal_into_target_lvalue_memory_location(
         &mut self,
-        base_ptr_reg: &TypedRegister,
+        lvalue_location: &AggregateMemoryLocation,
         element_gen_type: &BasicType,
         expressions: &[Expression],
         ctx: &Context,
@@ -2914,11 +2568,12 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
 
         for (index, expr) in expressions.iter().enumerate() {
-            let offset_to_element = index as u32 * element_size as u32;
+            let offset_to_element = index as u16 * element_size;
+            let slice_element_location = lvalue_location
+                .offset(MemoryOffset(offset_to_element), element_gen_type.clone())
+                .location;
             self.emit_expression_into_target_memory(
-                element_gen_type,
-                base_ptr_reg,
-                HeapMemoryOffset(offset_to_element),
+                &slice_element_location,
                 expr,
                 &format!("store slice element {index} of type {element_gen_type} into memory"),
                 ctx,
@@ -3154,7 +2809,7 @@ impl CodeBuilder<'_> {
 
     fn emit_intrinsic_vec_init_capacity_set_payload_addr(
         &mut self,
-        target_vec_reg: &TypedRegister,
+        pointer_lvalue_location: &PointerLocation,
         arguments: &[MutRefOrImmutableExpression],
         node: &Node,
         ctx: &Context,
@@ -3166,13 +2821,13 @@ impl CodeBuilder<'_> {
                 "element base ptr",
             );
             let BasicTypeKind::InternalVecStorage(element_type, fixed_size_capacity) =
-                &target_vec_reg.ty.basic_type.kind
+                &pointer_lvalue_location.ptr_reg.ty.basic_type.kind
             else {
                 panic!("mut have storage");
             };
 
             self.builder.add_vec_init_fill_capacity_and_element_addr(
-                target_vec_reg,
+                pointer_lvalue_location,
                 &element_base_ptr_reg.register,
                 *fixed_size_capacity as u16,
                 0,
@@ -3180,14 +2835,14 @@ impl CodeBuilder<'_> {
                 "init vec",
             );
 
-            let memory = self.emit_simple_rvalue(found_expr, ctx);
+            let memory = self.emit_scalar_rvalue(found_expr, ctx);
             self.temp_registers.restore_to_mark(hwm);
         } else {
             panic!("vec_from_slice");
         }
     }
 
-    fn emit_match(
+    pub(crate) fn emit_match_scalar_rvalue_to_specific_register(
         &mut self,
         target_reg: &TypedRegister,
         match_expr: &Match,
@@ -3265,7 +2920,7 @@ impl CodeBuilder<'_> {
                 None
             };
 
-            self.emit_expression_materialize(target_reg, &arm.expression, ctx);
+            self.emit_scalar_rvalue_to_specific_register(target_reg, &arm.expression, ctx);
 
             if !is_last {
                 let jump_to_exit_placeholder = self.builder.add_jump_placeholder(
@@ -3290,12 +2945,12 @@ impl CodeBuilder<'_> {
         GeneratedExpressionResult::default()
     }
 
-    fn emit_guard(
+    pub(crate) fn emit_guard(
         &mut self,
         target_reg: &TypedRegister,
         guards: &Vec<Guard>,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         let mut jump_to_exit_placeholders = Vec::new();
         for guard in guards {
             if let Some(condition) = &guard.condition {
@@ -3305,7 +2960,7 @@ impl CodeBuilder<'_> {
                 //&guard.result.node,
                 //"guard condition",
                 //);
-                self.emit_expression_materialize(target_reg, &guard.result, ctx);
+                self.emit_scalar_rvalue_to_specific_register(target_reg, &guard.result, ctx);
                 let jump_to_exit_placeholder = self.builder.add_jump_placeholder(
                     &guard.result.debug_last_expression().node,
                     "jump to exit",
@@ -3314,25 +2969,23 @@ impl CodeBuilder<'_> {
                 self.builder.patch_jump_here(skip_expression_patch);
             } else {
                 // _ -> wildcard
-                self.emit_expression_materialize(target_reg, &guard.result, ctx);
+                self.emit_scalar_rvalue_to_specific_register(target_reg, &guard.result, ctx);
             }
         }
 
         for placeholder in jump_to_exit_placeholders {
             self.builder.patch_jump_here(placeholder);
         }
-
-        GeneratedExpressionResult::default()
     }
 
-    fn emit_when(
+    pub(crate) fn emit_when(
         &mut self,
         target_reg: &TypedRegister,
         bindings: &Vec<WhenBinding>,
         true_expr: &Expression,
         maybe_false_expr: Option<&Expression>,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         let mut all_false_jumps = Vec::new();
 
         for binding in bindings {
@@ -3359,7 +3012,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!("must be expression");
                 };
-                let old_variable_region = self.emit_simple_rvalue(variable_access_expression, ctx);
+                let old_variable_region = self.emit_scalar_rvalue(variable_access_expression, ctx);
 
                 let tagged_union_binding = old_variable_region.ty.underlying();
                 let tagged_union = tagged_union_binding.optional_info().unwrap();
@@ -3376,7 +3029,7 @@ impl CodeBuilder<'_> {
             }
         }
 
-        self.emit_expression_materialize(target_reg, true_expr, ctx);
+        self.emit_scalar_rvalue_to_specific_register(target_reg, true_expr, ctx);
         let maybe_jump_over_false = if let Some(else_expr) = maybe_false_expr {
             Some(
                 self.builder
@@ -3391,59 +3044,18 @@ impl CodeBuilder<'_> {
         }
 
         if let Some(else_expr) = maybe_false_expr {
-            self.emit_expression_materialize(target_reg, else_expr, ctx);
+            self.emit_scalar_rvalue_to_specific_register(target_reg, else_expr, ctx);
             self.builder.patch_jump_here(maybe_jump_over_false.unwrap());
         }
-
-        GeneratedExpressionResult::default()
     }
 
-    fn emit_tuple_destructuring(
-        &mut self,
-        target_variables: &[VariableRef],
-        tuple_type: &[Type],
-        source_tuple_expression: &Expression,
-        context: &Context,
-    ) -> GeneratedExpressionResult {
-        let node = &source_tuple_expression.node;
-        let tuple_base_pointer_reg = self.emit_simple_rvalue(source_tuple_expression, context);
-
-        let tuple_type = layout_tuple_items(tuple_type);
-        // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
-
-        for (tuple_index, target_variable) in target_variables.iter().enumerate() {
-            if target_variable.is_unused {
-            } else {
-                let frame_placed_target_variable =
-                    self.get_variable_register(target_variable).clone();
-
-                //                assert_eq!(frame_placed_target_variable.size().0, offset_item.size.0);
-
-                let field_offset_item = &tuple_type.fields[tuple_index];
-
-                self.load_register_contents_from_memory(
-                    &target_variable.name,
-                    &frame_placed_target_variable,
-                    &tuple_base_pointer_reg,
-                    field_offset_item.offset,
-                    &format!(
-                        "destructuring to variable {}",
-                        target_variable.assigned_name
-                    ),
-                );
-            }
-        }
-
-        GeneratedExpressionResult::default()
-    }
-
-    fn emit_constant_access(
+    pub(crate) fn emit_constant_access(
         &mut self,
         target_reg: &TypedRegister,
         node: &Node,
         constant_reference: &ConstantRef,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         //info!(?constant_reference, "looking up constant");
         let constant_region = self
             .state
@@ -3477,19 +3089,17 @@ impl CodeBuilder<'_> {
                 ),
             );
         }
-
-        GeneratedExpressionResult::default()
     }
 
-    fn emit_coerce_option_to_bool(
+    pub(crate) fn emit_coerce_option_to_bool(
         &mut self,
         target_reg: &TypedRegister,
         expr: &Expression,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         //info!(?target_reg.ty, "it wants to coerce this to bool");
 
-        let base_pointer_of_tagged_union_reg = self.emit_simple_rvalue(expr, ctx);
+        let base_pointer_of_tagged_union_reg = self.emit_scalar_rvalue(expr, ctx);
 
         /* TODO: Bring this back // let (tag_offset, tag_size, ..) = base_pointer_of_tagged_union_reg
             .underlying()
@@ -3506,14 +3116,12 @@ impl CodeBuilder<'_> {
             &expr.node,
             "load option tag to bool register",
         );
-
-        GeneratedExpressionResult::default()
     }
 
     fn emit_start_of_chain(&mut self, start: &StartOfChain, ctx: &Context) -> DetailedLocation {
         match &start.kind {
             StartOfChainKind::Expression(expr) => DetailedLocation::Register {
-                reg: self.emit_simple_rvalue(expr, ctx),
+                reg: self.emit_scalar_rvalue(expr, ctx),
             },
             StartOfChainKind::Variable(variable) => {
                 let variable_reg = self.get_variable_register(variable);
@@ -3524,14 +3132,14 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_internal_call(
+    pub(crate) fn emit_internal_call(
         &mut self,
         target_reg: Option<&TypedRegister>,
         node: &Node,
         internal_fn: &InternalFunctionDefinitionRef,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) {
         let (spilled_arguments, copy_back) = self.emit_arguments(
             target_reg,
             node,
@@ -3549,8 +3157,6 @@ impl CodeBuilder<'_> {
             node,
             "restore spilled after call",
         );
-
-        GeneratedExpressionResult::default()
     }
 
     pub(crate) fn add_call(
@@ -3599,7 +3205,7 @@ impl CodeBuilder<'_> {
         //}
     }
 
-    fn emit_host_call(
+    pub(crate) fn emit_host_call(
         &mut self,
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
@@ -3788,7 +3394,7 @@ impl CodeBuilder<'_> {
             );
 
         // 3. Inline the lambda code for the current element(s).
-        let lambda_result = self.emit_simple_rvalue(lambda_expr, ctx);
+        let lambda_result = self.emit_scalar_rvalue(lambda_expr, ctx);
 
         // 4. If the transformer supports early exit, set the Z flag based on the lambda result.
         let transformer_t_flag_state =
@@ -3879,6 +3485,7 @@ impl CodeBuilder<'_> {
                     node,
                     "mark tag as Some",
                 );
+                /* TODO:
 
                 self.builder.add_st8_using_ptr_with_offset(
                     primary_variable,
@@ -3887,6 +3494,8 @@ impl CodeBuilder<'_> {
                     node,
                     "copy Tag value of (1)",
                 );
+
+                 */
 
                 //self.copy_contents_to_memory(node, primary_variable, tagged_union.payload_offset, )
 
@@ -4113,50 +3722,14 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_for_loop_lambda(
-        &mut self,
-        target_reg: &TypedRegister,
-        node: &Node,
-        collection: Collection,
-        source_collection: &TypedRegister,
-        source_collection_type: &Type,
-        for_pattern: &ForPattern,
-        lambda_expr: &Expression,
-
-        ctx: &Context,
-    ) {
-        let variables = match for_pattern {
-            ForPattern::Single(a) => vec![a.clone()],
-            ForPattern::Pair(a, b) => vec![a.clone(), b.clone()],
-        };
-
-        let fake_lambda_kind = ExpressionKind::Lambda(variables, Box::from(lambda_expr.clone()));
-        let fake_lambda_expr = MutRefOrImmutableExpression::Expression(Expression {
-            ty: lambda_expr.ty.clone(),
-            node: node.clone(),
-            kind: fake_lambda_kind,
-        });
-
-        self.iterate_over_collection_with_lambda(
-            target_reg,
-            node,
-            collection,
-            Transformer::For,
-            source_collection,
-            source_collection_type,
-            &fake_lambda_expr,
-            ctx,
-        )
-    }
-
-    fn emit_borrow_mutable_reference(
+    pub(crate) fn emit_borrow_mutable_reference(
         &mut self,
         target_register: &TypedRegister,
         node: &Node,
         expr: &Expression,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
-        let inner = self.emit_simple_rvalue(expr, ctx);
+    ) {
+        let inner = self.emit_scalar_rvalue(expr, ctx);
 
         if !inner.ty().is_mutable_reference() {
             self.builder.add_lea(
@@ -4166,8 +3739,6 @@ impl CodeBuilder<'_> {
                 "wasn't a pointer, so converting",
             );
         }
-
-        GeneratedExpressionResult::default()
     }
 
     fn emit_post_call(
@@ -4187,13 +3758,15 @@ impl CodeBuilder<'_> {
                     base_ptr_reg,
                     offset,
                     ..
-                } => self.store_register_contents_to_memory(
-                    node,
-                    base_ptr_reg,
-                    *offset,
-                    &copy_back.parameter_reg,
-                    "copy back from mem",
-                ),
+                } => {} /* TODO:
+                        self.store_register_contents_to_memory(
+                            node,
+                            base_ptr_reg,
+                            *offset,
+                            &copy_back.parameter_reg,
+                            "copy back from mem",
+                        ),
+                        */
             }
         }
         self.emit_restore_spilled_registers(spilled_arguments, node, comment);
@@ -4226,14 +3799,6 @@ impl CodeBuilder<'_> {
     /// only need the register to use in, for example, in the operands for an operator.
     /// it can allocate a temporary register if needed, but not allocate any memory.
     /// the returned register always contains a simple (primitive) value.
-    #[allow(clippy::single_match_else)]
-    pub fn emit_simple_rvalue(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
-        let (target_region, t_flag_state) = self.emit_rvalue_leave_t_flag_if_possible(expr, ctx);
-
-        self.materialize_t_flag_to_bool_if_needed(&target_region, t_flag_state, &expr.node);
-
-        target_region
-    }
 
     /// Emits code to evaluate an expression of a complex type (e.g., struct, vec)
     /// and materializes (constructs or copies) its instance directly into a pre-allocated
@@ -4261,7 +3826,7 @@ impl CodeBuilder<'_> {
         expression: &Expression,
         ctx: &Context,
     ) {
-        self.emit_expression_materialize(target_ptr_reg, expression, ctx)
+        self.emit_scalar_rvalue_to_specific_register(target_ptr_reg, expression, ctx)
     }
 
     pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
@@ -4273,30 +3838,5 @@ impl CodeBuilder<'_> {
         );
 
         temp_reg
-    }
-
-    pub fn emit_rvalue_leave_t_flag_if_possible(
-        &mut self,
-        expr: &Expression,
-        ctx: &Context,
-    ) -> (TypedRegister, GeneratedExpressionResult) {
-        match &expr.kind {
-            ExpressionKind::VariableAccess(var_ref) => {
-                let frame_address = self
-                    .variable_registers
-                    .get(&var_ref.unique_id_within_function)
-                    .unwrap();
-
-                return (frame_address.clone(), GeneratedExpressionResult::default());
-            }
-
-            _ => {}
-        }
-
-        let temp_reg = self.temp_space_for_type(&expr.ty, "expression");
-        let t_flag_state = self.emit_expression(temp_reg.register(), expr, ctx);
-        let hack = temp_reg.register.clone();
-
-        (hack, t_flag_state)
     }
 }

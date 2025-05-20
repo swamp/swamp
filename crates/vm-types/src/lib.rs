@@ -3,10 +3,12 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::aligner::align;
+use crate::types::{BasicType, TypedRegister};
 use source_map_node::Node;
 use std::cmp::PartialOrd;
 use std::fmt::{Alignment, Display, Formatter};
 use std::ops::{Add, Div, Sub};
+
 pub mod aligner;
 pub mod opcode;
 pub mod types;
@@ -262,6 +264,40 @@ impl HeapMemoryOffset {
     pub fn add(&self, size: HeapMemorySize, alignment: MemoryAlignment) -> HeapMemoryOffset {
         let new_start = align(self.0 as usize, alignment.into());
         HeapMemoryOffset(new_start as u32 + size.0)
+    }
+}
+
+#[derive(Clone)]
+pub struct PointerLocation {
+    pub ptr_reg: TypedRegister,
+}
+
+#[derive(Clone)]
+pub struct MemoryLocation {
+    pub base_ptr_reg: TypedRegister,
+    pub offset: MemoryOffset,
+    pub ty: BasicType,
+}
+
+#[derive(Clone)]
+pub struct ScalarMemoryLocation {
+    pub location: MemoryLocation,
+}
+#[derive(Clone)]
+pub struct AggregateMemoryLocation {
+    pub location: MemoryLocation,
+}
+
+impl AggregateMemoryLocation {
+    pub fn offset(&self, memory_offset: MemoryOffset, new_type: BasicType) -> Self {
+        let new_location = MemoryLocation {
+            base_ptr_reg: self.location.base_ptr_reg.clone(),
+            offset: self.location.offset + memory_offset,
+            ty: new_type.clone(),
+        };
+        Self {
+            location: new_location,
+        }
     }
 }
 

@@ -358,7 +358,7 @@ impl TopLevelGenState {
         let return_register =
             TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
-        function_code_builder.emit_expression_materialize(
+        function_code_builder.emit_scalar_rvalue_to_specific_register(
             &return_register,
             &in_data.expression,
             &ctx,

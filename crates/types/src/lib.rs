@@ -51,6 +51,12 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn is_bool(&self) -> bool {
+        matches!(self, Self::Bool)
+    }
+}
+
+impl Type {
     pub fn lowest_common_denominator(&self) -> Type {
         match self {
             Self::VecStorage(inner, _size) => Self::Vec(Box::from(*inner.clone())),
@@ -78,7 +84,7 @@ impl Type {
         }
     }
 
-    pub fn is_simple(&self) -> bool {
+    pub fn is_scalar(&self) -> bool {
         matches!(
             self,
             Type::Int | Type::Float | Type::String | Type::Bool | Type::Unit

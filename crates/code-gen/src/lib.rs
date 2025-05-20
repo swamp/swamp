@@ -5,6 +5,7 @@
 
 pub mod alloc;
 pub mod alloc_util;
+mod assignment;
 pub mod code_bld;
 pub mod constants;
 pub mod ctx;
@@ -14,7 +15,9 @@ pub mod layout;
 mod location;
 mod map;
 pub mod reg_pool;
+mod rvalue_scalar;
 pub mod state;
+mod statement;
 pub mod top_state;
 mod vec;
 

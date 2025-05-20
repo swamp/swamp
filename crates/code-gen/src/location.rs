@@ -32,10 +32,12 @@ impl CodeBuilder<'_> {
     ) {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.emit_expression_materialize(target_reg, found_expression, ctx);
+                if found_expression.ty.is_scalar() {
+                    self.emit_scalar_rvalue_to_specific_register(target_reg, found_expression, ctx);
+                }
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                let location = self.emit_lvalue_chain(location_expression, ctx);
+                let location = self.emit_lvalue_location(location_expression, ctx);
                 //TODO: move location to target_reg // self.emit_ptr_reg_from_detailed_location()
             }
         }
@@ -116,11 +118,7 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        let index_int_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(int_type()),
-            "subscript unsigned int",
-        );
-        self.emit_expression_materialize(index_int_reg.register(), int_expr, ctx);
+        let index_int_reg = self.emit_scalar_rvalue(int_expr, ctx);
 
         let reg_to_use_for_upper_bound = match bounds_check {
             BoundsCheck::KnownSizeAtCompileTime(max_length) => {
@@ -142,7 +140,7 @@ impl CodeBuilder<'_> {
 
         // Bounds check it
         self.builder.add_ge_u32(
-            index_int_reg.register(),
+            &index_int_reg,
             &reg_to_use_for_upper_bound,
             node,
             &format!("check if it is >= capacity {comment}"),
@@ -171,7 +169,7 @@ impl CodeBuilder<'_> {
             .allocate(VmType::new_unknown_placement(int_type()), "temp for offset");
         self.builder.add_mul_i32(
             offset_reg.register(),
-            index_int_reg.register(),
+            &index_int_reg,
             element_size_reg.register(),
             node,
             &format!("offset = index * element_size ({comment})"),
@@ -187,7 +185,7 @@ impl CodeBuilder<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    pub(crate) fn emit_lvalue_chain(
+    pub(crate) fn emit_lvalue_location(
         &mut self,
         location_expression: &SingleLocationExpression,
         ctx: &Context,
@@ -294,7 +292,7 @@ impl CodeBuilder<'_> {
         element_to_set: &TypedRegister,
         ctx: &Context,
     ) {
-        let key_address = self.emit_simple_rvalue(&key_or_index[0], ctx);
+        let key_address = self.emit_scalar_rvalue(&key_or_index[0], ctx);
         match &self_collection.ty().kind {
             BasicTypeKind::InternalStringPointer => {
                 todo!()
@@ -324,7 +322,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         // TODO: Fix this
-        let key_address = self.emit_simple_rvalue(&key_or_index[0], ctx);
+        let key_address = self.emit_scalar_rvalue(&key_or_index[0], ctx);
 
         match &self_collection.underlying().kind {
             BasicTypeKind::InternalStringPointer => {

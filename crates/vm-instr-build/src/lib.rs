@@ -7,11 +7,13 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
-    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
-    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
+    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
+    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
-use swamp_vm_types::{HeapMemoryAddress, ProgramCounterDelta};
+use swamp_vm_types::{
+    HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta, ScalarMemoryLocation,
+};
 
 /// Keeps track of all the instructions, and the corresponding meta information (comments and node).
 pub struct InstructionBuilderState {
@@ -1109,7 +1111,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_vec_init_fill_capacity_and_element_addr(
         &mut self,
-        target_vec_to_init: &TypedRegister,
+        target_vec_to_init: &PointerLocation,
         element_target_reg: &TypedRegister,
         capacity: u16,
         len: u16,
@@ -1124,7 +1126,7 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::VecInitWithLenAndCapacityAddr,
             &[
-                target_vec_to_init.addressing(),
+                target_vec_to_init.ptr_reg.addressing(),
                 element_target_reg.addressing(),
                 len_bytes.0,
                 len_bytes.1,
@@ -1262,17 +1264,21 @@ impl InstructionBuilder<'_> {
 
     pub fn add_st32_using_ptr_with_offset(
         &mut self,
-        base_ptr_reg: &TypedRegister,
-        offset: MemoryOffset,
+        scalar_lvalue_location: &MemoryLocation,
         u32_reg: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         //assert_eq!(u32_reg.ty().underlying().total_size.0, 4);
-        let bytes = u16_to_u8_pair(offset.0);
+        let offset_bytes = u16_to_u8_pair(scalar_lvalue_location.offset.0);
         self.state.add_instruction(
             OpCode::St32UsingPtrWithOffset,
-            &[base_ptr_reg.addressing(), bytes.0, bytes.1, u32_reg.index],
+            &[
+                scalar_lvalue_location.base_ptr_reg.addressing(),
+                offset_bytes.0,
+                offset_bytes.1,
+                u32_reg.index,
+            ],
             node,
             comment,
         );
@@ -1280,17 +1286,21 @@ impl InstructionBuilder<'_> {
 
     pub fn add_st16_using_ptr_with_offset(
         &mut self,
-        base_ptr_reg: &TypedRegister,
-        offset: MemoryOffset,
+        scalar_lvalue_location: &MemoryLocation,
         u16_reg: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         //assert_eq!(u16_reg.ty().underlying().total_size.0, 2);
-        let bytes = u16_to_u8_pair(offset.0);
+        let offset_bytes = u16_to_u8_pair(scalar_lvalue_location.offset.0);
         self.state.add_instruction(
             OpCode::St16UsingPtrWithOffset,
-            &[base_ptr_reg.addressing(), bytes.0, bytes.1, u16_reg.index],
+            &[
+                scalar_lvalue_location.base_ptr_reg.addressing(),
+                offset_bytes.0,
+                offset_bytes.1,
+                u16_reg.index,
+            ],
             node,
             comment,
         );
@@ -1298,17 +1308,21 @@ impl InstructionBuilder<'_> {
 
     pub fn add_st8_using_ptr_with_offset(
         &mut self,
-        base_ptr_reg: &TypedRegister,
-        offset: MemoryOffset,
+        scalar_lvalue_location: &MemoryLocation,
         u8_reg: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         // TODO: Bring this back. // assert_eq!(u8_reg.ty().underlying().total_size.0, 1);
-        let bytes = u16_to_u8_pair(offset.0);
+        let offset_bytes = u16_to_u8_pair(scalar_lvalue_location.offset.0);
         self.state.add_instruction(
             OpCode::St8UsingPtrWithOffset,
-            &[base_ptr_reg.addressing(), bytes.0, bytes.1, u8_reg.index],
+            &[
+                scalar_lvalue_location.base_ptr_reg.addressing(),
+                offset_bytes.0,
+                offset_bytes.1,
+                u8_reg.index,
+            ],
             node,
             comment,
         );

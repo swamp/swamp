@@ -29,7 +29,7 @@ impl CodeBuilder<'_> {
                     panic!("problem");
                 };
 
-                let slice_region = self.emit_simple_rvalue(expr, ctx);
+                let slice_region = self.emit_scalar_rvalue(expr, ctx);
 
                 let slice_type = arguments[0].ty();
 
@@ -156,7 +156,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
-                let float_region = self.emit_simple_rvalue(float_arg_expr, ctx);
+                let float_region = self.emit_scalar_rvalue(float_arg_expr, ctx);
                 self.builder.add_float_min(
                     target_reg,
                     &self_addr.unwrap(),
@@ -170,7 +170,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
-                let float_region = self.emit_simple_rvalue(float_arg_expr, ctx);
+                let float_region = self.emit_scalar_rvalue(float_arg_expr, ctx);
                 self.builder.add_float_max(
                     target_reg,
                     &self_addr.unwrap(),
@@ -184,13 +184,13 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
-                let float_region = self.emit_simple_rvalue(float_arg_expr, ctx);
+                let float_region = self.emit_scalar_rvalue(float_arg_expr, ctx);
 
                 let float_b = &arguments[1];
                 let MutRefOrImmutableExpression::Expression(float_b_expr) = float_b else {
                     panic!();
                 };
-                let float_b_region = self.emit_simple_rvalue(float_b_expr, ctx);
+                let float_b_region = self.emit_scalar_rvalue(float_b_expr, ctx);
 
                 self.builder.add_float_clamp(
                     target_reg,
@@ -281,22 +281,7 @@ impl CodeBuilder<'_> {
                     "set pointer to new element",
                 );
 
-                if element_gen_type.is_simple_primitive() {
-                    let source_reg = self.emit_simple_rvalue(element_expr, ctx);
-                    self.store_primitive_to_memory(
-                        temp_element_ptr.register(),
-                        MemoryOffset(0),
-                        source_reg,
-                        node,
-                        "store a primitive to the vec",
-                    );
-                } else {
-                    self.emit_expression_materialize(
-                        temp_element_ptr.register(),
-                        element_expr,
-                        ctx,
-                    );
-                }
+                self.emit_expression_to_memory
             }
 
             IntrinsicFunction::VecPop => {
@@ -313,7 +298,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!();
                 };
-                let index_region = self.emit_simple_rvalue(index_expr, ctx);
+                let index_region = self.emit_scalar_rvalue(index_expr, ctx);
                 self.builder.add_vec_remove_index(
                     &self_addr.unwrap(),
                     &index_region,
@@ -326,7 +311,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
-                let key_region = self.emit_simple_rvalue(key_expr, ctx);
+                let key_region = self.emit_scalar_rvalue(key_expr, ctx);
                 self.builder.add_vec_remove_index_get_value(
                     target_reg,
                     &self_addr.unwrap(), // mut self
@@ -347,7 +332,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
-                let key_region = self.emit_simple_rvalue(key_expr, ctx);
+                let key_region = self.emit_scalar_rvalue(key_expr, ctx);
                 self.builder.add_vec_get(
                     target_reg,
                     &self_addr.unwrap(), // mut self
@@ -401,7 +386,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!();
                 };
-                let index_region = self.emit_simple_rvalue(index_expr, ctx);
+                let index_region = self.emit_scalar_rvalue(index_expr, ctx);
                 self.builder.add_vec_subscript(
                     target_reg,
                     &self_addr.unwrap(),
@@ -417,7 +402,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!();
                 };
-                let index_region = self.emit_simple_rvalue(index_expr, ctx);
+                let index_region = self.emit_scalar_rvalue(index_expr, ctx);
                 // TODO:
 
                 /*
@@ -444,7 +429,7 @@ impl CodeBuilder<'_> {
                 else {
                     panic!();
                 };
-                let range_header_region = self.emit_simple_rvalue(range_expr, ctx);
+                let range_header_region = self.emit_scalar_rvalue(range_expr, ctx);
                 // TODO: Bring this back // assert_eq!(range_header_region.size(), RANGE_HEADER_SIZE);
                 self.builder.add_vec_get_range(
                     target_reg,
@@ -533,7 +518,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                let key = self.emit_simple_rvalue(key_argument, ctx);
+                let key = self.emit_scalar_rvalue(key_argument, ctx);
                 self.builder
                     .add_map_has(&self_addr.unwrap(), &key, node, "map_has");
                 t_flag_result.kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
@@ -563,7 +548,7 @@ impl CodeBuilder<'_> {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                let key = self.emit_simple_rvalue(key_argument, ctx);
+                let key = self.emit_scalar_rvalue(key_argument, ctx);
                 self.builder.add_map_get_entry_location(
                     target_reg,
                     &self_addr.unwrap(),
@@ -679,49 +664,9 @@ impl CodeBuilder<'_> {
         key_expr: &Expression,
         ctx: &Context,
     ) {
-        let key_region = self.emit_simple_rvalue(key_expr, ctx);
+        let key_region = self.emit_scalar_rvalue(key_expr, ctx);
 
         self.builder
             .add_map_remove(map_region, &key_region, &key_expr.node, "");
-    }
-
-    fn store_primitive_to_memory(
-        &mut self,
-        memory_base_ptr_reg: &TypedRegister,
-        offset: MemoryOffset,
-        source_primitive_reg: TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        match source_primitive_reg.ty.basic_type.kind {
-            BasicTypeKind::U8 | BasicTypeKind::B8 => {
-                self.builder.add_st8_using_ptr_with_offset(
-                    memory_base_ptr_reg,
-                    offset,
-                    &source_primitive_reg,
-                    node,
-                    comment,
-                );
-            }
-            BasicTypeKind::U16 => {
-                self.builder.add_st16_using_ptr_with_offset(
-                    memory_base_ptr_reg,
-                    offset,
-                    &source_primitive_reg,
-                    node,
-                    comment,
-                );
-            }
-            BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
-                self.builder.add_st32_using_ptr_with_offset(
-                    memory_base_ptr_reg,
-                    offset,
-                    &source_primitive_reg,
-                    node,
-                    comment,
-                );
-            }
-            _ => panic!("this is not a primitive"),
-        }
     }
 }
