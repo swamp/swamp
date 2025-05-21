@@ -9,7 +9,6 @@ use std::path::{Path, PathBuf};
 use swamp::prelude::SeqMap;
 use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_dep_loader::swamp_registry_path;
-use swamp_parser::Rule::op_add;
 use swamp_vm::{Vm, VmSetup};
 
 #[test_log::test]

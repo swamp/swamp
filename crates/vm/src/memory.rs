@@ -1,4 +1,4 @@
-use crate::{ALIGNMENT, ALIGNMENT_MASK, ALIGNMENT_REST, Vm};
+use crate::{ALIGNMENT, ALIGNMENT_MASK, ALIGNMENT_REST};
 use std::{alloc, mem, ptr, slice};
 use swamp_vm_types::aligner::align;
 

@@ -1,7 +1,4 @@
 use std::path::PathBuf;
-use swamp_runtime::{RunConstantsOptions, RunOptions};
-use swamp_std::print::register_print;
-use time_dilation::ScopedTimer;
 
 #[must_use]
 pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {

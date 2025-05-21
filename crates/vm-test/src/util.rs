@@ -46,7 +46,7 @@ fn emit_internal_debug(code: &str) -> (TopLevelGenState, Program) {
 }
 
 fn exec_code_gen_state(code_gen_state: TopLevelGenState) -> Vm {
-    let (instructions, constant_functions, functions, mut constants_memory) =
+    let (instructions, constant_functions, functions, constants_memory) =
         code_gen_state.take_instructions_and_constants();
 
     for (_constant_id, constant_func) in constant_functions {

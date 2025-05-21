@@ -6,15 +6,13 @@ use crate::Analyzer;
 use crate::err::{Error, ErrorKind};
 use seq_map::SeqMap;
 use std::rc::Rc;
-use swamp_ast::GenericParameter;
 use swamp_semantic::{
     ExternalFunctionDefinition, Function, InternalFunctionDefinition, LocalIdentifier,
-    SemanticError, UseItem, VariableType,
+    SemanticError, UseItem,
 };
 use swamp_types::TypeVariable;
 use swamp_types::prelude::*;
 use swamp_types::{GenericAwareSignature, ParameterizedTypeBlueprint, ParameterizedTypeKind};
-use tracing::info;
 
 impl Analyzer<'_> {
     fn general_import(

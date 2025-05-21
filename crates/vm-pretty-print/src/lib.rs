@@ -1,7 +1,7 @@
 use fixed32::Fp;
 use std::fmt::{Display, Formatter, Write};
 use std::ops::Add;
-use std::{fmt, slice};
+use std::fmt;
 use swamp_vm::Vm;
 use swamp_vm::memory::Memory;
 use swamp_vm_types::types::{BasicType, BasicTypeKind, OffsetMemoryItem};

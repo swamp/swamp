@@ -18,15 +18,14 @@ use swamp_semantic::{
 use swamp_types::Attributes;
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
-    CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, OutputDestination, TypedRegister,
-    VariableRegister, VmType, VmTypeOrigin, is_callee_save, unknown_type,
+    FunctionInfo, FunctionInfoKind, OutputDestination, TypedRegister, VmType, VmTypeOrigin, is_callee_save,
 };
 use swamp_vm_types::{
-    BinaryInstruction, FrameMemoryRegion, FrameMemorySize, InstructionPosition,
+    BinaryInstruction, FrameMemoryRegion, InstructionPosition,
     InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset, MemorySize, Meta,
     REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
-use tracing::{error, info};
+use tracing::error;
 
 /// Top-level container that owns both states
 pub struct TopLevelGenState {

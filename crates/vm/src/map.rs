@@ -4,7 +4,6 @@
  */
 
 use crate::Vm;
-use std::ptr;
 
 /// # Map Header Structure
 ///

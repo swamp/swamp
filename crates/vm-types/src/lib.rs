@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::aligner::align;
-use crate::types::{BasicType, OutputDestination};
+use crate::types::BasicType;
 use crate::types::{TypedRegister, VmType};
 use source_map_node::Node;
 use std::cmp::PartialOrd;

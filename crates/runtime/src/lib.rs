@@ -89,7 +89,7 @@ pub struct CodeGenResult {
 }
 
 pub fn compile_and_codegen_main_path(
-    mut source_map: &mut SourceMap,
+    source_map: &mut SourceMap,
     root_module_path: &[String],
     current_dir: &Path,
     options: CodeGenOptions,

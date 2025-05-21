@@ -194,7 +194,7 @@ impl CodeBuilder<'_> {
         location_expression: &SingleLocationExpression,
         ctx: &Context,
     ) -> OutputDestination {
-        let mut start_reg = self
+        let start_reg = self
             .variable_registers
             .get(
                 &location_expression

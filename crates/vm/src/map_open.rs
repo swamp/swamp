@@ -103,7 +103,7 @@ impl Vm {
         buckets_ptr_addr: usize,
         header: &MapHeader,
         key_ptr_addr: usize,
-    ) -> u32 {
+    ) -> u32 { unsafe {
         let capacity = header.capacity as usize;
         let key_size = header.key_size as usize;
         let element_size = header.element_size as usize;
@@ -223,7 +223,7 @@ impl Vm {
 
         // If we reach here, the map is close to full or completely full and with no tombstones.
         0
-    }
+    }}
 
     // TODO: Use the default hasher for now, but maybe use a noice hash or fnv-1a or something
     fn calculate_hash(key_bytes: &[u8]) -> u64 {
@@ -336,7 +336,7 @@ impl Vm {
         buckets_ptr: *const u8,
         header: &MapHeader,
         key_ptr: *const u8,
-    ) -> bool {
+    ) -> bool { unsafe {
         let capacity = header.capacity as usize;
         let key_size = header.key_size as usize;
         let element_size = header.element_size as usize;
@@ -391,7 +391,7 @@ impl Vm {
         // If we exit the loop, we've probed MAX_PROBE_DISTANCE slots
         // without finding the key or hitting an empty slot.
         false
-    }
+    }}
 
     /// Looks up a key in the hash map using open addressing and linear probing.
     ///
@@ -403,7 +403,7 @@ impl Vm {
         buckets_ptr_addr: usize,
         header: &MapHeader,
         key_ptr_addr: usize,
-    ) -> u32 {
+    ) -> u32 { unsafe {
         let capacity = header.capacity as usize;
         debug_assert_ne!(capacity, 0);
         let key_size = header.key_size as usize;
@@ -479,7 +479,7 @@ impl Vm {
             eprintln!("lookup failed to find anything after max probe distance");
         }
         0
-    }
+    }}
 
     /*
     fn map_remove_open_addressing(&mut self, dst_offset: u8, key_offset: u8) {

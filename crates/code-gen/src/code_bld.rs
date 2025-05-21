@@ -1,35 +1,33 @@
 use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
-use crate::layout::{layout_optional_type, layout_struct_type, layout_tuple_items, layout_type};
+use crate::layout::{layout_optional_type, layout_type};
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool, TempRegister};
-use crate::state::{CodeGenState, FunctionFixup};
+use crate::state::CodeGenState;
 use crate::{
-    Collection, DetailedLocationResolved, GeneratedExpressionResult, GeneratedExpressionResultKind,
-    SpilledRegister, Transformer, TransformerResult, single_intrinsic_fn,
+    single_intrinsic_fn, Collection, DetailedLocationResolved, GeneratedExpressionResult,
+    GeneratedExpressionResultKind, Transformer, TransformerResult,
 };
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use swamp_semantic::{
-    AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression, ConstantRef,
-    Expression, ExpressionKind, ExternalFunctionDefinitionRef, ForPattern, Function, Guard,
-    InternalFunctionDefinitionRef, Iterable, Literal, Match, MutRefOrImmutableExpression,
+    BinaryOperator, BinaryOperatorKind, BooleanExpression, ConstantRef,
+    Expression, ExpressionKind, ExternalFunctionDefinitionRef, Function, Guard, Match, MutRefOrImmutableExpression,
     NormalPattern, Pattern, Postfix, PostfixKind, SingleLocationExpression, StartOfChain,
-    StartOfChainKind, TargetAssignmentLocation, UnaryOperator, UnaryOperatorKind, VariableRef,
+    StartOfChainKind, UnaryOperator, UnaryOperatorKind, VariableRef,
     WhenBinding,
 };
-use swamp_types::{AnonymousStructType, Signature, Type};
+use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, FramePlacedType, OutputDestination, TupleType, TypedRegister, VmType,
-    b8_type, u8_type, u32_type, unknown_type, vec_type,
+    b8_type, u32_type, u8_type, unknown_type, BasicType, BasicTypeKind,
+    FramePlacedType, OutputDestination, TypedRegister, VmType,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryAddress, InstructionPosition, MAP_HEADER_COUNT_OFFSET, MAP_HEADER_KEY_SIZE_OFFSET,
-    MemoryLocation, MemoryOffset, PointerLocation, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
-    StringHeader, VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
+    HeapMemoryAddress, InstructionPosition, MemoryLocation, MemoryOffset, StringHeader, REG_ON_FRAME_ALIGNMENT,
+    REG_ON_FRAME_SIZE, VEC_PTR_SIZE,
 };
 use tracing::{error, info};
 
@@ -37,6 +35,7 @@ pub(crate) struct MutableReturnReg {
     pub target_location_after_call: OutputDestination,
     pub parameter_reg: TypedRegister,
 }
+
 
 pub(crate) struct CodeBuilder<'a> {
     pub state: &'a mut CodeGenState,
@@ -526,7 +525,7 @@ impl CodeBuilder<'_> {
         right_source: &TypedRegister,
         ctx: &Context,
     ) {
-        let mut kind = GeneratedExpressionResultKind::TFlagIsIndeterminate;
+        let kind = GeneratedExpressionResultKind::TFlagIsIndeterminate;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.builder.add_add_u32(
@@ -586,7 +585,7 @@ impl CodeBuilder<'_> {
         right_source: &TypedRegister,
         ctx: &Context,
     ) {
-        let mut kind = GeneratedExpressionResultKind::TFlagIsIndeterminate;
+        let kind = GeneratedExpressionResultKind::TFlagIsIndeterminate;
         match binary_operator_kind {
             BinaryOperatorKind::Add => {
                 self.builder

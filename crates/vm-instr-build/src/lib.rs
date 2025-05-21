@@ -4,7 +4,7 @@
  */
 use source_map_node::Node;
 use swamp_vm_types::opcode::OpCode;
-use swamp_vm_types::types::{BasicTypeKind, OutputDestination, TypedRegister};
+use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
     HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,

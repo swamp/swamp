@@ -14,7 +14,7 @@ use swamp_vm_types::types::{
     VmType,
 };
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE,
+    FrameMemoryAddress, FrameMemoryRegion,
     MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE,
     STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
     adjust_size_to_alignment, align_to,
