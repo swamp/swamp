@@ -26,7 +26,7 @@ use swamp_vm_types::{
     InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset, MemorySize, Meta,
     REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
-use tracing::error;
+use tracing::{error, info};
 
 /// Top-level container that owns both states
 pub struct TopLevelGenState {
@@ -73,7 +73,7 @@ impl TopLevelGenState {
         internal_fn_def: &InternalFunctionDefinitionRef,
         source_map_wrapper: &SourceMapWrapper,
     ) {
-        //info!(internal_fn_def.assigned_name, "gen_function");
+        info!(internal_fn_def.assigned_name, "gen_function");
         assert_ne!(internal_fn_def.program_unique_id, 0);
 
         let complete_function_name = format!(

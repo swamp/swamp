@@ -1083,6 +1083,7 @@ impl Vm {
         let offset = u8s_to_u16!(a, b);
         let const_reg_ptr = &self.registers[start_reg as usize] as *const u32;
         let target_ptr = self.memory.get_frame_ptr_as_u32(offset);
+        //        eprintln!("stmtf {start_reg}:{count} -> {offset}");
         unsafe {
             ptr::copy_nonoverlapping(const_reg_ptr, target_ptr, count as usize);
         }

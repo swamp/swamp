@@ -20,7 +20,7 @@ impl Color {
 #[test]
 fn literal_enum() {
   a = Color::Red
-  print('a: `{a}`')
+  //print('a: `{a}`')
   assert(a == Color::Red, "enum value is wrong")
 }
 

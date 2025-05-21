@@ -26,6 +26,7 @@ use swamp_semantic::{
 };
 use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, TupleType, TypedRegister, VmType,
     VmTypeOrigin, b8_type, u8_type, u16_type, u32_type, unit_type, unknown_type, vec_type,
@@ -126,13 +127,17 @@ impl CodeBuilder<'_> {
             .add_ld_regs_from_frame(start_reg, start_address, count, node, comment);
     }
 
-    pub fn total_frame_size(&self) -> FrameMemorySize {
-        self.frame_allocator.addr().as_size()
+    pub fn total_aligned_frame_size(&self) -> FrameMemorySize {
+        let aligned = align(
+            self.frame_allocator.addr().as_size().0 as usize,
+            SAFE_ALIGNMENT,
+        );
+        FrameMemorySize(aligned as u16)
     }
 
     pub fn patch_enter(&mut self, patch_position: PatchPosition) {
         self.builder
-            .patch_enter(self.total_frame_size(), patch_position);
+            .patch_enter(self.total_aligned_frame_size(), patch_position);
     }
 
     fn emit_load_primitive_from_absolute_memory_address(
@@ -1990,7 +1995,7 @@ impl CodeBuilder<'_> {
 
      */
 
-    fn emit_tuple_literal_into_memory(
+    pub(crate) fn emit_tuple_literal_into_memory(
         &mut self,
         aggregate_lvalue_location: &AggregateMemoryLocation,
         types: &[Type],
@@ -2048,7 +2053,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_anonymous_struct_into_memory(
+    pub(crate) fn emit_anonymous_struct_into_memory(
         &mut self,
         aggregate_lvalue_memory_location: &AggregateMemoryLocation,
         anon_struct_type: &AnonymousStructType,
@@ -2102,80 +2107,6 @@ impl CodeBuilder<'_> {
                     node,
                     "bool literal",
                 );
-            }
-            Literal::EnumVariantLiteral(enum_type, a, b) => {
-                let variant_index = a.common().container_index as usize;
-                let variants = enum_type
-                    .variants
-                    .values()
-                    .map(|x| x.clone())
-                    .collect::<Vec<_>>();
-                let layout_enum =
-                    layout_enum_into_tagged_union(&enum_type.assigned_name, &variants);
-                let layout_variant = layout_enum.get_variant_by_index(variant_index);
-
-                let hwm = self.temp_registers.save_mark();
-
-                let temp_payload_reg = self.temp_registers.allocate(
-                    VmType::new_unknown_placement(layout_variant.ty.clone()),
-                    "variant literal payload",
-                );
-
-                self.builder.add_mov8_immediate(
-                    temp_payload_reg.register(),
-                    variant_index as u8,
-                    node,
-                    &format!("enum variant {} tag", a.common().assigned_name),
-                );
-                self.builder.add_st8_using_ptr_with_offset(
-                    target_reg,
-                    layout_enum.tag_offset,
-                    temp_payload_reg.register(),
-                    &node,
-                    "put enum tag in place",
-                );
-
-                match b {
-                    EnumLiteralData::Nothing => {}
-                    EnumLiteralData::Tuple(expressions) => {
-                        let EnumVariantType::Tuple(tuple_type) = a else {
-                            panic!();
-                        };
-                        self.emit_tuple(
-                            target_reg,
-                            &tuple_type.fields_in_order,
-                            expressions,
-                            ctx,
-                            node,
-                        );
-                    }
-                    EnumLiteralData::Struct(sorted_expressions) => {
-                        let EnumVariantType::Struct(variant_struct_type) = a else {
-                            panic!()
-                        };
-
-                        self.emit_anonymous_struct_into_memory(
-                            target_reg,
-                            &variant_struct_type.anon_struct,
-                            sorted_expressions,
-                            node,
-                            ctx,
-                        );
-                    }
-                }
-
-                self.store_register_contents_to_memory(
-                    node,
-                    target_reg,
-                    layout_enum.payload_offset,
-                    temp_payload_reg.register(),
-                    "copy enum payload into target",
-                );
-
-                self.temp_registers.restore_to_mark(hwm);
-            }
-            Literal::TupleLiteral(tuple_type, expressions) => {
-                self.emit_tuple(target_reg, tuple_type, expressions, ctx, node)
             }
             Literal::StringLiteral(str) => {
                 self.emit_string_literal(target_reg, node, str, ctx);
