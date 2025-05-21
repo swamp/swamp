@@ -15,6 +15,7 @@ use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use std::env::var;
+use std::process::Output;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
@@ -28,8 +29,9 @@ use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, TupleType, TypedRegister, VmType,
-    VmTypeOrigin, b8_type, u8_type, u16_type, u32_type, unit_type, unknown_type, vec_type,
+    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, OutputDestination, TupleType,
+    TypedRegister, VmType, VmTypeOrigin, b8_type, u8_type, u16_type, u32_type, unit_type,
+    unknown_type, vec_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
@@ -1000,7 +1002,8 @@ impl CodeBuilder<'_> {
             .temp_registers
             .allocate(VmType::new_unknown_placement(u32_type()), "temp");
 
-        self.emit_bool_rvalue_to_specific_register(temp_reg.register(), condition, ctx);
+        let output_destination = OutputDestination::new_reg(temp_reg.register.clone());
+        self.emit_bool_expression(&output_destination, condition, ctx);
 
         self.builder.add_tst_u8(
             &temp_reg.register(),
@@ -1035,7 +1038,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_if(
         &mut self,
-        target_reg: &TypedRegister,
+        output_destination: &OutputDestination,
         condition: &BooleanExpression,
         true_expr: &Expression,
         maybe_false_expr: Option<&Expression>,
@@ -1045,7 +1048,7 @@ impl CodeBuilder<'_> {
 
         // True expression just takes over our target
         // Both to reuse the current target, and for the fact when there is no else
-        self.emit_scalar_rvalue_to_specific_register(target_reg, true_expr, ctx);
+        self.emit_expression(output_destination, true_expr, ctx);
 
         if let Some(false_expr) = maybe_false_expr {
             // we need to help the true expression to jump over false
@@ -1058,7 +1061,7 @@ impl CodeBuilder<'_> {
             self.builder.patch_jump_here(jump_on_false_condition);
 
             // Else expression also can just take over our if target
-            self.emit_scalar_rvalue_to_specific_register(target_reg, false_expr, ctx);
+            self.emit_expression(output_destination, false_expr, ctx);
 
             self.builder.patch_jump_here(skip_false_if_true);
         } else {
@@ -1506,7 +1509,7 @@ impl CodeBuilder<'_> {
         for (key_expr, value_expr) in slice_pair_literal {
             //self.emit_expression_materialize(&key_storage_register, key_expr, ctx);
             self.emit_expression_into_target_memory(
-                &aggregate_location,
+                &aggregate_location.grab_memory_location(),
                 value_expr,
                 "store expression to memory if needed",
                 ctx,
@@ -1515,7 +1518,7 @@ impl CodeBuilder<'_> {
             self.builder.add_map_get_or_reserve_entry_location(
                 element_target_temp_reg.register(),
                 target_map_header_ptr_reg,
-                &aggregate_location.base_ptr_reg,
+                &aggregate_location.grab_memory_location().base_ptr_reg,
                 node,
                 "find existing or create a map entry to write into",
             );
@@ -1582,23 +1585,9 @@ impl CodeBuilder<'_> {
 
      */
 
-    fn ensure_absolute_target_pointer_location(
-        &mut self,
-        node: &Node,
-        call_return_slot: &TypedRegister,
-        return_ctx_to_check: &TypedRegister,
-    ) {
-        self.builder.add_lea(
-            call_return_slot,
-            return_ctx_to_check.addr(),
-            node,
-            "placing pointer to real return target",
-        );
-    }
-
     fn emit_arguments(
         &mut self,
-        target_reg: Option<&TypedRegister>,
+        output_destination: &OutputDestination,
         node: &Node,
         signature: &Signature,
         self_variable: Option<&TypedRegister>,
@@ -1609,7 +1598,7 @@ impl CodeBuilder<'_> {
 
         let mut copy_back_mutable_reg_pairs = Vec::new();
 
-        if let Some(return_param_reg) = target_reg {
+        if let OutputDestination::ScalarToRegister(return_param_reg) = output_destination {
             let return_reg = TypedRegister::new_vm_type(0, return_param_reg.ty.clone());
             if return_param_reg
                 .ty
@@ -1698,27 +1687,12 @@ impl CodeBuilder<'_> {
                         }
                     }
                     MutRefOrImmutableExpression::Expression(expr) => {
-                        if self.rvalue_needs_memory_location_to_materialize_in(expr) {
-                            let gen_type = layout_type(&expr.ty);
-                            let temp_reg = self.allocate_frame_space_and_assign_register(
-                                &gen_type,
-                                "temp mem for argument",
-                            );
-                            self.emit_expression_into_target_memory(
-                                &temp_reg,
-                                expr,
-                                "materialize into temp argument mem",
-                                ctx,
-                            );
-                        } else {
-                            let source_reg = self.emit_scalar_rvalue(expr, &argument_ctx);
-                            self.builder.add_mov_reg(
-                                &argument_register,
-                                &source_reg,
-                                &expr.node,
-                                "copy reg result into arg",
-                            );
-                        }
+                        self.emit_expression_into_register(
+                            &argument_register,
+                            expr,
+                            "argument expression into specific argument register",
+                            ctx,
+                        );
                     }
                 }
 
@@ -1748,9 +1722,9 @@ impl CodeBuilder<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    pub(crate) fn emit_scalar_rvalue_postfix_chain(
+    pub(crate) fn emit_postfix_chain(
         &mut self,
-        target_reg: &TypedRegister,
+        output_destination: &OutputDestination,
         start_expression: &StartOfChain,
         chain: &[Postfix],
         ctx: &Context,
@@ -1835,7 +1809,7 @@ impl CodeBuilder<'_> {
                                 );
 
                                 let z_result = self.emit_single_intrinsic_call_with_self(
-                                    target_reg,
+                                    output_destination.grab_register(), // TODO: Intrinsic calls can only set to register?
                                     &start_expression.node,
                                     intrinsic_fn,
                                     Some(element.ty.clone()),
@@ -1850,7 +1824,7 @@ impl CodeBuilder<'_> {
                                 }
                             } else {
                                 let (spilled_argument_registers, copy_back) = self.emit_arguments(
-                                    Some(target_reg),
+                                    output_destination,
                                     &start_expression.node,
                                     &internal_fn.signature.signature,
                                     Some(resolved_location.register()),
@@ -1873,7 +1847,7 @@ impl CodeBuilder<'_> {
                         }
                         Function::External(external_function_def) => {
                             self.emit_host_self_call(
-                                None,
+                                output_destination,
                                 &start_expression.node,
                                 external_function_def,
                                 resolved_location.register(),
@@ -1883,7 +1857,7 @@ impl CodeBuilder<'_> {
                         }
                         Function::Intrinsic(intrinsic_def) => {
                             let z_result = self.emit_single_intrinsic_call_with_self(
-                                target_reg,
+                                output_destination.grab_register(),
                                 &start_expression.node,
                                 &intrinsic_def.intrinsic,
                                 Some(element.ty.clone()),
@@ -1906,7 +1880,7 @@ impl CodeBuilder<'_> {
                     self.temp_registers.restore_to_mark(hwm);
 
                     current_location = DetailedLocation::Register {
-                        reg: target_reg.clone(),
+                        reg: output_destination.grab_register().clone(),
                     };
                     //info!(?current_location, "after member call");
                 }
@@ -1942,14 +1916,14 @@ impl CodeBuilder<'_> {
 
                      */
 
-                    self.emit_scalar_rvalue_to_specific_register(target_reg, expression, ctx);
+                    self.emit_expression(output_destination, expression, ctx);
 
                     self.temp_registers.restore_to_mark(hwm);
 
                     self.builder.patch_jump_here(patch);
 
                     current_location = DetailedLocation::Register {
-                        reg: target_reg.clone(),
+                        reg: output_destination.grab_register().clone(),
                     };
                     info!(?current_location, "after none coalesce");
                 }
@@ -1959,7 +1933,7 @@ impl CodeBuilder<'_> {
         }
 
         self.emit_load_from_location(
-            target_reg,
+            output_destination.grab_register(),
             &current_location,
             &start_expression.node,
             "rvalue postfix chain",
@@ -2233,9 +2207,9 @@ impl CodeBuilder<'_> {
 
      */
 
-    pub(crate) fn emit_block_to_scalar_rvalue_to_specific_register(
+    pub(crate) fn emit_block(
         &mut self,
-        target_reg: &TypedRegister,
+        target_reg: &OutputDestination,
         expressions: &[Expression],
         ctx: &Context,
     ) {
@@ -2248,7 +2222,7 @@ impl CodeBuilder<'_> {
                 self.emit_statement(last, ctx);
             } else {
                 //            info!(?last.ty, ?target_reg.ty, "this is the last in the block!");
-                self.emit_scalar_rvalue_to_specific_register(target_reg, last, ctx);
+                self.emit_expression(target_reg, last, ctx);
             }
         } else {
             // empty blocks are allowed for side effects
@@ -2271,56 +2245,6 @@ impl CodeBuilder<'_> {
             .unwrap();
 
         frame_address.frame_placed()
-    }
-
-    pub(crate) fn emit_variable_access_as_rvalue(
-        &mut self,
-        target_reg: &TypedRegister,
-        node: &Node, // Variable access node
-        variable: &VariableRef,
-        ctx: &Context,
-    ) -> GeneratedExpressionResult {
-        // If both are immutable, it is safe to copy the contents. works for both simple and complex types.
-        let variable_register = self.get_variable_register(variable).clone();
-
-        if target_reg.ty.is_immutable() && variable.is_immutable() {
-            self.builder.add_mov_reg(
-                target_reg,
-                &variable_register,
-                node,
-                &format!(
-                    "variable access {}. Both are immutable.",
-                    tinter::red(&variable.assigned_name)
-                ),
-            );
-        } else {
-            if target_reg
-                .ty
-                .basic_type
-                .is_represented_as_a_pointer_in_reg()
-            {
-                let target_region = variable_register.ty.frame_placed_type().unwrap();
-                self.builder.add_block_copy(
-                    target_reg,
-                    &variable_register,
-                    target_region.size(),
-                    node,
-                    "materialize (write) contents of variable into target",
-                );
-            } else {
-                self.builder.add_mov_reg(
-                    target_reg,
-                    &variable_register,
-                    node,
-                    &format!(
-                        "variable access {}. it is a simple type.",
-                        tinter::red(&variable.assigned_name)
-                    ),
-                );
-            }
-        }
-
-        GeneratedExpressionResult::default()
     }
 
     pub(crate) fn referenced_or_not_type(ty: &Type) -> Type {
@@ -2384,7 +2308,7 @@ impl CodeBuilder<'_> {
         &mut self,
         ty: &BasicType,
         comment: &str,
-    ) -> MemoryLocation {
+    ) -> OutputDestination {
         let frame_placed_type = self.frame_allocator.allocate_type(ty.clone());
 
         let reg = self.frame_memory_registers.alloc_register(
@@ -2392,85 +2316,13 @@ impl CodeBuilder<'_> {
             "allocate frame space",
         );
 
-        MemoryLocation {
+        let location = MemoryLocation {
             base_ptr_reg: reg,
             offset: MemoryOffset(0),
             ty: ty.clone(),
-        }
-    }
+        };
 
-    pub fn emit_expression_into_target_memory(
-        &mut self,
-        target_lvalue_location: &MemoryLocation,
-        //        element_gen_type: &BasicType,
-        source_expression: &Expression,
-        comment: &str,
-        ctx: &Context,
-    ) {
-        let hwm = self.temp_registers.save_mark();
-
-        if source_expression.ty.is_primitive() {
-            self.emit_scalar_rvalue_to_lvalue(
-                &ScalarMemoryLocation {
-                    location: target_lvalue_location.clone(),
-                },
-                source_expression,
-                comment,
-                ctx,
-            );
-        } else {
-            self.emit_aggregate_rvalue_to_lvalue(
-                &AggregateMemoryLocation {
-                    location: target_lvalue_location.clone(),
-                },
-                source_expression,
-                comment,
-                ctx,
-            )
-        }
-        self.temp_registers.restore_to_mark(hwm);
-        /*
-        let offset_to_element = target_lvalue_location.0;
-        let element_node = &source_expression.node;
-
-        if element_gen_type.is_represented_as_a_pointer_in_reg() {
-            let hwm = self.temp_registers.save_mark();
-
-            let temp_base_reg = self.temp_registers.allocate(
-                VmType::new_unknown_placement(u32_type()),
-                "holds the temporary base_reg",
-            );
-
-            // It is a indirect complex type, then we create a pointer for them directly place the literal
-            self.builder.add_add_u32_imm(
-                temp_base_reg.register(),
-                base_ptr_reg,
-                offset_to_element,
-                element_node,
-                &format!("{comment} (total base_ptr to target element)"),
-            );
-
-            self.emit_assignment_like(
-                temp_base_reg.register(),
-                element_gen_type,
-                source_expression,
-                ctx,
-            );
-
-            self.temp_registers.restore_to_mark(hwm);
-        } else {
-            let direct_type_rvalue_reg = self.emit_simple_rvalue(source_expression, ctx);
-
-            self.store_register_contents_to_memory(
-                element_node,
-                base_ptr_reg,
-                MemoryOffset(offset_to_element as u16),
-                &direct_type_rvalue_reg,
-                &format!("{comment} (store register in memory)"),
-            );
-        }
-
-         */
+        OutputDestination::new_location(location)
     }
 
     fn emit_struct_literal_into_memory_location(
@@ -2860,9 +2712,9 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub(crate) fn emit_match_scalar_rvalue_to_specific_register(
+    pub(crate) fn emit_match(
         &mut self,
-        target_reg: &TypedRegister,
+        output_destination: &OutputDestination,
         match_expr: &Match,
         ctx: &Context,
     ) {
@@ -2938,7 +2790,7 @@ impl CodeBuilder<'_> {
                 None
             };
 
-            self.emit_scalar_rvalue_to_specific_register(target_reg, &arm.expression, ctx);
+            self.emit_expression(output_destination, &arm.expression, ctx);
 
             if !is_last {
                 let jump_to_exit_placeholder = self.builder.add_jump_placeholder(
@@ -2963,7 +2815,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_guard(
         &mut self,
-        target_reg: &TypedRegister,
+        output_destination: &OutputDestination,
         guards: &Vec<Guard>,
         ctx: &Context,
     ) {
@@ -2976,7 +2828,7 @@ impl CodeBuilder<'_> {
                 //&guard.result.node,
                 //"guard condition",
                 //);
-                self.emit_scalar_rvalue_to_specific_register(target_reg, &guard.result, ctx);
+                self.emit_expression(output_destination, &guard.result, ctx);
                 let jump_to_exit_placeholder = self.builder.add_jump_placeholder(
                     &guard.result.debug_last_expression().node,
                     "jump to exit",
@@ -2985,7 +2837,7 @@ impl CodeBuilder<'_> {
                 self.builder.patch_jump_here(skip_expression_patch);
             } else {
                 // _ -> wildcard
-                self.emit_scalar_rvalue_to_specific_register(target_reg, &guard.result, ctx);
+                self.emit_expression(output_destination, &guard.result, ctx);
             }
         }
 
@@ -2996,7 +2848,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_when(
         &mut self,
-        target_reg: &TypedRegister,
+        target_reg: &OutputDestination,
         bindings: &Vec<WhenBinding>,
         true_expr: &Expression,
         maybe_false_expr: Option<&Expression>,
@@ -3033,9 +2885,14 @@ impl CodeBuilder<'_> {
                 let tagged_union_binding = old_variable_region.ty.underlying();
                 let tagged_union = tagged_union_binding.optional_info().unwrap();
 
+                let memory_location = MemoryLocation {
+                    ty: placed_variable.underlying().clone(),
+                    base_ptr_reg: placed_variable,
+                    offset: MemoryOffset(0),
+                };
+
                 self.builder.add_block_copy_with_offset(
-                    &placed_variable,
-                    MemoryOffset(0),
+                    &memory_location,
                     &old_variable_region,
                     tagged_union.payload_offset,
                     tagged_union.tag_size,
@@ -3045,7 +2902,7 @@ impl CodeBuilder<'_> {
             }
         }
 
-        self.emit_scalar_rvalue_to_specific_register(target_reg, true_expr, ctx);
+        self.emit_expression(target_reg, true_expr, ctx);
         let maybe_jump_over_false = if let Some(else_expr) = maybe_false_expr {
             Some(
                 self.builder
@@ -3060,7 +2917,7 @@ impl CodeBuilder<'_> {
         }
 
         if let Some(else_expr) = maybe_false_expr {
-            self.emit_scalar_rvalue_to_specific_register(target_reg, else_expr, ctx);
+            self.emit_expression(target_reg, else_expr, ctx);
             self.builder.patch_jump_here(maybe_jump_over_false.unwrap());
         }
     }
@@ -3150,7 +3007,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_internal_call(
         &mut self,
-        target_reg: Option<&TypedRegister>,
+        target_reg: &OutputDestination,
         node: &Node,
         internal_fn: &InternalFunctionDefinitionRef,
         arguments: &Vec<MutRefOrImmutableExpression>,
@@ -3224,13 +3081,20 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_host_call(
         &mut self,
+        output_destination: &OutputDestination,
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> GeneratedExpressionResult {
-        let (spilled_arguments, copy_back) =
-            self.emit_arguments(None, node, &host_fn.signature, None, arguments, ctx);
+        let (spilled_arguments, copy_back) = self.emit_arguments(
+            output_destination,
+            node,
+            &host_fn.signature,
+            None,
+            arguments,
+            ctx,
+        );
 
         let arg_count = arguments.len() as u8;
         self.builder.add_host_call(
@@ -3250,7 +3114,7 @@ impl CodeBuilder<'_> {
 
     fn emit_host_self_call(
         &mut self,
-        maybe_return: Option<&TypedRegister>,
+        return_output_destination: &OutputDestination,
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
         self_frame_placed_type: &TypedRegister,
@@ -3258,7 +3122,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> GeneratedExpressionResult {
         let (spilled_arguments, copy_backs) = self.emit_arguments(
-            maybe_return,
+            return_output_destination,
             node,
             &host_fn.signature,
             Some(self_frame_placed_type),
@@ -3837,14 +3701,6 @@ impl CodeBuilder<'_> {
     /// self.emit_complex_rvalue(reg_temp_stack_addr, StructLiteral_expr, ctx);
     /// // use reg_temp_stack_addr to the function
     /// ```
-    pub fn emit_complex_rvalue(
-        &mut self,
-        target_ptr_reg: &TypedRegister,
-        expression: &Expression,
-        ctx: &Context,
-    ) {
-        self.emit_scalar_rvalue_to_specific_register(target_ptr_reg, expression, ctx)
-    }
 
     pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
         let layout = layout_type(ty);
@@ -3870,5 +3726,29 @@ impl CodeBuilder<'_> {
             ExpressionKind::Option(_) => true,
             _ => false,
         }
+    }
+
+    pub(crate) fn emit_expression_into_target_memory(
+        &mut self,
+        memory_location: &MemoryLocation,
+        expr: &Expression,
+        comment: &str,
+        ctx: &Context,
+    ) {
+        let output = OutputDestination::new_location(memory_location.clone());
+
+        self.emit_expression(&output, expr, ctx);
+    }
+
+    pub(crate) fn emit_expression_into_register(
+        &mut self,
+        target_register: &TypedRegister,
+        expr: &Expression,
+        comment: &str,
+        ctx: &Context,
+    ) {
+        let output = OutputDestination::new_reg(target_register.clone());
+
+        self.emit_expression(&output, expr, ctx);
     }
 }

@@ -4,16 +4,14 @@
  */
 use source_map_node::Node;
 use swamp_vm_types::opcode::OpCode;
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
+use swamp_vm_types::types::{BasicTypeKind, OutputDestination, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
     HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
     InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
     RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
-use swamp_vm_types::{
-    HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta, ScalarMemoryLocation,
-};
+use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta};
 
 /// Keeps track of all the instructions, and the corresponding meta information (comments and node).
 pub struct InstructionBuilderState {
@@ -672,22 +670,21 @@ impl InstructionBuilder<'_> {
 
     pub fn add_block_copy_with_offset(
         &mut self,
-        target_base_ptr_reg: &TypedRegister,
-        target_offset: MemoryOffset,
+        target_output_destination: &MemoryLocation,
         source_base_ptr_reg: &TypedRegister,
         source_offset: MemoryOffset,
         memory_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
-        let target_offset_bytes = u16_to_u8_pair(target_offset.0);
+        let target_offset_bytes = u16_to_u8_pair(target_output_destination.offset.0);
         let source_offset_bytes = u16_to_u8_pair(source_offset.0);
         let size_bytes = u16_to_u8_pair(memory_size.0);
 
         self.state.add_instruction(
             OpCode::BlockCopyWithOffsets,
             &[
-                target_base_ptr_reg.addressing(),
+                target_output_destination.base_ptr_reg.addressing(),
                 target_offset_bytes.0,
                 target_offset_bytes.1,
                 source_base_ptr_reg.addressing(),

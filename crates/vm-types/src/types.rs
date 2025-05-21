@@ -1,12 +1,14 @@
+use crate::types::OutputDestination::AggregateToMemoryLocation;
 use crate::{
-    FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize, HEAP_PTR_ON_FRAME_ALIGNMENT,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset, HeapMemoryRegion,
-    InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
-    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset,
-    MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, RegIndex, STRING_HEADER_SIZE,
-    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
-    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
+    AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
+    HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset,
+    HeapMemoryRegion, InstructionPosition, InstructionPositionOffset, InstructionRange,
+    MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
+    MemoryAlignment, MemoryLocation, MemoryOffset, MemorySize, ProgramCounterDelta,
+    RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE,
+    RegIndex, STRING_HEADER_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT,
+    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
+    align_to,
 };
 use seq_fmt::comma;
 use std::cmp::PartialEq;
@@ -675,6 +677,62 @@ impl HeapPlacedType {
 #[must_use]
 pub const fn is_callee_save(reg_index: u8) -> bool {
     reg_index >= 7
+}
+
+pub enum OutputDestination {
+    Unit, // no output
+    ScalarToRegister(TypedRegister),
+    AggregateToMemoryLocation(MemoryLocation),
+}
+
+impl OutputDestination {
+    pub fn new_reg(register: TypedRegister) -> Self {
+        Self::ScalarToRegister(register)
+    }
+    pub fn new_location(memory_location: MemoryLocation) -> Self {
+        Self::AggregateToMemoryLocation(memory_location)
+    }
+
+    pub fn is_unit(&self) -> bool {
+        matches!(self, Self::Unit)
+    }
+    pub fn ty(&self) -> &BasicType {
+        match self {
+            Self::Unit => &BasicType {
+                kind: BasicTypeKind::Empty,
+                total_size: MemorySize(0),
+                max_alignment: MemoryAlignment::U8,
+            },
+            Self::ScalarToRegister(reg) => &reg.ty.basic_type,
+            Self::AggregateToMemoryLocation(location) => &location.ty,
+        }
+    }
+
+    pub fn grab_register(&self) -> &TypedRegister {
+        match self {
+            OutputDestination::ScalarToRegister(reg) => reg,
+            OutputDestination::AggregateToMemoryLocation(_) => {
+                panic!("assumed it would be a register")
+            }
+            OutputDestination::Unit => panic!("assumed it would be a register, but was unit"),
+        }
+    }
+
+    pub fn grab_memory_location(&self) -> &MemoryLocation {
+        match self {
+            OutputDestination::ScalarToRegister(reg) => panic!("assumed it was a memory location"),
+            OutputDestination::AggregateToMemoryLocation(location) => location,
+            OutputDestination::Unit => {
+                panic!("assumed it would be a memory location, but was unit")
+            }
+        }
+    }
+
+    pub fn grab_aggregate_memory_location(&self) -> AggregateMemoryLocation {
+        AggregateMemoryLocation {
+            location: self.grab_memory_location().clone(),
+        }
+    }
 }
 
 #[derive(Clone)]

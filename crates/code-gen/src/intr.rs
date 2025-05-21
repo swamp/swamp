@@ -6,10 +6,10 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType, pointer_type, vec_type};
+use swamp_vm_types::types::{OutputDestination, TypedRegister, VmType, pointer_type};
 use swamp_vm_types::{
     AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
-    STRING_HEADER_COUNT_OFFSET, ScalarMemoryLocation, VEC_HEADER_COUNT_OFFSET,
+    STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
 };
 
 impl CodeBuilder<'_> {
@@ -694,25 +694,7 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        if memory_location.ty.is_simple_primitive() {
-            self.emit_scalar_rvalue(expr, ctx);
-            self.emit_scalar_rvalue_to_lvalue(
-                &ScalarMemoryLocation {
-                    location: memory_location,
-                },
-                expr,
-                comment,
-                ctx,
-            )
-        } else {
-            self.emit_aggregate_rvalue_to_lvalue(
-                &AggregateMemoryLocation {
-                    location: memory_location,
-                },
-                expr,
-                comment,
-                ctx,
-            );
-        }
+        let output_destination = OutputDestination::new_location(memory_location.clone());
+        self.emit_expression(&output_destination, expr, ctx);
     }
 }

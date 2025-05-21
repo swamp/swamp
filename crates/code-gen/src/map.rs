@@ -26,10 +26,10 @@ impl CodeBuilder<'_> {
         // We have to get the key materialized in a temporary storage, so the map can calculate the hash for it.
         let key_temp_storage_reg =
             self.allocate_frame_space_and_assign_register(&gen_key_type, "key storage region");
-        self.emit_expression_into_target_memory(
+        self.emit_expression(
             &key_temp_storage_reg,
             key_expression,
-            "map subscript",
+            //"map subscript",
             ctx,
         );
 
@@ -40,7 +40,7 @@ impl CodeBuilder<'_> {
         self.builder.add_map_get_entry_location(
             map_entry_reg.register(),
             &map_header_ptr_reg,
-            &key_temp_storage_reg.base_ptr_reg,
+            &key_temp_storage_reg.grab_register(),
             &key_expression.node,
             "lookup the entry for this key in the map",
         );

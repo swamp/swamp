@@ -10,10 +10,10 @@ use source_map_node::Node;
 use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
+use swamp_vm_types::MemoryOffset;
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, TypedRegister, VmType, int_type, u16_type,
+    BasicType, BasicTypeKind, BoundsCheck, TypedRegister, VmType, int_type,
 };
-use swamp_vm_types::{MemoryOffset, VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_for_access_or_location(
@@ -33,7 +33,12 @@ impl CodeBuilder<'_> {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
                 if found_expression.ty.is_primitive() {
-                    self.emit_scalar_rvalue_to_specific_register(target_reg, found_expression, ctx);
+                    self.emit_expression_into_register(
+                        target_reg,
+                        found_expression,
+                        "emit mut or immute",
+                        ctx,
+                    );
                 }
             }
             MutRefOrImmutableExpression::Location(location_expression) => {

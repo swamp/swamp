@@ -3,7 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::aligner::align;
-use crate::types::{BasicType, TypedRegister};
+use crate::types::TypedRegister;
+use crate::types::{BasicType, OutputDestination};
 use source_map_node::Node;
 use std::cmp::PartialOrd;
 use std::fmt::{Alignment, Display, Formatter};
@@ -279,6 +280,8 @@ pub struct MemoryLocation {
     pub ty: BasicType,
 }
 
+impl MemoryLocation {}
+
 impl MemoryLocation {
     pub fn pointer_location(&self) -> Option<PointerLocation> {
         if self.offset.0 == 0 {
@@ -288,6 +291,10 @@ impl MemoryLocation {
         } else {
             None
         }
+    }
+
+    pub fn reg(&self) -> &TypedRegister {
+        &self.base_ptr_reg
     }
 }
 

@@ -8,7 +8,7 @@ use swamp_semantic::{
     MutRefOrImmutableExpression, TargetAssignmentLocation, VariableRef,
 };
 use swamp_types::Type;
-use swamp_vm_types::types::{TypedRegister, VmType, unit_type};
+use swamp_vm_types::types::{OutputDestination, TypedRegister, VmType, unit_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 use tracing::info;
 
@@ -16,27 +16,6 @@ impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
         debug_assert!(matches!(expr.ty, Type::Unit));
         match &expr.kind {
-            ExpressionKind::TupleDestructuring(variables, tuple_types, tuple_expression) => {
-                self.emit_tuple_destructuring(variables, tuple_types, tuple_expression, ctx)
-            }
-            ExpressionKind::Assignment(target_mut_location_expr, source_expr) => {
-                self.emit_assignment(target_mut_location_expr, source_expr, "", ctx)
-            }
-            ExpressionKind::VariableDefinition(variable, expression) => {
-                self.emit_variable_definition(variable, expression, ctx)
-            }
-            ExpressionKind::VariableReassignment(variable, expression) => {
-                self.emit_variable_reassignment(variable, expression, ctx)
-            }
-            ExpressionKind::CompoundAssignment(target_location, operator_kind, source_expr) => {
-                self.compound_assignment(target_location, operator_kind, source_expr, ctx)
-            }
-            ExpressionKind::ForLoop(for_pattern, collection, lambda_expr) => {
-                self.emit_for_loop(&expr.node, for_pattern, collection, lambda_expr, ctx)
-            }
-            ExpressionKind::WhileLoop(condition, expression) => {
-                self.emit_while_loop(condition, expression, ctx)
-            }
             _ => {
                 info!(?expr, "fallback");
                 let _ignore = self.emit_scalar_rvalue(expr, ctx);
@@ -45,7 +24,7 @@ impl CodeBuilder<'_> {
             _ => panic!("this is not a statement! {expr:?}"),
         }
     }
-    fn emit_variable_definition(
+    pub(crate) fn emit_variable_definition(
         &mut self,
         variable: &VariableRef,
         expression: &Expression,
@@ -72,7 +51,12 @@ impl CodeBuilder<'_> {
             .clone();
 
         if variable.resolved_type.is_primitive() {
-            self.emit_scalar_rvalue_to_specific_register(&target_register, expression, ctx);
+            self.emit_expression_into_register(
+                &target_register,
+                expression,
+                "variable primitive",
+                ctx,
+            );
         } else {
             let memory_location = MemoryLocation {
                 base_ptr_reg: target_register.clone(),
@@ -88,7 +72,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_variable_reassignment(
+    pub(crate) fn emit_variable_reassignment(
         &mut self,
         variable: &VariableRef,
         expression: &Expression,
@@ -96,7 +80,7 @@ impl CodeBuilder<'_> {
     ) {
         self.emit_variable_assignment(variable, expression, ctx)
     }
-    fn emit_assignment(
+    pub(crate) fn emit_assignment(
         &mut self,
         lhs: &TargetAssignmentLocation,
         rhs: &Expression,
@@ -156,7 +140,7 @@ impl CodeBuilder<'_> {
          */
     }
 
-    fn emit_tuple_destructuring(
+    pub(crate) fn emit_tuple_destructuring(
         &mut self,
         target_variables: &[VariableRef],
         tuple_type: &[Type],
@@ -193,7 +177,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_for_loop(
+    pub(crate) fn emit_for_loop(
         &mut self,
         node: &Node,
         for_pattern: &ForPattern,
@@ -330,7 +314,7 @@ impl CodeBuilder<'_> {
         )
     }
 
-    fn emit_while_loop(
+    pub(crate) fn emit_while_loop(
         &mut self,
         condition: &BooleanExpression,
         expression: &Expression,
@@ -352,7 +336,7 @@ impl CodeBuilder<'_> {
 
         self.builder.patch_jump_here(jump_on_false_condition);
     }
-    fn compound_assignment(
+    pub(crate) fn emit_compound_assignment(
         &mut self,
         target_location: &TargetAssignmentLocation,
         op: &CompoundOperatorKind,
