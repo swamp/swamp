@@ -20,7 +20,7 @@ use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, FramePlacedType, OutputDestination, TypedRegister, VmType, b8_type,
+    BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type,
     u8_type, u32_type, unknown_type,
 };
 use swamp_vm_types::{
@@ -31,7 +31,7 @@ use swamp_vm_types::{
 use tracing::{error, info};
 
 pub(crate) struct MutableReturnReg {
-    pub target_location_after_call: OutputDestination,
+    pub target_location_after_call: Destination,
     pub parameter_reg: TypedRegister,
 }
 
@@ -247,15 +247,15 @@ impl CodeBuilder<'_> {
     fn emit_load_from_location(
         &mut self,
         target_reg: &TypedRegister,
-        location: &OutputDestination,
+        location: &Destination,
         node: &Node,
         comment: &str,
     ) {
         match location {
-            OutputDestination::ScalarToRegister(reg) => {
+            Destination::Register(reg) => {
                 self.emit_copy_register(target_reg, reg, node, comment);
             }
-            OutputDestination::AggregateToMemoryLocation(memory_location) => {
+            Destination::Memory(memory_location) => {
                 self.emit_load_from_memory(
                     target_reg,
                     &memory_location.base_ptr_reg,
@@ -265,7 +265,7 @@ impl CodeBuilder<'_> {
                     "load from location",
                 );
             }
-            OutputDestination::Unit => {
+            Destination::Unit => {
                 panic!("not sure")
             }
         }
@@ -273,15 +273,13 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_load_primitive_from_detailed_location_if_needed(
         &mut self,
-        location: &OutputDestination,
+        location: &Destination,
         node: &Node,
         comment: &str,
     ) -> DetailedLocationResolved {
         match location {
-            OutputDestination::ScalarToRegister(reg) => {
-                DetailedLocationResolved::Register(reg.clone())
-            }
-            OutputDestination::AggregateToMemoryLocation(memory_location) => {
+            Destination::Register(reg) => DetailedLocationResolved::Register(reg.clone()),
+            Destination::Memory(memory_location) => {
                 let temp_reg_target = self.temp_registers.allocate(
                     memory_location.ty.clone(),
                     "emit load primitive from location",
@@ -296,7 +294,7 @@ impl CodeBuilder<'_> {
                 );
                 DetailedLocationResolved::TempRegister(temp_reg_target)
             }
-            OutputDestination::Unit => {
+            Destination::Unit => {
                 panic!("")
             }
         }
@@ -334,13 +332,13 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_ptr_reg_from_detailed_location(
         &mut self,
-        location: &OutputDestination,
+        location: &Destination,
         node: &Node,
         comment: &str,
     ) -> TypedRegister {
         match location {
-            OutputDestination::ScalarToRegister(reg) => reg.clone(),
-            OutputDestination::AggregateToMemoryLocation(memory_location) => {
+            Destination::Register(reg) => reg.clone(),
+            Destination::Memory(memory_location) => {
                 //let hwm = self.temp_registers.save_mark();
                 let offset_temp_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u32_type()),
@@ -364,7 +362,7 @@ impl CodeBuilder<'_> {
                 );
                 final_ptr_target_reg.register().clone()
             }
-            OutputDestination::Unit => {
+            Destination::Unit => {
                 panic!("not sure")
             }
         }
@@ -419,7 +417,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_if(
         &mut self,
-        output_destination: &OutputDestination,
+        output_destination: &Destination,
         condition: &BooleanExpression,
         true_expr: &Expression,
         maybe_false_expr: Option<&Expression>,
@@ -459,7 +457,7 @@ impl CodeBuilder<'_> {
     ) {
         let region = self.emit_lvalue_address(argument, ctx);
         match region {
-            OutputDestination::ScalarToRegister(reg) => {
+            Destination::Register(reg) => {
                 self.builder.add_mov_reg(
                     target_reg,
                     &reg,
@@ -467,7 +465,7 @@ impl CodeBuilder<'_> {
                     &format!("copy reg that has pointer {target_reg:?} <- {reg:?} {comment}"),
                 );
             }
-            OutputDestination::AggregateToMemoryLocation(memory_location) => {
+            Destination::Memory(memory_location) => {
                 let hwm = self.temp_registers.save_mark();
 
                 let temp_offset_reg = self.temp_registers.allocate(
@@ -490,7 +488,7 @@ impl CodeBuilder<'_> {
 
                 self.temp_registers.restore_to_mark(hwm);
             }
-            OutputDestination::Unit => {
+            Destination::Unit => {
                 panic!("can not get absolute pointer")
             }
         }
@@ -607,7 +605,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_postfix_chain(
         &mut self,
-        output_destination: &OutputDestination,
+        output_destination: &Destination,
         start_expression: &StartOfChain,
         chain: &[Postfix],
         ctx: &Context,
@@ -759,9 +757,8 @@ impl CodeBuilder<'_> {
 
                     self.temp_registers.restore_to_mark(hwm);
 
-                    current_location = OutputDestination::ScalarToRegister(
-                        output_destination.grab_register().clone(),
-                    );
+                    current_location =
+                        Destination::Register(output_destination.grab_register().clone());
                     //info!(?current_location, "after member call");
                 }
                 PostfixKind::OptionalChainingOperator => {
@@ -802,9 +799,8 @@ impl CodeBuilder<'_> {
 
                     self.builder.patch_jump_here(patch);
 
-                    current_location = OutputDestination::ScalarToRegister(
-                        output_destination.grab_register().clone(),
-                    );
+                    current_location =
+                        Destination::Register(output_destination.grab_register().clone());
                     info!(?current_location, "after none coalesce");
                 }
             }
@@ -926,7 +922,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_block(
         &mut self,
-        target_reg: &OutputDestination,
+        target_reg: &Destination,
         expressions: &[Expression],
         ctx: &Context,
     ) {
@@ -982,9 +978,9 @@ impl CodeBuilder<'_> {
             MutRefOrImmutableExpression::Location(location_expression) => {
                 let x = self.emit_lvalue_address(location_expression, ctx);
                 // TODO: FIX THIS
-                if let OutputDestination::ScalarToRegister(reg) = x {
+                if let Destination::Register(reg) = x {
                     reg
-                } else if let OutputDestination::AggregateToMemoryLocation(memory_location) = x {
+                } else if let Destination::Memory(memory_location) = x {
                     error!("expected register");
                     memory_location.base_ptr_reg
                 } else {
@@ -999,7 +995,7 @@ impl CodeBuilder<'_> {
         ty: &BasicType,
         node: &Node,
         comment: &str,
-    ) -> OutputDestination {
+    ) -> Destination {
         let frame_placed_type = self.frame_allocator.allocate_type(ty.clone());
 
         let reg = self.frame_memory_registers.alloc_register(
@@ -1020,12 +1016,12 @@ impl CodeBuilder<'_> {
             offset: MemoryOffset(0),
         };
 
-        OutputDestination::new_location(location)
+        Destination::new_location(location)
     }
 
     pub(crate) fn emit_match(
         &mut self,
-        output_destination: &OutputDestination,
+        output_destination: &Destination,
         match_expr: &Match,
         ctx: &Context,
     ) {
@@ -1116,7 +1112,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_guard(
         &mut self,
-        output_destination: &OutputDestination,
+        output_destination: &Destination,
         guards: &Vec<Guard>,
         ctx: &Context,
     ) {
@@ -1149,7 +1145,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_when(
         &mut self,
-        target_reg: &OutputDestination,
+        target_reg: &Destination,
         bindings: &Vec<WhenBinding>,
         true_expr: &Expression,
         maybe_false_expr: Option<&Expression>,
@@ -1292,21 +1288,21 @@ impl CodeBuilder<'_> {
         );
     }
 
-    fn emit_start_of_chain(&mut self, start: &StartOfChain, ctx: &Context) -> OutputDestination {
+    fn emit_start_of_chain(&mut self, start: &StartOfChain, ctx: &Context) -> Destination {
         match &start.kind {
             StartOfChainKind::Expression(expr) => {
-                OutputDestination::ScalarToRegister(self.emit_scalar_rvalue(expr, ctx))
+                Destination::Register(self.emit_scalar_rvalue(expr, ctx))
             }
             StartOfChainKind::Variable(variable) => {
                 let variable_reg = self.get_variable_register(variable);
-                OutputDestination::ScalarToRegister(variable_reg.clone())
+                Destination::Register(variable_reg.clone())
             }
         }
     }
 
     pub(crate) fn emit_host_call(
         &mut self,
-        output_destination: &OutputDestination,
+        output_destination: &Destination,
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
         arguments: &Vec<MutRefOrImmutableExpression>,
@@ -1339,7 +1335,7 @@ impl CodeBuilder<'_> {
 
     fn emit_host_self_call(
         &mut self,
-        return_output_destination: &OutputDestination,
+        return_output_destination: &Destination,
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
         self_frame_placed_type: &TypedRegister,

@@ -2,52 +2,58 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_semantic::{LocationAccessKind, SingleLocationExpression};
-use swamp_vm_types::types::{OutputDestination, VmType};
+use swamp_vm_types::types::{Destination, VmType};
 
 impl CodeBuilder<'_> {
-    /// Emits code to compute the storage address (lvalue) of a variable access chain.
+    /// Emits code to compute the memory address (lvalue) of a variable access chain.
     ///
     /// In compiler terminology:
+    ///
     /// - "lvalue" represents a storage location that can appear on the left side of an assignment
-    /// - "address" refers to the addressable memory where a value is stored
+    /// - "address" refers to the actual memory position where a value is stored
     /// - "chain" is a sequence of accesses (e.g., `foo.bar[i].baz`)
     ///
-    /// This method handles the complex task of resolving storage locations through:
+    /// This method performs address arithmetic to compute the final memory address through:
     ///
-    /// - Field access in structs (e.g., `foo.bar`)
-    /// - Array/slice indexing (e.g., `arr[i]`)
-    /// - Vector subscripts (e.g., `vec[j]`)
-    /// - Intrinsic collection access (e.g., `map[key]`)
+    /// - Base address in registers
+    /// - Offset calculations for struct fields
+    /// - Index calculations for arrays/vectors
+    /// - Pointer manipulations for collections
     ///
-    /// # Location Resolution
+    /// # Address Resolution Process
     ///
-    /// The method traverses the access chain, computing new locations by:
+    /// The method traverses the access chain, computing new addresses by:
     ///
-    /// 1. Starting from a base variable's location
+    /// 1. Starting from a base variable's address in a register
+    ///
     /// 2. For each access in the chain:
-    ///    - For fields: Add field offset to current location
-    ///    - For indexing: Compute element address using index
-    ///    - For collections: Use intrinsic access methods
+    ///    - For fields: Add field offset to base address
+    ///    - For indexing: Scale index by element size and add to base
+    ///    - For collections: Use intrinsic access methods to get element address
     ///
-    /// # Register Management
-    ///
-    /// Returns an `OutputDestination` that represents either:
-    /// - A direct register (for scalar addresses)
-    /// - A memory location (base register + offset for aggregates)
+    /// The computed address is always represented as either:
+    /// - A register containing a direct memory address
+    /// - A (base_register, offset) pair for more complex addressing
     ///
     /// # Examples in Compiler Terms
     ///
     /// ```ignore
-    /// // For: foo.bar[i].baz = value;
-    /// let location = emit_lvalue_address(&expr);  // Computes &foo.bar[i].baz
-    /// emit_expression(location, value); // Stores value at location
+    /// let addr = emit_lvalue_address(&expr);
+    /// emit_expression(addr, value);
     /// ```
+    ///
+    /// This address computation is crucial for:
+    ///
+    /// - Assignment targets
+    /// - Reference operations
+    /// - Pointer arithmetic
+    /// - Memory access optimization
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_lvalue_address(
         &mut self,
         location_expression: &SingleLocationExpression,
         ctx: &Context,
-    ) -> OutputDestination {
+    ) -> Destination {
         let start_reg = self
             .variable_registers
             .get(
@@ -69,7 +75,7 @@ impl CodeBuilder<'_> {
         };
         */
 
-        let mut current_location = OutputDestination::ScalarToRegister(start_reg);
+        let mut current_location = Destination::Register(start_reg);
 
         // Loop over the consecutive accesses until we find the actual frame relative address (TypedRegister)
         for access in location_expression.access_chain.iter().take(accesses_count) {
@@ -132,7 +138,7 @@ impl CodeBuilder<'_> {
                         ctx,
                     );
 
-                    current_location = OutputDestination::new_reg(get_item_target_reg.register);
+                    current_location = Destination::new_reg(get_item_target_reg.register);
                 }
             }
         }

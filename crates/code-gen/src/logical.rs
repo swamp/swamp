@@ -9,7 +9,7 @@ use swamp_semantic::{
 };
 use swamp_types::Type;
 use swamp_vm_types::PatchPosition;
-use swamp_vm_types::types::{OutputDestination, TypedRegister, VmType, u32_type};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType, u32_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn materialize_t_flag_to_bool_if_needed(
@@ -118,7 +118,7 @@ impl CodeBuilder<'_> {
             .temp_registers
             .allocate(VmType::new_unknown_placement(u32_type()), "temp");
 
-        let output_destination = OutputDestination::new_reg(temp_reg.register.clone());
+        let output_destination = Destination::new_reg(temp_reg.register.clone());
         self.emit_bool_expression(&output_destination, condition, ctx);
 
         self.builder.add_tst_u8(

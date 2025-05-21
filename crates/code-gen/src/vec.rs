@@ -5,7 +5,7 @@ use source_map_node::Node;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, OutputDestination, VmType, u16_type, u32_type, vec_type,
+    BasicType, BasicTypeKind, BoundsCheck, Destination, VmType, u16_type, u32_type, vec_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, MemoryLocation, MemoryOffset, PointerLocation,
@@ -22,11 +22,11 @@ impl CodeBuilder<'_> {
     /// emit the bounds checking.
     pub fn vec_subscript_helper(
         &mut self,
-        current_location: &OutputDestination,
+        current_location: &Destination,
         analyzed_element_type: &Type,
         int_expression: &Expression,
         ctx: &Context,
-    ) -> OutputDestination {
+    ) -> Destination {
         let element_basic_type = layout_type(analyzed_element_type);
         let vec_count_reg = self
             .temp_registers

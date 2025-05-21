@@ -14,7 +14,7 @@ use source_map_node::Node;
 use swamp_semantic::{InternalFunctionDefinitionRef, InternalMainExpression, pretty_module_name};
 use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_types::types::{
-    FunctionInfo, FunctionInfoKind, OutputDestination, TypedRegister, VmType, VmTypeOrigin,
+    Destination, FunctionInfo, FunctionInfoKind, TypedRegister, VmType, VmTypeOrigin,
     is_callee_save,
 };
 use swamp_vm_types::{
@@ -288,14 +288,14 @@ impl TopLevelGenState {
             TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
         let destination = if return_register.ty.basic_type.is_scalar() {
-            OutputDestination::ScalarToRegister(return_register)
+            Destination::Register(return_register)
         } else {
             let memory_location = MemoryLocation {
                 ty: VmType::new_unknown_placement(return_register.ty().clone()),
                 base_ptr_reg: return_register,
                 offset: MemoryOffset(0),
             };
-            OutputDestination::AggregateToMemoryLocation(memory_location)
+            Destination::Memory(memory_location)
         };
 
         function_code_builder.emit_expression(&destination, &in_data.expression, &ctx);

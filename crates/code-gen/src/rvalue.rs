@@ -2,12 +2,12 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_semantic::{Expression, ExpressionKind};
-use swamp_vm_types::types::{OutputDestination, TypedRegister, VmType};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     pub fn emit_bool_expression(
         &mut self,
-        target_reg: &OutputDestination,
+        target_reg: &Destination,
         expr: &Expression,
         ctx: &Context,
     ) {

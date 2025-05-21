@@ -4,13 +4,13 @@ use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::Literal;
 use swamp_types::Type;
-use swamp_vm_types::types::{OutputDestination, VmType, int_type};
+use swamp_vm_types::types::{Destination, VmType, int_type};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
     pub fn emit_literal(
         &mut self,
-        output: &OutputDestination,
+        output: &Destination,
         basic_literal: &Literal,
         node: &Node,
         ctx: &Context,
@@ -20,7 +20,7 @@ impl CodeBuilder<'_> {
                 self.emit_string_literal(output.grab_register(), node, str, ctx);
             }
             Literal::IntLiteral(int) => match output {
-                OutputDestination::ScalarToRegister(target_reg) => {
+                Destination::Register(target_reg) => {
                     self.builder.add_mov_32_immediate_value(
                         target_reg,
                         *int as u32,
@@ -28,7 +28,7 @@ impl CodeBuilder<'_> {
                         "int literal",
                     );
                 }
-                OutputDestination::AggregateToMemoryLocation(location) => {
+                Destination::Memory(location) => {
                     let temp_int_literal_reg = self.temp_registers.allocate(
                         VmType::new_contained_in_register(int_type()),
                         "temporary for int literal",
@@ -46,12 +46,12 @@ impl CodeBuilder<'_> {
                         "copy int literal into destination memory",
                     );
                 }
-                OutputDestination::Unit => {
+                Destination::Unit => {
                     panic!("int can not materialize into nothing")
                 }
             },
             Literal::FloatLiteral(fixed_point) => match output {
-                OutputDestination::ScalarToRegister(target_reg) => {
+                Destination::Register(target_reg) => {
                     self.builder.add_mov_32_immediate_value(
                         target_reg,
                         fixed_point.inner() as u32,
@@ -59,7 +59,7 @@ impl CodeBuilder<'_> {
                         "float literal",
                     );
                 }
-                OutputDestination::AggregateToMemoryLocation(location) => {
+                Destination::Memory(location) => {
                     let temp_fixed_point_temp_reg = self.temp_registers.allocate(
                         VmType::new_contained_in_register(int_type()),
                         "temporary for float literal",
@@ -77,7 +77,7 @@ impl CodeBuilder<'_> {
                         "copy float literal into destination memory",
                     );
                 }
-                OutputDestination::Unit => {
+                Destination::Unit => {
                     panic!("int can not materialize into nothing")
                 }
             },
@@ -90,7 +90,7 @@ impl CodeBuilder<'_> {
                  */
             }
             Literal::BoolLiteral(truthy) => match output {
-                OutputDestination::ScalarToRegister(target_reg) => {
+                Destination::Register(target_reg) => {
                     self.builder.add_mov8_immediate(
                         target_reg,
                         u8::from(*truthy),
@@ -98,7 +98,7 @@ impl CodeBuilder<'_> {
                         "bool literal",
                     );
                 }
-                OutputDestination::AggregateToMemoryLocation(location) => {
+                Destination::Memory(location) => {
                     let temp_bool_literal_reg = self.temp_registers.allocate(
                         VmType::new_contained_in_register(int_type()),
                         "temporary for bool literal",
@@ -117,7 +117,7 @@ impl CodeBuilder<'_> {
                         "copy bool literal into destination memory",
                     );
                 }
-                OutputDestination::Unit => {
+                Destination::Unit => {
                     panic!("int can not materialize into nothing")
                 }
             },

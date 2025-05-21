@@ -681,29 +681,27 @@ pub const fn is_callee_save(reg_index: u8) -> bool {
 }
 
 #[derive(Debug)]
-pub enum OutputDestination {
+pub enum Destination {
     Unit, // no output
-    ScalarToRegister(TypedRegister),
-    AggregateToMemoryLocation(MemoryLocation),
+    Register(TypedRegister),
+    Memory(MemoryLocation),
 }
 
-impl OutputDestination {
+impl Destination {
     #[must_use]
     pub fn add_offset(&self, offset: MemoryOffset, vm_type: VmType) -> Self {
         match self {
             Self::Unit => {
                 panic!("add_offset")
             }
-            Self::ScalarToRegister(_) => {
+            Self::Register(_) => {
                 panic!("can not add offset to a register")
             }
-            Self::AggregateToMemoryLocation(memory_location) => {
-                Self::AggregateToMemoryLocation(MemoryLocation {
-                    base_ptr_reg: memory_location.base_ptr_reg.clone(),
-                    offset: memory_location.offset + offset,
-                    ty: vm_type,
-                })
-            }
+            Self::Memory(memory_location) => Self::Memory(MemoryLocation {
+                base_ptr_reg: memory_location.base_ptr_reg.clone(),
+                offset: memory_location.offset + offset,
+                ty: vm_type,
+            }),
         }
     }
     #[must_use]
@@ -712,11 +710,11 @@ impl OutputDestination {
     }
     #[must_use]
     pub const fn new_reg(register: TypedRegister) -> Self {
-        Self::ScalarToRegister(register)
+        Self::Register(register)
     }
     #[must_use]
     pub const fn new_location(memory_location: MemoryLocation) -> Self {
-        Self::AggregateToMemoryLocation(memory_location)
+        Self::Memory(memory_location)
     }
 
     #[must_use]
@@ -725,7 +723,7 @@ impl OutputDestination {
     }
     #[must_use]
     pub const fn is_memory_location(&self) -> bool {
-        matches!(self, Self::AggregateToMemoryLocation(_))
+        matches!(self, Self::Memory(_))
     }
     #[must_use]
     pub const fn ty(&self) -> &BasicType {
@@ -735,8 +733,8 @@ impl OutputDestination {
                 total_size: MemorySize(0),
                 max_alignment: MemoryAlignment::U8,
             },
-            Self::ScalarToRegister(reg) => &reg.ty.basic_type,
-            Self::AggregateToMemoryLocation(location) => &location.ty.basic_type,
+            Self::Register(reg) => &reg.ty.basic_type,
+            Self::Memory(location) => &location.ty.basic_type,
         }
     }
 
@@ -751,15 +749,15 @@ impl OutputDestination {
                 },
                 origin: VmTypeOrigin::Unknown,
             },
-            Self::ScalarToRegister(reg) => &reg.ty,
-            Self::AggregateToMemoryLocation(location) => &location.ty,
+            Self::Register(reg) => &reg.ty,
+            Self::Memory(location) => &location.ty,
         }
     }
 
     #[must_use]
     pub const fn register(&self) -> Option<&TypedRegister> {
         match self {
-            Self::ScalarToRegister(reg) => Some(reg),
+            Self::Register(reg) => Some(reg),
             _ => None,
         }
     }
@@ -767,8 +765,8 @@ impl OutputDestination {
     #[must_use]
     pub fn grab_register(&self) -> &TypedRegister {
         match self {
-            Self::ScalarToRegister(reg) => reg,
-            Self::AggregateToMemoryLocation(_) => {
+            Self::Register(reg) => reg,
+            Self::Memory(_) => {
                 panic!("assumed it would be a register")
             }
             Self::Unit => panic!("assumed it would be a register, but was unit"),
@@ -778,8 +776,8 @@ impl OutputDestination {
     #[must_use]
     pub fn grab_memory_location(&self) -> &MemoryLocation {
         match self {
-            Self::ScalarToRegister(reg) => panic!("assumed it was a memory location"),
-            Self::AggregateToMemoryLocation(location) => location,
+            Self::Register(reg) => panic!("assumed it was a memory location"),
+            Self::Memory(location) => location,
             Self::Unit => {
                 panic!("assumed it would be a memory location, but was unit")
             }

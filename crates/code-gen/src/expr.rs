@@ -1,7 +1,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
-use swamp_vm_types::types::{OutputDestination, TypedRegister};
+use swamp_vm_types::types::{Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 use tracing::info;
 
@@ -24,17 +24,12 @@ impl CodeBuilder<'_> {
     ///
     /// If something needs temporary storage, we'll handle that too.
     #[allow(clippy::too_many_lines)]
-    pub fn emit_expression(
-        &mut self,
-        output: &OutputDestination,
-        expr: &Expression,
-        ctx: &Context,
-    ) {
+    pub fn emit_expression(&mut self, output: &Destination, expr: &Expression, ctx: &Context) {
         let node = &expr.node;
 
         // If the expression needs a memory target, and the current output is not a memory target, create temp memory to materialize in
         // and return a pointer in the register instead and hopefully it works out.
-        if !matches!(output, OutputDestination::AggregateToMemoryLocation(_))
+        if !matches!(output, Destination::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(expr)
         {
             info!(
@@ -106,7 +101,7 @@ impl CodeBuilder<'_> {
             ExpressionKind::VariableAccess(variable_ref) => {
                 let variable_register = self.get_variable_register(variable_ref).clone();
                 match output {
-                    OutputDestination::ScalarToRegister(target_reg) => {
+                    Destination::Register(target_reg) => {
                         self.builder.add_mov_reg(
                             target_reg,
                             &variable_register,
@@ -114,7 +109,7 @@ impl CodeBuilder<'_> {
                             "extra copy var access",
                         );
                     }
-                    OutputDestination::AggregateToMemoryLocation(location) => {
+                    Destination::Memory(location) => {
                         let memory_size = variable_register.ty.basic_type.total_size;
 
                         self.builder.add_block_copy_with_offset(
@@ -126,7 +121,7 @@ impl CodeBuilder<'_> {
                             "copy var access block",
                         );
                     }
-                    OutputDestination::Unit => panic!("should not be possible"),
+                    Destination::Unit => panic!("should not be possible"),
                 }
             }
             ExpressionKind::BorrowMutRef(expression) => {
@@ -227,7 +222,7 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        let output = OutputDestination::new_location(memory_location.clone());
+        let output = Destination::new_location(memory_location.clone());
 
         self.emit_expression(&output, expr, ctx);
     }
@@ -239,7 +234,7 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        let output = OutputDestination::new_reg(target_register.clone());
+        let output = Destination::new_reg(target_register.clone());
 
         self.emit_expression(&output, expr, ctx);
     }

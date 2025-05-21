@@ -7,7 +7,7 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, OutputDestination, TypedRegister, VmType, int_type,
+    BasicType, BasicTypeKind, BoundsCheck, Destination, TypedRegister, VmType, int_type,
 };
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
@@ -46,14 +46,14 @@ impl CodeBuilder<'_> {
 
     pub fn subscript_helper_from_location_to_location(
         &mut self,
-        detailed_location_to_slice: OutputDestination,
+        detailed_location_to_slice: Destination,
         element_basic_type: &BasicType,
         int_expr: &Expression,
         bounds_check: BoundsCheck,
         node: &Node,
         comment: &str,
         ctx: &Context,
-    ) -> OutputDestination {
+    ) -> Destination {
         let ptr_to_slice_reg = self.emit_ptr_reg_from_detailed_location(
             &detailed_location_to_slice,
             node,
@@ -79,7 +79,7 @@ impl CodeBuilder<'_> {
         );
 
         // We continue the chain from the calculated pointer
-        OutputDestination::AggregateToMemoryLocation(MemoryLocation {
+        Destination::Memory(MemoryLocation {
             ty: new_base_pointer_reg.register.ty.clone(),
             base_ptr_reg: new_base_pointer_reg.register,
             offset: MemoryOffset(0),

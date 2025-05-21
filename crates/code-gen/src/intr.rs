@@ -6,7 +6,7 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
-use swamp_vm_types::types::{OutputDestination, TypedRegister, VmType, pointer_type};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType, pointer_type};
 use swamp_vm_types::{
     AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
     STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
@@ -17,7 +17,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::single_match_else)]
     pub fn emit_single_intrinsic_call(
         &mut self,
-        target_reg: &OutputDestination,
+        target_reg: &Destination,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         arguments: &[MutRefOrImmutableExpression],
@@ -80,7 +80,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
     pub fn emit_single_intrinsic_call_with_self(
         &mut self,
-        target_reg: &OutputDestination,
+        target_reg: &Destination,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         self_type: Option<Type>,

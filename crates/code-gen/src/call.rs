@@ -8,12 +8,12 @@ use crate::state::FunctionFixup;
 use source_map_node::Node;
 use swamp_semantic::{InternalFunctionDefinitionRef, MutRefOrImmutableExpression};
 use swamp_types::Signature;
-use swamp_vm_types::types::{OutputDestination, TypedRegister, VmType};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_arguments(
         &mut self,
-        output_destination: &OutputDestination,
+        output_destination: &Destination,
         node: &Node,
         signature: &Signature,
         self_variable: Option<&TypedRegister>,
@@ -24,7 +24,7 @@ impl CodeBuilder<'_> {
 
         let mut copy_back_mutable_reg_pairs = Vec::new();
 
-        if let OutputDestination::ScalarToRegister(return_param_reg) = output_destination {
+        if let Destination::Register(return_param_reg) = output_destination {
             let return_reg = TypedRegister::new_vm_type(0, return_param_reg.ty.clone());
             if return_param_reg
                 .ty
@@ -42,9 +42,7 @@ impl CodeBuilder<'_> {
 
             if !signature.return_type.is_unit() && return_reg.ty.needs_copy_back_for_mutable() {
                 copy_back_mutable_reg_pairs.push(crate::code_bld::MutableReturnReg {
-                    target_location_after_call: OutputDestination::ScalarToRegister(
-                        return_param_reg.clone(),
-                    ),
+                    target_location_after_call: Destination::Register(return_param_reg.clone()),
                     parameter_reg: return_reg,
                 });
             }
@@ -143,11 +141,11 @@ impl CodeBuilder<'_> {
     ) {
         for copy_back in copy_back {
             match &copy_back.target_location_after_call {
-                OutputDestination::ScalarToRegister(reg) => {
+                Destination::Register(reg) => {
                     self.builder
                         .add_mov_reg(reg, &copy_back.parameter_reg, node, "copy back reg");
                 }
-                OutputDestination::AggregateToMemoryLocation(memory_location) => {} /* TODO:
+                Destination::Memory(memory_location) => {} /* TODO:
                 self.store_register_contents_to_memory(
                 node,
                 base_ptr_reg,
@@ -156,7 +154,7 @@ impl CodeBuilder<'_> {
                 "copy back from mem",
                 ),
                  */
-                OutputDestination::Unit => {}
+                Destination::Unit => {}
             }
         }
         self.emit_restore_spilled_registers(spilled_arguments, node, comment);
@@ -227,7 +225,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_internal_call(
         &mut self,
-        target_reg: &OutputDestination,
+        target_reg: &Destination,
         node: &Node,
         internal_fn: &InternalFunctionDefinitionRef,
         arguments: &Vec<MutRefOrImmutableExpression>,

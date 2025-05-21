@@ -5,17 +5,17 @@ use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_types::Type;
 use swamp_vm_types::PointerLocation;
-use swamp_vm_types::types::{OutputDestination, TupleType, VmType, int_type, u32_type};
+use swamp_vm_types::types::{Destination, TupleType, VmType, int_type, u32_type};
 
 impl CodeBuilder<'_> {
     /// Emits Swamp VM opcodes to calculate the memory address of an element within a map.
     pub fn map_subscript_helper(
         &mut self,
-        map_header_location: &OutputDestination,
+        map_header_location: &Destination,
         analyzed_key_type: &Type,
         key_expression: &Expression,
         ctx: &Context,
-    ) -> OutputDestination {
+    ) -> Destination {
         let map_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
             map_header_location,
             &key_expression.node,
@@ -49,7 +49,7 @@ impl CodeBuilder<'_> {
             "lookup the entry for this key in the map",
         );
 
-        OutputDestination::new_reg(map_entry_reg.register)
+        Destination::new_reg(map_entry_reg.register)
     }
 
     pub(crate) fn emit_map_storage_init_from_slice_pair_literal(

@@ -8,12 +8,12 @@ use swamp_semantic::{
     MutRefOrImmutableExpression,
 };
 use swamp_types::Type;
-use swamp_vm_types::types::{OutputDestination, TypedRegister, VmType};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
         debug_assert!(matches!(expr.ty, Type::Unit));
-        let output_destination = OutputDestination::new_unit();
+        let output_destination = Destination::new_unit();
         self.emit_expression(&output_destination, expr, ctx);
     }
 
