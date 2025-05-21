@@ -19,12 +19,12 @@ pub struct InstructionBuilderState {
     pub meta: Vec<Meta>,
 }
 
-pub fn u16_to_u8_pair(v: u16) -> (u8, u8) {
+#[must_use] pub const fn u16_to_u8_pair(v: u16) -> (u8, u8) {
     let bytes = v.to_le_bytes();
     (bytes[0], bytes[1])
 }
 
-fn u32_to_bytes(a: u32) -> (u8, u8, u8, u8) {
+const fn u32_to_bytes(a: u32) -> (u8, u8, u8, u8) {
     let bytes = a.to_le_bytes();
     (bytes[0], bytes[1], bytes[2], bytes[3])
 }
@@ -36,7 +36,7 @@ impl Default for InstructionBuilderState {
 }
 impl InstructionBuilderState {
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             instructions: Vec::new(),
             meta: Vec::new(),
@@ -44,7 +44,7 @@ impl InstructionBuilderState {
     }
 
     #[must_use]
-    pub fn position(&self) -> InstructionPosition {
+    pub const fn position(&self) -> InstructionPosition {
         InstructionPosition(self.instructions.len() as u32)
     }
 
@@ -121,7 +121,7 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
-impl<'a> InstructionBuilder<'a> {}
+impl InstructionBuilder<'_> {}
 
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
@@ -176,7 +176,7 @@ impl InstructionBuilder<'_> {
     }
 
     #[must_use]
-    pub fn position(&self) -> InstructionPosition {
+    pub const fn position(&self) -> InstructionPosition {
         InstructionPosition(self.state.instructions.len() as u32)
     }
 
@@ -881,10 +881,10 @@ impl InstructionBuilder<'_> {
             .add_instruction(OpCode::B, &[delta_bytes[0], delta_bytes[1]], node, comment);
     }
 
-    fn calculate_pc_delta(&self, pc: InstructionPosition) -> ProgramCounterDelta {
+    const fn calculate_pc_delta(&self, pc: InstructionPosition) -> ProgramCounterDelta {
         ProgramCounterDelta(((pc.0 as i32) - (self.position().0 as i32)) as i16)
     }
-    fn calculate_pc_delta_bytes(&self, pc: InstructionPosition) -> [u8; 2] {
+    const fn calculate_pc_delta_bytes(&self, pc: InstructionPosition) -> [u8; 2] {
         let delta = self.calculate_pc_delta(pc);
 
         delta.0.to_le_bytes()

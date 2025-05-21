@@ -57,7 +57,7 @@ pub trait QuickDeserialize {
         Self: Sized;
 }
 
-impl<'a, T: QuickSerialize + ?Sized> QuickSerialize for Ref<'a, T> {
+impl<T: QuickSerialize + ?Sized> QuickSerialize for Ref<'_, T> {
     fn quick_serialize(&self, octets: &mut [u8]) -> usize {
         (**self).quick_serialize(octets)
     }
@@ -563,14 +563,14 @@ impl Value {
         }
     }
 
-    pub fn expect_map(&self) -> Result<(Type, &SeqMap<Value, ValueRef>), ValueError> {
+    pub fn expect_map(&self) -> Result<(Type, &SeqMap<Self, ValueRef>), ValueError> {
         match self {
             Self::Map(key, seq_map) => Ok((key.clone(), seq_map)),
             _ => Err(ValueError::ConversionError("Expected map value".into())),
         }
     }
 
-    pub fn expect_map_mut(&mut self) -> Result<(Type, &mut SeqMap<Value, ValueRef>), ValueError> {
+    pub fn expect_map_mut(&mut self) -> Result<(Type, &mut SeqMap<Self, ValueRef>), ValueError> {
         match self {
             Self::Map(key, seq_map) => Ok((key.clone(), seq_map)),
             _ => Err(ValueError::ConversionError("Expected map value".into())),
@@ -626,7 +626,7 @@ impl Value {
 
     /// # Errors
     ///
-    pub fn expect_slice_pair(&self) -> Result<(Type, &SeqMap<Value, ValueRef>), ValueError> {
+    pub fn expect_slice_pair(&self) -> Result<(Type, &SeqMap<Self, ValueRef>), ValueError> {
         match self {
             Self::SlicePair(ty, seq_map) => Ok((ty.clone(), seq_map)),
             _ => Err(ValueError::ConversionError(
@@ -660,8 +660,7 @@ impl Value {
             Self::Bool(b) => *b,
             _ => {
                 return Err(ValueError::ConversionError(format!(
-                    "Expected bool value {}",
-                    self
+                    "Expected bool value {self}"
                 )));
             }
         };

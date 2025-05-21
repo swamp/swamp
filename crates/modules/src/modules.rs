@@ -61,7 +61,7 @@ pub fn pretty_print(
 pub type ModuleRef = Rc<Module>;
 
 impl Module {
-    pub fn new(symbol_table: SymbolTable, expression: Option<InternalMainExpression>) -> Self {
+    #[must_use] pub const fn new(symbol_table: SymbolTable, expression: Option<InternalMainExpression>) -> Self {
         Self {
             symbol_table,
             main_expression: expression,
@@ -70,13 +70,13 @@ impl Module {
 }
 
 impl Modules {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             modules: SeqMap::new(),
         }
     }
 
-    pub fn modules(&self) -> &SeqMap<Vec<String>, ModuleRef> {
+    #[must_use] pub const fn modules(&self) -> &SeqMap<Vec<String>, ModuleRef> {
         &self.modules
     }
 
@@ -86,7 +86,7 @@ impl Modules {
     }
 
     pub fn add(&mut self, module: ModuleRef) {
-        let path = module.symbol_table.module_path().clone();
+        let path = module.symbol_table.module_path();
 
         self.modules.insert(path, module).expect("could not insert");
     }

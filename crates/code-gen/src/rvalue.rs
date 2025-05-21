@@ -12,31 +12,28 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         debug_assert!(expr.ty.is_bool(), "must have scalar type");
-        self.emit_expression(target_reg, expr, ctx)
+        self.emit_expression(target_reg, expr, ctx);
     }
 
     pub fn emit_scalar_rvalue(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
-        match &expr.kind {
-            ExpressionKind::VariableAccess(variable_ref) => {
-                
-                self.get_variable_register(variable_ref).clone()
-            }
-            _ => {
-                let ty = layout_type(&expr.ty);
-                let temp_target_reg = self.temp_registers.allocate(
-                    VmType::new_unknown_placement(ty),
-                    "to produce a scalar rvalue, we have to allocate a temporary variable",
-                );
+        if let ExpressionKind::VariableAccess(variable_ref) = &expr.kind {
+            
+            self.get_variable_register(variable_ref).clone()
+        } else {
+            let ty = layout_type(&expr.ty);
+            let temp_target_reg = self.temp_registers.allocate(
+                VmType::new_unknown_placement(ty),
+                "to produce a scalar rvalue, we have to allocate a temporary variable",
+            );
 
-                self.emit_expression_into_register(
-                    temp_target_reg.register(),
-                    expr,
-                    "emit_scalar_rvalue",
-                    ctx,
-                );
+            self.emit_expression_into_register(
+                temp_target_reg.register(),
+                expr,
+                "emit_scalar_rvalue",
+                ctx,
+            );
 
-                temp_target_reg.register
-            }
+            temp_target_reg.register
         }
     }
 }

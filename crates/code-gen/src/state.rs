@@ -103,7 +103,7 @@ impl CodeGenState {
     }
 
     #[must_use]
-    pub fn constant_functions(&self) -> &SeqMap<ConstantId, ConstantInfo> {
+    pub const fn constant_functions(&self) -> &SeqMap<ConstantId, ConstantInfo> {
         &self.constant_functions_in_order
     }
 

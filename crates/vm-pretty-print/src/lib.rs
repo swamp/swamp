@@ -76,10 +76,10 @@ pub enum PrintAddress {
 impl Display for PrintAddress {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            PrintAddress::StackMemoryAddress(stack_addr) => {
+            Self::StackMemoryAddress(stack_addr) => {
                 write!(f, "${:X}", stack_addr.0)
             }
-            PrintAddress::HeapMemoryAddress(heap_addr) => {
+            Self::HeapMemoryAddress(heap_addr) => {
                 write!(f, "%{:X}", heap_addr.0)
             }
         }
@@ -87,15 +87,15 @@ impl Display for PrintAddress {
 }
 
 impl Add<MemoryOffset> for PrintAddress {
-    type Output = PrintAddress;
+    type Output = Self;
 
     fn add(self, rhs: MemoryOffset) -> Self::Output {
         match self {
-            PrintAddress::StackMemoryAddress(stack_addr) => {
+            Self::StackMemoryAddress(stack_addr) => {
                 Self::StackMemoryAddress(stack_addr + rhs)
             }
-            PrintAddress::HeapMemoryAddress(heap_addr) => {
-                Self::HeapMemoryAddress(HeapMemoryAddress(heap_addr.0 + rhs.0 as u32))
+            Self::HeapMemoryAddress(heap_addr) => {
+                Self::HeapMemoryAddress(HeapMemoryAddress(heap_addr.0 + u32::from(rhs.0)))
             }
         }
     }

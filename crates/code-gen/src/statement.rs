@@ -23,7 +23,7 @@ impl CodeBuilder<'_> {
         expression: &Expression,
         ctx: &Context,
     ) {
-        self.emit_variable_assignment(variable, expression, ctx)
+        self.emit_variable_assignment(variable, expression, ctx);
     }
 
     fn emit_variable_assignment(
@@ -71,7 +71,7 @@ impl CodeBuilder<'_> {
         expression: &Expression,
         ctx: &Context,
     ) {
-        self.emit_variable_assignment(variable, expression, ctx)
+        self.emit_variable_assignment(variable, expression, ctx);
     }
 
     pub(crate) fn emit_tuple_destructuring(
@@ -151,7 +151,7 @@ impl CodeBuilder<'_> {
                         for_pattern,
                         lambda_non_capturing_expr,
                         ctx,
-                    )
+                    );
                 } else if named_type.is_map() {
                     self.emit_for_loop_lambda(
                         discard_reg.register(),
@@ -162,7 +162,7 @@ impl CodeBuilder<'_> {
                         for_pattern,
                         lambda_non_capturing_expr,
                         ctx,
-                    )
+                    );
                 } else if named_type.is_range() {
                     self.emit_for_loop_lambda(
                         discard_reg.register(),
@@ -173,7 +173,7 @@ impl CodeBuilder<'_> {
                         for_pattern,
                         lambda_non_capturing_expr,
                         ctx,
-                    )
+                    );
                 } else if named_type.is_stack() {
                     /*
                     self.emit_for_loop_lambda(
@@ -207,7 +207,7 @@ impl CodeBuilder<'_> {
             _ => {
                 panic!("can not iterate this collection");
             }
-        };
+        }
 
         self.temp_registers.restore_to_mark(hwm);
     }
@@ -245,7 +245,7 @@ impl CodeBuilder<'_> {
             source_collection_type,
             &fake_lambda_expr,
             ctx,
-        )
+        );
     }
 
     pub(crate) fn emit_while_loop(
@@ -345,19 +345,19 @@ impl CodeBuilder<'_> {
             }
             CompoundOperatorKind::Sub => {
                 self.builder
-                    .add_sub_u32(target, target, source_ctx, node, "-=  (i32)")
+                    .add_sub_u32(target, target, source_ctx, node, "-=  (i32)");
             }
             CompoundOperatorKind::Mul => {
                 self.builder
-                    .add_mul_i32(target, target, source_ctx, node, "*=  (i32)")
+                    .add_mul_i32(target, target, source_ctx, node, "*=  (i32)");
             }
             CompoundOperatorKind::Div => {
                 self.builder
-                    .add_div_i32(target, target, source_ctx, node, "/=  (i32)")
+                    .add_div_i32(target, target, source_ctx, node, "/=  (i32)");
             }
             CompoundOperatorKind::Modulo => {
                 self.builder
-                    .add_mod_i32(target, target, source_ctx, node, "%=  (i32)")
+                    .add_mod_i32(target, target, source_ctx, node, "%=  (i32)");
             }
         }
     }
@@ -376,19 +376,19 @@ impl CodeBuilder<'_> {
             }
             CompoundOperatorKind::Sub => {
                 self.builder
-                    .add_sub_f32(target, target, source_ctx, node, "-=  (f32)")
+                    .add_sub_f32(target, target, source_ctx, node, "-=  (f32)");
             }
             CompoundOperatorKind::Mul => {
                 self.builder
-                    .add_mul_f32(target, target, source_ctx, node, "*=  (f32)")
+                    .add_mul_f32(target, target, source_ctx, node, "*=  (f32)");
             }
             CompoundOperatorKind::Div => {
                 self.builder
-                    .add_div_f32(target, target, source_ctx, node, "/=  (f32)")
+                    .add_div_f32(target, target, source_ctx, node, "/=  (f32)");
             }
             CompoundOperatorKind::Modulo => {
                 self.builder
-                    .add_mod_f32(target, target, source_ctx, node, "%=  (f32)")
+                    .add_mod_f32(target, target, source_ctx, node, "%=  (f32)");
             }
         }
     }

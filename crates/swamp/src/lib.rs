@@ -38,7 +38,7 @@ pub enum LoaderErr {
 
 impl From<Error> for LoaderErr {
     fn from(value: Error) -> Self {
-        LoaderErr::AnalyzerError(value)
+        Self::AnalyzerError(value)
     }
 }
 pub fn compile_and_analyze(

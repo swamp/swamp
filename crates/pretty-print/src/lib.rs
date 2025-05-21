@@ -13,7 +13,7 @@ use swamp_semantic::{
     AssociatedImpls, MutRefOrImmutableExpression, MutableReferenceKind, Postfix, PostfixKind,
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
 };
-use swamp_types::*;
+use swamp_types::{AliasType, AnonymousStructType, EnumType, NamedStructType, ParameterizedTypeBlueprint, ParameterizedTypeKind, Signature, Type, TypeForParameter};
 use yansi::{Color, Paint};
 
 pub struct SourceMapDisplay<'a> {
@@ -826,7 +826,7 @@ impl SourceMapDisplay<'_> {
     pub fn new_line_and_tab(f: &mut Formatter, tabs: usize) -> std::fmt::Result {
         let tab_str = "..".repeat(tabs);
         writeln!(f)?;
-        write!(f, "{}", tab_str)
+        write!(f, "{tab_str}")
     }
 
     pub fn show_internal_function(

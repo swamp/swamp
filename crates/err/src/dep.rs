@@ -25,7 +25,7 @@ pub fn build_dependency_error(err: &DependencyError) -> Builder<usize> {
             ParseRootError::ParserError(err) => build_parser_error(err),
         },
         DependencyError::ReadFileError(err) => {
-            Report::build(Kind::Error, 20, &format!("read file error {}", err), span)
+            Report::build(Kind::Error, 20, &format!("read file error {err}"), span)
         }
     }
 }

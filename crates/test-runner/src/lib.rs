@@ -8,7 +8,7 @@ use tracing::error;
 #[derive(Debug, Default, Clone, Copy)]
 struct TestContext;
 
-pub fn colorize_parts(parts: &[String]) -> String {
+#[must_use] pub fn colorize_parts(parts: &[String]) -> String {
     let new_parts: Vec<_> = parts
         .iter()
         .map(|x| format!("{}", tinter::bright_cyan(x)))
@@ -17,7 +17,7 @@ pub fn colorize_parts(parts: &[String]) -> String {
     new_parts.join("::")
 }
 
-pub fn colorful_module_name(parts: &[String]) -> String {
+#[must_use] pub fn colorful_module_name(parts: &[String]) -> String {
     let x = if parts[0] == "crate" {
         &parts[1..]
     } else {
@@ -89,7 +89,7 @@ pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
                         tinter::blue(&function_to_run.internal_function_definition.assigned_name)
                     );
 
-                    eprintln!("🚀starting test '{}'", complete_name);
+                    eprintln!("🚀starting test '{complete_name}'");
 
                     for _ in 0..options.iteration_count {
                         swamp_runtime::run_function(
@@ -128,9 +128,9 @@ pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
         let fail_count = panic_count + trap_count;
 
         if fail_count == 0 {
-            eprintln!("summary: ✅ {pass_count} passed")
+            eprintln!("summary: ✅ {pass_count} passed");
         } else {
-            eprintln!("summary: ✅ {pass_count} passed, ❌ {fail_count} failed!")
+            eprintln!("summary: ✅ {pass_count} passed, ❌ {fail_count} failed!");
         }
 
         eprintln!("vm stats {:?}", vm.debug);

@@ -14,7 +14,7 @@ pub fn very_basic(test_dir: &Path) {
             debug_output: false,
             debug_opcodes: false,
         },
-    )
+    );
 }
 
 fn main() {

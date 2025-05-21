@@ -115,7 +115,7 @@ pub enum DetailedLocationResolved {
 
 impl DetailedLocationResolved {
     #[must_use]
-    pub fn register(&self) -> &TypedRegister {
+    pub const fn register(&self) -> &TypedRegister {
         match self {
             Self::Register(reg) => reg,
             Self::TempRegister(reg) => reg.register(),
@@ -199,7 +199,7 @@ impl DetailedLocation {
 */
 
 impl Collection {
-    pub fn size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
+    #[must_use] pub const fn size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
         match self {
             Self::Vec => (VEC_HEADER_SIZE, VEC_HEADER_ALIGNMENT),
             Self::Map => (MAP_HEADER_SIZE, MAP_HEADER_ALIGNMENT),
@@ -209,7 +209,7 @@ impl Collection {
         }
     }
 
-    pub fn iterator_size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
+    #[must_use] pub fn iterator_size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
         match self {
             Self::Vec => (VEC_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT),
             Self::Map => (MAP_ITERATOR_SIZE, MAP_ITERATOR_ALIGNMENT),
@@ -220,7 +220,7 @@ impl Collection {
         }
     }
 
-    pub fn iterator_gen_type(&self) -> BasicType {
+    #[must_use] pub fn iterator_gen_type(&self) -> BasicType {
         let kind = match self {
             Self::Vec => BasicTypeKind::InternalVecIterator,
             Self::Map => BasicTypeKind::InternalMapIterator,
@@ -250,7 +250,7 @@ pub struct FunctionIp {
     pub kind: FunctionIpKind,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum GeneratedExpressionResultKind {
     TFlagIsIndeterminate,
     TFlagIsTrueWhenSet,

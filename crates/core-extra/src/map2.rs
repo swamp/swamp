@@ -113,7 +113,7 @@ where
             let mut row_map = SeqMap::new();
             row_map.insert(col.clone(), value.clone()).unwrap();
             self.rows.insert(row.clone(), row_map).unwrap();
-        };
+        }
 
         // Insert into the columns map.
         if self.columns.contains_key(&col) {

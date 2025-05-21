@@ -11,7 +11,7 @@ fn different_file_info(span_a: &FileLineInfo, span_b: &FileLineInfo) -> bool {
     span_a.line != span_b.line
 }
 
-pub fn is_valid_file_id(file_id: FileId) -> bool {
+#[must_use] pub const fn is_valid_file_id(file_id: FileId) -> bool {
     file_id != 0 && file_id != 0xffff
 }
 pub fn show_parameters_and_variables(
@@ -43,7 +43,7 @@ pub fn show_parameters_and_variables(
     Ok(())
 }
 
-pub fn disasm_function(
+#[must_use] pub fn disasm_function(
     frame_relative_infos: &FrameMemoryInfo,
     parameters: &[VariableRegister],
     instructions: &[BinaryInstruction],

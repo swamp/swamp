@@ -61,7 +61,7 @@ pub struct SourceLinesWrap<'a> {
     pub source_map: &'a SourceMap,
 }
 
-impl<'a> SourceLines for SourceLinesWrap<'a> {
+impl SourceLines for SourceLinesWrap<'_> {
     fn get_line(&self, line_number: usize) -> Option<&str> {
         self.source_map.get_source_line(self.file_id, line_number)
     }

@@ -25,6 +25,6 @@ pub fn register_print<C: 'static>(vm: &mut Vm, modules: &Modules, context: C) {
             print_fn,
         );
     } else {
-        eprintln!("print() isn't used, this is very unusual")
+        eprintln!("print() isn't used, this is very unusual");
     }
 }

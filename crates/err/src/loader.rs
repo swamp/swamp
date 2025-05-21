@@ -11,7 +11,7 @@ use eira::Kind;
 use source_map_node::Span;
 use swamp_program_analyzer::LoaderErr;
 
-pub fn build_loader_error(err: &LoaderErr) -> Builder<usize> {
+#[must_use] pub fn build_loader_error(err: &LoaderErr) -> Builder<usize> {
     match err {
         LoaderErr::CouldNotLoad => {
             Report::build(Kind::Error, 140, "could not load", &Span::default())

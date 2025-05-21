@@ -36,7 +36,7 @@ impl QuickDeserialize for SparseValueId {
 
         let id = Id::new(index.into(), generation);
 
-        (SparseValueId(id), offset)
+        (Self(id), offset)
     }
 }
 

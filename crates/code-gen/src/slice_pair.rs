@@ -5,7 +5,7 @@ use swamp_semantic::Expression;
 use swamp_types::Type;
 
 impl CodeBuilder<'_> {
-    fn emit_slice_pair_literal(
+    const fn emit_slice_pair_literal(
         &mut self,
         slice_type: &Type,
         expressions: &[(Expression, Expression)],

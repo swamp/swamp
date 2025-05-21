@@ -49,16 +49,16 @@ impl TopLevelGenState {
     }
 
     #[must_use]
-    pub fn function_debug_infos(&self) -> &SeqMap<InstructionPosition, FunctionInfo> {
+    pub const fn function_debug_infos(&self) -> &SeqMap<InstructionPosition, FunctionInfo> {
         &self.codegen_state.function_debug_infos
     }
     #[must_use]
-    pub fn function_ips(&self) -> &FunctionIps {
+    pub const fn function_ips(&self) -> &FunctionIps {
         &self.codegen_state.function_ips
     }
 
     pub fn reserve_space_for_constants(&mut self, constants: &[ConstantRef]) {
-        self.codegen_state.reserve_space_for_constants(constants)
+        self.codegen_state.reserve_space_for_constants(constants);
     }
 
     #[must_use]
@@ -362,7 +362,7 @@ impl TopLevelGenState {
                 base_ptr_reg: return_register,
                 offset: MemoryOffset(0),
             };
-            OutputDestination::AggregateToMemoryLocation(memory_location.clone())
+            OutputDestination::AggregateToMemoryLocation(memory_location)
         };
 
         function_code_builder.emit_expression(&destination, &in_data.expression, &ctx);
@@ -456,7 +456,7 @@ impl TopLevelGenState {
     }
 
     #[must_use]
-    pub fn ip(&self) -> InstructionPosition {
+    pub const fn ip(&self) -> InstructionPosition {
         InstructionPosition(self.builder_state.instructions.len() as u32)
     }
     #[must_use]

@@ -27,7 +27,7 @@ impl ConstantsAllocator {
         let alignment: usize = gen_type.max_alignment.into();
         let start_addr = align(self.current_addr as usize, alignment) as u32;
 
-        self.current_addr = start_addr + gen_type.total_size.0 as u32;
+        self.current_addr = start_addr + u32::from(gen_type.total_size.0);
         assert!(self.current_addr < self.max_size);
 
         HeapPlacedType::new(HeapMemoryAddress(start_addr), gen_type)

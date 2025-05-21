@@ -100,7 +100,7 @@ impl Display for TaggedUnion {
 }
 
 impl TaggedUnion {
-    pub fn payload_offset(&self) -> MemoryOffset {
+    #[must_use] pub fn payload_offset(&self) -> MemoryOffset {
         align_to(MemoryOffset(self.tag_size.0), self.max_alignment)
     }
 }
@@ -264,7 +264,7 @@ pub enum BasicTypeKind {
 impl BasicTypeKind {}
 
 impl BasicTypeKind {
-    pub(crate) fn manifestation(&self) -> Manifestation {
+    pub(crate) const fn manifestation(&self) -> Manifestation {
         if self.is_represented_as_primitive_inside_register() {
             Manifestation::DirectInsideRegister
         } else {
@@ -279,10 +279,10 @@ pub enum Manifestation {
 }
 
 impl Manifestation {
-    pub fn string(&self) -> &str {
+    #[must_use] pub const fn string(&self) -> &str {
         match self {
-            Manifestation::DirectInsideRegister => "simple",
-            Manifestation::IndirectAsPointer => "complex (ptr)",
+            Self::DirectInsideRegister => "simple",
+            Self::IndirectAsPointer => "complex (ptr)",
         }
     }
 }
@@ -294,30 +294,30 @@ impl Display for Manifestation {
 }
 
 impl BasicTypeKind {
-    pub(crate) fn is_represented_as_primitive_inside_register(&self) -> bool {
+    pub(crate) const fn is_represented_as_primitive_inside_register(&self) -> bool {
         matches!(
             self,
             Self::Empty | Self::B8 | Self::U8 | Self::U16 | Self::S32 | Self::U32 | Self::Fixed32
         )
     }
 
-    pub fn is_represented_as_a_pointer_inside_register(&self) -> bool {
+    #[must_use] pub const fn is_represented_as_a_pointer_inside_register(&self) -> bool {
         !self.is_represented_as_primitive_inside_register()
     }
 
-    pub fn is_mutable_reference(&self) -> bool {
-        matches!(self, BasicTypeKind::MutablePointer(..))
+    #[must_use] pub const fn is_mutable_reference(&self) -> bool {
+        matches!(self, Self::MutablePointer(..))
     }
 
-    pub(crate) fn is_immutable(&self) -> bool {
+    pub(crate) const fn is_immutable(&self) -> bool {
         !self.is_mutable_reference()
     }
 
-    pub fn needs_copy_back_when_mutable(&self) -> bool {
+    #[must_use] pub const fn needs_copy_back_when_mutable(&self) -> bool {
         !self.is_represented_as_a_pointer_inside_register()
     }
 
-    pub fn union_info(&self) -> &TaggedUnion {
+    #[must_use] pub fn union_info(&self) -> &TaggedUnion {
         if let Self::TaggedUnion(union) = self {
             union
         } else {
@@ -683,15 +683,15 @@ pub enum OutputDestination {
 }
 
 impl OutputDestination {
-    pub fn add_offset(&self, offset: MemoryOffset, vm_type: VmType) -> Self {
+    #[must_use] pub fn add_offset(&self, offset: MemoryOffset, vm_type: VmType) -> Self {
         match self {
-            OutputDestination::Unit => {
+            Self::Unit => {
                 panic!("add_offset")
             }
-            OutputDestination::ScalarToRegister(_) => {
+            Self::ScalarToRegister(_) => {
                 panic!("can not add offset to a register")
             }
-            OutputDestination::AggregateToMemoryLocation(memory_location) => {
+            Self::AggregateToMemoryLocation(memory_location) => {
                 Self::AggregateToMemoryLocation(MemoryLocation {
                     base_ptr_reg: memory_location.base_ptr_reg.clone(),
                     offset: memory_location.offset + offset,
@@ -700,23 +700,23 @@ impl OutputDestination {
             }
         }
     }
-    pub fn new_unit() -> Self {
+    #[must_use] pub const fn new_unit() -> Self {
         Self::Unit
     }
-    pub fn new_reg(register: TypedRegister) -> Self {
+    #[must_use] pub const fn new_reg(register: TypedRegister) -> Self {
         Self::ScalarToRegister(register)
     }
-    pub fn new_location(memory_location: MemoryLocation) -> Self {
+    #[must_use] pub const fn new_location(memory_location: MemoryLocation) -> Self {
         Self::AggregateToMemoryLocation(memory_location)
     }
 
-    pub fn is_unit(&self) -> bool {
+    #[must_use] pub const fn is_unit(&self) -> bool {
         matches!(self, Self::Unit)
     }
-    pub fn is_memory_location(&self) -> bool {
+    #[must_use] pub const fn is_memory_location(&self) -> bool {
         matches!(self, Self::AggregateToMemoryLocation(_))
     }
-    pub fn ty(&self) -> &BasicType {
+    #[must_use] pub const fn ty(&self) -> &BasicType {
         match self {
             Self::Unit => &BasicType {
                 kind: BasicTypeKind::Empty,
@@ -728,7 +728,7 @@ impl OutputDestination {
         }
     }
 
-    pub fn vm_type(&self) -> &VmType {
+    #[must_use] pub const fn vm_type(&self) -> &VmType {
         match self {
             Self::Unit => &VmType {
                 basic_type: BasicType {
@@ -743,14 +743,14 @@ impl OutputDestination {
         }
     }
 
-    pub fn register(&self) -> Option<&TypedRegister> {
+    #[must_use] pub const fn register(&self) -> Option<&TypedRegister> {
         match self {
             Self::ScalarToRegister(reg) => Some(reg),
             _ => None,
         }
     }
 
-    pub fn grab_register(&self) -> &TypedRegister {
+    #[must_use] pub fn grab_register(&self) -> &TypedRegister {
         match self {
             Self::ScalarToRegister(reg) => reg,
             Self::AggregateToMemoryLocation(_) => {
@@ -760,7 +760,7 @@ impl OutputDestination {
         }
     }
 
-    pub fn grab_memory_location(&self) -> &MemoryLocation {
+    #[must_use] pub fn grab_memory_location(&self) -> &MemoryLocation {
         match self {
             Self::ScalarToRegister(reg) => panic!("assumed it was a memory location"),
             Self::AggregateToMemoryLocation(location) => location,
@@ -770,7 +770,7 @@ impl OutputDestination {
         }
     }
 
-    pub fn grab_aggregate_memory_location(&self) -> AggregateMemoryLocation {
+    #[must_use] pub fn grab_aggregate_memory_location(&self) -> AggregateMemoryLocation {
         AggregateMemoryLocation {
             location: self.grab_memory_location().clone(),
         }
@@ -785,13 +785,13 @@ pub struct TypedRegister {
 }
 
 impl TypedRegister {
-    pub fn comment(&self) -> &str {
+    #[must_use] pub fn comment(&self) -> &str {
         &self.comment
     }
 }
 
 impl TypedRegister {
-    pub fn new_empty_reserved() -> Self {
+    #[must_use] pub const fn new_empty_reserved() -> Self {
         Self {
             index: 0xff,
             ty: VmType::new_unknown_placement(unknown_type()),
@@ -801,7 +801,7 @@ impl TypedRegister {
 }
 
 impl TypedRegister {
-    pub fn final_type(&self) -> BasicType {
+    #[must_use] pub fn final_type(&self) -> BasicType {
         self.ty.underlying()
     }
 }
@@ -828,7 +828,7 @@ impl TypedRegister {
         }
     }
 
-    pub const fn new_vm_type(index: u8, ty: VmType) -> Self {
+    #[must_use] pub const fn new_vm_type(index: u8, ty: VmType) -> Self {
         Self {
             index,
             ty,
@@ -840,16 +840,16 @@ impl TypedRegister {
         self.comment = comment.to_string();
         self
     }
-    pub fn addressing(&self) -> u8 {
+    #[must_use] pub const fn addressing(&self) -> u8 {
         self.index
     }
 
     #[must_use]
-    pub fn ty(&self) -> &BasicType {
+    pub const fn ty(&self) -> &BasicType {
         &self.ty.basic_type
     }
 
-    pub fn frame_placed(&self) -> FramePlacedType {
+    #[must_use] pub fn frame_placed(&self) -> FramePlacedType {
         if let Some(fp) = self.ty.frame_placed_type() {
             fp
         } else {
@@ -857,15 +857,15 @@ impl TypedRegister {
         }
     }
 
-    pub fn size(&self) -> MemorySize {
+    #[must_use] pub const fn size(&self) -> MemorySize {
         self.ty.basic_type.total_size
     }
 
-    pub fn addr(&self) -> FrameMemoryAddress {
+    #[must_use] pub fn addr(&self) -> FrameMemoryAddress {
         self.frame_placed().addr
     }
 
-    pub fn underlying(&self) -> BasicType {
+    #[must_use] pub fn underlying(&self) -> BasicType {
         self.ty.underlying()
     }
 }
@@ -910,46 +910,46 @@ impl Display for VmType {
 }
 
 impl VmType {
-    pub fn new_frame_placed(frame_placed: FramePlacedType) -> Self {
+    #[must_use] pub fn new_frame_placed(frame_placed: FramePlacedType) -> Self {
         Self {
             basic_type: frame_placed.ty.clone(),
             origin: VmTypeOrigin::Frame(frame_placed.region()),
         }
     }
-    pub fn is_immutable(&self) -> bool {
+    #[must_use] pub const fn is_immutable(&self) -> bool {
         self.basic_type.kind.is_immutable()
     }
 
-    pub fn manifestation(&self) -> Manifestation {
+    #[must_use] pub const fn manifestation(&self) -> Manifestation {
         self.basic_type.manifestation()
     }
 
-    pub fn new_heap_placement(basic_type: BasicType, heap_region: HeapMemoryRegion) -> Self {
+    #[must_use] pub const fn new_heap_placement(basic_type: BasicType, heap_region: HeapMemoryRegion) -> Self {
         Self {
-            basic_type: basic_type.clone(),
+            basic_type,
             origin: VmTypeOrigin::Heap(heap_region),
         }
     }
 
-    pub fn new_contained_in_register(basic_type: BasicType) -> VmType {
+    #[must_use] pub const fn new_contained_in_register(basic_type: BasicType) -> Self {
         Self {
-            basic_type: basic_type.clone(),
+            basic_type,
             origin: VmTypeOrigin::InsideReg,
         }
     }
 
-    pub fn new_unknown_placement(basic_type: BasicType) -> Self {
+    #[must_use] pub const fn new_unknown_placement(basic_type: BasicType) -> Self {
         Self {
             basic_type,
             origin: VmTypeOrigin::Unknown,
         }
     }
 
-    pub fn new_basic_with_origin(basic_type: BasicType, origin: VmTypeOrigin) -> Self {
+    #[must_use] pub const fn new_basic_with_origin(basic_type: BasicType, origin: VmTypeOrigin) -> Self {
         Self { basic_type, origin }
     }
 
-    pub fn frame_placed_type(&self) -> Option<FramePlacedType> {
+    #[must_use] pub fn frame_placed_type(&self) -> Option<FramePlacedType> {
         if let VmTypeOrigin::Frame(region) = self.origin {
             Some(FramePlacedType {
                 addr: region.addr,
@@ -961,26 +961,26 @@ impl VmType {
     }
 
     #[must_use]
-    pub fn is_mutable_reference_semantic(&self) -> bool {
+    pub const fn is_mutable_reference_semantic(&self) -> bool {
         self.basic_type.is_mutable_reference()
     }
 
     #[must_use]
-    pub fn is_represented_as_pointer_inside_register(&self) -> bool {
+    pub const fn is_represented_as_pointer_inside_register(&self) -> bool {
         self.basic_type.is_represented_as_a_pointer_in_reg()
     }
 
-    pub fn can_be_contained_inside_register(&self) -> bool {
+    #[must_use] pub const fn can_be_contained_inside_register(&self) -> bool {
         self.basic_type.can_be_contained_inside_register()
     }
 
     #[must_use]
-    pub fn needs_allocated_space_for_return_in_reg0(&self) -> bool {
+    pub const fn needs_allocated_space_for_return_in_reg0(&self) -> bool {
         self.basic_type.is_represented_as_a_pointer_in_reg()
             && !matches!(self.basic_type.kind, BasicTypeKind::InternalStringPointer)
     }
 
-    pub fn needs_copy_back_for_mutable(&self) -> bool {
+    #[must_use] pub const fn needs_copy_back_for_mutable(&self) -> bool {
         !self.basic_type.is_represented_as_a_pointer_in_reg()
             || matches!(self.basic_type.kind, BasicTypeKind::InternalStringPointer)
     }
@@ -1050,11 +1050,11 @@ impl FramePlacedType {
         }
     }
 
-    pub fn move_to_optional_some_payload(&self) -> Self {
+    #[must_use] pub fn move_to_optional_some_payload(&self) -> Self {
         self.move_to_optional_payload_variant(1)
     }
 
-    pub fn move_to_optional_none_payload(&self) -> Self {
+    #[must_use] pub fn move_to_optional_none_payload(&self) -> Self {
         self.move_to_optional_payload_variant(0)
     }
 
@@ -1067,7 +1067,7 @@ impl FramePlacedType {
         )
     }
 
-    pub fn move_to_optional_tag(&self) -> Self {
+    #[must_use] pub fn move_to_optional_tag(&self) -> Self {
         let optional_info = self.ty().optional_info().unwrap();
 
         let addr = self.addr() + optional_info.tag_offset;
@@ -1079,7 +1079,7 @@ impl FramePlacedType {
             max_alignment: MemoryAlignment::U8,
         };
 
-        FramePlacedType::new(addr, tag_type)
+        Self::new(addr, tag_type)
     }
 }
 
@@ -1096,19 +1096,19 @@ pub struct BasicType {
 }
 
 impl BasicType {
-    pub(crate) fn manifestation(&self) -> Manifestation {
+    pub(crate) const fn manifestation(&self) -> Manifestation {
         self.kind.manifestation()
     }
 }
 
 impl BasicType {
-    pub fn should_be_copied_back_when_mutable_arg_or_return(&self) -> bool {
+    #[must_use] pub const fn should_be_copied_back_when_mutable_arg_or_return(&self) -> bool {
         !self.is_represented_as_a_pointer_in_reg()
     }
 }
 
 impl BasicType {
-    pub fn referenced_type(&self) -> &BasicType {
+    #[must_use] pub fn referenced_type(&self) -> &Self {
         match &self.kind {
             BasicTypeKind::MutablePointer(inner_type) => inner_type,
             _ => panic!("can not take out referenced type {self:?}"),
@@ -1142,19 +1142,19 @@ impl BasicType {
 }
 
 impl BasicType {
-    pub fn can_be_contained_inside_register(&self) -> bool {
+    #[must_use] pub const fn can_be_contained_inside_register(&self) -> bool {
         self.kind.is_represented_as_primitive_inside_register()
     }
 
-    pub fn is_simple_primitive(&self) -> bool {
+    #[must_use] pub const fn is_simple_primitive(&self) -> bool {
         self.kind.is_represented_as_primitive_inside_register()
     }
 
-    pub fn is_scalar(&self) -> bool {
+    #[must_use] pub const fn is_scalar(&self) -> bool {
         self.is_simple_primitive() || matches!(self.kind, BasicTypeKind::InternalStringPointer)
     }
 
-    pub fn is_mutable_reference(&self) -> bool {
+    #[must_use] pub const fn is_mutable_reference(&self) -> bool {
         self.kind.is_mutable_reference()
     }
 }
@@ -1175,7 +1175,7 @@ impl BasicType {
         }
     }
 
-    pub fn union_info(&self) -> &TaggedUnion {
+    #[must_use] pub fn union_info(&self) -> &TaggedUnion {
         self.kind.union_info()
     }
 
@@ -1190,7 +1190,7 @@ impl BasicType {
         }
     }
 
-    pub fn underlying(&self) -> &Self {
+    #[must_use] pub fn underlying(&self) -> &Self {
         match &self.kind {
             BasicTypeKind::MutablePointer(inner) => inner,
             _ => self,
@@ -1198,7 +1198,7 @@ impl BasicType {
     }
 
     #[must_use]
-    pub fn is_represented_as_a_pointer_in_reg(&self) -> bool {
+    pub const fn is_represented_as_a_pointer_in_reg(&self) -> bool {
         self.kind.is_represented_as_a_pointer_inside_register()
     }
 
@@ -1391,18 +1391,18 @@ pub struct PathStep {
 }
 
 impl PathStep {
-    pub fn absolute_address(&self) -> FrameMemoryAddress {
+    #[must_use] pub const fn absolute_address(&self) -> FrameMemoryAddress {
         FrameMemoryAddress(self.origin.0 + self.item.offset.0)
     }
 }
 
 impl FrameMemoryInfo {
     #[must_use]
-    pub fn size(&self) -> FrameMemorySize {
+    pub const fn size(&self) -> FrameMemorySize {
         self.total_frame_size
     }
 
-    /// Returns a vector of OffsetMemoryItem from root to the one containing the address.
+    /// Returns a vector of `OffsetMemoryItem` from root to the one containing the address.
     #[must_use]
     pub fn find_path_to_address_items(&self, target: FrameMemoryAddress) -> Option<PathInfo> {
         for info in &self.infos {

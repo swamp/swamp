@@ -1,4 +1,4 @@
-//! CodeBuilder helper functions for function calls and arguments.
+//! `CodeBuilder` helper functions for function calls and arguments.
 use crate::SpilledRegister;
 use crate::code_bld::{CodeBuilder, MutableReturnReg};
 use crate::ctx::Context;
@@ -109,7 +109,7 @@ impl CodeBuilder<'_> {
                             copy_back_mutable_reg_pairs.push(crate::code_bld::MutableReturnReg {
                                 target_location_after_call: detailed_location,
                                 parameter_reg: argument_register.clone(),
-                            })
+                            });
                         }
                     }
                     MutRefOrImmutableExpression::Expression(expr) => {

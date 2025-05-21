@@ -130,7 +130,7 @@ impl CodeBuilder<'_> {
                     enum_variant_payload,
                     node,
                     ctx,
-                )
+                );
             }
             Literal::TupleLiteral(types, expressions) => {
                 // A tuple literal can not be represented as a register, not even a pointer to it, it needs materialization into memory

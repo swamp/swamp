@@ -2531,8 +2531,7 @@ impl AstParser {
                 let inner_pairs: Vec<_> = pattern_inside.clone().into_inner().collect();
                 let has_guard = inner_pairs
                     .get(1)
-                    .map(|p| p.as_rule() == Rule::guard_clause)
-                    .unwrap_or(false);
+                    .is_some_and(|p| p.as_rule() == Rule::guard_clause);
 
                 let guard_clause = if has_guard {
                     Some(self.parse_guard_clause(&inner_pairs[1])?)
@@ -2702,7 +2701,7 @@ impl AstParser {
         self.create_expr_span(kind, self.to_node(pair))
     }
 
-    fn create_expr_span(&self, kind: ExpressionKind, node: Node) -> Expression {
+    const fn create_expr_span(&self, kind: ExpressionKind, node: Node) -> Expression {
         //info!(?kind, ?node, "create_expr()");
         Expression { kind, node }
     }

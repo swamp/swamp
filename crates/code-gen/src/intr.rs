@@ -56,7 +56,7 @@ impl CodeBuilder<'_> {
                 } else {
                     let self_region =
                         self.emit_expression_location_mut_ref_or_immutable(&arguments[0], ctx);
-                    (Some(self_region), Some(arguments[0].ty().clone()))
+                    (Some(self_region), Some(arguments[0].ty()))
                 };
                 let rest_args = if arguments.len() > 1 {
                     &arguments[1..]
@@ -101,14 +101,14 @@ impl CodeBuilder<'_> {
             // Bool
             IntrinsicFunction::BoolToString => {
                 if maybe_target.is_none() {
-                    eprintln!("problem")
+                    eprintln!("problem");
                 }
                 self.builder.bool_to_string(
                     maybe_target.unwrap(),
                     self_addr.unwrap(),
                     node,
                     "bool_to_string",
-                )
+                );
             }
 
             // Fixed
@@ -344,7 +344,7 @@ impl CodeBuilder<'_> {
                     location: MemoryLocation {
                         base_ptr_reg: temp_element_ptr.register,
                         offset: MemoryOffset(0),
-                        ty: VmType::new_unknown_placement(element_gen_type.clone()),
+                        ty: VmType::new_unknown_placement(element_gen_type),
                     },
                 };
 
@@ -757,7 +757,7 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        let output_destination = OutputDestination::new_location(memory_location.clone());
+        let output_destination = OutputDestination::new_location(memory_location);
         self.emit_expression(&output_destination, expr, ctx);
     }
 }

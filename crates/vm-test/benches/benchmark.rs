@@ -102,7 +102,7 @@ fn main() {
 fn summary(total_execution_time: Duration, iteration_count: i32, test_time: Option<Duration>) {
     let duration = total_execution_time;
     let total_nanos = duration.as_nanos() as f64;
-    let per_op_nanos = total_nanos / iteration_count as f64;
+    let per_op_nanos = total_nanos / f64::from(iteration_count);
     print!(
         "  Completed {} executions in {} ({}/execution)",
         iteration_count,

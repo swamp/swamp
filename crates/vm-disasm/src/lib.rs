@@ -231,7 +231,7 @@ pub fn disasm_color(
             ),
             DecoratedOperandAccessKind::ImmediateU16(data) => (
                 format!("{}", tinter::magenta(format!("0x{data:X}",))),
-                format!("{}{}", "int:", *data as i32),
+                format!("{}{}", "int:", i32::from(*data)),
             ),
             DecoratedOperandAccessKind::ImmediateU8(data) => (
                 format!("{}", tinter::magenta(format!("0x{data:02X}"))),
@@ -1073,7 +1073,7 @@ pub fn disasm(
     }
 }
 
-fn u8_pair_to_u16(p1: u8, p2: u8) -> u16 {
+const fn u8_pair_to_u16(p1: u8, p2: u8) -> u16 {
     u16::from_le_bytes([p1, p2])
 }
 
@@ -1108,11 +1108,11 @@ fn to_read_reg(
     )
 }
 
-fn to_branch_offset(delta: i16) -> DecoratedOperandAccessKind {
+const fn to_branch_offset(delta: i16) -> DecoratedOperandAccessKind {
     DecoratedOperandAccessKind::DeltaPc(ProgramCounterDelta(delta))
 }
 
-fn to_absolute_branch_pc(ip: u32) -> DecoratedOperandAccessKind {
+const fn to_absolute_branch_pc(ip: u32) -> DecoratedOperandAccessKind {
     DecoratedOperandAccessKind::AbsolutePc(InstructionPosition(ip))
 }
 

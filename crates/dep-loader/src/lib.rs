@@ -126,7 +126,7 @@ impl Default for DependencyParser {
 }
 
 impl DependencyParser {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             import_scanned_modules: SeqMap::new(),
             already_parsed_modules: SeqMap::new(),
@@ -141,7 +141,7 @@ impl DependencyParser {
     pub fn add_ast_module(&mut self, module_path: Vec<String>, parsed_module: ParsedAstModule) {
         self.already_parsed_modules
             .insert(module_path, parsed_module)
-            .expect("can not add parsed module")
+            .expect("can not add parsed module");
     }
 }
 
@@ -160,7 +160,7 @@ impl From<ParseRootError> for DependencyError {
 
 pub const LOCAL_ROOT_PACKAGE_PATH: &str = "crate";
 
-pub fn get_all_local_paths(
+#[must_use] pub fn get_all_local_paths(
     source_map: &SourceMap,
     parsed_module: &ParsedAstModule,
 ) -> (Vec<Vec<String>>, Vec<Vec<String>>) {

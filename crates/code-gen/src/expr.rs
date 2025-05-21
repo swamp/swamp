@@ -57,7 +57,7 @@ impl CodeBuilder<'_> {
         //debug_assert!(expr.ty.is_scalar(), "must have scalar type {}", expr.ty);
         match &expr.kind {
             ExpressionKind::Literal(basic_literal) => {
-                self.emit_literal(output, basic_literal, node, ctx)
+                self.emit_literal(output, basic_literal, node, ctx);
             }
             ExpressionKind::If(condition, true_expression, maybe_false_expression) => {
                 self.emit_if(
@@ -125,30 +125,30 @@ impl CodeBuilder<'_> {
                     &expr.node,
                     expression,
                     ctx,
-                ) // todo:
+                ); // todo:
             }
             ExpressionKind::BinaryOp(operator) => {
-                self.emit_binary_operator(output.grab_register(), operator, ctx)
+                self.emit_binary_operator(output.grab_register(), operator, ctx);
             }
             ExpressionKind::UnaryOp(operator) => {
-                self.emit_unary_operator(output.grab_register(), operator, ctx)
+                self.emit_unary_operator(output.grab_register(), operator, ctx);
             }
             ExpressionKind::PostfixChain(start, chain) => {
-                self.emit_postfix_chain(output, start, chain, ctx)
+                self.emit_postfix_chain(output, start, chain, ctx);
             }
             ExpressionKind::Match(match_expr) => self.emit_match(output, match_expr, ctx),
             ExpressionKind::Guard(guards) => self.emit_guard(output, guards, ctx),
             ExpressionKind::When(bindings, true_expr, false_expr) => {
-                self.emit_when(output, bindings, true_expr, false_expr.as_deref(), ctx)
+                self.emit_when(output, bindings, true_expr, false_expr.as_deref(), ctx);
             }
             ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => {
                 self.emit_single_intrinsic_call(output, &expr.node, intrinsic_fn, arguments, ctx);
             }
             ExpressionKind::CoerceOptionToBool(a) => {
-                self.emit_coerce_option_to_bool(output.grab_register(), a, ctx)
+                self.emit_coerce_option_to_bool(output.grab_register(), a, ctx);
             }
             ExpressionKind::InternalCall(internal, arguments) => {
-                self.emit_internal_call(output, &expr.node, internal, arguments, ctx)
+                self.emit_internal_call(output, &expr.node, internal, arguments, ctx);
             }
             ExpressionKind::HostCall(host_fn, arguments) => {
                 self.emit_host_call(output, &expr.node, host_fn, arguments, ctx);
@@ -157,31 +157,31 @@ impl CodeBuilder<'_> {
             // Statements - can not return anything, so should assert that output is unit (nothing)
             ExpressionKind::TupleDestructuring(variables, tuple_types, tuple_expression) => {
                 debug_assert!(output.is_unit());
-                self.emit_tuple_destructuring(variables, tuple_types, tuple_expression, ctx)
+                self.emit_tuple_destructuring(variables, tuple_types, tuple_expression, ctx);
             }
             ExpressionKind::Assignment(target_mut_location_expr, source_expr) => {
                 debug_assert!(output.is_unit());
-                self.emit_assignment(target_mut_location_expr, source_expr, "", ctx)
+                self.emit_assignment(target_mut_location_expr, source_expr, "", ctx);
             }
             ExpressionKind::VariableDefinition(variable, expression) => {
                 debug_assert!(output.is_unit());
-                self.emit_variable_definition(variable, expression, ctx)
+                self.emit_variable_definition(variable, expression, ctx);
             }
             ExpressionKind::VariableReassignment(variable, expression) => {
                 debug_assert!(output.is_unit());
-                self.emit_variable_reassignment(variable, expression, ctx)
+                self.emit_variable_reassignment(variable, expression, ctx);
             }
             ExpressionKind::CompoundAssignment(target_location, operator_kind, source_expr) => {
                 debug_assert!(output.is_unit());
-                self.emit_compound_assignment(target_location, operator_kind, source_expr, ctx)
+                self.emit_compound_assignment(target_location, operator_kind, source_expr, ctx);
             }
             ExpressionKind::ForLoop(for_pattern, collection, lambda_expr) => {
                 debug_assert!(output.is_unit());
-                self.emit_for_loop(&expr.node, for_pattern, collection, lambda_expr, ctx)
+                self.emit_for_loop(&expr.node, for_pattern, collection, lambda_expr, ctx);
             }
             ExpressionKind::WhileLoop(condition, expression) => {
                 debug_assert!(output.is_unit());
-                self.emit_while_loop(condition, expression, ctx)
+                self.emit_while_loop(condition, expression, ctx);
             }
 
             // Low priority
@@ -197,7 +197,7 @@ impl CodeBuilder<'_> {
         self.temp_registers.restore_to_mark(hwm);
     }
 
-    pub(crate) fn rvalue_needs_memory_location_to_materialize_in(&self, expr: &Expression) -> bool {
+    pub(crate) const fn rvalue_needs_memory_location_to_materialize_in(&self, expr: &Expression) -> bool {
         match &expr.kind {
             ExpressionKind::AnonymousStructLiteral(_) => true,
             ExpressionKind::Literal(literal) => match literal {

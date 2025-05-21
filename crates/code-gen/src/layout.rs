@@ -80,7 +80,7 @@ fn layout_tagged_union(variants: &[VariantLayout]) -> TaggedUnionLayout {
 }
 
 #[allow(clippy::too_many_lines)]
-pub fn layout_enum_into_tagged_union(name: &str, variants: &[EnumVariantType]) -> TaggedUnion {
+#[must_use] pub fn layout_enum_into_tagged_union(name: &str, variants: &[EnumVariantType]) -> TaggedUnion {
     let variant_infos = variants.iter().map(|variant| match variant {
         EnumVariantType::Struct(s) => {
             let struct_type = layout_struct_type(&s.anon_struct, &s.common.assigned_name);
@@ -149,7 +149,7 @@ pub fn layout_enum_into_tagged_union(name: &str, variants: &[EnumVariantType]) -
     }
 }
 
-pub fn layout_enum(name: &str, variants: &[EnumVariantType]) -> BasicType {
+#[must_use] pub fn layout_enum(name: &str, variants: &[EnumVariantType]) -> BasicType {
     let tagged_union = layout_enum_into_tagged_union(name, variants);
 
     BasicType {
@@ -337,7 +337,7 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
     )
 }
 
-pub fn layout_struct_type(struct_type: &AnonymousStructType, name: &str) -> StructType {
+#[must_use] pub fn layout_struct_type(struct_type: &AnonymousStructType, name: &str) -> StructType {
     let mut offset = MemoryOffset(0);
     let mut max_alignment = MemoryAlignment::U8;
     let mut items = Vec::with_capacity(struct_type.field_name_sorted_fields.len());
@@ -371,7 +371,7 @@ pub fn layout_struct_type(struct_type: &AnonymousStructType, name: &str) -> Stru
     }
 }
 
-pub fn layout_struct(struct_type: &AnonymousStructType, name: &str) -> BasicType {
+#[must_use] pub fn layout_struct(struct_type: &AnonymousStructType, name: &str) -> BasicType {
     let inner_struct = layout_struct_type(struct_type, name);
     BasicType {
         total_size: inner_struct.total_size,
@@ -380,7 +380,7 @@ pub fn layout_struct(struct_type: &AnonymousStructType, name: &str) -> BasicType
     }
 }
 
-pub fn layout_optional_type(inner_type: &Type) -> BasicType {
+#[must_use] pub fn layout_optional_type(inner_type: &Type) -> BasicType {
     let tagged_union_type = layout_optional_type_items(inner_type);
     BasicType {
         total_size: tagged_union_type.total_size,
@@ -389,7 +389,7 @@ pub fn layout_optional_type(inner_type: &Type) -> BasicType {
     }
 }
 
-pub fn layout_optional_type_items(inner_type: &Type) -> TaggedUnion {
+#[must_use] pub fn layout_optional_type_items(inner_type: &Type) -> TaggedUnion {
     let gen_type = layout_type(inner_type);
     let payload_variant = VariantLayout {
         size: gen_type.total_size,
@@ -427,7 +427,7 @@ pub fn layout_optional_type_items(inner_type: &Type) -> TaggedUnion {
     }
 }
 
-pub fn layout_tuple_items(types: &[Type]) -> TupleType {
+#[must_use] pub fn layout_tuple_items(types: &[Type]) -> TupleType {
     let mut offset = MemoryOffset(0);
     let mut max_alignment = MemoryAlignment::U8;
     let mut items = Vec::with_capacity(types.len());
@@ -460,7 +460,7 @@ pub fn layout_tuple_items(types: &[Type]) -> TupleType {
     }
 }
 
-pub fn layout_tuple(types: &[Type]) -> BasicType {
+#[must_use] pub fn layout_tuple(types: &[Type]) -> BasicType {
     let tuple_type = layout_tuple_items(types);
 
     BasicType {

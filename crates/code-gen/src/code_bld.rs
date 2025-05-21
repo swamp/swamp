@@ -47,10 +47,10 @@ pub(crate) struct CodeBuilder<'a> {
     pub source_map_lookup: &'a SourceMapWrapper<'a>,
 }
 
-impl<'a> CodeBuilder<'a> {}
+impl CodeBuilder<'_> {}
 
 impl<'a> CodeBuilder<'a> {
-    pub fn new(
+    pub const fn new(
         state: &'a mut CodeGenState,
         builder: &'a mut InstructionBuilder<'a>,
         variable_registers: SeqMap<usize, TypedRegister>,
@@ -84,7 +84,7 @@ impl CodeBuilder<'_> {
                     target_reg,
                     source_reg,
                     node,
-                    &format!("emit_copy_register. ptr to ptr. {}", comment),
+                    &format!("emit_copy_register. ptr to ptr. {comment}"),
                 );
             } else {
                 let size = source_reg.size();
@@ -102,7 +102,7 @@ impl CodeBuilder<'_> {
                 target_reg,
                 source_reg,
                 node,
-                &format!("emit_copy_register. primitive to primitive. {}", comment),
+                &format!("emit_copy_register. primitive to primitive. {comment}"),
             );
         }
     }
@@ -149,7 +149,7 @@ impl CodeBuilder<'_> {
                     target_reg,
                     &source_offset,
                     node,
-                    &format!("{} - load u8 primitive from memory", comment),
+                    &format!("{comment} - load u8 primitive from memory"),
                 );
             }
             BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
@@ -157,7 +157,7 @@ impl CodeBuilder<'_> {
                     target_reg,
                     &source_offset,
                     node,
-                    &format!("{} - load u32 primitive from memory", comment),
+                    &format!("{comment} - load u32 primitive from memory"),
                 );
             }
             _ => panic!("this is not a primitive {type_at_offset:?}"),
@@ -319,7 +319,7 @@ impl CodeBuilder<'_> {
         );
         self.builder.add_mov_32_immediate_value(
             offset_temp_reg.register(),
-            offset.0 as u32,
+            u32::from(offset.0),
             node,
             &format!("{comment} (set offset value to get from base to register)"),
         );
@@ -350,7 +350,7 @@ impl CodeBuilder<'_> {
                 );
                 self.builder.add_mov_32_immediate_value(
                     offset_temp_reg.register(),
-                    memory_location.offset.0 as u32,
+                    u32::from(memory_location.offset.0),
                     node,
                     &format!("{comment} (load offset value)"),
                 );
@@ -416,7 +416,7 @@ impl CodeBuilder<'_> {
                 }
                 _ => panic!("negate should only be possible on Int and Float"),
             },
-        };
+        }
     }
 
     pub(crate) fn emit_binary_operator(
@@ -435,7 +435,7 @@ impl CodeBuilder<'_> {
                     target_reg,
                     t_flag_result,
                     &binary_operator.node,
-                )
+                );
             }
             _ => self.emit_binary_operator_normal(target_reg, binary_operator, ctx),
         }
@@ -511,7 +511,7 @@ impl CodeBuilder<'_> {
                 ),
                 _ => todo!(),
             },
-        };
+        }
 
         self.temp_registers.restore_to_mark(hwm);
     }
@@ -552,11 +552,11 @@ impl CodeBuilder<'_> {
             }
             BinaryOperatorKind::Divide => {
                 self.builder
-                    .add_div_i32(target_reg, left_source, right_source, node, "i32 div")
+                    .add_div_i32(target_reg, left_source, right_source, node, "i32 div");
             }
             BinaryOperatorKind::Modulo => {
                 self.builder
-                    .add_mod_i32(target_reg, left_source, right_source, node, "i32 mod")
+                    .add_mod_i32(target_reg, left_source, right_source, node, "i32 mod");
             }
             BinaryOperatorKind::LogicalOr => todo!(),
             BinaryOperatorKind::LogicalAnd => todo!(),
@@ -593,7 +593,7 @@ impl CodeBuilder<'_> {
             }
             BinaryOperatorKind::Subtract => {
                 self.builder
-                    .add_sub_f32(target_reg, left_source, right_source, node, "f32 sub")
+                    .add_sub_f32(target_reg, left_source, right_source, node, "f32 sub");
             }
             BinaryOperatorKind::Multiply => {
                 self.builder
@@ -605,7 +605,7 @@ impl CodeBuilder<'_> {
             }
             BinaryOperatorKind::Modulo => {
                 self.builder
-                    .add_mod_f32(target_reg, left_source, right_source, node, "f32 mod")
+                    .add_mod_f32(target_reg, left_source, right_source, node, "f32 mod");
             }
             BinaryOperatorKind::LogicalOr => panic!("not supported"),
             BinaryOperatorKind::LogicalAnd => panic!("not supported"),
@@ -723,7 +723,7 @@ impl CodeBuilder<'_> {
                 );
                 self.builder.add_mov_32_immediate_value(
                     temp_offset_reg.register(),
-                    memory_location.offset.0 as u32,
+                    u32::from(memory_location.offset.0),
                     &argument.node,
                     "set offset in temp register",
                 );
@@ -759,7 +759,7 @@ impl CodeBuilder<'_> {
             &target_relative_frame_pointer,
             mut_or_immutable_expression,
             ctx,
-        )
+        );
     }
     pub(crate) fn load_register_contents_from_memory(
         &mut self,
@@ -813,7 +813,7 @@ impl CodeBuilder<'_> {
                 );
                 self.builder.add_mov_32_immediate_value(
                     temp.register(),
-                    offset.0 as u32,
+                    u32::from(offset.0),
                     node,
                     "offset to field",
                 );
@@ -904,7 +904,7 @@ impl CodeBuilder<'_> {
                         &vec_type.element,
                         int_expression,
                         ctx,
-                    )
+                    );
                 }
 
                 PostfixKind::MapSubscript(map_type, key_expression) => {
@@ -913,7 +913,7 @@ impl CodeBuilder<'_> {
                         &map_type.key,
                         key_expression,
                         ctx,
-                    )
+                    );
                 }
 
                 PostfixKind::MemberCall(function_to_call, arguments) => {
@@ -1639,7 +1639,7 @@ impl CodeBuilder<'_> {
 
         all_args
     }
-    /// Generates code to iterate over a collection using a transformer (e.g., map, filter, filter_map)
+    /// Generates code to iterate over a collection using a transformer (e.g., map, filter, `filter_map`)
     /// and a lambda expression. Handles creation of result vectors, iterator setup, lambda invocation,
     /// early exit logic, and result collection.
     ///
@@ -2105,7 +2105,7 @@ impl CodeBuilder<'_> {
     /// let reg_addr_lhs = self.emit_lvalue(complex_lvalue.expression_node(), ctx);
     /// self.emit_complex_rvalue(reg_addr_lhs, complex_literal_expr, ctx);
     /// ```
-    /// 2. Materializing an RValue argument: `foo(StructLiteral{...})`
+    /// 2. Materializing an `RValue` argument: `foo(StructLiteral{...})`
     /// ```ignore
     /// let reg_temp_stack_addr = alloc_for_type(complex_literal_type);
     /// self.emit_complex_rvalue(reg_temp_stack_addr, StructLiteral_expr, ctx);

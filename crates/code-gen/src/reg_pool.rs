@@ -6,10 +6,10 @@ pub struct TempRegister {
 }
 
 impl TempRegister {
-    pub(crate) fn register(&self) -> &TypedRegister {
+    pub(crate) const fn register(&self) -> &TypedRegister {
         &self.register
     }
-    pub fn addressing(&self) -> u8 {
+    #[must_use] pub const fn addressing(&self) -> u8 {
         self.register.addressing()
     }
 }
@@ -97,7 +97,7 @@ pub struct RegisterPool {
 }
 
 impl RegisterPool {
-    pub fn new(start: u8, count: u8) -> Self {
+    #[must_use] pub const fn new(start: u8, count: u8) -> Self {
         Self {
             start_index: start,
             end_index: start + count,

@@ -163,7 +163,7 @@ impl CodeBuilder<'_> {
         );
         self.builder.add_mov_32_immediate_value(
             element_size_reg.register(),
-            element_basic_type.total_size.0 as u32,
+            u32::from(element_basic_type.total_size.0),
             node,
             &format!("element_size: {comment}"),
         );
@@ -251,7 +251,7 @@ impl CodeBuilder<'_> {
                         element_type,
                         int_expression,
                         ctx,
-                    )
+                    );
                 }
                 LocationAccessKind::IntrinsicSubscript(
                     _intrinsic_function,
@@ -278,7 +278,7 @@ impl CodeBuilder<'_> {
                         ctx,
                     );
 
-                    current_location = OutputDestination::new_reg(get_item_target_reg.register)
+                    current_location = OutputDestination::new_reg(get_item_target_reg.register);
                 }
             }
         }

@@ -238,10 +238,10 @@ fn struct_field_assignment_chain2() {
     ";
     check(
         script,
-        r#"
+        r"
 VariableAssignment(<9:1>, Literal(Array([Literal(Int(<14:2>)), Literal(Int(<18:2>))])))
 IndexAccess(VariableAccess(<30:1>), Literal(Int(<32:1>)))
-"#,
+",
     );
 }
 
@@ -253,12 +253,12 @@ fn struct_field_assignment_chain7() {
     ";
     check(
         script,
-        r#"
+        r"
 
 VariableAssignment(<9:1>, Literal(Array([Literal(Int(<14:2>)), Literal(Int(<18:2>))])))
 MemberCall(VariableAccess(<30:1>), <32:6>, [Literal(Int(<39:2>))])
 
-"#,
+",
     );
 }
 
@@ -295,10 +295,10 @@ fn nested_loops() {
     ";
     check(
         script,
-        r#"
+        r"
 VariableAssignment(<9:1>, Literal(Int(<13:1>)))
 WhileLoop(BinaryOp(VariableAccess(<29:1>), LessThan(<31:1>), Literal(Int(<33:1>))), Block([VariableAssignment(<49:1>, Literal(Int(<53:1>))), WhileLoop(BinaryOp(VariableAccess(<73:1>), LessThan(<75:1>), Literal(Int(<77:1>))), Block([FunctionCall(VariableAccess(<97:5>), [BinaryOp(VariableAccess(<103:1>), Add(<105:1>), VariableAccess(<107:1>))]), VariableAssignment(<126:1>, BinaryOp(VariableAccess(<130:1>), Add(<132:1>), Literal(Int(<134:1>))))])), VariableAssignment(<162:1>, BinaryOp(VariableAccess(<166:1>), Add(<168:1>), Literal(Int(<170:1>))))]))
- "#,
+ ",
     );
 }
 
@@ -1102,9 +1102,9 @@ fn string_interpolation_call() {
 fn string_interpolation_call_simple() {
     check(
         "'result: {mul(a,2)}'",
-        r#"
+        r"
 InterpolatedString([Literal(<1:8>), Interpolation(FunctionCall(VariableAccess(<10:3>), [VariableAccess(<14:1>), Literal(Int(<16:1>))]), None)])
-    "#,
+    ",
     );
 }
 
@@ -1112,9 +1112,9 @@ InterpolatedString([Literal(<1:8>), Interpolation(FunctionCall(VariableAccess(<1
 fn string_interpolation_simple() {
     check(
         "'this is interpolated {x}'",
-        r#"
+        r"
 InterpolatedString([Literal(<1:21>), Interpolation(VariableAccess(<23:1>), None)])
-    "#,
+    ",
     );
 }
 
@@ -1122,9 +1122,9 @@ InterpolatedString([Literal(<1:21>), Interpolation(VariableAccess(<23:1>), None)
 fn string_interpolation_simple_no_space() {
     check(
         "'this is interpolated{x}'",
-        r#"
+        r"
 InterpolatedString([Literal(<1:20>), Interpolation(VariableAccess(<22:1>), None)])
-    "#,
+    ",
     );
 }
 
@@ -1304,24 +1304,24 @@ fn else_problem() {
             return "positive"
         }
             "#,
-        r#"
+        r"
 
 If(BinaryOp(VariableAccess(<13:1>), LessThan(<15:1>), Literal(Int(<17:1>))), Block([Return(Some(Literal(String(<44:10>))))]), Some(If(BinaryOp(VariableAccess(<73:1>), Equal(<75:2>), Literal(Int(<78:1>))), Block([Return(Some(Literal(String(<101:10>))))]), None)))
 
-            "#,
+            ",
     );
 }
 
 #[test_log::test]
 fn option_operator() {
     check(
-        r#"
+        r"
          a?
-            "#,
-        r#"
+            ",
+        r"
 PostfixOp(Unwrap(<11:1>), VariableAccess(<10:1>))
 
-            "#,
+            ",
     );
 }
 
@@ -1342,36 +1342,36 @@ fn option_operator_expr() {
 #[test_log::test]
 fn option_operator_if_variable() {
     check(
-        r#"
+        r"
          if a? {
          'this is {a}'
          } else {
          'not here'
          }
-            "#,
-        r#"
+            ",
+        r"
 
 If(PostfixOp(Unwrap(<14:1>), VariableAccess(<13:1>)), Block([InterpolatedString([Literal(<28:8>), Interpolation(VariableAccess(<37:1>), None)])]), Some(Block([InterpolatedString([Literal(<69:8>)])])))
 
-            "#,
+            ",
     );
 }
 
 #[test_log::test]
 fn option_operator_if_expression() {
     check(
-        r#"
+        r"
          if (b*3+99+something.call(42))? {
          'expression is something'
          } else {
          'must be none'
          }
-            "#,
-        r#"
+            ",
+        r"
 
 If(PostfixOp(Unwrap(<40:1>), BinaryOp(BinaryOp(BinaryOp(VariableAccess(<14:1>), Multiply(<15:1>), Literal(Int(<16:1>))), Add(<17:1>), Literal(Int(<18:2>))), Add(<20:1>), MemberCall(VariableAccess(<21:9>), <31:4>, [Literal(Int(<36:2>))]))), Block([InterpolatedString([Literal(<54:23>)])]), Some(Block([InterpolatedString([Literal(<107:12>)])])))
 
-            "#,
+            ",
     );
 }
 
@@ -1394,11 +1394,11 @@ fn option_operator_assignment_chained() {
         r"
          a = another.get_current()?.another_call(b, 42)?
             ",
-        r#"
+        r"
 
 VariableAssignment(<10:1>, PostfixOp(Unwrap(<56:1>), MemberCall(PostfixOp(Unwrap(<35:1>), MemberCall(VariableAccess(<14:7>), <22:11>, [])), <37:12>, [VariableAccess(<50:1>), Literal(Int(<53:2>))])))
 
-            "#,
+            ",
     );
 }
 
@@ -1422,31 +1422,31 @@ If(VariableAssignment(<13:1>, PostfixOp(Unwrap(<38:1>), MemberCall(VariableAcces
 #[test_log::test]
 fn option_operator_if_let_expression_multiple_calls() {
     check(
-        r#"
+        r"
          if a = another.get_current()?.another_call(b, 42)? {
                'this is {a}'
          } else {
             'must be none'
          }
-            "#,
-        r#"
+            ",
+        r"
 
 If(VariableAssignment(<13:1>, PostfixOp(Unwrap(<59:1>), MemberCall(PostfixOp(Unwrap(<38:1>), MemberCall(VariableAccess(<17:7>), <25:11>, [])), <40:12>, [VariableAccess(<53:1>), Literal(Int(<56:2>))]))), Block([InterpolatedString([Literal(<79:8>), Interpolation(VariableAccess(<88:1>), None)])]), Some(Block([InterpolatedString([Literal(<123:12>)])])))
 
-            "#,
+            ",
     );
 }
 
 #[test_log::test]
 fn none_assignment() {
     check(
-        r#"
+        r"
         a = none
-            "#,
-        r#"
+            ",
+        r"
 VariableAssignment(<9:1>, Literal(None(<13:4>)))
 
-            "#,
+            ",
     );
 }
 
@@ -1494,11 +1494,11 @@ fn map_literal() {
   a = [2: 'Hello', 3: 'World']
 
             ",
-        r#"
+        r"
 
 VariableAssignment(<3:1>, Literal(Map([(Literal(Int(<8:1>)), InterpolatedString([Literal(<12:5>)])), (Literal(Int(<20:1>)), InterpolatedString([Literal(<24:5>)]))])))
 
-            "#,
+            ",
     );
 }
 
@@ -1509,11 +1509,11 @@ fn map_literal_no_spaces() {
   a = [2:'Hello',3:'World']
 
             ",
-        r#"
+        r"
 
 VariableAssignment(<3:1>, Literal(Map([(Literal(Int(<8:1>)), InterpolatedString([Literal(<11:5>)])), (Literal(Int(<18:1>)), InterpolatedString([Literal(<21:5>)]))])))
 
-            "#,
+            ",
     );
 }
 
@@ -2051,14 +2051,14 @@ FunctionDef(Internal(FunctionWithBody { declaration: FunctionDeclaration { name:
 
 #[test_log::test]
 fn mut_parameter() {
-    let script = r#"
+    let script = r"
 /// increments the value
 fn increment(mut x: Int) -> Int {
     x = x + 1
     x
 }
 
-    "#;
+    ";
     check(
         script,
         "
