@@ -1,20 +1,13 @@
 use crate::state::CodeGenState;
-use crate::{
-    ConstantInfo, FunctionInData, FunctionIps, GenFunctionInfo,
-};
+use crate::{ConstantInfo, FunctionInData, FunctionIps, GenFunctionInfo};
 use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
-use swamp_semantic::{
-    ConstantId, ConstantRef, InternalFunctionId,
-};
+use swamp_semantic::{ConstantId, ConstantRef, InternalFunctionId};
 use swamp_types::Attributes;
 use swamp_vm_instr_build::{InstructionBuilderState, PatchPosition};
-use swamp_vm_types::types::{
-    FunctionInfo, FunctionInfoKind,
-};
+use swamp_vm_types::types::{FunctionInfo, FunctionInfoKind};
 use swamp_vm_types::{
-    BinaryInstruction, InstructionPosition, InstructionPositionOffset,
-    InstructionRange, Meta,
+    BinaryInstruction, InstructionPosition, InstructionPositionOffset, InstructionRange, Meta,
 };
 use tracing::error;
 

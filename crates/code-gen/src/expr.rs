@@ -27,7 +27,7 @@ impl CodeBuilder<'_> {
         // If the expression needs a memory target, and the current output is not a memory target, create temp memory to materialize in
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, OutputDestination::AggregateToMemoryLocation(_))
-            && self.rvalue_needs_memory_location_to_materialize_in(expr)
+            && Self::rvalue_needs_memory_location_to_materialize_in(expr)
         {
             info!(
                 ?expr,
@@ -49,13 +49,15 @@ impl CodeBuilder<'_> {
                 node,
                 "copy temp materialization memory pointer reg",
             );
+
             return;
         }
 
         let hwm = self.temp_registers.save_mark();
-        //info!(?output, ?expr.kind, "emit_expression");
 
+        //info!(?output, ?expr.kind, "emit_expression");
         //debug_assert!(expr.ty.is_scalar(), "must have scalar type {}", expr.ty);
+
         match &expr.kind {
             ExpressionKind::Literal(basic_literal) => {
                 self.emit_literal(output, basic_literal, node, ctx);
@@ -83,7 +85,6 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-
             ExpressionKind::Option(maybe_option) => self
                 .emit_option_expression_into_target_memory_location(
                     &output.grab_aggregate_memory_location(),
@@ -192,26 +193,21 @@ impl CodeBuilder<'_> {
             ExpressionKind::Lambda(_vec, _x) => {
                 panic!("something went wrong. non-capturing lambdas can not be evaluated")
             }
-            _ => panic!("not an expression, probably a statement {:?} ", expr.kind),
         }
 
         self.temp_registers.restore_to_mark(hwm);
     }
 
-    pub(crate) const fn rvalue_needs_memory_location_to_materialize_in(
-        &self,
-        expr: &Expression,
-    ) -> bool {
+    pub(crate) const fn rvalue_needs_memory_location_to_materialize_in(expr: &Expression) -> bool {
         match &expr.kind {
-            ExpressionKind::AnonymousStructLiteral(_) => true,
-            ExpressionKind::Literal(literal) => match literal {
-                Literal::EnumVariantLiteral(_, _, _) => true,
-                Literal::TupleLiteral(_, _) => true,
-                Literal::Slice(_, _) => true,
-                Literal::SlicePair(_, _) => true,
-                _ => false,
-            },
-            ExpressionKind::Option(_) => true,
+            ExpressionKind::Literal(literal) => matches!(
+                literal,
+                Literal::EnumVariantLiteral(_, _, _)
+                    | Literal::TupleLiteral(_, _)
+                    | Literal::Slice(_, _)
+                    | Literal::SlicePair(_, _)
+            ),
+            ExpressionKind::Option(_) | ExpressionKind::AnonymousStructLiteral(_) => true,
             _ => false,
         }
     }

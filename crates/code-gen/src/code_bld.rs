@@ -11,10 +11,10 @@ use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use swamp_semantic::{
-    BooleanExpression, ConstantRef, Expression, ExpressionKind,
-    ExternalFunctionDefinitionRef, Function, Guard, Match, MutRefOrImmutableExpression,
-    NormalPattern, Pattern, Postfix, PostfixKind, SingleLocationExpression, StartOfChain,
-    StartOfChainKind, UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
+    BooleanExpression, ConstantRef, Expression, ExpressionKind, ExternalFunctionDefinitionRef,
+    Function, Guard, Match, MutRefOrImmutableExpression, NormalPattern, Pattern, Postfix,
+    PostfixKind, SingleLocationExpression, StartOfChain, StartOfChainKind, UnaryOperator,
+    UnaryOperatorKind, VariableRef, WhenBinding,
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};

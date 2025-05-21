@@ -2,7 +2,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_tuple_items;
 use source_map_node::Node;
-use swamp_semantic::Expression;
+use swamp_semantic::{Expression, VariableRef};
 use swamp_types::Type;
 use swamp_vm_types::AggregateMemoryLocation;
 use swamp_vm_types::types::VmType;
@@ -63,6 +63,43 @@ impl CodeBuilder<'_> {
                 ctx,
             );
             self.temp_registers.restore_to_mark(hwm);
+        }
+    }
+
+    pub(crate) fn emit_tuple_destructuring(
+        &mut self,
+        target_variables: &[VariableRef],
+        tuple_type: &[Type],
+        source_tuple_expression: &Expression,
+        context: &Context,
+    ) {
+        let node = &source_tuple_expression.node;
+        let tuple_base_pointer_reg = self.emit_scalar_rvalue(source_tuple_expression, context);
+
+        let tuple_type = layout_tuple_items(tuple_type);
+        // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
+
+        for (tuple_index, target_variable) in target_variables.iter().enumerate() {
+            if target_variable.is_unused {
+            } else {
+                let frame_placed_target_variable =
+                    self.get_variable_register(target_variable).clone();
+
+                //                assert_eq!(frame_placed_target_variable.size().0, offset_item.size.0);
+
+                let field_offset_item = &tuple_type.fields[tuple_index];
+
+                self.load_register_contents_from_memory(
+                    &target_variable.name,
+                    &frame_placed_target_variable,
+                    &tuple_base_pointer_reg,
+                    field_offset_item.offset,
+                    &format!(
+                        "destructuring to variable {}",
+                        target_variable.assigned_name
+                    ),
+                );
+            }
         }
     }
 }
