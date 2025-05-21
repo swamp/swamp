@@ -1,11 +1,11 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::layout_enum_into_tagged_union;
+use crate::layout::{layout_enum_into_tagged_union, layout_type};
 use source_map_node::Node;
 use swamp_semantic::{EnumLiteralData, Expression, ExpressionKind, Literal};
-use swamp_types::{EnumType, EnumVariantType};
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType, u8_type};
-use swamp_vm_types::{AggregateMemoryLocation, ScalarMemoryLocation};
+use swamp_types::{EnumType, EnumVariantType, Type};
+use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType, u8_type, u32_type};
+use swamp_vm_types::{AggregateMemoryLocation, MemoryOffset, ScalarMemoryLocation};
 
 impl CodeBuilder<'_> {
     pub fn emit_aggregate_rvalue_to_lvalue(
@@ -15,8 +15,47 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
+        if self.emit_assignment_conversion(&location.location, expr, ctx) {
+            return;
+        }
+
         let node = &expr.node;
         match &expr.kind {
+            ExpressionKind::VariableAccess(var) => {
+                let found_register = self
+                    .variable_registers
+                    .get(&var.unique_id_within_function)
+                    .unwrap();
+                let memory_size = found_register.ty.basic_type.total_size;
+                self.builder.add_block_copy_with_offset(
+                    &location.location.base_ptr_reg,
+                    location.location.offset,
+                    found_register,
+                    MemoryOffset(0),
+                    memory_size,
+                    node,
+                    "copy from variable access",
+                );
+            }
+            ExpressionKind::PostfixChain(start, chain) => {
+                let temp_reg_for_chain = self
+                    .temp_registers
+                    .allocate(VmType::new_unknown_placement(u32_type()), "temp for chain");
+                self.emit_scalar_rvalue_postfix_chain(
+                    temp_reg_for_chain.register(),
+                    start,
+                    chain,
+                    ctx,
+                );
+                self.store_scalar_to_memory(
+                    &ScalarMemoryLocation {
+                        location: location.location.clone(),
+                    },
+                    temp_reg_for_chain.register,
+                    node,
+                    "copy postfix chain to memory",
+                );
+            }
             ExpressionKind::Block(expressions) => {
                 self.emit_block_to_aggregate_location(location, expressions, ctx);
             }
@@ -30,9 +69,14 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            ExpressionKind::Option(maybe_option) => {
-                self.emit_option_expression(location, node, maybe_option.as_deref(), ctx)
-            }
+
+            ExpressionKind::Option(maybe_option) => self
+                .emit_option_expression_into_target_memory_location(
+                    location,
+                    node,
+                    maybe_option.as_deref(),
+                    ctx,
+                ),
 
             ExpressionKind::Literal(basic_literal) => match basic_literal {
                 Literal::EnumVariantLiteral(enum_type, enum_variant, enum_variant_payload) => self
@@ -47,8 +91,22 @@ impl CodeBuilder<'_> {
                 Literal::TupleLiteral(types, expressions) => {
                     self.emit_tuple_literal_into_memory(location, types, expressions, ctx, node);
                 }
-                Literal::Slice(_, _) => todo!(),
-                Literal::SlicePair(_, _) => todo!(),
+                Literal::Slice(slice_type, expressions) => {
+                    let Type::DynamicSlice(element_type) = slice_type else {
+                        panic!("must be slice")
+                    };
+                    let element_gen_type = layout_type(element_type);
+                    self.emit_slice_literal_into_target_lvalue_memory_location(
+                        location,
+                        &element_gen_type,
+                        expressions,
+                        ctx,
+                    );
+                }
+                Literal::SlicePair(slice_pair_type, pairs) => {
+                    todo!() //self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
+                }
+
                 _ => todo!(),
             },
 

@@ -1,16 +1,13 @@
-/*mod arithmetic
+mod arithmetic
 mod bool
-*/
 mod enum
-/*
 mod float
 mod int
 mod logical
-mod map
+// mod map
 mod operator
 mod slice
 mod string
-mod struct
-mod tuple
+//mod struct
+//mod tuple
 mod vec
-*/

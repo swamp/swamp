@@ -279,6 +279,18 @@ pub struct MemoryLocation {
     pub ty: BasicType,
 }
 
+impl MemoryLocation {
+    pub fn pointer_location(&self) -> Option<PointerLocation> {
+        if self.offset.0 == 0 {
+            Some(PointerLocation {
+                ptr_reg: self.base_ptr_reg.clone(),
+            })
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct ScalarMemoryLocation {
     pub location: MemoryLocation,

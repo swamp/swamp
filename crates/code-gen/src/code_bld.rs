@@ -1473,7 +1473,7 @@ impl CodeBuilder<'_> {
 
     fn emit_map_storage_init_from_slice_pair_literal(
         &mut self,
-        target_map_header_ptr_reg: &TypedRegister, // Points to MapStorage
+        target_map_header_ptr_reg: &PointerLocation, // Points to MapStorage
         slice_pair_literal: &[(Expression, Expression)],
         key_value_tuple_type: &TupleType,
         capacity: usize,
@@ -1524,26 +1524,23 @@ impl CodeBuilder<'_> {
         self.temp_registers.restore_to_mark(hwm);
     }
 
-    fn emit_assignment_conversion(
+    pub(crate) fn emit_assignment_conversion(
         &mut self,
-        target_addr: &TypedRegister,
-        target_location_type: &BasicType,
+        target_location: &MemoryLocation,
         rhs: &Expression,
         ctx: &Context,
     ) -> bool {
-        match (&target_location_type.kind, &rhs.kind) {
+        match (&target_location.ty.kind, &rhs.kind) {
             (
                 BasicTypeKind::InternalVecStorage(element_type, capacity),
                 ExpressionKind::Literal(Literal::Slice(_, elements)),
             ) => {
                 self.emit_vec_storage_init(
-                    &PointerLocation {
-                        ptr_reg: target_addr.clone(),
-                    },
+                    &target_location.pointer_location().unwrap(),
                     elements,
                     element_type,
                     *capacity,
-                    target_location_type,
+                    &target_location.ty,
                     &rhs.node,
                     ctx,
                 );
@@ -1555,7 +1552,7 @@ impl CodeBuilder<'_> {
                 ExpressionKind::Literal(Literal::SlicePair(_, key_value_pairs_vec)),
             ) => {
                 self.emit_map_storage_init_from_slice_pair_literal(
-                    target_addr,
+                    &target_location.pointer_location().unwrap(),
                     key_value_pairs_vec,
                     element_type,
                     *capacity,
@@ -2111,12 +2108,6 @@ impl CodeBuilder<'_> {
             Literal::StringLiteral(str) => {
                 self.emit_string_literal(target_reg, node, str, ctx);
             }
-            Literal::Slice(slice_type, expressions) => {
-                self.emit_slice_literal(target_reg, slice_type, expressions, node, ctx);
-            }
-            Literal::SlicePair(slice_pair_type, pairs) => {
-                self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
-            }
         }
 
         GeneratedExpressionResult::default()
@@ -2165,7 +2156,7 @@ impl CodeBuilder<'_> {
         );
     }
 
-    pub(crate) fn emit_option_expression(
+    pub(crate) fn emit_option_expression_into_target_memory_location(
         &mut self,
         memory_lvalue_location: &AggregateMemoryLocation,
         node: &Node,
@@ -2582,7 +2573,7 @@ impl CodeBuilder<'_> {
 
 
      */
-    fn emit_slice_literal_into_target_lvalue_memory_location(
+    pub(crate) fn emit_slice_literal_into_target_lvalue_memory_location(
         &mut self,
         lvalue_location: &AggregateMemoryLocation,
         element_gen_type: &BasicType,

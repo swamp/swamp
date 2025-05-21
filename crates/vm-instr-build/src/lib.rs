@@ -1140,7 +1140,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_map_init_set_capacity(
         &mut self,
-        target_map_to_init: &TypedRegister,
+        target_map_to_init: &PointerLocation,
         capacity: u16,
         key_size: MemorySize,
         tuple_element_size: MemorySize,
@@ -1156,7 +1156,7 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::MapInitWithCapacityAndKeySizeAddr,
             &[
-                target_map_to_init.addressing(),
+                target_map_to_init.ptr_reg.addressing(),
                 capacity_bytes.0,
                 capacity_bytes.1,
                 key_size_bytes.0,
@@ -2037,7 +2037,7 @@ impl InstructionBuilder<'_> {
     pub fn add_map_get_or_reserve_entry_location(
         &mut self,
         target_entry_reg: &TypedRegister,
-        self_addr: &TypedRegister,
+        self_addr: &PointerLocation,
         key: &TypedRegister,
         node: &Node,
         comment: &str,
@@ -2046,7 +2046,7 @@ impl InstructionBuilder<'_> {
             OpCode::MapGetOrReserveEntryLocation,
             &[
                 target_entry_reg.addressing(),
-                self_addr.addressing(),
+                self_addr.ptr_reg.addressing(),
                 key.addressing(),
             ],
             node,
