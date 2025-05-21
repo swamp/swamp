@@ -12,6 +12,35 @@ use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
+    /// Emits code for an assignment operation (lhs = rhs).
+    ///
+    /// In compiler terminology:
+    ///
+    /// - The left-hand side (lhs) must be a lvalue (addressable storage location)
+    /// - The right-hand side (rhs) is materialized as a rvalue (computed value)
+    ///
+    /// The assignment process involves two steps:
+    ///
+    /// 1. Compute the destination address of the lvalue
+    ///
+    /// 2. Materialize the rhs expression into that destination
+    ///
+    /// This approach, known as "destination passing style", avoids unnecessary
+    /// copies by materializing the rhs expression directly into the storage location
+    /// of the lhs.
+    ///
+    /// # Example in Source
+    ///
+    /// ```ignore
+    /// foo.bar[i] = compute_value()
+    /// ```
+    ///
+    /// # Generated Operations
+    ///
+    /// ```ignore
+    /// addr = emit_lvalue_address(foo.bar[i]) // Get address of lhs
+    /// emit_expression(addr, compute_value()) // Materialize rhs into addr
+    /// ```
     pub(crate) fn emit_assignment(
         &mut self,
         lhs: &TargetAssignmentLocation,

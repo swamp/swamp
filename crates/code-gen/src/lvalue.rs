@@ -33,7 +33,7 @@ impl CodeBuilder<'_> {
     ///
     /// The computed address is always represented as either:
     /// - A register containing a direct memory address
-    /// - A (base_register, offset) pair for more complex addressing
+    /// - A (`base_register`, offset) pair for more complex addressing
     ///
     /// # Examples in Compiler Terms
     ///
