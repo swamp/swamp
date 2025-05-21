@@ -17,7 +17,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::single_match_else)]
     pub fn emit_single_intrinsic_call(
         &mut self,
-        target_reg: &TypedRegister,
+        target_reg: &OutputDestination,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         arguments: &[MutRefOrImmutableExpression],
@@ -41,7 +41,7 @@ impl CodeBuilder<'_> {
                 assert!(value_type.is_concrete_or_unit());
 
                 self.builder.add_map_new_from_slice(
-                    target_reg,
+                    target_reg.grab_register(),
                     &slice_region,
                     node,
                     "create map from temporary slice pair",
@@ -64,7 +64,7 @@ impl CodeBuilder<'_> {
                     &vec![]
                 };
                 self.emit_single_intrinsic_call_with_self(
-                    target_reg,
+                    target_reg.grab_register(),
                     node,
                     intrinsic_fn,
                     maybe_self_type,

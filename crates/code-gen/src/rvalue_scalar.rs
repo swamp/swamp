@@ -6,6 +6,7 @@ use swamp_semantic::{Expression, ExpressionKind, Literal};
 use swamp_types::Type;
 use swamp_vm_types::MemoryOffset;
 use swamp_vm_types::types::{OutputDestination, TypedRegister, VmType, int_type};
+use tracing::info;
 
 impl CodeBuilder<'_> {
     pub fn emit_bool_expression(
@@ -204,6 +205,7 @@ impl CodeBuilder<'_> {
         }
 
         let hwm = self.temp_registers.save_mark();
+        info!(?output, ?expr.kind, "emit_expression");
 
         //debug_assert!(expr.ty.is_scalar(), "must have scalar type {}", expr.ty);
         match &expr.kind {
@@ -288,23 +290,13 @@ impl CodeBuilder<'_> {
             ExpressionKind::PostfixChain(start, chain) => {
                 self.emit_postfix_chain(output, start, chain, ctx)
             }
-            ExpressionKind::Block(expressions) => self.emit_block(output, expressions, ctx),
             ExpressionKind::Match(match_expr) => self.emit_match(output, match_expr, ctx),
             ExpressionKind::Guard(guards) => self.emit_guard(output, guards, ctx),
-            ExpressionKind::If(conditional, true_expr, false_expr) => {
-                self.emit_if(output, conditional, true_expr, false_expr.as_deref(), ctx)
-            }
             ExpressionKind::When(bindings, true_expr, false_expr) => {
                 self.emit_when(output, bindings, true_expr, false_expr.as_deref(), ctx)
             }
             ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => {
-                self.emit_single_intrinsic_call(
-                    output.grab_register(),
-                    &expr.node,
-                    intrinsic_fn,
-                    arguments,
-                    ctx,
-                );
+                self.emit_single_intrinsic_call(output, &expr.node, intrinsic_fn, arguments, ctx);
             }
             ExpressionKind::CoerceOptionToBool(a) => {
                 self.emit_coerce_option_to_bool(output.grab_register(), a, ctx)

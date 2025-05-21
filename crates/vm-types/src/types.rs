@@ -1,4 +1,3 @@
-use crate::types::OutputDestination::AggregateToMemoryLocation;
 use crate::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
     HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryOffset,
@@ -11,9 +10,7 @@ use crate::{
     align_to,
 };
 use seq_fmt::comma;
-use std::cmp::PartialEq;
 use std::fmt::{Debug, Display, Formatter, Write};
-use std::ops::Add;
 use tracing::error;
 use yansi::Paint;
 
@@ -679,13 +676,19 @@ pub const fn is_callee_save(reg_index: u8) -> bool {
     reg_index >= 7
 }
 
+#[derive(Debug)]
 pub enum OutputDestination {
     Unit, // no output
     ScalarToRegister(TypedRegister),
     AggregateToMemoryLocation(MemoryLocation),
 }
 
+impl OutputDestination {}
+
 impl OutputDestination {
+    pub fn new_unit() -> Self {
+        Self::Unit
+    }
     pub fn new_reg(register: TypedRegister) -> Self {
         Self::ScalarToRegister(register)
     }

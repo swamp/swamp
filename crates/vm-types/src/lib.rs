@@ -273,7 +273,7 @@ pub struct PointerLocation {
     pub ptr_reg: TypedRegister,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MemoryLocation {
     pub base_ptr_reg: TypedRegister,
     pub offset: MemoryOffset,

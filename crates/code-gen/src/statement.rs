@@ -15,14 +15,8 @@ use tracing::info;
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
         debug_assert!(matches!(expr.ty, Type::Unit));
-        match &expr.kind {
-            _ => {
-                info!(?expr, "fallback");
-                let _ignore = self.emit_scalar_rvalue(expr, ctx);
-            }
-
-            _ => panic!("this is not a statement! {expr:?}"),
-        }
+        let output_destination = OutputDestination::new_unit();
+        self.emit_expression(&output_destination, expr, ctx);
     }
     pub(crate) fn emit_variable_definition(
         &mut self,
