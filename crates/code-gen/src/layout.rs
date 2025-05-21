@@ -1,4 +1,4 @@
-//! Layouts analyzed into Vm Types (BasicType)
+//! Layouts analyzed into Vm Types (`BasicType`)
 use crate::FrameAndVariableInfo;
 use crate::alloc::ScopeAllocator;
 use crate::reg_pool::RegisterPool;

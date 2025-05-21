@@ -1,30 +1,20 @@
-use crate::alloc::ScopeAllocator;
-use crate::code_bld::CodeBuilder;
-use crate::ctx::Context;
-use crate::layout::{layout_type, layout_variables};
-use crate::reg_pool::HwmTempRegisterPool;
-use crate::state::{CodeGenState, GenOptions};
+use crate::state::CodeGenState;
 use crate::{
-    ConstantInfo, FunctionInData, FunctionIp, FunctionIpKind, FunctionIps, GenFunctionInfo,
-    SpilledRegister, SpilledRegisterRegion,
+    ConstantInfo, FunctionInData, FunctionIps, GenFunctionInfo,
 };
 use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
-use source_map_node::Node;
 use swamp_semantic::{
-    ConstantId, ConstantRef, InternalFunctionDefinitionRef, InternalFunctionId,
-    InternalMainExpression, pretty_module_name,
+    ConstantId, ConstantRef, InternalFunctionId,
 };
 use swamp_types::Attributes;
-use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
+use swamp_vm_instr_build::{InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
-    FunctionInfo, FunctionInfoKind, OutputDestination, TypedRegister, VmType, VmTypeOrigin,
-    is_callee_save,
+    FunctionInfo, FunctionInfoKind,
 };
 use swamp_vm_types::{
-    BinaryInstruction, FrameMemoryRegion, InstructionPosition, InstructionPositionOffset,
-    InstructionRange, MemoryLocation, MemoryOffset, MemorySize, Meta, REG_ON_FRAME_ALIGNMENT,
-    REG_ON_FRAME_SIZE,
+    BinaryInstruction, InstructionPosition, InstructionPositionOffset,
+    InstructionRange, Meta,
 };
 use tracing::error;
 
