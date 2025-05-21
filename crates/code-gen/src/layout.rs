@@ -198,6 +198,31 @@ const fn create_basic_type(
     }
 }
 
+/// Computes the memory layout for a type in the target architecture.
+///
+/// In compiler terminology:
+///
+/// - "layout" determines size, alignment, and field offsets of types
+/// - "materialization" refers to how types are represented in memory
+/// - "lowering" is the process of mapping source types to machine types
+///
+/// This function performs type lowering by mapping high-level types to their
+/// concrete memory representations, handling:
+///
+/// - Primitive, scalar types (integers, floats, booleans)
+/// - Aggregate types (structs, tuples, enums)
+/// - Reference types (pointers, slices)
+/// - Collection types (vectors, maps)
+///
+/// The layout process considers:
+///
+/// - Size: Total bytes needed for the type
+/// - Alignment: Memory boundary requirements
+/// - Padding: Gaps needed for proper field alignment
+/// - ABI: Target architecture requirements
+///
+/// # Panics
+///
 #[must_use]
 pub fn layout_type(ty: &Type) -> BasicType {
     match ty {
@@ -234,7 +259,6 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 max_alignment,
             )
         }
-
         Type::Map(key_type, element_type) => {
             let element_type_basic = layout_type(element_type);
             create_basic_type(
@@ -273,7 +297,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
         Type::Optional(inner_type) => layout_optional_type(inner_type),
         Type::MutableReference(inner_type) => layout_mutable_reference(inner_type),
         Type::ImmutableReference(inner_type) => layout_constant_reference(inner_type),
-
+        // ----------
         Type::Function(_) => panic!("function types should not be a part of codegen"),
         Type::Never => panic!("'never' should not be a part of codegen"),
         Type::Generic(_, _) => panic!("generic should not be a part of codegen"),
