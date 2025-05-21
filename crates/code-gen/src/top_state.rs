@@ -18,8 +18,8 @@ use swamp_semantic::{
 use swamp_types::Attributes;
 use swamp_vm_instr_build::{InstructionBuilder, InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{
-    CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, TypedRegister, VariableRegister, VmType,
-    VmTypeOrigin, is_callee_save, unknown_type,
+    CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, OutputDestination, TypedRegister,
+    VariableRegister, VmType, VmTypeOrigin, is_callee_save, unknown_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryRegion, FrameMemorySize, InstructionPosition,
@@ -73,7 +73,6 @@ impl TopLevelGenState {
         internal_fn_def: &InternalFunctionDefinitionRef,
         source_map_wrapper: &SourceMapWrapper,
     ) {
-        info!(internal_fn_def.assigned_name, "gen_function");
         assert_ne!(internal_fn_def.program_unique_id, 0);
 
         let complete_function_name = format!(
@@ -352,24 +351,22 @@ impl TopLevelGenState {
             source_map_wrapper,
         );
 
-        info!(?in_data, "generate");
-
         let return_basic_type = layout_type(&in_data.return_type);
         let return_register =
             TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
-        let memory_location = MemoryLocation {
-            ty: VmType::new_unknown_placement(return_register.ty().clone()),
-            base_ptr_reg: return_register,
-            offset: MemoryOffset(0),
+        let destination = if return_register.ty.basic_type.is_scalar() {
+            OutputDestination::ScalarToRegister(return_register)
+        } else {
+            let memory_location = MemoryLocation {
+                ty: VmType::new_unknown_placement(return_register.ty().clone()),
+                base_ptr_reg: return_register,
+                offset: MemoryOffset(0),
+            };
+            OutputDestination::AggregateToMemoryLocation(memory_location.clone())
         };
 
-        function_code_builder.emit_expression_into_target_memory(
-            &memory_location,
-            &in_data.expression,
-            "function root expression",
-            &ctx,
-        );
+        function_code_builder.emit_expression(&destination, &in_data.expression, &ctx);
 
         function_code_builder.patch_enter(enter_patch_position);
 

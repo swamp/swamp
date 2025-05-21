@@ -1151,6 +1151,10 @@ impl BasicType {
         self.kind.is_represented_as_primitive_inside_register()
     }
 
+    pub fn is_scalar(&self) -> bool {
+        self.is_simple_primitive() || matches!(self.kind, BasicTypeKind::InternalStringPointer)
+    }
+
     pub fn is_mutable_reference(&self) -> bool {
         self.kind.is_mutable_reference()
     }

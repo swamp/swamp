@@ -210,7 +210,7 @@ impl CodeBuilder<'_> {
         }
 
         let hwm = self.temp_registers.save_mark();
-        info!(?output, ?expr.kind, "emit_expression");
+        //info!(?output, ?expr.kind, "emit_expression");
 
         //debug_assert!(expr.ty.is_scalar(), "must have scalar type {}", expr.ty);
         match &expr.kind {
@@ -369,7 +369,6 @@ impl CodeBuilder<'_> {
                     "to produce a scalar rvalue, we have to allocate a temporary variable",
                 );
 
-                info!(?expr, "emit_scalar_rvalue");
                 self.emit_expression_into_register(
                     temp_target_reg.register(),
                     expr,

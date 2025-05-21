@@ -90,6 +90,7 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) -> GeneratedExpressionResult {
         let maybe_target = target_reg.register();
+
         let mut t_flag_result = GeneratedExpressionResult::default();
         match intrinsic_fn {
             IntrinsicFunction::RuntimePanic => {
@@ -98,12 +99,17 @@ impl CodeBuilder<'_> {
             }
 
             // Bool
-            IntrinsicFunction::BoolToString => self.builder.bool_to_string(
-                maybe_target.unwrap(),
-                &self_addr.unwrap(),
-                node,
-                "bool_to_string",
-            ),
+            IntrinsicFunction::BoolToString => {
+                if maybe_target.is_none() {
+                    eprintln!("problem")
+                }
+                self.builder.bool_to_string(
+                    maybe_target.unwrap(),
+                    &self_addr.unwrap(),
+                    node,
+                    "bool_to_string",
+                )
+            }
 
             // Fixed
             IntrinsicFunction::FloatRound => self.builder.add_float_round(

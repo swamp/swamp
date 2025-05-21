@@ -612,8 +612,6 @@ impl CodeBuilder<'_> {
     ) {
         let hwm = self.temp_registers.save_mark();
 
-        info!(?binary_operator.kind, "binary operator");
-
         let left_source = self.emit_scalar_rvalue(&binary_operator.left, ctx);
         let right_source = self.emit_scalar_rvalue(&binary_operator.right, ctx);
 
@@ -3005,7 +3003,6 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) {
-        info!(?internal_fn, "internal call");
         let (spilled_arguments, copy_back) = self.emit_arguments(
             target_reg,
             node,
