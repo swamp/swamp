@@ -457,7 +457,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
         comment: &str,
     ) {
-        let region = self.emit_lvalue_location(argument, ctx);
+        let region = self.emit_lvalue_address(argument, ctx);
         match region {
             OutputDestination::ScalarToRegister(reg) => {
                 self.builder.add_mov_reg(
@@ -980,7 +980,7 @@ impl CodeBuilder<'_> {
                 self.emit_scalar_rvalue(found_expression, ctx)
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                let x = self.emit_lvalue_location(location_expression, ctx);
+                let x = self.emit_lvalue_address(location_expression, ctx);
                 // TODO: FIX THIS
                 if let OutputDestination::ScalarToRegister(reg) = x {
                     reg

@@ -6,15 +6,23 @@ use swamp_vm_types::{MemoryLocation, MemoryOffset};
 use tracing::info;
 
 impl CodeBuilder<'_> {
-    /// It emits a rvalue to an output destination.
-    /// The output destination is either a memory location (base register + offset) or, for scalars, a single register.
+    /// The expression materializer! Transforms high-level expressions into their code representation,
+    /// making sure each value finds its proper home in either a register or memory location.
     ///
-    /// Come up with a cool name for this:
+    /// # Optimization Magic
     ///
-    /// - Return Value Optimization (RVO)
-    /// - Copy Elision for Aggregates
-    /// - Destination-Passing Style (DPS)
-    /// - In-Place Construction/Materialization
+    /// Uses Destination-Passing Style (DPS) to optimize code generation. Instead of creating
+    /// temporary values and copying them around, we tell each expression exactly where its
+    /// result should end up. This means we can often construct values directly in their
+    /// final location, avoiding unnecessary copies and temporary allocations.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - Where should our expression's result live? (register or memory location)
+    /// * `expr` - The expression we're bringing to life
+    /// * `ctx` - The context with all our compilation knowledge
+    ///
+    /// If something needs temporary storage, we'll handle that too.
     #[allow(clippy::too_many_lines)]
     pub fn emit_expression(
         &mut self,

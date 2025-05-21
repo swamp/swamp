@@ -19,7 +19,7 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        let output_destination = self.emit_lvalue_location(&lhs.0, ctx);
+        let output_destination = self.emit_lvalue_address(&lhs.0, ctx);
 
         self.emit_expression(&output_destination, rhs, ctx);
     }
@@ -120,7 +120,7 @@ impl CodeBuilder<'_> {
         source: &Expression,
         ctx: &Context,
     ) {
-        let assignment_target = self.emit_lvalue_location(&target_location.0, ctx);
+        let assignment_target = self.emit_lvalue_address(&target_location.0, ctx);
 
         let hwm = self.temp_registers.save_mark();
 

@@ -38,7 +38,7 @@ impl CodeBuilder<'_> {
                 }
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                let location = self.emit_lvalue_location(location_expression, ctx);
+                let location = self.emit_lvalue_address(location_expression, ctx);
                 //TODO: move location to target_reg // self.emit_ptr_reg_from_detailed_location()
             }
         }
