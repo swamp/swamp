@@ -1,10 +1,9 @@
-use crate::DetailedLocation;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_semantic::Expression;
 use swamp_types::Type;
-use swamp_vm_types::types::{BoundsCheck, VmType, u16_type};
+use swamp_vm_types::types::{BoundsCheck, OutputDestination, VmType, u16_type};
 use swamp_vm_types::{VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET};
 
 impl CodeBuilder<'_> {
@@ -16,11 +15,11 @@ impl CodeBuilder<'_> {
     /// emit the bounds checking.
     pub fn vec_subscript_helper(
         &mut self,
-        current_location: &DetailedLocation,
+        current_location: &OutputDestination,
         analyzed_element_type: &Type,
         int_expression: &Expression,
         ctx: &Context,
-    ) -> DetailedLocation {
+    ) -> OutputDestination {
         let element_basic_type = layout_type(&analyzed_element_type);
         let vec_count_reg = self
             .temp_registers

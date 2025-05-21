@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::aligner::align;
-use crate::types::TypedRegister;
 use crate::types::{BasicType, OutputDestination};
+use crate::types::{TypedRegister, VmType};
 use source_map_node::Node;
 use std::cmp::PartialOrd;
 use std::fmt::{Alignment, Display, Formatter};
@@ -277,7 +277,7 @@ pub struct PointerLocation {
 pub struct MemoryLocation {
     pub base_ptr_reg: TypedRegister,
     pub offset: MemoryOffset,
-    pub ty: BasicType,
+    pub ty: VmType,
 }
 
 impl MemoryLocation {}
@@ -312,7 +312,7 @@ impl AggregateMemoryLocation {
         let new_location = MemoryLocation {
             base_ptr_reg: self.location.base_ptr_reg.clone(),
             offset: self.location.offset + memory_offset,
-            ty: new_type.clone(),
+            ty: VmType::new_unknown_placement(new_type.clone()),
         };
         Self {
             location: new_location,

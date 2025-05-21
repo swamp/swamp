@@ -338,7 +338,7 @@ impl CodeBuilder<'_> {
                     location: MemoryLocation {
                         base_ptr_reg: temp_element_ptr.register,
                         offset: MemoryOffset(0),
-                        ty: element_gen_type.clone(),
+                        ty: VmType::new_unknown_placement(element_gen_type.clone()),
                     },
                 };
 

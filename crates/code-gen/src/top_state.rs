@@ -352,14 +352,14 @@ impl TopLevelGenState {
             source_map_wrapper,
         );
 
-        //info!(?in_data, "generate");
+        info!(?in_data, "generate");
 
         let return_basic_type = layout_type(&in_data.return_type);
         let return_register =
             TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
         let memory_location = MemoryLocation {
-            ty: return_register.ty.basic_type.clone(),
+            ty: VmType::new_unknown_placement(return_register.ty().clone()),
             base_ptr_reg: return_register,
             offset: MemoryOffset(0),
         };

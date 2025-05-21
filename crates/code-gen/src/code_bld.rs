@@ -1,49 +1,40 @@
 use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
-use crate::layout::{
-    layout_enum_into_tagged_union, layout_optional_type, layout_struct_type, layout_tuple_items,
-    layout_type,
-};
+use crate::layout::{layout_optional_type, layout_struct_type, layout_tuple_items, layout_type};
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool, TempRegister};
 use crate::state::{CodeGenState, FunctionFixup};
 use crate::{
-    Collection, DetailedLocation, DetailedLocationResolved, GeneratedExpressionResult,
-    GeneratedExpressionResultKind, SpilledRegister, Transformer, TransformerResult,
-    single_intrinsic_fn,
+    Collection, DetailedLocationResolved, GeneratedExpressionResult, GeneratedExpressionResultKind,
+    SpilledRegister, Transformer, TransformerResult, single_intrinsic_fn,
 };
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
-use std::env::var;
-use std::process::Output;
-use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
-    AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression,
-    CompoundOperatorKind, ConstantRef, EnumLiteralData, Expression, ExpressionKind,
-    ExternalFunctionDefinitionRef, ForPattern, Function, Guard, InternalFunctionDefinitionRef,
-    Iterable, Literal, Match, MutRefOrImmutableExpression, NormalPattern, Pattern, Postfix,
-    PostfixKind, SingleLocationExpression, StartOfChain, StartOfChainKind,
-    TargetAssignmentLocation, UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
+    AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, BooleanExpression, ConstantRef,
+    Expression, ExpressionKind, ExternalFunctionDefinitionRef, ForPattern, Function, Guard,
+    InternalFunctionDefinitionRef, Iterable, Literal, Match, MutRefOrImmutableExpression,
+    NormalPattern, Pattern, Postfix, PostfixKind, SingleLocationExpression, StartOfChain,
+    StartOfChainKind, TargetAssignmentLocation, UnaryOperator, UnaryOperatorKind, VariableRef,
+    WhenBinding,
 };
-use swamp_types::{AnonymousStructType, EnumVariantType, Signature, Type};
+use swamp_types::{AnonymousStructType, Signature, Type};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, FramePlacedType, OutputDestination, TupleType,
-    TypedRegister, VmType, VmTypeOrigin, b8_type, u8_type, u16_type, u32_type, unit_type,
-    unknown_type, vec_type,
+    BasicType, BasicTypeKind, FramePlacedType, OutputDestination, TupleType, TypedRegister, VmType,
+    b8_type, u8_type, u32_type, unknown_type, vec_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryAddress, HeapMemoryOffset, InstructionPosition, MAP_HEADER_COUNT_OFFSET,
-    MAP_HEADER_KEY_SIZE_OFFSET, MemoryLocation, MemoryOffset, MemorySize, PointerLocation,
-    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, ScalarMemoryLocation, StringHeader,
-    VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
+    HeapMemoryAddress, InstructionPosition, MAP_HEADER_COUNT_OFFSET, MAP_HEADER_KEY_SIZE_OFFSET,
+    MemoryLocation, MemoryOffset, PointerLocation, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
+    StringHeader, VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET, VEC_PTR_SIZE,
 };
 use tracing::{error, info};
 
 struct MutableReturnReg {
-    pub target_location_after_call: DetailedLocation,
+    pub target_location_after_call: OutputDestination,
     pub parameter_reg: TypedRegister,
 }
 
@@ -259,56 +250,57 @@ impl CodeBuilder<'_> {
     fn emit_load_from_location(
         &mut self,
         target_reg: &TypedRegister,
-        location: &DetailedLocation,
+        location: &OutputDestination,
         node: &Node,
         comment: &str,
     ) {
         match location {
-            DetailedLocation::Register { reg } => {
+            OutputDestination::ScalarToRegister(reg) => {
                 self.emit_copy_register(target_reg, reg, node, comment);
             }
-            DetailedLocation::Memory {
-                base_ptr_reg,
-                offset,
-                ty,
-            } => {
+            OutputDestination::AggregateToMemoryLocation(memory_location) => {
                 self.emit_load_from_memory(
                     target_reg,
-                    base_ptr_reg,
-                    *offset,
-                    ty,
+                    &memory_location.base_ptr_reg,
+                    memory_location.offset,
+                    &memory_location.ty,
                     node,
                     "load from location",
                 );
+            }
+            OutputDestination::Unit => {
+                panic!("not sure")
             }
         }
     }
 
     pub(crate) fn emit_load_primitive_from_detailed_location_if_needed(
         &mut self,
-        location: &DetailedLocation,
+        location: &OutputDestination,
         node: &Node,
         comment: &str,
     ) -> DetailedLocationResolved {
         match location {
-            DetailedLocation::Register { reg } => DetailedLocationResolved::Register(reg.clone()),
-            DetailedLocation::Memory {
-                base_ptr_reg,
-                offset,
-                ty,
-            } => {
-                let temp_reg_target = self
-                    .temp_registers
-                    .allocate(ty.clone(), "emit load primitive from location");
+            OutputDestination::ScalarToRegister(reg) => {
+                DetailedLocationResolved::Register(reg.clone())
+            }
+            OutputDestination::AggregateToMemoryLocation(memory_location) => {
+                let temp_reg_target = self.temp_registers.allocate(
+                    memory_location.ty.clone(),
+                    "emit load primitive from location",
+                );
                 self.emit_load_from_memory(
                     temp_reg_target.register(),
-                    base_ptr_reg,
-                    *offset,
-                    ty,
+                    &memory_location.base_ptr_reg,
+                    memory_location.offset,
+                    &memory_location.ty,
                     node,
                     &format!("load primitive from detailed location {comment}"),
                 );
                 DetailedLocationResolved::TempRegister(temp_reg_target)
+            }
+            OutputDestination::Unit => {
+                panic!("")
             }
         }
     }
@@ -345,17 +337,13 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_ptr_reg_from_detailed_location(
         &mut self,
-        location: &DetailedLocation,
+        location: &OutputDestination,
         node: &Node,
         comment: &str,
     ) -> TypedRegister {
         match location {
-            DetailedLocation::Register { reg } => reg.clone(),
-            DetailedLocation::Memory {
-                base_ptr_reg,
-                offset,
-                ty,
-            } => {
+            OutputDestination::ScalarToRegister(reg) => reg.clone(),
+            OutputDestination::AggregateToMemoryLocation(memory_location) => {
                 //let hwm = self.temp_registers.save_mark();
                 let offset_temp_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u32_type()),
@@ -363,21 +351,24 @@ impl CodeBuilder<'_> {
                 );
                 self.builder.add_mov_32_immediate_value(
                     offset_temp_reg.register(),
-                    offset.0 as u32,
+                    memory_location.offset.0 as u32,
                     node,
                     &format!("{comment} (load offset value)"),
                 );
                 let final_ptr_target_reg = self
                     .temp_registers
-                    .allocate(ty.clone(), "final_ptr_target_reg");
+                    .allocate(memory_location.ty.clone(), "final_ptr_target_reg");
                 self.builder.add_add_u32(
                     final_ptr_target_reg.register(),
-                    &base_ptr_reg,
+                    &memory_location.base_ptr_reg,
                     offset_temp_reg.register(),
                     node,
                     &format!("{comment} (add to resolved new base_ptr)"),
                 );
                 final_ptr_target_reg.register().clone()
+            }
+            OutputDestination::Unit => {
+                panic!("not sure")
             }
         }
     }
@@ -1078,7 +1069,7 @@ impl CodeBuilder<'_> {
     ) {
         let region = self.emit_lvalue_location(argument, ctx);
         match region {
-            DetailedLocation::Register { reg } => {
+            OutputDestination::ScalarToRegister(reg) => {
                 self.builder.add_mov_reg(
                     target_reg,
                     &reg,
@@ -1086,11 +1077,7 @@ impl CodeBuilder<'_> {
                     &format!("copy reg that has pointer {target_reg:?} <- {reg:?} {comment}"),
                 );
             }
-            DetailedLocation::Memory {
-                base_ptr_reg,
-                offset,
-                ..
-            } => {
+            OutputDestination::AggregateToMemoryLocation(memory_location) => {
                 let hwm = self.temp_registers.save_mark();
 
                 let temp_offset_reg = self.temp_registers.allocate(
@@ -1099,13 +1086,13 @@ impl CodeBuilder<'_> {
                 );
                 self.builder.add_mov_32_immediate_value(
                     temp_offset_reg.register(),
-                    offset.0 as u32,
+                    memory_location.offset.0 as u32,
                     &argument.node,
                     "set offset in temp register",
                 );
                 self.builder.add_add_u32(
                     target_reg,
-                    &base_ptr_reg,
+                    &memory_location.base_ptr_reg,
                     temp_offset_reg.register(),
                     &argument.node,
                     "forcing lvalue to be a complete pointer",
@@ -1113,9 +1100,13 @@ impl CodeBuilder<'_> {
 
                 self.temp_registers.restore_to_mark(hwm);
             }
+            OutputDestination::Unit => {
+                panic!("can not get absolute pointer")
+            }
         }
     }
 
+    /*
     pub(crate) fn emit_absolute_pointer_if_needed(
         &mut self,
         target_reg: &TypedRegister,
@@ -1163,6 +1154,8 @@ impl CodeBuilder<'_> {
         }
     }
 
+
+     */
     fn emit_variable_binding(
         &mut self,
         variable: &VariableRef,
@@ -1462,7 +1455,7 @@ impl CodeBuilder<'_> {
             location: MemoryLocation {
                 base_ptr_reg: elements_base_ptr_reg.register,
                 offset: MemoryOffset(0),
-                ty: element_type.clone(),
+                ty: VmType::new_unknown_placement(element_type.clone()),
             },
         };
 
@@ -1533,7 +1526,7 @@ impl CodeBuilder<'_> {
         rhs: &Expression,
         ctx: &Context,
     ) -> bool {
-        match (&target_location.ty.kind, &rhs.kind) {
+        match (&target_location.ty.basic_type.kind, &rhs.kind) {
             (
                 BasicTypeKind::InternalVecStorage(element_type, capacity),
                 ExpressionKind::Literal(Literal::Slice(_, elements)),
@@ -1543,7 +1536,7 @@ impl CodeBuilder<'_> {
                     elements,
                     element_type,
                     *capacity,
-                    &target_location.ty,
+                    &target_location.ty.basic_type,
                     &rhs.node,
                     ctx,
                 );
@@ -1616,9 +1609,9 @@ impl CodeBuilder<'_> {
 
             if !signature.return_type.is_unit() && return_reg.ty.needs_copy_back_for_mutable() {
                 copy_back_mutable_reg_pairs.push(MutableReturnReg {
-                    target_location_after_call: DetailedLocation::Register {
-                        reg: return_param_reg.clone(),
-                    },
+                    target_location_after_call: OutputDestination::ScalarToRegister(
+                        return_param_reg.clone(),
+                    ),
                     parameter_reg: return_reg,
                 });
             }
@@ -1739,6 +1732,7 @@ impl CodeBuilder<'_> {
             let is_last = index == chain.len() - 1;
             match &element.kind {
                 PostfixKind::StructField(anonymous_struct, field_index) => {
+                    debug_assert!(current_location.is_memory_location());
                     let struct_layout =
                         layout_type(&Type::AnonymousStruct(anonymous_struct.clone()));
                     let offset_item = struct_layout.get_field_offset(*field_index).unwrap();
@@ -1879,9 +1873,9 @@ impl CodeBuilder<'_> {
 
                     self.temp_registers.restore_to_mark(hwm);
 
-                    current_location = DetailedLocation::Register {
-                        reg: output_destination.grab_register().clone(),
-                    };
+                    current_location = OutputDestination::ScalarToRegister(
+                        output_destination.grab_register().clone(),
+                    );
                     //info!(?current_location, "after member call");
                 }
                 PostfixKind::OptionalChainingOperator => {
@@ -1922,9 +1916,9 @@ impl CodeBuilder<'_> {
 
                     self.builder.patch_jump_here(patch);
 
-                    current_location = DetailedLocation::Register {
-                        reg: output_destination.grab_register().clone(),
-                    };
+                    current_location = OutputDestination::ScalarToRegister(
+                        output_destination.grab_register().clone(),
+                    );
                     info!(?current_location, "after none coalesce");
                 }
             }
@@ -2267,11 +2261,11 @@ impl CodeBuilder<'_> {
             MutRefOrImmutableExpression::Location(location_expression) => {
                 let x = self.emit_lvalue_location(location_expression, ctx);
                 // TODO: FIX THIS
-                if let DetailedLocation::Register { reg } = x {
+                if let OutputDestination::ScalarToRegister(reg) = x {
                     reg
-                } else if let DetailedLocation::Memory { base_ptr_reg, .. } = x {
+                } else if let OutputDestination::AggregateToMemoryLocation(memory_location) = x {
                     error!("expected register");
-                    base_ptr_reg
+                    memory_location.base_ptr_reg
                 } else {
                     panic!("not sure");
                 }
@@ -2317,9 +2311,9 @@ impl CodeBuilder<'_> {
         );
 
         let location = MemoryLocation {
+            ty: reg.ty.clone(),
             base_ptr_reg: reg,
             offset: MemoryOffset(0),
-            ty: ty.clone(),
         };
 
         OutputDestination::new_location(location)
@@ -2886,7 +2880,7 @@ impl CodeBuilder<'_> {
                 let tagged_union = tagged_union_binding.optional_info().unwrap();
 
                 let memory_location = MemoryLocation {
-                    ty: placed_variable.underlying().clone(),
+                    ty: placed_variable.ty.clone(),
                     base_ptr_reg: placed_variable,
                     offset: MemoryOffset(0),
                 };
@@ -2991,16 +2985,14 @@ impl CodeBuilder<'_> {
         );
     }
 
-    fn emit_start_of_chain(&mut self, start: &StartOfChain, ctx: &Context) -> DetailedLocation {
+    fn emit_start_of_chain(&mut self, start: &StartOfChain, ctx: &Context) -> OutputDestination {
         match &start.kind {
-            StartOfChainKind::Expression(expr) => DetailedLocation::Register {
-                reg: self.emit_scalar_rvalue(expr, ctx),
-            },
+            StartOfChainKind::Expression(expr) => {
+                OutputDestination::ScalarToRegister(self.emit_scalar_rvalue(expr, ctx))
+            }
             StartOfChainKind::Variable(variable) => {
                 let variable_reg = self.get_variable_register(variable);
-                DetailedLocation::Register {
-                    reg: variable_reg.clone(),
-                }
+                OutputDestination::ScalarToRegister(variable_reg.clone())
             }
         }
     }
@@ -3631,23 +3623,20 @@ impl CodeBuilder<'_> {
     ) {
         for copy_back in copy_back {
             match &copy_back.target_location_after_call {
-                DetailedLocation::Register { reg } => {
+                OutputDestination::ScalarToRegister(reg) => {
                     self.builder
                         .add_mov_reg(reg, &copy_back.parameter_reg, node, "copy back reg");
                 }
-                DetailedLocation::Memory {
-                    base_ptr_reg,
-                    offset,
-                    ..
-                } => {} /* TODO:
-                        self.store_register_contents_to_memory(
-                            node,
-                            base_ptr_reg,
-                            *offset,
-                            &copy_back.parameter_reg,
-                            "copy back from mem",
-                        ),
-                        */
+                OutputDestination::AggregateToMemoryLocation(memory_location) => {} /* TODO:
+                self.store_register_contents_to_memory(
+                node,
+                base_ptr_reg,
+                 *offset,
+                &copy_back.parameter_reg,
+                "copy back from mem",
+                ),
+                 */
+                OutputDestination::Unit => {}
             }
         }
         self.emit_restore_spilled_registers(spilled_arguments, node, comment);

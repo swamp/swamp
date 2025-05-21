@@ -1,16 +1,15 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::{layout_tuple_items, layout_type};
-use crate::{Collection, DetailedLocation, Transformer};
+use crate::{Collection, Transformer};
 use source_map_node::Node;
 use swamp_semantic::{
     BooleanExpression, CompoundOperatorKind, Expression, ExpressionKind, ForPattern, Iterable,
     MutRefOrImmutableExpression, TargetAssignmentLocation, VariableRef,
 };
 use swamp_types::Type;
-use swamp_vm_types::types::{OutputDestination, TypedRegister, VmType, unit_type};
+use swamp_vm_types::types::{OutputDestination, TypedRegister, VmType};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
-use tracing::info;
 
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
@@ -55,7 +54,7 @@ impl CodeBuilder<'_> {
             let memory_location = MemoryLocation {
                 base_ptr_reg: target_register.clone(),
                 offset: MemoryOffset(0),
-                ty: target_register.ty.underlying().clone(),
+                ty: target_register.ty,
             };
             self.emit_expression_into_target_memory(
                 &memory_location,
@@ -81,57 +80,9 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        let assignment_target = self.emit_lvalue_location(&lhs.0, ctx);
-        let memory_location = match &assignment_target {
-            DetailedLocation::Register { reg } => MemoryLocation {
-                base_ptr_reg: reg.clone(),
-                offset: MemoryOffset(0),
-                ty: assignment_target.vm_type().basic_type.clone(),
-            },
-            DetailedLocation::Memory {
-                base_ptr_reg,
-                offset,
-                ty,
-            } => MemoryLocation {
-                base_ptr_reg: base_ptr_reg.clone(),
-                offset: offset.clone(),
-                ty: ty.underlying().clone(),
-            },
-        };
-        self.emit_expression_into_target_memory(&memory_location, rhs, comment, ctx);
-        /*
-        match &assignment_target {
-            DetailedLocation::Register { reg } => {
-                let target_location_type = layout_type(&lhs.0.ty);
+        let output_destination = self.emit_lvalue_location(&lhs.0, ctx);
 
-                self.emit_assignment_like(&reg, &target_location_type, rhs, ctx);
-            }
-            DetailedLocation::Memory {
-                base_ptr_reg,
-                offset,
-                ..
-            } => {
-                if rhs.ty.is_scalar() {
-                    let rhs_reg = self.emit_scalar_rvalue(rhs, &ctx);
-                    self.store_register_contents_to_memory(
-                        node,
-                        &base_ptr_reg,
-                        *offset,
-                        &rhs_reg,
-                        "assignment",
-                    );
-                } else {
-                    let absolute_ptr_reg = self.emit_ptr_reg_from_detailed_location(
-                        &assignment_target,
-                        node,
-                        "get absolute pointer for complex rvalue materialize",
-                    );
-                    self.emit_complex_rvalue(&absolute_ptr_reg, rhs, ctx);
-                }
-            }
-        }
-
-         */
+        self.emit_expression(&output_destination, rhs, ctx);
     }
 
     pub(crate) fn emit_tuple_destructuring(

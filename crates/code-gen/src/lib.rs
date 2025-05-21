@@ -112,6 +112,7 @@ impl DetailedLocationResolved {
     }
 }
 
+/*
 #[derive(Debug, Clone)]
 pub enum DetailedLocation {
     Register {
@@ -184,6 +185,7 @@ impl DetailedLocation {
         }
     }
 }
+*/
 
 impl Collection {
     pub fn size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {

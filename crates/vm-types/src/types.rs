@@ -684,6 +684,23 @@ pub enum OutputDestination {
 }
 
 impl OutputDestination {
+    pub fn add_offset(&self, offset: MemoryOffset, vm_type: VmType) -> Self {
+        match self {
+            OutputDestination::Unit => {
+                panic!("add_offset")
+            }
+            OutputDestination::ScalarToRegister(_) => {
+                panic!("can not add offset to a register")
+            }
+            OutputDestination::AggregateToMemoryLocation(memory_location) => {
+                Self::AggregateToMemoryLocation(MemoryLocation {
+                    base_ptr_reg: memory_location.base_ptr_reg.clone(),
+                    offset: memory_location.offset + offset,
+                    ty: vm_type,
+                })
+            }
+        }
+    }
     pub fn new_unit() -> Self {
         Self::Unit
     }
@@ -697,6 +714,9 @@ impl OutputDestination {
     pub fn is_unit(&self) -> bool {
         matches!(self, Self::Unit)
     }
+    pub fn is_memory_location(&self) -> bool {
+        matches!(self, Self::AggregateToMemoryLocation(_))
+    }
     pub fn ty(&self) -> &BasicType {
         match self {
             Self::Unit => &BasicType {
@@ -705,6 +725,21 @@ impl OutputDestination {
                 max_alignment: MemoryAlignment::U8,
             },
             Self::ScalarToRegister(reg) => &reg.ty.basic_type,
+            Self::AggregateToMemoryLocation(location) => &location.ty.basic_type,
+        }
+    }
+
+    pub fn vm_type(&self) -> &VmType {
+        match self {
+            Self::Unit => &VmType {
+                basic_type: BasicType {
+                    kind: BasicTypeKind::Empty,
+                    total_size: MemorySize(0),
+                    max_alignment: MemoryAlignment::U8,
+                },
+                origin: VmTypeOrigin::Unknown,
+            },
+            Self::ScalarToRegister(reg) => &reg.ty,
             Self::AggregateToMemoryLocation(location) => &location.ty,
         }
     }

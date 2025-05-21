@@ -1,20 +1,19 @@
-use crate::DetailedLocation;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_semantic::Expression;
 use swamp_types::Type;
-use swamp_vm_types::types::{VmType, int_type};
+use swamp_vm_types::types::{OutputDestination, VmType, int_type};
 
 impl CodeBuilder<'_> {
     /// Emits Swamp VM opcodes to calculate the memory address of an element within a map.
     pub fn map_subscript_helper(
         &mut self,
-        map_header_location: &DetailedLocation,
+        map_header_location: &OutputDestination,
         analyzed_key_type: &Type,
         key_expression: &Expression,
         ctx: &Context,
-    ) -> DetailedLocation {
+    ) -> OutputDestination {
         let map_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
             &map_header_location,
             &key_expression.node,
@@ -45,8 +44,6 @@ impl CodeBuilder<'_> {
             "lookup the entry for this key in the map",
         );
 
-        DetailedLocation::Register {
-            reg: map_entry_reg.register,
-        }
+        OutputDestination::new_reg(map_entry_reg.register)
     }
 }

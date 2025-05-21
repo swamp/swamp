@@ -2,7 +2,6 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::DetailedLocation;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
@@ -10,10 +9,10 @@ use source_map_node::Node;
 use swamp_semantic::{
     Expression, LocationAccessKind, MutRefOrImmutableExpression, SingleLocationExpression,
 };
-use swamp_vm_types::MemoryOffset;
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, TypedRegister, VmType, int_type,
+    BasicType, BasicTypeKind, BoundsCheck, OutputDestination, TypedRegister, VmType, int_type,
 };
+use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_for_access_or_location(
@@ -72,14 +71,14 @@ impl CodeBuilder<'_> {
 
     pub fn subscript_helper_from_location_to_location(
         &mut self,
-        detailed_location_to_slice: DetailedLocation,
+        detailed_location_to_slice: OutputDestination,
         element_basic_type: &BasicType,
         int_expr: &Expression,
         bounds_check: BoundsCheck,
         node: &Node,
         comment: &str,
         ctx: &Context,
-    ) -> DetailedLocation {
+    ) -> OutputDestination {
         let ptr_to_slice_reg = self.emit_ptr_reg_from_detailed_location(
             &detailed_location_to_slice,
             node,
@@ -105,11 +104,11 @@ impl CodeBuilder<'_> {
         );
 
         // We continue the chain from the calculated pointer
-        DetailedLocation::Memory {
+        OutputDestination::AggregateToMemoryLocation(MemoryLocation {
             ty: new_base_pointer_reg.register.ty.clone(),
             base_ptr_reg: new_base_pointer_reg.register,
             offset: MemoryOffset(0),
-        }
+        })
     }
 
     pub fn subscript_helper(
@@ -194,7 +193,7 @@ impl CodeBuilder<'_> {
         &mut self,
         location_expression: &SingleLocationExpression,
         ctx: &Context,
-    ) -> DetailedLocation {
+    ) -> OutputDestination {
         let mut start_reg = self
             .variable_registers
             .get(
@@ -216,7 +215,7 @@ impl CodeBuilder<'_> {
         };
         */
 
-        let mut current_location = DetailedLocation::Register { reg: start_reg };
+        let mut current_location = OutputDestination::ScalarToRegister(start_reg);
 
         // Loop over the consecutive accesses until we find the actual frame relative address (TypedRegister)
         for access in location_expression.access_chain.iter().take(accesses_count) {
@@ -279,9 +278,7 @@ impl CodeBuilder<'_> {
                         ctx,
                     );
 
-                    current_location = DetailedLocation::Register {
-                        reg: get_item_target_reg.register,
-                    }
+                    current_location = OutputDestination::new_reg(get_item_target_reg.register)
                 }
             }
         }
