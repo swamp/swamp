@@ -373,28 +373,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    /*
-    pub(crate) fn emit_store_primitive_from_detailed_location_if_needed(
-        &mut self,
-        location: &DetailedLocationResolved,
-        original: &DetailedLocation,
-        node: &Node,
-    ) {
-        match location {
-            DetailedLocationResolved::Register(_) => {} // intentionally do nothing, it is in a register
-            DetailedLocationResolved::TempRegister(temp_reg) => self
-                .store_register_contents_to_memory(
-                    node,
-                    original.base_register().unwrap(),
-                    original.offset().unwrap(),
-                    temp_reg.register(),
-                    "copy back to memory",
-                ),
-        }
-    }
-
-     */
-
     fn debug_node(&self, node: &Node) {
         let line_info = self.source_map_lookup.get_line(&node.span);
         let span_text = self.source_map_lookup.get_text_span(&node.span);
@@ -766,56 +744,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    /*
-    pub(crate) fn emit_absolute_pointer_if_needed(
-        &mut self,
-        target_reg: &TypedRegister,
-        argument: &SingleLocationExpression,
-        ctx: &Context,
-        comment: &str,
-    ) {
-        let region = self.emit_lvalue_location(argument, ctx);
-        match region {
-            DetailedLocation::Register { reg } => {
-                self.builder.add_mov_reg(
-                    target_reg,
-                    &reg,
-                    &argument.node,
-                    &format!("copy reg that has pointer {target_reg:?} <- {reg:?} {comment}"),
-                );
-            }
-            DetailedLocation::Memory {
-                base_ptr_reg,
-                offset,
-                ..
-            } => {
-                let hwm = self.temp_registers.save_mark();
-
-                let temp_offset_reg = self.temp_registers.allocate(
-                    VmType::new_unknown_placement(u32_type()),
-                    "emit_absolute_pointer: temp_offset_reg",
-                );
-                self.builder.add_mov_32_immediate_value(
-                    temp_offset_reg.register(),
-                    offset.0 as u32,
-                    &argument.node,
-                    "set offset in temp register",
-                );
-                self.builder.add_add_u32(
-                    target_reg,
-                    &base_ptr_reg,
-                    temp_offset_reg.register(),
-                    &argument.node,
-                    "forcing lvalue to be a complete pointer",
-                );
-
-                self.temp_registers.restore_to_mark(hwm);
-            }
-        }
-    }
-
-
-     */
     fn emit_variable_binding(
         &mut self,
         variable: &VariableRef,
@@ -909,275 +837,6 @@ impl CodeBuilder<'_> {
                   comment,
               )*/
         }
-    }
-
-    /*
-    pub(crate) fn store_register_contents_to_memory(
-        &mut self,
-        node: &Node,
-        base_ptr_reg: &TypedRegister,
-        offset: MemoryOffset,
-        source_reg: &TypedRegister,
-        comment: &str,
-    ) {
-        let underlying_type = source_reg.underlying();
-
-        if underlying_type.is_represented_as_a_pointer_in_reg() {
-            self.builder.add_st32_using_ptr_with_offset(
-                base_ptr_reg,
-                offset,
-                source_reg,
-                node,
-                comment,
-            );
-            return;
-        }
-
-        let kind = &underlying_type.kind;
-        match kind {
-            BasicTypeKind::Empty => {
-                // No need to copy, it has zero size
-            }
-            BasicTypeKind::U8 | BasicTypeKind::B8 => {
-                self.builder.add_st8_using_ptr_with_offset(
-                    base_ptr_reg,
-                    offset,
-                    source_reg,
-                    node,
-                    comment,
-                );
-            }
-            BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
-                self.builder.add_st32_using_ptr_with_offset(
-                    base_ptr_reg,
-                    offset,
-                    source_reg,
-                    node,
-                    comment,
-                );
-            }
-
-            _ => self.builder.add_block_copy_with_offset(
-                base_ptr_reg,
-                offset,
-                source_reg,
-                MemoryOffset(0),
-                underlying_type.total_size,
-                node,
-                comment,
-            ),
-        }
-    }
-
-     */
-
-    /*
-    pub(crate) fn store_expression_to_memory(
-        &mut self,
-        target_ptr_reg: &TypedRegister,
-        expr: &Expression,
-        node: &Node,
-        ctx: &Context,
-        comment: &str,
-    ) {
-        //let underlying_type = expr.ty.underlying();
-        let gen_type = layout_type(&expr.ty);
-
-        if gen_type.is_represented_as_a_pointer_in_reg() {
-            self.emit_expression_materialize(target_ptr_reg, expr, ctx);
-            // it has already used the target_ptr_reg as a pointer
-            return;
-        }
-
-        let source_reg = self.emit_simple_rvalue(expr, ctx);
-
-        let offset = MemoryOffset(0);
-
-        let kind = &gen_type.kind;
-        match kind {
-            BasicTypeKind::Empty => {
-                // No need to copy, it has zero size
-            }
-            BasicTypeKind::U8 | BasicTypeKind::B8 => {
-                self.builder.add_st8_using_ptr_with_offset(
-                    target_ptr_reg,
-                    offset,
-                    &source_reg,
-                    node,
-                    comment,
-                );
-            }
-            BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
-                self.builder.add_st32_using_ptr_with_offset(
-                    target_ptr_reg,
-                    offset,
-                    &source_reg,
-                    node,
-                    comment,
-                );
-            }
-
-            _ => panic!("unknown simple type"),
-        }
-    }
-
-     */
-
-    // When initializing a VecStorage with a slice literal
-    pub(crate) fn emit_vec_storage_init(
-        &mut self,
-        vec_storage_lvalue_memory_location: &PointerLocation, // Points to VecStorage
-        slice_literal: &[Expression],
-        element_type: &BasicType,
-        capacity: usize,
-        debug_vec_storage_type: &BasicType,
-        node: &Node,
-        ctx: &Context,
-    ) {
-        /*
-        let length_value_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(u16_type()), "vec length");
-        self.builder.add_mov_16_immediate_value(
-            length_value_reg.register(),
-            slice_literal.len() as u16,
-            node,
-            &format!("{debug_vec_storage_type}::length value"),
-        );
-        self.builder.add_st16_using_ptr_with_offset(
-            target_addr,
-            MemoryOffset(0), // Offset for length field
-            length_value_reg.register(),
-            node,
-            &format!("set {debug_vec_storage_type}::length"),
-        );
-
-        let capacity_value_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(u16_type()), "vec capacity");
-        self.builder.add_mov_16_immediate_value(
-            capacity_value_reg.register(),
-            capacity as u16,
-            node,
-            &format!("{debug_vec_storage_type}::capacity value"),
-        );
-        self.builder.add_st16_using_ptr_with_offset(
-            target_addr,
-            MemoryOffset(2), // Offset for capacity field
-            capacity_value_reg.register(),
-            node,
-            &format!("set {debug_vec_storage_type}::capacity"),
-        );
-
-        let elements_offset_immediate_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            &format!("{debug_vec_storage_type}::elements"),
-        );
-        self.builder.add_mov_32_immediate_value(
-            elements_offset_immediate_reg.register(),
-            VEC_HEADER_PAYLOAD_OFFSET.0 as u32,
-            node,
-            &format!("{debug_vec_storage_type}::elements offset value"),
-        );
-
-        let elements_addr_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            &format!("{debug_vec_storage_type}::elements"),
-        );
-        self.builder.add_add_u32(
-            elements_addr_reg.register(),
-            target_addr,
-            elements_offset_immediate_reg.register(),
-            node,
-            &format!("{debug_vec_storage_type}::elements result"),
-        );
-
-         */
-        let elements_base_ptr_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            &format!("{debug_vec_storage_type}::elements"),
-        );
-
-        let len = slice_literal.len();
-        debug_assert!(capacity >= len);
-        if capacity > 0 || len > 0 {
-            self.builder.add_vec_init_fill_capacity_and_element_addr(
-                vec_storage_lvalue_memory_location,
-                elements_base_ptr_reg.register(),
-                capacity as u16,
-                len as u16,
-                node,
-                "initialize vec from slice",
-            );
-        }
-
-        let elements_base_ptr_reg = AggregateMemoryLocation {
-            location: MemoryLocation {
-                base_ptr_reg: elements_base_ptr_reg.register,
-                offset: MemoryOffset(0),
-                ty: VmType::new_unknown_placement(element_type.clone()),
-            },
-        };
-
-        self.emit_slice_literal_into_target_lvalue_memory_location(
-            &elements_base_ptr_reg,
-            element_type,
-            slice_literal,
-            ctx,
-        );
-    }
-
-    pub(crate) fn emit_map_storage_init_from_slice_pair_literal(
-        &mut self,
-        target_map_header_ptr_reg: &PointerLocation, // Points to MapStorage
-        slice_pair_literal: &[(Expression, Expression)],
-        key_value_tuple_type: &TupleType,
-        capacity: usize,
-        node: &Node,
-        ctx: &Context,
-    ) {
-        let hwm = self.temp_registers.save_mark();
-
-        let len = slice_pair_literal.len();
-        debug_assert!(capacity >= len);
-        if capacity > 0 || len > 0 {
-            self.builder.add_map_init_set_capacity(
-                target_map_header_ptr_reg,
-                capacity as u16,
-                key_value_tuple_type.fields[0].ty.total_size,
-                key_value_tuple_type.total_size,
-                node,
-                "initialize map",
-            );
-        }
-
-        let aggregate_location =
-            self.allocate_frame_space_and_assign_register(&u32_type(), "key storage");
-
-        let element_target_temp_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            &format!("key temp"),
-        );
-
-        for (key_expr, value_expr) in slice_pair_literal {
-            //self.emit_expression_materialize(&key_storage_register, key_expr, ctx);
-            self.emit_expression_into_target_memory(
-                &aggregate_location.grab_memory_location(),
-                value_expr,
-                "store expression to memory if needed",
-                ctx,
-            );
-
-            self.builder.add_map_get_or_reserve_entry_location(
-                element_target_temp_reg.register(),
-                target_map_header_ptr_reg,
-                &aggregate_location.grab_memory_location().base_ptr_reg,
-                node,
-                "find existing or create a map entry to write into",
-            );
-        }
-
-        self.temp_registers.restore_to_mark(hwm);
     }
 
     pub(crate) fn temp_frame_space_for_register(&mut self, comment: &str) -> FrameMemoryRegion {
@@ -1362,7 +1021,7 @@ impl CodeBuilder<'_> {
                 }
                 PostfixKind::NoneCoalescingOperator(expression) => {
                     let hwm = self.temp_registers.save_mark();
-                    let temp_reg = self.temp_space_for_type(&expression.ty, "");
+                    let temp_reg = self.temp_register_for_analyzed_type(&expression.ty, "");
 
                     // materialize an u8
                     let resolved_location = self
@@ -1592,6 +1251,7 @@ impl CodeBuilder<'_> {
     pub fn allocate_frame_space_and_assign_register(
         &mut self,
         ty: &BasicType,
+        node: &Node,
         comment: &str,
     ) -> OutputDestination {
         let frame_placed_type = self.frame_allocator.allocate_type(ty.clone());
@@ -1599,6 +1259,13 @@ impl CodeBuilder<'_> {
         let reg = self.frame_memory_registers.alloc_register(
             VmType::new_frame_placed(frame_placed_type),
             "allocate frame space",
+        );
+
+        self.builder.add_lea(
+            &reg,
+            reg.addr(),
+            node,
+            "set the allocated memory to pointer reg",
         );
 
         let location = MemoryLocation {
@@ -2456,7 +2123,7 @@ impl CodeBuilder<'_> {
     /// // use reg_temp_stack_addr to the function
     /// ```
 
-    pub fn temp_space_for_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
+    pub fn temp_register_for_analyzed_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
         let layout = layout_type(ty);
 
         let temp_reg = self.temp_registers.allocate(

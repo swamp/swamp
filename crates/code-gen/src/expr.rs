@@ -34,6 +34,7 @@ impl CodeBuilder<'_> {
             );
             let temp_materialization_target = self.allocate_frame_space_and_assign_register(
                 output.ty(),
+                &expr.node,
                 "rvalue temporary materialization",
             );
 
