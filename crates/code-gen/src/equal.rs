@@ -3,7 +3,7 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::{GeneratedExpressionResult, GeneratedExpressionResultKind};
+use crate::{FlagState, FlagStateKind};
 use source_map_node::Node;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 
@@ -15,22 +15,18 @@ impl CodeBuilder<'_> {
         right_source: &TypedRegister,
         node: &Node,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         let polarity = match (
             &left_source.ty.basic_type.kind,
             &right_source.ty.basic_type.kind,
         ) {
-            (BasicTypeKind::B8, BasicTypeKind::B8) => {
-                self.emit_binary_operator_equal_reg(left_source, node, right_source)
-            }
-            (BasicTypeKind::S32, BasicTypeKind::S32) => {
-                self.emit_binary_operator_equal_reg(left_source, node, right_source)
-            }
-            (BasicTypeKind::Fixed32, BasicTypeKind::Fixed32) => {
+            (BasicTypeKind::B8, BasicTypeKind::B8)
+            | (BasicTypeKind::S32, BasicTypeKind::S32)
+            | (BasicTypeKind::Fixed32, BasicTypeKind::Fixed32) => {
                 self.emit_binary_operator_equal_reg(left_source, node, right_source)
             }
             (BasicTypeKind::InternalStringPointer, BasicTypeKind::InternalStringPointer) => {
-                self.emit_binary_operator_string_cmp(left_source, node, right_source)
+                self.emit_binary_operator_string_equal(left_source, node, right_source)
             }
             (BasicTypeKind::TaggedUnion(a), BasicTypeKind::TaggedUnion(b)) => {
                 // TODO: Make simpler case if enum variants are without payload
@@ -53,7 +49,7 @@ impl CodeBuilder<'_> {
         left_source: &TypedRegister,
         node: &Node,
         right_source: &TypedRegister,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         self.builder.add_cmp_reg(
             left_source,
             right_source,
@@ -61,22 +57,22 @@ impl CodeBuilder<'_> {
             "compare reg and set result to P flag",
         );
 
-        GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
+        FlagState {
+            kind: FlagStateKind::TFlagIsTrueWhenSet,
         }
     }
 
-    fn emit_binary_operator_string_cmp(
+    fn emit_binary_operator_string_equal(
         &mut self,
         left_source: &TypedRegister,
         node: &Node,
         right_source: &TypedRegister,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         self.builder
             .add_string_cmp(left_source, right_source, node, "compare strings");
 
-        GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
+        FlagState {
+            kind: FlagStateKind::TFlagIsTrueWhenSet,
         }
     }
 
@@ -85,7 +81,7 @@ impl CodeBuilder<'_> {
         left_source: &TypedRegister,
         node: &Node,
         right_source: &TypedRegister,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         self.builder.add_block_cmp(
             left_source,
             right_source,
@@ -94,8 +90,8 @@ impl CodeBuilder<'_> {
             "compare block",
         );
 
-        GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
+        FlagState {
+            kind: FlagStateKind::TFlagIsTrueWhenSet,
         }
     }
 }

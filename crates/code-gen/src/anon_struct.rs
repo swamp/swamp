@@ -1,4 +1,4 @@
-use crate::GeneratedExpressionResult;
+use crate::FlagState;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_struct_type;
@@ -35,7 +35,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         let gen_source_struct_type = layout_struct_type(struct_type_ref, "");
 
         // TODO: Bring this back // assert_eq!(target_reg.size().0, gen_source_struct_type.total_size.0);
@@ -72,7 +72,7 @@ impl CodeBuilder<'_> {
             );
         }
 
-        GeneratedExpressionResult::default()
+        FlagState::default()
     }
 
     pub(crate) fn emit_anonymous_struct_literal_into_memory_location(
@@ -83,7 +83,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         let anon_struct_type = match ty {
             Type::NamedStruct(named_struct) => named_struct.anon_struct_type.clone(),
             Type::AnonymousStruct(anon_struct_type) => anon_struct_type.clone(),

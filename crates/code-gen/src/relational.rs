@@ -1,5 +1,5 @@
 use crate::code_bld::CodeBuilder;
-use crate::{GeneratedExpressionResult, GeneratedExpressionResultKind};
+use crate::{FlagState, FlagStateKind};
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind};
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 
@@ -9,7 +9,7 @@ impl CodeBuilder<'_> {
         left_source: &TypedRegister,
         binary_operator: &BinaryOperator,
         right_source: &TypedRegister,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         let node = &binary_operator.node;
         match &binary_operator.kind {
             BinaryOperatorKind::LessThan => {
@@ -32,8 +32,8 @@ impl CodeBuilder<'_> {
                 panic!("was not a condition")
             }
         }
-        GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
+        FlagState {
+            kind: FlagStateKind::TFlagIsTrueWhenSet,
         }
     }
 
@@ -42,7 +42,7 @@ impl CodeBuilder<'_> {
         left_source: &TypedRegister,
         binary_operator: &BinaryOperator,
         right_source: &TypedRegister,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         let node = &binary_operator.node;
         match &binary_operator.kind {
             BinaryOperatorKind::LessThan => {
@@ -63,8 +63,8 @@ impl CodeBuilder<'_> {
             }
             _ => panic!("not a relational operator"),
         }
-        GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
+        FlagState {
+            kind: FlagStateKind::TFlagIsTrueWhenSet,
         }
     }
 
@@ -73,7 +73,7 @@ impl CodeBuilder<'_> {
         left_source: &TypedRegister,
         binary_operator: &BinaryOperator,
         right_source: &TypedRegister,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         match &left_source.ty.basic_type.kind {
             BasicTypeKind::S32 => self.emit_binary_operator_relational_i32_to_t_flag_only(
                 left_source,

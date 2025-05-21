@@ -8,7 +8,8 @@ use tracing::error;
 #[derive(Debug, Default, Clone, Copy)]
 struct TestContext;
 
-#[must_use] pub fn colorize_parts(parts: &[String]) -> String {
+#[must_use]
+pub fn colorize_parts(parts: &[String]) -> String {
     let new_parts: Vec<_> = parts
         .iter()
         .map(|x| format!("{}", tinter::bright_cyan(x)))
@@ -17,7 +18,8 @@ struct TestContext;
     new_parts.join("::")
 }
 
-#[must_use] pub fn colorful_module_name(parts: &[String]) -> String {
+#[must_use]
+pub fn colorful_module_name(parts: &[String]) -> String {
     let x = if parts[0] == "crate" {
         &parts[1..]
     } else {

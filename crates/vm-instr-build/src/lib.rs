@@ -19,7 +19,8 @@ pub struct InstructionBuilderState {
     pub meta: Vec<Meta>,
 }
 
-#[must_use] pub const fn u16_to_u8_pair(v: u16) -> (u8, u8) {
+#[must_use]
+pub const fn u16_to_u8_pair(v: u16) -> (u8, u8) {
     let bytes = v.to_le_bytes();
     (bytes[0], bytes[1])
 }
@@ -2046,38 +2047,6 @@ impl InstructionBuilder<'_> {
                 self_addr.ptr_reg.addressing(),
                 key.addressing(),
             ],
-            node,
-            comment,
-        );
-    }
-
-    /*
-    pub fn add_ld_u16(&mut self, dest: &TypedRegister, data: u16, node: &Node, comment: &str) {
-        self.state
-            .add_instruction(OpCode::Ld16, &[dest.addressing(), data], node, comment);
-    }
-
-     */
-
-    pub fn add_alloc(
-        &mut self,
-        target_ptr_reg: &TypedRegister,
-        size: MemorySize,
-        node: &Node,
-        comment: &str,
-    ) {
-        /* TODO: Bring this back assert!(matches!(
-            target_ptr_reg.ty().kind,
-            BasicTypeKind::MutablePointer(_)
-        ));
-
-         */
-        // TODO: Bring this back //assert_eq!(target_ptr_reg.ty().total_size, HEAP_PTR_ON_FRAME_SIZE);
-        // assert_ne!(size.0, 0); TODO: Bring this back
-        let size_bytes = Self::u16_to_octets(size.0);
-        self.state.add_instruction(
-            OpCode::Alloc,
-            &[target_ptr_reg.addressing(), size_bytes.0, size_bytes.1],
             node,
             comment,
         );

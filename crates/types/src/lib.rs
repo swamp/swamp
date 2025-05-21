@@ -51,13 +51,15 @@ pub enum Type {
 }
 
 impl Type {
-    #[must_use] pub const fn is_bool(&self) -> bool {
+    #[must_use]
+    pub const fn is_bool(&self) -> bool {
         matches!(self, Self::Bool)
     }
 }
 
 impl Type {
-    #[must_use] pub fn lowest_common_denominator(&self) -> Self {
+    #[must_use]
+    pub fn lowest_common_denominator(&self) -> Self {
         match self {
             Self::VecStorage(inner, _size) => Self::Vec(Box::from(*inner.clone())),
             _ => self.clone(),
@@ -66,7 +68,8 @@ impl Type {
 }
 
 impl Type {
-    #[must_use] pub fn underlying(&self) -> &Self {
+    #[must_use]
+    pub fn underlying(&self) -> &Self {
         match self {
             Self::MutableReference(x) => x,
             _ => self,
@@ -77,14 +80,16 @@ impl Type {
 impl Type {}
 
 impl Type {
-    #[must_use] pub fn is_vec(&self) -> bool {
+    #[must_use]
+    pub fn is_vec(&self) -> bool {
         match self {
             Self::NamedStruct(named_struct) => named_struct.is_vec(),
             _ => false,
         }
     }
 
-    #[must_use] pub const fn is_primitive(&self) -> bool {
+    #[must_use]
+    pub const fn is_primitive(&self) -> bool {
         matches!(
             self,
             Self::Int | Self::Float | Self::String | Self::Bool | Self::Unit
@@ -96,21 +101,24 @@ impl Type {
         matches!(self, Self::Unit)
     }
 
-    #[must_use] pub fn is_map(&self) -> bool {
+    #[must_use]
+    pub fn is_map(&self) -> bool {
         match self {
             Self::NamedStruct(named_struct) => named_struct.is_map(),
             _ => false,
         }
     }
 
-    #[must_use] pub fn is_stack(&self) -> bool {
+    #[must_use]
+    pub fn is_stack(&self) -> bool {
         match self {
             Self::NamedStruct(named_struct) => named_struct.is_stack(),
             _ => false,
         }
     }
 
-    #[must_use] pub fn is_range(&self) -> bool {
+    #[must_use]
+    pub fn is_range(&self) -> bool {
         match self {
             Self::NamedStruct(named_struct) => named_struct.is_range(),
             _ => false,
@@ -124,16 +132,19 @@ impl Type {
         }
     }
 
-    #[must_use] pub fn is_grid(&self) -> bool {
+    #[must_use]
+    pub fn is_grid(&self) -> bool {
         self.is_core_type_with_name("Grid")
     }
 
-    #[must_use] pub fn is_vec_ns(named_struct: &NamedStructType) -> bool {
+    #[must_use]
+    pub fn is_vec_ns(named_struct: &NamedStructType) -> bool {
         named_struct.module_path == vec!["core-0.0.0".to_string()]
             && named_struct.assigned_name.starts_with("Vec<")
     }
 
-    #[must_use] pub fn primary_element_type(&self) -> Option<&Self> {
+    #[must_use]
+    pub fn primary_element_type(&self) -> Option<&Self> {
         match self {
             Self::NamedStruct(ns) => {
                 if ns.is_vec() || ns.is_stack() {
@@ -149,7 +160,8 @@ impl Type {
 }
 
 impl Type {
-    #[must_use] pub fn inner_optional_mut_or_immutable(&self) -> Option<&Self> {
+    #[must_use]
+    pub fn inner_optional_mut_or_immutable(&self) -> Option<&Self> {
         if let Self::Optional(normal) = self {
             Some(normal)
         } else if let Self::MutableReference(mutable_reference) = self {
@@ -167,7 +179,8 @@ pub enum ParameterizedTypeKind {
 }
 
 impl ParameterizedTypeKind {
-    #[must_use] pub fn name(&self) -> String {
+    #[must_use]
+    pub fn name(&self) -> String {
         match self {
             Self::Struct(struct_type_ref) => struct_type_ref.assigned_name.clone(),
             Self::Enum(enum_type_ref) => enum_type_ref.assigned_name.clone(),
@@ -190,13 +203,15 @@ pub struct ParameterizedTypeBlueprint {
 }
 
 impl ParameterizedTypeBlueprint {
-    #[must_use] pub fn info(&self) -> ParameterizedTypeBlueprintInfo {
+    #[must_use]
+    pub fn info(&self) -> ParameterizedTypeBlueprintInfo {
         ParameterizedTypeBlueprintInfo {
             name: self.name(),
             defined_in_module_path: self.defined_in_module_path.clone(),
         }
     }
-    #[must_use] pub fn name(&self) -> String {
+    #[must_use]
+    pub fn name(&self) -> String {
         self.kind.name()
     }
 }
@@ -263,7 +278,8 @@ pub struct Signature {
 }
 
 impl Signature {
-    #[must_use] pub fn is_self_mutable(&self) -> bool {
+    #[must_use]
+    pub fn is_self_mutable(&self) -> bool {
         self.parameters
             .first()
             .is_some_and(|x| x.name == "self" && x.is_mutable)
@@ -303,7 +319,8 @@ impl Signature {
 }
 
 impl Type {
-    #[must_use] pub fn is_concrete_or_unit(&self) -> bool {
+    #[must_use]
+    pub fn is_concrete_or_unit(&self) -> bool {
         if matches!(self, Self::Unit) {
             true
         } else {
@@ -351,7 +368,8 @@ impl Type {
         }
     }
 
-    #[must_use] pub fn is_collection(&self) -> bool {
+    #[must_use]
+    pub fn is_collection(&self) -> bool {
         self.is_vec() || self.is_grid() || self.is_stack() || self.is_map()
     }
 
@@ -371,7 +389,8 @@ impl Type {
         }
     }
 
-    #[must_use] pub const fn is_direct(&self) -> bool {
+    #[must_use]
+    pub const fn is_direct(&self) -> bool {
         match self {
             Self::Unit => true,
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -609,7 +628,8 @@ impl Type {
         }
     }
 
-    #[must_use] pub fn compatible_ignore_mutability_of(&self, other: &Self) -> bool {
+    #[must_use]
+    pub fn compatible_ignore_mutability_of(&self, other: &Self) -> bool {
         if let Self::MutableReference(other_reference) = other {
             self.compatible_with(other_reference)
         } else {
@@ -690,7 +710,8 @@ pub fn same_anon_struct_ref(a: &AnonymousStructType, b: &AnonymousStructType) ->
     compare_anonymous_struct_types(a, b)
 }
 
-#[must_use] pub fn same_named_struct_ref(a: &NamedStructType, b: &NamedStructType) -> bool {
+#[must_use]
+pub fn same_named_struct_ref(a: &NamedStructType, b: &NamedStructType) -> bool {
     if a.assigned_name != b.assigned_name {
         return false;
     }
@@ -876,7 +897,8 @@ impl EnumType {
         self.variants.get(&name.to_string())
     }
 
-    #[must_use] pub fn are_all_variants_without_payload(&self) -> bool {
+    #[must_use]
+    pub fn are_all_variants_without_payload(&self) -> bool {
         self.variants
             .iter()
             .all(|(_name, variant)| matches!(variant, EnumVariantType::Nothing(_)))
@@ -940,7 +962,8 @@ impl EnumVariantType {
         }
     }
 
-    #[must_use] pub fn types(&self) -> Vec<Type> {
+    #[must_use]
+    pub fn types(&self) -> Vec<Type> {
         match self {
             Self::Tuple(tuple) => tuple.fields_in_order.clone(),
             Self::Struct(c) => c
@@ -992,26 +1015,32 @@ impl NamedStructType {
         self.module_path == vec!["core-0.0.0".to_string()] && self.assigned_name.starts_with(name)
     }
 
-    #[must_use] pub fn is_vec(&self) -> bool {
+    #[must_use]
+    pub fn is_vec(&self) -> bool {
         self.is_core_type_with_name("Vec")
     }
 
-    #[must_use] pub fn is_stack(&self) -> bool {
+    #[must_use]
+    pub fn is_stack(&self) -> bool {
         self.is_core_type_with_name("Stack")
     }
 
-    #[must_use] pub fn is_queue(&self) -> bool {
+    #[must_use]
+    pub fn is_queue(&self) -> bool {
         self.is_core_type_with_name("Queue")
     }
 
-    #[must_use] pub fn is_grid(&self) -> bool {
+    #[must_use]
+    pub fn is_grid(&self) -> bool {
         self.is_core_type_with_name("Grid")
     }
-    #[must_use] pub fn is_range(&self) -> bool {
+    #[must_use]
+    pub fn is_range(&self) -> bool {
         self.is_core_type_with_name("Range")
     }
 
-    #[must_use] pub fn is_map(&self) -> bool {
+    #[must_use]
+    pub fn is_map(&self) -> bool {
         self.is_core_type_with_name("Map<")
     }
 }
@@ -1052,7 +1081,8 @@ impl NamedStructType {
         }
     }
 
-    #[must_use] pub fn to_struct_like(&self) -> StructLikeType {
+    #[must_use]
+    pub fn to_struct_like(&self) -> StructLikeType {
         StructLikeType {
             assigned_name: self.assigned_name.clone(),
             anonymous_struct_type: self.anon_struct_type.clone(),
@@ -1072,7 +1102,8 @@ impl NamedStructType {
     }
 }
 
-#[must_use] pub fn all_types_are_concrete(types: &[Type]) -> bool {
+#[must_use]
+pub fn all_types_are_concrete(types: &[Type]) -> bool {
     for ty in types {
         if !ty.is_concrete() {
             return false;
@@ -1081,7 +1112,8 @@ impl NamedStructType {
     true
 }
 
-#[must_use] pub fn all_types_are_concrete_or_unit(types: &[Type]) -> bool {
+#[must_use]
+pub fn all_types_are_concrete_or_unit(types: &[Type]) -> bool {
     for ty in types {
         if !ty.is_concrete() && *ty != Type::Unit {
             return false;
@@ -1090,7 +1122,8 @@ impl NamedStructType {
     true
 }
 
-#[must_use] pub fn all_types_are_variables(types: &[Type]) -> bool {
+#[must_use]
+pub fn all_types_are_variables(types: &[Type]) -> bool {
     for ty in types {
         if let Type::Variable(_) = ty {
         } else {

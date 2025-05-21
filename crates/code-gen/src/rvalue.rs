@@ -17,7 +17,6 @@ impl CodeBuilder<'_> {
 
     pub fn emit_scalar_rvalue(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
         if let ExpressionKind::VariableAccess(variable_ref) = &expr.kind {
-            
             self.get_variable_register(variable_ref).clone()
         } else {
             let ty = layout_type(&expr.ty);

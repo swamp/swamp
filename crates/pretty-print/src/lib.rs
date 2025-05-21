@@ -13,7 +13,10 @@ use swamp_semantic::{
     AssociatedImpls, MutRefOrImmutableExpression, MutableReferenceKind, Postfix, PostfixKind,
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
 };
-use swamp_types::{AliasType, AnonymousStructType, EnumType, NamedStructType, ParameterizedTypeBlueprint, ParameterizedTypeKind, Signature, Type, TypeForParameter};
+use swamp_types::{
+    AliasType, AnonymousStructType, EnumType, NamedStructType, ParameterizedTypeBlueprint,
+    ParameterizedTypeKind, Signature, Type, TypeForParameter,
+};
 use yansi::{Color, Paint};
 
 pub struct SourceMapDisplay<'a> {

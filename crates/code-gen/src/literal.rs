@@ -7,6 +7,7 @@ use swamp_types::Type;
 use swamp_vm_types::types::{OutputDestination, VmType, int_type};
 
 impl CodeBuilder<'_> {
+    #[allow(clippy::too_many_lines)]
     pub fn emit_literal(
         &mut self,
         output: &OutputDestination,

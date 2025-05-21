@@ -4,30 +4,29 @@ use crate::layout::{layout_optional_type, layout_type};
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool, TempRegister};
 use crate::state::CodeGenState;
 use crate::{
-    single_intrinsic_fn, Collection, DetailedLocationResolved, GeneratedExpressionResult,
-    GeneratedExpressionResultKind, Transformer, TransformerResult,
+    Collection, DetailedLocationResolved, FlagState, FlagStateKind, Transformer, TransformerResult,
+    single_intrinsic_fn,
 };
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use swamp_semantic::{
-    BinaryOperator, BinaryOperatorKind, BooleanExpression, ConstantRef,
-    Expression, ExpressionKind, ExternalFunctionDefinitionRef, Function, Guard, Match, MutRefOrImmutableExpression,
+    BinaryOperator, BinaryOperatorKind, BooleanExpression, ConstantRef, Expression, ExpressionKind,
+    ExternalFunctionDefinitionRef, Function, Guard, Match, MutRefOrImmutableExpression,
     NormalPattern, Pattern, Postfix, PostfixKind, SingleLocationExpression, StartOfChain,
-    StartOfChainKind, UnaryOperator, UnaryOperatorKind, VariableRef,
-    WhenBinding,
+    StartOfChainKind, UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    b8_type, u32_type, u8_type, unknown_type, BasicType, BasicTypeKind,
-    FramePlacedType, OutputDestination, TypedRegister, VmType,
+    BasicType, BasicTypeKind, FramePlacedType, OutputDestination, TypedRegister, VmType, b8_type,
+    u8_type, u32_type, unknown_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryAddress, InstructionPosition, MemoryLocation, MemoryOffset, StringHeader, REG_ON_FRAME_ALIGNMENT,
-    REG_ON_FRAME_SIZE, VEC_PTR_SIZE,
+    HeapMemoryAddress, InstructionPosition, MemoryLocation, MemoryOffset, REG_ON_FRAME_ALIGNMENT,
+    REG_ON_FRAME_SIZE, StringHeader, VEC_PTR_SIZE,
 };
 use tracing::{error, info};
 
@@ -35,7 +34,6 @@ pub(crate) struct MutableReturnReg {
     pub target_location_after_call: OutputDestination,
     pub parameter_reg: TypedRegister,
 }
-
 
 pub(crate) struct CodeBuilder<'a> {
     pub state: &'a mut CodeGenState,
@@ -419,251 +417,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub(crate) fn emit_binary_operator(
-        &mut self,
-        target_reg: &TypedRegister,
-        binary_operator: &BinaryOperator,
-        ctx: &Context,
-    ) {
-        //info!(left=?binary_operator.left.ty, right=?binary_operator.right.ty, "binary_op");
-
-        match &binary_operator.kind {
-            BinaryOperatorKind::LogicalOr | BinaryOperatorKind::LogicalAnd => {
-                let t_flag_result =
-                    self.emit_binary_operator_logical_to_t_flag(binary_operator, ctx);
-                self.materialize_t_flag_to_bool_if_needed(
-                    target_reg,
-                    t_flag_result,
-                    &binary_operator.node,
-                );
-            }
-            _ => self.emit_binary_operator_normal(target_reg, binary_operator, ctx),
-        }
-    }
-
-    fn emit_binary_operator_normal(
-        &mut self,
-        target_reg: &TypedRegister,
-        binary_operator: &BinaryOperator,
-        ctx: &Context,
-    ) {
-        let hwm = self.temp_registers.save_mark();
-
-        let left_source = self.emit_scalar_rvalue(&binary_operator.left, ctx);
-        let right_source = self.emit_scalar_rvalue(&binary_operator.right, ctx);
-
-        match &binary_operator.kind {
-            BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
-                let is_equal_polarity = matches!(binary_operator.kind, BinaryOperatorKind::Equal);
-                let t_flag = self.emit_binary_operator_equal_to_t_flag_only(
-                    &left_source,
-                    is_equal_polarity,
-                    &right_source,
-                    &binary_operator.node,
-                    ctx,
-                );
-                self.materialize_t_flag_to_bool_if_needed(
-                    target_reg,
-                    t_flag,
-                    &binary_operator.node,
-                );
-            }
-            BinaryOperatorKind::GreaterEqual
-            | BinaryOperatorKind::GreaterThan
-            | BinaryOperatorKind::LessThan
-            | BinaryOperatorKind::LessEqual => {
-                let t_flag = self.emit_binary_operator_relational_to_t_flag_only(
-                    &left_source,
-                    binary_operator,
-                    &right_source,
-                );
-                self.materialize_t_flag_to_bool_if_needed(
-                    target_reg,
-                    t_flag,
-                    &binary_operator.node,
-                );
-            }
-            _ => match (&binary_operator.left.ty, &binary_operator.right.ty) {
-                //(Type::Bool, Type::Bool) => self.emit_binary_operator_logical(binary_operator),
-                (Type::Int, Type::Int) => self.emit_binary_operator_i32(
-                    target_reg,
-                    &left_source,
-                    &binary_operator.node,
-                    &binary_operator.kind,
-                    &right_source,
-                    ctx,
-                ),
-                (Type::Float, Type::Float) => self.emit_binary_operator_f32(
-                    target_reg,
-                    &left_source,
-                    &binary_operator.node,
-                    &binary_operator.kind,
-                    &right_source,
-                    ctx,
-                ),
-                (Type::String, Type::String) => self.emit_binary_operator_string(
-                    target_reg,
-                    &left_source,
-                    &binary_operator.node,
-                    &binary_operator.kind,
-                    &right_source,
-                    ctx,
-                ),
-                _ => todo!(),
-            },
-        }
-
-        self.temp_registers.restore_to_mark(hwm);
-    }
-
-    fn emit_binary_operator_i32(
-        &mut self,
-        target_reg: &TypedRegister,
-        left_source: &TypedRegister,
-        node: &Node,
-        binary_operator_kind: &BinaryOperatorKind,
-        right_source: &TypedRegister,
-        ctx: &Context,
-    ) {
-        let kind = GeneratedExpressionResultKind::TFlagIsIndeterminate;
-        match binary_operator_kind {
-            BinaryOperatorKind::Add => {
-                self.builder.add_add_u32(
-                    // u32 is the same as i32 when it comes to wrapping_add
-                    target_reg,
-                    left_source,
-                    right_source,
-                    node,
-                    "i32 add",
-                );
-            }
-            BinaryOperatorKind::Subtract => {
-                self.builder.add_sub_u32(
-                    target_reg,
-                    left_source,
-                    right_source,
-                    node,
-                    &format!("i32 sub {target_reg:?} = {left_source:?} - {right_source:?}"),
-                );
-            }
-            BinaryOperatorKind::Multiply => {
-                self.builder
-                    .add_mul_i32(target_reg, left_source, right_source, node, "i32 mul");
-            }
-            BinaryOperatorKind::Divide => {
-                self.builder
-                    .add_div_i32(target_reg, left_source, right_source, node, "i32 div");
-            }
-            BinaryOperatorKind::Modulo => {
-                self.builder
-                    .add_mod_i32(target_reg, left_source, right_source, node, "i32 mod");
-            }
-            BinaryOperatorKind::LogicalOr => todo!(),
-            BinaryOperatorKind::LogicalAnd => todo!(),
-            BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => todo!(),
-            _ => todo!(), /*
-                          {
-                              self.builder
-                                  .add_cmp32(left_source, right_source, node, "i32 cmp");
-                              if let BinaryOperatorKind::Equal = binary_operator_kind {
-                                  kind = GeneratedExpressionResultKind::ZFlagIsTrue;
-                              } else {
-                                  kind = GeneratedExpressionResultKind::ZFlagIsInversion;
-                              }
-                          }
-                           */
-        }
-    }
-
-    #[allow(clippy::unnecessary_wraps)]
-    fn emit_binary_operator_f32(
-        &mut self,
-        target_reg: &TypedRegister,
-        left_source: &TypedRegister,
-        node: &Node,
-        binary_operator_kind: &BinaryOperatorKind,
-        right_source: &TypedRegister,
-        ctx: &Context,
-    ) {
-        let kind = GeneratedExpressionResultKind::TFlagIsIndeterminate;
-        match binary_operator_kind {
-            BinaryOperatorKind::Add => {
-                self.builder
-                    .add_add_f32(target_reg, left_source, right_source, node, "f32 add");
-            }
-            BinaryOperatorKind::Subtract => {
-                self.builder
-                    .add_sub_f32(target_reg, left_source, right_source, node, "f32 sub");
-            }
-            BinaryOperatorKind::Multiply => {
-                self.builder
-                    .add_mul_f32(target_reg, left_source, right_source, node, "f32 mul");
-            }
-            BinaryOperatorKind::Divide => {
-                self.builder
-                    .add_div_f32(target_reg, left_source, right_source, node, "f32 div");
-            }
-            BinaryOperatorKind::Modulo => {
-                self.builder
-                    .add_mod_f32(target_reg, left_source, right_source, node, "f32 mod");
-            }
-            BinaryOperatorKind::LogicalOr => panic!("not supported"),
-            BinaryOperatorKind::LogicalAnd => panic!("not supported"),
-            BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => panic!("handled elsewhere"),
-            _ => panic!("unknown"), /*{
-                                        self.builder
-                                            .add_cmp32(left_source, right_source, node, "f32 eq");
-                                        if let BinaryOperatorKind::Equal = binary_operator_kind {
-                                            kind = GeneratedExpressionResultKind::ZFlagIsTrue;
-                                        } else {
-                                            kind = GeneratedExpressionResultKind::ZFlagIsInversion;
-                                        }
-                                    }*/
-        }
-    }
-
-    fn emit_binary_operator_string(
-        &mut self,
-        target_reg: &TypedRegister,
-        left_source: &TypedRegister,
-        node: &Node,
-        binary_operator_kind: &BinaryOperatorKind,
-        right_source: &TypedRegister,
-        ctx: &Context,
-    ) {
-        match binary_operator_kind {
-            BinaryOperatorKind::Add => {
-                self.builder.add_string_append(
-                    target_reg,
-                    left_source,
-                    right_source,
-                    node,
-                    "string append",
-                );
-            }
-
-            BinaryOperatorKind::Equal => todo!(),
-            BinaryOperatorKind::NotEqual => todo!(),
-            _ => panic!("illegal string operator"),
-        }
-    }
-
-    fn emit_binary_operator_cmp8(
-        &mut self,
-        left_source: &TypedRegister,
-        node: &Node,
-        right_source: &TypedRegister,
-    ) -> GeneratedExpressionResult {
-        assert_eq!(left_source.size().0, 1);
-        assert_eq!(right_source.size().0, 1);
-        self.builder
-            .add_cmp_reg(left_source, right_source, node, "compare bool");
-
-        GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
-        }
-    }
-
     pub(crate) fn emit_if(
         &mut self,
         output_destination: &OutputDestination,
@@ -860,7 +613,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         let mut current_location = self.emit_start_of_chain(start_expression, ctx);
-        let mut t_flag_result = GeneratedExpressionResult::default();
+        let mut t_flag_result = FlagState::default();
 
         //info!(t=?current_location.vm_type(), "start r value chain");
 
@@ -962,11 +715,7 @@ impl CodeBuilder<'_> {
                                     arguments,
                                     ctx,
                                 );
-                                self.add_call(
-                                    &element.node,
-                                    internal_fn,
-                                    "emit_rvalue call",
-                                );
+                                self.emit_call(&element.node, internal_fn, "emit_rvalue call");
 
                                 self.emit_post_call(
                                     &spilled_argument_registers,
@@ -1198,8 +947,6 @@ impl CodeBuilder<'_> {
     }
 
     pub(crate) fn get_variable_register(&self, variable: &VariableRef) -> &TypedRegister {
-        
-
         (self
             .variable_registers
             .get(&variable.unique_id_within_function)
@@ -1564,7 +1311,7 @@ impl CodeBuilder<'_> {
         host_fn: &ExternalFunctionDefinitionRef,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         let (spilled_arguments, copy_back) = self.emit_arguments(
             output_destination,
             node,
@@ -1587,7 +1334,7 @@ impl CodeBuilder<'_> {
 
         self.emit_post_call(&spilled_arguments, &copy_back, node, "host call");
 
-        GeneratedExpressionResult::default()
+        FlagState::default()
     }
 
     fn emit_host_self_call(
@@ -1598,7 +1345,7 @@ impl CodeBuilder<'_> {
         self_frame_placed_type: &TypedRegister,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         let (spilled_arguments, copy_backs) = self.emit_arguments(
             return_output_destination,
             node,
@@ -1621,7 +1368,7 @@ impl CodeBuilder<'_> {
 
         self.emit_post_call(&spilled_arguments, &copy_backs, node, "host_self_call");
 
-        GeneratedExpressionResult::default()
+        FlagState::default()
     }
 
     fn merge_arguments_keep_literals(
@@ -1762,8 +1509,7 @@ impl CodeBuilder<'_> {
         // 5. Conditionally skip result insertion if early exit is triggered.
         let maybe_skip_early = if matches!(
             transformer_t_flag_state,
-            GeneratedExpressionResultKind::TFlagIsTrueWhenSet
-                | GeneratedExpressionResultKind::TFlagIsTrueWhenClear
+            FlagStateKind::TFlagIsTrueWhenSet | FlagStateKind::TFlagIsTrueWhenClear
         ) {
             // The z flag is set so we can act on it
             let skip_early = self.builder.add_jmp_if_not_equal_polarity_placeholder(
@@ -1838,12 +1584,8 @@ impl CodeBuilder<'_> {
                     "iterate over collection target",
                 );
 
-                self.builder.add_mov8_immediate(
-                    tag_target.register(),
-                    1,
-                    node,
-                    "mark tag as Some",
-                );
+                self.builder
+                    .add_mov8_immediate(tag_target.register(), 1, node, "mark tag as Some");
                 /* TODO:
 
                 self.builder.add_st8_using_ptr_with_offset(
@@ -1963,34 +1705,34 @@ impl CodeBuilder<'_> {
         transformer: Transformer,
         in_value: &TypedRegister,
         node: &Node,
-    ) -> GeneratedExpressionResultKind {
+    ) -> FlagStateKind {
         match transformer {
-            Transformer::For => GeneratedExpressionResultKind::TFlagIsIndeterminate,
+            Transformer::For => FlagStateKind::TFlagIsIndeterminate,
             Transformer::Filter => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 self.builder
                     .add_tst_u8(in_value, node, "filter bool to z flag");
-                GeneratedExpressionResultKind::TFlagIsTrueWhenSet
+                FlagStateKind::TFlagIsTrueWhenSet
             }
             Transformer::Find => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 self.builder
                     .add_tst_u8(in_value, node, "find: bool to z flag");
-                GeneratedExpressionResultKind::TFlagIsTrueWhenClear
+                FlagStateKind::TFlagIsTrueWhenClear
             }
-            Transformer::Map => GeneratedExpressionResultKind::TFlagIsIndeterminate,
+            Transformer::Map => FlagStateKind::TFlagIsIndeterminate,
             Transformer::Any => {
                 self.builder.add_tst_u8(in_value, node, "any, check tag");
-                GeneratedExpressionResultKind::TFlagIsTrueWhenClear
+                FlagStateKind::TFlagIsTrueWhenClear
             }
             Transformer::All => {
                 self.builder.add_tst_u8(in_value, node, "all, check tag");
-                GeneratedExpressionResultKind::TFlagIsTrueWhenSet
+                FlagStateKind::TFlagIsTrueWhenSet
             }
             Transformer::FilterMap => {
                 self.builder
                     .add_tst_u8(in_value, node, "filter map, check tag");
-                GeneratedExpressionResultKind::TFlagIsTrueWhenSet
+                FlagStateKind::TFlagIsTrueWhenSet
             }
         }
     }
@@ -2114,8 +1856,6 @@ impl CodeBuilder<'_> {
 
     pub fn temp_register_for_analyzed_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
         let layout = layout_type(ty);
-
-        
 
         self.temp_registers.allocate(
             VmType::new_unknown_placement(layout),

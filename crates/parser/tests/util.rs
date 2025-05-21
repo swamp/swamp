@@ -26,9 +26,10 @@ pub fn check(script: &str, expected_output: &str) {
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!((actual == expected), 
-            "\nExpected output:\n\n{expected}\n\nActual output:\n\n{actual}\n"
-        );
+    assert!(
+        (actual == expected),
+        "\nExpected output:\n\n{expected}\n\nActual output:\n\n{actual}\n"
+    );
 
     let mut differences = Vec::new();
 

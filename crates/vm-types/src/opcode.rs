@@ -66,8 +66,6 @@ pub enum OpCode {
     BlockCopy,            // Copy without offsets
     FrameMemClr,
 
-    Alloc, // Mainly for slices
-
     // Loaders --------------
 
     // Load immediate into reg
@@ -239,24 +237,20 @@ impl OpCode {
             Self::BlockCopyWithOffsets | Self::BlockCopy => "blkcpy",
             Self::LdPtrFromEffectiveAddress | Self::LoadEffectiveAddressIndexMultiplier => "lea",
 
-
             // Load
             Self::Mov8FromImmediateValue => "movb",
             Self::Mov16FromImmediateValue => "movh",
             Self::Mov32FromImmediateValue => "mov",
 
             Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ldrb",
-            Self::Ld16FromPointerWithOffset /*| Self::Ld32FromAbsoluteAddress*/ => "ldrh",
+            Self::Ld16FromPointerWithOffset => "ldrh",
             Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ldr",
             Self::LdRegFromFrame => "ldmf",
 
             Self::St32UsingPtrWithOffset => "str",
             Self::St16UsingPtrWithOffset => "strh",
             Self::St8UsingPtrWithOffset => "strb",
-
             Self::StRegToFrame => "stmf",
-
-            Self::Alloc => "alloc",
 
             // Float functions
             Self::FloatRound => "fround",

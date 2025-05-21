@@ -63,7 +63,8 @@ pub fn run_constants_in_order(
 }
 
 // "/Users/peter/external/swamp_autobattler/scripts"
-#[must_use] pub fn crate_and_registry(path_to_swamp: &Path) -> SourceMap {
+#[must_use]
+pub fn crate_and_registry(path_to_swamp: &Path) -> SourceMap {
     let mut mounts = SeqMap::new();
     //  let path_buf = Path::new(path_to_swamp).to_path_buf();
     mounts
@@ -74,8 +75,6 @@ pub fn run_constants_in_order(
     mounts
         .insert("registry".to_string(), registry_path)
         .unwrap();
-
-    
 
     SourceMap::new(&mounts).expect("source map failed")
 }
@@ -116,7 +115,8 @@ pub fn compile_and_codegen_main_path(
     }
 }
 
-#[must_use] pub fn create_vm_with_standard_settings(
+#[must_use]
+pub fn create_vm_with_standard_settings(
     instructions: &[BinaryInstruction],
     prepared_constant_memory: &[u8],
 ) -> Vm {

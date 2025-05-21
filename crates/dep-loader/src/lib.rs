@@ -126,7 +126,8 @@ impl Default for DependencyParser {
 }
 
 impl DependencyParser {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             import_scanned_modules: SeqMap::new(),
             already_parsed_modules: SeqMap::new(),
@@ -160,7 +161,8 @@ impl From<ParseRootError> for DependencyError {
 
 pub const LOCAL_ROOT_PACKAGE_PATH: &str = "crate";
 
-#[must_use] pub fn get_all_local_paths(
+#[must_use]
+pub fn get_all_local_paths(
     source_map: &SourceMap,
     parsed_module: &ParsedAstModule,
 ) -> (Vec<Vec<String>>, Vec<Vec<String>>) {
@@ -409,11 +411,7 @@ impl From<DependencyError> for DepLoaderError {
 ///
 pub fn os_home_relative_path(project_name: &str) -> io::Result<PathBuf> {
     home_dir().map_or_else(
-        || {
-            Err(io::Error::other(
-                "Could not determine home directory",
-            ))
-        },
+        || Err(io::Error::other("Could not determine home directory")),
         |home_path| {
             let mut path = home_path;
             path.push(format!(".{project_name}"));

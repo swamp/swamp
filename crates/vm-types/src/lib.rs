@@ -125,14 +125,16 @@ impl Default for FrameMemoryRegion {
 }
 
 impl FrameMemoryRegion {
-    #[must_use] pub const fn new(frame_addr: FrameMemoryAddress, size: MemorySize) -> Self {
+    #[must_use]
+    pub const fn new(frame_addr: FrameMemoryAddress, size: MemorySize) -> Self {
         Self {
             addr: frame_addr,
             size,
         }
     }
 
-    #[must_use] pub fn last_valid_end_addr(&self) -> FrameMemoryAddress {
+    #[must_use]
+    pub fn last_valid_end_addr(&self) -> FrameMemoryAddress {
         self.addr.add(MemoryOffset(self.size.0))
     }
 }
@@ -171,7 +173,8 @@ impl FrameMemoryAddress {
         Self(self.0 + memory_size.0)
     }
 
-    #[must_use] pub const fn add_offset(&self, memory_offset: MemoryOffset) -> Self {
+    #[must_use]
+    pub const fn add_offset(&self, memory_offset: MemoryOffset) -> Self {
         Self(self.0 + memory_offset.0)
     }
     #[must_use]
@@ -180,7 +183,8 @@ impl FrameMemoryAddress {
     }
 }
 
-#[must_use] pub fn align_to(addr: MemoryOffset, alignment: MemoryAlignment) -> MemoryOffset {
+#[must_use]
+pub fn align_to(addr: MemoryOffset, alignment: MemoryAlignment) -> MemoryOffset {
     MemoryOffset(align(addr.0 as usize, alignment.into()) as u16)
 }
 
@@ -201,7 +205,8 @@ impl FrameMemoryAddress {
 /// and matches the behavior of C, C++, and Rust.
 /// Note: The tail padding at the end of a struct is not reused for subsequent fields
 /// in a parent struct—this is required for safe and predictable layout
-#[must_use] pub fn adjust_size_to_alignment(
+#[must_use]
+pub fn adjust_size_to_alignment(
     unaligned_size: MemorySize,
     max_alignment: MemoryAlignment,
 ) -> MemorySize {
@@ -219,7 +224,8 @@ impl MemoryAddress {
 pub struct HeapMemoryOffset(pub u32);
 
 impl HeapMemoryOffset {
-    #[must_use] pub const fn to_size(&self) -> HeapMemorySize {
+    #[must_use]
+    pub const fn to_size(&self) -> HeapMemorySize {
         HeapMemorySize(self.0)
     }
 }
@@ -256,13 +262,15 @@ impl Sub<Self> for HeapMemoryOffset {
 }
 
 impl HeapMemoryOffset {
-    #[must_use] pub const fn as_size(&self) -> HeapMemorySize {
+    #[must_use]
+    pub const fn as_size(&self) -> HeapMemorySize {
         HeapMemorySize(self.0)
     }
 }
 
 impl HeapMemoryOffset {
-    #[must_use] pub fn add(&self, size: HeapMemorySize, alignment: MemoryAlignment) -> Self {
+    #[must_use]
+    pub fn add(&self, size: HeapMemorySize, alignment: MemoryAlignment) -> Self {
         let new_start = align(self.0 as usize, alignment.into());
         Self(new_start as u32 + size.0)
     }
@@ -283,7 +291,8 @@ pub struct MemoryLocation {
 impl MemoryLocation {}
 
 impl MemoryLocation {
-    #[must_use] pub fn pointer_location(&self) -> Option<PointerLocation> {
+    #[must_use]
+    pub fn pointer_location(&self) -> Option<PointerLocation> {
         if self.offset.0 == 0 {
             Some(PointerLocation {
                 ptr_reg: self.base_ptr_reg.clone(),
@@ -293,7 +302,8 @@ impl MemoryLocation {
         }
     }
 
-    #[must_use] pub const fn reg(&self) -> &TypedRegister {
+    #[must_use]
+    pub const fn reg(&self) -> &TypedRegister {
         &self.base_ptr_reg
     }
 }
@@ -308,7 +318,8 @@ pub struct AggregateMemoryLocation {
 }
 
 impl AggregateMemoryLocation {
-    #[must_use] pub fn offset(&self, memory_offset: MemoryOffset, new_type: BasicType) -> Self {
+    #[must_use]
+    pub fn offset(&self, memory_offset: MemoryOffset, new_type: BasicType) -> Self {
         let new_location = MemoryLocation {
             base_ptr_reg: self.location.base_ptr_reg.clone(),
             offset: self.location.offset + memory_offset,
@@ -324,7 +335,8 @@ impl AggregateMemoryLocation {
 pub struct MemoryOffset(pub u16);
 
 impl MemoryOffset {
-    #[must_use] pub const fn to_size(&self) -> MemorySize {
+    #[must_use]
+    pub const fn to_size(&self) -> MemorySize {
         MemorySize(self.0)
     }
 }
@@ -363,13 +375,15 @@ impl Sub<Self> for MemoryOffset {
 }
 
 impl MemoryOffset {
-    #[must_use] pub const fn as_size(&self) -> MemorySize {
+    #[must_use]
+    pub const fn as_size(&self) -> MemorySize {
         MemorySize(self.0)
     }
 }
 
 impl MemoryOffset {
-    #[must_use] pub fn add(&self, size: MemorySize, alignment: MemoryAlignment) -> Self {
+    #[must_use]
+    pub fn add(&self, size: MemorySize, alignment: MemoryAlignment) -> Self {
         let new_start = align(self.0 as usize, alignment.into());
         Self(new_start as u16 + size.0)
     }

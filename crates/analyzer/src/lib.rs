@@ -466,9 +466,7 @@ impl<'a> Analyzer<'a> {
             swamp_ast::ExpressionKind::StaticMemberFunctionReference(
                 qualified_type_identifier,
                 node,
-            ) => {
-                self.analyze_static_member_access(qualified_type_identifier, node)
-            }
+            ) => self.analyze_static_member_access(qualified_type_identifier, node),
             swamp_ast::ExpressionKind::IdentifierReference(qualified_identifier) => {
                 self.analyze_local_function_access(qualified_identifier)
             }
@@ -487,7 +485,8 @@ impl<'a> Analyzer<'a> {
         } else if let swamp_ast::ExpressionKind::IdentifierReference(found_qualified_identifier) =
             &ast_expression.kind
         {
-            self.try_find_variable(&found_qualified_identifier.name).map(StartOfChainBase::Variable)
+            self.try_find_variable(&found_qualified_identifier.name)
+                .map(StartOfChainBase::Variable)
         } else {
             None
         }
@@ -1685,7 +1684,6 @@ impl<'a> Analyzer<'a> {
 
                          */
 
-                        
                         self.create_expr(call_expr_kind, Type::String, &expression.node)
                     }
                 }
@@ -2307,8 +2305,6 @@ impl<'a> Analyzer<'a> {
                 )?
             } else {
                 let same_var = self.find_variable(&variable_binding.variable)?;
-
-                
 
                 if same_var.is_mutable() {
                     let loc = SingleLocationExpression {

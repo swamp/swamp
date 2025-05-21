@@ -9,7 +9,8 @@ impl TempRegister {
     pub(crate) const fn register(&self) -> &TypedRegister {
         &self.register
     }
-    #[must_use] pub const fn addressing(&self) -> u8 {
+    #[must_use]
+    pub const fn addressing(&self) -> u8 {
         self.register.addressing()
     }
 }
@@ -27,6 +28,8 @@ pub struct HwmTempRegisterPool {
 }
 
 impl HwmTempRegisterPool {
+    /// # Panics
+    ///
     #[must_use]
     pub fn new(start: u8, count: usize) -> Self {
         if count == 0 {
@@ -97,13 +100,17 @@ pub struct RegisterPool {
 }
 
 impl RegisterPool {
-    #[must_use] pub const fn new(start: u8, count: u8) -> Self {
+    #[must_use]
+    pub const fn new(start: u8, count: u8) -> Self {
         Self {
             start_index: start,
             end_index: start + count,
             current_index: start,
         }
     }
+
+    /// # Panics
+    ///
     pub fn alloc_register(&mut self, ty: VmType, comment: &str) -> TypedRegister {
         assert!(
             self.current_index + 1 < self.end_index,

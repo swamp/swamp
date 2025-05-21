@@ -1052,11 +1052,6 @@ pub fn disasm(
             to_write_reg(operands[0], &float_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
         ],
-
-        OpCode::Alloc => &[
-            to_write_reg(operands[0], &pointer_type_again(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(0)),
-        ],
     };
 
     let converted_operands = operands_slice

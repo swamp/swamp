@@ -899,11 +899,7 @@ impl Vm {
     #[inline]
     fn execute_pseudo_random_i32(&mut self, dst_reg: u8, src_reg: u8) {
         let src = get_reg!(self, src_reg);
-        set_reg!(
-            self,
-            dst_reg,
-            squirrel_prng::squirrel_noise5(src, 0) as i32
-        );
+        set_reg!(self, dst_reg, squirrel_prng::squirrel_noise5(src, 0) as i32);
     }
 
     #[inline]

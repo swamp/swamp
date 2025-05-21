@@ -55,7 +55,6 @@ pub fn analyze_module(
             resolver.analyze_definition(ast_def)?;
         }
 
-        
         if let Some(expr) = ast_module.ast_module.expression() {
             let internal_main = resolver.analyze_main_expression(expr)?;
             Some(internal_main)

@@ -79,10 +79,9 @@ impl CodeBuilder<'_> {
         let aggregate_location =
             self.allocate_frame_space_and_assign_register(&u32_type(), node, "key storage");
 
-        let element_target_temp_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            "key temp",
-        );
+        let element_target_temp_reg = self
+            .temp_registers
+            .allocate(VmType::new_unknown_placement(u32_type()), "key temp");
 
         for (key_expr, value_expr) in slice_pair_literal {
             //self.emit_expression_materialize(&key_storage_register, key_expr, ctx);

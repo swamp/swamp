@@ -60,6 +60,8 @@ impl CodeGenState {
         self.add_function_helper(function_info, node, comment)
     }
 
+    /// # Panics
+    ///
     pub fn add_function_helper(
         &mut self,
         function_info: FunctionInfo,
@@ -89,6 +91,8 @@ impl CodeGenState {
         complete_info
     }
 
+    /// # Panics
+    /// If function info is not a constant
     pub fn add_constant_function(
         &mut self,
         constant_info: FunctionInfo,

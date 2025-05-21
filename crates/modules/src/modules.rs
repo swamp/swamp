@@ -61,7 +61,11 @@ pub fn pretty_print(
 pub type ModuleRef = Rc<Module>;
 
 impl Module {
-    #[must_use] pub const fn new(symbol_table: SymbolTable, expression: Option<InternalMainExpression>) -> Self {
+    #[must_use]
+    pub const fn new(
+        symbol_table: SymbolTable,
+        expression: Option<InternalMainExpression>,
+    ) -> Self {
         Self {
             symbol_table,
             main_expression: expression,
@@ -70,13 +74,15 @@ impl Module {
 }
 
 impl Modules {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             modules: SeqMap::new(),
         }
     }
 
-    #[must_use] pub const fn modules(&self) -> &SeqMap<Vec<String>, ModuleRef> {
+    #[must_use]
+    pub const fn modules(&self) -> &SeqMap<Vec<String>, ModuleRef> {
         &self.modules
     }
 

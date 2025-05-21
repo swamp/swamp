@@ -77,7 +77,8 @@ fn exec_code_gen_state(code_gen_state: TopLevelGenState) -> Vm {
     vm
 }
 
-#[must_use] pub fn exec_internal(code: &str) -> Vm {
+#[must_use]
+pub fn exec_internal(code: &str) -> Vm {
     let (code_gen, _program) = emit_internal_debug(code);
 
     exec_code_gen_state(code_gen)

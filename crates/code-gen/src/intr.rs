@@ -1,7 +1,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use crate::{Collection, GeneratedExpressionResult, GeneratedExpressionResultKind, Transformer};
+use crate::{Collection, FlagState, FlagStateKind, Transformer};
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
@@ -22,7 +22,7 @@ impl CodeBuilder<'_> {
         intrinsic_fn: &IntrinsicFunction,
         arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         match intrinsic_fn {
             IntrinsicFunction::MapFromSlicePair => {
                 let MutRefOrImmutableExpression::Expression(expr) = &arguments[0] else {
@@ -47,7 +47,7 @@ impl CodeBuilder<'_> {
                     "create map from temporary slice pair",
                 );
 
-                GeneratedExpressionResult::default()
+                FlagState::default()
             }
 
             _ => {
@@ -88,10 +88,10 @@ impl CodeBuilder<'_> {
         arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
         comment: &str,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         let maybe_target = target_reg.register();
 
-        let mut t_flag_result = GeneratedExpressionResult::default();
+        let mut t_flag_result = FlagState::default();
         match intrinsic_fn {
             IntrinsicFunction::RuntimePanic => {
                 self.builder
@@ -348,10 +348,10 @@ impl CodeBuilder<'_> {
                     },
                 };
 
-                self.emit_expression_to_lvalue_location(
-                    location.location,
+                self.emit_expression_into_target_memory(
+                    &location.location,
                     element_expr,
-                    "nono",
+                    "vec push",
                     ctx,
                 );
             }
@@ -513,7 +513,7 @@ impl CodeBuilder<'_> {
                 // TODO: Bring this back // assert_eq!(range_header_region.size(), RANGE_HEADER_SIZE);
                 self.builder.add_vec_get_range(
                     maybe_target.unwrap(),
-                    self_addr.unwrap(),  // mut self (string header)
+                    self_addr.unwrap(),   // mut self (string header)
                     &range_header_region, // range x..=y
                     node,
                     "vec subscript range",
@@ -547,13 +547,8 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecSwap => {
                 let index_a = self.emit_for_access_or_location(&arguments[0], ctx);
                 let index_b = self.emit_for_access_or_location(&arguments[1], ctx);
-                self.builder.add_vec_swap(
-                    self_addr.unwrap(),
-                    &index_a,
-                    &index_b,
-                    node,
-                    "vec swap",
-                );
+                self.builder
+                    .add_vec_swap(self_addr.unwrap(), &index_a, &index_b, node, "vec swap");
             }
 
             IntrinsicFunction::VecInsert => { // Low prio
@@ -601,7 +596,7 @@ impl CodeBuilder<'_> {
                 let key = self.emit_scalar_rvalue(key_argument, ctx);
                 self.builder
                     .add_map_has(self_addr.unwrap(), &key, node, "map_has");
-                t_flag_result.kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
+                t_flag_result.kind = FlagStateKind::TFlagIsTrueWhenSet;
             }
             IntrinsicFunction::MapRemove => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
@@ -748,16 +743,5 @@ impl CodeBuilder<'_> {
 
         self.builder
             .add_map_remove(map_region, &key_region, &key_expr.node, "");
-    }
-
-    fn emit_expression_to_lvalue_location(
-        &mut self,
-        memory_location: MemoryLocation,
-        expr: &Expression,
-        comment: &str,
-        ctx: &Context,
-    ) {
-        let output_destination = OutputDestination::new_location(memory_location);
-        self.emit_expression(&output_destination, expr, ctx);
     }
 }

@@ -129,7 +129,8 @@ pub fn show_parse_error(
     build_and_print(builder, source_map, current_dir);
 }
 
-#[must_use] pub fn build_parser_error(err: &ParserError) -> Builder<usize> {
+#[must_use]
+pub fn build_parser_error(err: &ParserError) -> Builder<usize> {
     build_parse_error(
         &err.specific,
         &Span {

@@ -1,7 +1,7 @@
 use fixed32::Fp;
+use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 use std::ops::Add;
-use std::fmt;
 use swamp_vm::Vm;
 use swamp_vm::memory::Memory;
 use swamp_vm_types::types::{BasicType, BasicTypeKind, OffsetMemoryItem};
@@ -91,9 +91,7 @@ impl Add<MemoryOffset> for PrintAddress {
 
     fn add(self, rhs: MemoryOffset) -> Self::Output {
         match self {
-            Self::StackMemoryAddress(stack_addr) => {
-                Self::StackMemoryAddress(stack_addr + rhs)
-            }
+            Self::StackMemoryAddress(stack_addr) => Self::StackMemoryAddress(stack_addr + rhs),
             Self::HeapMemoryAddress(heap_addr) => {
                 Self::HeapMemoryAddress(HeapMemoryAddress(heap_addr.0 + u32::from(rhs.0)))
             }

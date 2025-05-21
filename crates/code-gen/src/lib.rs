@@ -4,9 +4,9 @@
  */
 
 pub mod alloc;
-pub mod alloc_util;
 mod anon_struct;
 mod assignment;
+mod bin_op;
 mod call;
 pub mod code_bld;
 pub mod constants;
@@ -15,11 +15,13 @@ pub mod disasm;
 mod enum_variants;
 mod equal;
 mod expr;
+mod func;
 pub mod intr;
 pub mod layout;
 mod literal;
 mod location;
 mod logical;
+mod lvalue;
 mod map;
 pub mod reg_pool;
 mod relational;
@@ -49,10 +51,10 @@ use swamp_vm_types::types::{
 use swamp_vm_types::{
     CountU16, FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, InstructionPosition,
     InstructionRange, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT,
-    MAP_ITERATOR_SIZE, MemoryAlignment, MemorySize, RANGE_HEADER_ALIGNMENT,
-    RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_ALIGNMENT,
-    STRING_HEADER_SIZE, TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
-    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
+    MAP_ITERATOR_SIZE, MemoryAlignment, MemorySize, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE,
+    TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT,
+    VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 
 #[derive(Copy, Clone)]
@@ -123,83 +125,9 @@ impl DetailedLocationResolved {
     }
 }
 
-/*
-#[derive(Debug, Clone)]
-pub enum DetailedLocation {
-    Register {
-        reg: TypedRegister,
-    },
-    Memory {
-        base_ptr_reg: TypedRegister,
-        offset: MemoryOffset,
-        ty: VmType,
-    },
-}
-
-impl DetailedLocation {
-    pub const fn vm_type(&self) -> &VmType {
-        match self {
-            Self::Register { reg, .. } => &reg.ty,
-            Self::Memory { ty, .. } => ty,
-        }
-    }
-
-    pub fn add_offset(&self, new_offset: MemoryOffset, ty: VmType) -> Self {
-        match self {
-            Self::Register { reg } => {
-                /* TODO: Bring this back
-                // debug_assert!(
-                    ty.is_pointer(),
-                    "we can not take offset unless it is a pointer"
-                );
-                */
-                Self::Memory {
-                    base_ptr_reg: reg.clone(),
-                    offset: new_offset,
-                    ty,
-                }
-            }
-
-            Self::Memory {
-                base_ptr_reg: base,
-                offset,
-                ..
-            } => Self::Memory {
-                base_ptr_reg: base.clone(),
-                offset: offset.clone() + new_offset,
-                ty,
-            },
-        }
-    }
-
-    pub fn is_register(&self) -> bool {
-        matches!(self, DetailedLocation::Register { .. })
-    }
-
-    pub fn is_memory(&self) -> bool {
-        matches!(self, DetailedLocation::Memory { .. })
-    }
-
-    pub fn base_register(&self) -> Option<&TypedRegister> {
-        match self {
-            DetailedLocation::Register { .. } => None,
-            DetailedLocation::Memory {
-                base_ptr_reg: base, ..
-            } => Some(base),
-        }
-    }
-
-    pub fn offset(&self) -> Option<MemoryOffset> {
-        match self {
-            DetailedLocation::Register { .. } => None,
-            DetailedLocation::Memory { offset, .. } => Some(*offset),
-        }
-    }
-}
-*/
-
 impl Collection {
-    #[must_use] pub const fn size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
+    #[must_use]
+    pub const fn size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
         match self {
             Self::Vec => (VEC_HEADER_SIZE, VEC_HEADER_ALIGNMENT),
             Self::Map => (MAP_HEADER_SIZE, MAP_HEADER_ALIGNMENT),
@@ -209,7 +137,8 @@ impl Collection {
         }
     }
 
-    #[must_use] pub fn iterator_size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
+    #[must_use]
+    pub fn iterator_size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
         match self {
             Self::Vec => (VEC_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT),
             Self::Map => (MAP_ITERATOR_SIZE, MAP_ITERATOR_ALIGNMENT),
@@ -220,7 +149,8 @@ impl Collection {
         }
     }
 
-    #[must_use] pub fn iterator_gen_type(&self) -> BasicType {
+    #[must_use]
+    pub fn iterator_gen_type(&self) -> BasicType {
         let kind = match self {
             Self::Vec => BasicTypeKind::InternalVecIterator,
             Self::Map => BasicTypeKind::InternalMapIterator,
@@ -251,17 +181,17 @@ pub struct FunctionIp {
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum GeneratedExpressionResultKind {
+pub enum FlagStateKind {
     TFlagIsIndeterminate,
     TFlagIsTrueWhenSet,
     TFlagIsTrueWhenClear,
 }
 
-pub struct GeneratedExpressionResult {
-    pub kind: GeneratedExpressionResultKind,
+pub struct FlagState {
+    pub kind: FlagStateKind,
 }
 
-impl GeneratedExpressionResult {
+impl FlagState {
     pub(crate) fn invert_polarity(&self) -> Self {
         Self {
             kind: self.kind.invert_polarity(),
@@ -269,7 +199,7 @@ impl GeneratedExpressionResult {
     }
 }
 
-impl GeneratedExpressionResultKind {
+impl FlagStateKind {
     pub(crate) fn invert_polarity(&self) -> Self {
         match self {
             Self::TFlagIsIndeterminate => {
@@ -289,16 +219,16 @@ impl GeneratedExpressionResultKind {
     }
 }
 
-impl GeneratedExpressionResult {
+impl FlagState {
     pub(crate) fn polarity(&self) -> ZFlagPolarity {
         self.kind.polarity()
     }
 }
 
-impl Default for GeneratedExpressionResult {
+impl Default for FlagState {
     fn default() -> Self {
         Self {
-            kind: GeneratedExpressionResultKind::TFlagIsIndeterminate,
+            kind: FlagStateKind::TFlagIsIndeterminate,
         }
     }
 }
@@ -360,7 +290,6 @@ pub struct FrameAndVariableInfo {
     parameter_and_variable_offsets: SeqMap<usize, TypedRegister>,
     temp_allocator_region: FrameMemoryRegion,
     frame_registers: RegisterPool,
-    //rest_of_frame_allocator: ScopeAllocator,
     highest_register_used: u8,
 }
 
@@ -374,72 +303,6 @@ pub struct FunctionInData {
     pub return_type: Type,
     pub expression: Expression,
 }
-
-/*
-pub struct FunctionCodeGen<'a> {
-    //state: &'a mut CodeGenState,
-    builder: &'a mut CodeBuilder<'a>,
-    //variable_registers: SeqMap<usize, TypedRegister>,
-    //total_frame_size: FrameMemorySize,
-    variable_frame_size: FrameMemorySize,
-    argument_registers: TempRegisterPool,
-    debug_name: String,
-    source_map_lookup: &'a SourceMapWrapper<'a>,
-}
-
-impl<'a> FunctionCodeGen<'a> {
-    #[must_use]
-    pub fn new(
-        state: &'a mut CodeGenState,
-        builder: &'a mut InstructionBuilder<'a>,
-        variable_offsets: SeqMap<usize, TypedRegister>,
-        frame_size: FrameMemorySize,
-        temp_memory_region: FrameMemoryRegion,
-        debug_name: &str,
-        source_map_lookup: &'a SourceMapWrapper,
-    ) -> Self {
-        const ARGUMENT_MAX_SIZE: u16 = 2 * 1024;
-
-        Self {
-            state,
-            //variable_registers: variable_offsets,
-            total_frame_size: frame_size,
-            variable_frame_size: temp_memory_region.addr.as_size(),
-            argument_registers: TempRegisterPool::new(8, 32),
-
-            builder: &mut CodeBuilder::new(builder, variable_offsets),
-            debug_name: debug_name.to_string(),
-            source_map_lookup,
-        }
-    }
-}
-
-impl FunctionCodeGen<'_> {
-
-
-
-    fn debug_instructions(&mut self) {
-        /*
-        let end_ip = self.state.builder.instructions.len() - 1;
-        let instructions_to_disasm =
-            &self.state.builder.instructions[self.state.debug_last_ip..=end_ip];
-        let mut descriptions = Vec::new();
-        for x in instructions_to_disasm {
-            descriptions.push(String::new());
-        }
-        let output = disasm_instructions_color(
-            instructions_to_disasm,
-            &InstructionPosition(self.state.debug_last_ip as u16),
-            &descriptions,
-            &SeqMap::default(),
-        );
-        eprintln!("{output}");
-        self.state.debug_last_ip = end_ip + 1;
-
-         */
-    }
-}
- */
 
 fn single_intrinsic_fn(
     body: &Expression,

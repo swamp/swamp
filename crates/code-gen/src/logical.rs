@@ -1,7 +1,7 @@
 //! Logical helper functions for the code gen emitter
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::{GeneratedExpressionResult, GeneratedExpressionResultKind};
+use crate::{FlagState, FlagStateKind};
 use source_map_node::Node;
 use swamp_semantic::{
     BinaryOperator, BinaryOperatorKind, BooleanExpression, Expression, ExpressionKind,
@@ -15,18 +15,18 @@ impl CodeBuilder<'_> {
     pub(crate) fn materialize_t_flag_to_bool_if_needed(
         &mut self,
         target: &TypedRegister,
-        t_flag_state: GeneratedExpressionResult,
+        t_flag_state: FlagState,
         node: &Node,
     ) {
         match t_flag_state.kind {
-            GeneratedExpressionResultKind::TFlagIsIndeterminate => {
+            FlagStateKind::TFlagIsIndeterminate => {
                 // intentionally do nothing
             }
-            GeneratedExpressionResultKind::TFlagIsTrueWhenSet => {
+            FlagStateKind::TFlagIsTrueWhenSet => {
                 self.builder
                     .add_stz(target, node, "materialize positive P flag");
             }
-            GeneratedExpressionResultKind::TFlagIsTrueWhenClear => {
+            FlagStateKind::TFlagIsTrueWhenClear => {
                 self.builder
                     .add_stnz(target, node, "materialize inverse P flag");
             }
@@ -36,7 +36,7 @@ impl CodeBuilder<'_> {
         &mut self,
         unary_operator: &UnaryOperator,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         match &unary_operator.kind {
             UnaryOperatorKind::Not => match &unary_operator.left.ty {
                 Type::Bool => {
@@ -56,8 +56,6 @@ impl CodeBuilder<'_> {
     ) -> PatchPosition {
         let result = self.emit_expression_to_t_flag(&condition.expression, ctx);
 
-        
-
         self.builder.add_jmp_if_not_equal_polarity_placeholder(
             &result.polarity(),
             &condition.expression.node,
@@ -69,7 +67,7 @@ impl CodeBuilder<'_> {
         &mut self,
         condition: &Expression,
         ctx: &Context,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         match &condition.kind {
             ExpressionKind::CoerceOptionToBool(option_union_expr) => {
                 let region = self.emit_scalar_rvalue(option_union_expr, ctx);
@@ -79,8 +77,8 @@ impl CodeBuilder<'_> {
                     &option_union_expr.node,
                     "shortcut directly to z-flag",
                 );
-                return GeneratedExpressionResult {
-                    kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
+                return FlagState {
+                    kind: FlagStateKind::TFlagIsTrueWhenSet,
                 };
             }
             ExpressionKind::BinaryOp(operator) => match &operator.kind {
@@ -128,19 +126,16 @@ impl CodeBuilder<'_> {
             &condition.node,
             "set P flag from register",
         );
-        GeneratedExpressionResult {
-            kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
+        FlagState {
+            kind: FlagStateKind::TFlagIsTrueWhenSet,
         }
     }
 
     fn emit_expression_to_normalized_t_flag(&mut self, condition: &Expression, ctx: &Context) {
         let result = self.emit_expression_to_t_flag(condition, ctx);
-        assert_ne!(
-            result.kind,
-            GeneratedExpressionResultKind::TFlagIsIndeterminate
-        );
+        assert_ne!(result.kind, FlagStateKind::TFlagIsIndeterminate);
 
-        if result.kind == GeneratedExpressionResultKind::TFlagIsTrueWhenClear {
+        if result.kind == FlagStateKind::TFlagIsTrueWhenClear {
             self.builder
                 .add_not_t(&condition.node, "normalized z is required");
         }
@@ -149,11 +144,11 @@ impl CodeBuilder<'_> {
         &mut self,
         binary_operator: &BinaryOperator,
         context: &Context,
-    ) -> GeneratedExpressionResult {
+    ) -> FlagState {
         let node = &binary_operator.node;
 
         // the logical is always normalized
-        let kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
+        let kind = FlagStateKind::TFlagIsTrueWhenSet;
 
         match binary_operator.kind {
             BinaryOperatorKind::LogicalOr => {
@@ -184,6 +179,6 @@ impl CodeBuilder<'_> {
             }
         }
 
-        GeneratedExpressionResult { kind }
+        FlagState { kind }
     }
 }

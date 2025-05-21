@@ -18,10 +18,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         let variant_index = a.common().container_index as usize;
-        let variants = enum_type
-            .variants
-            .values().cloned()
-            .collect::<Vec<_>>();
+        let variants = enum_type.variants.values().cloned().collect::<Vec<_>>();
         let layout_enum = layout_enum_into_tagged_union(&enum_type.assigned_name, &variants);
         let layout_variant = layout_enum.get_variant_by_index(variant_index);
 
@@ -77,17 +74,6 @@ impl CodeBuilder<'_> {
                 );
             }
         }
-
-        /*
-           self.store_register_contents_to_memory(
-               node,
-               target_reg,
-               layout_enum.payload_offset,
-               temp_payload_reg.register(),
-               "copy enum payload into target",
-           );
-
-        */
 
         self.temp_registers.restore_to_mark(hwm);
     }

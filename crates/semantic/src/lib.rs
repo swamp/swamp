@@ -148,7 +148,8 @@ pub type InternalFunctionId = u16;
 
 pub type ConstantId = u32;
 
-#[must_use] pub fn pretty_module_name(parts: &[String]) -> String {
+#[must_use]
+pub fn pretty_module_name(parts: &[String]) -> String {
     if parts[0] == "crate" {
         parts[1..].join("::")
     } else {
@@ -156,7 +157,8 @@ pub type ConstantId = u32;
     }
 }
 
-#[must_use] pub fn formal_module_name(parts: &[String]) -> String {
+#[must_use]
+pub fn formal_module_name(parts: &[String]) -> String {
     parts.join("::")
 }
 
@@ -672,7 +674,8 @@ impl MutRefOrImmutableExpression {
         }
     }
 
-    #[must_use] pub const fn is_mutable_reference(&self) -> bool {
+    #[must_use]
+    pub const fn is_mutable_reference(&self) -> bool {
         matches!(self, Self::Location(_))
     }
 
@@ -693,7 +696,8 @@ pub struct Expression {
 }
 
 impl Expression {
-    #[must_use] pub fn debug_last_expression(&self) -> &Self {
+    #[must_use]
+    pub fn debug_last_expression(&self) -> &Self {
         match &self.kind {
             ExpressionKind::ConstantAccess(a) => a.expr.debug_last_expression(),
             ExpressionKind::BinaryOp(binary) => binary.right.debug_last_expression(),
@@ -751,14 +755,16 @@ pub struct StartOfChain {
 impl StartOfChain {}
 
 impl StartOfChainKind {
-    #[must_use] pub fn ty(&self) -> Type {
+    #[must_use]
+    pub fn ty(&self) -> Type {
         match self {
             Self::Expression(expr) => expr.ty.clone(),
             Self::Variable(var) => var.resolved_type.clone(),
         }
     }
 
-    #[must_use] pub fn is_mutable(&self) -> bool {
+    #[must_use]
+    pub fn is_mutable(&self) -> bool {
         match self {
             Self::Expression(_call) => {
                 // The language can never return something that is mutable

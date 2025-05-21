@@ -14,7 +14,8 @@ pub struct CodeGenOptions {
 
 /// # Errors
 ///
-#[must_use] pub fn code_gen_program(
+#[must_use]
+pub fn code_gen_program(
     program: &Program,
     source_map_lookup: &SourceMapWrapper,
     options: &CodeGenOptions,

@@ -3,11 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::Memory;
-use crate::{get_reg, Vm};
+use crate::{Vm, get_reg};
 use crate::{set_reg, u16_from_u8s};
 use std::hash::{DefaultHasher, Hasher};
 use std::{ptr, slice};
-use swamp_vm_types::{MapHeader, MAP_BUCKETS_OFFSET, MAP_HEADER_ALIGNMENT};
+use swamp_vm_types::{MAP_BUCKETS_OFFSET, MAP_HEADER_ALIGNMENT, MapHeader};
 
 impl Vm {
     const MAX_PROBES: usize = 8;
@@ -246,7 +246,7 @@ impl Vm {
 
         #[cfg(feature = "debug_vm")]
         {
-            eprintln!("lookup in bucket: {:04X}", map_header_addr, );
+            eprintln!("lookup in bucket: {:04X}", map_header_addr,);
         }
 
         let buckets_start_addr = (map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;

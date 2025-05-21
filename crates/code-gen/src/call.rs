@@ -179,7 +179,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub(crate) fn add_call(
+    pub(crate) fn emit_call(
         &mut self,
         node: &Node,
         internal_fn: &InternalFunctionDefinitionRef,
@@ -242,7 +242,7 @@ impl CodeBuilder<'_> {
             ctx,
         );
 
-        self.add_call(node, internal_fn, "call"); // will be fixed up later
+        self.emit_call(node, internal_fn, "call"); // will be fixed up later
 
         self.emit_post_call(
             &spilled_arguments,

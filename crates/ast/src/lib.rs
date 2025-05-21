@@ -544,7 +544,8 @@ pub enum GenericParameter {
 }
 
 impl GenericParameter {
-    #[must_use] pub fn get_unsigned_int_node(&self) -> &Node {
+    #[must_use]
+    pub fn get_unsigned_int_node(&self) -> &Node {
         let Self::UnsignedInt(node) = self else {
             panic!("wasn't unsigned int")
         };
@@ -553,7 +554,8 @@ impl GenericParameter {
 }
 
 impl GenericParameter {
-    #[must_use] pub fn get_type(&self) -> &Type {
+    #[must_use]
+    pub fn get_type(&self) -> &Type {
         let Self::Type(ty) = self else {
             panic!("wasn't type")
         };

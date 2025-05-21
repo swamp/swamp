@@ -72,7 +72,8 @@ impl Symbol {
         matches!(self, Self::Type(..) | Self::Alias(..))
     }
 
-    #[must_use] pub const fn is_alias_type(&self) -> bool {
+    #[must_use]
+    pub const fn is_alias_type(&self) -> bool {
         matches!(self, Self::Alias(..))
     }
 }
@@ -84,7 +85,8 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
-    #[must_use] pub fn internal_functions(&self) -> Vec<InternalFunctionDefinitionRef> {
+    #[must_use]
+    pub fn internal_functions(&self) -> Vec<InternalFunctionDefinitionRef> {
         let mut v = Vec::new();
 
         for (_name, sym) in &self.symbols {
@@ -100,7 +102,8 @@ impl SymbolTable {
 }
 
 impl SymbolTable {
-    #[must_use] pub fn module_path(&self) -> Vec<String> {
+    #[must_use]
+    pub fn module_path(&self) -> Vec<String> {
         self.module_path.clone()
     }
 }
@@ -126,7 +129,8 @@ impl SymbolTable {
         &self.symbols
     }
 
-    #[must_use] pub fn structs(&self) -> SeqMap<String, NamedStructType> {
+    #[must_use]
+    pub fn structs(&self) -> SeqMap<String, NamedStructType> {
         let mut structs = SeqMap::new();
 
         for (name, symbol) in &self.symbols {
@@ -407,7 +411,8 @@ impl SymbolTable {
         Ok(())
     }
 
-    #[must_use] pub fn get_symbol(&self, name: &str) -> Option<&Symbol> {
+    #[must_use]
+    pub fn get_symbol(&self, name: &str) -> Option<&Symbol> {
         self.symbols.get(&name.to_string())
     }
 
@@ -417,7 +422,8 @@ impl SymbolTable {
             .map_err(|_| SemanticError::DuplicateSymbolName(name.to_string()))
     }
 
-    #[must_use] pub fn get_type(&self, name: &str) -> Option<&Type> {
+    #[must_use]
+    pub fn get_type(&self, name: &str) -> Option<&Type> {
         if let Some(found_symbol) = self.get_symbol(name) {
             if let Symbol::Type(type_ref) = found_symbol {
                 return Some(type_ref);
@@ -427,14 +433,16 @@ impl SymbolTable {
         None
     }
 
-    #[must_use] pub fn get_struct(&self, name: &str) -> Option<&NamedStructType> {
+    #[must_use]
+    pub fn get_struct(&self, name: &str) -> Option<&NamedStructType> {
         match self.get_type(name)? {
             Type::NamedStruct(struct_ref) => Some(struct_ref),
             _ => None,
         }
     }
 
-    #[must_use] pub fn get_enum(&self, name: &str) -> Option<&EnumType> {
+    #[must_use]
+    pub fn get_enum(&self, name: &str) -> Option<&EnumType> {
         match self.get_type(name)? {
             Type::Enum(enum_type) => Some(enum_type),
             _ => None,
@@ -453,7 +461,8 @@ impl SymbolTable {
         )
     }
 
-    #[must_use] pub fn get_constant(&self, name: &str) -> Option<&ConstantRef> {
+    #[must_use]
+    pub fn get_constant(&self, name: &str) -> Option<&ConstantRef> {
         match self.get_symbol(name)? {
             Symbol::Constant(constant) => Some(constant),
             _ => None,

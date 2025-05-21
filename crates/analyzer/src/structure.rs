@@ -252,10 +252,7 @@ impl Analyzer<'_> {
         rest_was_specified: bool,
     ) -> Result<Expression, Error> {
         let (source_order_expressions, missing_fields) = self
-            .place_anon_struct_fields_that_exist_and_return_missing(
-                anon_struct_type,
-                ast_fields,
-            )?;
+            .place_anon_struct_fields_that_exist_and_return_missing(anon_struct_type, ast_fields)?;
 
         Ok(self.create_expr(
             ExpressionKind::AnonymousStructLiteral(AnonymousStructLiteral {

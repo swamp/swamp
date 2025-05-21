@@ -31,10 +31,7 @@ impl TypeVariableScope {
         }
     }
 
-    pub fn with_variables(
-        &self,
-        type_variables: &[TypeVariable],
-    ) -> Result<Self, SemanticError> {
+    pub fn with_variables(&self, type_variables: &[TypeVariable]) -> Result<Self, SemanticError> {
         let mut new_scope = self.clone();
 
         for type_variable in type_variables {
@@ -487,14 +484,13 @@ impl Instantiator {
             }
 
             Type::Variable(type_variable) => {
-                
                 // TODO: Add check for concrete or placeholder                assert!(found_type.is_concrete());
                 type_variables
-                        .internal_get_type(type_variable)
-                        .ok_or_else(|| {
-                            info!(?type_variable, "could not get");
-                            SemanticError::UnknownTypeVariable
-                        })?
+                    .internal_get_type(type_variable)
+                    .ok_or_else(|| {
+                        info!(?type_variable, "could not get");
+                        SemanticError::UnknownTypeVariable
+                    })?
             }
 
             Type::Blueprint(_blueprint) => {

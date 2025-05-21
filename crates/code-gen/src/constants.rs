@@ -22,6 +22,8 @@ impl ConstantsAllocator {
         }
     }
 
+    /// # Panics
+    ///
     pub fn allocate(&mut self, ty: &Type) -> HeapPlacedType {
         let gen_type = layout_type(ty);
         let alignment: usize = gen_type.max_alignment.into();
@@ -33,6 +35,8 @@ impl ConstantsAllocator {
         HeapPlacedType::new(HeapMemoryAddress(start_addr), gen_type)
     }
 
+    /// # Panics
+    ///
     pub fn allocate_byte_array(&mut self, byte_count: u32) -> HeapPlacedArray {
         let start_addr = align(self.current_addr as usize, SAFE_ALIGNMENT) as u32;
         self.current_addr = start_addr + byte_count;

@@ -15,6 +15,7 @@ impl CodeBuilder<'_> {
     /// - Copy Elision for Aggregates
     /// - Destination-Passing Style (DPS)
     /// - In-Place Construction/Materialization
+    #[allow(clippy::too_many_lines)]
     pub fn emit_expression(
         &mut self,
         output: &OutputDestination,
@@ -197,7 +198,10 @@ impl CodeBuilder<'_> {
         self.temp_registers.restore_to_mark(hwm);
     }
 
-    pub(crate) const fn rvalue_needs_memory_location_to_materialize_in(&self, expr: &Expression) -> bool {
+    pub(crate) const fn rvalue_needs_memory_location_to_materialize_in(
+        &self,
+        expr: &Expression,
+    ) -> bool {
         match &expr.kind {
             ExpressionKind::AnonymousStructLiteral(_) => true,
             ExpressionKind::Literal(literal) => match literal {
