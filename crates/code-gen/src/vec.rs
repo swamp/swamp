@@ -1,10 +1,14 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use swamp_semantic::Expression;
+use source_map_node::Node;
+use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
-use swamp_vm_types::types::{BoundsCheck, OutputDestination, VmType, u16_type};
-use swamp_vm_types::{VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET};
+use swamp_vm_types::types::{
+    BasicTypeKind, BoundsCheck, OutputDestination, VmType, u16_type, vec_type,
+};
+use swamp_vm_types::{PointerLocation, VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET};
+use tracing::info;
 
 impl CodeBuilder<'_> {
     /// Emits Swamp VM opcodes to calculate the memory address of an element within an array.
@@ -49,5 +53,46 @@ impl CodeBuilder<'_> {
             &format!("rvalue {analyzed_element_type}"),
             ctx,
         )
+    }
+
+    fn emit_intrinsic_vec_create(&self, arguments: &Vec<MutRefOrImmutableExpression>) {
+        for arg in arguments {
+            info!(?arg, "argument");
+        }
+    }
+
+    fn emit_intrinsic_vec_init_capacity_set_payload_addr(
+        &mut self,
+        pointer_lvalue_location: &PointerLocation,
+        arguments: &[MutRefOrImmutableExpression],
+        node: &Node,
+        ctx: &Context,
+    ) {
+        if let MutRefOrImmutableExpression::Expression(found_expr) = &arguments[0] {
+            let hwm = self.temp_registers.save_mark();
+            let element_base_ptr_reg = self.temp_registers.allocate(
+                VmType::new_unknown_placement(vec_type()),
+                "element base ptr",
+            );
+            let BasicTypeKind::InternalVecStorage(element_type, fixed_size_capacity) =
+                &pointer_lvalue_location.ptr_reg.ty.basic_type.kind
+            else {
+                panic!("mut have storage");
+            };
+
+            self.builder.add_vec_init_fill_capacity_and_element_addr(
+                pointer_lvalue_location,
+                &element_base_ptr_reg.register,
+                *fixed_size_capacity as u16,
+                0,
+                node,
+                "init vec",
+            );
+
+            let memory = self.emit_scalar_rvalue(found_expr, ctx);
+            self.temp_registers.restore_to_mark(hwm);
+        } else {
+            panic!("vec_from_slice");
+        }
     }
 }

@@ -5,20 +5,31 @@
 
 pub mod alloc;
 pub mod alloc_util;
+mod anon_struct;
 mod assignment;
+mod call;
 pub mod code_bld;
 pub mod constants;
 pub mod ctx;
 pub mod disasm;
+mod enum_variants;
+mod equal;
+mod expr;
 pub mod intr;
 pub mod layout;
+mod literal;
 mod location;
+mod logical;
 mod map;
 pub mod reg_pool;
-mod rvalue_scalar;
+mod relational;
+mod rvalue;
+mod slice;
+mod slice_pair;
 pub mod state;
 mod statement;
 pub mod top_state;
+mod tuple;
 mod vec;
 
 use crate::alloc::ScopeAllocator;

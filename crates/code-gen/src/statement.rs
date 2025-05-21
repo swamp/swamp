@@ -73,17 +73,6 @@ impl CodeBuilder<'_> {
     ) {
         self.emit_variable_assignment(variable, expression, ctx)
     }
-    pub(crate) fn emit_assignment(
-        &mut self,
-        lhs: &TargetAssignmentLocation,
-        rhs: &Expression,
-        comment: &str,
-        ctx: &Context,
-    ) {
-        let output_destination = self.emit_lvalue_location(&lhs.0, ctx);
-
-        self.emit_expression(&output_destination, rhs, ctx);
-    }
 
     pub(crate) fn emit_tuple_destructuring(
         &mut self,

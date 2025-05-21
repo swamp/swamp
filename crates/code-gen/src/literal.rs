@@ -1,0 +1,163 @@
+use crate::code_bld::CodeBuilder;
+use crate::ctx::Context;
+use crate::layout::layout_type;
+use source_map_node::Node;
+use swamp_semantic::Literal;
+use swamp_types::Type;
+use swamp_vm_types::types::{OutputDestination, VmType, int_type};
+
+impl CodeBuilder<'_> {
+    pub fn emit_literal(
+        &mut self,
+        output: &OutputDestination,
+        basic_literal: &Literal,
+        node: &Node,
+        ctx: &Context,
+    ) {
+        match basic_literal {
+            Literal::StringLiteral(str) => {
+                self.emit_string_literal(output.grab_register(), node, str, ctx);
+            }
+            Literal::IntLiteral(int) => match output {
+                OutputDestination::ScalarToRegister(target_reg) => {
+                    self.builder.add_mov_32_immediate_value(
+                        target_reg,
+                        *int as u32,
+                        node,
+                        "int literal",
+                    );
+                }
+                OutputDestination::AggregateToMemoryLocation(location) => {
+                    let temp_int_literal_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(int_type()),
+                        "temporary for int literal",
+                    );
+                    self.builder.add_mov_32_immediate_value(
+                        temp_int_literal_reg.register(),
+                        *int as u32,
+                        node,
+                        "int literal",
+                    );
+                    self.builder.add_st32_using_ptr_with_offset(
+                        location,
+                        temp_int_literal_reg.register(),
+                        node,
+                        "copy int literal into destination memory",
+                    );
+                }
+                OutputDestination::Unit => {
+                    panic!("int can not materialize into nothing")
+                }
+            },
+            Literal::FloatLiteral(fixed_point) => match output {
+                OutputDestination::ScalarToRegister(target_reg) => {
+                    self.builder.add_mov_32_immediate_value(
+                        target_reg,
+                        fixed_point.inner() as u32,
+                        node,
+                        "float literal",
+                    );
+                }
+                OutputDestination::AggregateToMemoryLocation(location) => {
+                    let temp_fixed_point_temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(int_type()),
+                        "temporary for float literal",
+                    );
+                    self.builder.add_mov_32_immediate_value(
+                        temp_fixed_point_temp_reg.register(),
+                        fixed_point.inner() as u32,
+                        node,
+                        "float literal",
+                    );
+                    self.builder.add_st32_using_ptr_with_offset(
+                        location,
+                        temp_fixed_point_temp_reg.register(),
+                        node,
+                        "copy float literal into destination memory",
+                    );
+                }
+                OutputDestination::Unit => {
+                    panic!("int can not materialize into nothing")
+                }
+            },
+            Literal::NoneLiteral => {
+                todo!()
+                /*
+                self.builder
+                    .add_mov8_immediate(output, 0, node, "none literal");
+
+                 */
+            }
+            Literal::BoolLiteral(truthy) => match output {
+                OutputDestination::ScalarToRegister(target_reg) => {
+                    self.builder.add_mov8_immediate(
+                        target_reg,
+                        u8::from(*truthy),
+                        node,
+                        "bool literal",
+                    );
+                }
+                OutputDestination::AggregateToMemoryLocation(location) => {
+                    let temp_bool_literal_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(int_type()),
+                        "temporary for bool literal",
+                    );
+                    self.builder.add_mov8_immediate(
+                        temp_bool_literal_reg.register(),
+                        u8::from(*truthy),
+                        node,
+                        "bool literal",
+                    );
+
+                    self.builder.add_st8_using_ptr_with_offset(
+                        location,
+                        temp_bool_literal_reg.register(),
+                        node,
+                        "copy bool literal into destination memory",
+                    );
+                }
+                OutputDestination::Unit => {
+                    panic!("int can not materialize into nothing")
+                }
+            },
+
+            Literal::EnumVariantLiteral(enum_type, enum_variant, enum_variant_payload) => {
+                // A enum variant literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
+                self.emit_enum_variant_to_memory_location(
+                    &output.grab_aggregate_memory_location(),
+                    enum_type,
+                    enum_variant,
+                    enum_variant_payload,
+                    node,
+                    ctx,
+                )
+            }
+            Literal::TupleLiteral(types, expressions) => {
+                // A tuple literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
+                self.emit_tuple_literal_into_memory(
+                    &output.grab_aggregate_memory_location(),
+                    types,
+                    expressions,
+                    ctx,
+                    node,
+                );
+            }
+            Literal::Slice(slice_type, expressions) => {
+                // A tuple literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
+                let Type::DynamicSlice(element_type) = slice_type else {
+                    panic!("must be slice")
+                };
+                let element_gen_type = layout_type(element_type);
+                self.emit_slice_literal_into_target_lvalue_memory_location(
+                    &output.grab_aggregate_memory_location(),
+                    &element_gen_type,
+                    expressions,
+                    ctx,
+                );
+            }
+            Literal::SlicePair(slice_pair_type, pairs) => {
+                todo!() //self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
+            }
+        }
+    }
+}
