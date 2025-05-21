@@ -75,9 +75,9 @@ pub fn crate_and_registry(path_to_swamp: &Path) -> SourceMap {
         .insert("registry".to_string(), registry_path)
         .unwrap();
 
-    let source_map = SourceMap::new(&mounts).expect("source map failed");
+    
 
-    source_map
+    SourceMap::new(&mounts).expect("source map failed")
 }
 
 pub struct CodeGenResult {

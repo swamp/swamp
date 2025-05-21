@@ -20,8 +20,7 @@ impl CodeBuilder<'_> {
         let variant_index = a.common().container_index as usize;
         let variants = enum_type
             .variants
-            .values()
-            .map(|x| x.clone())
+            .values().cloned()
             .collect::<Vec<_>>();
         let layout_enum = layout_enum_into_tagged_union(&enum_type.assigned_name, &variants);
         let layout_variant = layout_enum.get_variant_by_index(variant_index);
@@ -44,7 +43,7 @@ impl CodeBuilder<'_> {
         self.builder.add_st8_using_ptr_with_offset(
             &tag_memory_location.location,
             temp_payload_reg.register(),
-            &node,
+            node,
             "put enum tag in place",
         );
 

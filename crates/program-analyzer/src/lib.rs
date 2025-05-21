@@ -55,13 +55,13 @@ pub fn analyze_module(
             resolver.analyze_definition(ast_def)?;
         }
 
-        let maybe_resolved_expression = if let Some(expr) = ast_module.ast_module.expression() {
+        
+        if let Some(expr) = ast_module.ast_module.expression() {
             let internal_main = resolver.analyze_main_expression(expr)?;
             Some(internal_main)
         } else {
             None
-        };
-        maybe_resolved_expression
+        }
     };
 
     Ok((resolver.shared.definition_table, statements))

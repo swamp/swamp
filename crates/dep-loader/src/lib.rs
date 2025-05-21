@@ -410,8 +410,7 @@ impl From<DependencyError> for DepLoaderError {
 pub fn os_home_relative_path(project_name: &str) -> io::Result<PathBuf> {
     home_dir().map_or_else(
         || {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
+            Err(io::Error::other(
                 "Could not determine home directory",
             ))
         },
@@ -446,7 +445,7 @@ pub fn parse_local_modules_and_get_order(
     dependency_parser: &mut DependencyParser,
     source_map: &mut SourceMap,
 ) -> Result<Vec<Vec<String>>, DepLoaderError> {
-    dependency_parser.parse_local_modules(&module_path, source_map)?;
+    dependency_parser.parse_local_modules(module_path, source_map)?;
 
     let module_paths_in_order = dependency_parser.get_analysis_order()?;
 

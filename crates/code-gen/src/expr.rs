@@ -26,7 +26,7 @@ impl CodeBuilder<'_> {
         // If the expression needs a memory target, and the current output is not a memory target, create temp memory to materialize in
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, OutputDestination::AggregateToMemoryLocation(_))
-            && self.rvalue_needs_memory_location_to_materialize_in(&expr)
+            && self.rvalue_needs_memory_location_to_materialize_in(expr)
         {
             info!(
                 ?expr,
@@ -61,7 +61,7 @@ impl CodeBuilder<'_> {
             }
             ExpressionKind::If(condition, true_expression, maybe_false_expression) => {
                 self.emit_if(
-                    &output,
+                    output,
                     condition,
                     true_expression,
                     maybe_false_expression.as_deref(),

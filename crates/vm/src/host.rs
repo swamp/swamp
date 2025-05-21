@@ -33,8 +33,8 @@ impl HostArgs {
 
         unsafe {
             Self {
-                all_memory: all_memory,
-                all_memory_len: all_memory_len,
+                all_memory,
+                all_memory_len,
                 registers: slice::from_raw_parts(registers, register_count).to_vec(),
                 stack_offset,
                 register_index: 1, // skip return for now

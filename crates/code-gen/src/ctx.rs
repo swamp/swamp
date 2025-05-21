@@ -20,9 +20,7 @@ impl Context {
         }
     }
     pub(crate) fn register_is_protected(&self, register: &TypedRegister) -> bool {
-        self.protected_registers
-            .iter()
-            .any(|reg_index| register.index == *reg_index)
+        self.protected_registers.contains(&register.index)
     }
 
     pub fn add_protected_register(&mut self, register: &TypedRegister) {

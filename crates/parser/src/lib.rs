@@ -219,7 +219,7 @@ impl AstParser {
         let mut inner = pair.clone().into_inner();
         let ident_pair = inner
             .next()
-            .ok_or_else(|| self.create_error_pair(SpecificError::ExpectedIdentifier, &pair))?;
+            .ok_or_else(|| self.create_error_pair(SpecificError::ExpectedIdentifier, pair))?;
 
         Ok(FieldName(self.to_node(&ident_pair)))
     }
@@ -459,7 +459,7 @@ impl AstParser {
     }
 
     fn parse_use(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
-        let (segments, items) = self.module_path_and_items(&pair)?;
+        let (segments, items) = self.module_path_and_items(pair)?;
 
         Ok(DefinitionKind::Use(Use {
             module_path: ModulePath(segments),
@@ -468,7 +468,7 @@ impl AstParser {
     }
 
     fn parse_mod(&self, pair: &Pair<Rule>) -> Result<DefinitionKind, ParseError> {
-        let (segments, items) = self.module_path_and_items(&pair)?;
+        let (segments, items) = self.module_path_and_items(pair)?;
 
         Ok(DefinitionKind::Mod(Mod {
             module_path: ModulePath(segments),
@@ -702,7 +702,7 @@ impl AstParser {
         Ok(self.create_expr(
             ExpressionKind::PostfixChain(PostfixChain {
                 base: Box::from(start_expr),
-                postfixes: postfixes,
+                postfixes,
             }),
             pair,
         ))
@@ -755,7 +755,7 @@ impl AstParser {
     fn parse_struct_type_field(&self, pair: &Pair<Rule>) -> Result<StructTypeField, ParseError> {
         debug_assert_eq!(pair.as_rule(), Rule::struct_type_field);
 
-        let mut field_inner = Self::convert_into_iterator(&pair);
+        let mut field_inner = Self::convert_into_iterator(pair);
         let field_name = self.expect_field_label_next(&mut field_inner)?;
         let field_type = self.parse_type(Self::next_pair(&mut field_inner)?)?;
         let struct_type_field = StructTypeField {
@@ -1098,7 +1098,7 @@ impl AstParser {
                 let mut inner_iter = inner_pattern.clone().into_inner();
                 let is_mutable = inner_iter
                     .peek()
-                    .map_or(false, |p| p.as_rule() == Rule::mut_keyword);
+                    .is_some_and(|p| p.as_rule() == Rule::mut_keyword);
 
                 let is_mut = if is_mutable {
                     let mut_node = self.to_node(&inner_iter.next().unwrap());
@@ -1123,7 +1123,7 @@ impl AstParser {
                 let mut first_inner_iter = first_var_pair.clone().into_inner();
                 let first_is_mut = if first_inner_iter
                     .peek()
-                    .map_or(false, |p| p.as_rule() == Rule::mut_keyword)
+                    .is_some_and(|p| p.as_rule() == Rule::mut_keyword)
                 {
                     Some(self.to_node(&first_inner_iter.next().unwrap()))
                 } else {
@@ -1141,7 +1141,7 @@ impl AstParser {
                 let mut second_inner_iter = second_var_pair.clone().into_inner();
                 let second_is_mut = if second_inner_iter
                     .peek()
-                    .map_or(false, |p| p.as_rule() == Rule::mut_keyword)
+                    .is_some_and(|p| p.as_rule() == Rule::mut_keyword)
                 {
                     Some(self.to_node(&second_inner_iter.next().unwrap()))
                 } else {
@@ -1355,7 +1355,7 @@ impl AstParser {
                 }
             };
 
-            Ok(self.create_expr(kind, &pair))
+            Ok(self.create_expr(kind, pair))
         } else {
             Ok(lhs_logical)
         }
@@ -1412,7 +1412,7 @@ impl AstParser {
         pair.clone()
             .into_inner()
             .next()
-            .ok_or_else(|| Self::to_err(SpecificError::CouldNotMoveRight, &pair))
+            .ok_or_else(|| Self::to_err(SpecificError::CouldNotMoveRight, pair))
     }
 
     pub fn parse_compound_assign_op(
@@ -1420,7 +1420,7 @@ impl AstParser {
     ) -> Result<CompoundOperatorKind, ParseError> {
         debug_assert_eq!(op_pair.as_rule(), Rule::compound_assign_op);
 
-        let kind = match Self::right_alternative(&op_pair)?.as_rule() {
+        let kind = match Self::right_alternative(op_pair)?.as_rule() {
             Rule::add_assign_op => CompoundOperatorKind::Add,
             Rule::sub_assign_op => CompoundOperatorKind::Sub,
             Rule::mul_assign_op => CompoundOperatorKind::Mul,
@@ -1432,7 +1432,7 @@ impl AstParser {
                         "Found unexpected operator rule: {:?}",
                         op_pair.as_rule()
                     )),
-                    &op_pair,
+                    op_pair,
                 ));
             }
         };
@@ -1820,7 +1820,7 @@ impl AstParser {
     }
 
     fn parse_anonymous_struct_literal(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
-        let (fields, has_rest) = self.parse_anonymous_struct_literal_fields(&pair)?;
+        let (fields, has_rest) = self.parse_anonymous_struct_literal_fields(pair)?;
         Ok(self.create_expr(
             ExpressionKind::AnonymousStructLiteral(fields, has_rest),
             pair,
@@ -2005,7 +2005,7 @@ impl AstParser {
                 };
                 Ok(FormatSpecifier::Precision(
                     precision,
-                    self.to_node(&pair),
+                    self.to_node(pair),
                     typ,
                 ))
             }
@@ -2415,11 +2415,7 @@ impl AstParser {
         let mut inner = pair.clone().into_inner();
         let element_type = self.parse_type(inner.next().unwrap())?;
         let maybe_next = inner.next();
-        let size_node = if let Some(found_size_pair) = maybe_next {
-            Some(self.to_node(&found_size_pair))
-        } else {
-            None
-        };
+        let size_node = maybe_next.map(|found_size_pair| self.to_node(&found_size_pair));
 
         Ok(Type::Slice(Box::new(element_type), size_node))
     }
@@ -2555,9 +2551,9 @@ impl AstParser {
     }
 
     fn parse_guard_clause(&self, pair: &Pair<Rule>) -> Result<GuardClause, ParseError> {
-        let inner = Self::right_alternative(&pair)?;
+        let inner = Self::right_alternative(pair)?;
         let clause = match inner.as_rule() {
-            Rule::wildcard_pattern => GuardClause::Wildcard(Self::node_ex(&pair)),
+            Rule::wildcard_pattern => GuardClause::Wildcard(Self::node_ex(pair)),
             Rule::expression => {
                 let mut iterator = inner.into_inner();
                 let result = self.parse_expression(&Self::next_pair(&mut iterator)?)?;
@@ -2566,7 +2562,7 @@ impl AstParser {
             _ => {
                 return Err(Self::to_err(
                     SpecificError::UnknownExpr("guard_clause".to_string()),
-                    &pair,
+                    pair,
                 ))?;
             }
         };
@@ -2910,7 +2906,7 @@ impl AstParser {
     fn parse_meta_value(&self, pair: &Pair<Rule>) -> Result<AttributeArg, ParseError> {
         match pair.as_rule() {
             Rule::basic_literal => {
-                let (kind, node) = self.parse_basic_literal(&pair)?;
+                let (kind, node) = self.parse_basic_literal(pair)?;
                 Ok(AttributeArg::Literal(match kind {
                     LiteralKind::Int => AttributeValue::Literal(node, AttributeLiteralKind::Int),
                     LiteralKind::String(s) => {

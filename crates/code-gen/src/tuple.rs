@@ -58,7 +58,7 @@ impl CodeBuilder<'_> {
 
             self.emit_expression_into_target_memory(
                 &aggregate_lvalue_location.location,
-                &expr,
+                expr,
                 &format!("emit tuple item {}", offset_item.name),
                 ctx,
             );

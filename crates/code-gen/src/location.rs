@@ -95,7 +95,7 @@ impl CodeBuilder<'_> {
         self.subscript_helper(
             new_base_pointer_reg.register(),
             &ptr_to_slice_reg,
-            &element_basic_type,
+            element_basic_type,
             bounds_check,
             int_expr,
             node,
@@ -181,7 +181,7 @@ impl CodeBuilder<'_> {
 
         self.builder.add_add_u32(
             target_reg,
-            &ptr_to_slice_reg,
+            ptr_to_slice_reg,
             offset_reg.register(),
             node,
             &format!("result = base_ptr + element_size * index ({comment})"),

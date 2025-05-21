@@ -411,9 +411,9 @@ impl Display for MemorySize {
     }
 }
 
-impl Into<usize> for MemorySize {
-    fn into(self) -> usize {
-        self.0 as usize
+impl From<MemorySize> for usize {
+    fn from(val: MemorySize) -> Self {
+        val.0 as usize
     }
 }
 
@@ -461,20 +461,20 @@ impl MemoryAlignment {
     }
 }
 
-impl Into<usize> for MemoryAlignment {
-    fn into(self) -> usize {
-        match self {
-            Self::U8 => 1,
-            Self::U16 => 2,
-            Self::U32 => 4,
-            Self::U64 => 8,
+impl From<MemoryAlignment> for usize {
+    fn from(val: MemoryAlignment) -> Self {
+        match val {
+            MemoryAlignment::U8 => 1,
+            MemoryAlignment::U16 => 2,
+            MemoryAlignment::U32 => 4,
+            MemoryAlignment::U64 => 8,
         }
     }
 }
 
-impl Into<MemoryOffset> for MemoryAlignment {
-    fn into(self) -> MemoryOffset {
-        let octets: usize = self.into();
+impl From<MemoryAlignment> for MemoryOffset {
+    fn from(val: MemoryAlignment) -> Self {
+        let octets: usize = val.into();
         MemoryOffset(octets as u16)
     }
 }

@@ -149,7 +149,7 @@ impl CodeBuilder<'_> {
                         &collection_reg,
                         collection_type,
                         for_pattern,
-                        &lambda_non_capturing_expr,
+                        lambda_non_capturing_expr,
                         ctx,
                     )
                 } else if named_type.is_map() {
@@ -160,7 +160,7 @@ impl CodeBuilder<'_> {
                         &collection_reg,
                         collection_type,
                         for_pattern,
-                        &lambda_non_capturing_expr,
+                        lambda_non_capturing_expr,
                         ctx,
                     )
                 } else if named_type.is_range() {
@@ -171,7 +171,7 @@ impl CodeBuilder<'_> {
                         &collection_reg,
                         collection_type,
                         for_pattern,
-                        &lambda_non_capturing_expr,
+                        lambda_non_capturing_expr,
                         ctx,
                     )
                 } else if named_type.is_stack() {

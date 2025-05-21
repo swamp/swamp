@@ -169,7 +169,7 @@ impl Analyzer<'_> {
             let variant_type = match ast_variant_type {
                 swamp_ast::EnumVariantType::Simple(_variant_name_node) => {
                     let simple_ref = EnumVariantSimpleType { common };
-                    EnumVariantType::Nothing(EnumVariantSimpleType::from(simple_ref))
+                    EnumVariantType::Nothing(simple_ref)
                 }
                 swamp_ast::EnumVariantType::Tuple(_variant_name_node, types) => {
                     let mut vec = Vec::new();
@@ -219,7 +219,7 @@ impl Analyzer<'_> {
             let variant_name_str = self.get_text(variant_name_node).to_string();
 
             resolved_variants
-                .insert(variant_name_str, variant_type.into())
+                .insert(variant_name_str, variant_type)
                 .map_err(|_| self.create_err(ErrorKind::DuplicateFieldName, variant_name_node))?;
         }
 

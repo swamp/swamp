@@ -31,7 +31,7 @@ impl Analyzer<'_> {
         argument_expr: &swamp_ast::Expression,
     ) -> Result<MutRefOrImmutableExpression, Error> {
         let context = TypeContext::new_argument(&fn_parameter.resolved_type);
-        let ref_checked_argument = self.analyze_maybe_ref_expression(&argument_expr)?;
+        let ref_checked_argument = self.analyze_maybe_ref_expression(argument_expr)?;
 
         let mut_or_immutable = if fn_parameter.is_mutable {
             if ref_checked_argument.has_borrow_mutable_reference.is_none() {
@@ -50,7 +50,7 @@ impl Analyzer<'_> {
                 // Why did you pass in a mutable reference to something that can not do anything useful with it
                 return Err(self.create_err(ErrorKind::ParameterIsNotMutable, &argument_expr.node));
             }
-            let resolved_expr = self.analyze_expression(&argument_expr, &context)?;
+            let resolved_expr = self.analyze_expression(argument_expr, &context)?;
             MutRefOrImmutableExpression::Expression(resolved_expr)
         };
 
@@ -89,7 +89,7 @@ impl Analyzer<'_> {
         context: &TypeContext,
         location_side: LocationSide,
     ) -> Result<MutRefOrImmutableExpression, Error> {
-        let maybe_borrow_or_normal_expression = self.analyze_maybe_ref_expression(&expr)?;
+        let maybe_borrow_or_normal_expression = self.analyze_maybe_ref_expression(expr)?;
 
         let expression_or_location =
             if maybe_borrow_or_normal_expression

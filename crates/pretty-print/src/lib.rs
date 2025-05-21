@@ -365,7 +365,7 @@ impl SourceMapDisplay<'_> {
             write!(f, "{}", "&".red())?;
         }
 
-        self.show_argument(f, &mut_expr, tabs)
+        self.show_argument(f, mut_expr, tabs)
     }
 
     #[allow(clippy::too_many_lines)]
@@ -459,7 +459,7 @@ impl SourceMapDisplay<'_> {
                 write!(f, "TupleDestructuring()")
             }
             ExpressionKind::Assignment(mut_location, expression) => {
-                self.show_mut_location(f, &mut_location, tabs)?;
+                self.show_mut_location(f, mut_location, tabs)?;
                 write!(f, "=")?;
                 self.show_expression(f, expression, tabs)
             }
@@ -598,8 +598,8 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         match kind {
-            ParameterizedTypeKind::Struct(struct_ref) => self.show_struct(f, &struct_ref, tabs),
-            ParameterizedTypeKind::Enum(enum_ref) => self.show_enum_type_name(f, &enum_ref),
+            ParameterizedTypeKind::Struct(struct_ref) => self.show_struct(f, struct_ref, tabs),
+            ParameterizedTypeKind::Enum(enum_ref) => self.show_enum_type_name(f, enum_ref),
         }
     }
 
@@ -628,7 +628,7 @@ impl SourceMapDisplay<'_> {
     ) -> std::fmt::Result {
         write!(f, "{}<", name.bright_magenta())?;
 
-        self.show_types(f, &types, tabs)?;
+        self.show_types(f, types, tabs)?;
 
         write!(f, ">")?;
         Ok(())

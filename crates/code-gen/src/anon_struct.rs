@@ -19,7 +19,7 @@ impl CodeBuilder<'_> {
     ) {
         self.emit_struct_literal_into_memory_location(
             aggregate_lvalue_memory_location,
-            &anon_struct_type,
+            anon_struct_type,
             source_order_expressions,
             node,
             "store struct into memory",
@@ -91,7 +91,7 @@ impl CodeBuilder<'_> {
         };
 
         self.emit_struct_literal_into_memory_location(
-            &lvalue_location,
+            lvalue_location,
             &anon_struct_type,
             &anon_struct_literal.source_order_expressions,
             node,

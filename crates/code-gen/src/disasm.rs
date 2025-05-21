@@ -104,7 +104,7 @@ pub fn disasm_function(
                     file_id: meta.node.span.file_id as usize,
                 };
                 ip_infos
-                    .insert(InstructionPosition(absolute_ip as u32), mapped)
+                    .insert(InstructionPosition(absolute_ip), mapped)
                     .unwrap();
             }
         }
@@ -147,7 +147,7 @@ pub fn disasm_whole_program(
 
             let output_string = disasm_function(
                 &function_debug_info.frame_memory,
-                &*function_debug_info.parameters,
+                &function_debug_info.parameters,
                 instructions_slice,
                 meta_slice,
                 InstructionPositionOffset(current_ip),

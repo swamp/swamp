@@ -29,6 +29,12 @@ pub struct CodeGenState {
     pub constants: SeqMap<usize, CompleteFunctionInfo>,
 }
 
+impl Default for CodeGenState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CodeGenState {
     #[must_use]
     pub fn new() -> Self {
@@ -61,7 +67,7 @@ impl CodeGenState {
         comment: &str,
     ) -> CompleteFunctionInfo {
         let complete_info = CompleteFunctionInfo {
-            ip: function_info.ip_range.start.clone(),
+            ip: function_info.ip_range.start,
             size: InstructionPositionOffset(0),
             info: function_info.clone(),
         };
@@ -110,14 +116,14 @@ impl CodeGenState {
                 .assigned_name
                 .clone();
             lookups
-                .insert(function_info.ip_range.start.clone(), description)
+                .insert(function_info.ip_range.start, description)
                 .unwrap();
         }
 
         for (_func_id, function_info) in &self.constant_functions_in_order {
             let description = format!("constant {}", function_info.constant_ref.assigned_name);
             lookups
-                .insert(function_info.ip_range.start.clone(), description)
+                .insert(function_info.ip_range.start, description)
                 .unwrap();
         }
 

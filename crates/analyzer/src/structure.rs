@@ -253,7 +253,7 @@ impl Analyzer<'_> {
     ) -> Result<Expression, Error> {
         let (source_order_expressions, missing_fields) = self
             .place_anon_struct_fields_that_exist_and_return_missing(
-                &anon_struct_type,
+                anon_struct_type,
                 ast_fields,
             )?;
 
@@ -384,7 +384,7 @@ impl Analyzer<'_> {
                 source_order_expressions,
                 missing_fields,
                 super_type,
-                &node,
+                node,
             )?
         };
 

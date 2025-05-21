@@ -81,8 +81,8 @@ impl CodeBuilder<'_> {
         if source_reg.ty.is_mutable_reference_semantic() {
             if target_reg.ty().is_mutable_reference() {
                 self.builder.add_mov_reg(
-                    &target_reg,
-                    &source_reg,
+                    target_reg,
+                    source_reg,
                     node,
                     &format!("emit_copy_register. ptr to ptr. {}", comment),
                 );
@@ -99,8 +99,8 @@ impl CodeBuilder<'_> {
             }
         } else {
             self.builder.add_mov_reg(
-                &target_reg,
-                &source_reg,
+                target_reg,
+                source_reg,
                 node,
                 &format!("emit_copy_register. primitive to primitive. {}", comment),
             );
@@ -324,8 +324,8 @@ impl CodeBuilder<'_> {
             &format!("{comment} (set offset value to get from base to register)"),
         );
         self.builder.add_add_u32(
-            &target_reg,
-            &base_ptr_reg,
+            target_reg,
+            base_ptr_reg,
             offset_temp_reg.register(),
             node,
             &format!("{comment} (add offset to base ptr reg to get new base ptr)"),
@@ -657,7 +657,7 @@ impl CodeBuilder<'_> {
         assert_eq!(left_source.size().0, 1);
         assert_eq!(right_source.size().0, 1);
         self.builder
-            .add_cmp_reg(left_source, right_source, &node, "compare bool");
+            .add_cmp_reg(left_source, right_source, node, "compare bool");
 
         GeneratedExpressionResult {
             kind: GeneratedExpressionResultKind::TFlagIsTrueWhenSet,
@@ -924,7 +924,7 @@ impl CodeBuilder<'_> {
                         .emit_load_primitive_from_detailed_location_if_needed(
                             &current_location,
                             &element.node,
-                            &format!("emit_rvalue_postfix member call "),
+                            "emit_rvalue_postfix member call ",
                         );
                     //let target_ctx = Context::new(temp_reg.register.clone());
 
@@ -947,7 +947,7 @@ impl CodeBuilder<'_> {
                                     Some(resolved_location.register()),
                                     &merged_arguments,
                                     ctx,
-                                    &format!("rvalue intrinsic call "),
+                                    "rvalue intrinsic call ",
                                 );
 
                                 if is_last {
@@ -965,14 +965,14 @@ impl CodeBuilder<'_> {
                                 self.add_call(
                                     &element.node,
                                     internal_fn,
-                                    &format!("emit_rvalue call"),
+                                    "emit_rvalue call",
                                 );
 
                                 self.emit_post_call(
                                     &spilled_argument_registers,
                                     &copy_back,
                                     &element.node,
-                                    &format!("emit_rvalue postcall"),
+                                    "emit_rvalue postcall",
                                 );
                             }
                         }
@@ -993,9 +993,9 @@ impl CodeBuilder<'_> {
                                 &intrinsic_def.intrinsic,
                                 Some(element.ty.clone()),
                                 Some(resolved_location.register()),
-                                &arguments,
+                                arguments,
                                 ctx,
-                                &format!("rvalue intrinsic call "),
+                                "rvalue intrinsic call ",
                             );
 
                             if is_last {
@@ -1198,12 +1198,12 @@ impl CodeBuilder<'_> {
     }
 
     pub(crate) fn get_variable_register(&self, variable: &VariableRef) -> &TypedRegister {
-        let frame_address = self
+        
+
+        (self
             .variable_registers
             .get(&variable.unique_id_within_function)
-            .unwrap();
-
-        frame_address
+            .unwrap()) as _
     }
 
     fn get_variable_frame_placed(&self, variable: &VariableRef) -> FramePlacedType {
@@ -1301,7 +1301,7 @@ impl CodeBuilder<'_> {
             enum_tag_temp_reg.register(),
             &enum_ptr_reg,
             MemoryOffset(0), // TODO: take offset from tag union info
-            &match_expr.expression.node(),
+            match_expr.expression.node(),
             "read enum tag",
         );
 
@@ -1342,17 +1342,7 @@ impl CodeBuilder<'_> {
                 None
             };
 
-            let maybe_guard_skip = if let Some(guard) = maybe_guard {
-                Some(self.emit_condition_context(guard, ctx))
-
-            //                Some(self.builder.add_jmp_if_not_equal_polarity_placeholder(
-            //                  &polarity.polarity(),
-            //                match_expr.expression.node(),
-            //              "placeholder for skip guard",
-            //        ))
-            } else {
-                None
-            };
+            let maybe_guard_skip = maybe_guard.map(|guard| self.emit_condition_context(guard, ctx));
 
             self.emit_expression(output_destination, &arm.expression, ctx);
 
@@ -1437,7 +1427,7 @@ impl CodeBuilder<'_> {
             let placed_variable = self.get_variable_register(&binding.variable).clone();
 
             if binding.has_expression() {
-                self.emit_mut_or_immute(&placed_variable, &binding.expr, &ctx);
+                self.emit_mut_or_immute(&placed_variable, &binding.expr, ctx);
             } else {
                 let MutRefOrImmutableExpression::Expression(variable_access_expression) =
                     &binding.expr
@@ -1849,7 +1839,7 @@ impl CodeBuilder<'_> {
                 );
 
                 self.builder.add_mov8_immediate(
-                    &tag_target.register(),
+                    tag_target.register(),
                     1,
                     node,
                     "mark tag as Some",
@@ -2125,11 +2115,11 @@ impl CodeBuilder<'_> {
     pub fn temp_register_for_analyzed_type(&mut self, ty: &Type, comment: &str) -> TempRegister {
         let layout = layout_type(ty);
 
-        let temp_reg = self.temp_registers.allocate(
+        
+
+        self.temp_registers.allocate(
             VmType::new_unknown_placement(layout),
             &format!("temp space {comment}"),
-        );
-
-        temp_reg
+        )
     }
 }

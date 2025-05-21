@@ -18,8 +18,8 @@ impl CodeBuilder<'_> {
     pub fn emit_scalar_rvalue(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
         match &expr.kind {
             ExpressionKind::VariableAccess(variable_ref) => {
-                let variable_register = self.get_variable_register(variable_ref).clone();
-                variable_register
+                
+                self.get_variable_register(variable_ref).clone()
             }
             _ => {
                 let ty = layout_type(&expr.ty);

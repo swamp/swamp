@@ -52,7 +52,7 @@ impl Analyzer<'_> {
             swamp_ast::Type::Slice(ast_type, maybe_fixed_size) => {
                 let element_type = self.analyze_slice_type(ast_type)?;
                 if let Some(fixed_size) = maybe_fixed_size {
-                    let int_str = self.get_text(&fixed_size);
+                    let int_str = self.get_text(fixed_size);
                     let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
                     Type::VecStorage(Box::new(element_type), int_value)
@@ -64,7 +64,7 @@ impl Analyzer<'_> {
                 let (key_type, value_type) =
                     self.analyze_slice_pair_key_and_value_type(ast_key_type, ast_value_type)?;
                 if let Some(fixed_size) = maybe_fixed_size {
-                    let int_str = self.get_text(&fixed_size);
+                    let int_str = self.get_text(fixed_size);
                     let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
                     Type::MapStorage(Box::new(key_type), Box::new(value_type), int_value)
@@ -131,27 +131,6 @@ impl Analyzer<'_> {
         type_name: &swamp_ast::QualifiedTypeIdentifier,
     ) -> Result<Option<Type>, Error> {
         let text = self.get_text(&type_name.name.0);
-        match text {
-            /*
-            "Vec" => {
-                let len = type_name.generic_params.len();
-                let ty = self.analyze_type(type_name.generic_params[0].get_type())?;
-                if len == 1 {
-                    Ok(Some(Type::Vec(Box::new(ty))))
-                } else if len == 2 {
-                    // storage type
-                    let size_node = type_name.generic_params[1].get_unsigned_int_node();
-                    let int_str = self.get_text(&size_node);
-                    let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
-                    Ok(Some(Type::VecStorage(Box::new(ty), int_value)))
-                } else {
-                    panic!("strange Vec type")
-                }
-            }
-
-             */
-            // TODO: use for Sparse, Grid, Queue, etc
-            _ => Ok(None),
-        }
+        Ok(None)
     }
 }

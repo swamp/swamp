@@ -1431,7 +1431,7 @@ fn find_in_item(
     let item_addr = FrameMemoryAddress(base_addr.0 + item.offset.0);
     path.push(PathStep {
         item: item.clone(),
-        origin: base_addr.clone(),
+        origin: base_addr,
     });
 
     if item_addr.0 == target.0 {

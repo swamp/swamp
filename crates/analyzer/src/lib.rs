@@ -467,13 +467,7 @@ impl<'a> Analyzer<'a> {
                 qualified_type_identifier,
                 node,
             ) => {
-                if let Some(func_ref) =
-                    self.analyze_static_member_access(qualified_type_identifier, node)
-                {
-                    Some(func_ref)
-                } else {
-                    None
-                }
+                self.analyze_static_member_access(qualified_type_identifier, node)
             }
             swamp_ast::ExpressionKind::IdentifierReference(qualified_identifier) => {
                 self.analyze_local_function_access(qualified_identifier)
@@ -493,11 +487,7 @@ impl<'a> Analyzer<'a> {
         } else if let swamp_ast::ExpressionKind::IdentifierReference(found_qualified_identifier) =
             &ast_expression.kind
         {
-            if let Some(found_variable) = self.try_find_variable(&found_qualified_identifier.name) {
-                Some(StartOfChainBase::Variable(found_variable))
-            } else {
-                None
-            }
+            self.try_find_variable(&found_qualified_identifier.name).map(StartOfChainBase::Variable)
         } else {
             None
         }
@@ -797,7 +787,7 @@ impl<'a> Analyzer<'a> {
             }
 
             swamp_ast::ExpressionKind::Literal(literal) => {
-                self.analyze_complex_literal_to_expression(&ast_expression, literal, context)?
+                self.analyze_complex_literal_to_expression(ast_expression, literal, context)?
             }
 
             swamp_ast::ExpressionKind::ForLoop(
@@ -1145,7 +1135,7 @@ impl<'a> Analyzer<'a> {
         };
 
         let analyzed_arguments =
-            self.analyze_and_verify_parameters(&ast_node, &signature.parameters, arguments)?;
+            self.analyze_and_verify_parameters(ast_node, &signature.parameters, arguments)?;
 
         let expr_kind = match &func_def {
             Function::Internal(internal) => {
@@ -1517,7 +1507,7 @@ impl<'a> Analyzer<'a> {
         let resolved_expression: MutRefOrImmutableExpression = if force_mut.is_some() {
             let resolved_node = self.to_node(&force_mut.unwrap());
             MutRefOrImmutableExpression::Location(self.analyze_to_location(
-                &expression,
+                expression,
                 &any_context,
                 LocationSide::Rhs,
             )?)
@@ -1695,9 +1685,8 @@ impl<'a> Analyzer<'a> {
 
                          */
 
-                        let result =
-                            self.create_expr(call_expr_kind, Type::String, &expression.node);
-                        result
+                        
+                        self.create_expr(call_expr_kind, Type::String, &expression.node)
                     }
                 }
             };
@@ -1829,7 +1818,7 @@ impl<'a> Analyzer<'a> {
                 match expected_type {
                     Type::MapStorage(key, value, _) => Some((*key.clone(), *value.clone())),
                     Type::Map(key, value) => Some((*key.clone(), *value.clone())),
-                    _ => return Err(self.create_err(ErrorKind::ExpectedSlice, &node)),
+                    _ => return Err(self.create_err(ErrorKind::ExpectedSlice, node)),
                 }
             }
         } else {
@@ -2269,7 +2258,7 @@ impl<'a> Analyzer<'a> {
             };
 
             let var = self.analyze_mut_or_immutable_expression(
-                &must_have_expression,
+                must_have_expression,
                 &any_context,
                 LocationSide::Rhs,
             )?;
@@ -2319,7 +2308,9 @@ impl<'a> Analyzer<'a> {
             } else {
                 let same_var = self.find_variable(&variable_binding.variable)?;
 
-                let argument_expression = if same_var.is_mutable() {
+                
+
+                if same_var.is_mutable() {
                     let loc = SingleLocationExpression {
                         kind: MutableReferenceKind::MutVariableRef,
                         node: self.to_node(&variable_binding.variable.name),
@@ -2336,9 +2327,7 @@ impl<'a> Analyzer<'a> {
                         &variable_binding.variable.name,
                     );
                     MutRefOrImmutableExpression::Expression(generated_expression)
-                };
-
-                argument_expression
+                }
             };
 
             let ty = mut_expr.ty();
@@ -2544,16 +2533,14 @@ impl<'a> Analyzer<'a> {
             if lhs_is_mutable {
                 if chain_is_mutable {
                     return AssignmentMode::CopyBlittable;
-                } else {
-                    if lhs_is_mutable {
-                        if chain_is_owned {
-                            return AssignmentMode::OwnedValue;
-                        } else {
-                            return AssignmentMode::CopyBlittable;
-                        }
+                } else if lhs_is_mutable {
+                    if chain_is_owned {
+                        return AssignmentMode::OwnedValue;
                     } else {
-                        return AssignmentMode::CopySharedPtr;
+                        return AssignmentMode::CopyBlittable;
                     }
+                } else {
+                    return AssignmentMode::CopySharedPtr;
                 }
             } else {
                 // if not mutable, it is always ok
@@ -2997,7 +2984,7 @@ impl<'a> Analyzer<'a> {
          */
 
         let final_expr =
-            if Self::is_type_assignment_compatible(&target_type.underlying(), &source_expr.ty) {
+            if Self::is_type_assignment_compatible(target_type.underlying(), &source_expr.ty) {
                 source_expr
             }
             /*else if let Some(converted) =
@@ -3016,7 +3003,7 @@ impl<'a> Analyzer<'a> {
                 ));
             };
 
-        let assignment_mode = self.check_assignment_mode(true, &final_expr, &target_type); // TODO: Fill in correct lhs_is_mutable
+        let assignment_mode = self.check_assignment_mode(true, &final_expr, target_type); // TODO: Fill in correct lhs_is_mutable
 
         self.check_mutable_assignment(assignment_mode, &final_expr.node)?;
 
@@ -3238,7 +3225,7 @@ impl<'a> Analyzer<'a> {
         let signature = self.instantiate_signature_if_needed(
             &resolved_node,
             type_that_member_is_on,
-            &found_function,
+            found_function,
             &generic_arguments,
         )?;
 
@@ -3295,8 +3282,8 @@ impl<'a> Analyzer<'a> {
             .lowest_common_denominator();
         match ty {
             Type::Vec(ref element_type) => self.vec_member_signature(
-                &type_that_member_is_on,
-                &element_type,
+                type_that_member_is_on,
+                element_type,
                 field_name_str,
                 node,
             ),
@@ -3319,7 +3306,7 @@ impl<'a> Analyzer<'a> {
         let generic_arguments = if let Some(ast_generic_arguments) = ast_maybe_generic_arguments {
             let mut resolved_types = Vec::new();
             for ast_type in ast_generic_arguments {
-                resolved_types.push(self.analyze_type(&ast_type.get_type())?);
+                resolved_types.push(self.analyze_type(ast_type.get_type())?);
             }
             resolved_types
         } else {
@@ -3331,7 +3318,7 @@ impl<'a> Analyzer<'a> {
             .state
             .instantiator
             .associated_impls
-            .get_member_function(type_that_member_is_on, &field_name_str)
+            .get_member_function(type_that_member_is_on, field_name_str)
             .cloned();
 
         let (function_ref, instantiated_signature) = if let Some(found_function) = maybe_function {
@@ -3347,7 +3334,7 @@ impl<'a> Analyzer<'a> {
         } else {
             let (intrinsic_fn, signature) = self.check_intrinsic_member_signature(
                 type_that_member_is_on,
-                &field_name_str,
+                field_name_str,
                 node,
             )?;
             let def = IntrinsicFunctionDefinition {
@@ -3368,11 +3355,11 @@ impl<'a> Analyzer<'a> {
             .compatible_with(type_that_member_is_on)
             || self_type.is_mutable && !is_mutable
         {
-            return Err(self.create_err(ErrorKind::SelfNotCorrectType, &node));
+            return Err(self.create_err(ErrorKind::SelfNotCorrectType, node));
         }
 
         let resolved_arguments = self.analyze_and_verify_parameters(
-            &node,
+            node,
             &instantiated_signature.parameters[1..],
             ast_arguments,
         )?;
@@ -3643,26 +3630,12 @@ impl<'a> Analyzer<'a> {
         encountered: &Type,
         expr: &Expression,
     ) -> Result<Expression, Error> {
-        match expected {
-            /*
-            Type::VecStorage(_, _) => Ok(self.create_expr(
-                ExpressionKind::IntrinsicCallEx(
-                    IntrinsicFunction::VecFromSlice,
-                    vec![MutRefOrImmutableExpression::Expression(expr.clone())],
-                ),
-                expected.clone(),
-                node,
-            )),
-
-             */
-            //Type::Vec(_) => {}
-            _ => Err(self.create_err(
-                ErrorKind::IncompatibleTypes {
-                    expected: expected.clone(),
-                    found: encountered.clone(),
-                },
-                node,
-            )),
-        }
+        Err(self.create_err(
+            ErrorKind::IncompatibleTypes {
+                expected: expected.clone(),
+                found: encountered.clone(),
+            },
+            node,
+        ))
     }
 }

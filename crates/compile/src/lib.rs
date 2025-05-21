@@ -367,7 +367,7 @@ pub fn debug_module(symbol_table: &SymbolTable, source_map: &SourceMap) {
     };
 
     let symbol_table_display = SymbolTableDisplay {
-        symbol_table: &symbol_table,
+        symbol_table,
         source_map_display: &pretty_printer,
     };
 

@@ -21,22 +21,22 @@ impl CodeBuilder<'_> {
             &right_source.ty.basic_type.kind,
         ) {
             (BasicTypeKind::B8, BasicTypeKind::B8) => {
-                self.emit_binary_operator_equal_reg(&left_source, node, &right_source)
+                self.emit_binary_operator_equal_reg(left_source, node, right_source)
             }
             (BasicTypeKind::S32, BasicTypeKind::S32) => {
-                self.emit_binary_operator_equal_reg(&left_source, node, &right_source)
+                self.emit_binary_operator_equal_reg(left_source, node, right_source)
             }
             (BasicTypeKind::Fixed32, BasicTypeKind::Fixed32) => {
-                self.emit_binary_operator_equal_reg(&left_source, node, &right_source)
+                self.emit_binary_operator_equal_reg(left_source, node, right_source)
             }
             (BasicTypeKind::InternalStringPointer, BasicTypeKind::InternalStringPointer) => {
-                self.emit_binary_operator_string_cmp(&left_source, node, &right_source)
+                self.emit_binary_operator_string_cmp(left_source, node, right_source)
             }
             (BasicTypeKind::TaggedUnion(a), BasicTypeKind::TaggedUnion(b)) => {
                 // TODO: Make simpler case if enum variants are without payload
                 // a.are_all_variants_without_payload()
 
-                self.emit_binary_operator_block_cmp(&left_source, node, &right_source)
+                self.emit_binary_operator_block_cmp(left_source, node, right_source)
             }
             _ => todo!(),
         };
@@ -90,7 +90,7 @@ impl CodeBuilder<'_> {
             left_source,
             right_source,
             left_source.size(),
-            &node,
+            node,
             "compare block",
         );
 

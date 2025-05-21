@@ -65,7 +65,7 @@ pub fn disasm_instructions_color(
                 let file_id = found.file_id as FileId;
                 let line = source_file_wrapper
                     .get_source_line(file_id, row_to_display)
-                    .expect(&format!("wrong row: {row_to_display}"));
+                    .unwrap_or_else(|| panic!("wrong row: {row_to_display}"));
                 writeln!(
                     string,
                     "{:4} {} {}",
@@ -96,7 +96,7 @@ pub fn disasm_instructions_color(
     string
 }
 fn memory_kind_color(kind: Option<PathInfo>) -> String {
-    kind.map_or_else(|| String::new(), |path_info| path_info.convert_to_string())
+    kind.map_or_else(String::new, |path_info| path_info.convert_to_string())
 }
 
 #[must_use]
@@ -338,7 +338,7 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
                 format!("({}{})", "$", format!("{:04X}", addr.0))
             }
-            DecoratedOperandAccessKind::MemorySize(data) => format!("{}", format!("{:X}", data.0)),
+            DecoratedOperandAccessKind::MemorySize(data) => format!("{:X}", data.0).to_string(),
 
             DecoratedOperandAccessKind::DeltaPc(delta) => {
                 format!("{}{}", "", format!("{}", delta.0))
@@ -346,16 +346,16 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::AbsolutePc(ip) => {
                 format!("{}{}", "@", format!("{:X}", ip.0))
             }
-            DecoratedOperandAccessKind::ImmediateU32(data) => format!("{}", format!("{data:08X}",)),
-            DecoratedOperandAccessKind::ImmediateU16(data) => format!("{}", format!("{data:04X}",)),
-            DecoratedOperandAccessKind::ImmediateU8(data) => format!("{}", format!("{data:02X}",)),
-            DecoratedOperandAccessKind::CountU16(data) => format!("{}", format!("{data:04X}",)),
-            DecoratedOperandAccessKind::CountU8(data) => format!("{}", format!("{data:02X}",)),
+            DecoratedOperandAccessKind::ImmediateU32(data) => format!("{data:08X}",).to_string(),
+            DecoratedOperandAccessKind::ImmediateU16(data) => format!("{data:04X}",).to_string(),
+            DecoratedOperandAccessKind::ImmediateU8(data) => format!("{data:02X}",).to_string(),
+            DecoratedOperandAccessKind::CountU16(data) => format!("{data:04X}",).to_string(),
+            DecoratedOperandAccessKind::CountU8(data) => format!("{data:02X}",).to_string(),
             DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => {
-                format!("{}", format!("{data}",))
+                format!("{data}",).to_string()
             }
             DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => {
-                format!("{}", format!("{data}",))
+                format!("{data}",).to_string()
             }
             DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => {
                 format!("[R{} #{}]", base_reg, offset.0)

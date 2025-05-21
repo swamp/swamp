@@ -95,7 +95,7 @@ impl CodeBuilder<'_> {
         match intrinsic_fn {
             IntrinsicFunction::RuntimePanic => {
                 self.builder
-                    .add_panic(&self_addr.unwrap(), node, "intrinsic panic");
+                    .add_panic(self_addr.unwrap(), node, "intrinsic panic");
             }
 
             // Bool
@@ -105,7 +105,7 @@ impl CodeBuilder<'_> {
                 }
                 self.builder.bool_to_string(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     "bool_to_string",
                 )
@@ -114,20 +114,20 @@ impl CodeBuilder<'_> {
             // Fixed
             IntrinsicFunction::FloatRound => self.builder.add_float_round(
                 maybe_target.unwrap(),
-                &self_addr.unwrap(),
+                self_addr.unwrap(),
                 node,
                 "float round",
             ),
             IntrinsicFunction::FloatFloor => self.builder.add_float_floor(
                 maybe_target.unwrap(),
-                &self_addr.unwrap(),
+                self_addr.unwrap(),
                 node,
                 "float floor",
             ),
             IntrinsicFunction::FloatSqrt => {
                 self.builder.add_float_sqrt(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     "float sqr",
                 );
@@ -135,7 +135,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::FloatSign => {
                 self.builder.add_float_sign(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     "float sign",
                 );
@@ -143,7 +143,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::FloatAbs => {
                 self.builder.add_float_abs(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     "float abs",
                 );
@@ -151,7 +151,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::FloatRnd => {
                 self.builder.add_float_prnd(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     "float pseudo random",
                 );
@@ -159,7 +159,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::FloatCos => {
                 self.builder.add_float_cos(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     "float cos",
                 );
@@ -167,26 +167,26 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::FloatSin => {
                 self.builder.add_float_sin(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     "float sin",
                 );
             }
             IntrinsicFunction::FloatAcos => self.builder.add_float_acos(
                 maybe_target.unwrap(),
-                &self_addr.unwrap(),
+                self_addr.unwrap(),
                 node,
                 "float acos",
             ),
             IntrinsicFunction::FloatAsin => self.builder.add_float_asin(
                 maybe_target.unwrap(),
-                &self_addr.unwrap(),
+                self_addr.unwrap(),
                 node,
                 "float asin",
             ),
             IntrinsicFunction::FloatAtan2 => self.builder.add_float_atan2(
                 maybe_target.unwrap(),
-                &self_addr.unwrap(),
+                self_addr.unwrap(),
                 node,
                 "float atan2",
             ),
@@ -198,7 +198,7 @@ impl CodeBuilder<'_> {
                 let float_region = self.emit_scalar_rvalue(float_arg_expr, ctx);
                 self.builder.add_float_min(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     &float_region,
                     node,
                     "float min",
@@ -212,7 +212,7 @@ impl CodeBuilder<'_> {
                 let float_region = self.emit_scalar_rvalue(float_arg_expr, ctx);
                 self.builder.add_float_max(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     &float_region,
                     node,
                     "float max",
@@ -234,7 +234,7 @@ impl CodeBuilder<'_> {
                 self.builder.add_float_clamp(
                     maybe_target.unwrap(),
                     &float_region,
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     &float_b_region,
                     node,
                     "float round",
@@ -242,7 +242,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::FloatToString => self.builder.float_to_string(
                 maybe_target.unwrap(),
-                &self_addr.unwrap(),
+                self_addr.unwrap(),
                 node,
                 "float_to_string",
             ),
@@ -268,7 +268,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::IntMax => {
                 self.builder.add_int_max(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     "int max",
                 );
@@ -276,7 +276,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::IntMin => {
                 self.builder.add_int_min(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     "int min",
                 );
@@ -284,7 +284,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::IntClamp => {
                 self.builder.add_int_clamp(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     "int clamp",
                 );
@@ -292,14 +292,14 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::IntToFloat => {
                 self.builder.add_int_to_float(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     node,
                     &format!("int to float {}", self_addr.unwrap().comment()),
                 );
             }
             IntrinsicFunction::IntToString => self.builder.add_int_to_string(
                 maybe_target.unwrap(),
-                &self_addr.unwrap(),
+                self_addr.unwrap(),
                 node,
                 "int_to_string",
             ),
@@ -308,7 +308,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::StringLen => {
                 self.builder.add_ld32_from_pointer_with_offset_u16(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     STRING_HEADER_COUNT_OFFSET,
                     node,
                     "get the length",
@@ -334,7 +334,7 @@ impl CodeBuilder<'_> {
 
                 self.builder.add_vec_push_addr(
                     temp_element_ptr.register(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     element_gen_type.total_size,
                     node,
                     "set pointer to new element",
@@ -359,7 +359,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecPop => {
                 self.builder.add_vec_pop(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(), // mut self
+                    self_addr.unwrap(), // mut self
                     node,
                     "vec pop",
                 );
@@ -372,7 +372,7 @@ impl CodeBuilder<'_> {
                 };
                 let index_region = self.emit_scalar_rvalue(index_expr, ctx);
                 self.builder.add_vec_remove_index(
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     &index_region,
                     node,
                     "remove index",
@@ -386,7 +386,7 @@ impl CodeBuilder<'_> {
                 let key_region = self.emit_scalar_rvalue(key_expr, ctx);
                 self.builder.add_vec_remove_index_get_value(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(), // mut self
+                    self_addr.unwrap(), // mut self
                     &key_region,
                     node,
                     "vec remove index get value",
@@ -394,7 +394,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::VecClear => {
                 self.builder.add_vec_clear(
-                    &self_addr.unwrap(), // mut self
+                    self_addr.unwrap(), // mut self
                     node,
                     "vec clear",
                 );
@@ -407,7 +407,7 @@ impl CodeBuilder<'_> {
                 let key_region = self.emit_scalar_rvalue(key_expr, ctx);
                 self.builder.add_vec_get(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(), // mut self
+                    self_addr.unwrap(), // mut self
                     &key_region,
                     node,
                     "vec get",
@@ -469,7 +469,7 @@ impl CodeBuilder<'_> {
                 let index_region = self.emit_scalar_rvalue(index_expr, ctx);
                 self.builder.add_vec_subscript(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     &index_region,
                     node,
                     "vec get element at index",
@@ -496,7 +496,7 @@ impl CodeBuilder<'_> {
                 let value_region = &index_region;
 
                 self.builder.add_vec_set(
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     &index_region,
                     value_region,
                     node,
@@ -513,7 +513,7 @@ impl CodeBuilder<'_> {
                 // TODO: Bring this back // assert_eq!(range_header_region.size(), RANGE_HEADER_SIZE);
                 self.builder.add_vec_get_range(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),  // mut self (string header)
+                    self_addr.unwrap(),  // mut self (string header)
                     &range_header_region, // range x..=y
                     node,
                     "vec subscript range",
@@ -534,7 +534,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecLen => {
                 self.builder.add_ld32_from_pointer_with_offset_u16(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     VEC_HEADER_COUNT_OFFSET,
                     node,
                     "get the vec length",
@@ -548,7 +548,7 @@ impl CodeBuilder<'_> {
                 let index_a = self.emit_for_access_or_location(&arguments[0], ctx);
                 let index_b = self.emit_for_access_or_location(&arguments[1], ctx);
                 self.builder.add_vec_swap(
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     &index_a,
                     &index_b,
                     node,
@@ -570,7 +570,7 @@ impl CodeBuilder<'_> {
                     node,
                     Collection::Vec,
                     Transformer::Filter,
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     &self_type.unwrap(),
                     &arguments[0],
                     ctx,
@@ -583,7 +583,7 @@ impl CodeBuilder<'_> {
                     node,
                     Collection::Vec,
                     Transformer::Find,
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     &self_type.unwrap(),
                     &arguments[0],
                     ctx,
@@ -600,14 +600,14 @@ impl CodeBuilder<'_> {
                 };
                 let key = self.emit_scalar_rvalue(key_argument, ctx);
                 self.builder
-                    .add_map_has(&self_addr.unwrap(), &key, node, "map_has");
+                    .add_map_has(self_addr.unwrap(), &key, node, "map_has");
                 t_flag_result.kind = GeneratedExpressionResultKind::TFlagIsTrueWhenSet;
             }
             IntrinsicFunction::MapRemove => {
                 let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
-                self.emit_intrinsic_map_remove(&self_addr.unwrap(), key_argument, ctx);
+                self.emit_intrinsic_map_remove(self_addr.unwrap(), key_argument, ctx);
             }
             IntrinsicFunction::MapIter => {
                 // Never called directly
@@ -618,7 +618,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::MapLen => {
                 self.builder.add_ld32_from_pointer_with_offset_u16(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     MAP_HEADER_COUNT_OFFSET,
                     node,
                     "get the map length",
@@ -631,7 +631,7 @@ impl CodeBuilder<'_> {
                 let key = self.emit_scalar_rvalue(key_argument, ctx);
                 self.builder.add_map_get_entry_location(
                     maybe_target.unwrap(),
-                    &self_addr.unwrap(),
+                    self_addr.unwrap(),
                     &key,
                     node,
                     "map_subscript",

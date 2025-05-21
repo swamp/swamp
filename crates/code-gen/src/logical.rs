@@ -56,13 +56,13 @@ impl CodeBuilder<'_> {
     ) -> PatchPosition {
         let result = self.emit_expression_to_t_flag(&condition.expression, ctx);
 
-        let jump_on_false_condition = self.builder.add_jmp_if_not_equal_polarity_placeholder(
+        
+
+        self.builder.add_jmp_if_not_equal_polarity_placeholder(
             &result.polarity(),
             &condition.expression.node,
             "jump boolean condition false",
-        );
-
-        jump_on_false_condition
+        )
     }
 
     pub(crate) fn emit_expression_to_t_flag(
@@ -124,7 +124,7 @@ impl CodeBuilder<'_> {
         self.emit_bool_expression(&output_destination, condition, ctx);
 
         self.builder.add_tst_u8(
-            &temp_reg.register(),
+            temp_reg.register(),
             &condition.node,
             "set P flag from register",
         );

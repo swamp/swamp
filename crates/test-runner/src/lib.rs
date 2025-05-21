@@ -44,7 +44,7 @@ pub fn init_logger() {
 
 pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
     let crate_main_path = &["crate".to_string(), "lib".to_string()];
-    let code_gen_result = swamp_runtime::compile_and_run(&test_dir, crate_main_path);
+    let code_gen_result = swamp_runtime::compile_and_run(test_dir, crate_main_path);
     let mut vm = swamp_runtime::create_vm_with_standard_settings(
         &code_gen_result.instructions,
         &code_gen_result.prepared_constant_memory,
@@ -75,11 +75,9 @@ pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
                     if !internal_fn.attributes.has_attribute("test") {
                         continue;
                     }
-                    if options.debug_output {
-                        if !has_shown_mod_name {
-                            //eprintln!(">> module {module_name:?}");
-                            has_shown_mod_name = true;
-                        }
+                    if options.debug_output && !has_shown_mod_name {
+                        //eprintln!(">> module {module_name:?}");
+                        has_shown_mod_name = true;
                     }
                     let function_to_run = code_gen_result
                         .functions

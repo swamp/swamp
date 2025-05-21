@@ -158,7 +158,7 @@ impl TopLevelGenState {
             parameters: variable_and_frame_memory.parameters,
             name: "main".to_string(),
             ip_range: InstructionRange {
-                start: start_ip.clone(),
+                start: start_ip,
                 count: InstructionPositionOffset(end_ip.0 - start_ip.0),
             },
         };
@@ -287,7 +287,7 @@ impl TopLevelGenState {
                 spilled_register_region.frame_memory_region.addr,
                 spilled_register_region.registers.len() as u8,
                 node,
-                &format!("restoring spilled arguments in epilogue"),
+                "restoring spilled arguments in epilogue",
             );
         }
     }
@@ -313,7 +313,7 @@ impl TopLevelGenState {
             parameters: frame_and_variable_info.parameters,
             name: in_data.assigned_name.clone(),
             ip_range: InstructionRange {
-                start: start_ip.clone(),
+                start: start_ip,
                 count: InstructionPositionOffset(0),
             },
         };
@@ -415,7 +415,7 @@ impl TopLevelGenState {
             let constant_info = ConstantInfo {
                 ip_range: InstructionRange {
                     count: InstructionPositionOffset(end_ip.0 - start_ip.0),
-                    start: start_ip.clone(),
+                    start: start_ip,
                 },
                 target_constant_memory: target_region,
                 constant_ref: constant.clone(),

@@ -20,11 +20,7 @@ impl Analyzer<'_> {
             .get_member_function(ty, function_name)
             .cloned();
 
-        if let Some(found_func_ref) = x {
-            Some(found_func_ref.as_ref().clone())
-        } else {
-            None
-        }
+        x.map(|found_func_ref| found_func_ref.as_ref().clone())
     }
 
     pub(crate) fn analyze_min_max_expr(

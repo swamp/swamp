@@ -17,7 +17,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> OutputDestination {
         let map_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
-            &map_header_location,
+            map_header_location,
             &key_expression.node,
             "get map header absolute pointer",
         );
@@ -44,7 +44,7 @@ impl CodeBuilder<'_> {
         self.builder.add_map_get_entry_location(
             map_entry_reg.register(),
             &map_header_ptr_reg,
-            &key_temp_storage_reg.grab_register(),
+            key_temp_storage_reg.grab_register(),
             &key_expression.node,
             "lookup the entry for this key in the map",
         );
@@ -81,13 +81,13 @@ impl CodeBuilder<'_> {
 
         let element_target_temp_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(u32_type()),
-            &format!("key temp"),
+            "key temp",
         );
 
         for (key_expr, value_expr) in slice_pair_literal {
             //self.emit_expression_materialize(&key_storage_register, key_expr, ctx);
             self.emit_expression_into_target_memory(
-                &aggregate_location.grab_memory_location(),
+                aggregate_location.grab_memory_location(),
                 value_expr,
                 "store expression to memory if needed",
                 ctx,

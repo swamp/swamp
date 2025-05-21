@@ -27,12 +27,12 @@ impl CodeBuilder<'_> {
         int_expression: &Expression,
         ctx: &Context,
     ) -> OutputDestination {
-        let element_basic_type = layout_type(&analyzed_element_type);
+        let element_basic_type = layout_type(analyzed_element_type);
         let vec_count_reg = self
             .temp_registers
             .allocate(VmType::new_unknown_placement(u16_type()), "vec count");
         let vec_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
-            &current_location,
+            current_location,
             &int_expression.node,
             "get vec header absolute pointer",
         );

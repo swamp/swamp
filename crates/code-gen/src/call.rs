@@ -242,7 +242,7 @@ impl CodeBuilder<'_> {
             ctx,
         );
 
-        self.add_call(node, internal_fn, &format!("call")); // will be fixed up later
+        self.add_call(node, internal_fn, "call"); // will be fixed up later
 
         self.emit_post_call(
             &spilled_arguments,

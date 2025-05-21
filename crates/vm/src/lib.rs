@@ -902,7 +902,7 @@ impl Vm {
         set_reg!(
             self,
             dst_reg,
-            squirrel_prng::squirrel_noise5(src as u32, 0) as i32
+            squirrel_prng::squirrel_noise5(src, 0) as i32
         );
     }
 
