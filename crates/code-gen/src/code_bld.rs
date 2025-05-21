@@ -1809,7 +1809,7 @@ impl CodeBuilder<'_> {
                                 );
 
                                 let z_result = self.emit_single_intrinsic_call_with_self(
-                                    output_destination.grab_register(), // TODO: Intrinsic calls can only set to register?
+                                    output_destination, // TODO: Intrinsic calls can only set to register?
                                     &start_expression.node,
                                     intrinsic_fn,
                                     Some(element.ty.clone()),
@@ -1857,7 +1857,7 @@ impl CodeBuilder<'_> {
                         }
                         Function::Intrinsic(intrinsic_def) => {
                             let z_result = self.emit_single_intrinsic_call_with_self(
-                                output_destination.grab_register(),
+                                output_destination,
                                 &start_expression.node,
                                 &intrinsic_def.intrinsic,
                                 Some(element.ty.clone()),

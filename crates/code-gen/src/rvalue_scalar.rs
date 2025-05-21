@@ -187,6 +187,10 @@ impl CodeBuilder<'_> {
         if !matches!(output, OutputDestination::AggregateToMemoryLocation(_))
             && self.rvalue_needs_memory_location_to_materialize_in(&expr)
         {
+            info!(
+                ?expr,
+                "this needs a temporary location to be able to get a pointer"
+            );
             let temp_materialization_target = self.allocate_frame_space_and_assign_register(
                 output.ty(),
                 "rvalue temporary materialization",
@@ -202,6 +206,7 @@ impl CodeBuilder<'_> {
                 node,
                 "copy temp materialization memory pointer reg",
             );
+            return;
         }
 
         let hwm = self.temp_registers.save_mark();
@@ -364,6 +369,7 @@ impl CodeBuilder<'_> {
                     "to produce a scalar rvalue, we have to allocate a temporary variable",
                 );
 
+                info!(?expr, "emit_scalar_rvalue");
                 self.emit_expression_into_register(
                     temp_target_reg.register(),
                     expr,

@@ -683,8 +683,6 @@ pub enum OutputDestination {
     AggregateToMemoryLocation(MemoryLocation),
 }
 
-impl OutputDestination {}
-
 impl OutputDestination {
     pub fn new_unit() -> Self {
         Self::Unit
@@ -711,21 +709,28 @@ impl OutputDestination {
         }
     }
 
+    pub fn register(&self) -> Option<&TypedRegister> {
+        match self {
+            Self::ScalarToRegister(reg) => Some(reg),
+            _ => None,
+        }
+    }
+
     pub fn grab_register(&self) -> &TypedRegister {
         match self {
-            OutputDestination::ScalarToRegister(reg) => reg,
-            OutputDestination::AggregateToMemoryLocation(_) => {
+            Self::ScalarToRegister(reg) => reg,
+            Self::AggregateToMemoryLocation(_) => {
                 panic!("assumed it would be a register")
             }
-            OutputDestination::Unit => panic!("assumed it would be a register, but was unit"),
+            Self::Unit => panic!("assumed it would be a register, but was unit"),
         }
     }
 
     pub fn grab_memory_location(&self) -> &MemoryLocation {
         match self {
-            OutputDestination::ScalarToRegister(reg) => panic!("assumed it was a memory location"),
-            OutputDestination::AggregateToMemoryLocation(location) => location,
-            OutputDestination::Unit => {
+            Self::ScalarToRegister(reg) => panic!("assumed it was a memory location"),
+            Self::AggregateToMemoryLocation(location) => location,
+            Self::Unit => {
                 panic!("assumed it would be a memory location, but was unit")
             }
         }
