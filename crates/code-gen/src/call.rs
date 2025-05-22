@@ -162,13 +162,20 @@ impl CodeBuilder<'_> {
                 match argument_expr_or_location {
                     MutRefOrImmutableExpression::Location(lvalue) => {
                         let detailed_location = self.emit_lvalue_address(lvalue, ctx);
-                        // Move the address from the detailed_location into the argument register
-                        self.emit_load_into_register(
-                            &argument_register,
+
+                        let abs_pointer = self.emit_absolute_pointer_if_needed(
                             &detailed_location,
                             node,
-                            "load address of lvalue into argument register",
+                            "calculate absolute address for struct field reference",
                         );
+
+                        self.builder.add_mov_reg(
+                            &argument_register,
+                            &abs_pointer,
+                            node,
+                            "load calculated address of lvalue into argument register",
+                        );
+
                         if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
                             copy_back_mutable_reg_pairs.push(crate::code_bld::MutableReturnReg {
                                 target_location_after_call: detailed_location,
