@@ -1,13 +1,13 @@
 //! `CodeBuilder` helper functions for function calls and arguments.
+use crate::SpilledRegister;
 use crate::code_bld::{CodeBuilder, MutableReturnReg};
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
-use crate::SpilledRegister;
 use source_map_node::Node;
 use swamp_semantic::{
-    pretty_module_name, InternalFunctionDefinitionRef, MutRefOrImmutableExpression,
+    InternalFunctionDefinitionRef, MutRefOrImmutableExpression, pretty_module_name,
 };
 use swamp_types::Signature;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType};
@@ -67,10 +67,8 @@ impl CodeBuilder<'_> {
             let return_basic_type = layout_type(&signature.return_type);
 
             if return_basic_type.is_represented_as_a_pointer_in_reg() {
-                let r0 = TypedRegister::new_vm_type(
-                    0,
-                    VmType::new_unknown_placement(return_basic_type),
-                );
+                let r0 =
+                    TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
                 let return_pointer_reg = self.emit_absolute_pointer_if_needed(
                     output_destination,
@@ -86,10 +84,8 @@ impl CodeBuilder<'_> {
                 );
             } else {
                 // For simple types, we need to copy from r0 to destination after the call
-                let r0 = TypedRegister::new_vm_type(
-                    0,
-                    VmType::new_unknown_placement(return_basic_type),
-                );
+                let r0 =
+                    TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
                 copy_back_mutable_reg_pairs.push(MutableReturnReg {
                     target_location_after_call: output_destination.clone(),
@@ -125,7 +121,8 @@ impl CodeBuilder<'_> {
                 arguments,
             );
 
-            let needs_spill = ctx.register_is_protected(&argument_register) && !already_in_correct_register;
+            let needs_spill =
+                ctx.register_is_protected(&argument_register) && !already_in_correct_register;
             if needs_spill {
                 let save_region = self.temp_frame_space_for_register("emit_arguments");
                 self.builder.add_st_regs_to_frame(
@@ -165,6 +162,13 @@ impl CodeBuilder<'_> {
                 match argument_expr_or_location {
                     MutRefOrImmutableExpression::Location(lvalue) => {
                         let detailed_location = self.emit_lvalue_address(lvalue, ctx);
+                        // Move the address from the detailed_location into the argument register
+                        self.emit_load_into_register(
+                            &argument_register,
+                            &detailed_location,
+                            node,
+                            "load address of lvalue into argument register",
+                        );
                         if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
                             copy_back_mutable_reg_pairs.push(crate::code_bld::MutableReturnReg {
                                 target_location_after_call: detailed_location,
@@ -268,7 +272,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling {function_name} ({comment})", );
+        let call_comment = &format!("calling {function_name} ({comment})",);
         /*
                if let Some(found) = self
                    .state
