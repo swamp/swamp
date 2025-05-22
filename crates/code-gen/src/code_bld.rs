@@ -1,8 +1,8 @@
+use crate::DetailedLocationResolved;
 use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool};
 use crate::state::CodeGenState;
-use crate::DetailedLocationResolved;
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
@@ -203,7 +203,7 @@ impl CodeBuilder<'_> {
                         },
                         value_reg,
                         node,
-                        &format!("store {comment} to memory pointed by register"),
+                        &format!("store {comment} to memory pointed by register {pointer_reg} <- {value_reg}"),
                     );
                 }
                 BasicTypeKind::U8 | BasicTypeKind::B8 => {
@@ -215,7 +215,7 @@ impl CodeBuilder<'_> {
                         },
                         value_reg,
                         node,
-                        &format!("store {comment} to memory pointed by register"),
+                        &format!("store byte {comment} to memory pointed by register {pointer_reg} <- {value_reg}"),
                     );
                 }
                 _ => {
@@ -229,7 +229,7 @@ impl CodeBuilder<'_> {
                         MemoryOffset(0),
                         value_reg.ty.basic_type.total_size,
                         node,
-                        &format!("block copy {comment} to memory pointed by register"),
+                        &format!("block copy {comment} to memory pointed by register {pointer_reg} <- {value_reg}"),
                     );
                 }
             },

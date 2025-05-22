@@ -10,7 +10,7 @@ pub fn very_basic(test_dir: &Path) {
         TestRunOptions {
             should_run: true,
             print_output: false,
-            iteration_count: 2,
+            iteration_count: 1,
             debug_output: false,
             debug_opcodes: false,
         },

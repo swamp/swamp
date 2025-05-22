@@ -6,7 +6,9 @@ use crate::layout::layout_type;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
 use source_map_node::Node;
-use swamp_semantic::{InternalFunctionDefinitionRef, MutRefOrImmutableExpression};
+use swamp_semantic::{
+    InternalFunctionDefinitionRef, MutRefOrImmutableExpression, pretty_module_name,
+};
 use swamp_types::Signature;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType};
 use tracing::info;
@@ -83,7 +85,16 @@ impl CodeBuilder<'_> {
                 &format!("emit argument {index_in_signature}"),
             );
 
-            if ctx.register_is_protected(&argument_register) {
+            let needs_to_overwrite_parameter = {
+                if index_in_signature == 0 && self_variable.is_some() {
+                    let self_reg = self_variable.as_ref().unwrap();
+                    self_reg.index != argument_register.index
+                } else {
+                    true
+                }
+            };
+
+            if needs_to_overwrite_parameter && ctx.register_is_protected(&argument_register) {
                 let save_region = self.temp_frame_space_for_register("emit_arguments");
                 self.builder.add_st_regs_to_frame(
                     save_region.addr,
@@ -217,14 +228,15 @@ impl CodeBuilder<'_> {
         let function_name = internal_fn.associated_with_type.as_ref().map_or_else(
             || {
                 format!(
-                    "{:?}::{}",
-                    internal_fn.defined_in_module_path, internal_fn.assigned_name
+                    "{}::{}",
+                    pretty_module_name(&internal_fn.defined_in_module_path),
+                    internal_fn.assigned_name
                 )
             },
             |associated_with_type| {
                 format!(
-                    "{:?}::{}:{}",
-                    internal_fn.defined_in_module_path,
+                    "{}::{}:{}",
+                    pretty_module_name(&internal_fn.defined_in_module_path),
                     associated_with_type,
                     internal_fn.assigned_name
                 )

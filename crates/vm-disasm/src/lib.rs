@@ -81,8 +81,8 @@ pub fn disasm_instructions_color(
 
         writeln!(
             string,
-            "     {:04X}> {}",
-            absolute_pc,
+            "     {} {}",
+            tinter::bright_black(format!("{absolute_pc:04X}>")),
             disasm_color(
                 instruction,
                 memory_infos,
