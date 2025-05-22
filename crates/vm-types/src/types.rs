@@ -701,8 +701,16 @@ impl Destination {
             Self::Unit => {
                 panic!("add_offset")
             }
-            Self::Register(_) => {
-                panic!("can not add offset to a register")
+            Self::Register(reg) => {
+                if reg.ty.is_represented_as_pointer_inside_register() {
+                    Self::Memory(MemoryLocation {
+                        base_ptr_reg: reg.clone(),
+                        offset,
+                        ty: vm_type,
+                    })
+                } else {
+                    panic!("can not add offset to a register")
+                }
             }
             Self::Memory(memory_location) => Self::Memory(MemoryLocation {
                 base_ptr_reg: memory_location.base_ptr_reg.clone(),

@@ -26,41 +26,15 @@ impl CodeBuilder<'_> {
             let is_last = index == chain.len() - 1;
             match &element.kind {
                 PostfixKind::StructField(anonymous_struct, field_index) => {
-                    // If current_location is not a memory location, we need to store it in memory first
-                    if !current_location.is_memory_location() {
-                        let struct_type = Type::AnonymousStruct(anonymous_struct.clone());
-                        let struct_layout = layout_type(&struct_type);
-                        let struct_size = struct_layout.total_size;
-
-                        let temp_destination = self.allocate_frame_space_and_assign_register(
-                            &struct_layout,
-                            &element.node,
-                            "struct_temp",
-                        );
-
-                        // copy the struct from pointer in register to memory
-                        self.builder.add_block_copy_with_offset(
-                            temp_destination.grab_memory_location(),
-                            current_location.grab_register(),
-                            MemoryOffset(0),
-                            struct_size,
-                            &element.node,
-                            "store struct to memory for field access",
-                        );
-
-                        current_location = temp_destination;
-                    }
-
-                    debug_assert!(current_location.is_memory_location());
                     let struct_layout =
                         layout_type(&Type::AnonymousStruct(anonymous_struct.clone()));
+
                     let offset_item = struct_layout.get_field_offset(*field_index).unwrap();
 
                     current_location = current_location.add_offset(
                         offset_item.offset,
                         VmType::new_unknown_placement(offset_item.ty.clone()),
                     );
-                    //info!(?current_location, "after field offset lookup");
                 }
                 PostfixKind::SliceSubscript(slice_type, int_expression) => {
                     let element_basic_type = layout_type(&slice_type.element);
