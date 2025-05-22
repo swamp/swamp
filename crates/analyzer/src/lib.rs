@@ -568,7 +568,10 @@ impl<'a> Analyzer<'a> {
         let encountered_type = expr.ty.clone();
 
         let expr = if let Some(found_expected_type) = context.expected_type {
-            if found_expected_type.underlying().compatible_with(&encountered_type.underlying()) {
+            if found_expected_type
+                .underlying()
+                .compatible_with(&encountered_type.underlying())
+            {
                 return Ok(expr);
             }
 
@@ -776,11 +779,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                    &ast_expression.node,
-                    fields,
-                    *rest_was_specified,
-                    context,
-                )?,
+                &ast_expression.node,
+                fields,
+                *rest_was_specified,
+                context,
+            )?,
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
@@ -1460,7 +1463,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {} else {
+            if let Type::Optional(_) = tv.resolved_type {
+            } else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -2600,7 +2604,11 @@ impl<'a> Analyzer<'a> {
             if !found_var.is_mutable() {
                 return Err(self.create_err(ErrorKind::VariableIsNotMutable, &variable.name));
             }
-            if !found_var.resolved_type.underlying().assignable_type(&ty.underlying()) {
+            if !found_var
+                .resolved_type
+                .underlying()
+                .assignable_type(&ty.underlying())
+            {
                 return Err(self.create_err(
                     ErrorKind::IncompatibleTypes {
                         expected: ty,
@@ -2979,25 +2987,27 @@ impl<'a> Analyzer<'a> {
         let source_expr = self.analyze_expression(ast_source_expression, &lhs_argument_context)?;
          */
 
-        let final_expr =
-            if Self::is_type_assignment_compatible(target_type.underlying(), &source_expr.ty.underlying()) {
-                source_expr
-            }
-            /*else if let Some(converted) =
-                self.try_convert_for_assignment(&source_expr, &target_type, ast_source_expression)?
+        let final_expr = if Self::is_type_assignment_compatible(
+            target_type.underlying(),
+            &source_expr.ty.underlying(),
+        ) {
+            source_expr
+        }
+        /*else if let Some(converted) =
+            self.try_convert_for_assignment(&source_expr, &target_type, ast_source_expression)?
 
-            {
-                converted
-            }         */
-            else {
-                return Err(self.create_err(
-                    ErrorKind::IncompatibleTypesForAssignment {
-                        expected: target_type.clone(),
-                        found: source_expr.ty,
-                    },
-                    &ast_source_expression.node,
-                ));
-            };
+        {
+            converted
+        }         */
+        else {
+            return Err(self.create_err(
+                ErrorKind::IncompatibleTypesForAssignment {
+                    expected: target_type.clone(),
+                    found: source_expr.ty,
+                },
+                &ast_source_expression.node,
+            ));
+        };
 
         let assignment_mode = self.check_assignment_mode(true, &final_expr, target_type); // TODO: Fill in correct lhs_is_mutable
 
