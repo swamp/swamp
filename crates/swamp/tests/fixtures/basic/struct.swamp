@@ -45,13 +45,13 @@ fn borrow_point() {
   mut point = Point { x: 10, y: 20 }
 
   print('before overwrite: x:{point.x}, y:{point.y}')
-  assert(point.x == 10, 'x vpointlue is wrong')
-  assert(point.y == 20, 'y value is wrong')
+  assert(point.x == 10, 'before: x value is wrong')
+  assert(point.y == 20, 'before: y value is wrong')
 
   overwrite_point(&point)
 
   print('after overwrite: x:{point.x}, y:{point.y}')
-  assert(point.x == 100, 'x value is wrong')
-  assert(point.y == 200, 'y value is wrong')
+  assert(point.x == 100, 'after: x value is wrong')
+  assert(point.y == 200, 'after: y value is wrong')
 }
 
