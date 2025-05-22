@@ -39,7 +39,7 @@ fn overwrite_point(mut p: Point) {
 #[test]
 fn borrow_point() {
   // Intentional dummy variable `dummy` to take up the r1 register.
-  // that forces a `mov r1, r2` (r1=first parameter, r2=point variable) to happen before calling `overwite_point`.
+  // that forces a `mov r1, r2` (r1=first parameter, r2=point variable) to happen before calling `overwrite_point`.
   dummy =  3
 
   mut point = Point { x: 10, y: 20 }
@@ -52,6 +52,31 @@ fn borrow_point() {
 
   print('after overwrite: x:{point.x}, y:{point.y}')
   assert(point.x == 100, 'after: x value is wrong')
+  assert(point.y == 200, 'after: y value is wrong')
+}
+
+
+fn partial_overwrite_point(mut p: Point) {
+  p.y = 200
+}
+
+
+#[test]
+fn borrow_point_partial_overwrite() {
+  // Intentional dummy variable `dummy` to take up the r1 register.
+  // that forces a `mov r1, r2` (r1=first parameter, r2=point variable) to happen before calling `overwrite_point`.
+  dummy =  3
+
+  mut point = Point { x: 10, y: 20 }
+
+  print('before overwrite: x:{point.x}, y:{point.y}')
+  assert(point.x == 10, 'before: x value is wrong')
+  assert(point.y == 20, 'before: y value is wrong')
+
+  partial_overwrite_point(&point)
+
+  print('after overwrite: x:{point.x}, y:{point.y}')
+  assert(point.x == 10, 'after: x value should not have been changed')
   assert(point.y == 200, 'after: y value is wrong')
 }
 
