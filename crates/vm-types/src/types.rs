@@ -680,7 +680,7 @@ pub const fn is_callee_save(reg_index: u8) -> bool {
     reg_index >= 7
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Destination {
     Unit, // no output
     Register(TypedRegister),
@@ -797,6 +797,12 @@ pub struct TypedRegister {
     pub index: u8,
     pub ty: VmType,
     pub comment: String,
+}
+
+impl PartialEq for TypedRegister {
+    fn eq(&self, other: &Self) -> bool {
+        self.index == other.index
+    }
 }
 
 impl TypedRegister {

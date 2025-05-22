@@ -244,7 +244,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_load_from_location(
+    pub(crate) fn emit_load_from_location(
         &mut self,
         target_reg: &TypedRegister,
         location: &Destination,
@@ -494,6 +494,36 @@ impl CodeBuilder<'_> {
         }
     }
 
+    pub(crate) fn emit_absolute_pointer_if_needed(
+        &mut self,
+        destination: &Destination,
+        node: &Node,
+        comment: &str,
+    ) -> TypedRegister {
+        match destination {
+            Destination::Register(reg) => reg.clone(),
+            Destination::Memory(memory_location) => {
+                let temp_offset_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(u32_type()),
+                    "emit_absolute_pointer: temp_offset_reg",
+                );
+
+                self.builder.add_add_u32_imm(
+                    temp_offset_reg.register(),
+                    &memory_location.base_ptr_reg,
+                    u32::from(memory_location.offset.0),
+                    node,
+                    "forcing lvalue to be a complete pointer",
+                );
+
+                temp_offset_reg.register
+            }
+            Destination::Unit => {
+                panic!("can not get absolute pointer")
+            }
+        }
+    }
+
     fn emit_variable_binding(
         &mut self,
         variable: &VariableRef,
@@ -600,220 +630,6 @@ impl CodeBuilder<'_> {
             addr: start,
             size: REG_ON_FRAME_SIZE,
         }
-    }
-
-    #[allow(clippy::too_many_lines)]
-    pub(crate) fn emit_postfix_chain(
-        &mut self,
-        output_destination: &Destination,
-        start_expression: &StartOfChain,
-        chain: &[Postfix],
-        ctx: &Context,
-    ) {
-        let mut current_location = self.emit_start_of_chain(start_expression, ctx);
-        let mut t_flag_result = FlagState::default();
-
-        //info!(t=?current_location.vm_type(), "start r value chain");
-
-        for (index, element) in chain.iter().enumerate() {
-            //info!(t=?element.ty, index,t=?current_location.vm_type(), ?element.kind, "chain element");
-            let is_last = index == chain.len() - 1;
-            match &element.kind {
-                PostfixKind::StructField(anonymous_struct, field_index) => {
-                    debug_assert!(current_location.is_memory_location());
-                    let struct_layout =
-                        layout_type(&Type::AnonymousStruct(anonymous_struct.clone()));
-                    let offset_item = struct_layout.get_field_offset(*field_index).unwrap();
-
-                    current_location = current_location.add_offset(
-                        offset_item.offset,
-                        VmType::new_unknown_placement(offset_item.ty.clone()),
-                    );
-                    //info!(?current_location, "after field offset lookup");
-                }
-                PostfixKind::SliceSubscript(slice_type, int_expression) => {
-                    let element_basic_type = layout_type(&slice_type.element);
-
-                    todo!()
-                    /*
-                    current_location = self.subscript_helper_from_location_to_location(
-                        current_location,
-                        &element_basic_type,
-                        int_expression,
-                        BoundsCheck::KnownSizeAtCompileTime(slice_type.fixed_size as u16),
-                        &int_expression.node,
-                        "emit rvalue",
-                        ctx,
-                    );
-
-                     */
-                }
-
-                PostfixKind::VecSubscript(vec_type, int_expression) => {
-                    current_location = self.vec_subscript_helper(
-                        &current_location,
-                        &vec_type.element,
-                        int_expression,
-                        ctx,
-                    );
-                }
-
-                PostfixKind::MapSubscript(map_type, key_expression) => {
-                    current_location = self.map_subscript_helper(
-                        &current_location,
-                        &map_type.key,
-                        key_expression,
-                        ctx,
-                    );
-                }
-
-                PostfixKind::MemberCall(function_to_call, arguments) => {
-                    let hwm = self.temp_registers.save_mark();
-                    //let return_temp_reg =
-                    //  self.temp_space_for_type(&function_to_call.signature().return_type, "");
-                    let resolved_location = self
-                        .emit_load_primitive_from_detailed_location_if_needed(
-                            &current_location,
-                            &element.node,
-                            "emit_rvalue_postfix member call ",
-                        );
-                    //let target_ctx = Context::new(temp_reg.register.clone());
-
-                    match &**function_to_call {
-                        Function::Internal(internal_fn) => {
-                            if let Some((intrinsic_fn, intrinsic_arguments)) =
-                                single_intrinsic_fn(&internal_fn.body)
-                            {
-                                //info!(?intrinsic_fn, "intrinsic");
-                                let merged_arguments = Self::merge_arguments_keep_literals(
-                                    arguments,
-                                    intrinsic_arguments,
-                                );
-
-                                let z_result = self.emit_single_intrinsic_call_with_self(
-                                    output_destination, // TODO: Intrinsic calls can only set to register?
-                                    &start_expression.node,
-                                    intrinsic_fn,
-                                    Some(element.ty.clone()),
-                                    Some(resolved_location.register()),
-                                    &merged_arguments,
-                                    ctx,
-                                    "rvalue intrinsic call ",
-                                );
-
-                                if is_last {
-                                    t_flag_result = z_result;
-                                }
-                            } else {
-                                let (spilled_argument_registers, copy_back) = self.emit_arguments(
-                                    output_destination,
-                                    &start_expression.node,
-                                    &internal_fn.signature.signature,
-                                    Some(resolved_location.register()),
-                                    arguments,
-                                    ctx,
-                                );
-                                self.emit_call(&element.node, internal_fn, "emit_rvalue call");
-
-                                self.emit_post_call(
-                                    &spilled_argument_registers,
-                                    &copy_back,
-                                    &element.node,
-                                    "emit_rvalue postcall",
-                                );
-                            }
-                        }
-                        Function::External(external_function_def) => {
-                            self.emit_host_self_call(
-                                output_destination,
-                                &start_expression.node,
-                                external_function_def,
-                                resolved_location.register(),
-                                arguments,
-                                ctx,
-                            );
-                        }
-                        Function::Intrinsic(intrinsic_def) => {
-                            let z_result = self.emit_single_intrinsic_call_with_self(
-                                output_destination,
-                                &start_expression.node,
-                                &intrinsic_def.intrinsic,
-                                Some(element.ty.clone()),
-                                Some(resolved_location.register()),
-                                arguments,
-                                ctx,
-                                "rvalue intrinsic call ",
-                            );
-
-                            if is_last {
-                                t_flag_result = z_result;
-                            }
-                        }
-                        _ => panic!(
-                            "{}",
-                            &format!("not supported as a member call {function_to_call:?}")
-                        ),
-                    }
-
-                    self.temp_registers.restore_to_mark(hwm);
-
-                    current_location =
-                        Destination::Register(output_destination.grab_register().clone());
-                    //info!(?current_location, "after member call");
-                }
-                PostfixKind::OptionalChainingOperator => {
-                    todo!()
-                }
-                PostfixKind::NoneCoalescingOperator(expression) => {
-                    let hwm = self.temp_registers.save_mark();
-                    let temp_reg = self.temp_register_for_analyzed_type(&expression.ty, "");
-
-                    // materialize an u8
-                    let resolved_location = self
-                        .emit_load_primitive_from_detailed_location_if_needed(
-                            &current_location,
-                            &element.node,
-                            "",
-                        );
-
-                    self.builder.add_tst_u8(
-                        resolved_location.register(),
-                        &element.node,
-                        "test if optional tag is Some",
-                    );
-
-                    let patch = self
-                        .builder
-                        .add_jmp_if_equal_placeholder(&element.node, "jump if some");
-
-                    /*
-                    if let DetailedLocationResolved::TempRegister(temp_reg) = resolved_location {
-                        self.temp_registers.free(temp_reg);
-                    }
-
-                     */
-
-                    self.emit_expression(output_destination, expression, ctx);
-
-                    self.temp_registers.restore_to_mark(hwm);
-
-                    self.builder.patch_jump_here(patch);
-
-                    current_location =
-                        Destination::Register(output_destination.grab_register().clone());
-                    info!(?current_location, "after none coalesce");
-                }
-            }
-
-            //info!(t=?element.ty, index, t=?current_location.vm_type(), ?element.kind, "after element");
-        }
-
-        self.emit_load_from_location(
-            output_destination.grab_register(),
-            &current_location,
-            &start_expression.node,
-            "rvalue postfix chain",
-        );
     }
 
     pub(crate) fn emit_string_literal(
@@ -1313,7 +1129,11 @@ impl CodeBuilder<'_> {
         );
     }
 
-    fn emit_start_of_chain(&mut self, start: &StartOfChain, ctx: &Context) -> Destination {
+    pub(crate) fn emit_start_of_chain(
+        &mut self,
+        start: &StartOfChain,
+        ctx: &Context,
+    ) -> Destination {
         match &start.kind {
             StartOfChainKind::Expression(expr) => {
                 Destination::Register(self.emit_scalar_rvalue(expr, ctx))
@@ -1358,7 +1178,7 @@ impl CodeBuilder<'_> {
         FlagState::default()
     }
 
-    fn emit_host_self_call(
+    pub(crate) fn emit_host_self_call(
         &mut self,
         return_output_destination: &Destination,
         node: &Node,
@@ -1392,7 +1212,7 @@ impl CodeBuilder<'_> {
         FlagState::default()
     }
 
-    fn merge_arguments_keep_literals(
+    pub(crate) fn merge_arguments_keep_literals(
         outer_args: &Vec<MutRefOrImmutableExpression>,
         intrinsic_args: &Vec<MutRefOrImmutableExpression>,
     ) -> Vec<MutRefOrImmutableExpression> {

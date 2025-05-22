@@ -32,10 +32,10 @@ impl CodeBuilder<'_> {
         if !matches!(output, Destination::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(expr)
         {
-            info!(
-                ?expr,
-                "this needs a temporary location to be able to get a pointer"
-            );
+            //info!(
+            //  ?expr,
+            // "this needs a temporary location to be able to get a pointer"
+            //);
             let temp_materialization_target = self.allocate_frame_space_and_assign_register(
                 output.ty(),
                 &expr.node,
