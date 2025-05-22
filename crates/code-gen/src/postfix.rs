@@ -1,11 +1,10 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use crate::{FlagState, single_intrinsic_fn};
+use crate::{single_intrinsic_fn, FlagState};
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain};
 use swamp_types::Type;
-use swamp_vm_types::MemoryOffset;
-use swamp_vm_types::types::{Destination, VmType};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -165,10 +164,10 @@ impl CodeBuilder<'_> {
                         ),
                     }
 
-                    // Update current_location based on the destination used
                     if is_last {
-                        current_location =
-                            Destination::Register(output_destination.grab_register().clone());
+                        // For the last element, we should use the output destination
+                        // but ensure we have the correct type information from element.ty
+                        current_location = output_destination.clone();
                     } else {
                         current_location = target_destination.clone();
                     }
@@ -226,16 +225,28 @@ impl CodeBuilder<'_> {
             //info!(t=?element.ty, index, t=?current_location.vm_type(), ?element.kind, "after element");
         }
 
-        // Only do the final load if we're not already in the destination register
-        // This avoids unnecessary loads when the final element was a member call
-        if !matches!(current_location, Destination::Register(ref reg) if reg == output_destination.grab_register())
-        {
-            self.emit_load_from_location(
-                output_destination.grab_register(),
-                &current_location,
-                &start_expression.node,
-                "rvalue postfix chain",
-            );
+        match output_destination {
+            Destination::Register(output_reg) => {
+                if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg) {
+                    self.emit_load_from_location(
+                        output_reg,
+                        &current_location,
+                        &start_expression.node,
+                        "rvalue postfix chain",
+                    );
+                }
+            }
+            Destination::Memory(mem_loc) => {
+                self.emit_load_from_location(
+                    &mem_loc.base_ptr_reg,
+                    &current_location,
+                    &start_expression.node,
+                    "rvalue postfix chain to memory",
+                );
+            }
+            Destination::Unit => {
+                // No need to load anything if the destination is Unit
+            }
         }
     }
 }
