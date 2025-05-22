@@ -272,7 +272,7 @@ impl CodeBuilder<'_> {
                                 },
                                 reg,
                                 node,
-                                &format!("store {} to memory pointed by r0", comment),
+                                &format!("store {comment} to memory pointed by r0"),
                             );
                         }
                         BasicTypeKind::U8 | BasicTypeKind::B8 => {
@@ -284,7 +284,7 @@ impl CodeBuilder<'_> {
                                 },
                                 reg,
                                 node,
-                                &format!("store {} to memory pointed by r0", comment),
+                                &format!("store {comment} to memory pointed by r0"),
                             );
                         }
                         _ => {
@@ -299,7 +299,7 @@ impl CodeBuilder<'_> {
                                 MemoryOffset(0),
                                 reg.ty.basic_type.total_size,
                                 node,
-                                &format!("block copy {} to memory pointed by r0", comment),
+                                &format!("block copy {comment} to memory pointed by r0"),
                             );
                         }
                     }
