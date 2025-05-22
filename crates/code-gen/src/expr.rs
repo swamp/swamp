@@ -28,8 +28,8 @@ impl CodeBuilder<'_> {
         let node = &expr.node;
 
         if let Destination::Memory(memory) = &output {
-            if self.emit_special_rvalue_materialization(memory, expr, ctx) {
-                // If special assignment handling was performed, we are done
+            if self.try_container_init_from_slice_literal(memory, expr, ctx) {
+                // If special container initialization was done, the materialization is complete.
                 return;
             }
         }

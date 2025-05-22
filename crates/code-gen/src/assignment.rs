@@ -53,7 +53,7 @@ impl CodeBuilder<'_> {
         self.emit_expression(&output_destination, rhs, ctx);
     }
 
-    pub(crate) fn emit_special_rvalue_materialization(
+    pub(crate) fn try_container_init_from_slice_literal(
         &mut self,
         target_location: &MemoryLocation,
         rhs: &Expression,
