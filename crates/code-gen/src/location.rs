@@ -5,7 +5,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
-use swamp_semantic::{Expression, MutRefOrImmutableExpression, SingleLocationExpression, MutableReferenceKind};
+use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, BoundsCheck, Destination, TypedRegister, VmType, int_type,
 };

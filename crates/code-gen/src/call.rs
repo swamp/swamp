@@ -69,7 +69,7 @@ impl CodeBuilder<'_> {
             if return_basic_type.is_represented_as_a_pointer_in_reg() {
                 let r0 = TypedRegister::new_vm_type(
                     0,
-                    VmType::new_unknown_placement(return_basic_type.clone()),
+                    VmType::new_unknown_placement(return_basic_type),
                 );
 
                 let return_pointer_reg = self.emit_absolute_pointer_if_needed(
@@ -88,7 +88,7 @@ impl CodeBuilder<'_> {
                 // For simple types, we need to copy from r0 to destination after the call
                 let r0 = TypedRegister::new_vm_type(
                     0,
-                    VmType::new_unknown_placement(return_basic_type.clone()),
+                    VmType::new_unknown_placement(return_basic_type),
                 );
 
                 copy_back_mutable_reg_pairs.push(MutableReturnReg {
