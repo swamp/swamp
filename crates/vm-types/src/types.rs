@@ -298,7 +298,14 @@ impl BasicTypeKind {
     pub(crate) const fn is_represented_as_primitive_inside_register(&self) -> bool {
         matches!(
             self,
-            Self::Empty | Self::B8 | Self::U8 | Self::U16 | Self::S32 | Self::U32 | Self::Fixed32 | Self::InternalStringPointer
+            Self::Empty
+                | Self::B8
+                | Self::U8
+                | Self::U16
+                | Self::S32
+                | Self::U32
+                | Self::Fixed32
+                | Self::InternalStringPointer
         )
     }
 

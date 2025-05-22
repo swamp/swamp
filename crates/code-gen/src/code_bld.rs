@@ -196,7 +196,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_load_from_memory(
+    pub(crate) fn emit_load_from_memory(
         &mut self,
         target_reg: &TypedRegister,
         base_ptr_reg: &TypedRegister,

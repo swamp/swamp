@@ -4,7 +4,7 @@ use crate::layout::layout_tuple_items;
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, VmType};
+use swamp_vm_types::types::VmType;
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
@@ -17,52 +17,19 @@ impl CodeBuilder<'_> {
         node: &Node,
     ) {
         let gen_tuple_type = layout_tuple_items(types);
-        /*
-        let gen_tuple_placed = BasicType {
-            total_size: gen_tuple_type.total_size,
-            max_alignment: gen_tuple_type.max_alignment,
-            kind: BasicTypeKind::Tuple(gen_tuple_type.clone()),
-        };
-
-        let frame_placed_tuple = self.frame_allocator.allocate_type(gen_tuple_placed);
-
-        self.builder.add_frame_memory_clear(
-            frame_placed_tuple.region(),
-            node,
-            "clear memory for tuple",
-        );
-
-        self.builder.add_lea(
-            target_reg,
-            frame_placed_tuple.addr(),
-            node,
-            &format!(
-                "store the pointer to the frame allocated tuple in reg size:{} ty:{}",
-                frame_placed_tuple.size(),
-                frame_placed_tuple.ty()
-            ),
-        );
-            */
-
         // TODO: Bring this back. //assert_eq!(gen_tuple_placed.total_size, target_reg.size());
         // TODO: Bring this back. //assert_eq!(gen_tuple_type.fields.len(), expressions.len());
 
         for (offset_item, expr) in gen_tuple_type.fields.iter().zip(expressions) {
-            let hwm = self.temp_registers.save_mark();
-
-            let temp_materialize_reg = self.temp_registers.allocate(
-                VmType::new_unknown_placement(offset_item.ty.clone()),
-                "emit_materialize for tuple element",
-            );
-            //let materialized_item_in_tuple_reg = temp_materialize_reg.register();
+            let target_memory_location_for_tuple_item =
+                aggregate_lvalue_location.offset(offset_item.offset, offset_item.ty.clone());
 
             self.emit_expression_into_target_memory(
-                &aggregate_lvalue_location.location,
+                &target_memory_location_for_tuple_item.location,
                 expr,
                 &format!("emit tuple item {}", offset_item.name),
                 ctx,
             );
-            self.temp_registers.restore_to_mark(hwm);
         }
     }
 
@@ -80,7 +47,8 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
 
         for (tuple_index, target_variable) in target_variables.iter().enumerate() {
-            if target_variable.is_unused {} else {
+            if target_variable.is_unused {
+            } else {
                 let frame_placed_target_variable_register =
                     self.get_variable_register(target_variable).clone();
 
@@ -94,17 +62,34 @@ impl CodeBuilder<'_> {
                     ty: VmType::new_unknown_placement(field_offset_item.ty.clone()),
                 };
 
-                let source_location = Destination::new_location(source_memory_location);
+                //let source_location = Destination::new_location(source_memory_location);
 
-                if frame_placed_target_variable_register.ty.can_be_contained_inside_register() {
-                    self.emit_load_from_location(&frame_placed_target_variable_register, &source_location, &target_variable.name, "load from memory into variable register");
+                if frame_placed_target_variable_register
+                    .ty
+                    .can_be_contained_inside_register()
+                {
+                    self.emit_load_from_memory(
+                        &frame_placed_target_variable_register,
+                        &source_memory_location.base_ptr_reg,
+                        source_memory_location.offset,
+                        &source_memory_location.ty,
+                        &target_variable.name,
+                        "load from memory into variable register",
+                    );
                 } else {
                     let target_memory_location = MemoryLocation {
                         ty: frame_placed_target_variable_register.ty.clone(),
                         base_ptr_reg: frame_placed_target_variable_register,
                         offset: MemoryOffset(0),
                     };
-                    self.builder.add_block_copy_with_offset(&target_memory_location, &tuple_base_pointer_reg, field_offset_item.offset, field_offset_item.size, &target_variable.name, "copy from tuple field to destination variable");
+                    self.builder.add_block_copy_with_offset(
+                        &target_memory_location,
+                        &tuple_base_pointer_reg,
+                        field_offset_item.offset,
+                        field_offset_item.size,
+                        &target_variable.name,
+                        "copy from tuple field to destination variable",
+                    );
                 }
             }
         }

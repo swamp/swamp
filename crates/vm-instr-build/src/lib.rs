@@ -147,7 +147,10 @@ impl InstructionBuilder<'_> {
     ) {
         // Choose the appropriate load instruction based on the target register's type
         match target.underlying().kind {
-            BasicTypeKind::Fixed32 | BasicTypeKind::U32 | BasicTypeKind::S32 | BasicTypeKind::InternalStringPointer => {
+            BasicTypeKind::Fixed32
+            | BasicTypeKind::U32
+            | BasicTypeKind::S32
+            | BasicTypeKind::InternalStringPointer => {
                 self.add_ld32_from_pointer_with_offset_u16(
                     target,
                     base,
