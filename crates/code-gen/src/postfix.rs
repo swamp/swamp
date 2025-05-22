@@ -2,9 +2,10 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use crate::{FlagState, single_intrinsic_fn};
-use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain};
+use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, VmType};
+use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -179,7 +180,6 @@ impl CodeBuilder<'_> {
                 }
                 PostfixKind::NoneCoalescingOperator(expression) => {
                     let hwm = self.temp_registers.save_mark();
-                    let temp_reg = self.temp_register_for_analyzed_type(&expression.ty, "");
 
                     // materialize an u8
                     let resolved_location = self
@@ -198,13 +198,6 @@ impl CodeBuilder<'_> {
                     let patch = self
                         .builder
                         .add_jmp_if_equal_placeholder(&element.node, "jump if some");
-
-                    /*
-                    if let DetailedLocationResolved::TempRegister(temp_reg) = resolved_location {
-                        self.temp_registers.free(temp_reg);
-                    }
-
-                     */
 
                     self.emit_expression(output_destination, expression, ctx);
 
@@ -274,6 +267,45 @@ impl CodeBuilder<'_> {
                     }
                 }
                 Destination::Unit => {}
+            }
+        }
+    }
+
+    pub(crate) fn emit_start_of_chain(
+        &mut self,
+        start: &StartOfChain,
+        ctx: &Context,
+    ) -> Destination {
+        match &start.kind {
+            StartOfChainKind::Expression(expr) => {
+                let reg = self.emit_scalar_rvalue(expr, ctx);
+
+                // If the register contains a primitive value directly, return it as is
+                if !reg.ty.is_represented_as_pointer_inside_register() {
+                    return Destination::Register(reg);
+                }
+
+                // For pointers to primitive values, return a memory location
+                // This avoids unnecessary load instructions later
+                Destination::Memory(MemoryLocation {
+                    ty: reg.ty.clone(),
+                    base_ptr_reg: reg,
+                    offset: MemoryOffset(0),
+                })
+            }
+            StartOfChainKind::Variable(variable) => {
+                let variable_reg = self.get_variable_register(variable);
+
+                // Same logic for variables - return memory location for pointers
+                if !variable_reg.ty.is_represented_as_pointer_inside_register() {
+                    return Destination::Register(variable_reg.clone());
+                }
+
+                Destination::Memory(MemoryLocation {
+                    base_ptr_reg: variable_reg.clone(),
+                    offset: MemoryOffset(0),
+                    ty: variable_reg.ty.clone(),
+                })
             }
         }
     }

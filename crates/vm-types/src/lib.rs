@@ -305,7 +305,8 @@ impl MemoryLocation {
         &self.base_ptr_reg
     }
 
-    #[must_use] pub const fn as_direct_register(&self) -> Option<&TypedRegister> {
+    #[must_use]
+    pub const fn as_direct_register(&self) -> Option<&TypedRegister> {
         if self.offset.0 == 0 {
             Some(&self.base_ptr_reg)
         } else {
