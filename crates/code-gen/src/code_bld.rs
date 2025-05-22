@@ -1,21 +1,21 @@
-use crate::DetailedLocationResolved;
 use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool};
 use crate::state::CodeGenState;
+use crate::DetailedLocationResolved;
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use swamp_semantic::{
-    BooleanExpression, ConstantRef, Expression, MutRefOrImmutableExpression, UnaryOperator,
-    UnaryOperatorKind, VariableRef,
+    BooleanExpression, ConstantRef, Expression, MutRefOrImmutableExpression,
+    SingleLocationExpression, UnaryOperator, UnaryOperatorKind, VariableRef,
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type,
-    u8_type, u32_type,
+    b8_type, u32_type, u8_type, BasicType, BasicTypeKind, Destination, FramePlacedType,
+    TypedRegister, VmType,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
@@ -794,18 +794,22 @@ impl CodeBuilder<'_> {
         &mut self,
         target_register: &TypedRegister,
         node: &Node,
-        expr: &Expression,
+        expr: &SingleLocationExpression,
         ctx: &Context,
     ) {
-        let inner = self.emit_scalar_rvalue(expr, ctx);
+        let location = self.emit_lvalue_address(expr, ctx);
 
-        if !inner.ty().is_mutable_reference() {
-            self.builder.add_lea(
-                target_register,
-                inner.addr(),
-                node,
-                "wasn't a pointer, so converting",
-            );
-        }
+        let abs_pointer = self.emit_absolute_pointer_if_needed(
+            &location,
+            node,
+            "calculate absolute address for reference",
+        );
+
+        self.builder.add_mov_reg(
+            target_register,
+            &abs_pointer,
+            node,
+            "copy calculated address for borrow",
+        );
     }
 }
