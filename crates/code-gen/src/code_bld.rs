@@ -1242,11 +1242,34 @@ impl CodeBuilder<'_> {
     ) -> Destination {
         match &start.kind {
             StartOfChainKind::Expression(expr) => {
-                Destination::Register(self.emit_scalar_rvalue(expr, ctx))
-            }
+                let reg = self.emit_scalar_rvalue(expr, ctx);
+
+                // If the register contains a primitive value directly, return it as is
+                if !reg.ty.is_represented_as_pointer_inside_register() {
+                    return Destination::Register(reg);
+                }
+
+                // For pointers to primitive values, return a memory location
+                // This avoids unnecessary load instructions later
+                Destination::Memory(MemoryLocation {
+                    ty: reg.ty.clone(),
+                    base_ptr_reg: reg,
+                    offset: MemoryOffset(0),
+                })
+            },
             StartOfChainKind::Variable(variable) => {
                 let variable_reg = self.get_variable_register(variable);
-                Destination::Register(variable_reg.clone())
+
+                // Same logic for variables - return memory location for pointers
+                if !variable_reg.ty.is_represented_as_pointer_inside_register() {
+                    return Destination::Register(variable_reg.clone());
+                }
+
+                Destination::Memory(MemoryLocation {
+                    base_ptr_reg: variable_reg.clone(),
+                    offset: MemoryOffset(0),
+                    ty: variable_reg.ty.clone(),
+                })
             }
         }
     }
