@@ -4,8 +4,8 @@ use crate::layout::layout_tuple_items;
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
 use swamp_types::Type;
-use swamp_vm_types::AggregateMemoryLocation;
-use swamp_vm_types::types::VmType;
+use swamp_vm_types::types::{Destination, VmType};
+use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_tuple_literal_into_memory(
@@ -80,25 +80,32 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
 
         for (tuple_index, target_variable) in target_variables.iter().enumerate() {
-            if target_variable.is_unused {
-            } else {
-                let frame_placed_target_variable =
+            if target_variable.is_unused {} else {
+                let frame_placed_target_variable_register =
                     self.get_variable_register(target_variable).clone();
 
                 //                assert_eq!(frame_placed_target_variable.size().0, offset_item.size.0);
 
                 let field_offset_item = &tuple_type.fields[tuple_index];
 
-                self.load_register_contents_from_memory(
-                    &target_variable.name,
-                    &frame_placed_target_variable,
-                    &tuple_base_pointer_reg,
-                    field_offset_item.offset,
-                    &format!(
-                        "destructuring to variable {}",
-                        target_variable.assigned_name
-                    ),
-                );
+                let source_memory_location = MemoryLocation {
+                    base_ptr_reg: tuple_base_pointer_reg.clone(),
+                    offset: field_offset_item.offset,
+                    ty: VmType::new_unknown_placement(field_offset_item.ty.clone()),
+                };
+
+                let source_location = Destination::new_location(source_memory_location);
+
+                if frame_placed_target_variable_register.ty.can_be_contained_inside_register() {
+                    self.emit_load_from_location(&frame_placed_target_variable_register, &source_location, &target_variable.name, "load from memory into variable register");
+                } else {
+                    let target_memory_location = MemoryLocation {
+                        ty: frame_placed_target_variable_register.ty.clone(),
+                        base_ptr_reg: frame_placed_target_variable_register,
+                        offset: MemoryOffset(0),
+                    };
+                    self.builder.add_block_copy_with_offset(&target_memory_location, &tuple_base_pointer_reg, field_offset_item.offset, field_offset_item.size, &target_variable.name, "copy from tuple field to destination variable");
+                }
             }
         }
     }

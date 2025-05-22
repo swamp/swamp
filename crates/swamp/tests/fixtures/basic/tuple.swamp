@@ -9,6 +9,9 @@ struct Point {
 #[test]
 fn simple_tuple() {
   val1, str_val, bool_val = (100, "swamp_tuple", true,) // Intentional trailing comma
+  assert(val1 == 100, 'Simple tuple: val1 is wrong')
+  assert(str_val == "swamp_tuple", 'Simple tuple: str_val is wrong')
+  assert(bool_val == true, 'Simple tuple: bool_val is wrong')
 }
 
 #[test]
