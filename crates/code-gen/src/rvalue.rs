@@ -11,7 +11,7 @@ impl CodeBuilder<'_> {
         expr: &Expression,
         ctx: &Context,
     ) {
-        debug_assert!(expr.ty.is_bool(), "must have scalar type");
+        debug_assert!(expr.ty.underlying().is_bool(), "must have scalar type");
         self.emit_expression(target_reg, expr, ctx);
     }
 

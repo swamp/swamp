@@ -38,7 +38,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> FlagState {
         match &unary_operator.kind {
-            UnaryOperatorKind::Not => match &unary_operator.left.ty {
+            UnaryOperatorKind::Not => match &unary_operator.left.ty.underlying() {
                 Type::Bool => {
                     let bool_result = self.emit_expression_to_t_flag(&unary_operator.left, ctx);
                     bool_result.invert_polarity()
