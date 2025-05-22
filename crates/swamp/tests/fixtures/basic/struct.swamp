@@ -12,6 +12,12 @@ impl Point {
 	}
 }
 
+struct Something {
+  first_point: Point,
+  second_point: Point,
+}
+
+
 #[test]
 fn add_points() {
 	a = Point { x: 10, y: 20 }
@@ -80,3 +86,33 @@ fn borrow_point_partial_overwrite() {
   assert(point.y == 200, 'after: y value is wrong')
 }
 
+
+
+#[test]
+fn borrow_point_inside_struct() {
+  // Intentional dummy variable `dummy` to take up the r1 register.
+  // that forces a `mov r1, r2` (r1=first parameter, r2=point variable) to happen before calling `overwrite_point`.
+  dummy =  3
+
+  mut something = Something {
+    first_point: Point { x: 10, y: 20 },
+    second_point: Point { x: 30, y: 40 },
+  }
+
+  print('before overwrite: x:{something.first_point.x}, y:{something.first_point.y}')
+  assert(something.first_point.x == 10, 'before: x value is wrong')
+  assert(something.first_point.y == 20, 'before: y value is wrong')
+  assert(something.second_point.x == 30, 'before: x value is wrong')
+  assert(something.second_point.y == 40, 'before: y value is wrong')
+
+  partial_overwrite_point(&something.second_point)
+
+  print('after overwrite: first: x:{something.first_point.x}, y:{something.first_point.y}')
+  print('after overwrite: second: x:{something.second_point.x}, y:{something.second_point.y}')
+
+  assert(something.first_point.x == 10, 'after: x value should not have been changed')
+  assert(something.first_point.y == 20, 'after: y value should not have been changed')
+  assert(something.second_point.x == 30, 'after: x value should not have been changed')
+  assert(something.second_point.y == 200, 'after: y value is wrong')
+  print('after overwrite: x:{something.second_point.x}, y:{something.second_point.y}')
+}
