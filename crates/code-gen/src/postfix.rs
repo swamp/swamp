@@ -221,28 +221,59 @@ impl CodeBuilder<'_> {
             //info!(t=?element.ty, index, t=?current_location.vm_type(), ?element.kind, "after element");
         }
 
-        match output_destination {
-            Destination::Register(output_reg) => {
-                if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
-                {
-                    self.emit_load_from_location(
-                        output_reg,
-                        &current_location,
-                        &start_expression.node,
-                        "rvalue postfix chain",
-                    );
+        let needs_final_load = !(
+            // No load needed if the last element was a member call
+            (!chain.is_empty() && matches!(chain.last().unwrap().kind, PostfixKind::MemberCall(_, _)))
+
+                // No load needed if current location is already the right register
+                || matches!(
+        (output_destination, &current_location),
+        (Destination::Register(out), Destination::Register(curr)) if out.index == curr.index
+    )
+
+                // No load needed for Unit destination
+                || matches!(output_destination, Destination::Unit)
+        );
+
+        if needs_final_load {
+            match output_destination {
+                Destination::Register(output_reg) => {
+                    if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
+                    {
+                        self.emit_load_into_register(
+                            output_reg,
+                            &current_location,
+                            &start_expression.node,
+                            "rvalue postfix chain",
+                        );
+                    }
                 }
-            }
-            Destination::Memory(mem_loc) => {
-                self.emit_load_from_location(
-                    &mem_loc.base_ptr_reg,
-                    &current_location,
-                    &start_expression.node,
-                    "rvalue postfix chain to memory",
-                );
-            }
-            Destination::Unit => {
-                // No need to load anything if the destination is Unit
+                Destination::Memory(mem_loc) => {
+                    if mem_loc.ty.is_represented_as_pointer_inside_register() {
+                        // Complex type - we need to store to memory
+                        self.emit_store_to_pointer_target(
+                            &mem_loc.base_ptr_reg,
+                            &current_location,
+                            &start_expression.node,
+                            "rvalue postfix chain to memory",
+                        );
+                    } else {
+                        self.emit_load_into_register(
+                            &mem_loc.base_ptr_reg,
+                            &current_location,
+                            &start_expression.node,
+                            "load rvalue into temp register",
+                        );
+
+                        self.builder.add_st32_using_ptr_with_offset(
+                            mem_loc,
+                            &mem_loc.base_ptr_reg,
+                            &start_expression.node,
+                            "store from temp register to memory destination",
+                        );
+                    }
+                }
+                Destination::Unit => {}
             }
         }
     }

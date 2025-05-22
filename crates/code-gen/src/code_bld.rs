@@ -16,15 +16,15 @@ use swamp_semantic::{
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type,
-    string_type, u8_type, u32_type, unknown_type,
+    b8_type, string_type, u32_type, u8_type, unknown_type, BasicType, BasicTypeKind,
+    Destination, FramePlacedType, TypedRegister, VmType,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryAddress, InstructionPosition, MemoryLocation, MemoryOffset, REG_ON_FRAME_ALIGNMENT,
-    REG_ON_FRAME_SIZE, StringHeader, VEC_PTR_SIZE,
+    HeapMemoryAddress, InstructionPosition, MemoryLocation, MemoryOffset, StringHeader,
+    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, VEC_PTR_SIZE,
 };
 use tracing::error;
 
@@ -160,6 +160,137 @@ impl CodeBuilder<'_> {
         }
     }
 
+    pub(crate) fn emit_load_into_register(
+        &mut self,
+        target_reg: &TypedRegister,
+        source: &Destination,
+        node: &Node,
+        comment: &str,
+    ) {
+        match source {
+            Destination::Register(source_reg) => {
+                if target_reg.index != source_reg.index {
+                    self.emit_copy_register(target_reg, source_reg, node, comment);
+                }
+            }
+            Destination::Memory(memory_location) => {
+                self.emit_load_from_memory(
+                    target_reg,
+                    &memory_location.base_ptr_reg,
+                    memory_location.offset,
+                    &memory_location.ty,
+                    node,
+                    comment,
+                );
+            }
+            Destination::Unit => panic!("Cannot load from Unit destination"),
+        }
+    }
+
+    pub(crate) fn emit_store_to_pointer_target(
+        &mut self,
+        pointer_reg: &TypedRegister,
+        value_source: &Destination,
+        node: &Node,
+        comment: &str,
+    ) {
+        let offset = match value_source {
+            Destination::Memory(mem_loc) => mem_loc.offset,
+            _ => MemoryOffset(0),
+        };
+
+        match value_source {
+            Destination::Register(value_reg) => {
+                match value_reg.ty.basic_type.kind {
+                    BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
+                        self.builder.add_st32_using_ptr_with_offset(
+                            &MemoryLocation {
+                                base_ptr_reg: pointer_reg.clone(),
+                                offset,
+                                ty: value_reg.ty.clone(),
+                            },
+                            value_reg,
+                            node,
+                            &format!("store {comment} to memory pointed by register"),
+                        );
+                    }
+                    BasicTypeKind::U8 | BasicTypeKind::B8 => {
+                        self.builder.add_st8_using_ptr_with_offset(
+                            &MemoryLocation {
+                                base_ptr_reg: pointer_reg.clone(),
+                                offset,
+                                ty: value_reg.ty.clone(),
+                            },
+                            value_reg,
+                            node,
+                            &format!("store {comment} to memory pointed by register"),
+                        );
+                    }
+                    _ => {
+                        self.builder.add_block_copy_with_offset(
+                            &MemoryLocation {
+                                base_ptr_reg: pointer_reg.clone(),
+                                offset,
+                                ty: value_reg.ty.clone(),
+                            },
+                            value_reg,
+                            MemoryOffset(0),
+                            value_reg.ty.basic_type.total_size,
+                            node,
+                            &format!("block copy {comment} to memory pointed by register"),
+                        );
+                    }
+                }
+            }
+            Destination::Memory(source_mem_loc) => {
+                let temp_reg = self
+                    .temp_registers
+                    .allocate(source_mem_loc.ty.clone(), "temp_for_memory_to_memory_store");
+
+                self.emit_load_from_memory(
+                    temp_reg.register(),
+                    &source_mem_loc.base_ptr_reg,
+                    source_mem_loc.offset,
+                    &source_mem_loc.ty,
+                    node,
+                    &format!("load {comment} from memory for store"),
+                );
+
+                match source_mem_loc.ty.basic_type.kind {
+                    BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
+                        self.builder.add_st32_using_ptr_with_offset(
+                            &MemoryLocation {
+                                base_ptr_reg: pointer_reg.clone(),
+                                offset,
+                                ty: source_mem_loc.ty.clone(),
+                            },
+                            temp_reg.register(),
+                            node,
+                            &format!("store {comment} from temp to memory pointed by register"),
+                        );
+                    }
+                    _ => {
+                        self.builder.add_block_copy_with_offset(
+                            &MemoryLocation {
+                                base_ptr_reg: pointer_reg.clone(),
+                                offset,
+                                ty: source_mem_loc.ty.clone(),
+                            },
+                            temp_reg.register(),
+                            MemoryOffset(0),
+                            source_mem_loc.ty.basic_type.total_size,
+                            node,
+                            &format!(
+                                "block copy {comment} from temp to memory pointed by register"
+                            ),
+                        );
+                    }
+                }
+            }
+            Destination::Unit => panic!("Cannot store from Unit source"),
+        }
+    }
+
     fn emit_load_primitive_from_memory(
         &mut self,
         target_reg: &TypedRegister,
@@ -239,88 +370,6 @@ impl CodeBuilder<'_> {
                 node,
                 &format!("emit primitive value. ptr to primitive reg {comment}"),
             );
-        }
-    }
-
-    // TODO: This function has a bad name, and is just a big hack
-    pub(crate) fn emit_load_from_location(
-        &mut self,
-        target_reg: &TypedRegister,
-        location: &Destination,
-        node: &Node,
-        comment: &str,
-    ) {
-        match location {
-            Destination::Register(reg) => {
-                // HACK: MUST BE CLEANED UP. if r0, it's a special case
-                // where we need to store to memory, not copy to r0
-                if target_reg.index == 0
-                    && target_reg.ty.is_represented_as_pointer_inside_register()
-                {
-                    let offset = match location {
-                        Destination::Memory(mem_loc) => mem_loc.offset,
-                        _ => MemoryOffset(0),
-                    };
-
-                    match reg.ty.basic_type.kind {
-                        BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
-                            self.builder.add_st32_using_ptr_with_offset(
-                                &MemoryLocation {
-                                    base_ptr_reg: target_reg.clone(),
-                                    offset,
-                                    ty: reg.ty.clone(),
-                                },
-                                reg,
-                                node,
-                                &format!("store {comment} to memory pointed by r0"),
-                            );
-                        }
-                        BasicTypeKind::U8 | BasicTypeKind::B8 => {
-                            self.builder.add_st8_using_ptr_with_offset(
-                                &MemoryLocation {
-                                    base_ptr_reg: target_reg.clone(),
-                                    offset,
-                                    ty: reg.ty.clone(),
-                                },
-                                reg,
-                                node,
-                                &format!("store {comment} to memory pointed by r0"),
-                            );
-                        }
-                        _ => {
-                            // For other types, we fall back to block copy
-                            self.builder.add_block_copy_with_offset(
-                                &MemoryLocation {
-                                    base_ptr_reg: target_reg.clone(),
-                                    offset,
-                                    ty: reg.ty.clone(),
-                                },
-                                reg,
-                                MemoryOffset(0),
-                                reg.ty.basic_type.total_size,
-                                node,
-                                &format!("block copy {comment} to memory pointed by r0"),
-                            );
-                        }
-                    }
-                } else {
-                    // Normal case - just copy register to register
-                    self.emit_copy_register(target_reg, reg, node, comment);
-                }
-            }
-            Destination::Memory(memory_location) => {
-                self.emit_load_from_memory(
-                    target_reg,
-                    &memory_location.base_ptr_reg,
-                    memory_location.offset,
-                    &memory_location.ty,
-                    node,
-                    "load from location",
-                );
-            }
-            Destination::Unit => {
-                panic!("not sure")
-            }
         }
     }
 

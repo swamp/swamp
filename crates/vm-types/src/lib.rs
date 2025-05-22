@@ -288,8 +288,6 @@ pub struct MemoryLocation {
     pub ty: VmType,
 }
 
-impl MemoryLocation {}
-
 impl MemoryLocation {
     #[must_use]
     pub fn pointer_location(&self) -> Option<PointerLocation> {
@@ -305,6 +303,14 @@ impl MemoryLocation {
     #[must_use]
     pub const fn reg(&self) -> &TypedRegister {
         &self.base_ptr_reg
+    }
+
+    #[must_use] pub const fn as_direct_register(&self) -> Option<&TypedRegister> {
+        if self.offset.0 == 0 {
+            Some(&self.base_ptr_reg)
+        } else {
+            None
+        }
     }
 }
 
