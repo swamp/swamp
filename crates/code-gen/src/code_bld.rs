@@ -10,14 +10,16 @@ use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use swamp_semantic::{
-    BooleanExpression, ConstantRef, Expression, ExpressionKind, ExternalFunctionDefinitionRef, Guard, Match, MutRefOrImmutableExpression, NormalPattern, Pattern, SingleLocationExpression, StartOfChain, StartOfChainKind, UnaryOperator,
-    UnaryOperatorKind, VariableRef, WhenBinding,
+    BooleanExpression, ConstantRef, Expression, ExpressionKind, ExternalFunctionDefinitionRef,
+    Guard, Match, MutRefOrImmutableExpression, NormalPattern, Pattern, SingleLocationExpression,
+    StartOfChain, StartOfChainKind, UnaryOperator, UnaryOperatorKind, VariableRef, WhenBinding,
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type, string_type, u8_type, u32_type, unknown_type,
+    BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type,
+    string_type, u8_type, u32_type, unknown_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,

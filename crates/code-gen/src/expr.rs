@@ -1,5 +1,6 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
+use crate::layout::layout_type;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
 use swamp_vm_types::types::{Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
@@ -200,8 +201,8 @@ impl CodeBuilder<'_> {
         self.temp_registers.restore_to_mark(hwm);
     }
 
-    pub(crate) const fn rvalue_needs_memory_location_to_materialize_in(expr: &Expression) -> bool {
-        match &expr.kind {
+    pub(crate) fn rvalue_needs_memory_location_to_materialize_in(expr: &Expression) -> bool {
+        let specific_kind_of_expression_needs_memory_target = match &expr.kind {
             ExpressionKind::Literal(literal) => matches!(
                 literal,
                 Literal::EnumVariantLiteral(_, _, _)
@@ -211,6 +212,21 @@ impl CodeBuilder<'_> {
             ),
             ExpressionKind::Option(_) | ExpressionKind::AnonymousStructLiteral(_) => true,
             _ => false,
+        };
+
+        if specific_kind_of_expression_needs_memory_target {
+            true
+        } else {
+            // Easy to forget that you should also check if it's a function call with a return type requiring memory allocation
+            match &expr.kind {
+                ExpressionKind::InternalCall(_, _)
+                | ExpressionKind::HostCall(_, _)
+                | ExpressionKind::IntrinsicCallEx(_, _) => {
+                    let basic_type = layout_type(&expr.ty);
+                    basic_type.is_represented_as_a_pointer_in_reg()
+                }
+                _ => false,
+            }
         }
     }
 
