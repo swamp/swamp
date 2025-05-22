@@ -27,6 +27,13 @@ impl CodeBuilder<'_> {
     pub fn emit_expression(&mut self, output: &Destination, expr: &Expression, ctx: &Context) {
         let node = &expr.node;
 
+        if let Destination::Memory(memory) = &output {
+            if self.emit_special_rvalue_materialization(memory, expr, ctx) {
+                // If special assignment handling was performed, we are done
+                return;
+            }
+        }
+
         // If the expression needs a memory target, and the current output is not a memory target, create temp memory to materialize in
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, Destination::Memory(_))

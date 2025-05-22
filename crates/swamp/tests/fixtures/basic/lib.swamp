@@ -4,10 +4,10 @@ mod enum
 mod float
 mod int
 mod logical
-//mod map
+mod map
 mod operator
-//mod slice
+mod slice
 mod string
-//mod struct
-//mod tuple
-//mod vec
+mod struct
+mod tuple
+mod vec
