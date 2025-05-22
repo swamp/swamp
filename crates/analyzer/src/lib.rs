@@ -729,7 +729,8 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::UnaryOp(operator, expression) => {
                 if let swamp_ast::UnaryOperator::BorrowMutRef(_node) = operator {
-                    let inner_expr = self.analyze_to_location(expression, context, LocationSide::Rhs)?;
+                    let inner_expr =
+                        self.analyze_to_location(expression, context, LocationSide::Rhs)?;
                     let ty = inner_expr.ty.clone();
                     self.create_expr(
                         ExpressionKind::BorrowMutRef(Box::from(inner_expr)),
