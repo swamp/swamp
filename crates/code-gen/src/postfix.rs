@@ -1,7 +1,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use crate::{single_intrinsic_fn, FlagState};
+use crate::{FlagState, single_intrinsic_fn};
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain};
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType};
@@ -114,6 +114,56 @@ impl CodeBuilder<'_> {
                                     t_flag_result = z_result;
                                 }
                             } else {
+                                let return_type = &internal_fn.signature.signature.return_type;
+                                let return_basic_type = layout_type(return_type);
+
+                                // HACK: TODO: If the target is a memory location, we need to set r0 properly
+                                match target_destination {
+                                    Destination::Memory(mem_loc) => {
+                                        // For a memory destination, we need to set up r0 to point to the memory
+                                        // where the result should be stored
+                                        let return_reg = self.temp_registers.allocate(
+                                            VmType::new_unknown_placement(
+                                                return_basic_type.clone(),
+                                            ),
+                                            "member_call_return_value",
+                                        );
+
+                                        self.builder.add_mov_reg(
+                                            return_reg.register(),
+                                            &mem_loc.base_ptr_reg,
+                                            &element.node,
+                                            "setting up return register to point to destination memory"
+                                        );
+
+                                        Some(return_reg)
+                                    }
+                                    _ => None,
+                                };
+
+                                if let Destination::Memory(mem_loc) = target_destination {
+                                    // HACK: For memory destination setup r0 to point to destination memory
+                                    let return_type = &internal_fn.signature.signature.return_type;
+                                    let return_basic_type = layout_type(return_type);
+
+                                    if return_basic_type.is_represented_as_a_pointer_in_reg() {
+                                        let r0 = TypedRegister {
+                                            index: 0, // r0
+                                            ty: VmType::new_unknown_placement(
+                                                return_basic_type.clone(),
+                                            ),
+                                            comment: "return value register".to_string(),
+                                        };
+
+                                        self.builder.add_mov_reg(
+                                            &r0,
+                                            &mem_loc.base_ptr_reg,
+                                            &element.node,
+                                            "setting up r0 to point to destination memory for struct return"
+                                        );
+                                    }
+                                }
+
                                 let (spilled_argument_registers, copy_back) = self.emit_arguments(
                                     target_destination,
                                     &start_expression.node,
@@ -227,7 +277,8 @@ impl CodeBuilder<'_> {
 
         match output_destination {
             Destination::Register(output_reg) => {
-                if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg) {
+                if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
+                {
                     self.emit_load_from_location(
                         output_reg,
                         &current_location,

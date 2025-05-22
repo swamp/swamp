@@ -242,6 +242,7 @@ impl CodeBuilder<'_> {
         }
     }
 
+    // TODO: This function has a bad name, and is just a big hack
     pub(crate) fn emit_load_from_location(
         &mut self,
         target_reg: &TypedRegister,
@@ -251,7 +252,61 @@ impl CodeBuilder<'_> {
     ) {
         match location {
             Destination::Register(reg) => {
-                self.emit_copy_register(target_reg, reg, node, comment);
+                // HACK: MUST BE CLEANED UP. if r0, it's a special case
+                // where we need to store to memory, not copy to r0
+                if target_reg.index == 0
+                    && target_reg.ty.is_represented_as_pointer_inside_register()
+                {
+                    let offset = match location {
+                        Destination::Memory(mem_loc) => mem_loc.offset,
+                        _ => MemoryOffset(0),
+                    };
+
+                    match reg.ty.basic_type.kind {
+                        BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
+                            self.builder.add_st32_using_ptr_with_offset(
+                                &MemoryLocation {
+                                    base_ptr_reg: target_reg.clone(),
+                                    offset,
+                                    ty: reg.ty.clone(),
+                                },
+                                reg,
+                                node,
+                                &format!("store {} to memory pointed by r0", comment),
+                            );
+                        }
+                        BasicTypeKind::U8 | BasicTypeKind::B8 => {
+                            self.builder.add_st8_using_ptr_with_offset(
+                                &MemoryLocation {
+                                    base_ptr_reg: target_reg.clone(),
+                                    offset,
+                                    ty: reg.ty.clone(),
+                                },
+                                reg,
+                                node,
+                                &format!("store {} to memory pointed by r0", comment),
+                            );
+                        }
+                        _ => {
+                            // For other types, we fall back to block copy
+                            self.builder.add_block_copy_with_offset(
+                                &MemoryLocation {
+                                    base_ptr_reg: target_reg.clone(),
+                                    offset,
+                                    ty: reg.ty.clone(),
+                                },
+                                reg,
+                                MemoryOffset(0),
+                                reg.ty.basic_type.total_size,
+                                node,
+                                &format!("block copy {} to memory pointed by r0", comment),
+                            );
+                        }
+                    }
+                } else {
+                    // Normal case - just copy register to register
+                    self.emit_copy_register(target_reg, reg, node, comment);
+                }
             }
             Destination::Memory(memory_location) => {
                 self.emit_load_from_memory(
