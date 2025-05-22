@@ -16,15 +16,15 @@ use swamp_semantic::{
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type,
-    string_type, u8_type, u32_type, unknown_type,
+    b8_type, string_type, u32_type, u8_type, unknown_type, BasicType, BasicTypeKind,
+    Destination, FramePlacedType, TypedRegister, VmType,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryAddress, InstructionPosition, MemoryLocation, MemoryOffset, REG_ON_FRAME_ALIGNMENT,
-    REG_ON_FRAME_SIZE, StringHeader, VEC_PTR_SIZE,
+    HeapMemoryAddress, InstructionPosition, MemoryLocation, MemoryOffset, StringHeader,
+    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, VEC_PTR_SIZE,
 };
 use tracing::error;
 
@@ -556,6 +556,10 @@ impl CodeBuilder<'_> {
         match destination {
             Destination::Register(reg) => reg.clone(),
             Destination::Memory(memory_location) => {
+                if memory_location.offset.0 == 0 {
+                    return memory_location.base_ptr_reg.clone();
+                }
+
                 let temp_offset_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u32_type()),
                     "emit_absolute_pointer: temp_offset_reg",
@@ -884,7 +888,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub fn allocate_frame_space_and_assign_register(
+    pub fn allocate_frame_space_and_return_destination_to_it(
         &mut self,
         ty: &BasicType,
         node: &Node,

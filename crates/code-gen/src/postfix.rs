@@ -1,10 +1,10 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use crate::{FlagState, single_intrinsic_fn};
+use crate::{single_intrinsic_fn, FlagState};
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain};
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType};
+use swamp_vm_types::types::{Destination, VmType};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -80,12 +80,14 @@ impl CodeBuilder<'_> {
                         "resolve to absolute pointer before member call",
                     );
 
-                    let target_destination = if is_last {
-                        output_destination
+                    let call_return_destination = if is_last {
+                        output_destination.clone()
                     } else {
-                        let temp_reg =
-                            self.temp_register_for_analyzed_type(&element.ty, "chain_result");
-                        &Destination::Register(temp_reg.register)
+                        // we are not at the end of the chain, create temporary
+                        let return_type = &element.ty;
+                        let return_basic_type = layout_type(return_type);
+
+                        self.allocate_frame_space_and_return_destination_to_it(&return_basic_type, &element.node, "create temporary return destination for when not in the end of the chain")
                     };
 
                     match &**function_to_call {
@@ -100,7 +102,7 @@ impl CodeBuilder<'_> {
                                 );
 
                                 let z_result = self.emit_single_intrinsic_call_with_self(
-                                    target_destination,
+                                    &call_return_destination,
                                     &start_expression.node,
                                     intrinsic_fn,
                                     Some(element.ty.clone()),
@@ -114,58 +116,10 @@ impl CodeBuilder<'_> {
                                     t_flag_result = z_result;
                                 }
                             } else {
-                                let return_type = &internal_fn.signature.signature.return_type;
-                                let return_basic_type = layout_type(return_type);
 
-                                // HACK: TODO: If the target is a memory location, we need to set r0 properly
-                                match target_destination {
-                                    Destination::Memory(mem_loc) => {
-                                        // For a memory destination, we need to set up r0 to point to the memory
-                                        // where the result should be stored
-                                        let return_reg = self.temp_registers.allocate(
-                                            VmType::new_unknown_placement(
-                                                return_basic_type.clone(),
-                                            ),
-                                            "member_call_return_value",
-                                        );
-
-                                        self.builder.add_mov_reg(
-                                            return_reg.register(),
-                                            &mem_loc.base_ptr_reg,
-                                            &element.node,
-                                            "setting up return register to point to destination memory"
-                                        );
-
-                                        Some(return_reg)
-                                    }
-                                    _ => None,
-                                };
-
-                                if let Destination::Memory(mem_loc) = target_destination {
-                                    // HACK: For memory destination setup r0 to point to destination memory
-                                    let return_type = &internal_fn.signature.signature.return_type;
-                                    let return_basic_type = layout_type(return_type);
-
-                                    if return_basic_type.is_represented_as_a_pointer_in_reg() {
-                                        let r0 = TypedRegister {
-                                            index: 0, // r0
-                                            ty: VmType::new_unknown_placement(
-                                                return_basic_type.clone(),
-                                            ),
-                                            comment: "return value register".to_string(),
-                                        };
-
-                                        self.builder.add_mov_reg(
-                                            &r0,
-                                            &mem_loc.base_ptr_reg,
-                                            &element.node,
-                                            "setting up r0 to point to destination memory for struct return"
-                                        );
-                                    }
-                                }
 
                                 let (spilled_argument_registers, copy_back) = self.emit_arguments(
-                                    target_destination,
+                                    &call_return_destination,
                                     &start_expression.node,
                                     &internal_fn.signature.signature,
                                     Some(&absolute_self_pointer_register),
@@ -180,11 +134,12 @@ impl CodeBuilder<'_> {
                                     &element.node,
                                     "emit_rvalue postcall",
                                 );
+
                             }
                         }
                         Function::External(external_function_def) => {
                             self.emit_host_self_call(
-                                target_destination,
+                                &call_return_destination,
                                 &start_expression.node,
                                 external_function_def,
                                 &absolute_self_pointer_register,
@@ -194,7 +149,7 @@ impl CodeBuilder<'_> {
                         }
                         Function::Intrinsic(intrinsic_def) => {
                             let z_result = self.emit_single_intrinsic_call_with_self(
-                                target_destination,
+                                &call_return_destination,
                                 &start_expression.node,
                                 &intrinsic_def.intrinsic,
                                 Some(element.ty.clone()),
@@ -214,13 +169,7 @@ impl CodeBuilder<'_> {
                         ),
                     }
 
-                    if is_last {
-                        // For the last element, we should use the output destination
-                        // but ensure we have the correct type information from element.ty
-                        current_location = output_destination.clone();
-                    } else {
-                        current_location = target_destination.clone();
-                    }
+                    current_location = call_return_destination.clone();
 
                     if !is_last {
                         self.temp_registers.restore_to_mark(hwm);
