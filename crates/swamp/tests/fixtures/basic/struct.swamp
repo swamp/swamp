@@ -29,3 +29,29 @@ fn literal_struct() {
   assert(a.x == 10, 'x value is wrong')
   assert(a.y == 20, 'y value is wrong')
 }
+
+
+fn overwrite_point(mut p: Point) {
+  p.x = 100
+  p.y = 200
+}
+
+#[test]
+fn borrow_point() {
+  // Intentional dummy variable `dummy` to take up the r1 register.
+  // that forces a `mov r1, r2` (r1=first parameter, r2=point variable) to happen before calling `overwite_point`.
+  dummy =  3
+
+  mut point = Point { x: 10, y: 20 }
+
+  print('before overwrite: x:{point.x}, y:{point.y}')
+  assert(point.x == 10, 'x vpointlue is wrong')
+  assert(point.y == 20, 'y value is wrong')
+
+  overwrite_point(&point)
+
+  print('after overwrite: x:{point.x}, y:{point.y}')
+  assert(point.x == 100, 'x value is wrong')
+  assert(point.y == 200, 'y value is wrong')
+}
+
