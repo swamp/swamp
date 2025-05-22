@@ -22,9 +22,7 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> (Vec<SpilledRegister>, Vec<crate::code_bld::MutableReturnReg>) {
-        let mut all_mutable_arguments_including_hidden = Vec::new();
-
-        let mut copy_back_mutable_reg_pairs = Vec::new();
+        let mut copy_back_mutable_reg_pairs: Vec<crate::code_bld::MutableReturnReg> = Vec::new();
 
         if !signature.return_type.is_unit() {
             let return_basic_type = layout_type(&signature.return_type);
@@ -54,19 +52,23 @@ impl CodeBuilder<'_> {
                     node,
                     "r0: copy the return pointer into r0",
                 );
-            } else if let Destination::Register(return_param_reg) = output_destination {
-                info!(
-                    ?return_param_reg,
-                    ?return_basic_type,
-                    "r0: it is a simple type, so we need to copy back the register"
+            } else {
+                // For simple types, we need to copy from r0 to destination after the call
+                let r0 = TypedRegister::new_vm_type(
+                    0,
+                    VmType::new_unknown_placement(return_basic_type.clone()),
                 );
 
                 copy_back_mutable_reg_pairs.push(MutableReturnReg {
-                    target_location_after_call: Destination::Register(return_param_reg.clone()),
-                    parameter_reg: return_param_reg.clone(),
+                    target_location_after_call: output_destination.clone(),
+                    parameter_reg: r0,
                 });
-                // For primitive returns to registers, add the register to the hidden arguments
-                all_mutable_arguments_including_hidden.push(return_param_reg);
+
+                info!(
+                    ?output_destination,
+                    ?return_basic_type,
+                    "r0: simple type, will copy from r0 to destination after call"
+                );
             }
         }
         let mut argument_registers = RegisterPool::new(1, 10);
@@ -164,19 +166,26 @@ impl CodeBuilder<'_> {
         for copy_back in copy_back {
             match &copy_back.target_location_after_call {
                 Destination::Register(reg) => {
-                    self.builder
-                        .add_mov_reg(reg, &copy_back.parameter_reg, node, "copy back reg");
+                    self.builder.add_mov_reg(
+                        reg,
+                        &copy_back.parameter_reg,
+                        node,
+                        "copy return value from r0 to register",
+                    );
                 }
-                Destination::Memory(memory_location) => {} /* TODO:
-                self.store_register_contents_to_memory(
-                node,
-                base_ptr_reg,
-                 *offset,
-                &copy_back.parameter_reg,
-                "copy back from mem",
-                ),
-                 */
-                Destination::Unit => {}
+                Destination::Memory(memory_location) => {
+                    // For memory destinations, store the return value from r0 to the memory location
+                    self.builder.add_st32_using_ptr_with_offset(
+                        memory_location,
+                        &copy_back.parameter_reg,
+                        node,
+                        "copy return value from r0 to memory destination",
+                    );
+                }
+                Destination::Unit => {
+                    // This shouldn't happen for non-unit return types
+                    info!("Unit destination for non-unit return type - this shouldn't happen");
+                }
             }
         }
         self.emit_restore_spilled_registers(spilled_arguments, node, comment);
