@@ -2,7 +2,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
-use swamp_vm_types::types::{Destination, TypedRegister};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
@@ -96,7 +96,27 @@ impl CodeBuilder<'_> {
                     ctx,
                 ),
             ExpressionKind::ConstantAccess(constant_ref) => {
-                self.emit_constant_access(output.grab_register(), &expr.node, constant_ref, ctx);
+                match output {
+                    Destination::Register(reg) => {
+                        self.emit_constant_access(reg, &expr.node, constant_ref, ctx);
+                    }
+                    Destination::Memory(mem_loc) => {
+                        let temp_reg = self.temp_registers.allocate(
+                            mem_loc.ty.clone(),
+                            "constant_access_temp"
+                        );
+                        self.emit_constant_access(temp_reg.register(), &expr.node, constant_ref, ctx);
+                        self.emit_load_from_location(
+                            &mem_loc.base_ptr_reg,
+                            &Destination::Register(temp_reg.register().clone()),
+                            node,
+                            "store constant access result to memory",
+                        );
+                    }
+                    Destination::Unit => {
+                        panic!("a constant can not be unit")
+                    }
+                }
             }
             ExpressionKind::VariableAccess(variable_ref) => {
                 let variable_register = self.get_variable_register(variable_ref).clone();
@@ -133,10 +153,50 @@ impl CodeBuilder<'_> {
                 ); // todo:
             }
             ExpressionKind::BinaryOp(operator) => {
-                self.emit_binary_operator(output.grab_register(), operator, ctx);
+                match output {
+                    Destination::Register(reg) => {
+                        self.emit_binary_operator(reg, operator, ctx);
+                    }
+                    Destination::Memory(mem_loc) => {
+                        let temp_reg = self.temp_registers.allocate(
+                            mem_loc.ty.clone(),
+                            "binary_op_temp"
+                        );
+                        self.emit_binary_operator(temp_reg.register(), operator, ctx);
+                        self.emit_load_from_location(
+                            &mem_loc.base_ptr_reg,
+                            &Destination::Register(temp_reg.register().clone()),
+                            node,
+                            "store binary op result to memory",
+                        );
+                    }
+                    Destination::Unit => {
+                        panic!("binary operator always returns a value")
+                    }
+                }
             }
             ExpressionKind::UnaryOp(operator) => {
-                self.emit_unary_operator(output.grab_register(), operator, ctx);
+                match output {
+                    Destination::Register(reg) => {
+                        self.emit_unary_operator(reg, operator, ctx);
+                    }
+                    Destination::Memory(mem_loc) => {
+                        let temp_reg = self.temp_registers.allocate(
+                            mem_loc.ty.clone(),
+                            "unary_op_temp"
+                        );
+                        self.emit_unary_operator(temp_reg.register(), operator, ctx);
+                        self.emit_load_from_location(
+                            &mem_loc.base_ptr_reg,
+                            &Destination::Register(temp_reg.register().clone()),
+                            node,
+                            "store unary op result to memory",
+                        );
+                    }
+                    Destination::Unit => {
+                        panic!("unary operator always returns a value")
+                    }
+                }
             }
             ExpressionKind::PostfixChain(start, chain) => {
                 self.emit_postfix_chain(output, start, chain, ctx);
