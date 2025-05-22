@@ -1,15 +1,18 @@
 //! `CodeBuilder` helper functions for function calls and arguments.
+
 use crate::SpilledRegister;
 use crate::code_bld::{CodeBuilder, MutableReturnReg};
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
+use seq_map::SeqMap;
 use source_map_node::Node;
 use swamp_semantic::{
     InternalFunctionDefinitionRef, MutRefOrImmutableExpression, pretty_module_name,
 };
 use swamp_types::Signature;
+use swamp_vm_types::MemoryLocation;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
@@ -60,8 +63,10 @@ impl CodeBuilder<'_> {
         self_variable: Option<&TypedRegister>,
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
-    ) -> (Vec<SpilledRegister>, Vec<crate::code_bld::MutableReturnReg>) {
-        let mut copy_back_mutable_reg_pairs: Vec<crate::code_bld::MutableReturnReg> = Vec::new();
+    ) -> (Vec<SpilledRegister>, Vec<MutableReturnReg>) {
+        let mut copy_back_mutable_reg_pairs: Vec<MutableReturnReg> = Vec::new();
+
+        let mut saved_base_ptr_cache: SeqMap<(usize, u8), TypedRegister> = SeqMap::new();
 
         if !signature.return_type.is_unit() {
             let return_basic_type = layout_type(&signature.return_type);
@@ -163,6 +168,9 @@ impl CodeBuilder<'_> {
                     MutRefOrImmutableExpression::Location(lvalue) => {
                         let detailed_location = self.emit_lvalue_address(lvalue, ctx);
 
+                        // Flag to track if we need to save the base pointer
+                        let mut saved_base_ptr = None;
+
                         let is_primitive = matches!(
                             parameter_basic_type.kind,
                             BasicTypeKind::S32
@@ -174,14 +182,67 @@ impl CodeBuilder<'_> {
                         );
 
                         if is_primitive {
-                            // Primitives in the Swamp ABI is passed as self-contained in the register
-                            // and a copy back scheme is done after the call returns
-                            self.emit_load_into_register(
-                                &argument_register,
-                                &detailed_location,
-                                node,
-                                "load primitive value into argument register",
-                            );
+                            if parameter_basic_type
+                                .should_be_copied_back_when_mutable_arg_or_return()
+                            {
+                                // I missed that it will cause a lot of extra complexity for mutable arguments
+                                // that are passed by value and copied back.
+                                if let Destination::Memory(mem_location) = &detailed_location {
+                                    // Try to find an existing saved base pointer for this structure
+                                    let base_id =
+                                        lvalue.starting_variable.unique_id_within_function;
+                                    let base_reg_index = mem_location.base_ptr_reg.index;
+                                    let cache_key = (base_id, base_reg_index);
+
+                                    let saved_reg = if let Some(existing_reg) =
+                                        saved_base_ptr_cache.get(&cache_key)
+                                    {
+                                        existing_reg.clone()
+                                    } else {
+                                        let temp_reg = self.temp_registers.allocate(
+                                            mem_location.base_ptr_reg.ty.clone(),
+                                            "save struct pointer for copy-back",
+                                        );
+
+                                        self.builder.add_mov_reg(
+                                            temp_reg.register(),
+                                            &mem_location.base_ptr_reg,
+                                            node,
+                                            "save base ptr before overwriting registers",
+                                        );
+
+                                        saved_base_ptr_cache
+                                            .insert(cache_key, temp_reg.register().clone())
+                                            .unwrap();
+
+                                        temp_reg.register().clone()
+                                    };
+
+                                    self.builder.add_load_primitive(
+                                        &argument_register,
+                                        &saved_reg,
+                                        mem_location.offset,
+                                        node,
+                                        "emit primitive value using saved base ptr",
+                                    );
+
+                                    saved_base_ptr = Some((saved_reg, mem_location.offset));
+                                } else {
+                                    self.emit_load_into_register(
+                                        &argument_register,
+                                        &detailed_location,
+                                        node,
+                                        "load primitive value into argument register",
+                                    );
+                                }
+                            } else {
+                                self.emit_load_into_register(
+                                    &argument_register,
+                                    &detailed_location,
+                                    node,
+                                    "load primitive value into argument register",
+                                );
+                            }
                         } else {
                             let abs_pointer = self.emit_absolute_pointer_if_needed(
                                 &detailed_location,
@@ -198,10 +259,26 @@ impl CodeBuilder<'_> {
                         }
 
                         if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
-                            copy_back_mutable_reg_pairs.push(crate::code_bld::MutableReturnReg {
-                                target_location_after_call: detailed_location,
-                                parameter_reg: argument_register.clone(),
-                            });
+                            if let Some((saved_reg, offset)) = saved_base_ptr {
+                                // Set up copy-back using the saved base pointer and correct offset
+                                copy_back_mutable_reg_pairs.push(MutableReturnReg {
+                                    target_location_after_call: Destination::Memory(
+                                        MemoryLocation {
+                                            base_ptr_reg: saved_reg,
+                                            offset,
+                                            ty: VmType::new_contained_in_register(
+                                                parameter_basic_type.clone(),
+                                            ),
+                                        },
+                                    ),
+                                    parameter_reg: argument_register.clone(),
+                                });
+                            } else {
+                                copy_back_mutable_reg_pairs.push(MutableReturnReg {
+                                    target_location_after_call: detailed_location,
+                                    parameter_reg: argument_register.clone(),
+                                });
+                            }
                         }
                     }
                     MutRefOrImmutableExpression::Expression(expr) => {

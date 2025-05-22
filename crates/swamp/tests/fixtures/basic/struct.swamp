@@ -136,10 +136,10 @@ fn test_deep_nesting() {
       second_point: Point { x: 7, y: 8 }
     }
   }
-  
+
   partial_overwrite_point(&deep.a.first_point)
   partial_overwrite_point(&deep.b.second_point)
-  
+
   assert(deep.a.first_point.y == 200, "deep nested first point not updated")
   assert(deep.b.second_point.y == 200, "deep nested second point not updated")
   assert(deep.a.first_point.x == 1, "shouldn't have changed")
@@ -150,13 +150,35 @@ fn update_x_only(mut x: Int) {
   x = 777
 }
 
+/// This test surfaced a bug in the code generator where code
+/// was missing for borrowing primitive types directly. In the ABI
+/// they are always passed contained in the register, and the call
+/// generation uses a copy back scheme to get the value back out.
 #[test]
 fn test_field_borrowing() {
   dummy = 3
   mut point = Point { x: 10, y: 20 }
-  
+
   update_x_only(&point.x)
-  
+
   assert(point.x == 777, "direct field borrowing failed")
   assert(point.y == 20, "y shouldn't change")
 }
+
+fn update_both(mut a: Int, mut b: Int) {
+  a = 42
+  b = 43
+}
+
+
+/// This test uncovered a bug where the emit_arguments wasn't handling the fact that it needed to
+/// hold on to, for example, the first argument register (r1) to use as a base pointer for copy back.
+/// but the r1 was clobbered when calling the function (update_both).
+/// Had to add a SeqMap to keep track of the registers that were used as base pointers.
+#[test]
+fn test_multiple_field_refs() {
+  mut point = Point { x: 10, y: 20 }
+  update_both(&point.x, &point.y)
+  assert(point.x == 42 && point.y == 43, "multiple field refs failed")
+}
+
