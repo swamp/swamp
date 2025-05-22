@@ -17,7 +17,7 @@ impl CodeBuilder<'_> {
     ) {
         match basic_literal {
             Literal::StringLiteral(str) => {
-                self.emit_string_literal(output.grab_register(), node, str, ctx);
+                self.emit_string_literal(output, node, str, ctx);
             }
             Literal::IntLiteral(int) => match output {
                 Destination::Register(target_reg) => {

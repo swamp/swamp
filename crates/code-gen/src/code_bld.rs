@@ -21,7 +21,7 @@ use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type,
-    u8_type, u32_type, unknown_type,
+    int_type, string_type, u8_type, u32_type, unknown_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
@@ -818,7 +818,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_string_literal(
         &mut self,
-        target_reg: &TypedRegister,
+        destination: &Destination,
         node: &Node,
         string: &str,
         ctx: &Context,
@@ -849,12 +849,37 @@ impl CodeBuilder<'_> {
                 .0,
         );
 
-        self.builder.add_mov_32_immediate_value(
-            target_reg,
-            string_header_in_heap_ptr.0,
-            node,
-            &format!("constant string '{string}'"),
-        );
+        match destination {
+            Destination::Unit => {
+                panic!("can not write string to unit")
+            }
+            Destination::Register(target_register) => {
+                self.builder.add_mov_32_immediate_value(
+                    target_register,
+                    string_header_in_heap_ptr.0,
+                    node,
+                    &format!("constant string '{string}'"),
+                );
+            }
+            Destination::Memory(memory_location) => {
+                let temp_string_literal_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(string_type()),
+                    "temporary for string literal",
+                );
+                self.builder.add_mov_32_immediate_value(
+                    temp_string_literal_reg.register(),
+                    string_header_in_heap_ptr.0,
+                    node,
+                    "string literal",
+                );
+                self.builder.add_st32_using_ptr_with_offset(
+                    memory_location,
+                    temp_string_literal_reg.register(),
+                    node,
+                    "copy string pointer literal into destination memory",
+                );
+            }
+        }
     }
 
     pub(crate) fn emit_option_expression_into_target_memory_location(
