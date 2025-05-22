@@ -47,7 +47,7 @@ impl Analyzer<'_> {
                 _,
                 _,
             ) => {
-                if !left_type.compatible_with(&right_type) {
+                if !left_type.underlying().compatible_with(&right_type) {
                     return Err(self.create_err(
                         ErrorKind::IncompatibleTypes {
                             expected: left_type,

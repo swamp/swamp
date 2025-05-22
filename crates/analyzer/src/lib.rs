@@ -2601,7 +2601,7 @@ impl<'a> Analyzer<'a> {
             if !found_var.is_mutable() {
                 return Err(self.create_err(ErrorKind::VariableIsNotMutable, &variable.name));
             }
-            if !found_var.resolved_type.assignable_type(&ty) {
+            if !found_var.resolved_type.underlying().assignable_type(&ty) {
                 return Err(self.create_err(
                     ErrorKind::IncompatibleTypes {
                         expected: ty,
