@@ -3,7 +3,6 @@ use crate::ctx::Context;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
 use swamp_vm_types::types::{Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
-use tracing::info;
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
