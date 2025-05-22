@@ -116,3 +116,47 @@ fn borrow_point_inside_struct() {
   assert(something.second_point.y == 200, 'after: y value is wrong')
   print('after overwrite: x:{something.second_point.x}, y:{something.second_point.y}')
 }
+
+
+struct DeepNest {
+  a: Something,
+  b: Something,
+}
+
+#[test]
+fn test_deep_nesting() {
+  dummy = 3
+  mut deep = DeepNest {
+    a: Something {
+      first_point: Point { x: 1, y: 2 },
+      second_point: Point { x: 3, y: 4 }
+    },
+    b: Something {
+      first_point: Point { x: 5, y: 6 },
+      second_point: Point { x: 7, y: 8 }
+    }
+  }
+  
+  partial_overwrite_point(&deep.a.first_point)
+  partial_overwrite_point(&deep.b.second_point)
+  
+  assert(deep.a.first_point.y == 200, "deep nested first point not updated")
+  assert(deep.b.second_point.y == 200, "deep nested second point not updated")
+  assert(deep.a.first_point.x == 1, "shouldn't have changed")
+  assert(deep.b.second_point.x == 7, "shouldn't have changed")
+}
+
+fn update_x_only(mut x: Int) {
+  x = 777
+}
+
+#[test]
+fn test_field_borrowing() {
+  dummy = 3
+  mut point = Point { x: 10, y: 20 }
+  
+  update_x_only(&point.x)
+  
+  assert(point.x == 777, "direct field borrowing failed")
+  assert(point.y == 20, "y shouldn't change")
+}
