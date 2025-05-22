@@ -2,14 +2,13 @@ use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool};
 use crate::state::CodeGenState;
-use crate::{DetailedLocationResolved, FlagState, FlagStateKind, Transformer, TransformerResult};
+use crate::DetailedLocationResolved;
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use swamp_semantic::{
-    BooleanExpression, ConstantRef, Expression, MutRefOrImmutableExpression, NormalPattern,
-    Pattern, SingleLocationExpression, StartOfChain, StartOfChainKind, UnaryOperator,
-    UnaryOperatorKind, VariableRef, WhenBinding,
+    BooleanExpression, ConstantRef, Expression, MutRefOrImmutableExpression, UnaryOperator,
+    UnaryOperatorKind, VariableRef,
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
