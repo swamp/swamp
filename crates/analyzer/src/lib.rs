@@ -568,7 +568,7 @@ impl<'a> Analyzer<'a> {
         let encountered_type = expr.ty.clone();
 
         let expr = if let Some(found_expected_type) = context.expected_type {
-            if found_expected_type.compatible_with(&encountered_type) {
+            if found_expected_type.underlying().compatible_with(&encountered_type.underlying()) {
                 return Ok(expr);
             }
 
@@ -776,11 +776,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                &ast_expression.node,
-                fields,
-                *rest_was_specified,
-                context,
-            )?,
+                    &ast_expression.node,
+                    fields,
+                    *rest_was_specified,
+                    context,
+                )?,
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
@@ -1460,8 +1460,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {
-            } else {
+            if let Type::Optional(_) = tv.resolved_type {} else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -2601,7 +2600,7 @@ impl<'a> Analyzer<'a> {
             if !found_var.is_mutable() {
                 return Err(self.create_err(ErrorKind::VariableIsNotMutable, &variable.name));
             }
-            if !found_var.resolved_type.underlying().assignable_type(&ty) {
+            if !found_var.resolved_type.underlying().assignable_type(&ty.underlying()) {
                 return Err(self.create_err(
                     ErrorKind::IncompatibleTypes {
                         expected: ty,
@@ -2981,7 +2980,7 @@ impl<'a> Analyzer<'a> {
          */
 
         let final_expr =
-            if Self::is_type_assignment_compatible(target_type.underlying(), &source_expr.ty) {
+            if Self::is_type_assignment_compatible(target_type.underlying(), &source_expr.ty.underlying()) {
                 source_expr
             }
             /*else if let Some(converted) =
@@ -3488,10 +3487,12 @@ impl<'a> Analyzer<'a> {
     fn types_did_not_match_try_late_coerce_expression(
         &mut self,
         expr: Expression,
-        expected_type: &Type,
-        encountered_type: &Type,
+        special_expected_type: &Type,
+        special_encountered_type: &Type,
         node: &swamp_ast::Node,
     ) -> Result<Expression, Error> {
+        let expected_type = special_expected_type.underlying();
+        let encountered_type = special_encountered_type.underlying();
         if let Type::Optional(expected_inner_type) = expected_type {
             // If an optional is expected, we can wrap it if this type has the exact same
             // inner type
