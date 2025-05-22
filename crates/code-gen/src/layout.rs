@@ -307,6 +307,13 @@ pub fn layout_type(ty: &Type) -> BasicType {
 }
 
 fn layout_mutable_reference(analyzed_type: &Type) -> BasicType {
+    if analyzed_type.is_primitive() {
+        // For primitives, just use the primitive type directly
+        // The ABI passes primitives inside the register directly and
+        // have a copy back scheme that copies the register back afterwards.
+        return layout_type(analyzed_type);
+    }
+
     let inner_type = layout_type(analyzed_type);
     BasicType {
         total_size: inner_type.total_size,
@@ -314,6 +321,7 @@ fn layout_mutable_reference(analyzed_type: &Type) -> BasicType {
         kind: BasicTypeKind::MutablePointer(Box::from(inner_type)),
     }
 }
+
 fn layout_constant_reference(analyzed_type: &Type) -> BasicType {
     layout_type(analyzed_type)
 }

@@ -10,7 +10,7 @@ use swamp_semantic::{
     InternalFunctionDefinitionRef, MutRefOrImmutableExpression, pretty_module_name,
 };
 use swamp_types::Signature;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType};
+use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     /// Checks if an argument is already in the correct register and doesn't need to be spilled
@@ -163,18 +163,39 @@ impl CodeBuilder<'_> {
                     MutRefOrImmutableExpression::Location(lvalue) => {
                         let detailed_location = self.emit_lvalue_address(lvalue, ctx);
 
-                        let abs_pointer = self.emit_absolute_pointer_if_needed(
-                            &detailed_location,
-                            node,
-                            "calculate absolute address for struct field reference",
+                        let is_primitive = matches!(
+                            parameter_basic_type.kind,
+                            BasicTypeKind::S32
+                                | BasicTypeKind::Fixed32
+                                | BasicTypeKind::U32
+                                | BasicTypeKind::U8
+                                | BasicTypeKind::B8
+                                | BasicTypeKind::U16
                         );
 
-                        self.builder.add_mov_reg(
-                            &argument_register,
-                            &abs_pointer,
-                            node,
-                            "load calculated address of lvalue into argument register",
-                        );
+                        if is_primitive {
+                            // Primitives in the Swamp ABI is passed as self-contained in the register
+                            // and a copy back scheme is done after the call returns
+                            self.emit_load_into_register(
+                                &argument_register,
+                                &detailed_location,
+                                node,
+                                "load primitive value into argument register",
+                            );
+                        } else {
+                            let abs_pointer = self.emit_absolute_pointer_if_needed(
+                                &detailed_location,
+                                node,
+                                "calculate absolute address for struct field reference",
+                            );
+
+                            self.builder.add_mov_reg(
+                                &argument_register,
+                                &abs_pointer,
+                                node,
+                                "load calculated address of lvalue into argument register",
+                            );
+                        }
 
                         if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
                             copy_back_mutable_reg_pairs.push(crate::code_bld::MutableReturnReg {

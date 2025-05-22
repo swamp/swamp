@@ -111,7 +111,9 @@ impl CodeBuilder<'_> {
             })
             .clone();
 
-        if variable.resolved_type.is_primitive() {
+        // For primitives, always pass them using direct register assignment.
+        // TODO: clean this up into a helper function with this if-else
+        if target_register.ty.basic_type.is_simple_primitive() {
             self.emit_expression_into_register(
                 &target_register,
                 expression,

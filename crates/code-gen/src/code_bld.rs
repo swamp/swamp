@@ -1,8 +1,8 @@
+use crate::DetailedLocationResolved;
 use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool};
 use crate::state::CodeGenState;
-use crate::DetailedLocationResolved;
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
@@ -12,10 +12,10 @@ use swamp_semantic::{
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    b8_type, u32_type, u8_type, BasicType, BasicTypeKind, Destination, FramePlacedType,
-    TypedRegister, VmType,
+    BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type,
+    u8_type, u32_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
