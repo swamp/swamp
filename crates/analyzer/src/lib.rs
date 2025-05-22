@@ -775,11 +775,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                &ast_expression.node,
-                fields,
-                *rest_was_specified,
-                context,
-            )?,
+                    &ast_expression.node,
+                    fields,
+                    *rest_was_specified,
+                    context,
+                )?,
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
@@ -1459,8 +1459,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {
-            } else {
+            if let Type::Optional(_) = tv.resolved_type {} else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -3600,7 +3599,6 @@ impl<'a> Analyzer<'a> {
             }
             Symbol::TypeGenerator(type_gen) => match type_gen.kind {
                 TypeGeneratorKind::Slice => {
-                    info!(x=?analyzed_type_parameters[0], "slice created");
                     //assert!(analyzed_type_parameters[0].is_concrete());
                     Type::DynamicSlice(Box::new(analyzed_type_parameters[0].clone()))
                 }

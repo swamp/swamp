@@ -1,19 +1,56 @@
 //! `CodeBuilder` helper functions for function calls and arguments.
-use crate::SpilledRegister;
 use crate::code_bld::{CodeBuilder, MutableReturnReg};
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
+use crate::SpilledRegister;
 use source_map_node::Node;
 use swamp_semantic::{
-    InternalFunctionDefinitionRef, MutRefOrImmutableExpression, pretty_module_name,
+    pretty_module_name, InternalFunctionDefinitionRef, MutRefOrImmutableExpression,
 };
 use swamp_types::Signature;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType};
-use tracing::info;
 
 impl CodeBuilder<'_> {
+    /// Checks if an argument is already in the correct register and doesn't need to be spilled
+    /// This is purely for optimization, it doesn't change the actual outcome.
+    fn is_argument_already_in_correct_register(
+        &self,
+        index_in_signature: usize,
+        argument_register: &TypedRegister,
+        self_variable: Option<&TypedRegister>,
+        _argument_expr_or_location: Option<&MutRefOrImmutableExpression>,
+        argument_vector_index: usize,
+        arguments: &[MutRefOrImmutableExpression],
+    ) -> bool {
+        if index_in_signature == 0 && self_variable.is_some() {
+            let self_reg = self_variable.as_ref().unwrap();
+            self_reg.index == argument_register.index
+        } else if index_in_signature > 0 && argument_vector_index < arguments.len() {
+            match &arguments[argument_vector_index] {
+                MutRefOrImmutableExpression::Location(lvalue) => {
+                    if lvalue.access_chain.is_empty() {
+                        let var_reg = self.get_variable_register(&lvalue.starting_variable);
+                        var_reg.index == argument_register.index
+                    } else {
+                        false
+                    }
+                }
+                MutRefOrImmutableExpression::Expression(expr) => {
+                    if let swamp_semantic::ExpressionKind::VariableAccess(var_ref) = &expr.kind {
+                        let var_reg = self.get_variable_register(var_ref);
+                        var_reg.index == argument_register.index
+                    } else {
+                        false
+                    }
+                }
+            }
+        } else {
+            false
+        }
+    }
+
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_arguments(
         &mut self,
@@ -28,7 +65,6 @@ impl CodeBuilder<'_> {
 
         if !signature.return_type.is_unit() {
             let return_basic_type = layout_type(&signature.return_type);
-            info!(?return_basic_type, "r0: makes decision for r0");
 
             if return_basic_type.is_represented_as_a_pointer_in_reg() {
                 let r0 = TypedRegister::new_vm_type(
@@ -40,12 +76,6 @@ impl CodeBuilder<'_> {
                     output_destination,
                     node,
                     "create an absolute pointer to r0 if needed",
-                );
-
-                info!(
-                    ?return_pointer_reg,
-                    ?return_basic_type,
-                    "r0: it is a pointer, so we copy the absolute pointer into it"
                 );
 
                 self.builder.add_mov_reg(
@@ -65,12 +95,6 @@ impl CodeBuilder<'_> {
                     target_location_after_call: output_destination.clone(),
                     parameter_reg: r0,
                 });
-
-                info!(
-                    ?output_destination,
-                    ?return_basic_type,
-                    "r0: simple type, will copy from r0 to destination after call"
-                );
             }
         }
         let mut argument_registers = RegisterPool::new(1, 10);
@@ -85,16 +109,24 @@ impl CodeBuilder<'_> {
                 &format!("emit argument {index_in_signature}"),
             );
 
-            let needs_to_overwrite_parameter = {
-                if index_in_signature == 0 && self_variable.is_some() {
-                    let self_reg = self_variable.as_ref().unwrap();
-                    self_reg.index != argument_register.index
-                } else {
-                    true
-                }
+            // Determine if we need to spill this register
+            let argument_vector_index = if self_variable.is_some() {
+                index_in_signature.saturating_sub(1)
+            } else {
+                index_in_signature
             };
 
-            if needs_to_overwrite_parameter && ctx.register_is_protected(&argument_register) {
+            let already_in_correct_register = self.is_argument_already_in_correct_register(
+                index_in_signature,
+                &argument_register,
+                self_variable,
+                None,
+                argument_vector_index,
+                arguments,
+            );
+
+            let needs_spill = ctx.register_is_protected(&argument_register) && !already_in_correct_register;
+            if needs_spill {
                 let save_region = self.temp_frame_space_for_register("emit_arguments");
                 self.builder.add_st_regs_to_frame(
                     save_region.addr,
@@ -127,11 +159,6 @@ impl CodeBuilder<'_> {
                     );
                 }
             } else {
-                let argument_vector_index = if self_variable.is_some() {
-                    index_in_signature - 1
-                } else {
-                    index_in_signature
-                };
                 let argument_expr_or_location = &arguments[argument_vector_index];
                 let debug_pos = self.builder.position();
 
@@ -194,8 +221,7 @@ impl CodeBuilder<'_> {
                     );
                 }
                 Destination::Unit => {
-                    // This shouldn't happen for non-unit return types
-                    info!("Unit destination for non-unit return type - this shouldn't happen");
+                    panic!("should not happen")
                 }
             }
         }
@@ -242,7 +268,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling {function_name} ({comment})",);
+        let call_comment = &format!("calling {function_name} ({comment})", );
         /*
                if let Some(found) = self
                    .state
