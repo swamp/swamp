@@ -836,7 +836,7 @@ pub enum ExpressionKind {
     TupleDestructuring(Vec<VariableRef>, Vec<Type>, Box<Expression>),
 
     Lambda(Vec<VariableRef>, Box<Expression>),
-    BorrowMutRef(Box<Expression>),
+    BorrowMutRef(Box<SingleLocationExpression>),
 }
 
 #[derive(Debug, Clone)]
