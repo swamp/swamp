@@ -775,11 +775,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                    &ast_expression.node,
-                    fields,
-                    *rest_was_specified,
-                    context,
-                )?,
+                &ast_expression.node,
+                fields,
+                *rest_was_specified,
+                context,
+            )?,
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
@@ -1076,7 +1076,7 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(AnonymousStructType, usize, Type), Error> {
         let field_name_str = self.get_text(field_name).to_string();
 
-        let anon_struct_ref = match &tv {
+        let anon_struct_ref = match &tv.underlying() {
             Type::NamedStruct(struct_type) => struct_type.anon_struct_type.clone(),
             Type::AnonymousStruct(anon_struct) => anon_struct.clone(),
             _ => return Err(self.create_err(ErrorKind::UnknownStructField, field_name)),
@@ -1459,7 +1459,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {} else {
+            if let Type::Optional(_) = tv.resolved_type {
+            } else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
