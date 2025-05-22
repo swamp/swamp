@@ -1645,7 +1645,7 @@ impl<'a> Analyzer<'a> {
 
                     let expr = self.analyze_expression(expression, &any_context)?;
 
-                    let ty = expr.ty.clone();
+                    let ty = expr.ty.underlying().clone();
 
                     let maybe_to_string = self
                         .shared
@@ -1660,7 +1660,7 @@ impl<'a> Analyzer<'a> {
                         let underlying = if let Type::Optional(inner_type) = ty {
                             *inner_type.clone()
                         } else {
-                            ty.clone()
+                            ty.underlying().clone()
                         };
                         if maybe_to_string.is_none() {
                             return Err(self.create_err(
