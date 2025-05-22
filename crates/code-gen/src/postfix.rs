@@ -1,7 +1,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use crate::{single_intrinsic_fn, FlagState};
+use crate::{FlagState, single_intrinsic_fn};
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain};
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, VmType};
@@ -116,8 +116,6 @@ impl CodeBuilder<'_> {
                                     t_flag_result = z_result;
                                 }
                             } else {
-
-
                                 let (spilled_argument_registers, copy_back) = self.emit_arguments(
                                     &call_return_destination,
                                     &start_expression.node,
@@ -134,7 +132,6 @@ impl CodeBuilder<'_> {
                                     &element.node,
                                     "emit_rvalue postcall",
                                 );
-
                             }
                         }
                         Function::External(external_function_def) => {

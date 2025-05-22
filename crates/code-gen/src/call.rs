@@ -9,8 +9,10 @@ use source_map_node::Node;
 use swamp_semantic::{InternalFunctionDefinitionRef, MutRefOrImmutableExpression};
 use swamp_types::Signature;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType};
+use tracing::info;
 
 impl CodeBuilder<'_> {
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_arguments(
         &mut self,
         output_destination: &Destination,
@@ -24,27 +26,47 @@ impl CodeBuilder<'_> {
 
         let mut copy_back_mutable_reg_pairs = Vec::new();
 
-        if let Destination::Register(return_param_reg) = output_destination {
-            let return_reg = TypedRegister::new_vm_type(0, return_param_reg.ty.clone());
-            if return_param_reg
-                .ty
-                .needs_allocated_space_for_return_in_reg0()
-            {
-                self.builder.add_mov_reg(
-                    &return_reg,
-                    return_param_reg,
-                    node,
-                    &format!("copy in the return pointer into R0 <- {return_param_reg:?}"),
-                );
-            } else {
-                all_mutable_arguments_including_hidden.push(return_param_reg);
-            }
+        if !signature.return_type.is_unit() {
+            let return_basic_type = layout_type(&signature.return_type);
+            info!(?return_basic_type, "r0: makes decision for r0");
 
-            if !signature.return_type.is_unit() && return_reg.ty.needs_copy_back_for_mutable() {
-                copy_back_mutable_reg_pairs.push(crate::code_bld::MutableReturnReg {
+            if return_basic_type.is_represented_as_a_pointer_in_reg() {
+                let r0 = TypedRegister::new_vm_type(
+                    0,
+                    VmType::new_unknown_placement(return_basic_type.clone()),
+                );
+
+                let return_pointer_reg = self.emit_absolute_pointer_if_needed(
+                    output_destination,
+                    node,
+                    "create an absolute pointer to r0 if needed",
+                );
+
+                info!(
+                    ?return_pointer_reg,
+                    ?return_basic_type,
+                    "r0: it is a pointer, so we copy the absolute pointer into it"
+                );
+
+                self.builder.add_mov_reg(
+                    &r0,
+                    &return_pointer_reg,
+                    node,
+                    "r0: copy the return pointer into r0",
+                );
+            } else if let Destination::Register(return_param_reg) = output_destination {
+                info!(
+                    ?return_param_reg,
+                    ?return_basic_type,
+                    "r0: it is a simple type, so we need to copy back the register"
+                );
+
+                copy_back_mutable_reg_pairs.push(MutableReturnReg {
                     target_location_after_call: Destination::Register(return_param_reg.clone()),
-                    parameter_reg: return_reg,
+                    parameter_reg: return_param_reg.clone(),
                 });
+                // For primitive returns to registers, add the register to the hidden arguments
+                all_mutable_arguments_including_hidden.push(return_param_reg);
             }
         }
         let mut argument_registers = RegisterPool::new(1, 10);

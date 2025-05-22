@@ -16,15 +16,15 @@ use swamp_semantic::{
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    b8_type, string_type, u32_type, u8_type, unknown_type, BasicType, BasicTypeKind,
-    Destination, FramePlacedType, TypedRegister, VmType,
+    BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type,
+    string_type, u8_type, u32_type, unknown_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryAddress, InstructionPosition, MemoryLocation, MemoryOffset, StringHeader,
-    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE, VEC_PTR_SIZE,
+    HeapMemoryAddress, InstructionPosition, MemoryLocation, MemoryOffset, REG_ON_FRAME_ALIGNMENT,
+    REG_ON_FRAME_SIZE, StringHeader, VEC_PTR_SIZE,
 };
 use tracing::error;
 

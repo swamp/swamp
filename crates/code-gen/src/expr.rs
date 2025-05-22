@@ -36,11 +36,12 @@ impl CodeBuilder<'_> {
             //  ?expr,
             // "this needs a temporary location to be able to get a pointer"
             //);
-            let temp_materialization_target = self.allocate_frame_space_and_return_destination_to_it(
-                output.ty(),
-                &expr.node,
-                "rvalue temporary materialization",
-            );
+            let temp_materialization_target = self
+                .allocate_frame_space_and_return_destination_to_it(
+                    output.ty(),
+                    &expr.node,
+                    "rvalue temporary materialization",
+                );
 
             self.emit_expression(&temp_materialization_target, expr, ctx);
 

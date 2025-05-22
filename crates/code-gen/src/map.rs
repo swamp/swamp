@@ -4,8 +4,8 @@ use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_types::Type;
-use swamp_vm_types::types::{int_type, u32_type, Destination, TupleType, VmType};
 use swamp_vm_types::PointerLocation;
+use swamp_vm_types::types::{Destination, TupleType, VmType, int_type, u32_type};
 
 impl CodeBuilder<'_> {
     /// Emits Swamp VM opcodes to calculate the memory address of an element within a map.
@@ -76,8 +76,11 @@ impl CodeBuilder<'_> {
             );
         }
 
-        let aggregate_location =
-            self.allocate_frame_space_and_return_destination_to_it(&u32_type(), node, "key storage");
+        let aggregate_location = self.allocate_frame_space_and_return_destination_to_it(
+            &u32_type(),
+            node,
+            "key storage",
+        );
 
         let element_target_temp_reg = self
             .temp_registers
