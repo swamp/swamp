@@ -1,0 +1,14 @@
+use core::{assert}
+use std::{print}
+
+#[test]
+fn option() {
+  a: Int? = 10
+  assert(a, 'a should be Some')
+}
+
+#[test]
+fn option_none() {
+  a: Int? = none
+  assert(!a, 'a should be None')
+}

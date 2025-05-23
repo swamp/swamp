@@ -6,6 +6,7 @@ mod int
 mod logical
 mod map
 mod operator
+mod option
 mod slice
 mod string
 mod struct

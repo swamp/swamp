@@ -6,7 +6,7 @@ struct Thing {
 }
 
 #[test]
-fn test_index() {
+fn push_and_subscript() {
 	mut thing = Thing { list: [] }
 	thing.list.push(1)
 	print('list[0]:{thing.list[0]}')

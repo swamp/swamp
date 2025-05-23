@@ -124,7 +124,7 @@ struct DeepNest {
 }
 
 #[test]
-fn test_deep_nesting() {
+fn deep_nesting() {
   dummy = 3
   mut deep = DeepNest {
     a: Something {
@@ -155,7 +155,7 @@ fn update_x_only(mut x: Int) {
 /// they are always passed contained in the register, and the call
 /// generation uses a copy back scheme to get the value back out.
 #[test]
-fn test_field_borrowing() {
+fn field_borrowing() {
   dummy = 3
   mut point = Point { x: 10, y: 20 }
 
@@ -176,7 +176,7 @@ fn update_both(mut a: Int, mut b: Int) {
 /// but the r1 was clobbered when calling the function (update_both).
 /// Had to add a SeqMap to keep track of the registers that were used as base pointers.
 #[test]
-fn test_multiple_field_refs() {
+fn multiple_field_refs() {
   mut point = Point { x: 10, y: 20 }
   update_both(&point.x, &point.y)
   assert(point.x == 42 && point.y == 43, "multiple field refs failed")
@@ -190,7 +190,7 @@ fn swap_values(mut a: Int, mut b: Int) {
 }
 
 #[test]
-fn test_swap_fields() {
+fn swap_fields() {
   mut point = Point { x: 10, y: 20 }
   print('before swap: x:{point.x}, y:{point.y}')
   swap_values(&point.x, &point.y)
@@ -208,7 +208,7 @@ fn subtract_from_value(mut value: Int, amount: Int) {
 }
 
 #[test]
-fn test_compound_assignments() {
+fn compound_assignments() {
   mut point = Point { x: 10, y: 20 }
   add_to_value(&point.x, 5)
   subtract_from_value(&point.y, 7)
@@ -232,12 +232,59 @@ fn toggle_flag(mut flag: Bool) {
 /// This uncovered that there was a need for a longer reserve time for certain registers that
 /// were used for copy back of primtive types. Introduced a pin for registers in the register pool.
 #[test]
-fn test_mixed_type_refs() {
+fn mixed_type_refs() {
   mut mixed = Mixed { num: 42, flag: false, text: "hello" }
+  assert(mixed.num == 42, "num not initialized")
+  assert(mixed.flag == false, "flag not initialized")
+  assert(mixed.text == "hello", "text not initialized")
 
   print('before toggle: {mixed.flag}')
   toggle_flag(&mixed.flag)
   print('after toggle: {mixed.flag}')
 
   assert(mixed.flag == true, "bool ref update failed")
+
+  assert(mixed.num == 42, "num was overwritten")
+  assert(mixed.text == "hello", "text as overwritten")
+}
+
+
+fn increment(mut value: Int) {
+  value += 1
+}
+
+fn double(mut value: Int) {
+  value *= 2
+}
+
+#[test]
+fn multiple_mut_refs() {
+  mut point = Point { x: 10, y: 20 }
+
+  increment(&point.x)
+  double(&point.x)
+  increment(&point.x)
+
+  assert(point.x == (10 + 1) * 2 + 1, "multiple refs failed")
+}
+
+
+
+fn conditional_update(mut value: Int, should_update: Bool) {
+  if should_update {
+    value = 100
+  }
+}
+
+#[test]
+fn conditional_updates() {
+  mut point = Point { x: 10, y: 20 }
+
+  conditional_update(&point.x, true)
+  assert(point.x == 100, "conditional update true failed")
+  assert(point.y == 20, "conditional modified y")
+
+  conditional_update(&point.y, false)
+  assert(point.x == 100, "conditional modified x")
+  assert(point.y == 20, "conditional update false should not change")
 }
