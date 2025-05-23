@@ -6,7 +6,7 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, pointer_type};
+use swamp_vm_types::types::{Destination, RValueOrLValue, TypedRegister, VmType, pointer_type};
 use swamp_vm_types::{
     AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
     STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
@@ -84,12 +84,13 @@ impl CodeBuilder<'_> {
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         self_type: Option<Type>,
-        self_addr: Option<&TypedRegister>,
+        self_addr_l_or_rvalue: Option<&RValueOrLValue>,
         arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
         comment: &str,
     ) -> FlagState {
         let maybe_target = target_reg.register();
+        let self_addr: Option<&TypedRegister> = self_addr_l_or_rvalue.and_then(|s| s.rvalue());
 
         let mut t_flag_result = FlagState::default();
         match intrinsic_fn {
@@ -545,8 +546,14 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecMap => todo!(), // Low prio
             IntrinsicFunction::VecFilterMap => todo!(), // Low prio
             IntrinsicFunction::VecSwap => {
-                let index_a = self.emit_for_access_or_location(&arguments[0], ctx);
-                let index_b = self.emit_for_access_or_location(&arguments[1], ctx);
+                let index_a = self
+                    .emit_for_access_or_location(&arguments[0], ctx)
+                    .grab_rvalue()
+                    .clone();
+                let index_b = self
+                    .emit_for_access_or_location(&arguments[1], ctx)
+                    .grab_rvalue()
+                    .clone();
                 self.builder
                     .add_vec_swap(self_addr.unwrap(), &index_a, &index_b, node, "vec swap");
             }

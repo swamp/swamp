@@ -1,10 +1,10 @@
+use std::fmt::Display;
 use std::path::Path;
 use swamp_runtime::{RunConstantsOptions, RunOptions};
 use swamp_std::print::register_print;
 use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
 use tracing::error;
-
 #[derive(Debug, Default, Clone, Copy)]
 struct TestContext;
 
@@ -29,6 +29,66 @@ pub fn colorful_module_name(parts: &[String]) -> String {
     colorize_parts(x)
 }
 
+#[must_use]
+pub fn pretty_module_parts(parts: &[String]) -> String {
+    let new_parts: Vec<_> = parts.iter().map(std::string::ToString::to_string).collect();
+
+    new_parts.join("::")
+}
+
+#[must_use]
+pub fn pretty_module_name(parts: &[String]) -> String {
+    let x = if parts[0] == "crate" {
+        &parts[1..]
+    } else {
+        parts
+    };
+
+    pretty_module_parts(x)
+}
+
+#[must_use]
+pub fn matches_pattern(test_name: &str, pattern: &str) -> bool {
+    if pattern.ends_with("::") {
+        test_name.starts_with(pattern)
+    } else if pattern.contains('*') {
+        let parts: Vec<&str> = pattern.split('*').collect();
+        if parts.len() > 2 {
+            return false;
+        }
+
+        let prefix = parts[0];
+        let suffix = if parts.len() == 2 { parts[1] } else { "" }; // Handle "*suffix" or "prefix*"
+
+        if !test_name.starts_with(prefix) {
+            return false;
+        }
+
+        let remaining_name = &test_name[prefix.len()..];
+        remaining_name.ends_with(suffix)
+    } else {
+        test_name == pattern
+    }
+}
+#[must_use]
+pub fn test_name_matches_filter(test_name: &str, filter_string: &str) -> bool {
+    if filter_string.trim().is_empty() {
+        return true;
+    }
+
+    let patterns: Vec<&str> = filter_string.split(',').collect();
+
+    for pattern in patterns {
+        let trimmed_pattern = pattern.trim();
+
+        if matches_pattern(test_name, trimmed_pattern) {
+            return true;
+        }
+    }
+
+    false
+}
+
 pub struct TestRunOptions {
     pub should_run: bool,
     pub iteration_count: usize,
@@ -44,7 +104,18 @@ pub fn init_logger() {
         .init();
 }
 
-pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
+struct TestInfo {
+    pub name: String,
+}
+impl Display for TestInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "{}", self.name)
+    }
+}
+
+/// # Panics
+#[allow(clippy::too_many_lines)]
+pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) {
     let crate_main_path = &["crate".to_string(), "lib".to_string()];
     let code_gen_result = swamp_runtime::compile_and_run(test_dir, crate_main_path);
     let mut vm = swamp_runtime::create_vm_with_standard_settings(
@@ -52,9 +123,9 @@ pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
         &code_gen_result.prepared_constant_memory,
     );
 
-    let mut panic_count = 0usize;
-    let mut pass_count = 0usize;
-    let mut trap_count = 0usize;
+    let mut panic_tests = Vec::new();
+    let mut passed_tests = Vec::new();
+    let mut trap_tests = Vec::new();
 
     if options.should_run {
         register_print::<TestContext>(&mut vm, &code_gen_result.program.modules, TestContext);
@@ -86,10 +157,21 @@ pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
                         .get(&internal_fn.program_unique_id)
                         .unwrap();
                     let complete_name = format!(
-                        "{}:{}",
+                        "{}::{}",
                         colorful_module_name(module_name),
                         tinter::blue(&function_to_run.internal_function_definition.assigned_name)
                     );
+                    let formal_name = format!(
+                        "{}::{}",
+                        pretty_module_name(module_name),
+                        &function_to_run.internal_function_definition.assigned_name
+                    );
+
+                    if !test_name_matches_filter(&formal_name, filter) {
+                        continue;
+                    }
+
+                    let test_info = TestInfo { name: formal_name };
 
                     eprintln!("🚀starting test '{complete_name}'");
 
@@ -109,16 +191,16 @@ pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
 
                     match &vm.state {
                         VmState::Panic(message) => {
-                            panic_count += 1;
+                            panic_tests.push(test_info);
                             error!(message, "PANIC!");
                             eprintln!("❌ Panic {complete_name} {message}");
                         }
                         VmState::Normal => {
-                            pass_count += 1;
+                            passed_tests.push(test_info);
                             eprintln!("✅ {complete_name} worked!");
                         }
                         VmState::Trap(trap_code) => {
-                            trap_count += 1;
+                            trap_tests.push(test_info);
                             error!(trap_code, "TRAP");
                             eprintln!("❌ trap {complete_name} {trap_code}");
                         }
@@ -127,12 +209,25 @@ pub fn run_tests(test_dir: &Path, options: TestRunOptions) {
             }
         }
 
-        let fail_count = panic_count + trap_count;
+        let pass_count = passed_tests.len();
+        let fail_count = panic_tests.len() + trap_tests.len();
+        let total_count = pass_count + fail_count;
+        println!("---\n🚀 Test Run Complete! 🚀\n");
+        println!("Results:");
+        println!("  ✅ Passed: {pass_count}");
+        if fail_count > 0 {
+            println!("  ❌ Failed: {fail_count}");
+        }
+        println!("  Total Tests: {total_count}");
 
-        if fail_count == 0 {
-            eprintln!("summary: ✅ {pass_count} passed");
-        } else {
-            eprintln!("summary: ✅ {pass_count} passed, ❌ {fail_count} failed!");
+        if fail_count > 0 {
+            println!("failing tests:");
+            for test in panic_tests {
+                println!("- {test}");
+            }
+            for test in trap_tests {
+                println!("- {test}");
+            }
         }
 
         eprintln!("vm stats {:?}", vm.debug);

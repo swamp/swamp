@@ -14,14 +14,13 @@ use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type,
-    u8_type, u32_type,
+    BasicType, BasicTypeKind, Destination, FramePlacedType, RValueOrLValue, TypedRegister, VmType,
+    b8_type, u8_type, u32_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
     HeapMemoryAddress, MemoryLocation, MemoryOffset, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
-use tracing::error;
 
 pub(crate) struct MutableReturnReg {
     pub target_location_after_call: Destination,
@@ -656,22 +655,13 @@ impl CodeBuilder<'_> {
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
         ctx: &Context,
-    ) -> TypedRegister {
+    ) -> RValueOrLValue {
         match &mut_or_immutable_expression {
             MutRefOrImmutableExpression::Expression(found_expression) => {
-                self.emit_scalar_rvalue(found_expression, ctx)
+                RValueOrLValue::Scalar(self.emit_scalar_rvalue(found_expression, ctx))
             }
             MutRefOrImmutableExpression::Location(location_expression) => {
-                let x = self.emit_lvalue_address(location_expression, ctx);
-                // TODO: FIX THIS
-                if let Destination::Register(reg) = x {
-                    reg
-                } else if let Destination::Memory(memory_location) = x {
-                    error!("expected register");
-                    memory_location.base_ptr_reg
-                } else {
-                    panic!("not sure");
-                }
+                RValueOrLValue::Memory(self.emit_lvalue_address(location_expression, ctx))
             }
         }
     }

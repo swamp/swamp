@@ -1,13 +1,13 @@
-use core::{assert}
+use core::{assert, panic}
 use std::{print}
 
 #[test]
 fn option_some() {
   a: Int? = 10
   assert(a, 'a should be Some')
+
   when a {
     assert(a == 10, 'a should be 10')
-    print('a is Some: {a}')
   }
 }
 
@@ -22,8 +22,25 @@ struct Attacker {
   health: Int,
 }
 
+impl Attacker {
+  fn to_string(self) -> String {
+    'Attacker health: {self.health}'
+  }
+}
+
 struct Unit {
   attacker: Attacker?
+}
+
+impl Unit {
+  fn to_string(self) -> String {
+    x = when attacker=self.attacker {
+      '{attacker}'
+    } else {
+      "None"
+    }
+    'Unit attacker: {x}'
+  }
 }
 
 #[test]
@@ -31,7 +48,45 @@ fn when_in_when() {
     unit: Unit? = none
 
     when unit {
-      when unit.attacker {
+      panic('unit should be None')
+      when attacker=unit.attacker {
+        panic('unit.attacker should be None')
+      }
+    }
+}
+
+#[test]
+fn when_in_when_no_attacker() {
+    unit: Unit? = Unit {
+      attacker: none
+    }
+
+    when unit {
+      print('found unit: {unit}')
+      assert(!unit.attacker, 'unit.attacker should be None')
+
+      when attacker=unit.attacker {
+        panic('unit.attacker should be None, `when` failed')
+      } else {
+        print('unit.attacker is None')
+      }
+    }
+}
+
+//#[test] TODO: not working yet
+fn when_in_when_some() {
+    unit: Unit? = Unit {
+      attacker: Attacker {
+        health: 100
+      }
+    }
+
+    when unit {
+      print('found unit: {unit}')
+      assert(unit.attacker, 'unit.attacker should be Some')
+
+      when attacker=unit.attacker {
+        print('attacker: {attacker}')
       }
     }
 }

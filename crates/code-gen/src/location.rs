@@ -7,7 +7,8 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, Destination, TypedRegister, VmType, int_type,
+    BasicType, BasicTypeKind, BoundsCheck, Destination, RValueOrLValue, TypedRegister, VmType,
+    int_type,
 };
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
@@ -16,7 +17,7 @@ impl CodeBuilder<'_> {
         &mut self,
         mut_or_immutable_expression: &MutRefOrImmutableExpression,
         context: &Context,
-    ) -> TypedRegister {
+    ) -> RValueOrLValue {
         self.emit_expression_location_mut_ref_or_immutable(mut_or_immutable_expression, context)
     }
 

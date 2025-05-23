@@ -4,7 +4,7 @@ use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::Literal;
 use swamp_types::Type;
-use swamp_vm_types::types::{int_type, string_type, Destination, VmType};
+use swamp_vm_types::types::{Destination, VmType, int_type, string_type};
 use swamp_vm_types::{HeapMemoryAddress, StringHeader};
 
 impl CodeBuilder<'_> {

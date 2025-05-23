@@ -9,6 +9,7 @@ use crate::{
 };
 use seq_fmt::comma;
 use std::fmt::{Debug, Display, Formatter, Write};
+use std::thread::Builder;
 use tracing::error;
 use yansi::Paint;
 
@@ -803,6 +804,29 @@ impl Destination {
     pub fn grab_aggregate_memory_location(&self) -> AggregateMemoryLocation {
         AggregateMemoryLocation {
             location: self.grab_memory_location().clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum RValueOrLValue {
+    Scalar(TypedRegister),
+    Memory(Destination),
+}
+
+impl RValueOrLValue {}
+
+impl RValueOrLValue {
+    pub fn grab_rvalue(&self) -> &TypedRegister {
+        self.rvalue().unwrap()
+    }
+}
+
+impl RValueOrLValue {
+    pub fn rvalue(&self) -> Option<&TypedRegister> {
+        match self {
+            RValueOrLValue::Scalar(reg) => Some(reg),
+            RValueOrLValue::Memory(_) => None,
         }
     }
 }

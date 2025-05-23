@@ -4,7 +4,7 @@ use crate::layout::layout_type;
 use crate::{FlagState, single_intrinsic_fn};
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, VmType};
+use swamp_vm_types::types::{Destination, RValueOrLValue, VmType};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
@@ -107,7 +107,9 @@ impl CodeBuilder<'_> {
                                     &start_expression.node,
                                     intrinsic_fn,
                                     Some(element.ty.clone()),
-                                    Some(&absolute_self_pointer_register),
+                                    Some(&RValueOrLValue::Scalar(
+                                        absolute_self_pointer_register.clone(),
+                                    )),
                                     &merged_arguments,
                                     ctx,
                                     "rvalue intrinsic call ",
@@ -151,7 +153,7 @@ impl CodeBuilder<'_> {
                                 &start_expression.node,
                                 &intrinsic_def.intrinsic,
                                 Some(element.ty.clone()),
-                                Some(&absolute_self_pointer_register),
+                                Some(&RValueOrLValue::Scalar(absolute_self_pointer_register)),
                                 arguments,
                                 ctx,
                                 "rvalue intrinsic call ",

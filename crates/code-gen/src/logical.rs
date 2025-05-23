@@ -8,8 +8,8 @@ use swamp_semantic::{
     UnaryOperator, UnaryOperatorKind,
 };
 use swamp_types::Type;
-use swamp_vm_types::types::{u32_type, Destination, TypedRegister, VmType};
 use swamp_vm_types::PatchPosition;
+use swamp_vm_types::types::{Destination, TypedRegister, VmType, u32_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn materialize_t_flag_to_bool_if_needed(
