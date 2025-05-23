@@ -2,7 +2,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
-use swamp_vm_types::types::{Destination, TypedRegister};
+use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
@@ -138,14 +138,38 @@ impl CodeBuilder<'_> {
                     Destination::Memory(location) => {
                         let memory_size = variable_register.ty.basic_type.total_size;
 
-                        self.builder.add_block_copy_with_offset(
-                            location,
-                            &variable_register,
-                            MemoryOffset(0),
-                            memory_size,
-                            node,
-                            "copy var access block",
-                        );
+                        if variable_register.ty.can_be_contained_inside_register() {
+                            match variable_register.ty.basic_type.kind {
+                                BasicTypeKind::B8 | BasicTypeKind::U8 => {
+                                    self.builder.add_st8_using_ptr_with_offset(
+                                        location,
+                                        &variable_register,
+                                        node,
+                                        "var access to primitive memory location",
+                                    )
+                                }
+                                BasicTypeKind::S32
+                                | BasicTypeKind::U32
+                                | BasicTypeKind::Fixed32 => {
+                                    self.builder.add_st32_using_ptr_with_offset(
+                                        location,
+                                        &variable_register,
+                                        node,
+                                        "var access to primitive memory location",
+                                    )
+                                }
+                                _ => panic!("not sure"),
+                            }
+                        } else {
+                            self.builder.add_block_copy_with_offset(
+                                location,
+                                &variable_register,
+                                MemoryOffset(0),
+                                memory_size,
+                                node,
+                                "copy var access block",
+                            );
+                        }
                     }
                     Destination::Unit => panic!("should not be possible"),
                 }

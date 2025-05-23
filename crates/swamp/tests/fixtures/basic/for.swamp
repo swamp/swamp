@@ -1,0 +1,9 @@
+use core::{assert}
+use std::{print}
+
+// #[test] // TODO:
+fn for_loop() {
+  for x in 0..10 {
+    print('x: {x}')
+  }
+}

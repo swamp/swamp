@@ -635,6 +635,8 @@ pub fn layout_variables(
 
     let highest_register_used = frame_register_allocator.current_index;
 
+    let return_type = VmType::new_contained_in_register(layout_type(exp_return_type));
+
     FrameAndVariableInfo {
         frame_memory: FrameMemoryInfo {
             infos: frame_memory_infos,
@@ -644,10 +646,10 @@ pub fn layout_variables(
             variable_registers,
         },
         temp_allocator_region,
+        return_type,
         parameters: parameter_registers.clone(),
         parameter_and_variable_offsets: parameter_and_variable_registers,
         frame_registers: frame_register_allocator,
-        //rest_of_frame_allocator: local_frame_allocator,
         highest_register_used,
     }
 }

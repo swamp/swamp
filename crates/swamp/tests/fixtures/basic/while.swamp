@@ -1,0 +1,27 @@
+use core::{assert}
+use std::{print}
+
+#[test]
+fn basic() {
+  mut i = 0
+  while i < 10 {
+    i = i + 1
+    print('i: {i}')
+  }
+  assert(i == 10, "while loop failed")
+}
+
+
+fn checks_below_four(i: Int) -> Bool {
+  i < 4
+}
+
+#[test]
+fn function_condition() {
+  mut i = 0
+  while checks_below_four(i) {
+    i = i + 1
+    print('i: {i}')
+  }
+  assert(i == 4, "while loop with function condition failed")
+}

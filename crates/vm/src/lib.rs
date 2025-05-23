@@ -4,9 +4,9 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
+use crate::VmState::Normal;
 use fixed32::Fp;
 use seq_map::SeqMap;
 use std::ptr;
@@ -466,16 +466,16 @@ impl Vm {
 
             #[cfg(feature = "debug_vm")]
             if self.debug_opcodes_enabled {
-                let operands = instruction.operands;
-                eprint!("> {:04X}: ", self.pc);
-                self.debug_opcode(opcode, &operands);
-
                 let regs = [0, 1, 2, 3, 4, 128, 129, 130];
 
                 for reg in regs {
-                    eprint!("{reg}: {:04X}, ", self.registers[reg]);
+                    eprint!("{reg:02X}: {:08X}, ", self.registers[reg]);
                 }
                 eprintln!();
+
+                let operands = instruction.operands;
+                eprint!("> {:04X}: ", self.pc);
+                self.debug_opcode(opcode, &operands);
             }
 
             #[cfg(feature = "debug_vm")]

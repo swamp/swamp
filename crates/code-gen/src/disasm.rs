@@ -4,8 +4,12 @@ use source_map_node::FileId;
 use std::fmt;
 use std::fmt::Write;
 use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
-use swamp_vm_types::types::{FrameMemoryInfo, FunctionInfo, VariableRegister, show_frame_memory};
-use swamp_vm_types::{BinaryInstruction, InstructionPosition, InstructionPositionOffset, Meta};
+use swamp_vm_types::types::{
+    FrameMemoryInfo, FunctionInfo, VariableRegister, VmType, show_frame_memory, write_basic_type,
+};
+use swamp_vm_types::{
+    BinaryInstruction, FrameMemoryAddress, InstructionPosition, InstructionPositionOffset, Meta,
+};
 
 fn different_file_info(span_a: &FileLineInfo, span_b: &FileLineInfo) -> bool {
     span_a.line != span_b.line
@@ -16,10 +20,17 @@ pub const fn is_valid_file_id(file_id: FileId) -> bool {
     file_id != 0 && file_id != 0xffff
 }
 pub fn show_parameters_and_variables(
+    return_type: &VmType,
     parameters: &[VariableRegister],
     variables: &[VariableRegister],
     f: &mut dyn Write,
 ) -> Result<(), fmt::Error> {
+    if !return_type.can_be_contained_inside_register() {
+        writeln!(f, "{}: {}", tinter::blue("r0"), &return_type,)?;
+        write_basic_type(&return_type.basic_type, FrameMemoryAddress(0), f, 0)?;
+        writeln!(f)?;
+    }
+
     for reg in parameters {
         writeln!(
             f,
@@ -47,6 +58,7 @@ pub fn show_parameters_and_variables(
 #[must_use]
 pub fn disasm_function(
     frame_relative_infos: &FrameMemoryInfo,
+    return_type: &VmType,
     parameters: &[VariableRegister],
     instructions: &[BinaryInstruction],
     meta: &[Meta],
@@ -58,6 +70,7 @@ pub fn disasm_function(
     show_frame_memory(frame_relative_infos, &mut header_output).unwrap();
 
     show_parameters_and_variables(
+        return_type,
         parameters,
         &frame_relative_infos.variable_registers,
         &mut header_output,
@@ -149,6 +162,7 @@ pub fn disasm_whole_program(
 
             let output_string = disasm_function(
                 &function_debug_info.frame_memory,
+                &function_debug_info.return_type,
                 &function_debug_info.parameters,
                 instructions_slice,
                 meta_slice,

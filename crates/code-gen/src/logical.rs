@@ -115,6 +115,19 @@ impl CodeBuilder<'_> {
                         ctx,
                     );
                 }
+                BinaryOperatorKind::GreaterEqual
+                | BinaryOperatorKind::GreaterThan
+                | BinaryOperatorKind::LessThan
+                | BinaryOperatorKind::LessEqual => {
+                    let left_source = self.emit_scalar_rvalue(&operator.left, ctx);
+                    let right_source = self.emit_scalar_rvalue(&operator.right, ctx);
+
+                    return self.emit_binary_operator_relational_to_t_flag_only(
+                        &left_source,
+                        operator,
+                        &right_source,
+                    );
+                }
                 _ => panic!(
                     "binary operator does not provide us with t flag {:?}",
                     condition.kind

@@ -2,6 +2,8 @@ mod arithmetic
 mod bool
 mod enum
 mod float
+mod for
+mod guard
 mod int
 mod logical
 mod map
@@ -12,3 +14,4 @@ mod string
 mod struct
 mod tuple
 mod vec
+mod while

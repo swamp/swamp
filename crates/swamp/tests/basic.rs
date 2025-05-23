@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use swamp_test_runner::{TestRunOptions, run_tests};
 
 #[must_use]

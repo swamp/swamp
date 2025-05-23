@@ -4,6 +4,7 @@ use swamp_vm_types::{RangeHeader, RangeIterator};
 
 impl Vm {
     #[inline]
+    #[must_use]
     pub fn range_header_from_reg(&self, range_reg: u8) -> RangeHeader {
         unsafe { *(self.get_const_ptr_from_reg(range_reg) as *const RangeHeader) }
     }

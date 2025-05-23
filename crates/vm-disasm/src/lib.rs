@@ -989,12 +989,12 @@ pub fn disasm(
 
         OpCode::RangeIterInit => &[
             to_write_reg(operands[0], &range_iter_type(), frame_memory_info),
-            DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(0)),
+            to_read_reg(operands[1], &range_iter_type(), frame_memory_info),
         ],
 
         OpCode::RangeIterNext => &[
             to_write_reg(operands[0], &range_iter_type(), frame_memory_info),
-            to_write_reg(operands[1], &bytes_type(), frame_memory_info),
+            to_write_reg(operands[1], &range_iter_type(), frame_memory_info),
             to_branch_offset(i16::from_le_bytes([operands[2], operands[3]])),
         ],
 

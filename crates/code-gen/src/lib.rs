@@ -52,7 +52,7 @@ use swamp_semantic::{
 use swamp_types::Type;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, FrameMemoryInfo, FramePlacedType, FunctionInfoKind, HeapPlacedType,
-    TypedRegister, VariableRegister,
+    TypedRegister, VariableRegister, VmType,
 };
 use swamp_vm_types::{
     CountU16, FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, InstructionPosition,
@@ -292,6 +292,7 @@ pub fn reserve(ty: &Type, allocator: &mut ScopeAllocator) -> FramePlacedType {
 
 pub struct FrameAndVariableInfo {
     pub frame_memory: FrameMemoryInfo,
+    pub return_type: VmType,
     parameters: Vec<VariableRegister>,
     parameter_and_variable_offsets: SeqMap<usize, TypedRegister>,
     temp_allocator_region: FrameMemoryRegion,

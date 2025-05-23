@@ -850,8 +850,9 @@ impl InstructionBuilder<'_> {
         //const UNWRAP_JMP_SOME: u8 = OpCode::UnwrapJmpSome as u8;
 
         let instruction = &mut self.state.instructions[patch_position.0.0 as usize];
-        let delta = *target_position - patch_position.0;
-        let raw = delta.0 - 1; // when running, the PC has already advanced one step
+        let effective_pc_address = patch_position.0 + ProgramCounterDelta(1); // when running, the PC has already advanced one step
+        let delta = *target_position - effective_pc_address;
+        let raw = delta.0;
         let delta_bytes = raw.to_le_bytes();
 
         match instruction.opcode {
@@ -885,8 +886,13 @@ impl InstructionBuilder<'_> {
             .add_instruction(OpCode::B, &[delta_bytes[0], delta_bytes[1]], node, comment);
     }
 
-    const fn calculate_pc_delta(&self, pc: InstructionPosition) -> ProgramCounterDelta {
-        ProgramCounterDelta(((pc.0 as i32) - (self.position().0 as i32)) as i16)
+    const fn calculate_pc_delta(
+        &self,
+        target_instruction: InstructionPosition,
+    ) -> ProgramCounterDelta {
+        ProgramCounterDelta(
+            ((target_instruction.0 as i32) - ((self.position().0 + 1) as i32)) as i16,
+        )
     }
     const fn calculate_pc_delta_bytes(&self, pc: InstructionPosition) -> [u8; 2] {
         let delta = self.calculate_pc_delta(pc);

@@ -1,0 +1,15 @@
+use core::{assert}
+use std::{print}
+
+#[test]
+fn basic_guard() {
+  i = -99
+  a =
+  | i > 3 -> 0
+  | i < 0 -> -1
+  | i == 0 -> 1
+  | i == 1 -> 2
+  | _ -> 0x0FFF_FFFF
+
+  assert(a == -1, "guard failed")
+}

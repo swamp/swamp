@@ -112,6 +112,7 @@ impl TopLevelGenState {
         let function_info = FunctionInfo {
             kind: FunctionInfoKind::Normal(main.program_unique_id as usize),
             frame_memory: variable_and_frame_memory.frame_memory,
+            return_type: variable_and_frame_memory.return_type,
             parameters: variable_and_frame_memory.parameters,
             name: "main".to_string(),
             ip_range: InstructionRange {
@@ -243,6 +244,7 @@ impl TopLevelGenState {
         let mut function_info = FunctionInfo {
             kind: in_data.kind.clone(),
             frame_memory: frame_and_variable_info.frame_memory,
+            return_type: frame_and_variable_info.return_type,
             parameters: frame_and_variable_info.parameters,
             name: in_data.assigned_name.clone(),
             ip_range: InstructionRange {
