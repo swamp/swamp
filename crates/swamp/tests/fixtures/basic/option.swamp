@@ -5,6 +5,10 @@ use std::{print}
 fn option_some() {
   a: Int? = 10
   assert(a, 'a should be Some')
+  when a {
+    assert(a == 10, 'a should be 10')
+    print('a is Some: {a}')
+  }
 }
 
 #[test]
