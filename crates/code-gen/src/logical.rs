@@ -8,8 +8,8 @@ use swamp_semantic::{
     UnaryOperator, UnaryOperatorKind,
 };
 use swamp_types::Type;
+use swamp_vm_types::types::{u32_type, Destination, TypedRegister, VmType};
 use swamp_vm_types::PatchPosition;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, u32_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn materialize_t_flag_to_bool_if_needed(
@@ -71,12 +71,27 @@ impl CodeBuilder<'_> {
         match &condition.kind {
             ExpressionKind::CoerceOptionToBool(option_union_expr) => {
                 let region = self.emit_scalar_rvalue(option_union_expr, ctx);
-                // We can shortcut this, since we know that the tag location is basically a bool value
-                self.builder.add_tst_u8(
-                    &region,
-                    &option_union_expr.node,
-                    "shortcut directly to z-flag",
+
+                let tag_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(swamp_vm_types::types::b8_type()),
+                    "temp for option tag",
                 );
+
+                let (tag_offset, ..) = region.ty.basic_type.unwrap_info().unwrap();
+                self.builder.add_ld8_from_pointer_with_offset_u16(
+                    tag_reg.register(),
+                    &region,
+                    tag_offset,
+                    &option_union_expr.node,
+                    "load option tag",
+                );
+
+                self.builder.add_tst_u8(
+                    tag_reg.register(),
+                    &option_union_expr.node,
+                    "test option tag",
+                );
+
                 return FlagState {
                     kind: FlagStateKind::TFlagIsTrueWhenSet,
                 };

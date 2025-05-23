@@ -570,7 +570,7 @@ impl CodeBuilder<'_> {
                     tag_reg.register(),
                     1,
                     node,
-                    "load the tag Some (1)",
+                    "set the tag Some (1) in register",
                 );
                 self.builder.add_st8_using_ptr_with_offset(
                     &memory_lvalue_location
@@ -590,7 +590,7 @@ impl CodeBuilder<'_> {
                     some_expression,
                     "store option payload",
                     ctx,
-                ); // Fills in more of the union
+                );
             }
         } else {
             self.builder

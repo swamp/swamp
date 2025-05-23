@@ -310,7 +310,7 @@ fn layout_mutable_reference(analyzed_type: &Type) -> BasicType {
     if analyzed_type.is_primitive() {
         // For primitives, just use the primitive type directly
         // The ABI passes primitives inside the register directly and
-        // have a copy back scheme that copies the register back afterwards.
+        // have a copy back scheme that copies the register back afterward.
         return layout_type(analyzed_type);
     }
 

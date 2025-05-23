@@ -4,7 +4,7 @@ use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::Literal;
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, VmType, int_type, string_type};
+use swamp_vm_types::types::{int_type, string_type, Destination, VmType};
 use swamp_vm_types::{HeapMemoryAddress, StringHeader};
 
 impl CodeBuilder<'_> {
@@ -83,12 +83,36 @@ impl CodeBuilder<'_> {
                 }
             },
             Literal::NoneLiteral => {
-                todo!()
-                /*
-                self.builder
-                    .add_mov8_immediate(output, 0, node, "none literal");
+                let union_info = output.ty().unwrap_info().unwrap();
 
-                 */
+                match output {
+                    Destination::Register(target_reg) => {
+                        self.builder
+                            .add_mov8_immediate(target_reg, 0, node, "none literal");
+                    }
+                    Destination::Memory(location) => {
+                        let temp_none_literal_reg = self.temp_registers.allocate(
+                            VmType::new_contained_in_register(int_type()),
+                            "temporary for none literal",
+                        );
+                        self.builder.add_mov8_immediate(
+                            temp_none_literal_reg.register(),
+                            0,
+                            node,
+                            "none literal",
+                        );
+
+                        self.builder.add_st8_using_ptr_with_offset(
+                            location,
+                            temp_none_literal_reg.register(),
+                            node,
+                            "copy none literal into destination memory",
+                        );
+                    }
+                    Destination::Unit => {
+                        panic!("none can not materialize into nothing")
+                    }
+                }
             }
             Literal::BoolLiteral(truthy) => match output {
                 Destination::Register(target_reg) => {
