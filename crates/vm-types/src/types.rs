@@ -9,7 +9,6 @@ use crate::{
 };
 use seq_fmt::comma;
 use std::fmt::{Debug, Display, Formatter, Write};
-use std::thread::Builder;
 use tracing::error;
 use yansi::Paint;
 
@@ -817,16 +816,16 @@ pub enum RValueOrLValue {
 impl RValueOrLValue {}
 
 impl RValueOrLValue {
-    pub fn grab_rvalue(&self) -> &TypedRegister {
+    #[must_use] pub const fn grab_rvalue(&self) -> &TypedRegister {
         self.rvalue().unwrap()
     }
 }
 
 impl RValueOrLValue {
-    pub fn rvalue(&self) -> Option<&TypedRegister> {
+    #[must_use] pub const fn rvalue(&self) -> Option<&TypedRegister> {
         match self {
-            RValueOrLValue::Scalar(reg) => Some(reg),
-            RValueOrLValue::Memory(_) => None,
+            Self::Scalar(reg) => Some(reg),
+            Self::Memory(_) => None,
         }
     }
 }

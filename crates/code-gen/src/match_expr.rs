@@ -28,7 +28,7 @@ impl CodeBuilder<'_> {
 
         self.builder.add_ld8_from_pointer_with_offset_u16(
             enum_tag_temp_reg.register(),
-            &enum_ptr_reg.grab_rvalue(),
+            enum_ptr_reg.grab_rvalue(),
             MemoryOffset(0), // TODO: take offset from tag union info
             match_expr.expression.node(),
             "read enum tag",
