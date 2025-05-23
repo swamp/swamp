@@ -61,7 +61,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         signature: &Signature,
         self_variable: Option<&TypedRegister>,
-        arguments: &Vec<MutRefOrImmutableExpression>,
+        arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
     ) -> (Vec<SpilledRegister>, Vec<MutableReturnReg>) {
         let mut copy_back_mutable_reg_pairs: Vec<MutableReturnReg> = Vec::new();
@@ -199,10 +199,11 @@ impl CodeBuilder<'_> {
                                     {
                                         existing_reg.clone()
                                     } else {
-                                        let temp_reg = self.temp_registers.allocate(
-                                            mem_location.base_ptr_reg.ty.clone(),
-                                            "save struct pointer for copy-back",
-                                        );
+                                        let temp_reg =
+                                            self.temp_registers.allocate_pinned_register(
+                                                mem_location.base_ptr_reg.ty.clone(),
+                                                "save base pointer for copy-back",
+                                            );
 
                                         self.builder.add_mov_reg(
                                             temp_reg.register(),
@@ -211,12 +212,55 @@ impl CodeBuilder<'_> {
                                             "save base ptr before overwriting registers",
                                         );
 
+                                        let save_region = self.temp_frame_space_for_register(
+                                            "emit_arguments_saved_base_ptr",
+                                        );
+
+                                        self.builder.add_st_regs_to_frame(
+                                            save_region.addr,
+                                            temp_reg.register(),
+                                            1,
+                                            node,
+                                            &format!("spill saved base pointer register to stack memory {:?}", temp_reg.register()),
+                                        );
+
+                                        let spilled_reg = SpilledRegister {
+                                            register: temp_reg.register().clone(),
+                                            frame_memory_region: save_region,
+                                        };
+                                        spilled_arguments.push(spilled_reg);
+
                                         saved_base_ptr_cache
                                             .insert(cache_key, temp_reg.register().clone())
                                             .unwrap();
 
                                         temp_reg.register().clone()
                                     };
+
+                                    // Registers for the cache must be pinned
+                                    self.temp_registers.pin_register(&saved_reg);
+
+                                    // TODO: @performance. Maybe accumulate add_st_regs_to_frame.
+                                    if !spilled_arguments
+                                        .iter()
+                                        .any(|a| a.register.index == saved_reg.index)
+                                    {
+                                        let save_region = self.temp_frame_space_for_register(
+                                            "emit_arguments_cached_base_ptr",
+                                        );
+                                        self.builder.add_st_regs_to_frame(
+                                            save_region.addr,
+                                            &saved_reg,
+                                            1,
+                                            node,
+                                            &format!("spill cached base pointer register to stack memory {saved_reg:?}"),
+                                        );
+
+                                        spilled_arguments.push(SpilledRegister {
+                                            register: saved_reg.clone(),
+                                            frame_memory_region: save_region,
+                                        });
+                                    }
 
                                     self.builder.add_load_primitive(
                                         &argument_register,
@@ -260,7 +304,6 @@ impl CodeBuilder<'_> {
 
                         if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
                             if let Some((saved_reg, offset)) = saved_base_ptr {
-                                // Set up copy-back using the saved base pointer and correct offset
                                 copy_back_mutable_reg_pairs.push(MutableReturnReg {
                                     target_location_after_call: Destination::Memory(
                                         MemoryLocation {
@@ -310,7 +353,10 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        let mut registers_to_unpin = Vec::new();
+
         for copy_back in copy_back {
+            // TODO: add a helper function, maybe called `copy_back_to_memory_or_reg` or similar.
             match &copy_back.target_location_after_call {
                 Destination::Register(reg) => {
                     self.builder.add_mov_reg(
@@ -321,20 +367,46 @@ impl CodeBuilder<'_> {
                     );
                 }
                 Destination::Memory(memory_location) => {
+                    match memory_location.ty.basic_type.kind {
+                        BasicTypeKind::U8 | BasicTypeKind::B8 => {
+                            self.builder.add_st8_using_ptr_with_offset(
+                                memory_location,
+                                &copy_back.parameter_reg,
+                                node,
+                                &format!(
+                                    "copy byte return value from {} to memory destination",
+                                    copy_back.parameter_reg
+                                ),
+                            );
+                        }
+                        _ => {
+                            self.builder.add_st32_using_ptr_with_offset(
+                                memory_location,
+                                &copy_back.parameter_reg,
+                                node,
+                                &format!(
+                                    "copy return value from {} to memory destination",
+                                    copy_back.parameter_reg
+                                ),
+                            );
+                        }
+                    }
                     // For memory destinations, store the return value from r0 to the memory location
-                    self.builder.add_st32_using_ptr_with_offset(
-                        memory_location,
-                        &copy_back.parameter_reg,
-                        node,
-                        "copy return value from r0 to memory destination",
-                    );
+
+                    registers_to_unpin.push(memory_location.base_ptr_reg.clone());
                 }
                 Destination::Unit => {
                     panic!("should not happen")
                 }
             }
         }
+
         self.emit_restore_spilled_registers(spilled_arguments, node, comment);
+
+        // all copy operations are complete at this point, unpin all registers
+        for reg in registers_to_unpin {
+            self.temp_registers.unpin_register(&reg);
+        }
     }
 
     pub fn emit_restore_spilled_registers(
