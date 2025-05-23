@@ -3,6 +3,7 @@ use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression, WhenBinding};
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
+use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_when(
@@ -68,31 +69,44 @@ impl CodeBuilder<'_> {
                 else {
                     panic!("must be expression");
                 };
-                let old_variable_region = self.emit_scalar_rvalue(variable_access_expression, ctx);
+                let optional_tagged_union_reg =
+                    self.emit_scalar_rvalue(variable_access_expression, ctx);
 
-                let tagged_union_binding = old_variable_region.ty.underlying();
+                let tagged_union_binding = optional_tagged_union_reg.ty.underlying();
                 let tagged_union = tagged_union_binding.optional_info().unwrap();
 
-                self.emit_load_from_memory(
-                    &target_binding_variable_reg,
-                    &old_variable_region,
-                    tagged_union.payload_offset,
-                    &target_binding_variable_reg.ty,
-                    binding.expr.node(),
-                    "load payload into binding variable",
-                );
+                // Optional Tagged Union Payload is grabbed.
+                // if it is aggregate type, we block copy it,
+                // if it is a primitive we load it into a register
+                if target_binding_variable_reg
+                    .ty
+                    .is_represented_as_pointer_inside_register()
+                {
+                    // get the location of the variable
+                    let target_memory_location = MemoryLocation {
+                        ty: target_binding_variable_reg.ty.clone(),
+                        base_ptr_reg: target_binding_variable_reg,
+                        offset: MemoryOffset(0),
+                    };
 
-                /*
-                self.builder.add_block_copy_with_offset(
-                    &memory_location,
-                    &old_variable_region,
-                    tagged_union.payload_offset,
-                    tagged_union.tag_size,
-                    binding.expr.node(),
-                    "copy in the payload. Unwrap.",
-                );
-
-                 */
+                    self.builder.add_block_copy_with_offset(
+                        &target_memory_location,
+                        &optional_tagged_union_reg,
+                        tagged_union.payload_offset,
+                        target_memory_location.ty.basic_type.total_size,
+                        binding.expr.node(),
+                        "load payload into binding variable",
+                    );
+                } else {
+                    self.emit_load_from_memory(
+                        &target_binding_variable_reg,
+                        &optional_tagged_union_reg,
+                        tagged_union.payload_offset,
+                        &target_binding_variable_reg.ty,
+                        binding.expr.node(),
+                        "load payload into binding variable",
+                    );
+                }
             }
         }
 

@@ -73,7 +73,7 @@ fn when_in_when_no_attacker() {
     }
 }
 
-//#[test] TODO: not working yet
+//#[test] // TODO: not working yet
 fn when_in_when_some() {
     unit: Unit? = Unit {
       attacker: Attacker {
@@ -92,8 +92,20 @@ fn when_in_when_some() {
 }
 
 
-#[test]
+
 fn option_param(unit: Unit?) {
   when unit {
+    print('found unit: {unit}')
   }
+}
+
+#[test]
+fn call_option_param() {
+  unit: Unit? = Unit {
+    attacker: Attacker {
+      health: 100
+    }
+  }
+
+  option_param(unit)
 }
