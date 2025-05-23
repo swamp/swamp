@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use swamp_test_runner::{TestRunOptions, run_tests};
 
 #[must_use]
 pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
@@ -14,4 +15,18 @@ pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
 }
 
 #[test_log::test]
-fn very_basic() {}
+fn very_basic() {
+    let test_dir = get_fixture_dir(&["basic"]);
+    let result = run_tests(
+        &test_dir,
+        &TestRunOptions {
+            should_run: true,
+            print_output: false,
+            iteration_count: 32,
+            debug_output: false,
+            debug_opcodes: false,
+        },
+        "",
+    );
+    assert!(result.failed_tests.is_empty());
+}

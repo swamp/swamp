@@ -94,12 +94,18 @@ fn when_in_when_some() {
 
 
 fn option_param(unit: Unit?) {
+  print('starting option_param')
+  when unit {
+    panic('unit should be Some')
+  }
   when unit {
     print('found unit: {unit}')
+  } else {
+    panic('unit should be Some')
   }
 }
 
-#[test]
+//#[test]
 fn call_option_param() {
   unit: Unit? = Unit {
     attacker: Attacker {

@@ -104,7 +104,8 @@ pub fn init_logger() {
         .init();
 }
 
-struct TestInfo {
+#[derive(Clone)]
+pub struct TestInfo {
     pub name: String,
 }
 impl Display for TestInfo {
@@ -113,9 +114,14 @@ impl Display for TestInfo {
     }
 }
 
+pub struct TestResult {
+    pub passed_tests: Vec<TestInfo>,
+    pub failed_tests: Vec<TestInfo>,
+}
+
 /// # Panics
 #[allow(clippy::too_many_lines)]
-pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) {
+pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> TestResult {
     let crate_main_path = &["crate".to_string(), "lib".to_string()];
     let code_gen_result = swamp_runtime::compile_and_run(test_dir, crate_main_path);
     let mut vm = swamp_runtime::create_vm_with_standard_settings(
@@ -222,14 +228,19 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) {
 
         if fail_count > 0 {
             println!("failing tests:");
-            for test in panic_tests {
+            for test in &panic_tests {
                 println!("- {test}");
             }
-            for test in trap_tests {
+            for test in &trap_tests {
                 println!("- {test}");
             }
         }
 
         eprintln!("vm stats {:?}", vm.debug);
+    }
+    let failed_tests = [trap_tests, panic_tests].concat();
+    TestResult {
+        passed_tests,
+        failed_tests,
     }
 }
