@@ -469,6 +469,13 @@ impl Vm {
                 let operands = instruction.operands;
                 eprint!("> {:04X}: ", self.pc);
                 self.debug_opcode(opcode, &operands);
+
+                let regs = [0, 1, 2, 3, 4, 128, 129, 130];
+
+                for reg in regs {
+                    eprint!("{reg}: {:04X}, ", self.registers[reg]);
+                }
+                eprintln!();
             }
 
             #[cfg(feature = "debug_vm")]
@@ -1078,7 +1085,6 @@ impl Vm {
         let offset = u8s_to_u16!(a, b);
         let const_reg_ptr = &self.registers[start_reg as usize] as *const u32;
         let target_ptr = self.memory.get_frame_ptr_as_u32(offset);
-        //        eprintln!("stmtf {start_reg}:{count} -> {offset}");
         unsafe {
             ptr::copy_nonoverlapping(const_reg_ptr, target_ptr, count as usize);
         }
