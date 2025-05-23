@@ -2,7 +2,7 @@ use core::{assert}
 use std::{print}
 
 #[test]
-fn option() {
+fn option_some() {
   a: Int? = 10
   assert(a, 'a should be Some')
 }
@@ -11,4 +11,30 @@ fn option() {
 fn option_none() {
   a: Int? = none
   assert(!a, 'a should be None')
+}
+
+
+struct Attacker {
+  health: Int,
+}
+
+struct Unit {
+  attacker: Attacker?
+}
+
+#[test]
+fn when_in_when() {
+    unit: Unit? = none
+
+    when unit {
+      when unit.attacker {
+      }
+    }
+}
+
+
+#[test]
+fn option_param(unit: Unit?) {
+  when unit {
+  }
 }
