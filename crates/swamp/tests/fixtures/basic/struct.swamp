@@ -182,3 +182,62 @@ fn test_multiple_field_refs() {
   assert(point.x == 42 && point.y == 43, "multiple field refs failed")
 }
 
+
+fn swap_values(mut a: Int, mut b: Int) {
+  temp = a
+  a = b
+  b = temp
+}
+
+#[test]
+fn test_swap_fields() {
+  mut point = Point { x: 10, y: 20 }
+  print('before swap: x:{point.x}, y:{point.y}')
+  swap_values(&point.x, &point.y)
+  print('after swamp: x:{point.x}, y:{point.y}')
+  assert(point.x == 20 && point.y == 10, "swapping via refs failed")
+}
+
+
+fn add_to_value(mut value: Int, amount: Int) {
+  value += amount
+}
+
+fn subtract_from_value(mut value: Int, amount: Int) {
+  value -= amount
+}
+
+#[test]
+fn test_compound_assignments() {
+  mut point = Point { x: 10, y: 20 }
+  add_to_value(&point.x, 5)
+  subtract_from_value(&point.y, 7)
+  assert(point.x == 15, "compound add failed")
+  assert(point.y == 13, "compound subtract failed")
+}
+
+
+struct Mixed {
+  num: Int,
+  flag: Bool,
+  text: String
+}
+
+fn toggle_flag(mut flag: Bool) {
+  print('toggle_flag: before toggling: {flag}')
+  flag = !flag
+  print('toggle_flag: after toggling: {flag}')
+}
+
+/// This uncovered that there was a need for a longer reserve time for certain registers that
+/// were used for copy back of primtive types. Introduced a pin for registers in the register pool.
+#[test]
+fn test_mixed_type_refs() {
+  mut mixed = Mixed { num: 42, flag: false, text: "hello" }
+
+  print('before toggle: {mixed.flag}')
+  toggle_flag(&mixed.flag)
+  print('after toggle: {mixed.flag}')
+
+  assert(mixed.flag == true, "bool ref update failed")
+}
