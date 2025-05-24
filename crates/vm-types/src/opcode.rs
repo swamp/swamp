@@ -187,8 +187,7 @@ impl OpCode {
             Self::Brk => "brk",
 
             // Integer arithmetic
-            Self::AddU32 => "add",
-            Self::AddU32Imm => "add",
+            Self::AddU32 | Self::AddU32Imm => "add",
             Self::MulU32 => "mul",
             Self::SubU32 => "sub",
 
@@ -211,8 +210,7 @@ impl OpCode {
             Self::LtU32 => "lt",
 
             // Byte/memory comparisons
-            Self::Eq8Imm => "cmp",
-            Self::CmpReg => "cmp",
+            Self::Eq8Imm | Self::CmpReg => "cmp",
             Self::CmpBlock => "cmpblk",
             Self::MovToTFlagFromReg => "tst",
             Self::FrameMemClr => "memclrf",
@@ -233,23 +231,22 @@ impl OpCode {
             Self::Ret => "ret",
 
             // Move
-            Self::MovReg => "mov",
             Self::BlockCopyWithOffsets | Self::BlockCopy => "blkcpy",
             Self::LdPtrFromEffectiveAddress | Self::LoadEffectiveAddressIndexMultiplier => "lea",
 
             // Load
             Self::Mov8FromImmediateValue => "movb",
             Self::Mov16FromImmediateValue => "movh",
-            Self::Mov32FromImmediateValue => "mov",
+            Self::MovReg | Self::Mov32FromImmediateValue => "mov",
 
-            Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ldrb",
-            Self::Ld16FromPointerWithOffset => "ldrh",
-            Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ldr",
+            Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ldb",
+            Self::Ld16FromPointerWithOffset => "ldh",
+            Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ld",
             Self::LdRegFromFrame => "ldmf",
 
-            Self::St32UsingPtrWithOffset => "str",
-            Self::St16UsingPtrWithOffset => "strh",
-            Self::St8UsingPtrWithOffset => "strb",
+            Self::St32UsingPtrWithOffset => "st",
+            Self::St16UsingPtrWithOffset => "sth",
+            Self::St8UsingPtrWithOffset => "stb",
             Self::StRegToFrame => "stmf",
 
             // Float functions
@@ -293,7 +290,7 @@ impl OpCode {
             Self::RangeIterNext => "ritern",
 
             // Vec
-            Self::VecInitWithLenAndCapacityAddr => "vfrom",
+            Self::VecInitWithLenAndCapacityAddr => "vinit",
             Self::VecPushAddr => "vpush",
             Self::VecIterInit => "viter",
             Self::VecIterNext => "vitern",

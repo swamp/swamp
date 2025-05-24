@@ -1214,6 +1214,7 @@ impl<'a> Analyzer<'a> {
         let mut suffixes = Vec::new();
 
         for item in &chain.postfixes[start_index..] {
+            info!(?tv, "postfix");
             match item {
                 swamp_ast::Postfix::FieldAccess(field_name) => {
                     let (struct_type_ref, index, return_type) =
@@ -3542,6 +3543,22 @@ impl<'a> Analyzer<'a> {
             }
         }
 
+        if let Type::VecStorage(vec_element_type, vec_capacity) = encountered_type {
+            if let Type::DynamicSlice(slice_element_type) = &expected_type {
+                if vec_element_type.compatible_with(slice_element_type) {
+                    return Ok(expr);
+                } else {
+                    panic!(
+                        "{}",
+                        format!(
+                            "types are not the same {vec_element_type} slice {slice_element_type}"
+                        )
+                    );
+                }
+                //  TODO : Add better error message
+            }
+        }
+
         if let Type::MapStorage(storage_key, storage_value, _) = expected_type {
             if let Type::DynamicSlicePair(slice_key, slice_value) = &encountered_type {
                 if slice_key.compatible_with(storage_key)
@@ -3581,6 +3598,7 @@ impl<'a> Analyzer<'a> {
             }
         }
 
+        error!(?expected_type, ?encountered_type, "incompatible");
         Err(self.create_err(
             ErrorKind::IncompatibleTypes {
                 expected: expected_type.clone(),

@@ -4,9 +4,9 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
-use crate::VmState::Normal;
 use fixed32::Fp;
 use seq_map::SeqMap;
 use std::ptr;
@@ -253,6 +253,9 @@ impl Vm {
         vm.handlers[OpCode::LdPtrFromEffectiveAddress as usize] =
             HandlerType::Args3(Self::execute_lea);
 
+        vm.handlers[OpCode::Ld32FromAbsoluteAddress as usize] =
+            HandlerType::Args5(Self::execute_ldw_from_absolute_address);
+
         vm.handlers[OpCode::LoadEffectiveAddressIndexMultiplier as usize] =
             HandlerType::Args7(Self::execute_lea_base_ptr_offset_index_element_size);
 
@@ -381,7 +384,7 @@ impl Vm {
 
         // Vec
         vm.handlers[OpCode::VecInitWithLenAndCapacityAddr as usize] =
-            HandlerType::Args6(Self::execute_vec_from_slice);
+            HandlerType::Args6(Self::execute_vec_init);
         vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args2(Self::execute_vec_iter_init);
         vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args3(Self::execute_vec_iter_next);
         vm.handlers[OpCode::VecIterNextPair as usize] =
@@ -1169,6 +1172,24 @@ impl Vm {
         let offset = u8s_to_u16!(offset_lower, offset_upper);
         let ptr_to_read_from =
             self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset) as *const u32;
+        unsafe {
+            set_reg!(self, dst_reg, *ptr_to_read_from);
+        }
+    }
+
+    #[inline]
+    fn execute_ldw_from_absolute_address(
+        &mut self,
+        dst_reg: u8,
+        addr_0: u8,
+        addr_1: u8,
+        addr_2: u8,
+        addr_3: u8,
+    ) {
+        let absolute_addr = u32_from_u8s!(addr_0, addr_1, addr_2, addr_3);
+
+        let ptr_to_read_from = self.memory.get_heap_const_ptr(absolute_addr as usize) as *const u32;
+
         unsafe {
             set_reg!(self, dst_reg, *ptr_to_read_from);
         }

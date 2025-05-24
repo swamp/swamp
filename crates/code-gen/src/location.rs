@@ -123,7 +123,7 @@ impl CodeBuilder<'_> {
             &index_int_reg,
             &reg_to_use_for_upper_bound,
             node,
-            &format!("check if it is >= capacity {comment}"),
+            &format!("check if it is >= len {comment}"),
         );
         let patch = self
             .builder

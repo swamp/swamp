@@ -14,7 +14,7 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_vec_from_slice(
+    pub fn execute_vec_init(
         &mut self,
         target_vec_ptr_reg: u8,
         element_ptr_reg: u8,
@@ -28,8 +28,8 @@ impl Vm {
         let len = u16_from_u8s!(len_lower, len_upper);
         let capacity = u16_from_u8s!(capacity_lower, capacity_upper);
         unsafe {
-            (*mut_vec_ptr).capacity = capacity;
             (*mut_vec_ptr).count = len;
+            (*mut_vec_ptr).capacity = capacity;
         }
 
         let element_addr = vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32;

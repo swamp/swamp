@@ -10,6 +10,7 @@ use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionId};
 use swamp_vm::{Vm, VmSetup, VmState};
+use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::{BinaryInstruction, StackMemoryAddress};
 
 pub struct RunConstantsOptions {
@@ -28,15 +29,38 @@ pub fn run_constants_in_order(
     mut options: RunConstantsOptions,
 ) {
     for (_key, constant) in constants_in_order {
-        //info!(?constant.constant_ref, "ordered constant");
         // do not reset heap, all allocations from heap should remain (for now)
-        // TODO: compact the heap after each constant
         vm.reset_frame();
-        unsafe {
-            // Place pointer in return
-            *(vm.memory_mut().get_frame_ptr_as_u32(0)) = constant.target_constant_memory.addr().0;
+
+        if constant
+            .target_constant_memory
+            .ty()
+            .can_be_contained_inside_register()
+        {
+        } else {
+            // set memory location into to r0
+            vm.registers[0] = constant.target_constant_memory.addr().0;
         }
         vm.execute_from_ip(&constant.ip_range.start);
+
+        if constant
+            .target_constant_memory
+            .ty()
+            .can_be_contained_inside_register()
+        {
+            match constant.target_constant_memory.ty().kind {
+                BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
+                    let heap_ptr = vm
+                        .memory_mut()
+                        .get_heap_ptr(constant.target_constant_memory.addr().0 as usize)
+                        as *mut u32;
+                    unsafe {
+                        *heap_ptr = vm.registers[0];
+                    }
+                }
+                _ => todo!(),
+            }
+        }
 
         vm.protect_heap_up_to_current_allocator();
 

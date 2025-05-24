@@ -288,3 +288,24 @@ fn conditional_updates() {
   assert(point.x == 100, "conditional modified x")
   assert(point.y == 20, "conditional update false should not change")
 }
+
+
+#[test]
+fn rest_operator() {
+  mut point = Point {
+    x: 10
+    ..
+  }
+  assert(point.x == 10, "x value is wrong")
+  assert(point.y == 0, "y value is wrong")
+}
+
+#[test]
+fn rest_operator_again() {
+  mut point = Point {
+    y: 20
+    ..
+  }
+  assert(point.x == 0, "x value is wrong")
+  assert(point.y == 20, "y value is wrong")
+}

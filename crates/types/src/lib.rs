@@ -528,7 +528,11 @@ impl Debug for Type {
             Self::Never => write!(f, "!"),
             Self::Tuple(tuple_type_ref) => write!(f, "( {tuple_type_ref:?} )"),
             Self::NamedStruct(struct_type_ref) => {
-                write!(f, "{}", struct_type_ref.assigned_name)
+                write!(
+                    f,
+                    "{} {:?}",
+                    struct_type_ref.assigned_name, struct_type_ref.anon_struct_type
+                )
             }
             Self::AnonymousStruct(anonymous_struct_type) => {
                 write!(f, "{anonymous_struct_type:?}")
@@ -655,11 +659,16 @@ impl Type {
             (Self::Vec(vec_element), Self::VecStorage(storage_element, _size)) => {
                 vec_element.compatible_with(storage_element)
             }
+
             // TODO: These are not technically the same, so it should probably be in a can_be_converted from, in a special
             // analyze_assignment_like() helper
             (Self::VecStorage(storage_element, _size), Self::Vec(vec_element)) => {
                 vec_element.compatible_with(storage_element)
             }
+            (
+                Self::VecStorage(storage_element, size),
+                Self::VecStorage(vec_element, other_size),
+            ) => vec_element.compatible_with(storage_element) && size == other_size,
 
             (Self::Enum(a), Self::Enum(b)) => a == b,
 
