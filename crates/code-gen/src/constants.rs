@@ -84,6 +84,7 @@ impl ConstantsManager {
 
     #[must_use]
     pub fn take_data(self) -> Vec<u8> {
-        self.data[..self.allocator.current_addr as usize].to_vec()
+        let safe_size = align(self.allocator.current_addr as usize, SAFE_ALIGNMENT);
+        self.data[..safe_size].to_vec()
     }
 }
