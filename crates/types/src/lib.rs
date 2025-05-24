@@ -30,6 +30,7 @@ pub enum Type {
     Tuple(Vec<Type>),
     NamedStruct(NamedStructType),
     AnonymousStruct(AnonymousStructType),
+    Range(AnonymousStructType),
 
     Enum(EnumType),
 
@@ -46,6 +47,7 @@ pub enum Type {
 
     VecStorage(Box<Type>, usize),
     Vec(Box<Type>),
+
     MapStorage(Box<Type>, Box<Type>, usize),
     Map(Box<Type>, Box<Type>),
 }
@@ -61,7 +63,8 @@ impl Type {
     #[must_use]
     pub fn lowest_common_denominator(&self) -> Self {
         match self {
-            Self::VecStorage(inner, _size) => Self::Vec(Box::from(*inner.clone())),
+            Self::VecStorage(inner, _size) => Self::DynamicSlice(inner.clone()), //Self::Vec(Box::from(*inner.clone())),
+            Self::Vec(inner) => Self::DynamicSlice(inner.clone()),
             _ => self.clone(),
         }
     }
@@ -146,13 +149,8 @@ impl Type {
     #[must_use]
     pub fn primary_element_type(&self) -> Option<&Self> {
         match self {
-            Self::NamedStruct(ns) => {
-                if ns.is_vec() || ns.is_stack() {
-                    Some(&ns.instantiated_type_parameters[0])
-                } else {
-                    None
-                }
-            }
+            Self::Vec(element_type) => Some(element_type),
+
             Self::MutableReference(inner) => inner.primary_element_type(),
             _ => None,
         }
@@ -346,6 +344,8 @@ impl Type {
             Self::Float | Self::Int | Self::String | Self::Bool => true,
             Self::DynamicSlicePair(a, b) => a.is_concrete() && b.is_concrete(),
 
+            Self::Range(_) => true,
+
             Self::Optional(inner)
             | Self::MutableReference(inner)
             | Self::ImmutableReference(inner)
@@ -415,6 +415,7 @@ impl Type {
 
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
+            Self::Range(_) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
@@ -456,7 +457,7 @@ impl Type {
 
     #[must_use]
     pub fn can_be_stored_in_variable(&self) -> bool {
-        self.is_concrete()
+        self.is_concrete() || matches!(self, Self::Vec(_))
     }
 
     // TODO: Fix this
@@ -489,6 +490,7 @@ impl Type {
 
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
+            Self::Range(_) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
@@ -523,6 +525,7 @@ impl Debug for Type {
             Self::Int => write!(f, "Int"),
             Self::Float => write!(f, "Float"),
             Self::String => write!(f, "String"),
+            Self::Range(_) => write!(f, "Range"),
             Self::Bool => write!(f, "Bool"),
             Self::Unit => write!(f, "()"),
             Self::Never => write!(f, "!"),
@@ -580,6 +583,7 @@ impl Display for Type {
             Self::Float => write!(f, "Float"),
             Self::String => write!(f, "String"),
             Self::Bool => write!(f, "Bool"),
+            Self::Range(_) => write!(f, "Range"),
             Self::Unit => write!(f, "()"),
             Self::Never => write!(f, "!"),
             Self::Tuple(tuple) => write!(f, "({})", comma(tuple)),
@@ -654,12 +658,17 @@ impl Type {
             | (Self::Bool, Self::Bool)
             | (Self::Unit, Self::Unit) => true,
 
-            (Self::Vec(element_a), Self::Vec(element_b)) => element_a.compatible_with(element_b),
+            (Self::DynamicSlice(a), Self::DynamicSlice(b)) => {
+                a.compatible_with(b)
+            }
+            (Self::DynamicSlice(a), Self::Vec(b)) => {
+                a.compatible_with(b)
+            }
 
+            (Self::Vec(element_a), Self::Vec(element_b)) => element_a.compatible_with(element_b),
             (Self::Vec(vec_element), Self::VecStorage(storage_element, _size)) => {
                 vec_element.compatible_with(storage_element)
             }
-
             // TODO: These are not technically the same, so it should probably be in a can_be_converted from, in a special
             // analyze_assignment_like() helper
             (Self::VecStorage(storage_element, _size), Self::Vec(vec_element)) => {
@@ -1134,8 +1143,7 @@ pub fn all_types_are_concrete_or_unit(types: &[Type]) -> bool {
 #[must_use]
 pub fn all_types_are_variables(types: &[Type]) -> bool {
     for ty in types {
-        if let Type::Variable(_) = ty {
-        } else {
+        if let Type::Variable(_) = ty {} else {
             return false;
         }
     }

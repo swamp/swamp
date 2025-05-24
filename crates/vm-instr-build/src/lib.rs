@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
+    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
 };
 use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta};
 
@@ -121,6 +121,8 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
     temp_reg: u8,
 }
+
+impl<'a> InstructionBuilder<'a> {}
 
 impl InstructionBuilder<'_> {}
 
@@ -407,7 +409,7 @@ impl InstructionBuilder<'_> {
             "jump over trap if len within capacity bounds",
         );
         self.builder.add_trap(5, node, "out of capacity trap");
-        self.builder.patch_jump_here(patch);*/
+        self.builder.add_patch_jump_here(patch);*/
 
         /*
         assert!(
@@ -517,6 +519,7 @@ impl InstructionBuilder<'_> {
             &[
                 iterator_target.addressing(),
                 closure_variable.addressing(),
+                0,
                 0,
             ],
             node,
@@ -1033,6 +1036,20 @@ impl InstructionBuilder<'_> {
         PatchPosition(position)
     }
 
+    pub fn add_range_init(&mut self, target_range_iterator: &TypedRegister, min_reg: &TypedRegister, max_reg: &TypedRegister, is_inclusive_reg: &TypedRegister, node: &Node, comment: &str) {
+        self.state.add_instruction(
+            OpCode::RangeInit,
+            &[
+                target_range_iterator.addressing(),
+                min_reg.addressing(),
+                max_reg.addressing(),
+                is_inclusive_reg.addressing(),
+            ],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_range_iter_next_placeholder(
         &mut self,
         iterator_target: &TypedRegister,
@@ -1047,6 +1064,7 @@ impl InstructionBuilder<'_> {
             &[
                 iterator_target.addressing(),
                 closure_variable.addressing(),
+                0,
                 0,
             ],
             node,
@@ -1102,15 +1120,13 @@ impl InstructionBuilder<'_> {
     pub fn add_vec_create(
         &mut self,
         mut_self_addr: &TypedRegister,
-        element_byte_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
-        let bytes = Self::u16_to_octets(element_byte_size.0);
         // assert_ne!(element_byte_size.0, 0); // TODO: Bring this back
         self.state.add_instruction(
             OpCode::VecCreate,
-            &[mut_self_addr.addressing(), bytes.0, bytes.1],
+            &[mut_self_addr.addressing()],
             node,
             comment,
         );

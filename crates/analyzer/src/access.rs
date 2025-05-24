@@ -7,6 +7,7 @@ use crate::TypeContext;
 use crate::err::Error;
 use swamp_semantic::Literal::BoolLiteral;
 use swamp_semantic::{Expression, ExpressionKind, Function, MutRefOrImmutableExpression};
+use swamp_semantic::intr::IntrinsicFunction;
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
@@ -49,28 +50,31 @@ impl Analyzer<'_> {
     ) -> Result<Expression, Error> {
         let (min, max) = self.analyze_min_max_expr(min_expr, max_expr)?;
 
-        let range_type = self
+        let range_anonymous_struct_type = self
             .shared
             .core_symbol_table
-            .get_type("Range")
+            .get_struct("Range")
             .unwrap()
             .clone();
+            
+ 
 
+        let range_type = Type::Range(range_anonymous_struct_type.anon_struct_type);
         let is_inclusive = matches!(mode, swamp_ast::RangeMode::Inclusive);
 
         let bool_expr_kind = ExpressionKind::Literal(BoolLiteral(is_inclusive));
         let bool_expr = self.create_expr(bool_expr_kind, Type::Bool, ast_node);
 
-        let call_kind = self.create_static_member_call(
-            "new",
-            &[
+        let call_kind = ExpressionKind::IntrinsicCallEx(
+            IntrinsicFunction::RangeInit,
+            Vec::from(&[
                 MutRefOrImmutableExpression::Expression(min),
                 MutRefOrImmutableExpression::Expression(max),
                 MutRefOrImmutableExpression::Expression(bool_expr),
-            ],
-            ast_node,
-            &range_type,
-        )?;
+            ])
+            //ast_node,
+            //&range_type,
+        );
 
         Ok(self.create_expr(call_kind, range_type, ast_node))
     }

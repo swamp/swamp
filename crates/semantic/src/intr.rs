@@ -115,6 +115,7 @@ pub enum IntrinsicFunction {
     Float2Magnitude,
 
     RuntimePanic,
+    RangeInit,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -233,6 +234,7 @@ impl fmt::Display for IntrinsicFunction {
             // Other
             Self::Float2Magnitude => "float2_magnitude",
             Self::RuntimePanic => "runtime_panic",
+            Self::RangeInit => "rinit",
         };
 
         write!(f, "{name}")

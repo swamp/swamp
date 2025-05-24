@@ -173,6 +173,7 @@ pub enum OpCode {
     HostCall, // calls back into host
     AddU32Imm,
     LoadEffectiveAddressIndexMultiplier,
+    RangeInit,
 }
 
 impl OpCode {
@@ -286,6 +287,7 @@ impl OpCode {
             Self::SlicePairFromHeap => "slicepf",
 
             // Range
+            Self::RangeInit => "rinit",
             Self::RangeIterInit => "riter",
             Self::RangeIterNext => "ritern",
 

@@ -10,11 +10,11 @@ use std::cmp::PartialEq;
 use std::fmt::Write;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
-    BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
-    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, FramePlacedType, PathInfo,
-    TypedRegister, b8_type, bytes_type, float_type, int_type, map_iter_type, map_type,
-    pointer_type_again, range_iter_type, range_type, slice_type, string_type, u8_type, u32_type,
-    vec_iter_type, vec_type,
+    b8_type, bytes_type, float_type, int_type,
+    map_iter_type, map_type, pointer_type_again, range_iter_type, range_type,
+    slice_type, string_type, u32_type, u8_type, vec_iter_type, vec_type, BasicType,
+    DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind, DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, FramePlacedType,
+    PathInfo, TypedRegister,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, HeapMemoryAddress, InstructionPosition,
@@ -73,7 +73,7 @@ pub fn disasm_instructions_color(
                     tinter::green("|"),
                     convert_tabs_to_spaces(line),
                 )
-                .expect("TODO: panic message");
+                    .expect("TODO: panic message");
             }
 
             expected_next_row_to_show = found.row + 1;
@@ -90,7 +90,7 @@ pub fn disasm_instructions_color(
                 &InstructionPosition(absolute_pc)
             )
         )
-        .expect("TODO: panic message");
+            .expect("TODO: panic message");
     }
 
     string
@@ -220,7 +220,7 @@ pub fn disasm_color(
                 format!("{}{:04X}", "hex:", data.0),
             ),
             DecoratedOperandAccessKind::ImmediateU32(data) => (
-                format!("{}", tinter::magenta(format!("0x{data:X}",))),
+                format!("{}", tinter::magenta(format!("0x{data:X}", ))),
                 format!(
                     "{}{} {}{}",
                     "int:",
@@ -230,7 +230,7 @@ pub fn disasm_color(
                 ),
             ),
             DecoratedOperandAccessKind::ImmediateU16(data) => (
-                format!("{}", tinter::magenta(format!("0x{data:X}",))),
+                format!("{}", tinter::magenta(format!("0x{data:X}", ))),
                 format!("{}{}", "int:", i32::from(*data)),
             ),
             DecoratedOperandAccessKind::ImmediateU8(data) => (
@@ -238,19 +238,19 @@ pub fn disasm_color(
                 format!("{}{}", "int:", *data as i8),
             ),
             DecoratedOperandAccessKind::CountU8(data) => (
-                format!("#{}", tinter::yellow(format!("{data}",))),
+                format!("#{}", tinter::yellow(format!("{data}", ))),
                 format!("{}: {:02X}", "count", *data),
             ),
             DecoratedOperandAccessKind::CountU16(data) => (
-                format!("#{}", tinter::yellow(format!("{data}",))),
+                format!("#{}", tinter::yellow(format!("{data}", ))),
                 format!("{}: {:04X}", "count", *data),
             ),
             DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => (
-                format!("{}", tinter::yellow(format!("{data}",))),
+                format!("{}", tinter::yellow(format!("{data}", ))),
                 String::new(),
             ),
             DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => (
-                format!("{}", tinter::red(format!("{data}",))),
+                format!("{}", tinter::red(format!("{data}", ))),
                 String::new(),
             ),
             DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => (
@@ -346,16 +346,16 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::AbsolutePc(ip) => {
                 format!("{}{}", "@", format!("{:X}", ip.0))
             }
-            DecoratedOperandAccessKind::ImmediateU32(data) => format!("{data:08X}",).to_string(),
-            DecoratedOperandAccessKind::ImmediateU16(data) => format!("{data:04X}",).to_string(),
-            DecoratedOperandAccessKind::ImmediateU8(data) => format!("{data:02X}",).to_string(),
-            DecoratedOperandAccessKind::CountU16(data) => format!("{data:04X}",).to_string(),
-            DecoratedOperandAccessKind::CountU8(data) => format!("{data:02X}",).to_string(),
+            DecoratedOperandAccessKind::ImmediateU32(data) => format!("{data:08X}", ).to_string(),
+            DecoratedOperandAccessKind::ImmediateU16(data) => format!("{data:04X}", ).to_string(),
+            DecoratedOperandAccessKind::ImmediateU8(data) => format!("{data:02X}", ).to_string(),
+            DecoratedOperandAccessKind::CountU16(data) => format!("{data:04X}", ).to_string(),
+            DecoratedOperandAccessKind::CountU8(data) => format!("{data:02X}", ).to_string(),
             DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => {
-                format!("{data}",).to_string()
+                format!("{data}", ).to_string()
             }
             DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => {
-                format!("{data}",).to_string()
+                format!("{data}", ).to_string()
             }
             DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => {
                 format!("[R{} #{}]", base_reg, offset.0)
@@ -986,6 +986,15 @@ pub fn disasm(
             to_read_reg(operands[0], &map_type(), frame_memory_info),
             to_read_reg(operands[1], &bytes_type(), frame_memory_info),
         ],
+
+        OpCode::RangeInit => {
+            &[
+                to_write_reg(operands[0], &range_iter_type(), frame_memory_info),
+                to_read_reg(operands[1], &range_iter_type(), frame_memory_info),
+                to_read_reg(operands[2], &range_iter_type(), frame_memory_info),
+                to_read_reg(operands[3], &range_iter_type(), frame_memory_info),
+            ]
+        }
 
         OpCode::RangeIterInit => &[
             to_write_reg(operands[0], &range_iter_type(), frame_memory_info),

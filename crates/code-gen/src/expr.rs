@@ -268,7 +268,7 @@ impl CodeBuilder<'_> {
             }
             ExpressionKind::ForLoop(for_pattern, collection, lambda_expr) => {
                 debug_assert!(output.is_unit());
-                self.emit_for_loop(&expr.node, for_pattern, collection, lambda_expr, ctx);
+                self.emit_for_loop(output, &expr.node, for_pattern, collection, lambda_expr, ctx);
             }
             ExpressionKind::WhileLoop(condition, expression) => {
                 debug_assert!(output.is_unit());

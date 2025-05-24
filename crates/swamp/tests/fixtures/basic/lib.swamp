@@ -13,6 +13,7 @@ mod option
 mod slice
 mod string
 mod struct
+mod transformer
 mod tuple
 mod vec
 mod while

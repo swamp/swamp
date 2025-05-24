@@ -1,0 +1,12 @@
+use core::{assert}
+use std::{print}
+
+//#[test]
+fn filter() {
+  list: [Int; 3] = [1, 2, 3]
+  even = list.filter(|x| x % 2 == 0)
+  for x in even {
+    print('even: {x}')
+  }
+  assert(even.len() == 1, 'filter test failed')
+}

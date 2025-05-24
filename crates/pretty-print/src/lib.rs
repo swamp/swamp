@@ -313,7 +313,7 @@ impl SourceMapDisplay<'_> {
     /// # Errors
     ///
     pub fn show_alias(&self, f: &mut Formatter<'_>, alias: &AliasType) -> std::fmt::Result {
-        write!(f, "{} ==> ", alias.assigned_name.blue(),)?;
+        write!(f, "{} ==> ", alias.assigned_name.blue(), )?;
 
         self.show_type_short(f, &alias.referenced_type, 0)?;
 
@@ -660,6 +660,7 @@ impl SourceMapDisplay<'_> {
             Type::String => write!(f, "{}", "String".bright_blue()),
             Type::Bool => write!(f, "{}", "Bool".bright_blue()),
             Type::Unit => write!(f, "{}", "()".bright_blue()),
+            Type::Range(_) => write!(f, "{}", "Range"),
 
             Type::Tuple(tuple_type) => {
                 write!(f, "(")?;
@@ -711,6 +712,7 @@ impl SourceMapDisplay<'_> {
             Type::String => write!(f, "{}", "String".bright_blue()),
             Type::Bool => write!(f, "{}", "Bool".bright_blue()),
             Type::Unit => write!(f, "{}", "()".bright_blue()),
+            Type::Range(_) => write!(f, "{}", "Range"),
 
             Type::Tuple(tuple_type) => {
                 write!(f, "(")?;

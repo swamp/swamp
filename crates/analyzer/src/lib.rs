@@ -779,11 +779,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                &ast_expression.node,
-                fields,
-                *rest_was_specified,
-                context,
-            )?,
+                    &ast_expression.node,
+                    fields,
+                    *rest_was_specified,
+                    context,
+                )?,
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
@@ -1083,6 +1083,7 @@ impl<'a> Analyzer<'a> {
         let anon_struct_ref = match &tv.underlying() {
             Type::NamedStruct(struct_type) => struct_type.anon_struct_type.clone(),
             Type::AnonymousStruct(anon_struct) => anon_struct.clone(),
+            Type::Range(anon_struct) => anon_struct.clone(),
             _ => return Err(self.create_err(ErrorKind::UnknownStructField, field_name)),
         };
 
@@ -1349,7 +1350,7 @@ impl<'a> Analyzer<'a> {
 
                 swamp_ast::Postfix::MemberCall(member_name, generic_arguments, ast_arguments) => {
                     let member_name_str = self.get_text(member_name).to_string();
-                    let underlying_type = tv.resolved_type.underlying().lowest_common_denominator();
+                    let underlying_type = tv.resolved_type.underlying();
 
                     let (kind, return_type) = self.analyze_member_call(
                         &underlying_type,
@@ -1464,8 +1465,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {
-            } else {
+            if let Type::Optional(_) = tv.resolved_type {} else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -1522,7 +1522,10 @@ impl<'a> Analyzer<'a> {
         let resolved_type = &resolved_expression.ty().clone();
         let (key_type, value_type): (Option<Type>, Type) = match resolved_type {
             Type::String => (Some(Type::Int), Type::String),
+            Type::Vec(element_type) => (Some(Type::Int), *element_type.clone()),
+            Type::Range(_) => (None, Type::Int),
 
+            /*
             _ => {
                 if let Some(found_iter_fn) = self
                     .shared
@@ -1544,6 +1547,9 @@ impl<'a> Analyzer<'a> {
                     return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node));
                 }
             }
+
+             */
+            _ => return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node)),
         };
 
         Ok(Iterable {
@@ -3269,6 +3275,64 @@ impl<'a> Analyzer<'a> {
                 },
             ),
             _ => {
+                self.slice_member_signature(element_type, field_name_str, node)
+            }?
+        };
+        Ok(intrinsic_and_signature)
+    }
+
+    fn slice_member_signature(&mut self,
+                              element_type: &Type,
+                              field_name_str: &str,
+                              node: &swamp_ast::Node, ) -> Result<(IntrinsicFunction, Signature), Error> {
+        let self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: Type::DynamicSlice(Box::from(element_type.clone())).clone(),
+            is_mutable: false,
+            node: None,
+        };
+        let intrinsic_and_signature = match field_name_str {
+            "filter" => {
+                let signature = Signature {
+                    parameters: vec![
+                        TypeForParameter {
+                            name: "element".to_string(),
+                            resolved_type: element_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        }
+                    ],
+                    return_type: Box::new(Type::Bool),
+                };
+                let lambda_function_type = Type::Function(signature);
+                (
+                    IntrinsicFunction::VecFilter,
+                    Signature {
+                        parameters: vec![
+                            self_type_param,
+                            TypeForParameter {
+                                name: "lambda".to_string(),
+                                resolved_type: lambda_function_type,
+                                is_mutable: false,
+                                node: None,
+                            },
+                        ],
+                        return_type: Box::new(Type::Vec(Box::from(element_type.clone()))),
+                    },
+                )
+            }
+            "len" => {
+                let signature = Signature {
+                    parameters: vec![
+                        self_type_param,
+                    ],
+                    return_type: Box::new(Type::Int),
+                };
+                (IntrinsicFunction::VecLen,
+                 signature,
+                )
+            }
+            _ => {
                 return Err(self.create_err(
                     ErrorKind::UnknownMemberFunction(Type::Vec(Box::from(element_type.clone()))),
                     node,
@@ -3285,11 +3349,21 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let ty = type_that_member_is_on
-            .underlying()
-            .lowest_common_denominator();
+            .underlying();
         match ty {
-            Type::Vec(ref element_type) => self.vec_member_signature(
+            Type::VecStorage(element_type, ..) => self.vec_member_signature(
                 type_that_member_is_on,
+                element_type,
+                field_name_str,
+                node,
+            ),
+            Type::Vec(element_type) => self.vec_member_signature(
+                type_that_member_is_on,
+                element_type,
+                field_name_str,
+                node,
+            ),
+            Type::DynamicSlice(element_type) => self.slice_member_signature(
                 element_type,
                 field_name_str,
                 node,
@@ -3362,6 +3436,7 @@ impl<'a> Analyzer<'a> {
             .compatible_with(type_that_member_is_on)
             || self_type.is_mutable && !is_mutable
         {
+            info!(?self_type.resolved_type, ?type_that_member_is_on, "debugging");
             return Err(self.create_err(ErrorKind::SelfNotCorrectType, node));
         }
 

@@ -1,7 +1,7 @@
 //! Layouts analyzed into Vm Types (`BasicType`)
-use crate::FrameAndVariableInfo;
 use crate::alloc::ScopeAllocator;
 use crate::reg_pool::RegisterPool;
+use crate::FrameAndVariableInfo;
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::cmp::max;
@@ -9,15 +9,11 @@ use std::fmt::Write;
 use swamp_semantic::{VariableRef, VariableType};
 use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_types::aligner::align;
-use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, FrameAddressInfo, FrameMemoryInfo, OffsetMemoryItem, StructType,
-    TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo, VariableInfoKind, VariableRegister,
-    VmType,
-};
+use swamp_vm_types::types::{range_type, BasicType, BasicTypeKind, FrameAddressInfo, FrameMemoryInfo, OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo, VariableInfoKind, VariableRegister, VmType};
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset,
-    MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
-    VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
+    adjust_size_to_alignment, align_to, FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment,
+    MemoryOffset, MemorySize, MAP_HEADER_SIZE, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT,
+    STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
 };
 use tracing::info;
 use tracing::trace;
@@ -237,6 +233,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
             STRING_PTR_SIZE,
             STRING_PTR_ALIGNMENT,
         ),
+        Type::Range(_) => range_type(),
         Type::Vec(element_type) => {
             let element_type_basic = layout_type(element_type);
             create_basic_type(
@@ -281,7 +278,14 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 max_alignment,
             )
         }
-        Type::DynamicSlice(inner_type) => todo!(),
+        Type::DynamicSlice(inner_type) => {
+            let inner_gen_type = layout_type(inner_type);
+            create_basic_type(
+                BasicTypeKind::InternalVecView(Box::from(inner_gen_type)),
+                PTR_SIZE,
+                PTR_ALIGNMENT,
+            )
+        }
         Type::DynamicSlicePair(a, b) => todo!(),
         Type::Tuple(types) => layout_tuple(types),
         Type::NamedStruct(named_struct_type) => {
@@ -576,7 +580,7 @@ pub fn layout_variables(
                 var_frame_placed_type.size().0,
                 var_ref.assigned_name
             )
-            .unwrap();
+                .unwrap();
 
             let kind = match var_ref.variable_type {
                 VariableType::Local => VariableInfoKind::Variable(VariableInfo {

@@ -1,8 +1,14 @@
-use crate::{Vm, i16_from_u8s, set_reg};
+use crate::{get_reg, i16_from_u8s, set_reg, Vm};
 use std::ptr;
 use swamp_vm_types::{RangeHeader, RangeIterator};
 
 impl Vm {
+    #[inline]
+    #[must_use]
+    pub fn get_range_header_ptr_from_reg(&self, range_reg: u8) -> *mut RangeHeader {
+        self.get_ptr_from_reg(range_reg) as *mut RangeHeader
+    }
+
     #[inline]
     #[must_use]
     pub fn range_header_from_reg(&self, range_reg: u8) -> RangeHeader {
@@ -11,6 +17,17 @@ impl Vm {
 
     pub fn range_iterator_ptr_from_reg(&self, range_iterator_reg: u8) -> *mut RangeIterator {
         self.get_ptr_from_reg(range_iterator_reg) as *mut RangeIterator
+    }
+
+    #[inline]
+    pub fn execute_range_init(&mut self, range_target_reg: u8, min_reg: u8, max_reg: u8, is_inclusive: u8) {
+        let range_header = self.get_range_header_ptr_from_reg(range_target_reg);
+
+        unsafe {
+            (*range_header).min = get_reg!(self, min_reg) as i32;
+            (*range_header).max = get_reg!(self, max_reg) as i32;
+            (*range_header).inclusive = is_inclusive != 0;
+        }
     }
 
     #[inline]

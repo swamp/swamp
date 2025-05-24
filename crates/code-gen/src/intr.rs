@@ -6,9 +6,9 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, RValueOrLValue, TypedRegister, VmType, pointer_type};
+use swamp_vm_types::types::{pointer_type, Destination, RValueOrLValue, TypedRegister, VmType};
 use swamp_vm_types::{
-    AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
+    AggregateMemoryLocation, MemoryLocation, MemoryOffset, MAP_HEADER_COUNT_OFFSET,
     STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
 };
 
@@ -80,7 +80,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
     pub fn emit_single_intrinsic_call_with_self(
         &mut self,
-        target_reg: &Destination,
+        target_destination: &Destination,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         self_type: Option<Type>,
@@ -89,7 +89,8 @@ impl CodeBuilder<'_> {
         ctx: &Context,
         comment: &str,
     ) -> FlagState {
-        let maybe_target = target_reg.register();
+        let maybe_target = target_destination.register();
+        let maybe_pointer = target_destination.memory_location();
         let self_addr: Option<&TypedRegister> = self_addr_l_or_rvalue.and_then(|s| s.rvalue());
 
         let mut t_flag_result = FlagState::default();
@@ -97,6 +98,28 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::RuntimePanic => {
                 self.builder
                     .add_panic(self_addr.unwrap(), node, "intrinsic panic");
+            }
+
+            IntrinsicFunction::RangeInit => {
+                let start_reg = self_addr.unwrap();
+                // let MutRefOrImmutableExpression::Expression(start_arg_expr) = start_arg else {
+                //    panic!();
+                //};
+                // let start_reg = self.emit_scalar_rvalue(start_arg_expr, ctx);
+
+                let end_arg = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(end_arg_expr) = end_arg else {
+                    panic!();
+                };
+                let end_reg = self.emit_scalar_rvalue(end_arg_expr, ctx);
+
+                let is_inclusive = &arguments[1];
+                let MutRefOrImmutableExpression::Expression(is_inclusive_expr) = is_inclusive else {
+                    panic!();
+                };
+                let is_inclusive_reg = self.emit_scalar_rvalue(is_inclusive_expr, ctx);
+                let absolute_range_pointer = self.emit_absolute_pointer_if_needed(target_destination, node, "create range target pointer");
+                self.builder.add_range_init(&absolute_range_pointer, start_reg, &end_reg, &is_inclusive_reg, node, "create a range");
             }
 
             // Bool
@@ -417,7 +440,6 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecCreate => {
                 self.builder.add_vec_create(
                     maybe_target.unwrap(),
-                    MemorySize(0),
                     node,
                     "vec create",
                 ); // TODO: Fix to have proper element memory size
@@ -568,7 +590,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::VecFilter => {
                 self.emit_iterate_over_collection_with_lambda(
-                    maybe_target.unwrap(),
+                    target_destination,
                     node,
                     Collection::Vec,
                     Transformer::Filter,
@@ -581,7 +603,7 @@ impl CodeBuilder<'_> {
 
             IntrinsicFunction::VecFind => {
                 self.emit_iterate_over_collection_with_lambda(
-                    maybe_target.unwrap(),
+                    &target_destination,
                     node,
                     Collection::Vec,
                     Transformer::Find,

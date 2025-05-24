@@ -5,8 +5,8 @@ use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
 use swamp_semantic::{ExpressionKind, MutRefOrImmutableExpression};
 use swamp_types::Type;
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType, u8_type};
-use swamp_vm_types::{InstructionPosition, PatchPosition, VEC_PTR_SIZE};
+use swamp_vm_types::types::{u8_type, BasicTypeKind, Destination, TypedRegister, VmType};
+use swamp_vm_types::{InstructionPosition, PatchPosition};
 
 impl CodeBuilder<'_> {
     /// Generates code to iterate over a collection using a transformer (e.g., map, filter, `filter_map`)
@@ -43,7 +43,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_arguments)]
     pub fn emit_iterate_over_collection_with_lambda(
         &mut self,
-        target_reg: &TypedRegister,
+        target_destination: &Destination,
         node: &Node,
         source_collection_type: Collection,
         transformer: Transformer,
@@ -102,10 +102,10 @@ impl CodeBuilder<'_> {
                 _ => panic!("should not happen"),
             };
 
-            assert_eq!(target_reg.size(), VEC_PTR_SIZE);
+
+            let pointer_reg = self.emit_absolute_pointer_if_needed(target_destination, node, "create absolute pointer reg for vec_create");
             self.builder.add_vec_create(
-                target_reg,
-                element_size_in_target_vec,
+                &pointer_reg,
                 node,
                 "target result vector",
             );
@@ -163,12 +163,13 @@ impl CodeBuilder<'_> {
                     &lambda_result,
                     transformer.needs_tag_removed(),
                     source_collection_type,
-                    target_reg,
+                    target_destination.register().unwrap(),
                     node,
                 );
             }
             TransformerResult::VecFromSourceCollection => {
-                self.add_to_collection(node, source_collection_type, target_reg, primary_variable);
+                let absolute_pointer = self.emit_absolute_pointer_if_needed(target_destination, node, "get pointer to collection");
+                self.add_to_collection(node, source_collection_type, &absolute_pointer, primary_variable);
             }
         }
 
@@ -191,14 +192,14 @@ impl CodeBuilder<'_> {
             TransformerResult::Bool => {
                 // It is a transformer that returns a bool, lets store z flag as bool it
                 self.builder
-                    .add_stz(target_reg, node, "transformer sets standard bool");
+                    .add_stz(target_destination.register().unwrap(), node, "transformer sets standard bool");
             }
             TransformerResult::WrappedValueFromSourceCollection => {
                 let some_payload = layout_optional_type(&Type::Optional(Box::from(
                     lambda_return_analyzed_type.clone(),
                 )));
                 let BasicTypeKind::Optional(tagged_union) = &some_payload.kind else {
-                    panic!("expected optional {:?}", target_reg.ty);
+                    panic!("expected optional {:?}", target_destination.ty());
                 };
 
                 //let tag_target = ctx.target_register().move_to_optional_tag();

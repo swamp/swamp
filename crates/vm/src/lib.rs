@@ -4,9 +4,9 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
+use crate::VmState::Normal;
 use fixed32::Fp;
 use seq_map::SeqMap;
 use std::ptr;
@@ -377,6 +377,8 @@ impl Vm {
             HandlerType::Args5(Self::execute_slice_pair_from_heap);
 
         // Range
+        vm.handlers[OpCode::RangeInit as usize] =
+            HandlerType::Args4(Self::execute_range_init);
         vm.handlers[OpCode::RangeIterInit as usize] =
             HandlerType::Args2(Self::execute_range_iter_init);
         vm.handlers[OpCode::RangeIterNext as usize] =

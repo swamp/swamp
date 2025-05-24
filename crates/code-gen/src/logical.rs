@@ -105,7 +105,7 @@ impl CodeBuilder<'_> {
                 }
                 BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
                     let left = self.emit_scalar_rvalue(&operator.left, ctx);
-                    let right = self.emit_scalar_rvalue(&operator.left, ctx);
+                    let right = self.emit_scalar_rvalue(&operator.right, ctx);
                     let is_equal_polarity = matches!(operator.kind, BinaryOperatorKind::Equal);
                     return self.emit_binary_operator_equal_to_t_flag_only(
                         &left,

@@ -695,6 +695,16 @@ pub enum Destination {
 }
 
 impl Destination {
+    pub fn memory_location(&self) -> Option<&MemoryLocation> {
+        match self {
+            Self::Unit => None,
+            Self::Register(_) => None,
+            Self::Memory(memory_location) => Some(memory_location),
+        }
+    }
+}
+
+impl Destination {
     #[must_use]
     pub fn add_offset(&self, offset: MemoryOffset, vm_type: VmType) -> Self {
         match self {

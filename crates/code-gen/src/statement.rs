@@ -19,6 +19,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_for_loop(
         &mut self,
+        destination: &Destination,
         node: &Node,
         for_pattern: &ForPattern,
         iterable: &Iterable,
@@ -34,33 +35,43 @@ impl CodeBuilder<'_> {
         let collection_type = &iterable.resolved_expression.ty();
         let hwm = self.temp_registers.save_mark();
 
-        let collection_basic_type = layout_type(collection_type);
-        let discard_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(collection_basic_type),
-            "emit_for_loop_discard",
-        );
-
+        
         let collection_reg =
             self.emit_expression_location_mut_ref_or_immutable(&iterable.resolved_expression, ctx);
         match collection_type {
+            Type::Range(anon_struct_type) => {
+                self.emit_for_loop_lambda(
+                    destination,
+                    node,
+                    Collection::Range,
+                    collection_reg.grab_rvalue(),
+                    collection_type,
+                    for_pattern,
+                    lambda_non_capturing_expr,
+                    ctx,
+                );
+            }
+            Type::Vec(element_type) => {
+                self.emit_for_loop_lambda(
+                    destination,
+                    node,
+                    Collection::Vec,
+                    collection_reg.grab_rvalue(),
+                    collection_type,
+                    for_pattern,
+                    lambda_non_capturing_expr,
+                    ctx,
+                );
+            }
             Type::String => {
                 todo!();
             }
             Type::NamedStruct(named_type) => {
                 if named_type.is_vec() {
-                    self.emit_for_loop_lambda(
-                        discard_reg.register(),
-                        node,
-                        Collection::Vec,
-                        collection_reg.grab_rvalue(),
-                        collection_type,
-                        for_pattern,
-                        lambda_non_capturing_expr,
-                        ctx,
-                    );
+          
                 } else if named_type.is_map() {
                     self.emit_for_loop_lambda(
-                        discard_reg.register(),
+                        destination,
                         node,
                         Collection::Map,
                         collection_reg.grab_rvalue(),
@@ -69,18 +80,7 @@ impl CodeBuilder<'_> {
                         lambda_non_capturing_expr,
                         ctx,
                     );
-                } else if named_type.is_range() {
-                    self.emit_for_loop_lambda(
-                        discard_reg.register(),
-                        node,
-                        Collection::Range,
-                        collection_reg.grab_rvalue(),
-                        collection_type,
-                        for_pattern,
-                        lambda_non_capturing_expr,
-                        ctx,
-                    );
-                } else if named_type.is_stack() {
+                } else if named_type.is_range() {} else if named_type.is_stack() {
                     /*
                     self.emit_for_loop_lambda(
                         node,
@@ -120,7 +120,7 @@ impl CodeBuilder<'_> {
 
     fn emit_for_loop_lambda(
         &mut self,
-        target_reg: &TypedRegister,
+        target_reg: &Destination,
         node: &Node,
         collection: Collection,
         source_collection: &TypedRegister,
