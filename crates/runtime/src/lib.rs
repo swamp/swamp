@@ -52,8 +52,7 @@ pub fn run_constants_in_order(
                 BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
                     let heap_ptr = vm
                         .memory_mut()
-                        .get_heap_ptr(constant.target_constant_memory.addr().0 as usize)
-                        as *mut u32;
+                        .get_heap_ptr(constant.target_constant_memory.addr().0 as usize).cast::<u32>();
                     unsafe {
                         *heap_ptr = vm.registers[0];
                     }
