@@ -613,6 +613,7 @@ pub const VEC_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<VecIterator>() as
 pub const VEC_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct RangeIterator {
     pub index: i32,
     pub end: i32,
@@ -625,6 +626,7 @@ pub const RANGE_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct RangeHeader {
+    // Do not change! These must match the structure in Swamp core exactly
     pub min: i32,
     pub max: i32,
     pub inclusive: bool,

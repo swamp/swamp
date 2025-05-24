@@ -380,7 +380,7 @@ impl Vm {
         vm.handlers[OpCode::RangeIterInit as usize] =
             HandlerType::Args2(Self::execute_range_iter_init);
         vm.handlers[OpCode::RangeIterNext as usize] =
-            HandlerType::Args3(Self::execute_range_iter_next);
+            HandlerType::Args4(Self::execute_range_iter_next);
 
         // Vec
         vm.handlers[OpCode::VecInitWithLenAndCapacityAddr as usize] =

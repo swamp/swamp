@@ -904,7 +904,7 @@ pub struct Constant {
 }
 pub type ConstantRef = Rc<Constant>;
 
-pub type OptionTypeRef = Rc<crate::OptionType>;
+pub type OptionTypeRef = Rc<OptionType>;
 
 #[derive(Debug, Clone)]
 pub struct OptionType {

@@ -1,4 +1,4 @@
-use crate::{Vm, set_reg};
+use crate::{Vm, i16_from_u8s, set_reg};
 use std::ptr;
 use swamp_vm_types::{RangeHeader, RangeIterator};
 
@@ -22,13 +22,13 @@ impl Vm {
         let (start, end, direction) = if range_header.min <= range_header.max {
             (
                 range_header.min,
-                (range_header.max + extra - 1).max(range_header.min),
+                (range_header.max + extra).max(range_header.min),
                 1,
             )
         } else {
             (
                 range_header.max,
-                (range_header.min - extra + 1).min(range_header.max),
+                (range_header.min - extra).min(range_header.max),
                 -1,
             )
         };
@@ -41,17 +41,13 @@ impl Vm {
         let iterator_target_ptr = self.range_iterator_ptr_from_reg(target_iterator_reg);
 
         unsafe {
-            let vec_iterator = RangeIterator {
+            let range_iterator = RangeIterator {
                 index: start,
                 end,
                 direction,
             };
 
-            ptr::copy_nonoverlapping(
-                &vec_iterator,
-                iterator_target_ptr,
-                1, // bytes = count * sizeof(T)
-            );
+            ptr::write(iterator_target_ptr, range_iterator);
         }
     }
 
@@ -60,17 +56,32 @@ impl Vm {
         &mut self,
         target_iterator_reg: u8,
         target_int_reg: u8,
-        jmp_absolute: u8,
+        jmp_offset_lower: u8,
+        jmp_offset_upper: u8,
     ) {
         let range_iterator = self.range_iterator_ptr_from_reg(target_iterator_reg);
-
         unsafe {
+            #[cfg(feature = "debug_vm")]
+            {
+                if self.debug_opcodes_enabled {
+                    eprintln!(
+                        "range_iterator: index={}, end={}, direction={}",
+                        (*range_iterator).index,
+                        (*range_iterator).end,
+                        (*range_iterator).direction
+                    );
+                }
+            }
+
             if (*range_iterator).index == (*range_iterator).end {
+                let jump_offset = i16_from_u8s!(jmp_offset_lower, jmp_offset_upper);
                 #[cfg(feature = "debug_vm")]
                 {
-                    eprintln!("range_iter_next complete. jumping {jmp_absolute:X}");
+                    if self.debug_opcodes_enabled {
+                        eprintln!("range_iter_next complete. jumping with offset {jump_offset}");
+                    }
                 }
-                self.pc = jmp_absolute as usize;
+                self.pc = (self.pc as i32 + jump_offset as i32) as usize;
             } else {
                 set_reg!(self, target_int_reg, (*range_iterator).index);
                 (*range_iterator).index += (*range_iterator).direction;

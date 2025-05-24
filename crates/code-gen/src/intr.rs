@@ -567,7 +567,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecFold => { // Low prio
             }
             IntrinsicFunction::VecFilter => {
-                self.iterate_over_collection_with_lambda(
+                self.emit_iterate_over_collection_with_lambda(
                     maybe_target.unwrap(),
                     node,
                     Collection::Vec,
@@ -580,7 +580,7 @@ impl CodeBuilder<'_> {
             }
 
             IntrinsicFunction::VecFind => {
-                self.iterate_over_collection_with_lambda(
+                self.emit_iterate_over_collection_with_lambda(
                     maybe_target.unwrap(),
                     node,
                     Collection::Vec,

@@ -665,13 +665,12 @@ impl CodeBuilder<'_> {
             }
         }
     }
-
-    pub fn allocate_frame_space_and_return_destination_to_it(
+    pub fn allocate_frame_space_and_return_absolute_pointer_reg(
         &mut self,
         ty: &BasicType,
         node: &Node,
         comment: &str,
-    ) -> Destination {
+    ) -> TypedRegister {
         let frame_placed_type = self.frame_allocator.allocate_type(ty.clone());
 
         let reg = self.frame_memory_registers.alloc_register(
@@ -686,9 +685,20 @@ impl CodeBuilder<'_> {
             "set the allocated memory to pointer reg",
         );
 
+        reg
+    }
+
+    pub fn allocate_frame_space_and_return_destination_to_it(
+        &mut self,
+        ty: &BasicType,
+        node: &Node,
+        comment: &str,
+    ) -> Destination {
+        let absolute_base_ptr_reg =
+            self.allocate_frame_space_and_return_absolute_pointer_reg(ty, node, comment);
         let location = MemoryLocation {
-            ty: reg.ty.clone(),
-            base_ptr_reg: reg,
+            ty: absolute_base_ptr_reg.ty.clone(),
+            base_ptr_reg: absolute_base_ptr_reg,
             offset: MemoryOffset(0),
         };
 

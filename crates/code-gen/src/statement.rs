@@ -22,7 +22,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         for_pattern: &ForPattern,
         iterable: &Iterable,
-        lambda_non_capturing_expr: &Box<Expression>,
+        lambda_non_capturing_expr: &Expression,
         ctx: &Context,
     ) {
         // Add check if the collection is empty, to skip everything
@@ -142,7 +142,7 @@ impl CodeBuilder<'_> {
             kind: fake_lambda_kind,
         });
 
-        self.iterate_over_collection_with_lambda(
+        self.emit_iterate_over_collection_with_lambda(
             target_reg,
             node,
             collection,

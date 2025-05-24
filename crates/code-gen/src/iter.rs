@@ -1,7 +1,6 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::{layout_optional_type, layout_type};
-use crate::reg_pool::TempRegister;
 use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
 use swamp_semantic::{ExpressionKind, MutRefOrImmutableExpression};
@@ -42,7 +41,7 @@ impl CodeBuilder<'_> {
     /// - If the lambda expression or its kind is not as expected (internal error).
     #[allow(clippy::too_many_lines)]
     #[allow(clippy::too_many_arguments)]
-    pub fn iterate_over_collection_with_lambda(
+    pub fn emit_iterate_over_collection_with_lambda(
         &mut self,
         target_reg: &TypedRegister,
         node: &Node,
@@ -115,8 +114,8 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
 
         // 2. Initialize the iterator and generate code to fetch the next element.
-        let (continue_iteration_label, iteration_complete_patch_position, temp_reg) = self
-            .iter_init_and_next(
+        let (continue_iteration_label, iteration_complete_patch_position) = self
+            .emit_iter_init_and_next(
                 node,
                 source_collection_type,
                 source_collection_self_region,
@@ -233,25 +232,26 @@ impl CodeBuilder<'_> {
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    fn iter_init_and_next(
+    fn emit_iter_init_and_next(
         &mut self,
         node: &Node,
         collection_type: Collection,
         collection_self_addr: &TypedRegister,
         target_variables: &[TypedRegister],
-    ) -> (InstructionPosition, PatchPosition, TempRegister) {
+    ) -> (InstructionPosition, PatchPosition) {
         let iterator_gen_type = collection_type.iterator_gen_type();
 
-        let iterator_target_placed = self.frame_allocator.allocate_type(iterator_gen_type);
-        let iterator_target = self.temp_registers.allocate(
-            VmType::new_frame_placed(iterator_target_placed),
-            "iter_init_and_next",
+        let target_iterator_header_reg = self.allocate_frame_space_and_return_absolute_pointer_reg(
+            &iterator_gen_type,
+            node,
+            "allocate iterator header space",
         );
+
         let iter_next_position = InstructionPosition(self.builder.position().0 + 1);
         let placeholder = match collection_type {
             Collection::Vec => {
                 self.builder.add_vec_iter_init(
-                    iterator_target.register(),
+                    &target_iterator_header_reg,
                     collection_self_addr,
                     node,
                     "vec init",
@@ -259,7 +259,7 @@ impl CodeBuilder<'_> {
 
                 if target_variables.len() == 2 {
                     self.builder.add_vec_iter_next_pair_placeholder(
-                        iterator_target.register(),
+                        &target_iterator_header_reg,
                         &target_variables[0],
                         &target_variables[1],
                         node,
@@ -267,7 +267,7 @@ impl CodeBuilder<'_> {
                     )
                 } else {
                     self.builder.add_vec_iter_next_placeholder(
-                        iterator_target.register(),
+                        &target_iterator_header_reg,
                         &target_variables[0],
                         node,
                         "vec iter next single",
@@ -276,7 +276,7 @@ impl CodeBuilder<'_> {
             }
             Collection::Map => {
                 self.builder.add_map_iter_init(
-                    iterator_target.register(),
+                    &target_iterator_header_reg,
                     collection_self_addr,
                     node,
                     "map init",
@@ -284,7 +284,7 @@ impl CodeBuilder<'_> {
 
                 if target_variables.len() == 2 {
                     self.builder.add_map_iter_next_pair_placeholder(
-                        iterator_target.register(),
+                        &target_iterator_header_reg,
                         &target_variables[0],
                         &target_variables[1],
                         node,
@@ -292,7 +292,7 @@ impl CodeBuilder<'_> {
                     )
                 } else {
                     self.builder.add_map_iter_next_placeholder(
-                        iterator_target.register(),
+                        &target_iterator_header_reg,
                         &target_variables[0],
                         node,
                         "map next_single",
@@ -302,7 +302,7 @@ impl CodeBuilder<'_> {
             Collection::Grid => todo!(),
             Collection::Range => {
                 self.builder.add_range_iter_init(
-                    iterator_target.register(),
+                    &target_iterator_header_reg,
                     collection_self_addr,
                     node,
                     "range init",
@@ -310,7 +310,7 @@ impl CodeBuilder<'_> {
 
                 assert_eq!(target_variables.len(), 1);
                 self.builder.add_range_iter_next_placeholder(
-                    iterator_target.register(),
+                    &target_iterator_header_reg,
                     &target_variables[0],
                     node,
                     "range iter next single",
@@ -321,7 +321,7 @@ impl CodeBuilder<'_> {
             Collection::String => todo!(),
         };
 
-        (iter_next_position, placeholder, iterator_target)
+        (iter_next_position, placeholder)
     }
 
     fn check_if_transformer_sets_t_flag(
