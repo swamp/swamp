@@ -1,19 +1,19 @@
 //! `CodeBuilder` helper functions for function calls and arguments.
 
-use crate::SpilledRegister;
 use crate::code_bld::{CodeBuilder, MutableReturnReg};
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
+use crate::SpilledRegister;
 use seq_map::SeqMap;
 use source_map_node::Node;
 use swamp_semantic::{
-    InternalFunctionDefinitionRef, MutRefOrImmutableExpression, pretty_module_name,
+    pretty_module_name, InternalFunctionDefinitionRef, MutRefOrImmutableExpression,
 };
 use swamp_types::Signature;
-use swamp_vm_types::MemoryLocation;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType};
+use swamp_vm_types::MemoryLocation;
 
 impl CodeBuilder<'_> {
     /// Checks if an argument is already in the correct register and doesn't need to be spilled
@@ -68,6 +68,9 @@ impl CodeBuilder<'_> {
 
         let mut saved_base_ptr_cache: SeqMap<(usize, u8), TypedRegister> = SeqMap::new();
 
+        // Track the return pointer register that needs to be preserved
+        let mut return_pointer_reg_to_preserve: Option<TypedRegister> = None;
+
         if !signature.return_type.is_unit() {
             let return_basic_type = layout_type(&signature.return_type);
 
@@ -87,6 +90,8 @@ impl CodeBuilder<'_> {
                     node,
                     "r0: copy the return pointer into r0",
                 );
+
+                return_pointer_reg_to_preserve = Some(return_pointer_reg);
             } else {
                 // For simple types, we need to copy from r0 to destination after the call
                 let r0 =
@@ -102,6 +107,23 @@ impl CodeBuilder<'_> {
 
         let mut protected_argument_registers = Vec::new();
         let mut spilled_arguments = Vec::new();
+
+        // Spill the return pointer register if it exists and will be overwritten by arguments
+        // TODO: Would be so much more fun to have a more coherent way of handling the registers, spilling and pinning.
+        if let Some(return_pointer_reg) = &return_pointer_reg_to_preserve {
+            let save_region = self.temp_frame_space_for_register("emit_arguments_return_ptr");
+            self.builder.add_st_regs_to_frame(
+                save_region.addr,
+                return_pointer_reg,
+                1,
+                node,
+                &format!("spill return pointer register to stack memory {return_pointer_reg:?}"),
+            );
+            spilled_arguments.push(SpilledRegister {
+                register: return_pointer_reg.clone(),
+                frame_memory_region: save_region,
+            });
+        }
 
         for (index_in_signature, type_for_parameter) in signature.parameters.iter().enumerate() {
             let parameter_basic_type = layout_type(&type_for_parameter.resolved_type);
@@ -449,7 +471,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling {function_name} ({comment})",);
+        let call_comment = &format!("calling {function_name} ({comment})", );
         /*
                if let Some(found) = self
                    .state
