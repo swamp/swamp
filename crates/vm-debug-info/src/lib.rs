@@ -14,7 +14,8 @@ impl Default for KeepTrackOfSourceLine {
 }
 
 impl KeepTrackOfSourceLine {
-    #[must_use] pub const fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             last_line_info: SourceFileLineInfo {
                 row: usize::MAX,

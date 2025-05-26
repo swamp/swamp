@@ -185,6 +185,23 @@ pub fn run_function_with_debug(
 
     while !vm.is_execution_complete() {
         let pc = vm.pc();
+        //#[cfg(feature = "debug_vm")]
+        if run_options.debug_opcodes_enabled {
+            let regs = [0, 1, 2, 3, 4, 128, 129, 130];
+            eprint!(
+                "{}",
+                tinter::bright_black(&format!("t:{} ", if vm.flags.t { "1" } else { "0" }))
+            );
+            for reg in regs {
+                let reg_name = &format!("r{reg}");
+                eprint!(
+                    "{}",
+                    tinter::bright_black(&format!("{reg_name:>3}:{:08X}, ", vm.registers[reg]))
+                );
+            }
+            eprintln!();
+        }
+
         vm.step();
         let info = run_options.debug_info.fetch(pc).unwrap();
 
@@ -222,7 +239,7 @@ pub fn run_function_with_debug(
             &info.meta,
             &InstructionPosition(pc as u32),
         );
-        eprintln!("{:04X}> {string}", vm.pc());
+        eprintln!("{pc:04X}> {string}");
     }
 }
 

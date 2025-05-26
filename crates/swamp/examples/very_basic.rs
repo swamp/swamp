@@ -14,7 +14,6 @@ pub fn very_basic(test_dir: &Path) {
             debug_output: false,
             debug_opcodes: true,
         },
-        //"struct::mixed_type_refs",
         "",
     );
 }

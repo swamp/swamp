@@ -102,7 +102,7 @@ enum HandlerType {
 }
 
 pub struct Flags {
-    t: bool,
+    pub t: bool,
 }
 
 #[derive(Debug, Default)]
