@@ -593,7 +593,7 @@ impl CodeBuilder<'_> {
         self.emit_post_call(argument_info, node, "restore spilled after call");
     }
 
-    fn is_register_already_live(&self, reg: &TypedRegister) -> bool {
+    const fn is_register_already_live(&self, reg: &TypedRegister) -> bool {
         // TODO: for now just assume it is
         true
     }
