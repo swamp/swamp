@@ -18,6 +18,11 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{FrameMemoryRegion, MemoryLocation, REG_ON_FRAME_SIZE};
 
+pub struct CopyArgument {
+    pub canonical_target: TypedRegister,
+    pub source_temporary: TypedRegister,
+}
+
 impl CodeBuilder<'_> {
     fn is_argument_already_in_correct_register(
         &self,
@@ -248,14 +253,32 @@ impl CodeBuilder<'_> {
             }
         }
 
+        let mut copy_arguments_in_place = Vec::new();
+
         let mut argument_registers = RegisterPool::new(1, 10);
 
         for (index_in_signature, type_for_parameter) in signature.parameters.iter().enumerate() {
             let parameter_basic_type = layout_type(&type_for_parameter.resolved_type);
-            let target_argument_register = argument_registers.alloc_register(
+            let target_canonical_argument_register = argument_registers.alloc_register(
                 VmType::new_unknown_placement(parameter_basic_type.clone()),
                 &format!("emit argument {index_in_signature}"),
             );
+
+            let argument_to_use =
+                if self.is_register_already_live(&target_canonical_argument_register) {
+                    let temp_reg = self.temp_registers.allocate(
+                        target_canonical_argument_register.ty.clone(),
+                        "just to put arguments in place at the end",
+                    );
+                    let copy_argument = CopyArgument {
+                        canonical_target: target_canonical_argument_register.clone(),
+                        source_temporary: temp_reg.register.clone(),
+                    };
+                    copy_arguments_in_place.push(copy_argument);
+                    temp_reg.register
+                } else {
+                    target_canonical_argument_register.clone()
+                };
 
             // Determine if we need to spill this register
             let argument_vector_index = if self_variable.is_some() {
@@ -267,9 +290,9 @@ impl CodeBuilder<'_> {
             if index_in_signature == 0 && self_variable.is_some() {
                 let self_reg = self_variable.as_ref().unwrap();
 
-                if self_reg.index != target_argument_register.index {
+                if self_reg.index != argument_to_use.index {
                     self.builder.add_mov_reg(
-                        &target_argument_register,
+                        &argument_to_use,
                         self_reg,
                         node,
                         &format!(
@@ -308,7 +331,7 @@ impl CodeBuilder<'_> {
 
                             // Load the primitive from memory
                             self.emit_load_into_register(
-                                &target_argument_register,
+                                &argument_to_use,
                                 &replacement_location,
                                 node,
                                 "must get primitive from lvalue and pass as copy back (by value)",
@@ -317,7 +340,7 @@ impl CodeBuilder<'_> {
                             // Add a copy back with the replacement_location back to the primitive location
                             copy_back_phase_one.push(MutableReturnReg {
                                 target_location_after_call: replacement_location,
-                                parameter_reg: target_argument_register.clone(),
+                                parameter_reg: target_canonical_argument_register.clone(),
                             });
                         } else {
                             let flattened_source_pointer_reg = self
@@ -327,7 +350,7 @@ impl CodeBuilder<'_> {
                                     "flattened into absolute pointer",
                                 );
                             self.builder.add_mov_reg(
-                                &target_argument_register,
+                                &argument_to_use,
                                 &flattened_source_pointer_reg,
                                 node,
                                 "copy absolute address",
@@ -336,7 +359,7 @@ impl CodeBuilder<'_> {
                     }
                     MutRefOrImmutableExpression::Expression(expr) => {
                         self.emit_expression_into_register(
-                            &target_argument_register,
+                            &argument_to_use,
                             expr,
                             "argument expression into specific argument register",
                             ctx,
@@ -344,6 +367,15 @@ impl CodeBuilder<'_> {
                     }
                 }
             }
+        }
+
+        for copy_argument in copy_arguments_in_place {
+            self.builder.add_mov_reg(
+                &copy_argument.canonical_target,
+                &copy_argument.source_temporary,
+                node,
+                "copy argument in place from temporary",
+            );
         }
 
         EmitArgumentInfo {
@@ -559,5 +591,10 @@ impl CodeBuilder<'_> {
         self.emit_call(node, internal_fn, "call"); // will be fixed up later
 
         self.emit_post_call(argument_info, node, "restore spilled after call");
+    }
+
+    fn is_register_already_live(&self, reg: &TypedRegister) -> bool {
+        // TODO: for now just assume it is
+        true
     }
 }

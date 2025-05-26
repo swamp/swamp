@@ -12,9 +12,9 @@ pub fn very_basic(test_dir: &Path) {
             print_output: false,
             iteration_count: 1,
             debug_output: false,
-            debug_opcodes: true,
+            debug_opcodes: false,
         },
-        "",
+        "for::basic",
     );
 }
 
