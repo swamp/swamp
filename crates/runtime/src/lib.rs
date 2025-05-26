@@ -10,6 +10,7 @@ use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionId};
 use swamp_vm::{Vm, VmSetup, VmState};
+use swamp_vm_disasm::DebugInfo;
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::{BinaryInstruction, StackMemoryAddress};
 
@@ -109,6 +110,7 @@ pub struct CodeGenResult {
     pub functions: SeqMap<InternalFunctionId, GenFunctionInfo>,
     pub prepared_constant_memory: Vec<u8>,
     pub program: Program,
+    pub debug_info: DebugInfo,
 }
 
 pub fn compile_and_codegen_main_path(
@@ -127,10 +129,11 @@ pub fn compile_and_codegen_main_path(
 
     let top_gen_state = code_gen_program(&program, &source_map_wrapper, &options);
 
-    let (instructions, constants_in_order, emit_function_infos, constant_memory) =
+    let (instructions, constants_in_order, emit_function_infos, constant_memory, debug_info) =
         top_gen_state.take_instructions_and_constants();
 
     CodeGenResult {
+        debug_info,
         instructions,
         constants_in_order,
         functions: emit_function_infos,
@@ -143,6 +146,7 @@ pub fn compile_and_codegen_main_path(
 pub fn create_vm_with_standard_settings(
     instructions: &[BinaryInstruction],
     prepared_constant_memory: &[u8],
+    debug_info: Option<DebugInfo>,
 ) -> Vm {
     let vm_setup = VmSetup {
         stack_memory_size: 16 * 1024 * 20,
@@ -150,7 +154,7 @@ pub fn create_vm_with_standard_settings(
         constant_memory: prepared_constant_memory.to_vec(),
         debug_opcodes_enabled: false,
         debug_stats_enabled: false,
-        debug_info: None,
+        debug_info,
     };
 
     Vm::new(instructions.to_vec(), vm_setup)

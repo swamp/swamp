@@ -135,14 +135,14 @@ impl TopLevelGenState {
         SeqMap<ConstantId, ConstantInfo>,
         SeqMap<InternalFunctionId, GenFunctionInfo>,
         Vec<u8>,
+        DebugInfo,
     ) {
-        self.codegen_state.debug_info.info_for_each_instruction = self.builder_state.meta.clone();
-
         (
             self.builder_state.instructions,
             self.codegen_state.constant_functions_in_order,
             self.codegen_state.function_infos,
             self.codegen_state.constants_manager.take_data(),
+            self.codegen_state.debug_info,
         )
     }
 

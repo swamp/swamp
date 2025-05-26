@@ -127,6 +127,7 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
     let mut vm = swamp_runtime::create_vm_with_standard_settings(
         &code_gen_result.instructions,
         &code_gen_result.prepared_constant_memory,
+        Some(code_gen_result.debug_info),
     );
 
     let mut panic_tests = Vec::new();
