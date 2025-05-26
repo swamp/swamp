@@ -302,17 +302,30 @@ impl CodeBuilder<'_> {
                 );
             }
             IntrinsicFunction::IntMax => {
+                let int_arg = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(int_arg_expr) = int_arg else {
+                    panic!();
+                };
+                let int_register = self.emit_scalar_rvalue(int_arg_expr, ctx);
+
                 self.builder.add_int_max(
                     maybe_target.unwrap(),
                     self_addr.unwrap(),
+                    &int_register,
                     node,
                     "int max",
                 );
             }
             IntrinsicFunction::IntMin => {
+                let int_arg = &arguments[0];
+                let MutRefOrImmutableExpression::Expression(int_arg_expr) = int_arg else {
+                    panic!();
+                };
+                let int_register = self.emit_scalar_rvalue(int_arg_expr, ctx);
                 self.builder.add_int_min(
                     maybe_target.unwrap(),
                     self_addr.unwrap(),
+                    &int_register,
                     node,
                     "int min",
                 );

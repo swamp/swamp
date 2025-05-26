@@ -2119,6 +2119,7 @@ impl InstructionBuilder<'_> {
         &mut self,
         dest: &TypedRegister,
         self_int: &TypedRegister,
+        other_int: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -2127,7 +2128,11 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::IntMin,
-            &[dest.addressing(), self_int.addressing()],
+            &[
+                dest.addressing(),
+                self_int.addressing(),
+                other_int.addressing(),
+            ],
             node,
             comment,
         );
@@ -2137,6 +2142,7 @@ impl InstructionBuilder<'_> {
         &mut self,
         dest: &TypedRegister,
         self_int: &TypedRegister,
+        other_int: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
@@ -2145,7 +2151,11 @@ impl InstructionBuilder<'_> {
 
         self.state.add_instruction(
             OpCode::IntMax,
-            &[dest.addressing(), self_int.addressing()],
+            &[
+                dest.addressing(),
+                self_int.addressing(),
+                other_int.addressing(),
+            ],
             node,
             comment,
         );
