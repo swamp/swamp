@@ -7,8 +7,14 @@ pub struct KeepTrackOfSourceLine {
     pub expected_next_row_to_show: usize,
 }
 
+impl Default for KeepTrackOfSourceLine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl KeepTrackOfSourceLine {
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self {
             last_line_info: SourceFileLineInfo {
                 row: usize::MAX,

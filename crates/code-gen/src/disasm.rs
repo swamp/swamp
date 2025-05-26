@@ -128,7 +128,7 @@ pub fn disasm_function(
     format!(
         "{}\n{}",
         header_output,
-        disasm_instructions_color(instructions, &ip_offset, &debug_info, source_map_wrapper,)
+        disasm_instructions_color(instructions, &ip_offset, debug_info, source_map_wrapper,)
     )
 }
 
@@ -154,7 +154,7 @@ pub fn disasm_whole_program(
                 &debug_info_for_pc.function_debug_info.parameters,
                 instructions_slice,
                 InstructionPositionOffset(current_ip),
-                &debug_info,
+                debug_info,
                 source_map_wrapper,
             );
             eprintln!("{output_string}");
