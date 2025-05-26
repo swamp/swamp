@@ -122,12 +122,6 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
-impl<'a> InstructionBuilder<'a> {}
-
-impl<'a> InstructionBuilder<'a> {}
-
-impl InstructionBuilder<'_> {}
-
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {

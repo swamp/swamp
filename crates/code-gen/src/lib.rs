@@ -115,8 +115,14 @@ pub struct SpilledRegisterScopes {
     pub stack: Vec<SpilledRegisterScope>,
 }
 
+impl Default for SpilledRegisterScopes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SpilledRegisterScopes {
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self { stack: Vec::new() }
     }
     pub fn push(&mut self, scope: SpilledRegisterScope) {

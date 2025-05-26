@@ -612,7 +612,7 @@ impl CodeBuilder<'_> {
 
             IntrinsicFunction::VecFind => {
                 self.emit_iterate_over_collection_with_lambda(
-                    &target_destination,
+                    target_destination,
                     node,
                     Collection::Vec,
                     Transformer::Find,

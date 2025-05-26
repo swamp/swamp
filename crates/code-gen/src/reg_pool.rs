@@ -57,7 +57,7 @@ impl HwmTempRegisterPool {
         }
     }
 
-    pub(crate) fn start_index_and_number_of_allocated(&self) -> (u8, u8) {
+    pub(crate) const fn start_index_and_number_of_allocated(&self) -> (u8, u8) {
         (self.start_index, self.num_allocated)
     }
 

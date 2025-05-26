@@ -1,6 +1,5 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::layout_type;
 use crate::{Collection, Transformer};
 use source_map_node::Node;
 use swamp_semantic::{
@@ -8,7 +7,7 @@ use swamp_semantic::{
     MutRefOrImmutableExpression,
 };
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType};
+use swamp_vm_types::types::{Destination, TypedRegister};
 
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {

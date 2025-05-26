@@ -45,7 +45,7 @@ pub(crate) struct CodeBuilder<'a> {
 }
 
 impl<'a> CodeBuilder<'a> {
-    pub fn new(
+    pub const fn new(
         state: &'a mut CodeGenState,
         builder: &'a mut InstructionBuilder<'a>,
         variable_registers: SeqMap<usize, TypedRegister>,
@@ -541,7 +541,7 @@ impl CodeBuilder<'_> {
         count: u8,
         comment: &str,
     ) -> FrameMemoryRegion {
-        let total_size = MemorySize(REG_ON_FRAME_SIZE.0 * count as u16);
+        let total_size = MemorySize(REG_ON_FRAME_SIZE.0 * u16::from(count));
         let start = self
             .frame_allocator
             .allocate(total_size, REG_ON_FRAME_ALIGNMENT);
