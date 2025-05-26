@@ -24,8 +24,7 @@ use swamp_vm_types::{
 
 pub struct EmitArgumentInfo {
     pub argument_and_temp_scope: ArgumentAndTempScope,
-    pub phase_one_copy_back: Vec<MutableReturnReg>,
-    pub phase_two_copy_back: Vec<MutableReturnReg>,
+    pub copy_back_of_registers_mutated_by_callee: Vec<MutableReturnReg>,
 }
 
 pub(crate) struct MutableReturnReg {

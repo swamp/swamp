@@ -122,7 +122,8 @@ impl Default for SpilledRegisterScopes {
 }
 
 impl SpilledRegisterScopes {
-    #[must_use] pub const fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self { stack: Vec::new() }
     }
     pub fn push(&mut self, scope: SpilledRegisterScope) {

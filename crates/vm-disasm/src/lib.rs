@@ -132,7 +132,8 @@ pub fn disasm_instructions_no_color(
     string
 }
 
-#[must_use] pub fn get_register_string_from_mask(reg_mask: u8) -> String {
+#[must_use]
+pub fn get_register_string_from_mask(reg_mask: u8) -> String {
     let mut mask = reg_mask;
     let mut s = String::new();
     for i in 0..8 {

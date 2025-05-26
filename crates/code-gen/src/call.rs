@@ -98,9 +98,38 @@ impl CodeBuilder<'_> {
         stable_base_ptr_cache
     }
 
-    pub fn spill_required_registers(&mut self, node: &Node, comment: &str) -> ArgumentAndTempScope {
+    // TODO: for mutable arguments we want to leave output part of the spilling
+    // We want to scan through the arguments,
+    // see if there are mutable primitives
+    // if there are, create temporary registers and save them
+    // to a lookup cache. those replacements will be used for load and save operations
+    // of those primitives.
+    // the temporary registers will be saved and restored since the HWM has been increased.
+    // Which is exactly what we want. so for example the r128 holds a valid address for the
+    // store operation.
+    //
+    // So the sequence is:
+    // - store abi registers (do not save r0 if that is the destination for the call itself, since we want to clobber it in that case)
+    // - store temp registers (including the newly created replacement base regs)
+    // - call (callee is allowed to clobber r0, r1, r2, r128)
+    // - restore temp registers (so our r128 is valid again)
+    // - issue copy backs of the mutables primitives. (replacement) base reg is valid, and the r1 and r2 are clobbered, which is good.
+    // - restore abi registers
+    // - copy back of r0 for immutable primitives to target register,  unless the target was r0 itself, in that case it was left out of store abi register mask
+    pub fn spill_required_registers(
+        &mut self,
+        r0_used_as_return: bool,
+        node: &Node,
+        comment: &str,
+    ) -> ArgumentAndTempScope {
         const ABI_ARGUMENT_RETURN_AND_ARGUMENT_REGISTERS: usize = 6; // r0-r5
         const ABI_ARGUMENT_MASK: u8 = 0x3f;
+
+        let mask_to_use = if r0_used_as_return {
+            ABI_ARGUMENT_MASK & 0x7E
+        } else {
+            ABI_ARGUMENT_MASK
+        };
 
         let abi_parameter_frame_memory_region = self.temp_frame_space_for_register(
             ABI_ARGUMENT_RETURN_AND_ARGUMENT_REGISTERS as u8,
@@ -113,27 +142,8 @@ impl CodeBuilder<'_> {
             "spill register to stack memory",
         );
 
-        // TODO: for mutable arguments we want to leave output part of the spilling
-        // We want to scan through the arguments,
-        // see if there are mutable primitives
-        // if there are, create temporary registers and save them
-        // to a lookup cache. those replacements will be used for load and save operations
-        // of those primitives.
-        // the temporary registers will be saved and restored since the HWM has been increased.
-        // Which is exactly what we want. so for example the r128 holds a valid address for the
-        // store operation.
-        //
-        // So the sequence is:
-        // - store abi registers (do not save r0 if that is the destination for the call itself, since we want to clobber it in that case)
-        // - store temp registers (including the newly created replacement base regs)
-        // - call (callee is allowed to clobber r0, r1, r2, r128)
-        // - restore temp registers (so our r128 is valid again)
-        // - issue copy backs of the mutables primitives. (replacement) base reg is valid, and the r1 and r2 are clobbered, which is good.
-        // - restore abi registers
-        // - copy back of r0 for immutable primitives to target register,  unless the target was r0 itself, in that case it was left out of store abi register mask
-
         let abi_parameter_region = SpilledRegisterRegion {
-            registers: RepresentationOfRegisters::Mask(ABI_ARGUMENT_MASK),
+            registers: RepresentationOfRegisters::Mask(mask_to_use),
             frame_memory_region: abi_parameter_frame_memory_region,
         };
 
@@ -215,14 +225,13 @@ impl CodeBuilder<'_> {
         arguments: &[MutRefOrImmutableExpression],
         ctx: &Context,
     ) -> EmitArgumentInfo {
-        let mut copy_back_mutable_reg_pairs: Vec<MutableReturnReg> = Vec::new();
         let mut copy_back_phase_one: Vec<MutableReturnReg> = Vec::new();
+        //let mut copy_back_phase_two: Vec<MutableReturnReg> = Vec::new();
 
         let base_reg_replacement_lookup =
             self.find_replacements_for_mutable_primitive_arguments(arguments, node, ctx);
 
-        let scope = self.spill_required_registers(node, "spill before emit arguments");
-        //self.spilled_registers.push(scope.clone());
+        let scope = self.spill_required_registers(false, node, "spill before emit arguments");
 
         // Handle return primitive or aggregate types
         if !signature.return_type.is_unit() {
@@ -233,7 +242,7 @@ impl CodeBuilder<'_> {
             } else {
                 self.prepare_copy_back_for_primitive_return_value(
                     output_destination,
-                    &mut copy_back_mutable_reg_pairs,
+                    &mut copy_back_phase_one,
                     return_basic_type,
                 );
             }
@@ -339,8 +348,7 @@ impl CodeBuilder<'_> {
 
         EmitArgumentInfo {
             argument_and_temp_scope: scope,
-            phase_one_copy_back: copy_back_phase_one,
-            phase_two_copy_back: copy_back_mutable_reg_pairs,
+            copy_back_of_registers_mutated_by_callee: copy_back_phase_one,
         }
     }
 
@@ -361,7 +369,10 @@ impl CodeBuilder<'_> {
                         reg,
                         &copy_back.parameter_reg,
                         node,
-                        "copy return value from r0 to register",
+                        &format!(
+                            "copy return value to {reg} frp, {}",
+                            copy_back.parameter_reg
+                        ),
                     );
                 }
                 Destination::Memory(memory_location) => match memory_location.ty.basic_type.kind {
@@ -406,8 +417,10 @@ impl CodeBuilder<'_> {
             self.emit_restore_region(scratch_region, &HashSet::new(), node, comment);
         }
 
-        let all_registers_in_copy_back =
-            self.copy_backs(spilled_arguments.phase_one_copy_back, node);
+        let all_registers_in_copy_back = self.copy_backs(
+            spilled_arguments.copy_back_of_registers_mutated_by_callee,
+            node,
+        );
 
         self.emit_restore_region(
             spilled_arguments.argument_and_temp_scope.argument_registers,
@@ -415,8 +428,6 @@ impl CodeBuilder<'_> {
             node,
             comment,
         );
-
-        self.copy_backs(spilled_arguments.phase_two_copy_back, node);
     }
 
     pub fn emit_restore_region(

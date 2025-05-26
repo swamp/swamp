@@ -698,7 +698,8 @@ pub enum Destination {
 }
 
 impl Destination {
-    #[must_use] pub const fn memory_location(&self) -> Option<&MemoryLocation> {
+    #[must_use]
+    pub const fn memory_location(&self) -> Option<&MemoryLocation> {
         match self {
             Self::Unit => None,
             Self::Register(_) => None,
