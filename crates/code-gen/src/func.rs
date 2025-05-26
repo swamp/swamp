@@ -7,20 +7,21 @@ use crate::state::GenOptions;
 use crate::top_state::TopLevelGenState;
 use crate::{
     FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, RepresentationOfRegisters,
-    SpilledRegister, SpilledRegisterRegion,
+    SpilledRegisterRegion,
 };
 use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
+use std::collections::HashSet;
 use swamp_semantic::{InternalFunctionDefinitionRef, InternalMainExpression, pretty_module_name};
+use swamp_vm_disasm::FunctionDebugInfo;
 use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_types::types::{
-    Destination, FunctionInfo, FunctionInfoKind, TypedRegister, VmType, VmTypeOrigin,
-    is_callee_save,
+    Destination, FunctionInfo, FunctionInfoKind, TypedRegister, VariableRegister, VmType,
+    VmTypeOrigin, is_callee_save,
 };
 use swamp_vm_types::{
-    FrameMemoryRegion, InstructionPosition, InstructionPositionOffset, InstructionRange,
-    MemoryLocation, MemoryOffset, MemorySize, PatchPosition, REG_ON_FRAME_ALIGNMENT,
-    REG_ON_FRAME_SIZE,
+    InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,
+    PatchPosition,
 };
 
 impl TopLevelGenState {
@@ -76,8 +77,18 @@ impl TopLevelGenState {
         });
 
         self.codegen_state
-            .function_debug_infos
-            .insert(range.start, function_info)
+            .debug_info
+            .function_table
+            .entries
+            .push(FunctionDebugInfo {
+                start_pc: range.start.0,
+                function_id: internal_fn_def.program_unique_id,
+            });
+
+        self.codegen_state
+            .debug_info
+            .function_infos
+            .insert(internal_fn_def.program_unique_id, function_info)
             .unwrap();
     }
 
@@ -122,77 +133,57 @@ impl TopLevelGenState {
         };
     }
 
-    pub fn function_prologue(
-        instruction_builder: &mut InstructionBuilder,
+    pub fn spill_callee_save_registers_except_mutable_parameters(
+        code_builder: &mut CodeBuilder,
         function_info: &FunctionInfo,
         temp_frame_allocator: &mut ScopeAllocator,
         node: &Node,
-    ) -> (Option<SpilledRegisterRegion>, PatchPosition) {
-        let enter_patch_position =
-            instruction_builder.add_enter_placeholder(&Node::default(), "prologue");
+    ) -> Option<SpilledRegisterRegion> {
+        let mut mask: u8 = 0;
+        let mut count: u8 = 0;
 
-        let mut saved_registers = Vec::new();
-        let maybe_first_reg_position_that_needs_to_be_spilled = function_info
+        for (index, variable_register) in function_info
             .frame_memory
             .variable_registers
             .iter()
-            .position(|reg| is_callee_save(reg.register.index));
-
-        let maybe_spilled = maybe_first_reg_position_that_needs_to_be_spilled.map(|first_index| {
-            let variable_registers_that_needs_to_be_spilled: Vec<_> = function_info
-                .frame_memory
-                .variable_registers
-                .iter()
-                .skip(first_index)
-                .collect();
-
-            for variable_reg in &variable_registers_that_needs_to_be_spilled {
-                let frame_placed_addr =
-                    temp_frame_allocator.allocate(REG_ON_FRAME_SIZE, REG_ON_FRAME_ALIGNMENT);
-
-                let frame_region = FrameMemoryRegion {
-                    addr: frame_placed_addr,
-                    size: REG_ON_FRAME_SIZE,
-                };
-
-                let spilled = SpilledRegister {
-                    register: variable_reg.register.clone(),
-                    frame_memory_region: frame_region,
-                };
-                saved_registers.push(spilled);
+            .enumerate()
+        {
+            if is_callee_save(variable_register.register.index)
+                && !variable_register.register.ty.is_mutable_primitive()
+            {
+                mask |= 1 << index;
+                count += 1;
             }
+        }
 
-            let registers_that_needs_to_be_spilled: Vec<_> =
-                variable_registers_that_needs_to_be_spilled
-                    .iter()
-                    .map(|var_reg| var_reg.register.clone())
-                    .collect();
-
-            let first = saved_registers.first().unwrap();
-            let first_address = first.frame_memory_region.addr;
-            let last_frame_location = saved_registers.last().unwrap();
-            let last_addr = last_frame_location.frame_memory_region.addr
-                + MemoryOffset(last_frame_location.frame_memory_region.size.0);
-            let total_frame_size_for_vars = MemorySize(last_addr.0 - first_address.0);
-            instruction_builder.add_st_regs_to_frame_using_range(
-                first.frame_memory_region,
-                registers_that_needs_to_be_spilled[0].index,
-                variable_registers_that_needs_to_be_spilled.len() as u8,
-                node,
-                "save registers to stack (that will be later used in function)",
+        if count > 0 {
+            let abi_parameter_frame_memory_region = code_builder.temp_frame_space_for_register(
+                count,
+                &format!("temporary space for callee_save (and not mutable primitives)"),
             );
-            SpilledRegisterRegion {
-                registers: RepresentationOfRegisters::Individual(
-                    registers_that_needs_to_be_spilled,
-                ),
-                frame_memory_region: FrameMemoryRegion {
-                    addr: first_address,
-                    size: total_frame_size_for_vars,
-                },
-            }
-        });
 
-        for variable_reg in &function_info.frame_memory.variable_registers {
+            code_builder.builder.add_st_regs_using_mask_to_frame(
+                abi_parameter_frame_memory_region.addr.clone(),
+                mask,
+                node,
+                "prologue, store regs to frame",
+            );
+
+            Some(SpilledRegisterRegion {
+                registers: RepresentationOfRegisters::Mask(mask),
+                frame_memory_region: abi_parameter_frame_memory_region.clone(),
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn initialize_and_clear_variables_that_are_on_the_frame(
+        instruction_builder: &mut InstructionBuilder,
+        variable_registers: &[VariableRegister],
+        node: &Node,
+    ) {
+        for variable_reg in variable_registers {
             if let VmTypeOrigin::Frame(frame_region) = variable_reg.register.ty.origin {
                 instruction_builder.add_lea(
                     &variable_reg.register,
@@ -208,6 +199,30 @@ impl TopLevelGenState {
                 );
             }
         }
+    }
+
+    pub fn function_prologue(
+        code_builder: &mut CodeBuilder,
+        function_info: &FunctionInfo,
+        temp_frame_allocator: &mut ScopeAllocator,
+        node: &Node,
+    ) -> (Option<SpilledRegisterRegion>, PatchPosition) {
+        let enter_patch_position = code_builder
+            .builder
+            .add_enter_placeholder(&Node::default(), "prologue");
+
+        let maybe_spilled = Self::spill_callee_save_registers_except_mutable_parameters(
+            code_builder,
+            function_info,
+            temp_frame_allocator,
+            node,
+        );
+
+        Self::initialize_and_clear_variables_that_are_on_the_frame(
+            code_builder.builder,
+            &function_info.frame_memory.variable_registers,
+            node,
+        );
 
         (maybe_spilled, enter_patch_position)
     }
@@ -216,21 +231,15 @@ impl TopLevelGenState {
         instruction_builder: &mut CodeBuilder,
         maybe_spilled_registers: Option<SpilledRegisterRegion>,
         node: &Node,
+        comment: &str,
     ) {
         if let Some(spilled_register_region) = maybe_spilled_registers {
-            match spilled_register_region.registers {
-                RepresentationOfRegisters::Individual(registers) => {
-                    instruction_builder.add_ld_regs_from_frame(
-                        &registers[0],
-                        spilled_register_region.frame_memory_region,
-                        registers.len() as u8,
-                        node,
-                        "restoring spilled arguments in epilogue",
-                    );
-                }
-                RepresentationOfRegisters::Mask(_) => todo!(),
-                RepresentationOfRegisters::Range { .. } => todo!(),
-            }
+            instruction_builder.emit_restore_region(
+                spilled_register_region,
+                &HashSet::new(),
+                node,
+                comment,
+            );
         }
     }
 
@@ -272,13 +281,6 @@ impl TopLevelGenState {
         let mut temp_frame_allocator =
             ScopeAllocator::new(frame_and_variable_info.temp_allocator_region);
 
-        let (maybe_spilled_registers, enter_patch_position) = Self::function_prologue(
-            &mut instruction_builder,
-            &function_info,
-            &mut temp_frame_allocator,
-            &in_data.function_name_node,
-        );
-
         let temp_pool = HwmTempRegisterPool::new(128, 64);
 
         let ctx = Context {};
@@ -291,6 +293,13 @@ impl TopLevelGenState {
             temp_pool,
             temp_frame_allocator,
             source_map_wrapper,
+        );
+
+        let (maybe_spilled_registers, enter_patch_position) = Self::function_prologue(
+            &mut function_code_builder,
+            &function_info,
+            &mut temp_frame_allocator,
+            &in_data.function_name_node,
         );
 
         let return_basic_type = layout_type(&in_data.return_type);
@@ -316,6 +325,7 @@ impl TopLevelGenState {
             &mut function_code_builder,
             maybe_spilled_registers,
             &in_data.expression.node,
+            "epilogue",
         );
 
         self.finalize_function(&GenOptions {

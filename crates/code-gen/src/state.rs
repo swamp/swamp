@@ -2,7 +2,9 @@ use crate::constants::ConstantsManager;
 use crate::{ConstantInfo, FunctionIps, GenFunctionInfo};
 use seq_map::SeqMap;
 use source_map_node::Node;
+use std::fmt::Debug;
 use swamp_semantic::{ConstantId, ConstantRef, InternalFunctionDefinitionRef, InternalFunctionId};
+use swamp_vm_disasm::DebugInfo;
 use swamp_vm_types::types::{CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, HeapPlacedType};
 use swamp_vm_types::{InstructionPosition, InstructionPositionOffset, PatchPosition};
 use tracing::info;
@@ -23,11 +25,14 @@ pub struct CodeGenState {
     pub(crate) constant_functions_in_order: SeqMap<ConstantId, ConstantInfo>,
     pub function_infos: SeqMap<InternalFunctionId, GenFunctionInfo>,
     pub function_ips: FunctionIps,
-    pub function_debug_infos: SeqMap<InstructionPosition, FunctionInfo>,
     pub function_fixups: Vec<FunctionFixup>,
     pub functions: SeqMap<usize, CompleteFunctionInfo>,
     pub constants: SeqMap<usize, CompleteFunctionInfo>,
+
+    pub debug_info: DebugInfo,
 }
+
+impl CodeGenState {}
 
 impl Default for CodeGenState {
     fn default() -> Self {
@@ -44,10 +49,10 @@ impl CodeGenState {
             function_infos: SeqMap::default(),
             constant_functions_in_order: SeqMap::default(),
             function_ips: FunctionIps::default(),
-            function_debug_infos: SeqMap::default(),
             function_fixups: Vec::new(),
             functions: SeqMap::default(),
             constants: SeqMap::default(),
+            debug_info: DebugInfo::default(),
         }
     }
 

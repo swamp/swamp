@@ -4,7 +4,7 @@
  */
 use crate::err::{Error, ErrorKind};
 use crate::{Analyzer, TypeContext};
-use swamp_semantic::{Constant, ConstantRef, Expression, ExpressionKind};
+use swamp_semantic::{Constant, ConstantId, ConstantRef, Expression, ExpressionKind};
 
 impl Analyzer<'_> {
     fn analyze_constant(&mut self, constant: &swamp_ast::ConstantInfo) -> Result<(), Error> {
@@ -24,7 +24,8 @@ impl Analyzer<'_> {
         let constant = Constant {
             name: name_node.clone(),
             assigned_name: name_text,
-            id: self.shared.state.constants_in_dependency_order.len() as u32,
+            //id: self.shared.state.constants_in_dependency_order.len() as u32,
+            id: self.shared.state.internal_function_id_allocator.alloc() as ConstantId,
             expr: resolved_expr,
             resolved_type,
             function_scope_state: self.function_variables.clone(),

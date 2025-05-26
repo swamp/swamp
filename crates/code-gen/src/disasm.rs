@@ -3,9 +3,9 @@ use source_map_cache::{FileLineInfo, SourceMapLookup, SourceMapWrapper};
 use source_map_node::FileId;
 use std::fmt;
 use std::fmt::Write;
-use swamp_vm_disasm::{SourceFileLineInfo, disasm_instructions_color};
+use swamp_vm_disasm::{DebugInfo, SourceFileLineInfo, disasm_instructions_color};
 use swamp_vm_types::types::{
-    FrameMemoryInfo, FunctionInfo, VariableRegister, VmType, show_frame_memory, write_basic_type,
+    FrameMemoryInfo, VariableRegister, VmType, show_frame_memory, write_basic_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, InstructionPosition, InstructionPositionOffset, Meta,
@@ -140,30 +140,28 @@ pub fn disasm_function(
 }
 
 pub fn disasm_whole_program(
-    function_debug_infos: &SeqMap<InstructionPosition, FunctionInfo>,
+    debug_info: &DebugInfo,
     source_map_wrapper: &SourceMapWrapper,
     instructions: &[BinaryInstruction],
-    meta: &[Meta],
 ) {
     let mut current_ip: u32 = 0;
 
     let instruction_count = instructions.len();
     while current_ip < (instructions.len() - 1) as u32 {
-        if let Some(function_debug_info) =
-            function_debug_infos.get(&InstructionPosition(current_ip))
-        {
+        if let Some(debug_info_for_pc) = debug_info.fetch(current_ip as usize) {
             eprintln!(
                 "{} ==========================================================================",
-                function_debug_info.name
+                debug_info_for_pc.function_debug_info.name
             );
-            let end_ip = current_ip + function_debug_info.ip_range.count.0;
+            let end_ip = current_ip + debug_info_for_pc.function_debug_info.ip_range.count.0;
             let instructions_slice = &instructions[current_ip as usize..end_ip as usize];
-            let meta_slice = &meta[current_ip as usize..end_ip as usize];
+            let meta_slice =
+                &debug_info.info_for_each_instruction[current_ip as usize..end_ip as usize];
 
             let output_string = disasm_function(
-                &function_debug_info.frame_memory,
-                &function_debug_info.return_type,
-                &function_debug_info.parameters,
+                &debug_info_for_pc.function_debug_info.frame_memory,
+                &debug_info_for_pc.function_debug_info.return_type,
+                &debug_info_for_pc.function_debug_info.parameters,
                 instructions_slice,
                 meta_slice,
                 InstructionPositionOffset(current_ip),

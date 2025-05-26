@@ -150,6 +150,7 @@ pub fn create_vm_with_standard_settings(
         constant_memory: prepared_constant_memory.to_vec(),
         debug_opcodes_enabled: false,
         debug_stats_enabled: false,
+        debug_info: None,
     };
 
     Vm::new(instructions.to_vec(), vm_setup)

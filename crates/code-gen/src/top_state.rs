@@ -4,6 +4,7 @@ use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
 use swamp_semantic::{ConstantId, ConstantRef, InternalFunctionId};
 use swamp_types::Attributes;
+use swamp_vm_disasm::{DebugInfo, FunctionDebugInfo};
 use swamp_vm_instr_build::{InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{FunctionInfo, FunctionInfoKind};
 use swamp_vm_types::{
@@ -33,8 +34,8 @@ impl TopLevelGenState {
     }
 
     #[must_use]
-    pub const fn function_debug_infos(&self) -> &SeqMap<InstructionPosition, FunctionInfo> {
-        &self.codegen_state.function_debug_infos
+    pub const fn debug_info(&self) -> &DebugInfo {
+        &self.codegen_state.debug_info
     }
     #[must_use]
     pub const fn function_ips(&self) -> &FunctionIps {
@@ -63,6 +64,8 @@ impl TopLevelGenState {
                 panic!("couldn't fixup function");
             }
         }
+
+        self.codegen_state.debug_info.info_for_each_instruction = self.builder_state.meta.clone();
 
         self.codegen_state.function_fixups.clear();
     }
@@ -108,21 +111,33 @@ impl TopLevelGenState {
                 .unwrap();
 
             self.codegen_state
-                .function_debug_infos
-                .insert(start_ip, function_info)
+                .debug_info
+                .function_table
+                .entries
+                .push(FunctionDebugInfo {
+                    start_pc: start_ip.0,
+                    function_id: constant.id as u16,
+                });
+
+            self.codegen_state
+                .debug_info
+                .function_infos
+                .insert(constant.id as u16, function_info)
                 .unwrap();
         }
     }
 
     #[must_use]
     pub fn take_instructions_and_constants(
-        self,
+        mut self,
     ) -> (
         Vec<BinaryInstruction>,
         SeqMap<ConstantId, ConstantInfo>,
         SeqMap<InternalFunctionId, GenFunctionInfo>,
         Vec<u8>,
     ) {
+        self.codegen_state.debug_info.info_for_each_instruction = self.builder_state.meta.clone();
+
         (
             self.builder_state.instructions,
             self.codegen_state.constant_functions_in_order,

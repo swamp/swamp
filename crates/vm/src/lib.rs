@@ -10,6 +10,8 @@ use crate::memory::Memory;
 use fixed32::Fp;
 use seq_map::SeqMap;
 use std::ptr;
+use swamp_vm_disasm::DebugInfo;
+use swamp_vm_disasm::disasm_color;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
@@ -152,6 +154,8 @@ pub struct Vm {
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
 
+    pub debug_info: Option<DebugInfo>,
+
     pub state: VmState,
 }
 
@@ -165,6 +169,7 @@ pub struct VmSetup {
     pub constant_memory: Vec<u8>,
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
+    pub debug_info: Option<DebugInfo>,
 }
 
 /*
@@ -205,6 +210,7 @@ impl Vm {
             debug_stats_enabled: setup.debug_stats_enabled,
             debug_opcodes_enabled: setup.debug_opcodes_enabled,
             state: Normal,
+            debug_info: setup.debug_info,
         };
 
         /*
@@ -484,7 +490,18 @@ impl Vm {
 
                 let operands = instruction.operands;
                 eprint!("> {:04X}: ", self.pc);
-                self.debug_opcode(opcode, &operands);
+                if let Some(found_debug_info) = &self.debug_info {
+                    let info = found_debug_info.fetch(self.pc).unwrap();
+                    let string = disasm_color(
+                        instruction,
+                        &info.function_debug_info.frame_memory,
+                        &info.meta,
+                        &InstructionPosition(self.pc as u32),
+                    );
+                    eprintln!(">> {string}");
+                } else {
+                    self.debug_opcode(opcode, &operands);
+                }
             }
 
             #[cfg(feature = "debug_vm")]

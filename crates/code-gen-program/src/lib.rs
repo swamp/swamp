@@ -109,11 +109,9 @@ pub fn code_gen_program(
 
     if options.show_disasm {
         disasm_whole_program(
-            //code_gen.function_ips(),
-            code_gen.function_debug_infos(),
+            code_gen.debug_info(),
             source_map_lookup,
             code_gen.instructions(),
-            code_gen.meta(),
         );
     }
 

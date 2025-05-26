@@ -1001,6 +1001,15 @@ pub struct VmType {
     pub origin: VmTypeOrigin,
 }
 
+impl VmType {
+    pub fn is_mutable_primitive(&self) -> bool {
+        self.basic_type.is_mutable_reference()
+            && self
+                .basic_type
+                .should_be_copied_back_when_mutable_arg_or_return()
+    }
+}
+
 impl VmType {}
 
 impl Display for VmType {

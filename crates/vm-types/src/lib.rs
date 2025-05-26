@@ -533,6 +533,7 @@ impl FrameMemorySize {
     }
 }
 
+#[derive(Clone)]
 pub struct Meta {
     pub comment: String,
     pub node: Node,
