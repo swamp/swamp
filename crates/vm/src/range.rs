@@ -32,7 +32,7 @@ impl Vm {
         unsafe {
             (*range_header).min = get_reg!(self, min_reg) as i32;
             (*range_header).max = get_reg!(self, max_reg) as i32;
-            (*range_header).inclusive = is_inclusive != 0;
+            (*range_header).inclusive = get_reg!(self, is_inclusive) as i32 != 0;
         }
     }
 
@@ -43,22 +43,25 @@ impl Vm {
         let extra = i32::from(range_header.inclusive);
 
         let (start, end, direction) = if range_header.min <= range_header.max {
+            // Ascending range: [min, max] or [min, max)
             (
                 range_header.min,
-                (range_header.max + extra).max(range_header.min),
+                range_header.max + extra, // End is one past max for inclusive, or exactly max for exclusive
                 1,
             )
         } else {
+            // Descending range: [min, max] or [min, max)
+            // Here, min is the starting higher value, max is the ending lower value
             (
-                range_header.max,
-                (range_header.min - extra).min(range_header.max),
+                range_header.min,
+                range_header.max - extra, // End is one below max for inclusive, or exactly max for exclusive
                 -1,
             )
         };
 
         #[cfg(feature = "debug_vm")]
         {
-            eprintln!("range_iter_init {start} to {end} dir:{direction}");
+            eprintln!("range_iter_init {start} to {end} dir:{direction} extra {extra}");
         }
 
         let iterator_target_ptr = self.range_iterator_ptr_from_reg(target_iterator_reg);
