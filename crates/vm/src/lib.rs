@@ -454,7 +454,7 @@ impl Vm {
     pub fn memory_mut(&mut self) -> &mut Memory {
         &mut self.memory
     }
-
+    #[allow(clippy::too_many_lines)]
     pub fn execute_internal(&mut self) {
         self.execution_complete = false;
         self.flags.t = false;
@@ -484,7 +484,7 @@ impl Vm {
                 let regs = [0, 1, 2, 3, 4, 128, 129, 130];
 
                 for reg in regs {
-                    eprint!("{reg:02X}: {:08X}, ", self.registers[reg]);
+                    eprint!("{}", tinter::bright_black(&format!("{reg:02X}: {:08X}, ", self.registers[reg])));
                 }
                 eprintln!();
 

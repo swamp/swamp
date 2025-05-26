@@ -16,6 +16,7 @@ seq-map = "0.0.13"
 fixed32 = "0.0.17"
 fixed32-math = "0.0.18"
 squirrel-prng = "0.0.1"
+tinter = "0.1.0"
 
 [features]
 debug_vm = []  # Enable VM debug output
