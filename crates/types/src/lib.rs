@@ -658,12 +658,8 @@ impl Type {
             | (Self::Bool, Self::Bool)
             | (Self::Unit, Self::Unit) => true,
 
-            (Self::DynamicSlice(a), Self::DynamicSlice(b)) => {
-                a.compatible_with(b)
-            }
-            (Self::DynamicSlice(a), Self::Vec(b)) => {
-                a.compatible_with(b)
-            }
+            (Self::DynamicSlice(a), Self::DynamicSlice(b)) => a.compatible_with(b),
+            (Self::DynamicSlice(a), Self::Vec(b)) => a.compatible_with(b),
 
             (Self::Vec(element_a), Self::Vec(element_b)) => element_a.compatible_with(element_b),
             (Self::Vec(vec_element), Self::VecStorage(storage_element, _size)) => {
@@ -1143,7 +1139,8 @@ pub fn all_types_are_concrete_or_unit(types: &[Type]) -> bool {
 #[must_use]
 pub fn all_types_are_variables(types: &[Type]) -> bool {
     for ty in types {
-        if let Type::Variable(_) = ty {} else {
+        if let Type::Variable(_) = ty {
+        } else {
             return false;
         }
     }

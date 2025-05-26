@@ -6,8 +6,8 @@ use crate::reg_pool::HwmTempRegisterPool;
 use crate::state::GenOptions;
 use crate::top_state::TopLevelGenState;
 use crate::{
-    FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, SpilledRegister,
-    SpilledRegisterRegion,
+    FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, RepresentationOfRegisters,
+    SpilledRegister, SpilledRegisterRegion,
 };
 use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
@@ -174,15 +174,17 @@ impl TopLevelGenState {
             let last_addr = last_frame_location.frame_memory_region.addr
                 + MemoryOffset(last_frame_location.frame_memory_region.size.0);
             let total_frame_size_for_vars = MemorySize(last_addr.0 - first_address.0);
-            instruction_builder.add_st_regs_to_frame(
-                first_address,
-                &registers_that_needs_to_be_spilled[0],
+            instruction_builder.add_st_regs_to_frame_using_range(
+                first.frame_memory_region,
+                registers_that_needs_to_be_spilled[0].index,
                 variable_registers_that_needs_to_be_spilled.len() as u8,
                 node,
                 "save registers to stack (that will be later used in function)",
             );
             SpilledRegisterRegion {
-                registers: registers_that_needs_to_be_spilled,
+                registers: RepresentationOfRegisters::Individual(
+                    registers_that_needs_to_be_spilled,
+                ),
                 frame_memory_region: FrameMemoryRegion {
                     addr: first_address,
                     size: total_frame_size_for_vars,
@@ -216,13 +218,19 @@ impl TopLevelGenState {
         node: &Node,
     ) {
         if let Some(spilled_register_region) = maybe_spilled_registers {
-            instruction_builder.add_ld_regs_from_frame(
-                &spilled_register_region.registers[0],
-                spilled_register_region.frame_memory_region.addr,
-                spilled_register_region.registers.len() as u8,
-                node,
-                "restoring spilled arguments in epilogue",
-            );
+            match spilled_register_region.registers {
+                RepresentationOfRegisters::Individual(registers) => {
+                    instruction_builder.add_ld_regs_from_frame(
+                        &registers[0],
+                        spilled_register_region.frame_memory_region,
+                        registers.len() as u8,
+                        node,
+                        "restoring spilled arguments in epilogue",
+                    );
+                }
+                RepresentationOfRegisters::Mask(_) => todo!(),
+                RepresentationOfRegisters::Range { .. } => todo!(),
+            }
         }
     }
 
@@ -273,7 +281,7 @@ impl TopLevelGenState {
 
         let temp_pool = HwmTempRegisterPool::new(128, 64);
 
-        let ctx = Context::new_from_parameters(0, frame_and_variable_info.highest_register_used);
+        let ctx = Context {};
 
         let mut function_code_builder = CodeBuilder::new(
             &mut self.codegen_state,

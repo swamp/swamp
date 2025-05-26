@@ -82,13 +82,50 @@ pub enum TransformerResult {
     WrappedValueFromSourceCollection,
 }
 
+#[derive(Clone)]
 pub struct SpilledRegister {
     pub register: TypedRegister,
     pub frame_memory_region: FrameMemoryRegion,
 }
+
+#[derive(Clone)]
+pub enum RepresentationOfRegisters {
+    Individual(Vec<TypedRegister>),
+    Range { start_reg: u8, count: u8 },
+    Mask(u8),
+}
+
+#[derive(Clone)]
 pub struct SpilledRegisterRegion {
-    pub registers: Vec<TypedRegister>,
+    pub registers: RepresentationOfRegisters,
     pub frame_memory_region: FrameMemoryRegion,
+}
+
+#[derive(Clone)]
+pub struct SpilledRegisterScope {
+    pub regions: Vec<SpilledRegisterRegion>,
+}
+
+pub struct ArgumentAndTempScope {
+    pub argument_registers: SpilledRegisterRegion,
+    pub scratch_registers: Option<SpilledRegisterRegion>,
+}
+
+pub struct SpilledRegisterScopes {
+    pub stack: Vec<SpilledRegisterScope>,
+}
+
+impl SpilledRegisterScopes {
+    pub fn new() -> Self {
+        Self { stack: Vec::new() }
+    }
+    pub fn push(&mut self, scope: SpilledRegisterScope) {
+        self.stack.push(scope);
+    }
+
+    pub fn pop(&mut self) -> SpilledRegisterScope {
+        self.stack.pop().unwrap()
+    }
 }
 
 impl Transformer {

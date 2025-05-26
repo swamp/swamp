@@ -1,7 +1,7 @@
 //! Layouts analyzed into Vm Types (`BasicType`)
+use crate::FrameAndVariableInfo;
 use crate::alloc::ScopeAllocator;
 use crate::reg_pool::RegisterPool;
-use crate::FrameAndVariableInfo;
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::cmp::max;
@@ -9,11 +9,15 @@ use std::fmt::Write;
 use swamp_semantic::{VariableRef, VariableType};
 use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_types::aligner::align;
-use swamp_vm_types::types::{range_type, BasicType, BasicTypeKind, FrameAddressInfo, FrameMemoryInfo, OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo, VariableInfoKind, VariableRegister, VmType};
+use swamp_vm_types::types::{
+    BasicType, BasicTypeKind, FrameAddressInfo, FrameMemoryInfo, OffsetMemoryItem, StructType,
+    TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo, VariableInfoKind, VariableRegister,
+    VmType, range_type,
+};
 use swamp_vm_types::{
-    adjust_size_to_alignment, align_to, FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment,
-    MemoryOffset, MemorySize, MAP_HEADER_SIZE, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT,
-    STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
+    FrameMemoryAddress, FrameMemoryRegion, MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset,
+    MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
+    VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
 };
 use tracing::info;
 use tracing::trace;
@@ -580,7 +584,7 @@ pub fn layout_variables(
                 var_frame_placed_type.size().0,
                 var_ref.assigned_name
             )
-                .unwrap();
+            .unwrap();
 
             let kind = match var_ref.variable_type {
                 VariableType::Local => VariableInfoKind::Variable(VariableInfo {

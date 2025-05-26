@@ -5,7 +5,7 @@ use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
 use swamp_semantic::{ExpressionKind, MutRefOrImmutableExpression};
 use swamp_types::Type;
-use swamp_vm_types::types::{u8_type, BasicTypeKind, Destination, TypedRegister, VmType};
+use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, u8_type};
 use swamp_vm_types::{InstructionPosition, PatchPosition};
 
 impl CodeBuilder<'_> {
@@ -102,13 +102,13 @@ impl CodeBuilder<'_> {
                 _ => panic!("should not happen"),
             };
 
-
-            let pointer_reg = self.emit_absolute_pointer_if_needed(target_destination, node, "create absolute pointer reg for vec_create");
-            self.builder.add_vec_create(
-                &pointer_reg,
+            let pointer_reg = self.emit_absolute_pointer_if_needed(
+                target_destination,
                 node,
-                "target result vector",
+                "create absolute pointer reg for vec_create",
             );
+            self.builder
+                .add_vec_create(&pointer_reg, node, "target result vector");
         }
 
         let hwm = self.temp_registers.save_mark();
@@ -168,8 +168,17 @@ impl CodeBuilder<'_> {
                 );
             }
             TransformerResult::VecFromSourceCollection => {
-                let absolute_pointer = self.emit_absolute_pointer_if_needed(target_destination, node, "get pointer to collection");
-                self.add_to_collection(node, source_collection_type, &absolute_pointer, primary_variable);
+                let absolute_pointer = self.emit_absolute_pointer_if_needed(
+                    target_destination,
+                    node,
+                    "get pointer to collection",
+                );
+                self.add_to_collection(
+                    node,
+                    source_collection_type,
+                    &absolute_pointer,
+                    primary_variable,
+                );
             }
         }
 
@@ -191,8 +200,11 @@ impl CodeBuilder<'_> {
         match transformer.return_type() {
             TransformerResult::Bool => {
                 // It is a transformer that returns a bool, lets store z flag as bool it
-                self.builder
-                    .add_stz(target_destination.register().unwrap(), node, "transformer sets standard bool");
+                self.builder.add_stz(
+                    target_destination.register().unwrap(),
+                    node,
+                    "transformer sets standard bool",
+                );
             }
             TransformerResult::WrappedValueFromSourceCollection => {
                 let some_payload = layout_optional_type(&Type::Optional(Box::from(

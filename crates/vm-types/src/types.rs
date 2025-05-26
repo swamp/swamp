@@ -8,6 +8,7 @@ use crate::{
     VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
 };
 use seq_fmt::comma;
+use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter, Write};
 use tracing::error;
 use yansi::Paint;
@@ -151,6 +152,8 @@ pub enum DecoratedOperandAccessKind {
     ImmediateU32(u32),
     CountU16(u16),
     CountU8(u8),
+    WriteMask(u8),
+    ReadMask(u8),
 }
 
 impl DecoratedOperandAccessKind {
@@ -788,6 +791,15 @@ impl Destination {
     }
 
     #[must_use]
+    pub const fn register_involved_in_destination(&self) -> Option<&TypedRegister> {
+        match self {
+            Self::Register(reg) => Some(reg),
+            Self::Memory(memory_location) => Some(memory_location.reg()),
+            Self::Unit => None,
+        }
+    }
+
+    #[must_use]
     pub fn grab_register(&self) -> &TypedRegister {
         match self {
             Self::Register(reg) => reg,
@@ -849,9 +861,22 @@ pub struct TypedRegister {
     pub comment: String,
 }
 
-impl PartialEq for TypedRegister {
+impl PartialEq<Self> for TypedRegister {
     fn eq(&self, other: &Self) -> bool {
         self.index == other.index
+    }
+}
+
+impl Eq for TypedRegister {}
+
+impl Ord for TypedRegister {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.index.cmp(&other.index)
+    }
+}
+impl PartialOrd<Self> for TypedRegister {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.index.partial_cmp(&other.index)
     }
 }
 

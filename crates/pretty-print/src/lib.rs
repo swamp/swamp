@@ -313,7 +313,7 @@ impl SourceMapDisplay<'_> {
     /// # Errors
     ///
     pub fn show_alias(&self, f: &mut Formatter<'_>, alias: &AliasType) -> std::fmt::Result {
-        write!(f, "{} ==> ", alias.assigned_name.blue(), )?;
+        write!(f, "{} ==> ", alias.assigned_name.blue(),)?;
 
         self.show_type_short(f, &alias.referenced_type, 0)?;
 

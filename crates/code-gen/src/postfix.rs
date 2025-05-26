@@ -119,7 +119,7 @@ impl CodeBuilder<'_> {
                                     t_flag_result = z_result;
                                 }
                             } else {
-                                let (spilled_argument_registers, copy_back) = self.emit_arguments(
+                                let argument_infos = self.emit_arguments(
                                     &call_return_destination,
                                     &start_expression.node,
                                     &internal_fn.signature.signature,
@@ -130,8 +130,7 @@ impl CodeBuilder<'_> {
                                 self.emit_call(&element.node, internal_fn, "emit_rvalue call");
 
                                 self.emit_post_call(
-                                    &spilled_argument_registers,
-                                    &copy_back,
+                                    argument_infos,
                                     &element.node,
                                     "emit_rvalue postcall",
                                 );

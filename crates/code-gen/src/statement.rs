@@ -35,7 +35,6 @@ impl CodeBuilder<'_> {
         let collection_type = &iterable.resolved_expression.ty();
         let hwm = self.temp_registers.save_mark();
 
-        
         let collection_reg =
             self.emit_expression_location_mut_ref_or_immutable(&iterable.resolved_expression, ctx);
         match collection_type {
@@ -68,7 +67,6 @@ impl CodeBuilder<'_> {
             }
             Type::NamedStruct(named_type) => {
                 if named_type.is_vec() {
-          
                 } else if named_type.is_map() {
                     self.emit_for_loop_lambda(
                         destination,
@@ -80,7 +78,8 @@ impl CodeBuilder<'_> {
                         lambda_non_capturing_expr,
                         ctx,
                     );
-                } else if named_type.is_range() {} else if named_type.is_stack() {
+                } else if named_type.is_range() {
+                } else if named_type.is_stack() {
                     /*
                     self.emit_for_loop_lambda(
                         node,

@@ -17,7 +17,7 @@ pub enum OpCode {
     // Operators
     // u32 and i32
     AddU32,
-    // TODO: Add u32 with immediate, Rd, Rm, #immediate
+    AddU32Imm,
     MulU32,
     SubU32,
 
@@ -70,10 +70,13 @@ pub enum OpCode {
 
     // Load immediate into reg
     LdPtrFromEffectiveAddress, // Load effective address
+    LoadEffectiveAddressIndexMultiplier,
     Ld8FromPointerWithOffset,
     Ld16FromPointerWithOffset,
     Ld32FromPointerWithOffset,
+
     LdRegFromFrame,
+    LdRegFromFrameUsingMask,
 
     // TODO: LEA Rddest, [Rbase + ImmediateOffset]
     // TODO: LEA.SI Rdest, Rbase, Rindex, ScaleImmediate
@@ -85,6 +88,7 @@ pub enum OpCode {
     St16UsingPtrWithOffset,
     St32UsingPtrWithOffset,
     StRegToFrame,
+    StRegToFrameUsingMask,
 
     // Movers
     MovReg,
@@ -134,6 +138,7 @@ pub enum OpCode {
     SlicePairFromHeap,
 
     // Range
+    RangeInit,
     RangeIterInit,
     RangeIterNext,
 
@@ -171,9 +176,6 @@ pub enum OpCode {
 
     // Other
     HostCall, // calls back into host
-    AddU32Imm,
-    LoadEffectiveAddressIndexMultiplier,
-    RangeInit,
 }
 
 impl OpCode {
@@ -243,12 +245,12 @@ impl OpCode {
             Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ldb",
             Self::Ld16FromPointerWithOffset => "ldh",
             Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ld",
-            Self::LdRegFromFrame => "ldmf",
+            Self::LdRegFromFrameUsingMask | Self::LdRegFromFrame => "ldmf",
 
             Self::St32UsingPtrWithOffset => "st",
             Self::St16UsingPtrWithOffset => "sth",
             Self::St8UsingPtrWithOffset => "stb",
-            Self::StRegToFrame => "stmf",
+            Self::StRegToFrameUsingMask | Self::StRegToFrame => "stmf",
 
             // Float functions
             Self::FloatRound => "fround",

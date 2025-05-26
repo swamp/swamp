@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
-    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
-    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
+    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
+    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta};
 
@@ -121,6 +121,8 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
     temp_reg: u8,
 }
+
+impl<'a> InstructionBuilder<'a> {}
 
 impl<'a> InstructionBuilder<'a> {}
 
@@ -633,43 +635,65 @@ impl InstructionBuilder<'_> {
 
     pub fn add_ld_regs_from_frame(
         &mut self,
-        target_reg: &TypedRegister,
-        stored_in_frame: FrameMemoryAddress,
+        target_reg: u8,
+        stored_in_frame: FrameMemoryRegion,
         count: u8,
         node: &Node,
         comment: &str,
     ) {
-        let address_bytes = stored_in_frame.0.to_le_bytes();
+        let address_bytes = stored_in_frame.addr.0.to_le_bytes();
         self.state.add_instruction(
             OpCode::LdRegFromFrame,
-            &[
-                target_reg.addressing(),
-                address_bytes[0],
-                address_bytes[1],
-                count,
-            ],
+            &[target_reg, address_bytes[0], address_bytes[1], count],
             node,
             comment,
         );
     }
 
-    pub fn add_st_regs_to_frame(
+    pub fn add_ld_regs_from_frame_using_mask(
         &mut self,
-        frame_mem: FrameMemoryAddress,
-        source_reg: &TypedRegister,
+        register_mask: u8,
+        stored_in_frame: FrameMemoryRegion,
+        node: &Node,
+        comment: &str,
+    ) {
+        let address_bytes = stored_in_frame.addr.0.to_le_bytes();
+        self.state.add_instruction(
+            OpCode::LdRegFromFrameUsingMask,
+            &[register_mask, address_bytes[0], address_bytes[1]],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_st_regs_to_frame_using_range(
+        &mut self,
+        frame_mem: FrameMemoryRegion,
+        source_reg: u8,
         count: u8,
         node: &Node,
         comment: &str,
     ) {
-        let address_bytes = frame_mem.0.to_le_bytes();
+        let address_bytes = frame_mem.addr.0.to_le_bytes();
         self.state.add_instruction(
             OpCode::StRegToFrame,
-            &[
-                address_bytes[0],
-                address_bytes[1],
-                source_reg.addressing(),
-                count,
-            ],
+            &[address_bytes[0], address_bytes[1], source_reg, count],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_st_regs_using_mask_to_frame(
+        &mut self,
+        start_frame_mem: FrameMemoryAddress,
+        source_reg_mask: u8,
+        node: &Node,
+        comment: &str,
+    ) {
+        let address_bytes = start_frame_mem.0.to_le_bytes();
+        self.state.add_instruction(
+            OpCode::StRegToFrameUsingMask,
+            &[address_bytes[0], address_bytes[1], source_reg_mask],
             node,
             comment,
         );
@@ -1036,7 +1060,15 @@ impl InstructionBuilder<'_> {
         PatchPosition(position)
     }
 
-    pub fn add_range_init(&mut self, target_range_iterator: &TypedRegister, min_reg: &TypedRegister, max_reg: &TypedRegister, is_inclusive_reg: &TypedRegister, node: &Node, comment: &str) {
+    pub fn add_range_init(
+        &mut self,
+        target_range_iterator: &TypedRegister,
+        min_reg: &TypedRegister,
+        max_reg: &TypedRegister,
+        is_inclusive_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
         self.state.add_instruction(
             OpCode::RangeInit,
             &[
@@ -1117,12 +1149,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_vec_create(
-        &mut self,
-        mut_self_addr: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
+    pub fn add_vec_create(&mut self, mut_self_addr: &TypedRegister, node: &Node, comment: &str) {
         // assert_ne!(element_byte_size.0, 0); // TODO: Bring this back
         self.state.add_instruction(
             OpCode::VecCreate,

@@ -779,11 +779,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                    &ast_expression.node,
-                    fields,
-                    *rest_was_specified,
-                    context,
-                )?,
+                &ast_expression.node,
+                fields,
+                *rest_was_specified,
+                context,
+            )?,
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
@@ -1465,7 +1465,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {} else {
+            if let Type::Optional(_) = tv.resolved_type {
+            } else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -3274,17 +3275,17 @@ impl<'a> Analyzer<'a> {
                     return_type: Box::new(Type::Unit),
                 },
             ),
-            _ => {
-                self.slice_member_signature(element_type, field_name_str, node)
-            }?
+            _ => { self.slice_member_signature(element_type, field_name_str, node) }?,
         };
         Ok(intrinsic_and_signature)
     }
 
-    fn slice_member_signature(&mut self,
-                              element_type: &Type,
-                              field_name_str: &str,
-                              node: &swamp_ast::Node, ) -> Result<(IntrinsicFunction, Signature), Error> {
+    fn slice_member_signature(
+        &mut self,
+        element_type: &Type,
+        field_name_str: &str,
+        node: &swamp_ast::Node,
+    ) -> Result<(IntrinsicFunction, Signature), Error> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: Type::DynamicSlice(Box::from(element_type.clone())).clone(),
@@ -3294,14 +3295,12 @@ impl<'a> Analyzer<'a> {
         let intrinsic_and_signature = match field_name_str {
             "filter" => {
                 let signature = Signature {
-                    parameters: vec![
-                        TypeForParameter {
-                            name: "element".to_string(),
-                            resolved_type: element_type.clone(),
-                            is_mutable: false,
-                            node: None,
-                        }
-                    ],
+                    parameters: vec![TypeForParameter {
+                        name: "element".to_string(),
+                        resolved_type: element_type.clone(),
+                        is_mutable: false,
+                        node: None,
+                    }],
                     return_type: Box::new(Type::Bool),
                 };
                 let lambda_function_type = Type::Function(signature);
@@ -3323,14 +3322,10 @@ impl<'a> Analyzer<'a> {
             }
             "len" => {
                 let signature = Signature {
-                    parameters: vec![
-                        self_type_param,
-                    ],
+                    parameters: vec![self_type_param],
                     return_type: Box::new(Type::Int),
                 };
-                (IntrinsicFunction::VecLen,
-                 signature,
-                )
+                (IntrinsicFunction::VecLen, signature)
             }
             _ => {
                 return Err(self.create_err(
@@ -3348,8 +3343,7 @@ impl<'a> Analyzer<'a> {
         field_name_str: &str,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
-        let ty = type_that_member_is_on
-            .underlying();
+        let ty = type_that_member_is_on.underlying();
         match ty {
             Type::VecStorage(element_type, ..) => self.vec_member_signature(
                 type_that_member_is_on,
@@ -3363,11 +3357,9 @@ impl<'a> Analyzer<'a> {
                 field_name_str,
                 node,
             ),
-            Type::DynamicSlice(element_type) => self.slice_member_signature(
-                element_type,
-                field_name_str,
-                node,
-            ),
+            Type::DynamicSlice(element_type) => {
+                self.slice_member_signature(element_type, field_name_str, node)
+            }
             _ => Err(self.create_err(
                 ErrorKind::UnknownMemberFunction(type_that_member_is_on.clone()),
                 node,

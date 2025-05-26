@@ -6,9 +6,9 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{Expression, MutRefOrImmutableExpression};
 use swamp_types::Type;
-use swamp_vm_types::types::{pointer_type, Destination, RValueOrLValue, TypedRegister, VmType};
+use swamp_vm_types::types::{Destination, RValueOrLValue, TypedRegister, VmType, pointer_type};
 use swamp_vm_types::{
-    AggregateMemoryLocation, MemoryLocation, MemoryOffset, MAP_HEADER_COUNT_OFFSET,
+    AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset,
     STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
 };
 
@@ -114,12 +114,24 @@ impl CodeBuilder<'_> {
                 let end_reg = self.emit_scalar_rvalue(end_arg_expr, ctx);
 
                 let is_inclusive = &arguments[1];
-                let MutRefOrImmutableExpression::Expression(is_inclusive_expr) = is_inclusive else {
+                let MutRefOrImmutableExpression::Expression(is_inclusive_expr) = is_inclusive
+                else {
                     panic!();
                 };
                 let is_inclusive_reg = self.emit_scalar_rvalue(is_inclusive_expr, ctx);
-                let absolute_range_pointer = self.emit_absolute_pointer_if_needed(target_destination, node, "create range target pointer");
-                self.builder.add_range_init(&absolute_range_pointer, start_reg, &end_reg, &is_inclusive_reg, node, "create a range");
+                let absolute_range_pointer = self.emit_absolute_pointer_if_needed(
+                    target_destination,
+                    node,
+                    "create range target pointer",
+                );
+                self.builder.add_range_init(
+                    &absolute_range_pointer,
+                    start_reg,
+                    &end_reg,
+                    &is_inclusive_reg,
+                    node,
+                    "create a range",
+                );
             }
 
             // Bool
@@ -438,11 +450,8 @@ impl CodeBuilder<'_> {
                 );
             }
             IntrinsicFunction::VecCreate => {
-                self.builder.add_vec_create(
-                    maybe_target.unwrap(),
-                    node,
-                    "vec create",
-                ); // TODO: Fix to have proper element memory size
+                self.builder
+                    .add_vec_create(maybe_target.unwrap(), node, "vec create"); // TODO: Fix to have proper element memory size
             }
             IntrinsicFunction::VecFromSlice => {
                 /*

@@ -6,8 +6,8 @@ use crate::Analyzer;
 use crate::TypeContext;
 use crate::err::Error;
 use swamp_semantic::Literal::BoolLiteral;
-use swamp_semantic::{Expression, ExpressionKind, Function, MutRefOrImmutableExpression};
 use swamp_semantic::intr::IntrinsicFunction;
+use swamp_semantic::{Expression, ExpressionKind, Function, MutRefOrImmutableExpression};
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
@@ -56,8 +56,6 @@ impl Analyzer<'_> {
             .get_struct("Range")
             .unwrap()
             .clone();
-            
- 
 
         let range_type = Type::Range(range_anonymous_struct_type.anon_struct_type);
         let is_inclusive = matches!(mode, swamp_ast::RangeMode::Inclusive);
@@ -71,9 +69,8 @@ impl Analyzer<'_> {
                 MutRefOrImmutableExpression::Expression(min),
                 MutRefOrImmutableExpression::Expression(max),
                 MutRefOrImmutableExpression::Expression(bool_expr),
-            ])
-            //ast_node,
-            //&range_type,
+            ]), //ast_node,
+                //&range_type,
         );
 
         Ok(self.create_expr(call_kind, range_type, ast_node))

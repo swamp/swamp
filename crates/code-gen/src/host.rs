@@ -14,7 +14,7 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> FlagState {
-        let (spilled_arguments, copy_back) = self.emit_arguments(
+        let argument_infos = self.emit_arguments(
             output_destination,
             node,
             &host_fn.signature,
@@ -34,7 +34,7 @@ impl CodeBuilder<'_> {
             ),
         );
 
-        self.emit_post_call(&spilled_arguments, &copy_back, node, "host call");
+        self.emit_post_call(argument_infos, node, "host call");
 
         FlagState::default()
     }
@@ -48,7 +48,7 @@ impl CodeBuilder<'_> {
         arguments: &Vec<MutRefOrImmutableExpression>,
         ctx: &Context,
     ) -> FlagState {
-        let (spilled_arguments, copy_backs) = self.emit_arguments(
+        let argument_infos = self.emit_arguments(
             return_output_destination,
             node,
             &host_fn.signature,
@@ -68,7 +68,7 @@ impl CodeBuilder<'_> {
             ),
         ); // will be fixed up later
 
-        self.emit_post_call(&spilled_arguments, &copy_backs, node, "host_self_call");
+        self.emit_post_call(argument_infos, node, "host_self_call");
 
         FlagState::default()
     }

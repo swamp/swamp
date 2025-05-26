@@ -1,8 +1,8 @@
-use crate::DetailedLocationResolved;
 use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool};
 use crate::state::CodeGenState;
+use crate::{ArgumentAndTempScope, DetailedLocationResolved};
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
@@ -18,9 +18,15 @@ use swamp_vm_types::types::{
     b8_type, u8_type, u32_type,
 };
 use swamp_vm_types::{
-    AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryAddress, MemoryLocation, MemoryOffset, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
+    AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, MemoryLocation,
+    MemoryOffset, MemorySize, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
+
+pub struct EmitArgumentInfo {
+    pub argument_and_temp_scope: ArgumentAndTempScope,
+    pub phase_one_copy_back: Vec<MutableReturnReg>,
+    pub phase_two_copy_back: Vec<MutableReturnReg>,
+}
 
 pub(crate) struct MutableReturnReg {
     pub target_location_after_call: Destination,
@@ -34,11 +40,12 @@ pub(crate) struct CodeBuilder<'a> {
     frame_memory_registers: RegisterPool,
     pub(crate) temp_registers: HwmTempRegisterPool,
     pub(crate) frame_allocator: ScopeAllocator,
+    //pub spilled_registers: SpilledRegisterScopes,
     pub source_map_lookup: &'a SourceMapWrapper<'a>,
 }
 
 impl<'a> CodeBuilder<'a> {
-    pub const fn new(
+    pub fn new(
         state: &'a mut CodeGenState,
         builder: &'a mut InstructionBuilder<'a>,
         variable_registers: SeqMap<usize, TypedRegister>,
@@ -98,13 +105,13 @@ impl CodeBuilder<'_> {
     pub(crate) fn add_ld_regs_from_frame(
         &mut self,
         start_reg: &TypedRegister,
-        start_address: FrameMemoryAddress,
+        start_address: FrameMemoryRegion,
         count: u8,
         node: &Node,
         comment: &str,
     ) {
         self.builder
-            .add_ld_regs_from_frame(start_reg, start_address, count, node, comment);
+            .add_ld_regs_from_frame(start_reg.index, start_address, count, node, comment);
     }
 
     pub fn total_aligned_frame_size(&self) -> FrameMemorySize {
@@ -529,16 +536,21 @@ impl CodeBuilder<'_> {
         );
     }
 
-    pub(crate) fn temp_frame_space_for_register(&mut self, comment: &str) -> FrameMemoryRegion {
+    pub(crate) fn temp_frame_space_for_register(
+        &mut self,
+        count: u8,
+        comment: &str,
+    ) -> FrameMemoryRegion {
+        let total_size = MemorySize(REG_ON_FRAME_SIZE.0 * count as u16);
         let start = self
             .frame_allocator
-            .allocate(REG_ON_FRAME_SIZE, REG_ON_FRAME_ALIGNMENT);
+            .allocate(total_size, REG_ON_FRAME_ALIGNMENT);
 
         //info!(?start, comment, "allocating register space on frame");
 
         FrameMemoryRegion {
             addr: start,
-            size: REG_ON_FRAME_SIZE,
+            size: total_size,
         }
     }
 

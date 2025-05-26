@@ -4,9 +4,9 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
-use crate::VmState::Normal;
 use fixed32::Fp;
 use seq_map::SeqMap;
 use std::ptr;
@@ -222,6 +222,9 @@ impl Vm {
         // Store
         vm.handlers[OpCode::StRegToFrame as usize] =
             HandlerType::Args4(Self::execute_st_regs_to_frame);
+        vm.handlers[OpCode::StRegToFrameUsingMask as usize] =
+            HandlerType::Args3(Self::execute_st_regs_to_frame_using_mask);
+
         vm.handlers[OpCode::St32UsingPtrWithOffset as usize] =
             HandlerType::Args4(Self::execute_stw_using_base_ptr_and_offset);
         vm.handlers[OpCode::St16UsingPtrWithOffset as usize] =
@@ -232,6 +235,8 @@ impl Vm {
         // Load
         vm.handlers[OpCode::LdRegFromFrame as usize] =
             HandlerType::Args4(Self::execute_ld_regs_from_frame);
+        vm.handlers[OpCode::LdRegFromFrameUsingMask as usize] =
+            HandlerType::Args3(Self::execute_ld_regs_from_frame_using_mask);
 
         vm.handlers[OpCode::Ld32FromPointerWithOffset as usize] =
             HandlerType::Args4(Self::execute_ldw_from_base_ptr_and_offset);
@@ -377,8 +382,7 @@ impl Vm {
             HandlerType::Args5(Self::execute_slice_pair_from_heap);
 
         // Range
-        vm.handlers[OpCode::RangeInit as usize] =
-            HandlerType::Args4(Self::execute_range_init);
+        vm.handlers[OpCode::RangeInit as usize] = HandlerType::Args4(Self::execute_range_init);
         vm.handlers[OpCode::RangeIterInit as usize] =
             HandlerType::Args2(Self::execute_range_iter_init);
         vm.handlers[OpCode::RangeIterNext as usize] =
@@ -1096,6 +1100,26 @@ impl Vm {
     }
 
     #[inline]
+    fn execute_st_regs_to_frame_using_mask(&mut self, a: u8, b: u8, reg_mask: u8) {
+        let offset = u8s_to_u16!(a, b);
+        let mut target_ptr = self.memory.get_frame_ptr_as_u32(offset);
+        let mut const_reg_ptr = &self.registers[0usize] as *const u32;
+        let mut mask = reg_mask;
+        for _ in 0..8 {
+            if (mask & 0x1) != 0 {
+                unsafe {
+                    ptr::write(target_ptr, *const_reg_ptr);
+                    target_ptr = target_ptr.add(1);
+                }
+            }
+            mask >>= 1;
+            unsafe {
+                const_reg_ptr = const_reg_ptr.add(1);
+            }
+        }
+    }
+
+    #[inline]
     fn execute_stw_using_base_ptr_and_offset(
         &mut self,
         base_ptr_reg: u8,
@@ -1220,6 +1244,26 @@ impl Vm {
         let source_frame_start = self.memory.get_frame_const_ptr_as_u32(offset);
         unsafe {
             ptr::copy_nonoverlapping(source_frame_start, target_reg_ptr, count as usize);
+        }
+    }
+
+    #[inline]
+    pub fn execute_ld_regs_from_frame_using_mask(&mut self, reg_mask: u8, a: u8, b: u8) {
+        let offset = u8s_to_u16!(a, b);
+        let mut target_reg_ptr = &mut self.registers[0usize] as *mut u32;
+        let mut source_frame_start = self.memory.get_frame_const_ptr_as_u32(offset);
+        let mut mask = reg_mask;
+        for _ in 0..8 {
+            if mask & 0x01 != 0 {
+                unsafe {
+                    ptr::write(target_reg_ptr, *source_frame_start);
+                    source_frame_start = source_frame_start.add(1);
+                }
+            }
+            mask >>= 1;
+            unsafe {
+                target_reg_ptr = target_reg_ptr.add(1);
+            }
         }
     }
 

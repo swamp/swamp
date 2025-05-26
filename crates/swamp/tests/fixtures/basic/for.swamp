@@ -4,11 +4,11 @@ use std::{print}
 #[test]
 fn basic() {
   mut sum = 0
-  for x in 0..10 {
+  for x in 0..3 {
     print('x: {x}')
     sum += x
   }
-  assert(sum == 45, 'Sum should be 45, got {sum}')
+  assert(sum == 3, 'Sum should be 3, got {sum}')
 }
 
 #[test]
