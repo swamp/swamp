@@ -1215,7 +1215,6 @@ impl<'a> Analyzer<'a> {
         let mut suffixes = Vec::new();
 
         for item in &chain.postfixes[start_index..] {
-            info!(?tv, "postfix");
             match item {
                 swamp_ast::Postfix::FieldAccess(field_name) => {
                     let (struct_type_ref, index, return_type) =

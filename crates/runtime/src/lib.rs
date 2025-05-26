@@ -185,7 +185,7 @@ pub fn run_function_with_debug(
 
     while !vm.is_execution_complete() {
         let pc = vm.pc();
-        //#[cfg(feature = "debug_vm")]
+        #[cfg(feature = "debug_vm")]
         if run_options.debug_opcodes_enabled {
             let regs = [0, 1, 2, 3, 4, 128, 129, 130];
             eprint!(
@@ -203,43 +203,48 @@ pub fn run_function_with_debug(
         }
 
         vm.step();
-        let info = run_options.debug_info.fetch(pc).unwrap();
 
-        if info.meta.node.span.file_id != 0 {
-            let (line, column) = run_options
-                .source_map_wrapper
-                .source_map
-                .get_span_location_utf8(
-                    info.meta.node.span.file_id,
-                    info.meta.node.span.offset as usize,
-                );
-            let source_line_info = SourceFileLineInfo {
-                row: line,
-                file_id: info.meta.node.span.file_id as usize,
-            };
+        #[cfg(feature = "debug_vm")]
+        if run_options.debug_opcodes_enabled {
+            let info = run_options.debug_info.fetch(pc).unwrap();
 
-            if let Some((start_row, end_row)) = last_line_info.check_if_new_line(&source_line_info)
-            {
-                let mut string = String::new();
-                display_lines(
-                    &mut string,
-                    source_line_info.file_id as FileId,
-                    start_row,
-                    end_row,
-                    &run_options.source_map_wrapper,
-                );
-                eprint!("{string}");
+            if info.meta.node.span.file_id != 0 {
+                let (line, column) = run_options
+                    .source_map_wrapper
+                    .source_map
+                    .get_span_location_utf8(
+                        info.meta.node.span.file_id,
+                        info.meta.node.span.offset as usize,
+                    );
+                let source_line_info = SourceFileLineInfo {
+                    row: line,
+                    file_id: info.meta.node.span.file_id as usize,
+                };
+
+                if let Some((start_row, end_row)) =
+                    last_line_info.check_if_new_line(&source_line_info)
+                {
+                    let mut string = String::new();
+                    display_lines(
+                        &mut string,
+                        source_line_info.file_id as FileId,
+                        start_row,
+                        end_row,
+                        &run_options.source_map_wrapper,
+                    );
+                    eprint!("{string}");
+                }
             }
-        }
 
-        let instruction = &vm.instructions()[pc];
-        let string = disasm_color(
-            instruction,
-            &info.function_debug_info.frame_memory,
-            &info.meta,
-            &InstructionPosition(pc as u32),
-        );
-        eprintln!("{pc:04X}> {string}");
+            let instruction = &vm.instructions()[pc];
+            let string = disasm_color(
+                instruction,
+                &info.function_debug_info.frame_memory,
+                &info.meta,
+                &InstructionPosition(pc as u32),
+            );
+            eprintln!("{pc:04X}> {string}");
+        }
     }
 }
 
