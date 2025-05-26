@@ -32,8 +32,9 @@ impl Memory {
             ptr::copy_nonoverlapping(constant_memory.as_ptr(), memory, constant_memory.len());
         }
 
-        let aligned_start_of_heap = align(constant_memory.len(), ALIGNMENT);
-        let aligned_start_of_stack = align(memory_size / 2, ALIGNMENT);
+        let aligned_start_of_stack = align(constant_memory.len(), ALIGNMENT);
+
+        let aligned_start_of_heap = align(memory_size * 3 / 4, ALIGNMENT);
 
         eprintln!("START: heap_start: {aligned_start_of_heap:X} stack: {aligned_start_of_stack:X}");
 

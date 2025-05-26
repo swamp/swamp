@@ -188,10 +188,17 @@ pub fn run_function_with_debug(
         #[cfg(feature = "debug_vm")]
         if run_options.debug_opcodes_enabled {
             let regs = [0, 1, 2, 3, 4, 128, 129, 130];
+
+            eprint!(
+                "{}",
+                tinter::bright_black(&format!("fp:{:08X}, sp:{:08X}, ", vm.fp(), vm.sp()))
+            );
+
             eprint!(
                 "{}",
                 tinter::bright_black(&format!("t:{} ", if vm.flags.t { "1" } else { "0" }))
             );
+
             for reg in regs {
                 let reg_name = &format!("r{reg}");
                 eprint!(

@@ -155,6 +155,8 @@ pub struct Vm {
     pub state: VmState,
 }
 
+impl Vm {}
+
 impl Vm {
     #[must_use]
     pub const fn is_execution_complete(&self) -> bool {
@@ -316,7 +318,7 @@ impl Vm {
 
         // Call, enter, ret
         vm.handlers[OpCode::Call as usize] = HandlerType::Args4(Self::execute_call);
-        vm.handlers[OpCode::Enter as usize] = HandlerType::Args1(Self::execute_enter);
+        vm.handlers[OpCode::Enter as usize] = HandlerType::Args2(Self::execute_enter);
         vm.handlers[OpCode::Ret as usize] = HandlerType::Args0(Self::execute_ret);
 
         vm.handlers[OpCode::HostCall as usize] = HandlerType::Args3(Self::execute_host_call);
@@ -635,6 +637,14 @@ impl Vm {
 
     pub const fn pc(&self) -> usize {
         self.pc
+    }
+
+    pub fn fp(&self) -> usize {
+        self.memory.frame_offset
+    }
+
+    pub fn sp(&self) -> usize {
+        self.memory.stack_offset
     }
 
     fn execute_unimplemented(&mut self) {
@@ -1526,7 +1536,7 @@ impl Vm {
             previous_stack_offset: self.memory.stack_offset,
         };
 
-        self.memory.set_fp();
+        //self.memory.set_fp(); // we do not modify fp
         self.call_stack.push(return_info);
         self.pc = absolute_pc as usize;
 
@@ -1569,8 +1579,10 @@ impl Vm {
 
     #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    fn execute_enter(&mut self, frame_size_for_local_variables: u8) {
-        self.memory.inc_sp(frame_size_for_local_variables as usize);
+    fn execute_enter(&mut self, frame_size_for_local_lower: u8, frame_size_for_local_upper: u8) {
+        let frame_size = u16_from_u8s!(frame_size_for_local_lower, frame_size_for_local_upper);
+        self.memory.set_fp(); // set the frame pointer to what sp is now
+        self.memory.inc_sp(frame_size as usize);
     }
 
     #[inline]
