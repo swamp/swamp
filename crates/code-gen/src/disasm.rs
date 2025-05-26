@@ -3,7 +3,8 @@ use source_map_cache::{FileLineInfo, SourceMapLookup, SourceMapWrapper};
 use source_map_node::FileId;
 use std::fmt;
 use std::fmt::Write;
-use swamp_vm_disasm::{DebugInfo, SourceFileLineInfo, disasm_instructions_color};
+use swamp_vm_debug_info::{DebugInfo, SourceFileLineInfo};
+use swamp_vm_disasm::disasm_instructions_color;
 use swamp_vm_types::types::{
     FrameMemoryInfo, VariableRegister, VmType, show_frame_memory, write_basic_type,
 };

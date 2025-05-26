@@ -37,5 +37,5 @@ members = [
     "crates/vm-host",
     "crates/vm-pretty-print",
     "crates/runtime",
-    "crates/test-runner",
+    "crates/test-runner", "crates/vm-debug-info",
 ]

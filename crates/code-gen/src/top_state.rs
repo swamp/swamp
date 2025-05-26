@@ -4,7 +4,7 @@ use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
 use swamp_semantic::{ConstantId, ConstantRef, InternalFunctionId};
 use swamp_types::Attributes;
-use swamp_vm_disasm::{DebugInfo, FunctionDebugInfo};
+use swamp_vm_debug_info::{DebugInfo, FunctionDebugInfo};
 use swamp_vm_instr_build::{InstructionBuilderState, PatchPosition};
 use swamp_vm_types::types::{FunctionInfo, FunctionInfoKind};
 use swamp_vm_types::{

@@ -10,7 +10,7 @@ use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionId};
 use swamp_vm::{Vm, VmSetup, VmState};
-use swamp_vm_disasm::DebugInfo;
+use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::{BinaryInstruction, StackMemoryAddress};
 

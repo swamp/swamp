@@ -10,7 +10,7 @@ use crate::memory::Memory;
 use fixed32::Fp;
 use seq_map::SeqMap;
 use std::ptr;
-use swamp_vm_disasm::DebugInfo;
+use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_disasm::disasm_color;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
