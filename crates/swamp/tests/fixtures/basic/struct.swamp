@@ -230,9 +230,9 @@ fn toggle_flag(mut flag: Bool) {
 }
 
 /// This uncovered that there was a need for a longer reserve time for certain registers that
-/// were used for copy back of primtive types. Introduced a pin for registers in the register pool.
+/// were used for copy back of primitive types.
 #[test]
-fn mixed_type_refs() {
+fn mixed_struct_toggle_ref() {
   mut mixed = Mixed { num: 42, flag: false, text: "hello" }
   assert(mixed.num == 42, "num not initialized")
   assert(mixed.flag == false, "flag not initialized")

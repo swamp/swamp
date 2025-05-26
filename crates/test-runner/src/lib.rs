@@ -1,6 +1,6 @@
 use source_map_cache::SourceMapWrapper;
 use std::fmt::Display;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use swamp_runtime::{RunConstantsOptions, RunOptions};
 use swamp_std::print::register_print;
 use swamp_vm::VmState;
@@ -193,7 +193,7 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                                 debug_info: &code_gen_result.debug_info,
                                 source_map_wrapper: SourceMapWrapper {
                                     source_map: &source_map,
-                                    current_dir: Default::default(),
+                                    current_dir: PathBuf::default(),
                                 },
                             },
                         );

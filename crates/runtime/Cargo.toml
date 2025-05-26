@@ -49,4 +49,4 @@ test-log = { version = "0.2.16", features = ["trace", "log", "color"] }
 tracing = "0.1.40"
 
 [features]
-debug_vm = []
+debug_vm = [] #
