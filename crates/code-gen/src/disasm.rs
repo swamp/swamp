@@ -1,16 +1,11 @@
-use seq_map::SeqMap;
-use source_map_cache::{FileLineInfo, SourceMapLookup, SourceMapWrapper};
+use source_map_cache::{FileLineInfo, SourceMapWrapper};
 use source_map_node::FileId;
 use std::fmt;
 use std::fmt::Write;
-use swamp_vm_debug_info::{DebugInfo, SourceFileLineInfo};
+use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_disasm::disasm_instructions_color;
-use swamp_vm_types::types::{
-    FrameMemoryInfo, VariableRegister, VmType, show_frame_memory, write_basic_type,
-};
-use swamp_vm_types::{
-    BinaryInstruction, FrameMemoryAddress, InstructionPosition, InstructionPositionOffset, Meta,
-};
+use swamp_vm_types::types::{VariableRegister, VmType, show_frame_memory, write_basic_type};
+use swamp_vm_types::{BinaryInstruction, FrameMemoryAddress, InstructionPositionOffset};
 
 fn different_file_info(span_a: &FileLineInfo, span_b: &FileLineInfo) -> bool {
     span_a.line != span_b.line
@@ -58,85 +53,82 @@ pub fn show_parameters_and_variables(
 
 #[must_use]
 pub fn disasm_function(
-    frame_relative_infos: &FrameMemoryInfo,
+    //   frame_relative_infos: &FrameMemoryInfo,
     return_type: &VmType,
     parameters: &[VariableRegister],
     instructions: &[BinaryInstruction],
-    meta: &[Meta],
+    //    meta: &[Meta],
     ip_offset: InstructionPositionOffset,
+    debug_info: &DebugInfo,
     source_map_wrapper: &SourceMapWrapper,
 ) -> String {
     let mut header_output = String::new();
 
-    show_frame_memory(frame_relative_infos, &mut header_output).unwrap();
+    let info = debug_info.fetch(ip_offset.0 as usize).unwrap();
+
+    show_frame_memory(&info.function_debug_info.frame_memory, &mut header_output).unwrap();
 
     show_parameters_and_variables(
         return_type,
         parameters,
-        &frame_relative_infos.variable_registers,
+        &info.function_debug_info.frame_memory.variable_registers,
         &mut header_output,
     )
     .expect("should work");
 
-    let mut ip_infos = SeqMap::new();
+    /*
+        let mut ip_infos = SeqMap::new();
 
-    let mut previous_node: Option<FileLineInfo> = None;
+        let mut previous_node: Option<FileLineInfo> = None;
 
-    for (offset, _inst) in instructions.iter().enumerate() {
-        let absolute_ip = ip_offset.0 + offset as u32;
-        let meta = &meta[offset];
-        let file_line_info = if is_valid_file_id(meta.node.span.file_id) {
-            Some(source_map_wrapper.get_line(&meta.node.span))
-        } else {
-            None
-        };
+        for (offset, _inst) in instructions.iter().enumerate() {
+            let absolute_ip = ip_offset.0 + offset as u32;
+            let meta = &meta[offset];
+            let file_line_info = if is_valid_file_id(meta.node.span.file_id) {
+                Some(source_map_wrapper.get_line(&meta.node.span))
+            } else {
+                None
+            };
 
-        if let Some(line_info) = file_line_info {
-            let is_different_line = previous_node
-                .as_ref()
-                .is_none_or(|previous| different_file_info(&line_info, previous));
+            if let Some(line_info) = file_line_info {
+                let is_different_line = previous_node
+                    .as_ref()
+                    .is_none_or(|previous| different_file_info(&line_info, previous));
 
-            // TODO: Add clone to FileLineInfo
-            previous_node = Some(FileLineInfo {
-                row: line_info.row,
-                col: line_info.col,
-                line: line_info.line.clone(),
-                relative_file_name: line_info.relative_file_name.clone(),
-            });
-
-            if is_different_line {
-                assert_ne!(
-                    line_info.row, 0,
-                    "file_info: {}",
-                    line_info.relative_file_name
-                );
-                assert_ne!(
-                    line_info.row, 0,
-                    "file_info: {}",
-                    line_info.relative_file_name
-                );
-                let mapped = SourceFileLineInfo {
+                // TODO: Add clone to FileLineInfo
+                previous_node = Some(FileLineInfo {
                     row: line_info.row,
-                    file_id: meta.node.span.file_id as usize,
-                };
-                ip_infos
-                    .insert(InstructionPosition(absolute_ip), mapped)
-                    .unwrap();
+                    col: line_info.col,
+                    line: line_info.line.clone(),
+                    relative_file_name: line_info.relative_file_name.clone(),
+                });
+
+                if is_different_line {
+                    assert_ne!(
+                        line_info.row, 0,
+                        "file_info: {}",
+                        line_info.relative_file_name
+                    );
+                    assert_ne!(
+                        line_info.row, 0,
+                        "file_info: {}",
+                        line_info.relative_file_name
+                    );
+                    let mapped = SourceFileLineInfo {
+                        row: line_info.row,
+                        file_id: meta.node.span.file_id as usize,
+                    };
+                    ip_infos
+                        .insert(InstructionPosition(absolute_ip), mapped)
+                        .unwrap();
+                }
             }
         }
-    }
-
+    */
     format!(
         "{}\n{}",
         header_output,
-        disasm_instructions_color(
-            instructions,
-            &ip_offset,
-            meta,
-            frame_relative_infos,
-            &ip_infos,
-            source_map_wrapper,
-        )
+        disasm_instructions_color(instructions, &ip_offset, &debug_info, source_map_wrapper,)
     )
 }
 
@@ -156,16 +148,13 @@ pub fn disasm_whole_program(
             );
             let end_ip = current_ip + debug_info_for_pc.function_debug_info.ip_range.count.0;
             let instructions_slice = &instructions[current_ip as usize..end_ip as usize];
-            let meta_slice =
-                &debug_info.info_for_each_instruction[current_ip as usize..end_ip as usize];
 
             let output_string = disasm_function(
-                &debug_info_for_pc.function_debug_info.frame_memory,
                 &debug_info_for_pc.function_debug_info.return_type,
                 &debug_info_for_pc.function_debug_info.parameters,
                 instructions_slice,
-                meta_slice,
                 InstructionPositionOffset(current_ip),
+                &debug_info,
                 source_map_wrapper,
             );
             eprintln!("{output_string}");

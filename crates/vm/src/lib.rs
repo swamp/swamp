@@ -10,8 +10,6 @@ use crate::memory::Memory;
 use fixed32::Fp;
 use seq_map::SeqMap;
 use std::ptr;
-use swamp_vm_debug_info::DebugInfo;
-use swamp_vm_disasm::disasm_color;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
@@ -154,9 +152,14 @@ pub struct Vm {
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
 
-    pub debug_info: Option<DebugInfo>,
-
     pub state: VmState,
+}
+
+impl Vm {
+    #[must_use]
+    pub const fn is_execution_complete(&self) -> bool {
+        self.execution_complete
+    }
 }
 
 const ALIGNMENT: usize = 8;
@@ -169,18 +172,7 @@ pub struct VmSetup {
     pub constant_memory: Vec<u8>,
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
-    pub debug_info: Option<DebugInfo>,
 }
-
-/*
-stack_memory_size: setup.stack_memory_size, // Total memory size
-           constant_memory_size: setup.constant_memory.len(),
-           heap_memory,
-           heap_memory_size: setup.heap_memory_size,
-           heap_alloc_offset: setup.constant_memory.len(),
-           stack_offset: 0,
-           frame_offset: 0,
-*/
 
 impl Vm {
     #[allow(clippy::too_many_lines)]
@@ -210,7 +202,6 @@ impl Vm {
             debug_stats_enabled: setup.debug_stats_enabled,
             debug_opcodes_enabled: setup.debug_opcodes_enabled,
             state: Normal,
-            debug_info: setup.debug_info,
         };
 
         /*
@@ -454,6 +445,75 @@ impl Vm {
     pub fn memory_mut(&mut self) -> &mut Memory {
         &mut self.memory
     }
+
+    pub fn step(&mut self) -> bool {
+        let instruction = &self.instructions[self.pc];
+        let opcode = instruction.opcode;
+
+        self.pc += 1; // IP must be added BEFORE handling the instruction
+
+        match self.handlers[opcode as usize] {
+            HandlerType::Args0(handler) => handler(self),
+            HandlerType::Args1(handler) => handler(self, instruction.operands[0]),
+            HandlerType::Args2(handler) => {
+                handler(self, instruction.operands[0], instruction.operands[1]);
+            }
+            HandlerType::Args3(handler) => handler(
+                self,
+                instruction.operands[0],
+                instruction.operands[1],
+                instruction.operands[2],
+            ),
+            HandlerType::Args4(handler) => handler(
+                self,
+                instruction.operands[0],
+                instruction.operands[1],
+                instruction.operands[2],
+                instruction.operands[3],
+            ),
+            HandlerType::Args5(handler) => handler(
+                self,
+                instruction.operands[0],
+                instruction.operands[1],
+                instruction.operands[2],
+                instruction.operands[3],
+                instruction.operands[4],
+            ),
+            HandlerType::Args6(handler) => handler(
+                self,
+                instruction.operands[0],
+                instruction.operands[1],
+                instruction.operands[2],
+                instruction.operands[3],
+                instruction.operands[4],
+                instruction.operands[5],
+            ),
+            HandlerType::Args7(handler) => handler(
+                self,
+                instruction.operands[0],
+                instruction.operands[1],
+                instruction.operands[2],
+                instruction.operands[3],
+                instruction.operands[4],
+                instruction.operands[5],
+                instruction.operands[6],
+            ),
+            HandlerType::Args8(handler) => handler(
+                self,
+                instruction.operands[0],
+                instruction.operands[1],
+                instruction.operands[2],
+                instruction.operands[3],
+                instruction.operands[4],
+                instruction.operands[5],
+                instruction.operands[6],
+                instruction.operands[7],
+            ),
+        }
+
+        !self.execution_complete
+    }
+
     #[allow(clippy::too_many_lines)]
     pub fn execute_internal(&mut self) {
         self.execution_complete = false;
@@ -484,24 +544,16 @@ impl Vm {
                 let regs = [0, 1, 2, 3, 4, 128, 129, 130];
 
                 for reg in regs {
-                    eprint!("{}", tinter::bright_black(&format!("{reg:02X}: {:08X}, ", self.registers[reg])));
+                    eprint!(
+                        "{}",
+                        tinter::bright_black(&format!("{reg:02X}: {:08X}, ", self.registers[reg]))
+                    );
                 }
                 eprintln!();
 
                 let operands = instruction.operands;
                 eprint!("> {:04X}: ", self.pc);
-                if let Some(found_debug_info) = &self.debug_info {
-                    let info = found_debug_info.fetch(self.pc).unwrap();
-                    let string = disasm_color(
-                        instruction,
-                        &info.function_debug_info.frame_memory,
-                        &info.meta,
-                        &InstructionPosition(self.pc as u32),
-                    );
-                    eprintln!(">> {string}");
-                } else {
-                    self.debug_opcode(opcode, &operands);
-                }
+                self.debug_opcode(opcode, &operands);
             }
 
             #[cfg(feature = "debug_vm")]
@@ -575,6 +627,14 @@ impl Vm {
     pub fn execute_from_ip(&mut self, ip: &InstructionPosition) {
         self.pc = ip.0 as usize;
         self.execute_internal();
+    }
+
+    pub const fn set_pc(&mut self, pc: &InstructionPosition) {
+        self.pc = pc.0 as usize;
+    }
+
+    pub const fn pc(&self) -> usize {
+        self.pc
     }
 
     fn execute_unimplemented(&mut self) {
@@ -1088,7 +1148,7 @@ impl Vm {
 
         #[cfg(feature = "debug_vm")]
         if self.debug_stats_enabled {
-            eprintln!("panic: {str}")
+            eprintln!("panic: {str}");
         }
 
         self.state = VmState::Panic(str.to_string());

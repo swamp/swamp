@@ -1,6 +1,6 @@
 mod err_wrt;
 mod trace;
-use source_map_cache::{SourceMap, SourceMapWrapper};
+use source_map_cache::{FileId, SourceMap, SourceMapWrapper};
 use std::fmt::Write as FmtWrite;
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
@@ -10,18 +10,21 @@ use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionId};
 use swamp_vm::{Vm, VmSetup, VmState};
-use swamp_vm_debug_info::DebugInfo;
+use swamp_vm_debug_info::{DebugInfo, KeepTrackOfSourceLine, SourceFileLineInfo};
+use swamp_vm_disasm::{disasm_color, display_lines};
 use swamp_vm_types::types::BasicTypeKind;
-use swamp_vm_types::{BinaryInstruction, StackMemoryAddress};
+use swamp_vm_types::{BinaryInstruction, InstructionPosition, StackMemoryAddress};
 
 pub struct RunConstantsOptions {
     pub stderr_adapter: Option<Box<dyn FmtWrite>>,
 }
 
-pub struct RunOptions {
+pub struct RunOptions<'a> {
     //pub stderr_adapter: Option<Box<dyn FmtWrite>>,
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
+    pub debug_info: &'a DebugInfo,
+    pub source_map_wrapper: SourceMapWrapper<'a>,
 }
 
 pub fn run_constants_in_order(
@@ -114,7 +117,7 @@ pub struct CodeGenResult {
 }
 
 pub fn compile_and_codegen_main_path(
-    source_map: &mut SourceMap,
+    source_map: &mut source_map_cache::SourceMap,
     root_module_path: &[String],
     current_dir: &Path,
     options: CodeGenOptions,
@@ -146,7 +149,6 @@ pub fn compile_and_codegen_main_path(
 pub fn create_vm_with_standard_settings(
     instructions: &[BinaryInstruction],
     prepared_constant_memory: &[u8],
-    debug_info: Option<DebugInfo>,
 ) -> Vm {
     let vm_setup = VmSetup {
         stack_memory_size: 16 * 1024 * 20,
@@ -154,7 +156,6 @@ pub fn create_vm_with_standard_settings(
         constant_memory: prepared_constant_memory.to_vec(),
         debug_opcodes_enabled: false,
         debug_stats_enabled: false,
-        debug_info,
     };
 
     Vm::new(instructions.to_vec(), vm_setup)
@@ -168,27 +169,73 @@ pub fn run_first_time(
     run_constants_in_order(vm, constants_in_order, options);
 }
 
-pub fn run_function(vm: &mut Vm, function_to_run: &GenFunctionInfo, run_options: RunOptions) {
-    // It takes no parameters, so we can just run the function
-    //eprintln!("============= RUN STARTS ============");
-    {
-        vm.reset_stack_and_heap_to_constant_limit();
-        //vm.reset_debug();
-        vm.state = VmState::Normal;
-        vm.debug_opcodes_enabled = run_options.debug_opcodes_enabled;
-        vm.debug_stats_enabled = run_options.debug_stats_enabled;
-        vm.execute_from_ip(&function_to_run.ip_range.start);
+pub fn run_function_with_debug(
+    vm: &mut Vm,
+    function_to_run: &GenFunctionInfo,
+    run_options: RunOptions,
+) {
+    vm.reset_stack_and_heap_to_constant_limit();
+    //vm.reset_debug();
+    vm.state = VmState::Normal;
+    vm.debug_opcodes_enabled = run_options.debug_opcodes_enabled;
+    vm.debug_stats_enabled = run_options.debug_stats_enabled;
+    vm.set_pc(&function_to_run.ip_range.start);
+
+    let mut last_line_info = KeepTrackOfSourceLine::new();
+
+    while !vm.is_execution_complete() {
+        let pc = vm.pc();
+        vm.step();
+        let info = run_options.debug_info.fetch(pc).unwrap();
+
+        if info.meta.node.span.file_id != 0 {
+            let (line, column) = run_options
+                .source_map_wrapper
+                .source_map
+                .get_span_location_utf8(
+                    info.meta.node.span.file_id,
+                    info.meta.node.span.offset as usize,
+                );
+            let source_line_info = SourceFileLineInfo {
+                row: line,
+                file_id: info.meta.node.span.file_id as usize,
+            };
+
+            if let Some((start_row, end_row)) = last_line_info.check_if_new_line(&source_line_info)
+            {
+                let mut string = String::new();
+                display_lines(
+                    &mut string,
+                    source_line_info.file_id as FileId,
+                    start_row,
+                    end_row,
+                    &run_options.source_map_wrapper,
+                );
+                eprint!("{string}");
+            }
+        }
+
+        let instruction = &vm.instructions()[pc];
+        let string = disasm_color(
+            instruction,
+            &info.function_debug_info.frame_memory,
+            &info.meta,
+            &InstructionPosition(pc as u32),
+        );
+        eprintln!("{:04X}> {string}", vm.pc());
     }
 }
 
 #[must_use]
-pub fn compile_and_run(
+pub fn compile_and_code_gen(
     path_to_root_of_swamp_files: &Path,
     main_module_path: &[String],
-) -> CodeGenResult {
+) -> (CodeGenResult, SourceMap) {
     let mut source_map = crate_and_registry(path_to_root_of_swamp_files);
     let current_dir = PathBuf::from(Path::new(""));
     let options = CodeGenOptions { show_disasm: true };
 
-    compile_and_codegen_main_path(&mut source_map, main_module_path, &current_dir, options)
+    let result =
+        compile_and_codegen_main_path(&mut source_map, main_module_path, &current_dir, options);
+    (result, source_map)
 }

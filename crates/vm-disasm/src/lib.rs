@@ -7,7 +7,7 @@ use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::FileId;
 use std::fmt::Write;
-use swamp_vm_debug_info::SourceFileLineInfo;
+use swamp_vm_debug_info::{DebugInfo, KeepTrackOfSourceLine, SourceFileLineInfo};
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
     BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
@@ -25,65 +25,99 @@ fn convert_tabs_to_spaces(input: &str) -> String {
     input.replace('\t', " ")
 }
 
+/// # Panics
+/// If the line or file doesn't exist
+pub fn display_lines(
+    f: &mut dyn Write,
+    file_id: FileId,
+    start_row: usize,
+    end_row: usize,
+    source_file_wrapper: &SourceMapWrapper,
+) {
+    for row_to_display in start_row..=end_row {
+        let line = source_file_wrapper
+            .get_source_line(file_id, row_to_display)
+            .unwrap_or_else(|| panic!("wrong row: {row_to_display}"));
+        writeln!(
+            f,
+            "{:4} {} {}",
+            row_to_display,
+            tinter::green("|"),
+            convert_tabs_to_spaces(line),
+        )
+        .expect("TODO: panic message");
+    }
+}
+
+pub fn display_meta_information_about_instruction(
+    f: &mut dyn Write,
+    absolute_pc: u32,
+    instruction: &BinaryInstruction,
+    meta: &Meta,
+    memory_infos: &FrameMemoryInfo,
+) {
+    writeln!(
+        f,
+        "     {} {}",
+        tinter::bright_black(format!("{absolute_pc:04X}>")),
+        disasm_color(
+            instruction,
+            memory_infos,
+            meta,
+            &InstructionPosition(absolute_pc)
+        )
+    )
+    .expect("TODO: panic message");
+}
+
 #[must_use]
 pub fn disasm_instructions_color(
     binary_instructions: &[BinaryInstruction],
     instruction_position_base: &InstructionPositionOffset,
-    meta: &[Meta],
-    memory_infos: &FrameMemoryInfo,
-    ip_infos: &SeqMap<InstructionPosition, SourceFileLineInfo>,
+    //    meta: &[Meta],
+    //    memory_infos: &FrameMemoryInfo,
+    //    ip_infos: &SeqMap<InstructionPosition, SourceFileLineInfo>,
+    debug_info: &DebugInfo,
     source_file_wrapper: &SourceMapWrapper,
 ) -> String {
     let mut string = String::new();
 
-    let mut last_line_info = SourceFileLineInfo {
-        row: usize::MAX,
-        file_id: usize::MAX,
-    };
-    let mut expected_next_row_to_show = 1;
+    let mut last_line_info = KeepTrackOfSourceLine::new();
 
     for (ip_offset, instruction) in binary_instructions.iter().enumerate() {
         let absolute_pc = instruction_position_base.0 + ip_offset as u32;
 
-        if let Some(found) = ip_infos.get(&InstructionPosition(absolute_pc)) {
-            if last_line_info.file_id != found.file_id {
-                last_line_info = found.clone();
-                expected_next_row_to_show = found.row;
-            }
+        let found = &debug_info.fetch(absolute_pc as usize).unwrap();
 
-            if found.row < expected_next_row_to_show {
-                expected_next_row_to_show = found.row;
-            }
-            for row_to_display in expected_next_row_to_show..=found.row {
-                let file_id = found.file_id as FileId;
-                let line = source_file_wrapper
-                    .get_source_line(file_id, row_to_display)
-                    .unwrap_or_else(|| panic!("wrong row: {row_to_display}"));
-                writeln!(
-                    string,
-                    "{:4} {} {}",
-                    row_to_display,
-                    tinter::green("|"),
-                    convert_tabs_to_spaces(line),
-                )
-                .expect("TODO: panic message");
-            }
+        if found.meta.node.span.file_id != 0 {
+            let (line, column) = source_file_wrapper.source_map.get_span_location_utf8(
+                found.meta.node.span.file_id,
+                found.meta.node.span.offset as usize,
+            );
+            let source_line_info = SourceFileLineInfo {
+                row: line,
+                file_id: found.meta.node.span.file_id as usize,
+            };
 
-            expected_next_row_to_show = found.row + 1;
+            if let Some((start_row, end_row)) = last_line_info.check_if_new_line(&source_line_info)
+            {
+                display_lines(
+                    &mut string,
+                    source_line_info.file_id as FileId,
+                    start_row,
+                    end_row,
+                    source_file_wrapper,
+                );
+            }
         }
 
-        writeln!(
-            string,
-            "     {} {}",
-            tinter::bright_black(format!("{absolute_pc:04X}>")),
-            disasm_color(
-                instruction,
-                memory_infos,
-                &meta[ip_offset],
-                &InstructionPosition(absolute_pc)
-            )
-        )
-        .expect("TODO: panic message");
+        display_meta_information_about_instruction(
+            &mut string,
+            absolute_pc,
+            instruction,
+            &found.meta,
+            &found.function_debug_info.frame_memory,
+        );
     }
 
     string

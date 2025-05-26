@@ -2,6 +2,37 @@ use seq_map::SeqMap;
 use swamp_vm_types::types::FunctionInfo;
 use swamp_vm_types::{InstructionPosition, Meta};
 
+pub struct KeepTrackOfSourceLine {
+    pub last_line_info: SourceFileLineInfo,
+    pub expected_next_row_to_show: usize,
+}
+
+impl KeepTrackOfSourceLine {
+    pub fn new() -> Self {
+        Self {
+            last_line_info: SourceFileLineInfo {
+                row: usize::MAX,
+                file_id: usize::MAX,
+            },
+            expected_next_row_to_show: usize::MAX,
+        }
+    }
+
+    pub fn check_if_new_line(&mut self, found: &SourceFileLineInfo) -> Option<(usize, usize)> {
+        if self.last_line_info.file_id != found.file_id {
+            self.last_line_info = found.clone();
+            self.expected_next_row_to_show = self.last_line_info.row + 1;
+            Some((self.last_line_info.row, self.last_line_info.row))
+        } else if found.row < self.expected_next_row_to_show {
+            None
+        } else {
+            let line_start = self.expected_next_row_to_show;
+            self.expected_next_row_to_show = found.row + 1;
+            Some((line_start, found.row))
+        }
+    }
+}
+
 #[derive(Eq, PartialEq, Clone)]
 pub struct SourceFileLineInfo {
     pub row: usize,
@@ -25,12 +56,16 @@ impl Default for FileOffsetTable {
 }
 
 impl FileOffsetTable {
-    #[must_use] pub const fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self { entries: vec![] }
     }
-    #[must_use] pub fn find(&self, ip: InstructionPosition) -> Option<&FileOffsetEntry> {
+    #[must_use]
+    pub fn find(&self, ip: InstructionPosition) -> Option<&FileOffsetEntry> {
         let pc = ip.0;
-        self.entries.iter().find(|&entry| pc >= entry.start_pc && pc <= entry.start_pc + u32::from(entry.pc_count))
+        self.entries
+            .iter()
+            .find(|&entry| pc >= entry.start_pc && pc <= entry.start_pc + u32::from(entry.pc_count))
     }
 }
 
@@ -51,7 +86,8 @@ impl Default for FunctionTable {
 }
 
 impl FunctionTable {
-    #[must_use] pub const fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self { entries: vec![] }
     }
     pub(crate) fn find(&self, ip: InstructionPosition) -> Option<&FunctionDebugInfo> {
@@ -77,7 +113,6 @@ pub struct DebugInfo {
 
 pub struct DebugInfoForPc {
     pub meta: Meta,
-    pub source_file_info: SourceFileLineInfo,
     pub function_debug_info: FunctionInfo,
 }
 
@@ -91,14 +126,15 @@ impl DebugInfo {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            function_lookup: Default::default(),
+            function_lookup: SeqMap::default(),
             file_offsets: FileOffsetTable::new(),
             function_table: FunctionTable::new(),
             info_for_each_instruction: vec![],
-            function_infos: Default::default(),
+            function_infos: SeqMap::default(),
         }
     }
-    #[must_use] pub fn fetch(&self, pc: usize) -> Option<DebugInfoForPc> {
+    #[must_use]
+    pub fn fetch(&self, pc: usize) -> Option<DebugInfoForPc> {
         let ip = InstructionPosition(pc as u32);
         //let file = self.file_offsets.find(ip).unwrap();
         let function = self.function_table.find(ip).unwrap();
@@ -111,8 +147,6 @@ impl DebugInfo {
                 comment: meta.comment.clone(),
                 node: meta.node.clone(),
             },
-            //source_file_info: SourceFileLineInfo { row: file.line_row as usize, file_id: file.file_id as usize },
-            source_file_info: SourceFileLineInfo { row: 0, file_id: 0 },
             function_debug_info: self
                 .function_infos
                 .get(&function.function_id)

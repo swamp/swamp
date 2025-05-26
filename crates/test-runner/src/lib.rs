@@ -1,3 +1,4 @@
+use source_map_cache::SourceMapWrapper;
 use std::fmt::Display;
 use std::path::Path;
 use swamp_runtime::{RunConstantsOptions, RunOptions};
@@ -123,11 +124,11 @@ pub struct TestResult {
 #[allow(clippy::too_many_lines)]
 pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> TestResult {
     let crate_main_path = &["crate".to_string(), "lib".to_string()];
-    let code_gen_result = swamp_runtime::compile_and_run(test_dir, crate_main_path);
+    let (code_gen_result, source_map) =
+        swamp_runtime::compile_and_code_gen(test_dir, crate_main_path);
     let mut vm = swamp_runtime::create_vm_with_standard_settings(
         &code_gen_result.instructions,
         &code_gen_result.prepared_constant_memory,
-        Some(code_gen_result.debug_info),
     );
 
     let mut panic_tests = Vec::new();
@@ -183,12 +184,17 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                     eprintln!("🚀starting test '{complete_name}'");
 
                     for _ in 0..options.iteration_count {
-                        swamp_runtime::run_function(
+                        swamp_runtime::run_function_with_debug(
                             &mut vm,
                             function_to_run,
                             RunOptions {
                                 debug_stats_enabled: true,
                                 debug_opcodes_enabled: options.debug_opcodes,
+                                debug_info: &code_gen_result.debug_info,
+                                source_map_wrapper: SourceMapWrapper {
+                                    source_map: &source_map,
+                                    current_dir: Default::default(),
+                                },
                             },
                         );
                         if vm.state != VmState::Normal {

@@ -1002,7 +1002,8 @@ pub struct VmType {
 }
 
 impl VmType {
-    #[must_use] pub const fn is_mutable_primitive(&self) -> bool {
+    #[must_use]
+    pub const fn is_mutable_primitive(&self) -> bool {
         self.basic_type.is_mutable_reference()
             && self
                 .basic_type

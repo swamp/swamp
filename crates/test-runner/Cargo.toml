@@ -10,8 +10,9 @@ description = "test runner for Swamp"
 
 # Upcoming Runtime
 swamp-runtime = { path = "../runtime", version = "0.1.16" }
-swamp-std = {path = "../std", version = "0.1.16"}
-swamp-vm = { path = "../vm", version = "0.1.16", features = ["debug_vm"]}
+swamp-std = { path = "../std", version = "0.1.16" }
+swamp-vm = { path = "../vm", version = "0.1.16", features = ["debug_vm"] }
+source-map-cache = "0.0.2"
 
 tinter = "0.1.0"
 time-dilation = "0.1.10"
