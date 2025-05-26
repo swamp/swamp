@@ -96,6 +96,7 @@ pub struct TestRunOptions {
     pub debug_output: bool,
     pub print_output: bool,
     pub debug_opcodes: bool,
+    pub debug_stats: bool,
 }
 
 pub fn init_logger() {
@@ -136,6 +137,9 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
     let mut trap_tests = Vec::new();
 
     if options.should_run {
+        let some_form_of_debug = options.debug_opcodes || options.debug_output;
+        eprintln!("running in debug: {some_form_of_debug}");
+
         register_print::<TestContext>(&mut vm, &code_gen_result.program.modules, TestContext);
         let run_first_options = RunConstantsOptions {
             stderr_adapter: None,
@@ -183,22 +187,43 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
 
                     eprintln!("🚀starting test '{complete_name}'");
 
-                    for _ in 0..options.iteration_count {
-                        swamp_runtime::run_function_with_debug(
-                            &mut vm,
-                            function_to_run,
-                            RunOptions {
-                                debug_stats_enabled: true,
-                                debug_opcodes_enabled: options.debug_opcodes,
-                                debug_info: &code_gen_result.debug_info,
-                                source_map_wrapper: SourceMapWrapper {
-                                    source_map: &source_map,
-                                    current_dir: PathBuf::default(),
+                    if some_form_of_debug {
+                        for _ in 0..options.iteration_count {
+                            swamp_runtime::run_function_with_debug(
+                                &mut vm,
+                                function_to_run,
+                                RunOptions {
+                                    debug_stats_enabled: options.debug_stats,
+                                    debug_opcodes_enabled: options.debug_opcodes,
+                                    debug_info: &code_gen_result.debug_info,
+                                    source_map_wrapper: SourceMapWrapper {
+                                        source_map: &source_map,
+                                        current_dir: PathBuf::default(),
+                                    },
                                 },
-                            },
-                        );
-                        if vm.state != VmState::Normal {
-                            break;
+                            );
+                            if vm.state != VmState::Normal {
+                                break;
+                            }
+                        }
+                    } else {
+                        for _ in 0..options.iteration_count {
+                            swamp_runtime::run_as_fast_as_possible(
+                                &mut vm,
+                                function_to_run,
+                                RunOptions {
+                                    debug_stats_enabled: options.debug_stats,
+                                    debug_opcodes_enabled: options.debug_opcodes,
+                                    debug_info: &code_gen_result.debug_info,
+                                    source_map_wrapper: SourceMapWrapper {
+                                        source_map: &source_map,
+                                        current_dir: PathBuf::default(),
+                                    },
+                                },
+                            );
+                            if vm.state != VmState::Normal {
+                                break;
+                            }
                         }
                     }
 
@@ -243,7 +268,7 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
             }
         }
 
-        eprintln!("vm stats {:?}", vm.debug);
+        eprintln!("\n\nvm stats {:?}", vm.debug);
     }
     let failed_tests = [trap_tests, panic_tests].concat();
     TestResult {

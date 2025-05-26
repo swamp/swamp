@@ -169,6 +169,19 @@ pub fn run_first_time(
     run_constants_in_order(vm, constants_in_order, options);
 }
 
+pub fn run_as_fast_as_possible(
+    vm: &mut Vm,
+    function_to_run: &GenFunctionInfo,
+    run_options: RunOptions,
+) {
+    vm.reset_stack_and_heap_to_constant_limit();
+    vm.state = VmState::Normal;
+    vm.debug_opcodes_enabled = false;
+    vm.debug_stats_enabled = run_options.debug_stats_enabled;
+
+    vm.execute_from_ip(&function_to_run.ip_range.start);
+}
+
 pub fn run_function_with_debug(
     vm: &mut Vm,
     function_to_run: &GenFunctionInfo,

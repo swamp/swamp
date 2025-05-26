@@ -5,9 +5,9 @@
 
 use source_map_cache::SourceMapWrapper;
 use swamp_code_gen::top_state::TopLevelGenState;
-use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
-use swamp_compile::compile_string;
+use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_compile::Program;
+use swamp_compile::compile_string;
 use swamp_vm::host::HostArgs;
 
 fn emit_internal(code: &str) -> (TopLevelGenState, Program) {
@@ -42,7 +42,6 @@ fn emit_internal_debug(code: &str) -> (TopLevelGenState, Program) {
 
     (code_gen, program)
 }
-
 
 fn trim_lines(text: &str) -> String {
     text.lines()
@@ -97,7 +96,8 @@ pub fn exec_with_host_function<F>(
     callback: F,
 ) where
     F: 'static + FnMut(HostArgs),
-{}
+{
+}
 
 /// # Panics
 ///
@@ -114,7 +114,8 @@ pub fn exec_with_host_function_show_heap<F>(
     callback: F,
 ) where
     F: 'static + FnMut(HostArgs),
-{}
+{
+}
 
 const fn exec_vars(code: &str, expected_hex: &str) {}
 
