@@ -6,7 +6,7 @@ use swamp_semantic::{ConstantId, ConstantRef, InternalFunctionId};
 use swamp_types::Attributes;
 use swamp_vm_debug_info::{DebugInfo, FunctionDebugInfo};
 use swamp_vm_instr_build::{InstructionBuilderState, PatchPosition};
-use swamp_vm_types::types::{FunctionInfo, FunctionInfoKind};
+use swamp_vm_types::types::FunctionInfoKind;
 use swamp_vm_types::{
     BinaryInstruction, InstructionPosition, InstructionPositionOffset, InstructionRange, Meta,
 };
@@ -129,7 +129,7 @@ impl TopLevelGenState {
 
     #[must_use]
     pub fn take_instructions_and_constants(
-        mut self,
+        self,
     ) -> (
         Vec<BinaryInstruction>,
         SeqMap<ConstantId, ConstantInfo>,

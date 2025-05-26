@@ -159,11 +159,11 @@ impl TopLevelGenState {
         if count > 0 {
             let abi_parameter_frame_memory_region = code_builder.temp_frame_space_for_register(
                 count,
-                &format!("temporary space for callee_save (and not mutable primitives)"),
+                "temporary space for callee_save (and not mutable primitives)",
             );
 
             code_builder.builder.add_st_regs_using_mask_to_frame(
-                abi_parameter_frame_memory_region.addr.clone(),
+                abi_parameter_frame_memory_region.addr,
                 mask,
                 node,
                 "prologue, store regs to frame",
@@ -171,7 +171,7 @@ impl TopLevelGenState {
 
             Some(SpilledRegisterRegion {
                 registers: RepresentationOfRegisters::Mask(mask),
-                frame_memory_region: abi_parameter_frame_memory_region.clone(),
+                frame_memory_region: abi_parameter_frame_memory_region,
             })
         } else {
             None

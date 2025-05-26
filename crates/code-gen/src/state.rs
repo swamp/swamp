@@ -2,7 +2,6 @@ use crate::constants::ConstantsManager;
 use crate::{ConstantInfo, FunctionIps, GenFunctionInfo};
 use seq_map::SeqMap;
 use source_map_node::Node;
-use std::fmt::Debug;
 use swamp_semantic::{ConstantId, ConstantRef, InternalFunctionDefinitionRef, InternalFunctionId};
 use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_types::types::{CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, HeapPlacedType};

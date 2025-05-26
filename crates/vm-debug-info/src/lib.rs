@@ -18,18 +18,19 @@ pub struct FileOffsetTable {
     pub entries: Vec<FileOffsetEntry>,
 }
 
+impl Default for FileOffsetTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FileOffsetTable {
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self { entries: vec![] }
     }
-    pub fn find(&self, ip: InstructionPosition) -> Option<&FileOffsetEntry> {
+    #[must_use] pub fn find(&self, ip: InstructionPosition) -> Option<&FileOffsetEntry> {
         let pc = ip.0;
-        for entry in &self.entries {
-            if pc >= entry.start_pc && pc <= entry.start_pc + entry.pc_count as u32 {
-                return Some(entry);
-            }
-        }
-        None
+        self.entries.iter().find(|&entry| pc >= entry.start_pc && pc <= entry.start_pc + u32::from(entry.pc_count))
     }
 }
 
@@ -43,8 +44,14 @@ pub struct FunctionTable {
     pub entries: Vec<FunctionDebugInfo>,
 }
 
+impl Default for FunctionTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FunctionTable {
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self { entries: vec![] }
     }
     pub(crate) fn find(&self, ip: InstructionPosition) -> Option<&FunctionDebugInfo> {
@@ -91,7 +98,7 @@ impl DebugInfo {
             function_infos: Default::default(),
         }
     }
-    pub fn fetch(&self, pc: usize) -> Option<DebugInfoForPc> {
+    #[must_use] pub fn fetch(&self, pc: usize) -> Option<DebugInfoForPc> {
         let ip = InstructionPosition(pc as u32);
         //let file = self.file_offsets.find(ip).unwrap();
         let function = self.function_table.find(ip).unwrap();

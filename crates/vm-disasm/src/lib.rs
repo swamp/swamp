@@ -6,7 +6,6 @@ use fixed32::Fp;
 use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::FileId;
-use std::cmp::PartialEq;
 use std::fmt::Write;
 use swamp_vm_debug_info::SourceFileLineInfo;
 use swamp_vm_types::opcode::OpCode;
