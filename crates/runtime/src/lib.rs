@@ -62,6 +62,15 @@ pub fn run_constants_in_order(
                         *heap_ptr = vm.registers[0];
                     }
                 }
+                BasicTypeKind::B8 | BasicTypeKind::U8 => {
+                    let heap_ptr = vm
+                        .memory_mut()
+                        .get_heap_ptr(constant.target_constant_memory.addr().0 as usize)
+                        .cast::<u8>();
+                    unsafe {
+                        *heap_ptr = vm.registers[0] as u8;
+                    }
+                }
                 _ => todo!(),
             }
         }
