@@ -6,7 +6,7 @@ use source_map_node::Node;
 use swamp_semantic::{ArgumentExpression, ExpressionKind};
 use swamp_types::Type;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, u8_type};
-use swamp_vm_types::{InstructionPosition, PatchPosition};
+use swamp_vm_types::{InstructionPosition, MemoryOffset, PatchPosition};
 
 impl CodeBuilder<'_> {
     /// Generates code to iterate over a collection using a transformer (e.g., map, filter, `filter_map`)
@@ -270,7 +270,7 @@ impl CodeBuilder<'_> {
                     "vec init",
                 );
 
-                if target_variables.len() == 2 {
+                let next_placeholder = if target_variables.len() == 2 {
                     self.builder.add_vec_iter_next_pair_placeholder(
                         &target_iterator_header_reg,
                         &target_variables[0],
@@ -279,13 +279,46 @@ impl CodeBuilder<'_> {
                         "vec iter next pair",
                     )
                 } else {
-                    self.builder.add_vec_iter_next_placeholder(
-                        &target_iterator_header_reg,
-                        &target_variables[0],
-                        node,
-                        "vec iter next single",
-                    )
-                }
+                    let hwm = self.temp_registers.save_mark();
+                    
+                    let placeholder = if target_variables[0].ty.basic_type.is_simple_primitive() {
+                        // For primitives, create temp register to hold the address, since they do not want the
+                        // the address
+                        let temp_addr = self.temp_registers.allocate(
+                            target_variables[0].ty.clone(),
+                            "temp address for iterator value",
+                        );
+                        
+                        let p = self.builder.add_vec_iter_next_placeholder(
+                            &target_iterator_header_reg,
+                            &temp_addr.register,
+                            node,
+                            "vec iter next single into temp",
+                        );
+                        
+                        self.emit_load_from_memory(
+                            &target_variables[0],
+                            &temp_addr.register,
+                            MemoryOffset(0),
+                            &target_variables[0].ty,
+                            node,
+                            "load primitive from element address",
+                        );
+                        p
+                    } else {
+                        // For non-primitives, use target directly
+                        self.builder.add_vec_iter_next_placeholder(
+                            &target_iterator_header_reg,
+                            &target_variables[0],
+                            node,
+                            "vec iter next single",
+                        )
+                    };
+                    
+                    self.temp_registers.restore_to_mark(hwm);
+                    placeholder
+                };
+                next_placeholder
             }
             Collection::Map => {
                 self.builder.add_map_iter_init(
