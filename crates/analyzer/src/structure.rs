@@ -11,8 +11,8 @@ use swamp_semantic::{
     AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef, LocationAccess,
     LocationAccessKind, MutableReferenceKind, SingleLocationExpression, TargetAssignmentLocation,
 };
-use swamp_types::prelude::*;
 use swamp_types::StructLikeType;
+use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
     fn analyze_struct_init_calling_default(

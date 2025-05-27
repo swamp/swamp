@@ -3288,6 +3288,33 @@ impl<'a> Analyzer<'a> {
             node: None,
         };
         let intrinsic_and_signature = match field_name_str {
+            "for" => {
+                let signature = Signature {
+                    parameters: vec![TypeForParameter {
+                        name: "element".to_string(),
+                        resolved_type: element_type.clone(),
+                        is_mutable: false,
+                        node: None,
+                    }],
+                    return_type: Box::new(Type::Unit),
+                };
+                let lambda_function_type = Type::Function(signature);
+                (
+                    IntrinsicFunction::VecFor,
+                    Signature {
+                        parameters: vec![
+                            self_type_param,
+                            TypeForParameter {
+                                name: "lambda".to_string(),
+                                resolved_type: lambda_function_type,
+                                is_mutable: false,
+                                node: None,
+                            },
+                        ],
+                        return_type: Box::new(Type::Unit), // VecFor is only used for side effects
+                    },
+                )
+            }
             "filter" => {
                 let signature = Signature {
                     parameters: vec![TypeForParameter {

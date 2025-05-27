@@ -10,3 +10,11 @@ fn filter() {
   }
   assert(even.len() == 1, 'filter test failed')
 }
+
+#[test]
+fn for() {
+  a = [1, 2, 3]
+  a.for(|x| {
+    print('x: {x}')
+  })
+}

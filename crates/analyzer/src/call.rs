@@ -26,7 +26,7 @@ impl Analyzer<'_> {
 
     */
     /// # Errors
-    /// 
+    ///
     pub fn analyze_argument(
         &mut self,
         fn_parameter: &TypeForParameter,

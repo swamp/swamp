@@ -7,8 +7,6 @@ use swamp_vm_disasm::disasm_instructions_color;
 use swamp_vm_types::types::{VariableRegister, VmType, show_frame_memory, write_basic_type};
 use swamp_vm_types::{BinaryInstruction, FrameMemoryAddress, InstructionPositionOffset};
 
-
-
 #[must_use]
 pub const fn is_valid_file_id(file_id: FileId) -> bool {
     file_id != 0 && file_id != 0xffff

@@ -565,7 +565,7 @@ impl CodeBuilder<'_> {
                 // TODO:
                 // Intentionally empty, since it should never be called
             }
-            IntrinsicFunction::VecFor => todo!(),   // Low prio
+
             IntrinsicFunction::VecWhile => todo!(), // Low prio
             IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
@@ -615,6 +615,19 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
+
+            IntrinsicFunction::VecFor => {
+                self.emit_iterate_over_collection_with_lambda(
+                    target_destination,
+                    node,
+                    Collection::Vec,
+                    Transformer::For,
+                    self_addr.unwrap(),
+                    &self_type.unwrap(),
+                    &arguments[0],
+                    ctx,
+                );
+            } // Low prio      IntrinsicFunction::VecFor => {
 
             IntrinsicFunction::VecFind => {
                 self.emit_iterate_over_collection_with_lambda(

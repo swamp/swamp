@@ -10,9 +10,9 @@ pub fn very_basic(test_dir: &Path) {
     let test_result = run_tests(
         test_dir,
         &TestRunOptions {
-            should_run: true,
+            should_run: false,
             print_output: false,
-            iteration_count: 10_000,
+            iteration_count: 1,
             debug_output: false,
             debug_opcodes: false,
             debug_stats: true,

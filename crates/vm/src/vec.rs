@@ -57,6 +57,15 @@ impl Vm {
         }
     }
 
+    #[inline]
+    pub fn execute_vec_iter_next(
+        &mut self,
+        vec_iterator_header_reg: u8,
+        target_variable: u8,
+        jump: u8,
+    ) {
+    }
+
     pub fn vec_header_from_heap(heap: &Memory, heap_offset: u32) -> VecHeader {
         unsafe { *(heap.get_heap_const_ptr(heap_offset as usize) as *const VecHeader) }
     }
@@ -129,15 +138,6 @@ impl Vm {
         vec_iterator_header_reg: u8,
         target_key_reg: u8,
         target_value_reg: u8,
-        jump: u8,
-    ) {
-    }
-
-    #[inline]
-    pub fn execute_vec_iter_next(
-        &mut self,
-        vec_iterator_header_reg: u8,
-        target_variable: u8,
         jump: u8,
     ) {
     }
