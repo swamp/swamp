@@ -2,6 +2,8 @@ use std::path::Path;
 
 use swamp_test_runner::{TestRunOptions, init_logger, run_tests};
 
+/// # Panics
+/// if any test fails
 pub fn very_basic(test_dir: &Path) {
     init_logger();
 
