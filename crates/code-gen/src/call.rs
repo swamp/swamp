@@ -264,21 +264,22 @@ impl CodeBuilder<'_> {
                 &format!("emit argument {index_in_signature}"),
             );
 
-            let argument_to_use =
-                if self.argument_needs_to_be_in_a_temporary_register_first(&target_canonical_argument_register) {
-                    let temp_reg = self.temp_registers.allocate(
-                        target_canonical_argument_register.ty.clone(),
-                        "just to put arguments in place at the end",
-                    );
-                    let copy_argument = CopyArgument {
-                        canonical_target: target_canonical_argument_register.clone(),
-                        source_temporary: temp_reg.register.clone(),
-                    };
-                    copy_arguments_in_place.push(copy_argument);
-                    temp_reg.register
-                } else {
-                    target_canonical_argument_register.clone()
+            let argument_to_use = if self.argument_needs_to_be_in_a_temporary_register_first(
+                &target_canonical_argument_register,
+            ) {
+                let temp_reg = self.temp_registers.allocate(
+                    target_canonical_argument_register.ty.clone(),
+                    "just to put arguments in place at the end",
+                );
+                let copy_argument = CopyArgument {
+                    canonical_target: target_canonical_argument_register.clone(),
+                    source_temporary: temp_reg.register.clone(),
                 };
+                copy_arguments_in_place.push(copy_argument);
+                temp_reg.register
+            } else {
+                target_canonical_argument_register.clone()
+            };
 
             // Determine if we need to spill this register
             let argument_vector_index = if self_variable.is_some() {
@@ -597,7 +598,10 @@ impl CodeBuilder<'_> {
     /// that value away somewhere safe for a bit. Otherwise, when you're figuring out the next arguments,
     /// you might accidentally overwrite it.
     /// But if you are on the last argument, you can just drop it right where it needs to go.
-    const fn argument_needs_to_be_in_a_temporary_register_first(&self, reg: &TypedRegister) -> bool {
+    const fn argument_needs_to_be_in_a_temporary_register_first(
+        &self,
+        reg: &TypedRegister,
+    ) -> bool {
         // TODO: for now just assume it is
         true
     }
