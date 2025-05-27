@@ -131,21 +131,32 @@ impl Analyzer<'_> {
                             }
 
                             // Only zip with as many fields as we have elements
-                            for (element, field_type) in
-                                elements.iter().zip(&tuple_type.fields_in_order)
+                            for (tuple_element_index, (element, field_type)) in
+                                elements.iter().zip(&tuple_type.fields_in_order).enumerate()
                             {
                                 match element {
                                     swamp_ast::PatternElement::Variable(var) => {
                                         if var.is_mutable.is_some() {
                                             anyone_wants_mutable = true;
                                         }
+
                                         let variable_ref = self.create_local_variable(
                                             &var.name,
                                             var.is_mutable.as_ref(),
                                             field_type,
                                         )?;
+                                        /*
                                         resolved_elements
                                             .push(PatternElement::Variable(variable_ref));
+
+                                         */
+
+                                        resolved_elements.push(
+                                            PatternElement::VariableWithFieldIndex(
+                                                variable_ref,
+                                                tuple_element_index,
+                                            ),
+                                        );
                                     }
                                     swamp_ast::PatternElement::Wildcard(node) => {
                                         resolved_elements
