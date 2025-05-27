@@ -104,7 +104,7 @@ fn matching_mut_enum_struct() {
         print('after name change: name: "{name}", color: {color}')
 
         100
-      },
+      }
     _ => 200,
   }
   print('result: {result}')
@@ -123,7 +123,7 @@ fn matching_mut_enum_struct_one_field() {
         print('after: name: "{name}", color: {color}')
         assert(color == Color::Green, "enum value is wrong")
         100
-      },
+      }
     _ => 200,
   }
   print('result: {result}')
@@ -142,11 +142,11 @@ fn matching_mut_enum_tuple_one_field() {
       print('after: value changed: {value}')
       assert(value == 3, "enum value is wrong")
       255
-    },
+    }
     More name, mut color => {
         color = Color::Green
         100
-      },
+      }
     _ => 200,
   }
   print('result: {result}')
