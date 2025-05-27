@@ -145,7 +145,7 @@ impl CodeBuilder<'_> {
                 Pattern::Wildcard(_) => {
                     todo!()
                 }
-            };
+            }
 
             self.emit_expression(output_destination, &arm.expression, ctx);
 

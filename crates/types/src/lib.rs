@@ -932,7 +932,7 @@ pub struct EnumVariantCommon {
 }
 
 impl EnumVariantCommon {
-    pub fn index(&self) -> u8 {
+    #[must_use] pub const fn index(&self) -> u8 {
         self.container_index
     }
 }
