@@ -6,7 +6,7 @@ use crate::TypeContext;
 use crate::err::{Error, ErrorKind};
 use crate::{Analyzer, LocationSide};
 use source_map_node::Node;
-use swamp_semantic::MutRefOrImmutableExpression;
+use swamp_semantic::ArgumentExpression;
 use swamp_types::prelude::*;
 
 pub struct MaybeBorrowMutRefExpression {
@@ -29,7 +29,7 @@ impl Analyzer<'_> {
         &mut self,
         fn_parameter: &TypeForParameter,
         argument_expr: &swamp_ast::Expression,
-    ) -> Result<MutRefOrImmutableExpression, Error> {
+    ) -> Result<ArgumentExpression, Error> {
         let context = TypeContext::new_argument(&fn_parameter.resolved_type);
         let ref_checked_argument = self.analyze_maybe_ref_expression(argument_expr)?;
 
@@ -44,14 +44,14 @@ impl Analyzer<'_> {
                 LocationSide::Rhs,
             )?;
 
-            MutRefOrImmutableExpression::Location(mut_location)
+            ArgumentExpression::BorrowMutableReference(mut_location)
         } else {
             if ref_checked_argument.has_borrow_mutable_reference.is_some() {
                 // Why did you pass in a mutable reference to something that can not do anything useful with it
                 return Err(self.create_err(ErrorKind::ParameterIsNotMutable, &argument_expr.node));
             }
             let resolved_expr = self.analyze_expression(argument_expr, &context)?;
-            MutRefOrImmutableExpression::Expression(resolved_expr)
+            ArgumentExpression::Expression(resolved_expr)
         };
 
         Ok(mut_or_immutable)
@@ -64,7 +64,7 @@ impl Analyzer<'_> {
         node: &swamp_ast::Node,
         fn_parameters: &[TypeForParameter],
         arguments: &[swamp_ast::Expression],
-    ) -> Result<Vec<MutRefOrImmutableExpression>, Error> {
+    ) -> Result<Vec<ArgumentExpression>, Error> {
         if fn_parameters.len() != arguments.len() {
             return Err(self.create_err(
                 ErrorKind::WrongNumberOfArguments(fn_parameters.len(), arguments.len()),
@@ -88,7 +88,7 @@ impl Analyzer<'_> {
         expr: &swamp_ast::Expression,
         context: &TypeContext,
         location_side: LocationSide,
-    ) -> Result<MutRefOrImmutableExpression, Error> {
+    ) -> Result<ArgumentExpression, Error> {
         let maybe_borrow_or_normal_expression = self.analyze_maybe_ref_expression(expr)?;
 
         let expression_or_location =
@@ -96,13 +96,13 @@ impl Analyzer<'_> {
                 .has_borrow_mutable_reference
                 .is_some()
             {
-                MutRefOrImmutableExpression::Location(self.analyze_to_location(
+                ArgumentExpression::BorrowMutableReference(self.analyze_to_location(
                     &maybe_borrow_or_normal_expression.ast_expression,
                     context,
                     location_side,
                 )?)
             } else {
-                MutRefOrImmutableExpression::Expression(self.analyze_expression(
+                ArgumentExpression::Expression(self.analyze_expression(
                     &maybe_borrow_or_normal_expression.ast_expression,
                     context,
                 )?)

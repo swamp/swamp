@@ -10,7 +10,7 @@ use swamp_modules::modules::{ModuleRef, Modules};
 use swamp_modules::symtbl::{FuncDef, Symbol, SymbolTable, TypeGenerator};
 use swamp_semantic::prelude::*;
 use swamp_semantic::{
-    AssociatedImpls, MutRefOrImmutableExpression, MutableReferenceKind, Postfix, PostfixKind,
+    ArgumentExpression, AssociatedImpls, MutableReferenceKind, Postfix, PostfixKind,
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
 };
 use swamp_types::{
@@ -361,7 +361,7 @@ impl SourceMapDisplay<'_> {
     fn show_mut_or_not_expression(
         &self,
         f: &mut Formatter,
-        mut_expr: &MutRefOrImmutableExpression,
+        mut_expr: &ArgumentExpression,
         tabs: usize,
     ) -> std::fmt::Result {
         if mut_expr.is_mutable_reference() {
@@ -896,7 +896,7 @@ impl SourceMapDisplay<'_> {
     fn show_arguments(
         &self,
         f: &mut Formatter,
-        arguments: &Vec<MutRefOrImmutableExpression>,
+        arguments: &Vec<ArgumentExpression>,
         tabs: usize,
     ) -> std::fmt::Result {
         for arg in arguments {
@@ -909,14 +909,12 @@ impl SourceMapDisplay<'_> {
     fn show_argument(
         &self,
         f: &mut Formatter,
-        arg: &MutRefOrImmutableExpression,
+        arg: &ArgumentExpression,
         tabs: usize,
     ) -> std::fmt::Result {
         match arg {
-            MutRefOrImmutableExpression::Expression(expression) => {
-                self.show_expression(f, expression, tabs)
-            }
-            MutRefOrImmutableExpression::Location(location) => {
+            ArgumentExpression::Expression(expression) => self.show_expression(f, expression, tabs),
+            ArgumentExpression::BorrowMutableReference(location) => {
                 self.show_location(f, location, tabs)
             }
         }

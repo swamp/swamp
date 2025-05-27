@@ -2,7 +2,7 @@ use crate::FlagState;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
-use swamp_semantic::{ExternalFunctionDefinitionRef, MutRefOrImmutableExpression};
+use swamp_semantic::{ArgumentExpression, ExternalFunctionDefinitionRef};
 use swamp_vm_types::types::{Destination, TypedRegister};
 
 impl CodeBuilder<'_> {
@@ -11,7 +11,7 @@ impl CodeBuilder<'_> {
         output_destination: &Destination,
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
-        arguments: &Vec<MutRefOrImmutableExpression>,
+        arguments: &Vec<ArgumentExpression>,
         ctx: &Context,
     ) -> FlagState {
         let argument_infos = self.emit_arguments(
@@ -45,7 +45,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
         self_frame_placed_type: &TypedRegister,
-        arguments: &Vec<MutRefOrImmutableExpression>,
+        arguments: &Vec<ArgumentExpression>,
         ctx: &Context,
     ) -> FlagState {
         let argument_infos = self.emit_arguments(

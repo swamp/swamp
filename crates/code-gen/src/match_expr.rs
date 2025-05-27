@@ -13,7 +13,7 @@ impl CodeBuilder<'_> {
         match_expr: &Match,
         ctx: &Context,
     ) {
-        let enum_ptr_reg = self.emit_for_access_or_location(&match_expr.expression, ctx);
+        let enum_ptr_reg = self.emit_scalar_rvalue(&match_expr.expression, ctx);
 
         let mut jump_to_exit_placeholders = Vec::new();
 
@@ -30,14 +30,13 @@ impl CodeBuilder<'_> {
 
         self.builder.add_ld8_from_pointer_with_offset_u16(
             enum_tag_temp_reg.register(),
-            enum_ptr_reg.grab_rvalue(),
+            &enum_ptr_reg,
             MemoryOffset(0), // TODO: take offset from tag union info
-            match_expr.expression.node(),
+            &match_expr.expression.node,
             "read enum tag",
         );
 
-        let BasicTypeKind::TaggedUnion(enum_type) = &enum_ptr_reg.grab_rvalue().ty.basic_type.kind
-        else {
+        let BasicTypeKind::TaggedUnion(enum_type) = &enum_ptr_reg.ty.basic_type.kind else {
             panic!("internal error enum");
         };
 
@@ -115,21 +114,14 @@ impl CodeBuilder<'_> {
                                             .unwrap()
                                             .clone();
 
-                                        match &enum_ptr_reg {
-                                            RValueOrLValue::Scalar(enum_base_ptr_reg) => {
-                                                self.emit_load_from_memory(
-                                                    &var_reg,
-                                                    enum_base_ptr_reg,
-                                                    total_offset,
-                                                    &var_reg.ty,
-                                                    &variable.name,
-                                                    "load variant from field index",
-                                                );
-                                            }
-                                            RValueOrLValue::Memory(_) => {
-                                                todo!("from memory not supported yet")
-                                            }
-                                        }
+                                        self.emit_load_from_memory(
+                                            &var_reg,
+                                            &enum_ptr_reg,
+                                            total_offset,
+                                            &var_reg.ty,
+                                            &variable.name,
+                                            "load variant from field index",
+                                        );
                                     }
                                     PatternElement::Wildcard(_) => {
                                         // Intentionally do nothing, the variable should not be handled
@@ -143,7 +135,7 @@ impl CodeBuilder<'_> {
                     }
                 },
                 Pattern::Wildcard(_) => {
-                    todo!()
+                    // Intentionally do nothing, the expression will be used below
                 }
             }
 

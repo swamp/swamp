@@ -29,8 +29,8 @@ use swamp_semantic::instantiator::TypeVariableScope;
 use swamp_semantic::prelude::*;
 use swamp_semantic::type_var_stack::SemanticContext;
 use swamp_semantic::{
-    BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState, InternalMainExpression,
-    LocationAccess, LocationAccessKind, MapType, MutRefOrImmutableExpression, MutableReferenceKind,
+    ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
+    InternalMainExpression, LocationAccess, LocationAccessKind, MapType, MutableReferenceKind,
     NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceType,
     TargetAssignmentLocation, TypeWithMut, VecType, WhenBinding,
 };
@@ -981,7 +981,7 @@ impl<'a> Analyzer<'a> {
     fn create_static_member_call(
         &mut self,
         function_name: &str,
-        arguments: &[MutRefOrImmutableExpression],
+        arguments: &[ArgumentExpression],
         node: &swamp_ast::Node,
         ty: &Type,
     ) -> Result<ExpressionKind, Error> {
@@ -1008,7 +1008,7 @@ impl<'a> Analyzer<'a> {
     fn create_static_member_intrinsic_call(
         &mut self,
         function_name: &str,
-        arguments: &[MutRefOrImmutableExpression],
+        arguments: &[ArgumentExpression],
         node: &swamp_ast::Node,
         ty: &Type,
     ) -> Result<ExpressionKind, Error> {
@@ -1508,9 +1508,9 @@ impl<'a> Analyzer<'a> {
         expression: &swamp_ast::Expression,
     ) -> Result<Iterable, Error> {
         let any_context = TypeContext::new_anything_argument();
-        let resolved_expression: MutRefOrImmutableExpression = if force_mut.is_some() {
+        let resolved_expression: ArgumentExpression = if force_mut.is_some() {
             let resolved_node = self.to_node(&force_mut.unwrap());
-            MutRefOrImmutableExpression::Location(self.analyze_to_location(
+            ArgumentExpression::BorrowMutableReference(self.analyze_to_location(
                 expression,
                 &any_context,
                 LocationSide::Rhs,
@@ -1680,7 +1680,7 @@ impl<'a> Analyzer<'a> {
                             ));
                         }
 
-                        let expr_as_param = MutRefOrImmutableExpression::Expression(expr);
+                        let expr_as_param = ArgumentExpression::Expression(expr);
                         let call_expr_kind = self.create_static_member_call(
                             "to_string",
                             &[expr_as_param.clone()],
@@ -1976,12 +1976,8 @@ impl<'a> Analyzer<'a> {
         let own_context = default_context.clone();
         // Analyze the scrutinee with no specific expected type
         let scrutinee_context = TypeContext::new_anything_argument();
-        let resolved_scrutinee = self.analyze_mut_or_immutable_expression(
-            scrutinee,
-            &scrutinee_context,
-            LocationSide::Rhs,
-        )?;
-        let scrutinee_type = resolved_scrutinee.ty().clone();
+        let resolved_scrutinee = self.analyze_expression(scrutinee, &scrutinee_context)?;
+        let scrutinee_type = resolved_scrutinee.ty.clone();
 
         // Ensure we have at least one arm
         if arms.is_empty() {
@@ -2031,7 +2027,7 @@ impl<'a> Analyzer<'a> {
     fn analyze_arm(
         &mut self,
         arm: &swamp_ast::MatchArm,
-        _expression: &MutRefOrImmutableExpression,
+        _expression: &Expression,
         type_context: &TypeContext,
         expected_condition_type: &Type,
     ) -> Result<(MatchArm, bool), Error> {
@@ -2325,7 +2321,7 @@ impl<'a> Analyzer<'a> {
                         starting_variable: same_var,
                         access_chain: vec![],
                     };
-                    MutRefOrImmutableExpression::Location(loc)
+                    ArgumentExpression::BorrowMutableReference(loc)
                 } else {
                     let generated_expr_kind = ExpressionKind::VariableAccess(same_var.clone());
                     let generated_expression = self.create_expr(
@@ -2333,7 +2329,7 @@ impl<'a> Analyzer<'a> {
                         same_var.resolved_type.clone(),
                         &variable_binding.variable.name,
                     );
-                    MutRefOrImmutableExpression::Expression(generated_expression)
+                    ArgumentExpression::Expression(generated_expression)
                 }
             };
 
@@ -2694,7 +2690,7 @@ impl<'a> Analyzer<'a> {
 
     fn extract_single_intrinsic_call(
         body: &Expression,
-    ) -> Option<(IntrinsicFunction, Vec<MutRefOrImmutableExpression>)> {
+    ) -> Option<(IntrinsicFunction, Vec<ArgumentExpression>)> {
         if let ExpressionKind::Block(expressions) = &body.kind {
             let first_kind = &expressions[0].kind;
             if let ExpressionKind::IntrinsicCallEx(intrinsic_fn, args) = &first_kind {

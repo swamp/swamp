@@ -2,7 +2,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use source_map_node::Node;
-use swamp_semantic::{Expression, MutRefOrImmutableExpression};
+use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, BoundsCheck, Destination, VmType, u16_type, u32_type, vec_type,
@@ -58,7 +58,7 @@ impl CodeBuilder<'_> {
         )
     }
 
-    fn emit_intrinsic_vec_create(&self, arguments: &Vec<MutRefOrImmutableExpression>) {
+    fn emit_intrinsic_vec_create(&self, arguments: &Vec<ArgumentExpression>) {
         for arg in arguments {
             info!(?arg, "argument");
         }
@@ -67,11 +67,11 @@ impl CodeBuilder<'_> {
     fn emit_intrinsic_vec_init_capacity_set_payload_addr(
         &mut self,
         pointer_lvalue_location: &PointerLocation,
-        arguments: &[MutRefOrImmutableExpression],
+        arguments: &[ArgumentExpression],
         node: &Node,
         ctx: &Context,
     ) {
-        if let MutRefOrImmutableExpression::Expression(found_expr) = &arguments[0] {
+        if let ArgumentExpression::Expression(found_expr) = &arguments[0] {
             let hwm = self.temp_registers.save_mark();
             let element_base_ptr_reg = self.temp_registers.allocate(
                 VmType::new_unknown_placement(vec_type()),

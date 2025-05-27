@@ -1,7 +1,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use swamp_semantic::{Expression, MutRefOrImmutableExpression, WhenBinding};
+use swamp_semantic::{ArgumentExpression, Expression, WhenBinding};
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
@@ -62,10 +62,9 @@ impl CodeBuilder<'_> {
             let target_binding_variable_reg = self.get_variable_register(&binding.variable).clone();
 
             if binding.has_expression() {
-                self.emit_mut_or_immute(&target_binding_variable_reg, &binding.expr, ctx);
+                self.emit_argument_expression(&target_binding_variable_reg, &binding.expr, ctx);
             } else {
-                let MutRefOrImmutableExpression::Expression(variable_access_expression) =
-                    &binding.expr
+                let ArgumentExpression::Expression(variable_access_expression) = &binding.expr
                 else {
                     panic!("must be expression");
                 };

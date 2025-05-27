@@ -3,8 +3,7 @@ use crate::ctx::Context;
 use crate::{Collection, Transformer};
 use source_map_node::Node;
 use swamp_semantic::{
-    BooleanExpression, Expression, ExpressionKind, ForPattern, Iterable,
-    MutRefOrImmutableExpression,
+    ArgumentExpression, BooleanExpression, Expression, ExpressionKind, ForPattern, Iterable,
 };
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, TypedRegister};
@@ -134,7 +133,7 @@ impl CodeBuilder<'_> {
         };
 
         let fake_lambda_kind = ExpressionKind::Lambda(variables, Box::from(lambda_expr.clone()));
-        let fake_lambda_expr = MutRefOrImmutableExpression::Expression(Expression {
+        let fake_lambda_expr = ArgumentExpression::Expression(Expression {
             ty: lambda_expr.ty.clone(),
             node: node.clone(),
             kind: fake_lambda_kind,

@@ -7,7 +7,7 @@ use crate::err::{Error, ErrorKind};
 use source_map_node::Node;
 use std::rc::Rc;
 use swamp_semantic::{
-    BlockScopeMode, Expression, ExpressionKind, MutRefOrImmutableExpression, Variable, VariableRef,
+    ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
 };
 use swamp_types::prelude::*;
@@ -233,7 +233,7 @@ impl Analyzer<'_> {
     pub(crate) fn create_variable_binding_for_with(
         &mut self,
         ast_variable: &swamp_ast::Variable,
-        converted_expression: MutRefOrImmutableExpression,
+        converted_expression: ArgumentExpression,
     ) -> Result<Expression, Error> {
         let expression_type = converted_expression.ty().clone();
         let variable_ref = self.create_local_variable(

@@ -9,9 +9,7 @@ use crate::{ArgumentAndTempScope, RepresentationOfRegisters, SpilledRegisterRegi
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{
-    InternalFunctionDefinitionRef, MutRefOrImmutableExpression, pretty_module_name,
-};
+use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
 use swamp_types::Signature;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u32_type,
@@ -29,16 +27,16 @@ impl CodeBuilder<'_> {
         index_in_signature: usize,
         argument_register: &TypedRegister,
         self_variable: Option<&TypedRegister>,
-        _argument_expr_or_location: Option<&MutRefOrImmutableExpression>,
+        _argument_expr_or_location: Option<&ArgumentExpression>,
         argument_vector_index: usize,
-        arguments: &[MutRefOrImmutableExpression],
+        arguments: &[ArgumentExpression],
     ) -> bool {
         if index_in_signature == 0 && self_variable.is_some() {
             let self_reg = self_variable.as_ref().unwrap();
             self_reg.index == argument_register.index
         } else if index_in_signature > 0 && argument_vector_index < arguments.len() {
             match &arguments[argument_vector_index] {
-                MutRefOrImmutableExpression::Location(lvalue) => {
+                ArgumentExpression::BorrowMutableReference(lvalue) => {
                     if lvalue.access_chain.is_empty() {
                         let var_reg = self.get_variable_register(&lvalue.starting_variable);
                         var_reg.index == argument_register.index
@@ -46,7 +44,7 @@ impl CodeBuilder<'_> {
                         false
                     }
                 }
-                MutRefOrImmutableExpression::Expression(expr) => {
+                ArgumentExpression::Expression(expr) => {
                     if let swamp_semantic::ExpressionKind::VariableAccess(var_ref) = &expr.kind {
                         let var_reg = self.get_variable_register(var_ref);
                         var_reg.index == argument_register.index
@@ -62,13 +60,13 @@ impl CodeBuilder<'_> {
 
     pub fn find_replacements_for_mutable_primitive_arguments(
         &mut self,
-        arguments: &[MutRefOrImmutableExpression],
+        arguments: &[ArgumentExpression],
         node: &Node,
         ctx: &Context,
     ) -> SeqMap<u8, TypedRegister> {
         let mut stable_base_ptr_cache = SeqMap::new();
         for argument in arguments {
-            if let MutRefOrImmutableExpression::Location(lvalue) = argument {
+            if let ArgumentExpression::BorrowMutableReference(lvalue) = argument {
                 let parameter_basic_type = layout_type(&argument.ty());
                 if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
                     // first we need to save the base register into a temporary register
@@ -227,7 +225,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         signature: &Signature,
         self_variable: Option<&TypedRegister>,
-        arguments: &[MutRefOrImmutableExpression],
+        arguments: &[ArgumentExpression],
         ctx: &Context,
     ) -> EmitArgumentInfo {
         let mut copy_back_phase_one: Vec<MutableReturnReg> = Vec::new();
@@ -306,7 +304,7 @@ impl CodeBuilder<'_> {
                 let argument_expr_or_location = &arguments[argument_vector_index];
 
                 match argument_expr_or_location {
-                    MutRefOrImmutableExpression::Location(lvalue) => {
+                    ArgumentExpression::BorrowMutableReference(lvalue) => {
                         let original_destination = self.emit_lvalue_address(lvalue, ctx);
 
                         if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
@@ -358,7 +356,7 @@ impl CodeBuilder<'_> {
                             );
                         }
                     }
-                    MutRefOrImmutableExpression::Expression(expr) => {
+                    ArgumentExpression::Expression(expr) => {
                         self.emit_expression_into_register(
                             &argument_to_use,
                             expr,
@@ -577,7 +575,7 @@ impl CodeBuilder<'_> {
         target_reg: &Destination,
         node: &Node,
         internal_fn: &InternalFunctionDefinitionRef,
-        arguments: &Vec<MutRefOrImmutableExpression>,
+        arguments: &Vec<ArgumentExpression>,
         ctx: &Context,
     ) {
         let argument_info = self.emit_arguments(

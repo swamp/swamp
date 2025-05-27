@@ -3,7 +3,7 @@ use crate::ctx::Context;
 use crate::layout::{layout_optional_type, layout_type};
 use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
-use swamp_semantic::{ExpressionKind, MutRefOrImmutableExpression};
+use swamp_semantic::{ArgumentExpression, ExpressionKind};
 use swamp_types::Type;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, u8_type};
 use swamp_vm_types::{InstructionPosition, PatchPosition};
@@ -49,11 +49,11 @@ impl CodeBuilder<'_> {
         transformer: Transformer,
         source_collection_self_region: &TypedRegister,
         source_collection_analyzed_type: &Type,
-        lambda_expression: &MutRefOrImmutableExpression,
+        lambda_expression: &ArgumentExpression,
         ctx: &Context,
     ) {
         // Take out lambda and other lookups before generating the code
-        let MutRefOrImmutableExpression::Expression(expr) = lambda_expression else {
+        let ArgumentExpression::Expression(expr) = lambda_expression else {
             panic!("internal error");
         };
 

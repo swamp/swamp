@@ -338,7 +338,7 @@ pub struct UnaryOperator {
 
 #[derive()]
 pub struct InternalFunctionCall {
-    pub arguments: Vec<MutRefOrImmutableExpression>,
+    pub arguments: Vec<ArgumentExpression>,
 
     pub function_definition: InternalFunctionDefinitionRef,
     pub function_expression: Box<Expression>,
@@ -356,7 +356,7 @@ impl Debug for InternalFunctionCall {
 
 #[derive(Debug, Clone)]
 pub struct ExternalFunctionCall {
-    pub arguments: Vec<MutRefOrImmutableExpression>,
+    pub arguments: Vec<ArgumentExpression>,
     pub function_definition: ExternalFunctionDefinitionRef,
     pub function_expression: Box<Expression>,
 }
@@ -375,7 +375,7 @@ pub fn comma_tuple_ref<K: Display, V: Display>(values: &[(&K, &V)]) -> String {
 #[derive(Debug, Clone)]
 pub struct MemberCall {
     pub function: FunctionRef,
-    pub arguments: Vec<MutRefOrImmutableExpression>,
+    pub arguments: Vec<ArgumentExpression>,
 }
 
 #[derive(Debug, Clone)]
@@ -484,7 +484,7 @@ pub struct BooleanExpression {
 #[derive(Debug, Clone)]
 pub struct Match {
     pub arms: Vec<MatchArm>,
-    pub expression: Box<MutRefOrImmutableExpression>,
+    pub expression: Box<Expression>,
 }
 
 impl Match {
@@ -532,7 +532,7 @@ pub struct Iterable {
     pub key_type: Option<Type>, // It does not have to support a key type
     pub value_type: Type,
 
-    pub resolved_expression: Box<MutRefOrImmutableExpression>,
+    pub resolved_expression: Box<ArgumentExpression>,
 }
 
 #[derive(Debug, Clone)]
@@ -603,7 +603,7 @@ pub struct MapType {
 #[derive(Debug, Clone)]
 pub enum PostfixKind {
     StructField(AnonymousStructType, usize),
-    MemberCall(FunctionRef, Vec<MutRefOrImmutableExpression>),
+    MemberCall(FunctionRef, Vec<ArgumentExpression>),
     OptionalChainingOperator,           // ? operator
     NoneCoalescingOperator(Expression), // ?? operator
     SliceSubscript(SliceType, Expression),
@@ -646,44 +646,44 @@ pub enum MutableReferenceKind {
 }
 
 #[derive(Debug, Clone)]
-pub enum MutRefOrImmutableExpression {
+pub enum ArgumentExpression {
     Expression(Expression),
-    Location(SingleLocationExpression),
+    BorrowMutableReference(SingleLocationExpression),
 }
 
-impl MutRefOrImmutableExpression {
+impl ArgumentExpression {
     #[must_use]
     pub fn ty(&self) -> Type {
         match self {
             Self::Expression(expr) => expr.ty.clone(),
-            Self::Location(location) => location.ty.clone(),
+            Self::BorrowMutableReference(location) => location.ty.clone(),
         }
     }
 
     pub fn expect_immutable(self) -> Result<Expression, SemanticError> {
         match self {
             Self::Expression(expr) => Ok(expr),
-            Self::Location(_) => Err(SemanticError::WasNotImmutable),
+            Self::BorrowMutableReference(_) => Err(SemanticError::WasNotImmutable),
         }
     }
 
     pub const fn expect_immutable_ref(&self) -> Result<&Expression, SemanticError> {
         match &self {
             Self::Expression(expr) => Ok(expr),
-            Self::Location(_) => Err(SemanticError::WasNotImmutable),
+            Self::BorrowMutableReference(_) => Err(SemanticError::WasNotImmutable),
         }
     }
 
     #[must_use]
     pub const fn is_mutable_reference(&self) -> bool {
-        matches!(self, Self::Location(_))
+        matches!(self, Self::BorrowMutableReference(_))
     }
 
     #[must_use]
     pub const fn node(&self) -> &Node {
         match &self {
             Self::Expression(expr) => &expr.node,
-            Self::Location(loc) => &loc.node,
+            Self::BorrowMutableReference(loc) => &loc.node,
         }
     }
 }
@@ -725,17 +725,17 @@ impl Debug for Expression {
 #[derive(Debug, Clone)]
 pub struct WhenBinding {
     pub variable: VariableRef,
-    pub expr: MutRefOrImmutableExpression,
+    pub expr: ArgumentExpression,
 }
 
 impl WhenBinding {
     #[must_use]
     pub const fn has_expression(&self) -> bool {
         match &self.expr {
-            MutRefOrImmutableExpression::Expression(expr) => {
+            ArgumentExpression::Expression(expr) => {
                 !matches!(expr.kind, ExpressionKind::VariableAccess(_))
             }
-            MutRefOrImmutableExpression::Location(_) => true,
+            ArgumentExpression::BorrowMutableReference(_) => true,
         }
     }
 }
@@ -793,15 +793,9 @@ pub enum ExpressionKind {
     CoerceOptionToBool(Box<Expression>),
 
     // Calls
-    IntrinsicCallEx(IntrinsicFunction, Vec<MutRefOrImmutableExpression>),
-    InternalCall(
-        InternalFunctionDefinitionRef,
-        Vec<MutRefOrImmutableExpression>,
-    ),
-    HostCall(
-        ExternalFunctionDefinitionRef,
-        Vec<MutRefOrImmutableExpression>,
-    ),
+    IntrinsicCallEx(IntrinsicFunction, Vec<ArgumentExpression>),
+    InternalCall(InternalFunctionDefinitionRef, Vec<ArgumentExpression>),
+    HostCall(ExternalFunctionDefinitionRef, Vec<ArgumentExpression>),
 
     // For calls from returned function values
     //FunctionValueCall(Signature, Box<Expression>, Vec<MutRefOrImmutableExpression>),
@@ -809,7 +803,7 @@ pub enum ExpressionKind {
     // Constructing
     VariableDefinition(VariableRef, Box<Expression>), // First time assignment
     VariableReassignment(VariableRef, Box<Expression>),
-    VariableBinding(VariableRef, Box<MutRefOrImmutableExpression>),
+    VariableBinding(VariableRef, Box<ArgumentExpression>),
     Assignment(Box<TargetAssignmentLocation>, Box<Expression>),
     CompoundAssignment(
         TargetAssignmentLocation,

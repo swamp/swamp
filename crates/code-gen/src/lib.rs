@@ -46,8 +46,8 @@ use seq_map::SeqMap;
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
-    ConstantId, ConstantRef, Expression, ExpressionKind, InternalFunctionDefinitionRef,
-    InternalFunctionId, MutRefOrImmutableExpression, VariableRef,
+    ArgumentExpression, ConstantId, ConstantRef, Expression, ExpressionKind,
+    InternalFunctionDefinitionRef, InternalFunctionId, VariableRef,
 };
 use swamp_types::Type;
 use swamp_vm_types::types::{
@@ -357,7 +357,7 @@ pub struct FunctionInData {
 
 fn single_intrinsic_fn(
     body: &Expression,
-) -> Option<(&IntrinsicFunction, &Vec<MutRefOrImmutableExpression>)> {
+) -> Option<(&IntrinsicFunction, &Vec<ArgumentExpression>)> {
     let ExpressionKind::Block(block_expressions) = &body.kind else {
         panic!("function body should be a block")
     };

@@ -7,8 +7,8 @@ use seq_map::SeqMap;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::Node;
 use swamp_semantic::{
-    BooleanExpression, ConstantRef, Expression, MutRefOrImmutableExpression,
-    SingleLocationExpression, UnaryOperator, UnaryOperatorKind, VariableRef,
+    ArgumentExpression, BooleanExpression, ConstantRef, Expression, SingleLocationExpression,
+    UnaryOperator, UnaryOperatorKind, VariableRef,
 };
 use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
@@ -519,7 +519,7 @@ impl CodeBuilder<'_> {
     fn emit_variable_binding(
         &mut self,
         variable: &VariableRef,
-        mut_or_immutable_expression: &MutRefOrImmutableExpression,
+        mut_or_immutable_expression: &ArgumentExpression,
         ctx: &Context,
     ) {
         let target_relative_frame_pointer = self
@@ -528,7 +528,7 @@ impl CodeBuilder<'_> {
             .unwrap_or_else(|| panic!("{}", variable.assigned_name))
             .clone();
 
-        self.emit_mut_or_immute(
+        self.emit_argument_expression(
             &target_relative_frame_pointer,
             mut_or_immutable_expression,
             ctx,
@@ -664,14 +664,14 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_expression_location_mut_ref_or_immutable(
         &mut self,
-        mut_or_immutable_expression: &MutRefOrImmutableExpression,
+        mut_or_immutable_expression: &ArgumentExpression,
         ctx: &Context,
     ) -> RValueOrLValue {
         match &mut_or_immutable_expression {
-            MutRefOrImmutableExpression::Expression(found_expression) => {
+            ArgumentExpression::Expression(found_expression) => {
                 RValueOrLValue::Scalar(self.emit_scalar_rvalue(found_expression, ctx))
             }
-            MutRefOrImmutableExpression::Location(location_expression) => {
+            ArgumentExpression::BorrowMutableReference(location_expression) => {
                 RValueOrLValue::Memory(self.emit_lvalue_address(location_expression, ctx))
             }
         }
@@ -786,9 +786,9 @@ impl CodeBuilder<'_> {
     }
 
     pub(crate) fn merge_arguments_keep_literals(
-        outer_args: &Vec<MutRefOrImmutableExpression>,
-        intrinsic_args: &Vec<MutRefOrImmutableExpression>,
-    ) -> Vec<MutRefOrImmutableExpression> {
+        outer_args: &Vec<ArgumentExpression>,
+        intrinsic_args: &Vec<ArgumentExpression>,
+    ) -> Vec<ArgumentExpression> {
         // HACK: we assume that the parameters are in the same order.
         // If one has more arguments, we assume that those extra arguments are in the end
         // We also assume that the first is self

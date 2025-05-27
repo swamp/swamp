@@ -7,7 +7,7 @@ use crate::TypeContext;
 use crate::err::Error;
 use swamp_semantic::Literal::BoolLiteral;
 use swamp_semantic::intr::IntrinsicFunction;
-use swamp_semantic::{Expression, ExpressionKind, Function, MutRefOrImmutableExpression};
+use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, Function};
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
@@ -66,9 +66,9 @@ impl Analyzer<'_> {
         let call_kind = ExpressionKind::IntrinsicCallEx(
             IntrinsicFunction::RangeInit,
             Vec::from(&[
-                MutRefOrImmutableExpression::Expression(min),
-                MutRefOrImmutableExpression::Expression(max),
-                MutRefOrImmutableExpression::Expression(bool_expr),
+                ArgumentExpression::Expression(min),
+                ArgumentExpression::Expression(max),
+                ArgumentExpression::Expression(bool_expr),
             ]), //ast_node,
                 //&range_type,
         );

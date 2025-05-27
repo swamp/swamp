@@ -5,7 +5,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
-use swamp_semantic::{Expression, MutRefOrImmutableExpression};
+use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, BoundsCheck, Destination, RValueOrLValue, TypedRegister, VmType,
     int_type,
@@ -15,20 +15,20 @@ use swamp_vm_types::{MemoryLocation, MemoryOffset};
 impl CodeBuilder<'_> {
     pub(crate) fn emit_for_access_or_location(
         &mut self,
-        mut_or_immutable_expression: &MutRefOrImmutableExpression,
+        mut_or_immutable_expression: &ArgumentExpression,
         context: &Context,
     ) -> RValueOrLValue {
         self.emit_expression_location_mut_ref_or_immutable(mut_or_immutable_expression, context)
     }
 
-    pub(crate) fn emit_mut_or_immute(
+    pub(crate) fn emit_argument_expression(
         &mut self,
         target_reg: &TypedRegister,
-        mut_or_immutable_expression: &MutRefOrImmutableExpression,
+        argument_expression: &ArgumentExpression,
         ctx: &Context,
     ) {
-        match &mut_or_immutable_expression {
-            MutRefOrImmutableExpression::Expression(found_expression) => {
+        match &argument_expression {
+            ArgumentExpression::Expression(found_expression) => {
                 if found_expression.ty.is_primitive() {
                     self.emit_expression_into_register(
                         target_reg,
@@ -38,7 +38,7 @@ impl CodeBuilder<'_> {
                     );
                 }
             }
-            MutRefOrImmutableExpression::Location(location_expression) => {
+            ArgumentExpression::BorrowMutableReference(location_expression) => {
                 let location = self.emit_lvalue_address(location_expression, ctx);
                 //TODO: move location to target_reg // self.emit_ptr_reg_from_detailed_location()
             }

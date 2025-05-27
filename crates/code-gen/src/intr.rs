@@ -4,7 +4,7 @@ use crate::layout::layout_type;
 use crate::{Collection, FlagState, FlagStateKind, Transformer};
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
-use swamp_semantic::{Expression, MutRefOrImmutableExpression};
+use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, RValueOrLValue, TypedRegister, VmType, pointer_type};
 use swamp_vm_types::{
@@ -20,12 +20,12 @@ impl CodeBuilder<'_> {
         target_reg: &Destination,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
-        arguments: &[MutRefOrImmutableExpression],
+        arguments: &[ArgumentExpression],
         ctx: &Context,
     ) -> FlagState {
         match intrinsic_fn {
             IntrinsicFunction::MapFromSlicePair => {
-                let MutRefOrImmutableExpression::Expression(expr) = &arguments[0] else {
+                let ArgumentExpression::Expression(expr) = &arguments[0] else {
                     panic!("problem");
                 };
 
@@ -85,7 +85,7 @@ impl CodeBuilder<'_> {
         intrinsic_fn: &IntrinsicFunction,
         self_type: Option<Type>,
         self_addr_l_or_rvalue: Option<&RValueOrLValue>,
-        arguments: &[MutRefOrImmutableExpression],
+        arguments: &[ArgumentExpression],
         ctx: &Context,
         comment: &str,
     ) -> FlagState {
@@ -108,14 +108,13 @@ impl CodeBuilder<'_> {
                 // let start_reg = self.emit_scalar_rvalue(start_arg_expr, ctx);
 
                 let end_arg = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(end_arg_expr) = end_arg else {
+                let ArgumentExpression::Expression(end_arg_expr) = end_arg else {
                     panic!();
                 };
                 let end_reg = self.emit_scalar_rvalue(end_arg_expr, ctx);
 
                 let is_inclusive = &arguments[1];
-                let MutRefOrImmutableExpression::Expression(is_inclusive_expr) = is_inclusive
-                else {
+                let ArgumentExpression::Expression(is_inclusive_expr) = is_inclusive else {
                     panic!();
                 };
                 let is_inclusive_reg = self.emit_scalar_rvalue(is_inclusive_expr, ctx);
@@ -228,7 +227,7 @@ impl CodeBuilder<'_> {
             ),
             IntrinsicFunction::FloatMin => {
                 let float_arg = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
+                let ArgumentExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
                 let float_region = self.emit_scalar_rvalue(float_arg_expr, ctx);
@@ -242,7 +241,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::FloatMax => {
                 let float_arg = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
+                let ArgumentExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
                 let float_region = self.emit_scalar_rvalue(float_arg_expr, ctx);
@@ -256,13 +255,13 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::FloatClamp => {
                 let float_arg = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(float_arg_expr) = float_arg else {
+                let ArgumentExpression::Expression(float_arg_expr) = float_arg else {
                     panic!();
                 };
                 let float_region = self.emit_scalar_rvalue(float_arg_expr, ctx);
 
                 let float_b = &arguments[1];
-                let MutRefOrImmutableExpression::Expression(float_b_expr) = float_b else {
+                let ArgumentExpression::Expression(float_b_expr) = float_b else {
                     panic!();
                 };
                 let float_b_region = self.emit_scalar_rvalue(float_b_expr, ctx);
@@ -303,7 +302,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::IntMax => {
                 let int_arg = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(int_arg_expr) = int_arg else {
+                let ArgumentExpression::Expression(int_arg_expr) = int_arg else {
                     panic!();
                 };
                 let int_register = self.emit_scalar_rvalue(int_arg_expr, ctx);
@@ -318,7 +317,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::IntMin => {
                 let int_arg = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(int_arg_expr) = int_arg else {
+                let ArgumentExpression::Expression(int_arg_expr) = int_arg else {
                     panic!();
                 };
                 let int_register = self.emit_scalar_rvalue(int_arg_expr, ctx);
@@ -370,8 +369,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::VecPush => {
                 let maybe_element_expr = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(element_expr) = maybe_element_expr
-                else {
+                let ArgumentExpression::Expression(element_expr) = maybe_element_expr else {
                     panic!();
                 };
                 let element_gen_type = layout_type(&element_expr.ty);
@@ -415,8 +413,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::VecRemoveIndex => {
                 let maybe_index_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(index_expr) = maybe_index_argument
-                else {
+                let ArgumentExpression::Expression(index_expr) = maybe_index_argument else {
                     panic!();
                 };
                 let index_region = self.emit_scalar_rvalue(index_expr, ctx);
@@ -429,7 +426,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::VecRemoveIndexGetValue => {
                 let maybe_key_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
+                let ArgumentExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
                 let key_region = self.emit_scalar_rvalue(key_expr, ctx);
@@ -450,7 +447,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::VecGet => {
                 let maybe_key_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(key_expr) = maybe_key_argument else {
+                let ArgumentExpression::Expression(key_expr) = maybe_key_argument else {
                     panic!();
                 };
                 let key_region = self.emit_scalar_rvalue(key_expr, ctx);
@@ -507,8 +504,7 @@ impl CodeBuilder<'_> {
 
             IntrinsicFunction::VecSubscript => {
                 let maybe_index_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(index_expr) = maybe_index_argument
-                else {
+                let ArgumentExpression::Expression(index_expr) = maybe_index_argument else {
                     panic!();
                 };
                 let index_region = self.emit_scalar_rvalue(index_expr, ctx);
@@ -523,8 +519,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecSubscriptMut => {
                 let maybe_index_argument = &arguments[0];
 
-                let MutRefOrImmutableExpression::Expression(index_expr) = maybe_index_argument
-                else {
+                let ArgumentExpression::Expression(index_expr) = maybe_index_argument else {
                     panic!();
                 };
                 let index_region = self.emit_scalar_rvalue(index_expr, ctx);
@@ -550,8 +545,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::VecSubscriptRange => {
                 let maybe_range_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(range_expr) = maybe_range_argument
-                else {
+                let ArgumentExpression::Expression(range_expr) = maybe_range_argument else {
                     panic!();
                 };
                 let range_header_region = self.emit_scalar_rvalue(range_expr, ctx);
@@ -641,7 +635,7 @@ impl CodeBuilder<'_> {
                 // TODO:
             }
             IntrinsicFunction::MapHas => {
-                let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
+                let ArgumentExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
                 let key = self.emit_scalar_rvalue(key_argument, ctx);
@@ -650,7 +644,7 @@ impl CodeBuilder<'_> {
                 t_flag_result.kind = FlagStateKind::TFlagIsTrueWhenSet;
             }
             IntrinsicFunction::MapRemove => {
-                let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
+                let ArgumentExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
                 self.emit_intrinsic_map_remove(self_addr.unwrap(), key_argument, ctx);
@@ -671,7 +665,7 @@ impl CodeBuilder<'_> {
                 );
             }
             IntrinsicFunction::MapSubscript => {
-                let MutRefOrImmutableExpression::Expression(key_argument) = &arguments[0] else {
+                let ArgumentExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
                 };
                 let key = self.emit_scalar_rvalue(key_argument, ctx);
