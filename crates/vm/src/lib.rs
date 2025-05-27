@@ -426,20 +426,6 @@ impl Vm {
         vm.handlers[OpCode::MapLen as usize] = HandlerType::Args2(Self::execute_map_len);
          */
 
-        // Other ==========
-        // Unwrap
-        /*
-        vm.handlers[OpCode::UnwrapJmpNone as usize] =
-            HandlerType::Args3(Self::execute_unwrap_jmp_none);
-        vm.handlers[OpCode::UnwrapJmpSome as usize] =
-            HandlerType::Args3(Self::execute_unwrap_jmp_some);
-
-         */
-
-        //assert_eq!(vm.handlers.len(), OpCode::HostCall as usize);
-
-        // Optional: Zero out the memory for safety?
-
         vm
     }
     #[must_use]

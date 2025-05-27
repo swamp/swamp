@@ -25,13 +25,11 @@ fn writing_second_element_in_things(mut things: [Thing]) {
   print('after things[1]: a:{things[1].a} b: {things[1].b}')
 }
 
-
 fn writing_second_element_in_things_directly(mut things: [Thing]) {
   print('before things[1]: a:{things[1].a} b: {things[1].b}')
   things[1] = Thing { a: 100, b: 200 }
   print('after things[1]: a:{things[1].a} b: {things[1].b}')
 }
-
 
 fn writing_second_b_in_things(mut things: [Thing]) {
   things[1].b = -999
@@ -104,7 +102,6 @@ fn mut_parameter_passing_one_field() {
 
  }
 
-
 #[test]
 fn mut_parameter_passing_whole_element() {
 
@@ -134,7 +131,6 @@ fn mut_parameter_passing_whole_element() {
   assert(another.things[1].b == 200, 'after mutation: things[1].b should have been changed')
 
  }
-
 
 #[test]
 fn mut_parameter_passing_whole_element_directly() {
@@ -166,7 +162,6 @@ fn mut_parameter_passing_whole_element_directly() {
 
  }
 
-
 fn returning_a_thing(a: Bool) -> Thing {
   if a {
     Thing { a: 22, b: 44 }
@@ -175,14 +170,12 @@ fn returning_a_thing(a: Bool) -> Thing {
   }
 }
 
-
 #[test]
 fn fill_thing_from_returning() {
   thing = returning_a_thing(true)
   assert(thing.a == 22, 'thing.a is wrong')
   assert(thing.b == 44, 'thing.b is wrong')
 }
-
 
 #[test]
 fn push() {
@@ -201,5 +194,4 @@ fn push() {
   assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
   assert(another.things[2].a == 100, 'another.things[2].a is wrong')
   assert(another.things[2].b == 200, 'another.things[2].b is wrong')
-
 }

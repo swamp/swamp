@@ -2,7 +2,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Match, NormalPattern, Pattern, PatternElement};
 use swamp_vm_types::MemoryOffset;
-use swamp_vm_types::types::{BasicTypeKind, Destination, RValueOrLValue, VmType, u8_type};
+use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, u8_type};
 use tracing::info;
 
 impl CodeBuilder<'_> {

@@ -13,12 +13,11 @@ fn basic() {
   assert(i == 1, "i shouldn't have changed outside the with block")
 }
 
-
 #[test]
 fn basic_borrow() {
   mut i = 0
   with mut a=i {
-    a = a + 1
+    a += 1
     print('a: {a}')
   }
   assert(i == 1, "i should have been changed in the with block")
@@ -32,4 +31,34 @@ fn basic_borrow_same_name() {
     print('i: {i}')
   }
   assert(i == 1, "i should have been changed in the with block")
+}
+
+#[test]
+fn basic_borrow_same_name_explicit() {
+  mut i = 0
+  with mut i=i {
+    i = i + 1
+    print('i: {i}')
+  }
+  assert(i == 1, "i should have been changed in the with block")
+}
+
+#[test]
+fn not_using_alias() {
+  mut i = 0
+  with mut i=20+300 {
+    i += 1
+    print('i: {i}')
+  }
+  assert(i == 0, "expression should not have changed i")
+}
+
+#[test]
+fn basic_borrow_multiple_bindings() {
+  mut i = 0
+  with a = 200-23, mut i {
+    i += a
+    print('i: {i}')
+  }
+  assert(i == 177, "i should have been changed in the with block")
 }

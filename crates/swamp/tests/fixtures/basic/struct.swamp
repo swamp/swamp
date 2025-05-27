@@ -269,7 +269,6 @@ fn multiple_mut_refs() {
 }
 
 
-
 fn conditional_update(mut value: Int, should_update: Bool) {
   if should_update {
     value = 100
@@ -288,7 +287,6 @@ fn conditional_updates() {
   assert(point.x == 100, "conditional modified x")
   assert(point.y == 20, "conditional update false should not change")
 }
-
 
 #[test]
 fn rest_operator() {

@@ -7,11 +7,9 @@ use swamp_semantic::{
 };
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, TypedRegister};
-use tracing::info;
 
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
-        info!(?expr, "check");
         debug_assert!(matches!(expr.ty, Type::Unit));
         let output_destination = Destination::new_unit();
         self.emit_expression(&output_destination, expr, ctx);
