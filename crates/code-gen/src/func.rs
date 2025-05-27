@@ -12,12 +12,12 @@ use crate::{
 use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{InternalFunctionDefinitionRef, InternalMainExpression, pretty_module_name};
+use swamp_semantic::{pretty_module_name, InternalFunctionDefinitionRef, InternalMainExpression};
 use swamp_vm_debug_info::FunctionDebugInfo;
 use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_types::types::{
-    Destination, FunctionInfo, FunctionInfoKind, TypedRegister, VariableRegister, VmType,
-    VmTypeOrigin, is_callee_save,
+    is_callee_save, Destination, FunctionInfo, FunctionInfoKind, TypedRegister, VariableRegister,
+    VmType, VmTypeOrigin,
 };
 use swamp_vm_types::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,
@@ -136,7 +136,6 @@ impl TopLevelGenState {
     pub fn spill_callee_save_registers_except_mutable_parameters(
         code_builder: &mut CodeBuilder,
         function_info: &FunctionInfo,
-        temp_frame_allocator: &mut ScopeAllocator,
         node: &Node,
     ) -> Option<SpilledRegisterRegion> {
         let mut mask: u8 = 0;
@@ -214,7 +213,6 @@ impl TopLevelGenState {
         let maybe_spilled = Self::spill_callee_save_registers_except_mutable_parameters(
             code_builder,
             function_info,
-            temp_frame_allocator,
             node,
         );
 

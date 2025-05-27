@@ -101,7 +101,7 @@ impl Analyzer<'_> {
                 (node, UnaryOperatorKind::Not, Some(&Type::Bool))
             }
             swamp_ast::UnaryOperator::Negate(node) => (node, UnaryOperatorKind::Negate, None),
-            _ => panic!("unary borrow should have been handled"),
+            swamp_ast::UnaryOperator::BorrowMutRef(_) => panic!("unary borrow should have been handled"),
         };
         let context = TypeContext::new_unsure_argument(require_type);
         let left = self.analyze_expression(ast_left, &context)?;

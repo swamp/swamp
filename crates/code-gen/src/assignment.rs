@@ -262,7 +262,7 @@ impl CodeBuilder<'_> {
             }
             CompoundOperatorKind::Modulo => {
                 self.builder
-                    .add_mod_f32(target, target, source_ctx, node, "%=  (f32)");
+                    .add_mod_i32(target, target, source_ctx, node, "%=  (f32)");
             }
         }
     }

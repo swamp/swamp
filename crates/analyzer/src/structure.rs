@@ -11,8 +11,8 @@ use swamp_semantic::{
     AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef, LocationAccess,
     LocationAccessKind, MutableReferenceKind, SingleLocationExpression, TargetAssignmentLocation,
 };
-use swamp_types::StructLikeType;
 use swamp_types::prelude::*;
+use swamp_types::StructLikeType;
 
 impl Analyzer<'_> {
     fn analyze_struct_init_calling_default(
@@ -348,7 +348,7 @@ impl Analyzer<'_> {
         anon_struct_type: &AnonymousStructType,
         source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
         missing_fields: SeqSet<String>,
-    ) -> Result<Expression, crate::err::Error> {
+    ) -> Result<Expression, Error> {
         // First check if the super type has a default function (trait)
         let maybe_default = {
             self.shared

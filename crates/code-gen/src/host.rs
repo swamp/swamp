@@ -11,7 +11,7 @@ impl CodeBuilder<'_> {
         output_destination: &Destination,
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
-        arguments: &Vec<ArgumentExpression>,
+        arguments: &[ArgumentExpression],
         ctx: &Context,
     ) -> FlagState {
         let argument_infos = self.emit_arguments(
@@ -45,7 +45,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         host_fn: &ExternalFunctionDefinitionRef,
         self_frame_placed_type: &TypedRegister,
-        arguments: &Vec<ArgumentExpression>,
+        arguments: &[ArgumentExpression],
         ctx: &Context,
     ) -> FlagState {
         let argument_infos = self.emit_arguments(

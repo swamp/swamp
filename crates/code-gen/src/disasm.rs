@@ -1,4 +1,4 @@
-use source_map_cache::{FileLineInfo, SourceMapWrapper};
+use source_map_cache::SourceMapWrapper;
 use source_map_node::FileId;
 use std::fmt;
 use std::fmt::Write;
@@ -7,9 +7,7 @@ use swamp_vm_disasm::disasm_instructions_color;
 use swamp_vm_types::types::{VariableRegister, VmType, show_frame_memory, write_basic_type};
 use swamp_vm_types::{BinaryInstruction, FrameMemoryAddress, InstructionPositionOffset};
 
-fn different_file_info(span_a: &FileLineInfo, span_b: &FileLineInfo) -> bool {
-    span_a.line != span_b.line
-}
+
 
 #[must_use]
 pub const fn is_valid_file_id(file_id: FileId) -> bool {

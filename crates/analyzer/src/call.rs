@@ -25,6 +25,8 @@ impl Analyzer<'_> {
     - PassComplexAddressFromRValueMaterialization (For complex type parameters, argument is RValue. Param must NOT be mut)
 
     */
+    /// # Errors
+    /// 
     pub fn analyze_argument(
         &mut self,
         fn_parameter: &TypeForParameter,

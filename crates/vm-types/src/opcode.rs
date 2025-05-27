@@ -28,7 +28,6 @@ pub enum OpCode {
 
     // Fixed
     MulF32,
-    ModF32,
     DivF32,
 
     // Comparisons
@@ -200,7 +199,6 @@ impl OpCode {
 
             // Float arithmetic
             Self::MulF32 => "fmul",
-            Self::ModF32 => "fmod",
             Self::DivF32 => "fdiv",
 
             // Integer comparisons

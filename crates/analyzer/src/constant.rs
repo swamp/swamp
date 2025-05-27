@@ -24,7 +24,6 @@ impl Analyzer<'_> {
         let constant = Constant {
             name: name_node.clone(),
             assigned_name: name_text,
-            //id: self.shared.state.constants_in_dependency_order.len() as u32,
             id: self.shared.state.internal_function_id_allocator.alloc() as ConstantId,
             expr: resolved_expr,
             resolved_type,

@@ -109,7 +109,7 @@ pub enum ErrorKind {
 impl From<SemanticError> for Error {
     fn from(value: SemanticError) -> Self {
         Self {
-            node: Default::default(),
+            node: Node::default(),
             kind: ErrorKind::SemanticError(value),
         }
     }

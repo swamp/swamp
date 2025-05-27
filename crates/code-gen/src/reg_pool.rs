@@ -27,7 +27,6 @@ pub struct HwmTempRegisterPool {
     num_allocated: u8,
 }
 
-impl HwmTempRegisterPool {}
 
 impl HwmTempRegisterPool {
     /// # Panics

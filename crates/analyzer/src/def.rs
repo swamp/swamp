@@ -587,7 +587,7 @@ impl Analyzer<'_> {
                 self.analyze_enum_type_definition(identifier, variants)?;
             }
             swamp_ast::DefinitionKind::FunctionDef(function) => {
-                let resolved_return_type = self.analyze_return_type(function)?;
+                let _resolved_return_type = self.analyze_return_type(function)?;
                 self.start_function();
                 self.analyze_function_definition(function, &analyzed_attributes)?;
                 self.stop_function();

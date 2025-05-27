@@ -797,9 +797,13 @@ pub enum ExpressionKind {
     InternalCall(InternalFunctionDefinitionRef, Vec<ArgumentExpression>),
     HostCall(ExternalFunctionDefinitionRef, Vec<ArgumentExpression>),
 
+    // For calls from returned function values
+    //FunctionValueCall(Signature, Box<Expression>, Vec<MutRefOrImmutableExpression>),
+
     // Constructing
     VariableDefinition(VariableRef, Box<Expression>), // First time assignment
     VariableReassignment(VariableRef, Box<Expression>),
+    VariableBinding(VariableRef, Box<ArgumentExpression>),
 
     Assignment(Box<TargetAssignmentLocation>, Box<Expression>),
     CompoundAssignment(

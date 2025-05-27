@@ -43,6 +43,7 @@ impl Analyzer<'_> {
 
     /// # Errors
     ///
+    /// # Panics
     pub fn analyze_type(&mut self, ast_type: &swamp_ast::Type) -> Result<Type, Error> {
         let resolved = match ast_type {
             swamp_ast::Type::AnonymousStruct(ast_struct) => {

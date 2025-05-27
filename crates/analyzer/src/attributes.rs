@@ -2,6 +2,7 @@ use crate::Analyzer;
 use swamp_types::{Attribute, AttributeArg, AttributeIdentifier, AttributeValue, Attributes};
 
 impl Analyzer<'_> {
+    #[must_use]
     pub fn analyze_attributes(&self, attributes: &[swamp_ast::Attribute]) -> Attributes {
         let items = attributes
             .iter()
@@ -11,6 +12,7 @@ impl Analyzer<'_> {
         Attributes(items)
     }
 
+    #[must_use]
     pub fn analyze_attribute(&self, parsed: &swamp_ast::Attribute) -> Attribute {
         Attribute {
             path: self.analyze_attribute_identifier(&parsed.path),

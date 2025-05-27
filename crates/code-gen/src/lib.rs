@@ -195,7 +195,6 @@ impl Collection {
             Self::Grid => todo!(),
             Self::String => todo!(),
             Self::Range => (RANGE_ITERATOR_SIZE, RANGE_ITERATOR_ALIGNMENT),
-            _ => todo!(),
         }
     }
 

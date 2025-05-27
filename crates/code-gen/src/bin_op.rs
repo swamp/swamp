@@ -1,6 +1,6 @@
-use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
+use crate::FlagStateKind;
 use source_map_node::Node;
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind};
 use swamp_types::Type;
@@ -195,7 +195,7 @@ impl CodeBuilder<'_> {
             }
             BinaryOperatorKind::Modulo => {
                 self.builder
-                    .add_mod_f32(target_reg, left_source, right_source, node, "f32 mod");
+                    .add_mod_i32(target_reg, left_source, right_source, node, "f32 mod");
             }
             BinaryOperatorKind::LogicalOr => panic!("not supported"),
             BinaryOperatorKind::LogicalAnd => panic!("not supported"),

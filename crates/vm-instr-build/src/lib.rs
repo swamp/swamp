@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
+    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
 };
 use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta};
 
@@ -1702,28 +1702,6 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_mod_f32(
-        &mut self,
-        dst_offset: &TypedRegister,
-        lhs_offset: &TypedRegister,
-        rhs_offset: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert!(dst_offset.ty().is_float());
-        assert!(lhs_offset.ty().is_float());
-        assert!(rhs_offset.ty().is_float());
-        self.state.add_instruction(
-            OpCode::ModF32,
-            &[
-                dst_offset.addressing(),
-                lhs_offset.addressing(),
-                rhs_offset.addressing(),
-            ],
-            node,
-            comment,
-        );
-    }
 
     pub fn add_sub_f32(
         &mut self,
