@@ -943,7 +943,7 @@ pub fn disasm(
 
         OpCode::VecIterInit => &[
             to_write_reg(operands[0], &vec_iter_type(), frame_memory_info),
-            DecoratedOperandAccessKind::ReadIndirectPointer(FrameMemoryAddress(0)),
+            to_read_reg(operands[1], &vec_iter_type(), frame_memory_info),
         ],
 
         OpCode::VecIterNext => &[
@@ -951,6 +951,7 @@ pub fn disasm(
             to_write_reg(operands[1], &bytes_type(), frame_memory_info),
             to_branch_offset(i16::from_le_bytes([operands[2], operands[3]])),
         ],
+
 
         OpCode::VecIterNextPair => &[
             to_write_reg(operands[0], &vec_iter_type(), frame_memory_info),
