@@ -1,0 +1,53 @@
+use core::{assert}
+use std::{print}
+
+fn takes_point_like(point: { x: Int, y: Int }) -> Int {
+    point.x + point.y
+}
+
+fn create_anon() -> { value: Int, valid: Bool } {
+    { value: 42, valid: true }
+}
+
+#[test]
+fn basic() {
+    point = { x: 10, y: 20 }
+    print('x:{point.x}, y:{point.y}')
+    assert(point.x == 10, 'x value is wrong')
+    assert(point.y == 20, 'y value is wrong')
+}
+
+#[test]
+fn as_parameter() {
+    sum = takes_point_like( { x: 15, y: 25 } )
+    print('sum:{sum}')
+    assert(sum == 40, 'sum is wrong')
+}
+
+#[test]
+fn from_function() {
+    result = create_anon()
+    print('value:{result.value}, valid:{result.valid}')
+    assert(result.value == 42, 'value is wrong')
+    assert(result.valid, 'valid flag is wrong')
+}
+
+#[test]
+fn nested() {
+    nested = {
+        point: { x: 1, y: 2 },
+        data: { value: 42, valid: true }
+    }
+    print('x:{nested.point.x}, value:{nested.data.value}')
+    assert(nested.point.x == 1, 'nested x is wrong')
+    assert(nested.data.value == 42, 'nested value is wrong')
+}
+
+#[test]
+fn mutation() {
+    mut point = { x: 10, y: 20 }
+    point.x = 30
+    print('after mutation: x:{point.x}, y:{point.y}')
+    assert(point.x == 30, 'mutated x is wrong')
+    assert(point.y == 20, 'y should not have changed')
+}
