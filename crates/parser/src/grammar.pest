@@ -473,8 +473,8 @@ Match Expressions
 =============================================================
 */
 match_expr = { "match" ~ arg_expression ~ "{" ~ match_arms ~ "}" }
-match_arms = { match_arm ~ (COMMA ~ match_arm)* ~ TRAILING_COMMA }
-match_arm  = { match_pattern ~ "=>" ~ expression }
+match_arms = { match_arm+ }
+match_arm  = { match_pattern ~ "=>" ~ (block ~ TRAILING_COMMA | expression ~ COMMA) }
 
 /*
 =============================================================
