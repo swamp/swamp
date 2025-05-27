@@ -7,9 +7,11 @@ use swamp_semantic::{
 };
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, TypedRegister};
+use tracing::info;
 
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
+        info!(?expr, "check");
         debug_assert!(matches!(expr.ty, Type::Unit));
         let output_destination = Destination::new_unit();
         self.emit_expression(&output_destination, expr, ctx);
@@ -33,8 +35,7 @@ impl CodeBuilder<'_> {
         let collection_type = &iterable.resolved_expression.ty();
         let hwm = self.temp_registers.save_mark();
 
-        let collection_reg =
-            self.emit_expression_location_mut_ref_or_immutable(&iterable.resolved_expression, ctx);
+        let collection_reg = self.emit_argument_expression(&iterable.resolved_expression, ctx);
         match collection_type {
             Type::Range(anon_struct_type) => {
                 self.emit_for_loop_lambda(

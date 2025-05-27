@@ -71,7 +71,10 @@ impl CodeBuilder<'_> {
                     &binary_operator.node,
                 );
             }
-            _ => match (&binary_operator.left.ty, &binary_operator.right.ty) {
+            _ => match (
+                &binary_operator.left.ty.underlying(),
+                &binary_operator.right.ty.underlying(),
+            ) {
                 //(Type::Bool, Type::Bool) => self.emit_binary_operator_logical(binary_operator),
                 (Type::Int, Type::Int) => self.emit_binary_operator_i32(
                     target_reg,

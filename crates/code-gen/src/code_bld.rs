@@ -14,8 +14,8 @@ use swamp_types::Type;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, FramePlacedType, RValueOrLValue, TypedRegister, VmType,
-    b8_type, u8_type, u32_type,
+    BasicType, BasicTypeKind, Destination, FramePlacedType, TypedRegister, VmType, b8_type,
+    u8_type, u32_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, HeapMemoryAddress, MemoryLocation,
@@ -528,7 +528,7 @@ impl CodeBuilder<'_> {
             .unwrap_or_else(|| panic!("{}", variable.assigned_name))
             .clone();
 
-        self.emit_argument_expression(
+        self.emit_argument_expression_binding(
             &target_relative_frame_pointer,
             mut_or_immutable_expression,
             ctx,
@@ -624,7 +624,7 @@ impl CodeBuilder<'_> {
     ) {
         if let Some((last, others)) = expressions.split_last() {
             for expr in others {
-                //i nfo!("this is others in block");
+                // info!("this is others in block");
                 self.emit_statement(expr, ctx);
             }
             if last.ty.is_unit() {
@@ -662,20 +662,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub(crate) fn emit_expression_location_mut_ref_or_immutable(
-        &mut self,
-        mut_or_immutable_expression: &ArgumentExpression,
-        ctx: &Context,
-    ) -> RValueOrLValue {
-        match &mut_or_immutable_expression {
-            ArgumentExpression::Expression(found_expression) => {
-                RValueOrLValue::Scalar(self.emit_scalar_rvalue(found_expression, ctx))
-            }
-            ArgumentExpression::BorrowMutableReference(location_expression) => {
-                RValueOrLValue::Memory(self.emit_lvalue_address(location_expression, ctx))
-            }
-        }
-    }
     pub fn allocate_frame_space_and_return_absolute_pointer_reg(
         &mut self,
         ty: &BasicType,

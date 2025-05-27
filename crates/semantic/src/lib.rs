@@ -804,6 +804,7 @@ pub enum ExpressionKind {
     VariableDefinition(VariableRef, Box<Expression>), // First time assignment
     VariableReassignment(VariableRef, Box<Expression>),
     VariableBinding(VariableRef, Box<ArgumentExpression>),
+
     Assignment(Box<TargetAssignmentLocation>, Box<Expression>),
     CompoundAssignment(
         TargetAssignmentLocation,

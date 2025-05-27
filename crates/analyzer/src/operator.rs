@@ -16,10 +16,10 @@ impl Analyzer<'_> {
     ) -> Result<(BinaryOperator, Type), Error> {
         let anything_context = TypeContext::new_anything_argument();
         let left = self.analyze_expression(ast_left, &anything_context)?;
-        let left_type = left.ty.clone();
+        let left_type = left.ty.underlying().clone();
 
         let right = self.analyze_expression(ast_right, &anything_context)?;
-        let right_type = right.ty.clone();
+        let right_type = right.ty.underlying().clone();
 
         let kind = Self::convert_binary_operator_kind(ast_op);
         let node = self.to_node(&ast_op.node);

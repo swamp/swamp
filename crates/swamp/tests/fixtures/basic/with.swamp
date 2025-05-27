@@ -1,0 +1,35 @@
+use core::{assert}
+use std::{print}
+
+#[test]
+fn basic() {
+  mut i = 0
+  mut modified_in_with_block = false
+  with mut i {
+    i = i + 1
+    print('i: {i}')
+    assert(i == 1, "i should be 1 inside the with block")
+  }
+  assert(i == 1, "i shouldn't have changed outside the with block")
+}
+
+
+#[test]
+fn basic_borrow() {
+  mut i = 0
+  with mut a=i {
+    a = a + 1
+    print('a: {a}')
+  }
+  assert(i == 1, "i should have been changed in the with block")
+}
+
+#[test]
+fn basic_borrow_same_name() {
+  mut i = 0
+  with mut i {
+    i = i + 1
+    print('i: {i}')
+  }
+  assert(i == 1, "i should have been changed in the with block")
+}

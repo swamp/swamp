@@ -62,7 +62,11 @@ impl CodeBuilder<'_> {
             let target_binding_variable_reg = self.get_variable_register(&binding.variable).clone();
 
             if binding.has_expression() {
-                self.emit_argument_expression(&target_binding_variable_reg, &binding.expr, ctx);
+                self.emit_argument_expression_binding(
+                    &target_binding_variable_reg,
+                    &binding.expr,
+                    ctx,
+                );
             } else {
                 let ArgumentExpression::Expression(variable_access_expression) = &binding.expr
                 else {

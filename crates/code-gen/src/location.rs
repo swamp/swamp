@@ -18,10 +18,10 @@ impl CodeBuilder<'_> {
         mut_or_immutable_expression: &ArgumentExpression,
         context: &Context,
     ) -> RValueOrLValue {
-        self.emit_expression_location_mut_ref_or_immutable(mut_or_immutable_expression, context)
+        self.emit_argument_expression(mut_or_immutable_expression, context)
     }
 
-    pub(crate) fn emit_argument_expression(
+    pub(crate) fn emit_argument_expression_binding(
         &mut self,
         target_reg: &TypedRegister,
         argument_expression: &ArgumentExpression,
@@ -41,6 +41,20 @@ impl CodeBuilder<'_> {
             ArgumentExpression::BorrowMutableReference(location_expression) => {
                 let location = self.emit_lvalue_address(location_expression, ctx);
                 //TODO: move location to target_reg // self.emit_ptr_reg_from_detailed_location()
+            }
+        }
+    }
+    pub(crate) fn emit_argument_expression(
+        &mut self,
+        mut_or_immutable_expression: &ArgumentExpression,
+        ctx: &Context,
+    ) -> RValueOrLValue {
+        match &mut_or_immutable_expression {
+            ArgumentExpression::Expression(found_expression) => {
+                RValueOrLValue::Scalar(self.emit_scalar_rvalue(found_expression, ctx))
+            }
+            ArgumentExpression::BorrowMutableReference(location_expression) => {
+                RValueOrLValue::Memory(self.emit_lvalue_address(location_expression, ctx))
             }
         }
     }

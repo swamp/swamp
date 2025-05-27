@@ -54,8 +54,7 @@ impl CodeBuilder<'_> {
                 let (self_arg, maybe_self_type) = if arguments.is_empty() {
                     (None, None)
                 } else {
-                    let self_region =
-                        self.emit_expression_location_mut_ref_or_immutable(&arguments[0], ctx);
+                    let self_region = self.emit_argument_expression(&arguments[0], ctx);
                     (Some(self_region), Some(arguments[0].ty()))
                 };
                 let rest_args = if arguments.len() > 1 {

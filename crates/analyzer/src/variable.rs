@@ -236,15 +236,63 @@ impl Analyzer<'_> {
         converted_expression: ArgumentExpression,
     ) -> Result<Expression, Error> {
         let expression_type = converted_expression.ty().clone();
-        let variable_ref = self.create_local_variable(
-            &ast_variable.name,
-            ast_variable.is_mutable.as_ref(),
-            &expression_type,
-        )?;
+
+        let variable_ref = if let ArgumentExpression::Expression(expr) = &converted_expression {
+            if let ExpressionKind::VariableAccess(source_var) = &expr.kind {
+                if ast_variable.is_mutable.is_some() && !source_var.is_mutable() {
+                    return Err(
+                        self.create_err(ErrorKind::VariableIsNotMutable, &ast_variable.name)
+                    );
+                }
+
+                let scope_index = self.scope.block_scope_stack.len() - 1;
+                let variable_str = self.get_text(&ast_variable.name).to_string();
+                let node = self.to_node(&ast_variable.name);
+                let mut_node = ast_variable.is_mutable.as_ref().map(|n| self.to_node(n));
+
+                let variables = &mut self
+                    .scope
+                    .block_scope_stack
+                    .last_mut()
+                    .expect("block scope should have at least one scope")
+                    .variables;
+
+                let resolved_variable = Variable {
+                    name: node,
+                    assigned_name: variable_str.clone(),
+                    variable_type: VariableType::Local,
+                    resolved_type: source_var.resolved_type.clone(),
+                    mutable_node: mut_node.or_else(|| source_var.mutable_node.clone()),
+                    scope_index,
+                    variable_index: variables.len(),
+                    unique_id_within_function: source_var.unique_id_within_function, // Reuse the same ID
+                    is_unused: false,
+                };
+
+                let alias_ref = Rc::new(resolved_variable);
+                variables
+                    .insert(variable_str, alias_ref.clone())
+                    .expect("should have checked earlier for variable");
+
+                alias_ref
+            } else {
+                self.create_local_variable(
+                    &ast_variable.name,
+                    ast_variable.is_mutable.as_ref(),
+                    &expression_type,
+                )?
+            }
+        } else {
+            self.create_local_variable(
+                &ast_variable.name,
+                ast_variable.is_mutable.as_ref(),
+                &expression_type,
+            )?
+        };
+
         let expr_kind =
             ExpressionKind::VariableBinding(variable_ref, Box::from(converted_expression));
-
-        let expr = self.create_expr(expr_kind, expression_type, &ast_variable.name);
+        let expr = self.create_expr(expr_kind, Type::Unit, &ast_variable.name);
 
         Ok(expr)
     }
