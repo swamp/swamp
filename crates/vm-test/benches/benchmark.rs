@@ -8,7 +8,7 @@ use swamp_vm::Vm;
 use swamp_vm_types::InstructionPosition;
 
 fn setup_vm() -> Vm {
-  todo!()
+    todo!()
 }
 
 fn format_duration(nanos: f64) -> String {

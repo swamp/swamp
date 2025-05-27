@@ -5,18 +5,20 @@ use swamp_test_runner::{TestRunOptions, init_logger, run_tests};
 pub fn very_basic(test_dir: &Path) {
     init_logger();
 
-    run_tests(
+    let test_result = run_tests(
         test_dir,
         &TestRunOptions {
             should_run: true,
             print_output: false,
             iteration_count: 2,
             debug_output: false,
-            debug_opcodes: false,
+            debug_opcodes: true,
             debug_stats: true,
         },
-        "",
+        "unwrap::",
     );
+
+    assert!(test_result.succeeded());
 }
 
 fn main() {

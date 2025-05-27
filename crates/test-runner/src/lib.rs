@@ -99,7 +99,6 @@ pub struct TestRunOptions {
     pub debug_stats: bool,
 }
 
-
 pub fn init_logger() {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -120,6 +119,12 @@ impl Display for TestInfo {
 pub struct TestResult {
     pub passed_tests: Vec<TestInfo>,
     pub failed_tests: Vec<TestInfo>,
+}
+
+impl TestResult {
+    pub fn succeeded(&self) -> bool {
+        self.failed_tests.is_empty()
+    }
 }
 
 /// # Panics

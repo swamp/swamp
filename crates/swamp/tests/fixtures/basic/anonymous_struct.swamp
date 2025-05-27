@@ -1,7 +1,7 @@
 use core::{assert}
 use std::{print}
 
-fn takes_point_like(point: { x: Int, y: Int }) -> Int {
+fn add_x_and_y_point_like(point: { x: Int, y: Int }) -> Int {
   point.x + point.y
 }
 
@@ -23,7 +23,7 @@ fn basic() {
 
 #[test]
 fn as_parameter() {
-  sum = takes_point_like({ y: 25, x: 15 })
+  sum = add_x_and_y_point_like({ y: 25, x: 15 })
   print('sum:{sum}')
   assert(sum == 40, 'sum is wrong')
 }
