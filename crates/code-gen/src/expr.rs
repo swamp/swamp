@@ -282,20 +282,6 @@ impl CodeBuilder<'_> {
                 self.emit_while_loop(condition, expression, ctx);
             }
 
-            // Low priority
-            ExpressionKind::VariableBinding(variable, argument_expression) => {
-                let variable_target_reg = self
-                    .variable_registers
-                    .get(&variable.unique_id_within_function)
-                    .unwrap()
-                    .clone();
-                self.emit_argument_expression_binding(
-                    &variable_target_reg,
-                    argument_expression,
-                    ctx,
-                );
-            } // only used for `with` expressions
-
             // Illegal
             ExpressionKind::Lambda(_vec, _x) => {
                 panic!("something went wrong. non-capturing lambdas can not be evaluated")

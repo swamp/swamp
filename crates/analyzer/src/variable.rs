@@ -2,8 +2,8 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::Analyzer;
 use crate::err::{Error, ErrorKind};
+use crate::Analyzer;
 use source_map_node::Node;
 use std::rc::Rc;
 use swamp_semantic::{
@@ -290,8 +290,25 @@ impl Analyzer<'_> {
             )?
         };
 
-        let expr_kind =
-            ExpressionKind::VariableBinding(variable_ref, Box::from(converted_expression));
+        // Create a variable definition expression
+        let source_expr = match converted_expression {
+            ArgumentExpression::Expression(expr) => expr,
+            ArgumentExpression::BorrowMutableReference(loc) => {
+                let ast_node = swamp_ast::Node {
+                    span: swamp_ast::SpanWithoutFileId {
+                        offset: loc.node.span.offset,
+                        length: loc.node.span.length,
+                    },
+                };
+                self.create_expr(
+                    ExpressionKind::VariableAccess(loc.starting_variable.clone()),
+                    loc.starting_variable.resolved_type.clone(),
+                    &ast_node,
+                )
+            }
+        };
+
+        let expr_kind = ExpressionKind::VariableDefinition(variable_ref, Box::new(source_expr));
         let expr = self.create_expr(expr_kind, Type::Unit, &ast_variable.name);
 
         Ok(expr)
