@@ -34,3 +34,26 @@ fn matching() {
   }
   assert(result == 1, "enum value is wrong")
 }
+
+
+
+enum Different {
+  Nothing,
+  FewThings(Color, Int),
+  More { name: String, color: Color}
+}
+
+//#[test]
+fn matching_enum_with_container() {
+  a = Different::FewThings(Color::Green, 42)
+  result = match a {
+    Nothing => 0,
+    FewThings _, value => value,
+    More name, color => {
+      print('name: {name}, color: {color}')
+      100
+    }
+  }
+  print('result: {result}')
+  assert(result == 42, "enum value is wrong")
+}
