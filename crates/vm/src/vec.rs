@@ -53,7 +53,7 @@ impl Vm {
             self.get_ptr_from_reg(target_vec_iterator_header_reg) as *mut VecIterator;
 
         unsafe {
-            ptr::copy_nonoverlapping(&vec_iterator, vec_iterator_mut_ptr, 1);
+            ptr::write(vec_iterator_mut_ptr, vec_iterator);
         }
     }
 
@@ -64,6 +64,27 @@ impl Vm {
         target_variable: u8,
         jump: u8,
     ) {
+        let vec_iterator_ptr = self.get_vec_iterator_header_ptr_from_reg(vec_iterator_header_reg);
+        let vec_iterator = unsafe { &mut *vec_iterator_ptr };
+        
+        let vec_header_ptr = self.memory.get_heap_const_ptr(vec_iterator.vec_header_heap_ptr as usize) as *const VecHeader;
+        let vec_header = unsafe { &*vec_header_ptr };
+
+        // Check if we've reached the end
+        if vec_iterator.index >= vec_header.count {
+            // Jump to the provided address if we're done
+            self.pc = jump as usize;
+            return;
+        }
+
+        // Calculate the address of the current element
+        let element_addr = vec_iterator.vec_header_heap_ptr + 
+            VEC_HEADER_PAYLOAD_OFFSET.0 as u32 + 
+            vec_iterator.index as u32;
+
+        set_reg!(self, target_variable, element_addr);
+
+        vec_iterator.index += 1;
     }
 
     pub fn vec_header_from_heap(heap: &Memory, heap_offset: u32) -> VecHeader {
