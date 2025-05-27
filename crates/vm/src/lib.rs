@@ -260,6 +260,9 @@ impl Vm {
         vm.handlers[OpCode::Ld32FromAbsoluteAddress as usize] =
             HandlerType::Args5(Self::execute_ldw_from_absolute_address);
 
+        vm.handlers[OpCode::Ld8FromAbsoluteAddress as usize] =
+            HandlerType::Args5(Self::execute_ldb_from_absolute_address);
+
         vm.handlers[OpCode::LoadEffectiveAddressIndexMultiplier as usize] =
             HandlerType::Args7(Self::execute_lea_base_ptr_offset_index_element_size);
 
@@ -804,7 +807,8 @@ impl Vm {
     fn execute_f32_floor(&mut self, dst_reg: u8, val_reg: u8) {
         let val = Fp::from_raw(get_reg!(self, val_reg) as i32);
 
-        set_reg!(self, dst_reg, val.floor().inner());
+        let floored: i16 = val.floor().into();
+        set_reg!(self, dst_reg, floored);
     }
 
     #[inline]
@@ -1302,6 +1306,24 @@ impl Vm {
         let absolute_addr = u32_from_u8s!(addr_0, addr_1, addr_2, addr_3);
 
         let ptr_to_read_from = self.memory.get_heap_const_ptr(absolute_addr as usize) as *const u32;
+
+        unsafe {
+            set_reg!(self, dst_reg, *ptr_to_read_from);
+        }
+    }
+
+    #[inline]
+    fn execute_ldb_from_absolute_address(
+        &mut self,
+        dst_reg: u8,
+        addr_0: u8,
+        addr_1: u8,
+        addr_2: u8,
+        addr_3: u8,
+    ) {
+        let absolute_addr = u32_from_u8s!(addr_0, addr_1, addr_2, addr_3);
+
+        let ptr_to_read_from = self.memory.get_heap_const_ptr(absolute_addr as usize);
 
         unsafe {
             set_reg!(self, dst_reg, *ptr_to_read_from);

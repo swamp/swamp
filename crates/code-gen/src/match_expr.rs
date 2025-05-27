@@ -1,10 +1,12 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use swamp_semantic::{Match, NormalPattern, Pattern};
+use swamp_semantic::{Match, NormalPattern, Pattern, PatternElement};
 use swamp_vm_types::MemoryOffset;
-use swamp_vm_types::types::{Destination, VmType, u8_type};
+use swamp_vm_types::types::{BasicTypeKind, Destination, RValueOrLValue, VmType, u8_type};
+use tracing::info;
 
 impl CodeBuilder<'_> {
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_match(
         &mut self,
         output_destination: &Destination,
@@ -33,6 +35,11 @@ impl CodeBuilder<'_> {
             match_expr.expression.node(),
             "read enum tag",
         );
+
+        let BasicTypeKind::TaggedUnion(enum_type) = &enum_ptr_reg.grab_rvalue().ty.basic_type.kind
+        else {
+            panic!("internal error enum");
+        };
 
         for (index, arm) in match_expr.arms.iter().enumerate() {
             let is_last = index == arm_len_to_consider - 1;
@@ -72,6 +79,73 @@ impl CodeBuilder<'_> {
             };
 
             let maybe_guard_skip = maybe_guard.map(|guard| self.emit_condition_context(guard, ctx));
+
+            // insert code here to emit patterns to variables
+            match &arm.pattern {
+                Pattern::Normal(normal_pattern, maybe_guard) => match normal_pattern {
+                    NormalPattern::PatternList(_) => todo!(),
+                    NormalPattern::EnumPattern(enum_variant, maybe_patterns) => {
+                        if let Some(patterns) = maybe_patterns {
+                            for pattern in patterns {
+                                match pattern {
+                                    PatternElement::Variable(var) => {
+                                        info!(?var, "variable is here");
+                                        panic!("variables is here {var:?}");
+                                    }
+                                    PatternElement::VariableWithFieldIndex(
+                                        variable,
+                                        field_index_within_variant_payload_value,
+                                    ) => {
+                                        let enum_variant_common = enum_type
+                                            .get_variant_as_offset_item(
+                                                enum_variant.common().index() as usize,
+                                            );
+                                        let field_offset_item_inside_payload = enum_variant_common
+                                            .ty
+                                            .get_field_offset(
+                                                *field_index_within_variant_payload_value,
+                                            )
+                                            .unwrap();
+
+                                        let total_offset = enum_type.payload_offset
+                                            + field_offset_item_inside_payload.offset;
+                                        let var_reg = self
+                                            .variable_registers
+                                            .get(&variable.unique_id_within_function)
+                                            .unwrap()
+                                            .clone();
+
+                                        match &enum_ptr_reg {
+                                            RValueOrLValue::Scalar(enum_base_ptr_reg) => {
+                                                self.emit_load_from_memory(
+                                                    &var_reg,
+                                                    enum_base_ptr_reg,
+                                                    total_offset,
+                                                    &var_reg.ty,
+                                                    &variable.name,
+                                                    "load variant from field index",
+                                                );
+                                            }
+                                            RValueOrLValue::Memory(_) => {
+                                                todo!("from memory not supported yet")
+                                            }
+                                        }
+                                    }
+                                    PatternElement::Wildcard(_) => {
+                                        // Intentionally do nothing, the variable should not be handled
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    NormalPattern::Literal(_) => {
+                        todo!()
+                    }
+                },
+                Pattern::Wildcard(_) => {
+                    todo!()
+                }
+            };
 
             self.emit_expression(output_destination, &arm.expression, ctx);
 

@@ -931,6 +931,12 @@ pub struct EnumVariantCommon {
     pub container_index: u8,
 }
 
+impl EnumVariantCommon {
+    pub fn index(&self) -> u8 {
+        self.container_index
+    }
+}
+
 impl Debug for EnumVariantCommon {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}::{}", self.assigned_name, self.assigned_name)
@@ -966,6 +972,9 @@ pub enum EnumVariantType {
     Tuple(EnumVariantTupleType),
     Nothing(EnumVariantSimpleType),
 }
+
+impl EnumVariantType {}
+
 impl EnumVariantType {
     #[must_use]
     pub const fn common(&self) -> &EnumVariantCommon {

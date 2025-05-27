@@ -43,7 +43,7 @@ enum Different {
   More { name: String, color: Color}
 }
 
-//#[test]
+#[test]
 fn matching_enum_with_container() {
   a = Different::FewThings(Color::Green, 42)
   result = match a {
@@ -56,4 +56,19 @@ fn matching_enum_with_container() {
   }
   print('result: {result}')
   assert(result == 42, "enum value is wrong")
+}
+
+#[test]
+fn matching_enum_with_container_struct() {
+  a = Different::More {name: "Test", color: Color::Blue}
+  result = match a {
+    Nothing => 0,
+    FewThings _, value => value,
+    More name, color => {
+      print('name: "{name}", color: {color}')
+      100
+    }
+  }
+  print('result: {result}')
+  assert(result == 100, "enum value is wrong")
 }

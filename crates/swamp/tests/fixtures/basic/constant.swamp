@@ -1,12 +1,17 @@
 use core::{assert}
 use std::{print}
 
-
+const TEST_TRUTH = true
 const TEST_VALUE = 100
 
 struct Point {
   x: Int,
   y: Int,
+}
+
+#[test]
+fn bool_constant() {
+  assert(TEST_TRUTH, 'constant is not working')
 }
 
 #[test]
