@@ -122,7 +122,7 @@ pub struct TestResult {
 }
 
 impl TestResult {
-    pub fn succeeded(&self) -> bool {
+    #[must_use] pub const fn succeeded(&self) -> bool {
         self.failed_tests.is_empty()
     }
 }
