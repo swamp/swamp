@@ -1011,7 +1011,6 @@ impl VmType {
     }
 }
 
-impl VmType {}
 
 impl Display for VmType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

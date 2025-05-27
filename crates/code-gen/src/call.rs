@@ -265,7 +265,7 @@ impl CodeBuilder<'_> {
             );
 
             let argument_to_use =
-                if self.is_register_already_live(&target_canonical_argument_register) {
+                if self.argument_needs_to_be_in_a_temporary_register_first(&target_canonical_argument_register) {
                     let temp_reg = self.temp_registers.allocate(
                         target_canonical_argument_register.ty.clone(),
                         "just to put arguments in place at the end",
@@ -593,7 +593,11 @@ impl CodeBuilder<'_> {
         self.emit_post_call(argument_info, node, "restore spilled after call");
     }
 
-    const fn is_register_already_live(&self, reg: &TypedRegister) -> bool {
+    /// If you're not on the last argument for "Outer Function", you have to put
+    /// that value away somewhere safe for a bit. Otherwise, when you're figuring out the next arguments,
+    /// you might accidentally overwrite it.
+    /// But if you are on the last argument, you can just drop it right where it needs to go.
+    const fn argument_needs_to_be_in_a_temporary_register_first(&self, reg: &TypedRegister) -> bool {
         // TODO: for now just assume it is
         true
     }

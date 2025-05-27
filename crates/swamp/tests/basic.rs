@@ -25,6 +25,7 @@ fn very_basic() {
             iteration_count: 32,
             debug_output: false,
             debug_opcodes: false,
+            debug_stats: false,
         },
         "",
     );

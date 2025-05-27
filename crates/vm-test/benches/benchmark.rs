@@ -5,19 +5,10 @@
 
 use std::time::{Duration, Instant};
 use swamp_vm::Vm;
-use swamp_vm_test::util::exec_internal;
 use swamp_vm_types::InstructionPosition;
 
 fn setup_vm() -> Vm {
-    exec_internal(
-        "
-        mut a = 1
-
-        while a < 32000 {
-            a += 1
-        }
-    ",
-    )
+  todo!()
 }
 
 fn format_duration(nanos: f64) -> String {

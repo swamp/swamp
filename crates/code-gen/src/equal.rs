@@ -34,7 +34,7 @@ impl CodeBuilder<'_> {
 
                 self.emit_binary_operator_block_cmp(left_source, node, right_source)
             }
-            _ => todo!(),
+            _ => self.emit_binary_operator_block_cmp(left_source, node, right_source),
         };
 
         if is_equal {
