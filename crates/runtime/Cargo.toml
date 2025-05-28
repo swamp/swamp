@@ -35,7 +35,6 @@ swamp-vm-types = { path = "../vm-types", version = "0.1.16" }
 swamp-vm-pretty-print = { path = "../vm-pretty-print", version = "0.1.16" }
 swamp-vm-disasm = { path = "../vm-disasm", version = "0.1.16" }
 swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.1.16" }
-swamp-vm-host = { path = "../vm-host", version = "0.1.16" }
 
 # Source Map
 source-map-cache = "0.0.2"

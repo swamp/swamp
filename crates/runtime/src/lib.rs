@@ -132,13 +132,7 @@ pub struct CodeGenResult {
 impl CodeGenResult {
     #[must_use]
     pub fn find_function(&self, formal_name: &str) -> Option<&GenFunctionInfo> {
-        for func in self.functions.values() {
-            if func.internal_function_definition.assigned_name == formal_name {
-                return Some(func);
-            }
-        }
-
-        None
+        self.functions.values().find(|&func| func.internal_function_definition.assigned_name == formal_name)
     }
 }
 

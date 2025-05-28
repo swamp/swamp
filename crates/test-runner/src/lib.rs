@@ -1,10 +1,9 @@
-use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use swamp_runtime::{compile_codegen_and_create_vm, RunConstantsOptions, RunOptions};
 use swamp_std::print::print_fn;
-use swamp_vm::host::{HostArgs, HostFunctionCallback};
+use swamp_vm::host::HostFunctionCallback;
 use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
 use tracing::error;
@@ -135,10 +134,7 @@ pub struct TestExternals {}
 
 impl HostFunctionCallback for TestExternals {
     fn dispatch_host_call(&mut self, args: swamp_vm::host::HostArgs) {
-        match args.function_id {
-            0 => print_fn(args),
-            _ => {}
-        }
+        if args.function_id == 0 { print_fn(args) }
     }
 }
 
