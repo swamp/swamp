@@ -1,0 +1,10 @@
+[package]
+name = "fentext-ui"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/piot/fentext-ui"
+description = "text ui and input for games or realtime text applications"
+
+[dependencies]
+crossterm = "0.29.0"
