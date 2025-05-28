@@ -4,8 +4,9 @@ use std::path::Path;
 use std::thread;
 use std::time::Duration;
 use swamp::prelude::{
-    CodeGenAndVmResult, HostArgs, HostFunctionCallback, RunConstantsOptions, RunOptions,
-    SourceMapWrapper, compile_codegen_and_create_vm, run_first_time, run_function_with_debug,
+    CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
+    RunOptions, SourceMapWrapper, compile_codegen_and_create_vm, run_first_time,
+    run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 
@@ -32,9 +33,96 @@ impl Application {
     }
 }
 
+pub struct FenTextSwamp {
+    pub runtime_result: CodeGenAndVmResult,
+    pub tick_fn: GenFunctionInfo,
+}
+
+impl FenTextSwamp {
+    pub fn new(application: &mut Application) -> Self {
+        let mut runtime_result = Self::compile();
+        Self::run_once(&mut runtime_result, application);
+        let tick_fn = Self::boot(&mut runtime_result, application);
+
+        Self {
+            runtime_result,
+            tick_fn,
+        }
+    }
+
+    pub fn tick(&mut self, application: &mut Application) {
+        let run_options = RunOptions {
+            debug_stats_enabled: false,
+            debug_opcodes_enabled: false,
+            debug_info: &self.runtime_result.code_gen_result.debug_info,
+            source_map_wrapper: SourceMapWrapper {
+                source_map: &self.runtime_result.source_map,
+                current_dir: current_dir().unwrap(),
+            },
+        };
+
+        run_function_with_debug(
+            &mut self.runtime_result.vm,
+            &self.tick_fn,
+            application,
+            run_options,
+        );
+    }
+
+    #[must_use]
+    pub fn compile() -> CodeGenAndVmResult {
+        compile_codegen_and_create_vm(
+            Path::new("assets/crawler"),
+            &["crate".to_string(), "main".to_string()],
+        )
+        .unwrap()
+    }
+
+    pub fn boot(
+        runtime_result: &mut CodeGenAndVmResult,
+        application: &mut Application,
+    ) -> GenFunctionInfo {
+        let run_options = RunOptions {
+            debug_stats_enabled: false,
+            debug_opcodes_enabled: false,
+            debug_info: &runtime_result.code_gen_result.debug_info,
+            source_map_wrapper: SourceMapWrapper {
+                source_map: &runtime_result.source_map,
+                current_dir: current_dir().unwrap(),
+            },
+        };
+
+        let main_fn = runtime_result
+            .code_gen_result
+            .find_function("main")
+            .unwrap();
+
+        run_function_with_debug(&mut runtime_result.vm, main_fn, application, run_options);
+
+        let simulation_type = main_fn.return_type();
+        runtime_result
+            .get_gen_internal_member_function(simulation_type, "tick")
+            .unwrap()
+            .clone()
+    }
+
+    pub fn run_once(runtime_result: &mut CodeGenAndVmResult, application: &mut Application) {
+        let run_first_options = RunConstantsOptions {
+            stderr_adapter: None,
+        };
+
+        run_first_time(
+            &mut runtime_result.vm,
+            &runtime_result.code_gen_result.constants_in_order,
+            application,
+            run_first_options,
+        );
+    }
+}
+
 pub struct FenText {
     pub application: Application,
-    pub runtime_result: CodeGenAndVmResult,
+    pub swamp: FenTextSwamp,
 }
 
 impl Default for FenText {
@@ -59,42 +147,17 @@ impl FenText {
     ///
     #[must_use]
     pub fn new() -> Self {
-        let runtime_result = Self::compile();
-        let app = Application {
+        let mut app = Application {
             canvas: Tui::new().unwrap(),
             tick_count: 0,
         };
 
-        let mut s = Self {
+        let swamp = FenTextSwamp::new(&mut app);
+
+        Self {
             application: app,
-            runtime_result,
-        };
-
-        s.run_once();
-
-        s
-    }
-
-    #[must_use]
-    pub fn compile() -> CodeGenAndVmResult {
-        compile_codegen_and_create_vm(
-            Path::new("assets/crawler"),
-            &["crate".to_string(), "main".to_string()],
-        )
-        .unwrap()
-    }
-
-    pub fn run_once(&mut self) {
-        let run_first_options = RunConstantsOptions {
-            stderr_adapter: None,
-        };
-
-        run_first_time(
-            &mut self.runtime_result.vm,
-            &self.runtime_result.code_gen_result.constants_in_order,
-            &mut self.application,
-            run_first_options,
-        );
+            swamp,
+        }
     }
 
     #[must_use]
@@ -107,28 +170,7 @@ impl FenText {
             }
         }
 
-        let run_options = RunOptions {
-            debug_stats_enabled: false,
-            debug_opcodes_enabled: false,
-            debug_info: &self.runtime_result.code_gen_result.debug_info,
-            source_map_wrapper: SourceMapWrapper {
-                source_map: &self.runtime_result.source_map,
-                current_dir: current_dir().unwrap(),
-            },
-        };
-
-        let main_fn = self
-            .runtime_result
-            .code_gen_result
-            .find_function("main")
-            .unwrap();
-
-        run_function_with_debug(
-            &mut self.runtime_result.vm,
-            main_fn,
-            &mut self.application,
-            run_options,
-        );
+        self.swamp.tick(&mut self.application);
 
         self.application.tick_count += 1;
 

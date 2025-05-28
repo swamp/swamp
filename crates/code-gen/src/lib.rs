@@ -28,6 +28,7 @@ mod lvalue;
 mod map;
 mod match_expr;
 mod postfix;
+pub mod prelude;
 pub mod reg_pool;
 mod relational;
 mod rvalue;
@@ -290,9 +291,21 @@ pub struct SlicePairInfo {
     pub element_size: MemorySize,
 }
 
+#[derive(Clone)]
 pub struct GenFunctionInfo {
     pub ip_range: InstructionRange,
     pub internal_function_definition: InternalFunctionDefinitionRef,
+}
+
+impl GenFunctionInfo {
+    #[must_use]
+    pub fn return_type(&self) -> &Type {
+        &self
+            .internal_function_definition
+            .signature
+            .signature
+            .return_type
+    }
 }
 
 pub struct ConstantInfo {

@@ -10,7 +10,8 @@ use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
 use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
-use swamp_semantic::{ConstantId, InternalFunctionId};
+use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
+use swamp_types::Type;
 use swamp_vm::host::HostFunctionCallback;
 use swamp_vm::{Vm, VmSetup, VmState};
 use swamp_vm_debug_info::{DebugInfo, KeepTrackOfSourceLine, SourceFileLineInfo};
@@ -311,6 +312,34 @@ pub struct CodeGenAndVmResult {
     pub vm: Vm,
     pub code_gen_result: CodeGenResult,
     pub source_map: SourceMap,
+}
+
+impl CodeGenAndVmResult {
+    #[must_use]
+    pub fn get_internal_member_function(
+        &self,
+        ty: &Type,
+        member_function_str: &str,
+    ) -> Option<&InternalFunctionDefinitionRef> {
+        self.code_gen_result
+            .program
+            .state
+            .instantiator
+            .associated_impls
+            .get_internal_member_function(ty, member_function_str)
+    }
+    #[must_use]
+    pub fn get_gen_internal_member_function(
+        &self,
+        ty: &Type,
+        member_function_str: &str,
+    ) -> Option<&GenFunctionInfo> {
+        let x = self
+            .get_internal_member_function(ty, member_function_str)
+            .unwrap();
+
+        self.code_gen_result.functions.get(&x.program_unique_id)
+    }
 }
 
 /// The root module is needed so it knows which mod that should be considered.

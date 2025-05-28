@@ -16,9 +16,11 @@ RESOURCES="❤️💙💰🪙📜"
 */
 
 impl Crawler {
-	fn tick() {
+
+	#[host_call]
+	fn tick(mut self) {
 		move(1, 0)
-		print("tick!")
+		write("tick!")
 	}
 }
 
