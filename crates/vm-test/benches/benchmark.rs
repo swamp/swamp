@@ -5,7 +5,13 @@
 
 use std::time::{Duration, Instant};
 use swamp_vm::Vm;
+use swamp_vm::host::HostFunctionCallback;
 use swamp_vm_types::InstructionPosition;
+pub struct TestExternals {}
+
+impl HostFunctionCallback for TestExternals {
+    fn dispatch_host_call(&mut self, args: swamp_vm::host::HostArgs) {}
+}
 
 fn setup_vm() -> Vm {
     todo!()
@@ -34,7 +40,7 @@ fn main() {
             if i % 1_000 == 0 {
                 println!("  Warm-up iteration {i}");
             }
-            vm.execute_from_ip(&InstructionPosition(0));
+            vm.execute_from_ip(&InstructionPosition(0), &mut TestExternals {});
             vm.reset();
         }
 
@@ -51,7 +57,7 @@ fn main() {
 
     let start = Instant::now();
     for _ in 0..execution_count {
-        vm.execute_from_ip(&InstructionPosition(0));
+        vm.execute_from_ip(&InstructionPosition(0), &mut TestExternals {});
         vm.reset();
     }
     let duration = start.elapsed();
