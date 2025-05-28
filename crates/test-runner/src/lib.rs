@@ -135,7 +135,7 @@ pub struct TestExternals {}
 impl HostFunctionCallback for TestExternals {
     fn dispatch_host_call(&mut self, args: swamp_vm::host::HostArgs) {
         if args.function_id == 1 {
-            print_fn(args)
+            print_fn(args);
         }
     }
 }
