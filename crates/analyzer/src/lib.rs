@@ -2851,7 +2851,10 @@ impl<'a> Analyzer<'a> {
         }
 
         if let Some(found_expected_type) = context.expected_type {
-            if !ty.compatible_with(found_expected_type) {
+            if !ty
+                .underlying()
+                .compatible_with(found_expected_type.underlying())
+            {
                 return Err(self.create_err(
                     ErrorKind::IncompatibleTypes {
                         expected: found_expected_type.clone(),
@@ -3453,7 +3456,7 @@ impl<'a> Analyzer<'a> {
             || self_type.is_mutable && !is_mutable
         {
             info!(?self_type.resolved_type, ?type_that_member_is_on, "debugging");
-            return Err(self.create_err(ErrorKind::SelfNotCorrectType, node));
+            //   return Err(self.create_err(ErrorKind::SelfNotCorrectType, node));
         }
 
         let resolved_arguments = self.analyze_and_verify_parameters(

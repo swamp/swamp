@@ -364,6 +364,34 @@ impl CodeBuilder<'_> {
         }
     }
 
+    pub(crate) fn emit_store_primitive_to_memory_location(
+        &mut self,
+        memory_location: &MemoryLocation,
+        primitive_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        match primitive_reg.ty.basic_type.kind {
+            BasicTypeKind::B8 | BasicTypeKind::U8 => {
+                self.builder.add_st8_using_ptr_with_offset(
+                    memory_location,
+                    primitive_reg,
+                    node,
+                    comment,
+                );
+            }
+            BasicTypeKind::U32 | BasicTypeKind::S32 | BasicTypeKind::Fixed32 => {
+                self.builder.add_st32_using_ptr_with_offset(
+                    memory_location,
+                    primitive_reg,
+                    node,
+                    comment,
+                );
+            }
+            _ => panic!("must be primitive"),
+        }
+    }
+
     pub(crate) fn emit_ptr_reg_from_detailed_location(
         &mut self,
         location: &Destination,

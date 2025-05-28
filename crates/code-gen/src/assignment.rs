@@ -201,15 +201,14 @@ impl CodeBuilder<'_> {
             _ => panic!("not allowed as a compound assignment"),
         }
 
-        /*
-        TODO:
-        self.emit_store_primitive_from_detailed_location_if_needed(
-            &resolved,
-            &assignment_target,
-            &target_location.0.node,
-        );
-
-         */
+        if let Destination::Memory(mem) = assignment_target {
+            self.emit_store_primitive_to_memory_location(
+                &mem,
+                resolved.register(),
+                &source.node,
+                "emit compound",
+            );
+        }
 
         /*
         if let DetailedLocationResolved::TempRegister(temp_reg) = resolved {
@@ -225,28 +224,28 @@ impl CodeBuilder<'_> {
         node: &Node,
         target: &TypedRegister,
         op: &CompoundOperatorKind,
-        source_ctx: &TypedRegister,
+        source_reg: &TypedRegister,
     ) {
         match op {
             CompoundOperatorKind::Add => {
                 self.builder
-                    .add_add_u32(target, target, source_ctx, node, "+=  (i32)");
+                    .add_add_u32(target, target, source_reg, node, "+=  (i32)");
             }
             CompoundOperatorKind::Sub => {
                 self.builder
-                    .add_sub_u32(target, target, source_ctx, node, "-=  (i32)");
+                    .add_sub_u32(target, target, source_reg, node, "-=  (i32)");
             }
             CompoundOperatorKind::Mul => {
                 self.builder
-                    .add_mul_i32(target, target, source_ctx, node, "*=  (i32)");
+                    .add_mul_i32(target, target, source_reg, node, "*=  (i32)");
             }
             CompoundOperatorKind::Div => {
                 self.builder
-                    .add_div_i32(target, target, source_ctx, node, "/=  (i32)");
+                    .add_div_i32(target, target, source_reg, node, "/=  (i32)");
             }
             CompoundOperatorKind::Modulo => {
                 self.builder
-                    .add_mod_i32(target, target, source_ctx, node, "%=  (i32)");
+                    .add_mod_i32(target, target, source_reg, node, "%=  (i32)");
             }
         }
     }

@@ -12,6 +12,7 @@ use std::ops::{Add, Div, Sub};
 
 pub mod aligner;
 pub mod opcode;
+pub mod prelude;
 pub mod types;
 
 /// An instruction is always 6 bytes.

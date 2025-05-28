@@ -39,7 +39,7 @@ pub fn run_constants_in_order(
 ) {
     for (_key, constant) in constants_in_order {
         // do not reset heap, all allocations from heap should remain (for now)
-        vm.reset_frame();
+        vm.reset_call_stack();
 
         if constant
             .target_constant_memory

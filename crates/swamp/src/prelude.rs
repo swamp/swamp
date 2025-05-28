@@ -8,5 +8,5 @@ pub use {
     swamp_core_extra::prelude::*, swamp_dep_loader::prelude::*, swamp_error_report::prelude::*,
     swamp_modules::prelude::*, swamp_parser::prelude::*, swamp_program_analyzer::LoaderErr,
     swamp_runtime::prelude::*, swamp_semantic::prelude::*, swamp_types::prelude::*,
-    swamp_vm::prelude::*,
+    swamp_vm::prelude::*, swamp_vm_pretty_print::prelude::*, swamp_vm_types::prelude::*,
 };

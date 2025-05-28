@@ -1,3 +1,5 @@
+pub mod prelude;
+
 use fixed32::Fp;
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};

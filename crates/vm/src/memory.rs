@@ -12,6 +12,10 @@ pub struct Memory {
     pub constant_memory_size: usize,
 }
 
+impl Memory {}
+
+impl Memory {}
+
 impl Drop for Memory {
     fn drop(&mut self) {
         unsafe {
@@ -139,6 +143,10 @@ impl Memory {
         offset
     }
 
+    pub fn frame_offset(&self) -> usize {
+        self.frame_offset
+    }
+
     /// Usually called on `Enter`
     /// reserving space for local variables and arguments
     /// it is a bit of a hack, but the current return values and arguments are not part of the stack
@@ -153,8 +161,13 @@ impl Memory {
     /// It sets the FP to the current SP. The stack pointer includes the current function frame size
     /// but doesn't include return values and arguments.
     #[inline(always)]
-    pub const fn set_fp(&mut self) {
+    pub const fn set_fp_from_sp(&mut self) {
         self.frame_offset = self.stack_offset;
+    }
+
+    pub(crate) fn set_stack_and_frame(&mut self, addr: usize) {
+        self.frame_offset = addr;
+        self.stack_offset = addr;
     }
 
     #[inline]

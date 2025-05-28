@@ -154,6 +154,8 @@ pub struct Vm {
 
 impl Vm {}
 
+impl Vm {}
+
 impl Vm {
     #[must_use]
     pub const fn is_execution_complete(&self) -> bool {
@@ -629,6 +631,19 @@ impl Vm {
         }
     }
 
+    pub const fn set_return_register_address(&mut self, r0_addr: u32) {
+        set_reg!(self, 0, r0_addr);
+    }
+
+    pub fn set_register_pointer_addr_for_parameter(&mut self, register: u8, addr: u32) {
+        assert!(register >= 1 && register <= 5, "not a parameter register");
+        set_reg!(self, register, addr);
+    }
+
+    pub fn set_stack_start(&mut self, addr: usize) {
+        self.memory.set_stack_and_frame(addr);
+    }
+
     pub fn execute_from_ip(
         &mut self,
         ip: &InstructionPosition,
@@ -693,17 +708,17 @@ impl Vm {
 
     pub fn reset_stack_and_heap_to_constant_limit(&mut self) {
         self.memory.reset_allocator();
-        self.reset_frame();
+        self.reset_call_stack();
         self.execution_complete = false;
-        self.pc = 0;
+        //self.pc = 0;
     }
 
     pub fn protect_heap_up_to_current_allocator(&mut self) {
         self.memory.protect_up_to_allocator();
     }
 
-    pub fn reset_frame(&mut self) {
-        self.memory.reset();
+    pub fn reset_call_stack(&mut self) {
+        //self.memory.reset();
         self.call_stack.clear();
     }
 
@@ -1594,7 +1609,7 @@ impl Vm {
     #[inline(always)]
     fn execute_enter(&mut self, frame_size_for_local_lower: u8, frame_size_for_local_upper: u8) {
         let frame_size = u16_from_u8s!(frame_size_for_local_lower, frame_size_for_local_upper);
-        self.memory.set_fp(); // set the frame pointer to what sp is now
+        self.memory.set_fp_from_sp(); // set the frame pointer to what sp is now
         self.memory.inc_sp(frame_size as usize);
     }
 

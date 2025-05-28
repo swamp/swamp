@@ -1,1 +1,1 @@
-pub use crate::GenFunctionInfo;
+pub use crate::{GenFunctionInfo, layout::layout_type};
