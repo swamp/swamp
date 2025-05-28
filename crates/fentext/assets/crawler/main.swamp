@@ -1,9 +1,19 @@
 use std::{print}
 
 external 23 fn move(x: Int, y: Int)
+external 24 fn write(s: String)
 
 struct Crawler {
 }
+
+/*
+PLAYER="🧙‍♂️"
+ENVIRONMENT="⋅:🪨🧱🌱🌊🚪"
+ENEMIES="🕷️🐍🦇🐙🦎🦠👻💀🧚"
+WEAPONS="🗡️🏹🛡️🪄"
+LOOT="💎💍🏆🗝️"
+RESOURCES="❤️💙💰🪙📜"
+*/
 
 impl Crawler {
 	fn tick() {
@@ -15,7 +25,10 @@ impl Crawler {
 #[host_call]
 fn main() -> Crawler {
 	move(1,2)
-	print("initialized!")
+	write("🐙")
+
+	move(2,3)
+	write("🕷️")
 
 	Crawler {
 

@@ -25,6 +25,11 @@ impl Application {
         let y = host_args.get_i32();
         self.canvas.move_to(x as u16, y as u16);
     }
+
+    pub fn external_write(&mut self, mut host_args: HostArgs) {
+        let str = host_args.get_str();
+        self.canvas.write(str);
+    }
 }
 
 pub struct FenText {
@@ -43,6 +48,7 @@ impl HostFunctionCallback for Application {
         match args.function_id {
             1 => print_fn(args),
             23 => self.external_move_cursor(args),
+            24 => self.external_write(args),
             _ => panic!("unknown external"),
         }
     }

@@ -10,7 +10,7 @@ use swamp_vm_types::InstructionPosition;
 pub struct TestExternals {}
 
 impl HostFunctionCallback for TestExternals {
-    fn dispatch_host_call(&mut self, args: swamp_vm::host::HostArgs) {}
+    fn dispatch_host_call(&mut self, _args: swamp_vm::host::HostArgs) {}
 }
 
 fn setup_vm() -> Vm {
@@ -75,7 +75,7 @@ fn main() {
         let mut vm = setup_vm();
 
         let start = Instant::now();
-        vm.execute_from_ip(&InstructionPosition(0));
+        vm.execute_from_ip(&InstructionPosition(0), &mut TestExternals {});
         let execution_time = start.elapsed();
         total_execution_time += execution_time;
     }
@@ -88,7 +88,7 @@ fn main() {
     let start = Instant::now();
     for _ in 0..vm_count {
         let mut vm = setup_vm();
-        vm.execute_from_ip(&InstructionPosition(0));
+        vm.execute_from_ip(&InstructionPosition(0), &mut TestExternals {});
     }
     let duration = start.elapsed();
     summary(duration, vm_count, None);
