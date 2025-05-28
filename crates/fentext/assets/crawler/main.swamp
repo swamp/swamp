@@ -1,0 +1,23 @@
+use std::{print}
+
+external 23 fn move(x: Int, y: Int)
+
+struct Crawler {
+}
+
+impl Crawler {
+	fn tick() {
+		move(1, 0)
+		print("tick!")
+	}
+}
+
+#[host_call]
+fn main() -> Crawler {
+	move(1,2)
+	print("initialized!")
+
+	Crawler {
+
+	}
+}

@@ -10,14 +10,14 @@ pub fn very_basic(test_dir: &Path) {
     let test_result = run_tests(
         test_dir,
         &TestRunOptions {
-            should_run: false,
+            should_run: true,
             print_output: false,
             iteration_count: 1,
             debug_output: false,
             debug_opcodes: false,
             debug_stats: true,
         },
-        "",
+        "transformer::",
     );
 
     assert!(test_result.succeeded());

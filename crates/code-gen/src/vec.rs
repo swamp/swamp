@@ -110,6 +110,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
+        info!("emit_vec_storage!!!!");
         /*
         let length_value_reg = self
             .temp_registers
@@ -185,6 +186,8 @@ impl CodeBuilder<'_> {
                 node,
                 "initialize vec from slice",
             );
+        } else {
+            info!("skipping, no capacity or no length");
         }
 
         let elements_base_ptr_reg = AggregateMemoryLocation {

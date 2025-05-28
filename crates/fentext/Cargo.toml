@@ -1,0 +1,9 @@
+[package]
+name = "fentext"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fentext-ui = { path = "../fentext-ui", version = "0.1.0" }
+swamp = { path = "../swamp", version = "0.1.16" }
+swamp-std = { path = "../std", version = "0.1.10" }

@@ -66,8 +66,11 @@ impl Vm {
     ) {
         let vec_iterator_ptr = self.get_vec_iterator_header_ptr_from_reg(vec_iterator_header_reg);
         let vec_iterator = unsafe { &mut *vec_iterator_ptr };
-        
-        let vec_header_ptr = self.memory.get_heap_const_ptr(vec_iterator.vec_header_heap_ptr as usize) as *const VecHeader;
+
+        let vec_header_ptr = self
+            .memory
+            .get_heap_const_ptr(vec_iterator.vec_header_heap_ptr as usize)
+            as *const VecHeader;
         let vec_header = unsafe { &*vec_header_ptr };
 
         // Check if we've reached the end
@@ -78,9 +81,9 @@ impl Vm {
         }
 
         // Calculate the address of the current element
-        let element_addr = vec_iterator.vec_header_heap_ptr + 
-            VEC_HEADER_PAYLOAD_OFFSET.0 as u32 + 
-            vec_iterator.index as u32;
+        let element_addr = vec_iterator.vec_header_heap_ptr
+            + VEC_HEADER_PAYLOAD_OFFSET.0 as u32
+            + vec_iterator.index as u32;
 
         set_reg!(self, target_variable, element_addr);
 

@@ -23,5 +23,5 @@ tracing-subscriber = { version = "0.3.1", features = [
     "registry",
     "env-filter",
 ] }
-
+seq-map = "0.0.13"
 [dev-dependencies]

@@ -8,7 +8,6 @@ use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
 use fixed32::Fp;
-use seq_map::SeqMap;
 use std::ptr;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
@@ -18,6 +17,7 @@ pub mod host;
 mod map;
 mod map_open;
 pub mod memory;
+pub mod prelude;
 mod range;
 mod slice_region;
 mod string;
@@ -139,9 +139,6 @@ pub struct Vm {
     // Function call management
     call_stack: Vec<CallFrame>, // Track function calls
 
-    // Host function integration
-    host_functions: SeqMap<u16, HostFunctionCallback>,
-
     handlers: [HandlerType; 256],
 
     pub registers: [u32; 256], // Normal CPUs have around 31 general purpose registers
@@ -192,7 +189,6 @@ impl Vm {
             instructions,
             execution_complete: false,
             call_stack: vec![],
-            host_functions: SeqMap::default(),
             handlers: [const { HandlerType::Args0(Self::execute_unimplemented) }; 256],
             registers: [const { 0 }; 256],
             flags: Flags { t: false },
@@ -324,7 +320,7 @@ impl Vm {
         vm.handlers[OpCode::Enter as usize] = HandlerType::Args2(Self::execute_enter);
         vm.handlers[OpCode::Ret as usize] = HandlerType::Args0(Self::execute_ret);
 
-        vm.handlers[OpCode::HostCall as usize] = HandlerType::Args3(Self::execute_host_call);
+        //vm.handlers[OpCode::HostCall as usize] = HandlerType::Args3(Self::execute_host_call);
 
         // Halt - return to host
         vm.handlers[OpCode::Hlt as usize] = HandlerType::Args0(Self::execute_hlt);
@@ -437,123 +433,20 @@ impl Vm {
         &mut self.memory
     }
 
-    pub fn step(&mut self) -> bool {
+    pub fn step(&mut self, host_function_callback: &mut dyn HostFunctionCallback) -> bool {
         let instruction = &self.instructions[self.pc];
         let opcode = instruction.opcode;
 
         self.pc += 1; // IP must be added BEFORE handling the instruction
 
-        match self.handlers[opcode as usize] {
-            HandlerType::Args0(handler) => handler(self),
-            HandlerType::Args1(handler) => handler(self, instruction.operands[0]),
-            HandlerType::Args2(handler) => {
-                handler(self, instruction.operands[0], instruction.operands[1]);
-            }
-            HandlerType::Args3(handler) => handler(
-                self,
+        if opcode == OpCode::HostCall as u8 {
+            self.execute_host_call(
                 instruction.operands[0],
                 instruction.operands[1],
                 instruction.operands[2],
-            ),
-            HandlerType::Args4(handler) => handler(
-                self,
-                instruction.operands[0],
-                instruction.operands[1],
-                instruction.operands[2],
-                instruction.operands[3],
-            ),
-            HandlerType::Args5(handler) => handler(
-                self,
-                instruction.operands[0],
-                instruction.operands[1],
-                instruction.operands[2],
-                instruction.operands[3],
-                instruction.operands[4],
-            ),
-            HandlerType::Args6(handler) => handler(
-                self,
-                instruction.operands[0],
-                instruction.operands[1],
-                instruction.operands[2],
-                instruction.operands[3],
-                instruction.operands[4],
-                instruction.operands[5],
-            ),
-            HandlerType::Args7(handler) => handler(
-                self,
-                instruction.operands[0],
-                instruction.operands[1],
-                instruction.operands[2],
-                instruction.operands[3],
-                instruction.operands[4],
-                instruction.operands[5],
-                instruction.operands[6],
-            ),
-            HandlerType::Args8(handler) => handler(
-                self,
-                instruction.operands[0],
-                instruction.operands[1],
-                instruction.operands[2],
-                instruction.operands[3],
-                instruction.operands[4],
-                instruction.operands[5],
-                instruction.operands[6],
-                instruction.operands[7],
-            ),
-        }
-
-        !self.execution_complete
-    }
-
-    #[allow(clippy::too_many_lines)]
-    pub fn execute_internal(&mut self) {
-        self.execution_complete = false;
-        self.flags.t = false;
-        self.call_stack.clear();
-        self.memory.reset_offset();
-
-        #[cfg(feature = "debug_vm")]
-        if self.debug_opcodes_enabled {
-            eprintln!(
-                "start executing --------- frame {:X} heap: {:X}",
-                self.memory.frame_offset, self.memory.heap_alloc_offset
+                host_function_callback,
             );
-        }
-
-        self.call_stack.push(CallFrame {
-            return_address: 1,
-            previous_frame_offset: 0,
-            previous_stack_offset: 0,
-        });
-
-        while !self.execution_complete {
-            let instruction = &self.instructions[self.pc];
-            let opcode = instruction.opcode;
-
-            #[cfg(feature = "debug_vm")]
-            if self.debug_opcodes_enabled {
-                let regs = [0, 1, 2, 3, 4, 128, 129, 130];
-
-                for reg in regs {
-                    eprint!(
-                        "{}",
-                        tinter::bright_black(&format!("{reg:02X}: {:08X}, ", self.registers[reg]))
-                    );
-                }
-                eprintln!();
-
-                let operands = instruction.operands;
-                eprint!("> {:04X}: ", self.pc);
-                self.debug_opcode(opcode, &operands);
-            }
-
-            #[cfg(feature = "debug_vm")]
-            if self.debug_stats_enabled {
-                self.debug.opcodes_executed += 1;
-            }
-
-            self.pc += 1; // IP must be added BEFORE handling the instruction
-
+        } else {
             match self.handlers[opcode as usize] {
                 HandlerType::Args0(handler) => handler(self),
                 HandlerType::Args1(handler) => handler(self, instruction.operands[0]),
@@ -613,11 +506,136 @@ impl Vm {
                 ),
             }
         }
+
+        !self.execution_complete
     }
 
-    pub fn execute_from_ip(&mut self, ip: &InstructionPosition) {
+    #[allow(clippy::too_many_lines)]
+    pub fn execute_internal(&mut self, host_function_callback: &mut dyn HostFunctionCallback) {
+        self.execution_complete = false;
+        self.flags.t = false;
+        self.call_stack.clear();
+        self.memory.reset_offset();
+
+        #[cfg(feature = "debug_vm")]
+        if self.debug_opcodes_enabled {
+            eprintln!(
+                "start executing --------- frame {:X} heap: {:X}",
+                self.memory.frame_offset, self.memory.heap_alloc_offset
+            );
+        }
+
+        self.call_stack.push(CallFrame {
+            return_address: 1,
+            previous_frame_offset: 0,
+            previous_stack_offset: 0,
+        });
+
+        while !self.execution_complete {
+            let instruction = &self.instructions[self.pc];
+            let opcode = instruction.opcode;
+
+            #[cfg(feature = "debug_vm")]
+            if self.debug_opcodes_enabled {
+                let regs = [0, 1, 2, 3, 4, 128, 129, 130];
+
+                for reg in regs {
+                    eprint!(
+                        "{}",
+                        tinter::bright_black(&format!("{reg:02X}: {:08X}, ", self.registers[reg]))
+                    );
+                }
+                eprintln!();
+
+                let operands = instruction.operands;
+                eprint!("> {:04X}: ", self.pc);
+                self.debug_opcode(opcode, &operands);
+            }
+
+            #[cfg(feature = "debug_vm")]
+            if self.debug_stats_enabled {
+                self.debug.opcodes_executed += 1;
+            }
+
+            self.pc += 1; // IP must be added BEFORE handling the instruction
+
+            if opcode == OpCode::HostCall as u8 {
+                self.execute_host_call(
+                    instruction.operands[0],
+                    instruction.operands[1],
+                    instruction.operands[2],
+                    host_function_callback,
+                );
+            } else {
+                match self.handlers[opcode as usize] {
+                    HandlerType::Args0(handler) => handler(self),
+                    HandlerType::Args1(handler) => handler(self, instruction.operands[0]),
+                    HandlerType::Args2(handler) => {
+                        handler(self, instruction.operands[0], instruction.operands[1]);
+                    }
+                    HandlerType::Args3(handler) => handler(
+                        self,
+                        instruction.operands[0],
+                        instruction.operands[1],
+                        instruction.operands[2],
+                    ),
+                    HandlerType::Args4(handler) => handler(
+                        self,
+                        instruction.operands[0],
+                        instruction.operands[1],
+                        instruction.operands[2],
+                        instruction.operands[3],
+                    ),
+                    HandlerType::Args5(handler) => handler(
+                        self,
+                        instruction.operands[0],
+                        instruction.operands[1],
+                        instruction.operands[2],
+                        instruction.operands[3],
+                        instruction.operands[4],
+                    ),
+                    HandlerType::Args6(handler) => handler(
+                        self,
+                        instruction.operands[0],
+                        instruction.operands[1],
+                        instruction.operands[2],
+                        instruction.operands[3],
+                        instruction.operands[4],
+                        instruction.operands[5],
+                    ),
+                    HandlerType::Args7(handler) => handler(
+                        self,
+                        instruction.operands[0],
+                        instruction.operands[1],
+                        instruction.operands[2],
+                        instruction.operands[3],
+                        instruction.operands[4],
+                        instruction.operands[5],
+                        instruction.operands[6],
+                    ),
+                    HandlerType::Args8(handler) => handler(
+                        self,
+                        instruction.operands[0],
+                        instruction.operands[1],
+                        instruction.operands[2],
+                        instruction.operands[3],
+                        instruction.operands[4],
+                        instruction.operands[5],
+                        instruction.operands[6],
+                        instruction.operands[7],
+                    ),
+                }
+            }
+        }
+    }
+
+    pub fn execute_from_ip(
+        &mut self,
+        ip: &InstructionPosition,
+        host_function_callback: &mut dyn HostFunctionCallback,
+    ) {
         self.pc = ip.0 as usize;
-        self.execute_internal();
+        self.execute_internal(host_function_callback);
     }
 
     pub const fn set_pc(&mut self, pc: &InstructionPosition) {
@@ -691,17 +709,6 @@ impl Vm {
 
     pub fn reset_debug(&mut self) {
         self.debug = Debug::default();
-    }
-
-    /// # Panics
-    /// if function already has been added
-    pub fn add_host_function<F>(&mut self, id: u16, callback: F)
-    where
-        F: 'static + FnMut(HostArgs),
-    {
-        self.host_functions
-            .insert(id, Box::new(callback))
-            .expect("should work to insert ");
     }
 
     #[must_use]
@@ -1563,6 +1570,7 @@ impl Vm {
         function_id_lower: u8,
         function_id_upper: u8,
         register_count: u8,
+        mut callback: &mut dyn HostFunctionCallback,
     ) {
         let heap = self.memory();
 
@@ -1570,6 +1578,7 @@ impl Vm {
 
         unsafe {
             let host_args = HostArgs::new(
+                function_id,
                 heap.memory,
                 heap.memory_size,
                 heap.stack_offset,
@@ -1577,11 +1586,7 @@ impl Vm {
                 register_count as usize + 1,
             );
 
-            if let Some(callback) = self.host_functions.get_mut(&function_id) {
-                callback(host_args);
-            } else {
-                panic!("could not find host function: {function_id}");
-            }
+            callback.dispatch_host_call(host_args);
         }
     }
 

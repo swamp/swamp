@@ -1,11 +1,14 @@
+use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
-use swamp_runtime::{RunConstantsOptions, RunOptions};
-use swamp_std::print::register_print;
+use swamp_runtime::{compile_codegen_and_create_vm, RunConstantsOptions, RunOptions};
+use swamp_std::print::print_fn;
+use swamp_vm::host::{HostArgs, HostFunctionCallback};
 use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
 use tracing::error;
+
 #[derive(Debug, Default, Clone, Copy)]
 struct TestContext;
 
@@ -128,16 +131,22 @@ impl TestResult {
     }
 }
 
+pub struct TestExternals {}
+
+impl HostFunctionCallback for TestExternals {
+    fn dispatch_host_call(&mut self, args: swamp_vm::host::HostArgs) {
+        match args.function_id {
+            0 => print_fn(args),
+            _ => {}
+        }
+    }
+}
+
 /// # Panics
 #[allow(clippy::too_many_lines)]
 pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> TestResult {
     let crate_main_path = &["crate".to_string(), "lib".to_string()];
-    let (code_gen_result, source_map) =
-        swamp_runtime::compile_and_code_gen(test_dir, crate_main_path);
-    let mut vm = swamp_runtime::create_vm_with_standard_settings(
-        &code_gen_result.instructions,
-        &code_gen_result.prepared_constant_memory,
-    );
+    let mut result = compile_codegen_and_create_vm(test_dir, crate_main_path).unwrap();
 
     let mut panic_tests = Vec::new();
     let mut passed_tests = Vec::new();
@@ -147,21 +156,21 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
         let some_form_of_debug = options.debug_opcodes || options.debug_output;
         eprintln!("running in debug: {some_form_of_debug}");
 
-        register_print::<TestContext>(&mut vm, &code_gen_result.program.modules, TestContext);
         let run_first_options = RunConstantsOptions {
             stderr_adapter: None,
         };
 
         swamp_runtime::run_first_time(
-            &mut vm,
-            code_gen_result.constants_in_order,
+            &mut result.vm,
+            &result.code_gen_result.constants_in_order,
+            &mut TestExternals {},
             run_first_options,
         );
 
         {
             let bootstrap_timer = ScopedTimer::new("run tests a bunch of times");
 
-            for (module_name, module) in code_gen_result.program.modules.modules() {
+            for (module_name, module) in result.code_gen_result.program.modules.modules() {
                 let mut has_shown_mod_name = false;
                 for internal_fn in module.symbol_table.internal_functions() {
                     if !internal_fn.attributes.has_attribute("test") {
@@ -171,7 +180,8 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                         //eprintln!(">> module {module_name:?}");
                         has_shown_mod_name = true;
                     }
-                    let function_to_run = code_gen_result
+                    let function_to_run = result
+                        .code_gen_result
                         .functions
                         .get(&internal_fn.program_unique_id)
                         .unwrap();
@@ -197,44 +207,46 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                     if some_form_of_debug {
                         for _ in 0..options.iteration_count {
                             swamp_runtime::run_function_with_debug(
-                                &mut vm,
+                                &mut result.vm,
                                 function_to_run,
+                                &mut TestExternals {},
                                 RunOptions {
                                     debug_stats_enabled: options.debug_stats,
                                     debug_opcodes_enabled: options.debug_opcodes,
-                                    debug_info: &code_gen_result.debug_info,
+                                    debug_info: &result.code_gen_result.debug_info,
                                     source_map_wrapper: SourceMapWrapper {
-                                        source_map: &source_map,
+                                        source_map: &result.source_map,
                                         current_dir: PathBuf::default(),
                                     },
                                 },
                             );
-                            if vm.state != VmState::Normal {
+                            if result.vm.state != VmState::Normal {
                                 break;
                             }
                         }
                     } else {
                         for _ in 0..options.iteration_count {
                             swamp_runtime::run_as_fast_as_possible(
-                                &mut vm,
+                                &mut result.vm,
                                 function_to_run,
+                                &mut TestExternals {},
                                 RunOptions {
                                     debug_stats_enabled: options.debug_stats,
                                     debug_opcodes_enabled: options.debug_opcodes,
-                                    debug_info: &code_gen_result.debug_info,
+                                    debug_info: &result.code_gen_result.debug_info,
                                     source_map_wrapper: SourceMapWrapper {
-                                        source_map: &source_map,
+                                        source_map: &result.source_map,
                                         current_dir: PathBuf::default(),
                                     },
                                 },
                             );
-                            if vm.state != VmState::Normal {
+                            if result.vm.state != VmState::Normal {
                                 break;
                             }
                         }
                     }
 
-                    match &vm.state {
+                    match &result.vm.state {
                         VmState::Panic(message) => {
                             panic_tests.push(test_info);
                             error!(message, "PANIC!");
@@ -275,7 +287,7 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
             }
         }
 
-        eprintln!("\n\nvm stats {:?}", vm.debug);
+        eprintln!("\n\nvm stats {:?}", result.vm.debug);
     }
     let failed_tests = [trap_tests, panic_tests].concat();
     TestResult {

@@ -13,7 +13,8 @@ fn filter() {
 
 #[test]
 fn for() {
-  a = [1, 2, 3]
+  a : [Int] = [1, 2, 3]
+
   a.for(|x| {
     print('x: {x}')
   })

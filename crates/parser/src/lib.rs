@@ -853,16 +853,20 @@ impl AstParser {
                 )))
             }
             Rule::external_function => {
-                let signature_pair =
-                    function_pair.clone().into_inner().next().ok_or_else(|| {
-                        self.create_error_pair(
-                            SpecificError::MissingFunctionSignature,
-                            &function_pair,
-                        )
-                    })?;
+                let mut inner = function_pair.clone().into_inner();
+                let id = inner.next().unwrap();
+                let signature_pair = inner.next().ok_or_else(|| {
+                    self.create_error_pair(
+                        SpecificError::MissingFunctionSignature,
+                        &function_pair.clone(),
+                    )
+                })?;
 
                 let signature = self.parse_function_signature(&signature_pair)?;
-                Ok(DefinitionKind::FunctionDef(Function::External(signature)))
+                Ok(DefinitionKind::FunctionDef(Function::External(
+                    self.to_node(&id),
+                    signature,
+                )))
             }
             _ => {
                 Err(self
@@ -970,7 +974,7 @@ impl AstParser {
                     Rule::external_member_function => {
                         let inner_inner_item = self.next_inner_pair(&inner_item)?;
                         let signature = self.parse_member_signature(&inner_inner_item)?;
-                        functions.push(Function::External(signature));
+                        functions.push(Function::External(Node::default(), signature));
                     }
                     Rule::normal_member_function => {
                         let function_data = self.parse_member_data(&inner_item)?;

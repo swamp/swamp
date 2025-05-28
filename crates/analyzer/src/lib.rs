@@ -331,7 +331,7 @@ impl<'a> Analyzer<'a> {
     fn analyze_return_type(&mut self, function: &swamp_ast::Function) -> Result<Type, Error> {
         let ast_return_type = match function {
             swamp_ast::Function::Internal(x) => &x.declaration.return_type,
-            swamp_ast::Function::External(x) => &x.return_type,
+            swamp_ast::Function::External(_, x) => &x.return_type,
         };
 
         let resolved_return_type = match ast_return_type {
@@ -570,7 +570,8 @@ impl<'a> Analyzer<'a> {
         let expr = if let Some(found_expected_type) = context.expected_type {
             if found_expected_type
                 .underlying()
-                .compatible_with(&encountered_type.underlying())
+                .lowest_common_denominator()
+                .compatible_with(&encountered_type.underlying().lowest_common_denominator())
             {
                 return Ok(expr);
             }
@@ -1895,9 +1896,10 @@ impl<'a> Analyzer<'a> {
             if let Type::DynamicSlice(inner_type) = expected_type {
                 Some(*inner_type.clone())
             } else {
-                match &expected_type {
+                match &expected_type.underlying() {
                     // We can infer the slice type from target
                     Type::VecStorage(element_type, _) => Some(*element_type.clone()),
+                    Type::Vec(element_type) => Some(*element_type.clone()),
                     _ => return Err(self.create_err(ErrorKind::ExpectedSlice, node)),
                 }
             }

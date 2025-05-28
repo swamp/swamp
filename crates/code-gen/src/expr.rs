@@ -27,11 +27,9 @@ impl CodeBuilder<'_> {
     pub fn emit_expression(&mut self, output: &Destination, expr: &Expression, ctx: &Context) {
         let node = &expr.node;
 
-        if let Destination::Memory(memory) = &output {
-            if self.try_container_init_from_slice_literal(memory, expr, ctx) {
-                // If special container initialization was done, the materialization is complete.
-                return;
-            }
+        if self.try_container_init_from_slice_literal(output, expr, ctx) {
+            // If special container initialization was done, the materialization is complete.
+            return;
         }
 
         // If the expression needs a memory target, and the current output is not a memory target, create temp memory to materialize in

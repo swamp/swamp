@@ -1,5 +1,7 @@
 mod err_wrt;
+pub mod prelude;
 mod trace;
+
 use source_map_cache::{FileId, SourceMap, SourceMapWrapper};
 use std::fmt::Write as FmtWrite;
 use std::path::{Path, PathBuf};
@@ -9,6 +11,7 @@ use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionId};
+use swamp_vm::host::HostFunctionCallback;
 use swamp_vm::{Vm, VmSetup, VmState};
 use swamp_vm_debug_info::{DebugInfo, KeepTrackOfSourceLine, SourceFileLineInfo};
 use swamp_vm_disasm::{disasm_color, display_lines};
@@ -29,7 +32,8 @@ pub struct RunOptions<'a> {
 
 pub fn run_constants_in_order(
     vm: &mut Vm,
-    constants_in_order: SeqMap<ConstantId, ConstantInfo>,
+    constants_in_order: &SeqMap<ConstantId, ConstantInfo>,
+    host_function_callback: &mut dyn HostFunctionCallback,
     mut options: RunConstantsOptions,
 ) {
     for (_key, constant) in constants_in_order {
@@ -45,7 +49,7 @@ pub fn run_constants_in_order(
             // set memory location into to r0
             vm.registers[0] = constant.target_constant_memory.addr().0;
         }
-        vm.execute_from_ip(&constant.ip_range.start);
+        vm.execute_from_ip(&constant.ip_range.start, host_function_callback);
 
         if constant
             .target_constant_memory
@@ -125,6 +129,19 @@ pub struct CodeGenResult {
     pub debug_info: DebugInfo,
 }
 
+impl CodeGenResult {
+    #[must_use]
+    pub fn find_function(&self, formal_name: &str) -> Option<&GenFunctionInfo> {
+        for func in self.functions.values() {
+            if func.internal_function_definition.assigned_name == formal_name {
+                return Some(func);
+            }
+        }
+
+        None
+    }
+}
+
 pub fn compile_and_codegen_main_path(
     source_map: &mut source_map_cache::SourceMap,
     root_module_path: &[String],
@@ -172,15 +189,17 @@ pub fn create_vm_with_standard_settings(
 
 pub fn run_first_time(
     vm: &mut Vm,
-    constants_in_order: SeqMap<ConstantId, ConstantInfo>,
+    constants_in_order: &SeqMap<ConstantId, ConstantInfo>,
+    host_function_callback: &mut dyn HostFunctionCallback,
     options: RunConstantsOptions,
 ) {
-    run_constants_in_order(vm, constants_in_order, options);
+    run_constants_in_order(vm, constants_in_order, host_function_callback, options);
 }
 
 pub fn run_as_fast_as_possible(
     vm: &mut Vm,
     function_to_run: &GenFunctionInfo,
+    host_function_callback: &mut dyn HostFunctionCallback,
     run_options: RunOptions,
 ) {
     vm.reset_stack_and_heap_to_constant_limit();
@@ -188,12 +207,13 @@ pub fn run_as_fast_as_possible(
     vm.debug_opcodes_enabled = false;
     vm.debug_stats_enabled = run_options.debug_stats_enabled;
 
-    vm.execute_from_ip(&function_to_run.ip_range.start);
+    vm.execute_from_ip(&function_to_run.ip_range.start, host_function_callback);
 }
 
 pub fn run_function_with_debug(
     vm: &mut Vm,
     function_to_run: &GenFunctionInfo,
+    host_function_callback: &mut dyn HostFunctionCallback,
     run_options: RunOptions,
 ) {
     vm.reset_stack_and_heap_to_constant_limit();
@@ -231,7 +251,7 @@ pub fn run_function_with_debug(
             eprintln!();
         }
 
-        vm.step();
+        vm.step(host_function_callback);
 
         #[cfg(feature = "debug_vm")]
         if run_options.debug_opcodes_enabled {
@@ -289,4 +309,32 @@ pub fn compile_and_code_gen(
     let result =
         compile_and_codegen_main_path(&mut source_map, main_module_path, &current_dir, options);
     (result, source_map)
+}
+
+pub struct CodeGenAndVmResult {
+    pub vm: Vm,
+    pub code_gen_result: CodeGenResult,
+    pub source_map: SourceMap,
+}
+
+/// The root module is needed so it knows which mod that should be considered.
+#[must_use]
+pub fn compile_codegen_and_create_vm(
+    root_directory: &Path,
+    root_module: &[String],
+) -> Option<CodeGenAndVmResult> {
+    let (code_gen_result, source_map) = compile_and_code_gen(root_directory, root_module);
+
+    let vm = create_vm_with_standard_settings(
+        &code_gen_result.instructions,
+        &code_gen_result.prepared_constant_memory,
+    );
+
+    let result = CodeGenAndVmResult {
+        vm,
+        code_gen_result,
+        source_map,
+    };
+
+    Some(result)
 }

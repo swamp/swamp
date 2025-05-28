@@ -293,7 +293,7 @@ external_function
 }
 
 external_function = {
- "external" ~  function_signature
+ "external" ~ int_lit ~ function_signature
 }
 
 normal_function = {

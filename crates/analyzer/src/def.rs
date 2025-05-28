@@ -7,8 +7,8 @@ use crate::err::{Error, ErrorKind};
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_semantic::{
-    ExternalFunctionDefinition, Function, InternalFunctionDefinition, LocalIdentifier,
-    SemanticError, UseItem,
+    ExternalFunctionDefinition, ExternalFunctionId, Function, InternalFunctionDefinition,
+    LocalIdentifier, SemanticError, UseItem,
 };
 use swamp_types::TypeVariable;
 use swamp_types::prelude::*;
@@ -512,7 +512,7 @@ impl Analyzer<'_> {
 
                 Function::Internal(function_ref)
             }
-            swamp_ast::Function::External(ast_signature) => {
+            swamp_ast::Function::External(int_node, ast_signature) => {
                 let parameters = self.analyze_parameters(&ast_signature.params)?;
                 let external_return_type = if let Some(found) = &ast_signature.return_type {
                     self.analyze_type(found)?
@@ -521,7 +521,11 @@ impl Analyzer<'_> {
                 };
 
                 let return_type = external_return_type;
-                let external_function_id = self.shared.state.allocate_external_function_id();
+
+                let int_string = self.get_text(int_node);
+                let external_function_id_int = Self::str_to_int(int_string).unwrap() as u32;
+
+                let external_function_id = external_function_id_int as ExternalFunctionId; //self.shared.state.allocate_external_function_id();
 
                 let external = ExternalFunctionDefinition {
                     assigned_name: self.get_text(&ast_signature.name).to_string(),
@@ -688,7 +692,7 @@ impl Analyzer<'_> {
                 swamp_ast::Function::Internal(function_with_body) => {
                     &function_with_body.declaration
                 }
-                swamp_ast::Function::External(external_declaration) => external_declaration,
+                swamp_ast::Function::External(_, external_declaration) => external_declaration,
             };
 
             let function_name_str = self.get_text(&function_name.name).to_string();
@@ -837,7 +841,7 @@ impl Analyzer<'_> {
                 Function::Internal(internal_ref)
             }
 
-            swamp_ast::Function::External(signature) => {
+            swamp_ast::Function::External(_, signature) => {
                 let mut parameters = Vec::new();
 
                 if let Some(found_self) = &signature.self_parameter {

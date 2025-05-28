@@ -13,11 +13,13 @@ pub struct HostArgs {
     all_memory_len: usize,
     registers: Vec<u32>,
     stack_offset: usize,
+    pub function_id: u16,
 }
 
 impl HostArgs {
     #[must_use]
     pub unsafe fn new(
+        function_id: u16,
         all_memory: *const u8,
         all_memory_len: usize,
         stack_offset: usize,
@@ -38,6 +40,7 @@ impl HostArgs {
                 registers: slice::from_raw_parts(registers, register_count).to_vec(),
                 stack_offset,
                 register_index: 1, // skip return for now
+                function_id,
             }
         }
     }
@@ -72,4 +75,6 @@ impl HostArgs {
     }
 }
 
-pub type HostFunctionCallback = Box<dyn FnMut(HostArgs)>;
+pub trait HostFunctionCallback {
+    fn dispatch_host_call(&mut self, args: HostArgs);
+}

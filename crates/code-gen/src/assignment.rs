@@ -8,8 +8,9 @@ use swamp_semantic::{
     VariableRef,
 };
 use swamp_types::Type;
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
-use swamp_vm_types::{MemoryLocation, MemoryOffset};
+use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
+use swamp_vm_types::{MemoryLocation, MemoryOffset, PointerLocation};
+use tracing::info;
 
 impl CodeBuilder<'_> {
     /// Emits code for an assignment operation (lhs = rhs).
@@ -55,21 +56,31 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn try_container_init_from_slice_literal(
         &mut self,
-        target_location: &MemoryLocation,
+        output_destination: &Destination,
         rhs: &Expression,
         ctx: &Context,
     ) -> bool {
-        match (&target_location.ty.basic_type.kind, &rhs.kind) {
+        info!(lhs=?output_destination.ty().underlying().kind, rhs=?rhs.kind, "check if container init");
+
+        match (&output_destination.ty().underlying().kind, &rhs.kind) {
             (
                 BasicTypeKind::InternalVecStorage(element_type, capacity),
                 ExpressionKind::Literal(Literal::Slice(_, elements)),
             ) => {
+                let absolute_ptr_reg = self.emit_absolute_pointer_if_needed(
+                    output_destination,
+                    &rhs.node,
+                    "absolute vec storage target",
+                );
+                let pointer_location = PointerLocation {
+                    ptr_reg: absolute_ptr_reg,
+                };
                 self.emit_vec_storage_init(
-                    &target_location.pointer_location().unwrap(),
+                    &pointer_location,
                     elements,
                     element_type,
                     *capacity,
-                    &target_location.ty.basic_type,
+                    output_destination.ty(),
                     &rhs.node,
                     ctx,
                 );
@@ -80,6 +91,8 @@ impl CodeBuilder<'_> {
                 BasicTypeKind::InternalMapStorage(element_type, capacity),
                 ExpressionKind::Literal(Literal::SlicePair(_, key_value_pairs_vec)),
             ) => {
+                // TODO:
+                /*
                 self.emit_map_storage_init_from_slice_pair_literal(
                     &target_location.pointer_location().unwrap(),
                     key_value_pairs_vec,
@@ -88,6 +101,8 @@ impl CodeBuilder<'_> {
                     &rhs.node,
                     ctx,
                 );
+
+                 */
                 true
             }
             _ => false,

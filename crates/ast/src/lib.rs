@@ -345,7 +345,7 @@ pub struct FunctionWithBody {
 #[derive(Debug, Clone)]
 pub enum Function {
     Internal(FunctionWithBody),
-    External(FunctionDeclaration),
+    External(Node, FunctionDeclaration),
 }
 
 #[derive(Debug, Clone)]

@@ -267,10 +267,10 @@ impl CodeBuilder<'_> {
                     &target_iterator_header_reg,
                     collection_self_addr,
                     node,
-                    "vec init",
+                    "vec iter init",
                 );
 
-                let next_placeholder = if target_variables.len() == 2 {
+                if target_variables.len() == 2 {
                     self.builder.add_vec_iter_next_pair_placeholder(
                         &target_iterator_header_reg,
                         &target_variables[0],
@@ -280,7 +280,7 @@ impl CodeBuilder<'_> {
                     )
                 } else {
                     let hwm = self.temp_registers.save_mark();
-                    
+
                     let placeholder = if target_variables[0].ty.basic_type.is_simple_primitive() {
                         // For primitives, create temp register to hold the address, since they do not want the
                         // the address
@@ -288,14 +288,14 @@ impl CodeBuilder<'_> {
                             target_variables[0].ty.clone(),
                             "temp address for iterator value",
                         );
-                        
+
                         let p = self.builder.add_vec_iter_next_placeholder(
                             &target_iterator_header_reg,
                             &temp_addr.register,
                             node,
                             "vec iter next single into temp",
                         );
-                        
+
                         self.emit_load_from_memory(
                             &target_variables[0],
                             &temp_addr.register,
@@ -314,11 +314,10 @@ impl CodeBuilder<'_> {
                             "vec iter next single",
                         )
                     };
-                    
+
                     self.temp_registers.restore_to_mark(hwm);
                     placeholder
-                };
-                next_placeholder
+                }
             }
             Collection::Map => {
                 self.builder.add_map_iter_init(

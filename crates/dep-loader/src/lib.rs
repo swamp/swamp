@@ -46,7 +46,7 @@ impl ParsedAstModule {
             return_type,
             generic_variables: vec![],
         };
-        let external_signature = Function::External(signature);
+        let external_signature = Function::External(Node::default(), signature);
 
         let fake_def = Definition {
             kind: DefinitionKind::FunctionDef(external_signature),

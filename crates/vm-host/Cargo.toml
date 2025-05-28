@@ -7,4 +7,7 @@ description = "host interface for the swamp VM"
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-vm = {path= "../vm", version = "0.1.16" }
+swamp-vm = { path = "../vm", version = "0.1.16" }
+swamp-code-gen = { path = "../code-gen", version = "0.1.16" }
+swamp-modules = { path = "../modules", version = "0.1.16" }
+seq-map = "0.0.13"

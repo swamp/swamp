@@ -38,4 +38,6 @@ members = [
     "crates/vm-pretty-print",
     "crates/runtime",
     "crates/test-runner", "crates/vm-debug-info",
+    "crates/fentext",
+    "crates/fentext-ui",
 ]
