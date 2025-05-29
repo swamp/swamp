@@ -1,6 +1,7 @@
 use std::{print}
 
-const GRID_SIZE = 10
+const GRID_WIDTH = 32
+const GRID_HEIGHT = 10
 
 
 enum Input {
@@ -8,6 +9,20 @@ enum Input {
 	Right,
 	Up,
 	Down,
+	Action1,
+	Action2,
+}
+
+impl Input {
+	fn to_string(self) -> String {
+		match self {
+				Left => "left",
+				Right => "right",
+				Up => "up",
+				Down => "down",
+				_ => "some action",
+		}
+	}
 }
 
 external 22 fn input() -> Input?
@@ -34,6 +49,7 @@ struct Entity {
 struct Crawler {
 	tick_count: Int,
 	entities: [Entity; 10],
+	grid: [Int; 320],
 }
 
 /*
@@ -55,38 +71,49 @@ impl Crawler {
 
 	fn entity_tick(mut entity: Entity) {
 		entity.point.x += 1
-		entity.point.x %= 10
+		entity.point.x %= GRID_WIDTH
 	}
 
 
 	#[host_call]
 	fn tick(mut self) {
 
-		a = input()
-		when a {
-			move(0, 20)
-			print('input!')
-			s = match a {
-				Left => "left",
-				Right => "right",
-				Up => "up",
-				Down => "down",
-			}
-			print('s: {s}')
+		user_input = input()
+		when user_input {
+			move(40, 20)
+			write('input: {user_input}  ')
 		}
 
 		self.tick_count += 1
 
-		for y in 0..GRID_SIZE {
+		for y in 0..GRID_HEIGHT {
 			move(0, y)
-			for x in 0..GRID_SIZE {
-				write('.')
+			for x in 0..GRID_WIDTH {
+				move(x, y)
+				entity_index = self.grid[y * GRID_WIDTH + x]
+				if entity_index != -1 {
+					entity = self.entities[entity_index]
+					move(x + 32, y)
+					write('entity: {x}, {y} ')
+   				move(x, y)
+					match entity.type {
+						Player => write("x"),
+						Spider => write("🕷️"),
+						Octopus => write("🐙"),
+					}
+				} else {
+					write(".")
+				}
 			}
 		}
 
 		for i in 0..self.entities.len() {
+			// Clear the previous position
+			//self.grid[self.entities[i].point.y * GRID_WIDTH + self.entities[i].point.x] = -1
 			Crawler::entity_tick(&self.entities[i])
-			move(self.entities[i].point.x, self.entities[i].point.y)
+			self.grid[self.entities[i].point.y * GRID_WIDTH + self.entities[i].point.x] = i
+
+			//move(self.entities[i].point.x, self.entities[i].point.y)
 			//write('x: {self.entities[i].point.x}, y: {self.entities[i].point.y}')
 			/*
 			match self.entities[i].type {
@@ -95,12 +122,6 @@ impl Crawler {
 				Octopus => write("🐙"),
 			}
 			*/
-
-			match self.entities[i].type {
-				Player => write("x"),
-				Spider => write("y"),
-				Octopus => write("z"),
-			}
 		}
 	}
 }
@@ -123,5 +144,6 @@ fn main() -> Crawler {
 				point: Point { x: 3, y: 4 },
 			},
 		],
+		grid: [0, 1, 2]
 	}
 }

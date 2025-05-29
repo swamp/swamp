@@ -49,15 +49,36 @@ impl HostArgs {
         let addr = self.registers[register as usize];
 
         let p: *mut u8 = unsafe {
-             self.all_memory.add(addr as usize)
+            self.all_memory.add(addr as usize)
         };
         p
     }
 
-    pub  fn write_to_register<T>(&mut self, register_id: u8, data: &T) {
+
+    pub fn print_bytes(label: &str, bytes: &[u8]) {
+        print!("{label}: [");
+        for (i, &b) in bytes.iter().enumerate() {
+            print!("{b:02X}");
+            if i < bytes.len() - 1 {
+                print!(" ");
+            }
+        }
+        println!("]");
+    }
+
+    pub unsafe fn ptr_to_slice<'a>(ptr: *const u8, len: usize) -> &'a [u8] {
+        std::slice::from_raw_parts(ptr, len)
+    }
+
+    pub unsafe fn ptr_to_slice_mut<'a>(ptr: *mut u8, len: usize) -> &'a mut [u8] {
+        std::slice::from_raw_parts_mut(ptr, len)
+    }
+
+    pub fn write_to_register<T>(&mut self, register_id: u8, data: &T) {
         let dest_ptr = self.get_ptr(register_id) as *mut T;
 
         let src_ptr = data as *const T;
+
         unsafe {
             ptr::copy_nonoverlapping(src_ptr, dest_ptr, 1);
         }

@@ -1,14 +1,13 @@
 use fentext_ui::{Input, Tui};
 use std::env::current_dir;
 use std::io::Write;
-use std::io::stderr;
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
 use swamp::prelude::{
     CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
-    RunOptions, SourceMapWrapper, StackMemoryAddress, compile_codegen_and_create_vm, layout_type,
-    print_value, run_first_time, run_function_with_debug,
+    RunOptions, SourceMapWrapper, compile_codegen_and_create_vm, layout_type, run_first_time,
+    run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 
@@ -17,6 +16,18 @@ pub fn compile() -> Option<CodeGenAndVmResult> {
         Path::new("assets/crawler"),
         &["crate".to_string(), "main".to_string()],
     )
+}
+
+pub type FfiInput = SwampEnumWithoutPayload;
+
+impl FfiInput {
+    pub const LEFT: Self = Self { discriminant: 0 };
+    pub const RIGHT: Self = Self { discriminant: 1 };
+    pub const UP: Self = Self { discriminant: 2 };
+    pub const DOWN: Self = Self { discriminant: 3 };
+
+    pub const ACTION_1: Self = Self { discriminant: 4 };
+    pub const ACTION_2: Self = Self { discriminant: 5 };
 }
 
 pub struct Application {
@@ -28,16 +39,32 @@ pub struct Application {
 impl Application {}
 
 #[repr(C)]
-pub enum SwampOption<T> {
-    None,
-    Some(T),
+pub struct SwampOption<T: Default> {
+    pub is_some: u8, // this is needed because Rust pick a single fixed size for the T payload slot within EnumName that works for all instantiations of T that it encounters. Sigh.
+    pub value: T,
 }
+
+impl<T: Default> SwampOption<T> {
+    pub const fn some(t: T) -> Self {
+        Self {
+            is_some: 1,
+            value: t,
+        }
+    }
+
+    #[must_use]
+    pub fn none() -> Self {
+        Self {
+            is_some: 0,
+            value: Default::default(),
+        }
+    }
+}
+
 #[repr(C)]
-pub enum FfiInput {
-    Left,
-    Right,
-    Up,
-    Down,
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
+pub struct SwampEnumWithoutPayload {
+    pub discriminant: u8, // Just the tag
 }
 
 impl Application {
@@ -187,7 +214,7 @@ impl FenText {
             let mut app = Application {
                 canvas: Tui::new().unwrap(),
                 tick_count: 0,
-                last_keypress: SwampOption::None,
+                last_keypress: SwampOption::none(),
             };
 
             let swamp = FenTextSwamp::new(runtime_result, &mut app);
@@ -205,7 +232,7 @@ impl FenText {
 
     #[must_use]
     pub fn tick(&mut self) -> bool {
-        let frame_time = Duration::from_millis(16);
+        let frame_time = Duration::from_millis(96);
 
         if let Some(input) = self.application.canvas.poll() {
             if input == Input::Esc {
@@ -213,15 +240,17 @@ impl FenText {
             }
 
             let converted = match input {
-                Input::Left => FfiInput::Left,
-                Input::Right => FfiInput::Right,
-                Input::Up => FfiInput::Up,
-                Input::Down => FfiInput::Down,
+                Input::Left => FfiInput::LEFT,
+                Input::Right => FfiInput::RIGHT,
+                Input::Up => FfiInput::UP,
+                Input::Down => FfiInput::DOWN,
+                Input::Action1 => FfiInput::ACTION_1,
+                Input::Action2 => FfiInput::ACTION_2,
                 _ => panic!("unknown input"),
             };
-            self.application.last_keypress = SwampOption::Some(converted);
+            self.application.last_keypress = SwampOption::some(converted);
         } else {
-            self.application.last_keypress = SwampOption::None;
+            self.application.last_keypress = SwampOption::none();
         }
 
         self.swamp.tick(&mut self.application);
