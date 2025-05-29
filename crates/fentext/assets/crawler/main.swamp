@@ -1,5 +1,7 @@
 use std::{print}
 
+const GRID_SIZE = 10
+
 external 23 fn move(x: Int, y: Int)
 external 24 fn write(s: String)
 
@@ -19,6 +21,7 @@ struct Entity {
 	point: Point,
 }
 
+
 struct Crawler {
 	tick_count: Int,
 	entities: [Entity; 10],
@@ -33,6 +36,8 @@ LOOT="💎💍🏆🗝️"
 RESOURCES="❤️💙💰🪙📜"
 */
 
+
+
 impl Crawler {
 
 	fn draw(c: Crawler) {
@@ -44,19 +49,35 @@ impl Crawler {
 		entity.point.x %= 10
 	}
 
+
 	#[host_call]
 	fn tick(mut self) {
 
 		self.tick_count += 1
 
+		for y in 0..GRID_SIZE {
+			move(0, y)
+			for x in 0..GRID_SIZE {
+				write('.')
+			}
+		}
+
 		for i in 0..self.entities.len() {
 			Crawler::entity_tick(&self.entities[i])
 			move(self.entities[i].point.x, self.entities[i].point.y)
 			//write('x: {self.entities[i].point.x}, y: {self.entities[i].point.y}')
+			/*
 			match self.entities[i].type {
 				Player => write("🧙‍♂️"),
 				Spider => write("🕷️"),
 				Octopus => write("🐙"),
+			}
+			*/
+
+			match self.entities[i].type {
+				Player => write("x"),
+				Spider => write("y"),
+				Octopus => write("z"),
 			}
 		}
 	}

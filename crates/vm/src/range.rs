@@ -60,9 +60,7 @@ impl Vm {
         };
 
         #[cfg(feature = "debug_vm")]
-        {
-            eprintln!("range_iter_init {start} to {end} dir:{direction} extra {extra}");
-        }
+        {}
 
         let iterator_target_ptr = self.range_iterator_ptr_from_reg(target_iterator_reg);
 

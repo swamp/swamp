@@ -12,6 +12,13 @@ use swamp::prelude::{
 };
 use swamp_std::print::print_fn;
 
+pub fn compile() -> Option<CodeGenAndVmResult> {
+    compile_codegen_and_create_vm(
+        Path::new("assets/crawler"),
+        &["crate".to_string(), "main".to_string()],
+    )
+}
+
 pub struct Application {
     pub canvas: Tui,
     tick_count: usize,
@@ -43,8 +50,7 @@ pub struct FenTextSwamp {
 }
 
 impl FenTextSwamp {
-    pub fn new(application: &mut Application) -> Self {
-        let mut runtime_result = Self::compile();
+    pub fn new(mut runtime_result: CodeGenAndVmResult, application: &mut Application) -> Self {
         Self::run_once(&mut runtime_result, application);
         let (tick_fn, simulation_value_addr, safe_stack_start_addr) =
             Self::boot(&mut runtime_result, application);
@@ -70,27 +76,13 @@ impl FenTextSwamp {
 
         let vm = &mut self.runtime_result.vm;
 
-        //    let slice_before = &vm.heap_memory()[self.simulation_value_addr as usize..self.simulation_value_addr as usize + 32];
-        //        eprintln!("before tick: frame: {:04X} {:04X},  raw: {:?}", self.simulation_value_addr, vm.frame_offset(), slice_before);
-
         vm.set_register_pointer_addr_for_parameter(1, self.simulation_value_addr);
         vm.set_stack_start(self.safe_stack_start_addr as usize);
 
         run_function_with_debug(vm, &self.tick_fn, application, run_options);
-
-        //      let slice_after = &vm.heap_memory()[self.simulation_value_addr as usize..self.simulation_value_addr as usize + 32];
-        //        eprintln!("after tick: frame: {:04X} {:04X} raw: {:?}", self.simulation_value_addr, vm.frame_offset(), slice_after);
     }
 
     #[must_use]
-    pub fn compile() -> CodeGenAndVmResult {
-        compile_codegen_and_create_vm(
-            Path::new("assets/crawler"),
-            &["crate".to_string(), "main".to_string()],
-        )
-        .unwrap()
-    }
-
     pub fn boot(
         runtime_result: &mut CodeGenAndVmResult,
         application: &mut Application,
@@ -118,22 +110,11 @@ impl FenTextSwamp {
 
         let safe_stack_start = early_frame + gen_simulation_type.total_size.0 as u32;
 
-        eprintln!(
-            "before: frame: {:04X} safe_start: {:04X} raw: {:?}",
-            early_frame,
-            safe_stack_start,
-            &runtime_result.vm.frame_memory()[..32]
-        );
         runtime_result.vm.set_return_register_address(early_frame);
         run_function_with_debug(&mut runtime_result.vm, main_fn, application, run_options);
-        eprintln!(
-            "frame: {:04X} raw: {:?}",
-            runtime_result.vm.memory().frame_offset(),
-            &runtime_result.vm.frame_memory()[..32]
-        );
 
         //print_value(&mut s, runtime_result.vm.frame_memory(), runtime_result.vm.memory(), StackMemoryAddress(0), &gen_simulation_type, "main() return").unwrap();
-        writeln!(stderr(), "{}", s).unwrap();
+        eprintln!("{}", s);
 
         (
             runtime_result
@@ -164,12 +145,6 @@ pub struct FenText {
     pub swamp: FenTextSwamp,
 }
 
-impl Default for FenText {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl HostFunctionCallback for Application {
     fn dispatch_host_call(&mut self, args: HostArgs) {
         match args.function_id {
@@ -185,23 +160,30 @@ impl FenText {
     /// # Panics
     ///
     #[must_use]
-    pub fn new() -> Self {
-        let mut app = Application {
-            canvas: Tui::new().unwrap(),
-            tick_count: 0,
-        };
+    pub fn new() -> Option<Self> {
+        let mut runtime_result = compile();
+        if let Some(runtime_result) = runtime_result {
+            let mut app = Application {
+                canvas: Tui::new().unwrap(),
+                tick_count: 0,
+            };
 
-        let swamp = FenTextSwamp::new(&mut app);
+            let swamp = FenTextSwamp::new(runtime_result, &mut app);
 
-        Self {
-            application: app,
-            swamp,
+            let s = Self {
+                application: app,
+                swamp,
+            };
+
+            Some(s)
+        } else {
+            None
         }
     }
 
     #[must_use]
     pub fn tick(&mut self) -> bool {
-        let frame_time = Duration::from_millis(16);
+        let frame_time = Duration::from_millis(0);
 
         if let Some(input) = self.application.canvas.poll() {
             if input == Input::Esc {
@@ -223,5 +205,7 @@ impl FenText {
 
 fn main() {
     let mut engine = FenText::new();
-    while engine.tick() {}
+    if let Some(mut engine) = engine {
+        while engine.tick() {}
+    }
 }
