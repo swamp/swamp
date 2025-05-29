@@ -3,13 +3,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::RegContents;
-use std::{mem, slice};
+use std::{mem, ptr, slice};
 use swamp_vm_types::StringHeader;
 
 pub struct HostArgs {
     register_index: usize, // Current register being processed
     // references into the Vm
-    all_memory: *const u8,
+    all_memory: *mut u8,
     all_memory_len: usize,
     registers: Vec<u32>,
     stack_offset: usize,
@@ -20,7 +20,7 @@ impl HostArgs {
     #[must_use]
     pub unsafe fn new(
         function_id: u16,
-        all_memory: *const u8,
+        all_memory: *mut u8,
         all_memory_len: usize,
         stack_offset: usize,
         registers: *const RegContents,
@@ -42,6 +42,24 @@ impl HostArgs {
                 register_index: 1, // skip return for now
                 function_id,
             }
+        }
+    }
+
+    pub fn get_ptr(&mut self, register: u8) -> *mut u8 {
+        let addr = self.registers[register as usize];
+
+        let p: *mut u8 = unsafe {
+             self.all_memory.add(addr as usize)
+        };
+        p
+    }
+
+    pub  fn write_to_register<T>(&mut self, register_id: u8, data: &T) {
+        let dest_ptr = self.get_ptr(register_id) as *mut T;
+
+        let src_ptr = data as *const T;
+        unsafe {
+            ptr::copy_nonoverlapping(src_ptr, dest_ptr, 1);
         }
     }
 

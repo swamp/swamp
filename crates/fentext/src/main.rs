@@ -21,7 +21,23 @@ pub fn compile() -> Option<CodeGenAndVmResult> {
 
 pub struct Application {
     pub canvas: Tui,
+    pub last_keypress: SwampOption<FfiInput>,
     tick_count: usize,
+}
+
+impl Application {}
+
+#[repr(C)]
+pub enum SwampOption<T> {
+    None,
+    Some(T),
+}
+#[repr(C)]
+pub enum FfiInput {
+    Left,
+    Right,
+    Up,
+    Down,
 }
 
 impl Application {
@@ -39,6 +55,10 @@ impl Application {
     pub fn external_write(&mut self, mut host_args: HostArgs) {
         let str = host_args.get_str();
         self.canvas.write(str);
+    }
+
+    pub(crate) fn external_last_keypress(&self, mut host_args: HostArgs) {
+        host_args.write_to_register(0, &self.last_keypress);
     }
 }
 
@@ -149,6 +169,7 @@ impl HostFunctionCallback for Application {
     fn dispatch_host_call(&mut self, args: HostArgs) {
         match args.function_id {
             1 => print_fn(args),
+            22 => self.external_last_keypress(args),
             23 => self.external_move_cursor(args),
             24 => self.external_write(args),
             _ => panic!("unknown external"),
@@ -166,6 +187,7 @@ impl FenText {
             let mut app = Application {
                 canvas: Tui::new().unwrap(),
                 tick_count: 0,
+                last_keypress: SwampOption::None,
             };
 
             let swamp = FenTextSwamp::new(runtime_result, &mut app);
@@ -189,6 +211,17 @@ impl FenText {
             if input == Input::Esc {
                 return false;
             }
+
+            let converted = match input {
+                Input::Left => FfiInput::Left,
+                Input::Right => FfiInput::Right,
+                Input::Up => FfiInput::Up,
+                Input::Down => FfiInput::Down,
+                _ => panic!("unknown input"),
+            };
+            self.application.last_keypress = SwampOption::Some(converted);
+        } else {
+            self.application.last_keypress = SwampOption::None;
         }
 
         self.swamp.tick(&mut self.application);

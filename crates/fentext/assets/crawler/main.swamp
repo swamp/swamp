@@ -2,6 +2,15 @@ use std::{print}
 
 const GRID_SIZE = 10
 
+
+enum Input {
+	Left,
+	Right,
+	Up,
+	Down,
+}
+
+external 22 fn input() -> Input?
 external 23 fn move(x: Int, y: Int)
 external 24 fn write(s: String)
 
@@ -52,6 +61,19 @@ impl Crawler {
 
 	#[host_call]
 	fn tick(mut self) {
+
+		a = input()
+		when a {
+			move(0, 20)
+			print('input!')
+			s = match a {
+				Left => "left",
+				Right => "right",
+				Up => "up",
+				Down => "down",
+			}
+			print('s: {s}')
+		}
 
 		self.tick_count += 1
 
