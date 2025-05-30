@@ -87,7 +87,7 @@ impl Vm {
         unsafe {
             #[cfg(feature = "debug_vm")]
             {
-                if self.debug_opcodes_enabled {
+                if self.debug_operations_enabled {
                     eprintln!(
                         "range_iterator: index={}, end={}, direction={}",
                         (*range_iterator).index,
@@ -101,7 +101,7 @@ impl Vm {
                 let jump_offset = i16_from_u8s!(jmp_offset_lower, jmp_offset_upper);
                 #[cfg(feature = "debug_vm")]
                 {
-                    if self.debug_opcodes_enabled {
+                    if self.debug_operations_enabled {
                         eprintln!("range_iter_next complete. jumping with offset {jump_offset}");
                     }
                 }

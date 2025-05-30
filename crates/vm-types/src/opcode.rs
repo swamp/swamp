@@ -281,43 +281,43 @@ impl OpCode {
             Self::BoolToString => "btos",
 
             // Range
-            Self::RangeInit => "rinit",
-            Self::RangeIterInit => "riter",
-            Self::RangeIterNext => "ritern",
+            Self::RangeInit => "range.init",
+            Self::RangeIterInit => "range.iter",
+            Self::RangeIterNext => "range.itern",
 
             // Fixed capacity size array
-            Self::ArrayInitWithLenAndCapacityAddr => "ainit",
+            Self::ArrayInitWithLenAndCapacityAddr => "array.init",
 
             // Vec
-            Self::VecInitWithLenAndCapacityAddr => "vinit",
-            Self::VecPushAddr => "vpush",
-            Self::VecIterInit => "viter",
-            Self::VecIterNext => "vitern",
-            Self::VecIterNextPair => "viternp",
-            Self::VecRemoveIndex => "vrem",
-            Self::VecPop => "vpop",
-            Self::VecRemoveIndexGetValue => "vremv",
-            Self::VecClear => "vclear",
-            Self::VecCreate => "vcreate",
-            Self::VecGet => "vget",
-            Self::VecGetRange => "vgetrn",
-            Self::VecSwap => "vswap",
+            Self::VecInitWithLenAndCapacityAddr => "vec.init",
+            Self::VecPushAddr => "vec.push",
+            Self::VecIterInit => "vec.iter",
+            Self::VecIterNext => "vec.itern",
+            Self::VecIterNextPair => "vect.iternp",
+            Self::VecRemoveIndex => "vec.rem",
+            Self::VecPop => "vec.pop",
+            Self::VecRemoveIndexGetValue => "vec.remv",
+            Self::VecClear => "vec.clear",
+            Self::VecCreate => "vec.create",
+            Self::VecGet => "vec.get",
+            Self::VecGetRange => "vec.getrn",
+            Self::VecSwap => "vec.swap",
 
             // Map
             Self::MapInitWithCapacityAndKeySizeAddr => "map.init",
             Self::MapGetEntryLocation => "map.entry",
             Self::MapGetOrReserveEntryLocation => "map.entry.must",
 
-            Self::MapNewFromPairs => "mnew",
-            Self::MapRemove => "mrem",
-            Self::MapIterInit => "miter",
-            Self::MapIterNext => "mitern",
-            Self::MapIterNextPair => "miternp",
-            Self::MapHas => "mhas",
+            Self::MapNewFromPairs => "map.new",
+            Self::MapRemove => "map.rem",
+            Self::MapIterInit => "map.iter",
+            Self::MapIterNext => "map.itern",
+            Self::MapIterNextPair => "map.iternp",
+            Self::MapHas => "map.has",
 
             // String
-            Self::StringAppend => "sapp",
-            Self::StringCmp => "strcmp",
+            Self::StringAppend => "str.app",
+            Self::StringCmp => "str.cmp",
         }
     }
 }

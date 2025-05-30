@@ -1166,14 +1166,18 @@ impl InstructionBuilder<'_> {
         &mut self,
         iterator_target: &TypedRegister,
         pointer_to_vec_header: &TypedRegister,
+        element_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
+        let (element_size_lower, element_size_upper) = u16_to_u8_pair(element_size.0);
         self.state.add_instruction(
             OpCode::VecIterInit,
             &[
                 iterator_target.addressing(),
                 pointer_to_vec_header.addressing(),
+                element_size_lower,
+                element_size_upper,
             ],
             node,
             comment,

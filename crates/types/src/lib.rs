@@ -143,7 +143,7 @@ impl Type {
     pub fn primary_element_type(&self) -> Option<&Self> {
         match self {
             Self::SliceView(element_type) => Some(element_type),
-
+            Self::VecStorage(element_type, _) => Some(element_type),
             Self::MutableReference(inner) => inner.primary_element_type(),
             _ => None,
         }

@@ -61,11 +61,22 @@ impl Vm {
         &mut self,
         target_vec_iterator_header_reg: u8,
         vec_header_reg: u8,
+        element_size_lower: u8,
+        element_size_upper: u8,
     ) {
         let vec_header_addr = get_reg!(self, vec_header_reg);
 
+        let element_size = u16_from_u8s!(element_size_lower, element_size_upper);
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            let iter_addr = get_reg!(self, target_vec_iterator_header_reg);
+            eprintln!(
+                "vec_iter_init: iter_addr: {iter_addr:04X} vec_header_addr:{vec_header_addr:04X} element_size: {element_size}"
+            );
+        }
         let vec_iterator = VecIterator {
             vec_header_heap_ptr: vec_header_addr,
+            element_size,
             index: 0,
         };
 
@@ -84,30 +95,51 @@ impl Vm {
         target_variable: u8,
         jump: u8,
     ) {
-        let vec_iterator_ptr = self.get_vec_iterator_header_ptr_from_reg(vec_iterator_header_reg);
-        let vec_iterator = unsafe { &mut *vec_iterator_ptr };
+        let vec_iterator = self.get_vec_iterator_header_ptr_from_reg(vec_iterator_header_reg);
 
-        let vec_header_ptr = self
-            .memory
-            .get_heap_const_ptr(vec_iterator.vec_header_heap_ptr as usize)
-            as *const VecHeader;
-        let vec_header = unsafe { &*vec_header_ptr };
+        unsafe {
+            let vec_header_addr = (*vec_iterator).vec_header_heap_ptr;
+            let vec_header_ptr =
+                self.memory.get_heap_const_ptr(vec_header_addr as usize) as *const VecHeader;
+            let vec_header = &*vec_header_ptr;
+            #[cfg(feature = "debug_vm")]
+            if self.debug_operations_enabled {
+                let iter_addr = get_reg!(self, vec_iterator_header_reg);
+                let index = (*vec_iterator).index;
+                eprintln!(
+                    "vec_iter_next: iter_addr: {iter_addr:04X} addr:{vec_header_addr:04X} index:{index} len: {}, capacity: {}",
+                    vec_header.count, vec_header.capacity
+                );
+            }
 
-        // Check if we've reached the end
-        if vec_iterator.index >= vec_header.count {
-            // Jump to the provided address if we're done
-            self.pc = jump as usize;
-            return;
+            // Check if we've reached the end
+            if (*vec_iterator).index >= vec_header.count {
+                // Jump to the provided address if we're done
+                self.pc = jump as usize;
+                #[cfg(feature = "debug_vm")]
+                if self.debug_operations_enabled {
+                    eprintln!("vec_iter_next done!");
+                }
+
+                return;
+            }
+
+            // Calculate the address of the current element
+            let element_addr = (*vec_iterator).vec_header_heap_ptr
+                + VEC_HEADER_PAYLOAD_OFFSET.0 as u32
+                + (*vec_iterator).index as u32 * (*vec_iterator).element_size as u32;
+
+            #[cfg(feature = "debug_vm")]
+            if self.debug_operations_enabled {
+                eprintln!(
+                    "vec_iter_next: element_addr {element_addr:04X} to reg {target_variable}"
+                );
+            }
+
+            set_reg!(self, target_variable, element_addr);
+
+            (*vec_iterator).index += 1;
         }
-
-        // Calculate the address of the current element
-        let element_addr = vec_iterator.vec_header_heap_ptr
-            + VEC_HEADER_PAYLOAD_OFFSET.0 as u32
-            + vec_iterator.index as u32;
-
-        set_reg!(self, target_variable, element_addr);
-
-        vec_iterator.index += 1;
     }
 
     pub fn vec_header_from_heap(heap: &Memory, heap_offset: u32) -> VecHeader {
@@ -134,12 +166,21 @@ impl Vm {
         element_size_upper: u8,
     ) {
         let vec_addr = get_reg!(self, vec_header_ptr_reg);
+
         let vec_header = Self::vec_header_from_heap(&self.memory, vec_addr);
         let index = get_reg!(self, int_reg);
 
         #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            eprintln!(
+                "vec_get: vec_header_addr: {vec_addr:04X} index: {index} count: {}, capacity: {} ",
+                vec_header.count, vec_header.capacity
+            );
+        }
+
+        #[cfg(feature = "debug_vm")]
         {
-            if self.debug_opcodes_enabled {
+            if self.debug_operations_enabled {
                 eprintln!(
                     "vec_get {} {} (capacity: {}) ",
                     index, vec_header.count, vec_header.capacity

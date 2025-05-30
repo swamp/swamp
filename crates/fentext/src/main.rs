@@ -1,6 +1,5 @@
 use fentext_ui::{Input, Tui};
 use std::env::current_dir;
-use std::io::Write;
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
@@ -29,20 +28,6 @@ impl FfiInput {
 
     pub const ACTION_1: Self = Self { discriminant: 4 };
     pub const ACTION_2: Self = Self { discriminant: 5 };
-}
-
-pub struct EmptyApplication {}
-
-impl HostFunctionCallback for EmptyApplication {
-    fn dispatch_host_call(&mut self, mut args: HostArgs) {
-        match args.function_id {
-            1 => print_fn(args),
-            22 => args.write_to_register(0, &SwampOption::<FfiInput>::none()),
-            23 => {}
-            24 => {}
-            _ => panic!("unknown external"),
-        }
-    }
 }
 
 pub struct Application {
@@ -130,6 +115,7 @@ impl FenTextSwamp {
         let run_options = RunOptions {
             debug_stats_enabled: false,
             debug_opcodes_enabled: false,
+            debug_operations_enabled: false,
             debug_info: &self.runtime_result.code_gen_result.debug_info,
             source_map_wrapper: SourceMapWrapper {
                 source_map: &self.runtime_result.source_map,
@@ -153,6 +139,7 @@ impl FenTextSwamp {
         let run_options = RunOptions {
             debug_stats_enabled: false,
             debug_opcodes_enabled: false,
+            debug_operations_enabled: true,
             debug_info: &runtime_result.code_gen_result.debug_info,
             source_map_wrapper: SourceMapWrapper {
                 source_map: &runtime_result.source_map,
@@ -238,11 +225,17 @@ impl FenText {
                     last_keypress: SwampOption::none(),
                 };
 
-                let swamp = FenTextSwamp::new(runtime_result, &mut ui);
+                let should_run = true;
 
-                let s = Self { ui, swamp };
+                if should_run {
+                    let swamp = FenTextSwamp::new(runtime_result, &mut ui);
 
-                Some(s)
+                    let s = Self { ui, swamp };
+
+                    Some(s)
+                } else {
+                    None
+                }
             },
         )
     }
@@ -283,7 +276,16 @@ impl FenText {
     }
 }
 
+pub fn init_logger() {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_writer(std::io::stderr)
+        .init();
+}
+
 fn main() {
+    init_logger();
+
     let engine = FenText::new();
     if let Some(mut engine) = engine {
         while engine.tick() {}

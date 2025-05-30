@@ -5,7 +5,9 @@ use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
 use swamp_semantic::{ArgumentExpression, ExpressionKind};
 use swamp_types::Type;
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, u8_type};
+use swamp_vm_types::types::{
+    BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type,
+};
 use swamp_vm_types::{InstructionPosition, MemoryOffset, PatchPosition};
 
 impl CodeBuilder<'_> {
@@ -62,6 +64,11 @@ impl CodeBuilder<'_> {
         };
 
         let primary_element_type = source_collection_analyzed_type.primary_element_type();
+        let maybe_primary_element_gen_type = if let Some(primary) = primary_element_type {
+            Some(layout_type(primary))
+        } else {
+            None
+        };
 
         let target_variables: Vec<_> = lambda_variables
             .iter()
@@ -87,8 +94,7 @@ impl CodeBuilder<'_> {
         ) {
             let element_size_in_target_vec = match transformer.return_type() {
                 TransformerResult::VecFromSourceCollection => {
-                    let element_gen_type = layout_type(primary_element_type.unwrap());
-                    element_gen_type.total_size
+                    maybe_primary_element_gen_type.as_ref().unwrap().total_size
                 }
                 TransformerResult::VecWithLambdaResult => {
                     if transformer.needs_tag_removed() {
@@ -118,6 +124,7 @@ impl CodeBuilder<'_> {
             .emit_iter_init_and_next(
                 node,
                 source_collection_type,
+                maybe_primary_element_gen_type,
                 source_collection_self_region,
                 &target_variables,
             );
@@ -249,6 +256,7 @@ impl CodeBuilder<'_> {
         &mut self,
         node: &Node,
         collection_type: Collection,
+        maybe_element_type: Option<BasicType>,
         collection_self_addr: &TypedRegister,
         target_variables: &[TypedRegister],
     ) -> (InstructionPosition, PatchPosition) {
@@ -266,6 +274,7 @@ impl CodeBuilder<'_> {
                 self.builder.add_vec_iter_init(
                     &target_iterator_header_reg,
                     collection_self_addr,
+                    maybe_element_type.unwrap().total_size,
                     node,
                     "vec iter init",
                 );

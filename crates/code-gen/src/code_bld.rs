@@ -304,11 +304,15 @@ impl CodeBuilder<'_> {
                     base_ptr_reg,
                     source_offset,
                     node,
-                    &format!("emit_copy_register. ptr to ptr (mutable reference). {comment}"),
+                    &format!("emit_load_from_memory: ptr to ptr (mutable reference). {comment}"),
                 );
             } else {
-                self.builder
-                    .add_mov_reg(target_reg, base_ptr_reg, node, "copy pointer reg to reg");
+                self.builder.add_mov_reg(
+                    target_reg,
+                    base_ptr_reg,
+                    node,
+                    "emit_load_from_memory: copy pointer reg to reg",
+                );
 
                 /*
                 let size = target_reg.size();
@@ -518,7 +522,7 @@ impl CodeBuilder<'_> {
 
                 let temp_offset_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u32_type()),
-                    "emit_absolute_pointer: temp_offset_reg",
+                    &format!("{comment}: emit_absolute_pointer: temp_offset_reg"),
                 );
 
                 self.builder.add_add_u32_imm(
@@ -526,7 +530,9 @@ impl CodeBuilder<'_> {
                     &memory_location.base_ptr_reg,
                     u32::from(memory_location.offset.0),
                     node,
-                    "forcing lvalue to be a complete pointer",
+                    &format!(
+                        "{comment}: forcing memory pointer and offset to be a complete pointer"
+                    ),
                 );
 
                 temp_offset_reg.register
@@ -693,14 +699,14 @@ impl CodeBuilder<'_> {
 
         let reg = self.frame_memory_registers.alloc_register(
             VmType::new_frame_placed(frame_placed_type),
-            "allocate frame space",
+            &format!("{comment}: allocate frame space"),
         );
 
         self.builder.add_lea(
             &reg,
             reg.addr(),
             node,
-            "set the allocated memory to pointer reg",
+            &format!("{comment}: set the allocated memory to pointer reg"),
         );
 
         reg

@@ -6,6 +6,7 @@ use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainK
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
+use tracing::info;
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -17,7 +18,6 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         let mut current_location = self.emit_start_of_chain(start_expression, ctx);
-        let mut t_flag_result = FlagState::default();
         let mut none_patches = Vec::new();
         let mut none_coalesce_final_load_skip: Option<PatchPosition> = None;
 
@@ -107,10 +107,6 @@ impl CodeBuilder<'_> {
                                     ctx,
                                     "rvalue intrinsic call ",
                                 );
-
-                                if is_last {
-                                    t_flag_result = z_result;
-                                }
                             } else {
                                 let argument_infos = self.emit_arguments(
                                     &call_return_destination,
@@ -141,7 +137,7 @@ impl CodeBuilder<'_> {
                             );
                         }
                         Function::Intrinsic(intrinsic_def) => {
-                            let z_result = self.emit_single_intrinsic_call_with_self(
+                            self.emit_single_intrinsic_call_with_self(
                                 &call_return_destination,
                                 &start_expression.node,
                                 &intrinsic_def.intrinsic,
@@ -151,10 +147,6 @@ impl CodeBuilder<'_> {
                                 ctx,
                                 "rvalue intrinsic call ",
                             );
-
-                            if is_last {
-                                t_flag_result = z_result;
-                            }
                         }
                         _ => panic!(
                             "{}",
@@ -336,20 +328,38 @@ impl CodeBuilder<'_> {
         );
 
         if needs_final_load {
+            info!(?output_destination, "needs final loading");
             match output_destination {
                 Destination::Register(output_reg) => {
-                    if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
-                    {
-                        self.emit_load_into_register(
-                            output_reg,
+                    if output_destination.ty().is_represented_as_a_pointer_in_reg() {
+                        info!(?output_destination, "register and a pointer");
+                        let absolute_pointer_reg = self.emit_absolute_pointer_if_needed(
                             &current_location,
                             &start_expression.node,
-                            "rvalue postfix chain",
+                            "after postfix we need absolute pointer",
                         );
+                        self.builder.add_mov_reg(
+                            output_reg,
+                            &absolute_pointer_reg,
+                            &start_expression.node,
+                            &format!("{} move absolute pointer in place", ctx.comment()),
+                        );
+                    } else {
+                        if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
+                        {
+                            self.emit_load_into_register(
+                                output_reg,
+                                &current_location,
+                                &start_expression.node,
+                                "rvalue postfix chain",
+                            );
+                        }
                     }
                 }
                 Destination::Memory(mem_loc) => {
                     if mem_loc.ty.is_represented_as_pointer_inside_register() {
+                        info!(?output_destination, "memory and a pointer");
+
                         // Complex type - we need to store to memory
                         self.emit_store_to_pointer_target(
                             &mem_loc.base_ptr_reg,

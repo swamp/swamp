@@ -914,10 +914,14 @@ pub fn disasm(
             to_read_reg(operands[2], &int_type(), frame_memory_info),
         ],
 
-        OpCode::VecIterInit => &[
-            to_write_reg(operands[0], &vec_iter_type(), frame_memory_info),
-            to_read_reg(operands[1], &vec_iter_type(), frame_memory_info),
-        ],
+        OpCode::VecIterInit => {
+            let element_size = u16::from_le_bytes([operands[2], operands[3]]);
+            &[
+                to_write_reg(operands[0], &vec_iter_type(), frame_memory_info),
+                to_read_reg(operands[1], &vec_iter_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
+            ]
+        }
 
         OpCode::VecIterNext => &[
             to_write_reg(operands[0], &vec_iter_type(), frame_memory_info),

@@ -315,7 +315,7 @@ impl TopLevelGenState {
 
         let temp_pool = HwmTempRegisterPool::new(128, 64);
 
-        let ctx = Context {};
+        let ctx = Context::new();
 
         let mut function_code_builder = CodeBuilder::new(
             &mut self.codegen_state,

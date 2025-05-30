@@ -146,13 +146,9 @@ pub struct Vm {
     pub debug: Debug,
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
-
+    pub debug_operations_enabled: bool,
     pub state: VmState,
 }
-
-impl Vm {}
-
-impl Vm {}
 
 impl Vm {
     #[must_use]
@@ -170,6 +166,7 @@ pub struct VmSetup {
     pub constant_memory: Vec<u8>,
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
+    pub debug_operations_enabled: bool,
 }
 
 impl Vm {
@@ -198,6 +195,7 @@ impl Vm {
             },
             debug_stats_enabled: setup.debug_stats_enabled,
             debug_opcodes_enabled: setup.debug_opcodes_enabled,
+            debug_operations_enabled: setup.debug_operations_enabled,
             state: Normal,
         };
 
@@ -386,7 +384,7 @@ impl Vm {
         // Vec
         vm.handlers[OpCode::VecInitWithLenAndCapacityAddr as usize] =
             HandlerType::Args6(Self::execute_vec_init);
-        vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args2(Self::execute_vec_iter_init);
+        vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args4(Self::execute_vec_iter_init);
         vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args3(Self::execute_vec_iter_next);
         vm.handlers[OpCode::VecIterNextPair as usize] =
             HandlerType::Args4(Self::execute_vec_iter_next_pair);

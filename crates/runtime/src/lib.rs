@@ -29,6 +29,7 @@ pub struct RunOptions<'a> {
     pub debug_opcodes_enabled: bool,
     pub debug_info: &'a DebugInfo,
     pub source_map_wrapper: SourceMapWrapper<'a>,
+    pub debug_operations_enabled: bool,
 }
 
 pub fn run_constants_in_order(
@@ -178,6 +179,7 @@ pub fn create_vm_with_standard_settings(
         constant_memory: prepared_constant_memory.to_vec(),
         debug_opcodes_enabled: false,
         debug_stats_enabled: false,
+        debug_operations_enabled: false,
     };
 
     Vm::new(instructions.to_vec(), vm_setup)
@@ -216,6 +218,7 @@ pub fn run_function_with_debug(
     //vm.reset_debug();
     vm.state = VmState::Normal;
     vm.debug_opcodes_enabled = run_options.debug_opcodes_enabled;
+    vm.debug_operations_enabled = run_options.debug_operations_enabled;
     vm.debug_stats_enabled = run_options.debug_stats_enabled;
     vm.set_pc(&function_to_run.ip_range.start);
 

@@ -4,6 +4,23 @@
  */
 
 #[derive(Clone, Default)]
-pub struct Context {}
+pub struct Context {
+    pub comment: String,
+}
 
-impl Context {}
+impl Context {
+    pub fn new() -> Self {
+        Self {
+            comment: String::new(),
+        }
+    }
+
+    pub fn with_comment(self, comment: &str) -> Self {
+        Self {
+            comment: comment.to_string(),
+        }
+    }
+    pub(crate) fn comment(&self) -> &str {
+        &self.comment
+    }
+}

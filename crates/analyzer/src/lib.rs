@@ -1511,38 +1511,17 @@ impl<'a> Analyzer<'a> {
         let resolved_expression = self.analyze_expression(expression, &any_context)?;
 
         let resolved_type = &resolved_expression.ty.clone();
-        let (key_type, value_type): (Option<Type>, Type) = match resolved_type {
+        let (key_type, mut value_type): (Option<Type>, Type) = match resolved_type {
             Type::String => (Some(Type::Int), Type::String),
             Type::SliceView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::VecStorage(element_type, _fixed_size) => (Some(Type::Int), *element_type.clone()),
             Type::Range(_) => (None, Type::Int),
-
-            /*
-            _ => {
-                if let Some(found_iter_fn) = self
-                    .shared
-                    .state
-                    .instantiator
-                    .associated_impls
-                    .get_internal_member_function(resolved_type, "iter")
-                {
-                    let ret_type = found_iter_fn.signature.signature.return_type.clone();
-                    match *ret_type {
-                        Type::Tuple(tuple_items) => {
-                            (Some(tuple_items[0].clone()), tuple_items[1].clone())
-                        }
-                        _ => {
-                            return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node));
-                        }
-                    }
-                } else {
-                    return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node));
-                }
-            }
-
-             */
             _ => return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node)),
         };
+
+        if force_mut.is_some() {
+            value_type = Type::MutableReference(Box::from(value_type.clone()));
+        }
 
         Ok(Iterable {
             key_type,
