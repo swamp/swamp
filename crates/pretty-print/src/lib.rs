@@ -509,12 +509,12 @@ impl SourceMapDisplay<'_> {
                 self.show_expressions(f, expressions, tabs + 1)?;
                 write!(f, ")")
             }
-            Literal::Slice(_slice_type, expressions) => {
+            Literal::InitializerList(_slice_type, expressions) => {
                 write!(f, "[")?;
                 self.show_expressions(f, expressions, tabs + 1)?;
                 write!(f, "]")
             }
-            Literal::SlicePair(_slice_pair_type, pairs) => {
+            Literal::InitializerPairList(_slice_pair_type, pairs) => {
                 write!(f, "[|")?;
                 for (key, value) in pairs {
                     self.show_expression(f, key, tabs + 1)?;

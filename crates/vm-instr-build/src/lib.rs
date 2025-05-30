@@ -1182,6 +1182,31 @@ impl InstructionBuilder<'_> {
         );
     }
 
+    pub fn add_fixed_capacity_array_init_fill_capacity_and_get_element_addr(
+        &mut self,
+        target_vec_to_init: &PointerLocation,
+        element_target_reg: &TypedRegister,
+        capacity: u16,
+        node: &Node,
+        comment: &str,
+    ) {
+        //debug_assert!(len > 0);
+        debug_assert!(capacity > 0);
+
+        let capacity_bytes = u16_to_u8_pair(capacity);
+        self.state.add_instruction(
+            OpCode::ArrayInitWithLenAndCapacityAddr,
+            &[
+                target_vec_to_init.ptr_reg.addressing(),
+                element_target_reg.addressing(),
+                capacity_bytes.0,
+                capacity_bytes.1,
+            ],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_map_init_set_capacity(
         &mut self,
         target_map_to_init: &PointerLocation,

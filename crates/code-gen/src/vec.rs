@@ -99,7 +99,56 @@ impl CodeBuilder<'_> {
         }
     }
 
-    // When initializing a VecStorage with a slice literal
+    // When initializing a VecStorage with an initialization list
+    pub(crate) fn emit_fixed_storage_array_init(
+        &mut self,
+        vec_storage_lvalue_memory_location: &PointerLocation, // Points to VecStorage
+        slice_literal: &[Expression],
+        element_type: &BasicType,
+        capacity: usize,
+        debug_vec_storage_type: &BasicType,
+        node: &Node,
+        ctx: &Context,
+    ) {
+        info!("emit_fixed_array_storage!!!!");
+
+        let elements_base_ptr_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(u32_type()),
+            &format!("{debug_vec_storage_type}::elements"),
+        );
+
+        let len = slice_literal.len();
+        debug_assert!(capacity >= len);
+        if capacity > 0 || len > 0 {
+            self.builder
+                .add_fixed_capacity_array_init_fill_capacity_and_get_element_addr(
+                    vec_storage_lvalue_memory_location,
+                    elements_base_ptr_reg.register(),
+                    capacity as u16,
+                    node,
+                    "initialize vec from slice",
+                );
+        } else {
+            info!("skipping, no capacity or no length");
+        }
+
+        let elements_base_ptr_reg = AggregateMemoryLocation {
+            location: MemoryLocation {
+                base_ptr_reg: elements_base_ptr_reg.register,
+                offset: MemoryOffset(0),
+                ty: VmType::new_unknown_placement(element_type.clone()),
+            },
+        };
+
+        self.emit_slice_literal_into_target_lvalue_memory_location(
+            &elements_base_ptr_reg,
+            element_type,
+            slice_literal,
+            ctx,
+        );
+    }
+
+    // When initializing a VecStorage with an initialization list
     pub(crate) fn emit_vec_storage_init(
         &mut self,
         vec_storage_lvalue_memory_location: &PointerLocation, // Points to VecStorage

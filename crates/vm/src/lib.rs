@@ -388,6 +388,10 @@ impl Vm {
         vm.handlers[OpCode::RangeIterNext as usize] =
             HandlerType::Args4(Self::execute_range_iter_next);
 
+        // Array
+        vm.handlers[OpCode::ArrayInitWithLenAndCapacityAddr as usize] =
+            HandlerType::Args4(Self::execute_array_init);
+
         // Vec
         vm.handlers[OpCode::VecInitWithLenAndCapacityAddr as usize] =
             HandlerType::Args6(Self::execute_vec_init);

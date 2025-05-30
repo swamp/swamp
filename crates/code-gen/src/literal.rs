@@ -168,7 +168,7 @@ impl CodeBuilder<'_> {
                     node,
                 );
             }
-            Literal::Slice(slice_type, expressions) => {
+            Literal::InitializerList(slice_type, expressions) => {
                 // A tuple literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
                 let Type::InternalInitializerList(element_type) = slice_type else {
                     panic!("must be slice")
@@ -181,7 +181,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            Literal::SlicePair(slice_pair_type, pairs) => {
+            Literal::InitializerPairList(slice_pair_type, pairs) => {
                 todo!() //self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
             }
         }

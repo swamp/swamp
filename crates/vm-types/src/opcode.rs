@@ -141,6 +141,9 @@ pub enum OpCode {
     RangeIterInit,
     RangeIterNext,
 
+    // Fixed Capacity Size Array
+    ArrayInitWithLenAndCapacityAddr,
+
     // Vec
     VecIterInit,
     VecIterNext,
@@ -290,6 +293,9 @@ impl OpCode {
             Self::RangeInit => "rinit",
             Self::RangeIterInit => "riter",
             Self::RangeIterNext => "ritern",
+
+            // Fixed capacity size array
+            Self::ArrayInitWithLenAndCapacityAddr => "ainit",
 
             // Vec
             Self::VecInitWithLenAndCapacityAddr => "vinit",

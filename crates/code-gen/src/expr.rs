@@ -27,9 +27,26 @@ impl CodeBuilder<'_> {
     pub fn emit_expression(&mut self, output: &Destination, expr: &Expression, ctx: &Context) {
         let node = &expr.node;
 
-        if self.try_container_init_from_slice_literal(output, expr, ctx) {
-            // If special container initialization was done, the materialization is complete.
-            return;
+        match &expr.kind {
+            ExpressionKind::Literal(Literal::InitializerList(element_type, expressions)) => {
+                self.emit_container_init_from_initialization_list(
+                    output,
+                    expressions,
+                    &expr.node,
+                    ctx,
+                );
+                return;
+            }
+            ExpressionKind::Literal(Literal::InitializerPairList(element_type, expressions)) => {
+                self.emit_container_init_from_initialization_pair_list(
+                    output,
+                    expressions,
+                    &expr.node,
+                    ctx,
+                );
+                return;
+            }
+            _ => {}
         }
 
         // If the expression needs a memory target, and the current output is not a memory target, create temp memory to materialize in
@@ -296,8 +313,8 @@ impl CodeBuilder<'_> {
                 literal,
                 Literal::EnumVariantLiteral(_, _, _)
                     | Literal::TupleLiteral(_, _)
-                    | Literal::Slice(_, _)
-                    | Literal::SlicePair(_, _)
+                    | Literal::InitializerList(_, _)
+                    | Literal::InitializerPairList(_, _)
             ),
             ExpressionKind::Option(_) | ExpressionKind::AnonymousStructLiteral(_) => true,
             _ => false,

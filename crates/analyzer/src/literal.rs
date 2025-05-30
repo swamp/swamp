@@ -30,7 +30,7 @@ impl Analyzer<'_> {
                 let slice_type = Type::InternalInitializerList(Box::new(encountered_element_type));
 
                 (
-                    Literal::Slice(slice_type.clone(), resolved_items),
+                    Literal::InitializerList(slice_type.clone(), resolved_items),
                     slice_type,
                 )
             }
@@ -47,7 +47,7 @@ impl Analyzer<'_> {
                 );
 
                 (
-                    Literal::SlicePair(slice_pair_type.clone(), resolved_items),
+                    Literal::InitializerPairList(slice_pair_type.clone(), resolved_items),
                     slice_pair_type,
                 )
             }

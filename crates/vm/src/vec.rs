@@ -14,6 +14,26 @@ impl Vm {
     }
 
     #[inline]
+    pub fn execute_array_init(
+        &mut self,
+        target_vec_ptr_reg: u8,
+        element_ptr_reg: u8,
+        capacity_lower: u8,
+        capacity_upper: u8,
+    ) {
+        let vec_addr = get_reg!(self, target_vec_ptr_reg);
+        let mut_vec_ptr = self.memory.get_heap_ptr(vec_addr as usize) as *mut VecHeader;
+        let capacity = u16_from_u8s!(capacity_lower, capacity_upper);
+        unsafe {
+            (*mut_vec_ptr).count = capacity;
+            (*mut_vec_ptr).capacity = capacity;
+        }
+
+        let element_addr = vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32;
+        set_reg!(self, element_ptr_reg, element_addr);
+    }
+
+    #[inline]
     pub fn execute_vec_init(
         &mut self,
         target_vec_ptr_reg: u8,

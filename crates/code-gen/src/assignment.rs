@@ -54,43 +54,15 @@ impl CodeBuilder<'_> {
         self.emit_expression(&output_destination, rhs, ctx);
     }
 
-    pub(crate) fn try_container_init_from_slice_literal(
+    pub fn emit_container_init_from_initialization_pair_list(
         &mut self,
         output_destination: &Destination,
-        rhs: &Expression,
+        elements: &[(Expression, Expression)],
+        node: &Node,
         ctx: &Context,
-    ) -> bool {
-        info!(lhs=?output_destination.ty().underlying().kind, rhs=?rhs.kind, "check if container init");
-
-        match (&output_destination.ty().underlying().kind, &rhs.kind) {
-            (
-                BasicTypeKind::VecStorage(element_type, capacity),
-                ExpressionKind::Literal(Literal::Slice(_, elements)),
-            ) => {
-                let absolute_ptr_reg = self.emit_absolute_pointer_if_needed(
-                    output_destination,
-                    &rhs.node,
-                    "absolute vec storage target",
-                );
-                let pointer_location = PointerLocation {
-                    ptr_reg: absolute_ptr_reg,
-                };
-                self.emit_vec_storage_init(
-                    &pointer_location,
-                    elements,
-                    element_type,
-                    *capacity,
-                    output_destination.ty(),
-                    &rhs.node,
-                    ctx,
-                );
-                true
-            }
-
-            (
-                BasicTypeKind::MapStorage(element_type, capacity),
-                ExpressionKind::Literal(Literal::SlicePair(_, key_value_pairs_vec)),
-            ) => {
+    ) {
+        match &output_destination.ty().underlying().kind {
+            BasicTypeKind::MapStorage(element_type, capacity) => {
                 // TODO:
                 /*
                 self.emit_map_storage_init_from_slice_pair_literal(
@@ -103,9 +75,76 @@ impl CodeBuilder<'_> {
                 );
 
                  */
-                true
             }
-            _ => false,
+            BasicTypeKind::MapStorage(element_type, capacity) => {
+                // TODO:
+                /*
+                self.emit_map_storage_init_from_slice_pair_literal(
+                    &target_location.pointer_location().unwrap(),
+                    key_value_pairs_vec,
+                    element_type,
+                    *capacity,
+                    &rhs.node,
+                    ctx,
+                );
+
+                 */
+            }
+
+            _ => panic!("what is this {}", output_destination.ty()),
+        }
+    }
+
+    pub(crate) fn emit_container_init_from_initialization_list(
+        &mut self,
+        output_destination: &Destination,
+        elements: &[Expression],
+        node: &Node,
+        ctx: &Context,
+    ) {
+        info!(lhs=?output_destination.ty().underlying().kind,  "check if container init");
+
+        match &output_destination.ty().underlying().kind {
+            BasicTypeKind::VecStorage(element_type, capacity) => {
+                let absolute_ptr_reg = self.emit_absolute_pointer_if_needed(
+                    output_destination,
+                    node,
+                    "absolute vec storage target",
+                );
+                let pointer_location = PointerLocation {
+                    ptr_reg: absolute_ptr_reg,
+                };
+                self.emit_vec_storage_init(
+                    &pointer_location,
+                    elements,
+                    element_type,
+                    *capacity,
+                    output_destination.ty(),
+                    node,
+                    ctx,
+                );
+            }
+
+            BasicTypeKind::FixedCapacityArray(element_type, capacity) => {
+                let absolute_ptr_reg = self.emit_absolute_pointer_if_needed(
+                    output_destination,
+                    node,
+                    "absolute vec storage target",
+                );
+                let pointer_location = PointerLocation {
+                    ptr_reg: absolute_ptr_reg,
+                };
+                self.emit_fixed_storage_array_init(
+                    &pointer_location,
+                    elements,
+                    element_type,
+                    *capacity,
+                    output_destination.ty(),
+                    node,
+                    ctx,
+                );
+            }
+            _ => panic!("what is this {}", output_destination.ty()),
         }
     }
 
