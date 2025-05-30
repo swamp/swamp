@@ -248,6 +248,7 @@ impl CodeBuilder<'_> {
     }
 
     #[allow(clippy::unnecessary_wraps)]
+    #[allow(clippy::too_many_lines)]
     fn emit_iter_init_and_next(
         &mut self,
         node: &Node,
@@ -264,6 +265,12 @@ impl CodeBuilder<'_> {
             "allocate iterator header space",
         );
 
+        let primary_register = if target_variables.len() == 2 {
+            &target_variables[1]
+        } else {
+            &target_variables[0]
+        };
+
         let iter_next_position = InstructionPosition(self.builder.position().0 + 1);
         let placeholder = match collection_type {
             Collection::Vec => {
@@ -275,7 +282,45 @@ impl CodeBuilder<'_> {
                     "vec iter init",
                 );
 
-                if target_variables.len() == 2 {
+                let hwm = self.temp_registers.save_mark();
+                let is_pair = target_variables.len() == 2;
+
+                let placeholder = if primary_register.ty.basic_type.is_simple_primitive() {
+                    // For primitives, create temp register to hold the address, since they do not want
+                    // the address
+                    let temp_addr = self.temp_registers.allocate(
+                        primary_register.ty.clone(),
+                        "temp address for iterator value",
+                    );
+
+                    let p = if is_pair {
+                        self.builder.add_vec_iter_next_pair_placeholder(
+                            &target_iterator_header_reg,
+                            &target_variables[0],
+                            &temp_addr.register,
+                            node,
+                            "vec iter next single into temp",
+                        )
+                    } else {
+                        self.builder.add_vec_iter_next_placeholder(
+                            &target_iterator_header_reg,
+                            &temp_addr.register,
+                            node,
+                            "vec iter next single into temp",
+                        )
+                    };
+
+                    self.emit_load_from_memory(
+                        primary_register,
+                        &temp_addr.register,
+                        MemoryOffset(0),
+                        &primary_register.ty,
+                        node,
+                        "load primitive from element address",
+                    );
+                    p
+                } else if is_pair {
+                    // For non-primitives, use target directly
                     self.builder.add_vec_iter_next_pair_placeholder(
                         &target_iterator_header_reg,
                         &target_variables[0],
@@ -284,45 +329,17 @@ impl CodeBuilder<'_> {
                         "vec iter next pair",
                     )
                 } else {
-                    let hwm = self.temp_registers.save_mark();
+                    // For non-primitives, use target directly
+                    self.builder.add_vec_iter_next_placeholder(
+                        &target_iterator_header_reg,
+                        &target_variables[0],
+                        node,
+                        "vec iter next single",
+                    )
+                };
 
-                    let placeholder = if target_variables[0].ty.basic_type.is_simple_primitive() {
-                        // For primitives, create temp register to hold the address, since they do not want the
-                        // the address
-                        let temp_addr = self.temp_registers.allocate(
-                            target_variables[0].ty.clone(),
-                            "temp address for iterator value",
-                        );
-
-                        let p = self.builder.add_vec_iter_next_placeholder(
-                            &target_iterator_header_reg,
-                            &temp_addr.register,
-                            node,
-                            "vec iter next single into temp",
-                        );
-
-                        self.emit_load_from_memory(
-                            &target_variables[0],
-                            &temp_addr.register,
-                            MemoryOffset(0),
-                            &target_variables[0].ty,
-                            node,
-                            "load primitive from element address",
-                        );
-                        p
-                    } else {
-                        // For non-primitives, use target directly
-                        self.builder.add_vec_iter_next_placeholder(
-                            &target_iterator_header_reg,
-                            &target_variables[0],
-                            node,
-                            "vec iter next single",
-                        )
-                    };
-
-                    self.temp_registers.restore_to_mark(hwm);
-                    placeholder
-                }
+                self.temp_registers.restore_to_mark(hwm);
+                placeholder
             }
             Collection::Map => {
                 self.builder.add_map_iter_init(

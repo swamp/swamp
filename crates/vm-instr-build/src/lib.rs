@@ -483,8 +483,8 @@ impl InstructionBuilder<'_> {
     pub fn add_vec_iter_next_pair_placeholder(
         &mut self,
         iterator_target: &TypedRegister,
-        closure_variable: &TypedRegister,
-        closure_variable_b: &TypedRegister,
+        closure_variable_key: &TypedRegister,
+        closure_variable_value: &TypedRegister,
         node: &Node,
         comment: &str,
     ) -> PatchPosition {
@@ -497,8 +497,8 @@ impl InstructionBuilder<'_> {
             OpCode::VecIterNextPair,
             &[
                 iterator_target.addressing(),
-                closure_variable.addressing(),
-                closure_variable_b.addressing(),
+                closure_variable_key.addressing(),
+                closure_variable_value.addressing(),
                 0,
             ],
             node,

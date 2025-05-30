@@ -293,7 +293,7 @@ impl OpCode {
             Self::VecPushAddr => "vec.push",
             Self::VecIterInit => "vec.iter",
             Self::VecIterNext => "vec.itern",
-            Self::VecIterNextPair => "vect.iternp",
+            Self::VecIterNextPair => "vec.iternp",
             Self::VecRemoveIndex => "vec.rem",
             Self::VecPop => "vec.pop",
             Self::VecRemoveIndexGetValue => "vec.remv",

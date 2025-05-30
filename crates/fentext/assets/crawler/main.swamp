@@ -91,6 +91,10 @@ impl Crawler {
       move(0, y)
       for x in 0..GRID_WIDTH {
         entity_index = self.grid[y * GRID_WIDTH + x]
+         if entity_index > 1  || entity_index < 0 {
+          write("!")
+         } else {
+
           entity = self.entities[entity_index]
           match entity.type {
             Rock => write("."),
@@ -99,10 +103,13 @@ impl Crawler {
             Octopus => write("c"),
             _ => write("@"),
           }
+         }
       }
     }
-    for mut entity in self.entities {
+    for  mut entity in self.entities {
       Crawler::entity_tick(&entity)
+      //print('Entity {index} at ({entity.point.x}, {entity.point.y})')
+     // self.grid[entity.point.y * GRID_WIDTH + entity.point.x] = index
     }
   }
 }
@@ -120,17 +127,10 @@ fn main() -> Crawler {
       },
       Entity {
         type: Type::Player,
-        point: Point { x: 1, y: 0 },
-      },
-      Entity {
-        type: Type::Spider,
         point: Point { x: 2, y: 0 },
       },
-      Entity {
-        type: Type::Octopus,
-        point: Point { x: 3, y: 0 },
-      },
+
     ],
-    grid: [0, 1, 2]
+    grid: [0, 1, 0, 0]
   }
 }
