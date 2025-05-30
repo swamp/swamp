@@ -184,15 +184,17 @@ optional_marker = { "?" }
 base_type       = {
 qualified_type_identifier
 | function_type
-| slice_pair_type
-| slice_type
+| fixed_capacity_map_type
+| fixed_capacity_array_type
 | tuple_type
 | struct_type
 | unit_type
 }
 
-slice_type    = { "[" ~ type_name ~ (";" ~ unsigned_int_lit)? ~ "]" }
-slice_pair_type      = { "[" ~ type_name ~ ":" ~ type_name ~ (";" ~ unsigned_int_lit)? ~ "]" }
+fixed_capacity_array_type    = { "[" ~ type_name ~ ";" ~ unsigned_int_lit ~ "]" }
+slice_view_type           = { "[" ~ type_name ~ "]" }
+fixed_capacity_map_type      = { "[" ~ type_name ~ ":" ~ type_name ~ ";" ~ unsigned_int_lit ~ "]" }
+dynamic_map_type          = { "[" ~ type_name ~ ":" ~ type_name ~ "]" }
 
 tuple_type    = { "(" ~ type_name ~ (COMMA ~ type_name)* ~ TRAILING_COMMA ~ ")" }
 //  "(" ~ type_name ~ (COMMA ~ type_name)* ~ ")"

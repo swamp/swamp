@@ -48,12 +48,9 @@ impl HostArgs {
     pub fn get_ptr(&mut self, register: u8) -> *mut u8 {
         let addr = self.registers[register as usize];
 
-        let p: *mut u8 = unsafe {
-            self.all_memory.add(addr as usize)
-        };
+        let p: *mut u8 = unsafe { self.all_memory.add(addr as usize) };
         p
     }
-
 
     pub fn print_bytes(label: &str, bytes: &[u8]) {
         print!("{label}: [");

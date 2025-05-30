@@ -47,7 +47,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            Type::Vec(element_type) => {
+            Type::SliceView(element_type) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,

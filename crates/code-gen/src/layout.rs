@@ -7,6 +7,7 @@ use source_map_node::Node;
 use std::cmp::max;
 use std::fmt::Write;
 use swamp_semantic::{VariableRef, VariableType};
+use swamp_types::Type::FixedSizeArray;
 use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_types::aligner::align;
 use swamp_vm_types::types::{
@@ -223,6 +224,7 @@ const fn create_basic_type(
 ///
 /// # Panics
 ///
+#[allow(clippy::too_many_lines)]
 #[must_use]
 pub fn layout_type(ty: &Type) -> BasicType {
     match ty {
@@ -238,7 +240,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
             STRING_PTR_ALIGNMENT,
         ),
         Type::Range(_) => range_type(),
-        Type::Vec(element_type) => {
+        Type::SliceView(element_type) => {
             let element_type_basic = layout_type(element_type);
             create_basic_type(
                 BasicTypeKind::InternalVecView(Box::from(element_type_basic)),
@@ -246,6 +248,21 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 PTR_ALIGNMENT,
             )
         }
+        Type::FixedSizeArray(element_type, fixed_size_element_count) => {
+            let element_type_basic = layout_type(element_type);
+            let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count
+                + VEC_HEADER_SIZE.0 as usize;
+            let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
+            create_basic_type(
+                BasicTypeKind::FixedCapacityArray(
+                    Box::from(element_type_basic),
+                    *fixed_size_element_count,
+                ),
+                MemorySize(total_size as u16),
+                max_alignment,
+            )
+        }
+
         Type::VecStorage(element_type, fixed_size_element_count) => {
             let element_type_basic = layout_type(element_type);
             let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count
@@ -260,7 +277,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 max_alignment,
             )
         }
-        Type::Map(key_type, element_type) => {
+        Type::DynamicMap(key_type, element_type) => {
             let element_type_basic = layout_type(element_type);
             create_basic_type(
                 BasicTypeKind::InternalVecView(Box::from(element_type_basic)),
@@ -283,6 +300,14 @@ pub fn layout_type(ty: &Type) -> BasicType {
             )
         }
         Type::DynamicSlice(inner_type) => {
+            let inner_gen_type = layout_type(inner_type);
+            create_basic_type(
+                BasicTypeKind::InternalVecView(Box::from(inner_gen_type)),
+                PTR_SIZE,
+                PTR_ALIGNMENT,
+            )
+        }
+        Type::DynamicVec(inner_type) => {
             let inner_gen_type = layout_type(inner_type);
             create_basic_type(
                 BasicTypeKind::InternalVecView(Box::from(inner_gen_type)),

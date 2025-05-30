@@ -566,8 +566,11 @@ impl GenericParameter {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum Type {
     // Composite
-    Slice(Box<Type>, Option<Node>),                // Value array
-    SlicePair(Box<Type>, Box<Type>, Option<Node>), // Key : Value
+    FixedCapacityArray(Box<Type>, Node),          // `[T; N]`
+    Slice(Box<Type>), // `[T]`. Contiguous memory segments without ownership, Unsized Type (DST) that has inline data
+    FixedCapacityMap(Box<Type>, Box<Type>, Node), // `[K:V;N]`
+    DynamicMap(Box<Type>, Box<Type>), // `[K:V]`
+
     AnonymousStruct(AnonymousStructType),
     Unit,
     Tuple(Vec<Type>),

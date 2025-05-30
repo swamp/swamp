@@ -1253,7 +1253,7 @@ impl<'a> Analyzer<'a> {
                             // Keep previous mutable
                             tv.resolved_type = *element_type_in_slice.clone();
                         }
-                        Type::VecStorage(element_type, _) | Type::Vec(element_type) => {
+                        Type::VecStorage(element_type, _) | Type::SliceView(element_type) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
                                 self.analyze_expression(index_expr, &unsigned_int_context)?;
@@ -1273,7 +1273,7 @@ impl<'a> Analyzer<'a> {
                             tv.resolved_type = *element_type.clone();
                         }
                         Type::MapStorage(key_type, value_type, _)
-                        | Type::Map(key_type, value_type) => {
+                        | Type::DynamicMap(key_type, value_type) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
                                 self.analyze_expression(index_expr, &unsigned_int_context)?;
@@ -1523,7 +1523,7 @@ impl<'a> Analyzer<'a> {
         let resolved_type = &resolved_expression.ty().clone();
         let (key_type, value_type): (Option<Type>, Type) = match resolved_type {
             Type::String => (Some(Type::Int), Type::String),
-            Type::Vec(element_type) => (Some(Type::Int), *element_type.clone()),
+            Type::SliceView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::Range(_) => (None, Type::Int),
 
             /*
@@ -1827,7 +1827,7 @@ impl<'a> Analyzer<'a> {
             } else {
                 match expected_type {
                     Type::MapStorage(key, value, _) => Some((*key.clone(), *value.clone())),
-                    Type::Map(key, value) => Some((*key.clone(), *value.clone())),
+                    Type::DynamicMap(key, value) => Some((*key.clone(), *value.clone())),
                     _ => return Err(self.create_err(ErrorKind::ExpectedSlice, node)),
                 }
             }
@@ -1899,7 +1899,7 @@ impl<'a> Analyzer<'a> {
                 match &expected_type.underlying() {
                     // We can infer the slice type from target
                     Type::VecStorage(element_type, _) => Some(*element_type.clone()),
-                    Type::Vec(element_type) => Some(*element_type.clone()),
+                    Type::SliceView(element_type) => Some(*element_type.clone()),
                     _ => return Err(self.create_err(ErrorKind::ExpectedSlice, node)),
                 }
             }
@@ -2759,7 +2759,7 @@ impl<'a> Analyzer<'a> {
                             ty = *element_type.clone();
                         }
 
-                        Type::Vec(element_type) | Type::VecStorage(element_type, _) => {
+                        Type::SliceView(element_type) | Type::VecStorage(element_type, _) => {
                             let mut_type = Box::from(Type::MutableReference(element_type.clone()));
                             self.add_location_item(
                                 &mut items,
@@ -3343,7 +3343,7 @@ impl<'a> Analyzer<'a> {
                                 node: None,
                             },
                         ],
-                        return_type: Box::new(Type::Vec(Box::from(element_type.clone()))),
+                        return_type: Box::new(Type::SliceView(Box::from(element_type.clone()))),
                     },
                 )
             }
@@ -3356,7 +3356,9 @@ impl<'a> Analyzer<'a> {
             }
             _ => {
                 return Err(self.create_err(
-                    ErrorKind::UnknownMemberFunction(Type::Vec(Box::from(element_type.clone()))),
+                    ErrorKind::UnknownMemberFunction(Type::SliceView(Box::from(
+                        element_type.clone(),
+                    ))),
                     node,
                 ));
             }
@@ -3378,7 +3380,7 @@ impl<'a> Analyzer<'a> {
                 field_name_str,
                 node,
             ),
-            Type::Vec(element_type) => self.vec_member_signature(
+            Type::SliceView(element_type) => self.vec_member_signature(
                 type_that_member_is_on,
                 element_type,
                 field_name_str,

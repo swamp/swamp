@@ -243,10 +243,6 @@ pub enum BasicTypeKind {
     Fixed32,
     U32,
     InternalStringPointer,
-    InternalVecView(Box<BasicType>),
-    InternalVecStorage(Box<BasicType>, usize),
-    InternalMapStorage(Box<TupleType>, usize),
-    InternalMapPointer(Box<BasicType>, Box<BasicType>),
     InternalGridPointer,
     Struct(StructType),
     TaggedUnion(TaggedUnion),
@@ -262,6 +258,13 @@ pub enum BasicTypeKind {
     Slice(Box<BasicType>),
     SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
     MutablePointer(Box<BasicType>),
+
+    // Collections
+    FixedCapacityArray(Box<BasicType>, usize),
+    InternalVecView(Box<BasicType>),
+    InternalVecStorage(Box<BasicType>, usize),
+    InternalMapStorage(Box<TupleType>, usize),
+    InternalMapPointer(Box<BasicType>, Box<BasicType>),
 }
 
 impl BasicTypeKind {}
@@ -353,6 +356,7 @@ impl Display for BasicTypeKind {
             Self::U32 => write!(f, "u32"),
             Self::InternalStringPointer => write!(f, "String"),
             Self::InternalRangeHeader => write!(f, "Range"),
+            Self::FixedCapacityArray(item_type, size) => write!(f, "[{item_type}; {size}]"),
             Self::InternalVecView(item_type) => write!(f, "Vec<{item_type}>"),
             Self::InternalVecStorage(item_type, size) => write!(f, "Vec<{item_type}, {size}>"),
             Self::InternalMapStorage(tuple_type, size) => write!(
@@ -1797,6 +1801,9 @@ pub fn write_basic_type(
         }
         BasicTypeKind::MutablePointer(inner) => {
             write!(f, "&mut {inner}")
+        }
+        BasicTypeKind::FixedCapacityArray(element_type, size) => {
+            write!(f, "[{element_type}, {size}]")
         }
         BasicTypeKind::InternalVecView(element_type) => {
             write!(f, "Vec<{element_type}>")

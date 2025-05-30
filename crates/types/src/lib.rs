@@ -45,11 +45,17 @@ pub enum Type {
     MutableReference(Box<Type>),
     ImmutableReference(Box<Type>),
 
+    FixedSizeArray(Box<Type>, usize),
+
+    // View
+    SliceView(Box<Type>),
+
+    // Collections
+    DynamicVec(Box<Type>),
     VecStorage(Box<Type>, usize),
-    Vec(Box<Type>),
 
     MapStorage(Box<Type>, Box<Type>, usize),
-    Map(Box<Type>, Box<Type>),
+    DynamicMap(Box<Type>, Box<Type>),
 }
 
 impl Type {
@@ -64,7 +70,7 @@ impl Type {
     pub fn lowest_common_denominator(&self) -> Self {
         match self {
             Self::VecStorage(inner, _size) => Self::DynamicSlice(inner.clone()), //Self::Vec(Box::from(*inner.clone())),
-            Self::Vec(inner) => Self::DynamicSlice(inner.clone()),
+            Self::SliceView(inner) => Self::DynamicSlice(inner.clone()),
             _ => self.clone(),
         }
     }
@@ -149,7 +155,7 @@ impl Type {
     #[must_use]
     pub fn primary_element_type(&self) -> Option<&Self> {
         match self {
-            Self::Vec(element_type) => Some(element_type),
+            Self::SliceView(element_type) => Some(element_type),
 
             Self::MutableReference(inner) => inner.primary_element_type(),
             _ => None,
@@ -336,9 +342,11 @@ impl Type {
             | Self::Blueprint(_)
             | Self::Variable(_) => false,
 
-            Self::Vec(_) => false,
+            Self::SliceView(_) => false,
+            Self::DynamicVec(_) => true,
             Self::VecStorage(_, _) => true,
-            Self::Map(_, _) => false,
+            Self::FixedSizeArray(_, _) => true,
+            Self::DynamicMap(_, _) => false,
             Self::MapStorage(_, _, _) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -409,10 +417,12 @@ impl Type {
             | Self::Blueprint(_)
             | Self::DynamicSlice(_)
             | Self::DynamicSlicePair(_, _)
-            | Self::Vec(_)
-            | Self::Map(_, _)
+            | Self::SliceView(_)
+            | Self::DynamicMap(_, _)
+            | Self::DynamicVec(_)
             | Self::Variable(_) => false,
 
+            Self::FixedSizeArray(_, _) => true,
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
             Self::Range(_) => true,
@@ -457,7 +467,7 @@ impl Type {
 
     #[must_use]
     pub fn can_be_stored_in_variable(&self) -> bool {
-        self.is_concrete() || matches!(self, Self::Vec(_))
+        self.is_concrete() || matches!(self, Self::SliceView(_))
     }
 
     // TODO: Fix this
@@ -484,12 +494,14 @@ impl Type {
             | Self::DynamicSlice(_)
             | Self::MutableReference(_)
             | Self::ImmutableReference(_)
-            | Self::Vec(_)
-            | Self::Map(_, _)
+            | Self::SliceView(_)
+            | Self::DynamicMap(_, _)
+            | Self::DynamicVec(_)
             | Self::Variable(_) => false,
 
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
+            Self::FixedSizeArray(_, _) => true,
             Self::Range(_) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -554,16 +566,22 @@ impl Debug for Type {
             Self::DynamicSlice(value_type) => {
                 write!(f, "Slice<{value_type:?}>")
             }
+            Self::FixedSizeArray(element_type, size) => {
+                write!(f, "[{element_type:?}; {size}]")
+            }
             Self::VecStorage(value_type, size) => {
                 write!(f, "VecStorage<{value_type:?}, {size}>")
             }
-            Self::Vec(value_type) => {
+            Self::DynamicVec(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
+            }
+            Self::SliceView(value_type) => {
+                write!(f, "[{value_type:?}]")
             }
             Self::MapStorage(key_type, value_type, size) => {
                 write!(f, "MapStorage<{key_type:?}, {value_type:?}, {size}>")
             }
-            Self::Map(key_type, value_type) => {
+            Self::DynamicMap(key_type, value_type) => {
                 write!(f, "Map<{key_type:?}, {value_type:?}>")
             }
             Self::DynamicSlicePair(key_type, value_type) => {
@@ -599,16 +617,22 @@ impl Display for Type {
             Self::Generic(blueprint, non_concrete_arguments) => {
                 write!(f, "{blueprint:?}<{non_concrete_arguments:?}>")
             }
+            Self::FixedSizeArray(value_type, size) => {
+                write!(f, "[{value_type:?}; {size}]")
+            }
             Self::VecStorage(value_type, size) => {
                 write!(f, "VecStorage<{value_type:?}, {size}>")
             }
-            Self::Vec(value_type) => {
+            Self::DynamicVec(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
+            }
+            Self::SliceView(value_type) => {
+                write!(f, "[{value_type:?}]")
             }
             Self::MapStorage(key_type, value_type, size) => {
                 write!(f, "MapStorage<{key_type}, {value_type}, {size}>")
             }
-            Self::Map(key_type, value_type) => {
+            Self::DynamicMap(key_type, value_type) => {
                 write!(f, "Map<{key_type}, {value_type}>")
             }
             Self::DynamicSlice(value_type) => {
@@ -659,15 +683,17 @@ impl Type {
             | (Self::Unit, Self::Unit) => true,
 
             (Self::DynamicSlice(a), Self::DynamicSlice(b)) => a.compatible_with(b),
-            (Self::DynamicSlice(a), Self::Vec(b)) => a.compatible_with(b),
+            (Self::DynamicSlice(a), Self::SliceView(b)) => a.compatible_with(b),
 
-            (Self::Vec(element_a), Self::Vec(element_b)) => element_a.compatible_with(element_b),
-            (Self::Vec(vec_element), Self::VecStorage(storage_element, _size)) => {
+            (Self::SliceView(element_a), Self::SliceView(element_b)) => {
+                element_a.compatible_with(element_b)
+            }
+            (Self::SliceView(vec_element), Self::VecStorage(storage_element, _size)) => {
                 vec_element.compatible_with(storage_element)
             }
             // TODO: These are not technically the same, so it should probably be in a can_be_converted from, in a special
             // analyze_assignment_like() helper
-            (Self::VecStorage(storage_element, _size), Self::Vec(vec_element)) => {
+            (Self::VecStorage(storage_element, _size), Self::SliceView(vec_element)) => {
                 vec_element.compatible_with(storage_element)
             }
             (

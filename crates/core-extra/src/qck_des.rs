@@ -216,11 +216,13 @@ pub fn quick_deserialize(resolved_type: &Type, buf: &[u8], depth: usize) -> (Val
         &swamp_types::Type::Variable(_) => todo!(),
         &swamp_types::Type::Generic(_, _) => todo!(),
         &swamp_types::Type::Blueprint(_) => todo!(),
-        &swamp_types::Type::VecStorage(_, _) | &swamp_types::Type::Vec(_) => todo!(),
+        &swamp_types::Type::VecStorage(_, _) | &swamp_types::Type::SliceView(_) => todo!(),
         &swamp_types::Type::DynamicSlice(_) | &swamp_types::Type::DynamicSlicePair(_, _) => todo!(),
         &swamp_types::Type::ImmutableReference(_) => todo!(),
-        &swamp_types::Type::MapStorage(_, _, _) | &swamp_types::Type::Map(_, _) => todo!(),
+        &swamp_types::Type::MapStorage(_, _, _) | &swamp_types::Type::DynamicMap(_, _) => todo!(),
         &swamp_types::Type::Range(_) => todo!(),
+        &swamp_types::Type::DynamicVec(_) => todo!(),
+        &swamp_types::Type::FixedSizeArray(_, _) => todo!(),
     };
 
     (val, octet_size)

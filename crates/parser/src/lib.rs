@@ -2383,9 +2383,11 @@ impl AstParser {
                 let elements = self.parse_tuple_type_elements(&pair)?;
                 Ok(Type::Tuple(elements))
             }
-            Rule::slice_pair_type => self.parse_slice_pair_type(&pair),
+            Rule::fixed_capacity_array_type => self.parse_fixed_capacity_array_type(&pair),
+            Rule::slice_view_type => self.parse_slice_view_type(&pair),
 
-            Rule::slice_type => self.parse_slice_type(&pair),
+            Rule::fixed_capacity_map_type => self.parse_fixed_capacity_map_type(&pair),
+            Rule::dynamic_map_type => self.parse_dynamic_map_type(&pair),
 
             Rule::struct_type => {
                 let element_type = self.parse_struct_type(&pair)?;
@@ -2401,27 +2403,40 @@ impl AstParser {
         }
     }
 
-    fn parse_slice_pair_type(&self, pair: &Pair<Rule>) -> Result<Type, ParseError> {
+    fn parse_fixed_capacity_map_type(&self, pair: &Pair<Rule>) -> Result<Type, ParseError> {
         let mut inner = pair.clone().into_inner();
         let key_type = self.parse_type(Self::next_pair(&mut inner)?)?;
         let value_type = self.parse_type(Self::next_pair(&mut inner)?)?;
-        let maybe_next = inner.next();
-        let size_node = maybe_next.map(|found_size_pair| self.to_node(&found_size_pair));
+        let size_pair = inner.next().unwrap();
+        let size_node = self.to_node(&size_pair);
 
-        Ok(Type::SlicePair(
+        Ok(Type::FixedCapacityMap(
             Box::new(key_type),
             Box::new(value_type),
             size_node,
         ))
     }
 
-    fn parse_slice_type(&self, pair: &Pair<Rule>) -> Result<Type, ParseError> {
+    fn parse_dynamic_map_type(&self, pair: &Pair<Rule>) -> Result<Type, ParseError> {
+        let mut inner = pair.clone().into_inner();
+        let key_type = self.parse_type(Self::next_pair(&mut inner)?)?;
+        let value_type = self.parse_type(Self::next_pair(&mut inner)?)?;
+
+        Ok(Type::DynamicMap(Box::new(key_type), Box::new(value_type)))
+    }
+
+    fn parse_fixed_capacity_array_type(&self, pair: &Pair<Rule>) -> Result<Type, ParseError> {
         let mut inner = pair.clone().into_inner();
         let element_type = self.parse_type(inner.next().unwrap())?;
-        let maybe_next = inner.next();
-        let size_node = maybe_next.map(|found_size_pair| self.to_node(&found_size_pair));
+        let size_pair = inner.next().unwrap();
+        let size_node = self.to_node(&size_pair);
+        Ok(Type::FixedCapacityArray(Box::new(element_type), size_node))
+    }
 
-        Ok(Type::Slice(Box::new(element_type), size_node))
+    fn parse_slice_view_type(&self, pair: &Pair<Rule>) -> Result<Type, ParseError> {
+        let mut inner = pair.clone().into_inner();
+        let element_type = self.parse_type(inner.next().unwrap())?;
+        Ok(Type::Slice(Box::new(element_type)))
     }
 
     #[allow(unused)] // TODO: Use this again

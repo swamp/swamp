@@ -30,7 +30,7 @@ impl Analyzer<'_> {
 
     /// # Errors
     ///
-    pub fn analyze_slice_pair_key_and_value_type(
+    pub fn analyze_key_and_value_type(
         &mut self,
         ast_key_type: &swamp_ast::Type,
         ast_value_type: &swamp_ast::Type,
@@ -50,29 +50,34 @@ impl Analyzer<'_> {
                 let struct_ref = self.analyze_anonymous_struct_type(ast_struct)?;
                 Type::AnonymousStruct(struct_ref)
             }
-            swamp_ast::Type::Slice(ast_type, maybe_fixed_size) => {
+            swamp_ast::Type::FixedCapacityArray(ast_type, fixed_size) => {
                 let element_type = self.analyze_slice_type(ast_type)?;
-                if let Some(fixed_size) = maybe_fixed_size {
-                    let int_str = self.get_text(fixed_size);
-                    let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
+                let int_str = self.get_text(fixed_size);
+                let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
-                    Type::VecStorage(Box::new(element_type), int_value)
-                } else {
-                    Type::Vec(Box::new(element_type))
-                }
+                Type::VecStorage(Box::new(element_type), int_value)
             }
-            swamp_ast::Type::SlicePair(ast_key_type, ast_value_type, maybe_fixed_size) => {
+            swamp_ast::Type::Slice(ast_type) => {
+                let element_type = self.analyze_slice_type(ast_type)?;
+                Type::SliceView(Box::new(element_type))
+            }
+
+            swamp_ast::Type::FixedCapacityMap(ast_key_type, ast_value_type, fixed_size) => {
                 let (key_type, value_type) =
-                    self.analyze_slice_pair_key_and_value_type(ast_key_type, ast_value_type)?;
-                if let Some(fixed_size) = maybe_fixed_size {
-                    let int_str = self.get_text(fixed_size);
-                    let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
+                    self.analyze_key_and_value_type(ast_key_type, ast_value_type)?;
 
-                    Type::MapStorage(Box::new(key_type), Box::new(value_type), int_value)
-                } else {
-                    Type::Map(Box::new(key_type), Box::new(value_type))
-                }
+                let int_str = self.get_text(fixed_size);
+                let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
+
+                Type::MapStorage(Box::new(key_type), Box::new(value_type), int_value)
             }
+            swamp_ast::Type::DynamicMap(ast_key_type, ast_value_type) => {
+                let (key_type, value_type) =
+                    self.analyze_key_and_value_type(ast_key_type, ast_value_type)?;
+
+                Type::DynamicMap(Box::new(key_type), Box::new(value_type))
+            }
+
             swamp_ast::Type::Tuple(types) => Type::Tuple(self.analyze_types(types)?),
             swamp_ast::Type::Named(ast_type_reference) => {
                 if let Some(found_special_type) =
