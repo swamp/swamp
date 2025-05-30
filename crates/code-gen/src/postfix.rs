@@ -118,6 +118,7 @@ impl CodeBuilder<'_> {
                                     &internal_fn.signature.signature,
                                     Some(&absolute_self_pointer_register),
                                     arguments,
+                                    false,
                                     ctx,
                                 );
                                 self.emit_call(&element.node, internal_fn, "emit_rvalue call");

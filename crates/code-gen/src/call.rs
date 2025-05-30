@@ -226,6 +226,7 @@ impl CodeBuilder<'_> {
         signature: &Signature,
         self_variable: Option<&TypedRegister>,
         arguments: &[ArgumentExpression],
+        is_host_call: bool,
         ctx: &Context,
     ) -> EmitArgumentInfo {
         let mut copy_back_phase_one: Vec<MutableReturnReg> = Vec::new();
@@ -234,7 +235,17 @@ impl CodeBuilder<'_> {
         let base_reg_replacement_lookup =
             self.find_replacements_for_mutable_primitive_arguments(arguments, node, ctx);
 
-        let scope = self.spill_required_registers(false, node, "spill before emit arguments");
+        let scope = if is_host_call {
+            ArgumentAndTempScope {
+                argument_registers: SpilledRegisterRegion {
+                    registers: RepresentationOfRegisters::Individual(vec![]),
+                    frame_memory_region: Default::default(),
+                },
+                scratch_registers: None,
+            }
+        } else {
+            self.spill_required_registers(false, node, "spill before emit arguments")
+        };
 
         // Handle return primitive or aggregate types
         if !signature.return_type.is_unit() {
@@ -584,6 +595,7 @@ impl CodeBuilder<'_> {
             &internal_fn.signature.signature,
             None,
             arguments,
+            false,
             ctx,
         );
 

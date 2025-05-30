@@ -20,6 +20,7 @@ impl CodeBuilder<'_> {
             &host_fn.signature,
             None,
             arguments,
+            true,
             ctx,
         );
 
@@ -54,6 +55,7 @@ impl CodeBuilder<'_> {
             &host_fn.signature,
             Some(self_frame_placed_type),
             arguments,
+            true,
             ctx,
         );
 
