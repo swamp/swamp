@@ -4,7 +4,6 @@
  */
 pub mod intr;
 pub mod prelude;
-pub mod type_var_stack;
 use crate::intr::IntrinsicFunction;
 use crate::prelude::IntrinsicFunctionDefinitionRef;
 pub use fixed32::Fp;

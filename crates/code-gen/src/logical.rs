@@ -97,10 +97,7 @@ impl CodeBuilder<'_> {
                 };
             }
             ExpressionKind::BinaryOp(operator) => match &operator.kind {
-                BinaryOperatorKind::LogicalOr => {
-                    return self.emit_binary_operator_logical_to_t_flag(operator, ctx);
-                }
-                BinaryOperatorKind::LogicalAnd => {
+                BinaryOperatorKind::LogicalAnd | BinaryOperatorKind::LogicalOr => {
                     return self.emit_binary_operator_logical_to_t_flag(operator, ctx);
                 }
                 BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {

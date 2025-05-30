@@ -5,7 +5,7 @@ use swamp_vm_types::types::BasicType;
 use swamp_vm_types::{AggregateMemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
-    pub(crate) fn emit_slice_literal_into_target_lvalue_memory_location(
+    pub(crate) fn emit_initializer_list_into_target_lvalue_memory_location(
         &mut self,
         lvalue_location: &AggregateMemoryLocation,
         element_gen_type: &BasicType,

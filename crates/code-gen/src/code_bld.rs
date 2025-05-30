@@ -27,7 +27,7 @@ pub struct EmitArgumentInfo {
     pub copy_back_of_registers_mutated_by_callee: Vec<MutableReturnReg>,
 }
 
-pub(crate) struct MutableReturnReg {
+pub struct MutableReturnReg {
     pub target_location_after_call: Destination,
     pub parameter_reg: TypedRegister,
 }

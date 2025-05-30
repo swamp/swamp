@@ -24,12 +24,6 @@ impl Analyzer<'_> {
 
     /// # Errors
     ///
-    pub fn analyze_slice_type(&mut self, ast_type: &swamp_ast::Type) -> Result<Type, Error> {
-        self.analyze_type(ast_type)
-    }
-
-    /// # Errors
-    ///
     pub fn analyze_key_and_value_type(
         &mut self,
         ast_key_type: &swamp_ast::Type,
@@ -51,14 +45,14 @@ impl Analyzer<'_> {
                 Type::AnonymousStruct(struct_ref)
             }
             swamp_ast::Type::FixedCapacityArray(ast_type, fixed_size) => {
-                let element_type = self.analyze_slice_type(ast_type)?;
+                let element_type = self.analyze_type(ast_type)?;
                 let int_str = self.get_text(fixed_size);
                 let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
                 Type::FixedCapacityAndLengthArray(Box::new(element_type), int_value)
             }
             swamp_ast::Type::Slice(ast_type) => {
-                let element_type = self.analyze_slice_type(ast_type)?;
+                let element_type = self.analyze_type(ast_type)?;
                 Type::SliceView(Box::new(element_type))
             }
 

@@ -34,7 +34,6 @@ use swamp_semantic::{
     TargetAssignmentLocation, TypeWithMut, VecType, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
-use swamp_types::all_types_are_concrete_or_unit;
 use swamp_types::prelude::*;
 use tracing::{error, info};
 
@@ -415,9 +414,7 @@ impl<'a> Analyzer<'a> {
         named_type: &swamp_ast::QualifiedTypeIdentifier,
         member_name_node: &swamp_ast::Node,
     ) -> Option<Function> {
-        let Some(some_type) = self.analyze_named_type(named_type).ok() else {
-            return None;
-        };
+        let some_type = self.analyze_named_type(named_type).ok()?;
 
         let member_name = self.get_text(member_name_node);
         self.lookup_associated_function(&some_type, member_name)
@@ -448,7 +445,7 @@ impl<'a> Analyzer<'a> {
                     ),
                 };
 
-                return Some(kind.clone());
+                return Some(kind);
             }
         }
 
@@ -477,16 +474,21 @@ impl<'a> Analyzer<'a> {
         &mut self,
         ast_expression: &swamp_ast::Expression,
     ) -> Option<StartOfChainBase> {
-        if let Some(found_func_def) = self.check_if_function_reference(ast_expression) {
-            Some(StartOfChainBase::FunctionReference(found_func_def))
-        } else if let swamp_ast::ExpressionKind::IdentifierReference(found_qualified_identifier) =
-            &ast_expression.kind
-        {
-            self.try_find_variable(&found_qualified_identifier.name)
-                .map(StartOfChainBase::Variable)
-        } else {
-            None
-        }
+        self.check_if_function_reference(ast_expression)
+            .map_or_else(
+                || {
+                    if let swamp_ast::ExpressionKind::IdentifierReference(
+                        found_qualified_identifier,
+                    ) = &ast_expression.kind
+                    {
+                        self.try_find_variable(&found_qualified_identifier.name)
+                            .map(StartOfChainBase::Variable)
+                    } else {
+                        None
+                    }
+                },
+                |found_func_def| Some(StartOfChainBase::FunctionReference(found_func_def)),
+            )
     }
 
     pub fn debug_expression(&self, expr: &swamp_ast::Expression, description: &str) {
@@ -592,73 +594,6 @@ impl<'a> Analyzer<'a> {
         todo!()
     }
 
-    /*
-        fn coerce_unrestricted_type(
-            &mut self,
-            ast_node: &swamp_ast::Node,
-            expr: Expression,
-        ) -> Result<Expression, Error> {
-            let expr = match &expr.ty {
-                Type::Slice(analyzed_element_type) => {
-                    let vec_blueprint = self
-                        .shared
-                        .core_symbol_table
-                        .get_blueprint("Vec")
-                        .unwrap()
-                        .clone();
-                    let created_type = self
-                        .shared
-                        .state
-                        .instantiator
-                        .instantiate_blueprint_and_members(
-                            &vec_blueprint,
-                            &[*analyzed_element_type.clone()],
-                        )?;
-                    assert!(analyzed_element_type.is_concrete());
-                    let mut_or_immut = MutRefOrImmutableExpression::Expression(expr);
-
-                    let call_kind = self.create_static_member_intrinsic_call(
-                        "new_from_slice",
-                        &[mut_or_immut],
-                        &ast_node,
-                        &created_type,
-                    )?;
-
-                    self.create_expr(call_kind, created_type, ast_node)
-                }
-                Type::SlicePair(analyzed_key_type, analyzed_value_type) => {
-                    let map_blueprint = self
-                        .shared
-                        .core_symbol_table
-                        .get_blueprint("Map")
-                        .unwrap()
-                        .clone();
-
-                    let created_type = self
-                        .shared
-                        .state
-                        .instantiator
-                        .instantiate_blueprint_and_members(
-                            &map_blueprint,
-                            &[*analyzed_key_type.clone(), *analyzed_value_type.clone()],
-                        )?;
-
-                    let mut_or_immut = MutRefOrImmutableExpression::Expression(expr);
-
-                    let call_kind = self.create_static_member_intrinsic_call(
-                        "new_from_slice_pair",
-                        &[mut_or_immut],
-                        &ast_node,
-                        &created_type,
-                    )?;
-
-                    self.create_expr(call_kind, created_type, ast_node)
-                }
-                _ => expr,
-            };
-            Ok(expr)
-        }
-    */
     /// # Errors
     ///
     #[allow(clippy::too_many_lines)]
@@ -1581,34 +1516,6 @@ impl<'a> Analyzer<'a> {
         Ok((resolved_expressions, last_type))
     }
 
-    /*
-    fn analyze_interpolated_string(
-        &mut self,
-        string_parts: &[swamp_ast::StringPart],
-    ) -> Result<Vec<StringPart>, Error> {
-        let mut resolved_parts = Vec::new();
-        for part in string_parts {
-            let resolved_string_part = match part {
-                swamp_ast::StringPart::Literal(string_node, processed_string) => {
-                    StringPart::Literal(self.to_node(string_node), processed_string.to_string())
-                }
-                swamp_ast::StringPart::Interpolation(expression, format_specifier) => {
-                    let any_context = TypeContext::new_anything_argument();
-                    let expr = self.analyze_expression(expression, &any_context)?;
-                    let resolved_format_specifier =
-                        self.analyze_format_specifier(Option::from(format_specifier));
-                    StringPart::Interpolation(expr, resolved_format_specifier)
-                }
-            };
-
-            resolved_parts.push(resolved_string_part);
-        }
-
-        Ok(resolved_parts)
-    }
-
-     */
-
     fn analyze_interpolated_string_lowering(
         &mut self,
         node: &swamp_ast::Node,
@@ -2062,17 +1969,6 @@ impl<'a> Analyzer<'a> {
 
     fn str_to_bool(text: &str) -> Result<bool, ParseBoolError> {
         bool::from_str(text)
-
-        /*
-        if node_text == "false" {
-            false
-        } else if node_text == "true" {
-            true
-        } else {
-            return Err(self.create_err(ErrorKind::BoolConversionError, ast_node));
-        };
-
-             */
     }
 
     fn analyze_pattern_literal(
@@ -2232,11 +2128,6 @@ impl<'a> Analyzer<'a> {
 
         for variable in variables {
             let any_context = TypeContext::new_anything_argument();
-
-            /*
-
-            */
-
             let must_have_expression = if let Some(x) = &variable.expression {
                 x
             } else {
@@ -2520,20 +2411,19 @@ impl<'a> Analyzer<'a> {
             let (chain_is_owned, chain_is_mutable) =
                 Self::chain_is_owned_result(start_chain, postfix);
             if lhs_is_mutable {
-                if chain_is_mutable {
-                    return AssignmentMode::CopyBlittable;
+                return if chain_is_mutable {
+                    AssignmentMode::CopyBlittable
                 } else if lhs_is_mutable {
                     if chain_is_owned {
-                        return AssignmentMode::OwnedValue;
+                        AssignmentMode::OwnedValue
                     } else {
-                        return AssignmentMode::CopyBlittable;
+                        AssignmentMode::CopyBlittable
                     }
                 } else {
-                    return AssignmentMode::CopySharedPtr;
-                }
-            } else {
-                // if not mutable, it is always ok
+                    AssignmentMode::CopySharedPtr
+                };
             }
+            // if not mutable, it is always ok
         }
 
         AssignmentMode::CopyBlittable
@@ -2765,58 +2655,6 @@ impl<'a> Analyzer<'a> {
                             todo!()
                         }
                     }
-
-                    /*
-                    let is_last_in_chain = i == chain.postfixes.len() - 1;
-                    let create_if_not_exists =
-                        is_last_in_chain && location_side == LocationSide::Lhs;
-
-                    let subscript_member_function_name = if create_if_not_exists {
-                        "subscript_mut_create_if_needed"
-                    } else {
-                        "subscript_mut"
-                    };
-
-                    if let Some(found) = self
-                        .shared
-                        .state
-                        .instantiator
-                        .associated_impls
-                        .get_internal_member_function(&ty, subscript_member_function_name)
-                        .cloned()
-                    {
-                        let (intrinsic_to_call, original_arguments) =
-                            Self::extract_single_intrinsic_call(&found.body)
-                                .expect(&format!("must exist {subscript_member_function_name}"));
-
-                        let create_if_not_exists_bool_expr = self.create_expr(
-                            ExpressionKind::Literal(Literal::BoolLiteral(create_if_not_exists)),
-                            Type::Bool,
-                            &chain.base.node,
-                        );
-
-                        let required_type = &found.signature.signature.parameters[1].resolved_type;
-                        let subscript_lookup_context = TypeContext::new_argument(required_type);
-                        let analyzed_key_expression =
-                            self.analyze_expression(key_expression, &subscript_lookup_context)?;
-                        let return_type = *found.signature.signature.return_type.clone();
-                        ty = return_type.clone();
-
-                        self.add_location_item(
-                            &mut items,
-                            LocationAccessKind::IntrinsicSubscript(
-                                intrinsic_to_call,
-                                vec![analyzed_key_expression, create_if_not_exists_bool_expr],
-                            ),
-                            return_type,
-                            &key_expression.node,
-                        );
-                    } else {
-                        return Err(self
-                            .create_err(ErrorKind::MissingSubscriptMember, &key_expression.node));
-                    }
-
-                     */
                 }
 
                 swamp_ast::Postfix::MemberCall(node, _generic_arguments, _regular_args) => {
@@ -3438,91 +3276,6 @@ impl<'a> Analyzer<'a> {
         Ok(last_type)
     }
 
-    /*
-    fn late_coerce_slice_pair(
-        &mut self,
-        ast_node: &swamp_ast::Node,
-        found_expected_type: &Type,
-        hopefully_slice_pair_expr: &Expression,
-    ) -> Result<Expression, Error> {
-        let return_type = if let Some(found) = self
-            .shared
-            .state
-            .instantiator
-            .associated_impls
-            .get_internal_member_function(found_expected_type, "new_from_slice_pair")
-        {
-            found.signature.signature.return_type.clone()
-        } else {
-            return Err(self.create_err(
-                ErrorKind::MissingMemberFunction(
-                    "new_from_slice".to_string(),
-                    found_expected_type.clone(),
-                ),
-                ast_node,
-            ));
-        };
-
-        let Type::SlicePair(key_type, value_type) = &hopefully_slice_pair_expr.ty else {
-            panic!("must be slice pair")
-        };
-
-        assert!(key_type.is_concrete_or_unit(), "{key_type:?}");
-        assert!(value_type.is_concrete_or_unit());
-
-        let mut_or_immute =
-            MutRefOrImmutableExpression::Expression(hopefully_slice_pair_expr.clone());
-        let call_kind = self.create_static_member_intrinsic_call(
-            "new_from_slice_pair",
-            &[mut_or_immute],
-            ast_node,
-            found_expected_type,
-        )?;
-        Ok(self.create_expr(call_kind, *return_type.clone(), ast_node))
-    }
-
-
-    fn late_coerce_slice(
-        &mut self,
-        ast_node: &swamp_ast::Node,
-        found_expected_type: &Type,
-        hopefully_slice_expr: &Expression,
-    ) -> Result<Expression, Error> {
-        let return_type = if let Some(found) = self
-            .shared
-            .state
-            .instantiator
-            .associated_impls
-            .get_internal_member_function(found_expected_type, "new_from_slice")
-        {
-            found.signature.signature.return_type.clone()
-        } else {
-            return Err(self.create_err(
-                ErrorKind::MissingMemberFunction(
-                    "new_from_slice".to_string(),
-                    found_expected_type.clone(),
-                ),
-                ast_node,
-            ));
-        };
-        let Type::Slice(found_slice_element_type) = &hopefully_slice_expr.ty else {
-            panic!("must be slice")
-        };
-
-        assert!(found_slice_element_type.is_concrete());
-
-        let mut_or_immute = MutRefOrImmutableExpression::Expression(hopefully_slice_expr.clone());
-        let call_kind = self.create_static_member_intrinsic_call(
-            "new_from_slice",
-            &[mut_or_immute],
-            ast_node,
-            found_expected_type,
-        )?;
-        Ok(self.create_expr(call_kind, *return_type.clone(), ast_node))
-    }
-
-    */
-
     fn is_compatible_initializer_list_target(
         target_type: &Type,
         initializer_element_type: &Type,
@@ -3682,21 +3435,5 @@ impl<'a> Analyzer<'a> {
         };
 
         Ok(ty)
-    }
-
-    fn late_coerce_slice(
-        &self,
-        node: &swamp_ast::Node,
-        expected: &Type,
-        encountered: &Type,
-        expr: &Expression,
-    ) -> Result<Expression, Error> {
-        Err(self.create_err(
-            ErrorKind::IncompatibleTypes {
-                expected: expected.clone(),
-                found: encountered.clone(),
-            },
-            node,
-        ))
     }
 }

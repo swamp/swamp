@@ -77,6 +77,7 @@ impl CodeBuilder<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_arguments)]
     pub fn emit_single_intrinsic_call_with_self(
         &mut self,
         target_destination: &Destination,

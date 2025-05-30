@@ -101,6 +101,7 @@ impl CodeBuilder<'_> {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn subscript_helper(
         &mut self,
         target_reg: &TypedRegister,

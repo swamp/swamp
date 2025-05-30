@@ -161,34 +161,6 @@ pub fn layout_enum(name: &str, variants: &[EnumVariantType]) -> BasicType {
     }
 }
 
-fn layout_slice(value_type: &Type, fixed_size: usize, name: &str) -> BasicType {
-    let basic = layout_type(value_type);
-    info!(?basic, "creating slice with basic element");
-    let total_size = fixed_size * basic.total_size.0 as usize;
-    BasicType {
-        max_alignment: basic.max_alignment,
-        kind: BasicTypeKind::SliceView(Box::from(basic)),
-        total_size: MemorySize(total_size as u16),
-    }
-}
-
-fn layout_slice_pair(a_type: &Type, b_type: &Type, fixed_size: usize) -> BasicType {
-    let tuple_type = layout_tuple_items(&[a_type.clone(), b_type.clone()]);
-    let key_type = &tuple_type.fields[0];
-    let value_type = &tuple_type.fields[1];
-
-    let total_size = fixed_size * tuple_type.total_size.0 as usize;
-
-    BasicType {
-        kind: BasicTypeKind::DynamicLengthMapView(
-            Box::new(key_type.clone()),
-            Box::new(value_type.clone()),
-        ),
-        total_size: MemorySize(total_size as u16),
-        max_alignment: tuple_type.max_alignment,
-    }
-}
-
 const fn create_basic_type(
     basic_type_kind: BasicTypeKind,
     size: MemorySize,
@@ -300,14 +272,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 max_alignment,
             )
         }
-        Type::InternalInitializerList(inner_type) => {
-            let inner_gen_type = layout_type(inner_type);
-            create_basic_type(
-                BasicTypeKind::DynamicLengthVecView(Box::from(inner_gen_type)),
-                PTR_SIZE,
-                PTR_ALIGNMENT,
-            )
-        }
+
         Type::DynamicLengthVecView(inner_type) => {
             let inner_gen_type = layout_type(inner_type);
             create_basic_type(
@@ -331,6 +296,9 @@ pub fn layout_type(ty: &Type) -> BasicType {
         Type::Optional(inner_type) => layout_optional_type(inner_type),
         Type::MutableReference(inner_type) => layout_mutable_reference(inner_type),
         // ----------
+        Type::InternalInitializerList(inner_type) => {
+            panic!("InternalInitializerList should not be a part of codegen");
+        }
         Type::Function(_) => panic!("function types should not be a part of codegen"),
         Type::Never => panic!("'never' should not be a part of codegen"),
     }
@@ -350,10 +318,6 @@ fn layout_mutable_reference(analyzed_type: &Type) -> BasicType {
         max_alignment: inner_type.max_alignment,
         kind: BasicTypeKind::MutablePointer(Box::from(inner_type)),
     }
-}
-
-fn layout_constant_reference(analyzed_type: &Type) -> BasicType {
-    layout_type(analyzed_type)
 }
 
 fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {

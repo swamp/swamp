@@ -28,6 +28,10 @@ members = [
     # Code generator. Outputs VM instructions.
     "crates/code-gen",
     "crates/code-gen-program",
+    # Runtime
+    "crates/runtime",
+    # Test runner
+    "crates/test-runner",
     # VM, move to own repo in the far future
     "crates/vm",
     "crates/vm-test",
@@ -35,8 +39,8 @@ members = [
     "crates/vm-types",
     "crates/vm-instr-build",
     "crates/vm-pretty-print",
-    "crates/runtime",
-    "crates/test-runner", "crates/vm-debug-info",
+    "crates/vm-debug-info",
+    # Example Text Engine
     "crates/fentext",
     "crates/fentext-ui",
 ]

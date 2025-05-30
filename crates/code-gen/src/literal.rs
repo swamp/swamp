@@ -174,7 +174,7 @@ impl CodeBuilder<'_> {
                     panic!("must be slice")
                 };
                 let element_gen_type = layout_type(element_type);
-                self.emit_slice_literal_into_target_lvalue_memory_location(
+                self.emit_initializer_list_into_target_lvalue_memory_location(
                     &output.grab_aggregate_memory_location(),
                     &element_gen_type,
                     expressions,

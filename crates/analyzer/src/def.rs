@@ -313,29 +313,12 @@ impl Analyzer<'_> {
         Ok(resolved_fields)
     }
 
-    pub fn convert_to_type_variables(
-        &mut self,
-        ast_type_variables: &[swamp_ast::TypeVariable],
-    ) -> Vec<String> {
-        let mut types = Vec::new();
-        for ast_type_variable in ast_type_variables {
-            let name = self.get_text(&ast_type_variable.0).to_string();
-            types.push(name);
-        }
-        types
-    }
-
     /// # Errors
     ///
     pub fn analyze_named_struct_type_definition(
         &mut self,
         ast_struct_def: &swamp_ast::NamedStructDef,
     ) -> Result<(), Error> {
-        let has_type_variables = !ast_struct_def.identifier.type_variables.is_empty();
-
-        let type_variables =
-            self.convert_to_type_variables(&ast_struct_def.identifier.type_variables);
-
         let struct_name_str = self.get_text(&ast_struct_def.identifier.name).to_string();
 
         let fields =
@@ -375,6 +358,7 @@ impl Analyzer<'_> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn analyze_function_definition(
         &mut self,
         function: &swamp_ast::Function,
@@ -388,8 +372,6 @@ impl Analyzer<'_> {
                 } else {
                     Type::Unit
                 };
-
-                // self.scope.return_type = return_type.clone();
 
                 // Set up scope for function body
                 for param in &parameters {
@@ -411,7 +393,6 @@ impl Analyzer<'_> {
                     .to_string();
                 let statements =
                     self.analyze_function_body_expression(&function_data.body, &return_type)?;
-                //self.scope.return_type = Type::Unit;
 
                 let converted_generic_variables = function_data
                     .declaration

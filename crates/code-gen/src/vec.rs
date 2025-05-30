@@ -180,7 +180,7 @@ impl CodeBuilder<'_> {
             },
         };
 
-        self.emit_slice_literal_into_target_lvalue_memory_location(
+        self.emit_initializer_list_into_target_lvalue_memory_location(
             &elements_base_ptr_reg,
             element_type,
             slice_literal,
@@ -200,65 +200,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         info!("emit_vec_storage!!!!");
-        /*
-        let length_value_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(u16_type()), "vec length");
-        self.builder.add_mov_16_immediate_value(
-            length_value_reg.register(),
-            slice_literal.len() as u16,
-            node,
-            &format!("{debug_vec_storage_type}::length value"),
-        );
-        self.builder.add_st16_using_ptr_with_offset(
-            target_addr,
-            MemoryOffset(0), // Offset for length field
-            length_value_reg.register(),
-            node,
-            &format!("set {debug_vec_storage_type}::length"),
-        );
 
-        let capacity_value_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(u16_type()), "vec capacity");
-        self.builder.add_mov_16_immediate_value(
-            capacity_value_reg.register(),
-            capacity as u16,
-            node,
-            &format!("{debug_vec_storage_type}::capacity value"),
-        );
-        self.builder.add_st16_using_ptr_with_offset(
-            target_addr,
-            MemoryOffset(2), // Offset for capacity field
-            capacity_value_reg.register(),
-            node,
-            &format!("set {debug_vec_storage_type}::capacity"),
-        );
-
-        let elements_offset_immediate_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            &format!("{debug_vec_storage_type}::elements"),
-        );
-        self.builder.add_mov_32_immediate_value(
-            elements_offset_immediate_reg.register(),
-            VEC_HEADER_PAYLOAD_OFFSET.0 as u32,
-            node,
-            &format!("{debug_vec_storage_type}::elements offset value"),
-        );
-
-        let elements_addr_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            &format!("{debug_vec_storage_type}::elements"),
-        );
-        self.builder.add_add_u32(
-            elements_addr_reg.register(),
-            target_addr,
-            elements_offset_immediate_reg.register(),
-            node,
-            &format!("{debug_vec_storage_type}::elements result"),
-        );
-
-         */
         let elements_base_ptr_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(u32_type()),
             &format!("{debug_vec_storage_type}::elements"),
@@ -287,7 +229,7 @@ impl CodeBuilder<'_> {
             },
         };
 
-        self.emit_slice_literal_into_target_lvalue_memory_location(
+        self.emit_initializer_list_into_target_lvalue_memory_location(
             &elements_base_ptr_reg,
             element_type,
             slice_literal,

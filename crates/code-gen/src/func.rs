@@ -25,6 +25,8 @@ use swamp_vm_types::{
 };
 
 impl TopLevelGenState {
+    /// # Panics
+    ///
     pub fn emit_function_def(
         &mut self,
         internal_fn_def: &InternalFunctionDefinitionRef,
