@@ -9,13 +9,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self {
             comment: String::new(),
         }
     }
 
-    pub fn with_comment(self, comment: &str) -> Self {
+    #[must_use] pub fn with_comment(self, comment: &str) -> Self {
         Self {
             comment: comment.to_string(),
         }

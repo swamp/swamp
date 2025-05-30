@@ -64,11 +64,7 @@ impl CodeBuilder<'_> {
         };
 
         let primary_element_type = source_collection_analyzed_type.primary_element_type();
-        let maybe_primary_element_gen_type = if let Some(primary) = primary_element_type {
-            Some(layout_type(primary))
-        } else {
-            None
-        };
+        let maybe_primary_element_gen_type = primary_element_type.map(layout_type);
 
         let target_variables: Vec<_> = lambda_variables
             .iter()

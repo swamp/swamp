@@ -1,7 +1,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::{layout_optional_type, layout_type};
-use crate::{FlagState, single_intrinsic_fn};
+use crate::single_intrinsic_fn;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
@@ -344,16 +344,14 @@ impl CodeBuilder<'_> {
                             &start_expression.node,
                             &format!("{} move absolute pointer in place", ctx.comment()),
                         );
-                    } else {
-                        if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
-                        {
-                            self.emit_load_into_register(
-                                output_reg,
-                                &current_location,
-                                &start_expression.node,
-                                "rvalue postfix chain",
-                            );
-                        }
+                    } else if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
+                    {
+                        self.emit_load_into_register(
+                            output_reg,
+                            &current_location,
+                            &start_expression.node,
+                            "rvalue postfix chain",
+                        );
                     }
                 }
                 Destination::Memory(mem_loc) => {
