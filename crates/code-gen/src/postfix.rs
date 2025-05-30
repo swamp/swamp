@@ -38,22 +38,13 @@ impl CodeBuilder<'_> {
                         VmType::new_unknown_placement(offset_item.ty.clone()),
                     );
                 }
-                PostfixKind::SliceSubscript(slice_type, int_expression) => {
-                    let element_basic_type = layout_type(&slice_type.element);
-
-                    todo!()
-                    /*
-                    current_location = self.subscript_helper_from_location_to_location(
-                        current_location,
-                        &element_basic_type,
+                PostfixKind::SliceViewSubscript(slice_type, int_expression) => {
+                    current_location = self.vec_subscript_helper(
+                        &current_location,
+                        &slice_type.element,
                         int_expression,
-                        BoundsCheck::KnownSizeAtCompileTime(slice_type.fixed_size as u16),
-                        &int_expression.node,
-                        "emit rvalue",
                         ctx,
                     );
-
-                     */
                 }
 
                 PostfixKind::VecSubscript(vec_type, int_expression) => {

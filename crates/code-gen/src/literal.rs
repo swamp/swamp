@@ -170,7 +170,7 @@ impl CodeBuilder<'_> {
             }
             Literal::Slice(slice_type, expressions) => {
                 // A tuple literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
-                let Type::DynamicSlice(element_type) = slice_type else {
+                let Type::InternalInitializerList(element_type) = slice_type else {
                     panic!("must be slice")
                 };
                 let element_gen_type = layout_type(element_type);

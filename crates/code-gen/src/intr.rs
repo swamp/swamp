@@ -33,7 +33,7 @@ impl CodeBuilder<'_> {
 
                 let slice_type = arguments[0].ty();
 
-                let Type::DynamicSlicePair(key_type, value_type) = slice_type else {
+                let Type::InternalInitializerPairList(key_type, value_type) = slice_type else {
                     panic!("problem");
                 };
 

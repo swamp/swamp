@@ -23,11 +23,11 @@ impl Analyzer<'_> {
     ) -> Result<Expression, Error> {
         let ast_node = &ast_expression.node;
         let (lit_kind, literal_type) = match &ast_literal_kind {
-            swamp_ast::LiteralKind::Slice(items) => {
+            swamp_ast::LiteralKind::InternalInitializerList(items) => {
                 let (encountered_element_type, resolved_items) =
-                    self.analyze_slice_type_helper(ast_node, items, context)?;
+                    self.analyze_internal_initializer_list(ast_node, items, context)?;
 
-                let slice_type = Type::DynamicSlice(Box::new(encountered_element_type));
+                let slice_type = Type::InternalInitializerList(Box::new(encountered_element_type));
 
                 (
                     Literal::Slice(slice_type.clone(), resolved_items),
@@ -35,13 +35,13 @@ impl Analyzer<'_> {
                 )
             }
 
-            swamp_ast::LiteralKind::SlicePair(entries) => {
+            swamp_ast::LiteralKind::InternalInitializerPairList(entries) => {
                 let (encountered_key_type, encountered_value_type, resolved_items) =
                     self.analyze_slice_pair_key_and_value_types(ast_node, entries, context)?;
 
                 assert!(!matches!(encountered_key_type, Type::Unit));
                 assert!(!matches!(encountered_value_type, Type::Unit));
-                let slice_pair_type = Type::DynamicSlicePair(
+                let slice_pair_type = Type::InternalInitializerPairList(
                     Box::new(encountered_key_type),
                     Box::new(encountered_value_type),
                 );
@@ -200,7 +200,8 @@ impl Analyzer<'_> {
                 }
                 return Err(self.create_err(ErrorKind::NoneNeedsExpectedTypeHint, ast_node));
             }
-            &&swamp_ast::LiteralKind::Slice(_) | &swamp_ast::LiteralKind::SlicePair(_) => todo!(),
+            &&swamp_ast::LiteralKind::InternalInitializerList(_)
+            | &swamp_ast::LiteralKind::InternalInitializerPairList(_) => todo!(),
         };
 
         Ok(resolved_literal)

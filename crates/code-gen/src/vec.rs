@@ -77,7 +77,7 @@ impl CodeBuilder<'_> {
                 VmType::new_unknown_placement(vec_type()),
                 "element base ptr",
             );
-            let BasicTypeKind::InternalVecStorage(element_type, fixed_size_capacity) =
+            let BasicTypeKind::VecStorage(element_type, fixed_size_capacity) =
                 &pointer_lvalue_location.ptr_reg.ty.basic_type.kind
             else {
                 panic!("mut have storage");

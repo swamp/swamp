@@ -89,21 +89,13 @@ impl CodeBuilder<'_> {
                         VmType::new_unknown_placement(offset_item.ty.clone()),
                     );
                 }
-                LocationAccessKind::Subscript(slice_type, int_expr) => {
-                    let element_gen_type = layout_type(&slice_type.element);
-                    todo!()
-                    /*
-                    current_location = self.subscript_helper_from_location_to_location(
-                        current_location,
-                        &element_gen_type,
+                LocationAccessKind::SliceViewSubscript(slice_type, int_expr) => {
+                    current_location = self.vec_subscript_helper(
+                        &current_location,
+                        &slice_type.element,
                         int_expr,
-                        BoundsCheck::KnownSizeAtCompileTime(slice_type.fixed_size as u16),
-                        &int_expr.node,
-                        "subscript",
                         ctx,
                     );
-
-                     */
                 }
                 LocationAccessKind::SubscriptVec(element_type, int_expression) => {
                     current_location = self.vec_subscript_helper(

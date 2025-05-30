@@ -104,6 +104,9 @@ pub enum ErrorKind {
         size_requested: usize,
         capacity: usize,
     },
+    ExpectedInitializerTarget {
+        destination_type: Type,
+    },
 }
 
 impl From<SemanticError> for Error {

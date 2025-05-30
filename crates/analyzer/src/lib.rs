@@ -31,7 +31,7 @@ use swamp_semantic::type_var_stack::SemanticContext;
 use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
     InternalMainExpression, LocationAccess, LocationAccessKind, MapType, MutableReferenceKind,
-    NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceType,
+    NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceViewType,
     TargetAssignmentLocation, TypeWithMut, VecType, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
@@ -1234,18 +1234,21 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::Subscript(index_expr) => {
                     let collection_type = tv.resolved_type.clone();
                     match &collection_type.underlying() {
-                        Type::DynamicSlice(element_type_in_slice) => {
+                        Type::FixedCapacityAndLengthArray(element_type_in_slice, _) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
                                 self.analyze_expression(index_expr, &unsigned_int_context)?;
 
-                            let slice_type = SliceType {
+                            let slice_type = SliceViewType {
                                 element: Box::new(*element_type_in_slice.clone()),
                             };
 
                             self.add_postfix(
                                 &mut suffixes,
-                                PostfixKind::SliceSubscript(slice_type, unsigned_int_expression),
+                                PostfixKind::SliceViewSubscript(
+                                    slice_type,
+                                    unsigned_int_expression,
+                                ),
                                 collection_type.clone(),
                                 &index_expr.node,
                             );
@@ -1273,7 +1276,7 @@ impl<'a> Analyzer<'a> {
                             tv.resolved_type = *element_type.clone();
                         }
                         Type::MapStorage(key_type, value_type, _)
-                        | Type::DynamicMap(key_type, value_type) => {
+                        | Type::DynamicLengthMapView(key_type, value_type) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
                                 self.analyze_expression(index_expr, &unsigned_int_context)?;
@@ -1822,12 +1825,12 @@ impl<'a> Analyzer<'a> {
         context: &TypeContext,
     ) -> Result<(Type, Type, Vec<(Expression, Expression)>), Error> {
         let maybe_key_and_value_type = if let Some(expected_type) = context.expected_type {
-            if let Type::DynamicSlicePair(key_type, value_type) = expected_type {
+            if let Type::InternalInitializerPairList(key_type, value_type) = expected_type {
                 Some((*key_type.clone(), *value_type.clone()))
             } else {
                 match expected_type {
                     Type::MapStorage(key, value, _) => Some((*key.clone(), *value.clone())),
-                    Type::DynamicMap(key, value) => Some((*key.clone(), *value.clone())),
+                    Type::DynamicLengthMapView(key, value) => Some((*key.clone(), *value.clone())),
                     _ => return Err(self.create_err(ErrorKind::ExpectedSlice, node)),
                 }
             }
@@ -1839,7 +1842,7 @@ impl<'a> Analyzer<'a> {
             context.expected_type.map_or_else(
                 || Ok((Type::Unit, Type::Unit, vec![])),
                 |expected_type| {
-                    if let Type::DynamicSlicePair(key_type, value_type) = expected_type {
+                    if let Type::InternalInitializerPairList(key_type, value_type) = expected_type {
                         Ok((*key_type.clone(), *value_type.clone(), vec![]))
                     } else if let Type::NamedStruct(named) = expected_type {
                         Ok((
@@ -1886,21 +1889,32 @@ impl<'a> Analyzer<'a> {
             ))
         }
     }
-    fn analyze_slice_type_helper(
+    fn analyze_internal_initializer_list(
         &mut self,
         node: &swamp_ast::Node,
         items: &[swamp_ast::Expression],
         context: &TypeContext,
     ) -> Result<(Type, Vec<Expression>), Error> {
         let maybe_expected_element_type = if let Some(expected_type) = context.expected_type {
-            if let Type::DynamicSlice(inner_type) = expected_type {
+            if let Type::InternalInitializerList(inner_type) = expected_type {
                 Some(*inner_type.clone())
             } else {
-                match &expected_type.underlying() {
+                let destination_type = expected_type.underlying();
+                match destination_type {
                     // We can infer the slice type from target
                     Type::VecStorage(element_type, _) => Some(*element_type.clone()),
+                    Type::FixedCapacityAndLengthArray(element_type, _size) => {
+                        Some(*element_type.clone())
+                    }
                     Type::SliceView(element_type) => Some(*element_type.clone()),
-                    _ => return Err(self.create_err(ErrorKind::ExpectedSlice, node)),
+                    _ => {
+                        return Err(self.create_err(
+                            ErrorKind::ExpectedInitializerTarget {
+                                destination_type: destination_type.clone(),
+                            },
+                            node,
+                        ));
+                    }
                 }
             }
         } else {
@@ -1911,7 +1925,11 @@ impl<'a> Analyzer<'a> {
             context.expected_type.map_or_else(
                 || Ok((Type::Unit, vec![])),
                 |expected_type| {
-                    if let Type::DynamicSlice(inner_type) = expected_type {
+                    if let Type::SliceView(inner_type) = expected_type {
+                        Ok((*inner_type.clone(), vec![]))
+                    } else if let Type::FixedCapacityAndLengthArray(inner_type, _fixed_size) =
+                        expected_type
+                    {
                         Ok((*inner_type.clone(), vec![]))
                     } else if let Type::VecStorage(inner_type, _fixed_size) = expected_type {
                         Ok((*inner_type.clone(), vec![]))
@@ -2492,7 +2510,7 @@ impl<'a> Analyzer<'a> {
                 PostfixKind::StructField(_, _) => {
                     is_owned_result = false;
                 }
-                PostfixKind::SliceSubscript(_, _) => {
+                PostfixKind::SliceViewSubscript(_, _) => {
                     is_owned_result = false;
                 }
                 PostfixKind::MemberCall(_, _) => {
@@ -2745,13 +2763,16 @@ impl<'a> Analyzer<'a> {
                         self.analyze_expression(key_expression, &unsigned_int_context)?;
 
                     match &ty.underlying() {
-                        Type::DynamicSlice(element_type) => {
-                            let slice_type = SliceType {
+                        Type::FixedCapacityAndLengthArray(element_type, _) => {
+                            let slice_type = SliceViewType {
                                 element: Box::new(*element_type.clone()),
                             };
                             self.add_location_item(
                                 &mut items,
-                                LocationAccessKind::Subscript(slice_type, unsigned_int_expr),
+                                LocationAccessKind::SliceViewSubscript(
+                                    slice_type,
+                                    unsigned_int_expr,
+                                ),
                                 *element_type.clone(),
                                 &key_expression.node,
                             );
@@ -2851,9 +2872,9 @@ impl<'a> Analyzer<'a> {
         }
 
         if let Some(found_expected_type) = context.expected_type {
-            if !ty
+            if !found_expected_type
                 .underlying()
-                .compatible_with(found_expected_type.underlying())
+                .compatible_with(ty.underlying())
             {
                 return Err(self.create_err(
                     ErrorKind::IncompatibleTypes {
@@ -2972,7 +2993,7 @@ impl<'a> Analyzer<'a> {
             match (target, source) {
                 (
                     Type::VecStorage(vec_element_type, capacity),
-                    Type::DynamicSlice(slice_element_type),
+                    Type::InternalInitializerList(slice_element_type),
                 ) => vec_element_type.compatible_with(slice_element_type),
                 _ => false,
             }
@@ -3288,7 +3309,7 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::DynamicSlice(Box::from(element_type.clone())).clone(),
+            resolved_type: Type::InternalInitializerList(Box::from(element_type.clone())).clone(),
             is_mutable: false,
             node: None,
         };
@@ -3386,7 +3407,7 @@ impl<'a> Analyzer<'a> {
                 field_name_str,
                 node,
             ),
-            Type::DynamicSlice(element_type) => {
+            Type::FixedCapacityAndLengthArray(element_type, _) => {
                 self.slice_member_signature(element_type, field_name_str, node)
             }
             _ => Err(self.create_err(
@@ -3591,6 +3612,35 @@ impl<'a> Analyzer<'a> {
 
     */
 
+    fn is_compatible_initializer_list_target(
+        target_type: &Type,
+        initializer_element_type: &Type,
+    ) -> bool {
+        match target_type {
+            Type::VecStorage(vec_element_type, _vec_capacity) => {
+                vec_element_type.compatible_with(initializer_element_type)
+            }
+            Type::FixedCapacityAndLengthArray(array_element_type, _array_capacity) => {
+                array_element_type.compatible_with(initializer_element_type)
+            }
+            _ => false,
+        }
+    }
+
+    fn is_compatible_initializer_pair_list_target(
+        target_type: &Type,
+        initializer_key_type: &Type,
+        initializer_value_type: &Type,
+    ) -> bool {
+        match target_type {
+            Type::MapStorage(storage_key, storage_value, _) => {
+                initializer_key_type.compatible_with(storage_key)
+                    && initializer_value_type.compatible_with(storage_value)
+            }
+            _ => false,
+        }
+    }
+
     fn types_did_not_match_try_late_coerce_expression(
         &mut self,
         expr: Expression,
@@ -3623,66 +3673,19 @@ impl<'a> Analyzer<'a> {
                 }
             }
         }
-        if let Type::VecStorage(vec_element_type, vec_capacity) = expected_type {
-            if let Type::DynamicSlice(slice_element_type) = &encountered_type {
-                if vec_element_type.compatible_with(slice_element_type) {
-                    return Ok(expr);
-                } else {
-                    panic!(
-                        "{}",
-                        format!(
-                            "types are not the same {vec_element_type} slice {slice_element_type}"
-                        )
-                    );
-                }
-                //  TODO : Add better error message
+        if let Type::InternalInitializerPairList(slice_key, slice_value) = &encountered_type {
+            if Self::is_compatible_initializer_pair_list_target(
+                expected_type,
+                slice_key,
+                slice_value,
+            ) {
+                return Ok(expr);
             }
-        }
-
-        if let Type::VecStorage(vec_element_type, vec_capacity) = encountered_type {
-            if let Type::DynamicSlice(slice_element_type) = &expected_type {
-                if vec_element_type.compatible_with(slice_element_type) {
-                    return Ok(expr);
-                } else {
-                    panic!(
-                        "{}",
-                        format!(
-                            "types are not the same {vec_element_type} slice {slice_element_type}"
-                        )
-                    );
-                }
-                //  TODO : Add better error message
+        } else if let Type::InternalInitializerList(element_type) = &encountered_type {
+            if Self::is_compatible_initializer_list_target(expected_type, element_type) {
+                return Ok(expr);
             }
-        }
-
-        if let Type::MapStorage(storage_key, storage_value, _) = expected_type {
-            if let Type::DynamicSlicePair(slice_key, slice_value) = &encountered_type {
-                if slice_key.compatible_with(storage_key)
-                    && slice_value.compatible_with(storage_value)
-                {
-                    return Ok(expr);
-                } else {
-                    panic!(
-                        "{}",
-                        format!(
-                            "types are not the same {storage_key} {storage_value} slice {slice_key} {slice_value}"
-                        )
-                    );
-                }
-                //  TODO : Add better error message
-            }
-        }
-        /*else if let Type::FixedSlice(encountered_type_slice_type, ..) = encountered_type {
-            return self.late_coerce_slice(node, expected_type, encountered_type_slice_type, &expr);
-        }
-        */
-
-        /*
-        else if let Type::SlicePair(first_type, second_type) = encountered_type {
-            return self.late_coerce_slice_pair(node, expected_type, &expr);
-
-        } */
-        else if matches!(expected_type, &Type::Bool) {
+        } else if matches!(expected_type, &Type::Bool) {
             // if it has a mut or immutable optional, then it works well to wrap it
             if encountered_type.inner_optional_mut_or_immutable().is_some() {
                 let wrapped = self.create_expr(
@@ -3727,12 +3730,12 @@ impl<'a> Analyzer<'a> {
             Symbol::TypeGenerator(type_gen) => match type_gen.kind {
                 TypeGeneratorKind::Slice => {
                     //assert!(analyzed_type_parameters[0].is_concrete());
-                    Type::DynamicSlice(Box::new(analyzed_type_parameters[0].clone()))
+                    Type::InternalInitializerList(Box::new(analyzed_type_parameters[0].clone()))
                 }
                 TypeGeneratorKind::SlicePair => {
                     //assert!(analyzed_type_parameters[0].is_concrete());
                     //assert!(analyzed_type_parameters[1].is_concrete());
-                    Type::DynamicSlicePair(
+                    Type::InternalInitializerPairList(
                         Box::new(analyzed_type_parameters[0].clone()),
                         Box::new(analyzed_type_parameters[1].clone()),
                     )

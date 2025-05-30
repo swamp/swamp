@@ -480,8 +480,8 @@ pub enum LiteralKind {
     Bool,
     EnumVariant(EnumVariantLiteral),
     Tuple(Vec<Expression>),
-    Slice(Vec<Expression>),
-    SlicePair(Vec<(Expression, Expression)>),
+    InternalInitializerList(Vec<Expression>),
+    InternalInitializerPairList(Vec<(Expression, Expression)>),
     None,
 }
 
@@ -569,7 +569,7 @@ pub enum Type {
     FixedCapacityArray(Box<Type>, Node),          // `[T; N]`
     Slice(Box<Type>), // `[T]`. Contiguous memory segments without ownership, Unsized Type (DST) that has inline data
     FixedCapacityMap(Box<Type>, Box<Type>, Node), // `[K:V;N]`
-    DynamicMap(Box<Type>, Box<Type>), // `[K:V]`
+    DynamicLengthMap(Box<Type>, Box<Type>), // `[K:V]`
 
     AnonymousStruct(AnonymousStructType),
     Unit,

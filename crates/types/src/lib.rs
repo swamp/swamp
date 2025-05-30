@@ -20,13 +20,15 @@ pub enum Type {
     String,
     Bool,
 
-    Unit,  // Empty or nothing
-    Never, // Not even empty since control flow has escaped with break or return.
+    Unit, // Empty or nothing
 
-    DynamicSlice(Box<Type>),
-    DynamicSlicePair(Box<Type>, Box<Type>),
+    Never, // Not even empty since it is unknown.
 
-    // Containers
+    // These are just to have some kind of representation of the initializer
+    InternalInitializerList(Box<Type>),
+    InternalInitializerPairList(Box<Type>, Box<Type>),
+
+    // Aggregate type, Containers
     Tuple(Vec<Type>),
     NamedStruct(NamedStructType),
     AnonymousStruct(AnonymousStructType),
@@ -45,17 +47,18 @@ pub enum Type {
     MutableReference(Box<Type>),
     ImmutableReference(Box<Type>),
 
-    FixedSizeArray(Box<Type>, usize),
+    // Fixed capacity `[T; N]
+    FixedCapacityAndLengthArray(Box<Type>, usize),
 
-    // View
+    // View `[T]`
     SliceView(Box<Type>),
 
     // Collections
-    DynamicVec(Box<Type>),
-    VecStorage(Box<Type>, usize),
+    DynamicLengthVecView(Box<Type>), // `Vec<T>`
+    VecStorage(Box<Type>, usize),    // `Vec<T;N>`
 
-    MapStorage(Box<Type>, Box<Type>, usize),
-    DynamicMap(Box<Type>, Box<Type>),
+    MapStorage(Box<Type>, Box<Type>, usize), // `Map<K, V; N>`
+    DynamicLengthMapView(Box<Type>, Box<Type>), // Map<K, V>`
 }
 
 impl Type {
@@ -69,8 +72,7 @@ impl Type {
     #[must_use]
     pub fn lowest_common_denominator(&self) -> Self {
         match self {
-            Self::VecStorage(inner, _size) => Self::DynamicSlice(inner.clone()), //Self::Vec(Box::from(*inner.clone())),
-            Self::SliceView(inner) => Self::DynamicSlice(inner.clone()),
+            Self::VecStorage(inner, _size) => Self::DynamicLengthVecView(inner.clone()), //Self::Vec(Box::from(*inner.clone())),
             _ => self.clone(),
         }
     }
@@ -343,21 +345,22 @@ impl Type {
             | Self::Variable(_) => false,
 
             Self::SliceView(_) => false,
-            Self::DynamicVec(_) => true,
+            Self::DynamicLengthVecView(_) => false,
+            Self::DynamicLengthMapView(_, _) => false,
+
+            Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::VecStorage(_, _) => true,
-            Self::FixedSizeArray(_, _) => true,
-            Self::DynamicMap(_, _) => false,
             Self::MapStorage(_, _, _) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
-            Self::DynamicSlicePair(a, b) => a.is_concrete() && b.is_concrete(),
+            Self::InternalInitializerPairList(a, b) => panic!("should not ask an initializer"),
 
             Self::Range(_) => true,
 
             Self::Optional(inner)
             | Self::MutableReference(inner)
             | Self::ImmutableReference(inner)
-            | Self::DynamicSlice(inner) => inner.is_concrete(),
+            | Self::InternalInitializerList(inner) => inner.is_concrete(),
 
             Self::Tuple(types) => types.iter().all(Self::is_concrete),
             Self::NamedStruct(struct_type) => struct_type
@@ -415,14 +418,14 @@ impl Type {
             Self::Function(_)
             | Self::Generic(_, _)
             | Self::Blueprint(_)
-            | Self::DynamicSlice(_)
-            | Self::DynamicSlicePair(_, _)
+            | Self::InternalInitializerList(_)
+            | Self::InternalInitializerPairList(_, _)
             | Self::SliceView(_)
-            | Self::DynamicMap(_, _)
-            | Self::DynamicVec(_)
+            | Self::DynamicLengthMapView(_, _)
+            | Self::DynamicLengthVecView(_)
             | Self::Variable(_) => false,
 
-            Self::FixedSizeArray(_, _) => true,
+            Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
             Self::Range(_) => true,
@@ -490,18 +493,18 @@ impl Type {
             | Self::Function(_)
             | Self::Generic(_, _)
             | Self::Blueprint(_)
-            | Self::DynamicSlicePair(_, _)
-            | Self::DynamicSlice(_)
+            | Self::InternalInitializerPairList(_, _)
+            | Self::InternalInitializerList(_)
             | Self::MutableReference(_)
             | Self::ImmutableReference(_)
             | Self::SliceView(_)
-            | Self::DynamicMap(_, _)
-            | Self::DynamicVec(_)
+            | Self::DynamicLengthMapView(_, _)
+            | Self::DynamicLengthVecView(_)
             | Self::Variable(_) => false,
 
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
-            Self::FixedSizeArray(_, _) => true,
+            Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::Range(_) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -563,16 +566,16 @@ impl Debug for Type {
             Self::Generic(blueprint, non_concrete_arguments) => {
                 write!(f, "{blueprint:?}<{non_concrete_arguments:?}>")
             }
-            Self::DynamicSlice(value_type) => {
+            Self::InternalInitializerList(value_type) => {
                 write!(f, "Slice<{value_type:?}>")
             }
-            Self::FixedSizeArray(element_type, size) => {
+            Self::FixedCapacityAndLengthArray(element_type, size) => {
                 write!(f, "[{element_type:?}; {size}]")
             }
             Self::VecStorage(value_type, size) => {
                 write!(f, "VecStorage<{value_type:?}, {size}>")
             }
-            Self::DynamicVec(value_type) => {
+            Self::DynamicLengthVecView(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
             }
             Self::SliceView(value_type) => {
@@ -581,10 +584,10 @@ impl Debug for Type {
             Self::MapStorage(key_type, value_type, size) => {
                 write!(f, "MapStorage<{key_type:?}, {value_type:?}, {size}>")
             }
-            Self::DynamicMap(key_type, value_type) => {
+            Self::DynamicLengthMapView(key_type, value_type) => {
                 write!(f, "Map<{key_type:?}, {value_type:?}>")
             }
-            Self::DynamicSlicePair(key_type, value_type) => {
+            Self::InternalInitializerPairList(key_type, value_type) => {
                 write!(f, "SlicePair<{key_type:?}, {value_type:?}>")
             }
             Self::Blueprint(blueprint) => {
@@ -617,13 +620,13 @@ impl Display for Type {
             Self::Generic(blueprint, non_concrete_arguments) => {
                 write!(f, "{blueprint:?}<{non_concrete_arguments:?}>")
             }
-            Self::FixedSizeArray(value_type, size) => {
+            Self::FixedCapacityAndLengthArray(value_type, size) => {
                 write!(f, "[{value_type:?}; {size}]")
             }
             Self::VecStorage(value_type, size) => {
                 write!(f, "VecStorage<{value_type:?}, {size}>")
             }
-            Self::DynamicVec(value_type) => {
+            Self::DynamicLengthVecView(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
             }
             Self::SliceView(value_type) => {
@@ -632,13 +635,13 @@ impl Display for Type {
             Self::MapStorage(key_type, value_type, size) => {
                 write!(f, "MapStorage<{key_type}, {value_type}, {size}>")
             }
-            Self::DynamicMap(key_type, value_type) => {
+            Self::DynamicLengthMapView(key_type, value_type) => {
                 write!(f, "Map<{key_type}, {value_type}>")
             }
-            Self::DynamicSlice(value_type) => {
+            Self::InternalInitializerList(value_type) => {
                 write!(f, "Slice<{value_type:?}>")
             }
-            Self::DynamicSlicePair(key_type, value_type) => {
+            Self::InternalInitializerPairList(key_type, value_type) => {
                 write!(f, "SlicePair<{key_type:?}, {value_type:?}>")
             }
             Self::Blueprint(blueprint) => {
@@ -682,8 +685,15 @@ impl Type {
             | (Self::Bool, Self::Bool)
             | (Self::Unit, Self::Unit) => true,
 
-            (Self::DynamicSlice(a), Self::DynamicSlice(b)) => a.compatible_with(b),
-            (Self::DynamicSlice(a), Self::SliceView(b)) => a.compatible_with(b),
+            (
+                Self::FixedCapacityAndLengthArray(a, _size),
+                Self::FixedCapacityAndLengthArray(b, _),
+            ) => a.compatible_with(b),
+
+            (Self::FixedCapacityAndLengthArray(a, _), Self::InternalInitializerList(b)) => {
+                a.compatible_with(b)
+            }
+            (Self::InternalInitializerList(a), Self::SliceView(b)) => a.compatible_with(b), // TODO: Is this needed?
 
             (Self::SliceView(element_a), Self::SliceView(element_b)) => {
                 element_a.compatible_with(element_b)
@@ -691,6 +701,10 @@ impl Type {
             (Self::SliceView(vec_element), Self::VecStorage(storage_element, _size)) => {
                 vec_element.compatible_with(storage_element)
             }
+            (
+                Self::SliceView(vec_element),
+                Self::FixedCapacityAndLengthArray(storage_element, _size),
+            ) => vec_element.compatible_with(storage_element),
             // TODO: These are not technically the same, so it should probably be in a can_be_converted from, in a special
             // analyze_assignment_like() helper
             (Self::VecStorage(storage_element, _size), Self::SliceView(vec_element)) => {
@@ -836,7 +850,7 @@ pub struct StructTypeField {
 
 impl Display for StructTypeField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "{:?}:{}", self.identifier, self.field_type)
+        write!(f, "{}", self.field_type)
     }
 }
 
@@ -847,7 +861,7 @@ pub struct AnonymousStructType {
 
 impl Debug for AnonymousStructType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "{}", comma_seq(&self.field_name_sorted_fields))
+        write!(f, "{{ {} }}", comma_seq(&self.field_name_sorted_fields))
     }
 }
 
@@ -1053,12 +1067,6 @@ pub struct NamedStructType {
     pub instantiated_type_parameters: Vec<Type>,
     pub blueprint_info: Option<ParameterizedTypeBlueprintInfo>,
 }
-
-impl NamedStructType {}
-
-impl NamedStructType {}
-
-impl NamedStructType {}
 
 impl NamedStructType {
     fn is_core_type_with_name(&self, name: &str) -> bool {

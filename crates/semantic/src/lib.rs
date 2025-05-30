@@ -585,7 +585,7 @@ pub struct Postfix {
 }
 
 #[derive(Debug, Clone)]
-pub struct SliceType {
+pub struct SliceViewType {
     pub element: Box<Type>,
 }
 
@@ -606,7 +606,7 @@ pub enum PostfixKind {
     MemberCall(FunctionRef, Vec<ArgumentExpression>),
     OptionalChainingOperator,           // ? operator
     NoneCoalescingOperator(Expression), // ?? operator
-    SliceSubscript(SliceType, Expression),
+    SliceViewSubscript(SliceViewType, Expression),
     VecSubscript(VecType, Expression),
     MapSubscript(MapType, Expression),
 }
@@ -615,7 +615,7 @@ pub enum PostfixKind {
 pub enum LocationAccessKind {
     FieldIndex(AnonymousStructType, usize),
     IntrinsicSubscript(IntrinsicFunction, Vec<Expression>),
-    Subscript(SliceType, Expression),
+    SliceViewSubscript(SliceViewType, Expression),
     SubscriptVec(Box<Type>, Expression),
 }
 

@@ -232,7 +232,7 @@ impl FenText {
 
     #[must_use]
     pub fn tick(&mut self) -> bool {
-        let frame_time = Duration::from_millis(96);
+        let frame_time = Duration::from_millis(16);
 
         if let Some(input) = self.application.canvas.poll() {
             if input == Input::Esc {

@@ -55,7 +55,7 @@ impl Analyzer<'_> {
                 let int_str = self.get_text(fixed_size);
                 let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
-                Type::VecStorage(Box::new(element_type), int_value)
+                Type::FixedCapacityAndLengthArray(Box::new(element_type), int_value)
             }
             swamp_ast::Type::Slice(ast_type) => {
                 let element_type = self.analyze_slice_type(ast_type)?;
@@ -71,11 +71,11 @@ impl Analyzer<'_> {
 
                 Type::MapStorage(Box::new(key_type), Box::new(value_type), int_value)
             }
-            swamp_ast::Type::DynamicMap(ast_key_type, ast_value_type) => {
+            swamp_ast::Type::DynamicLengthMap(ast_key_type, ast_value_type) => {
                 let (key_type, value_type) =
                     self.analyze_key_and_value_type(ast_key_type, ast_value_type)?;
 
-                Type::DynamicMap(Box::new(key_type), Box::new(value_type))
+                Type::DynamicLengthMapView(Box::new(key_type), Box::new(value_type))
             }
 
             swamp_ast::Type::Tuple(types) => Type::Tuple(self.analyze_types(types)?),

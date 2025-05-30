@@ -41,7 +41,7 @@ fn create_level() -> Level {
   }
 
   for i in 0..10 {
-    level.some_data.push((i + 1) * 2 + 10)
+    level.some_data[i] = (i + 1) * 2 + 10
   }
 
   level

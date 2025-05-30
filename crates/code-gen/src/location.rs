@@ -191,7 +191,7 @@ impl CodeBuilder<'_> {
             BasicTypeKind::InternalStringPointer => {
                 todo!()
             }
-            BasicTypeKind::InternalVecView(expected_type) => {
+            BasicTypeKind::DynamicLengthVecView(expected_type) => {
                 assert!(key_address.ty().is_int());
                 assert_eq!(expected_type.total_size, element_to_set.size());
                 self.builder.add_vec_set(
@@ -202,7 +202,7 @@ impl CodeBuilder<'_> {
                     "copy back collection set (vec)",
                 );
             }
-            BasicTypeKind::InternalMapPointer(_, _) => {}
+            BasicTypeKind::DynamicLengthMapView(_, _) => {}
             _ => panic!("unknown collection"),
         }
     }
@@ -222,7 +222,7 @@ impl CodeBuilder<'_> {
             BasicTypeKind::InternalStringPointer => {
                 todo!()
             }
-            BasicTypeKind::InternalVecView(expected_item_type) => {
+            BasicTypeKind::DynamicLengthVecView(expected_item_type) => {
                 assert!(key_address.ty().is_int());
                 //assert_eq!(expected_item_type.total_size, ctx.target_size());
                 /*
@@ -236,7 +236,7 @@ impl CodeBuilder<'_> {
 
                  */
             }
-            BasicTypeKind::InternalMapPointer(_, value_type) => {
+            BasicTypeKind::DynamicLengthMapView(_, value_type) => {
                 /*
                 self.builder.add_map_fetch(
                     ctx.register(),

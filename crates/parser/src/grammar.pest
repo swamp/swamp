@@ -68,9 +68,9 @@ struct_field_list = {
 }
 rest_fields       = { ".." }
 
-array_literal = { "[" ~ (expression ~ (COMMA ~ expression)*)? ~ TRAILING_COMMA ~ "]" }
+initializer_list = { "[" ~ (expression ~ (COMMA ~ expression)*)? ~ TRAILING_COMMA ~ "]" }
 empty_map_marker= { ":" }
-map_literal   = { "[" ~ (empty_map_marker | (map_entry ~ (COMMA ~ map_entry)*)?) ~ TRAILING_COMMA ~ "]" }
+initializer_pair_list   = { "[" ~ (empty_map_marker | (map_entry ~ (COMMA ~ map_entry)*)?) ~ TRAILING_COMMA ~ "]" }
 map_entry     = { expression ~ ":" ~ expression }
 
 /*
@@ -185,7 +185,9 @@ base_type       = {
 qualified_type_identifier
 | function_type
 | fixed_capacity_map_type
+| dynamic_map_type
 | fixed_capacity_array_type
+| slice_view_type
 | tuple_type
 | struct_type
 | unit_type
@@ -412,8 +414,8 @@ with_expr
 | match_expr
 | for_loop
 | while_loop
-| array_literal
-| map_literal
+| initializer_list
+| initializer_pair_list
 | destructuring_assignment // TODO: move to statement
 | variable_definition // TODO: move to statement
 | assignment // TODO: move to assignment_statement

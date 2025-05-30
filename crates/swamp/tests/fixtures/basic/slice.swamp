@@ -8,6 +8,6 @@ struct Thing {
 #[test]
 fn push_and_subscript() {
 	mut thing = Thing { list: [] }
-	thing.list.push(1)
+	thing.list[0] = 1
 	print('list[0]:{thing.list[0]}')
 }

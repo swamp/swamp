@@ -15,6 +15,10 @@ use swamp_analyzer::err::{Error, ErrorKind};
 pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
     let span = &err.node.span;
     let mut b = match &err.kind {
+        ErrorKind::ExpectedInitializerTarget { destination_type } => {
+            Report::build(Kind::Error, 5, "incompatible initializer list target", span)
+                .with_note(&format!("target_type: {destination_type}"))
+        }
         ErrorKind::CapacityNotEnough {
             size_requested,
             capacity,

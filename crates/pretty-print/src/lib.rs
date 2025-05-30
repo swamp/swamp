@@ -570,7 +570,7 @@ impl SourceMapDisplay<'_> {
                     .clone();
                 write!(f, ".{}", name.bright_blue())
             }
-            PostfixKind::SliceSubscript(slice_type, index_expr) => {
+            PostfixKind::SliceViewSubscript(slice_type, index_expr) => {
                 todo!()
             }
             PostfixKind::VecSubscript(_, _) => {
@@ -694,14 +694,14 @@ impl SourceMapDisplay<'_> {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }
             Type::Blueprint(blueprint) => self.show_blueprint(f, blueprint, tabs),
-            Type::DynamicSlice(value) => todo!(),
-            Type::DynamicSlicePair(key, value) => todo!(),
-            Type::DynamicVec(_) => todo!(),
+            Type::InternalInitializerList(value) => todo!(),
+            Type::InternalInitializerPairList(key, value) => todo!(),
+            Type::DynamicLengthVecView(_) => todo!(),
             Type::VecStorage(_, _) => todo!(),
-            Type::FixedSizeArray(_, _) => todo!(),
+            Type::FixedCapacityAndLengthArray(_, _) => todo!(),
             Type::SliceView(_) => todo!(),
             Type::MapStorage(_, _, _) => todo!(),
-            Type::DynamicMap(_, _) => todo!(),
+            Type::DynamicLengthMapView(_, _) => todo!(),
             Type::Variable(var) => self.show_type_variable(f, var, tabs),
             Type::Never => write!(f, "!"),
         }
@@ -745,13 +745,13 @@ impl SourceMapDisplay<'_> {
                 self.show_generic(f, blueprint, concrete_types, tabs)
             }
             Type::Blueprint(blueprint) => self.show_blueprint(f, blueprint, tabs),
-            Type::DynamicSlice(value) => todo!(),
-            Type::DynamicSlicePair(key, value) => todo!(),
+            Type::InternalInitializerList(value) => todo!(),
+            Type::InternalInitializerPairList(key, value) => todo!(),
             Type::SliceView(_) => todo!(),
-            Type::DynamicVec(_) => todo!(),
+            Type::DynamicLengthVecView(_) => todo!(),
             Type::VecStorage(_, _) => todo!(),
-            Type::FixedSizeArray(_, _) => todo!(),
-            Type::DynamicMap(_, _) => todo!(),
+            Type::FixedCapacityAndLengthArray(_, _) => todo!(),
+            Type::DynamicLengthMapView(_, _) => todo!(),
             Type::MapStorage(_, _, _) => todo!(),
             Type::Variable(var) => self.show_type_variable(f, var, tabs),
             Type::Never => write!(f, "!"),

@@ -7,7 +7,6 @@ use source_map_node::Node;
 use std::cmp::max;
 use std::fmt::Write;
 use swamp_semantic::{VariableRef, VariableType};
-use swamp_types::Type::FixedSizeArray;
 use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_types::aligner::align;
 use swamp_vm_types::types::{
@@ -168,7 +167,7 @@ fn layout_slice(value_type: &Type, fixed_size: usize, name: &str) -> BasicType {
     let total_size = fixed_size * basic.total_size.0 as usize;
     BasicType {
         max_alignment: basic.max_alignment,
-        kind: BasicTypeKind::Slice(Box::from(basic)),
+        kind: BasicTypeKind::SliceView(Box::from(basic)),
         total_size: MemorySize(total_size as u16),
     }
 }
@@ -181,7 +180,10 @@ fn layout_slice_pair(a_type: &Type, b_type: &Type, fixed_size: usize) -> BasicTy
     let total_size = fixed_size * tuple_type.total_size.0 as usize;
 
     BasicType {
-        kind: BasicTypeKind::SlicePair(Box::new(key_type.clone()), Box::new(value_type.clone())),
+        kind: BasicTypeKind::DynamicLengthMapView(
+            Box::new(key_type.clone()),
+            Box::new(value_type.clone()),
+        ),
         total_size: MemorySize(total_size as u16),
         max_alignment: tuple_type.max_alignment,
     }
@@ -243,12 +245,14 @@ pub fn layout_type(ty: &Type) -> BasicType {
         Type::SliceView(element_type) => {
             let element_type_basic = layout_type(element_type);
             create_basic_type(
-                BasicTypeKind::InternalVecView(Box::from(element_type_basic)),
+                BasicTypeKind::SliceView(Box::from(element_type_basic)),
                 PTR_SIZE,
                 PTR_ALIGNMENT,
             )
         }
-        Type::FixedSizeArray(element_type, fixed_size_element_count) => {
+
+        // Fixed Capacity Array and Vec Storage are the same when it comes to layout
+        Type::FixedCapacityAndLengthArray(element_type, fixed_size_element_count) => {
             let element_type_basic = layout_type(element_type);
             let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count
                 + VEC_HEADER_SIZE.0 as usize;
@@ -269,18 +273,18 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 + VEC_HEADER_SIZE.0 as usize;
             let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
             create_basic_type(
-                BasicTypeKind::InternalVecStorage(
-                    Box::from(element_type_basic),
-                    *fixed_size_element_count,
-                ),
+                BasicTypeKind::VecStorage(Box::from(element_type_basic), *fixed_size_element_count),
                 MemorySize(total_size as u16),
                 max_alignment,
             )
         }
-        Type::DynamicMap(key_type, element_type) => {
-            let element_type_basic = layout_type(element_type);
+        Type::DynamicLengthMapView(key_type, element_type) => {
+            let tuple_gen_type = layout_tuple_items(&[*key_type.clone(), *element_type.clone()]);
             create_basic_type(
-                BasicTypeKind::InternalVecView(Box::from(element_type_basic)),
+                BasicTypeKind::DynamicLengthMapView(
+                    Box::from(tuple_gen_type.fields[0].clone()),
+                    Box::from(tuple_gen_type.fields[1].clone()),
+                ),
                 PTR_SIZE,
                 PTR_ALIGNMENT,
             )
@@ -291,31 +295,28 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 + MAP_HEADER_SIZE.0 as usize;
             let max_alignment = max(tuple_gen_type.max_alignment, MemoryAlignment::U16);
             create_basic_type(
-                BasicTypeKind::InternalMapStorage(
-                    Box::from(tuple_gen_type),
-                    *fixed_size_element_count,
-                ),
+                BasicTypeKind::MapStorage(Box::from(tuple_gen_type), *fixed_size_element_count),
                 MemorySize(total_size as u16),
                 max_alignment,
             )
         }
-        Type::DynamicSlice(inner_type) => {
+        Type::InternalInitializerList(inner_type) => {
             let inner_gen_type = layout_type(inner_type);
             create_basic_type(
-                BasicTypeKind::InternalVecView(Box::from(inner_gen_type)),
+                BasicTypeKind::DynamicLengthVecView(Box::from(inner_gen_type)),
                 PTR_SIZE,
                 PTR_ALIGNMENT,
             )
         }
-        Type::DynamicVec(inner_type) => {
+        Type::DynamicLengthVecView(inner_type) => {
             let inner_gen_type = layout_type(inner_type);
             create_basic_type(
-                BasicTypeKind::InternalVecView(Box::from(inner_gen_type)),
+                BasicTypeKind::DynamicLengthVecView(Box::from(inner_gen_type)),
                 PTR_SIZE,
                 PTR_ALIGNMENT,
             )
         }
-        Type::DynamicSlicePair(a, b) => todo!(),
+        Type::InternalInitializerPairList(a, b) => todo!(),
         Type::Tuple(types) => layout_tuple(types),
         Type::NamedStruct(named_struct_type) => {
             layout_named_struct(named_struct_type) // NOTE: memory_offset removed
@@ -362,7 +363,7 @@ fn layout_constant_reference(analyzed_type: &Type) -> BasicType {
 fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
     if named_struct_type.is_vec() {
         return create_basic_type(
-            BasicTypeKind::InternalVecView(Box::from(layout_type(
+            BasicTypeKind::DynamicLengthVecView(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
             ))),
             VEC_PTR_SIZE,
@@ -372,7 +373,7 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
 
     if named_struct_type.is_grid() {
         return create_basic_type(
-            BasicTypeKind::InternalVecView(Box::from(layout_type(
+            BasicTypeKind::DynamicLengthVecView(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
             ))),
             VEC_PTR_SIZE,
@@ -381,7 +382,7 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
     }
     if named_struct_type.is_stack() {
         return create_basic_type(
-            BasicTypeKind::InternalVecView(Box::from(layout_type(
+            BasicTypeKind::DynamicLengthVecView(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
             ))),
             VEC_PTR_SIZE,
@@ -391,7 +392,7 @@ fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
 
     if named_struct_type.is_queue() {
         return create_basic_type(
-            BasicTypeKind::InternalVecView(Box::from(layout_type(
+            BasicTypeKind::DynamicLengthVecView(Box::from(layout_type(
                 &named_struct_type.instantiated_type_parameters[0],
             ))),
             VEC_PTR_SIZE,

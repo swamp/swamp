@@ -64,7 +64,7 @@ impl CodeBuilder<'_> {
 
         match (&output_destination.ty().underlying().kind, &rhs.kind) {
             (
-                BasicTypeKind::InternalVecStorage(element_type, capacity),
+                BasicTypeKind::VecStorage(element_type, capacity),
                 ExpressionKind::Literal(Literal::Slice(_, elements)),
             ) => {
                 let absolute_ptr_reg = self.emit_absolute_pointer_if_needed(
@@ -88,7 +88,7 @@ impl CodeBuilder<'_> {
             }
 
             (
-                BasicTypeKind::InternalMapStorage(element_type, capacity),
+                BasicTypeKind::MapStorage(element_type, capacity),
                 ExpressionKind::Literal(Literal::SlicePair(_, key_value_pairs_vec)),
             ) => {
                 // TODO:

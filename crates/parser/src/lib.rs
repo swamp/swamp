@@ -1235,8 +1235,8 @@ impl AstParser {
             Rule::prefix => self.parse_prefix(sub),
 
             Rule::match_expr => self.parse_match_expr(sub),
-            Rule::map_literal => self.parse_map_literal(sub),
-            Rule::array_literal => self.parse_array_literal(sub),
+            Rule::initializer_list => self.parse_internal_initializer_list_literal(sub),
+            Rule::initializer_pair_list => self.parse_initializer_pair_list(sub),
             Rule::guard_expr => self.parse_guard_expr_list(sub),
             Rule::with_expr => self.parse_with_expr(sub),
             Rule::when_expr => self.parse_when_expr(sub),
@@ -2235,15 +2235,21 @@ impl AstParser {
         Ok((literal_kind, self.to_node(&inner)))
     }
 
-    fn parse_array_literal(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
+    fn parse_internal_initializer_list_literal(
+        &self,
+        pair: &Pair<Rule>,
+    ) -> Result<Expression, ParseError> {
         let mut elements = Vec::new();
         for element in Self::convert_into_iterator(pair) {
             elements.push(self.parse_expression(&element)?);
         }
-        Ok(self.create_expr(ExpressionKind::Literal(LiteralKind::Slice(elements)), pair))
+        Ok(self.create_expr(
+            ExpressionKind::Literal(LiteralKind::InternalInitializerList(elements)),
+            pair,
+        ))
     }
 
-    fn parse_map_literal(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
+    fn parse_initializer_pair_list(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
         let mut entries = Vec::new();
 
         for entry_pair in Self::convert_into_iterator(pair) {
@@ -2256,7 +2262,7 @@ impl AstParser {
         }
 
         Ok(self.create_expr(
-            ExpressionKind::Literal(LiteralKind::SlicePair(entries)),
+            ExpressionKind::Literal(LiteralKind::InternalInitializerPairList(entries)),
             pair,
         ))
     }
@@ -2422,7 +2428,10 @@ impl AstParser {
         let key_type = self.parse_type(Self::next_pair(&mut inner)?)?;
         let value_type = self.parse_type(Self::next_pair(&mut inner)?)?;
 
-        Ok(Type::DynamicMap(Box::new(key_type), Box::new(value_type)))
+        Ok(Type::DynamicLengthMap(
+            Box::new(key_type),
+            Box::new(value_type),
+        ))
     }
 
     fn parse_fixed_capacity_array_type(&self, pair: &Pair<Rule>) -> Result<Type, ParseError> {

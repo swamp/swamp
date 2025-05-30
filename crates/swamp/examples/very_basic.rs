@@ -17,7 +17,7 @@ pub fn very_basic(test_dir: &Path) {
             debug_opcodes: false,
             debug_stats: true,
         },
-        "transformer::",
+        "",
     );
 
     assert!(test_result.succeeded());

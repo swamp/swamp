@@ -246,7 +246,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             vec_self_addr.ty().kind,
-            BasicTypeKind::InternalVecView(_)
+            BasicTypeKind::DynamicLengthVecView(_)
         ));
         assert_eq!(int_index_a.size(), int_index_b.size());
         self.state.add_instruction(
@@ -297,7 +297,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecView(_)
+            BasicTypeKind::DynamicLengthVecView(_)
         ));
         self.state.add_instruction(
             OpCode::VecGet,
@@ -321,7 +321,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             vec_self_addr.ty().kind,
-            BasicTypeKind::InternalVecView(_)
+            BasicTypeKind::DynamicLengthVecView(_)
         ));
 
         self.state.add_instruction(
@@ -346,7 +346,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecView(_)
+            BasicTypeKind::DynamicLengthVecView(_)
         ));
 
         self.state.add_instruction(
@@ -442,7 +442,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecView(_)
+            BasicTypeKind::DynamicLengthVecView(_)
         ));
         self.state.add_instruction(
             OpCode::VecPop,
@@ -484,7 +484,7 @@ impl InstructionBuilder<'_> {
     ) {
         assert!(matches!(
             self_addr.ty().kind,
-            BasicTypeKind::InternalVecView(_)
+            BasicTypeKind::DynamicLengthVecView(_)
         ));
         self.state.add_instruction(
             OpCode::VecRemoveIndexGetValue,
@@ -2009,7 +2009,10 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
+        matches!(
+            self_addr.ty().kind,
+            BasicTypeKind::DynamicLengthMapView(_, _)
+        );
         self.state.add_instruction(
             OpCode::MapHas,
             &[self_addr.addressing(), key_addr.addressing()],
@@ -2025,7 +2028,10 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        matches!(self_addr.ty().kind, BasicTypeKind::InternalMapPointer(_, _));
+        matches!(
+            self_addr.ty().kind,
+            BasicTypeKind::DynamicLengthMapView(_, _)
+        );
         self.state.add_instruction(
             OpCode::MapRemove,
             &[self_addr.addressing(), key_addr.addressing()],

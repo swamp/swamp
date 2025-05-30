@@ -255,16 +255,17 @@ pub enum BasicTypeKind {
     InternalMapIterator,
     InternalRangeIterator,
     //InternalGridIterator,
-    Slice(Box<BasicType>),
-    SlicePair(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
     MutablePointer(Box<BasicType>),
+
+    SliceView(Box<BasicType>),
 
     // Collections
     FixedCapacityArray(Box<BasicType>, usize),
-    InternalVecView(Box<BasicType>),
-    InternalVecStorage(Box<BasicType>, usize),
-    InternalMapStorage(Box<TupleType>, usize),
-    InternalMapPointer(Box<BasicType>, Box<BasicType>),
+    DynamicLengthVecView(Box<BasicType>),
+    VecStorage(Box<BasicType>, usize),
+    MapStorage(Box<TupleType>, usize),
+    DynamicLengthMapView(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
+    // DynamicLengthMapView(),
 }
 
 impl BasicTypeKind {}
@@ -357,14 +358,14 @@ impl Display for BasicTypeKind {
             Self::InternalStringPointer => write!(f, "String"),
             Self::InternalRangeHeader => write!(f, "Range"),
             Self::FixedCapacityArray(item_type, size) => write!(f, "[{item_type}; {size}]"),
-            Self::InternalVecView(item_type) => write!(f, "Vec<{item_type}>"),
-            Self::InternalVecStorage(item_type, size) => write!(f, "Vec<{item_type}, {size}>"),
-            Self::InternalMapStorage(tuple_type, size) => write!(
+            Self::DynamicLengthVecView(item_type) => write!(f, "Vec<{item_type}>"),
+            Self::VecStorage(item_type, size) => write!(f, "Vec<{item_type}, {size}>"),
+            Self::MapStorage(tuple_type, size) => write!(
                 f,
                 "MapStorage<{}, {}, {size}>",
                 tuple_type.fields[0], tuple_type.fields[1],
             ),
-            Self::InternalMapPointer(key, value) => write!(f, "Map<{key}, {value}>"),
+            Self::DynamicLengthMapView(key, value) => write!(f, "Map<{key}, {value}>"),
             Self::InternalGridPointer => write!(f, "Grid"),
             Self::InternalVecIterator => write!(f, "Vec::Iterator"),
             Self::InternalMapIterator => write!(f, "Map::Iterator"),
@@ -373,8 +374,8 @@ impl Display for BasicTypeKind {
             Self::TaggedUnion(union) => write!(f, "enum {}", union.name),
             Self::Optional(optional) => write!(f, "{}?", optional.get_variant_by_index(1).ty),
             Self::Tuple(tuple_type) => write!(f, "({})", comma(&tuple_type.fields)),
-            Self::Slice(a) => write!(f, "slice<{}>", a.kind),
-            Self::SlicePair(a, b) => write!(f, "slice_pair<{a}, {b}>"),
+            Self::SliceView(a) => write!(f, "slice<{}>", a.kind),
+            Self::DynamicLengthMapView(a, b) => write!(f, "slice_pair<{a}, {b}>"),
             Self::MutablePointer(inner) => write!(f, "&mut {inner}"),
         }
     }
@@ -520,7 +521,7 @@ pub const fn range_iter_type() -> BasicType {
 #[must_use]
 pub fn slice_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::Slice(Box::from(u8_type())), // todo: fix
+        kind: BasicTypeKind::SliceView(Box::from(u8_type())), // todo: fix
         total_size: MAP_HEADER_SIZE,
         max_alignment: MAP_HEADER_ALIGNMENT,
     }
@@ -547,7 +548,7 @@ pub const fn unit_type() -> BasicType {
 #[must_use]
 pub fn vec_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::InternalVecView(Box::from(unknown_type())),
+        kind: BasicTypeKind::DynamicLengthVecView(Box::from(unknown_type())),
         total_size: VEC_PTR_SIZE,
         max_alignment: VEC_PTR_ALIGNMENT,
     }
@@ -565,10 +566,29 @@ pub const fn vec_iter_type() -> BasicType {
 #[must_use]
 pub fn map_type() -> BasicType {
     BasicType {
-        kind: BasicTypeKind::InternalMapPointer(
-            Box::from(unknown_type()),
-            Box::from(unknown_type()),
+        kind: BasicTypeKind::DynamicLengthMapView(
+            Box::from(OffsetMemoryItem {
+                offset: MemoryOffset(0),
+                size: MemorySize(0),
+                name: "".to_string(),
+                ty: BasicType {
+                    kind: BasicTypeKind::Empty,
+                    total_size: MemorySize(0),
+                    max_alignment: MemoryAlignment::U8,
+                },
+            }),
+            Box::from(OffsetMemoryItem {
+                offset: MemoryOffset(0),
+                size: MemorySize(0),
+                name: "".to_string(),
+                ty: BasicType {
+                    kind: BasicTypeKind::Empty,
+                    total_size: MemorySize(0),
+                    max_alignment: MemoryAlignment::U8,
+                },
+            }),
         ),
+
         total_size: MAP_HEADER_SIZE,
         max_alignment: MAP_HEADER_ALIGNMENT,
     }
@@ -1364,7 +1384,7 @@ impl BasicType {
     #[must_use]
     pub fn element(&self) -> Option<&Self> {
         match &self.kind {
-            BasicTypeKind::Slice(inner) => Some(inner),
+            BasicTypeKind::SliceView(inner) => Some(inner),
             _ => None,
         }
     }
@@ -1372,7 +1392,7 @@ impl BasicType {
     #[must_use]
     pub fn element_pair(&self) -> Option<(&OffsetMemoryItem, &OffsetMemoryItem)> {
         match &self.kind {
-            BasicTypeKind::SlicePair(a, b) => Some((a, b)),
+            BasicTypeKind::DynamicLengthMapView(a, b) => Some((a, b)),
             _ => None,
         }
     }
@@ -1620,7 +1640,7 @@ fn find_in_item(
                 }
             }
         }
-        BasicTypeKind::Slice(inner) => {
+        BasicTypeKind::SliceView(inner) => {
             let slice_item = OffsetMemoryItem {
                 offset: MemoryOffset(0),
                 size: inner.total_size,
@@ -1631,7 +1651,7 @@ fn find_in_item(
                 return true;
             }
         }
-        BasicTypeKind::SlicePair(a, b) => {
+        BasicTypeKind::DynamicLengthMapView(a, b) => {
             if find_in_item(a, item_addr, target, path) {
                 return true;
             }
@@ -1781,12 +1801,12 @@ pub fn write_basic_type(
         }
         BasicTypeKind::Tuple(tuple_type) => show_tuple_type(tuple_type, origin, f, tabs),
 
-        BasicTypeKind::Slice(slice_inner_type) => {
+        BasicTypeKind::SliceView(slice_inner_type) => {
             write!(f, "[|")?;
             write_basic_type(slice_inner_type, origin, f, tabs + 1)?;
             write!(f, "|]")
         }
-        BasicTypeKind::SlicePair(key_type, value_type) => {
+        BasicTypeKind::DynamicLengthMapView(key_type, value_type) => {
             write!(f, "[|")?;
             show_offset_item(key_type, origin, f, tabs + 1)?;
             write!(f, ", ")?;
@@ -1805,16 +1825,16 @@ pub fn write_basic_type(
         BasicTypeKind::FixedCapacityArray(element_type, size) => {
             write!(f, "[{element_type}, {size}]")
         }
-        BasicTypeKind::InternalVecView(element_type) => {
+        BasicTypeKind::DynamicLengthVecView(element_type) => {
             write!(f, "Vec<{element_type}>")
         }
-        BasicTypeKind::InternalVecStorage(element_type, size) => {
+        BasicTypeKind::VecStorage(element_type, size) => {
             write!(f, "VecStorage<{element_type}, {size}>")
         }
-        BasicTypeKind::InternalMapPointer(key, value) => {
+        BasicTypeKind::DynamicLengthMapView(key, value) => {
             write!(f, "Map<{key}, {value}>")
         }
-        BasicTypeKind::InternalMapStorage(tuple_type, size) => {
+        BasicTypeKind::MapStorage(tuple_type, size) => {
             write!(
                 f,
                 "MapStorage<{}, {}, {size}>",

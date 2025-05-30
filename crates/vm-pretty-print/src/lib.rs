@@ -156,8 +156,8 @@ fn print(
             let str = Vm::read_string(heap_addr, heap);
             write!(f, "\"{str}\" (%{heap_addr:X})")
         }
-        BasicTypeKind::InternalVecView(item_type)
-        | BasicTypeKind::InternalVecStorage(item_type, _) => {
+        BasicTypeKind::DynamicLengthVecView(item_type)
+        | BasicTypeKind::VecStorage(item_type, _) => {
             write!(f, "[")?;
             let header_offset = slice_to_u32_le(frame);
             let header = Vm::vec_header_from_heap(heap, header_offset);
@@ -173,10 +173,10 @@ fn print(
             for i in 0..header.count {}
             write!(f, "; {size}]")
         }
-        BasicTypeKind::InternalMapStorage(tuple_type, size) => {
+        BasicTypeKind::MapStorage(tuple_type, size) => {
             todo!()
         }
-        BasicTypeKind::InternalMapPointer(key_type, value_type) => {
+        BasicTypeKind::DynamicLengthMapView(key_type, value_type) => {
             write!(f, "[")?;
             /*
             let map_header_heap_addr = slice_to_u32_le(frame);
@@ -317,8 +317,8 @@ fn print(
         }
 
         BasicTypeKind::MutablePointer(_) => todo!(),
-        BasicTypeKind::Slice(_) => panic!("slices should not be stored"),
-        BasicTypeKind::SlicePair(_, _) => panic!("slice pairs should not be stored"),
+        BasicTypeKind::SliceView(_) => panic!("slices should not be stored"),
+        BasicTypeKind::DynamicLengthMapView(_, _) => panic!("slice pairs should not be stored"),
         BasicTypeKind::InternalVecIterator => panic!("vec iterators should not be stored"),
         BasicTypeKind::InternalMapIterator => panic!("map iterators should not be stored"),
         BasicTypeKind::InternalRangeIterator => panic!("iterators should not be stored"),
