@@ -8,7 +8,6 @@ use source_map_node::Node;
 use std::fmt::Debug;
 use std::rc::Rc;
 use swamp_semantic::prelude::*;
-use swamp_types::ParameterizedTypeBlueprint;
 use swamp_types::prelude::*;
 use tiny_ver::TinyVersion;
 
@@ -62,7 +61,6 @@ pub enum Symbol {
     Constant(ConstantRef),
     FunctionDefinition(FuncDef),
     Alias(AliasType),
-    Blueprint(ParameterizedTypeBlueprint),
     TypeGenerator(TypeGenerator),
 }
 
@@ -241,40 +239,6 @@ impl SymbolTable {
 
     /// # Errors
     ///
-    pub fn add_blueprint(
-        &mut self,
-        blueprint: ParameterizedTypeBlueprint,
-    ) -> Result<ParameterizedTypeBlueprint, SemanticError> {
-        self.add_blueprint_link(blueprint.clone())?;
-        Ok(blueprint)
-    }
-
-    /// # Errors
-    ///
-    pub fn add_blueprint_link(
-        &mut self,
-        blueprint_ref: ParameterizedTypeBlueprint,
-    ) -> Result<(), SemanticError> {
-        let name = blueprint_ref.name();
-        self.symbols
-            .insert(name.clone(), Symbol::Blueprint(blueprint_ref))
-            .map_err(|_| SemanticError::DuplicateStructName(name))?;
-        Ok(())
-    }
-
-    #[must_use]
-    pub fn get_blueprint(&self, name: &str) -> Option<&ParameterizedTypeBlueprint> {
-        if let Some(found_symbol) = self.get_symbol(name) {
-            if let Symbol::Blueprint(type_ref) = found_symbol {
-                return Some(type_ref);
-            }
-        }
-
-        None
-    }
-
-    /// # Errors
-    ///
     pub fn add_type_generator(
         &mut self,
         name: &str,
@@ -344,7 +308,6 @@ impl SymbolTable {
             anon_struct_type: AnonymousStructType::new(defined_fields),
             module_path: self.module_path.clone(),
             instantiated_type_parameters: Vec::default(),
-            blueprint_info: None,
         };
 
         self.add_struct_link(struct_type.clone())?;

@@ -11,6 +11,5 @@ pub use crate::{
     InternalFunctionDefinitionRef, Iterable, Literal, LocalIdentifier, LocalTypeIdentifier, Match,
     MatchArm, MemberCall, MutVariable, Pattern, PrecisionType, ProgramState, SemanticError,
     UnaryOperator, Variable, VariableRef,
-    inst_cache::InstantiationCache,
     intr::{IntrinsicFunction, IntrinsicFunctionDefinition, IntrinsicFunctionDefinitionRef},
 };

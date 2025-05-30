@@ -334,9 +334,6 @@ pub fn layout_type(ty: &Type) -> BasicType {
         // ----------
         Type::Function(_) => panic!("function types should not be a part of codegen"),
         Type::Never => panic!("'never' should not be a part of codegen"),
-        Type::Generic(_, _) => panic!("generic should not be a part of codegen"),
-        Type::Blueprint(_) => panic!("blueprint should not be a part of codegen"),
-        Type::Variable(_) => panic!("type variable (generics) should not be a part of codegen"),
     }
 }
 

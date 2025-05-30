@@ -2,12 +2,9 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-pub mod inst_cache;
-pub mod instantiator;
 pub mod intr;
 pub mod prelude;
 pub mod type_var_stack;
-use crate::instantiator::Instantiator;
 use crate::intr::IntrinsicFunction;
 use crate::prelude::IntrinsicFunctionDefinitionRef;
 pub use fixed32::Fp;
@@ -1105,13 +1102,12 @@ impl AssociatedImpls {
 // Mutable part
 #[derive(Debug, Clone)]
 pub struct ProgramState {
-    pub external_function_number: ExternalFunctionId,
     pub internal_function_id_allocator: InternalFunctionIdAllocator,
     // It is just so we don't have to do another dependency check of the
     // modules, we know that these constants have been
     // evaluated in order already
     pub constants_in_dependency_order: Vec<ConstantRef>,
-    pub instantiator: Instantiator,
+    pub associated_impls: AssociatedImpls,
 }
 
 impl Default for ProgramState {
@@ -1148,18 +1144,11 @@ impl ProgramState {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            external_function_number: 0,
             internal_function_id_allocator: InternalFunctionIdAllocator::new(),
             constants_in_dependency_order: Vec::new(),
-            instantiator: Instantiator::new(),
+            associated_impls: AssociatedImpls::new(),
         }
     }
-
-    pub const fn allocate_external_function_id(&mut self) -> ExternalFunctionId {
-        self.external_function_number += 1;
-        self.external_function_number
-    }
-
     pub const fn allocate_internal_function_id(&mut self) -> InternalFunctionId {
         self.internal_function_id_allocator.alloc()
     }

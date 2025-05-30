@@ -40,11 +40,6 @@ pub enum Type {
 
     Optional(Box<Type>),
 
-    Generic(ParameterizedTypeBlueprint, Vec<Type>),
-    Blueprint(ParameterizedTypeBlueprint),
-
-    Variable(String),
-
     MutableReference(Box<Type>),
     ImmutableReference(Box<Type>),
 
@@ -179,50 +174,6 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ParameterizedTypeKind {
-    Struct(NamedStructType),
-    Enum(EnumType),
-}
-
-impl ParameterizedTypeKind {
-    #[must_use]
-    pub fn name(&self) -> String {
-        match self {
-            Self::Struct(struct_type_ref) => struct_type_ref.assigned_name.clone(),
-            Self::Enum(enum_type_ref) => enum_type_ref.assigned_name.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ParameterizedTypeBlueprintInfo {
-    pub name: String,
-    pub defined_in_module_path: Vec<String>,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct ParameterizedTypeBlueprint {
-    pub kind: ParameterizedTypeKind,
-    pub type_variables: Vec<String>,
-
-    pub defined_in_module_path: Vec<String>,
-}
-
-impl ParameterizedTypeBlueprint {
-    #[must_use]
-    pub fn info(&self) -> ParameterizedTypeBlueprintInfo {
-        ParameterizedTypeBlueprintInfo {
-            name: self.name(),
-            defined_in_module_path: self.defined_in_module_path.clone(),
-        }
-    }
-    #[must_use]
-    pub fn name(&self) -> String {
-        self.kind.name()
-    }
-}
-
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct ParameterNode {
     pub name: Node,
@@ -338,12 +289,7 @@ impl Type {
     #[must_use]
     pub fn is_concrete(&self) -> bool {
         match self {
-            Self::Unit
-            | Self::Never
-            | Self::Function(_)
-            | Self::Generic(_, _)
-            | Self::Blueprint(_)
-            | Self::Variable(_) => false,
+            Self::Unit | Self::Never | Self::Function(_) => false,
 
             Self::SliceView(_) => false,
             Self::DynamicLengthVecView(_) => false,
@@ -417,14 +363,11 @@ impl Type {
 
             //| Self::Never
             Self::Function(_)
-            | Self::Generic(_, _)
-            | Self::Blueprint(_)
             | Self::InternalInitializerList(_)
             | Self::InternalInitializerPairList(_, _)
             | Self::SliceView(_)
             | Self::DynamicLengthMapView(_, _)
-            | Self::DynamicLengthVecView(_)
-            | Self::Variable(_) => false,
+            | Self::DynamicLengthVecView(_) => false,
 
             Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::VecStorage(_, _) => true,
@@ -492,16 +435,13 @@ impl Type {
             Self::Unit
             | Self::Never
             | Self::Function(_)
-            | Self::Generic(_, _)
-            | Self::Blueprint(_)
             | Self::InternalInitializerPairList(_, _)
             | Self::InternalInitializerList(_)
             | Self::MutableReference(_)
             | Self::ImmutableReference(_)
             | Self::SliceView(_)
             | Self::DynamicLengthMapView(_, _)
-            | Self::DynamicLengthVecView(_)
-            | Self::Variable(_) => false,
+            | Self::DynamicLengthVecView(_) => false,
 
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
@@ -563,10 +503,6 @@ impl Debug for Type {
             Self::Optional(base_type) => write!(f, "{base_type:?}?"),
             Self::MutableReference(base_type) => write!(f, "mut & {base_type:?}"),
             Self::ImmutableReference(base_type) => write!(f, "const & {base_type:?}"),
-            Self::Variable(variable_name) => write!(f, "<|{variable_name}|>"),
-            Self::Generic(blueprint, non_concrete_arguments) => {
-                write!(f, "{blueprint:?}<{non_concrete_arguments:?}>")
-            }
             Self::InternalInitializerList(value_type) => {
                 write!(f, "Slice<{value_type:?}>")
             }
@@ -591,9 +527,6 @@ impl Debug for Type {
             Self::InternalInitializerPairList(key_type, value_type) => {
                 write!(f, "SlicePair<{key_type:?}, {value_type:?}>")
             }
-            Self::Blueprint(blueprint) => {
-                write!(f, "{blueprint:?}")
-            }
         }
     }
 }
@@ -616,11 +549,6 @@ impl Display for Type {
             Self::Optional(base_type) => write!(f, "{base_type}?"),
             Self::MutableReference(base_type) => write!(f, "mut & {base_type:?}"),
             Self::ImmutableReference(base_type) => write!(f, "const & {base_type:?}"),
-            Self::Variable(variable_name) => write!(f, "<|{variable_name}|>"),
-
-            Self::Generic(blueprint, non_concrete_arguments) => {
-                write!(f, "{blueprint:?}<{non_concrete_arguments:?}>")
-            }
             Self::FixedCapacityAndLengthArray(value_type, size) => {
                 write!(f, "[{value_type:?}; {size}]")
             }
@@ -644,9 +572,6 @@ impl Display for Type {
             }
             Self::InternalInitializerPairList(key_type, value_type) => {
                 write!(f, "SlicePair<{key_type:?}, {value_type:?}>")
-            }
-            Self::Blueprint(blueprint) => {
-                write!(f, "{blueprint:?}")
             }
         }
     }
@@ -735,14 +660,6 @@ impl Type {
             (Self::Optional(inner_type_a), Self::Optional(inner_type_b)) => {
                 inner_type_a.compatible_with(inner_type_b)
             }
-
-            (Self::Generic(blueprint_a, args_a), Self::Generic(blueprint_b, args_b)) => {
-                blueprint_a == blueprint_b && (args_a == args_b)
-            }
-
-            (Self::Blueprint(a), Self::Blueprint(b)) => a == b,
-
-            (Self::Variable(a), Self::Variable(b)) => a == b,
 
             _ => false,
         }
@@ -1066,7 +983,6 @@ pub struct NamedStructType {
     pub assigned_name: String,
     pub anon_struct_type: AnonymousStructType,
     pub instantiated_type_parameters: Vec<Type>,
-    pub blueprint_info: Option<ParameterizedTypeBlueprintInfo>,
 }
 
 impl NamedStructType {
@@ -1127,7 +1043,6 @@ impl NamedStructType {
         assigned_name: &str,
         anon_struct_type: AnonymousStructType,
         module_path: &[String],
-        blueprint_info: Option<ParameterizedTypeBlueprintInfo>,
     ) -> Self {
         Self {
             //defined_in_module,
@@ -1136,7 +1051,6 @@ impl NamedStructType {
             module_path: module_path.to_vec(),
             assigned_name: assigned_name.to_string(),
             instantiated_type_parameters: Vec::default(),
-            blueprint_info,
         }
     }
 
@@ -1175,16 +1089,6 @@ pub fn all_types_are_concrete(types: &[Type]) -> bool {
 pub fn all_types_are_concrete_or_unit(types: &[Type]) -> bool {
     for ty in types {
         if !ty.is_concrete() && *ty != Type::Unit {
-            return false;
-        }
-    }
-    true
-}
-
-#[must_use]
-pub fn all_types_are_variables(types: &[Type]) -> bool {
-    for ty in types {
-        if let Type::Variable(_) = ty {} else {
             return false;
         }
     }

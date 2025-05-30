@@ -40,9 +40,7 @@ pub fn code_gen_program(
         }
     }
 
-    for (associated_on_type, impl_functions) in
-        &program.state.instantiator.associated_impls.functions
-    {
+    for (associated_on_type, impl_functions) in &program.state.associated_impls.functions {
         if !associated_on_type.is_concrete() {
             for (_name, func) in &impl_functions.functions {
                 if let Function::Internal(_internal) = &**func {

@@ -25,9 +25,7 @@ use std::num::{ParseFloatError, ParseIntError};
 use std::str::{FromStr, ParseBoolError};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
-use swamp_semantic::instantiator::TypeVariableScope;
 use swamp_semantic::prelude::*;
-use swamp_semantic::type_var_stack::SemanticContext;
 use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
     InternalMainExpression, LocationAccess, LocationAccessKind, MapType, MutableReferenceKind,
@@ -150,7 +148,6 @@ pub struct SharedState<'a> {
     pub source_map: &'a SourceMap,
     pub file_id: FileId,
     pub core_symbol_table: SymbolTableRef,
-    pub type_variables: SemanticContext,
 }
 
 impl<'a> SharedState<'a> {
@@ -224,7 +221,6 @@ impl<'a> Analyzer<'a> {
             core_symbol_table,
             source_map,
             file_id,
-            type_variables: SemanticContext::default(),
         };
         Self {
             scope: FunctionScopeState::new(),
@@ -780,11 +776,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                    &ast_expression.node,
-                    fields,
-                    *rest_was_specified,
-                    context,
-                )?,
+                &ast_expression.node,
+                fields,
+                *rest_was_specified,
+                context,
+            )?,
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
@@ -895,14 +891,6 @@ impl<'a> Analyzer<'a> {
         type_name_to_find: &swamp_ast::QualifiedTypeIdentifier,
     ) -> Result<Type, Error> {
         let (path, name) = self.get_path(type_name_to_find);
-
-        if path.is_empty() {
-            // Check if it is a type variable first!
-            if let Some(found_type) = self.shared.type_variables.resolve_type_variable(&name) {
-                return Ok(found_type);
-            }
-        }
-
         let mut analyzed_type_parameters = Vec::new();
 
         for analyzed_type in &type_name_to_find.generic_params {
@@ -911,10 +899,11 @@ impl<'a> Analyzer<'a> {
             analyzed_type_parameters.push(ty);
         }
 
-        if let Some(found) = self.analyze_special_named_type(&path, &name, &analyzed_type_parameters) {
+        if let Some(found) =
+            self.analyze_special_named_type(&path, &name, &analyzed_type_parameters)
+        {
             return Ok(found);
         }
-
 
         let symbol = {
             let maybe_symbol_table = self.shared.get_symbol_table(&path);
@@ -928,7 +917,6 @@ impl<'a> Analyzer<'a> {
                 })?
                 .clone()
         };
-
 
         let result_type = if analyzed_type_parameters.is_empty() {
             match &symbol {
@@ -1474,7 +1462,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {} else {
+            if let Type::Optional(_) = tv.resolved_type {
+            } else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -1670,7 +1659,6 @@ impl<'a> Analyzer<'a> {
                     let maybe_to_string = self
                         .shared
                         .state
-                        .instantiator
                         .associated_impls
                         .get_internal_member_function(&ty, "to_string");
 
@@ -3180,36 +3168,7 @@ impl<'a> Analyzer<'a> {
     ) -> Result<Signature, Error> {
         let (maybe_generic, alternative_signature) = found_function.signatures();
 
-        let signature = if let Some(found_generic) = maybe_generic {
-            let mut seq_map = SeqMap::new();
-            if generic_arguments.len() != found_generic.generic_type_variables.len() {
-                return Err(self.create_err_resolved(ErrorKind::WrongNumberOfArguments(0, 0), node));
-            }
-            for (variable, generic_argument_type) in found_generic
-                .generic_type_variables
-                .iter()
-                .zip(generic_arguments)
-            {
-                info!(?variable, ?generic_argument_type, "SETTING VAR");
-                seq_map
-                    .insert(variable.0.to_string(), generic_argument_type.clone())
-                    .unwrap();
-            }
-            let mut scope = TypeVariableScope::new(seq_map);
-
-            scope = scope.with_variables(&found_generic.generic_type_variables)?;
-
-            let instantiated_signature = self
-                .shared
-                .state
-                .instantiator
-                .instantiate_signature(type_that_member_is_on, &found_generic.signature, &scope)?
-                .clone();
-
-            instantiated_signature.clone()
-        } else {
-            alternative_signature.clone()
-        };
+        let signature = alternative_signature.clone();
 
         Ok(signature)
     }
@@ -3222,32 +3181,7 @@ impl<'a> Analyzer<'a> {
     ) -> Result<Signature, Error> {
         let (maybe_generic, alternative_signature) = found_function.signatures();
 
-        let signature = if let Some(found_generic) = maybe_generic {
-            let mut seq_map = SeqMap::new();
-            if generic_arguments.len() != found_generic.generic_type_variables.len() {
-                return Err(self.create_err_resolved(ErrorKind::WrongNumberOfArguments(0, 0), node));
-            }
-            for (variable, generic_argument_type) in found_generic
-                .generic_type_variables
-                .iter()
-                .zip(generic_arguments)
-            {
-                info!(?variable, ?generic_argument_type, "SETTING VAR");
-                seq_map
-                    .insert(variable.0.to_string(), generic_argument_type.clone())
-                    .unwrap();
-            }
-            let mut scope = TypeVariableScope::new(seq_map);
-
-            scope = scope.with_variables(&found_generic.generic_type_variables)?;
-
-            self.shared
-                .state
-                .instantiator
-                .instantiate_signature_without_self(&found_generic.signature, &scope)?
-        } else {
-            alternative_signature.clone()
-        };
+        let signature = alternative_signature.clone();
 
         Ok(signature)
     }
@@ -3444,7 +3378,6 @@ impl<'a> Analyzer<'a> {
         let maybe_function = self
             .shared
             .state
-            .instantiator
             .associated_impls
             .get_member_function(type_that_member_is_on, field_name_str)
             .cloned();
@@ -3712,7 +3645,12 @@ impl<'a> Analyzer<'a> {
         ))
     }
 
-    pub fn analyze_special_named_type(&mut self, path: &[String], name: &str, analyzed_type_parameters: &[Type]) -> Option<Type> {
+    pub fn analyze_special_named_type(
+        &mut self,
+        path: &[String],
+        name: &str,
+        analyzed_type_parameters: &[Type],
+    ) -> Option<Type> {
         if path != ["core"] {
             return None;
         }
@@ -3721,17 +3659,18 @@ impl<'a> Analyzer<'a> {
             "Vec" => {
                 if analyzed_type_parameters.len() == 1 {
                     Type::DynamicLengthVecView(Box::from(analyzed_type_parameters[0].clone()))
-                } else { return None; } /*else /*if analyzed_type_parameters.len() == 2 {
-                  Type::VecStorage(Box::from(analyzed_type_parameters[0].clone()), /* usize */)
+                } else {
+                    return None;
+                } /*else /*if analyzed_type_parameters.len() == 2 {
+                Type::VecStorage(Box::from(analyzed_type_parameters[0].clone()), /* usize */)
                 }
-                */*/
+                 */*/
             }
             _ => return None,
         };
 
         Some(converted_type)
     }
-
 
     #[allow(clippy::too_many_lines)]
     fn analyze_generic_type(
@@ -3743,16 +3682,6 @@ impl<'a> Analyzer<'a> {
         let ty = match symbol {
             //            Symbol::Type(base_type) => base_type.clone(),
             //          Symbol::Alias(alias_type) => alias_type.referenced_type.clone(),
-            Symbol::Blueprint(blueprint) => {
-                if all_types_are_concrete_or_unit(analyzed_type_parameters) {
-                    self.shared
-                        .state
-                        .instantiator
-                        .instantiate_blueprint_and_members(blueprint, analyzed_type_parameters)?
-                } else {
-                    Type::Generic(blueprint.clone(), analyzed_type_parameters.to_vec())
-                }
-            }
             Symbol::TypeGenerator(type_gen) => match type_gen.kind {
                 TypeGeneratorKind::Slice => {
                     //assert!(analyzed_type_parameters[0].is_concrete());

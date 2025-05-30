@@ -324,7 +324,6 @@ impl CodeGenAndVmResult {
         self.code_gen_result
             .program
             .state
-            .instantiator
             .associated_impls
             .get_internal_member_function(ty, member_function_str)
     }

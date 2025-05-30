@@ -8,11 +8,11 @@ use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_semantic::{
     ExternalFunctionDefinition, ExternalFunctionId, Function, InternalFunctionDefinition,
-    LocalIdentifier, SemanticError, UseItem,
+    LocalIdentifier, UseItem,
 };
+use swamp_types::GenericAwareSignature;
 use swamp_types::TypeVariable;
 use swamp_types::prelude::*;
-use swamp_types::{GenericAwareSignature, ParameterizedTypeBlueprint, ParameterizedTypeKind};
 
 impl Analyzer<'_> {
     fn general_import(
@@ -325,15 +325,6 @@ impl Analyzer<'_> {
         types
     }
 
-    /// # Panics
-    ///
-    pub fn set_type_variables_to_extra_symbol_table(&mut self, type_variables: &[String]) {
-        self.shared
-            .type_variables
-            .push_type_scope_with_variables(type_variables)
-            .unwrap();
-    }
-
     /// # Errors
     ///
     pub fn analyze_named_struct_type_definition(
@@ -344,10 +335,6 @@ impl Analyzer<'_> {
 
         let type_variables =
             self.convert_to_type_variables(&ast_struct_def.identifier.type_variables);
-
-        if has_type_variables {
-            self.set_type_variables_to_extra_symbol_table(&type_variables);
-        }
 
         let struct_name_str = self.get_text(&ast_struct_def.identifier.name).to_string();
 
@@ -362,41 +349,7 @@ impl Analyzer<'_> {
             assigned_name: struct_name_str,
             module_path: self.shared.definition_table.module_path(),
             instantiated_type_parameters: Vec::default(),
-            blueprint_info: None,
         };
-
-        if has_type_variables {
-            // It is a blueprint! Store it in the definition
-
-            self.shared.type_variables.pop_type_scope();
-
-            let blueprint_ref = self
-                .shared
-                .definition_table
-                .add_blueprint(ParameterizedTypeBlueprint {
-                    kind: ParameterizedTypeKind::Struct(named_struct_type),
-                    type_variables,
-                    defined_in_module_path: self.module_path.clone(),
-                })
-                .map_err(|err| {
-                    self.create_err(
-                        ErrorKind::SemanticError(err),
-                        &ast_struct_def.identifier.name,
-                    )
-                })?;
-
-            self.shared
-                .lookup_table
-                .add_blueprint_link(blueprint_ref)
-                .map_err(|err| {
-                    self.create_err(
-                        ErrorKind::SemanticError(err),
-                        &ast_struct_def.identifier.name,
-                    )
-                })?;
-
-            return Ok(());
-        }
 
         let struct_ref = self
             .shared
@@ -638,30 +591,11 @@ impl Analyzer<'_> {
 
         let is_parameterized = !qualified.generic_params.is_empty();
 
-        let maybe_type_to_attach_to = if is_parameterized {
-            let type_variables = self.convert_to_type_variables(&attached_to_type.type_variables);
-            self.set_type_variables_to_extra_symbol_table(&type_variables);
-            self.shared
-                .lookup_table
-                .get_blueprint(&type_name_text)
-                .map_or_else(
-                    || {
-                        panic!("blueprint was missing");
-                    },
-                    |found_blueprint| Some(Type::Blueprint(found_blueprint.clone())),
-                )
-        } else {
-            Some(self.analyze_named_type(&qualified)?)
-        };
-
+        let maybe_type_to_attach_to = Some(self.analyze_named_type(&qualified)?);
         if let Some(type_to_attach_to) = maybe_type_to_attach_to {
             let function_refs: Vec<&swamp_ast::Function> = functions.iter().collect();
 
             self.analyze_impl_functions(&type_to_attach_to, &function_refs)?;
-
-            if is_parameterized {
-                self.shared.type_variables.pop_type_scope();
-            }
 
             Ok(())
         } else {
@@ -679,11 +613,7 @@ impl Analyzer<'_> {
         attach_to_type: &Type, // Needed for self
         functions: &[&swamp_ast::Function],
     ) -> Result<(), Error> {
-        self.shared
-            .state
-            .instantiator
-            .associated_impls
-            .prepare(attach_to_type);
+        self.shared.state.associated_impls.prepare(attach_to_type);
 
         for function in functions {
             self.start_function();
@@ -706,28 +636,11 @@ impl Analyzer<'_> {
 
             self.shared
                 .state
-                .instantiator
                 .associated_impls
                 .add_member_function(attach_to_type, &function_name_str, resolved_function_ref)
                 .map_err(|err| {
                     self.create_err(ErrorKind::SemanticError(err), &function_name.name)
                 })?;
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn push_type_scope_with_variables(
-        &mut self,
-        type_variables: &[swamp_ast::TypeVariable],
-    ) -> Result<(), SemanticError> {
-        self.shared.type_variables.push_type_scope();
-
-        for type_var in type_variables {
-            let variable_name_string = self.get_text(&type_var.0).to_string();
-            self.shared
-                .type_variables
-                .declare_type_variable(&variable_name_string)?;
         }
 
         Ok(())
@@ -743,11 +656,6 @@ impl Analyzer<'_> {
             swamp_ast::Function::Internal(function_data) => {
                 let has_function_local_generic_type_variables =
                     !function_data.declaration.generic_variables.is_empty();
-                if has_function_local_generic_type_variables {
-                    self.push_type_scope_with_variables(
-                        &function_data.declaration.generic_variables,
-                    )?;
-                }
 
                 let mut parameters = Vec::new();
 
@@ -800,10 +708,6 @@ impl Analyzer<'_> {
                 let statements =
                     self.analyze_function_body_expression(&function_data.body, &return_type)?;
 
-                if has_function_local_generic_type_variables {
-                    self.shared.type_variables.pop_type_scope();
-                }
-
                 let converted_generic_variables = function_data
                     .declaration
                     .generic_variables
@@ -841,7 +745,7 @@ impl Analyzer<'_> {
                 Function::Internal(internal_ref)
             }
 
-            swamp_ast::Function::External(_, signature) => {
+            swamp_ast::Function::External(int_node, signature) => {
                 let mut parameters = Vec::new();
 
                 if let Some(found_self) = &signature.self_parameter {
@@ -874,7 +778,10 @@ impl Analyzer<'_> {
 
                 let return_type = self.analyze_maybe_type(Option::from(&signature.return_type))?;
 
-                let external_id = self.shared.state.allocate_external_function_id();
+                let int_string = self.get_text(int_node);
+                let external_function_id_int = Self::str_to_int(int_string).unwrap() as u32;
+
+                let external_function_id = external_function_id_int as ExternalFunctionId; //self.shared.state.allocate_external_function_id();
 
                 let external = ExternalFunctionDefinition {
                     assigned_name: self.get_text(&signature.name).to_string(),
@@ -883,7 +790,7 @@ impl Analyzer<'_> {
                         parameters,
                         return_type: Box::new(return_type),
                     },
-                    id: external_id,
+                    id: external_function_id,
                 };
 
                 let external_ref = Rc::new(external);

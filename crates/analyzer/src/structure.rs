@@ -353,7 +353,6 @@ impl Analyzer<'_> {
         let maybe_default = {
             self.shared
                 .state
-                .instantiator
                 .associated_impls
                 .get_member_function(super_type, "default")
                 .cloned()
