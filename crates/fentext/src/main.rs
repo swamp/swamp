@@ -11,7 +11,7 @@ use swamp::prelude::{
 };
 use swamp_std::print::print_fn;
 
-pub fn compile() -> Option<CodeGenAndVmResult> {
+#[must_use] pub fn compile() -> Option<CodeGenAndVmResult> {
     compile_codegen_and_create_vm(
         Path::new("assets/crawler"),
         &["crate".to_string(), "main".to_string()],
@@ -62,7 +62,7 @@ impl<T: Default> SwampOption<T> {
 }
 
 #[repr(C)]
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default)]
 pub struct SwampEnumWithoutPayload {
     pub discriminant: u8, // Just the tag
 }
@@ -152,16 +152,16 @@ impl FenTextSwamp {
         let simulation_type = main_fn.return_type();
         let gen_simulation_type = layout_type(simulation_type);
 
-        let mut s = String::new();
+        let s = String::new();
         let early_frame = runtime_result.vm.memory().frame_offset() as u32;
 
-        let safe_stack_start = early_frame + gen_simulation_type.total_size.0 as u32;
+        let safe_stack_start = early_frame + u32::from(gen_simulation_type.total_size.0);
 
         runtime_result.vm.set_return_register_address(early_frame);
         run_function_with_debug(&mut runtime_result.vm, main_fn, application, run_options);
 
         //print_value(&mut s, runtime_result.vm.frame_memory(), runtime_result.vm.memory(), StackMemoryAddress(0), &gen_simulation_type, "main() return").unwrap();
-        eprintln!("{}", s);
+        eprintln!("{s}");
 
         (
             runtime_result
@@ -209,7 +209,7 @@ impl FenText {
     ///
     #[must_use]
     pub fn new() -> Option<Self> {
-        let mut runtime_result = compile();
+        let runtime_result = compile();
         if let Some(runtime_result) = runtime_result {
             let mut app = Application {
                 canvas: Tui::new().unwrap(),
@@ -266,7 +266,7 @@ impl FenText {
 }
 
 fn main() {
-    let mut engine = FenText::new();
+    let engine = FenText::new();
     if let Some(mut engine) = engine {
         while engine.tick() {}
     }

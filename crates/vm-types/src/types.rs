@@ -570,7 +570,7 @@ pub fn map_type() -> BasicType {
             Box::from(OffsetMemoryItem {
                 offset: MemoryOffset(0),
                 size: MemorySize(0),
-                name: "".to_string(),
+                name: String::new(),
                 ty: BasicType {
                     kind: BasicTypeKind::Empty,
                     total_size: MemorySize(0),
@@ -580,7 +580,7 @@ pub fn map_type() -> BasicType {
             Box::from(OffsetMemoryItem {
                 offset: MemoryOffset(0),
                 size: MemorySize(0),
-                name: "".to_string(),
+                name: String::new(),
                 ty: BasicType {
                     kind: BasicTypeKind::Empty,
                     total_size: MemorySize(0),
