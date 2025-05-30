@@ -777,11 +777,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                &ast_expression.node,
-                fields,
-                *rest_was_specified,
-                context,
-            )?,
+                    &ast_expression.node,
+                    fields,
+                    *rest_was_specified,
+                    context,
+                )?,
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
@@ -1463,8 +1463,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {
-            } else {
+            if let Type::Optional(_) = tv.resolved_type {} else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -1507,6 +1506,7 @@ impl<'a> Analyzer<'a> {
         expression: &swamp_ast::Expression,
     ) -> Result<Iterable, Error> {
         let any_context = TypeContext::new_anything_argument();
+        /*
         let resolved_expression: ArgumentExpression = if force_mut.is_some() {
             let resolved_node = self.to_node(&force_mut.unwrap());
             ArgumentExpression::BorrowMutableReference(self.analyze_to_location(
@@ -1518,10 +1518,15 @@ impl<'a> Analyzer<'a> {
             self.analyze_mut_or_immutable_expression(expression, &any_context, LocationSide::Rhs)?
         };
 
-        let resolved_type = &resolved_expression.ty().clone();
+         */
+
+        let resolved_expression = self.analyze_to_location(expression, &any_context, LocationSide::Rhs)?;
+
+        let resolved_type = &resolved_expression.ty.clone();
         let (key_type, value_type): (Option<Type>, Type) = match resolved_type {
             Type::String => (Some(Type::Int), Type::String),
             Type::SliceView(element_type) => (Some(Type::Int), *element_type.clone()),
+            Type::VecStorage(element_type, _fixed_size) => (Some(Type::Int), *element_type.clone()),
             Type::Range(_) => (None, Type::Int),
 
             /*

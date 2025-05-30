@@ -120,7 +120,7 @@ impl Memory {
 
         debug_assert!(
             aligned_offset + aligned_size <= self.memory_size,
-            "Out of memory"
+            "Out of memory {aligned_offset} / {}", self.memory_size
         );
 
         self.heap_alloc_offset = aligned_offset + aligned_size;

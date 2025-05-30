@@ -282,6 +282,16 @@ pub struct PointerLocation {
     pub ptr_reg: TypedRegister,
 }
 
+impl PointerLocation {
+    pub fn memory_location(&self) -> MemoryLocation {
+        MemoryLocation {
+            base_ptr_reg: self.ptr_reg.clone(),
+            offset: MemoryOffset(0),
+            ty: self.ptr_reg.ty.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MemoryLocation {
     pub base_ptr_reg: TypedRegister,

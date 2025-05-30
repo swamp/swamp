@@ -14,9 +14,9 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
+use swamp_types::prelude::*;
 use swamp_types::GenericAwareSignature;
 use swamp_types::StructLikeType;
-use swamp_types::prelude::*;
 use tracing::error;
 
 #[derive(Debug, Clone)]
@@ -529,7 +529,7 @@ pub struct Iterable {
     pub key_type: Option<Type>, // It does not have to support a key type
     pub value_type: Type,
 
-    pub resolved_expression: Box<ArgumentExpression>,
+    pub resolved_expression: Box<SingleLocationExpression>,
 }
 
 #[derive(Debug, Clone)]

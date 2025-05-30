@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
+    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
 };
 use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta};
 
@@ -266,6 +266,7 @@ impl InstructionBuilder<'_> {
         target: &TypedRegister,
         self_addr: &TypedRegister,
         index: &TypedRegister,
+        element_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
@@ -275,41 +276,22 @@ impl InstructionBuilder<'_> {
         ));
 
          */
+
+        let (element_size_lower, element_size_upper) = u16_to_u8_pair(element_size.0);
         self.state.add_instruction(
             OpCode::VecGet,
             &[
                 target.addressing(),
                 self_addr.addressing(),
                 index.addressing(),
+                element_size_lower,
+                element_size_upper,
             ],
             node,
             comment,
         );
     }
 
-    pub fn add_vec_get(
-        &mut self,
-        target: &TypedRegister,
-        self_addr: &TypedRegister,
-        index: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert!(matches!(
-            self_addr.ty().kind,
-            BasicTypeKind::DynamicLengthVecView(_)
-        ));
-        self.state.add_instruction(
-            OpCode::VecGet,
-            &[
-                target.addressing(),
-                self_addr.addressing(),
-                index.addressing(),
-            ],
-            node,
-            comment,
-        );
-    }
 
     pub fn add_vec_get_range(
         &mut self,

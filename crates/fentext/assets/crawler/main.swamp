@@ -35,6 +35,7 @@ struct Point {
 }
 
 enum Type {
+  Rock,
   Player,
   Spider,
   Octopus,
@@ -77,8 +78,8 @@ impl Crawler {
 
   #[host_call]
   fn tick(mut self) {
-
     user_input = input()
+
     when user_input {
       move(40, 20)
       write('input: {user_input}  ')
@@ -87,52 +88,26 @@ impl Crawler {
     self.tick_count += 1
 
     for y in 0..GRID_HEIGHT {
-      for x in 0..GRID_WIDTH {
-        move(32, y)
-        write('x:{x}, y:{y} ')
-      }
-    }
-
-
-    for y in 0..GRID_HEIGHT {
       move(0, y)
       for x in 0..GRID_WIDTH {
-        move(x, y)
         entity_index = self.grid[y * GRID_WIDTH + x]
-        if entity_index != -1 {
           entity = self.entities[entity_index]
-          move(x + 32, y)
-          write('entity: {x}, {y} ')
-           move(x, y)
           match entity.type {
-            Player => write("x"),
-            Spider => write("🕷️"),
-            Octopus => write("🐙"),
+            Rock => write("."),
+            Player => write("a"),
+            Spider => write("b"),
+            Octopus => write("c"),
+            _ => write("@"),
           }
-        } else {
-          write(".")
-        }
       }
     }
-
-    for i in 0..self.entities.len() {
-      // Clear the previous position
-      //self.grid[self.entities[i].point.y * GRID_WIDTH + self.entities[i].point.x] = -1
-      //Crawler::entity_tick(&self.entities[i])
-      //self.grid[self.entities[i].point.y * GRID_WIDTH + self.entities[i].point.x] = i
-
-      //move(self.entities[i].point.x, self.entities[i].point.y)
-      //write('x: {self.entities[i].point.x}, y: {self.entities[i].point.y}')
-      /*
-      match self.entities[i].type {
-        Player => write("🧙‍♂️"),
-        Spider => write("🕷️"),
-        Octopus => write("🐙"),
-      }
-      */
+    for mut entity in self.entities {
+      Crawler::entity_tick(&entity)
     }
   }
 }
+
+
 
 #[host_call]
 fn main() -> Crawler {
@@ -140,16 +115,20 @@ fn main() -> Crawler {
     tick_count: 0,
     entities: [
       Entity {
+        type: Type::Rock,
+        point: Point { x: 0, y: 0 },
+      },
+      Entity {
         type: Type::Player,
-        point: Point { x: 1, y: 2 },
+        point: Point { x: 1, y: 0 },
       },
       Entity {
         type: Type::Spider,
-        point: Point { x: 2, y: 3 },
+        point: Point { x: 2, y: 0 },
       },
       Entity {
         type: Type::Octopus,
-        point: Point { x: 3, y: 4 },
+        point: Point { x: 3, y: 0 },
       },
     ],
     grid: [0, 1, 2]

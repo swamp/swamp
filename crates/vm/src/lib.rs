@@ -4,9 +4,9 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
+use crate::VmState::Normal;
 use fixed32::Fp;
 use std::ptr;
 use swamp_vm_types::opcode::OpCode;
@@ -169,7 +169,6 @@ const ALIGNMENT_MASK: usize = !ALIGNMENT_REST;
 
 pub struct VmSetup {
     pub stack_memory_size: usize,
-    pub heap_memory_size: usize,
     pub constant_memory: Vec<u8>,
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
@@ -181,7 +180,7 @@ impl Vm {
         let memory = Memory::new(setup.stack_memory_size, &setup.constant_memory);
 
         assert!(
-            setup.constant_memory.len() < setup.heap_memory_size / 2,
+            setup.constant_memory.len() < setup.stack_memory_size / 2,
             "too much constant memory"
         );
 
@@ -400,7 +399,7 @@ impl Vm {
         vm.handlers[OpCode::VecIterNextPair as usize] =
             HandlerType::Args4(Self::execute_vec_iter_next_pair);
         vm.handlers[OpCode::VecPushAddr as usize] = HandlerType::Args4(Self::execute_vec_push_addr);
-        vm.handlers[OpCode::VecGet as usize] = HandlerType::Args3(Self::execute_vec_get);
+        vm.handlers[OpCode::VecGet as usize] = HandlerType::Args5(Self::execute_vec_get);
         vm.handlers[OpCode::VecSet as usize] = HandlerType::Args3(Self::execute_vec_set);
 
         /*

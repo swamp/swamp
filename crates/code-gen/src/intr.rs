@@ -6,11 +6,8 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, RValueOrLValue, TypedRegister, VmType, pointer_type};
-use swamp_vm_types::{
-    AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset,
-    STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
-};
+use swamp_vm_types::types::{pointer_type, Destination, RValueOrLValue, TypedRegister, VmType};
+use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset, MemorySize, MAP_HEADER_COUNT_OFFSET, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -450,10 +447,12 @@ impl CodeBuilder<'_> {
                     panic!();
                 };
                 let key_region = self.emit_scalar_rvalue(key_expr, ctx);
-                self.builder.add_vec_get(
+
+                self.builder.add_vec_subscript(
                     maybe_target.unwrap(),
                     self_addr.unwrap(), // mut self
                     &key_region,
+                    MemorySize(0),
                     node,
                     "vec get",
                 );
@@ -511,6 +510,7 @@ impl CodeBuilder<'_> {
                     maybe_target.unwrap(),
                     self_addr.unwrap(),
                     &index_region,
+                    MemorySize(0),
                     node,
                     "vec get element at index",
                 );

@@ -7,7 +7,7 @@ use std::fmt::Write as FmtWrite;
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
-use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
+use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
 use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
@@ -45,8 +45,7 @@ pub fn run_constants_in_order(
             .target_constant_memory
             .ty()
             .can_be_contained_inside_register()
-        {
-        } else {
+        {} else {
             // set memory location into to r0
             vm.registers[0] = constant.target_constant_memory.addr().0;
         }
@@ -99,7 +98,7 @@ pub fn run_constants_in_order(
                 &return_layout,
                 &constant.constant_ref.assigned_name,
             )
-            .unwrap();
+                .unwrap();
         }
     }
 }
@@ -174,8 +173,7 @@ pub fn create_vm_with_standard_settings(
     prepared_constant_memory: &[u8],
 ) -> Vm {
     let vm_setup = VmSetup {
-        stack_memory_size: 16 * 1024 * 20,
-        heap_memory_size: 1024 * 1024,
+        stack_memory_size: 16 * 1024 * 1024,
         constant_memory: prepared_constant_memory.to_vec(),
         debug_opcodes_enabled: false,
         debug_stats_enabled: false,
@@ -226,7 +224,7 @@ pub fn run_function_with_debug(
         let pc = vm.pc();
         #[cfg(feature = "debug_vm")]
         if run_options.debug_opcodes_enabled {
-            let regs = [0, 1, 2, 3, 4, 128, 129, 130];
+            let regs = [0, 1, 2, 3, 4, 5, 128, 129, 130, 131, 132, 133];
 
             eprint!(
                 "{}",
@@ -246,12 +244,8 @@ pub fn run_function_with_debug(
                 );
             }
             eprintln!();
-        }
 
-        vm.step(host_function_callback);
 
-        #[cfg(feature = "debug_vm")]
-        if run_options.debug_opcodes_enabled {
             let info = run_options.debug_info.fetch(pc).unwrap();
 
             if info.meta.node.span.file_id != 0 {
@@ -291,6 +285,8 @@ pub fn run_function_with_debug(
             );
             eprintln!("{pc:04X}> {string}");
         }
+
+        vm.step(host_function_callback);
     }
 }
 

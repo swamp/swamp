@@ -175,7 +175,7 @@ impl TopLevelGenState {
                 if is_callee_save(variable_register.register.index)
                     && !variable_register.register.ty.is_mutable_primitive()
                 {
-                    eprintln!("masking with {index}");
+                    eprintln!("masking with {count_in_mask}");
                     mask |= 1 << count_in_mask;
                     count_in_mask += 1;
                 }

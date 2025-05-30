@@ -5,9 +5,9 @@ use std::path::Path;
 use std::thread;
 use std::time::Duration;
 use swamp::prelude::{
-    CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
-    RunOptions, SourceMapWrapper, compile_codegen_and_create_vm, layout_type, run_first_time,
-    run_function_with_debug,
+    compile_codegen_and_create_vm, layout_type, run_first_time, run_function_with_debug, CodeGenAndVmResult,
+    GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions, RunOptions,
+    SourceMapWrapper,
 };
 use swamp_std::print::print_fn;
 
@@ -31,13 +31,26 @@ impl FfiInput {
     pub const ACTION_2: Self = Self { discriminant: 5 };
 }
 
+pub struct EmptyApplication {}
+
+impl HostFunctionCallback for EmptyApplication {
+    fn dispatch_host_call(&mut self, mut args: HostArgs) {
+        match args.function_id {
+            1 => print_fn(args),
+            22 => args.write_to_register(0, &SwampOption::<FfiInput>::none()),
+            23 => {}
+            24 => {}
+            _ => panic!("unknown external"),
+        }
+    }
+}
+
 pub struct Application {
     pub canvas: Tui,
     pub last_keypress: SwampOption<FfiInput>,
     tick_count: usize,
 }
 
-impl Application {}
 
 #[repr(C)]
 pub struct SwampOption<T: Default> {
@@ -98,7 +111,7 @@ pub struct FenTextSwamp {
 }
 
 impl FenTextSwamp {
-    pub fn new(mut runtime_result: CodeGenAndVmResult, application: &mut Application) -> Self {
+    pub fn new(mut runtime_result: CodeGenAndVmResult, application: &mut dyn HostFunctionCallback) -> Self {
         Self::run_once(&mut runtime_result, application);
         let (tick_fn, simulation_value_addr, safe_stack_start_addr) =
             Self::boot(&mut runtime_result, application);
@@ -111,7 +124,7 @@ impl FenTextSwamp {
         }
     }
 
-    pub fn tick(&mut self, application: &mut Application) {
+    pub fn tick(&mut self, application: &mut dyn HostFunctionCallback) {
         let run_options = RunOptions {
             debug_stats_enabled: false,
             debug_opcodes_enabled: false,
@@ -133,7 +146,7 @@ impl FenTextSwamp {
     #[must_use]
     pub fn boot(
         runtime_result: &mut CodeGenAndVmResult,
-        application: &mut Application,
+        application: &mut dyn HostFunctionCallback,
     ) -> (GenFunctionInfo, u32, u32) {
         let run_options = RunOptions {
             debug_stats_enabled: false,
@@ -174,7 +187,7 @@ impl FenTextSwamp {
         )
     }
 
-    pub fn run_once(runtime_result: &mut CodeGenAndVmResult, application: &mut Application) {
+    pub fn run_once(runtime_result: &mut CodeGenAndVmResult, application: &mut dyn HostFunctionCallback) {
         let run_first_options = RunConstantsOptions {
             stderr_adapter: None,
         };
@@ -189,7 +202,7 @@ impl FenTextSwamp {
 }
 
 pub struct FenText {
-    pub application: Application,
+    pub ui: Application,
     pub swamp: FenTextSwamp,
 }
 
@@ -211,31 +224,30 @@ impl FenText {
     #[must_use]
     pub fn new() -> Option<Self> {
         let runtime_result = compile();
-        if let Some(runtime_result) = runtime_result {
-            let mut app = Application {
+        runtime_result.map_or_else(|| None, |runtime_result| {
+            let mut ui = Application {
                 canvas: Tui::new().unwrap(),
                 tick_count: 0,
                 last_keypress: SwampOption::none(),
             };
 
-            let swamp = FenTextSwamp::new(runtime_result, &mut app);
+            let swamp = FenTextSwamp::new(runtime_result, &mut ui);
 
             let s = Self {
-                application: app,
+                ui,
                 swamp,
             };
 
             Some(s)
-        } else {
-            None
-        }
+        })
     }
 
     #[must_use]
     pub fn tick(&mut self) -> bool {
         let frame_time = Duration::from_millis(16);
 
-        if let Some(input) = self.application.canvas.poll() {
+        let ui = &mut self.ui;
+        if let Some(input) = ui.canvas.poll() {
             if input == Input::Esc {
                 return false;
             }
@@ -249,16 +261,16 @@ impl FenText {
                 Input::Action2 => FfiInput::ACTION_2,
                 _ => panic!("unknown input"),
             };
-            self.application.last_keypress = SwampOption::some(converted);
+            ui.last_keypress = SwampOption::some(converted);
         } else {
-            self.application.last_keypress = SwampOption::none();
+            ui.last_keypress = SwampOption::none();
         }
 
-        self.swamp.tick(&mut self.application);
+        ui.tick_count += 1;
 
-        self.application.tick_count += 1;
+        ui.debug();
 
-        self.application.debug();
+        self.swamp.tick(ui);
 
         thread::sleep(frame_time);
 

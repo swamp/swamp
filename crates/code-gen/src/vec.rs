@@ -4,9 +4,7 @@ use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
-use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, Destination, VmType, u16_type, u32_type, vec_type,
-};
+use swamp_vm_types::types::{pointer_type, u16_type, u32_type, vec_type, BasicType, BasicTypeKind, BoundsCheck, Destination, VmType};
 use swamp_vm_types::{
     AggregateMemoryLocation, MemoryLocation, MemoryOffset, PointerLocation,
     VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET,
@@ -22,12 +20,42 @@ impl CodeBuilder<'_> {
     /// emit the bounds checking.
     pub fn vec_subscript_helper(
         &mut self,
-        current_location: &Destination,
+        vec_header_location: &Destination,
         analyzed_element_type: &Type,
-        int_expression: &Expression,
+        int_expr: &Expression,
         ctx: &Context,
     ) -> Destination {
-        let element_basic_type = layout_type(analyzed_element_type);
+        let pointer_location = self.vec_subscript_helper_helper(vec_header_location, analyzed_element_type, int_expr, ctx);
+        Destination::Memory(pointer_location.memory_location())
+    }
+
+    pub fn vec_subscript_helper_helper(
+        &mut self,
+        vec_header_location: &Destination,
+        analyzed_element_type: &Type,
+        int_expr: &Expression,
+        ctx: &Context,
+    ) -> PointerLocation {
+        let gen_element_type = layout_type(&analyzed_element_type);
+        let index_int_reg = self.emit_scalar_rvalue(int_expr, ctx);
+        let node = &int_expr.node;
+
+        let vec_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
+            vec_header_location,
+            node,
+            "get vec header absolute pointer",
+        );
+
+        let absolute_pointer_to_element = self.temp_registers.allocate(VmType::new_contained_in_register(gen_element_type.clone()), "temporary target");
+        self.builder.add_vec_subscript(absolute_pointer_to_element.register(), &vec_header_ptr_reg, &index_int_reg, gen_element_type.total_size, node, "lookup veclike subscript");
+
+        PointerLocation {
+            ptr_reg: absolute_pointer_to_element.register,
+        }
+    }
+
+    /*
+          let element_basic_type = layout_type(analyzed_element_type);
         let vec_count_reg = self
             .temp_registers
             .allocate(VmType::new_unknown_placement(u16_type()), "vec count");
@@ -56,7 +84,7 @@ impl CodeBuilder<'_> {
             &format!("rvalue {analyzed_element_type}"),
             ctx,
         )
-    }
+     */
 
     fn emit_intrinsic_vec_create(&self, arguments: &Vec<ArgumentExpression>) {
         for arg in arguments {
