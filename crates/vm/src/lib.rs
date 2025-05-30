@@ -4,9 +4,9 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
-use crate::VmState::Normal;
 use fixed32::Fp;
 use std::ptr;
 use swamp_vm_types::opcode::OpCode;

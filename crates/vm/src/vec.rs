@@ -3,10 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::Memory;
-use crate::{get_reg, u16_from_u8s, Vm};
-use crate::{set_reg, u8s_to_u16, VmState};
+use crate::{Vm, get_reg, u16_from_u8s};
+use crate::{VmState, set_reg, u8s_to_u16};
 use std::ptr;
-use swamp_vm_types::{VecHeader, VecIterator, VEC_HEADER_PAYLOAD_OFFSET};
+use swamp_vm_types::{VEC_HEADER_PAYLOAD_OFFSET, VecHeader, VecIterator};
 
 impl Vm {
     pub fn get_vec_iterator_header_ptr_from_reg(&self, vec_iterator_reg: u8) -> *mut VecIterator {
@@ -125,7 +125,14 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_vec_get(&mut self, element_target_reg: u8, vec_header_ptr_reg: u8, int_reg: u8, element_size_lower: u8, element_size_upper: u8) {
+    pub fn execute_vec_get(
+        &mut self,
+        element_target_reg: u8,
+        vec_header_ptr_reg: u8,
+        int_reg: u8,
+        element_size_lower: u8,
+        element_size_upper: u8,
+    ) {
         let vec_addr = get_reg!(self, vec_header_ptr_reg);
         let vec_header = Self::vec_header_from_heap(&self.memory, vec_addr);
         let index = get_reg!(self, int_reg);
@@ -133,7 +140,10 @@ impl Vm {
         #[cfg(feature = "debug_vm")]
         {
             if self.debug_opcodes_enabled {
-                eprintln!("vec_get {} {} (capacity: {}) ", index, vec_header.count, vec_header.capacity);
+                eprintln!(
+                    "vec_get {} {} (capacity: {}) ",
+                    index, vec_header.count, vec_header.capacity
+                );
             }
         }
 
@@ -141,7 +151,8 @@ impl Vm {
 
         let element_size = u16_from_u8s!(element_size_lower, element_size_upper);
 
-        let address_of_element = vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0  as u32 + index * element_size as u32;
+        let address_of_element =
+            vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32 + index * element_size as u32;
 
         set_reg!(self, element_target_reg, address_of_element);
     }
@@ -197,5 +208,6 @@ impl Vm {
         target_key_reg: u8,
         target_value_reg: u8,
         jump: u8,
-    ) {}
+    ) {
+    }
 }

@@ -155,7 +155,7 @@ impl CodeBuilder<'_> {
             self.temp_registers.start_index_and_number_of_allocated();
         debug_assert_eq!(first_temp_register_index, 128);
 
-        let temp_register_region = if temp_register_probable_live_count > 0  && !is_host_call {
+        let temp_register_region = if temp_register_probable_live_count > 0 && !is_host_call {
             let temp_register_frame_memory_region = self.temp_frame_space_for_register(temp_register_probable_live_count, &format!("emit temp arguments from r{first_temp_register_index} count:{temp_register_probable_live_count} {comment}"));
             let temp_register_region = SpilledRegisterRegion {
                 registers: RepresentationOfRegisters::Range {
@@ -236,7 +236,8 @@ impl CodeBuilder<'_> {
         let base_reg_replacement_lookup =
             self.find_replacements_for_mutable_primitive_arguments(arguments, node, ctx);
 
-        let scope = self.spill_required_registers(false, is_host_call, node, "spill before emit arguments");
+        let scope =
+            self.spill_required_registers(false, is_host_call, node, "spill before emit arguments");
 
         // Handle return primitive or aggregate types
         if !signature.return_type.is_unit() {

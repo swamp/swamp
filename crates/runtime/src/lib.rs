@@ -7,7 +7,7 @@ use std::fmt::Write as FmtWrite;
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
-use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
+use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
@@ -45,7 +45,8 @@ pub fn run_constants_in_order(
             .target_constant_memory
             .ty()
             .can_be_contained_inside_register()
-        {} else {
+        {
+        } else {
             // set memory location into to r0
             vm.registers[0] = constant.target_constant_memory.addr().0;
         }
@@ -98,7 +99,7 @@ pub fn run_constants_in_order(
                 &return_layout,
                 &constant.constant_ref.assigned_name,
             )
-                .unwrap();
+            .unwrap();
         }
     }
 }
@@ -244,7 +245,6 @@ pub fn run_function_with_debug(
                 );
             }
             eprintln!();
-
 
             let info = run_options.debug_info.fetch(pc).unwrap();
 

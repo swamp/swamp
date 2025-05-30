@@ -4,10 +4,12 @@ use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
-use swamp_vm_types::types::{pointer_type, u16_type, u32_type, vec_type, BasicType, BasicTypeKind, BoundsCheck, Destination, VmType};
+use swamp_vm_types::types::{
+    BasicType, BasicTypeKind, Destination, VmType, u32_type,
+    vec_type,
+};
 use swamp_vm_types::{
     AggregateMemoryLocation, MemoryLocation, MemoryOffset, PointerLocation,
-    VEC_HEADER_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET,
 };
 use tracing::info;
 
@@ -25,7 +27,12 @@ impl CodeBuilder<'_> {
         int_expr: &Expression,
         ctx: &Context,
     ) -> Destination {
-        let pointer_location = self.vec_subscript_helper_helper(vec_header_location, analyzed_element_type, int_expr, ctx);
+        let pointer_location = self.vec_subscript_helper_helper(
+            vec_header_location,
+            analyzed_element_type,
+            int_expr,
+            ctx,
+        );
         Destination::Memory(pointer_location.memory_location())
     }
 
@@ -36,7 +43,7 @@ impl CodeBuilder<'_> {
         int_expr: &Expression,
         ctx: &Context,
     ) -> PointerLocation {
-        let gen_element_type = layout_type(&analyzed_element_type);
+        let gen_element_type = layout_type(analyzed_element_type);
         let index_int_reg = self.emit_scalar_rvalue(int_expr, ctx);
         let node = &int_expr.node;
 
@@ -46,8 +53,18 @@ impl CodeBuilder<'_> {
             "get vec header absolute pointer",
         );
 
-        let absolute_pointer_to_element = self.temp_registers.allocate(VmType::new_contained_in_register(gen_element_type.clone()), "temporary target");
-        self.builder.add_vec_subscript(absolute_pointer_to_element.register(), &vec_header_ptr_reg, &index_int_reg, gen_element_type.total_size, node, "lookup veclike subscript");
+        let absolute_pointer_to_element = self.temp_registers.allocate(
+            VmType::new_contained_in_register(gen_element_type.clone()),
+            "temporary target",
+        );
+        self.builder.add_vec_subscript(
+            absolute_pointer_to_element.register(),
+            &vec_header_ptr_reg,
+            &index_int_reg,
+            gen_element_type.total_size,
+            node,
+            "lookup veclike subscript",
+        );
 
         PointerLocation {
             ptr_reg: absolute_pointer_to_element.register,
@@ -55,36 +72,36 @@ impl CodeBuilder<'_> {
     }
 
     /*
-          let element_basic_type = layout_type(analyzed_element_type);
-        let vec_count_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(u16_type()), "vec count");
-        let vec_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
-            current_location,
-            &int_expression.node,
-            "get vec header absolute pointer",
-        );
-        self.builder.add_ld16_from_pointer_with_offset_u16(
-            vec_count_reg.register(),
-            &vec_header_ptr_reg,
-            VEC_HEADER_COUNT_OFFSET,
-            &int_expression.node,
-            "load vec count for bounds check",
-        );
-        let payload_location = current_location.add_offset(
-            VEC_HEADER_PAYLOAD_OFFSET,
-            VmType::new_unknown_placement(element_basic_type.clone()),
-        );
-        self.subscript_helper_from_location_to_location(
-            payload_location,
-            &element_basic_type,
-            int_expression,
-            BoundsCheck::RegisterWithMaxCount(vec_count_reg.register),
-            &int_expression.node,
-            &format!("rvalue {analyzed_element_type}"),
-            ctx,
-        )
-     */
+         let element_basic_type = layout_type(analyzed_element_type);
+       let vec_count_reg = self
+           .temp_registers
+           .allocate(VmType::new_unknown_placement(u16_type()), "vec count");
+       let vec_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
+           current_location,
+           &int_expression.node,
+           "get vec header absolute pointer",
+       );
+       self.builder.add_ld16_from_pointer_with_offset_u16(
+           vec_count_reg.register(),
+           &vec_header_ptr_reg,
+           VEC_HEADER_COUNT_OFFSET,
+           &int_expression.node,
+           "load vec count for bounds check",
+       );
+       let payload_location = current_location.add_offset(
+           VEC_HEADER_PAYLOAD_OFFSET,
+           VmType::new_unknown_placement(element_basic_type.clone()),
+       );
+       self.subscript_helper_from_location_to_location(
+           payload_location,
+           &element_basic_type,
+           int_expression,
+           BoundsCheck::RegisterWithMaxCount(vec_count_reg.register),
+           &int_expression.node,
+           &format!("rvalue {analyzed_element_type}"),
+           ctx,
+       )
+    */
 
     fn emit_intrinsic_vec_create(&self, arguments: &Vec<ArgumentExpression>) {
         for arg in arguments {

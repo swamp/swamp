@@ -5,9 +5,9 @@ use std::path::Path;
 use std::thread;
 use std::time::Duration;
 use swamp::prelude::{
-    compile_codegen_and_create_vm, layout_type, run_first_time, run_function_with_debug, CodeGenAndVmResult,
-    GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions, RunOptions,
-    SourceMapWrapper,
+    CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
+    RunOptions, SourceMapWrapper, compile_codegen_and_create_vm, layout_type, run_first_time,
+    run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 
@@ -50,7 +50,6 @@ pub struct Application {
     pub last_keypress: SwampOption<FfiInput>,
     tick_count: usize,
 }
-
 
 #[repr(C)]
 pub struct SwampOption<T: Default> {
@@ -111,7 +110,10 @@ pub struct FenTextSwamp {
 }
 
 impl FenTextSwamp {
-    pub fn new(mut runtime_result: CodeGenAndVmResult, application: &mut dyn HostFunctionCallback) -> Self {
+    pub fn new(
+        mut runtime_result: CodeGenAndVmResult,
+        application: &mut dyn HostFunctionCallback,
+    ) -> Self {
         Self::run_once(&mut runtime_result, application);
         let (tick_fn, simulation_value_addr, safe_stack_start_addr) =
             Self::boot(&mut runtime_result, application);
@@ -187,7 +189,10 @@ impl FenTextSwamp {
         )
     }
 
-    pub fn run_once(runtime_result: &mut CodeGenAndVmResult, application: &mut dyn HostFunctionCallback) {
+    pub fn run_once(
+        runtime_result: &mut CodeGenAndVmResult,
+        application: &mut dyn HostFunctionCallback,
+    ) {
         let run_first_options = RunConstantsOptions {
             stderr_adapter: None,
         };
@@ -224,22 +229,22 @@ impl FenText {
     #[must_use]
     pub fn new() -> Option<Self> {
         let runtime_result = compile();
-        runtime_result.map_or_else(|| None, |runtime_result| {
-            let mut ui = Application {
-                canvas: Tui::new().unwrap(),
-                tick_count: 0,
-                last_keypress: SwampOption::none(),
-            };
+        runtime_result.map_or_else(
+            || None,
+            |runtime_result| {
+                let mut ui = Application {
+                    canvas: Tui::new().unwrap(),
+                    tick_count: 0,
+                    last_keypress: SwampOption::none(),
+                };
 
-            let swamp = FenTextSwamp::new(runtime_result, &mut ui);
+                let swamp = FenTextSwamp::new(runtime_result, &mut ui);
 
-            let s = Self {
-                ui,
-                swamp,
-            };
+                let s = Self { ui, swamp };
 
-            Some(s)
-        })
+                Some(s)
+            },
+        )
     }
 
     #[must_use]

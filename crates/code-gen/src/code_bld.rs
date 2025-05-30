@@ -402,15 +402,16 @@ impl CodeBuilder<'_> {
             Destination::Register(reg) => reg.clone(),
             Destination::Memory(memory_location) => {
                 //let hwm = self.temp_registers.save_mark();
-    
-                let final_ptr_target_reg = self
-                    .temp_registers
-                    .allocate(memory_location.ty.clone(), &format!("{comment} - final_ptr_target_reg"));
+
+                let final_ptr_target_reg = self.temp_registers.allocate(
+                    memory_location.ty.clone(),
+                    &format!("{comment} - final_ptr_target_reg"),
+                );
 
                 self.builder.add_add_u32_imm(
                     final_ptr_target_reg.register(),
                     &memory_location.base_ptr_reg,
-                    memory_location.offset.0 as u32,
+                    u32::from(memory_location.offset.0),
                     node,
                     &format!("{comment} (add to resolved new base_ptr)"),
                 );

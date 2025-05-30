@@ -101,9 +101,7 @@ impl Crawler {
           }
       }
     }
-    for mut entity in self.entities {
-      Crawler::entity_tick(&entity)
-    }
+
   }
 }
 

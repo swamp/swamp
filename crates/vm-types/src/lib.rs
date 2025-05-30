@@ -283,7 +283,7 @@ pub struct PointerLocation {
 }
 
 impl PointerLocation {
-    pub fn memory_location(&self) -> MemoryLocation {
+    #[must_use] pub fn memory_location(&self) -> MemoryLocation {
         MemoryLocation {
             base_ptr_reg: self.ptr_reg.clone(),
             offset: MemoryOffset(0),

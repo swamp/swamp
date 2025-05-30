@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
-    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
-    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
+    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
+    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta};
 
@@ -291,7 +291,6 @@ impl InstructionBuilder<'_> {
             comment,
         );
     }
-
 
     pub fn add_vec_get_range(
         &mut self,
