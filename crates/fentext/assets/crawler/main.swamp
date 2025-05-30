@@ -110,8 +110,8 @@ impl Crawler {
     for i in 0..self.entities.len() {
       // Clear the previous position
       //self.grid[self.entities[i].point.y * GRID_WIDTH + self.entities[i].point.x] = -1
-      Crawler::entity_tick(&self.entities[i])
-      self.grid[self.entities[i].point.y * GRID_WIDTH + self.entities[i].point.x] = i
+      //Crawler::entity_tick(&self.entities[i])
+      //self.grid[self.entities[i].point.y * GRID_WIDTH + self.entities[i].point.x] = i
 
       //move(self.entities[i].point.x, self.entities[i].point.y)
       //write('x: {self.entities[i].point.x}, y: {self.entities[i].point.y}')

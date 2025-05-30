@@ -23,6 +23,7 @@ use source_map_node::{FileId, Node, Span};
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::{FromStr, ParseBoolError};
+use swamp_ast::GenericParameter;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
 use swamp_semantic::prelude::*;
@@ -893,16 +894,16 @@ impl<'a> Analyzer<'a> {
         let (path, name) = self.get_path(type_name_to_find);
         let mut analyzed_type_parameters = Vec::new();
 
+        if let Some(found) =
+            self.analyze_special_named_type(&path, &name, &type_name_to_find.generic_params)
+        {
+            return Ok(found);
+        }
+
         for analyzed_type in &type_name_to_find.generic_params {
             let ty = self.analyze_type(analyzed_type.get_type())?;
 
             analyzed_type_parameters.push(ty);
-        }
-
-        if let Some(found) =
-            self.analyze_special_named_type(&path, &name, &analyzed_type_parameters)
-        {
-            return Ok(found);
         }
 
         let symbol = {
@@ -3645,26 +3646,35 @@ impl<'a> Analyzer<'a> {
         ))
     }
 
+    pub fn analyze_generic_parameter_usize(&self, generic_parameter: &GenericParameter) -> usize {
+        let usize_node = generic_parameter.get_unsigned_int_node();
+        let usize_str = self.get_text(usize_node);
+        Self::str_to_unsigned_int(usize_str).unwrap() as usize
+    }
+
     pub fn analyze_special_named_type(
         &mut self,
         path: &[String],
         name: &str,
-        analyzed_type_parameters: &[Type],
+        ast_generic_parameters: &[GenericParameter],
     ) -> Option<Type> {
-        if path != ["core"] {
-            return None;
-        }
-
         let converted_type = match name {
             "Vec" => {
-                if analyzed_type_parameters.len() == 1 {
-                    Type::DynamicLengthVecView(Box::from(analyzed_type_parameters[0].clone()))
+                if ast_generic_parameters.len() == 1 {
+                    let element_type = self
+                        .analyze_type(ast_generic_parameters[0].get_type())
+                        .unwrap();
+                    Type::DynamicLengthVecView(Box::from(element_type))
+                } else if ast_generic_parameters.len() == 2 {
+                    let element_type = self
+                        .analyze_type(ast_generic_parameters[0].get_type())
+                        .unwrap();
+                    let fixed_size =
+                        self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
+                    Type::VecStorage(Box::from(element_type), fixed_size)
                 } else {
-                    return None;
-                } /*else /*if analyzed_type_parameters.len() == 2 {
-                Type::VecStorage(Box::from(analyzed_type_parameters[0].clone()), /* usize */)
+                    panic!("todo: make this into an error")
                 }
-                 */*/
             }
             _ => return None,
         };
