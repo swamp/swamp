@@ -12,14 +12,12 @@ use std::ptr;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
-pub mod heap;
 pub mod host;
 mod map;
 mod map_open;
 pub mod memory;
 pub mod prelude;
 mod range;
-mod slice_region;
 mod string;
 mod vec;
 
@@ -374,12 +372,6 @@ impl Vm {
 
         // Collections ==========
 
-        // Slices
-        vm.handlers[OpCode::SliceFromHeap as usize] =
-            HandlerType::Args4(Self::execute_slice_from_heap);
-        vm.handlers[OpCode::SlicePairFromHeap as usize] =
-            HandlerType::Args5(Self::execute_slice_pair_from_heap);
-
         // Range
         vm.handlers[OpCode::RangeInit as usize] = HandlerType::Args4(Self::execute_range_init);
         vm.handlers[OpCode::RangeIterInit as usize] =
@@ -400,7 +392,6 @@ impl Vm {
             HandlerType::Args4(Self::execute_vec_iter_next_pair);
         vm.handlers[OpCode::VecPushAddr as usize] = HandlerType::Args4(Self::execute_vec_push_addr);
         vm.handlers[OpCode::VecGet as usize] = HandlerType::Args5(Self::execute_vec_get);
-        vm.handlers[OpCode::VecSet as usize] = HandlerType::Args3(Self::execute_vec_set);
 
         /*
         vm.handlers[OpCode::MapNewFromPairs as usize] =

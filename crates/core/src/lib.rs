@@ -1062,19 +1062,6 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         return_type: Box::new(Type::Never),
     };
 
-    let self_int_value_mut_to_unit_functions = [IntrinsicFunction::VecSubscriptMut];
-
-    for intrinsic_fn in self_int_value_mut_to_unit_functions {
-        let name = intrinsic_fn.to_string();
-        core_ns
-            .add_intrinsic_function(IntrinsicFunctionDefinition {
-                name,
-                intrinsic: intrinsic_fn,
-                signature: self_int_value_mut_to_unit.clone(),
-            })
-            .unwrap();
-    }
-
     let mut_self_int_to_value = Signature {
         parameters: [
             TypeForParameter {

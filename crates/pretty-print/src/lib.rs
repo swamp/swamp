@@ -644,10 +644,6 @@ impl SourceMapDisplay<'_> {
                 write!(f, "{}", "mut ref".red())?;
                 self.show_type_short(f, base_type, tabs)
             }
-            Type::ImmutableReference(base_type) => {
-                write!(f, "{}", "ref".red())?;
-                self.show_type_short(f, base_type, tabs)
-            }
             Type::InternalInitializerList(value) => todo!(),
             Type::InternalInitializerPairList(key, value) => todo!(),
             Type::DynamicLengthVecView(_) => todo!(),
@@ -688,10 +684,6 @@ impl SourceMapDisplay<'_> {
             Type::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
             Type::MutableReference(base_type) => {
                 write!(f, "{}", "mut ref".red());
-                self.show_type_short(f, base_type, tabs)
-            }
-            Type::ImmutableReference(base_type) => {
-                write!(f, "{}", "ref".red());
                 self.show_type_short(f, base_type, tabs)
             }
             Type::InternalInitializerList(value) => todo!(),

@@ -237,14 +237,6 @@ impl Display for HeapMemoryOffset {
     }
 }
 
-impl HeapMemoryOffset {
-    pub fn space(&mut self, memory_size: HeapMemorySize, alignment: MemoryAlignment) -> Self {
-        let start = align(self.0 as usize, alignment.into()) as u32;
-        self.0 = start + memory_size.0;
-        Self(start)
-    }
-}
-
 impl Add<HeapMemorySize> for HeapMemoryOffset {
     type Output = Self;
 
@@ -283,7 +275,8 @@ pub struct PointerLocation {
 }
 
 impl PointerLocation {
-    #[must_use] pub fn memory_location(&self) -> MemoryLocation {
+    #[must_use]
+    pub fn memory_location(&self) -> MemoryLocation {
         MemoryLocation {
             base_ptr_reg: self.ptr_reg.clone(),
             offset: MemoryOffset(0),

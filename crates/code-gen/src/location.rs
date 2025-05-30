@@ -191,17 +191,7 @@ impl CodeBuilder<'_> {
             BasicTypeKind::InternalStringPointer => {
                 todo!()
             }
-            BasicTypeKind::DynamicLengthVecView(expected_type) => {
-                assert!(key_address.ty().is_int());
-                assert_eq!(expected_type.total_size, element_to_set.size());
-                self.builder.add_vec_set(
-                    self_collection,
-                    &key_address,
-                    element_to_set,
-                    node,
-                    "copy back collection set (vec)",
-                );
-            }
+            BasicTypeKind::DynamicLengthVecView(expected_type) => {}
             BasicTypeKind::DynamicLengthMapView(_, _) => {}
             _ => panic!("unknown collection"),
         }

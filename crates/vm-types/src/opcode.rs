@@ -132,10 +132,6 @@ pub enum OpCode {
 
     // Collection intrinsics ----
 
-    // Slice
-    SliceFromHeap,
-    SlicePairFromHeap,
-
     // Range
     RangeInit,
     RangeIterInit,
@@ -150,7 +146,6 @@ pub enum OpCode {
     VecIterNextPair,
     VecInitWithLenAndCapacityAddr,
     VecPushAddr,
-    VecSet,
     VecRemoveIndex,
     VecPop,
     VecRemoveIndexGetValue,
@@ -285,10 +280,6 @@ impl OpCode {
             // Bool
             Self::BoolToString => "btos",
 
-            // Slice
-            Self::SliceFromHeap => "slicef",
-            Self::SlicePairFromHeap => "slicepf",
-
             // Range
             Self::RangeInit => "rinit",
             Self::RangeIterInit => "riter",
@@ -303,7 +294,6 @@ impl OpCode {
             Self::VecIterInit => "viter",
             Self::VecIterNext => "vitern",
             Self::VecIterNextPair => "viternp",
-            Self::VecSet => "vset",
             Self::VecRemoveIndex => "vrem",
             Self::VecPop => "vpop",
             Self::VecRemoveIndexGetValue => "vremv",

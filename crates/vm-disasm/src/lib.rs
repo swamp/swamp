@@ -903,27 +903,6 @@ pub fn disasm(
         }
         OpCode::Nop => &[],
 
-        OpCode::SliceFromHeap => &[
-            to_write_reg(operands[0], &slice_type(), frame_memory_info),
-            to_read_reg(operands[1], &pointer_type_again(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
-                operands[2],
-                operands[3],
-            ))),
-            DecoratedOperandAccessKind::CountU16(0),
-        ],
-
-        OpCode::SlicePairFromHeap => &[
-            to_write_reg(operands[0], &slice_type(), frame_memory_info),
-            to_read_reg(operands[1], &pointer_type_again(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
-                operands[2],
-                operands[3],
-            ))),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(0)),
-            DecoratedOperandAccessKind::CountU16(0),
-        ],
-
         OpCode::VecPop => &[
             to_write_reg(operands[0], &bytes_type(), frame_memory_info),
             to_write_reg(operands[1], &vec_type(), frame_memory_info),
@@ -933,12 +912,6 @@ pub fn disasm(
             to_write_reg(operands[0], &vec_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
             to_read_reg(operands[2], &int_type(), frame_memory_info),
-        ],
-
-        OpCode::VecSet => &[
-            to_write_reg(operands[0], &vec_type(), frame_memory_info),
-            to_read_reg(operands[1], &int_type(), frame_memory_info),
-            to_read_reg(operands[2], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::VecIterInit => &[

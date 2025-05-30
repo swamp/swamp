@@ -41,7 +41,6 @@ pub enum Type {
     Optional(Box<Type>),
 
     MutableReference(Box<Type>),
-    ImmutableReference(Box<Type>),
 
     // Fixed capacity `[T; N]
     FixedCapacityAndLengthArray(Box<Type>, usize),
@@ -62,9 +61,6 @@ impl Type {
     pub const fn is_bool(&self) -> bool {
         matches!(self, Self::Bool)
     }
-}
-
-impl Type {
     #[must_use]
     pub fn lowest_common_denominator(&self) -> Self {
         match self {
@@ -72,9 +68,7 @@ impl Type {
             _ => self.clone(),
         }
     }
-}
 
-impl Type {
     #[must_use]
     pub fn underlying(&self) -> &Self {
         match self {
@@ -82,11 +76,6 @@ impl Type {
             _ => self,
         }
     }
-}
-
-impl Type {}
-
-impl Type {
     #[must_use]
     pub fn is_vec(&self) -> bool {
         match self {
@@ -306,7 +295,6 @@ impl Type {
 
             Self::Optional(inner)
             | Self::MutableReference(inner)
-            | Self::ImmutableReference(inner)
             | Self::InternalInitializerList(inner) => inner.is_concrete(),
 
             Self::Tuple(types) => types.iter().all(Self::is_concrete),
@@ -376,9 +364,7 @@ impl Type {
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
-            Self::Optional(inner)
-            | Self::MutableReference(inner)
-            | Self::ImmutableReference(inner) => inner.is_blittable(),
+            Self::Optional(inner) | Self::MutableReference(inner) => inner.is_blittable(),
 
             Self::Tuple(types) => types.iter().all(Self::is_blittable),
             Self::NamedStruct(struct_type) => {
@@ -438,7 +424,6 @@ impl Type {
             | Self::InternalInitializerPairList(_, _)
             | Self::InternalInitializerList(_)
             | Self::MutableReference(_)
-            | Self::ImmutableReference(_)
             | Self::SliceView(_)
             | Self::DynamicLengthMapView(_, _)
             | Self::DynamicLengthVecView(_) => false,
@@ -502,7 +487,6 @@ impl Debug for Type {
             }
             Self::Optional(base_type) => write!(f, "{base_type:?}?"),
             Self::MutableReference(base_type) => write!(f, "mut & {base_type:?}"),
-            Self::ImmutableReference(base_type) => write!(f, "const & {base_type:?}"),
             Self::InternalInitializerList(value_type) => {
                 write!(f, "Slice<{value_type:?}>")
             }
@@ -548,7 +532,6 @@ impl Display for Type {
             Self::Function(signature) => write!(f, "function {signature}"),
             Self::Optional(base_type) => write!(f, "{base_type}?"),
             Self::MutableReference(base_type) => write!(f, "mut & {base_type:?}"),
-            Self::ImmutableReference(base_type) => write!(f, "const & {base_type:?}"),
             Self::FixedCapacityAndLengthArray(value_type, size) => {
                 write!(f, "[{value_type:?}; {size}]")
             }

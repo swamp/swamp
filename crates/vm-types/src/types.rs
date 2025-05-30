@@ -860,15 +860,6 @@ pub enum RValueOrLValue {
     Memory(Destination),
 }
 
-impl RValueOrLValue {}
-
-impl RValueOrLValue {
-    #[must_use]
-    pub const fn grab_rvalue(&self) -> &TypedRegister {
-        self.rvalue().unwrap()
-    }
-}
-
 impl RValueOrLValue {
     #[must_use]
     pub const fn rvalue(&self) -> Option<&TypedRegister> {
@@ -876,6 +867,11 @@ impl RValueOrLValue {
             Self::Scalar(reg) => Some(reg),
             Self::Memory(_) => None,
         }
+    }
+
+    #[must_use]
+    pub const fn grab_rvalue(&self) -> &TypedRegister {
+        self.rvalue().unwrap()
     }
 }
 

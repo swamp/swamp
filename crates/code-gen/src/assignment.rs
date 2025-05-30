@@ -3,10 +3,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
-use swamp_semantic::{
-    CompoundOperatorKind, Expression, TargetAssignmentLocation,
-    VariableRef,
-};
+use swamp_semantic::{CompoundOperatorKind, Expression, TargetAssignmentLocation, VariableRef};
 use swamp_types::Type;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PointerLocation};

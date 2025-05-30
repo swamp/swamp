@@ -317,31 +317,6 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_vec_set(
-        &mut self,
-        self_addr: &TypedRegister,
-        index: &TypedRegister,
-        value_addr: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert!(matches!(
-            self_addr.ty().kind,
-            BasicTypeKind::DynamicLengthVecView(_)
-        ));
-
-        self.state.add_instruction(
-            OpCode::VecSet,
-            &[
-                self_addr.addressing(),
-                index.addressing(),
-                value_addr.addressing(),
-            ],
-            node,
-            comment,
-        );
-    }
-
     pub fn add_vec_push_addr(
         &mut self,
         target_reg: &TypedRegister,
@@ -919,59 +894,6 @@ impl InstructionBuilder<'_> {
     }
 
     // Slices
-
-    pub fn add_slice_from_heap(
-        &mut self,
-        slice_dst: &TypedRegister,
-        heap_region: &TypedRegister,
-        element_size: &TypedRegister,
-        element_count: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        // TODO: Bring this back //assert_ne!(slice_dst.size().0, 0);
-        // TODO: Bring this back //assert_ne!(element_size.size().0, 0);
-
-        self.state.add_instruction(
-            OpCode::SliceFromHeap,
-            &[
-                slice_dst.addressing(),
-                heap_region.addressing(),
-                element_size.addressing(),
-                element_count.addressing(),
-            ],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_slice_pair_from_heap(
-        &mut self,
-        slice_dst: &TypedRegister,
-        heap_region: &TypedRegister,
-        key_size: &TypedRegister,
-        value_size: &TypedRegister,
-        element_count: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert_ne!(slice_dst.size().0, 0);
-        assert_ne!(key_size.size().0, 0);
-        assert_ne!(value_size.size().0, 0);
-
-        self.state.add_instruction(
-            OpCode::SlicePairFromHeap,
-            &[
-                slice_dst.addressing(),
-                heap_region.addressing(),
-                key_size.addressing(),
-                value_size.addressing(),
-                element_count.addressing(),
-            ],
-            node,
-            comment,
-        );
-    }
 
     pub fn add_map_iter_init(
         &mut self,

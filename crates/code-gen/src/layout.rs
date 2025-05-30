@@ -330,7 +330,6 @@ pub fn layout_type(ty: &Type) -> BasicType {
         ),
         Type::Optional(inner_type) => layout_optional_type(inner_type),
         Type::MutableReference(inner_type) => layout_mutable_reference(inner_type),
-        Type::ImmutableReference(inner_type) => layout_constant_reference(inner_type),
         // ----------
         Type::Function(_) => panic!("function types should not be a part of codegen"),
         Type::Never => panic!("'never' should not be a part of codegen"),

@@ -518,33 +518,6 @@ impl CodeBuilder<'_> {
                     "vec get element at index",
                 );
             }
-            IntrinsicFunction::VecSubscriptMut => {
-                let maybe_index_argument = &arguments[0];
-
-                let ArgumentExpression::Expression(index_expr) = maybe_index_argument else {
-                    panic!();
-                };
-                let index_region = self.emit_scalar_rvalue(index_expr, ctx);
-                // TODO:
-
-                /*
-                let source_argument = &arguments[1];
-                let MutRefOrImmutableExpression::Expression(value_expr) = source_argument else {
-                    panic!();
-                };
-
-                let value_region = self.emit_expression_for_access(value_expr)?;
-                 */
-                let value_region = &index_region;
-
-                self.builder.add_vec_set(
-                    self_addr.unwrap(),
-                    &index_region,
-                    value_region,
-                    node,
-                    "set the vec subscript",
-                );
-            }
             IntrinsicFunction::VecSubscriptRange => {
                 let maybe_range_argument = &arguments[0];
                 let ArgumentExpression::Expression(range_expr) = maybe_range_argument else {
