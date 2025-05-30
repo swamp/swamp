@@ -1,0 +1,2214 @@
+warning: unused variable: `a`
+   --> crates/types/src/lib.rs:356:47
+    |
+356 |             Self::InternalInitializerPairList(a, b) => panic!("should not ask an initializer"),
+    |                                               ^ help: if this is intentional, prefix it with an underscore: `_a`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `b`
+   --> crates/types/src/lib.rs:356:50
+    |
+356 |             Self::InternalInitializerPairList(a, b) => panic!("should not ask an initializer"),
+    |                                                  ^ help: if this is intentional, prefix it with an underscore: `_b`
+
+warning: `swamp-types` (lib) generated 2 warnings
+warning: unused variable: `a`
+   --> crates/semantic/src/lib.rs:711:40
+    |
+711 |             ExpressionKind::When(_, b, a) => b,
+    |                                        ^ help: if this is intentional, prefix it with an underscore: `_a`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `addr`
+   --> crates/vm-types/src/types.rs:163:32
+    |
+163 |             Self::ReadRegister(addr, maybe_path_info, b) => maybe_path_info.as_ref(),
+    |                                ^^^^ help: if this is intentional, prefix it with an underscore: `_addr`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `b`
+   --> crates/vm-types/src/types.rs:163:55
+    |
+163 |             Self::ReadRegister(addr, maybe_path_info, b) => maybe_path_info.as_ref(),
+    |                                                       ^ help: if this is intentional, prefix it with an underscore: `_b`
+
+warning: unused variable: `addr`
+   --> crates/vm-types/src/types.rs:164:33
+    |
+164 |             Self::WriteRegister(addr, maybe_path_info, _attr) => maybe_path_info.as_ref(),
+    |                                 ^^^^ help: if this is intentional, prefix it with an underscore: `_addr`
+
+warning: unreachable pattern
+   --> crates/vm-types/src/types.rs:378:13
+    |
+368 |             Self::DynamicLengthMapView(key, value) => write!(f, "Map<{key}, {value}>"),
+    |             -------------------------------------- matches all the relevant values
+...
+378 |             Self::DynamicLengthMapView(a, b) => write!(f, "slice_pair<{a}, {b}>"),
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no value can reach this
+    |
+    = note: `#[warn(unreachable_patterns)]` on by default
+
+warning: unused variable: `reg`
+   --> crates/vm-types/src/types.rs:841:28
+    |
+841 |             Self::Register(reg) => panic!("assumed it was a memory location"),
+    |                            ^^^ help: if this is intentional, prefix it with an underscore: `_reg`
+
+warning: unreachable pattern
+    --> crates/vm-types/src/types.rs:1834:9
+     |
+1809 |         BasicTypeKind::DynamicLengthMapView(key_type, value_type) => {
+     |         --------------------------------------------------------- matches all the relevant values
+...
+1834 |         BasicTypeKind::DynamicLengthMapView(key, value) => {
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no value can reach this
+
+warning: constant `FRAME_MEMORY_ADDRESS_IS_POINTER_TAG` is never used
+    --> crates/vm-types/src/types.rs:1148:7
+     |
+1148 | const FRAME_MEMORY_ADDRESS_IS_POINTER_TAG: u16 = 0x8000;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` on by default
+
+warning: `swamp-semantic` (lib) generated 1 warning
+warning: `swamp-vm-types` (lib) generated 7 warnings
+warning: unused variable: `frame_info`
+   --> crates/vm-debug-info/src/lib.rs:148:13
+    |
+148 |         let frame_info = self.function_infos.get(&function.function_id).unwrap();
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_frame_info`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: field `temp_reg` is never read
+   --> crates/vm-instr-build/src/lib.rs:122:5
+    |
+120 | pub struct InstructionBuilder<'a> {
+    |            ------------------ field in this struct
+121 |     pub state: &'a mut InstructionBuilderState,
+122 |     temp_reg: u8,
+    |     ^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning[E0133]: call to unsafe function `std::slice::from_raw_parts` is unsafe and requires unsafe block
+  --> crates/vm/src/host.rs:67:9
+   |
+67 |         std::slice::from_raw_parts(ptr, len)
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+   |
+   = note: for more information, see <https://doc.rust-lang.org/nightly/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+   = note: consult the function's documentation for information on how to avoid undefined behavior
+note: an unsafe function restricts its caller, but its body is safe by default
+  --> crates/vm/src/host.rs:66:5
+   |
+66 |     pub unsafe fn ptr_to_slice<'a>(ptr: *const u8, len: usize) -> &'a [u8] {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: `#[warn(unsafe_op_in_unsafe_fn)]` on by default
+
+warning[E0133]: call to unsafe function `std::slice::from_raw_parts_mut` is unsafe and requires unsafe block
+  --> crates/vm/src/host.rs:71:9
+   |
+71 |         std::slice::from_raw_parts_mut(ptr, len)
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+   |
+   = note: for more information, see <https://doc.rust-lang.org/nightly/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html>
+   = note: consult the function's documentation for information on how to avoid undefined behavior
+note: an unsafe function restricts its caller, but its body is safe by default
+  --> crates/vm/src/host.rs:70:5
+   |
+70 |     pub unsafe fn ptr_to_slice_mut<'a>(ptr: *mut u8, len: usize) -> &'a mut [u8] {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `self_const_map_header_reg`
+   --> crates/vm/src/map_open.rs:327:9
+    |
+327 |         self_const_map_header_reg: u8,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_self_const_map_header_reg`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `key_source`
+   --> crates/vm/src/map_open.rs:328:9
+    |
+328 |         key_source: u8,
+    |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_key_source`
+
+warning: unused variable: `size`
+   --> crates/vm/src/memory.rs:102:44
+    |
+102 |     pub(crate) fn heap_allocate(&mut self, size: usize) -> u32 {
+    |                                            ^^^^ help: if this is intentional, prefix it with an underscore: `_size`
+
+warning: unnecessary `unsafe` block
+   --> crates/vm/src/memory.rs:203:9
+    |
+203 |         unsafe { self.get_memory_ptr(addressing) as *mut u32 }
+    |         ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` on by default
+
+warning: unnecessary `unsafe` block
+   --> crates/vm/src/memory.rs:219:9
+    |
+219 |         unsafe { self.get_memory_ptr(addressing) as *mut u16 }
+    |         ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates/vm/src/memory.rs:241:9
+    |
+241 |         unsafe { self.get_memory_ptr(addressing) }
+    |         ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates/vm/src/memory.rs:251:9
+    |
+251 |         unsafe { self.get_memory_const_ptr(addressing) }
+    |         ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates/vm/src/memory.rs:286:9
+    |
+286 |         unsafe { self.get_memory_ptr(some_addressing) as *mut i32 }
+    |         ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates/vm/src/memory.rs:337:9
+    |
+337 |         unsafe { self.get_memory_const_ptr(addressing) as *const i32 }
+    |         ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates/vm/src/memory.rs:381:9
+    |
+381 |         unsafe { self.get_memory_const_ptr(addressing) as *const u16 }
+    |         ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+   --> crates/vm/src/string.rs:104:21
+    |
+104 |         let runes = unsafe { heap.get_heap_const_ptr(string_header.heap_offset as usize) };
+    |                     ^^^^^^ unnecessary `unsafe` block
+
+warning: unused variable: `element_target_reg`
+   --> crates/vm/src/vec.rs:108:39
+    |
+108 |     pub fn execute_vec_get(&mut self, element_target_reg: u8, vec_header_ptr_reg: u8, int_reg: u8) {
+    |                                       ^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_element_target_reg`
+
+warning: unused variable: `vec_header_ptr_reg`
+   --> crates/vm/src/vec.rs:108:63
+    |
+108 |     pub fn execute_vec_get(&mut self, element_target_reg: u8, vec_header_ptr_reg: u8, int_reg: u8) {
+    |                                                               ^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vec_header_ptr_reg`
+
+warning: unused variable: `int_reg`
+   --> crates/vm/src/vec.rs:108:87
+    |
+108 |     pub fn execute_vec_get(&mut self, element_target_reg: u8, vec_header_ptr_reg: u8, int_reg: u8) {
+    |                                                                                       ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_int_reg`
+
+warning: unused variable: `vec_header_ptr_reg`
+   --> crates/vm/src/vec.rs:116:39
+    |
+116 |     pub fn execute_vec_set(&mut self, vec_header_ptr_reg: u8, int_index_reg: u8, item_ptr_reg: u8) {
+    |                                       ^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vec_header_ptr_reg`
+
+warning: unused variable: `int_index_reg`
+   --> crates/vm/src/vec.rs:116:63
+    |
+116 |     pub fn execute_vec_set(&mut self, vec_header_ptr_reg: u8, int_index_reg: u8, item_ptr_reg: u8) {
+    |                                                               ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_int_index_reg`
+
+warning: unused variable: `item_ptr_reg`
+   --> crates/vm/src/vec.rs:116:82
+    |
+116 |     pub fn execute_vec_set(&mut self, vec_header_ptr_reg: u8, int_index_reg: u8, item_ptr_reg: u8) {
+    |                                                                                  ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_item_ptr_reg`
+
+warning: value assigned to `len` is never read
+   --> crates/vm/src/vec.rs:143:17
+    |
+143 |         let mut len = 0;
+    |                 ^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: unused variable: `vec_iterator_header_reg`
+   --> crates/vm/src/vec.rs:162:9
+    |
+162 |         vec_iterator_header_reg: u8,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vec_iterator_header_reg`
+
+warning: unused variable: `target_key_reg`
+   --> crates/vm/src/vec.rs:163:9
+    |
+163 |         target_key_reg: u8,
+    |         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_target_key_reg`
+
+warning: unused variable: `target_value_reg`
+   --> crates/vm/src/vec.rs:164:9
+    |
+164 |         target_value_reg: u8,
+    |         ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_target_value_reg`
+
+warning: unused variable: `jump`
+   --> crates/vm/src/vec.rs:165:9
+    |
+165 |         jump: u8,
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_jump`
+
+warning: variable does not need to be mutable
+    --> crates/vm/src/lib.rs:1588:9
+     |
+1588 |         mut callback: &mut dyn HostFunctionCallback,
+     |         ----^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` on by default
+
+warning: field `stack_offset` is never read
+  --> crates/vm/src/host.rs:15:5
+   |
+9  | pub struct HostArgs {
+   |            -------- field in this struct
+...
+15 |     stack_offset: usize,
+   |     ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: associated items `MAX_PROBES` and `has_open_addressing` are never used
+   --> crates/vm/src/map_open.rs:13:11
+    |
+12  | impl Vm {
+    | ------- associated items in this implementation
+13  |     const MAX_PROBES: usize = 8;
+    |           ^^^^^^^^^^
+...
+336 |     unsafe fn has_open_addressing(
+    |               ^^^^^^^^^^^^^^^^^^^
+
+warning: methods `heap_allocate`, `read_debug_stack_slice`, `read_frame_debug_slice`, and `read_debug_slice` are never used
+   --> crates/vm/src/memory.rs:102:19
+    |
+29  | impl Memory {
+    | ----------- methods in this implementation
+...
+102 |     pub(crate) fn heap_allocate(&mut self, size: usize) -> u32 {
+    |                   ^^^^^^^^^^^^^
+...
+222 |     pub(crate) fn read_debug_stack_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+261 |     pub(crate) fn read_frame_debug_slice(&self, start_offset: u16, size: u16) -> Vec<u8> {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+268 |     pub(crate) fn read_debug_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
+    |                   ^^^^^^^^^^^^^^^^
+
+warning: methods `slice_pair_header_from_reg` and `slice_header_from_reg` are never used
+ --> crates/vm/src/slice_region.rs:5:19
+  |
+4 | impl Vm {
+  | ------- methods in this implementation
+5 |     pub(crate) fn slice_pair_header_from_reg(&self, slice_header_reg: u8) -> SlicePairHeader {
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+9 |     pub(crate) fn slice_header_from_reg(&self, slice_header_reg: u8) -> SliceHeader {
+  |                   ^^^^^^^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0133`.
+warning: unused variable: `struct_type_ref`
+  --> crates/core-extra/src/qck_des.rs:75:27
+   |
+75 |         Type::NamedStruct(struct_type_ref) => {
+   |                           ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_struct_type_ref`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `swamp-vm-debug-info` (lib) generated 1 warning
+warning: `swamp-vm-instr-build` (lib) generated 1 warning
+warning: `swamp-vm` (lib) generated 29 warnings (run `cargo fix --lib -p swamp-vm` to apply 3 suggestions)
+warning: `swamp-core-extra` (lib) generated 1 warning
+warning: unused variable: `tabs`
+   --> crates/pretty-print/src/lib.rs:139:9
+    |
+139 |         tabs: usize,
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_tabs`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `variant`
+   --> crates/pretty-print/src/lib.rs:518:52
+    |
+518 |             Literal::EnumVariantLiteral(enum_type, variant, data) => {
+    |                                                    ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_variant`
+
+warning: unused variable: `slice_type`
+   --> crates/pretty-print/src/lib.rs:573:45
+    |
+573 |             PostfixKind::SliceViewSubscript(slice_type, index_expr) => {
+    |                                             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_slice_type`
+
+warning: unused variable: `index_expr`
+   --> crates/pretty-print/src/lib.rs:573:57
+    |
+573 |             PostfixKind::SliceViewSubscript(slice_type, index_expr) => {
+    |                                                         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_index_expr`
+
+warning: unused variable: `tabs`
+   --> crates/pretty-print/src/lib.rs:563:66
+    |
+563 |     fn show_postfix(&self, f: &mut Formatter, postfix: &Postfix, tabs: usize) -> std::fmt::Result {
+    |                                                                  ^^^^ help: if this is intentional, prefix it with an underscore: `_tabs`
+
+warning: unused variable: `value`
+   --> crates/pretty-print/src/lib.rs:697:43
+    |
+697 |             Type::InternalInitializerList(value) => todo!(),
+    |                                           ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: unused variable: `key`
+   --> crates/pretty-print/src/lib.rs:698:47
+    |
+698 |             Type::InternalInitializerPairList(key, value) => todo!(),
+    |                                               ^^^ help: if this is intentional, prefix it with an underscore: `_key`
+
+warning: unused variable: `value`
+   --> crates/pretty-print/src/lib.rs:698:52
+    |
+698 |             Type::InternalInitializerPairList(key, value) => todo!(),
+    |                                                    ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: unused variable: `value`
+   --> crates/pretty-print/src/lib.rs:748:43
+    |
+748 |             Type::InternalInitializerList(value) => todo!(),
+    |                                           ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: unused variable: `key`
+   --> crates/pretty-print/src/lib.rs:749:47
+    |
+749 |             Type::InternalInitializerPairList(key, value) => todo!(),
+    |                                               ^^^ help: if this is intentional, prefix it with an underscore: `_key`
+
+warning: unused variable: `value`
+   --> crates/pretty-print/src/lib.rs:749:52
+    |
+749 |             Type::InternalInitializerPairList(key, value) => todo!(),
+    |                                                    ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: unused variable: `tabs`
+   --> crates/pretty-print/src/lib.rs:951:9
+    |
+951 |         tabs: usize,
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_tabs`
+
+warning: methods `show_mut_or_not_expression` and `show_parameterized_like` are never used
+   --> crates/pretty-print/src/lib.rs:361:8
+    |
+212 | impl SourceMapDisplay<'_> {
+    | ------------------------- methods in this implementation
+...
+361 |     fn show_mut_or_not_expression(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+625 |     fn show_parameterized_like(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: unused `Result` that must be used
+   --> crates/pretty-print/src/lib.rs:737:17
+    |
+737 |                 write!(f, "{}", "mut ref".red());
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+    = note: `#[warn(unused_must_use)]` on by default
+    = note: this warning originates in the macro `write` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused `Result` that must be used
+   --> crates/pretty-print/src/lib.rs:741:17
+    |
+741 |                 write!(f, "{}", "ref".red());
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+    = note: this warning originates in the macro `write` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused `Result` that must be used
+   --> crates/pretty-print/src/lib.rs:942:9
+    |
+942 |         write!(f, "{} ", "mut".red());
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+    = note: this warning originates in the macro `write` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused variable: `column`
+  --> crates/vm-disasm/src/lib.rs:93:24
+   |
+93 |             let (line, column) = source_file_wrapper.source_map.get_span_location_utf8(
+   |                        ^^^^^^ help: if this is intentional, prefix it with an underscore: `_column`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `operand_addr`
+   --> crates/vm-disasm/src/lib.rs:194:13
+    |
+194 |         let operand_addr = operand.kind.path_info();
+    |             ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_operand_addr`
+
+warning: unused variable: `frame_memory_info`
+    --> crates/vm-disasm/src/lib.rs:1168:5
+     |
+1168 |     frame_memory_info: &FrameMemoryInfo,
+     |     ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_frame_memory_info`
+
+warning: unused variable: `frame_memory_info`
+    --> crates/vm-disasm/src/lib.rs:1185:5
+     |
+1185 |     frame_memory_info: &FrameMemoryInfo,
+     |     ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_frame_memory_info`
+
+warning: unused variable: `item`
+  --> crates/vm-pretty-print/src/lib.rs:27:9
+   |
+27 |     let item = OffsetMemoryItem {
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_item`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unreachable pattern
+   --> crates/vm-pretty-print/src/lib.rs:321:9
+    |
+179 |         BasicTypeKind::DynamicLengthMapView(key_type, value_type) => {
+    |         --------------------------------------------------------- matches all the relevant values
+...
+321 |         BasicTypeKind::DynamicLengthMapView(_, _) => panic!("slice pairs should not be stored"),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no value can reach this
+    |
+    = note: `#[warn(unreachable_patterns)]` on by default
+
+warning: unused variable: `item_type`
+   --> crates/vm-pretty-print/src/lib.rs:159:45
+    |
+159 |         BasicTypeKind::DynamicLengthVecView(item_type)
+    |                                             ^^^^^^^^^
+160 |         | BasicTypeKind::VecStorage(item_type, _) => {
+    |                                     ^^^^^^^^^
+    |
+help: if this is intentional, prefix it with an underscore
+    |
+159 ~         BasicTypeKind::DynamicLengthVecView(_item_type)
+160 ~         | BasicTypeKind::VecStorage(_item_type, _) => {
+    |
+
+warning: unused variable: `i`
+   --> crates/vm-pretty-print/src/lib.rs:165:17
+    |
+165 |             for i in 0..header.count {}
+    |                 ^ help: if this is intentional, prefix it with an underscore: `_i`
+
+warning: unused variable: `item_type`
+   --> crates/vm-pretty-print/src/lib.rs:168:43
+    |
+168 |         BasicTypeKind::FixedCapacityArray(item_type, size) => {
+    |                                           ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_item_type`
+
+warning: unused variable: `i`
+   --> crates/vm-pretty-print/src/lib.rs:173:17
+    |
+173 |             for i in 0..header.count {}
+    |                 ^ help: if this is intentional, prefix it with an underscore: `_i`
+
+warning: unused variable: `tuple_type`
+   --> crates/vm-pretty-print/src/lib.rs:176:35
+    |
+176 |         BasicTypeKind::MapStorage(tuple_type, size) => {
+    |                                   ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_tuple_type`
+
+warning: unused variable: `size`
+   --> crates/vm-pretty-print/src/lib.rs:176:47
+    |
+176 |         BasicTypeKind::MapStorage(tuple_type, size) => {
+    |                                               ^^^^ help: if this is intentional, prefix it with an underscore: `_size`
+
+warning: unused variable: `key_type`
+   --> crates/vm-pretty-print/src/lib.rs:179:45
+    |
+179 |         BasicTypeKind::DynamicLengthMapView(key_type, value_type) => {
+    |                                             ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_key_type`
+
+warning: unused variable: `value_type`
+   --> crates/vm-pretty-print/src/lib.rs:179:55
+    |
+179 |         BasicTypeKind::DynamicLengthMapView(key_type, value_type) => {
+    |                                                       ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_value_type`
+
+warning: unused variable: `index`
+   --> crates/vm-pretty-print/src/lib.rs:242:18
+    |
+242 |             for (index, field_item) in struct_type.fields.iter().enumerate() {
+    |                  ^^^^^ help: if this is intentional, prefix it with an underscore: `_index`
+
+warning: unused variable: `index`
+   --> crates/vm-pretty-print/src/lib.rs:281:18
+    |
+281 |             for (index, tuple_item) in tuple_type.fields.iter().enumerate() {
+    |                  ^^^^^ help: if this is intentional, prefix it with an underscore: `_index`
+
+warning: `swamp-pretty-print` (lib) generated 16 warnings
+warning: `swamp-vm-disasm` (lib) generated 4 warnings
+warning: `swamp-vm-pretty-print` (lib) generated 12 warnings
+warning: unused variable: `float_conversion_err`
+  --> crates/analyzer/src/literal.rs:93:70
+   |
+93 |                 let bool_val = Self::str_to_bool(node_text).map_err(|float_conversion_err| {
+   |                                                                      ^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_float_conversion_err`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `resolved_field_name_node`
+  --> crates/analyzer/src/structure.rs:47:34
+   |
+47 |         for (field_target_index, resolved_field_name_node, field_source_expression) in
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_resolved_field_name_node`
+
+warning: unused variable: `missing_fields`
+   --> crates/analyzer/src/structure.rs:254:40
+    |
+254 |         let (source_order_expressions, missing_fields) = self
+    |                                        ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_missing_fields`
+
+warning: unused variable: `rest_was_specified`
+   --> crates/analyzer/src/structure.rs:252:9
+    |
+252 |         rest_was_specified: bool,
+    |         ^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_rest_was_specified`
+
+warning: unused variable: `text`
+   --> crates/analyzer/src/types.rs:139:13
+    |
+139 |         let text = self.get_text(&type_name.name.0);
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_text`
+
+warning: unused variable: `variable_str`
+   --> crates/analyzer/src/variable.rs:111:28
+    |
+111 |         let (variable_ref, variable_str, should_insert_in_scope) = self
+    |                            ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_variable_str`
+
+warning: unused variable: `signature`
+   --> crates/analyzer/src/lib.rs:438:28
+    |
+438 |                 let (kind, signature) = match found_func {
+    |                            ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_signature`
+
+warning: unused variable: `analyzed_element_type`
+   --> crates/analyzer/src/lib.rs:594:34
+    |
+594 |     fn new_from_slice(&mut self, analyzed_element_type: &Type) -> Result<Expression, Error> {
+    |                                  ^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_analyzed_element_type`
+
+warning: unused variable: `type_identifier`
+   --> crates/analyzer/src/lib.rs:706:17
+    |
+706 |                 type_identifier,
+    |                 ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_type_identifier`
+
+warning: unused variable: `member_name`
+   --> crates/analyzer/src/lib.rs:707:17
+    |
+707 |                 member_name,
+    |                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_member_name`
+
+warning: unused variable: `node`
+    --> crates/analyzer/src/lib.rs:1399:50
+     |
+1399 |                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, arguments) => {
+     |                                                  ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+
+warning: unused variable: `arguments`
+    --> crates/analyzer/src/lib.rs:1399:76
+     |
+1399 |                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, arguments) => {
+     |                                                                            ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_arguments`
+
+warning: unused variable: `resolved_node`
+    --> crates/analyzer/src/lib.rs:1516:17
+     |
+1516 |             let resolved_node = self.to_node(&force_mut.unwrap());
+     |                 ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_resolved_node`
+
+warning: unused variable: `format_specifier`
+    --> crates/analyzer/src/lib.rs:1658:66
+     |
+1658 |                 swamp_ast::StringPart::Interpolation(expression, format_specifier) => {
+     |                                                                  ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_format_specifier`
+
+warning: unused variable: `node`
+    --> crates/analyzer/src/lib.rs:1647:9
+     |
+1647 |         node: &swamp_ast::Node,
+     |         ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+
+warning: unused variable: `assignment_mode`
+    --> crates/analyzer/src/lib.rs:2578:9
+     |
+2578 |         assignment_mode: AssignmentMode,
+     |         ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_assignment_mode`
+
+warning: unused variable: `node`
+    --> crates/analyzer/src/lib.rs:2579:9
+     |
+2579 |         node: &Node,
+     |         ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+
+warning: unused variable: `source_expression`
+    --> crates/analyzer/src/lib.rs:2586:9
+     |
+2586 |         source_expression: &swamp_ast::Expression,
+     |         ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_source_expression`
+
+warning: unused variable: `ty`
+    --> crates/analyzer/src/lib.rs:2587:9
+     |
+2587 |         ty: &Type,
+     |         ^^ help: if this is intentional, prefix it with an underscore: `_ty`
+
+warning: unused variable: `variable`
+    --> crates/analyzer/src/lib.rs:2588:9
+     |
+2588 |         variable: &swamp_ast::Variable,
+     |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_variable`
+
+warning: unused variable: `i`
+    --> crates/analyzer/src/lib.rs:2744:14
+     |
+2744 |         for (i, item) in chain.postfixes.iter().enumerate() {
+     |              ^ help: if this is intentional, prefix it with an underscore: `_i`
+
+warning: unused variable: `location_side`
+    --> crates/analyzer/src/lib.rs:2728:9
+     |
+2728 |         location_side: LocationSide,
+     |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_location_side`
+
+warning: unused variable: `capacity`
+    --> crates/analyzer/src/lib.rs:2995:56
+     |
+2995 |                     Type::VecStorage(vec_element_type, capacity),
+     |                                                        ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_capacity`
+
+warning: unused variable: `lhs`
+    --> crates/analyzer/src/lib.rs:3092:32
+     |
+3092 |     fn analyze_assignment_mode(lhs: SingleLocationExpression) {}
+     |                                ^^^ help: if this is intentional, prefix it with an underscore: `_lhs`
+
+warning: unused variable: `ast_arguments`
+    --> crates/analyzer/src/lib.rs:3255:9
+     |
+3255 |         ast_arguments: &[swamp_ast::Expression],
+     |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ast_arguments`
+
+warning: unused variable: `is_mutable`
+    --> crates/analyzer/src/lib.rs:3256:9
+     |
+3256 |         is_mutable: bool,
+     |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_is_mutable`
+
+warning: unused variable: `expr`
+    --> crates/analyzer/src/lib.rs:3755:9
+     |
+3755 |         expr: &Expression,
+     |         ^^^^ help: if this is intentional, prefix it with an underscore: `_expr`
+
+warning: multiple associated items are never used
+    --> crates/analyzer/src/lib.rs:594:8
+     |
+210  | impl<'a> Analyzer<'a> {
+     | --------------------- associated items in this implementation
+...
+594  |     fn new_from_slice(&mut self, analyzed_element_type: &Type) -> Result<Expression, Error> {
+     |        ^^^^^^^^^^^^^^
+...
+1009 |     fn create_static_member_intrinsic_call(
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1767 |     fn analyze_slice_pair_literal(
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2212 |     const fn analyze_format_specifier(
+     |              ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+2711 |     fn extract_single_intrinsic_call(
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3092 |     fn analyze_assignment_mode(lhs: SingleLocationExpression) {}
+     |        ^^^^^^^^^^^^^^^^^^^^^^^
+...
+3497 |     fn analyze_postfix_member_call(
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+3750 |     fn late_coerce_slice(
+     |        ^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` on by default
+
+warning: methods `analyze_struct_init_calling_default`, `analyze_struct_init_field_by_field`, and `make_solution_for_missing_fields` are never used
+   --> crates/analyzer/src/structure.rs:18:8
+    |
+17  | impl Analyzer<'_> {
+    | ----------------- methods in this implementation
+18  |     fn analyze_struct_init_calling_default(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+114 |     fn analyze_struct_init_field_by_field(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+344 |     fn make_solution_for_missing_fields(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `create_local_variable_generated` is never used
+   --> crates/analyzer/src/variable.rs:179:19
+    |
+15  | impl Analyzer<'_> {
+    | ----------------- method in this implementation
+...
+179 |     pub(crate) fn create_local_variable_generated(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `node`
+  --> crates/code-gen/src/anon_struct.rs:35:9
+   |
+35 |         node: &Node,
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `comment`
+  --> crates/code-gen/src/anon_struct.rs:36:9
+   |
+36 |         comment: &str,
+   |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_comment`
+
+warning: unused variable: `comment`
+  --> crates/code-gen/src/assignment.rs:49:9
+   |
+49 |         comment: &str,
+   |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_comment`
+
+warning: unused variable: `element_type`
+  --> crates/code-gen/src/assignment.rs:91:43
+   |
+91 |                 BasicTypeKind::MapStorage(element_type, capacity),
+   |                                           ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_element_type`
+
+warning: unused variable: `capacity`
+  --> crates/code-gen/src/assignment.rs:91:57
+   |
+91 |                 BasicTypeKind::MapStorage(element_type, capacity),
+   |                                                         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_capacity`
+
+warning: unused variable: `key_value_pairs_vec`
+  --> crates/code-gen/src/assignment.rs:92:63
+   |
+92 |                 ExpressionKind::Literal(Literal::SlicePair(_, key_value_pairs_vec)),
+   |                                                               ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_key_value_pairs_vec`
+
+warning: unused variable: `ctx`
+   --> crates/code-gen/src/bin_op.rs:117:9
+    |
+117 |         ctx: &Context,
+    |         ^^^ help: if this is intentional, prefix it with an underscore: `_ctx`
+
+warning: unused variable: `kind`
+   --> crates/code-gen/src/bin_op.rs:178:13
+    |
+178 |         let kind = FlagStateKind::TFlagIsIndeterminate;
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_kind`
+
+warning: unused variable: `ctx`
+   --> crates/code-gen/src/bin_op.rs:176:9
+    |
+176 |         ctx: &Context,
+    |         ^^^ help: if this is intentional, prefix it with an underscore: `_ctx`
+
+warning: unused variable: `ctx`
+   --> crates/code-gen/src/bin_op.rs:222:9
+    |
+222 |         ctx: &Context,
+    |         ^^^ help: if this is intentional, prefix it with an underscore: `_ctx`
+
+warning: unused variable: `reg`
+   --> crates/code-gen/src/call.rs:601:9
+    |
+601 |         reg: &TypedRegister,
+    |         ^^^ help: if this is intentional, prefix it with an underscore: `_reg`
+
+warning: unused variable: `comment`
+   --> crates/code-gen/src/code_bld.rs:517:9
+    |
+517 |         comment: &str,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_comment`
+
+warning: unused variable: `comment`
+   --> crates/code-gen/src/code_bld.rs:569:9
+    |
+569 |         comment: &str,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_comment`
+
+warning: unused variable: `comment`
+   --> crates/code-gen/src/code_bld.rs:697:9
+    |
+697 |         comment: &str,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_comment`
+
+warning: unused variable: `ctx`
+   --> crates/code-gen/src/code_bld.rs:738:9
+    |
+738 |         ctx: &Context,
+    |         ^^^ help: if this is intentional, prefix it with an underscore: `_ctx`
+
+warning: unused variable: `instruction_count`
+   --> crates/code-gen/src/disasm.rs:138:9
+    |
+138 |     let instruction_count = instructions.len();
+    |         ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_instruction_count`
+
+warning: unused variable: `a`
+  --> crates/code-gen/src/equal.rs:31:41
+   |
+31 |             (BasicTypeKind::TaggedUnion(a), BasicTypeKind::TaggedUnion(b)) => {
+   |                                         ^ help: if this is intentional, prefix it with an underscore: `_a`
+
+warning: unused variable: `b`
+  --> crates/code-gen/src/equal.rs:31:72
+   |
+31 |             (BasicTypeKind::TaggedUnion(a), BasicTypeKind::TaggedUnion(b)) => {
+   |                                                                        ^ help: if this is intentional, prefix it with an underscore: `_b`
+
+warning: unused variable: `ctx`
+  --> crates/code-gen/src/equal.rs:17:9
+   |
+17 |         ctx: &Context,
+   |         ^^^ help: if this is intentional, prefix it with an underscore: `_ctx`
+
+warning: unused variable: `comment`
+   --> crates/code-gen/src/expr.rs:326:9
+    |
+326 |         comment: &str,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_comment`
+
+warning: unused variable: `comment`
+   --> crates/code-gen/src/expr.rs:338:9
+    |
+338 |         comment: &str,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_comment`
+
+warning: unused variable: `function_info`
+   --> crates/code-gen/src/func.rs:120:32
+    |
+120 |         let (start_ip, end_ip, function_info) =
+    |                                ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_function_info`
+
+warning: unused variable: `function_info`
+   --> crates/code-gen/src/func.rs:123:13
+    |
+123 |         let function_info = FunctionInfo {
+    |             ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_function_info`
+
+warning: unused variable: `options`
+   --> crates/code-gen/src/func.rs:100:9
+    |
+100 |         options: &GenOptions,
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_options`
+
+warning: unused variable: `temp_frame_allocator`
+   --> crates/code-gen/src/func.rs:206:9
+    |
+206 |         temp_frame_allocator: &mut ScopeAllocator,
+    |         ^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_temp_frame_allocator`
+
+warning: unused variable: `maybe_pointer`
+  --> crates/code-gen/src/intr.rs:92:13
+   |
+92 |         let maybe_pointer = target_destination.memory_location();
+   |             ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_maybe_pointer`
+
+warning: unused variable: `comment`
+  --> crates/code-gen/src/intr.rs:89:9
+   |
+89 |         comment: &str,
+   |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_comment`
+
+warning: unused variable: `element_size_in_target_vec`
+  --> crates/code-gen/src/iter.rs:88:17
+   |
+88 |             let element_size_in_target_vec = match transformer.return_type() {
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_element_size_in_target_vec`
+
+warning: unused variable: `tagged_union`
+   --> crates/code-gen/src/iter.rs:213:45
+    |
+213 |                 let BasicTypeKind::Optional(tagged_union) = &some_payload.kind else {
+    |                                             ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_tagged_union`
+
+warning: unused variable: `maybe_temp`
+   --> crates/code-gen/src/iter.rs:443:53
+    |
+443 |         let (register_to_be_inserted_in_collection, maybe_temp) = if should_unwrap_value {
+    |                                                     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_maybe_temp`
+
+warning: unused variable: `name`
+   --> crates/code-gen/src/layout.rs:164:55
+    |
+164 | fn layout_slice(value_type: &Type, fixed_size: usize, name: &str) -> BasicType {
+    |                                                       ^^^^ help: if this is intentional, prefix it with an underscore: `_name`
+
+warning: unused variable: `a`
+   --> crates/code-gen/src/layout.rs:319:43
+    |
+319 |         Type::InternalInitializerPairList(a, b) => todo!(),
+    |                                           ^ help: if this is intentional, prefix it with an underscore: `_a`
+
+warning: unused variable: `b`
+   --> crates/code-gen/src/layout.rs:319:46
+    |
+319 |         Type::InternalInitializerPairList(a, b) => todo!(),
+    |                                              ^ help: if this is intentional, prefix it with an underscore: `_b`
+
+warning: unused variable: `union_info`
+  --> crates/code-gen/src/literal.rs:86:21
+   |
+86 |                 let union_info = output.ty().unwrap_info().unwrap();
+   |                     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_union_info`
+
+warning: unused variable: `slice_pair_type`
+   --> crates/code-gen/src/literal.rs:184:32
+    |
+184 |             Literal::SlicePair(slice_pair_type, pairs) => {
+    |                                ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_slice_pair_type`
+
+warning: unused variable: `pairs`
+   --> crates/code-gen/src/literal.rs:184:49
+    |
+184 |             Literal::SlicePair(slice_pair_type, pairs) => {
+    |                                                 ^^^^^ help: if this is intentional, prefix it with an underscore: `_pairs`
+
+warning: unused variable: `ctx`
+   --> crates/code-gen/src/literal.rs:195:9
+    |
+195 |         ctx: &Context,
+    |         ^^^ help: if this is intentional, prefix it with an underscore: `_ctx`
+
+warning: unused variable: `location`
+  --> crates/code-gen/src/location.rs:42:21
+   |
+42 |                 let location = self.emit_lvalue_address(location_expression, ctx);
+   |                     ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_location`
+
+warning: unused variable: `expected_item_type`
+   --> crates/code-gen/src/location.rs:225:49
+    |
+225 |             BasicTypeKind::DynamicLengthVecView(expected_item_type) => {
+    |                                                 ^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_expected_item_type`
+
+warning: unused variable: `value_type`
+   --> crates/code-gen/src/location.rs:239:52
+    |
+239 |             BasicTypeKind::DynamicLengthMapView(_, value_type) => {
+    |                                                    ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_value_type`
+
+warning: unused variable: `node`
+   --> crates/code-gen/src/location.rs:212:9
+    |
+212 |         node: &Node,
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+
+warning: unused variable: `target_register`
+   --> crates/code-gen/src/location.rs:215:9
+    |
+215 |         target_register: &TypedRegister,
+    |         ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_target_register`
+
+warning: unused variable: `key_expr`
+  --> crates/code-gen/src/map.rs:89:14
+   |
+89 |         for (key_expr, value_expr) in slice_pair_literal {
+   |              ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_key_expr`
+
+warning: unused variable: `maybe_patterns`
+  --> crates/code-gen/src/match_expr.rs:50:62
+   |
+50 |                     NormalPattern::EnumPattern(enum_variant, maybe_patterns) => {
+   |                                                              ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_maybe_patterns`
+
+warning: unused variable: `maybe_guard`
+  --> crates/code-gen/src/match_expr.rs:84:49
+   |
+84 |                 Pattern::Normal(normal_pattern, maybe_guard) => match normal_pattern {
+   |                                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_maybe_guard`
+
+warning: unreachable pattern
+   --> crates/code-gen/src/postfix.rs:158:25
+    |
+158 |                         _ => panic!(
+    |                         ^ no value can reach this
+    |
+note: multiple earlier patterns match some of the same values
+   --> crates/code-gen/src/postfix.rs:158:25
+    |
+88  |                         Function::Internal(internal_fn) => {
+    |                         ------------------------------- matches some of the same values
+...
+132 |                         Function::External(external_function_def) => {
+    |                         ----------------------------------------- matches some of the same values
+...
+142 |                         Function::Intrinsic(intrinsic_def) => {
+    |                         ---------------------------------- matches some of the same values
+...
+158 |                         _ => panic!(
+    |                         ^ collectively making this unreachable
+    = note: `#[warn(unreachable_patterns)]` on by default
+
+warning: variable `t_flag_result` is assigned to, but never used
+  --> crates/code-gen/src/postfix.rs:20:17
+   |
+20 |         let mut t_flag_result = FlagState::default();
+   |                 ^^^^^^^^^^^^^
+   |
+   = note: consider using `_t_flag_result` instead
+
+warning: value assigned to `t_flag_result` is never read
+   --> crates/code-gen/src/postfix.rs:112:37
+    |
+112 | ...                   t_flag_result = z_result;
+    |                       ^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: value assigned to `t_flag_result` is never read
+   --> crates/code-gen/src/postfix.rs:155:33
+    |
+155 | ...                   t_flag_result = z_result;
+    |                       ^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: unused variable: `slice_type`
+  --> crates/code-gen/src/slice_pair.rs:10:9
+   |
+10 |         slice_type: &Type,
+   |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_slice_type`
+
+warning: unused variable: `expressions`
+  --> crates/code-gen/src/slice_pair.rs:11:9
+   |
+11 |         expressions: &[(Expression, Expression)],
+   |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_expressions`
+
+warning: unused variable: `node`
+  --> crates/code-gen/src/slice_pair.rs:12:9
+   |
+12 |         node: &Node,
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+
+warning: unused variable: `ctx`
+  --> crates/code-gen/src/slice_pair.rs:13:9
+   |
+13 |         ctx: &Context,
+   |         ^^^ help: if this is intentional, prefix it with an underscore: `_ctx`
+
+warning: unused variable: `node`
+  --> crates/code-gen/src/state.rs:72:9
+   |
+72 |         node: &Node,
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+
+warning: unused variable: `comment`
+  --> crates/code-gen/src/state.rs:73:9
+   |
+73 |         comment: &str,
+   |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_comment`
+
+warning: unused variable: `anon_struct_type`
+  --> crates/code-gen/src/statement.rs:38:25
+   |
+38 |             Type::Range(anon_struct_type) => {
+   |                         ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_anon_struct_type`
+
+warning: unused variable: `element_type`
+  --> crates/code-gen/src/statement.rs:50:29
+   |
+50 |             Type::SliceView(element_type) => {
+   |                             ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_element_type`
+
+warning: unused variable: `node`
+  --> crates/code-gen/src/tuple.rs:17:9
+   |
+17 |         node: &Node,
+   |         ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+
+warning: unused variable: `node`
+  --> crates/code-gen/src/tuple.rs:43:13
+   |
+43 |         let node = &source_tuple_expression.node;
+   |             ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+
+warning: unused variable: `element_type`
+  --> crates/code-gen/src/vec.rs:80:43
+   |
+80 |             let BasicTypeKind::VecStorage(element_type, fixed_size_capacity) =
+   |                                           ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_element_type`
+
+warning: unused variable: `memory`
+  --> crates/code-gen/src/vec.rs:95:17
+   |
+95 |             let memory = self.emit_scalar_rvalue(found_expr, ctx);
+   |                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_memory`
+
+warning: type `MutableReturnReg` is more private than the item `EmitArgumentInfo::copy_back_of_registers_mutated_by_callee`
+  --> crates/code-gen/src/code_bld.rs:27:5
+   |
+27 |     pub copy_back_of_registers_mutated_by_callee: Vec<MutableReturnReg>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `EmitArgumentInfo::copy_back_of_registers_mutated_by_callee` is reachable at visibility `pub`
+   |
+note: but type `MutableReturnReg` is only usable at visibility `pub(crate)`
+  --> crates/code-gen/src/code_bld.rs:30:1
+   |
+30 | pub(crate) struct MutableReturnReg {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `CodeBuilder<'_>` is more private than the item `func::<impl TopLevelGenState>::spill_callee_save_registers_except_mutable_parameters`
+   --> crates/code-gen/src/func.rs:136:5
+    |
+136 | /     pub fn spill_callee_save_registers_except_mutable_parameters(
+137 | |         code_builder: &mut CodeBuilder,
+138 | |         function_info: &FunctionInfo,
+139 | |         node: &Node,
+140 | |     ) -> Option<SpilledRegisterRegion> {
+    | |______________________________________^ associated function `func::<impl TopLevelGenState>::spill_callee_save_registers_except_mutable_parameters` is reachable at visibility `pub`
+    |
+note: but type `CodeBuilder<'_>` is only usable at visibility `pub(crate)`
+   --> crates/code-gen/src/code_bld.rs:35:1
+    |
+35  | pub(crate) struct CodeBuilder<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `CodeBuilder<'_>` is more private than the item `func::<impl TopLevelGenState>::function_prologue`
+   --> crates/code-gen/src/func.rs:203:5
+    |
+203 | /     pub fn function_prologue(
+204 | |         code_builder: &mut CodeBuilder,
+205 | |         function_info: &FunctionInfo,
+206 | |         temp_frame_allocator: &mut ScopeAllocator,
+207 | |         node: &Node,
+208 | |     ) -> (Option<SpilledRegisterRegion>, PatchPosition) {
+    | |_______________________________________________________^ associated function `func::<impl TopLevelGenState>::function_prologue` is reachable at visibility `pub`
+    |
+note: but type `CodeBuilder<'_>` is only usable at visibility `pub(crate)`
+   --> crates/code-gen/src/code_bld.rs:35:1
+    |
+35  | pub(crate) struct CodeBuilder<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `highest_register_used` is never read
+   --> crates/code-gen/src/lib.rs:356:5
+    |
+349 | pub struct FrameAndVariableInfo {
+    |            -------------------- field in this struct
+...
+356 |     highest_register_used: u8,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: method `is_argument_already_in_correct_register` is never used
+  --> crates/code-gen/src/call.rs:25:8
+   |
+24 | impl CodeBuilder<'_> {
+   | -------------------- method in this implementation
+25 |     fn is_argument_already_in_correct_register(
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `source_map_lookup` is never read
+  --> crates/code-gen/src/code_bld.rs:43:9
+   |
+35 | pub(crate) struct CodeBuilder<'a> {
+   |                   ----------- field in this struct
+...
+43 |     pub source_map_lookup: &'a SourceMapWrapper<'a>,
+   |         ^^^^^^^^^^^^^^^^^
+
+warning: methods `add_ld_regs_from_frame`, `debug_node`, `emit_variable_binding`, and `get_variable_frame_placed` are never used
+   --> crates/code-gen/src/code_bld.rs:104:19
+    |
+67  | impl CodeBuilder<'_> {
+    | -------------------- methods in this implementation
+...
+104 |     pub(crate) fn add_ld_regs_from_frame(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+...
+433 |     fn debug_node(&self, node: &Node) {
+    |        ^^^^^^^^^^
+...
+547 |     fn emit_variable_binding(
+    |        ^^^^^^^^^^^^^^^^^^^^^
+...
+676 |     fn get_variable_frame_placed(&self, variable: &VariableRef) -> FramePlacedType {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `layout_slice` is never used
+   --> crates/code-gen/src/layout.rs:164:4
+    |
+164 | fn layout_slice(value_type: &Type, fixed_size: usize, name: &str) -> BasicType {
+    |    ^^^^^^^^^^^^
+
+warning: function `layout_slice_pair` is never used
+   --> crates/code-gen/src/layout.rs:175:4
+    |
+175 | fn layout_slice_pair(a_type: &Type, b_type: &Type, fixed_size: usize) -> BasicType {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `emit_collection_set` is never used
+   --> crates/code-gen/src/location.rs:181:8
+    |
+15  | impl CodeBuilder<'_> {
+    | -------------------- method in this implementation
+...
+181 |     fn emit_collection_set(
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: method `emit_map_storage_init_from_slice_pair_literal` is never used
+  --> crates/code-gen/src/map.rs:55:19
+   |
+10 | impl CodeBuilder<'_> {
+   | -------------------- method in this implementation
+...
+55 |     pub(crate) fn emit_map_storage_init_from_slice_pair_literal(
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `emit_slice_pair_literal` is never used
+ --> crates/code-gen/src/slice_pair.rs:8:14
+  |
+7 | impl CodeBuilder<'_> {
+  | -------------------- method in this implementation
+8 |     const fn emit_slice_pair_literal(
+  |              ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `emit_intrinsic_vec_create` and `emit_intrinsic_vec_init_capacity_set_payload_addr` are never used
+  --> crates/code-gen/src/vec.rs:61:8
+   |
+16 | impl CodeBuilder<'_> {
+   | -------------------- methods in this implementation
+...
+61 |     fn emit_intrinsic_vec_create(&self, arguments: &Vec<ArgumentExpression>) {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+67 |     fn emit_intrinsic_vec_init_capacity_set_payload_addr(
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `swamp-analyzer` (lib) generated 30 warnings
+warning: `swamp-code-gen` (lib) generated 74 warnings
+warning: unused variable: `column`
+   --> crates/runtime/src/lib.rs:258:28
+    |
+258 |                 let (line, column) = run_options
+    |                            ^^^^^^ help: if this is intentional, prefix it with an underscore: `_column`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `swamp-runtime` (lib) generated 1 warning
+warning: unused variable: `bootstrap_timer`
+   --> crates/test-runner/src/lib.rs:169:17
+    |
+169 |             let bootstrap_timer = ScopedTimer::new("run tests a bunch of times");
+    |                 ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bootstrap_timer`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: struct `TestContext` is never constructed
+  --> crates/test-runner/src/lib.rs:12:8
+   |
+12 | struct TestContext;
+   |        ^^^^^^^^^^^
+   |
+   = note: `TestContext` has a derived impl for the trait `Default`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `swamp-test-runner` (lib) generated 2 warnings
+warning: unused import: `std::io::Write`
+ --> crates/fentext/src/main.rs:3:5
+  |
+3 | use std::io::Write;
+  |     ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `fentext` (bin "fentext") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running `/Users/peter/cargo-target/debug/fentext`
+core-0.0.0::panic ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mmessage[0m: [92mString[0m reg [95msimple[0m 
+
+     [90m0000>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+1498 [32m|[0m     runtime_panic(message)
+     [90m0001>[0m [34mpanic[0m [32mr1[0m [90m;[0m [90mintrinsic panic [0m
+     [90m0002>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::assert ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mcondition[0m: [92mb8[0m reg [95msimple[0m 
+[33mr2[0m: [96mmessage[0m: [92mString[0m reg [95msimple[0m 
+
+     [90m0003>[0m [34menter[0m #[33m32[0m [90m;[0m [90mprologue  (hex:0020)[0m
+1507 [32m|[0m     if !condition {
+     [90m0004>[0m [34mmov[0m [31mr128[0m [32mr1[0m [90m;[0m [90mextra copy var access [0m
+     [90m0005>[0m [34mtst[0m [32mr128[0m [90m;[0m [90mset P flag from register [0m
+     [90m0006>[0m [34mb.true[0m [96m7[0m 000E [90m;[0m [90mjump boolean condition false [0m
+1508 [32m|[0m         panic(message)
+     [90m0007>[0m [34mstmf[0m [31m$0000[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m0008>[0m [34mstmf[0m [31m$0018[0m [32mr128[0m #[33m1[0m [90m;[0m [90mspill register to stack memory  (count: 01)[0m
+     [90m0009>[0m [34mmov[0m [31mr129[0m [32mr2[0m [90m;[0m [90mextra copy var access [0m
+     [90m000A>[0m [34mmov[0m [31mr1[0m [32mr129[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m000B>[0m [34mcall[0m [36m@[0m[96m0[0m [90m;[0m [90mcalling core-0.0.0::panic (call) [0m
+     [90m000C>[0m [34mldmf[0m [31mr128[0m [33m$0018[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) restore spilled after call  (count: 01)[0m
+     [90m000D>[0m [34mldmf[0m #[31m63[0m [33m$0000[0m [90m;[0m [90mrestore (filtered by output dest) using mask restore spilled after call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m000E>[0m [34mret[0m  [90m;[0m [90m [0m
+
+main::main ==========================================================================
+frame size for variables: frame size: 0000
+[34mr0[0m: [92mCrawler[0m reg [95mcomplex (ptr)[0m
+{
+  $0000+[33m0000[0m:[32m4[0m [34mtick_count[0m: [37ms32[0m
+  $0004+[33m0004[0m:[32m7C[0m [34mentities[0m: [Entity, 10]
+  $0080+[33m0080[0m:[32m504[0m [34mgrid[0m: [int, 320] }
+
+     [90m000F>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 132 [32m|[0m     tick_count: 0,
+     [90m0010>[0m [34mmov[0m [31mr128[0m [35m0x0[0m [90m;[0m [90mint literal  (int:0 fixed:0.00)[0m
+     [90m0011>[0m [34mst[0m [[31mr0[0m #[33m0[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+ 133 [32m|[0m     entities: [
+ 134 [32m|[0m       Entity {
+ 135 [32m|[0m         type: Type::Player,
+     [90m0012>[0m [34mmovb[0m [31mr128[0m [35m0x00[0m [90m;[0m [90menum variant Player tag  (int:0)[0m
+     [90m0013>[0m [34mstb[0m [[31mr0[0m #[33m4[0m] [32mr128[0m [90m;[0m [90mput enum tag in place [0m
+ 136 [32m|[0m         point: Point { x: 1, y: 2 },
+     [90m0014>[0m [34mmov[0m [31mr128[0m [35m0x1[0m [90m;[0m [90mint literal  (int:1 fixed:0.00)[0m
+     [90m0015>[0m [34mst[0m [[31mr0[0m #[33m8[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+     [90m0016>[0m [34mmov[0m [31mr128[0m [35m0x2[0m [90m;[0m [90mint literal  (int:2 fixed:0.00)[0m
+     [90m0017>[0m [34mst[0m [[31mr0[0m #[33m12[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+ 137 [32m|[0m       },
+ 138 [32m|[0m       Entity {
+ 139 [32m|[0m         type: Type::Spider,
+     [90m0018>[0m [34mmovb[0m [31mr128[0m [35m0x01[0m [90m;[0m [90menum variant Spider tag  (int:1)[0m
+     [90m0019>[0m [34mstb[0m [[31mr0[0m #[33m16[0m] [32mr128[0m [90m;[0m [90mput enum tag in place [0m
+ 140 [32m|[0m         point: Point { x: 2, y: 3 },
+     [90m001A>[0m [34mmov[0m [31mr128[0m [35m0x2[0m [90m;[0m [90mint literal  (int:2 fixed:0.00)[0m
+     [90m001B>[0m [34mst[0m [[31mr0[0m #[33m20[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+     [90m001C>[0m [34mmov[0m [31mr128[0m [35m0x3[0m [90m;[0m [90mint literal  (int:3 fixed:0.00)[0m
+     [90m001D>[0m [34mst[0m [[31mr0[0m #[33m24[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+ 141 [32m|[0m       },
+ 142 [32m|[0m       Entity {
+ 143 [32m|[0m         type: Type::Octopus,
+     [90m001E>[0m [34mmovb[0m [31mr128[0m [35m0x02[0m [90m;[0m [90menum variant Octopus tag  (int:2)[0m
+     [90m001F>[0m [34mstb[0m [[31mr0[0m #[33m28[0m] [32mr128[0m [90m;[0m [90mput enum tag in place [0m
+ 144 [32m|[0m         point: Point { x: 3, y: 4 },
+     [90m0020>[0m [34mmov[0m [31mr128[0m [35m0x3[0m [90m;[0m [90mint literal  (int:3 fixed:0.00)[0m
+     [90m0021>[0m [34mst[0m [[31mr0[0m #[33m32[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+     [90m0022>[0m [34mmov[0m [31mr128[0m [35m0x4[0m [90m;[0m [90mint literal  (int:4 fixed:0.00)[0m
+     [90m0023>[0m [34mst[0m [[31mr0[0m #[33m36[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+ 145 [32m|[0m       },
+ 146 [32m|[0m     ],
+ 147 [32m|[0m     grid: [0, 1, 2]
+     [90m0024>[0m [34mmov[0m [31mr128[0m [35m0x0[0m [90m;[0m [90mint literal  (int:0 fixed:0.00)[0m
+     [90m0025>[0m [34mst[0m [[31mr0[0m #[33m128[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+     [90m0026>[0m [34mmov[0m [31mr128[0m [35m0x1[0m [90m;[0m [90mint literal  (int:1 fixed:0.00)[0m
+     [90m0027>[0m [34mst[0m [[31mr0[0m #[33m132[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+     [90m0028>[0m [34mmov[0m [31mr128[0m [35m0x2[0m [90m;[0m [90mint literal  (int:2 fixed:0.00)[0m
+     [90m0029>[0m [34mst[0m [[31mr0[0m #[33m136[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+     [90m002A>[0m [34mhlt[0m  [90m;[0m [90m [0m
+
+core-0.0.0::default ==========================================================================
+frame size for variables: frame size: 0000
+
+     [90m002B>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  11 [32m|[0m     false
+     [90m002C>[0m [34mmovb[0m [31mr0[0m [35m0x00[0m [90m;[0m [90mbool literal  (int:0)[0m
+     [90m002D>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::to_string ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mb8[0m reg [95msimple[0m 
+
+     [90m002E>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  15 [32m|[0m       bool_to_string(self)
+     [90m002F>[0m [34mbtos[0m [31mr0[0m [32mr1[0m [90m;[0m [90mbool_to_string [0m
+     [90m0030>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::default ==========================================================================
+frame size for variables: frame size: 0000
+
+     [90m0031>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  21 [32m|[0m         0.0
+     [90m0032>[0m [34mmov[0m [31mr0[0m [35m0x0[0m [90m;[0m [90mfloat literal  (int:0 fixed:0.00)[0m
+     [90m0033>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::to_string ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m0034>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  25 [32m|[0m         float_to_string(self)
+     [90m0035>[0m [34mftos[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat_to_string [0m
+     [90m0036>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::floor ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m0037>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  35 [32m|[0m         float_floor(self)
+     [90m0038>[0m [34mffloor[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat floor [0m
+     [90m0039>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::round ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m003A>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  45 [32m|[0m         float_round(self)
+     [90m003B>[0m [34mfround[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat round [0m
+     [90m003C>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::sqrt ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m003D>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  55 [32m|[0m         float_sqrt(self)
+     [90m003E>[0m [34mfsqrt[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat sqr [0m
+     [90m003F>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::sign ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m0040>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  65 [32m|[0m         float_sign(self)
+     [90m0041>[0m [34mfsign[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat sign [0m
+     [90m0042>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::abs ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m0043>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  75 [32m|[0m         float_abs(self)
+     [90m0044>[0m [34mfabs[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat abs [0m
+     [90m0045>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::rnd ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m0046>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  86 [32m|[0m         float_rnd(self)
+     [90m0047>[0m [34mfprnd[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat pseudo random [0m
+     [90m0048>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::cos ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m0049>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  96 [32m|[0m         float_cos(self)
+     [90m004A>[0m [34mfcos[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat cos [0m
+     [90m004B>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::sin ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m004C>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 106 [32m|[0m         float_sin(self)
+     [90m004D>[0m [34mfsin[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat sin [0m
+     [90m004E>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::acos ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m004F>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 116 [32m|[0m         float_acos(self)
+     [90m0050>[0m [34mfacos[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat acos [0m
+     [90m0051>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::asin ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m0052>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 126 [32m|[0m         float_asin(self)
+     [90m0053>[0m [34mfasin[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat asin [0m
+     [90m0054>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::atan2 ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+[33mr2[0m: [96mx[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m0055>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 139 [32m|[0m         float_atan2(self, x)
+     [90m0056>[0m [34mfatan2[0m [31mr0[0m [32mr1[0m [90m;[0m [90mfloat atan2 [0m
+     [90m0057>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::min ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+[33mr2[0m: [96mx[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m0058>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 152 [32m|[0m         float_min(self, x)
+     [90m0059>[0m [34mfmin[0m [31mr0[0m [32mr1[0m [32mr2[0m [90m;[0m [90mfloat min [0m
+     [90m005A>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::max ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+[33mr2[0m: [96mx[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m005B>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 165 [32m|[0m         float_max(self, x)
+     [90m005C>[0m [34mfmax[0m [31mr0[0m [32mr1[0m [32mr2[0m [90m;[0m [90mfloat max [0m
+     [90m005D>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::clamp ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mfixed[0m reg [95msimple[0m 
+[33mr2[0m: [96mmin[0m: [92mfixed[0m reg [95msimple[0m 
+[33mr3[0m: [96mmax[0m: [92mfixed[0m reg [95msimple[0m 
+
+     [90m005E>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 179 [32m|[0m         float_clamp(self, min, max)
+     [90m005F>[0m [34mfclamp[0m [31mr0[0m [32mr1[0m [32mr2[0m [32mr3[0m [90m;[0m [90mfloat round [0m
+     [90m0060>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::default ==========================================================================
+frame size for variables: frame size: 0000
+
+     [90m0061>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 186 [32m|[0m         0
+     [90m0062>[0m [34mmov[0m [31mr0[0m [35m0x0[0m [90m;[0m [90mint literal  (int:0 fixed:0.00)[0m
+     [90m0063>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::to_string ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mint[0m reg [95msimple[0m 
+
+     [90m0064>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 190 [32m|[0m         int_to_string(self)
+     [90m0065>[0m [34mitos[0m [31mr0[0m [32mr1[0m [90m;[0m [90mint_to_string [0m
+     [90m0066>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::abs ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mint[0m reg [95msimple[0m 
+
+     [90m0067>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 200 [32m|[0m         int_abs(self)
+     [90m0068>[0m [34miabs[0m [31mr0[0m [32mr1[0m [90m;[0m [90mint abs [0m
+     [90m0069>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::rnd ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mint[0m reg [95msimple[0m 
+
+     [90m006A>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 212 [32m|[0m         int_rnd(self)
+     [90m006B>[0m [34mirnd[0m [31mr0[0m [32mr1[0m [90m;[0m [90mint pseudo random [0m
+     [90m006C>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::max ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mint[0m reg [95msimple[0m 
+[33mr2[0m: [96mx[0m: [92mint[0m reg [95msimple[0m 
+
+     [90m006D>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 225 [32m|[0m         int_max(self, x)
+     [90m006E>[0m [34mimax[0m [31mr0[0m [32mr1[0m [32mr2[0m [90m;[0m [90mint max [0m
+     [90m006F>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::min ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mint[0m reg [95msimple[0m 
+[33mr2[0m: [96mx[0m: [92mint[0m reg [95msimple[0m 
+
+     [90m0070>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 238 [32m|[0m         int_min(self, x)
+     [90m0071>[0m [34mimin[0m [31mr0[0m [32mr1[0m [32mr2[0m [90m;[0m [90mint min [0m
+     [90m0072>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::clamp ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mint[0m reg [95msimple[0m 
+[33mr2[0m: [96mmin[0m: [92mint[0m reg [95msimple[0m 
+[33mr3[0m: [96mmax[0m: [92mint[0m reg [95msimple[0m 
+
+     [90m0073>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 242 [32m|[0m         int_clamp(self, min, max)
+     [90m0074>[0m [34miclamp[0m [31mr0[0m [32mr1[0m [32mr0[0m [32mr0[0m [90m;[0m [90mint clamp [0m
+     [90m0075>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::to_float ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mint[0m reg [95msimple[0m 
+
+     [90m0076>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 252 [32m|[0m         int_to_float(self)
+     [90m0077>[0m [34mitof[0m [31mr0[0m [32mr1[0m [90m;[0m [90mint to float param self [0m
+     [90m0078>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::default ==========================================================================
+frame size for variables: frame size: 0000
+
+     [90m0079>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 258 [32m|[0m         ""
+     [90m007A>[0m [34mmov[0m [31mr0[0m [35m0x10[0m [90m;[0m [90mconstant string ''  (int:16 fixed:0.00)[0m
+     [90m007B>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::len ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92mString[0m reg [95msimple[0m 
+
+     [90m007C>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 271 [32m|[0m         string_len(self)
+     [90m007D>[0m [34mld[0m [31mr0[0m [[32mr1[0m #[33m4[0m] [90m;[0m [90mget the length [0m
+     [90m007E>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::new ==========================================================================
+frame size for variables: frame size: 0000
+[34mr0[0m: [92mRange[0m reg [95mcomplex (ptr)[0m
+{
+  $0000+[33m0000[0m:[32m4[0m [34mstart[0m: [37ms32[0m
+  $0004+[33m0004[0m:[32m4[0m [34mend[0m: [37ms32[0m
+  $0008+[33m0008[0m:[32m1[0m [34mis_inclusive[0m: [37mb8[0m }
+[33mr1[0m: [96mstart[0m: [92mint[0m reg [95msimple[0m 
+[33mr2[0m: [96mend[0m: [92mint[0m reg [95msimple[0m 
+[33mr3[0m: [96mis_inclusive[0m: [92mb8[0m reg [95msimple[0m 
+
+     [90m007F>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 285 [32m|[0m             start: start,
+     [90m0080>[0m [34mst[0m [[31mr0[0m #[33m0[0m] [32mr1[0m [90m;[0m [90mvar access to primitive memory location [0m
+ 286 [32m|[0m             end: end,
+     [90m0081>[0m [34mst[0m [[31mr0[0m #[33m4[0m] [32mr2[0m [90m;[0m [90mvar access to primitive memory location [0m
+ 287 [32m|[0m             is_inclusive: is_inclusive,
+     [90m0082>[0m [34mstb[0m [[31mr0[0m #[33m8[0m] [32mr3[0m [90m;[0m [90mvar access to primitive memory location [0m
+     [90m0083>[0m [34mret[0m  [90m;[0m [90m [0m
+
+core-0.0.0::iter ==========================================================================
+frame size for variables: frame size: 0000
+[34mr0[0m: [92m(0:int, 1:int)[0m reg [95mcomplex (ptr)[0m
+(
+  $0000+[33m0000[0m:[32m4[0m [34m0[0m: [37ms32[0m
+  $0004+[33m0004[0m:[32m4[0m [34m1[0m: [37ms32[0m )
+[33mr1[0m: [96mself[0m: [92mRange[0m reg [95mcomplex (ptr)[0m 
+
+     [90m0084>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+ 293 [32m|[0m         (0, 0)
+     [90m0085>[0m [34mmov[0m [31mr128[0m [35m0x0[0m [90m;[0m [90mint literal  (int:0 fixed:0.00)[0m
+     [90m0086>[0m [34mst[0m [[31mr0[0m #[33m0[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+     [90m0087>[0m [34mmov[0m [31mr128[0m [35m0x0[0m [90m;[0m [90mint literal  (int:0 fixed:0.00)[0m
+     [90m0088>[0m [34mst[0m [[31mr0[0m #[33m4[0m] [32mr128[0m [90m;[0m [90mcopy int literal into destination memory [0m
+     [90m0089>[0m [34mret[0m  [90m;[0m [90m [0m
+
+main::to_string ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mself[0m: [92menum Input[0m reg [95mcomplex (ptr)[0m 
+
+     [90m008A>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  18 [32m|[0m     match self {
+     [90m008B>[0m [34mldb[0m [31mr128[0m [[32mr1[0m #[33m0[0m] [90m;[0m [90mread enum tag [0m
+  19 [32m|[0m         Left => "left",
+     [90m008C>[0m [34mcmp[0m [32mr128[0m [35m0x00[0m [90m;[0m [90mcheck for enum variant  (int:0)[0m
+     [90m008D>[0m [34mb.false[0m [96m2[0m 0090 [90m;[0m [90mplaceholder for enum match [0m
+     [90m008E>[0m [34mmov[0m [31mr0[0m [35m0x20[0m [90m;[0m [90mconstant string 'left'  (int:32 fixed:0.00)[0m
+     [90m008F>[0m [34mb[0m [96m13[0m 009D [90m;[0m [90mjump to exit [0m
+  20 [32m|[0m         Right => "right",
+     [90m0090>[0m [34mcmp[0m [32mr128[0m [35m0x01[0m [90m;[0m [90mcheck for enum variant  (int:1)[0m
+     [90m0091>[0m [34mb.false[0m [96m2[0m 0094 [90m;[0m [90mplaceholder for enum match [0m
+     [90m0092>[0m [34mmov[0m [31mr0[0m [35m0x30[0m [90m;[0m [90mconstant string 'right'  (int:48 fixed:0.00)[0m
+     [90m0093>[0m [34mb[0m [96m9[0m 009D [90m;[0m [90mjump to exit [0m
+  21 [32m|[0m         Up => "up",
+     [90m0094>[0m [34mcmp[0m [32mr128[0m [35m0x02[0m [90m;[0m [90mcheck for enum variant  (int:2)[0m
+     [90m0095>[0m [34mb.false[0m [96m2[0m 0098 [90m;[0m [90mplaceholder for enum match [0m
+     [90m0096>[0m [34mmov[0m [31mr0[0m [35m0x40[0m [90m;[0m [90mconstant string 'up'  (int:64 fixed:0.00)[0m
+     [90m0097>[0m [34mb[0m [96m5[0m 009D [90m;[0m [90mjump to exit [0m
+  22 [32m|[0m         Down => "down",
+     [90m0098>[0m [34mcmp[0m [32mr128[0m [35m0x03[0m [90m;[0m [90mcheck for enum variant  (int:3)[0m
+     [90m0099>[0m [34mb.false[0m [96m2[0m 009C [90m;[0m [90mplaceholder for enum match [0m
+     [90m009A>[0m [34mmov[0m [31mr0[0m [35m0x50[0m [90m;[0m [90mconstant string 'down'  (int:80 fixed:0.00)[0m
+     [90m009B>[0m [34mb[0m [96m1[0m 009D [90m;[0m [90mjump to exit [0m
+  23 [32m|[0m         _ => "some action",
+     [90m009C>[0m [34mmov[0m [31mr0[0m [35m0x68[0m [90m;[0m [90mconstant string 'some action'  (int:104 fixed:0.00)[0m
+     [90m009D>[0m [34mret[0m  [90m;[0m [90m [0m
+
+main::draw ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mc[0m: [92mCrawler[0m reg [95mcomplex (ptr)[0m 
+
+     [90m009E>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+     [90m009F>[0m [34mret[0m  [90m;[0m [90m [0m
+
+main::entity_tick ==========================================================================
+frame size for variables: frame size: 0000
+[33mr1[0m: [96mentity[0m: [92m&mut Entity[0m reg [95mcomplex (ptr)[0m 
+
+     [90m00A0>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+  73 [32m|[0m     entity.point.x += 1
+     [90m00A1>[0m [34mld[0m [31mr128[0m [[32mr1[0m #[33m4[0m] [90m;[0m [90memit primitive value. ptr to primitive reg load primitive from detailed location compound_assignment (load int) [0m
+     [90m00A2>[0m [34mmov[0m [31mr129[0m [35m0x1[0m [90m;[0m [90mint literal  (int:1 fixed:0.00)[0m
+     [90m00A3>[0m [34madd[0m [31mr128[0m [32mr128[0m [32mr129[0m [90m;[0m [90m+=  (i32) [0m
+     [90m00A4>[0m [34mst[0m [[31mr1[0m #[33m4[0m] [32mr128[0m [90m;[0m [90memit compound [0m
+  74 [32m|[0m     entity.point.x %= GRID_WIDTH
+     [90m00A5>[0m [34mld[0m [31mr128[0m [[32mr1[0m #[33m4[0m] [90m;[0m [90memit primitive value. ptr to primitive reg load primitive from detailed location compound_assignment (load int) [0m
+     [90m00A6>[0m [34mld[0m [31mr129[0m [32m%$[0m[32m00000008[0m [90m;[0m [90mload constant primitive 'GRID_WIDTH' BasicType { kind: S32, total_size: MemorySize(4), max_alignment: U32 } - load u32 primitive from memory [0m
+     [90m00A7>[0m [34msmod[0m [31mr128[0m [32mr128[0m [32mr129[0m [90m;[0m [90m%=  (i32) [0m
+     [90m00A8>[0m [34mst[0m [[31mr1[0m #[33m4[0m] [32mr128[0m [90m;[0m [90memit compound [0m
+     [90m00A9>[0m [34mret[0m  [90m;[0m [90m [0m
+
+main::tick ==========================================================================
+[34m0000[0m:[32m2[0m var [34muser_input[0m:  Option union tag_size:[32m1[0m max payload:[32m1[0m
+  [95m0[0m> [34mNone[0m: ()
+  [95m1[0m> [34mSome[0m: union tag_size:[32m1[0m max payload:[32m0[0m
+    [95m0[0m> [34mLeft[0m: ()
+    [95m1[0m> [34mRight[0m: ()
+    [95m2[0m> [34mUp[0m: ()
+    [95m3[0m> [34mDown[0m: ()
+    [95m4[0m> [34mAction1[0m: ()
+    [95m5[0m> [34mAction2[0m: ()
+[34m0002[0m:[32m1[0m var [34muser_input[0m:  union tag_size:[32m1[0m max payload:[32m0[0m
+  [95m0[0m> [34mLeft[0m: ()
+  [95m1[0m> [34mRight[0m: ()
+  [95m2[0m> [34mUp[0m: ()
+  [95m3[0m> [34mDown[0m: ()
+  [95m4[0m> [34mAction1[0m: ()
+  [95m5[0m> [34mAction2[0m: ()
+[34m0004[0m:[32mC[0m var [34mentity[0m:  {
+  $0004+[33m0000[0m:[32m1[0m [34mtype[0m: union tag_size:[32m1[0m max payload:[32m0[0m
+      [95m0[0m> [34mPlayer[0m: ()
+      [95m1[0m> [34mSpider[0m: ()
+      [95m2[0m> [34mOctopus[0m: ()
+  $0008+[33m0004[0m:[32m8[0m [34mpoint[0m: {
+      $0008+[33m0000[0m:[32m4[0m [34mx[0m: [37ms32[0m
+      $000C+[33m0004[0m:[32m4[0m [34my[0m: [37ms32[0m } }
+frame size for variables: frame size: 0010
+[33mr1[0m: [96mself[0m: [92m&mut Crawler[0m reg [95mcomplex (ptr)[0m 
+[33mr2[0m: [34muser_input[0m: [92menum Input?[0m frame $0000:2 [95mcomplex (ptr)[0m var mut user_input
+[33mr3[0m: [34muser_input[0m: [92menum Input[0m frame $0002:1 [95mcomplex (ptr)[0m var mut user_input
+[33mr4[0m: [34my[0m: [92mint[0m reg [95msimple[0m var immute y
+[33mr5[0m: [34mx[0m: [92mint[0m reg [95msimple[0m var immute x
+[33mr6[0m: [34mentity_index[0m: [92mint[0m reg [95msimple[0m var immute entity_index
+[33mr7[0m: [34mentity[0m: [92mEntity[0m frame $0004:C [95mcomplex (ptr)[0m var mut entity
+[33mr8[0m: [34mi[0m: [92mint[0m reg [95msimple[0m var immute i
+
+     [90m00AA>[0m [34menter[0m #[33m776[0m [90m;[0m [90mprologue  (hex:0308)[0m
+  79 [32m|[0m   fn tick(mut self) {
+     [90m00AB>[0m [34mstmf[0m [31m$0010[0m #[33m96[0m [90m;[0m [90mprologue, store regs to frame  (mask: 60 regs: r5, r6)[0m
+     [90m00AC>[0m [34mlea[0m [31mr2[0m [33m$0000[0m [90m;[0m [90mdefine frame placed register r2: user_input [0m
+     [90m00AD>[0m [34mmemclrf[0m [31m$0000[0m #[33m2[0m [90m;[0m [90mclear memory for indirect variable r2: user_input  (hex:0002)[0m
+     [90m00AE>[0m [34mlea[0m [31mr3[0m [33m$0002[0m [90m;[0m [90mdefine frame placed register r3: user_input [0m
+     [90m00AF>[0m [34mmemclrf[0m [31m$0002[0m #[33m1[0m [90m;[0m [90mclear memory for indirect variable r3: user_input  (hex:0001)[0m
+     [90m00B0>[0m [34mlea[0m [31mr7[0m [33m$0004[0m [90m;[0m [90mdefine frame placed register r7: entity [0m
+     [90m00B1>[0m [34mmemclrf[0m [31m$0004[0m #[33m12[0m [90m;[0m [90mclear memory for indirect variable r7: entity  (hex:000C)[0m
+  80 [32m|[0m 
+  81 [32m|[0m     user_input = input()
+     [90m00B2>[0m [34mstmf[0m [31m$0018[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m00B3>[0m [34mmov[0m [31mr0[0m [32mr2[0m [90m;[0m [90mr0: copy the return pointer into r0 [0m
+     [90m00B4>[0m [34mhost[0m [35m0x16[0m #[33m0[0m [90m;[0m [90mhost: input arguments_size:0  (int:22, hex:0000)[0m
+     [90m00B5>[0m [34mldmf[0m #[31m63[0m [33m$0018[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+  82 [32m|[0m     when user_input {
+     [90m00B6>[0m [34mldb[0m [31mr128[0m [[32mr2[0m #[33m0[0m] [90m;[0m [90mload tag value [0m
+     [90m00B7>[0m [34mtst[0m [32mr128[0m [90m;[0m [90mcheck tag value [0m
+     [90m00B8>[0m [34mb.false[0m [96m27[0m 00D4 [90m;[0m [90mjump if none [0m
+     [90m00B9>[0m [34mblkcpy[0m [[31mr3[0m #[33m0[0m] [[32mr2[0m #[33m1[0m] #[33m1[0m [90m;[0m [90mload payload into binding variable  (hex:0001)[0m
+  83 [32m|[0m       move(40, 20)
+     [90m00BA>[0m [34mstmf[0m [31m$0030[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m00BB>[0m [34mmov[0m [31mr128[0m [35m0x28[0m [90m;[0m [90mint literal  (int:40 fixed:0.00)[0m
+     [90m00BC>[0m [34mmov[0m [31mr129[0m [35m0x14[0m [90m;[0m [90mint literal  (int:20 fixed:0.00)[0m
+     [90m00BD>[0m [34mmov[0m [31mr1[0m [32mr128[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m00BE>[0m [34mmov[0m [31mr2[0m [32mr129[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m00BF>[0m [34mhost[0m [35m0x17[0m #[33m2[0m [90m;[0m [90mhost: move arguments_size:2  (int:23, hex:0002)[0m
+     [90m00C0>[0m [34mldmf[0m #[31m63[0m [33m$0030[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+  84 [32m|[0m       write('input: {user_input}  ')
+     [90m00C1>[0m [34mstmf[0m [31m$0048[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m00C2>[0m [34mmov[0m [31mr130[0m [35m0x78[0m [90m;[0m [90mconstant string 'input: '  (int:120 fixed:0.00)[0m
+     [90m00C3>[0m [34mstmf[0m [31m$0060[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m00C4>[0m [34mstmf[0m [31m$0078[0m [32mr128[0m #[33m4[0m [90m;[0m [90mspill register to stack memory  (count: 04)[0m
+     [90m00C5>[0m [34mmov[0m [31mr132[0m [32mr3[0m [90m;[0m [90mextra copy var access [0m
+     [90m00C6>[0m [34mmov[0m [31mr1[0m [32mr132[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m00C7>[0m [34mcall[0m [36m@[0m[96m8A[0m [90m;[0m [90mcalling main::Input:to_string (call) [0m
+     [90m00C8>[0m [34mldmf[0m [31mr128[0m [33m$0078[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) restore spilled after call  (count: 01)[0m
+     [90m00C9>[0m [34mldmf[0m [31mr129[0m [33m$007C[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) restore spilled after call  (count: 01)[0m
+     [90m00CA>[0m [34mldmf[0m [31mr130[0m [33m$0080[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) restore spilled after call  (count: 01)[0m
+     [90m00CB>[0m [34mldmf[0m [31mr131[0m [33m$0084[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) restore spilled after call  (count: 01)[0m
+     [90m00CC>[0m [34mmov[0m [31mr131[0m [32mr0[0m [90m;[0m [90mcopy return value to r131 frp, r0 [0m
+     [90m00CD>[0m [34mldmf[0m #[31m63[0m [33m$0060[0m [90m;[0m [90mrestore (filtered by output dest) using mask restore spilled after call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m00CE>[0m [34msapp[0m [31mr129[0m [32mr130[0m [32mr131[0m [90m;[0m [90mstring append [0m
+     [90m00CF>[0m [34mmov[0m [31mr130[0m [35m0x88[0m [90m;[0m [90mconstant string '  '  (int:136 fixed:0.00)[0m
+     [90m00D0>[0m [34msapp[0m [31mr128[0m [32mr129[0m [32mr130[0m [90m;[0m [90mstring append [0m
+     [90m00D1>[0m [34mmov[0m [31mr1[0m [32mr128[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m00D2>[0m [34mhost[0m [35m0x18[0m #[33m1[0m [90m;[0m [90mhost: write arguments_size:1  (int:24, hex:0001)[0m
+     [90m00D3>[0m [34mldmf[0m #[31m63[0m [33m$0048[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+  85 [32m|[0m     }
+  86 [32m|[0m 
+  87 [32m|[0m     self.tick_count += 1
+     [90m00D4>[0m [34mld[0m [31mr128[0m [[32mr1[0m #[33m0[0m] [90m;[0m [90memit primitive value. ptr to primitive reg load primitive from detailed location compound_assignment (load int) [0m
+     [90m00D5>[0m [34mmov[0m [31mr129[0m [35m0x1[0m [90m;[0m [90mint literal  (int:1 fixed:0.00)[0m
+     [90m00D6>[0m [34madd[0m [31mr128[0m [32mr128[0m [32mr129[0m [90m;[0m [90m+=  (i32) [0m
+     [90m00D7>[0m [34mst[0m [[31mr1[0m #[33m0[0m] [32mr128[0m [90m;[0m [90memit compound [0m
+  88 [32m|[0m 
+  89 [32m|[0m     for y in 0..GRID_HEIGHT {
+     [90m00D8>[0m [34mlea[0m [31mr9[0m [33m$0088[0m [90m;[0m [90mset the allocated memory to pointer reg [0m
+     [90m00D9>[0m [34mmov[0m [31mr129[0m [35m0x0[0m [90m;[0m [90mint literal  (int:0 fixed:0.00)[0m
+     [90m00DA>[0m [34mld[0m [31mr130[0m [32m%$[0m[32m0000000C[0m [90m;[0m [90mload constant primitive 'GRID_HEIGHT' BasicType { kind: S32, total_size: MemorySize(4), max_alignment: U32 } - load u32 primitive from memory [0m
+     [90m00DB>[0m [34mmovb[0m [31mr131[0m [35m0x00[0m [90m;[0m [90mbool literal  (int:0)[0m
+     [90m00DC>[0m [34mrinit[0m [31mr9[0m [32mr129[0m [32mr130[0m [32mr131[0m [90m;[0m [90mcreate a range [0m
+     [90m00DD>[0m [34mmov[0m [31mr128[0m [32mr9[0m [90m;[0m [90mcopy temp materialization memory pointer reg [0m
+     [90m00DE>[0m [34mlea[0m [31mr10[0m [33m$0094[0m [90m;[0m [90mset the allocated memory to pointer reg [0m
+     [90m00DF>[0m [34mriter[0m [31mr10[0m [32mr128[0m [90m;[0m [90mrange init [0m
+     [90m00E0>[0m [34mritern[0m [31mr10[0m [31mr4[0m [96m204[0m 01AD [90m;[0m [90mrange iter next single [0m
+  90 [32m|[0m       move(0, y)
+     [90m00E1>[0m [34mstmf[0m [31m$00A0[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m00E2>[0m [34mstmf[0m [31m$00B8[0m [32mr128[0m #[33m2[0m [90m;[0m [90mspill register to stack memory  (count: 02)[0m
+     [90m00E3>[0m [34mmov[0m [31mr130[0m [35m0x0[0m [90m;[0m [90mint literal  (int:0 fixed:0.00)[0m
+     [90m00E4>[0m [34mmov[0m [31mr131[0m [32mr4[0m [90m;[0m [90mextra copy var access [0m
+     [90m00E5>[0m [34mmov[0m [31mr1[0m [32mr130[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m00E6>[0m [34mmov[0m [31mr2[0m [32mr131[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m00E7>[0m [34mhost[0m [35m0x17[0m #[33m2[0m [90m;[0m [90mhost: move arguments_size:2  (int:23, hex:0002)[0m
+     [90m00E8>[0m [34mldmf[0m [31mr128[0m [33m$00B8[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) host call  (count: 01)[0m
+     [90m00E9>[0m [34mldmf[0m [31mr129[0m [33m$00BC[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) host call  (count: 01)[0m
+     [90m00EA>[0m [34mldmf[0m #[31m63[0m [33m$00A0[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+  91 [32m|[0m       for x in 0..GRID_WIDTH {
+     [90m00EB>[0m [34mlea[0m [31mr11[0m [33m$00C0[0m [90m;[0m [90mset the allocated memory to pointer reg [0m
+     [90m00EC>[0m [34mmov[0m [31mr131[0m [35m0x0[0m [90m;[0m [90mint literal  (int:0 fixed:0.00)[0m
+     [90m00ED>[0m [34mld[0m [31mr132[0m [32m%$[0m[32m00000008[0m [90m;[0m [90mload constant primitive 'GRID_WIDTH' BasicType { kind: S32, total_size: MemorySize(4), max_alignment: U32 } - load u32 primitive from memory [0m
+     [90m00EE>[0m [34mmovb[0m [31mr133[0m [35m0x00[0m [90m;[0m [90mbool literal  (int:0)[0m
+     [90m00EF>[0m [34mrinit[0m [31mr11[0m [32mr131[0m [32mr132[0m [32mr133[0m [90m;[0m [90mcreate a range [0m
+     [90m00F0>[0m [34mmov[0m [31mr130[0m [32mr11[0m [90m;[0m [90mcopy temp materialization memory pointer reg [0m
+     [90m00F1>[0m [34mlea[0m [31mr12[0m [33m$00CC[0m [90m;[0m [90mset the allocated memory to pointer reg [0m
+     [90m00F2>[0m [34mriter[0m [31mr12[0m [32mr130[0m [90m;[0m [90mrange init [0m
+     [90m00F3>[0m [34mritern[0m [31mr12[0m [31mr5[0m [96m184[0m 01AC [90m;[0m [90mrange iter next single [0m
+  92 [32m|[0m         move(x, y)
+     [90m00F4>[0m [34mstmf[0m [31m$00D8[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m00F5>[0m [34mstmf[0m [31m$00F0[0m [32mr128[0m #[33m4[0m [90m;[0m [90mspill register to stack memory  (count: 04)[0m
+     [90m00F6>[0m [34mmov[0m [31mr132[0m [32mr5[0m [90m;[0m [90mextra copy var access [0m
+     [90m00F7>[0m [34mmov[0m [31mr133[0m [32mr4[0m [90m;[0m [90mextra copy var access [0m
+     [90m00F8>[0m [34mmov[0m [31mr1[0m [32mr132[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m00F9>[0m [34mmov[0m [31mr2[0m [32mr133[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m00FA>[0m [34mhost[0m [35m0x17[0m #[33m2[0m [90m;[0m [90mhost: move arguments_size:2  (int:23, hex:0002)[0m
+     [90m00FB>[0m [34mldmf[0m [31mr128[0m [33m$00F0[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) host call  (count: 01)[0m
+     [90m00FC>[0m [34mldmf[0m [31mr129[0m [33m$00F4[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) host call  (count: 01)[0m
+     [90m00FD>[0m [34mldmf[0m [31mr130[0m [33m$00F8[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) host call  (count: 01)[0m
+     [90m00FE>[0m [34mldmf[0m [31mr131[0m [33m$00FC[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) host call  (count: 01)[0m
+     [90m00FF>[0m [34mldmf[0m #[31m63[0m [33m$00D8[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+  93 [32m|[0m         entity_index = self.grid[y * GRID_WIDTH + x]
+     [90m0100>[0m [34mmov[0m [31mr133[0m [35m0x80[0m [90m;[0m [90mget vec header absolute pointer (load offset value)  (int:128 fixed:0.00)[0m
+     [90m0101>[0m [34madd[0m [31mr134[0m [32mr1[0m [32mr133[0m [90m;[0m [90mget vec header absolute pointer (add to resolved new base_ptr) [0m
+     [90m0102>[0m [34mldh[0m [31mr132[0m [[32mr134[0m #[33m0[0m] [90m;[0m [90mload vec count for bounds check [0m
+     [90m0103>[0m [34mmov[0m [31mr135[0m [35m0x84[0m [90m;[0m [90mrvalue Int (get the the base pointer to the start of where to subscript from) (load offset value)  (int:132 fixed:0.00)[0m
+     [90m0104>[0m [34madd[0m [31mr136[0m [32mr1[0m [32mr135[0m [90m;[0m [90mrvalue Int (get the the base pointer to the start of where to subscript from) (add to resolved new base_ptr) [0m
+     [90m0105>[0m [34mld[0m [31mr140[0m [32m%$[0m[32m00000008[0m [90m;[0m [90mload constant primitive 'GRID_WIDTH' BasicType { kind: S32, total_size: MemorySize(4), max_alignment: U32 } - load u32 primitive from memory [0m
+     [90m0106>[0m [34mmul[0m [31mr139[0m [32mr4[0m [32mr140[0m [90m;[0m [90mi32 mul [0m
+     [90m0107>[0m [34madd[0m [31mr138[0m [32mr139[0m [32mr5[0m [90m;[0m [90mi32 add [0m
+     [90m0108>[0m [34mge[0m [32mr138[0m [32mr132[0m [90m;[0m [90mcheck if it is >= len rvalue Int [0m
+     [90m0109>[0m [34mb.false[0m [96m1[0m 010B [90m;[0m [90mjump over trap if within bounds [0m
+     [90m010A>[0m [34mtrap[0m [35m0x05[0m [90m;[0m [90mout of bounds trap  (int:5)[0m
+     [90m010B>[0m [34mmov[0m [31mr139[0m [35m0x4[0m [90m;[0m [90melement_size: rvalue Int  (int:4 fixed:0.00)[0m
+     [90m010C>[0m [34mmul[0m [31mr140[0m [32mr138[0m [32mr139[0m [90m;[0m [90moffset = index * element_size (rvalue Int) [0m
+     [90m010D>[0m [34madd[0m [31mr137[0m [32mr136[0m [32mr140[0m [90m;[0m [90mresult = base_ptr + element_size * index (rvalue Int) [0m
+     [90m010E>[0m [34mld[0m [31mr6[0m [[32mr137[0m #[33m0[0m] [90m;[0m [90memit primitive value. ptr to primitive reg rvalue postfix chain (load int) [0m
+  94 [32m|[0m         if entity_index != -1 {
+     [90m010F>[0m [34mmov[0m [31mr133[0m [35m0x1[0m [90m;[0m [90mint literal  (int:1 fixed:0.00)[0m
+     [90m0110>[0m [34msneg[0m [31mr132[0m [32mr133[0m [90m;[0m [90mnegate i32 [0m
+     [90m0111>[0m [34mcmp[0m [32mr6[0m [32mr132[0m [90m;[0m [90mcompare reg and set result to P flag [0m
+     [90m0112>[0m [34mb.true[0m [96m141[0m 01A0 [90m;[0m [90mjump boolean condition false [0m
+  95 [32m|[0m           entity = self.entities[entity_index]
+     [90m0113>[0m [34mmov[0m [31mr134[0m [35m0x4[0m [90m;[0m [90mget vec header absolute pointer (load offset value)  (int:4 fixed:0.00)[0m
+     [90m0114>[0m [34madd[0m [31mr135[0m [32mr1[0m [32mr134[0m [90m;[0m [90mget vec header absolute pointer (add to resolved new base_ptr) [0m
+     [90m0115>[0m [34mldh[0m [31mr133[0m [[32mr135[0m #[33m0[0m] [90m;[0m [90mload vec count for bounds check [0m
+     [90m0116>[0m [34mmov[0m [31mr136[0m [35m0x8[0m [90m;[0m [90mrvalue Entity (get the the base pointer to the start of where to subscript from) (load offset value)  (int:8 fixed:0.00)[0m
+     [90m0117>[0m [34madd[0m [31mr137[0m [32mr1[0m [32mr136[0m [90m;[0m [90mrvalue Entity (get the the base pointer to the start of where to subscript from) (add to resolved new base_ptr) [0m
+     [90m0118>[0m [34mge[0m [32mr6[0m [32mr133[0m [90m;[0m [90mcheck if it is >= len rvalue Entity [0m
+     [90m0119>[0m [34mb.false[0m [96m1[0m 011B [90m;[0m [90mjump over trap if within bounds [0m
+     [90m011A>[0m [34mtrap[0m [35m0x05[0m [90m;[0m [90mout of bounds trap  (int:5)[0m
+     [90m011B>[0m [34mmov[0m [31mr139[0m [35m0xC[0m [90m;[0m [90melement_size: rvalue Entity  (int:12 fixed:0.00)[0m
+     [90m011C>[0m [34mmul[0m [31mr140[0m [32mr6[0m [32mr139[0m [90m;[0m [90moffset = index * element_size (rvalue Entity) [0m
+     [90m011D>[0m [34madd[0m [31mr138[0m [32mr137[0m [32mr140[0m [90m;[0m [90mresult = base_ptr + element_size * index (rvalue Entity) [0m
+     [90m011E>[0m [34mmov[0m [31mr141[0m [32mr138[0m [90m;[0m [90mcopy pointer reg to reg [0m
+     [90m011F>[0m [34mblkcpy[0m [[31mr7[0m #[33m0[0m] [[32mr141[0m #[33m0[0m] #[33m12[0m [90m;[0m [90mblock copy rvalue postfix chain to memory from temp to memory pointed by register  (hex:000C)[0m
+  96 [32m|[0m           move(x + 32, y)
+     [90m0120>[0m [34mstmf[0m [31m$0100[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m0121>[0m [34mstmf[0m [31m$0118[0m [32mr128[0m #[33m5[0m [90m;[0m [90mspill register to stack memory  (count: 05)[0m
+     [90m0122>[0m [34mmov[0m [31mr134[0m [35m0x20[0m [90m;[0m [90mint literal  (int:32 fixed:0.00)[0m
+     [90m0123>[0m [34madd[0m [31mr133[0m [32mr5[0m [32mr134[0m [90m;[0m [90mi32 add [0m
+     [90m0124>[0m [34mmov[0m [31mr134[0m [32mr4[0m [90m;[0m [90mextra copy var access [0m
+     [90m0125>[0m [34mmov[0m [31mr1[0m [32mr133[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m0126>[0m [34mmov[0m [31mr2[0m [32mr134[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m0127>[0m [34mhost[0m [35m0x17[0m #[33m2[0m [90m;[0m [90mhost: move arguments_size:2  (int:23, hex:0002)[0m
+     [90m0128>[0m [34mldmf[0m [31mr128[0m [33m$0118[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) host call  (count: 01)[0m
+     [90m0129>[0m [34mldmf[0m [31mr129[0m [33m$011C[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) host call  (count: 01)[0m
+     [90m012A>[0m [34mldmf[0m [31mr130[0m [33m$0120[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) host call  (count: 01)[0m
+     [90m012B>[0m [34mldmf[0m [31mr131[0m [33m$0124[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) host call  (count: 01)[0m
+     [90m012C>[0m [34mldmf[0m [31mr132[0m [33m$0128[0m #[33m1[0m [90m;[0m [90mrestoring r132 (from range) host call  (count: 01)[0m
+     [90m012D>[0m [34mldmf[0m #[31m63[0m [33m$0100[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+  97 [32m|[0m           write('entity: {x}, {y} ')
+     [90m012E>[0m [34mstmf[0m [31m$012C[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m012F>[0m [34mstmf[0m [31m$0144[0m [32mr128[0m #[33m5[0m [90m;[0m [90mspill register to stack memory  (count: 05)[0m
+     [90m0130>[0m [34mmov[0m [31mr137[0m [35m0x98[0m [90m;[0m [90mconstant string 'entity: '  (int:152 fixed:0.00)[0m
+     [90m0131>[0m [34mstmf[0m [31m$0158[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m0132>[0m [34mstmf[0m [31m$0170[0m [32mr128[0m #[33m11[0m [90m;[0m [90mspill register to stack memory  (count: 0B)[0m
+     [90m0133>[0m [34mmov[0m [31mr139[0m [32mr5[0m [90m;[0m [90mextra copy var access [0m
+     [90m0134>[0m [34mmov[0m [31mr1[0m [32mr139[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m0135>[0m [34mcall[0m [36m@[0m[96m64[0m [90m;[0m [90mcalling core-0.0.0::Int:to_string (call) [0m
+     [90m0136>[0m [34mldmf[0m [31mr128[0m [33m$0170[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) restore spilled after call  (count: 01)[0m
+     [90m0137>[0m [34mldmf[0m [31mr129[0m [33m$0174[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) restore spilled after call  (count: 01)[0m
+     [90m0138>[0m [34mldmf[0m [31mr130[0m [33m$0178[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) restore spilled after call  (count: 01)[0m
+     [90m0139>[0m [34mldmf[0m [31mr131[0m [33m$017C[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) restore spilled after call  (count: 01)[0m
+     [90m013A>[0m [34mldmf[0m [31mr132[0m [33m$0180[0m #[33m1[0m [90m;[0m [90mrestoring r132 (from range) restore spilled after call  (count: 01)[0m
+     [90m013B>[0m [34mldmf[0m [31mr133[0m [33m$0184[0m #[33m1[0m [90m;[0m [90mrestoring r133 (from range) restore spilled after call  (count: 01)[0m
+     [90m013C>[0m [34mldmf[0m [31mr134[0m [33m$0188[0m #[33m1[0m [90m;[0m [90mrestoring r134 (from range) restore spilled after call  (count: 01)[0m
+     [90m013D>[0m [34mldmf[0m [31mr135[0m [33m$018C[0m #[33m1[0m [90m;[0m [90mrestoring r135 (from range) restore spilled after call  (count: 01)[0m
+     [90m013E>[0m [34mldmf[0m [31mr136[0m [33m$0190[0m #[33m1[0m [90m;[0m [90mrestoring r136 (from range) restore spilled after call  (count: 01)[0m
+     [90m013F>[0m [34mldmf[0m [31mr137[0m [33m$0194[0m #[33m1[0m [90m;[0m [90mrestoring r137 (from range) restore spilled after call  (count: 01)[0m
+     [90m0140>[0m [34mldmf[0m [31mr138[0m [33m$0198[0m #[33m1[0m [90m;[0m [90mrestoring r138 (from range) restore spilled after call  (count: 01)[0m
+     [90m0141>[0m [34mmov[0m [31mr138[0m [32mr0[0m [90m;[0m [90mcopy return value to r138 frp, r0 [0m
+     [90m0142>[0m [34mldmf[0m #[31m63[0m [33m$0158[0m [90m;[0m [90mrestore (filtered by output dest) using mask restore spilled after call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m0143>[0m [34msapp[0m [31mr136[0m [32mr137[0m [32mr138[0m [90m;[0m [90mstring append [0m
+     [90m0144>[0m [34mmov[0m [31mr137[0m [35m0xA8[0m [90m;[0m [90mconstant string ', '  (int:168 fixed:0.00)[0m
+     [90m0145>[0m [34msapp[0m [31mr135[0m [32mr136[0m [32mr137[0m [90m;[0m [90mstring append [0m
+     [90m0146>[0m [34mstmf[0m [31m$019C[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m0147>[0m [34mstmf[0m [31m$01B4[0m [32mr128[0m #[33m9[0m [90m;[0m [90mspill register to stack memory  (count: 09)[0m
+     [90m0148>[0m [34mmov[0m [31mr137[0m [32mr4[0m [90m;[0m [90mextra copy var access [0m
+     [90m0149>[0m [34mmov[0m [31mr1[0m [32mr137[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m014A>[0m [34mcall[0m [36m@[0m[96m64[0m [90m;[0m [90mcalling core-0.0.0::Int:to_string (call) [0m
+     [90m014B>[0m [34mldmf[0m [31mr128[0m [33m$01B4[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) restore spilled after call  (count: 01)[0m
+     [90m014C>[0m [34mldmf[0m [31mr129[0m [33m$01B8[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) restore spilled after call  (count: 01)[0m
+     [90m014D>[0m [34mldmf[0m [31mr130[0m [33m$01BC[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) restore spilled after call  (count: 01)[0m
+     [90m014E>[0m [34mldmf[0m [31mr131[0m [33m$01C0[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) restore spilled after call  (count: 01)[0m
+     [90m014F>[0m [34mldmf[0m [31mr132[0m [33m$01C4[0m #[33m1[0m [90m;[0m [90mrestoring r132 (from range) restore spilled after call  (count: 01)[0m
+     [90m0150>[0m [34mldmf[0m [31mr133[0m [33m$01C8[0m #[33m1[0m [90m;[0m [90mrestoring r133 (from range) restore spilled after call  (count: 01)[0m
+     [90m0151>[0m [34mldmf[0m [31mr134[0m [33m$01CC[0m #[33m1[0m [90m;[0m [90mrestoring r134 (from range) restore spilled after call  (count: 01)[0m
+     [90m0152>[0m [34mldmf[0m [31mr135[0m [33m$01D0[0m #[33m1[0m [90m;[0m [90mrestoring r135 (from range) restore spilled after call  (count: 01)[0m
+     [90m0153>[0m [34mldmf[0m [31mr136[0m [33m$01D4[0m #[33m1[0m [90m;[0m [90mrestoring r136 (from range) restore spilled after call  (count: 01)[0m
+     [90m0154>[0m [34mmov[0m [31mr136[0m [32mr0[0m [90m;[0m [90mcopy return value to r136 frp, r0 [0m
+     [90m0155>[0m [34mldmf[0m #[31m63[0m [33m$019C[0m [90m;[0m [90mrestore (filtered by output dest) using mask restore spilled after call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m0156>[0m [34msapp[0m [31mr134[0m [32mr135[0m [32mr136[0m [90m;[0m [90mstring append [0m
+     [90m0157>[0m [34mmov[0m [31mr135[0m [35m0xB8[0m [90m;[0m [90mconstant string ' '  (int:184 fixed:0.00)[0m
+     [90m0158>[0m [34msapp[0m [31mr133[0m [32mr134[0m [32mr135[0m [90m;[0m [90mstring append [0m
+     [90m0159>[0m [34mmov[0m [31mr1[0m [32mr133[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m015A>[0m [34mhost[0m [35m0x18[0m #[33m1[0m [90m;[0m [90mhost: write arguments_size:1  (int:24, hex:0001)[0m
+     [90m015B>[0m [34mldmf[0m [31mr128[0m [33m$0144[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) host call  (count: 01)[0m
+     [90m015C>[0m [34mldmf[0m [31mr129[0m [33m$0148[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) host call  (count: 01)[0m
+     [90m015D>[0m [34mldmf[0m [31mr130[0m [33m$014C[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) host call  (count: 01)[0m
+     [90m015E>[0m [34mldmf[0m [31mr131[0m [33m$0150[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) host call  (count: 01)[0m
+     [90m015F>[0m [34mldmf[0m [31mr132[0m [33m$0154[0m #[33m1[0m [90m;[0m [90mrestoring r132 (from range) host call  (count: 01)[0m
+     [90m0160>[0m [34mldmf[0m #[31m63[0m [33m$012C[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+  98 [32m|[0m            move(x, y)
+     [90m0161>[0m [34mstmf[0m [31m$01D8[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m0162>[0m [34mstmf[0m [31m$01F0[0m [32mr128[0m #[33m5[0m [90m;[0m [90mspill register to stack memory  (count: 05)[0m
+     [90m0163>[0m [34mmov[0m [31mr133[0m [32mr5[0m [90m;[0m [90mextra copy var access [0m
+     [90m0164>[0m [34mmov[0m [31mr134[0m [32mr4[0m [90m;[0m [90mextra copy var access [0m
+     [90m0165>[0m [34mmov[0m [31mr1[0m [32mr133[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m0166>[0m [34mmov[0m [31mr2[0m [32mr134[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m0167>[0m [34mhost[0m [35m0x17[0m #[33m2[0m [90m;[0m [90mhost: move arguments_size:2  (int:23, hex:0002)[0m
+     [90m0168>[0m [34mldmf[0m [31mr128[0m [33m$01F0[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) host call  (count: 01)[0m
+     [90m0169>[0m [34mldmf[0m [31mr129[0m [33m$01F4[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) host call  (count: 01)[0m
+     [90m016A>[0m [34mldmf[0m [31mr130[0m [33m$01F8[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) host call  (count: 01)[0m
+     [90m016B>[0m [34mldmf[0m [31mr131[0m [33m$01FC[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) host call  (count: 01)[0m
+     [90m016C>[0m [34mldmf[0m [31mr132[0m [33m$0200[0m #[33m1[0m [90m;[0m [90mrestoring r132 (from range) host call  (count: 01)[0m
+     [90m016D>[0m [34mldmf[0m #[31m63[0m [33m$01D8[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+  99 [32m|[0m           match entity.type {
+     [90m016E>[0m [34mmov[0m [31mr133[0m [32mr7[0m [90m;[0m [90mcopy pointer reg to reg [0m
+     [90m016F>[0m [34mldb[0m [31mr134[0m [[32mr133[0m #[33m0[0m] [90m;[0m [90mread enum tag [0m
+ 100 [32m|[0m             Player => write("x"),
+     [90m0170>[0m [34mcmp[0m [32mr134[0m [35m0x00[0m [90m;[0m [90mcheck for enum variant  (int:0)[0m
+     [90m0171>[0m [34mb.false[0m [96m14[0m 0180 [90m;[0m [90mplaceholder for enum match [0m
+     [90m0172>[0m [34mstmf[0m [31m$0204[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m0173>[0m [34mstmf[0m [31m$021C[0m [32mr128[0m #[33m7[0m [90m;[0m [90mspill register to stack memory  (count: 07)[0m
+     [90m0174>[0m [34mmov[0m [31mr135[0m [35m0xC8[0m [90m;[0m [90mconstant string 'x'  (int:200 fixed:0.00)[0m
+     [90m0175>[0m [34mmov[0m [31mr1[0m [32mr135[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m0176>[0m [34mhost[0m [35m0x18[0m #[33m1[0m [90m;[0m [90mhost: write arguments_size:1  (int:24, hex:0001)[0m
+     [90m0177>[0m [34mldmf[0m [31mr128[0m [33m$021C[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) host call  (count: 01)[0m
+     [90m0178>[0m [34mldmf[0m [31mr129[0m [33m$0220[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) host call  (count: 01)[0m
+     [90m0179>[0m [34mldmf[0m [31mr130[0m [33m$0224[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) host call  (count: 01)[0m
+     [90m017A>[0m [34mldmf[0m [31mr131[0m [33m$0228[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) host call  (count: 01)[0m
+     [90m017B>[0m [34mldmf[0m [31mr132[0m [33m$022C[0m #[33m1[0m [90m;[0m [90mrestoring r132 (from range) host call  (count: 01)[0m
+     [90m017C>[0m [34mldmf[0m [31mr133[0m [33m$0230[0m #[33m1[0m [90m;[0m [90mrestoring r133 (from range) host call  (count: 01)[0m
+     [90m017D>[0m [34mldmf[0m [31mr134[0m [33m$0234[0m #[33m1[0m [90m;[0m [90mrestoring r134 (from range) host call  (count: 01)[0m
+     [90m017E>[0m [34mldmf[0m #[31m63[0m [33m$0204[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m017F>[0m [34mb[0m [96m31[0m 019F [90m;[0m [90mjump to exit [0m
+ 101 [32m|[0m             Spider => write("🕷️"),
+     [90m0180>[0m [34mcmp[0m [32mr134[0m [35m0x01[0m [90m;[0m [90mcheck for enum variant  (int:1)[0m
+     [90m0181>[0m [34mb.false[0m [96m14[0m 0190 [90m;[0m [90mplaceholder for enum match [0m
+     [90m0182>[0m [34mstmf[0m [31m$0238[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m0183>[0m [34mstmf[0m [31m$0250[0m [32mr128[0m #[33m7[0m [90m;[0m [90mspill register to stack memory  (count: 07)[0m
+     [90m0184>[0m [34mmov[0m [31mr135[0m [35m0xD8[0m [90m;[0m [90mconstant string '🕷️'  (int:216 fixed:0.00)[0m
+     [90m0185>[0m [34mmov[0m [31mr1[0m [32mr135[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m0186>[0m [34mhost[0m [35m0x18[0m #[33m1[0m [90m;[0m [90mhost: write arguments_size:1  (int:24, hex:0001)[0m
+     [90m0187>[0m [34mldmf[0m [31mr128[0m [33m$0250[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) host call  (count: 01)[0m
+     [90m0188>[0m [34mldmf[0m [31mr129[0m [33m$0254[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) host call  (count: 01)[0m
+     [90m0189>[0m [34mldmf[0m [31mr130[0m [33m$0258[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) host call  (count: 01)[0m
+     [90m018A>[0m [34mldmf[0m [31mr131[0m [33m$025C[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) host call  (count: 01)[0m
+     [90m018B>[0m [34mldmf[0m [31mr132[0m [33m$0260[0m #[33m1[0m [90m;[0m [90mrestoring r132 (from range) host call  (count: 01)[0m
+     [90m018C>[0m [34mldmf[0m [31mr133[0m [33m$0264[0m #[33m1[0m [90m;[0m [90mrestoring r133 (from range) host call  (count: 01)[0m
+     [90m018D>[0m [34mldmf[0m [31mr134[0m [33m$0268[0m #[33m1[0m [90m;[0m [90mrestoring r134 (from range) host call  (count: 01)[0m
+     [90m018E>[0m [34mldmf[0m #[31m63[0m [33m$0238[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m018F>[0m [34mb[0m [96m15[0m 019F [90m;[0m [90mjump to exit [0m
+ 102 [32m|[0m             Octopus => write("🐙"),
+     [90m0190>[0m [34mcmp[0m [32mr134[0m [35m0x02[0m [90m;[0m [90mcheck for enum variant  (int:2)[0m
+     [90m0191>[0m [34mb.false[0m [96m13[0m 019F [90m;[0m [90mplaceholder for enum match [0m
+     [90m0192>[0m [34mstmf[0m [31m$026C[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m0193>[0m [34mstmf[0m [31m$0284[0m [32mr128[0m #[33m7[0m [90m;[0m [90mspill register to stack memory  (count: 07)[0m
+     [90m0194>[0m [34mmov[0m [31mr135[0m [35m0xE8[0m [90m;[0m [90mconstant string '🐙'  (int:232 fixed:0.00)[0m
+     [90m0195>[0m [34mmov[0m [31mr1[0m [32mr135[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m0196>[0m [34mhost[0m [35m0x18[0m #[33m1[0m [90m;[0m [90mhost: write arguments_size:1  (int:24, hex:0001)[0m
+     [90m0197>[0m [34mldmf[0m [31mr128[0m [33m$0284[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) host call  (count: 01)[0m
+     [90m0198>[0m [34mldmf[0m [31mr129[0m [33m$0288[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) host call  (count: 01)[0m
+     [90m0199>[0m [34mldmf[0m [31mr130[0m [33m$028C[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) host call  (count: 01)[0m
+     [90m019A>[0m [34mldmf[0m [31mr131[0m [33m$0290[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) host call  (count: 01)[0m
+     [90m019B>[0m [34mldmf[0m [31mr132[0m [33m$0294[0m #[33m1[0m [90m;[0m [90mrestoring r132 (from range) host call  (count: 01)[0m
+     [90m019C>[0m [34mldmf[0m [31mr133[0m [33m$0298[0m #[33m1[0m [90m;[0m [90mrestoring r133 (from range) host call  (count: 01)[0m
+     [90m019D>[0m [34mldmf[0m [31mr134[0m [33m$029C[0m #[33m1[0m [90m;[0m [90mrestoring r134 (from range) host call  (count: 01)[0m
+     [90m019E>[0m [34mldmf[0m #[31m63[0m [33m$026C[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m019F>[0m [34mb[0m [96m11[0m 01AB [90m;[0m [90msince it was true, skip over false section [0m
+ 103 [32m|[0m           }
+ 104 [32m|[0m         } else {
+ 105 [32m|[0m           write(".")
+     [90m01A0>[0m [34mstmf[0m [31m$02A0[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m01A1>[0m [34mstmf[0m [31m$02B8[0m [32mr128[0m #[33m5[0m [90m;[0m [90mspill register to stack memory  (count: 05)[0m
+     [90m01A2>[0m [34mmov[0m [31mr133[0m [35m0xF8[0m [90m;[0m [90mconstant string '.'  (int:248 fixed:0.00)[0m
+     [90m01A3>[0m [34mmov[0m [31mr1[0m [32mr133[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m01A4>[0m [34mhost[0m [35m0x18[0m #[33m1[0m [90m;[0m [90mhost: write arguments_size:1  (int:24, hex:0001)[0m
+     [90m01A5>[0m [34mldmf[0m [31mr128[0m [33m$02B8[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) host call  (count: 01)[0m
+     [90m01A6>[0m [34mldmf[0m [31mr129[0m [33m$02BC[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) host call  (count: 01)[0m
+     [90m01A7>[0m [34mldmf[0m [31mr130[0m [33m$02C0[0m #[33m1[0m [90m;[0m [90mrestoring r130 (from range) host call  (count: 01)[0m
+     [90m01A8>[0m [34mldmf[0m [31mr131[0m [33m$02C4[0m #[33m1[0m [90m;[0m [90mrestoring r131 (from range) host call  (count: 01)[0m
+     [90m01A9>[0m [34mldmf[0m [31mr132[0m [33m$02C8[0m #[33m1[0m [90m;[0m [90mrestoring r132 (from range) host call  (count: 01)[0m
+     [90m01AA>[0m [34mldmf[0m #[31m63[0m [33m$02A0[0m [90m;[0m [90mrestore (filtered by output dest) using mask host call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m01AB>[0m [34mb[0m [96m-185[0m 00F3 [90m;[0m [90mjump to iter_next [0m
+     [90m01AC>[0m [34mb[0m [96m-205[0m 00E0 [90m;[0m [90mjump to iter_next [0m
+ 106 [32m|[0m         }
+ 107 [32m|[0m       }
+ 108 [32m|[0m     }
+ 109 [32m|[0m 
+ 110 [32m|[0m     for i in 0..self.entities.len() {
+     [90m01AD>[0m [34mlea[0m [31mr13[0m [33m$02CC[0m [90m;[0m [90mset the allocated memory to pointer reg [0m
+     [90m01AE>[0m [34mmov[0m [31mr129[0m [35m0x0[0m [90m;[0m [90mint literal  (int:0 fixed:0.00)[0m
+     [90m01AF>[0m [34madd[0m [31mr131[0m [32mr1[0m [35m0x4[0m [90m;[0m [90mforcing lvalue to be a complete pointer  (int:4 fixed:0.00)[0m
+     [90m01B0>[0m [34mld[0m [31mr130[0m [[32mr131[0m #[33m0[0m] [90m;[0m [90mget the vec length [0m
+     [90m01B1>[0m [34mmovb[0m [31mr131[0m [35m0x00[0m [90m;[0m [90mbool literal  (int:0)[0m
+     [90m01B2>[0m [34mrinit[0m [31mr13[0m [32mr129[0m [32mr130[0m [32mr131[0m [90m;[0m [90mcreate a range [0m
+     [90m01B3>[0m [34mmov[0m [31mr128[0m [32mr13[0m [90m;[0m [90mcopy temp materialization memory pointer reg [0m
+     [90m01B4>[0m [34mlea[0m [31mr14[0m [33m$02D8[0m [90m;[0m [90mset the allocated memory to pointer reg [0m
+     [90m01B5>[0m [34mriter[0m [31mr14[0m [32mr128[0m [90m;[0m [90mrange init [0m
+     [90m01B6>[0m [34mritern[0m [31mr14[0m [31mr8[0m [96m59[0m 01F2 [90m;[0m [90mrange iter next single [0m
+ 111 [32m|[0m       // Clear the previous position
+ 112 [32m|[0m       //self.grid[self.entities[i].point.y * GRID_WIDTH + self.entities[i].point.x] = -1
+ 113 [32m|[0m       Crawler::entity_tick(&self.entities[i])
+     [90m01B7>[0m [34mstmf[0m [31m$02E4[0m #[33m63[0m [90m;[0m [90mspill register to stack memory  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+     [90m01B8>[0m [34mstmf[0m [31m$02FC[0m [32mr128[0m #[33m2[0m [90m;[0m [90mspill register to stack memory  (count: 02)[0m
+     [90m01B9>[0m [34mmov[0m [31mr132[0m [35m0x4[0m [90m;[0m [90mget vec header absolute pointer (load offset value)  (int:4 fixed:0.00)[0m
+     [90m01BA>[0m [34madd[0m [31mr133[0m [32mr1[0m [32mr132[0m [90m;[0m [90mget vec header absolute pointer (add to resolved new base_ptr) [0m
+     [90m01BB>[0m [34mldh[0m [31mr131[0m [[32mr133[0m #[33m0[0m] [90m;[0m [90mload vec count for bounds check [0m
+     [90m01BC>[0m [34mmov[0m [31mr134[0m [35m0x8[0m [90m;[0m [90mrvalue Entity (get the the base pointer to the start of where to subscript from) (load offset value)  (int:8 fixed:0.00)[0m
+     [90m01BD>[0m [34madd[0m [31mr135[0m [32mr1[0m [32mr134[0m [90m;[0m [90mrvalue Entity (get the the base pointer to the start of where to subscript from) (add to resolved new base_ptr) [0m
+     [90m01BE>[0m [34mge[0m [32mr8[0m [32mr131[0m [90m;[0m [90mcheck if it is >= len rvalue Entity [0m
+     [90m01BF>[0m [34mb.false[0m [96m1[0m 01C1 [90m;[0m [90mjump over trap if within bounds [0m
+     [90m01C0>[0m [34mtrap[0m [35m0x05[0m [90m;[0m [90mout of bounds trap  (int:5)[0m
+     [90m01C1>[0m [34mmov[0m [31mr137[0m [35m0xC[0m [90m;[0m [90melement_size: rvalue Entity  (int:12 fixed:0.00)[0m
+     [90m01C2>[0m [34mmul[0m [31mr138[0m [32mr8[0m [32mr137[0m [90m;[0m [90moffset = index * element_size (rvalue Entity) [0m
+     [90m01C3>[0m [34madd[0m [31mr136[0m [32mr135[0m [32mr138[0m [90m;[0m [90mresult = base_ptr + element_size * index (rvalue Entity) [0m
+     [90m01C4>[0m [34mmov[0m [31mr130[0m [32mr136[0m [90m;[0m [90mcopy absolute address [0m
+     [90m01C5>[0m [34mmov[0m [31mr1[0m [32mr130[0m [90m;[0m [90mcopy argument in place from temporary [0m
+     [90m01C6>[0m [34mcall[0m [36m@[0m[96mA0[0m [90m;[0m [90mcalling main::Crawler:entity_tick (call) [0m
+     [90m01C7>[0m [34mldmf[0m [31mr128[0m [33m$02FC[0m #[33m1[0m [90m;[0m [90mrestoring r128 (from range) restore spilled after call  (count: 01)[0m
+     [90m01C8>[0m [34mldmf[0m [31mr129[0m [33m$0300[0m #[33m1[0m [90m;[0m [90mrestoring r129 (from range) restore spilled after call  (count: 01)[0m
+     [90m01C9>[0m [34mldmf[0m #[31m63[0m [33m$02E4[0m [90m;[0m [90mrestore (filtered by output dest) using mask restore spilled after call  (mask: 3F regs: r0, r1, r2, r3, r4, r5)[0m
+ 114 [32m|[0m       self.grid[self.entities[i].point.y * GRID_WIDTH + self.entities[i].point.x] = i
+     [90m01CA>[0m [34mmov[0m [31mr131[0m [35m0x80[0m [90m;[0m [90mget vec header absolute pointer (load offset value)  (int:128 fixed:0.00)[0m
+     [90m01CB>[0m [34madd[0m [31mr132[0m [32mr1[0m [32mr131[0m [90m;[0m [90mget vec header absolute pointer (add to resolved new base_ptr) [0m
+     [90m01CC>[0m [34mldh[0m [31mr130[0m [[32mr132[0m #[33m0[0m] [90m;[0m [90mload vec count for bounds check [0m
+     [90m01CD>[0m [34mmov[0m [31mr133[0m [35m0x84[0m [90m;[0m [90mrvalue Int (get the the base pointer to the start of where to subscript from) (load offset value)  (int:132 fixed:0.00)[0m
+     [90m01CE>[0m [34madd[0m [31mr134[0m [32mr1[0m [32mr133[0m [90m;[0m [90mrvalue Int (get the the base pointer to the start of where to subscript from) (add to resolved new base_ptr) [0m
+     [90m01CF>[0m [34mmov[0m [31mr140[0m [35m0x4[0m [90m;[0m [90mget vec header absolute pointer (load offset value)  (int:4 fixed:0.00)[0m
+     [90m01D0>[0m [34madd[0m [31mr141[0m [32mr1[0m [32mr140[0m [90m;[0m [90mget vec header absolute pointer (add to resolved new base_ptr) [0m
+     [90m01D1>[0m [34mldh[0m [31mr139[0m [[32mr141[0m #[33m0[0m] [90m;[0m [90mload vec count for bounds check [0m
+     [90m01D2>[0m [34mmov[0m [31mr142[0m [35m0x8[0m [90m;[0m [90mrvalue Entity (get the the base pointer to the start of where to subscript from) (load offset value)  (int:8 fixed:0.00)[0m
+     [90m01D3>[0m [34madd[0m [31mr143[0m [32mr1[0m [32mr142[0m [90m;[0m [90mrvalue Entity (get the the base pointer to the start of where to subscript from) (add to resolved new base_ptr) [0m
+     [90m01D4>[0m [34mge[0m [32mr8[0m [32mr139[0m [90m;[0m [90mcheck if it is >= len rvalue Entity [0m
+     [90m01D5>[0m [34mb.false[0m [96m1[0m 01D7 [90m;[0m [90mjump over trap if within bounds [0m
+     [90m01D6>[0m [34mtrap[0m [35m0x05[0m [90m;[0m [90mout of bounds trap  (int:5)[0m
+     [90m01D7>[0m [34mmov[0m [31mr145[0m [35m0xC[0m [90m;[0m [90melement_size: rvalue Entity  (int:12 fixed:0.00)[0m
+     [90m01D8>[0m [34mmul[0m [31mr146[0m [32mr8[0m [32mr145[0m [90m;[0m [90moffset = index * element_size (rvalue Entity) [0m
+     [90m01D9>[0m [34madd[0m [31mr144[0m [32mr143[0m [32mr146[0m [90m;[0m [90mresult = base_ptr + element_size * index (rvalue Entity) [0m
+     [90m01DA>[0m [34mld[0m [31mr138[0m [[32mr144[0m #[33m8[0m] [90m;[0m [90memit primitive value. ptr to primitive reg rvalue postfix chain (load int) [0m
+     [90m01DB>[0m [34mld[0m [31mr139[0m [32m%$[0m[32m00000008[0m [90m;[0m [90mload constant primitive 'GRID_WIDTH' BasicType { kind: S32, total_size: MemorySize(4), max_alignment: U32 } - load u32 primitive from memory [0m
+     [90m01DC>[0m [34mmul[0m [31mr137[0m [32mr138[0m [32mr139[0m [90m;[0m [90mi32 mul [0m
+     [90m01DD>[0m [34mmov[0m [31mr140[0m [35m0x4[0m [90m;[0m [90mget vec header absolute pointer (load offset value)  (int:4 fixed:0.00)[0m
+     [90m01DE>[0m [34madd[0m [31mr141[0m [32mr1[0m [32mr140[0m [90m;[0m [90mget vec header absolute pointer (add to resolved new base_ptr) [0m
+     [90m01DF>[0m [34mldh[0m [31mr139[0m [[32mr141[0m #[33m0[0m] [90m;[0m [90mload vec count for bounds check [0m
+     [90m01E0>[0m [34mmov[0m [31mr142[0m [35m0x8[0m [90m;[0m [90mrvalue Entity (get the the base pointer to the start of where to subscript from) (load offset value)  (int:8 fixed:0.00)[0m
+     [90m01E1>[0m [34madd[0m [31mr143[0m [32mr1[0m [32mr142[0m [90m;[0m [90mrvalue Entity (get the the base pointer to the start of where to subscript from) (add to resolved new base_ptr) [0m
+     [90m01E2>[0m [34mge[0m [32mr8[0m [32mr139[0m [90m;[0m [90mcheck if it is >= len rvalue Entity [0m
+     [90m01E3>[0m [34mb.false[0m [96m1[0m 01E5 [90m;[0m [90mjump over trap if within bounds [0m
+     [90m01E4>[0m [34mtrap[0m [35m0x05[0m [90m;[0m [90mout of bounds trap  (int:5)[0m
+     [90m01E5>[0m [34mmov[0m [31mr145[0m [35m0xC[0m [90m;[0m [90melement_size: rvalue Entity  (int:12 fixed:0.00)[0m
+     [90m01E6>[0m [34mmul[0m [31mr146[0m [32mr8[0m [32mr145[0m [90m;[0m [90moffset = index * element_size (rvalue Entity) [0m
+     [90m01E7>[0m [34madd[0m [31mr144[0m [32mr143[0m [32mr146[0m [90m;[0m [90mresult = base_ptr + element_size * index (rvalue Entity) [0m
+     [90m01E8>[0m [34mld[0m [31mr138[0m [[32mr144[0m #[33m4[0m] [90m;[0m [90memit primitive value. ptr to primitive reg rvalue postfix chain (load int) [0m
+     [90m01E9>[0m [34madd[0m [31mr136[0m [32mr137[0m [32mr138[0m [90m;[0m [90mi32 add [0m
+     [90m01EA>[0m [34mge[0m [32mr136[0m [32mr130[0m [90m;[0m [90mcheck if it is >= len rvalue Int [0m
+     [90m01EB>[0m [34mb.false[0m [96m1[0m 01ED [90m;[0m [90mjump over trap if within bounds [0m
+     [90m01EC>[0m [34mtrap[0m [35m0x05[0m [90m;[0m [90mout of bounds trap  (int:5)[0m
+     [90m01ED>[0m [34mmov[0m [31mr137[0m [35m0x4[0m [90m;[0m [90melement_size: rvalue Int  (int:4 fixed:0.00)[0m
+     [90m01EE>[0m [34mmul[0m [31mr138[0m [32mr136[0m [32mr137[0m [90m;[0m [90moffset = index * element_size (rvalue Int) [0m
+     [90m01EF>[0m [34madd[0m [31mr135[0m [32mr134[0m [32mr138[0m [90m;[0m [90mresult = base_ptr + element_size * index (rvalue Int) [0m
+     [90m01F0>[0m [34mst[0m [[31mr135[0m #[33m0[0m] [32mr8[0m [90m;[0m [90mvar access to primitive memory location [0m
+     [90m01F1>[0m [34mb[0m [96m-60[0m 01B6 [90m;[0m [90mjump to iter_next [0m
+     [90m01F2>[0m [34mldmf[0m #[31m96[0m [33m$0010[0m [90m;[0m [90mrestore (filtered by output dest) using mask epilogue  (mask: 60 regs: r5, r6)[0m
+     [90m01F3>[0m [34mhlt[0m  [90m;[0m [90m [0m
+
+GRID_WIDTH ==========================================================================
+frame size for variables: frame size: 0000
+
+     [90m01F4>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+   3 [32m|[0m const GRID_WIDTH = 32
+     [90m01F5>[0m [34mmov[0m [31mr0[0m [35m0x20[0m [90m;[0m [90mint literal  (int:32 fixed:0.00)[0m
+     [90m01F6>[0m [34mhlt[0m  [90m;[0m [90m [0m
+
+GRID_HEIGHT ==========================================================================
+frame size for variables: frame size: 0000
+
+     [90m01F7>[0m [34menter[0m #[33m0[0m [90m;[0m [90mprologue  (hex:0000)[0m
+   4 [32m|[0m const GRID_HEIGHT = 10
+     [90m01F8>[0m [34mmov[0m [31mr0[0m [35m0xA[0m [90m;[0m [90mint literal  (int:10 fixed:0.00)[0m
+     [90m01F9>[0m [34mhlt[0m  [90m;[0m [90m [0m
+
+START: heap_start: 3C000 stack: 100
+

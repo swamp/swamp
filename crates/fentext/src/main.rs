@@ -11,7 +11,8 @@ use swamp::prelude::{
 };
 use swamp_std::print::print_fn;
 
-#[must_use] pub fn compile() -> Option<CodeGenAndVmResult> {
+#[must_use]
+pub fn compile() -> Option<CodeGenAndVmResult> {
     compile_codegen_and_create_vm(
         Path::new("assets/crawler"),
         &["crate".to_string(), "main".to_string()],

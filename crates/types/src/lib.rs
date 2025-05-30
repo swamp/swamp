@@ -42,6 +42,7 @@ pub enum Type {
 
     Generic(ParameterizedTypeBlueprint, Vec<Type>),
     Blueprint(ParameterizedTypeBlueprint),
+
     Variable(String),
 
     MutableReference(Box<Type>),
@@ -1183,8 +1184,7 @@ pub fn all_types_are_concrete_or_unit(types: &[Type]) -> bool {
 #[must_use]
 pub fn all_types_are_variables(types: &[Type]) -> bool {
     for ty in types {
-        if let Type::Variable(_) = ty {
-        } else {
+        if let Type::Variable(_) = ty {} else {
             return false;
         }
     }

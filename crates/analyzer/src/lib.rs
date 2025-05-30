@@ -780,11 +780,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                &ast_expression.node,
-                fields,
-                *rest_was_specified,
-                context,
-            )?,
+                    &ast_expression.node,
+                    fields,
+                    *rest_was_specified,
+                    context,
+                )?,
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
@@ -903,6 +903,19 @@ impl<'a> Analyzer<'a> {
             }
         }
 
+        let mut analyzed_type_parameters = Vec::new();
+
+        for analyzed_type in &type_name_to_find.generic_params {
+            let ty = self.analyze_type(analyzed_type.get_type())?;
+
+            analyzed_type_parameters.push(ty);
+        }
+
+        if let Some(found) = self.analyze_special_named_type(&path, &name, &analyzed_type_parameters) {
+            return Ok(found);
+        }
+
+
         let symbol = {
             let maybe_symbol_table = self.shared.get_symbol_table(&path);
             let symbol_table = maybe_symbol_table.ok_or_else(|| {
@@ -916,13 +929,6 @@ impl<'a> Analyzer<'a> {
                 .clone()
         };
 
-        let mut analyzed_type_parameters = Vec::new();
-
-        for analyzed_type in &type_name_to_find.generic_params {
-            let ty = self.analyze_type(analyzed_type.get_type())?;
-
-            analyzed_type_parameters.push(ty);
-        }
 
         let result_type = if analyzed_type_parameters.is_empty() {
             match &symbol {
@@ -1468,8 +1474,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {
-            } else {
+            if let Type::Optional(_) = tv.resolved_type {} else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -3706,6 +3711,27 @@ impl<'a> Analyzer<'a> {
             node,
         ))
     }
+
+    pub fn analyze_special_named_type(&mut self, path: &[String], name: &str, analyzed_type_parameters: &[Type]) -> Option<Type> {
+        if path != ["core"] {
+            return None;
+        }
+
+        let converted_type = match name {
+            "Vec" => {
+                if analyzed_type_parameters.len() == 1 {
+                    Type::DynamicLengthVecView(Box::from(analyzed_type_parameters[0].clone()))
+                } else { return None; } /*else /*if analyzed_type_parameters.len() == 2 {
+                  Type::VecStorage(Box::from(analyzed_type_parameters[0].clone()), /* usize */)
+                }
+                */*/
+            }
+            _ => return None,
+        };
+
+        Some(converted_type)
+    }
+
 
     #[allow(clippy::too_many_lines)]
     fn analyze_generic_type(

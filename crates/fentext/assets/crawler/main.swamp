@@ -48,7 +48,7 @@ struct Entity {
 
 struct Crawler {
   tick_count: Int,
-  entities: [Entity; 10],
+  entities: Vec<Entity, 10>,
   grid: [Int; 320],
 }
 
