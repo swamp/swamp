@@ -138,7 +138,6 @@ impl TopLevelGenState {
         function_info: &FunctionInfo,
         node: &Node,
     ) -> Option<SpilledRegisterRegion> {
-        let mut mask: u8 = 0;
         let mut count: u8 = 0;
 
         for (index, variable_register) in function_info
@@ -150,16 +149,37 @@ impl TopLevelGenState {
             if is_callee_save(variable_register.register.index)
                 && !variable_register.register.ty.is_mutable_primitive()
             {
-                mask |= 1 << index;
                 count += 1;
             }
         }
 
-        if count > 0 {
-            let abi_parameter_frame_memory_region = code_builder.temp_frame_space_for_register(
-                count,
-                "temporary space for callee_save (and not mutable primitives)",
-            );
+        if count == 0 {
+            return None;
+        }
+
+        let abi_parameter_frame_memory_region = code_builder.temp_frame_space_for_register(
+            count,
+            "temporary space for callee_save (and not mutable primitives)",
+        );
+
+        if count <= 7 {
+            let mut mask: u8 = 0;
+            let mut count_in_mask = 0;
+
+            for (index, variable_register) in function_info
+                .frame_memory
+                .variable_registers
+                .iter()
+                .enumerate()
+            {
+                if is_callee_save(variable_register.register.index)
+                    && !variable_register.register.ty.is_mutable_primitive()
+                {
+                    eprintln!("masking with {index}");
+                    mask |= 1 << count_in_mask;
+                    count_in_mask += 1;
+                }
+            }
 
             code_builder.builder.add_st_regs_using_mask_to_frame(
                 abi_parameter_frame_memory_region.addr,
@@ -173,7 +193,21 @@ impl TopLevelGenState {
                 frame_memory_region: abi_parameter_frame_memory_region,
             })
         } else {
-            None
+            code_builder.builder.add_st_regs_to_frame_using_range(
+                abi_parameter_frame_memory_region,
+                0,
+                count,
+                node,
+                "prologue, store regs to frame",
+            );
+
+            Some(SpilledRegisterRegion {
+                registers: RepresentationOfRegisters::Range {
+                    start_reg: 0,
+                    count,
+                },
+                frame_memory_region: abi_parameter_frame_memory_region,
+            })
         }
     }
 

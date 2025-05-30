@@ -87,6 +87,14 @@ impl Crawler {
     self.tick_count += 1
 
     for y in 0..GRID_HEIGHT {
+      for x in 0..GRID_WIDTH {
+        move(32, y)
+        write('x:{x}, y:{y} ')
+      }
+    }
+
+
+    for y in 0..GRID_HEIGHT {
       move(0, y)
       for x in 0..GRID_WIDTH {
         move(x, y)
