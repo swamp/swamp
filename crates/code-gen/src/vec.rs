@@ -164,7 +164,7 @@ impl CodeBuilder<'_> {
                     elements_base_ptr_reg.register(),
                     capacity as u16,
                     node,
-                    "initialize vec from slice",
+                    "initialize vec from initialization list",
                 );
         } else {
             info!("skipping, no capacity or no length");

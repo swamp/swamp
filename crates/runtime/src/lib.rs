@@ -327,6 +327,8 @@ pub fn run_function_with_debug(
             0
         };
 
+        eprintln!("constant (from address 0x34): {:?}", &vm.heap_memory()[0x34..0x34+32]);
+        
         vm.step(host_function_callback);
 
         if run_options.debug_operations_enabled {

@@ -115,7 +115,7 @@ impl FenTextSwamp {
         let run_options = RunOptions {
             debug_stats_enabled: false,
             debug_opcodes_enabled: false,
-            debug_operations_enabled: false,
+            debug_operations_enabled: true,
             use_color: true,
             max_count: 0,
             debug_info: &self.runtime_result.code_gen_result.debug_info,
@@ -127,6 +127,7 @@ impl FenTextSwamp {
 
         let vm = &mut self.runtime_result.vm;
 
+        assert!(self.simulation_value_addr >= vm.constant_size() as u32);
         vm.set_register_pointer_addr_for_parameter(1, self.simulation_value_addr);
         vm.set_stack_start(self.safe_stack_start_addr as usize);
 
@@ -274,6 +275,10 @@ impl FenText {
         }
 
         ui.tick_count += 1;
+
+        if ui.tick_count > 60 * 3 {
+            return false;
+        }
 
         ui.debug();
 

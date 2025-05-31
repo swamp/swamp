@@ -138,6 +138,9 @@ impl Crawler {
   }
 
   fn entity_tick(mut entity: Entity, mut grid: [Int]) {
+		print('entity.direction {entity.direction.x}')
+		assert(entity.direction.x >= -1 && entity.direction.x <= 1, "Invalid direction x {entity.direction.x}")
+
     if entity.wait == 0 {
       want_to_move_to = entity.point.add(entity.direction)
       if Crawler::cell_is_free(want_to_move_to, grid) {
@@ -204,7 +207,7 @@ impl Crawler {
 
 		self.simulation_tick()
 
-		self.draw()
+		//self.draw()
 
     self.tick_count += 1
   }
