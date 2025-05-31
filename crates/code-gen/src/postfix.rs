@@ -361,18 +361,23 @@ impl CodeBuilder<'_> {
                             "rvalue postfix chain to memory",
                         );
                     } else {
-                        self.emit_load_into_register(
-                            &mem_loc.base_ptr_reg,
-                            &current_location,
-                            &start_expression.node,
-                            "load rvalue into temp register",
+                        let rhs_value_temp = self.temp_registers.allocate(
+                            current_location.vm_type().clone(),
+                            "end of chain, load primitive to target",
                         );
 
-                        self.builder.add_st32_using_ptr_with_offset(
-                            mem_loc,
-                            &mem_loc.base_ptr_reg,
+                        self.emit_load_into_register(
+                            rhs_value_temp.register(),
+                            &current_location,
                             &start_expression.node,
-                            "store from temp register to memory destination",
+                            "end of chain, load primitive into temp register",
+                        );
+
+                        self.emit_store_primitive_to_memory_location(
+                            mem_loc,
+                            rhs_value_temp.register(),
+                            &start_expression.node,
+                            "store from temp primitive register to final memory destination",
                         );
                     }
                 }

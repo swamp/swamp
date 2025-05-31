@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use swamp_vm_types::types::{TypedRegister, VmType};
 
 #[derive(Debug)]
@@ -20,11 +21,25 @@ pub struct RegisterInfo {
     pub index: u8,
 }
 
-#[derive(Debug)]
 pub struct HwmTempRegisterPool {
     start_index: u8,
     capacity: u8,
     num_allocated: u8,
+}
+
+impl Debug for HwmTempRegisterPool {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.num_allocated == 0 {
+            write!(f, "hwm(no protected)")
+        } else {
+            write!(
+                f,
+                "hwm({}-{})",
+                self.start_index,
+                self.start_index + self.num_allocated - 1
+            )
+        }
+    }
 }
 
 impl HwmTempRegisterPool {

@@ -79,53 +79,7 @@ RESOURCES="❤️💙💰🪙📜"
 
 impl Crawler {
 
-  fn draw(c: Crawler) {
-
-  }
-
-  fn cell_is_free(point: Point, grid: [Int]) -> Bool {
-    index = point.y * GRID_WIDTH + point.x
-    if index < 0 || index >= GRID_CELL_COUNT {
-      false
-    } else {
-       grid[index] == 0
-    }
-  }
-
-  fn move_transaction(mut grid: [Int], from: Point, to: Point)  {
-    from_index = from.y * GRID_WIDTH + from.x
-    to_index = to.y * GRID_WIDTH + to.x
-
-    assert(grid[from_index] == 0 || grid[to_index] != 0, "Invalid move transaction from {from} to {to}")
-
-    grid[to_index] = grid[from_index]
-    grid[from_index] = 0
-  }
-
-  fn entity_tick(mut entity: Entity, mut grid: [Int]) {
-    if entity.wait == 0 {
-      want_to_move_to = entity.point.add(entity.direction)
-      if Crawler::cell_is_free(want_to_move_to, grid) {
-        Crawler::move_transaction(&grid, entity.point, want_to_move_to)
-        entity.point = want_to_move_to
-        entity.wait = 10
-      }
-    } else {
-      entity.wait -= 1
-    }
-  }
-
-  #[host_call]
-  fn tick(mut self) {
-    user_input = input()
-
-    when user_input {
-      move(32, 27)
-      write('input: {user_input}    ')
-    }
-
-    self.tick_count += 1
-
+  fn draw(self) {
     for y in 0..GRID_HEIGHT {
       move(0, y)
       for x in 0..GRID_WIDTH {
@@ -144,21 +98,74 @@ impl Crawler {
          }
       }
     }
-    for index, mut entity in self.entities {
-      if index == 1 {
+  }
+
+	fn cell_is_free(point: Point, grid: [Int]) -> Bool {
+		if point.x < 0 || point.x >= GRID_WIDTH || point.y < 0 || point.y >= GRID_HEIGHT {
+			false
+		} else {
+			index = point.y * GRID_WIDTH + point.x
+			grid[index] == 0
+		}
+	}
+
+  fn move_transaction(mut grid: [Int], from: Point, to: Point)  {
+    from_index = from.y * GRID_WIDTH + from.x
+    to_index = to.y * GRID_WIDTH + to.x
+
+    assert(grid[from_index] != 0 || grid[to_index] == 0, "Invalid move transaction from {from} to {to}")
+
+    grid[to_index] = grid[from_index]
+    grid[from_index] = 0
+  }
+
+  fn entity_tick(mut entity: Entity, mut grid: [Int]) {
+    if entity.wait == 0 {
+      want_to_move_to = entity.point.add(entity.direction)
+      if Crawler::cell_is_free(want_to_move_to, grid) {
+        Crawler::move_transaction(&grid, entity.point, want_to_move_to)
+        entity.point = want_to_move_to
+        entity.wait = 0
+      }
+    } else {
+      entity.wait -= 1
+    }
+  }
+
+	fn simulation_tick(mut self) {
+		for index, mut entity in self.entities {
+			if index == 1 {
         move(32, 25)
         write('Player at ({entity.point.x}, {entity.point.y})   ')
       }
-      self.grid[entity.point.y * GRID_WIDTH + entity.point.x] = 0
 
       Crawler::entity_tick(&entity, &self.grid)
-
-      self.grid[entity.point.y * GRID_WIDTH + entity.point.x] = index
     }
+	}
+
+  #[host_call]
+  fn tick(mut self) {
+    user_input = input()
+
+    when user_input {
+      move(32, 27)
+      write('input: {user_input}    ')
+			new_direction = match user_input {
+				Left => Point { x: -1, y: 0 },
+				Right => Point { x: 1, y: 0 },
+			  Up => Point { x: 0, y: -1 },
+			  Down => Point { x: 0, y: 1 },
+			}
+			self.entities[1].direction = new_direction
+    }
+
+		self.simulation_tick()
+
+		self.draw()
+
+    self.tick_count += 1
   }
 }
-
-
 
 #[host_call]
 fn main() -> Crawler {
@@ -168,10 +175,13 @@ fn main() -> Crawler {
       Entity {
         type: Type::Rock,
         point: Point { x: 0, y: 0 },
+				direction: Point { x: 0, y: 0 },
+				wait: 0,
       },
       Entity {
         type: Type::Player,
-        point: Point { x: 2, y: 0 },
+        point: Point { x: 1, y: 0 },
+				direction: Point { x: 0, y: 1 },
       },
 
     ],

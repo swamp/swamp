@@ -7,7 +7,7 @@ use crate::types::BasicType;
 use crate::types::{TypedRegister, VmType};
 use source_map_node::Node;
 use std::cmp::PartialOrd;
-use std::fmt::{Alignment, Display, Formatter};
+use std::fmt::{Alignment, Debug, Display, Formatter};
 use std::ops::{Add, Div, Sub};
 
 pub mod aligner;
@@ -285,11 +285,21 @@ impl PointerLocation {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct MemoryLocation {
     pub base_ptr_reg: TypedRegister,
     pub offset: MemoryOffset,
     pub ty: VmType,
+}
+
+impl Debug for MemoryLocation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "MemLoc[{}+{:04X}] ({})",
+            self.base_ptr_reg, self.offset.0, self.ty
+        )
+    }
 }
 
 impl MemoryLocation {

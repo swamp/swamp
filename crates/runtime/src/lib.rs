@@ -30,6 +30,7 @@ pub struct RunOptions<'a> {
     pub debug_info: &'a DebugInfo,
     pub source_map_wrapper: SourceMapWrapper<'a>,
     pub debug_operations_enabled: bool,
+    pub use_color: bool,
 }
 
 pub fn run_constants_in_order(
@@ -222,32 +223,51 @@ pub fn run_function_with_debug(
     vm.debug_stats_enabled = run_options.debug_stats_enabled;
     vm.set_pc(&function_to_run.ip_range.start);
 
+    let mut debug_count = 0;
+
+    let use_color = run_options.use_color;
+
     let mut last_line_info = KeepTrackOfSourceLine::new();
 
     while !vm.is_execution_complete() {
+        debug_count += 1;
+
         let pc = vm.pc();
         #[cfg(feature = "debug_vm")]
         if run_options.debug_opcodes_enabled {
             let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 128, 129, 130, 131, 132];
 
-            eprint!(
-                "{}",
-                tinter::bright_black(&format!("fp:{:08X}, sp:{:08X}, ", vm.fp(), vm.sp()))
-            );
-
-            eprint!(
-                "{}",
-                tinter::bright_black(&format!("t:{} ", if vm.flags.t { "1" } else { "0" }))
-            );
-
-            for reg in regs {
-                let reg_name = &format!("r{reg}");
+            if use_color {
                 eprint!(
                     "{}",
-                    tinter::bright_black(&format!("{reg_name:>3}:{:08X}, ", vm.registers[reg]))
+                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X}, ", vm.fp(), vm.sp()))
                 );
+
+                eprint!(
+                    "{}",
+                    tinter::bright_black(&format!("t:{} ", if vm.flags.t { "1" } else { "0" }))
+                );
+
+                for reg in regs {
+                    let reg_name = &format!("r{reg}");
+                    eprint!(
+                        "{}",
+                        tinter::bright_black(&format!("{reg_name:>3}:{:08X}, ", vm.registers[reg]))
+                    );
+                }
+                eprintln!();
+            } else {
+                // TODO!: Use style instead
+                eprint!("{}", &format!("fp:{:08X}, sp:{:08X}, ", vm.fp(), vm.sp()));
+
+                eprint!("{}", &format!("t:{} ", if vm.flags.t { "1" } else { "0" }));
+
+                for reg in regs {
+                    let reg_name = &format!("r{reg}");
+                    eprint!("{}", &format!("{reg_name:>3}:{:08X}, ", vm.registers[reg]));
+                }
+                eprintln!();
             }
-            eprintln!();
 
             let info = run_options.debug_info.fetch(pc).unwrap();
 

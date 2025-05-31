@@ -5,8 +5,8 @@ use std::thread;
 use std::time::Duration;
 use swamp::prelude::{
     CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
-    RunOptions, SourceMapWrapper, compile_codegen_and_create_vm, layout_type, run_first_time,
-    run_function_with_debug,
+    RunOptions, SourceMapWrapper, VmState, compile_codegen_and_create_vm, layout_type,
+    run_first_time, run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 
@@ -111,11 +111,13 @@ impl FenTextSwamp {
         }
     }
 
-    pub fn tick(&mut self, application: &mut dyn HostFunctionCallback) {
+    pub fn tick(&mut self, application: &mut dyn HostFunctionCallback) -> bool {
         let run_options = RunOptions {
             debug_stats_enabled: false,
             debug_opcodes_enabled: false,
             debug_operations_enabled: false,
+            use_color: true,
+
             debug_info: &self.runtime_result.code_gen_result.debug_info,
             source_map_wrapper: SourceMapWrapper {
                 source_map: &self.runtime_result.source_map,
@@ -129,6 +131,8 @@ impl FenTextSwamp {
         vm.set_stack_start(self.safe_stack_start_addr as usize);
 
         run_function_with_debug(vm, &self.tick_fn, application, run_options);
+
+        vm.state == VmState::Normal
     }
 
     #[must_use]
@@ -140,6 +144,8 @@ impl FenTextSwamp {
             debug_stats_enabled: false,
             debug_opcodes_enabled: false,
             debug_operations_enabled: true,
+            use_color: true,
+
             debug_info: &runtime_result.code_gen_result.debug_info,
             source_map_wrapper: SourceMapWrapper {
                 source_map: &runtime_result.source_map,
@@ -268,7 +274,9 @@ impl FenText {
 
         ui.debug();
 
-        self.swamp.tick(ui);
+        if !self.swamp.tick(ui) {
+            return false;
+        }
 
         thread::sleep(frame_time);
 

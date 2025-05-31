@@ -46,9 +46,12 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
+        info!(hwm=?self.temp_registers, "assignment: before LHS ({comment})");
         let output_destination = self.emit_lvalue_address(&lhs.0, ctx);
+        info!(destination=?output_destination, hwm=?self.temp_registers, "assignment: after LHS. hopefully HWM is protecting the destination ({comment})");
 
         self.emit_expression(&output_destination, rhs, ctx);
+        info!(destination=?output_destination, hwm=?self.temp_registers, "assignment: after RHS ({comment})");
     }
 
     pub fn emit_container_init_from_initialization_pair_list(
