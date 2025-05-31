@@ -385,9 +385,9 @@ impl Vm {
         vm.handlers[OpCode::VecInitWithLenAndCapacityAddr as usize] =
             HandlerType::Args6(Self::execute_vec_init);
         vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args4(Self::execute_vec_iter_init);
-        vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args3(Self::execute_vec_iter_next);
+        vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args4(Self::execute_vec_iter_next);
         vm.handlers[OpCode::VecIterNextPair as usize] =
-            HandlerType::Args4(Self::execute_vec_iter_next_pair);
+            HandlerType::Args5(Self::execute_vec_iter_next_pair);
         vm.handlers[OpCode::VecPushAddr as usize] = HandlerType::Args4(Self::execute_vec_push_addr);
         vm.handlers[OpCode::VecGet as usize] = HandlerType::Args5(Self::execute_vec_get);
 

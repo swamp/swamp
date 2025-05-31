@@ -23,6 +23,7 @@ use swamp_vm_types::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,
     PatchPosition,
 };
+use tracing::debug;
 
 impl TopLevelGenState {
     /// # Panics
@@ -177,7 +178,6 @@ impl TopLevelGenState {
                 if is_callee_save(variable_register.register.index)
                     && !variable_register.register.ty.is_mutable_primitive()
                 {
-                    eprintln!("masking with {count_in_mask}");
                     mask |= 1 << count_in_mask;
                     count_in_mask += 1;
                 }
@@ -304,6 +304,7 @@ impl TopLevelGenState {
             },
         };
 
+        debug!(name=?in_data.assigned_name, "code generating function");
         let _complete_function_info = self.codegen_state.add_function(
             function_info.clone(),
             &in_data.function_name_node,

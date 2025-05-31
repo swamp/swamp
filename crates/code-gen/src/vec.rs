@@ -150,8 +150,6 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        info!("emit_fixed_array_storage!!!!");
-
         let elements_base_ptr_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(u32_type()),
             &format!("{debug_vec_storage_type}::elements"),
@@ -199,8 +197,6 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        info!("emit_vec_storage!!!!");
-
         let elements_base_ptr_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(u32_type()),
             &format!("{debug_vec_storage_type}::elements"),

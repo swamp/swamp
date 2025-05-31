@@ -6,7 +6,6 @@ use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainK
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
-use tracing::info;
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -328,11 +327,9 @@ impl CodeBuilder<'_> {
         );
 
         if needs_final_load {
-            info!(?output_destination, "needs final loading");
             match output_destination {
                 Destination::Register(output_reg) => {
                     if output_destination.ty().is_represented_as_a_pointer_in_reg() {
-                        info!(?output_destination, "register and a pointer");
                         let absolute_pointer_reg = self.emit_absolute_pointer_if_needed(
                             &current_location,
                             &start_expression.node,
@@ -356,8 +353,6 @@ impl CodeBuilder<'_> {
                 }
                 Destination::Memory(mem_loc) => {
                     if mem_loc.ty.is_represented_as_pointer_inside_register() {
-                        info!(?output_destination, "memory and a pointer");
-
                         // Complex type - we need to store to memory
                         self.emit_store_to_pointer_target(
                             &mem_loc.base_ptr_reg,

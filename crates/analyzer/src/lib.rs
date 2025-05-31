@@ -2330,6 +2330,7 @@ impl<'a> Analyzer<'a> {
         ))
     }
 
+    #[must_use]
     pub fn chain_is_owned_result(
         start_of_chain: &StartOfChain,
         chains: &Vec<Postfix>,
@@ -2361,8 +2362,8 @@ impl<'a> Analyzer<'a> {
                     is_owned_result = true;
                     is_mutable = false;
                 }
-                PostfixKind::VecSubscript(_, _) => todo!(),
-                PostfixKind::MapSubscript(_, _) => todo!(),
+                PostfixKind::VecSubscript(_, _) => {}
+                PostfixKind::MapSubscript(_, _) => {}
             }
         }
 

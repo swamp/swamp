@@ -40,51 +40,11 @@ pub fn code_gen_program(
         }
     }
 
-    for (associated_on_type, impl_functions) in &program.state.associated_impls.functions {
-        if !associated_on_type.is_concrete() {
-            for (_name, func) in &impl_functions.functions {
-                if let Function::Internal(_internal) = &**func {
-                    /*
-                    warn!(
-                        name = internal.assigned_name,
-                        path = ?internal.defined_in_module_path,
-                        id = internal.program_unique_id,
-                        "skipping generation of this function"
-                    );
-
-                     */
-                }
-            }
-            continue;
-        }
-
+    for (_associated_on_type, impl_functions) in &program.state.associated_impls.functions {
         for (_name, func) in &impl_functions.functions {
             match &**func {
                 Function::Internal(int_fn) => {
-                    if int_fn
-                        .assigned_name
-                        .starts_with("instantiated new_from_slice")
-                    {
-                        continue;
-                    }
-
-                    if int_fn
-                        .assigned_name
-                        .starts_with("instantiated new_from_slice_pair")
-                    {
-                        continue;
-                    }
-
-                    if !code_gen
-                        .codegen_state
-                        .function_infos
-                        .contains_key(&int_fn.program_unique_id)
-                        && int_fn.all_parameters_and_variables_are_concrete()
-                    {
-                        code_gen.emit_function_def(int_fn, source_map_lookup);
-                    } else {
-                        // info!(int_fn.assigned_name, ?int_fn.defined_in_module_path, "skipping due to strange parameters");
-                    }
+                    code_gen.emit_function_def(int_fn, source_map_lookup);
                 }
 
                 Function::External(_ext_fn) => {

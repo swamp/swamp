@@ -10,7 +10,7 @@ use swamp_vm_types::types::FunctionInfoKind;
 use swamp_vm_types::{
     BinaryInstruction, InstructionPosition, InstructionPositionOffset, InstructionRange, Meta,
 };
-use tracing::error;
+use tracing::{error, info};
 
 /// Top-level container that owns both states
 pub struct TopLevelGenState {
@@ -54,6 +54,10 @@ impl TopLevelGenState {
 
     pub fn finalize(&mut self) {
         for function_fixup in &self.codegen_state.function_fixups {
+            info!(
+                name = function_fixup.internal_function_definition.assigned_name,
+                "fixing up"
+            );
             if let Some(func) = self.codegen_state.function_infos.get(&function_fixup.fn_id) {
                 self.builder_state.patch_call(
                     PatchPosition(InstructionPosition(function_fixup.patch_position.0.0)),
@@ -61,7 +65,10 @@ impl TopLevelGenState {
                 );
             } else {
                 error!(?function_fixup.fn_id, name=function_fixup.internal_function_definition.assigned_name, path=?function_fixup.internal_function_definition.defined_in_module_path,  "couldn't fixup function");
-                panic!("couldn't fixup function");
+                panic!(
+                    "couldn't fixup function {}",
+                    function_fixup.internal_function_definition.assigned_name
+                );
             }
         }
 

@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::Memory;
-use crate::{Vm, get_reg, u16_from_u8s};
+use crate::{Vm, get_reg, i16_from_u8s, u16_from_u8s};
 use crate::{VmState, set_reg, u8s_to_u16};
 use std::ptr;
 use swamp_vm_types::{VEC_HEADER_PAYLOAD_OFFSET, VecHeader, VecIterator};
@@ -93,7 +93,8 @@ impl Vm {
         &mut self,
         vec_iterator_header_reg: u8,
         target_variable: u8,
-        jump: u8,
+        branch_offset_lower: u8,
+        branch_offset_upper: u8,
     ) {
         let vec_iterator = self.get_vec_iterator_header_ptr_from_reg(vec_iterator_header_reg);
 
@@ -115,11 +116,16 @@ impl Vm {
             // Check if we've reached the end
             if (*vec_iterator).index >= vec_header.count {
                 // Jump to the provided address if we're done
-                self.pc = jump as usize;
+                let branch_offset = i16_from_u8s!(branch_offset_lower, branch_offset_upper);
+
                 #[cfg(feature = "debug_vm")]
-                if self.debug_operations_enabled {
-                    eprintln!("vec_iter_next done!");
+                {
+                    if self.debug_operations_enabled {
+                        eprintln!("vec_iter_next complete. jumping with offset {branch_offset}");
+                    }
                 }
+
+                self.pc = (self.pc as i32 + branch_offset as i32) as usize;
 
                 return;
             }
@@ -148,7 +154,8 @@ impl Vm {
         vec_iterator_header_reg: u8,
         target_key_reg: u8,
         target_value_reg: u8,
-        jump: u8,
+        branch_offset_lower: u8,
+        branch_offset_upper: u8,
     ) {
         let vec_iterator = self.get_vec_iterator_header_ptr_from_reg(vec_iterator_header_reg);
 
@@ -170,11 +177,18 @@ impl Vm {
             // Check if we've reached the end
             if (*vec_iterator).index >= vec_header.count {
                 // Jump to the provided address if we're done
-                self.pc = jump as usize;
+                let branch_offset = i16_from_u8s!(branch_offset_lower, branch_offset_upper);
+
                 #[cfg(feature = "debug_vm")]
-                if self.debug_operations_enabled {
-                    eprintln!("vec_iter_next done!");
+                {
+                    if self.debug_operations_enabled {
+                        eprintln!(
+                            "vec_iter_next_pair complete. jumping with offset {branch_offset}"
+                        );
+                    }
                 }
+
+                self.pc = (self.pc as i32 + branch_offset as i32) as usize;
 
                 return;
             }

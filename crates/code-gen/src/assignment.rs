@@ -99,8 +99,6 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        info!(lhs=?output_destination.ty().underlying().kind,  "check if container init");
-
         match &output_destination.ty().underlying().kind {
             BasicTypeKind::VecStorage(element_type, capacity) => {
                 let absolute_ptr_reg = self.emit_absolute_pointer_if_needed(
