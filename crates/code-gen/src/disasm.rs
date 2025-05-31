@@ -75,7 +75,7 @@ pub fn disasm_function(
     format!(
         "{}\n{}",
         header_output,
-        disasm_instructions_color(instructions, &ip_offset, debug_info, source_map_wrapper,)
+        disasm_instructions_color(instructions, ip_offset, debug_info, source_map_wrapper,)
     )
 }
 
