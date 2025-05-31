@@ -5,7 +5,7 @@
 
 use source_map_node::Node;
 use swamp_modules::modules::Module;
-use swamp_modules::symtbl::{SymbolTable, TypeGenerator, TypeGeneratorKind};
+use swamp_modules::symtbl::SymbolTable;
 use swamp_semantic::prelude::{IntrinsicFunction, IntrinsicFunctionDefinition};
 use swamp_types::{AliasType, Signature, Type, TypeForParameter};
 use tiny_ver::TinyVersion;
@@ -1794,30 +1794,7 @@ pub fn create_module(tiny_version: &TinyVersion) -> Module {
     let canonical_core_path = [tiny_version.versioned_name(PACKAGE_NAME).unwrap()];
     let mut intrinsic_types_symbol_table = SymbolTable::new(&canonical_core_path);
     add_intrinsic_types(&mut intrinsic_types_symbol_table);
-    add_intrinsic_type_generator(&mut intrinsic_types_symbol_table);
     add_intrinsic_functions(&mut intrinsic_types_symbol_table);
 
     Module::new(intrinsic_types_symbol_table, None)
-}
-
-fn add_intrinsic_type_generator(core_ns: &mut SymbolTable) {
-    core_ns
-        .add_type_generator(
-            "Slice",
-            TypeGenerator {
-                arity: 1,
-                kind: TypeGeneratorKind::Slice,
-            },
-        )
-        .unwrap();
-
-    core_ns
-        .add_type_generator(
-            "SlicePair",
-            TypeGenerator {
-                arity: 2,
-                kind: TypeGeneratorKind::SlicePair,
-            },
-        )
-        .unwrap();
 }

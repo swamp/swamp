@@ -210,15 +210,6 @@ impl Display for TypeForParameter {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub struct TypeVariable(pub String);
-
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub struct GenericAwareSignature {
-    pub signature: Signature,
-    pub generic_type_variables: Vec<TypeVariable>,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Signature {
     pub parameters: Vec<TypeForParameter>,
     pub return_type: Box<Type>,

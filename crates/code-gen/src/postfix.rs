@@ -111,7 +111,7 @@ impl CodeBuilder<'_> {
                                 let argument_infos = self.emit_arguments(
                                     &call_return_destination,
                                     &start_expression.node,
-                                    &internal_fn.signature.signature,
+                                    &internal_fn.signature,
                                     Some(&absolute_self_pointer_register),
                                     arguments,
                                     false,

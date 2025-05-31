@@ -7,7 +7,7 @@ use seq_map::SeqMap;
 use source_map_cache::SourceMapLookup;
 use std::fmt::{Display, Formatter};
 use swamp_modules::modules::{ModuleRef, Modules};
-use swamp_modules::symtbl::{FuncDef, Symbol, SymbolTable, TypeGenerator};
+use swamp_modules::symtbl::{FuncDef, Symbol, SymbolTable};
 use swamp_semantic::prelude::*;
 use swamp_semantic::{
     ArgumentExpression, AssociatedImpls, MutableReferenceKind, Postfix, PostfixKind,
@@ -38,7 +38,6 @@ impl SourceMapDisplay<'_> {
             Symbol::Constant(_) => Color::BrightCyan,
             Symbol::FunctionDefinition(_) => Color::Cyan,
             Symbol::Alias(_) => Color::Red,
-            Symbol::TypeGenerator(_) => Color::BrightGreen,
         }
     }
 
@@ -98,7 +97,6 @@ impl SourceMapDisplay<'_> {
             Symbol::PackageVersion(version) => {
                 write!(f, "version {version}")
             }
-            Symbol::TypeGenerator(generator) => self.show_type_generator(f, generator, tabs),
         }
     }
 
@@ -116,15 +114,6 @@ impl SourceMapDisplay<'_> {
             writeln!(f)?;
         }
         Ok(())
-    }
-
-    fn show_type_generator(
-        &self,
-        f: &mut Formatter,
-        generator: &TypeGenerator,
-        tabs: usize,
-    ) -> std::fmt::Result {
-        write!(f, "{generator:?}")
     }
 }
 
@@ -784,7 +773,7 @@ impl SourceMapDisplay<'_> {
         internal_func: &InternalFunctionDefinition,
         tabs: usize,
     ) -> std::fmt::Result {
-        self.show_signature(f, &internal_func.signature.signature, tabs)?;
+        self.show_signature(f, &internal_func.signature, tabs)?;
         Self::new_line_and_tab(f, tabs)?;
         self.show_expression(f, &internal_func.body, tabs)
     }

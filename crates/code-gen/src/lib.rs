@@ -300,11 +300,7 @@ pub struct GenFunctionInfo {
 impl GenFunctionInfo {
     #[must_use]
     pub fn return_type(&self) -> &Type {
-        &self
-            .internal_function_definition
-            .signature
-            .signature
-            .return_type
+        &self.internal_function_definition.signature.return_type
     }
 }
 

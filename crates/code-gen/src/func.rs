@@ -46,7 +46,7 @@ impl TopLevelGenState {
             assigned_name: complete_function_name,
             function_variables: internal_fn_def.function_variables.clone(),
             parameter_variables: internal_fn_def.parameters.clone(),
-            return_type: *internal_fn_def.signature.signature.return_type.clone(),
+            return_type: *internal_fn_def.signature.return_type.clone(),
             expression: internal_fn_def.body.clone(),
         };
 

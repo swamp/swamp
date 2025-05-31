@@ -25,7 +25,7 @@ use std::num::{ParseFloatError, ParseIntError};
 use std::str::{FromStr, ParseBoolError};
 use swamp_ast::GenericParameter;
 use swamp_modules::prelude::*;
-use swamp_modules::symtbl::{SymbolTableRef, TypeGeneratorKind};
+use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::*;
 use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
@@ -432,7 +432,7 @@ impl<'a> Analyzer<'a> {
                 let (kind, signature) = match found_func {
                     FuncDef::Internal(internal_fn) => (
                         Function::Internal(internal_fn.clone()),
-                        &internal_fn.signature.signature,
+                        &internal_fn.signature,
                     ),
                     FuncDef::External(external_fn) => (
                         Function::External(external_fn.clone()),
@@ -865,11 +865,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
         } else {
-            self.analyze_generic_type(
-                &symbol,
-                &analyzed_type_parameters,
-                &type_name_to_find.name.0,
-            )?
+            panic!("what is this {type_name_to_find:?}")
         };
 
         Ok(result_type)
@@ -1046,25 +1042,8 @@ impl<'a> Analyzer<'a> {
         arguments: &[swamp_ast::Expression],
     ) -> Result<Expression, Error> {
         let signature = if let Some(found_generic_arguments) = maybe_generic_arguments {
-            let types: Vec<_> = found_generic_arguments
-                .iter()
-                .map(|param| param.get_type().clone())
-                .collect();
-            let analyzed_generic_argument_types = self.analyze_types(&types)?;
-            if let Some(found_associated_to_type) = maybe_associated_to_type {
-                self.instantiate_signature_if_needed(
-                    &func_def.node(),
-                    &found_associated_to_type,
-                    &FunctionRef::from(func_def.clone()),
-                    &analyzed_generic_argument_types,
-                )?
-            } else {
-                self.instantiate_signature_without_self_if_needed(
-                    &func_def.node(),
-                    FunctionRef::from(func_def.clone()),
-                    &analyzed_generic_argument_types,
-                )?
-            }
+            // TODO:
+            func_def.signature().clone()
         } else {
             func_def.signature().clone()
         };
@@ -2970,33 +2949,6 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    pub fn instantiate_signature_if_needed(
-        &mut self,
-        node: &Node,
-        type_that_member_is_on: &Type,
-        found_function: &FunctionRef,
-        generic_arguments: &[Type],
-    ) -> Result<Signature, Error> {
-        let (maybe_generic, alternative_signature) = found_function.signatures();
-
-        let signature = alternative_signature.clone();
-
-        Ok(signature)
-    }
-
-    pub fn instantiate_signature_without_self_if_needed(
-        &mut self,
-        node: &Node,
-        found_function: FunctionRef,
-        generic_arguments: &[Type],
-    ) -> Result<Signature, Error> {
-        let (maybe_generic, alternative_signature) = found_function.signatures();
-
-        let signature = alternative_signature.clone();
-
-        Ok(signature)
-    }
-
     fn analyze_normal_member_call(
         &mut self,
         type_that_member_is_on: &Type,
@@ -3007,14 +2959,9 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
     ) -> Result<Signature, Error> {
         let resolved_node = self.to_node(node);
-        let signature = self.instantiate_signature_if_needed(
-            &resolved_node,
-            type_that_member_is_on,
-            found_function,
-            &generic_arguments,
-        )?;
+        // TODO:
 
-        Ok(signature)
+        Ok(found_function.signature().clone())
     }
 
     fn vec_member_signature(
@@ -3371,6 +3318,7 @@ impl<'a> Analyzer<'a> {
         ))
     }
 
+    #[must_use]
     pub fn analyze_generic_parameter_usize(&self, generic_parameter: &GenericParameter) -> usize {
         let usize_node = generic_parameter.get_unsigned_int_node();
         let usize_str = self.get_text(usize_node);
@@ -3405,35 +3353,5 @@ impl<'a> Analyzer<'a> {
         };
 
         Some(converted_type)
-    }
-
-    #[allow(clippy::too_many_lines)]
-    fn analyze_generic_type(
-        &mut self,
-        symbol: &Symbol,
-        analyzed_type_parameters: &[Type],
-        node: &swamp_ast::Node,
-    ) -> Result<Type, Error> {
-        let ty = match symbol {
-            //            Symbol::Type(base_type) => base_type.clone(),
-            //          Symbol::Alias(alias_type) => alias_type.referenced_type.clone(),
-            Symbol::TypeGenerator(type_gen) => match type_gen.kind {
-                TypeGeneratorKind::Slice => {
-                    //assert!(analyzed_type_parameters[0].is_concrete());
-                    Type::InternalInitializerList(Box::new(analyzed_type_parameters[0].clone()))
-                }
-                TypeGeneratorKind::SlicePair => {
-                    //assert!(analyzed_type_parameters[0].is_concrete());
-                    //assert!(analyzed_type_parameters[1].is_concrete());
-                    Type::InternalInitializerPairList(
-                        Box::new(analyzed_type_parameters[0].clone()),
-                        Box::new(analyzed_type_parameters[1].clone()),
-                    )
-                }
-            },
-            _ => return Err(self.create_err(ErrorKind::UnknownSymbol, node)),
-        };
-
-        Ok(ty)
     }
 }

@@ -13,7 +13,6 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
-use swamp_types::GenericAwareSignature;
 use swamp_types::StructLikeType;
 use swamp_types::prelude::*;
 use tracing::error;
@@ -67,7 +66,7 @@ pub struct InternalFunctionDefinition {
     pub assigned_name: String,
     pub associated_with_type: Option<Type>,
     pub defined_in_module_path: Vec<String>,
-    pub signature: GenericAwareSignature,
+    pub signature: Signature,
     pub parameters: Vec<VariableRef>,
     pub function_variables: Vec<VariableRef>,
     pub program_unique_id: InternalFunctionId,
@@ -106,12 +105,9 @@ impl Default for InternalFunctionDefinition {
             assigned_name: String::new(),
             associated_with_type: None,
             defined_in_module_path: vec![],
-            signature: GenericAwareSignature {
-                signature: Signature {
-                    parameters: vec![],
-                    return_type: Box::new(Type::Never),
-                },
-                generic_type_variables: vec![],
+            signature: Signature {
+                parameters: vec![],
+                return_type: Box::new(Type::Never),
             },
             //variable_scopes: FunctionScopeState::new(),
             parameters: Vec::new(),
@@ -454,18 +450,9 @@ impl Function {
     #[must_use]
     pub fn signature(&self) -> &Signature {
         match self {
-            Self::Internal(internal) => &internal.signature.signature,
+            Self::Internal(internal) => &internal.signature,
             Self::External(external) => &external.signature,
             Self::Intrinsic(i) => &i.signature,
-        }
-    }
-
-    #[must_use]
-    pub fn signatures(&self) -> (Option<&GenericAwareSignature>, &Signature) {
-        match self {
-            Self::Internal(internal) => (Some(&internal.signature), &internal.signature.signature),
-            Self::External(external) => (None, &external.signature),
-            Self::Intrinsic(i) => (None, &i.signature),
         }
     }
 }

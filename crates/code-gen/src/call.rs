@@ -584,7 +584,7 @@ impl CodeBuilder<'_> {
         let argument_info = self.emit_arguments(
             target_reg,
             node,
-            &internal_fn.signature.signature,
+            &internal_fn.signature,
             None,
             arguments,
             false,

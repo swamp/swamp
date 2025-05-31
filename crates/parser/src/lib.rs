@@ -919,7 +919,6 @@ impl AstParser {
             name: function_name.0,
             params: parameters,
             self_parameter: None,
-            generic_variables: generic_types,
             return_type,
         })
     }
@@ -1002,6 +1001,7 @@ impl AstParser {
 
         let name = self.expect_function_identifier_next(&mut inner)?;
 
+        // TODO: Remove the parsing of generic type variables
         let mut generic_type_variables = Vec::new();
         let maybe_next_token = inner.peek();
         if let Some(next_rule) = &maybe_next_token {
@@ -1053,7 +1053,6 @@ impl AstParser {
             params: parameters,
             self_parameter,
             return_type,
-            generic_variables: generic_type_variables,
         })
     }
 

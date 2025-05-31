@@ -22,7 +22,7 @@ impl FuncDef {
     #[must_use]
     pub fn signature(&self) -> &Signature {
         match self {
-            Self::Internal(internal) => &internal.signature.signature,
+            Self::Internal(internal) => &internal.signature,
             Self::Intrinsic(intrinsic_fn) => &intrinsic_fn.signature,
             Self::External(host_fn) => &host_fn.signature,
         }
@@ -42,18 +42,6 @@ pub struct TypeParameter {
 }
 
 #[derive(Clone, Debug)]
-pub enum TypeGeneratorKind {
-    Slice,
-    SlicePair,
-}
-
-#[derive(Clone, Debug)]
-pub struct TypeGenerator {
-    pub arity: usize,
-    pub kind: TypeGeneratorKind,
-}
-
-#[derive(Clone, Debug)]
 pub enum Symbol {
     Type(Type),
     Module(ModuleRef),
@@ -61,7 +49,6 @@ pub enum Symbol {
     Constant(ConstantRef),
     FunctionDefinition(FuncDef),
     Alias(AliasType),
-    TypeGenerator(TypeGenerator),
 }
 
 impl Symbol {
@@ -235,41 +222,6 @@ impl SymbolTable {
             .map_err(|_| SemanticError::DuplicateStructName(name))?;
 
         Ok(())
-    }
-
-    /// # Errors
-    ///
-    pub fn add_type_generator(
-        &mut self,
-        name: &str,
-        type_generator: TypeGenerator,
-    ) -> Result<TypeGenerator, SemanticError> {
-        self.add_type_generator_link(name, type_generator.clone())?;
-        Ok(type_generator)
-    }
-
-    /// # Errors
-    ///
-    pub fn add_type_generator_link(
-        &mut self,
-        name: &str,
-        type_generator: TypeGenerator,
-    ) -> Result<(), SemanticError> {
-        self.symbols
-            .insert(name.to_string(), Symbol::TypeGenerator(type_generator))
-            .map_err(|_| SemanticError::DuplicateStructName(name.to_string()))?;
-        Ok(())
-    }
-
-    #[must_use]
-    pub fn get_type_generator(&self, name: &str) -> Option<&TypeGenerator> {
-        if let Some(found_symbol) = self.get_symbol(name) {
-            if let Symbol::TypeGenerator(type_gen) = found_symbol {
-                return Some(type_gen);
-            }
-        }
-
-        None
     }
 
     /// # Errors

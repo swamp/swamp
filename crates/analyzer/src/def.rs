@@ -10,8 +10,6 @@ use swamp_semantic::{
     ExternalFunctionDefinition, ExternalFunctionId, Function, InternalFunctionDefinition,
     LocalIdentifier, UseItem,
 };
-use swamp_types::GenericAwareSignature;
-use swamp_types::TypeVariable;
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
@@ -394,23 +392,10 @@ impl Analyzer<'_> {
                 let statements =
                     self.analyze_function_body_expression(&function_data.body, &return_type)?;
 
-                let converted_generic_variables = function_data
-                    .declaration
-                    .generic_variables
-                    .iter()
-                    .map(|ast_variable| {
-                        let name_str = self.get_text(&ast_variable.0).to_string();
-                        TypeVariable(name_str)
-                    })
-                    .collect();
-
                 let internal = InternalFunctionDefinition {
-                    signature: GenericAwareSignature {
-                        signature: Signature {
-                            parameters,
-                            return_type: Box::new(return_type),
-                        },
-                        generic_type_variables: converted_generic_variables,
+                    signature: Signature {
+                        parameters,
+                        return_type: Box::new(return_type),
                     },
                     body: statements,
                     name: LocalIdentifier(self.to_node(&function_data.declaration.name)),
@@ -635,9 +620,6 @@ impl Analyzer<'_> {
     ) -> Result<Function, Error> {
         let resolved_fn = match function {
             swamp_ast::Function::Internal(function_data) => {
-                let has_function_local_generic_type_variables =
-                    !function_data.declaration.generic_variables.is_empty();
-
                 let mut parameters = Vec::new();
 
                 if let Some(found_self) = &function_data.declaration.self_parameter {
@@ -689,25 +671,12 @@ impl Analyzer<'_> {
                 let statements =
                     self.analyze_function_body_expression(&function_data.body, &return_type)?;
 
-                let converted_generic_variables = function_data
-                    .declaration
-                    .generic_variables
-                    .iter()
-                    .map(|ast_variable| {
-                        let name_str = self.get_text(&ast_variable.0).to_string();
-                        TypeVariable(name_str)
-                    })
-                    .collect();
-
                 let attributes = self.analyze_attributes(&function_data.attributes);
 
                 let internal = InternalFunctionDefinition {
-                    signature: GenericAwareSignature {
-                        signature: Signature {
-                            parameters,
-                            return_type: Box::new(return_type),
-                        },
-                        generic_type_variables: converted_generic_variables,
+                    signature: Signature {
+                        parameters,
+                        return_type: Box::new(return_type),
                     },
                     body: statements,
                     name: LocalIdentifier(self.to_node(&function_data.declaration.name)),
