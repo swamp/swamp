@@ -332,7 +332,7 @@ impl CodeBuilder<'_> {
                                 Destination::Memory(replacement_memory_location);
 
                             // Load the primitive from memory
-                            self.emit_load_into_register(
+                            self.emit_load_value_into_register(
                                 &argument_to_use,
                                 &replacement_location,
                                 node,

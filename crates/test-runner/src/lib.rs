@@ -213,6 +213,7 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                                     debug_stats_enabled: options.debug_stats,
                                     debug_opcodes_enabled: options.debug_opcodes,
                                     debug_operations_enabled: options.debug_operations,
+                                    max_count: 0,
                                     use_color: true,
                                     debug_info: &result.code_gen_result.debug_info,
                                     source_map_wrapper: SourceMapWrapper {
@@ -235,6 +236,7 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                                     debug_stats_enabled: options.debug_stats,
                                     debug_opcodes_enabled: options.debug_opcodes,
                                     debug_operations_enabled: options.debug_operations,
+                                    max_count: 0,
                                     use_color: true,
                                     debug_info: &result.code_gen_result.debug_info,
                                     source_map_wrapper: SourceMapWrapper {

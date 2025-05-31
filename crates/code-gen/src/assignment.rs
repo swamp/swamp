@@ -7,7 +7,6 @@ use swamp_semantic::{CompoundOperatorKind, Expression, TargetAssignmentLocation,
 use swamp_types::Type;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PointerLocation};
-use tracing::info;
 
 impl CodeBuilder<'_> {
     /// Emits code for an assignment operation (lhs = rhs).
@@ -46,12 +45,8 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        info!(hwm=?self.temp_registers, "assignment: before LHS ({comment})");
         let output_destination = self.emit_lvalue_address(&lhs.0, ctx);
-        info!(destination=?output_destination, hwm=?self.temp_registers, "assignment: after LHS. hopefully HWM is protecting the destination ({comment})");
-
         self.emit_expression(&output_destination, rhs, ctx);
-        info!(destination=?output_destination, hwm=?self.temp_registers, "assignment: after RHS ({comment})");
     }
 
     pub fn emit_container_init_from_initialization_pair_list(
@@ -324,6 +319,7 @@ impl CodeBuilder<'_> {
         expression: &Expression,
         ctx: &Context,
     ) {
+        //        assert!(variable.mutable_node.is_some());
         self.emit_variable_assignment(variable, expression, ctx);
     }
 }

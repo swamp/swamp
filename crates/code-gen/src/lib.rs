@@ -37,6 +37,7 @@ mod rvalue;
 pub mod state;
 mod statement;
 pub mod top_state;
+mod transfer;
 mod tuple;
 mod vec;
 mod when;

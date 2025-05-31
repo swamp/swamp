@@ -117,7 +117,7 @@ impl FenTextSwamp {
             debug_opcodes_enabled: false,
             debug_operations_enabled: false,
             use_color: true,
-
+            max_count: 0,
             debug_info: &self.runtime_result.code_gen_result.debug_info,
             source_map_wrapper: SourceMapWrapper {
                 source_map: &self.runtime_result.source_map,
@@ -145,7 +145,7 @@ impl FenTextSwamp {
             debug_opcodes_enabled: false,
             debug_operations_enabled: true,
             use_color: true,
-
+            max_count: 0,
             debug_info: &runtime_result.code_gen_result.debug_info,
             source_map_wrapper: SourceMapWrapper {
                 source_map: &runtime_result.source_map,

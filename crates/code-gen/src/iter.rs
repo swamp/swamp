@@ -310,7 +310,7 @@ impl CodeBuilder<'_> {
                         )
                     };
 
-                    self.emit_load_from_memory(
+                    self.emit_load_from_memory_internal(
                         primary_register,
                         &temp_addr.register,
                         MemoryOffset(0),
@@ -471,7 +471,7 @@ impl CodeBuilder<'_> {
                 .allocate(payload_vm_type.clone(), "transform add to collection");
             let (_tag_offset, _tag_size, payload_offset, _) =
                 in_value.underlying().unwrap_info().unwrap();
-            self.emit_load_from_memory(
+            self.emit_load_from_memory_internal(
                 temp_reg.register(),
                 in_value,
                 payload_offset,

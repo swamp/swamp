@@ -5,6 +5,11 @@ const GRID_WIDTH = 80
 const GRID_HEIGHT = 24
 const GRID_CELL_COUNT = GRID_WIDTH * GRID_HEIGHT
 
+// Fill outer grid with walls
+// randomly place rooms
+// connect rooms with corridors (l-shape?)
+// Sort rooms by center_x then center_y
+
 
 enum Input {
   Left,
@@ -138,8 +143,8 @@ impl Crawler {
       if Crawler::cell_is_free(want_to_move_to, grid) {
         Crawler::move_transaction(&grid, entity.point, want_to_move_to)
         entity.point = want_to_move_to
-        entity.wait = 2
       }
+      entity.wait = 5
     } else {
       entity.wait -= 1
     }
@@ -149,11 +154,15 @@ impl Crawler {
 		if entity.wait == 0 {
 			want_to_move_to = entity.point.add(entity.direction)
 			if Crawler::cell_is_free(want_to_move_to, grid) {
+				//move(32, 29)
+        //write('free direction ({entity.direction.x}, {entity.direction.y}) {entity.last_clockwise_dir}                    ')
 				// Nothing to do, will probably right after this
 			} else {
 				next_clockwise_dir = (entity.last_clockwise_dir + 1) % 4
 				entity.direction = ABSOLUTE_CLOCKWISE_DIRS[next_clockwise_dir]
 				entity.last_clockwise_dir = next_clockwise_dir
+				move(32, 29)
+        write('Testing direction ({entity.direction.x}, {entity.direction.y}) {entity.last_clockwise_dir}                   ')
 			}
 		}
 	}
@@ -163,6 +172,11 @@ impl Crawler {
 			if index == 1 {
         move(32, 25)
         write('Player at ({entity.point.x}, {entity.point.y})   ')
+      }
+
+			if index == 2 {
+        move(32, 27)
+        write('Spider at ({entity.point.x}, {entity.point.y})   ')
       }
 
 			if index != 1 {
@@ -215,7 +229,7 @@ fn main() -> Crawler {
    		Entity {
         type: Type::Spider,
         point: Point { x: 2, y: 0 }, // position must match the grid below
-				direction: Point { x: 1, y: 0 },
+				direction: Point { x: 0, y: 1 },
       },
     ],
     grid: [0, 1, 2, 0]

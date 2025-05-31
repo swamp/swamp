@@ -343,7 +343,7 @@ impl CodeBuilder<'_> {
                         );
                     } else if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
                     {
-                        self.emit_load_into_register(
+                        self.emit_load_value_into_register(
                             output_reg,
                             &current_location,
                             &start_expression.node,
@@ -355,7 +355,7 @@ impl CodeBuilder<'_> {
                     if mem_loc.ty.is_represented_as_pointer_inside_register() {
                         // Complex type - we need to store to memory
                         self.emit_store_to_pointer_target(
-                            &mem_loc.base_ptr_reg,
+                            output_destination,
                             &current_location,
                             &start_expression.node,
                             "rvalue postfix chain to memory",
@@ -366,7 +366,7 @@ impl CodeBuilder<'_> {
                             "end of chain, load primitive to target",
                         );
 
-                        self.emit_load_into_register(
+                        self.emit_load_value_into_register(
                             rhs_value_temp.register(),
                             &current_location,
                             &start_expression.node,

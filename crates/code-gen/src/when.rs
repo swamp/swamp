@@ -101,7 +101,7 @@ impl CodeBuilder<'_> {
                         "load payload into binding variable",
                     );
                 } else {
-                    self.emit_load_from_memory(
+                    self.emit_load_from_memory_internal(
                         &target_binding_variable_reg,
                         &optional_tagged_union_reg,
                         tagged_union.payload_offset,

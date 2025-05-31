@@ -114,7 +114,7 @@ impl CodeBuilder<'_> {
                                             .unwrap()
                                             .clone();
 
-                                        self.emit_load_from_memory(
+                                        self.emit_load_from_memory_internal(
                                             &var_reg,
                                             &enum_ptr_reg,
                                             total_offset,

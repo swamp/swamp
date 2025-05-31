@@ -30,6 +30,7 @@ pub struct RunOptions<'a> {
     pub debug_info: &'a DebugInfo,
     pub source_map_wrapper: SourceMapWrapper<'a>,
     pub debug_operations_enabled: bool,
+    pub max_count: usize, // dangerous
     pub use_color: bool,
 }
 
@@ -231,6 +232,13 @@ pub fn run_function_with_debug(
 
     while !vm.is_execution_complete() {
         debug_count += 1;
+
+        if run_options.max_count != 0 && (debug_count >= run_options.max_count) {
+            if vm.state == VmState::Normal {
+                vm.state = VmState::Trap(0);
+            }
+            break;
+        }
 
         let pc = vm.pc();
         #[cfg(feature = "debug_vm")]

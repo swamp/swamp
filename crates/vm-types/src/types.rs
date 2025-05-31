@@ -721,6 +721,16 @@ pub enum Destination {
     Memory(MemoryLocation),
 }
 
+impl Display for Destination {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unit => write!(f, "unit ()"),
+            Self::Register(reg) => write!(f, "reg: {reg}"),
+            Self::Memory(memory_location) => write!(f, "memory_location {memory_location:?}"),
+        }
+    }
+}
+
 impl Destination {
     #[must_use]
     pub const fn memory_location(&self) -> Option<&MemoryLocation> {
