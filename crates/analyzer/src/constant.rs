@@ -5,6 +5,7 @@
 use crate::err::{Error, ErrorKind};
 use crate::{Analyzer, TypeContext};
 use swamp_semantic::{Constant, ConstantId, ConstantRef, Expression, ExpressionKind};
+use tracing::info;
 
 impl Analyzer<'_> {
     fn analyze_constant(&mut self, constant: &swamp_ast::ConstantInfo) -> Result<(), Error> {
@@ -14,10 +15,13 @@ impl Analyzer<'_> {
             None
         };
 
+        if let Some(found) = &maybe_annotation_type {
+            info!(?found, "WHAT IS THIS");
+        }
         let context = TypeContext::new_unsure_argument(maybe_annotation_type.as_ref());
         let resolved_expr = self.analyze_expression(&constant.expression, &context)?;
         let resolved_type = resolved_expr.ty.clone();
-        assert!(resolved_type.can_be_stored_in_field());
+        assert!(resolved_type.can_be_stored_in_field()); // TODO: investigate why FixedSizeArray gets converted to InitializerList
 
         let name_node = self.to_node(&constant.constant_identifier.0);
         let name_text = self.get_text_resolved(&name_node).to_string();

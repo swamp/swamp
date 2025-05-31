@@ -57,6 +57,7 @@ struct Entity {
   point: Point,
   direction: Point, // direction vector
   wait: Int,
+	last_clockwise_dir: Int,
 }
 
 
@@ -76,6 +77,18 @@ RESOURCES="❤️💙💰🪙📜"
 */
 
 
+const DIR_UP: Point = Point { x: 0, y: -1 }
+const DIR_RIGHT: Point = Point { x: 1, y: 0 }
+const DIR_DOWN: Point = Point { x: 0, y: 1 }
+const DIR_LEFT: Point = Point { x: -1, y: 0 }
+
+
+const ABSOLUTE_CLOCKWISE_DIRS: [Point; 4] = [
+    DIR_UP,
+    DIR_RIGHT,
+    DIR_DOWN,
+    DIR_LEFT,
+]
 
 impl Crawler {
 
@@ -125,12 +138,25 @@ impl Crawler {
       if Crawler::cell_is_free(want_to_move_to, grid) {
         Crawler::move_transaction(&grid, entity.point, want_to_move_to)
         entity.point = want_to_move_to
-        entity.wait = 0
+        entity.wait = 2
       }
     } else {
       entity.wait -= 1
     }
   }
+
+	fn ai_tick(mut entity: Entity, mut grid: [Int]) {
+		if entity.wait == 0 {
+			want_to_move_to = entity.point.add(entity.direction)
+			if Crawler::cell_is_free(want_to_move_to, grid) {
+				// Nothing to do, will probably right after this
+			} else {
+				next_clockwise_dir = (entity.last_clockwise_dir + 1) % 4
+				entity.direction = ABSOLUTE_CLOCKWISE_DIRS[next_clockwise_dir]
+				entity.last_clockwise_dir = next_clockwise_dir
+			}
+		}
+	}
 
 	fn simulation_tick(mut self) {
 		for index, mut entity in self.entities {
@@ -139,6 +165,9 @@ impl Crawler {
         write('Player at ({entity.point.x}, {entity.point.y})   ')
       }
 
+			if index != 1 {
+				Crawler::ai_tick(&entity, &self.grid)
+			}
       Crawler::entity_tick(&entity, &self.grid)
     }
 	}
@@ -183,8 +212,12 @@ fn main() -> Crawler {
         point: Point { x: 1, y: 0 },
 				direction: Point { x: 0, y: 1 },
       },
-
+   		Entity {
+        type: Type::Spider,
+        point: Point { x: 2, y: 0 }, // position must match the grid below
+				direction: Point { x: 1, y: 0 },
+      },
     ],
-    grid: [0, 1, 0, 0]
+    grid: [0, 1, 2, 0]
   }
 }
