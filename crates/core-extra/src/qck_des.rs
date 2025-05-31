@@ -214,8 +214,6 @@ pub fn quick_deserialize(resolved_type: &Type, buf: &[u8], depth: usize) -> (Val
             }
         }
         &swamp_types::Type::VecStorage(_, _) | &swamp_types::Type::SliceView(_) => todo!(),
-        &swamp_types::Type::InternalInitializerList(_)
-        | &swamp_types::Type::InternalInitializerPairList(_, _) => todo!(),
         &swamp_types::Type::MapStorage(_, _, _)
         | &swamp_types::Type::DynamicLengthMapView(_, _) => todo!(),
         &swamp_types::Type::Range(_) => todo!(),

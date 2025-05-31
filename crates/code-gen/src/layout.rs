@@ -280,7 +280,6 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 PTR_ALIGNMENT,
             )
         }
-        Type::InternalInitializerPairList(a, b) => todo!(),
         Type::Tuple(types) => layout_tuple(types),
         Type::NamedStruct(named_struct_type) => {
             layout_named_struct(named_struct_type) // NOTE: memory_offset removed
@@ -295,9 +294,6 @@ pub fn layout_type(ty: &Type) -> BasicType {
         Type::Optional(inner_type) => layout_optional_type(inner_type),
         Type::MutableReference(inner_type) => layout_mutable_reference(inner_type),
         // ----------
-        Type::InternalInitializerList(inner_type) => {
-            panic!("InternalInitializerList should not be a part of codegen");
-        }
         Type::Function(_) => panic!("function types should not be a part of codegen"),
         Type::Never => panic!("'never' should not be a part of codegen"),
     }

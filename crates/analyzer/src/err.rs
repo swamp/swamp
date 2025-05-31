@@ -107,6 +107,7 @@ pub enum ErrorKind {
     ExpectedInitializerTarget {
         destination_type: Type,
     },
+    NoInferredTypeForEmptyInitializer,
 }
 
 impl From<SemanticError> for Error {

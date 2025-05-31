@@ -24,10 +24,6 @@ pub enum Type {
 
     Never, // Not even empty since it is unknown.
 
-    // These are just to have some kind of representation of the initializer
-    InternalInitializerList(Box<Type>),
-    InternalInitializerPairList(Box<Type>, Box<Type>),
-
     // Aggregate type, Containers
     Tuple(Vec<Type>),
     NamedStruct(NamedStructType),
@@ -143,6 +139,7 @@ impl Type {
     pub fn primary_element_type(&self) -> Option<&Self> {
         match self {
             Self::SliceView(element_type) => Some(element_type),
+            Self::FixedCapacityAndLengthArray(element_type, _) => Some(element_type),
             Self::VecStorage(element_type, _) => Some(element_type),
             Self::MutableReference(inner) => inner.primary_element_type(),
             _ => None,
@@ -280,13 +277,10 @@ impl Type {
             Self::MapStorage(_, _, _) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
-            Self::InternalInitializerPairList(a, b) => panic!("should not ask an initializer"),
 
             Self::Range(_) => true,
 
-            Self::Optional(inner)
-            | Self::MutableReference(inner)
-            | Self::InternalInitializerList(inner) => inner.is_concrete(),
+            Self::Optional(inner) | Self::MutableReference(inner) => inner.is_concrete(),
 
             Self::Tuple(types) => types.iter().all(Self::is_concrete),
             Self::NamedStruct(struct_type) => struct_type
@@ -342,8 +336,6 @@ impl Type {
 
             //| Self::Never
             Self::Function(_)
-            | Self::InternalInitializerList(_)
-            | Self::InternalInitializerPairList(_, _)
             | Self::SliceView(_)
             | Self::DynamicLengthMapView(_, _)
             | Self::DynamicLengthVecView(_) => false,
@@ -412,8 +404,6 @@ impl Type {
             Self::Unit
             | Self::Never
             | Self::Function(_)
-            | Self::InternalInitializerPairList(_, _)
-            | Self::InternalInitializerList(_)
             | Self::MutableReference(_)
             | Self::SliceView(_)
             | Self::DynamicLengthMapView(_, _)
@@ -478,9 +468,6 @@ impl Debug for Type {
             }
             Self::Optional(base_type) => write!(f, "{base_type:?}?"),
             Self::MutableReference(base_type) => write!(f, "mut & {base_type:?}"),
-            Self::InternalInitializerList(value_type) => {
-                write!(f, "Slice<{value_type:?}>")
-            }
             Self::FixedCapacityAndLengthArray(element_type, size) => {
                 write!(f, "[{element_type:?}; {size}]")
             }
@@ -498,9 +485,6 @@ impl Debug for Type {
             }
             Self::DynamicLengthMapView(key_type, value_type) => {
                 write!(f, "Map<{key_type:?}, {value_type:?}>")
-            }
-            Self::InternalInitializerPairList(key_type, value_type) => {
-                write!(f, "SlicePair<{key_type:?}, {value_type:?}>")
             }
         }
     }
@@ -540,12 +524,6 @@ impl Display for Type {
             }
             Self::DynamicLengthMapView(key_type, value_type) => {
                 write!(f, "Map<{key_type}, {value_type}>")
-            }
-            Self::InternalInitializerList(value_type) => {
-                write!(f, "Slice<{value_type:?}>")
-            }
-            Self::InternalInitializerPairList(key_type, value_type) => {
-                write!(f, "SlicePair<{key_type:?}, {value_type:?}>")
             }
         }
     }
@@ -590,11 +568,14 @@ impl Type {
                 Self::FixedCapacityAndLengthArray(b, _),
             ) => a.compatible_with(b),
 
-            (Self::FixedCapacityAndLengthArray(a, _), Self::InternalInitializerList(b)) => {
-                a.compatible_with(b)
+            (Self::VecStorage(element_a, size_a), Self::VecStorage(element_b, size_b)) => {
+                size_a == size_b && element_a.compatible_with(element_b)
             }
-            (Self::InternalInitializerList(a), Self::SliceView(b)) => a.compatible_with(b), // TODO: Is this needed?
 
+            (
+                Self::DynamicLengthVecView(element_first),
+                Self::DynamicLengthVecView(element_second),
+            ) => element_first.compatible_with(element_second),
             (Self::SliceView(element_a), Self::SliceView(element_b)) => {
                 element_a.compatible_with(element_b)
             }

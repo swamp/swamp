@@ -567,18 +567,18 @@ impl<'a> Analyzer<'a> {
         let encountered_type = expr.ty.clone();
 
         let expr = if let Some(found_expected_type) = context.expected_type {
-            if found_expected_type
-                .underlying()
-                .lowest_common_denominator()
-                .compatible_with(&encountered_type.underlying().lowest_common_denominator())
-            {
+            let reduced_expected = found_expected_type.underlying().lowest_common_denominator();
+
+            let reduced_encountered_type =
+                encountered_type.underlying().lowest_common_denominator();
+            if reduced_expected.compatible_with(&reduced_encountered_type) {
                 return Ok(expr);
             }
 
             self.types_did_not_match_try_late_coerce_expression(
                 expr,
-                found_expected_type,
-                &encountered_type,
+                &reduced_expected,
+                &reduced_encountered_type,
                 &ast_expression.node,
             )?
         } else {
@@ -1675,136 +1675,104 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
         items: &[(swamp_ast::Expression, swamp_ast::Expression)],
         context: &TypeContext,
-    ) -> Result<(Type, Type, Vec<(Expression, Expression)>), Error> {
-        let maybe_key_and_value_type = if let Some(expected_type) = context.expected_type {
-            if let Type::InternalInitializerPairList(key_type, value_type) = expected_type {
-                Some((*key_type.clone(), *value_type.clone()))
-            } else {
+    ) -> Result<(Type, Type, Type, Vec<(Expression, Expression)>), Error> {
+        let (collection_type, key_type, value_type) =
+            if let Some(expected_type) = context.expected_type {
                 match expected_type {
-                    Type::MapStorage(key, value, _) => Some((*key.clone(), *value.clone())),
-                    Type::DynamicLengthMapView(key, value) => Some((*key.clone(), *value.clone())),
+                    Type::MapStorage(key, value, _) => {
+                        (expected_type.clone(), *key.clone(), *value.clone())
+                    }
+                    Type::DynamicLengthMapView(key, value) => {
+                        (expected_type.clone(), *key.clone(), *value.clone())
+                    }
                     _ => return Err(self.create_err(ErrorKind::ExpectedSlice, node)),
                 }
-            }
-        } else {
-            None
-        };
+            } else {
+                if items.is_empty() {
+                    return Err(self.create_err(ErrorKind::NoInferredTypeForEmptyInitializer, node));
+                } else {
+                    // Try to detect, by checking the first
+                    let maybe_key_context = TypeContext::new_anything_argument();
 
-        if items.is_empty() {
-            context.expected_type.map_or_else(
-                || Ok((Type::Unit, Type::Unit, vec![])),
-                |expected_type| {
-                    if let Type::InternalInitializerPairList(key_type, value_type) = expected_type {
-                        Ok((*key_type.clone(), *value_type.clone(), vec![]))
-                    } else if let Type::NamedStruct(named) = expected_type {
-                        Ok((
-                            named.instantiated_type_parameters[0].clone(),
-                            named.instantiated_type_parameters[1].clone(),
-                            vec![],
-                        ))
-                    } else {
-                        Err(self.create_err(ErrorKind::ExpectedSlice, node))
-                    }
-                },
-            )
-        } else {
-            let maybe_key_type = maybe_key_and_value_type
-                .clone()
-                .map(|key_and_value| key_and_value.0);
-            let maybe_key_context = TypeContext::new_unsure_argument(maybe_key_type.as_ref());
+                    let first_key_expression =
+                        self.analyze_expression(&items[0].0, &maybe_key_context)?;
 
-            let first_key_expression = self.analyze_expression(&items[0].0, &maybe_key_context)?;
+                    let maybe_value_context = TypeContext::new_anything_argument();
+                    let first_value_expression =
+                        self.analyze_expression(&items[0].1, &maybe_value_context)?;
 
-            let maybe_value_type = maybe_key_and_value_type.map(|key_and_value| key_and_value.1);
-            let maybe_value_context = TypeContext::new_unsure_argument(maybe_value_type.as_ref());
-            let first_value_expression =
-                self.analyze_expression(&items[0].1, &maybe_value_context)?;
+                    let required_key_type = first_key_expression.ty.clone();
+                    let required_value_type = first_value_expression.ty.clone();
+                    (
+                        Type::MapStorage(
+                            Box::from(required_key_type.clone()),
+                            Box::from(required_value_type.clone()),
+                            items.len(),
+                        ),
+                        required_key_type,
+                        required_value_type,
+                    )
+                }
+            };
 
-            let required_key_type = first_key_expression.ty.clone();
-            let required_key_context = TypeContext::new_argument(&required_key_type);
+        let required_key_context = TypeContext::new_argument(&key_type);
+        let required_value_context = TypeContext::new_argument(&value_type);
 
-            let required_value_type = first_value_expression.ty.clone();
-            let required_value_context = TypeContext::new_argument(&required_value_type);
+        let mut resolved_items = Vec::new();
 
-            let mut resolved_items = Vec::new();
-
-            for (key_expr, value_expr) in items {
-                let analyzed_key_expr = self.analyze_expression(key_expr, &required_key_context)?;
-                let analyzed_value_expr =
-                    self.analyze_expression(value_expr, &required_value_context)?;
-                resolved_items.push((analyzed_key_expr, analyzed_value_expr));
-            }
-            Ok((
-                first_key_expression.ty,
-                first_value_expression.ty,
-                resolved_items,
-            ))
+        for (key_expr, value_expr) in items {
+            let analyzed_key_expr = self.analyze_expression(key_expr, &required_key_context)?;
+            let analyzed_value_expr =
+                self.analyze_expression(value_expr, &required_value_context)?;
+            resolved_items.push((analyzed_key_expr, analyzed_value_expr));
         }
+        Ok((collection_type, key_type, value_type, resolved_items))
     }
+
     fn analyze_internal_initializer_list(
         &mut self,
         node: &swamp_ast::Node,
         items: &[swamp_ast::Expression],
         context: &TypeContext,
-    ) -> Result<(Type, Vec<Expression>), Error> {
-        let maybe_expected_element_type = if let Some(expected_type) = context.expected_type {
-            if let Type::InternalInitializerList(inner_type) = expected_type {
-                Some(*inner_type.clone())
-            } else {
-                let destination_type = expected_type.underlying();
-                match destination_type {
-                    // We can infer the slice type from target
-                    Type::VecStorage(element_type, _) => Some(*element_type.clone()),
-                    Type::FixedCapacityAndLengthArray(element_type, _size) => {
-                        Some(*element_type.clone())
-                    }
-                    Type::SliceView(element_type) => Some(*element_type.clone()),
-                    _ => {
-                        return Err(self.create_err(
-                            ErrorKind::ExpectedInitializerTarget {
-                                destination_type: destination_type.clone(),
-                            },
-                            node,
-                        ));
-                    }
+    ) -> Result<(Type, Type, Vec<Expression>), Error> {
+        let (collection_type, element_type) = if let Some(expected_type) = context.expected_type {
+            let destination_type = expected_type.underlying();
+            match destination_type {
+                // We can infer the slice type from target
+                Type::VecStorage(element_type, _) => (destination_type, *element_type.clone()),
+                Type::FixedCapacityAndLengthArray(element_type, _size) => {
+                    (destination_type, *element_type.clone())
+                }
+                Type::SliceView(element_type) => (destination_type, *element_type.clone()),
+                _ => {
+                    return Err(self.create_err(
+                        ErrorKind::ExpectedInitializerTarget {
+                            destination_type: destination_type.clone(),
+                        },
+                        node,
+                    ));
                 }
             }
+        } else if items.is_empty() {
+            return Err(self.create_err(ErrorKind::NoInferredTypeForEmptyInitializer, node));
         } else {
-            None
-        };
-
-        if items.is_empty() {
-            context.expected_type.map_or_else(
-                || Ok((Type::Unit, vec![])),
-                |expected_type| {
-                    if let Type::SliceView(inner_type) = expected_type {
-                        Ok((*inner_type.clone(), vec![]))
-                    } else if let Type::FixedCapacityAndLengthArray(inner_type, _fixed_size) =
-                        expected_type
-                    {
-                        Ok((*inner_type.clone(), vec![]))
-                    } else if let Type::VecStorage(inner_type, _fixed_size) = expected_type {
-                        Ok((*inner_type.clone(), vec![]))
-                    } else if let Type::NamedStruct(named) = expected_type {
-                        Ok((named.instantiated_type_parameters[0].clone(), vec![]))
-                    } else {
-                        Err(self.create_err(ErrorKind::ExpectedSlice, node))
-                    }
-                },
-            )
-        } else {
-            let maybe_context =
-                TypeContext::new_unsure_argument(maybe_expected_element_type.as_ref());
+            // Try to detect, by checking the first
+            let maybe_context = TypeContext::new_anything_argument();
             let first = self.analyze_expression(&items[0], &maybe_context)?;
             let required_type = first.ty.clone();
-            let required_context = TypeContext::new_argument(&required_type);
-            let mut resolved_items = Vec::new();
-            for item in items {
-                let resolved_expr = self.analyze_expression(item, &required_context)?;
-                resolved_items.push(resolved_expr);
-            }
-            Ok((first.ty, resolved_items))
+            (
+                &Type::VecStorage(Box::new(required_type.clone()), items.len()),
+                required_type.clone(),
+            )
+        };
+
+        let required_context = TypeContext::new_argument(&element_type);
+        let mut resolved_items = Vec::new();
+        for item in items {
+            let resolved_expr = self.analyze_expression(item, &required_context)?;
+            resolved_items.push(resolved_expr);
         }
+        Ok((collection_type.clone(), element_type, resolved_items))
     }
 
     fn push_block_scope(&mut self, _debug_str: &str) {
@@ -2771,17 +2739,7 @@ impl<'a> Analyzer<'a> {
      */
 
     fn is_type_assignment_compatible(target: &Type, source: &Type) -> bool {
-        if target.compatible_with(source) {
-            true
-        } else {
-            match (target, source) {
-                (
-                    Type::VecStorage(vec_element_type, capacity),
-                    Type::InternalInitializerList(slice_element_type),
-                ) => vec_element_type.compatible_with(slice_element_type),
-                _ => false,
-            }
-        }
+        target.compatible_with(source)
     }
 
     fn analyze_expression_for_assignment_with_target_type(
@@ -3007,7 +2965,7 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::InternalInitializerList(Box::from(element_type.clone())).clone(),
+            resolved_type: Type::SliceView(Box::from(element_type.clone())).clone(),
             is_mutable: false,
             node: None,
         };
@@ -3285,6 +3243,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
         }
+        /*
         if let Type::InternalInitializerPairList(slice_key, slice_value) = &encountered_type {
             if Self::is_compatible_initializer_pair_list_target(
                 expected_type,
@@ -3297,7 +3256,8 @@ impl<'a> Analyzer<'a> {
             if Self::is_compatible_initializer_list_target(expected_type, element_type) {
                 return Ok(expr);
             }
-        } else if matches!(expected_type, &Type::Bool) {
+        } else*/
+        if matches!(expected_type, &Type::Bool) {
             // if it has a mut or immutable optional, then it works well to wrap it
             if encountered_type.inner_optional_mut_or_immutable().is_some() {
                 let wrapped = self.create_expr(

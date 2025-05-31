@@ -24,31 +24,25 @@ impl Analyzer<'_> {
         let ast_node = &ast_expression.node;
         let (lit_kind, literal_type) = match &ast_literal_kind {
             swamp_ast::LiteralKind::InternalInitializerList(items) => {
-                let (encountered_element_type, resolved_items) =
+                let (collection_type, element_type, resolved_items) =
                     self.analyze_internal_initializer_list(ast_node, items, context)?;
 
-                let slice_type = Type::InternalInitializerList(Box::new(encountered_element_type));
-
                 (
-                    Literal::InitializerList(slice_type.clone(), resolved_items),
-                    slice_type,
+                    Literal::InitializerList(collection_type.clone(), resolved_items),
+                    collection_type,
                 )
             }
 
             swamp_ast::LiteralKind::InternalInitializerPairList(entries) => {
-                let (encountered_key_type, encountered_value_type, resolved_items) =
+                let (collection_type, encountered_key_type, encountered_value_type, resolved_items) =
                     self.analyze_slice_pair_key_and_value_types(ast_node, entries, context)?;
 
                 assert!(!matches!(encountered_key_type, Type::Unit));
                 assert!(!matches!(encountered_value_type, Type::Unit));
-                let slice_pair_type = Type::InternalInitializerPairList(
-                    Box::new(encountered_key_type),
-                    Box::new(encountered_value_type),
-                );
 
                 (
-                    Literal::InitializerPairList(slice_pair_type.clone(), resolved_items),
-                    slice_pair_type,
+                    Literal::InitializerPairList(collection_type.clone(), resolved_items),
+                    collection_type,
                 )
             }
 

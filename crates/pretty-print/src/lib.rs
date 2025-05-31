@@ -633,8 +633,6 @@ impl SourceMapDisplay<'_> {
                 write!(f, "{}", "mut ref".red())?;
                 self.show_type_short(f, base_type, tabs)
             }
-            Type::InternalInitializerList(value) => todo!(),
-            Type::InternalInitializerPairList(key, value) => todo!(),
             Type::DynamicLengthVecView(_) => todo!(),
             Type::VecStorage(_, _) => todo!(),
             Type::FixedCapacityAndLengthArray(_, _) => todo!(),
@@ -675,8 +673,6 @@ impl SourceMapDisplay<'_> {
                 write!(f, "{}", "mut ref".red());
                 self.show_type_short(f, base_type, tabs)
             }
-            Type::InternalInitializerList(value) => todo!(),
-            Type::InternalInitializerPairList(key, value) => todo!(),
             Type::SliceView(_) => todo!(),
             Type::DynamicLengthVecView(_) => todo!(),
             Type::VecStorage(_, _) => todo!(),

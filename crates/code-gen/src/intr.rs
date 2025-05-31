@@ -33,7 +33,7 @@ impl CodeBuilder<'_> {
 
                 let slice_type = arguments[0].ty();
 
-                let Type::InternalInitializerPairList(key_type, value_type) = slice_type else {
+                let Type::MapStorage(key_type, value_type, _) = slice_type else {
                     panic!("problem");
                 };
 
