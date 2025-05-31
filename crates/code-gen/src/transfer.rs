@@ -133,7 +133,7 @@ impl CodeBuilder<'_> {
                             output_destination.grab_memory_location(),
                             temp_reg.register(),
                             MemoryOffset(0),
-                            source_mem_loc.ty.basic_type.total_size,
+                            output_destination.ty().total_size,
                             node,
                             &format!(
                                 "block copy '{comment}' from temp to memory pointed by register"

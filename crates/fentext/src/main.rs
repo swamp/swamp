@@ -5,8 +5,8 @@ use std::thread;
 use std::time::Duration;
 use swamp::prelude::{
     CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
-    RunOptions, SourceMapWrapper, VmState, compile_codegen_and_create_vm, layout_type,
-    run_first_time, run_function_with_debug,
+    RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align, compile_codegen_and_create_vm,
+    layout_type, run_first_time, run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 
@@ -143,7 +143,7 @@ impl FenTextSwamp {
         let run_options = RunOptions {
             debug_stats_enabled: false,
             debug_opcodes_enabled: false,
-            debug_operations_enabled: true,
+            debug_operations_enabled: false,
             use_color: true,
             max_count: 0,
             debug_info: &runtime_result.code_gen_result.debug_info,
@@ -162,9 +162,12 @@ impl FenTextSwamp {
         let gen_simulation_type = layout_type(simulation_type);
 
         let s = String::new();
-        let early_frame = runtime_result.vm.memory().frame_offset() as u32;
+        let early_frame = runtime_result.vm.memory().constant_memory_size as u32;
 
-        let safe_stack_start = early_frame + u32::from(gen_simulation_type.total_size.0);
+        let safe_stack_start = align(
+            ((early_frame + u32::from(gen_simulation_type.total_size.0)) as usize),
+            SAFE_ALIGNMENT,
+        );
 
         runtime_result.vm.set_return_register_address(early_frame);
         run_function_with_debug(&mut runtime_result.vm, main_fn, application, run_options);
@@ -178,7 +181,7 @@ impl FenTextSwamp {
                 .unwrap()
                 .clone(),
             early_frame,
-            safe_stack_start,
+            safe_stack_start as u32,
         )
     }
 

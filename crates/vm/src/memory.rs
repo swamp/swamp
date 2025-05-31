@@ -8,9 +8,12 @@ pub struct Memory {
     pub(crate) stack_offset: usize, // Current stack position
     pub(crate) frame_offset: usize, // Current frame position
     pub stack_start: usize,
+    pub heap_start: usize,
     pub heap_alloc_offset: usize,
     pub constant_memory_size: usize,
 }
+
+impl Memory {}
 
 impl Memory {}
 
@@ -38,17 +41,19 @@ impl Memory {
 
         let aligned_start_of_stack = align(constant_memory.len(), ALIGNMENT);
 
-        let aligned_start_of_heap = align(memory_size * 3 / 4, ALIGNMENT);
+        let aligned_start_of_heap = align(memory_size * 2 / 4, ALIGNMENT);
 
         eprintln!("START: heap_start: {aligned_start_of_heap:X} stack: {aligned_start_of_stack:X}");
+        assert!(aligned_start_of_heap > aligned_start_of_stack + 128 * 1024);
 
         Self {
             memory,
             memory_size,
             stack_offset: aligned_start_of_stack,
+            heap_start: aligned_start_of_heap,
             frame_offset: aligned_start_of_stack,
             heap_alloc_offset: aligned_start_of_heap,
-            constant_memory_size: aligned_start_of_heap,
+            constant_memory_size: aligned_start_of_stack,
             stack_start: aligned_start_of_stack,
         }
     }
@@ -58,16 +63,13 @@ impl Memory {
     }
 
     pub fn reset(&mut self) {
+        assert!(self.stack_offset >= self.constant_memory_size);
         self.stack_offset = self.stack_start;
         self.frame_offset = self.stack_offset;
     }
 
     pub fn reset_allocator(&mut self) {
-        self.heap_alloc_offset = self.constant_memory_size;
-    }
-
-    pub(crate) fn protect_up_to_allocator(&mut self) {
-        self.constant_memory_size = self.heap_alloc_offset;
+        self.heap_alloc_offset = self.heap_start;
     }
 
     #[inline(always)]

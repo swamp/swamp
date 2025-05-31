@@ -150,6 +150,8 @@ pub struct Vm {
     pub state: VmState,
 }
 
+impl Vm {}
+
 impl Vm {
     #[must_use]
     pub const fn is_execution_complete(&self) -> bool {
@@ -431,6 +433,9 @@ impl Vm {
         let instruction = &self.instructions[self.pc];
         let opcode = instruction.opcode;
 
+        assert!(self.memory.stack_offset >= self.memory.constant_memory_size);
+        assert!(self.memory.stack_offset <= self.memory.heap_start);
+
         self.pc += 1; // IP must be added BEFORE handling the instruction
 
         if opcode == OpCode::HostCall as u8 {
@@ -681,6 +686,15 @@ impl Vm {
         unsafe { std::slice::from_raw_parts(self.memory.get_heap_ptr(0), self.memory.memory_size) }
     }
 
+    pub fn constant_memory(&self) -> &[u8] {
+        unsafe {
+            std::slice::from_raw_parts(
+                self.memory.get_heap_ptr(0),
+                self.memory.constant_memory_size,
+            )
+        }
+    }
+
     pub fn constant_size(&self) -> usize {
         self.memory.constant_memory_size
     }
@@ -703,10 +717,6 @@ impl Vm {
         self.reset_call_stack();
         self.execution_complete = false;
         //self.pc = 0;
-    }
-
-    pub fn protect_heap_up_to_current_allocator(&mut self) {
-        self.memory.protect_up_to_allocator();
     }
 
     pub fn reset_call_stack(&mut self) {
@@ -1441,6 +1451,23 @@ impl Vm {
 
         let memory_size = u8s_to_u16!(memory_size_lower, memory_size_upper);
 
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            eprintln!(
+                "BLKCPY WITH OFFSET: IP={:04X}  Size={:04X} \
+         DST_REG={:08X} DST_OFF={:04X} => DST_ADDR={:08X} \
+         SRC_REG={:08X} SRC_OFF={:04X} => SRC_ADDR={:08X}",
+                self.pc, // Assuming you have an IP counter
+                memory_size,
+                get_reg!(self, dst_pointer_reg),
+                dst_offset,
+                dest_addr,
+                get_reg!(self, src_pointer_reg),
+                src_offset,
+                src_addr,
+            );
+        }
+
         let dst_ptr = self.memory.get_heap_ptr(dest_addr as usize);
         let src_ptr = self.memory.get_heap_const_ptr(src_addr as usize);
 
@@ -1461,6 +1488,18 @@ impl Vm {
         let src_addr = get_reg!(self, src_pointer_reg);
 
         let memory_size = u8s_to_u16!(memory_size_lower, memory_size_upper);
+
+        eprintln!(
+            "BLKCPY (NO OFFSET): IP={:04X} Size={:04X} \
+         DST_REG={:08X} => DST_ADDR={:08X} \
+         SRC_REG={:08X} => SRC_ADDR={:08X}",
+            self.pc,
+            memory_size,
+            get_reg!(self, dst_pointer_reg),
+            dest_addr,
+            get_reg!(self, src_pointer_reg),
+            src_addr,
+        );
 
         let dst_ptr = self.memory.get_heap_ptr(dest_addr as usize);
         let src_ptr = self.memory.get_heap_const_ptr(src_addr as usize);

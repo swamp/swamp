@@ -4,6 +4,7 @@ mod trace;
 
 use source_map_cache::{FileId, SourceMap, SourceMapWrapper};
 use std::fmt::Write as FmtWrite;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
@@ -82,8 +83,6 @@ pub fn run_constants_in_order(
                 _ => todo!(),
             }
         }
-
-        vm.protect_heap_up_to_current_allocator();
 
         let return_layout =
             swamp_code_gen::layout::layout_type(&constant.constant_ref.resolved_type);
@@ -210,6 +209,11 @@ pub fn run_as_fast_as_possible(
     vm.execute_from_ip(&function_to_run.ip_range.start, host_function_callback);
 }
 
+fn calculate_memory_checksum(memory: &[u8]) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    memory.hash(&mut hasher);
+    hasher.finish()
+}
 pub fn run_function_with_debug(
     vm: &mut Vm,
     function_to_run: &GenFunctionInfo,
@@ -317,7 +321,18 @@ pub fn run_function_with_debug(
             eprintln!("{pc:04X}> {string}");
         }
 
+        let hash_before: u64 = if run_options.debug_operations_enabled {
+            calculate_memory_checksum(vm.constant_memory())
+        } else {
+            0
+        };
+
         vm.step(host_function_callback);
+
+        if run_options.debug_operations_enabled {
+            let hash_after = calculate_memory_checksum(vm.constant_memory());
+            assert_eq!(hash_before, hash_after);
+        }
     }
 }
 
