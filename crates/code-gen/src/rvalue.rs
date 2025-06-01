@@ -54,39 +54,42 @@ impl CodeBuilder<'_> {
     pub fn emit_scalar_rvalue(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
         match &expr.kind {
             ExpressionKind::VariableAccess(variable_ref) => {
-                self.get_variable_register(variable_ref).clone()
+                return self.get_variable_register(variable_ref).clone();
             }
             ExpressionKind::ConstantAccess(constant_ref) => {
-                // TODO: Implement direct register access for constants
-                let ty = layout_type(&expr.ty);
-                let temp_target_reg = self.temp_registers.allocate(
-                    VmType::new_unknown_placement(ty),
-                    "temporary for constant access",
-                );
-                self.emit_constant_access(
-                    temp_target_reg.register(),
-                    &expr.node,
-                    constant_ref,
-                    ctx,
-                );
-                temp_target_reg.register
+                let constant_type = layout_type(&constant_ref.resolved_type);
+                if constant_type.is_represented_as_a_pointer_in_reg() {
+                    let temp_target_reg = self.temp_registers.allocate(
+                        VmType::new_unknown_placement(constant_type),
+                        "temporary for constant access",
+                    );
+                    let constant_gen = self.state.constant_offsets.get(&constant_ref.id).unwrap();
+                    self.builder.add_mov_32_immediate_value(
+                        temp_target_reg.register(),
+                        constant_gen.addr().0,
+                        &expr.node,
+                        "load in the constant pointer",
+                    );
+                    return temp_target_reg.register;
+                }
             }
-            _ => {
-                let ty = layout_type(&expr.ty);
-                let temp_target_reg = self.temp_registers.allocate(
-                    VmType::new_unknown_placement(ty),
-                    "to produce a scalar rvalue, we have to allocate a temporary variable",
-                );
+            _ => {}
+        }
+        {
+            let ty = layout_type(&expr.ty);
+            let temp_target_reg = self.temp_registers.allocate(
+                VmType::new_unknown_placement(ty),
+                "to produce a scalar rvalue, we have to allocate a temporary variable",
+            );
 
-                self.emit_expression_into_register(
-                    temp_target_reg.register(),
-                    expr,
-                    "emit_scalar_rvalue",
-                    ctx,
-                );
+            self.emit_expression_into_register(
+                temp_target_reg.register(),
+                expr,
+                "emit_scalar_rvalue",
+                ctx,
+            );
 
-                temp_target_reg.register
-            }
+            temp_target_reg.register
         }
     }
 }

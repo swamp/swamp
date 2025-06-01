@@ -373,7 +373,7 @@ impl CodeBuilder<'_> {
                             "end of chain, load primitive into temp register",
                         );
 
-                        self.emit_store_primitive_to_memory_location(
+                        self.emit_store_scalar_to_memory_location_helper(
                             mem_loc,
                             rhs_value_temp.register(),
                             &start_expression.node,

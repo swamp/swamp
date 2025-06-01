@@ -292,6 +292,31 @@ pub struct MemoryLocation {
     pub ty: VmType,
 }
 
+impl MemoryLocation {}
+
+impl MemoryLocation {
+    pub fn vm_type(&self) -> &VmType {
+        &self.ty
+    }
+
+    pub fn unsafe_add_offset(&self, offset: MemoryOffset) -> Self {
+        Self {
+            base_ptr_reg: self.base_ptr_reg.clone(),
+            offset: self.offset.add(offset),
+            ty: self.ty.clone(),
+        }
+    }
+
+    #[must_use]
+    pub fn new_copy_over_whole_type_with_zero_offset(base_ptr_reg: TypedRegister) -> Self {
+        Self {
+            ty: base_ptr_reg.ty.clone(),
+            base_ptr_reg,
+            offset: MemoryOffset(0),
+        }
+    }
+}
+
 impl Debug for MemoryLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(

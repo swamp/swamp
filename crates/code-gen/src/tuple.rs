@@ -70,9 +70,7 @@ impl CodeBuilder<'_> {
                 {
                     self.emit_load_from_memory_internal(
                         &frame_placed_target_variable_register,
-                        &source_memory_location.base_ptr_reg,
-                        source_memory_location.offset,
-                        &source_memory_location.ty,
+                        &source_memory_location,
                         &target_variable.name,
                         "load from memory into variable register",
                     );
@@ -82,11 +80,14 @@ impl CodeBuilder<'_> {
                         base_ptr_reg: frame_placed_target_variable_register,
                         offset: MemoryOffset(0),
                     };
+                    let source_memory_location = MemoryLocation {
+                        base_ptr_reg: tuple_base_pointer_reg.clone(),
+                        offset: field_offset_item.offset,
+                        ty: VmType::new_unknown_placement(field_offset_item.ty.clone()),
+                    };
                     self.builder.add_block_copy_with_offset(
                         &target_memory_location,
-                        &tuple_base_pointer_reg,
-                        field_offset_item.offset,
-                        field_offset_item.size,
+                        &source_memory_location,
                         &target_variable.name,
                         "copy from tuple field to destination variable",
                     );

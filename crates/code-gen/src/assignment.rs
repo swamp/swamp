@@ -234,7 +234,7 @@ impl CodeBuilder<'_> {
         }
 
         if let Destination::Memory(mem) = assignment_target {
-            self.emit_store_primitive_to_memory_location(
+            self.emit_store_scalar_to_memory_location_helper(
                 &mem,
                 resolved.register(),
                 &source.node,

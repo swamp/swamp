@@ -115,7 +115,7 @@ impl FenTextSwamp {
         let run_options = RunOptions {
             debug_stats_enabled: false,
             debug_opcodes_enabled: false,
-            debug_operations_enabled: true,
+            debug_operations_enabled: false,
             use_color: true,
             max_count: 0,
             debug_info: &self.runtime_result.code_gen_result.debug_info,
@@ -275,10 +275,6 @@ impl FenText {
         }
 
         ui.tick_count += 1;
-
-        if ui.tick_count > 60 * 3 {
-            return false;
-        }
 
         ui.debug();
 

@@ -429,9 +429,9 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_constant_access(
         &mut self,
-        target_reg: &TypedRegister,
-        node: &Node,
+        output: &Destination,
         constant_reference: &ConstantRef,
+        node: &Node,
         ctx: &Context,
     ) {
         //info!(?constant_reference, "looking up constant");
@@ -443,9 +443,13 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back// assert_eq!(target_reg.size(), constant_region.size());
 
         if constant_region.ty().is_represented_as_a_pointer_in_reg() {
-            // Just copy the pointer to the target register
+            // load the known constant address into a temp register to use as a base for the block copy
+            let source_base_ptr = self.temp_registers.allocate(
+                VmType::new_contained_in_register(u32_type()),
+                "temp register for the base pointer to the constant",
+            );
             self.builder.add_mov_32_immediate_value(
-                target_reg,
+                source_base_ptr.register(),
                 constant_region.addr().0,
                 node,
                 &format!(
@@ -454,9 +458,25 @@ impl CodeBuilder<'_> {
                     constant_region.ty()
                 ),
             );
+
+            let source_memory_location = MemoryLocation {
+                base_ptr_reg: source_base_ptr.register,
+                offset: MemoryOffset(0),
+                ty: VmType::new_heap_placement(
+                    constant_region.ty().clone(),
+                    constant_region.region(),
+                ),
+            };
+
+            self.builder.add_block_copy_with_offset(
+                output.grab_memory_location(),
+                &source_memory_location,
+                node,
+                "copy from constant memory area to target memory",
+            );
         } else {
             self.emit_load_primitive_from_absolute_memory_address(
-                target_reg,
+                output.grab_register(),
                 constant_region.addr(),
                 &VmType::new_unknown_placement(constant_region.ty().clone()),
                 node,

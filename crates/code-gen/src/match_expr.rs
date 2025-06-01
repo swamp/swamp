@@ -1,8 +1,8 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Match, NormalPattern, Pattern, PatternElement};
-use swamp_vm_types::MemoryOffset;
 use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, u8_type};
+use swamp_vm_types::{MemoryLocation, MemoryOffset};
 use tracing::info;
 
 impl CodeBuilder<'_> {
@@ -114,11 +114,15 @@ impl CodeBuilder<'_> {
                                             .unwrap()
                                             .clone();
 
+                                        let source_enum_memory_location = MemoryLocation {
+                                            base_ptr_reg: enum_ptr_reg.clone(),
+                                            offset: total_offset,
+                                            ty: var_reg.ty.clone(),
+                                        };
+
                                         self.emit_load_from_memory_internal(
                                             &var_reg,
-                                            &enum_ptr_reg,
-                                            total_offset,
-                                            &var_reg.ty,
+                                            &source_enum_memory_location,
                                             &variable.name,
                                             "load variant from field index",
                                         );

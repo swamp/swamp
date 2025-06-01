@@ -8,7 +8,7 @@ use swamp_types::Type;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type,
 };
-use swamp_vm_types::{InstructionPosition, MemoryOffset, PatchPosition};
+use swamp_vm_types::{InstructionPosition, MemoryLocation, PatchPosition};
 
 impl CodeBuilder<'_> {
     /// Generates code to iterate over a collection using a transformer (e.g., map, filter, `filter_map`)
@@ -310,11 +310,13 @@ impl CodeBuilder<'_> {
                         )
                     };
 
+                    let source_memory_location =
+                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                            temp_addr.register,
+                        );
                     self.emit_load_from_memory_internal(
                         primary_register,
-                        &temp_addr.register,
-                        MemoryOffset(0),
-                        &primary_register.ty,
+                        &source_memory_location,
                         node,
                         "load primitive from element address",
                     );
@@ -471,6 +473,10 @@ impl CodeBuilder<'_> {
                 .allocate(payload_vm_type.clone(), "transform add to collection");
             let (_tag_offset, _tag_size, payload_offset, _) =
                 in_value.underlying().unwrap_info().unwrap();
+
+            /*
+            in_value.unsafe_add_offset(payload_offset);
+
             self.emit_load_from_memory_internal(
                 temp_reg.register(),
                 in_value,
@@ -479,6 +485,8 @@ impl CodeBuilder<'_> {
                 node,
                 "transformer add to collection",
             );
+
+             */
             (temp_reg.register.clone(), Some(temp_reg))
         } else {
             (in_value.clone(), None)

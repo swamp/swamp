@@ -62,6 +62,7 @@ struct Entity {
   point: Point,
   direction: Point, // direction vector
   wait: Int,
+	wait_value: Int,
 	last_clockwise_dir: Int,
 }
 
@@ -138,8 +139,6 @@ impl Crawler {
   }
 
   fn entity_tick(mut entity: Entity, mut grid: [Int]) {
-		print('entity.direction {entity.direction.x}')
-		assert(entity.direction.x >= -1 && entity.direction.x <= 1, "Invalid direction x {entity.direction.x}")
 
     if entity.wait == 0 {
       want_to_move_to = entity.point.add(entity.direction)
@@ -147,7 +146,7 @@ impl Crawler {
         Crawler::move_transaction(&grid, entity.point, want_to_move_to)
         entity.point = want_to_move_to
       }
-      entity.wait = 5
+      entity.wait = entity.wait_value
     } else {
       entity.wait -= 1
     }
@@ -207,7 +206,7 @@ impl Crawler {
 
 		self.simulation_tick()
 
-		//self.draw()
+		self.draw()
 
     self.tick_count += 1
   }
@@ -228,11 +227,13 @@ fn main() -> Crawler {
         type: Type::Player,
         point: Point { x: 1, y: 0 },
 				direction: Point { x: 0, y: 1 },
+				wait_value: 0,
       },
    		Entity {
         type: Type::Spider,
         point: Point { x: 2, y: 0 }, // position must match the grid below
 				direction: Point { x: 0, y: 1 },
+				wait_value: 3,
       },
     ],
     grid: [0, 1, 2, 0]

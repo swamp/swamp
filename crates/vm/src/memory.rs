@@ -169,7 +169,10 @@ impl Memory {
     }
 
     pub(crate) fn set_stack_and_frame(&mut self, addr: usize) {
-        assert!(addr > self.constant_memory_size, "must be greater than the constant area");
+        assert!(
+            addr > self.constant_memory_size,
+            "must be greater than the constant area"
+        );
         assert!(addr > self.stack_start);
         self.frame_offset = addr;
         self.stack_offset = addr;

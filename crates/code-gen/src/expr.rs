@@ -2,8 +2,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
+use swamp_vm_types::MemoryLocation;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
-use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
@@ -118,27 +118,9 @@ impl CodeBuilder<'_> {
                     maybe_option.as_deref(),
                     ctx,
                 ),
-            ExpressionKind::ConstantAccess(constant_ref) => match output {
-                Destination::Register(reg) => {
-                    self.emit_constant_access(reg, &expr.node, constant_ref, ctx);
-                }
-                Destination::Memory(mem_loc) => {
-                    let temp_reg = self
-                        .temp_registers
-                        .allocate(mem_loc.ty.clone(), "constant_access_temp");
-                    self.emit_constant_access(temp_reg.register(), &expr.node, constant_ref, ctx);
-
-                    self.builder.add_st32_using_ptr_with_offset(
-                        mem_loc,
-                        temp_reg.register(),
-                        node,
-                        "store constant access result directly to memory with field offset",
-                    );
-                }
-                Destination::Unit => {
-                    panic!("a constant can not be unit")
-                }
-            },
+            ExpressionKind::ConstantAccess(constant_ref) => {
+                self.emit_constant_access(output, constant_ref, &expr.node, ctx);
+            }
             ExpressionKind::VariableAccess(variable_ref) => {
                 let variable_register = self.get_variable_register(variable_ref).clone();
                 match output {
@@ -176,11 +158,13 @@ impl CodeBuilder<'_> {
                                 _ => panic!("not sure"),
                             }
                         } else {
+                            let source_memory_location =
+                                MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                                    variable_register,
+                                );
                             self.builder.add_block_copy_with_offset(
                                 location,
-                                &variable_register,
-                                MemoryOffset(0),
-                                memory_size,
+                                &source_memory_location,
                                 node,
                                 "copy var access block",
                             );

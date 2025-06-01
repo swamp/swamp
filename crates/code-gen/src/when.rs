@@ -92,20 +92,28 @@ impl CodeBuilder<'_> {
                         offset: MemoryOffset(0),
                     };
 
+                    let source_memory_location = MemoryLocation {
+                        base_ptr_reg: optional_tagged_union_reg,
+                        offset: tagged_union.payload_offset,
+                        ty: target_memory_location.ty.clone(),
+                    };
+
                     self.builder.add_block_copy_with_offset(
                         &target_memory_location,
-                        &optional_tagged_union_reg,
-                        tagged_union.payload_offset,
-                        target_memory_location.ty.basic_type.total_size,
+                        &source_memory_location,
                         binding.expr.node(),
                         "load payload into binding variable",
                     );
                 } else {
+                    let source_memory_location = MemoryLocation {
+                        base_ptr_reg: optional_tagged_union_reg,
+                        offset: tagged_union.payload_offset,
+                        ty: target_binding_variable_reg.ty.clone(),
+                    };
+
                     self.emit_load_from_memory_internal(
                         &target_binding_variable_reg,
-                        &optional_tagged_union_reg,
-                        tagged_union.payload_offset,
-                        &target_binding_variable_reg.ty,
+                        &source_memory_location,
                         binding.expr.node(),
                         "load payload into binding variable",
                     );

@@ -133,46 +133,6 @@ impl<'a> InstructionBuilder<'a> {
 }
 
 impl InstructionBuilder<'_> {
-    /// # Panics
-    /// if the register doesn't hold a primitive
-    pub fn add_load_primitive(
-        &mut self,
-        target: &TypedRegister,
-        base: &TypedRegister,
-        offset: MemoryOffset,
-        node: &Node,
-        comment: &str,
-    ) {
-        // Choose the appropriate load instruction based on the target register's type
-        match target.underlying().kind {
-            BasicTypeKind::Fixed32
-            | BasicTypeKind::U32
-            | BasicTypeKind::S32
-            | BasicTypeKind::InternalStringPointer => {
-                self.add_ld32_from_pointer_with_offset_u16(
-                    target,
-                    base,
-                    offset,
-                    node,
-                    &format!("{comment} (load int)"),
-                );
-            }
-            BasicTypeKind::B8 | BasicTypeKind::U8 => {
-                self.add_ld8_from_pointer_with_offset_u16(
-                    target,
-                    base,
-                    offset,
-                    node,
-                    &format!("{comment} (load bool)"),
-                );
-            }
-            _ => panic!(
-                "Unsupported primitive type in add_load_primitive: {:?}",
-                target.ty
-            ),
-        }
-    }
-
     pub fn add_not_t(&mut self, node: &Node, comment: &str) {
         self.state.add_instruction(OpCode::NotT, &[], node, comment);
     }
@@ -652,14 +612,45 @@ impl InstructionBuilder<'_> {
     pub fn add_block_copy_with_offset(
         &mut self,
         target_output_destination: &MemoryLocation,
-        source_base_ptr_reg: &TypedRegister,
-        source_offset: MemoryOffset,
+        source_memory_location: &MemoryLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        debug_assert_eq!(
+            target_output_destination.ty.basic_type.total_size,
+            source_memory_location.ty.basic_type.total_size
+        );
+        let target_offset_bytes = u16_to_u8_pair(target_output_destination.offset.0);
+        let source_offset_bytes = u16_to_u8_pair(source_memory_location.offset.0);
+        let size_bytes = u16_to_u8_pair(target_output_destination.ty.basic_type.total_size.0);
+
+        self.state.add_instruction(
+            OpCode::BlockCopyWithOffsets,
+            &[
+                target_output_destination.base_ptr_reg.addressing(),
+                target_offset_bytes.0,
+                target_offset_bytes.1,
+                source_memory_location.base_ptr_reg.addressing(),
+                source_offset_bytes.0,
+                source_offset_bytes.1,
+                size_bytes.0,
+                size_bytes.1,
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_block_copy_with_offset_with_specific_size(
+        &mut self,
+        target_output_destination: &MemoryLocation,
+        source_memory_location: &MemoryLocation,
         memory_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
         let target_offset_bytes = u16_to_u8_pair(target_output_destination.offset.0);
-        let source_offset_bytes = u16_to_u8_pair(source_offset.0);
+        let source_offset_bytes = u16_to_u8_pair(source_memory_location.offset.0);
         let size_bytes = u16_to_u8_pair(memory_size.0);
 
         self.state.add_instruction(
@@ -668,7 +659,7 @@ impl InstructionBuilder<'_> {
                 target_output_destination.base_ptr_reg.addressing(),
                 target_offset_bytes.0,
                 target_offset_bytes.1,
-                source_base_ptr_reg.addressing(),
+                source_memory_location.base_ptr_reg.addressing(),
                 source_offset_bytes.0,
                 source_offset_bytes.1,
                 size_bytes.0,
