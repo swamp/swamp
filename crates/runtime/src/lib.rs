@@ -8,7 +8,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
-use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
+use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
 use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
@@ -49,8 +49,7 @@ pub fn run_constants_in_order(
             .target_constant_memory
             .ty()
             .can_be_contained_inside_register()
-        {
-        } else {
+        {} else {
             // set memory location into to r0
             vm.registers[0] = constant.target_constant_memory.addr().0;
         }
@@ -101,7 +100,7 @@ pub fn run_constants_in_order(
                 &return_layout,
                 &constant.constant_ref.assigned_name,
             )
-            .unwrap();
+                .unwrap();
         }
     }
 }
@@ -146,9 +145,8 @@ pub fn compile_and_codegen_main_path(
     root_module_path: &[String],
     current_dir: &Path,
     options: CodeGenOptions,
-) -> CodeGenResult {
-    let program = swamp_compile::bootstrap_and_compile(source_map, root_module_path)
-        .expect("TODO: panic message");
+) -> Option<CodeGenResult> {
+    let program = swamp_compile::bootstrap_and_compile(source_map, root_module_path).ok()?;
 
     let source_map_wrapper = SourceMapWrapper {
         source_map,
@@ -160,14 +158,14 @@ pub fn compile_and_codegen_main_path(
     let (instructions, constants_in_order, emit_function_infos, constant_memory, debug_info) =
         top_gen_state.take_instructions_and_constants();
 
-    CodeGenResult {
+    Some(CodeGenResult {
         debug_info,
         instructions,
         constants_in_order,
         functions: emit_function_infos,
         prepared_constant_memory: constant_memory,
         program,
-    }
+    })
 }
 
 #[must_use]
@@ -342,14 +340,18 @@ pub fn run_function_with_debug(
 pub fn compile_and_code_gen(
     path_to_root_of_swamp_files: &Path,
     main_module_path: &[String],
-) -> (CodeGenResult, SourceMap) {
+) -> Option<(CodeGenResult, SourceMap)> {
     let mut source_map = crate_and_registry(path_to_root_of_swamp_files);
     let current_dir = PathBuf::from(Path::new(""));
     let options = CodeGenOptions { show_disasm: true };
 
     let result =
         compile_and_codegen_main_path(&mut source_map, main_module_path, &current_dir, options);
-    (result, source_map)
+    if let Some(result) = result {
+        Some((result, source_map))
+    } else {
+        None
+    }
 }
 
 pub struct CodeGenAndVmResult {
@@ -391,7 +393,7 @@ pub fn compile_codegen_and_create_vm(
     root_directory: &Path,
     root_module: &[String],
 ) -> Option<CodeGenAndVmResult> {
-    let (code_gen_result, source_map) = compile_and_code_gen(root_directory, root_module);
+    let (code_gen_result, source_map) = compile_and_code_gen(root_directory, root_module)?;
 
     let vm = create_vm_with_standard_settings(
         &code_gen_result.instructions,

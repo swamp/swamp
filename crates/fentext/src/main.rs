@@ -1,15 +1,17 @@
 use fentext_ui::{Input, Tui};
 use fs_change_detector::FileWatcher;
+use pico_args::Arguments;
 use std::env::current_dir;
-use std::path::Path;
-use std::thread;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::{process, thread};
 use swamp::prelude::{
-    align, compile_codegen_and_create_vm, layout_type, run_first_time, run_function_with_debug,
-    CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions, RunOptions,
-    SourceMapWrapper, VmState, SAFE_ALIGNMENT,
+    CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
+    RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align, compile_codegen_and_create_vm,
+    layout_type, run_first_time, run_function_with_debug,
 };
 use swamp_std::print::print_fn;
+use tracing::{error, warn};
 
 #[must_use]
 pub fn compile() -> Option<CodeGenAndVmResult> {
@@ -95,10 +97,16 @@ pub struct FenTextEngine {
 
 impl FenTextEngine {
     pub(crate) fn update(&mut self) -> bool {
-        self.fen_text.as_mut().map_or_else(|| {
-            thread::sleep(Duration::from_millis(32));
-            true
-        }, FenText::tick)
+        if self.detector.has_changed() {
+            self.something_changed();
+        }
+        self.fen_text.as_mut().map_or_else(
+            || {
+                thread::sleep(Duration::from_millis(32));
+                true
+            },
+            FenText::tick,
+        )
     }
 }
 
@@ -111,7 +119,7 @@ impl FenTextEngine {
             detector: FileWatcher::new(path).unwrap(),
             fen_text: None,
         };
-        
+
         engine.something_changed();
 
         engine
@@ -328,7 +336,25 @@ pub fn init_logger() {
 fn main() {
     init_logger();
 
-    let mut engine = FenTextEngine::new(Path::new("scripts/"));
+    let mut args = Arguments::from_env();
+
+    // Explicitly specify the type parameters: <SuccessType, ErrorType>
+    let script_dir: PathBuf =
+        match args.free_from_os_str::<PathBuf, String>(|s| Ok(PathBuf::from(s))) {
+            Ok(path) => path,
+            Err(e) => {
+                error!(?e, "Error parsing script directory:");
+                error!("Usage: fentext <script_directory>");
+                process::exit(1);
+            }
+        };
+
+    let remaining_args = args.finish();
+    if !remaining_args.is_empty() {
+        warn!(?remaining_args, "Unrecognized arguments");
+    }
+
+    let mut engine = FenTextEngine::new(Path::new(&script_dir));
 
     while engine.update() {}
 }

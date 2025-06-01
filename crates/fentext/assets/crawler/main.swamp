@@ -98,6 +98,7 @@ const ABSOLUTE_CLOCKWISE_DIRS = [
 
 impl Crawler {
 
+
   fn draw(self) {
     for y in 0..GRID_HEIGHT {
       move(0, y)
