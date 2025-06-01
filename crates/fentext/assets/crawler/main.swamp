@@ -123,10 +123,10 @@ impl Crawler {
       move(0, y)
       for x in 0..GRID_WIDTH {
         entity_index = self.grid[y * GRID_WIDTH + x]
-         if entity_index > 1 {
+         if entity_index > 0 {
           entity = self.entities[entity_index-1]
           match entity.type {
-            Rock => write(".", Color::BrightBlack),
+            Rock => write("#", Color::BrightBlack),
             Player => write("@", Color::BrightMagenta),
             Spider => write("!", Color::BrightBlack),
             Octopus => write("c", Color::BrightBlack),
@@ -206,7 +206,7 @@ impl Crawler {
 			move(3, 26 + index)
 			write('Entity {index}: {name} at ({entity.point.x}, {entity.point.y}) ({entity.direction.x}, {entity.direction.y}) wait: {entity.wait}  wait_value: ({entity.wait_value})  ', Color::Cyan)
 
-			if index > 1 {
+			if entity.type != Type::Player {
 				Crawler::ai_tick(&entity, &self.grid)
 			}
       Crawler::entity_tick(&entity, &self.grid)
@@ -227,7 +227,7 @@ impl Crawler {
 			  Up => Point { x: 0, y: -1 },
 			  Down => Point { x: 0, y: 1 },
 			}
-			self.entities[1].direction = new_direction
+			self.entities[0].direction = new_direction
     }
 
 		self.simulation_tick()
@@ -243,26 +243,19 @@ fn main() -> Crawler {
   Crawler {
     tick_count: 0,
     entities: [
-      Entity {
-        type: Type::Rock,
-        point: Point { x: 0, y: 0 },
-				direction: Point { x: 0, y: 0 },
-				wait: 0,
-				wait_value: 0,
-      },
-      Entity {
+       Entity {
         type: Type::Player,
-        point: Point { x: 4, y: 0 },
-				direction: Point { x: 0, y: 1 },
-				wait_value: 2,
+        point: Point { x: 4, y: 0 }, // initial position must match the grid below
+				direction: Point { x: 0, y: 0 },
+				wait_value: 10,
       },
    		Entity {
         type: Type::Spider,
-        point: Point { x: 2, y: 0 }, // position must match the grid below
-				direction: Point { x: 0, y: 1 },
+        point: Point { x: 2, y: 0 }, // initial position must match the grid below
+				direction: Point { x: 1, y: 1 },
 				wait_value: 20,
       },
     ],
-    grid: [1, 0, 3, 0, 2]
+    grid: [0, 0, 2, 0, 1]
   }
 }

@@ -7,11 +7,12 @@ use std::time::Duration;
 use std::{process, thread};
 use swamp::prelude::{
     CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
-    RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align, compile_codegen_and_create_vm,
-    layout_type, run_first_time, run_function, run_function_with_debug,
+    RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, StackMemoryAddress, VmState, align,
+    compile_codegen_and_create_vm, layout_type, print_value, run_first_time, run_function,
+    run_function_with_debug,
 };
 use swamp_std::print::print_fn;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 #[must_use]
 pub fn compile() -> Option<CodeGenAndVmResult> {
@@ -161,9 +162,22 @@ impl FenTextEngine {
             self.fen_text = None;
         }
         let compile = compile();
-        if let Some(runtime_result) = compile {
-            let new_fen_text = FenText::new(runtime_result);
-            self.fen_text = Some(new_fen_text);
+        let should_run = true;
+        let should_show_ui = true;
+
+        if should_run {
+            if let Some(mut runtime_result) = compile {
+                let mut fake_callbacks = FakeCallbacks {};
+                FenTextSwamp::run_once(&mut runtime_result, &mut fake_callbacks);
+
+                let boot_info = FenTextSwamp::boot(&mut runtime_result, &mut fake_callbacks);
+                let swamp = FenTextSwamp::new(runtime_result, boot_info);
+
+                if should_show_ui {
+                    let new_fen_text = FenText::new(swamp);
+                    self.fen_text = Some(new_fen_text);
+                }
+            }
         }
     }
 }
@@ -176,13 +190,7 @@ pub struct FenTextSwamp {
 }
 
 impl FenTextSwamp {
-    pub fn new(
-        mut runtime_result: CodeGenAndVmResult,
-        application: &mut dyn HostFunctionCallback,
-    ) -> Self {
-        Self::run_once(&mut runtime_result, application);
-        let boot_info = Self::boot(&mut runtime_result, application);
-
+    pub fn new(runtime_result: CodeGenAndVmResult, boot_info: BootInfo) -> Self {
         Self {
             runtime_result,
             tick_fn: boot_info.function_info,
@@ -250,7 +258,7 @@ impl FenTextSwamp {
         let simulation_type = main_fn.return_type();
         let gen_simulation_type = layout_type(simulation_type);
 
-        let s = String::new();
+        let mut s = String::new();
         let constant_memory_size = runtime_result.vm.memory().constant_memory_size as u32;
 
         let root_struct_start = align(constant_memory_size as usize, SAFE_ALIGNMENT);
@@ -265,8 +273,13 @@ impl FenTextSwamp {
             .set_return_register_address(constant_memory_size);
         run_function_with_debug(&mut runtime_result.vm, main_fn, application, run_options);
 
-        //print_value(&mut s, runtime_result.vm.frame_memory(), runtime_result.vm.memory(), StackMemoryAddress(0), &gen_simulation_type, "main() return").unwrap();
-        eprintln!("{s}");
+        //        print_value(&mut s, runtime_result.vm.frame_memory(), runtime_result.vm.memory(), StackMemoryAddress(0), &gen_simulation_type, "main() return").unwrap();
+        info!(
+            root_struct_start,
+            size = gen_simulation_type.total_size.0,
+            safe_stack_start,
+            "main return"
+        );
 
         let gen_info = runtime_result
             .get_gen_internal_member_function(simulation_type, "tick")
@@ -302,6 +315,18 @@ pub struct FenText {
     pub swamp: FenTextSwamp,
 }
 
+pub struct FakeCallbacks {}
+
+impl HostFunctionCallback for FakeCallbacks {
+    fn dispatch_host_call(&mut self, args: HostArgs) {
+        match args.function_id {
+            1 => print_fn(args),
+
+            _ => panic!("unknown external"),
+        }
+    }
+}
+
 impl HostFunctionCallback for Application {
     fn dispatch_host_call(&mut self, args: HostArgs) {
         match args.function_id {
@@ -318,21 +343,19 @@ impl FenText {
     /// # Panics
     ///
     #[must_use]
-    pub fn new(runtime_result: CodeGenAndVmResult) -> Self {
+    pub fn new(swamp: FenTextSwamp) -> Self {
         let mut ui = Application {
             canvas: Tui::new().unwrap(),
             tick_count: 0,
             last_keypress: SwampOption::none(),
         };
 
-        let swamp = FenTextSwamp::new(runtime_result, &mut ui);
-
         Self { ui, swamp }
     }
 
     #[must_use]
     pub fn tick(&mut self) -> bool {
-        let frame_time = Duration::from_millis(16);
+        let frame_time = Duration::from_millis(0);
 
         let ui = &mut self.ui;
         if let Some(input) = ui.canvas.poll() {

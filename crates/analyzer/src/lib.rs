@@ -3120,7 +3120,6 @@ impl<'a> Analyzer<'a> {
             .compatible_with(type_that_member_is_on)
             || self_type.is_mutable && !is_mutable
         {
-            info!(?self_type.resolved_type, ?type_that_member_is_on, "debugging");
             //   return Err(self.create_err(ErrorKind::SelfNotCorrectType, node));
         }
 

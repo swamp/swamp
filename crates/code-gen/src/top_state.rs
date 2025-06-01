@@ -54,10 +54,6 @@ impl TopLevelGenState {
 
     pub fn finalize(&mut self) {
         for function_fixup in &self.codegen_state.function_fixups {
-            info!(
-                name = function_fixup.internal_function_definition.assigned_name,
-                "fixing up"
-            );
             if let Some(func) = self.codegen_state.function_infos.get(&function_fixup.fn_id) {
                 self.builder_state.patch_call(
                     PatchPosition(InstructionPosition(function_fixup.patch_position.0.0)),
