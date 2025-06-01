@@ -638,6 +638,9 @@ impl Vm {
     }
 
     pub fn set_stack_start(&mut self, addr: usize) {
+        if self.debug_operations_enabled {
+            eprintln!("vm: set stack start and frame to: 0x{addr:08X}");
+        }
         self.memory.set_stack_and_frame(addr);
     }
 
@@ -647,6 +650,12 @@ impl Vm {
         host_function_callback: &mut dyn HostFunctionCallback,
     ) {
         self.pc = ip.0 as usize;
+        if self.debug_operations_enabled {
+            eprintln!(
+                "starting up the vm, normal_stack_start: {:08X} SP:{:08X} FP:{:08X}",
+                self.memory.stack_start, self.memory.stack_offset, self.memory.frame_offset
+            );
+        }
         self.execute_internal(host_function_callback);
     }
 
@@ -1454,14 +1463,16 @@ impl Vm {
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             eprintln!(
-                "BLKCPY WITH OFFSET: IP={:04X}  Size={:04X} \
-         DST_REG={:08X} DST_OFF={:04X} => DST_ADDR={:08X} \
-         SRC_REG={:08X} SRC_OFF={:04X} => SRC_ADDR={:08X}",
-                self.pc, // Assuming you have an IP counter
+                "BLKCPY WITH OFFSET: {:04X}>  Size={:04X} \n  \
+           DST_REG={} (0x{:08X}) + DST_OFF=0x{:04X} => DST_ADDR=0x{:08X}\n  \
+           SRC_REG={} (0x{:08X}) + SRC_OFF=0x{:04X} => SRC_ADDR=0x{:08X}",
+                self.pc - 1,
                 memory_size,
+                dst_pointer_reg,
                 get_reg!(self, dst_pointer_reg),
                 dst_offset,
                 dest_addr,
+                src_pointer_reg,
                 get_reg!(self, src_pointer_reg),
                 src_offset,
                 src_addr,

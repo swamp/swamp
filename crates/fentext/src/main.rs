@@ -21,6 +21,12 @@ pub fn compile() -> Option<CodeGenAndVmResult> {
     )
 }
 
+pub struct BootInfo {
+    root_struct_addr: u32,
+    stack_start_addr: u32,
+    function_info: GenFunctionInfo,
+}
+
 pub type FfiInput = SwampEnumWithoutPayload;
 
 impl FfiInput {
@@ -175,14 +181,13 @@ impl FenTextSwamp {
         application: &mut dyn HostFunctionCallback,
     ) -> Self {
         Self::run_once(&mut runtime_result, application);
-        let (tick_fn, simulation_value_addr, safe_stack_start_addr) =
-            Self::boot(&mut runtime_result, application);
+        let boot_info = Self::boot(&mut runtime_result, application);
 
         Self {
             runtime_result,
-            tick_fn,
-            simulation_value_addr,
-            safe_stack_start_addr,
+            tick_fn: boot_info.function_info,
+            simulation_value_addr: boot_info.root_struct_addr,
+            safe_stack_start_addr: boot_info.stack_start_addr,
         }
     }
 
@@ -203,10 +208,12 @@ impl FenTextSwamp {
         let vm = &mut self.runtime_result.vm;
 
         assert!(self.simulation_value_addr >= vm.constant_size() as u32);
+        assert!(self.simulation_value_addr < self.safe_stack_start_addr);
+
         vm.set_register_pointer_addr_for_parameter(1, self.simulation_value_addr);
         vm.set_stack_start(self.safe_stack_start_addr as usize);
 
-        let run_fast = true;
+        let run_fast = false;
 
         if run_fast {
             run_function(vm, &self.tick_fn, application, run_options);
@@ -221,7 +228,7 @@ impl FenTextSwamp {
     pub fn boot(
         runtime_result: &mut CodeGenAndVmResult,
         application: &mut dyn HostFunctionCallback,
-    ) -> (GenFunctionInfo, u32, u32) {
+    ) -> BootInfo {
         let run_options = RunOptions {
             debug_stats_enabled: false,
             debug_opcodes_enabled: false,
@@ -244,27 +251,33 @@ impl FenTextSwamp {
         let gen_simulation_type = layout_type(simulation_type);
 
         let s = String::new();
-        let early_frame = runtime_result.vm.memory().constant_memory_size as u32;
+        let constant_memory_size = runtime_result.vm.memory().constant_memory_size as u32;
+
+        let root_struct_start = align(constant_memory_size as usize, SAFE_ALIGNMENT);
 
         let safe_stack_start = align(
-            (early_frame + u32::from(gen_simulation_type.total_size.0)) as usize,
+            root_struct_start + u32::from(gen_simulation_type.total_size.0) as usize,
             SAFE_ALIGNMENT,
         );
 
-        runtime_result.vm.set_return_register_address(early_frame);
+        runtime_result
+            .vm
+            .set_return_register_address(constant_memory_size);
         run_function_with_debug(&mut runtime_result.vm, main_fn, application, run_options);
 
         //print_value(&mut s, runtime_result.vm.frame_memory(), runtime_result.vm.memory(), StackMemoryAddress(0), &gen_simulation_type, "main() return").unwrap();
         eprintln!("{s}");
 
-        (
-            runtime_result
-                .get_gen_internal_member_function(simulation_type, "tick")
-                .unwrap()
-                .clone(),
-            early_frame,
-            safe_stack_start as u32,
-        )
+        let gen_info = runtime_result
+            .get_gen_internal_member_function(simulation_type, "tick")
+            .unwrap()
+            .clone();
+
+        BootInfo {
+            root_struct_addr: root_struct_start as u32,
+            stack_start_addr: safe_stack_start as u32,
+            function_info: gen_info,
+        }
     }
 
     pub fn run_once(
@@ -319,7 +332,7 @@ impl FenText {
 
     #[must_use]
     pub fn tick(&mut self) -> bool {
-        let frame_time = Duration::from_millis(0);
+        let frame_time = Duration::from_millis(16);
 
         let ui = &mut self.ui;
         if let Some(input) = ui.canvas.poll() {

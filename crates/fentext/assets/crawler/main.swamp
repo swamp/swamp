@@ -123,21 +123,22 @@ impl Crawler {
       move(0, y)
       for x in 0..GRID_WIDTH {
         entity_index = self.grid[y * GRID_WIDTH + x]
-         if entity_index > 1  || entity_index < 0 {
-          write("!", Color::BrightBlack)
-         } else {
-          entity = self.entities[entity_index]
+         if entity_index > 1 {
+          entity = self.entities[entity_index-1]
           match entity.type {
             Rock => write(".", Color::BrightBlack),
             Player => write("@", Color::BrightMagenta),
-            Spider => write("b", Color::BrightBlack),
+            Spider => write("!", Color::BrightBlack),
             Octopus => write("c", Color::BrightBlack),
             _ => write("@", Color::BrightBlack),
           }
-         }
+         } else {
+					write(".", Color::BrightBlack)
+				 }
+				}
       }
     }
-  }
+
 
 	fn cell_is_free(point: Point, grid: [Int]) -> Bool {
 		if point.x < 0 || point.x >= GRID_WIDTH || point.y < 0 || point.y >= GRID_HEIGHT {
@@ -152,10 +153,14 @@ impl Crawler {
     from_index = from.y * GRID_WIDTH + from.x
     to_index = to.y * GRID_WIDTH + to.x
 
+		if from_index != to_index {
+
     assert(grid[from_index] != 0 || grid[to_index] == 0, "Invalid move transaction from {from} to {to}")
 
-    grid[to_index] = grid[from_index]
-    grid[from_index] = 0
+	    grid[to_index] = grid[from_index]
+    	grid[from_index] = 0
+				}
+
   }
 
   fn entity_tick(mut entity: Entity, mut grid: [Int]) {
@@ -176,8 +181,6 @@ impl Crawler {
 		if entity.wait == 0 {
 			want_to_move_to = entity.point.add(entity.direction)
 			if Crawler::cell_is_free(want_to_move_to, grid) {
-				//move(32, 29)
-        //write('free direction ({entity.direction.x}, {entity.direction.y}) {entity.last_clockwise_dir}                    ')
 				// Nothing to do, will probably right after this
 			} else {
 				next_clockwise_dir = (entity.last_clockwise_dir + 1) % 4
@@ -191,6 +194,7 @@ impl Crawler {
 
 	fn simulation_tick(mut self) {
 		for index, mut entity in self.entities {
+			//if index != 0 {
 			name = if index == 1 {
 				"Player"
       } else if index == 2 {
@@ -202,11 +206,12 @@ impl Crawler {
 			move(3, 26 + index)
 			write('Entity {index}: {name} at ({entity.point.x}, {entity.point.y}) ({entity.direction.x}, {entity.direction.y}) wait: {entity.wait}  wait_value: ({entity.wait_value})  ', Color::Cyan)
 
-			if index != 1 {
+			if index > 1 {
 				Crawler::ai_tick(&entity, &self.grid)
 			}
       Crawler::entity_tick(&entity, &self.grid)
-    }
+			}
+    //}
 	}
 
   #[host_call]
@@ -243,20 +248,21 @@ fn main() -> Crawler {
         point: Point { x: 0, y: 0 },
 				direction: Point { x: 0, y: 0 },
 				wait: 0,
+				wait_value: 0,
       },
       Entity {
         type: Type::Player,
         point: Point { x: 4, y: 0 },
 				direction: Point { x: 0, y: 1 },
-				wait_value: 0,
+				wait_value: 2,
       },
    		Entity {
         type: Type::Spider,
         point: Point { x: 2, y: 0 }, // position must match the grid below
 				direction: Point { x: 0, y: 1 },
-				wait_value: 3,
+				wait_value: 20,
       },
     ],
-    grid: [0, 0, 2, 0, 1]
+    grid: [1, 0, 3, 0, 2]
   }
 }
