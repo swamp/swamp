@@ -2,8 +2,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
-use swamp_vm_types::MemoryLocation;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
+use swamp_vm_types::MemoryLocation;
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
@@ -54,10 +54,6 @@ impl CodeBuilder<'_> {
         if !matches!(output, Destination::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(expr)
         {
-            //info!(
-            //  ?expr,
-            // "this needs a temporary location to be able to get a pointer"
-            //);
             let temp_materialization_target = self
                 .allocate_frame_space_and_return_destination_to_it(
                     output.ty(),
@@ -80,9 +76,6 @@ impl CodeBuilder<'_> {
         }
 
         let hwm = self.temp_registers.save_mark();
-
-        //info!(?output, ?expr.kind, "emit_expression");
-        //debug_assert!(expr.ty.is_scalar(), "must have scalar type {}", expr.ty);
 
         match &expr.kind {
             ExpressionKind::Literal(basic_literal) => {
@@ -133,8 +126,6 @@ impl CodeBuilder<'_> {
                         );
                     }
                     Destination::Memory(location) => {
-                        let memory_size = variable_register.ty.basic_type.total_size;
-
                         if variable_register.ty.can_be_contained_inside_register() {
                             match variable_register.ty.basic_type.kind {
                                 BasicTypeKind::B8 | BasicTypeKind::U8 => {
@@ -285,7 +276,6 @@ impl CodeBuilder<'_> {
             ExpressionKind::Lambda(_vec, _x) => {
                 panic!("something went wrong. non-capturing lambdas can not be evaluated")
             }
-            _ => panic!("unknown expression {:?}", expr.kind),
         }
 
         self.temp_registers.restore_to_mark(hwm);

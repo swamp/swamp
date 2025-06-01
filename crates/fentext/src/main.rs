@@ -1,12 +1,13 @@
 use fentext_ui::{Input, Tui};
+use fs_change_detector::FileWatcher;
 use std::env::current_dir;
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
 use swamp::prelude::{
-    CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
-    RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align, compile_codegen_and_create_vm,
-    layout_type, run_first_time, run_function_with_debug,
+    align, compile_codegen_and_create_vm, layout_type, run_first_time, run_function_with_debug,
+    CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions, RunOptions,
+    SourceMapWrapper, VmState, SAFE_ALIGNMENT,
 };
 use swamp_std::print::print_fn;
 
@@ -84,6 +85,49 @@ impl Application {
 
     pub(crate) fn external_last_keypress(&self, mut host_args: HostArgs) {
         host_args.write_to_register(0, &self.last_keypress);
+    }
+}
+
+pub struct FenTextEngine {
+    pub detector: FileWatcher,
+    pub fen_text: Option<FenText>,
+}
+
+impl FenTextEngine {
+    pub(crate) fn update(&mut self) -> bool {
+        self.fen_text.as_mut().map_or_else(|| {
+            thread::sleep(Duration::from_millis(32));
+            true
+        }, FenText::tick)
+    }
+}
+
+impl FenTextEngine {
+    /// # Panics
+    ///
+    #[must_use]
+    pub fn new(path: &Path) -> Self {
+        let mut engine = Self {
+            detector: FileWatcher::new(path).unwrap(),
+            fen_text: None,
+        };
+        
+        engine.something_changed();
+
+        engine
+    }
+
+    pub fn something_changed(&mut self) {
+        if let Some(_previous_fen_text) = &self.fen_text {
+            // Intentionally drop FenText and restore the screen and everything.
+            // this is needed so we can see the actual compile
+            self.fen_text = None;
+        }
+        let compile = compile();
+        if let Some(runtime_result) = compile {
+            let new_fen_text = FenText::new(runtime_result);
+            self.fen_text = Some(new_fen_text);
+        }
     }
 }
 
@@ -224,30 +268,16 @@ impl FenText {
     /// # Panics
     ///
     #[must_use]
-    pub fn new() -> Option<Self> {
-        let runtime_result = compile();
-        runtime_result.map_or_else(
-            || None,
-            |runtime_result| {
-                let mut ui = Application {
-                    canvas: Tui::new().unwrap(),
-                    tick_count: 0,
-                    last_keypress: SwampOption::none(),
-                };
+    pub fn new(runtime_result: CodeGenAndVmResult) -> Self {
+        let mut ui = Application {
+            canvas: Tui::new().unwrap(),
+            tick_count: 0,
+            last_keypress: SwampOption::none(),
+        };
 
-                let should_run = true;
+        let swamp = FenTextSwamp::new(runtime_result, &mut ui);
 
-                if should_run {
-                    let swamp = FenTextSwamp::new(runtime_result, &mut ui);
-
-                    let s = Self { ui, swamp };
-
-                    Some(s)
-                } else {
-                    None
-                }
-            },
-        )
+        Self { ui, swamp }
     }
 
     #[must_use]
@@ -298,8 +328,7 @@ pub fn init_logger() {
 fn main() {
     init_logger();
 
-    let engine = FenText::new();
-    if let Some(mut engine) = engine {
-        while engine.tick() {}
-    }
+    let mut engine = FenTextEngine::new(Path::new("scripts/"));
+
+    while engine.update() {}
 }

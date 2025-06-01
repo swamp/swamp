@@ -11,6 +11,8 @@ fentext-ui = { path = "../fentext-ui", version = "0.1.0" }
 swamp = { path = "../swamp", version = "0.1.16" }
 swamp-std = { path = "../std", version = "0.1.10" }
 
+fs-change-detector = { path = "../fs-change-detector", version = "0.1.0" }
+
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.1", features = [
     "registry",

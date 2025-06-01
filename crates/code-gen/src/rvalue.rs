@@ -27,6 +27,9 @@ impl CodeBuilder<'_> {
     /// important for efficient code generation of expressions that must produce values
     /// (rvalues) rather than storage locations (lvalues).
     ///
+    /// Basically, for aggregate types, it shouldn't to materialize (copy) the aggregate value
+    /// to a destination, but instead just provide a register pointing to the source location.
+    ///
     /// # Direct Register Access
     ///
     /// The following cases can return a register without materialization:

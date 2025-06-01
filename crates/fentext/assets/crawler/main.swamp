@@ -178,7 +178,7 @@ impl Crawler {
 
 			if index == 2 {
         move(32, 27)
-        write('Spider at ({entity.point.x}, {entity.point.y})   ')
+        write('Spider at ({entity.point.x}, {entity.point.y}) ({entity.direction.x}, {entity.direction.y})   wait_value: ({entity.wait_value})  ')
       }
 
 			if index != 1 {

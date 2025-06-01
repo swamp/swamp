@@ -13,8 +13,8 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
-use swamp_types::StructLikeType;
 use swamp_types::prelude::*;
+use swamp_types::StructLikeType;
 use tracing::error;
 
 #[derive(Debug, Clone)]
@@ -401,15 +401,6 @@ pub struct FormatSpecifier {
     pub kind: FormatSpecifierKind,
 }
 
-/*
-#[derive(Debug, Clone)]
-pub enum StringPart {
-    Literal(Node, String),
-    Interpolation(Expression, Option<FormatSpecifier>),
-}
-
- */
-
 pub type FunctionRef = Rc<Function>;
 
 #[derive(Debug, Eq, Clone, PartialEq)]
@@ -780,13 +771,9 @@ pub enum ExpressionKind {
     InternalCall(InternalFunctionDefinitionRef, Vec<ArgumentExpression>),
     HostCall(ExternalFunctionDefinitionRef, Vec<ArgumentExpression>),
 
-    // For calls from returned function values
-    //FunctionValueCall(Signature, Box<Expression>, Vec<MutRefOrImmutableExpression>),
-
     // Constructing
     VariableDefinition(VariableRef, Box<Expression>), // First time assignment
     VariableReassignment(VariableRef, Box<Expression>),
-    VariableBinding(VariableRef, Box<ArgumentExpression>),
 
     Assignment(Box<TargetAssignmentLocation>, Box<Expression>),
     CompoundAssignment(

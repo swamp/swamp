@@ -43,4 +43,5 @@ members = [
     # Example Text Engine
     "crates/fentext",
     "crates/fentext-ui",
+    "crates/fs-change-detector",
 ]
