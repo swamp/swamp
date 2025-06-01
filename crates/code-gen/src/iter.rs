@@ -470,7 +470,7 @@ impl CodeBuilder<'_> {
             let payload_vm_type = VmType::new_unknown_placement(some_variant.ty.clone());
             let temp_reg = self
                 .temp_registers
-                .allocate(payload_vm_type.clone(), "transform add to collection");
+                .allocate(payload_vm_type, "transform add to collection");
             let (_tag_offset, _tag_size, payload_offset, _) =
                 in_value.underlying().unwrap_info().unwrap();
 

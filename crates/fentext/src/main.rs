@@ -166,7 +166,7 @@ impl FenTextSwamp {
         let early_frame = runtime_result.vm.memory().constant_memory_size as u32;
 
         let safe_stack_start = align(
-            ((early_frame + u32::from(gen_simulation_type.total_size.0)) as usize),
+            (early_frame + u32::from(gen_simulation_type.total_size.0)) as usize,
             SAFE_ALIGNMENT,
         );
 

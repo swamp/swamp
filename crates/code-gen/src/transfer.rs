@@ -2,7 +2,7 @@ use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType};
-use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, MemoryOffset};
+use swamp_vm_types::{HeapMemoryAddress, MemoryLocation};
 
 impl CodeBuilder<'_> {
     /// Loads a scalar from an absolute memory address
@@ -53,7 +53,7 @@ impl CodeBuilder<'_> {
                 }
             }
             Destination::Memory(memory_location) => {
-                self.emit_load_from_memory_internal(target_reg, &memory_location, node, comment);
+                self.emit_load_from_memory_internal(target_reg, memory_location, node, comment);
             }
             Destination::Unit => panic!("Cannot load from Unit destination"),
         }
@@ -104,7 +104,7 @@ impl CodeBuilder<'_> {
 
                 self.emit_load_from_memory_internal(
                     temp_reg.register(),
-                    &source_mem_loc,
+                    source_mem_loc,
                     node,
                     &format!("load {comment} from memory for store"),
                 );
@@ -208,7 +208,7 @@ impl CodeBuilder<'_> {
         } else {
             self.emit_load_scalar_from_memory_location_helper(
                 target_reg,
-                &source_memory_location,
+                source_memory_location,
                 node,
                 &format!("emit primitive value. ptr to primitive reg {comment}"),
             );
@@ -230,7 +230,7 @@ impl CodeBuilder<'_> {
                 );
                 self.emit_load_from_memory_internal(
                     temp_reg_target.register(),
-                    &memory_location,
+                    memory_location,
                     node,
                     &format!("load primitive from detailed location {comment}"),
                 );
