@@ -347,11 +347,7 @@ pub fn compile_and_code_gen(
 
     let result =
         compile_and_codegen_main_path(&mut source_map, main_module_path, &current_dir, options);
-    if let Some(result) = result {
-        Some((result, source_map))
-    } else {
-        None
-    }
+    result.map(|result| (result, source_map))
 }
 
 pub struct CodeGenAndVmResult {
