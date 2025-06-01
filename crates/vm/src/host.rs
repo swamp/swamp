@@ -71,6 +71,12 @@ impl HostArgs {
         std::slice::from_raw_parts_mut(ptr, len)
     }
 
+    pub fn read_from_register<T>(&mut self, register_id: u8) -> *const T {
+        let src_ptr = self.get_ptr(register_id) as *const T;
+
+        src_ptr
+    }
+
     pub fn write_to_register<T>(&mut self, register_id: u8, data: &T) {
         let dest_ptr = self.get_ptr(register_id) as *mut T;
 

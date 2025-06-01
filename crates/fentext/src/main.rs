@@ -8,7 +8,7 @@ use std::{process, thread};
 use swamp::prelude::{
     CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
     RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align, compile_codegen_and_create_vm,
-    layout_type, run_first_time, run_function_with_debug,
+    layout_type, run_first_time, run_function, run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 use tracing::{error, warn};
@@ -81,8 +81,31 @@ impl Application {
     }
 
     pub fn external_write(&mut self, mut host_args: HostArgs) {
-        let str = host_args.get_str();
-        self.canvas.write(str);
+        let str = { host_args.get_str().to_string() };
+        let enum_without_payload = host_args.read_from_register::<SwampEnumWithoutPayload>(2);
+        let discriminant = unsafe { (*enum_without_payload).discriminant };
+
+        let colors: Vec<crossterm::style::Color> = vec![
+            crossterm::style::Color::Black,
+            crossterm::style::Color::DarkRed,
+            crossterm::style::Color::DarkGreen,
+            crossterm::style::Color::DarkYellow,
+            crossterm::style::Color::DarkBlue,
+            crossterm::style::Color::DarkMagenta,
+            crossterm::style::Color::DarkCyan,
+            crossterm::style::Color::Grey,
+            crossterm::style::Color::DarkGrey,
+            crossterm::style::Color::Red,
+            crossterm::style::Color::Green,
+            crossterm::style::Color::Yellow,
+            crossterm::style::Color::Blue,
+            crossterm::style::Color::Magenta,
+            crossterm::style::Color::Cyan,
+            crossterm::style::Color::White,
+        ];
+
+        let color = &colors[discriminant as usize];
+        self.canvas.write(&str, *color);
     }
 
     pub(crate) fn external_last_keypress(&self, mut host_args: HostArgs) {
@@ -183,7 +206,13 @@ impl FenTextSwamp {
         vm.set_register_pointer_addr_for_parameter(1, self.simulation_value_addr);
         vm.set_stack_start(self.safe_stack_start_addr as usize);
 
-        run_function_with_debug(vm, &self.tick_fn, application, run_options);
+        let run_fast = true;
+
+        if run_fast {
+            run_function(vm, &self.tick_fn, application, run_options);
+        } else {
+            run_function_with_debug(vm, &self.tick_fn, application, run_options);
+        }
 
         vm.state == VmState::Normal
     }
@@ -290,7 +319,7 @@ impl FenText {
 
     #[must_use]
     pub fn tick(&mut self) -> bool {
-        let frame_time = Duration::from_millis(16);
+        let frame_time = Duration::from_millis(0);
 
         let ui = &mut self.ui;
         if let Some(input) = ui.canvas.poll() {

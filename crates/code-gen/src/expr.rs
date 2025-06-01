@@ -2,8 +2,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
 use swamp_vm_types::MemoryLocation;
+use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,

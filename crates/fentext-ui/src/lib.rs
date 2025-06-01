@@ -4,10 +4,12 @@
  */
 use crossterm::cursor::MoveTo;
 use crossterm::event::{Event, KeyCode, KeyEventKind};
+use crossterm::style::{Color, Print, ResetColor};
 use crossterm::terminal::{LeaveAlternateScreen, disable_raw_mode};
 use crossterm::{
     cursor::{self},
     event, execute,
+    style::SetForegroundColor,
     terminal::{Clear, ClearType, EnterAlternateScreen, enable_raw_mode},
 };
 use std::io;
@@ -73,9 +75,12 @@ impl Tui {
         execute!(&self.out, MoveTo(x, y)).expect("tui: move_to failed");
     }
 
-    pub fn write(&self, str: &str) {
-        write!(&self.out, "{str}").expect("tui: write failed");
+    pub fn write(&self, str: &str, color: Color) {
+        execute!(&self.out, SetForegroundColor(color), Print(str), ResetColor);
+        //write!(&self.out, "{str}").expect("tui: write failed");
     }
+
+    pub fn color(&self, color: &Color) {}
 
     #[must_use]
     pub fn poll(&self) -> Option<Input> {

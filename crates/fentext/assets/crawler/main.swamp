@@ -32,9 +32,28 @@ impl Input {
   }
 }
 
+enum Color {
+	Black,
+	Red,
+	Green,
+	Yellow,
+	Blue,
+	Magenta,
+	Cyan,
+	White,
+	BrightBlack,
+	BrightRed,
+	BrightGreen,
+	BrightYellow,
+	BrightBlue,
+	BrightMagenta,
+	BrightCyan,
+	BrightWhite,
+}
+
 external 22 fn input() -> Input?
 external 23 fn move(x: Int, y: Int)
-external 24 fn write(s: String)
+external 24 fn write(s: String, color: Color)
 
 struct Point {
   x: Int,
@@ -105,15 +124,15 @@ impl Crawler {
       for x in 0..GRID_WIDTH {
         entity_index = self.grid[y * GRID_WIDTH + x]
          if entity_index > 1  || entity_index < 0 {
-          write("!")
+          write("!", Color::BrightBlack)
          } else {
           entity = self.entities[entity_index]
           match entity.type {
-            Rock => write("."),
-            Player => write("a"),
-            Spider => write("b"),
-            Octopus => write("c"),
-            _ => write("@"),
+            Rock => write(".", Color::BrightBlack),
+            Player => write("@", Color::BrightMagenta),
+            Spider => write("b", Color::BrightBlack),
+            Octopus => write("c", Color::BrightBlack),
+            _ => write("@", Color::BrightBlack),
           }
          }
       }
@@ -165,22 +184,23 @@ impl Crawler {
 				entity.direction = ABSOLUTE_CLOCKWISE_DIRS[next_clockwise_dir]
 				entity.last_clockwise_dir = next_clockwise_dir
 				move(32, 29)
-        write('Testing direction ({entity.direction.x}, {entity.direction.y}) {entity.last_clockwise_dir}                   ')
+        write('Testing direction ({entity.direction.x}, {entity.direction.y}) {entity.last_clockwise_dir}                   ', Color::BrightBlack)
 			}
 		}
 	}
 
 	fn simulation_tick(mut self) {
 		for index, mut entity in self.entities {
-			if index == 1 {
-        move(32, 25)
-        write('Player at ({entity.point.x}, {entity.point.y})   ')
-      }
+			name = if index == 1 {
+				"Player"
+      } else if index == 2 {
+				"Spider"
+			} else {
+				"Unknown"
+			}
 
-			if index == 2 {
-        move(32, 27)
-        write('Spider at ({entity.point.x}, {entity.point.y}) ({entity.direction.x}, {entity.direction.y})   wait_value: ({entity.wait_value})  ')
-      }
+			move(3, 26 + index)
+			write('Entity {index}: {name} at ({entity.point.x}, {entity.point.y}) ({entity.direction.x}, {entity.direction.y}) wait: {entity.wait}  wait_value: ({entity.wait_value})  ', Color::Cyan)
 
 			if index != 1 {
 				Crawler::ai_tick(&entity, &self.grid)
@@ -194,8 +214,8 @@ impl Crawler {
     user_input = input()
 
     when user_input {
-      move(32, 27)
-      write('input: {user_input}    ')
+      move(32, 31)
+      write('input: {user_input}    ', Color::BrightBlack)
 			new_direction = match user_input {
 				Left => Point { x: -1, y: 0 },
 				Right => Point { x: 1, y: 0 },
@@ -226,7 +246,7 @@ fn main() -> Crawler {
       },
       Entity {
         type: Type::Player,
-        point: Point { x: 1, y: 0 },
+        point: Point { x: 4, y: 0 },
 				direction: Point { x: 0, y: 1 },
 				wait_value: 0,
       },
@@ -237,6 +257,6 @@ fn main() -> Crawler {
 				wait_value: 3,
       },
     ],
-    grid: [0, 1, 2, 0]
+    grid: [0, 0, 2, 0, 1]
   }
 }

@@ -13,8 +13,8 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
-use swamp_types::prelude::*;
 use swamp_types::StructLikeType;
+use swamp_types::prelude::*;
 use tracing::error;
 
 #[derive(Debug, Clone)]

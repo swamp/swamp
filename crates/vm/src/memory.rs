@@ -43,7 +43,9 @@ impl Memory {
 
         let aligned_start_of_heap = align(memory_size * 2 / 4, ALIGNMENT);
 
-        eprintln!("START: heap_start: {aligned_start_of_heap:X} stack: {aligned_start_of_stack:X}");
+        eprintln!(
+            "START: stack_start: {aligned_start_of_stack:X}, heap_start: {aligned_start_of_heap:X} "
+        );
         assert!(aligned_start_of_heap > aligned_start_of_stack + 128 * 1024);
 
         Self {

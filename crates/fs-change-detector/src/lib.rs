@@ -47,9 +47,7 @@ fn map_notify_error_to_file_watcher_error(e: notify::Error, path: &Path) -> File
         ErrorKind::InvalidConfig(config) => FileWatcherError::InvalidWatcherConfig(config),
         ErrorKind::WatchNotFound => FileWatcherError::WatchNotFound(path.to_path_buf()),
 
-        ErrorKind::Io(io_err) => {
-            FileWatcherError::IoError(io_err.to_string())
-        }
+        ErrorKind::Io(io_err) => FileWatcherError::IoError(io_err.to_string()),
     }
 }
 
@@ -62,14 +60,9 @@ pub struct FileWatcher {
 impl FileWatcher {
     /// # Errors
     ///
-    pub fn new(
-        watch_path: &Path,
-    ) -> Result<Self, FileWatcherError> {
+    pub fn new(watch_path: &Path) -> Result<Self, FileWatcherError> {
         let (watcher, receiver) = start_watch(watch_path)?;
-        Ok(Self {
-            receiver,
-            watcher,
-        })
+        Ok(Self { receiver, watcher })
     }
 
     #[must_use]
@@ -98,37 +91,38 @@ pub fn start_watch(
 
     let owned_watch_path = watch_path.to_path_buf();
 
-    let mut watcher = notify::recommended_watcher(move |res| {
-        match res {
-            Ok(_event) => {
-                let now = Instant::now();
-                if now.duration_since(last_event) >= debounce_duration {
-                    if let Err(e) = sender.send(ChangeMessage::SomeKindOfChange) {
-                        error!(
-                            error = ?e,
-                            "FileWatcher internal channel send error: receiver likely dropped"
-                        );
-                    }
-                    last_event = now;
+    let mut watcher = notify::recommended_watcher(move |res| match res {
+        Ok(_event) => {
+            let now = Instant::now();
+            if now.duration_since(last_event) >= debounce_duration {
+                if let Err(e) = sender.send(ChangeMessage::SomeKindOfChange) {
+                    error!(
+                        error = ?e,
+                        "FileWatcher internal channel send error: receiver likely dropped"
+                    );
                 }
-            }
-            Err(e) => {
-                error!(
-                    error = ?e,
-                    path = ?owned_watch_path,
-                    "FileWatcher internal background watch error"
-                );
+                last_event = now;
             }
         }
-    }).map_err(|e| {
+        Err(e) => {
+            error!(
+                error = ?e,
+                path = ?owned_watch_path,
+                "FileWatcher internal background watch error"
+            );
+        }
+    })
+    .map_err(|e| {
         error!(error = ?e, path = ?watch_path, "Failed to initialize watcher");
         map_notify_error_to_file_watcher_error(e, watch_path)
     })?;
 
-    watcher.watch(watch_path, RecursiveMode::Recursive).map_err(|e| {
-        error!(error = ?e, path = ?watch_path, "Failed to start watching path");
-        map_notify_error_to_file_watcher_error(e, watch_path)
-    })?;
+    watcher
+        .watch(watch_path, RecursiveMode::Recursive)
+        .map_err(|e| {
+            error!(error = ?e, path = ?watch_path, "Failed to start watching path");
+            map_notify_error_to_file_watcher_error(e, watch_path)
+        })?;
 
     debug!(path = ?watch_path, "Successfully started file watcher");
 

@@ -295,11 +295,13 @@ pub struct MemoryLocation {
 impl MemoryLocation {}
 
 impl MemoryLocation {
-    #[must_use] pub const fn vm_type(&self) -> &VmType {
+    #[must_use]
+    pub const fn vm_type(&self) -> &VmType {
         &self.ty
     }
 
-    #[must_use] pub fn unsafe_add_offset(&self, offset: MemoryOffset) -> Self {
+    #[must_use]
+    pub fn unsafe_add_offset(&self, offset: MemoryOffset) -> Self {
         Self {
             base_ptr_reg: self.base_ptr_reg.clone(),
             offset: self.offset.add(offset),
