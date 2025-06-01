@@ -12,43 +12,43 @@ const GRID_CELL_COUNT = GRID_WIDTH * GRID_HEIGHT
 
 
 enum Input {
-  Left,
-  Right,
-  Up,
-  Down,
-  Action1,
-  Action2,
+    Left,
+    Right,
+    Up,
+    Down,
+    Action1,
+    Action2,
 }
 
 impl Input {
-  fn to_string(self) -> String {
-    match self {
-        Left => "left",
-        Right => "right",
-        Up => "up",
-        Down => "down",
-        _ => "some action",
+    fn to_string(self) -> String {
+        match self {
+            Left => "left",
+            Right => "right",
+            Up => "up",
+            Down => "down",
+            _ => "some action",
+        }
     }
-  }
 }
 
 enum Color {
-	Black,
-	Red,
-	Green,
-	Yellow,
-	Blue,
-	Magenta,
-	Cyan,
-	White,
-	BrightBlack,
-	BrightRed,
-	BrightGreen,
-	BrightYellow,
-	BrightBlue,
-	BrightMagenta,
-	BrightCyan,
-	BrightWhite,
+    Black,
+    Red,
+    Green,
+    Yellow,
+    Blue,
+    Magenta,
+    Cyan,
+    White,
+    BrightBlack,
+    BrightRed,
+    BrightGreen,
+    BrightYellow,
+    BrightBlue,
+    BrightMagenta,
+    BrightCyan,
+    BrightWhite,
 }
 
 external 22 fn input() -> Input?
@@ -61,35 +61,46 @@ struct Point {
 }
 
 impl Point {
-  fn add(self, other: Point) -> Point {
-    Point { x: self.x + other.x, y: self.y + other.y }
-  }
-  fn to_string(self) -> String {
-    '({self.x}, {self.y})'
-  }
+    fn add(self, other: Point) -> Point {
+        Point { x: self.x + other.x, y: self.y + other.y }
+    }
+    fn to_string(self) -> String {
+        '({self.x}, {self.y})'
+    }
 }
 
 enum Type {
-  Rock,
-  Player,
-  Spider,
-  Octopus,
+    Rock,
+    Player,
+    Spider,
+    Octopus,
+}
+
+impl Type {
+    fn to_string(self) -> String {
+        match self {
+            Rock => "Rock",
+            Player => "Player",
+            Spider => "Spider",
+            Octopus => "Octopus",
+        }
+    }
 }
 
 struct Entity {
-  type: Type,
-  point: Point,
-  direction: Point, // direction vector
-  wait: Int,
-	wait_value: Int,
-	last_clockwise_dir: Int,
+    type: Type,
+    point: Point,
+    direction: Point, // direction vector
+    wait: Int,
+    wait_value: Int,
+    last_clockwise_dir: Int,
 }
 
 
 struct Crawler {
-  tick_count: Int,
-  entities: Vec<Entity, 10>,
-  grid: [Int; 1920], // 80x24 grid of entity indices
+    tick_count: Int,
+    entities: Vec<Entity, 10>,
+    grid: [Int; 1920], // 80x24 grid of entity indices
 }
 
 /*
@@ -118,144 +129,132 @@ const ABSOLUTE_CLOCKWISE_DIRS = [
 impl Crawler {
 
 
-  fn draw(self) {
-    for y in 0..GRID_HEIGHT {
-      move(0, y)
-      for x in 0..GRID_WIDTH {
-        entity_index = self.grid[y * GRID_WIDTH + x]
-         if entity_index > 0 {
-          entity = self.entities[entity_index-1]
-          match entity.type {
-            Rock => write("#", Color::BrightBlack),
-            Player => write("@", Color::BrightMagenta),
-            Spider => write("!", Color::BrightBlack),
-            Octopus => write("c", Color::BrightBlack),
-            _ => write("@", Color::BrightBlack),
-          }
-         } else {
-					write(".", Color::BrightBlack)
-				 }
-				}
-      }
+    fn draw(self) {
+        for y in 0..GRID_HEIGHT {
+            move(0, y)
+            for x in 0..GRID_WIDTH {
+                entity_index = self.grid[y * GRID_WIDTH + x]
+                if entity_index > 0 {
+                    entity = self.entities[entity_index-1]
+                    match entity.type {
+                        Rock => write("#", Color::BrightBlack),
+                        Player => write("@", Color::BrightMagenta),
+                        Spider => write("!", Color::BrightBlack),
+                        Octopus => write("c", Color::BrightBlack),
+                        _ => write("@", Color::BrightBlack),
+                    }
+                } else {
+                    write(".", Color::BrightBlack)
+                }
+            }
+        }
     }
 
 
-	fn cell_is_free(point: Point, grid: [Int]) -> Bool {
-		if point.x < 0 || point.x >= GRID_WIDTH || point.y < 0 || point.y >= GRID_HEIGHT {
-			false
-		} else {
-			index = point.y * GRID_WIDTH + point.x
-			grid[index] == 0
-		}
-	}
-
-  fn move_transaction(mut grid: [Int], from: Point, to: Point)  {
-    from_index = from.y * GRID_WIDTH + from.x
-    to_index = to.y * GRID_WIDTH + to.x
-
-		if from_index != to_index {
-
-    assert(grid[from_index] != 0 || grid[to_index] == 0, "Invalid move transaction from {from} to {to}")
-
-	    grid[to_index] = grid[from_index]
-    	grid[from_index] = 0
-				}
-
-  }
-
-  fn entity_tick(mut entity: Entity, mut grid: [Int]) {
-
-    if entity.wait == 0 {
-      want_to_move_to = entity.point.add(entity.direction)
-      if Crawler::cell_is_free(want_to_move_to, grid) {
-        Crawler::move_transaction(&grid, entity.point, want_to_move_to)
-        entity.point = want_to_move_to
-      }
-      entity.wait = entity.wait_value
-    } else {
-      entity.wait -= 1
-    }
-  }
-
-	fn ai_tick(mut entity: Entity, mut grid: [Int]) {
-		if entity.wait == 0 {
-			want_to_move_to = entity.point.add(entity.direction)
-			if Crawler::cell_is_free(want_to_move_to, grid) {
-				// Nothing to do, will probably right after this
-			} else {
-				next_clockwise_dir = (entity.last_clockwise_dir + 1) % 4
-				entity.direction = ABSOLUTE_CLOCKWISE_DIRS[next_clockwise_dir]
-				entity.last_clockwise_dir = next_clockwise_dir
-				move(32, 29)
-        write('Testing direction ({entity.direction.x}, {entity.direction.y}) {entity.last_clockwise_dir}                   ', Color::BrightBlack)
-			}
-		}
-	}
-
-	fn simulation_tick(mut self) {
-		for index, mut entity in self.entities {
-			//if index != 0 {
-			name = if index == 1 {
-				"Player"
-      } else if index == 2 {
-				"Spider"
-			} else {
-				"Unknown"
-			}
-
-			move(3, 26 + index)
-			write('Entity {index}: {name} at ({entity.point.x}, {entity.point.y}) ({entity.direction.x}, {entity.direction.y}) wait: {entity.wait}  wait_value: ({entity.wait_value})  ', Color::Cyan)
-
-			if entity.type != Type::Player {
-				Crawler::ai_tick(&entity, &self.grid)
-			}
-      Crawler::entity_tick(&entity, &self.grid)
-			}
-    //}
-	}
-
-  #[host_call]
-  fn tick(mut self) {
-    user_input = input()
-
-    when user_input {
-      move(32, 31)
-      write('input: {user_input}    ', Color::BrightBlack)
-			new_direction = match user_input {
-				Left => Point { x: -1, y: 0 },
-				Right => Point { x: 1, y: 0 },
-			  Up => Point { x: 0, y: -1 },
-			  Down => Point { x: 0, y: 1 },
-			}
-			self.entities[0].direction = new_direction
+    fn cell_is_free(point: Point, grid: [Int]) -> Bool {
+        if point.x < 0 || point.x >= GRID_WIDTH || point.y < 0 || point.y >= GRID_HEIGHT {
+            false
+        } else {
+            index = point.y * GRID_WIDTH + point.x
+            grid[index] == 0
+        }
     }
 
-		self.simulation_tick()
+    fn move_transaction(mut grid: [Int], from: Point, to: Point)  {
+        from_index = from.y * GRID_WIDTH + from.x
+        to_index = to.y * GRID_WIDTH + to.x
 
-		self.draw()
+        if from_index != to_index {
+            assert(grid[from_index] != 0 || grid[to_index] == 0, "Invalid move transaction from {from} to {to}")
 
-    self.tick_count += 1
-  }
+            grid[to_index] = grid[from_index]
+            grid[from_index] = 0
+        }
+
+    }
+
+    fn entity_tick(mut entity: Entity, mut grid: [Int]) {
+        if entity.wait == 0 {
+            want_to_move_to = entity.point.add(entity.direction)
+            if Crawler::cell_is_free(want_to_move_to, grid) {
+                Crawler::move_transaction(&grid, entity.point, want_to_move_to)
+                entity.point = want_to_move_to
+            }
+            entity.wait = entity.wait_value
+        } else {
+            entity.wait -= 1
+        }
+    }
+
+    fn ai_tick(mut entity: Entity, mut grid: [Int]) {
+        if entity.wait == 0 {
+            want_to_move_to = entity.point.add(entity.direction)
+            if Crawler::cell_is_free(want_to_move_to, grid) {
+                // Nothing to do, will probably right after this
+            } else {
+                next_clockwise_dir = (entity.last_clockwise_dir + 1) % 4
+                entity.direction = ABSOLUTE_CLOCKWISE_DIRS[next_clockwise_dir]
+                entity.last_clockwise_dir = next_clockwise_dir
+                move(32, 29)
+                write('Testing direction ({entity.direction.x}, {entity.direction.y}) {entity.last_clockwise_dir}                   ', Color::BrightBlack)
+            }
+        }
+    }
+
+    fn simulation_tick(mut self) {
+        for index, mut entity in self.entities {
+            move(3, 26 + index)
+            write('Entity {index}: {entity.type} at ({entity.point.x}, {entity.point.y}) ({entity.direction.x}, {entity.direction.y}) wait: {entity.wait}  wait_value: ({entity.wait_value})  ', Color::Cyan)
+
+            if entity.type != Type::Player {
+                Crawler::ai_tick(&entity, &self.grid)
+            }
+            Crawler::entity_tick(&entity, &self.grid)
+        }
+    }
+
+    #[host_call]
+    fn tick(mut self) {
+        user_input = input()
+
+        when user_input {
+            move(32, 31)
+            write('input: {user_input}    ', Color::BrightBlack)
+            new_direction = match user_input {
+                Left => Point { x: -1, y: 0 },
+                Right => Point { x: 1, y: 0 },
+                Up => Point { x: 0, y: -1 },
+                Down => Point { x: 0, y: 1 },
+            }
+            self.entities[0].direction = new_direction
+        }
+
+        self.simulation_tick()
+
+        self.draw()
+
+        self.tick_count += 1
+    }
 }
 
 #[host_call]
 fn main() -> Crawler {
-  Crawler {
-    tick_count: 0,
-    entities: [
-       Entity {
-        type: Type::Player,
-        point: Point { x: 4, y: 0 }, // initial position must match the grid below
-				direction: Point { x: 0, y: 0 },
-				wait_value: 10,
-      },
-   		Entity {
-        type: Type::Spider,
-        point: Point { x: 2, y: 0 }, // initial position must match the grid below
-				direction: Point { x: 1, y: 1 },
-				wait_value: 20,
-      },
-    ],
-    grid: [0, 0, 2, 0, 1]
-  }
+    Crawler {
+        tick_count: 0,
+        entities: [
+            Entity {
+                type: Type::Player,
+                point: Point { x: 4, y: 0 }, // initial position must match the grid below
+                direction: Point { x: 0, y: 0 },
+                wait_value: 4,
+            },
+            Entity {
+                type: Type::Spider,
+                point: Point { x: 2, y: 0 }, // initial position must match the grid below
+                direction: Point { x: 1, y: 1 },
+                wait_value: 20,
+            },
+        ],
+        grid: [0, 0, 2, 0, 1]
+    }
 }

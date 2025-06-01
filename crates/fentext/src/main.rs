@@ -355,7 +355,7 @@ impl FenText {
 
     #[must_use]
     pub fn tick(&mut self) -> bool {
-        let frame_time = Duration::from_millis(0);
+        let frame_time = Duration::from_millis(16);
 
         let ui = &mut self.ui;
         if let Some(input) = ui.canvas.poll() {
