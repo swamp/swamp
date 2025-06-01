@@ -59,7 +59,7 @@ fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable) {
     let string_unit = Signature {
         parameters: [TypeForParameter {
             name: "v".to_string(),
-            resolved_type: Type::Never,
+            resolved_type: Type::String,
             is_mutable: false,
             node: None,
         }]
@@ -84,12 +84,12 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
     let slice_to_self = Signature {
         parameters: [TypeForParameter {
             name: "slice".to_string(),
-            resolved_type: Type::Never,
+            resolved_type: Type::Unit,
             is_mutable: false,
             node: None,
         }]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let slice_to_self_functions = [IntrinsicFunction::SparseFromSlice];
     for intrinsic_fn in slice_to_self_functions {
@@ -105,7 +105,7 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
 
     let unit_to_value = Signature {
         parameters: [].into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
 
     let unit_to_value_functions = [IntrinsicFunction::SparseCreate];
@@ -124,12 +124,12 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
     let self_to_value = Signature {
         parameters: [TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::Never,
+            resolved_type: Type::Unit,
             is_mutable: false,
             node: None,
         }]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
 
     let self_to_value_functions = [
@@ -152,19 +152,19 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "i".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
 
     let self_value_to_value_functions = [
@@ -187,25 +187,25 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "key".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "value".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
 
     let self_value_value_mut_to_unit_functions = [IntrinsicFunction::SparseSubscriptMut];
@@ -225,13 +225,13 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "i".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -257,19 +257,19 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "key".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Optional(Box::new(Type::Never))),
+        return_type: Box::new(Type::Optional(Box::new(Type::Unit))),
     };
 
     let self_value_to_option_value_functions = [IntrinsicFunction::SparseRemove];
@@ -292,19 +292,19 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "x".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "y".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -328,19 +328,19 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "x".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_value_to_vec_functions = [IntrinsicFunction::Map2GetColumn];
     for intrinsic_fn in self_value_to_vec_functions {
@@ -358,25 +358,25 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "x".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "y".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_value_value_to_value_functions = [IntrinsicFunction::Map2Get];
     for intrinsic_fn in self_value_value_to_value_functions {
@@ -394,19 +394,19 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "y".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_value_y_to_vec_functions = [IntrinsicFunction::Map2GetRow];
     for intrinsic_fn in self_value_y_to_vec_functions {
@@ -424,19 +424,19 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
             TypeForParameter {
                 name: "x".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "y".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -460,25 +460,25 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
             TypeForParameter {
                 name: "x".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "y".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "v".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -500,7 +500,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
 
     let to_self = Signature {
         parameters: [].into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let to_self_functions = [IntrinsicFunction::Map2Create];
     for intrinsic_fn in to_self_functions {
@@ -520,12 +520,12 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
     let slice_to_self = Signature {
         parameters: [TypeForParameter {
             name: "slice_pair".to_string(),
-            resolved_type: Type::Never,
+            resolved_type: Type::Unit,
             is_mutable: false,
             node: None,
         }]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let slice_to_self_functions = [IntrinsicFunction::MapFromSlicePair];
     for intrinsic_fn in slice_to_self_functions {
@@ -541,7 +541,7 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
 
     let unit_to_value = Signature {
         parameters: [].into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
 
     let unit_to_value_functions = [IntrinsicFunction::MapCreate];
@@ -560,12 +560,12 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
     let self_to_value = Signature {
         parameters: [TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::Never,
+            resolved_type: Type::Unit,
             is_mutable: false,
             node: None,
         }]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
 
     let self_to_value_functions = [IntrinsicFunction::MapIter, IntrinsicFunction::MapIterMut];
@@ -585,19 +585,19 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "i".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
 
     let self_value_to_value_functions = [IntrinsicFunction::MapSubscript];
@@ -617,19 +617,19 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
             TypeForParameter {
                 name: "key".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
 
     let self_value_value_mut_to_unit_functions = [
@@ -652,13 +652,13 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "i".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -684,13 +684,13 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
             TypeForParameter {
                 name: "key".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -715,7 +715,7 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
     let self_to_int = Signature {
         parameters: [TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::Never,
+            resolved_type: Type::Unit,
             is_mutable: false,
             node: None,
         }]
@@ -780,13 +780,13 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
             },
             TypeForParameter {
                 name: "initial_value".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let int_int_value_to_self_functions = [IntrinsicFunction::GridCreate];
     for intrinsic_fn in int_int_value_to_self_functions {
@@ -804,7 +804,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
@@ -822,7 +822,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
             },
             TypeForParameter {
                 name: "v".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -846,7 +846,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -864,7 +864,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_int_int_to_value_functions = [IntrinsicFunction::GridGet];
     for intrinsic_fn in self_int_int_to_value_functions {
@@ -882,7 +882,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -894,7 +894,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_int_to_array_value_functions = [IntrinsicFunction::GridGetColumn];
     for intrinsic_fn in self_int_to_array_value_functions {
@@ -913,7 +913,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
 fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
     let unit_to_value = Signature {
         parameters: [].into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
 
     let unit_to_value_functions = [IntrinsicFunction::VecCreate];
@@ -933,13 +933,13 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
             TypeForParameter {
                 name: "v".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -964,12 +964,12 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
     let self_value_to_value = Signature {
         parameters: [TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::Never,
+            resolved_type: Type::Unit,
             is_mutable: true,
             node: None,
         }]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_value_to_option_functions = [IntrinsicFunction::VecPop];
     for intrinsic_fn in self_value_to_option_functions {
@@ -987,7 +987,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -999,7 +999,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_int_to_value_functions = [IntrinsicFunction::VecSubscript];
     for intrinsic_fn in self_int_to_value_functions {
@@ -1017,19 +1017,19 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "range".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_range_to_self_functions = [IntrinsicFunction::VecSubscriptRange];
     for intrinsic_fn in self_range_to_self_functions {
@@ -1047,7 +1047,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
@@ -1059,14 +1059,14 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
 
     let mut_self_int_to_value = Signature {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
@@ -1078,7 +1078,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let mut_self_int_to_value_functions = [IntrinsicFunction::VecRemoveIndexGetValue];
     for intrinsic_fn in mut_self_int_to_value_functions {
@@ -1096,7 +1096,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
@@ -1126,7 +1126,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -1138,7 +1138,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             },
         ]
         .into(),
-        return_type: Box::new(Type::Optional(Box::new(Type::Never))),
+        return_type: Box::new(Type::Optional(Box::new(Type::Unit))),
     };
     let self_int_to_optional_value_functions = [IntrinsicFunction::VecGet];
     for intrinsic_fn in self_int_to_optional_value_functions {
@@ -1155,7 +1155,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
     let mut_self_to_unit = Signature {
         parameters: [TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::Never,
+            resolved_type: Type::Unit,
             is_mutable: true,
             node: None,
         }]
@@ -1177,12 +1177,12 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
     let self_to_value = Signature {
         parameters: [TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::Never,
+            resolved_type: Type::Unit,
             is_mutable: false,
             node: None,
         }]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_to_value_functions = [
         IntrinsicFunction::VecIter,
@@ -1205,13 +1205,13 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "block".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -1235,19 +1235,19 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "block".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_block_to_generic_functions = [
         IntrinsicFunction::VecMap,
@@ -1271,25 +1271,25 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "element".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "block".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
         ]
         .into(),
-        return_type: Box::new(Type::Never),
+        return_type: Box::new(Type::Unit),
     };
     let self_element_block_to_generic_functions = [IntrinsicFunction::VecFold];
     for intrinsic_fn in self_element_block_to_generic_functions {
@@ -1307,13 +1307,13 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "block".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },
@@ -1336,7 +1336,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
     let self_to_int = Signature {
         parameters: [TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::Never,
+            resolved_type: Type::Unit,
             is_mutable: false,
             node: None,
         }]
@@ -1386,7 +1386,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
@@ -1422,7 +1422,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: true,
                 node: None,
             },
@@ -1434,7 +1434,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             },
             TypeForParameter {
                 name: "v".to_string(),
-                resolved_type: Type::Never,
+                resolved_type: Type::Unit,
                 is_mutable: false,
                 node: None,
             },

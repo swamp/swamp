@@ -260,7 +260,7 @@ impl<'a> Analyzer<'a> {
         let resolved_true = Box::new(true_expr);
 
         let mut detected = context.expected_type.cloned();
-        if detected.is_none() && !matches!(resolved_true.ty, Type::Never) {
+        if detected.is_none() {
             detected = Some(resolved_true.ty.clone());
         }
 
@@ -268,7 +268,7 @@ impl<'a> Analyzer<'a> {
         let else_statements = if let Some(false_expression) = maybe_false_expression {
             let else_context = branch_context.with_expected_type(detected.as_ref());
             let else_expr = self.analyze_expression(false_expression, &else_context)?;
-            if detected.is_none() && !matches!(else_expr.ty, Type::Never) {
+            if detected.is_none() {
                 detected = Some(else_expr.ty.clone());
             }
 
@@ -1476,11 +1476,6 @@ impl<'a> Analyzer<'a> {
             let stmt_context = context.with_expected_type(Some(&Type::Unit));
             let expr = self.analyze_expression(expression, &stmt_context)?;
 
-            if matches!(expr.ty, Type::Never) {
-                resolved_expressions.push(expr);
-                return Ok((resolved_expressions, Type::Never));
-            }
-
             resolved_expressions.push(expr);
         }
 
@@ -1834,7 +1829,7 @@ impl<'a> Analyzer<'a> {
                 &scrutinee_type,
             )?;
 
-            if known_type.is_none() && !matches!(resolved_arm.expression.ty, Type::Never) {
+            if known_type.is_none() {
                 known_type = Some(resolved_arm.expression.ty.clone());
             }
             resolved_arms.push(resolved_arm);
@@ -1843,15 +1838,7 @@ impl<'a> Analyzer<'a> {
         known_type.map_or_else(
             || Err(self.create_err(ErrorKind::MatchArmsMustHaveTypes, &scrutinee.node)),
             |encountered_type| {
-                if matches!(encountered_type, Type::Never) {
-                    Err(self.create_err(
-                        ErrorKind::IncompatibleTypes {
-                            expected: Type::Never,
-                            found: encountered_type,
-                        },
-                        &scrutinee.node,
-                    ))
-                } else {
+                {
                     Ok((
                         Match {
                             expression: Box::new(resolved_scrutinee),
@@ -2228,7 +2215,7 @@ impl<'a> Analyzer<'a> {
                 &context.with_expected_type(detected_type.as_ref()),
             )?;
             let ty = resolved_result.ty.clone();
-            if detected_type.is_none() && !matches!(ty, Type::Never) {
+            if detected_type.is_none() {
                 detected_type = Some(ty.clone());
             }
 

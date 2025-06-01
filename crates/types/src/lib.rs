@@ -22,8 +22,6 @@ pub enum Type {
 
     Unit, // Empty or nothing
 
-    Never, // Not even empty since it is unknown.
-
     // Aggregate type, Containers
     Tuple(Vec<Type>),
     NamedStruct(NamedStructType),
@@ -266,7 +264,7 @@ impl Type {
     #[must_use]
     pub fn is_concrete(&self) -> bool {
         match self {
-            Self::Unit | Self::Never | Self::Function(_) => false,
+            Self::Unit | Self::Function(_) => false,
 
             Self::SliceView(_) => false,
             Self::DynamicLengthVecView(_) => false,
@@ -331,7 +329,6 @@ impl Type {
 
     pub fn is_blittable(&self) -> bool {
         match self {
-            Self::Never => true, // HACK: Just for now
             Self::Unit => true,
 
             //| Self::Never
@@ -402,7 +399,6 @@ impl Type {
     pub fn can_be_stored_in_field(&self) -> bool {
         match self {
             Self::Unit
-            | Self::Never
             | Self::Function(_)
             | Self::MutableReference(_)
             | Self::SliceView(_)
@@ -450,7 +446,6 @@ impl Debug for Type {
             Self::Range(_) => write!(f, "Range"),
             Self::Bool => write!(f, "Bool"),
             Self::Unit => write!(f, "()"),
-            Self::Never => write!(f, "!"),
             Self::Tuple(tuple_type_ref) => write!(f, "( {tuple_type_ref:?} )"),
             Self::NamedStruct(struct_type_ref) => {
                 write!(
@@ -499,7 +494,6 @@ impl Display for Type {
             Self::Bool => write!(f, "Bool"),
             Self::Range(_) => write!(f, "Range"),
             Self::Unit => write!(f, "()"),
-            Self::Never => write!(f, "!"),
             Self::Tuple(tuple) => write!(f, "({})", comma(tuple)),
             Self::NamedStruct(struct_ref) => write!(f, "{}", struct_ref.assigned_name),
             Self::AnonymousStruct(struct_ref) => write!(f, "{struct_ref:?}"),
@@ -555,9 +549,7 @@ impl Type {
         match (self, other) {
             (Self::Function(a), Self::Function(b)) => a.same_type(b),
 
-            (_, Self::Never)
-            | (Self::Never, _)
-            | (Self::Int, Self::Int)
+            (Self::Int, Self::Int)
             | (Self::Float, Self::Float)
             | (Self::String, Self::String)
             | (Self::Bool, Self::Bool)

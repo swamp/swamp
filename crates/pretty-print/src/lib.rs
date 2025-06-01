@@ -639,7 +639,6 @@ impl SourceMapDisplay<'_> {
             Type::SliceView(_) => todo!(),
             Type::MapStorage(_, _, _) => todo!(),
             Type::DynamicLengthMapView(_, _) => todo!(),
-            Type::Never => write!(f, "!"),
         }
     }
 
@@ -679,7 +678,6 @@ impl SourceMapDisplay<'_> {
             Type::FixedCapacityAndLengthArray(_, _) => todo!(),
             Type::DynamicLengthMapView(_, _) => todo!(),
             Type::MapStorage(_, _, _) => todo!(),
-            Type::Never => write!(f, "!"),
         }
     }
 

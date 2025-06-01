@@ -97,7 +97,7 @@ impl Default for InternalFunctionDefinition {
     fn default() -> Self {
         Self {
             body: Expression {
-                ty: Type::Never,
+                ty: Type::Unit,
                 node: Node::default(),
                 kind: ExpressionKind::Block(vec![]),
             },
@@ -107,7 +107,7 @@ impl Default for InternalFunctionDefinition {
             defined_in_module_path: vec![],
             signature: Signature {
                 parameters: vec![],
-                return_type: Box::new(Type::Never),
+                return_type: Box::new(Type::Unit),
             },
             //variable_scopes: FunctionScopeState::new(),
             parameters: Vec::new(),
