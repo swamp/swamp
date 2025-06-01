@@ -7,8 +7,8 @@ use std::time::Duration;
 use std::{process, thread};
 use swamp::prelude::{
     CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
-    RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, StackMemoryAddress, VmState, align,
-    compile_codegen_and_create_vm, layout_type, print_value, run_first_time, run_function,
+    RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align,
+    compile_codegen_and_create_vm, layout_type, run_first_time, run_function,
     run_function_with_debug,
 };
 use swamp_std::print::print_fn;
@@ -190,7 +190,7 @@ pub struct FenTextSwamp {
 }
 
 impl FenTextSwamp {
-    pub fn new(runtime_result: CodeGenAndVmResult, boot_info: BootInfo) -> Self {
+    #[must_use] pub fn new(runtime_result: CodeGenAndVmResult, boot_info: BootInfo) -> Self {
         Self {
             runtime_result,
             tick_fn: boot_info.function_info,
@@ -258,7 +258,7 @@ impl FenTextSwamp {
         let simulation_type = main_fn.return_type();
         let gen_simulation_type = layout_type(simulation_type);
 
-        let mut s = String::new();
+        let s = String::new();
         let constant_memory_size = runtime_result.vm.memory().constant_memory_size as u32;
 
         let root_struct_start = align(constant_memory_size as usize, SAFE_ALIGNMENT);
@@ -344,7 +344,7 @@ impl FenText {
     ///
     #[must_use]
     pub fn new(swamp: FenTextSwamp) -> Self {
-        let mut ui = Application {
+        let ui = Application {
             canvas: Tui::new().unwrap(),
             tick_count: 0,
             last_keypress: SwampOption::none(),

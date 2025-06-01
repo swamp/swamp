@@ -80,7 +80,7 @@ impl Tui {
         //write!(&self.out, "{str}").expect("tui: write failed");
     }
 
-    pub fn color(&self, color: &Color) {}
+    pub const fn color(&self, color: &Color) {}
 
     #[must_use]
     pub fn poll(&self) -> Option<Input> {

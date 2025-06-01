@@ -23,7 +23,6 @@ use swamp_vm_types::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,
     PatchPosition,
 };
-use tracing::debug;
 
 impl TopLevelGenState {
     /// # Panics

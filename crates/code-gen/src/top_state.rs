@@ -10,7 +10,7 @@ use swamp_vm_types::types::FunctionInfoKind;
 use swamp_vm_types::{
     BinaryInstruction, InstructionPosition, InstructionPositionOffset, InstructionRange, Meta,
 };
-use tracing::{error, info};
+use tracing::error;
 
 /// Top-level container that owns both states
 pub struct TopLevelGenState {
