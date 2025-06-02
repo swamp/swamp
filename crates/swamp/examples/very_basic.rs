@@ -15,10 +15,10 @@ pub fn very_basic(test_dir: &Path) {
             iteration_count: 1,
             debug_output: false,
             debug_opcodes: false,
-            debug_operations: true,
+            debug_operations: false,
             debug_stats: true,
         },
-        "map::",
+        "",
     );
 
     assert!(test_result.succeeded());

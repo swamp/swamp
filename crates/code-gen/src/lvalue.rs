@@ -100,12 +100,12 @@ impl CodeBuilder<'_> {
 
                 LocationAccessKind::MapSubscriptCreateIfNeeded(map_type, key_expr) => {
                     current_location =
-                        self.map_subscript_helper(&current_location, &map_type, key_expr, ctx);
+                        self.map_subscript_helper(&current_location, map_type, key_expr, ctx);
                 }
 
                 LocationAccessKind::MapSubscriptMustExist(map_type, key_expr) => {
                     current_location =
-                        self.map_subscript_helper(&current_location, &map_type, key_expr, ctx);
+                        self.map_subscript_helper(&current_location, map_type, key_expr, ctx);
                 }
 
                 LocationAccessKind::IntrinsicSubscript(

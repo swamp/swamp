@@ -2,9 +2,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::Expression;
-use swamp_types::Type;
-use swamp_vm_types::types::{BasicType, BasicTypeKind, Destination, TupleType};
-use swamp_vm_types::{AggregateMemoryLocation, MemoryOffset, PointerLocation};
+use swamp_vm_types::PointerLocation;
+use swamp_vm_types::types::{BasicTypeKind, Destination};
 use tracing::debug;
 
 impl CodeBuilder<'_> {

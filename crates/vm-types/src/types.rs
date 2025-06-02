@@ -57,6 +57,7 @@ pub struct TupleType {
 }
 
 impl TupleType {
+    #[must_use]
     pub fn aligned_size_of_field(&self, field_index: usize) -> MemorySize {
         let max_alignment: usize = self.max_alignment.into();
         MemorySize(max(self.fields[field_index].size.0 as usize, max_alignment) as u16)
