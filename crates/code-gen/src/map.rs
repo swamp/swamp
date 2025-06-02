@@ -59,12 +59,13 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
 
         let len = initializer_pair_list_expressions.len();
+        let aligned_key_size = key_value_tuple_type.aligned_size_of_field(0);
         debug_assert!(capacity >= len);
         if capacity > 0 || len > 0 {
             self.builder.add_map_init_set_capacity(
                 target_map_header_ptr_reg,
                 capacity as u16,
-                key_value_tuple_type.fields[0].ty.total_size,
+                aligned_key_size,
                 key_value_tuple_type.total_size,
                 node,
                 "initialize map (capacity, key_size, total_key_and_value_size)",

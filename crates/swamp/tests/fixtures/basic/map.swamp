@@ -20,11 +20,15 @@ struct Game {
 fn basic_map() {
   mut game = Game {
     card_templates: [
-        CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 0.0 },
+        CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
         CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
         CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
     ]
   }
 
-    print('mana: {game.card_templates[CardId::MightyGolem].mana}')
+  print('healing_per_second: {game.card_templates[CardId::MightyGolem].healing_per_second}')
+	assert(game.card_templates[CardId::MightyGolem].mana == 5, "should be 5")
+
+//  print('mana: {game.card_templates[CardId::Earthquake].mana}')
+//	assert(game.card_templates[CardId::Earthquake].mana == 3, "should be 3")
 }

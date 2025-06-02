@@ -5,6 +5,7 @@
 use crate::memory::Memory;
 use crate::{Vm, get_reg};
 use crate::{set_reg, u16_from_u8s};
+use std::cmp::min;
 use std::hash::{DefaultHasher, Hasher};
 use std::{ptr, slice};
 use swamp_vm_types::{MAP_BUCKETS_OFFSET, MAP_HEADER_ALIGNMENT, MapHeader};
@@ -135,7 +136,7 @@ impl Vm {
             let mut first_tombstone_index: Option<usize> = None;
 
             // Linear probing loop with max distance
-            for _ in 0..Self::MAX_PROBE_DISTANCE {
+            for _ in 0..min(capacity, Self::MAX_PROBE_DISTANCE) {
                 let bucket_start_ptr = buckets_ptr.add(index * bucket_size);
                 let status_ptr = bucket_start_ptr;
 
@@ -245,8 +246,8 @@ impl Vm {
         let (map_header, map_header_addr) = self.read_map_header(self_map_header_reg);
 
         #[cfg(feature = "debug_vm")]
-        {
-            eprintln!("lookup in bucket: {:04X}", map_header_addr,);
+        if self.debug_operations_enabled {
+            eprintln!("lookup in bucket: {map_header_addr:04X}");
         }
 
         let buckets_start_addr = (map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
@@ -282,6 +283,13 @@ impl Vm {
         let capacity = u16_from_u8s!(capacity_lower, capacity_upper);
         let key_size = u16_from_u8s!(key_size_lower, key_size_upper);
         let element_size = u16_from_u8s!(tuple_size_lower, tuple_size_upper);
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            let map_header_addr = get_reg!(self, self_map_header_reg);
+            eprintln!(
+                "map_init {map_header_addr:08X}:  capacity: {capacity}, key_size: {key_size}, tuple_size: {tuple_size_lower}"
+            );
+        }
         unsafe {
             (*map_header).capacity = capacity;
             (*map_header).key_size = key_size;
@@ -298,6 +306,13 @@ impl Vm {
         let (map_header, map_header_addr) = self.read_map_header(self_map_header_reg);
         let key_source_address = get_reg!(self, key_source_ptr_reg) as usize;
         let buckets_start_addr = (map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
+
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            eprintln!(
+                "map_get_or_reserve_entry {map_header_addr:08X}, key_source: {key_source_address:08X}"
+            );
+        }
 
         let mut entry_address = unsafe {
             Self::lookup_open_addressing(
@@ -458,7 +473,7 @@ impl Vm {
                         #[cfg(feature = "debug_vm")]
                         {
                             eprintln!(
-                                "matching key {key_slice:?} {existing_key_slice:?}. returning this existing entry at {index}"
+                                "matching key {key_slice:?} {existing_key_slice:?}. returning this existing entry at {index}, adding key_size {key_size}"
                             );
                         }
                         // Keys match! return the pointer.

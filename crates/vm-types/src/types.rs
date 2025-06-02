@@ -8,7 +8,7 @@ use crate::{
     VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
 };
 use seq_fmt::comma;
-use std::cmp::Ordering;
+use std::cmp::{Ordering, max};
 use std::fmt::{Debug, Display, Formatter, Write};
 use tracing::error;
 use yansi::Paint;
@@ -54,6 +54,13 @@ pub struct TupleType {
     pub fields: Vec<OffsetMemoryItem>,
     pub total_size: MemorySize,
     pub max_alignment: MemoryAlignment,
+}
+
+impl TupleType {
+    pub fn aligned_size_of_field(&self, field_index: usize) -> MemorySize {
+        let max_alignment: usize = self.max_alignment.into();
+        MemorySize(max(self.fields[field_index].size.0 as usize, max_alignment) as u16)
+    }
 }
 
 impl Display for TupleType {

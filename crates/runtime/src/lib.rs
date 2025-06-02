@@ -195,6 +195,7 @@ pub fn run_as_fast_as_possible(
     vm.reset_stack_and_heap_to_constant_limit();
     vm.state = VmState::Normal;
     vm.debug_opcodes_enabled = false;
+    vm.debug_operations_enabled = run_options.debug_operations_enabled;
     vm.debug_stats_enabled = run_options.debug_stats_enabled;
 
     vm.execute_from_ip(&function_to_run.ip_range.start, host_function_callback);

@@ -5,6 +5,7 @@ use swamp_semantic::Expression;
 use swamp_types::Type;
 use swamp_vm_types::types::{BasicType, BasicTypeKind, Destination, TupleType};
 use swamp_vm_types::{AggregateMemoryLocation, MemoryOffset, PointerLocation};
+use tracing::debug;
 
 impl CodeBuilder<'_> {
     /*
@@ -53,6 +54,8 @@ impl CodeBuilder<'_> {
                 let pointer_target = PointerLocation {
                     ptr_reg: target_map_header_ptr_reg,
                 };
+
+                debug!(?key_value_tuple_type, "emit map storage ");
 
                 self.emit_map_storage_init_from_initializer_pair_list(
                     &pointer_target,
