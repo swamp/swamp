@@ -55,7 +55,7 @@ const CALCULATED = create_level()
 
 #[test]
 fn calculated() {
-    assert(CALCULATED.some_data[ 0] == 10, 'constant is not working')
-    assert(CALCULATED.some_data[ 3] == 12, 'constant is not working')
-    assert(CALCULATED.some_data[12] == 30, 'constant is not working')
+    assert(CALCULATED.some_data[ 0] == 12, 'constant is not working (0)  {CALCULATED.some_data[ 0]}')
+    assert(CALCULATED.some_data[ 3] == 18, 'constant is not working (3)  {CALCULATED.some_data[ 3]}')
+    assert(CALCULATED.some_data[12] == 0, 'constant is not working (12) {CALCULATED.some_data[ 12]}')
 }

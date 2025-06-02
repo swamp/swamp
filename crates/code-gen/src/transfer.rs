@@ -1,8 +1,9 @@
-use crate::code_bld::CodeBuilder;
 use crate::DetailedLocationResolved;
+use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
-use swamp_vm_types::types::{Destination, TypedRegister};
 use swamp_vm_types::MemoryLocation;
+use swamp_vm_types::types::{Destination, TypedRegister};
+use tracing::{error, info};
 
 impl CodeBuilder<'_> {
     // Load -------------------------------------------------------
@@ -57,6 +58,13 @@ impl CodeBuilder<'_> {
                     &format!("emit_load_from_memory: ptr to ptr (mutable reference). {comment}"),
                 );
             } else {
+                if source_memory_location.as_direct_register().is_none() {
+                    error!(
+                        ?target_reg,
+                        ?source_memory_location,
+                        "emit_load_value_from_memory_source failed for aggregate that is not a mutable reference"
+                    );
+                }
                 self.builder.add_mov_reg(
                     target_reg,
                     source_memory_location.as_direct_register().unwrap(),
@@ -70,6 +78,46 @@ impl CodeBuilder<'_> {
                 source_memory_location,
                 node,
                 &format!("emit primitive value. ptr to primitive reg {comment}"),
+            );
+        }
+    }
+
+    /// Loads a scalar value or calculates the effective address for an aggregate type.
+    ///
+    /// It is basically a "bind" of a register to a location, and is used (exclusively?)
+    /// in "pattern matching", like `match` arms.
+    ///
+    /// For scalar types: Loads the actual value into the target register
+    /// For aggregate types: Calculates and stores the effective address in the target register
+    pub(crate) fn emit_load_or_calculate_address_from_memory(
+        &mut self,
+        target_reg: &TypedRegister,
+        source_memory_location: &MemoryLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        let source_type = source_memory_location.vm_type();
+        if source_type.is_aggregate() {
+            // For aggregates, calculate the effective address using our existing helper
+            let effective_addr = self.emit_compute_effective_address_to_register(
+                &Destination::Memory(source_memory_location.clone()),
+                node,
+                &format!("calculate address for aggregate {comment}"),
+            );
+            // Copy the calculated address to our target register
+            self.builder.add_mov_reg(
+                target_reg,
+                &effective_addr,
+                node,
+                "copy calculated address to target",
+            );
+        } else {
+            // For scalars, load the actual value
+            self.emit_load_scalar_from_memory_offset_instruction(
+                target_reg,
+                source_memory_location,
+                node,
+                &format!("load scalar value {comment}"),
             );
         }
     }

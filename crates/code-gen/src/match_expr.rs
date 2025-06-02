@@ -120,7 +120,7 @@ impl CodeBuilder<'_> {
                                             ty: var_reg.ty.clone(),
                                         };
 
-                                        self.emit_load_value_from_memory_source(
+                                        self.emit_load_or_calculate_address_from_memory(
                                             &var_reg,
                                             &source_enum_memory_location,
                                             &variable.name,

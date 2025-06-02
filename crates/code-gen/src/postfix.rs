@@ -4,7 +4,7 @@ use crate::layout::{layout_optional_type, layout_type};
 use crate::single_intrinsic_fn;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_types::Type;
-use swamp_vm_types::types::{u8_type, Destination, RValueOrLValue, VmType};
+use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
 
 impl CodeBuilder<'_> {

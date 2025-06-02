@@ -242,12 +242,6 @@ impl CodeBuilder<'_> {
             );
         }
 
-        /*
-        if let DetailedLocationResolved::TempRegister(temp_reg) = resolved {
-            self.temp_registers.free(temp_reg);
-        }
-
-         */
         self.temp_registers.restore_to_mark(hwm);
     }
 

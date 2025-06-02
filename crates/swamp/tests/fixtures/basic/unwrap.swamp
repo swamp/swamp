@@ -86,6 +86,7 @@ fn get_container_field(container: Container?) -> Int {
   }
 }
 
+/*
 // #[test] TODO: I think `d ?? default_data` is failing
 fn none_coalesce_struct() {
   d = create_optional_data(true)
@@ -98,6 +99,7 @@ fn none_coalesce_struct() {
   assert(result_none.id == 0 && result_none.name == "No Data", "?? with None(Data) should be default data")
   print('Result: {result.name}, Result None: {result_none.name}')
 }
+*/
 
 #[test]
 fn none_coalesce_some_int() {
