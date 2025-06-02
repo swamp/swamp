@@ -111,7 +111,7 @@ impl CodeBuilder<'_> {
                         ty: target_binding_variable_reg.ty.clone(),
                     };
 
-                    self.emit_load_from_memory_internal(
+                    self.emit_load_value_from_memory_source(
                         &target_binding_variable_reg,
                         &source_memory_location,
                         binding.expr.node(),

@@ -69,7 +69,7 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) -> Destination {
-        let ptr_to_slice_reg = self.emit_ptr_reg_from_detailed_location(
+        let ptr_to_slice_reg = self.emit_compute_effective_address_to_register(
             &detailed_location_to_slice,
             node,
             &format!(

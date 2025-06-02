@@ -38,6 +38,7 @@ pub mod state;
 mod statement;
 pub mod top_state;
 mod transfer;
+mod transfer_instr;
 mod tuple;
 mod vec;
 mod when;

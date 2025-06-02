@@ -7,9 +7,8 @@ use std::time::Duration;
 use std::{process, thread};
 use swamp::prelude::{
     CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
-    RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align,
-    compile_codegen_and_create_vm, layout_type, run_first_time, run_function,
-    run_function_with_debug,
+    RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align, compile_codegen_and_create_vm,
+    layout_type, run_first_time, run_function, run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 use tracing::{error, info, warn};
@@ -190,7 +189,8 @@ pub struct FenTextSwamp {
 }
 
 impl FenTextSwamp {
-    #[must_use] pub fn new(runtime_result: CodeGenAndVmResult, boot_info: BootInfo) -> Self {
+    #[must_use]
+    pub fn new(runtime_result: CodeGenAndVmResult, boot_info: BootInfo) -> Self {
         Self {
             runtime_result,
             tick_fn: boot_info.function_info,

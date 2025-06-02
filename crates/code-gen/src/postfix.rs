@@ -165,12 +165,11 @@ impl CodeBuilder<'_> {
                     let hwm = self.temp_registers.save_mark();
 
                     // Load and check the optional tag
-                    let resolved_location = self
-                        .emit_load_primitive_from_detailed_location_if_needed(
-                            &current_location,
-                            &element.node,
-                            "load optional tag",
-                        );
+                    let resolved_location = self.emit_ensure_primitive_in_register(
+                        &current_location,
+                        &element.node,
+                        "load optional tag",
+                    );
 
                     self.builder.add_tst_u8(
                         resolved_location.register(),
@@ -343,7 +342,7 @@ impl CodeBuilder<'_> {
                         );
                     } else if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
                     {
-                        self.emit_load_value_into_register(
+                        self.emit_transfer_value_to_register(
                             output_reg,
                             &current_location,
                             &start_expression.node,
@@ -354,7 +353,7 @@ impl CodeBuilder<'_> {
                 Destination::Memory(mem_loc) => {
                     if mem_loc.ty.is_represented_as_pointer_inside_register() {
                         // Complex type - we need to store to memory
-                        self.emit_store_to_pointer_target(
+                        self.emit_store_value_to_memory_destination(
                             output_destination,
                             &current_location,
                             &start_expression.node,
@@ -366,14 +365,14 @@ impl CodeBuilder<'_> {
                             "end of chain, load primitive to target",
                         );
 
-                        self.emit_load_value_into_register(
+                        self.emit_transfer_value_to_register(
                             rhs_value_temp.register(),
                             &current_location,
                             &start_expression.node,
                             "end of chain, load primitive into temp register",
                         );
 
-                        self.emit_store_scalar_to_memory_location_helper(
+                        self.emit_store_scalar_to_memory_offset_instruction(
                             mem_loc,
                             rhs_value_temp.register(),
                             &start_expression.node,

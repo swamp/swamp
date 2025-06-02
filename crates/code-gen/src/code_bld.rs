@@ -475,7 +475,7 @@ impl CodeBuilder<'_> {
                 "copy from constant memory area to target memory",
             );
         } else {
-            self.emit_load_primitive_from_absolute_memory_address(
+            self.emit_load_scalar_from_absolute_address_instruction(
                 output.grab_register(),
                 constant_region.addr(),
                 &VmType::new_unknown_placement(constant_region.ty().clone()),

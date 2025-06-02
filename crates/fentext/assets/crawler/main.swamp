@@ -113,10 +113,10 @@ RESOURCES="❤️💙💰🪙📜"
 */
 
 
-const DIR_UP: Point = Point { x: 0, y: -1 }
-const DIR_RIGHT: Point = Point { x: 1, y: 0 }
-const DIR_DOWN: Point = Point { x: 0, y: 1 }
-const DIR_LEFT: Point = Point { x: -1, y: 0 }
+const DIR_UP = Point { x: 0, y: -1 }
+const DIR_RIGHT = Point { x: 1, y: 0 }
+const DIR_DOWN = Point { x: 0, y: 1 }
+const DIR_LEFT = Point { x: -1, y: 0 }
 
 
 const ABSOLUTE_CLOCKWISE_DIRS = [
@@ -127,7 +127,6 @@ const ABSOLUTE_CLOCKWISE_DIRS = [
 ]
 
 impl Crawler {
-
 
     fn draw(self) {
         for y in 0..GRID_HEIGHT {

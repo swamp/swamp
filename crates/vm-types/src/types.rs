@@ -272,7 +272,7 @@ impl BasicTypeKind {}
 
 impl BasicTypeKind {
     pub(crate) const fn manifestation(&self) -> Manifestation {
-        if self.is_represented_as_primitive_inside_register() {
+        if self.is_scalar() {
             Manifestation::DirectInsideRegister
         } else {
             Manifestation::IndirectAsPointer
@@ -302,7 +302,7 @@ impl Display for Manifestation {
 }
 
 impl BasicTypeKind {
-    pub(crate) const fn is_represented_as_primitive_inside_register(&self) -> bool {
+    pub(crate) const fn is_scalar(&self) -> bool {
         matches!(
             self,
             Self::Empty
@@ -317,8 +317,8 @@ impl BasicTypeKind {
     }
 
     #[must_use]
-    pub const fn is_represented_as_a_pointer_inside_register(&self) -> bool {
-        !self.is_represented_as_primitive_inside_register()
+    pub const fn is_aggregate(&self) -> bool {
+        !self.is_scalar()
     }
 
     #[must_use]
@@ -332,7 +332,7 @@ impl BasicTypeKind {
 
     #[must_use]
     pub const fn needs_copy_back_when_mutable(&self) -> bool {
-        !self.is_represented_as_a_pointer_inside_register()
+        self.is_scalar()
     }
 
     #[must_use]
@@ -1124,7 +1124,7 @@ impl VmType {
 
     #[must_use]
     pub const fn can_be_contained_inside_register(&self) -> bool {
-        self.basic_type.can_be_contained_inside_register()
+        self.basic_type.is_scalar()
     }
 
     #[must_use]
@@ -1302,18 +1302,8 @@ impl BasicType {
 
 impl BasicType {
     #[must_use]
-    pub const fn can_be_contained_inside_register(&self) -> bool {
-        self.kind.is_represented_as_primitive_inside_register()
-    }
-
-    #[must_use]
-    pub const fn is_simple_primitive(&self) -> bool {
-        self.kind.is_represented_as_primitive_inside_register()
-    }
-
-    #[must_use]
     pub const fn is_scalar(&self) -> bool {
-        self.is_simple_primitive() || matches!(self.kind, BasicTypeKind::InternalStringPointer)
+        self.kind.is_scalar()
     }
 
     #[must_use]
@@ -1364,7 +1354,7 @@ impl BasicType {
 
     #[must_use]
     pub const fn is_represented_as_a_pointer_in_reg(&self) -> bool {
-        self.kind.is_represented_as_a_pointer_inside_register()
+        self.kind.is_aggregate()
     }
 
     #[must_use]

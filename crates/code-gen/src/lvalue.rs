@@ -114,7 +114,7 @@ impl CodeBuilder<'_> {
                         VmType::new_unknown_placement(layout_item_type),
                         "intrinsic subscript",
                     );
-                    let collection_reg = self.emit_ptr_reg_from_detailed_location(
+                    let collection_reg = self.emit_compute_effective_address_to_register(
                         &current_location,
                         &access.node,
                         "lvalue chain",

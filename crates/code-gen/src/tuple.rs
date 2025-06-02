@@ -68,7 +68,7 @@ impl CodeBuilder<'_> {
                     .ty
                     .can_be_contained_inside_register()
                 {
-                    self.emit_load_from_memory_internal(
+                    self.emit_load_value_from_memory_source(
                         &frame_placed_target_variable_register,
                         &source_memory_location,
                         &target_variable.name,

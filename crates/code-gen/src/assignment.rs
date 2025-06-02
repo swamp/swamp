@@ -160,11 +160,11 @@ impl CodeBuilder<'_> {
 
         // For primitives, always pass them using direct register assignment.
         // TODO: clean this up into a helper function with this if-else
-        if target_register.ty.basic_type.is_simple_primitive() {
+        if target_register.ty.basic_type.is_scalar() {
             self.emit_expression_into_register(
                 &target_register,
                 expression,
-                "variable primitive",
+                "variable scalar",
                 ctx,
             );
         } else {
@@ -202,7 +202,7 @@ impl CodeBuilder<'_> {
 
         let hwm = self.temp_registers.save_mark();
 
-        let resolved = self.emit_load_primitive_from_detailed_location_if_needed(
+        let resolved = self.emit_ensure_primitive_in_register(
             &assignment_target,
             &target_location.0.node,
             "compound_assignment",
@@ -234,7 +234,7 @@ impl CodeBuilder<'_> {
         }
 
         if let Destination::Memory(mem) = assignment_target {
-            self.emit_store_scalar_to_memory_location_helper(
+            self.emit_store_scalar_to_memory_offset_instruction(
                 &mem,
                 resolved.register(),
                 &source.node,

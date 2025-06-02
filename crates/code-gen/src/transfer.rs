@@ -1,45 +1,20 @@
 use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType};
-use swamp_vm_types::{HeapMemoryAddress, MemoryLocation};
+use swamp_vm_types::MemoryLocation;
+use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
 
 impl CodeBuilder<'_> {
-    /// Loads a scalar from an absolute memory address
-    /// Only used for constants
-    pub(crate) fn emit_load_primitive_from_absolute_memory_address(
-        &mut self,
-        target_reg: &TypedRegister,
-        source_offset: HeapMemoryAddress,
-        type_at_offset: &VmType,
-        node: &Node,
-        comment: &str,
-    ) {
-        match type_at_offset.basic_type.kind {
-            BasicTypeKind::Empty => {
-                // No need to copy, it has zero size
-            }
-            BasicTypeKind::U8 | BasicTypeKind::B8 => {
-                self.builder.add_ld8_from_absolute_memory_address(
-                    target_reg,
-                    &source_offset,
-                    node,
-                    &format!("{comment} - load u8 primitive from memory"),
-                );
-            }
-            BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
-                self.builder.add_ld32_from_absolute_memory_address(
-                    target_reg,
-                    &source_offset,
-                    node,
-                    &format!("{comment} - load u32 primitive from memory"),
-                );
-            }
-            _ => panic!("this is not a primitive {type_at_offset:?}"),
-        }
-    }
+    // Load -------------------------------------------------------
 
-    pub(crate) fn emit_load_value_into_register(
+    /// Transfers a **value** from a given `Destination` (either a register or a memory location)
+    /// into a specified `target_reg`.
+    ///
+    /// This function acts as a primary entry point for ensuring a value resides in a register.
+    /// If the `source` is a `Register`, it generates a register-to-register copy if the
+    /// source and target are not already the same. If the `source` is `Memory`, it delegates
+    /// the load operation to `emit_load_value_from_memory_source`.
+    pub(crate) fn emit_transfer_value_to_register(
         &mut self,
         target_reg: &TypedRegister,
         source: &Destination,
@@ -53,121 +28,19 @@ impl CodeBuilder<'_> {
                 }
             }
             Destination::Memory(memory_location) => {
-                self.emit_load_from_memory_internal(target_reg, memory_location, node, comment);
+                self.emit_load_value_from_memory_source(target_reg, memory_location, node, comment);
             }
             Destination::Unit => panic!("Cannot load from Unit destination"),
         }
     }
 
-    pub(crate) fn emit_store_to_pointer_target(
-        &mut self,
-        output_destination: &Destination,
-        value_source: &Destination,
-        node: &Node,
-        comment: &str,
-    ) {
-        match value_source {
-            Destination::Register(value_reg) => match value_reg.ty.basic_type.kind {
-                BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
-                    self.builder.add_st32_using_ptr_with_offset(
-                        output_destination.grab_memory_location(),
-                        value_reg,
-                        node,
-                        &format!("store {comment} to memory pointed by register {output_destination} <- {value_reg}"),
-                    );
-                }
-                BasicTypeKind::U8 | BasicTypeKind::B8 => {
-                    self.builder.add_st8_using_ptr_with_offset(
-                        output_destination.grab_memory_location(),
-                        value_reg,
-                        node,
-                        &format!("store byte {comment} to memory pointed by register {output_destination} <- {value_reg}"),
-                    );
-                }
-                _ => {
-                    let source_memory_location =
-                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                            value_reg.clone(),
-                        );
-                    self.builder.add_block_copy_with_offset(
-                        output_destination.grab_memory_location(),
-                        &source_memory_location,
-                        node,
-                        &format!("block copy {comment} to memory pointed by register {output_destination} <- {value_reg}"),
-                    );
-                }
-            },
-            Destination::Memory(source_mem_loc) => {
-                let temp_reg = self
-                    .temp_registers
-                    .allocate(source_mem_loc.ty.clone(), "temp_for_memory_to_memory_store");
-
-                self.emit_load_from_memory_internal(
-                    temp_reg.register(),
-                    source_mem_loc,
-                    node,
-                    &format!("load {comment} from memory for store"),
-                );
-
-                match source_mem_loc.ty.basic_type.kind {
-                    BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
-                        self.builder.add_st32_using_ptr_with_offset(
-                            output_destination.grab_memory_location(),
-                            temp_reg.register(),
-                            node,
-                            &format!("store {comment} from temp to memory pointed by register"),
-                        );
-                    }
-                    _ => {
-                        let source_memory_location =
-                            MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                                temp_reg.register,
-                            );
-                        self.builder.add_block_copy_with_offset(
-                            output_destination.grab_memory_location(),
-                            &source_memory_location,
-                            node,
-                            &format!(
-                                "block copy '{comment}' from temp to memory pointed by register"
-                            ),
-                        );
-                    }
-                }
-            }
-            Destination::Unit => panic!("Cannot store from Unit source"),
-        }
-    }
-
-    /*
-    pub(crate) fn emit_store_value_from_register(
-        &mut self,
-        target_mem_loc: &MemoryLocation,
-        source_reg: &TypedRegister, // This register *holds the value to be stored*
-        node: &Node,
-        comment: &str,
-    ) {
-        let value_ty = &source_reg.ty;
-        if value_ty.is_represented_as_pointer_inside_register() {
-            // Complex type (like a struct or VecStorage) represented as a pointer in the register.
-            // Need to block copy the data it points to.
-            // This is the `blkcpy` case for struct assignment.
-            self.builder.add_block_copy_with_offset(
-                target_mem_loc,                 // Destination MemoryLocation
-                source_reg,                     // Source Register (holds pointer to data)
-                MemoryOffset(0), // Offset from source_reg is 0 (it points to the start of the data)
-                value_ty.basic_type.total_size, // Size of the data to copy
-                node,
-                &format!("block copy {comment} from register {source_reg} to memory"),
-            );
-        } else {
-            self.emit_store_scalar_to_memory_location_helper(target_mem_loc, source_reg, node, comment)
-        }
-    }
-
-
-     */
-
-    pub(crate) fn emit_load_from_memory_internal(
+    /// Loads a **value** from a `MemoryLocation` into a `target_reg`.
+    ///
+    /// This function serves as a helper for `emit_transfer_value_to_register` when the
+    /// source is memory. It distinguishes between loading scalar values and
+    /// loading pointer-like values (e.g., references) that are themselves stored within
+    /// registers. For scalar loads, it utilizes `emit_load_scalar_from_memory_offset_instruction`.
+    pub(crate) fn emit_load_value_from_memory_source(
         &mut self,
         target_reg: &TypedRegister,
         source_memory_location: &MemoryLocation,
@@ -177,7 +50,7 @@ impl CodeBuilder<'_> {
         let source_type = source_memory_location.vm_type();
         if source_type.is_represented_as_pointer_inside_register() {
             if target_reg.ty().is_mutable_reference() {
-                self.emit_load_scalar_from_memory_location_helper(
+                self.emit_load_scalar_from_memory_offset_instruction(
                     target_reg,
                     source_memory_location,
                     node,
@@ -206,7 +79,7 @@ impl CodeBuilder<'_> {
                  */
             }
         } else {
-            self.emit_load_scalar_from_memory_location_helper(
+            self.emit_load_scalar_from_memory_offset_instruction(
                 target_reg,
                 source_memory_location,
                 node,
@@ -215,7 +88,13 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub(crate) fn emit_load_primitive_from_detailed_location_if_needed(
+    /// Ensures that a **primitive** value from a given `Destination` is available in a register.
+    ///
+    /// If the `location` is already a `Register`, it's returned directly. If the `location`
+    /// is `Memory`, a temporary register is allocated, and the primitive value is loaded
+    /// into it using `emit_load_value_from_memory_source`, ensuring it's ready for
+    /// register-based operations.
+    pub(crate) fn emit_ensure_primitive_in_register(
         &mut self,
         location: &Destination,
         node: &Node,
@@ -228,7 +107,7 @@ impl CodeBuilder<'_> {
                     memory_location.ty.clone(),
                     "emit load primitive from location",
                 );
-                self.emit_load_from_memory_internal(
+                self.emit_load_value_from_memory_source(
                     temp_reg_target.register(),
                     memory_location,
                     node,
@@ -242,113 +121,101 @@ impl CodeBuilder<'_> {
         }
     }
 
-    /// Loads a scalar from Memory Location
+    // Store -------------------------------------------------------
+
+    /// Stores a **value** from a `value_source` (either a register or memory) to a
+    /// target memory location specified by `output_destination`.
     ///
-    /// This is a helper and usually not called directly
-    pub(crate) fn emit_load_scalar_from_memory_location_helper(
+    /// This function handles storing both **scalar** and **aggregate** types. For scalars,
+    /// it delegates to `emit_store_scalar_to_memory_offset_instruction`. For larger
+    /// aggregate types (like structs, tagged unions or arrays), it performs a block copy.
+    /// If the `value_source` is also memory, it first loads the value into a temporary
+    /// register using `emit_load_value_from_memory_source` before storing.
+    pub(crate) fn emit_store_value_to_memory_destination(
         &mut self,
-        target: &TypedRegister,
-        source_location: &MemoryLocation,
+        output_destination: &Destination,
+        value_source: &Destination,
         node: &Node,
         comment: &str,
     ) {
-        // Choose the appropriate load instruction based on the target register's type
-        match target.underlying().kind {
-            BasicTypeKind::Fixed32
-            | BasicTypeKind::U32
-            | BasicTypeKind::S32
-            | BasicTypeKind::InternalStringPointer => {
-                self.builder.add_ld32_from_pointer_with_offset_u16(
-                    target,
-                    &source_location.base_ptr_reg,
-                    source_location.offset,
-                    node,
-                    &format!("{comment} (load int)"),
-                );
-            }
-            BasicTypeKind::B8 | BasicTypeKind::U8 => {
-                self.builder.add_ld8_from_pointer_with_offset_u16(
-                    target,
-                    &source_location.base_ptr_reg,
-                    source_location.offset,
-                    node,
-                    &format!("{comment} (load bool)"),
-                );
-            }
-            _ => panic!(
-                "Unsupported primitive type in add_load_primitive: {:?}",
-                target.ty
-            ),
-        }
-    }
+        let output_mem_loc = output_destination.grab_memory_location(); // Assuming this is always a MemoryLocation
 
-    /// Stores a scalar to a memory location
-    ///
-    /// This is a helper and usually not called directly
-    pub(crate) fn emit_store_scalar_to_memory_location_helper(
-        &mut self,
-        memory_location: &MemoryLocation,
-        primitive_reg: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        match primitive_reg.ty.basic_type.kind {
-            BasicTypeKind::B8 | BasicTypeKind::U8 => {
-                self.builder.add_st8_using_ptr_with_offset(
-                    memory_location,
-                    primitive_reg,
-                    node,
-                    comment,
-                );
-            }
-            BasicTypeKind::U32
-            | BasicTypeKind::S32
-            | BasicTypeKind::Fixed32
-            | BasicTypeKind::InternalStringPointer => {
-                self.builder.add_st32_using_ptr_with_offset(
-                    memory_location,
-                    primitive_reg,
-                    node,
-                    comment,
-                );
-            }
-
-            _ => panic!("must be primitive"),
-        }
-    }
-
-    pub(crate) fn emit_ptr_reg_from_detailed_location(
-        &mut self,
-        location: &Destination,
-        node: &Node,
-        comment: &str,
-    ) -> TypedRegister {
-        match location {
-            Destination::Register(reg) => reg.clone(),
-            Destination::Memory(memory_location) => {
-                //let hwm = self.temp_registers.save_mark();
-
-                if memory_location.offset.0 == 0 {
-                    memory_location.base_ptr_reg.clone()
-                } else {
-                    let final_ptr_target_reg = self.temp_registers.allocate(
-                        memory_location.ty.clone(),
-                        &format!("{comment} - final_ptr_target_reg"),
-                    );
-
-                    self.builder.add_add_u32_imm(
-                        final_ptr_target_reg.register(),
-                        &memory_location.base_ptr_reg,
-                        u32::from(memory_location.offset.0),
-                        node,
-                        &format!("{comment} (add to resolved new base_ptr)"),
-                    );
-                    final_ptr_target_reg.register().clone()
+        match value_source {
+            Destination::Register(value_reg) => {
+                match value_reg.ty.basic_type.kind {
+                    BasicTypeKind::S32
+                    | BasicTypeKind::Fixed32
+                    | BasicTypeKind::U32
+                    | BasicTypeKind::B8
+                    | BasicTypeKind::U8
+                    | BasicTypeKind::InternalStringPointer => {
+                        // Use the helper for scalar types
+                        self.emit_store_scalar_to_memory_offset_instruction(
+                            output_mem_loc,
+                            value_reg,
+                            node,
+                            &format!("store {comment} to memory pointed by register {output_destination} <- {value_reg}"),
+                        );
+                    }
+                    _ => {
+                        // Existing block copy for aggregate types (structs, unions, etc.)
+                        let source_memory_location =
+                            MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                                value_reg.clone(),
+                            );
+                        self.builder.add_block_copy_with_offset(
+                            output_mem_loc,
+                            &source_memory_location,
+                            node,
+                            &format!("block copy {comment} to memory pointed by register {output_destination} <- {value_reg}"),
+                        );
+                    }
                 }
             }
-            Destination::Unit => {
-                panic!("not sure")
+            Destination::Memory(source_mem_loc) => {
+                let temp_reg = self
+                    .temp_registers
+                    .allocate(source_mem_loc.ty.clone(), "temp_for_memory_to_memory_store");
+
+                self.emit_load_value_from_memory_source(
+                    temp_reg.register(),
+                    source_mem_loc,
+                    node,
+                    &format!("load {comment} from memory for store"),
+                );
+
+                match source_mem_loc.ty.basic_type.kind {
+                    BasicTypeKind::S32
+                    | BasicTypeKind::Fixed32
+                    | BasicTypeKind::U32
+                    | BasicTypeKind::B8
+                    | BasicTypeKind::U8
+                    | BasicTypeKind::InternalStringPointer => {
+                        self.emit_store_scalar_to_memory_offset_instruction(
+                            output_mem_loc,
+                            temp_reg.register(),
+                            node,
+                            &format!("store {comment} from temp to memory pointed by register"),
+                        );
+                    }
+                    _ => {
+                        let source_memory_location =
+                            MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                                temp_reg.register,
+                            );
+
+                        self.builder.add_block_copy_with_offset(
+                            output_mem_loc,
+                            &source_memory_location,
+                            node,
+                            &format!(
+                                "block copy '{comment}' from temp to memory pointed by register"
+                            ),
+                        );
+                    }
+                }
             }
+            Destination::Unit => panic!("Cannot store from Unit source"),
         }
     }
 }

@@ -285,7 +285,7 @@ impl CodeBuilder<'_> {
                 let hwm = self.temp_registers.save_mark();
                 let is_pair = target_variables.len() == 2;
 
-                let placeholder = if primary_register.ty.basic_type.is_simple_primitive() {
+                let placeholder = if primary_register.ty.basic_type.is_scalar() {
                     // For primitives, create temp register to hold the address, since they do not want
                     // the address
                     let temp_addr = self.temp_registers.allocate(
@@ -314,7 +314,7 @@ impl CodeBuilder<'_> {
                         MemoryLocation::new_copy_over_whole_type_with_zero_offset(
                             temp_addr.register,
                         );
-                    self.emit_load_from_memory_internal(
+                    self.emit_load_value_from_memory_source(
                         primary_register,
                         &source_memory_location,
                         node,

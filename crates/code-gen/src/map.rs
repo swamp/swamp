@@ -16,7 +16,7 @@ impl CodeBuilder<'_> {
         key_expression: &Expression,
         ctx: &Context,
     ) -> Destination {
-        let map_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
+        let map_header_ptr_reg = self.emit_compute_effective_address_to_register(
             map_header_location,
             &key_expression.node,
             "get map header absolute pointer",

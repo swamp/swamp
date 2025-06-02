@@ -42,7 +42,7 @@ impl CodeBuilder<'_> {
         let index_int_reg = self.emit_scalar_rvalue(int_expr, ctx);
         let node = &int_expr.node;
 
-        let vec_header_ptr_reg = self.emit_ptr_reg_from_detailed_location(
+        let vec_header_ptr_reg = self.emit_compute_effective_address_to_register(
             vec_header_location,
             node,
             "get vec header absolute pointer",

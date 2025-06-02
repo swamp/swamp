@@ -45,22 +45,14 @@ pub fn run_constants_in_order(
         // do not reset heap, all allocations from heap should remain (for now)
         vm.reset_call_stack();
 
-        if constant
-            .target_constant_memory
-            .ty()
-            .can_be_contained_inside_register()
-        {
+        if constant.target_constant_memory.ty().is_scalar() {
         } else {
             // set memory location into to r0
             vm.registers[0] = constant.target_constant_memory.addr().0;
         }
         vm.execute_from_ip(&constant.ip_range.start, host_function_callback);
 
-        if constant
-            .target_constant_memory
-            .ty()
-            .can_be_contained_inside_register()
-        {
+        if constant.target_constant_memory.ty().is_scalar() {
             match constant.target_constant_memory.ty().kind {
                 BasicTypeKind::S32 | BasicTypeKind::Fixed32 | BasicTypeKind::U32 => {
                     let heap_ptr = vm
