@@ -104,7 +104,7 @@ impl CodeBuilder<'_> {
                 _ => panic!("should not happen"),
             };
 
-            let pointer_reg = self.emit_absolute_pointer_if_needed(
+            let pointer_reg = self.emit_compute_effective_address_to_register(
                 target_destination,
                 node,
                 "create absolute pointer reg for vec_create",
@@ -171,7 +171,7 @@ impl CodeBuilder<'_> {
                 );
             }
             TransformerResult::VecFromSourceCollection => {
-                let absolute_pointer = self.emit_absolute_pointer_if_needed(
+                let absolute_pointer = self.emit_compute_effective_address_to_register(
                     target_destination,
                     node,
                     "get pointer to collection",

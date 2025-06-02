@@ -1005,13 +1005,15 @@ pub fn disasm(
             DecoratedOperandAccessKind::CountU16(u8_pair_to_u16(operands[2], operands[3])),
         ],
 
-        OpCode::MapInitWithCapacityAndKeySizeAddr => {
+        OpCode::MapInitWithCapacityAndKeyAndTupleSizeAddr => {
             let capacity_count = u16::from_le_bytes([operands[1], operands[2]]);
             let key_memory_size = u16::from_le_bytes([operands[3], operands[4]]);
+            let total_tuple_size = u16::from_le_bytes([operands[5], operands[6]]);
             &[
                 to_write_reg(operands[0], &bytes_type(), frame_memory_info),
                 DecoratedOperandAccessKind::CountU16(capacity_count),
                 DecoratedOperandAccessKind::MemorySize(MemorySize(key_memory_size)),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(total_tuple_size)),
             ]
         }
 

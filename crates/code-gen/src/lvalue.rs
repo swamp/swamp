@@ -97,14 +97,17 @@ impl CodeBuilder<'_> {
                         ctx,
                     );
                 }
-                LocationAccessKind::SubscriptVec(element_type, int_expression) => {
-                    current_location = self.vec_subscript_helper(
-                        &current_location,
-                        element_type,
-                        int_expression,
-                        ctx,
-                    );
+
+                LocationAccessKind::MapSubscriptCreateIfNeeded(map_type, key_expr) => {
+                    current_location =
+                        self.map_subscript_helper(&current_location, &map_type, key_expr, ctx);
                 }
+
+                LocationAccessKind::MapSubscriptMustExist(map_type, key_expr) => {
+                    current_location =
+                        self.map_subscript_helper(&current_location, &map_type, key_expr, ctx);
+                }
+
                 LocationAccessKind::IntrinsicSubscript(
                     _intrinsic_function,
                     arguments_to_the_intrinsic,

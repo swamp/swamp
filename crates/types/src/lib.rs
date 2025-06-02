@@ -514,7 +514,7 @@ impl Display for Type {
                 write!(f, "[{value_type:?}]")
             }
             Self::MapStorage(key_type, value_type, size) => {
-                write!(f, "MapStorage<{key_type}, {value_type}, {size}>")
+                write!(f, "xMapStorage<{key_type}, {value_type}, {size}>")
             }
             Self::DynamicLengthMapView(key_type, value_type) => {
                 write!(f, "Map<{key_type}, {value_type}>")
@@ -561,8 +561,13 @@ impl Type {
             ) => a.compatible_with(b),
 
             (Self::VecStorage(element_a, size_a), Self::VecStorage(element_b, size_b)) => {
-                size_a == size_b && element_a.compatible_with(element_b)
+                size_a >= size_b && element_a.compatible_with(element_b)
             }
+
+            (
+                Self::MapStorage(key_a, value_a, size_a),
+                Self::MapStorage(key_b, value_b, size_b),
+            ) => size_a >= size_b && key_a.compatible_with(key_b) && key_a.compatible_with(key_b),
 
             (
                 Self::DynamicLengthVecView(element_first),
@@ -583,10 +588,6 @@ impl Type {
             (Self::VecStorage(storage_element, _size), Self::SliceView(vec_element)) => {
                 vec_element.compatible_with(storage_element)
             }
-            (
-                Self::VecStorage(storage_element, size),
-                Self::VecStorage(vec_element, other_size),
-            ) => vec_element.compatible_with(storage_element) && size == other_size,
 
             (Self::Enum(a), Self::Enum(b)) => a == b,
 

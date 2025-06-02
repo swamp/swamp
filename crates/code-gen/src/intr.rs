@@ -118,7 +118,7 @@ impl CodeBuilder<'_> {
                     panic!();
                 };
                 let is_inclusive_reg = self.emit_scalar_rvalue(is_inclusive_expr, ctx);
-                let absolute_range_pointer = self.emit_absolute_pointer_if_needed(
+                let absolute_range_pointer = self.emit_compute_effective_address_to_register(
                     target_destination,
                     node,
                     "create range target pointer",

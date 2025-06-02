@@ -1117,7 +1117,7 @@ impl InstructionBuilder<'_> {
         let tuple_element_size_bytes = u16_to_u8_pair(tuple_element_size.0);
         //let value_size_bytes = u16_to_u8_pair(value_size.0);
         self.state.add_instruction(
-            OpCode::MapInitWithCapacityAndKeySizeAddr,
+            OpCode::MapInitWithCapacityAndKeyAndTupleSizeAddr,
             &[
                 target_map_to_init.ptr_reg.addressing(),
                 capacity_bytes.0,

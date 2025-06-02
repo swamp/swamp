@@ -8,7 +8,7 @@ mod for
 mod guard
 mod int
 mod logical
-// mod map
+mod map
 mod operator
 mod option
 mod slice

@@ -1140,13 +1140,13 @@ impl<'a> Analyzer<'a> {
                     // keep previous `is_mutable`
                 }
 
-                swamp_ast::Postfix::Subscript(index_expr) => {
+                swamp_ast::Postfix::Subscript(lookup_expr) => {
                     let collection_type = tv.resolved_type.clone();
                     match &collection_type.underlying() {
                         Type::FixedCapacityAndLengthArray(element_type_in_slice, _) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
-                                self.analyze_expression(index_expr, &unsigned_int_context)?;
+                                self.analyze_expression(lookup_expr, &unsigned_int_context)?;
 
                             let slice_type = SliceViewType {
                                 element: Box::new(*element_type_in_slice.clone()),
@@ -1159,7 +1159,7 @@ impl<'a> Analyzer<'a> {
                                     unsigned_int_expression,
                                 ),
                                 collection_type.clone(),
-                                &index_expr.node,
+                                &lookup_expr.node,
                             );
 
                             // Keep previous mutable
@@ -1168,7 +1168,7 @@ impl<'a> Analyzer<'a> {
                         Type::VecStorage(element_type, _) | Type::SliceView(element_type) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
-                                self.analyze_expression(index_expr, &unsigned_int_context)?;
+                                self.analyze_expression(lookup_expr, &unsigned_int_context)?;
 
                             let vec_type = VecType {
                                 element: element_type.clone(),
@@ -1178,7 +1178,7 @@ impl<'a> Analyzer<'a> {
                                 &mut suffixes,
                                 PostfixKind::VecSubscript(vec_type, unsigned_int_expression),
                                 *element_type.clone(),
-                                &index_expr.node,
+                                &lookup_expr.node,
                             );
 
                             // Keep previous mutable
@@ -1186,9 +1186,9 @@ impl<'a> Analyzer<'a> {
                         }
                         Type::MapStorage(key_type, value_type, _)
                         | Type::DynamicLengthMapView(key_type, value_type) => {
-                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
-                            let unsigned_int_expression =
-                                self.analyze_expression(index_expr, &unsigned_int_context)?;
+                            let key_context = TypeContext::new_argument(key_type);
+                            let key_expression =
+                                self.analyze_expression(lookup_expr, &key_context)?;
 
                             let map_type = MapType {
                                 key: Box::from(*key_type.clone()),
@@ -1197,9 +1197,9 @@ impl<'a> Analyzer<'a> {
 
                             self.add_postfix(
                                 &mut suffixes,
-                                PostfixKind::MapSubscript(map_type, unsigned_int_expression),
+                                PostfixKind::MapSubscript(map_type, key_expression),
                                 *value_type.clone(),
-                                &index_expr.node,
+                                &lookup_expr.node,
                             );
 
                             // Keep previous mutable
@@ -2548,16 +2548,20 @@ impl<'a> Analyzer<'a> {
 
                     ty = return_type.clone();
                 }
-                swamp_ast::Postfix::Subscript(key_expression) => {
-                    let unsigned_int_context = TypeContext::new_argument(&Type::Int);
-                    let unsigned_int_expr =
-                        self.analyze_expression(key_expression, &unsigned_int_context)?;
-
+                swamp_ast::Postfix::Subscript(ast_key_expression) => {
                     match &ty.underlying() {
-                        Type::FixedCapacityAndLengthArray(element_type, _) => {
+                        Type::SliceView(element_type)
+                        | Type::VecStorage(element_type, _)
+                        | Type::FixedCapacityAndLengthArray(element_type, _) => {
+                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                            let unsigned_int_expr =
+                                self.analyze_expression(ast_key_expression, &unsigned_int_context)?;
+
                             let slice_type = SliceViewType {
                                 element: Box::new(*element_type.clone()),
                             };
+                            let mut_type = Box::from(Type::MutableReference(element_type.clone()));
+
                             self.add_location_item(
                                 &mut items,
                                 LocationAccessKind::SliceViewSubscript(
@@ -2565,28 +2569,53 @@ impl<'a> Analyzer<'a> {
                                     unsigned_int_expr,
                                 ),
                                 *element_type.clone(),
-                                &key_expression.node,
+                                &ast_key_expression.node,
                             );
 
                             ty = *element_type.clone();
                         }
+                        Type::MapStorage(key_type, value_type, ..)
+                        | Type::DynamicLengthMapView(key_type, value_type) => {
+                            let key_index_context = TypeContext::new_argument(key_type);
+                            let key_expr =
+                                self.analyze_expression(ast_key_expression, &key_index_context)?;
 
-                        Type::SliceView(element_type) | Type::VecStorage(element_type, _) => {
-                            let mut_type = Box::from(Type::MutableReference(element_type.clone()));
-                            self.add_location_item(
-                                &mut items,
-                                LocationAccessKind::SubscriptVec(
-                                    mut_type.clone(),
-                                    unsigned_int_expr,
-                                ),
-                                *mut_type,
-                                &key_expression.node,
-                            );
-                            ty = *element_type.clone();
+                            let map_like_type = MapType {
+                                key: key_type.clone(),
+                                value: value_type.clone(),
+                            };
+
+                            match location_side {
+                                LocationSide::Lhs => {
+                                    // if it is on the left hand side (assignment), then
+                                    // we should create an empty if it doesn't exist
+                                    self.add_location_item(
+                                        &mut items,
+                                        LocationAccessKind::MapSubscriptCreateIfNeeded(
+                                            map_like_type,
+                                            key_expr,
+                                        ),
+                                        *value_type.clone(),
+                                        &ast_key_expression.node,
+                                    );
+                                }
+                                LocationSide::Rhs => {
+                                    self.add_location_item(
+                                        &mut items,
+                                        LocationAccessKind::MapSubscriptMustExist(
+                                            map_like_type,
+                                            key_expr,
+                                        ),
+                                        *value_type.clone(),
+                                        &ast_key_expression.node,
+                                    );
+                                }
+                            }
+                            ty = *value_type.clone();
                         }
 
                         _ => {
-                            eprintln!("what is this: {ty}");
+                            eprintln!("can not subscript with this type: {ty}");
                             todo!()
                         }
                     }

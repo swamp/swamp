@@ -205,42 +205,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub(crate) fn emit_absolute_pointer_if_needed(
-        &mut self,
-        destination: &Destination,
-        node: &Node,
-        comment: &str,
-    ) -> TypedRegister {
-        match destination {
-            Destination::Register(reg) => reg.clone(),
-            Destination::Memory(memory_location) => {
-                if memory_location.offset.0 == 0 {
-                    return memory_location.base_ptr_reg.clone();
-                }
-
-                let temp_offset_reg = self.temp_registers.allocate(
-                    VmType::new_unknown_placement(u32_type()),
-                    &format!("{comment}: emit_absolute_pointer: temp_offset_reg"),
-                );
-
-                self.builder.add_add_u32_imm(
-                    temp_offset_reg.register(),
-                    &memory_location.base_ptr_reg,
-                    u32::from(memory_location.offset.0),
-                    node,
-                    &format!(
-                        "{comment}: forcing memory pointer and offset to be a complete pointer"
-                    ),
-                );
-
-                temp_offset_reg.register
-            }
-            Destination::Unit => {
-                panic!("can not get absolute pointer")
-            }
-        }
-    }
-
     fn emit_variable_binding(
         &mut self,
         variable: &VariableRef,
@@ -541,7 +505,7 @@ impl CodeBuilder<'_> {
     ) {
         let location = self.emit_lvalue_address(expr, ctx);
 
-        let abs_pointer = self.emit_absolute_pointer_if_needed(
+        let abs_pointer = self.emit_compute_effective_address_to_register(
             &location,
             node,
             "calculate absolute address for reference",

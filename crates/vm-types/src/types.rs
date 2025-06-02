@@ -273,24 +273,24 @@ impl BasicTypeKind {}
 impl BasicTypeKind {
     pub(crate) const fn manifestation(&self) -> Manifestation {
         if self.is_scalar() {
-            Manifestation::DirectInsideRegister
+            Manifestation::Scalar
         } else {
-            Manifestation::IndirectAsPointer
+            Manifestation::Aggregate
         }
     }
 }
 
 pub enum Manifestation {
-    DirectInsideRegister,
-    IndirectAsPointer,
+    Scalar,
+    Aggregate,
 }
 
 impl Manifestation {
     #[must_use]
     pub const fn string(&self) -> &str {
         match self {
-            Self::DirectInsideRegister => "simple",
-            Self::IndirectAsPointer => "complex (ptr)",
+            Self::Scalar => "scalar",
+            Self::Aggregate => "aggregate",
         }
     }
 }
@@ -757,7 +757,10 @@ impl Destination {
                         ty: vm_type,
                     })
                 } else {
-                    panic!("can not add offset to a register")
+                    panic!(
+                        "can not add offset to a register since it wasn't an aggregate {}",
+                        reg.ty
+                    )
                 }
             }
             Self::Memory(memory_location) => Self::Memory(MemoryLocation {
@@ -1747,7 +1750,7 @@ pub fn show_struct_type(
     f: &mut dyn Write,
     tabs: usize,
 ) -> std::fmt::Result {
-    write!(f, "{{")?;
+    write!(f, "{} {{", s.name)?;
     for offset_item in &s.fields {
         new_line_and_tab(f, tabs + 1)?;
         show_offset_item(offset_item, origin, f, tabs + 1)?;
@@ -1792,7 +1795,7 @@ pub fn write_basic_type(
             show_tagged_union(tagged_union, origin, f, tabs)
         }
         BasicTypeKind::Optional(tagged_union) => {
-            write!(f, "Option ")?;
+            write!(f, "Option<{}> ", tagged_union.variants[1].ty)?;
             show_tagged_union(tagged_union, origin, f, tabs)
         }
         BasicTypeKind::Tuple(tuple_type) => show_tuple_type(tuple_type, origin, f, tabs),
@@ -1834,7 +1837,7 @@ pub fn write_basic_type(
             write!(
                 f,
                 "MapStorage<{}, {}, {size}>",
-                tuple_type.fields[0], tuple_type.fields[1]
+                tuple_type.fields[0].ty, tuple_type.fields[1].ty,
             )
         }
         BasicTypeKind::InternalGridPointer => {

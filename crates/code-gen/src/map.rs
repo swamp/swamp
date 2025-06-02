@@ -2,17 +2,16 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use source_map_node::Node;
-use swamp_semantic::Expression;
-use swamp_types::Type;
-use swamp_vm_types::PointerLocation;
-use swamp_vm_types::types::{Destination, TupleType, VmType, int_type, u32_type};
+use swamp_semantic::{Expression, MapType};
+use swamp_vm_types::types::{Destination, TupleType, VmType, u32_type};
+use swamp_vm_types::{MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
     /// Emits Swamp VM opcodes to calculate the memory address of an element within a map.
     pub fn map_subscript_helper(
         &mut self,
         map_header_location: &Destination,
-        analyzed_key_type: &Type,
+        map_type: &MapType,
         key_expression: &Expression,
         ctx: &Context,
     ) -> Destination {
@@ -22,29 +21,25 @@ impl CodeBuilder<'_> {
             "get map header absolute pointer",
         );
 
-        let gen_key_type = layout_type(analyzed_key_type);
+        let gen_key_type = layout_type(&map_type.key);
 
         // We have to get the key materialized in a temporary storage, so the map can calculate the hash for it.
-        let key_temp_storage_reg = self.allocate_frame_space_and_return_destination_to_it(
-            &gen_key_type,
-            &key_expression.node,
-            "key storage region",
-        );
-        self.emit_expression(
-            &key_temp_storage_reg,
-            key_expression,
-            //"map subscript",
-            ctx,
-        );
+        let key_temp_storage_reg = if gen_key_type.is_aggregate() {
+            self.emit_scalar_rvalue(key_expression, ctx)
+        } else {
+            todo!()
+        };
 
-        let map_entry_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(int_type()), "map entry temp");
+        let gen_value_type = layout_type(&map_type.value);
+        let map_entry_reg = self.temp_registers.allocate(
+            VmType::new_unknown_placement(gen_value_type),
+            "map entry temp",
+        );
 
         self.builder.add_map_get_entry_location(
             map_entry_reg.register(),
             &map_header_ptr_reg,
-            key_temp_storage_reg.grab_register(),
+            &key_temp_storage_reg,
             &key_expression.node,
             "lookup the entry for this key in the map",
         );
@@ -52,10 +47,10 @@ impl CodeBuilder<'_> {
         Destination::new_reg(map_entry_reg.register)
     }
 
-    pub(crate) fn emit_map_storage_init_from_slice_pair_literal(
+    pub(crate) fn emit_map_storage_init_from_initializer_pair_list(
         &mut self,
         target_map_header_ptr_reg: &PointerLocation, // Points to MapStorage
-        slice_pair_literal: &[(Expression, Expression)],
+        initializer_pair_list_expressions: &[(Expression, Expression)],
         key_value_tuple_type: &TupleType,
         capacity: usize,
         node: &Node,
@@ -63,7 +58,7 @@ impl CodeBuilder<'_> {
     ) {
         let hwm = self.temp_registers.save_mark();
 
-        let len = slice_pair_literal.len();
+        let len = initializer_pair_list_expressions.len();
         debug_assert!(capacity >= len);
         if capacity > 0 || len > 0 {
             self.builder.add_map_init_set_capacity(
@@ -72,35 +67,54 @@ impl CodeBuilder<'_> {
                 key_value_tuple_type.fields[0].ty.total_size,
                 key_value_tuple_type.total_size,
                 node,
-                "initialize map",
+                "initialize map (capacity, key_size, total_key_and_value_size)",
             );
         }
 
-        let aggregate_location = self.allocate_frame_space_and_return_destination_to_it(
+        let key_frame_location = self.allocate_frame_space_and_return_destination_to_it(
             &u32_type(),
             node,
-            "key storage",
+            "key temporary storage",
         );
+        let key_frame_place = key_frame_location.vm_type().frame_placed_type().unwrap();
 
-        let element_target_temp_reg = self
+        let value_target_register = self
             .temp_registers
             .allocate(VmType::new_unknown_placement(u32_type()), "key temp");
 
-        for (key_expr, value_expr) in slice_pair_literal {
-            //self.emit_expression_materialize(&key_storage_register, key_expr, ctx);
+        for (key_expr, value_expr) in initializer_pair_list_expressions {
+            let initializer_pair_node = &key_expr.node;
+
+            if key_frame_location.ty().total_size.0 > 1 {
+                self.builder.add_frame_memory_clear(
+                    key_frame_place.region(),
+                    initializer_pair_node,
+                    "clear key area each time, to make sure hash is calculated correctly",
+                );
+            }
+
             self.emit_expression_into_target_memory(
-                aggregate_location.grab_memory_location(),
-                value_expr,
-                "store expression to memory if needed",
+                key_frame_location.grab_memory_location(),
+                key_expr,
+                "store key to memory",
                 ctx,
             );
 
             self.builder.add_map_get_or_reserve_entry_location(
-                element_target_temp_reg.register(),
+                value_target_register.register(),
                 target_map_header_ptr_reg,
-                &aggregate_location.grab_memory_location().base_ptr_reg,
-                node,
+                &key_frame_location.grab_memory_location().base_ptr_reg,
+                initializer_pair_node,
                 "find existing or create a map entry to write into",
+            );
+
+            self.emit_expression_into_target_memory(
+                &MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                    value_target_register.register().clone(),
+                ),
+                value_expr,
+                "put value into map entry value section",
+                ctx,
             );
         }
 

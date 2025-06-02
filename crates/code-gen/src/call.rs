@@ -205,7 +205,7 @@ impl CodeBuilder<'_> {
     ) {
         let r0 = TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
-        let return_pointer_reg = self.emit_absolute_pointer_if_needed(
+        let return_pointer_reg = self.emit_compute_effective_address_to_register(
             output_destination,
             node,
             "r0: create an absolute pointer to r0 if needed",
@@ -346,7 +346,7 @@ impl CodeBuilder<'_> {
                             });
                         } else {
                             let flattened_source_pointer_reg = self
-                                .emit_absolute_pointer_if_needed(
+                                .emit_compute_effective_address_to_register(
                                     &original_destination,
                                     node,
                                     "flattened into absolute pointer",

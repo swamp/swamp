@@ -400,7 +400,7 @@ impl Vm {
 
          */
 
-        vm.handlers[OpCode::MapInitWithCapacityAndKeySizeAddr as usize] =
+        vm.handlers[OpCode::MapInitWithCapacityAndKeyAndTupleSizeAddr as usize] =
             HandlerType::Args7(Self::execute_map_open_addressing_init);
         vm.handlers[OpCode::MapGetEntryLocation as usize] =
             HandlerType::Args3(Self::execute_map_open_addressing_get_entry_location);

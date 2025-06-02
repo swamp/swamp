@@ -156,7 +156,7 @@ pub enum OpCode {
     VecSwap,
 
     // Map
-    MapInitWithCapacityAndKeySizeAddr,
+    MapInitWithCapacityAndKeyAndTupleSizeAddr,
     MapGetEntryLocation,
     MapGetOrReserveEntryLocation,
 
@@ -212,7 +212,7 @@ impl OpCode {
             Self::Eq8Imm | Self::CmpReg => "cmp",
             Self::CmpBlock => "cmpblk",
             Self::MovToTFlagFromReg => "tst",
-            Self::FrameMemClr => "memclrf",
+            Self::FrameMemClr => "clrblkf",
 
             // Store T flag (maybe rename to Predicate flag?)
             Self::NotT => "notpf",
@@ -234,18 +234,18 @@ impl OpCode {
             Self::LdPtrFromEffectiveAddress | Self::LoadEffectiveAddressIndexMultiplier => "lea",
 
             // Load
-            Self::Mov8FromImmediateValue => "movb",
-            Self::Mov16FromImmediateValue => "movh",
-            Self::MovReg | Self::Mov32FromImmediateValue => "mov",
+            Self::Mov8FromImmediateValue => "mov.b",
+            Self::Mov16FromImmediateValue => "mov.h",
+            Self::MovReg | Self::Mov32FromImmediateValue => "mov", // alias for `mov.w`
 
-            Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ldb",
-            Self::Ld16FromPointerWithOffset => "ldh",
-            Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ld",
+            Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ld.b",
+            Self::Ld16FromPointerWithOffset => "ld.h",
+            Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ld", // alias for `ld.w`
             Self::LdRegFromFrameUsingMask | Self::LdRegFromFrame => "ldmf",
 
-            Self::St32UsingPtrWithOffset => "st",
-            Self::St16UsingPtrWithOffset => "sth",
-            Self::St8UsingPtrWithOffset => "stb",
+            Self::St32UsingPtrWithOffset => "st", // alias for `st.w`
+            Self::St16UsingPtrWithOffset => "st.h",
+            Self::St8UsingPtrWithOffset => "st.b",
             Self::StRegToFrameUsingMask | Self::StRegToFrame => "stmf",
 
             // Float functions
@@ -304,9 +304,9 @@ impl OpCode {
             Self::VecSwap => "vec.swap",
 
             // Map
-            Self::MapInitWithCapacityAndKeySizeAddr => "map.init",
+            Self::MapInitWithCapacityAndKeyAndTupleSizeAddr => "map.init",
             Self::MapGetEntryLocation => "map.entry",
-            Self::MapGetOrReserveEntryLocation => "map.entry.must",
+            Self::MapGetOrReserveEntryLocation => "map.entry.or_create",
 
             Self::MapNewFromPairs => "map.new",
             Self::MapRemove => "map.rem",

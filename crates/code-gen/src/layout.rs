@@ -19,7 +19,7 @@ use swamp_vm_types::{
     MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
     VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
 };
-use tracing::trace;
+use tracing::{info, trace};
 
 #[derive(Copy, Clone)]
 struct VariantLayout {
@@ -61,10 +61,17 @@ fn layout_tagged_union(variants: &[VariantLayout]) -> TaggedUnionLayout {
         .unwrap_or(MemoryAlignment::U8);
 
     let payload_offset = align_to(MemoryOffset(tag_size.0), max_payload_alignment);
-    let max_alignment = std::cmp::max(tag_alignment, max_payload_alignment);
+    let max_alignment = max(tag_alignment, max_payload_alignment);
 
     let complete_size_before_alignment = MemorySize(payload_offset.0 + max_payload_size.0);
     let total_size = adjust_size_to_alignment(complete_size_before_alignment, max_alignment);
+
+    info!(
+        ?payload_offset,
+        ?complete_size_before_alignment,
+        ?total_size,
+        "layout tagged union"
+    );
 
     TaggedUnionLayout {
         tag_offset: MemoryOffset(0),
@@ -133,6 +140,7 @@ pub fn layout_enum_into_tagged_union(name: &str, variants: &[EnumVariantType]) -
         ),
     });
 
+    info!(?name, "layout enum");
     let (variant_layouts, tagged_variants): (Vec<VariantLayout>, Vec<TaggedUnionVariant>) =
         variant_infos.into_iter().unzip();
     let tagged_union_layout = layout_tagged_union(&variant_layouts);

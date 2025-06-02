@@ -193,15 +193,13 @@ impl Crawler {
         }
     }
 
-    fn simulation_tick(mut self) {
-        for index, mut entity in self.entities {
+    fn simulation_tick(mut entities:[Entity],  mut grid: [Int]) {
+        for index, mut entity in entities {
             move(3, 26 + index)
             write('Entity {index}: {entity.type} at ({entity.point.x}, {entity.point.y}) ({entity.direction.x}, {entity.direction.y}) wait: {entity.wait}  wait_value: ({entity.wait_value})  ', Color::Cyan)
 
-            if entity.type != Type::Player {
-                if entity.wait == 0 {
-                    Crawler::ai_tick(&entity, &self.grid)
-                }
+            if entity.type != Type::Player && entity.wait == 0 {
+                Crawler::ai_tick(&entity, &self.grid)
             }
             Crawler::entity_tick(&entity, &self.grid)
         }
@@ -223,7 +221,7 @@ impl Crawler {
             self.entities[0].direction = new_direction // player is hardcoded to be the first entity
         }
 
-        self.simulation_tick()
+        Crawler::simulation_tick(&self.entities, &self.grid)
 
         self.draw()
 

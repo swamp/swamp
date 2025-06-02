@@ -1,23 +1,30 @@
 use core::{assert}
 use std::{print}
 
-struct Thing {
-  a: Int,
-  b: Int,
+struct CardTemplate {
+  mana: Int,
+  healing_per_second: Float,
 }
 
-struct Another {
-  things: [Int: Thing; 3],
+enum CardId {
+	MightyGolem,
+	Earthquake,
+	MysticSpring, // No one knows what mystic spring does, that is why it is mystic.
+}
+
+struct Game {
+  card_templates: [CardId: CardTemplate; 3],
 }
 
 #[test]
-fn map() {
-  another = Another {
-    things: [
-      2: Thing { a: 11, b:  1 },
-      99: Thing { b:  2, a: 12 }, // Intentionally swapped
-      1: Thing { a: 13, b:  3 },
+fn basic_map() {
+  mut game = Game {
+    card_templates: [
+        CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 0.0 },
+        CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+        CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
     ]
   }
- // print('another.things[99].a: {another.things[99].a}')
+
+    print('mana: {game.card_templates[CardId::MightyGolem].mana}')
 }

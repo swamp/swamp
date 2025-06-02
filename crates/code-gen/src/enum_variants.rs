@@ -33,7 +33,7 @@ impl CodeBuilder<'_> {
             temp_payload_reg.register(),
             variant_index as u8,
             node,
-            &format!("enum variant {} tag", a.common().assigned_name),
+            &format!("enum variant `{}` tag", a.common().assigned_name),
         );
 
         let tag_memory_location = target_memory_location.offset(layout_enum.tag_offset, u8_type());

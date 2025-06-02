@@ -181,7 +181,12 @@ impl CodeBuilder<'_> {
             }
             Destination::Memory(memory_location) => {
                 if memory_location.offset.0 == 0 {
-                    self.builder.add_mov_reg(target_reg, &memory_location.base_ptr_reg, node, comment);
+                    self.builder.add_mov_reg(
+                        target_reg,
+                        &memory_location.base_ptr_reg,
+                        node,
+                        comment,
+                    );
                 } else {
                     self.builder.add_add_u32_imm(
                         target_reg,

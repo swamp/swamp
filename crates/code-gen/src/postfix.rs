@@ -6,6 +6,7 @@ use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainK
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
+use tracing::info;
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -56,22 +57,25 @@ impl CodeBuilder<'_> {
                 }
 
                 PostfixKind::MapSubscript(map_type, key_expression) => {
+                    info!(?map_type, "map_subscript");
                     current_location = self.map_subscript_helper(
                         &current_location,
-                        &map_type.key,
+                        &map_type,
                         key_expression,
                         ctx,
                     );
+                    info!(?current_location, ?map_type, "map_subscript");
                 }
 
                 PostfixKind::MemberCall(function_to_call, arguments) => {
                     let hwm = self.temp_registers.save_mark();
 
-                    let absolute_self_pointer_register = self.emit_absolute_pointer_if_needed(
-                        &current_location,
-                        &element.node,
-                        "resolve to absolute pointer before member call",
-                    );
+                    let absolute_self_pointer_register = self
+                        .emit_compute_effective_address_to_register(
+                            &current_location,
+                            &element.node,
+                            "resolve to absolute pointer before member call",
+                        );
 
                     let call_return_destination = if is_last {
                         output_destination.clone()
@@ -329,7 +333,7 @@ impl CodeBuilder<'_> {
             match output_destination {
                 Destination::Register(output_reg) => {
                     if output_destination.ty().is_aggregate() {
-                        let absolute_pointer_reg = self.emit_absolute_pointer_if_needed(
+                        let absolute_pointer_reg = self.emit_compute_effective_address_to_register(
                             &current_location,
                             &start_expression.node,
                             "after postfix we need absolute pointer",

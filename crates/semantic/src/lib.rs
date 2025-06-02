@@ -590,7 +590,8 @@ pub enum LocationAccessKind {
     FieldIndex(AnonymousStructType, usize),
     IntrinsicSubscript(IntrinsicFunction, Vec<Expression>),
     SliceViewSubscript(SliceViewType, Expression),
-    SubscriptVec(Box<Type>, Expression),
+    MapSubscriptCreateIfNeeded(MapType, Expression),
+    MapSubscriptMustExist(MapType, Expression),
 }
 
 #[derive(Debug, Clone)]

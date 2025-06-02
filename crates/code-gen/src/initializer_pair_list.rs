@@ -3,96 +3,71 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_types::Type;
+use swamp_vm_types::types::{BasicType, BasicTypeKind, Destination, TupleType};
+use swamp_vm_types::{AggregateMemoryLocation, MemoryOffset, PointerLocation};
 
 impl CodeBuilder<'_> {
-    const fn emit_slice_pair_literal(
+    /*
+    const fn emit_initializer_pair_list_into_target_lvalue_memory_location(
         &mut self,
-        slice_type: &Type,
+        lvalue_location: &AggregateMemoryLocation,
+        gen_tuple_type: &TupleType,
         expressions: &[(Expression, Expression)],
         node: &Node,
         ctx: &Context,
     ) {
-        /*
-        let Type::SlicePair(key_type, value_type) = slice_type else {
-            panic!("should have been slice pair type")
-        };
+        // We assume that the target_reg holds a starting pointer where we can put the slice
+        let element_size = gen_tuple_type.total_size.0;
 
-        assert!(key_type.is_concrete());
-        assert!(value_type.is_concrete());
+        let hwm = self.temp_registers.save_mark();
 
-        assert_eq!(ctx.target_size(), SLICE_PAIR_HEADER_SIZE);
-
-        //let constructed_tuple = Type::Tuple(vec![*key_type.clone(), *value_type.clone()]);
-
-        let key_layout = layout_type(key_type);
-        let value_layout = layout_type(value_type);
-
-        //info!(?key_layout, ?value_layout, "layouts");
-
-        let pair_size = key_layout.total_size.0 + value_layout.total_size.0; // Alignment is not relevant, since we will only access them using byte chunks.
-        let element_count = expressions.len() as u16;
-        let total_slice_size = MemorySize(pair_size * element_count);
-
-        let heap_ptr_header_addr = ctx
-            .register()
-            .move_with_offset(SLICE_PTR_OFFSET, pointer_type());
-
-        self.builder.add_alloc(
-            &heap_ptr_header_addr,
-            total_slice_size,
-            node,
-            "allocate slice pair",
-        );
-
-        let temp_key_ctx = self.temp_allocator.reserve_ctx(key_type);
-        let temp_value_ctx = self.temp_allocator.reserve_ctx(value_type);
+        let temp_r
 
         for (index, (key_expr, value_expr)) in expressions.iter().enumerate() {
-            self.emit_expression_materialize(key_expr, &temp_key_ctx);
-            let key_offset = HeapMemoryOffset((index as u32) * pair_size as u32);
-            self.builder.add_stx_for_assignment(
-                &heap_ptr_header_addr,
-                key_offset,
-                temp_key_ctx.target(),
-                node,
-                "copy slice pair key element",
-            );
 
-            self.emit_expression_materialize(value_expr, &temp_value_ctx);
-            let value_offset = HeapMemoryOffset((index as u32) * pair_size as u32).add(
-                HeapMemorySize(key_layout.total_size.0 as u32),
-                MemoryAlignment::U8,
-            );
-            self.builder.add_stx_for_assignment(
-                &heap_ptr_header_addr,
-                value_offset,
-                temp_value_ctx.target(),
-                node,
-                "copy slice pair value element",
-            );
+
+            self.emit_map_storage_init_from_initializer_pair_list()
+
+
         }
 
-        self.builder.add_slice_pair_from_heap(
-            ctx.register(),
-            heap_ptr_header_addr.addr(),
-            &key_layout,
-            &value_layout,
-            element_count,
-            node,
-            "creating slice pair",
-        );
-        /*
+        self.temp_registers.restore_to_mark(hwm);
+    }
 
-        SlicePairInfo {
-            addr: TempFrameMemoryAddress(start_frame_address_to_transfer),
-            key_size: key_layout.size,
-            value_size: value_layout.size,
-            element_count: CountU16(element_count),
-            element_size,
+     */
+
+    pub fn emit_container_init_from_initialization_pair_list(
+        &mut self,
+        output_destination: &Destination,
+        elements: &[(Expression, Expression)],
+        node: &Node,
+        ctx: &Context,
+    ) {
+        match &output_destination.ty().underlying().kind {
+            BasicTypeKind::MapStorage(key_value_tuple_type, capacity) => {
+                let target_map_header_ptr_reg = self.emit_compute_effective_address_to_register(
+                    output_destination,
+                    node,
+                    "map header init",
+                );
+                let pointer_target = PointerLocation {
+                    ptr_reg: target_map_header_ptr_reg,
+                };
+
+                self.emit_map_storage_init_from_initializer_pair_list(
+                    &pointer_target,
+                    elements,
+                    key_value_tuple_type,
+                    *capacity,
+                    node,
+                    ctx,
+                );
+            }
+
+            _ => panic!(
+                "unknown initializer pair list type:{}",
+                output_destination.ty()
+            ),
         }
-
-         */
-
-         */
     }
 }
