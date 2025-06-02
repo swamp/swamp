@@ -221,7 +221,7 @@ impl FenTextSwamp {
         vm.set_register_pointer_addr_for_parameter(1, self.simulation_value_addr);
         vm.set_stack_start(self.safe_stack_start_addr as usize);
 
-        let run_fast = false;
+        let run_fast = true;
 
         if run_fast {
             run_function(vm, &self.tick_fn, application, run_options);
