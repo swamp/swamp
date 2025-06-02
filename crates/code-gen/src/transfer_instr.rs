@@ -165,4 +165,36 @@ impl CodeBuilder<'_> {
             }
         }
     }
+
+    /// Computes the **effective memory address** based on a given `Destination` and
+    /// places this address into the `target_reg`.
+    pub(crate) fn emit_compute_effective_address_to_target_register(
+        &mut self,
+        target_reg: &TypedRegister,
+        source_location: &Destination,
+        node: &Node,
+        comment: &str,
+    ) {
+        match source_location {
+            Destination::Register(reg) => {
+                self.builder.add_mov_reg(target_reg, reg, node, comment);
+            }
+            Destination::Memory(memory_location) => {
+                if memory_location.offset.0 == 0 {
+                    self.builder.add_mov_reg(target_reg, &memory_location.base_ptr_reg, node, comment);
+                } else {
+                    self.builder.add_add_u32_imm(
+                        target_reg,
+                        &memory_location.base_ptr_reg,
+                        u32::from(memory_location.offset.0),
+                        node,
+                        &format!("{comment} (add to resolved new base_ptr)"),
+                    );
+                }
+            }
+            Destination::Unit => {
+                panic!("can not compute effective address from unit")
+            }
+        }
+    }
 }

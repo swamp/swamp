@@ -1,8 +1,8 @@
-use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
+use crate::DetailedLocationResolved;
 use source_map_node::Node;
-use swamp_vm_types::MemoryLocation;
 use swamp_vm_types::types::{Destination, TypedRegister};
+use swamp_vm_types::MemoryLocation;
 use tracing::{error, info};
 
 impl CodeBuilder<'_> {
@@ -98,19 +98,7 @@ impl CodeBuilder<'_> {
     ) {
         let source_type = source_memory_location.vm_type();
         if source_type.is_aggregate() {
-            // For aggregates, calculate the effective address using our existing helper
-            let effective_addr = self.emit_compute_effective_address_to_register(
-                &Destination::Memory(source_memory_location.clone()),
-                node,
-                &format!("calculate address for aggregate {comment}"),
-            );
-            // Copy the calculated address to our target register
-            self.builder.add_mov_reg(
-                target_reg,
-                &effective_addr,
-                node,
-                "copy calculated address to target",
-            );
+            self.emit_compute_effective_address_to_target_register(target_reg, &Destination::Memory(source_memory_location.clone()), node, comment);
         } else {
             // For scalars, load the actual value
             self.emit_load_scalar_from_memory_offset_instruction(
