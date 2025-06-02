@@ -3,7 +3,7 @@ use crate::DetailedLocationResolved;
 use source_map_node::Node;
 use swamp_vm_types::types::{Destination, TypedRegister};
 use swamp_vm_types::MemoryLocation;
-use tracing::{error, info};
+use tracing::error;
 
 impl CodeBuilder<'_> {
     // Load -------------------------------------------------------
