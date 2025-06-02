@@ -81,10 +81,7 @@ impl CodeBuilder<'_> {
                 // Optional Tagged Union Payload is grabbed.
                 // if it is aggregate type, we block copy it,
                 // if it is a primitive we load it into a register
-                if target_binding_variable_reg
-                    .ty
-                    .is_represented_as_pointer_inside_register()
-                {
+                if target_binding_variable_reg.ty.is_aggregate() {
                     // get the location of the variable
                     let target_memory_location = MemoryLocation {
                         ty: target_binding_variable_reg.ty.clone(),

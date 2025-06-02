@@ -17,7 +17,7 @@ pub fn show_parameters_and_variables(
     variables: &[VariableRegister],
     f: &mut dyn Write,
 ) -> Result<(), fmt::Error> {
-    if !return_type.can_be_contained_inside_register() {
+    if !return_type.is_scalar() {
         writeln!(f, "{}: {}", tinter::blue("r0"), &return_type,)?;
         write_basic_type(&return_type.basic_type, FrameMemoryAddress(0), f, 0)?;
         writeln!(f)?;

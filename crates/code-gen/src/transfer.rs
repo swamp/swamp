@@ -2,7 +2,7 @@ use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
+use swamp_vm_types::types::{Destination, TypedRegister};
 
 impl CodeBuilder<'_> {
     // Load -------------------------------------------------------
@@ -48,7 +48,7 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) {
         let source_type = source_memory_location.vm_type();
-        if source_type.is_represented_as_pointer_inside_register() {
+        if source_type.is_aggregate() {
             if target_reg.ty().is_mutable_reference() {
                 self.emit_load_scalar_from_memory_offset_instruction(
                     target_reg,
@@ -63,20 +63,6 @@ impl CodeBuilder<'_> {
                     node,
                     "emit_load_from_memory: copy pointer reg to reg",
                 );
-
-                /*
-                let size = target_reg.size();
-                self.builder.add_block_copy_with_offset(
-                    target_reg,
-                    MemoryOffset(0),
-                    base_ptr_reg,
-                    source_offset,
-                    size,
-                    node,
-                    &format!("block copy {comment}"),
-                );
-
-                 */
             }
         } else {
             self.emit_load_scalar_from_memory_offset_instruction(
@@ -142,34 +128,26 @@ impl CodeBuilder<'_> {
 
         match value_source {
             Destination::Register(value_reg) => {
-                match value_reg.ty.basic_type.kind {
-                    BasicTypeKind::S32
-                    | BasicTypeKind::Fixed32
-                    | BasicTypeKind::U32
-                    | BasicTypeKind::B8
-                    | BasicTypeKind::U8
-                    | BasicTypeKind::InternalStringPointer => {
-                        // Use the helper for scalar types
-                        self.emit_store_scalar_to_memory_offset_instruction(
-                            output_mem_loc,
-                            value_reg,
-                            node,
-                            &format!("store {comment} to memory pointed by register {output_destination} <- {value_reg}"),
+                if value_reg.ty.is_scalar() {
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        output_mem_loc,
+                        value_reg,
+                        node,
+                        &format!("store {comment} to memory pointed by register {output_destination} <- {value_reg}"),
+                    );
+                } else {
+                    // This implies value_reg holds an aggregate type (represented by a pointer)
+                    // Existing block copy for aggregate types
+                    let source_memory_location =
+                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                            value_reg.clone(),
                         );
-                    }
-                    _ => {
-                        // Existing block copy for aggregate types (structs, unions, etc.)
-                        let source_memory_location =
-                            MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                                value_reg.clone(),
-                            );
-                        self.builder.add_block_copy_with_offset(
-                            output_mem_loc,
-                            &source_memory_location,
-                            node,
-                            &format!("block copy {comment} to memory pointed by register {output_destination} <- {value_reg}"),
-                        );
-                    }
+                    self.builder.add_block_copy_with_offset(
+                        output_mem_loc,
+                        &source_memory_location,
+                        node,
+                        &format!("block copy {comment} to memory pointed by register {output_destination} <- {value_reg}"),
+                    );
                 }
             }
             Destination::Memory(source_mem_loc) => {
@@ -184,35 +162,26 @@ impl CodeBuilder<'_> {
                     &format!("load {comment} from memory for store"),
                 );
 
-                match source_mem_loc.ty.basic_type.kind {
-                    BasicTypeKind::S32
-                    | BasicTypeKind::Fixed32
-                    | BasicTypeKind::U32
-                    | BasicTypeKind::B8
-                    | BasicTypeKind::U8
-                    | BasicTypeKind::InternalStringPointer => {
-                        self.emit_store_scalar_to_memory_offset_instruction(
-                            output_mem_loc,
-                            temp_reg.register(),
-                            node,
-                            &format!("store {comment} from temp to memory pointed by register"),
+                if source_mem_loc.ty.is_scalar() {
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        output_mem_loc,
+                        temp_reg.register(),
+                        node,
+                        &format!("store {comment} from temp to memory pointed by register"),
+                    );
+                } else {
+                    // This implies temp_reg holds an aggregate type (represented by a pointer)
+                    let source_memory_location =
+                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                            temp_reg.register,
                         );
-                    }
-                    _ => {
-                        let source_memory_location =
-                            MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                                temp_reg.register,
-                            );
 
-                        self.builder.add_block_copy_with_offset(
-                            output_mem_loc,
-                            &source_memory_location,
-                            node,
-                            &format!(
-                                "block copy '{comment}' from temp to memory pointed by register"
-                            ),
-                        );
-                    }
+                    self.builder.add_block_copy_with_offset(
+                        output_mem_loc,
+                        &source_memory_location,
+                        node,
+                        &format!("block copy '{comment}' from temp to memory pointed by register"),
+                    );
                 }
             }
             Destination::Unit => panic!("Cannot store from Unit source"),

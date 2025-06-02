@@ -328,7 +328,7 @@ impl CodeBuilder<'_> {
         if needs_final_load {
             match output_destination {
                 Destination::Register(output_reg) => {
-                    if output_destination.ty().is_represented_as_a_pointer_in_reg() {
+                    if output_destination.ty().is_aggregate() {
                         let absolute_pointer_reg = self.emit_absolute_pointer_if_needed(
                             &current_location,
                             &start_expression.node,
@@ -351,7 +351,7 @@ impl CodeBuilder<'_> {
                     }
                 }
                 Destination::Memory(mem_loc) => {
-                    if mem_loc.ty.is_represented_as_pointer_inside_register() {
+                    if mem_loc.ty.is_aggregate() {
                         // Complex type - we need to store to memory
                         self.emit_store_value_to_memory_destination(
                             output_destination,
@@ -400,7 +400,7 @@ impl CodeBuilder<'_> {
                 let reg = self.emit_scalar_rvalue(expr, ctx);
 
                 // If the register contains a primitive value directly, return it as is
-                if !reg.ty.is_represented_as_pointer_inside_register() {
+                if !reg.ty.is_aggregate() {
                     return Destination::Register(reg);
                 }
 
@@ -416,7 +416,7 @@ impl CodeBuilder<'_> {
                 let variable_reg = self.get_variable_register(variable);
 
                 // Same logic for variables - return memory location for pointers
-                if !variable_reg.ty.is_represented_as_pointer_inside_register() {
+                if !variable_reg.ty.is_aggregate() {
                     return Destination::Register(variable_reg.clone());
                 }
 

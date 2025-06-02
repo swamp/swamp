@@ -243,7 +243,7 @@ impl CodeBuilder<'_> {
         if !signature.return_type.is_unit() {
             let return_basic_type = layout_type(&signature.return_type);
 
-            if return_basic_type.is_represented_as_a_pointer_in_reg() {
+            if return_basic_type.is_aggregate() {
                 self.setup_return_pointer_reg(output_destination, return_basic_type, node);
             } else {
                 self.prepare_copy_back_for_primitive_return_value(

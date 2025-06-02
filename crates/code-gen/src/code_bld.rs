@@ -442,7 +442,7 @@ impl CodeBuilder<'_> {
             .unwrap();
         // TODO: Bring this back// assert_eq!(target_reg.size(), constant_region.size());
 
-        if constant_region.ty().is_represented_as_a_pointer_in_reg() {
+        if constant_region.ty().is_aggregate() {
             // load the known constant address into a temp register to use as a base for the block copy
             let source_base_ptr = self.temp_registers.allocate(
                 VmType::new_contained_in_register(u32_type()),

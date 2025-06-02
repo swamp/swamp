@@ -61,7 +61,7 @@ impl CodeBuilder<'_> {
             }
             ExpressionKind::ConstantAccess(constant_ref) => {
                 let constant_type = layout_type(&constant_ref.resolved_type);
-                if constant_type.is_represented_as_a_pointer_in_reg() {
+                if constant_type.is_aggregate() {
                     let temp_target_reg = self.temp_registers.allocate(
                         VmType::new_unknown_placement(constant_type),
                         "temporary for constant access",

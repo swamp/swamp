@@ -64,10 +64,7 @@ impl CodeBuilder<'_> {
 
                 //let source_location = Destination::new_location(source_memory_location);
 
-                if frame_placed_target_variable_register
-                    .ty
-                    .can_be_contained_inside_register()
-                {
+                if frame_placed_target_variable_register.ty.is_scalar() {
                     self.emit_load_value_from_memory_source(
                         &frame_placed_target_variable_register,
                         &source_memory_location,

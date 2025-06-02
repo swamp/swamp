@@ -126,7 +126,7 @@ impl CodeBuilder<'_> {
                         );
                     }
                     Destination::Memory(location) => {
-                        if variable_register.ty.can_be_contained_inside_register() {
+                        if variable_register.ty.is_scalar() {
                             match variable_register.ty.basic_type.kind {
                                 BasicTypeKind::B8 | BasicTypeKind::U8 => {
                                     self.builder.add_st8_using_ptr_with_offset(
@@ -303,7 +303,7 @@ impl CodeBuilder<'_> {
                 | ExpressionKind::HostCall(_, _)
                 | ExpressionKind::IntrinsicCallEx(_, _) => {
                     let basic_type = layout_type(&expr.ty);
-                    basic_type.is_represented_as_a_pointer_in_reg()
+                    basic_type.is_aggregate()
                 }
                 _ => false,
             }

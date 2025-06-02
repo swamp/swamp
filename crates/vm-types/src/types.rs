@@ -750,7 +750,7 @@ impl Destination {
                 panic!("add_offset")
             }
             Self::Register(reg) => {
-                if reg.ty.is_represented_as_pointer_inside_register() {
+                if reg.ty.is_aggregate() {
                     Self::Memory(MemoryLocation {
                         base_ptr_reg: reg.clone(),
                         offset,
@@ -1118,24 +1118,24 @@ impl VmType {
     }
 
     #[must_use]
-    pub const fn is_represented_as_pointer_inside_register(&self) -> bool {
-        self.basic_type.is_represented_as_a_pointer_in_reg()
+    pub const fn is_aggregate(&self) -> bool {
+        self.basic_type.is_aggregate()
     }
 
     #[must_use]
-    pub const fn can_be_contained_inside_register(&self) -> bool {
+    pub const fn is_scalar(&self) -> bool {
         self.basic_type.is_scalar()
     }
 
     #[must_use]
     pub const fn needs_allocated_space_for_return_in_reg0(&self) -> bool {
-        self.basic_type.is_represented_as_a_pointer_in_reg()
+        self.basic_type.is_aggregate()
             && !matches!(self.basic_type.kind, BasicTypeKind::InternalStringPointer)
     }
 
     #[must_use]
     pub const fn needs_copy_back_for_mutable(&self) -> bool {
-        !self.basic_type.is_represented_as_a_pointer_in_reg()
+        !self.basic_type.is_aggregate()
             || matches!(self.basic_type.kind, BasicTypeKind::InternalStringPointer)
     }
     #[must_use]
@@ -1261,7 +1261,7 @@ impl BasicType {
 impl BasicType {
     #[must_use]
     pub const fn should_be_copied_back_when_mutable_arg_or_return(&self) -> bool {
-        !self.is_represented_as_a_pointer_in_reg()
+        !self.is_aggregate()
     }
 }
 
@@ -1353,7 +1353,7 @@ impl BasicType {
     }
 
     #[must_use]
-    pub const fn is_represented_as_a_pointer_in_reg(&self) -> bool {
+    pub const fn is_aggregate(&self) -> bool {
         self.kind.is_aggregate()
     }
 
