@@ -514,7 +514,7 @@ impl Display for Type {
                 write!(f, "[{value_type:?}]")
             }
             Self::MapStorage(key_type, value_type, size) => {
-                write!(f, "xMapStorage<{key_type}, {value_type}, {size}>")
+                write!(f, "MapStorage<{key_type}, {value_type}, {size}>")
             }
             Self::DynamicLengthMapView(key_type, value_type) => {
                 write!(f, "Map<{key_type}, {value_type}>")

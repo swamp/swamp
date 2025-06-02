@@ -407,7 +407,7 @@ impl Vm {
         vm.handlers[OpCode::MapGetOrReserveEntryLocation as usize] =
             HandlerType::Args3(Self::execute_map_open_addressing_get_or_reserve_entry);
         vm.handlers[OpCode::MapHas as usize] =
-            HandlerType::Args2(Self::execute_map_open_addressing_has);
+            HandlerType::Args3(Self::execute_map_open_addressing_has);
 
         // Map
         /* TODO: BRING THESE BACK

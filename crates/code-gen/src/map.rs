@@ -1,5 +1,6 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
+use crate::is_power_of_two;
 use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::{Expression, MapType};
@@ -57,6 +58,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         let hwm = self.temp_registers.save_mark();
+        assert!(is_power_of_two(capacity));
 
         let len = initializer_pair_list_expressions.len();
         let aligned_key_size = key_value_tuple_type.aligned_size_of_field(0);

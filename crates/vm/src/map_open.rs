@@ -2,9 +2,11 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+extern crate fxhash;
 use crate::memory::Memory;
 use crate::{Vm, get_reg};
 use crate::{set_reg, u16_from_u8s};
+use fxhash::FxHasher64;
 use std::cmp::min;
 use std::hash::{DefaultHasher, Hasher};
 use std::{ptr, slice};
@@ -111,6 +113,8 @@ impl Vm {
             let element_size = header.element_size as usize;
             debug_assert_ne!(key_size, 0);
             debug_assert_ne!(element_size, 0);
+            debug_assert_ne!(capacity, 0);
+            debug_assert!(Self::is_power_of_two(capacity));
 
             let buckets_ptr = memory.get_heap_ptr(buckets_ptr_addr);
             let key_ptr = memory.get_heap_ptr(key_ptr_addr);
@@ -127,7 +131,7 @@ impl Vm {
             #[cfg(feature = "debug_vm")]
             {
                 eprintln!(
-                    "wants to insert hash: {hash:08X} starting at: {index} capacity: {}, key_size: {key_size} element_size: {element_size}",
+                    "map: wants to insert hash: {hash:08X} starting at: {index} capacity: {}, key_size: {key_size} element_size: {element_size}",
                     header.capacity
                 );
             }
@@ -141,6 +145,10 @@ impl Vm {
                 let status_ptr = bucket_start_ptr;
 
                 let status = ptr::read(status_ptr);
+                #[cfg(feature = "debug_vm")]
+                {
+                    eprintln!("index: {index}, status {status}, bucket_size {bucket_size}");
+                }
                 if status == Self::BUCKET_EMPTY {
                     // Found an empty slot. Key is not present.
                     // use tombstone if found on the way. it is closer to the initial index from hash.
@@ -158,7 +166,7 @@ impl Vm {
                     //ptr::copy_nonoverlapping(value_ptr, target_value_ptr, value_size);
                     #[cfg(feature = "debug_vm")]
                     {
-                        eprintln!("empty bucket just overwriting index {index}");
+                        eprintln!("found empty bucket, overwriting index {index}");
                     }
 
                     return memory.get_heap_offset(target_value_ptr);
@@ -229,11 +237,23 @@ impl Vm {
     }
 
     // TODO: Use the default hasher for now, but maybe use a noice hash or fnv-1a or something
-    fn calculate_hash(key_bytes: &[u8]) -> u64 {
+    fn default_calculate_hash(key_bytes: &[u8]) -> u64 {
         let mut hasher = DefaultHasher::new();
         hasher.write(key_bytes);
         let unique = hasher.finish();
         eprintln!("hash: {unique:08X}");
+        unique
+    }
+
+    // TODO: Use the default hasher for now, but maybe use a noice hash or fnv-1a or something
+    fn calculate_hash(key_bytes: &[u8]) -> u64 {
+        let mut hasher = FxHasher64::default();
+        hasher.write(key_bytes);
+        let unique = hasher.finish();
+        eprintln!(
+            "calculated hash: {unique:08X} for key of size {}",
+            key_bytes.len()
+        );
         unique
     }
 
@@ -269,6 +289,10 @@ impl Vm {
         set_reg!(self, dst_entry_address, address_to_entry);
     }
 
+    const fn is_power_of_two(n: usize) -> bool {
+        n > 0 && (n & (n - 1)) == 0
+    }
+
     pub fn execute_map_open_addressing_init(
         &mut self,
         self_map_header_reg: u8,
@@ -283,6 +307,7 @@ impl Vm {
         let capacity = u16_from_u8s!(capacity_lower, capacity_upper);
         let key_size = u16_from_u8s!(key_size_lower, key_size_upper);
         let element_size = u16_from_u8s!(tuple_size_lower, tuple_size_upper);
+        assert!(Self::is_power_of_two(capacity as usize));
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             let map_header_addr = get_reg!(self, self_map_header_reg);
@@ -324,6 +349,10 @@ impl Vm {
         };
 
         if entry_address == 0 {
+            #[cfg(feature = "debug_vm")]
+            if self.debug_operations_enabled {
+                eprintln!("map: try to get or a reserve entry");
+            }
             unsafe {
                 entry_address = Self::get_or_reserve_entry(
                     &self.memory,
@@ -339,19 +368,33 @@ impl Vm {
 
     pub fn execute_map_open_addressing_has(
         &mut self,
+        dest_reg: u8,
         self_const_map_header_reg: u8,
-        key_source: u8,
+        key_source_reg: u8,
     ) {
-        todo!()
+        let (map_header, map_header_addr) = self.read_map_header(self_const_map_header_reg);
+        let key_source_address = get_reg!(self, key_source_reg) as usize;
+        let buckets_start_addr = (map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
+        unsafe {
+            let found = Self::has_open_addressing(
+                &self.memory,
+                buckets_start_addr,
+                &map_header,
+                key_source_address,
+            );
+            eprintln!("map: has:{}", found);
+            set_reg!(self, dest_reg, found);
+        }
     }
 
     ///
     /// Returns `true` if the key is found within the maximum probe distance,
     /// `false` otherwise.
     unsafe fn has_open_addressing(
-        buckets_ptr: *const u8,
+        memory: &Memory,
+        buckets_ptr_addr: usize,
         header: &MapHeader,
-        key_ptr: *const u8,
+        key_ptr_addr: usize,
     ) -> bool {
         unsafe {
             let capacity = header.capacity as usize;
@@ -359,13 +402,18 @@ impl Vm {
             let element_size = header.element_size as usize;
             debug_assert_ne!(key_size, 0);
             debug_assert_ne!(element_size, 0);
+            debug_assert_ne!(capacity, 0);
+            debug_assert!(Self::is_power_of_two(capacity));
+
+            let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
+            let key_slice = slice::from_raw_parts(key_ptr, key_size);
+            let hash = Self::calculate_hash(key_slice);
+
+            let buckets_ptr = memory.get_heap_const_ptr(buckets_ptr_addr);
 
             // Calculate bucket layout sizes
             let status_size: usize = MAP_HEADER_ALIGNMENT.into();
             let bucket_size: usize = status_size + element_size;
-
-            let key_slice = slice::from_raw_parts(key_ptr, key_size);
-            let hash = Self::calculate_hash(key_slice);
 
             // Use bitwise AND for modulo (capacity is always a power of two)
             let mut index = (hash as usize) & (capacity - 1);
@@ -425,6 +473,7 @@ impl Vm {
         unsafe {
             let capacity = header.capacity as usize;
             debug_assert_ne!(capacity, 0);
+            debug_assert!(Self::is_power_of_two(capacity));
             let key_size = header.key_size as usize;
             debug_assert_ne!(key_size, 0);
             let element_size = header.element_size as usize;
@@ -473,7 +522,7 @@ impl Vm {
                         #[cfg(feature = "debug_vm")]
                         {
                             eprintln!(
-                                "matching key {key_slice:?} {existing_key_slice:?}. returning this existing entry at {index}, adding key_size {key_size}"
+                                "matching new key {key_slice:?} with existing key {existing_key_slice:?}. returning this existing entry at {index}, adding key_size {key_size}"
                             );
                         }
                         // Keys match! return the pointer.
@@ -495,7 +544,7 @@ impl Vm {
             // Therefore, the key is not considered present within the probe limit.
             #[cfg(feature = "debug_vm")]
             {
-                eprintln!("lookup failed to find anything after max probe distance");
+                eprintln!("lookup failed to find any matches, returning 0");
             }
             0
         }

@@ -66,6 +66,10 @@ use swamp_vm_types::{
     VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 
+const fn is_power_of_two(n: usize) -> bool {
+    n > 0 && (n & (n - 1)) == 0
+}
+
 #[derive(Copy, Clone)]
 pub enum Transformer {
     For,

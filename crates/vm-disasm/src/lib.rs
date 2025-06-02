@@ -1053,9 +1053,9 @@ pub fn disasm(
         ],
 
         OpCode::MapHas => &[
-            //  sets the Z flag
-            to_read_reg(operands[0], &map_type(), frame_memory_info),
-            to_read_reg(operands[1], &bytes_type(), frame_memory_info),
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
+            to_read_reg(operands[1], &map_type(), frame_memory_info),
+            to_read_reg(operands[2], &bytes_type(), frame_memory_info),
         ],
 
         OpCode::RangeInit => &[

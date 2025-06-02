@@ -56,11 +56,12 @@ impl CodeBuilder<'_> {
 
                 debug!(?key_value_tuple_type, "emit map storage ");
 
+                let adjusted_capacity = capacity.next_power_of_two();
                 self.emit_map_storage_init_from_initializer_pair_list(
                     &pointer_target,
                     elements,
                     key_value_tuple_type,
-                    *capacity,
+                    adjusted_capacity,
                     node,
                     ctx,
                 );

@@ -1927,6 +1927,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_map_has(
         &mut self,
+        dest_reg: &TypedRegister,
         self_addr: &TypedRegister,
         key_addr: &TypedRegister,
         node: &Node,
@@ -1938,7 +1939,11 @@ impl InstructionBuilder<'_> {
         );
         self.state.add_instruction(
             OpCode::MapHas,
-            &[self_addr.addressing(), key_addr.addressing()],
+            &[
+                dest_reg.addressing(),
+                self_addr.addressing(),
+                key_addr.addressing(),
+            ],
             node,
             comment,
         );

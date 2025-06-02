@@ -628,8 +628,13 @@ impl CodeBuilder<'_> {
                     panic!("must be expression for key");
                 };
                 let key = self.emit_scalar_rvalue(key_argument, ctx);
-                self.builder
-                    .add_map_has(self_addr.unwrap(), &key, node, "map_has");
+                self.builder.add_map_has(
+                    maybe_target.unwrap(),
+                    self_addr.unwrap(),
+                    &key,
+                    node,
+                    "map_has",
+                );
                 t_flag_result.kind = FlagStateKind::TFlagIsTrueWhenSet;
             }
             IntrinsicFunction::MapRemove => {

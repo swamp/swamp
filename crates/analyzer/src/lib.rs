@@ -3059,6 +3059,44 @@ impl<'a> Analyzer<'a> {
         Ok(intrinsic_and_signature)
     }
 
+    #[allow(clippy::unnecessary_wraps, clippy::result_large_err)]
+    fn map_member_signature(
+        &self,
+        self_type: &Type,
+        key_type: &Type,
+        value_type: &Type,
+        field_name_str: &str,
+        node: &swamp_ast::Node,
+    ) -> Result<(IntrinsicFunction, Signature), Error> {
+        let self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: true,
+            node: None,
+        };
+
+        let intrinsic_and_signature = match field_name_str {
+            "has" => (
+                IntrinsicFunction::MapHas,
+                Signature {
+                    parameters: vec![
+                        self_type_param,
+                        TypeForParameter {
+                            name: "key".to_string(),
+                            resolved_type: key_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: Box::new(Type::Bool),
+                },
+            ),
+            _ => todo!(),
+        };
+
+        Ok(intrinsic_and_signature)
+    }
+
     fn check_intrinsic_member_signature(
         &mut self,
         type_that_member_is_on: &Type,
@@ -3079,6 +3117,9 @@ impl<'a> Analyzer<'a> {
                 field_name_str,
                 node,
             ),
+            Type::MapStorage(key, value, _) => {
+                self.map_member_signature(type_that_member_is_on, key, value, field_name_str, node)
+            }
             Type::FixedCapacityAndLengthArray(element_type, _) => {
                 self.slice_member_signature(element_type, field_name_str, node)
             }
