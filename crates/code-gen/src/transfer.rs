@@ -1,8 +1,8 @@
-use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
+use crate::DetailedLocationResolved;
 use source_map_node::Node;
-use swamp_vm_types::MemoryLocation;
 use swamp_vm_types::types::{Destination, TypedRegister};
+use swamp_vm_types::MemoryLocation;
 
 impl CodeBuilder<'_> {
     // Load -------------------------------------------------------
@@ -74,13 +74,17 @@ impl CodeBuilder<'_> {
         }
     }
 
-    /// Ensures that a **primitive** value from a given `Destination` is available in a register.
+    /// Ensures that a value from a given `Destination` is available in a register.
+    ///
+    /// In compiler design, "materialization" refers to the process of bringing a value from an
+    /// abstract or indirect representation (like a variable name, or a value stored in memory)
+    /// into a concrete, directly usable form, which is typically a CPU register.
     ///
     /// If the `location` is already a `Register`, it's returned directly. If the `location`
     /// is `Memory`, a temporary register is allocated, and the primitive value is loaded
     /// into it using `emit_load_value_from_memory_source`, ensuring it's ready for
     /// register-based operations.
-    pub(crate) fn emit_ensure_primitive_in_register(
+    pub(crate) fn emit_materialize_value_to_register(
         &mut self,
         location: &Destination,
         node: &Node,

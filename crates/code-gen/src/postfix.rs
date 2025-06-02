@@ -4,7 +4,7 @@ use crate::layout::{layout_optional_type, layout_type};
 use crate::single_intrinsic_fn;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
+use swamp_vm_types::types::{u8_type, Destination, RValueOrLValue, VmType};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
 
 impl CodeBuilder<'_> {
@@ -165,7 +165,7 @@ impl CodeBuilder<'_> {
                     let hwm = self.temp_registers.save_mark();
 
                     // Load and check the optional tag
-                    let resolved_location = self.emit_ensure_primitive_in_register(
+                    let resolved_location = self.emit_materialize_value_to_register(
                         &current_location,
                         &element.node,
                         "load optional tag",

@@ -202,7 +202,7 @@ impl CodeBuilder<'_> {
 
         let hwm = self.temp_registers.save_mark();
 
-        let resolved = self.emit_ensure_primitive_in_register(
+        let resolved = self.emit_materialize_value_to_register(
             &assignment_target,
             &target_location.0.node,
             "compound_assignment",
