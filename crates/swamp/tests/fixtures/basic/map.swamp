@@ -31,7 +31,8 @@ fn basic_map() {
     assert(game.card_templates.has(CardId::MightyGolem), "should have MightyGolem")
     assert(!game.card_templates.has(CardId::EtherealDragon), "should not have EtherealDragon")
 
-    print('healing_per_second: {game.card_templates[CardId::MightyGolem].healing_per_second}')
+
+    print('healing_per_second: {CardId::MightyGolem}: {game.card_templates[CardId::MightyGolem].healing_per_second}')
     assert(game.card_templates[CardId::MightyGolem].mana == 5, "should be 5")
 
     print('mana: {game.card_templates[CardId::Earthquake].mana}')
@@ -106,3 +107,21 @@ fn remove_card() {
     assert(!game.card_templates.has(CardId::MysticSpring), "should not have MysticSpring")
 }
 
+//#[test]
+fn iterate_cards() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ]
+    }
+
+    mut count = 0
+    for card_id, card_template in game.card_templates {
+        print('Card ID: {card_id}, Mana: {card_template.mana}, Healing per second: {card_template.healing_per_second}')
+        count += 1
+    }
+
+    assert(count == 3, "should iterate over 3 cards")
+}

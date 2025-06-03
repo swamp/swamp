@@ -39,7 +39,7 @@ pub fn analyze_module(
     let debug_string = format!("analyze module {module_path:?}");
     let _analyze_timer = ScopedTimer::new(&debug_string);
 
-    let mut resolver = Analyzer::new(
+    let mut analyzer = Analyzer::new(
         state,
         modules,
         core_symbol_table.clone(),
@@ -48,22 +48,22 @@ pub fn analyze_module(
         ast_module.file_id,
     );
 
-    resolver.shared.lookup_table = default_lookup_symbol_table.clone();
+    analyzer.shared.lookup_table = default_lookup_symbol_table.clone();
 
     let statements = {
         for ast_def in ast_module.ast_module.definitions() {
-            resolver.analyze_definition(ast_def)?;
+            analyzer.analyze_definition(ast_def)?;
         }
 
         if let Some(expr) = ast_module.ast_module.expression() {
-            let internal_main = resolver.analyze_main_expression(expr)?;
+            let internal_main = analyzer.analyze_main_expression(expr)?;
             Some(internal_main)
         } else {
             None
         }
     };
 
-    Ok((resolver.shared.definition_table, statements))
+    Ok((analyzer.shared.definition_table, statements))
 }
 
 /// # Errors

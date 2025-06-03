@@ -230,9 +230,10 @@ impl Analyzer<'_> {
 
         self.shared
             .lookup_table
-            .add_enum_type_link(new_enum_type)
+            .add_enum_type_link(new_enum_type.clone())
             .map_err(|err| self.create_err(ErrorKind::SemanticError(err), &enum_type_name.name))?;
 
+        self.add_default_functions(Type::Enum(new_enum_type.clone()), &enum_type_name.name);
         Ok(())
     }
 
@@ -555,8 +556,6 @@ impl Analyzer<'_> {
             generic_params: converted_type_variables_to_ast_types,
         };
 
-        let is_parameterized = !qualified.generic_params.is_empty();
-
         let maybe_type_to_attach_to = Some(self.analyze_named_type(&qualified)?);
         if let Some(type_to_attach_to) = maybe_type_to_attach_to {
             let function_refs: Vec<&swamp_ast::Function> = functions.iter().collect();
@@ -579,7 +578,14 @@ impl Analyzer<'_> {
         attach_to_type: &Type, // Needed for self
         functions: &[&swamp_ast::Function],
     ) -> Result<(), Error> {
-        self.shared.state.associated_impls.prepare(attach_to_type);
+        if !self
+            .shared
+            .state
+            .associated_impls
+            .is_prepared(attach_to_type)
+        {
+            self.shared.state.associated_impls.prepare(attach_to_type);
+        }
 
         for function in functions {
             self.start_function();
@@ -599,6 +605,14 @@ impl Analyzer<'_> {
             let resolved_function_ref = Rc::new(resolved_function);
 
             self.stop_function();
+
+            let is_built_in = matches!(function_name_str.as_str(), "to_string" | "default");
+            if is_built_in {
+                self.shared
+                    .state
+                    .associated_impls
+                    .remove_internal_function_if_exists(attach_to_type, &function_name_str);
+            }
 
             self.shared
                 .state
@@ -749,5 +763,30 @@ impl Analyzer<'_> {
             }
         };
         Ok(resolved_fn)
+    }
+
+    fn add_default_functions(&mut self, type_to_attach_to: Type, node: &swamp_ast::Node) {
+        if self
+            .shared
+            .state
+            .associated_impls
+            .get_internal_member_function(&type_to_attach_to, "to_string")
+            .is_none()
+        {
+            if let Type::Enum(_some_enum_type) = &type_to_attach_to {
+                // TODO: Only enums supported
+                let new_internal_function =
+                    self.generate_to_string_function_for_type(&type_to_attach_to, node);
+                self.shared
+                    .state
+                    .associated_impls
+                    .prepare(&type_to_attach_to);
+                self.shared
+                    .state
+                    .associated_impls
+                    .add_internal_function(&type_to_attach_to, new_internal_function)
+                    .unwrap()
+            }
+        }
     }
 }

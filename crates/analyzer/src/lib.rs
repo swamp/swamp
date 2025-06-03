@@ -22,6 +22,7 @@ use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
+use std::rc::Rc;
 use std::str::{FromStr, ParseBoolError};
 use swamp_ast::GenericParameter;
 use swamp_modules::prelude::*;
@@ -31,7 +32,7 @@ use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
     InternalMainExpression, LocationAccess, LocationAccessKind, MapType, MutableReferenceKind,
     NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceViewType,
-    TargetAssignmentLocation, TypeWithMut, VecType, WhenBinding,
+    TargetAssignmentLocation, TypeWithMut, VariableType, VecType, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::prelude::*;
@@ -1415,6 +1416,115 @@ impl<'a> Analyzer<'a> {
         })
     }
 
+    fn generate_to_string_for_enum(
+        &mut self,
+        enum_type: &EnumType,
+        argument_expression: Expression,
+    ) -> Expression {
+        let node = argument_expression.node.clone();
+        let mut arms = Vec::new();
+        for (variant_name, variant_type) in &enum_type.variants {
+            let kind = ExpressionKind::Literal(Literal::StringLiteral(variant_name.clone()));
+            let string_expr = self.create_expr_resolved(kind.clone(), Type::String, &node);
+
+            let arm_kind = MatchArm {
+                pattern: Pattern::Normal(
+                    NormalPattern::EnumPattern(variant_type.clone(), None),
+                    None,
+                ),
+                expression: Box::new(string_expr.clone()),
+                expression_type: Type::Int,
+            };
+            arms.push(arm_kind);
+        }
+
+        self.create_expr_resolved(
+            ExpressionKind::Match(Match {
+                arms,
+                expression: Box::new(argument_expression),
+            }),
+            Type::Enum(enum_type.clone()),
+            &node,
+        )
+    }
+
+    pub fn generate_to_string_function_for_type(
+        &mut self,
+        ty: &Type,
+        node: &swamp_ast::Node,
+    ) -> InternalFunctionDefinition {
+        let resolved_node = self.to_node(node);
+
+        let variable = Variable {
+            name: resolved_node.clone(),
+            assigned_name: "self".to_string(),
+            resolved_type: ty.clone(),
+            mutable_node: None,
+            variable_type: VariableType::Parameter,
+
+            scope_index: 0,
+            variable_index: 0,
+
+            unique_id_within_function: 0,
+            is_unused: false,
+        };
+
+        let variable_ref = Rc::new(variable);
+
+        let first_self_param = self.create_expr_resolved(
+            ExpressionKind::VariableAccess(variable_ref.clone()),
+            Type::String,
+            &resolved_node,
+        );
+
+        let body_expr = match &ty {
+            Type::Int => todo!(),
+            Type::Float => todo!(),
+            Type::String => todo!(),
+            Type::Bool => todo!(),
+            Type::Unit => todo!(),
+            Type::Tuple(_) => todo!(),
+            Type::NamedStruct(_) => todo!(),
+            Type::AnonymousStruct(_) => todo!(),
+            Type::Range(_) => todo!(),
+            Type::Enum(enum_type) => {
+                self.generate_to_string_for_enum(&enum_type.clone(), first_self_param)
+            }
+            Type::Function(_) => todo!(),
+            Type::Optional(_) => todo!(),
+            Type::MutableReference(_) => todo!(),
+            Type::FixedCapacityAndLengthArray(_, _) => todo!(),
+            Type::SliceView(_) => todo!(),
+            Type::DynamicLengthVecView(_) => todo!(),
+            Type::VecStorage(_, _) => todo!(),
+            Type::MapStorage(_, _, _) => todo!(),
+            Type::DynamicLengthMapView(_, _) => todo!(),
+        };
+
+        let unique_function_id = self.shared.state.allocate_internal_function_id();
+
+        InternalFunctionDefinition {
+            body: body_expr,
+            name: LocalIdentifier(resolved_node.clone()),
+            assigned_name: "to_string".to_string(),
+            associated_with_type: Option::from(ty.clone()),
+            defined_in_module_path: self.module_path.clone(),
+            signature: Signature {
+                parameters: vec![TypeForParameter {
+                    name: "self".to_string(),
+                    resolved_type: ty.clone(),
+                    is_mutable: false,
+                    node: None,
+                }],
+                return_type: Box::new(Type::String),
+            },
+            parameters: vec![variable_ref],
+            function_variables: vec![],
+            program_unique_id: unique_function_id,
+            attributes: Attributes::default(),
+        }
+    }
+
     fn analyze_iterable(
         &mut self,
         force_mut: Option<swamp_ast::Node>,
@@ -1429,6 +1539,9 @@ impl<'a> Analyzer<'a> {
             Type::String => (Some(Type::Int), Type::String),
             Type::SliceView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::VecStorage(element_type, _fixed_size) => (Some(Type::Int), *element_type.clone()),
+            Type::MapStorage(key_type, value_type, _fixed_size) => {
+                (Some(*key_type.clone()), *value_type.clone())
+            }
             Type::Range(_) => (None, Type::Int),
             _ => return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node)),
         };

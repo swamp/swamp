@@ -60,6 +60,18 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
+            Type::MapStorage(key, value, size) => {
+                self.emit_for_loop_lambda(
+                    destination,
+                    node,
+                    Collection::Map,
+                    &collection_ptr_reg,
+                    collection_type,
+                    for_pattern,
+                    lambda_non_capturing_expr,
+                    ctx,
+                );
+            }
             Type::String => {
                 todo!();
             }

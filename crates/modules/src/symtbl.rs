@@ -69,6 +69,8 @@ pub struct SymbolTable {
     module_path: Vec<String>,
 }
 
+impl SymbolTable {}
+
 impl SymbolTable {
     #[must_use]
     pub fn internal_functions(&self) -> Vec<InternalFunctionDefinitionRef> {
@@ -129,6 +131,20 @@ impl SymbolTable {
         }
 
         structs
+    }
+
+    pub fn enums(&self) -> SeqMap<String, EnumType> {
+        let mut enums = SeqMap::new();
+
+        for (name, symbol) in &self.symbols {
+            if let Symbol::Type(ty) = symbol {
+                if let Type::Enum(enum_type) = ty {
+                    enums.insert(name.to_string(), enum_type.clone()).unwrap();
+                }
+            }
+        }
+
+        enums
     }
 
     /// # Errors

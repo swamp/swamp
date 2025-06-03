@@ -934,6 +934,12 @@ pub struct AssociatedImpls {
     pub functions: SeqMap<Type, ImplFunctions>,
 }
 
+impl AssociatedImpls {}
+
+impl AssociatedImpls {}
+
+impl AssociatedImpls {}
+
 impl Default for AssociatedImpls {
     fn default() -> Self {
         Self::new()
@@ -955,6 +961,10 @@ impl AssociatedImpls {
             .insert(ty.clone(), ImplFunctions::new())
             .expect("should work");
     }
+
+    pub fn is_prepared(&self, ty: &Type) -> bool {
+        self.functions.contains_key(ty)
+    }
     #[must_use]
     pub fn get_member_function(&self, ty: &Type, function_name: &str) -> Option<&FunctionRef> {
         let maybe_found_impl = self.functions.get(ty);
@@ -964,6 +974,16 @@ impl AssociatedImpls {
             }
         }
         None
+    }
+
+    fn has_internal_member_function(&self, ty: &Type, function_name: &str) -> bool {
+        let maybe_found_impl = self.functions.get(ty);
+        if let Some(found_impl) = maybe_found_impl {
+            if let Some(func) = found_impl.functions.get(&function_name.to_string()) {
+                return true;
+            }
+        }
+        false
     }
 
     #[must_use]
@@ -1005,6 +1025,17 @@ impl AssociatedImpls {
         None
     }
 
+    pub fn remove_internal_function_if_exists(&mut self, ty: &Type, function_name: &str) -> bool {
+        if self.has_internal_member_function(ty, function_name) {
+            let functions = self.functions.get_mut(ty).unwrap();
+
+            functions.functions.remove(&function_name.to_string());
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn add_member_function(
         &mut self,
         ty: &Type,
@@ -1023,6 +1054,18 @@ impl AssociatedImpls {
             error!(%ty, ?name, "wasn't prepared");
             Err(SemanticError::UnknownImplOnType)
         }
+    }
+
+    pub fn add_internal_function(
+        &mut self,
+        ty: &Type,
+        func: InternalFunctionDefinition,
+    ) -> Result<(), SemanticError> {
+        self.add_member_function(
+            ty,
+            &func.assigned_name.clone(),
+            Function::Internal(func.into()).into(),
+        )
     }
 
     pub fn add_external_member_function(

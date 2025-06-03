@@ -531,6 +531,9 @@ attribute = { outer_attribute | inner_attribute }
 
 outer_attribute = { "#" ~ "[" ~ meta_item ~ "]" }
 inner_attribute = { "#!" ~ "[" ~ meta_item ~ "]" }
+// outer_attribute = { "#" ~ "[" ~ meta_item_list ~ "]" } // be able to have multiple items on each group
+// inner_attribute = { "#!" ~ "[" ~ meta_item_list ~ "]" } // again, more fun to have multiple items in each group
+
 
 meta_item = { meta_key_value | meta_list | meta_path }
 
