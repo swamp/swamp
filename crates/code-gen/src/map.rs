@@ -58,7 +58,10 @@ impl CodeBuilder<'_> {
             );
         }
 
-        Destination::new_reg(map_entry_reg.register)
+        // a map subscript is always a memory location
+        Destination::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+            map_entry_reg.register,
+        ))
     }
 
     pub(crate) fn emit_map_storage_init_from_initializer_pair_list(

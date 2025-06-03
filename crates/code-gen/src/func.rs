@@ -23,7 +23,6 @@ use swamp_vm_types::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,
     PatchPosition,
 };
-use tracing::debug;
 
 impl TopLevelGenState {
     /// # Panics
@@ -304,7 +303,8 @@ impl TopLevelGenState {
             },
         };
 
-        debug!(name=?in_data.assigned_name, "code generating function");
+        // debug!(name=?in_data.assigned_name, "code generating function");
+
         let _complete_function_info = self.codegen_state.add_function(
             function_info.clone(),
             &in_data.function_name_node,

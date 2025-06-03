@@ -66,13 +66,6 @@ fn layout_tagged_union(variants: &[VariantLayout]) -> TaggedUnionLayout {
     let complete_size_before_alignment = MemorySize(payload_offset.0 + max_payload_size.0);
     let total_size = adjust_size_to_alignment(complete_size_before_alignment, max_alignment);
 
-    info!(
-        ?payload_offset,
-        ?complete_size_before_alignment,
-        ?total_size,
-        "layout tagged union"
-    );
-
     TaggedUnionLayout {
         tag_offset: MemoryOffset(0),
         tag_size,
@@ -140,7 +133,6 @@ pub fn layout_enum_into_tagged_union(name: &str, variants: &[EnumVariantType]) -
         ),
     });
 
-    info!(?name, "layout enum");
     let (variant_layouts, tagged_variants): (Vec<VariantLayout>, Vec<TaggedUnionVariant>) =
         variant_infos.into_iter().unzip();
     let tagged_union_layout = layout_tagged_union(&variant_layouts);
