@@ -15,9 +15,9 @@ use swamp_vm_types::types::{
     VmType, range_type,
 };
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset,
-    MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
-    VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
+    FrameMemoryAddress, FrameMemoryRegion, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MemoryAlignment,
+    MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
+    VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
 };
 use tracing::trace;
 
@@ -260,13 +260,24 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 PTR_ALIGNMENT,
             )
         }
-        Type::MapStorage(key_type, element_type, fixed_size_element_count) => {
-            let tuple_gen_type = layout_tuple_items(&[*key_type.clone(), *element_type.clone()]);
-            let total_size = tuple_gen_type.total_size.0 as usize * fixed_size_element_count
-                + MAP_HEADER_SIZE.0 as usize;
-            let max_alignment = max(tuple_gen_type.max_alignment, MemoryAlignment::U16);
+        Type::MapStorage(key_type, value_type, logical_size) => {
+            let tuple_gen_type = layout_tuple_items(&[*key_type.clone(), *value_type.clone()]);
+            let capacity = (*logical_size).max(1).next_power_of_two();
+
+            let max_alignment = max(tuple_gen_type.max_alignment, MAP_HEADER_ALIGNMENT);
+            let status_size: usize = max_alignment.into();
+            let bucket_size = status_size + tuple_gen_type.total_size.0 as usize;
+
+            let total_size = bucket_size * capacity + MAP_HEADER_SIZE.0 as usize;
+
             create_basic_type(
-                BasicTypeKind::MapStorage(Box::from(tuple_gen_type), *fixed_size_element_count),
+                BasicTypeKind::MapStorage {
+                    tuple_type: Box::from(tuple_gen_type),
+                    logical_limit: *logical_size,
+                    capacity,
+                    status_size,
+                    bucket_size,
+                },
                 MemorySize(total_size as u16),
                 max_alignment,
             )

@@ -107,7 +107,7 @@ fn remove_card() {
     assert(!game.card_templates.has(CardId::MysticSpring), "should not have MysticSpring")
 }
 
-//#[test]
+#[test]
 fn iterate_cards() {
     mut game = Game {
         card_templates: [

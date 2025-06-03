@@ -173,7 +173,11 @@ fn print(
             for i in 0..header.count {}
             write!(f, "; {size}]")
         }
-        BasicTypeKind::MapStorage(tuple_type, size) => {
+        BasicTypeKind::MapStorage {
+            tuple_type,
+            logical_limit: logical_size,
+            ..
+        } => {
             todo!()
         }
         BasicTypeKind::DynamicLengthMapView(key_type, value_type) => {

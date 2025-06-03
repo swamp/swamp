@@ -310,9 +310,9 @@ impl OpCode {
 
             Self::MapNewFromPairs => "map.new",
             Self::MapRemove => "map.rem",
-            Self::MapIterInit => "map.iter",
-            Self::MapIterNext => "map.itern",
-            Self::MapIterNextPair => "map.iternp",
+            Self::MapIterInit => "map.iter.init",
+            Self::MapIterNext => "map.iter.next",
+            Self::MapIterNextPair => "map.iter.next.pair",
             Self::MapHas => "map.has",
 
             // String

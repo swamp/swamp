@@ -334,17 +334,19 @@ impl CodeBuilder<'_> {
             match output_destination {
                 Destination::Register(output_reg) => {
                     if output_destination.ty().is_aggregate() {
-                        let absolute_pointer_reg = self.emit_compute_effective_address_to_register(
+                        self.emit_compute_effective_address_to_target_register(
+                            output_reg,
                             &current_location,
                             &start_expression.node,
                             "after postfix we need absolute pointer",
                         );
+                        /*
                         self.builder.add_mov_reg(
                             output_reg,
                             &absolute_pointer_reg,
                             &start_expression.node,
                             &format!("{} move absolute pointer in place", ctx.comment()),
-                        );
+                        );*/
                     } else if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
                     {
                         self.emit_transfer_value_to_register(

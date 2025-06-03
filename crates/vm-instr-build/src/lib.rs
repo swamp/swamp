@@ -1104,15 +1104,16 @@ impl InstructionBuilder<'_> {
     pub fn add_map_init_set_capacity(
         &mut self,
         target_map_to_init: &PointerLocation,
-        capacity: u16,
+        logical_limit: u16,
         key_size: MemorySize,
         tuple_element_size: MemorySize,
+        status_size: u8,
         node: &Node,
         comment: &str,
     ) {
-        debug_assert!(capacity > 0);
+        debug_assert!(logical_limit > 0);
 
-        let capacity_bytes = u16_to_u8_pair(capacity);
+        let capacity_bytes = u16_to_u8_pair(logical_limit);
         let key_size_bytes = u16_to_u8_pair(key_size.0);
         let tuple_element_size_bytes = u16_to_u8_pair(tuple_element_size.0);
         //let value_size_bytes = u16_to_u8_pair(value_size.0);
@@ -1126,6 +1127,7 @@ impl InstructionBuilder<'_> {
                 key_size_bytes.1,
                 tuple_element_size_bytes.0,
                 tuple_element_size_bytes.1,
+                status_size,
             ],
             node,
             comment,

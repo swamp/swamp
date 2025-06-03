@@ -271,7 +271,13 @@ pub enum BasicTypeKind {
     FixedCapacityArray(Box<BasicType>, usize),
     DynamicLengthVecView(Box<BasicType>),
     VecStorage(Box<BasicType>, usize),
-    MapStorage(Box<TupleType>, usize),
+    MapStorage {
+        tuple_type: Box<TupleType>,
+        logical_limit: usize,
+        capacity: usize,
+        status_size: usize,
+        bucket_size: usize,
+    },
     DynamicLengthMapView(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
     // DynamicLengthMapView(),
 }
@@ -368,9 +374,13 @@ impl Display for BasicTypeKind {
             Self::FixedCapacityArray(item_type, size) => write!(f, "[{item_type}; {size}]"),
             Self::DynamicLengthVecView(item_type) => write!(f, "Vec<{item_type}>"),
             Self::VecStorage(item_type, size) => write!(f, "Vec<{item_type}, {size}>"),
-            Self::MapStorage(tuple_type, size) => write!(
+            Self::MapStorage {
+                tuple_type,
+                logical_limit: logical_size,
+                ..
+            } => write!(
                 f,
-                "MapStorage<{}, {}, {size}>",
+                "MapStorage<{}, {}, {logical_size}>",
                 tuple_type.fields[0], tuple_type.fields[1],
             ),
             Self::DynamicLengthMapView(key, value) => write!(f, "Map<{key}, {value}>"),
@@ -1841,10 +1851,14 @@ pub fn write_basic_type(
         BasicTypeKind::DynamicLengthMapView(key, value) => {
             write!(f, "Map<{key}, {value}>")
         }
-        BasicTypeKind::MapStorage(tuple_type, size) => {
+        BasicTypeKind::MapStorage {
+            tuple_type,
+            logical_limit: logical_size,
+            ..
+        } => {
             write!(
                 f,
-                "MapStorage<{}, {}, {size}>",
+                "MapStorage<{}, {}, {logical_size}>",
                 tuple_type.fields[0].ty, tuple_type.fields[1].ty,
             )
         }

@@ -1,5 +1,6 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
+use log::log;
 use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_vm_types::PointerLocation;
@@ -44,9 +45,14 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         match &output_destination.ty().underlying().kind {
-            BasicTypeKind::MapStorage(key_value_tuple_type, capacity) => {
+            BasicTypeKind::MapStorage {
+                tuple_type,
+                logical_limit,
+                status_size,
+                ..
+            } => {
                 assert!(
-                    elements.len() <= *capacity,
+                    elements.len() <= *logical_limit,
                     "too many initializers. should have been caught by analyzer"
                 );
                 let target_map_header_ptr_reg = self.emit_compute_effective_address_to_register(
@@ -58,14 +64,15 @@ impl CodeBuilder<'_> {
                     ptr_reg: target_map_header_ptr_reg,
                 };
 
-                debug!(?key_value_tuple_type, "emit map storage ");
+                debug!(?tuple_type, "emit map storage ");
 
-                let adjusted_capacity = capacity.next_power_of_two();
+                //let adjusted_capacity = capacity.next_power_of_two();
                 self.emit_map_storage_init_from_initializer_pair_list(
                     &pointer_target,
                     elements,
-                    key_value_tuple_type,
-                    adjusted_capacity,
+                    tuple_type,
+                    *logical_limit,
+                    *status_size,
                     node,
                     ctx,
                 );

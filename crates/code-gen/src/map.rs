@@ -1,6 +1,5 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::is_power_of_two;
 use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::{Expression, MapType};
@@ -69,25 +68,27 @@ impl CodeBuilder<'_> {
         target_map_header_ptr_reg: &PointerLocation, // Points to MapStorage
         initializer_pair_list_expressions: &[(Expression, Expression)],
         key_value_tuple_type: &TupleType,
-        capacity: usize,
+        logical_limit: usize,
+        status_size: usize,
         node: &Node,
         ctx: &Context,
     ) {
         let hwm = self.temp_registers.save_mark();
-        assert!(is_power_of_two(capacity));
+        //assert!(is_power_of_two(logical_limit));
 
         let len = initializer_pair_list_expressions.len();
         let aligned_key_size = key_value_tuple_type.aligned_size_of_field(0);
         debug_assert!(
-            capacity >= len,
+            logical_limit >= len,
             "this should have been checked with analyzer"
         );
-        if capacity > 0 || len > 0 {
+        if logical_limit > 0 || len > 0 {
             self.builder.add_map_init_set_capacity(
                 target_map_header_ptr_reg,
-                capacity as u16,
+                logical_limit as u16,
                 aligned_key_size,
                 key_value_tuple_type.total_size,
+                status_size as u8,
                 node,
                 "initialize map (capacity, key_size, total_key_and_value_size)",
             );

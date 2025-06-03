@@ -700,17 +700,24 @@ pub const GRID_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 pub const GRID_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
 pub const GRID_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 
+// NOTE: Must align to U32, therefor the padding at the end
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct MapHeader {
     pub element_count: u16, // Count should be first
     pub capacity: u16,      // Capacity always second
     pub key_size: u16,
-    pub tuple_size: u16,
+    pub tuple_size: u16, // Element Size: Key and Value
+    pub logical_limit: u16,
+    pub bucket_size: u16,
+    pub status_size: u8,
+    pub padding0: u8,
+    pub padding1: u8,
+    pub padding2: u8,
 }
 
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
-pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
 pub const MAP_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(0);
 pub const MAP_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(2);
 pub const MAP_HEADER_KEY_SIZE_OFFSET: MemoryOffset = MemoryOffset(4);
