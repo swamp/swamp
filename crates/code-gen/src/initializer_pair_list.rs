@@ -1,6 +1,5 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use log::log;
 use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_vm_types::PointerLocation;

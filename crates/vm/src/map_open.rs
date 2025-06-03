@@ -408,8 +408,8 @@ impl Vm {
             let buckets_ptr = memory.get_heap_const_ptr(buckets_ptr_addr);
 
             // Calculate bucket layout sizes
-            let status_size: usize = MAP_HEADER_ALIGNMENT.into();
-            let bucket_size: usize = status_size + element_size;
+            let status_size: usize = header.status_size as usize;
+            let bucket_size: usize = header.bucket_size as usize;
 
             // Use bitwise AND for modulo (capacity is always a power of two)
             let mut index = (hash as usize) & (capacity - 1);
@@ -477,8 +477,8 @@ impl Vm {
             debug_assert_ne!(element_size, 0);
 
             // Calculate bucket layout sizes (same as insert)
-            let status_size: usize = MAP_HEADER_ALIGNMENT.into();
-            let bucket_size: usize = status_size + element_size;
+            let status_size: usize = header.status_size as usize;
+            let bucket_size: usize = header.bucket_size as usize;
 
             let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
 
@@ -575,8 +575,8 @@ impl Vm {
             let element_size = header.tuple_size as usize;
             debug_assert_ne!(element_size, 0);
 
-            let status_size: usize = MAP_HEADER_ALIGNMENT.into();
-            let bucket_size: usize = status_size + element_size;
+            let status_size: usize = header.status_size as usize;
+            let bucket_size: usize = header.bucket_size as usize;
 
             let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
             let key_slice = slice::from_raw_parts(key_ptr, key_size);
