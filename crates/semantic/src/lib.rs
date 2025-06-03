@@ -962,7 +962,7 @@ impl AssociatedImpls {
             .expect("should work");
     }
 
-    pub fn is_prepared(&self, ty: &Type) -> bool {
+    #[must_use] pub fn is_prepared(&self, ty: &Type) -> bool {
         self.functions.contains_key(ty)
     }
     #[must_use]
