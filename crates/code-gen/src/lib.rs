@@ -67,7 +67,7 @@ use swamp_vm_types::{
 };
 
 const fn is_power_of_two(n: usize) -> bool {
-    n > 0 && (n & (n - 1)) == 0
+    n > 0 && n.is_power_of_two()
 }
 
 #[derive(Copy, Clone)]

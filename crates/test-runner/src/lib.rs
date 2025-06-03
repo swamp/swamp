@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use swamp_runtime::{RunConstantsOptions, RunOptions, compile_codegen_and_create_vm};
 use swamp_std::print::print_fn;
 use swamp_vm::host::HostFunctionCallback;
-use swamp_vm::{VmSetup, VmState};
+use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
-use tracing::{error, info};
+use tracing::error;
 
 #[derive(Debug, Default, Clone, Copy)]
 struct TestContext;

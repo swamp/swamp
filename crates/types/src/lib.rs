@@ -1059,7 +1059,7 @@ impl Attributes {
         Self(vec)
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use] pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
@@ -1068,11 +1068,11 @@ impl Attributes {
         self.0.iter().any(|attr| attr.path.name == name)
     }
 
-    pub fn get_attribute(&self, name: &str) -> Option<&Attribute> {
+    #[must_use] pub fn get_attribute(&self, name: &str) -> Option<&Attribute> {
         self.0.iter().find(|attr| attr.path.name == name)
     }
 
-    pub fn get_fn_arg_by_name(&self, attr_name: &str, arg_fn_name: &str) -> Option<&AttributeArg> {
+    #[must_use] pub fn get_fn_arg_by_name(&self, attr_name: &str, arg_fn_name: &str) -> Option<&AttributeArg> {
         self.get_attribute(attr_name).and_then(|attr| {
             attr.args.iter().find(|arg| {
                 if let AttributeArg::Function(id, _) = arg {
@@ -1084,7 +1084,7 @@ impl Attributes {
         })
     }
 
-    pub fn get_fn_arg_sub_args(
+    #[must_use] pub fn get_fn_arg_sub_args(
         &self,
         attr_name: &str,
         arg_fn_name: &str,
@@ -1099,7 +1099,7 @@ impl Attributes {
             })
     }
 
-    pub fn get_arg(&self, name: &str, arg_index: usize) -> Option<AttributeArg> {
+    #[must_use] pub fn get_arg(&self, name: &str, arg_index: usize) -> Option<AttributeArg> {
         self.get_args(name)
             .and_then(|a| Option::from(a[arg_index].clone()))
     }
