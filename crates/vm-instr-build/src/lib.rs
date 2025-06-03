@@ -1971,7 +1971,7 @@ impl InstructionBuilder<'_> {
     pub fn add_map_get_entry_location(
         &mut self,
         target_entry_addr: &TypedRegister,
-        map_self_addr: &TypedRegister,
+        map_self_addr: &PointerLocation,
         key: &TypedRegister,
         node: &Node,
         comment: &str,
@@ -1992,7 +1992,7 @@ impl InstructionBuilder<'_> {
     pub fn add_map_get_or_reserve_entry_location(
         &mut self,
         target_entry_reg: &TypedRegister,
-        self_addr: &PointerLocation,
+        map_self_addr: &PointerLocation,
         key: &TypedRegister,
         node: &Node,
         comment: &str,
@@ -2001,7 +2001,7 @@ impl InstructionBuilder<'_> {
             OpCode::MapGetOrReserveEntryLocation,
             &[
                 target_entry_reg.addressing(),
-                self_addr.ptr_reg.addressing(),
+                map_self_addr.addressing(),
                 key.addressing(),
             ],
             node,

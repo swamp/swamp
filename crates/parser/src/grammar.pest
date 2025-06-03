@@ -532,7 +532,6 @@ attribute = { outer_attribute | inner_attribute }
 outer_attribute = { "#" ~ "[" ~ meta_item ~ "]" }
 inner_attribute = { "#!" ~ "[" ~ meta_item ~ "]" }
 
-//meta_item = { meta_path | meta_key_value | meta_list }
 meta_item = { meta_key_value | meta_list | meta_path }
 
 meta_path = { qualified_identifier }

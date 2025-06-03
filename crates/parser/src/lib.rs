@@ -2861,36 +2861,50 @@ impl AstParser {
         })
     }
 
+    fn parse_any_meta_item_to_arg(&self, pair: &Pair<Rule>) -> Result<AttributeArg, ParseError> {
+        debug_assert_eq!(pair.as_rule(), Rule::meta_item);
+        let matched_alternative = pair.clone().into_inner().next().unwrap();
+
+        match matched_alternative.as_rule() {
+            Rule::meta_path => {
+                let path_pair = matched_alternative.clone().into_inner().next().unwrap();
+                let path = self.parse_qualified_identifier(&path_pair)?;
+                Ok(AttributeArg::Path(path))
+            }
+            Rule::meta_key_value => {
+                let mut inner_items = matched_alternative.clone().into_inner();
+                let key_pair = inner_items.next().unwrap();
+                let value_pair = inner_items.next().unwrap();
+                let key = self.parse_qualified_identifier(&key_pair)?;
+                let value_arg = self.parse_meta_value(&value_pair)?;
+                Ok(AttributeArg::Function(key, vec![value_arg]))
+            }
+            Rule::meta_list => {
+                let mut inner_items = matched_alternative.clone().into_inner();
+                let path_pair = inner_items.next().unwrap();
+                let path = self.parse_qualified_identifier(&path_pair)?;
+                let args = if let Some(list_pair) = inner_items.next() {
+                    self.parse_meta_item_list(&list_pair)?
+                } else {
+                    vec![]
+                };
+                Ok(AttributeArg::Function(path, args))
+            }
+            _ => panic!("unexpected rule inside meta_item"),
+        }
+    }
+
     fn parse_meta_item(
         &self,
         pair: &Pair<Rule>,
     ) -> Result<(QualifiedIdentifier, Vec<AttributeArg>), ParseError> {
         debug_assert_eq!(pair.as_rule(), Rule::meta_item);
+        let arg = self.parse_any_meta_item_to_arg(pair)?;
 
-        let inner = pair.clone().into_inner().next().unwrap();
-        match inner.as_rule() {
-            Rule::meta_path => {
-                let path =
-                    self.parse_qualified_identifier(&inner.clone().into_inner().next().unwrap())?;
-                Ok((path, vec![]))
-            }
-            Rule::meta_key_value => {
-                let mut inner = inner.clone().into_inner();
-                let path = self.parse_qualified_identifier(&inner.next().unwrap())?;
-                let value = self.parse_meta_value(&inner.next().unwrap())?;
-                Ok((path, vec![value]))
-            }
-            Rule::meta_list => {
-                let mut inner = inner.clone().into_inner();
-                let path = self.parse_qualified_identifier(&inner.next().unwrap())?;
-                let args = if let Some(list) = inner.next() {
-                    self.parse_meta_item_list(&list)?
-                } else {
-                    vec![]
-                };
-                Ok((path, args))
-            }
-            _ => panic!("unexpected meta_item"),
+        match arg {
+            AttributeArg::Path(path) => Ok((path, vec![])),
+            AttributeArg::Function(path, args) => Ok((path, args)),
+            AttributeArg::Literal(_) => panic!(),
         }
     }
 
@@ -2903,36 +2917,14 @@ impl AstParser {
     }
 
     fn parse_meta_item_arg(&self, pair: &Pair<Rule>) -> Result<AttributeArg, ParseError> {
-        match pair.as_rule() {
-            Rule::meta_path => {
-                let path =
-                    self.parse_qualified_identifier(&pair.clone().into_inner().next().unwrap())?;
-                Ok(AttributeArg::Path(path))
-            }
-            Rule::meta_key_value => {
-                let mut inner = pair.clone().into_inner();
-                let key = self.parse_qualified_identifier(&inner.next().unwrap())?;
-                let value = self.parse_meta_value(&inner.next().unwrap())?;
-                Ok(AttributeArg::Function(key, vec![value]))
-            }
-            Rule::meta_list => {
-                let mut inner = pair.clone().into_inner();
-                let path = self.parse_qualified_identifier(&inner.next().unwrap())?;
-                let args = if let Some(list) = inner.next() {
-                    self.parse_meta_item_list(&list)?
-                } else {
-                    vec![]
-                };
-                Ok(AttributeArg::Function(path, args))
-            }
-            _ => panic!("unexpected meta_item_arg"),
-        }
+        self.parse_any_meta_item_to_arg(pair)
     }
 
     fn parse_meta_value(&self, pair: &Pair<Rule>) -> Result<AttributeArg, ParseError> {
-        match pair.as_rule() {
+        let matched_alternative = self.next_inner_pair(pair)?;
+        match matched_alternative.as_rule() {
             Rule::basic_literal => {
-                let (kind, node) = self.parse_basic_literal(pair)?;
+                let (kind, node) = self.parse_basic_literal(&matched_alternative)?;
                 Ok(AttributeArg::Literal(match kind {
                     LiteralKind::Int => AttributeValue::Literal(node, AttributeLiteralKind::Int),
                     LiteralKind::String(s) => {
@@ -2943,12 +2935,13 @@ impl AstParser {
                 }))
             }
             Rule::meta_path => {
-                let path =
-                    self.parse_qualified_identifier(&pair.clone().into_inner().next().unwrap())?;
+                let path = self.parse_qualified_identifier(
+                    &matched_alternative.clone().into_inner().next().unwrap(),
+                )?;
                 Ok(AttributeArg::Path(path))
             }
             Rule::meta_list => {
-                let mut inner = pair.clone().into_inner();
+                let mut inner = matched_alternative.clone().into_inner();
                 let path = self.parse_qualified_identifier(&inner.next().unwrap())?;
                 let args = if let Some(list) = inner.next() {
                     self.parse_meta_item_list(&list)?
@@ -2957,7 +2950,7 @@ impl AstParser {
                 };
                 Ok(AttributeArg::Function(path, args))
             }
-            _ => panic!("unexpected meta_value"),
+            _ => panic!("unexpected meta_value {:?}", pair.as_rule()),
         }
     }
 }

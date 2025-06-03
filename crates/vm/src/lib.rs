@@ -13,8 +13,7 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
 pub mod host;
-mod map;
-mod map_open;
+pub mod map_open;
 pub mod memory;
 pub mod prelude;
 mod range;

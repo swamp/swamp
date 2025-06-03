@@ -302,6 +302,9 @@ impl SymbolTable {
         name: &str,
         function: InternalFunctionDefinition,
     ) -> Result<InternalFunctionDefinitionRef, SemanticError> {
+        if self.symbols.contains_key(&name.to_string()) {
+            return Err(SemanticError::DuplicateDefinition(name.to_string()));
+        }
         let function_ref = Rc::new(function);
         self.symbols
             .insert(

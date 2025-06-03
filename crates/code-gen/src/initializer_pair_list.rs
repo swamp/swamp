@@ -45,6 +45,10 @@ impl CodeBuilder<'_> {
     ) {
         match &output_destination.ty().underlying().kind {
             BasicTypeKind::MapStorage(key_value_tuple_type, capacity) => {
+                assert!(
+                    elements.len() <= *capacity,
+                    "too many initializers. should have been caught by analyzer"
+                );
                 let target_map_header_ptr_reg = self.emit_compute_effective_address_to_register(
                     output_destination,
                     node,

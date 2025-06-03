@@ -46,6 +46,7 @@ pub enum SemanticError {
     MismatchedTypes { expected: Type, found: Vec<Type> },
     UnknownImplOnType,
     UnknownTypeVariable,
+    DuplicateDefinition(String),
 }
 
 #[derive(Debug, Eq, PartialEq)]

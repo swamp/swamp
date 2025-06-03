@@ -108,6 +108,9 @@ pub enum ErrorKind {
         destination_type: Type,
     },
     NoInferredTypeForEmptyInitializer,
+    TooManyInitializerListElementsForStorage {
+        capacity: usize,
+    },
 }
 
 impl From<SemanticError> for Error {

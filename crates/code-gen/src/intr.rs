@@ -9,7 +9,7 @@ use swamp_types::Type;
 use swamp_vm_types::types::{Destination, RValueOrLValue, TypedRegister, VmType, pointer_type};
 use swamp_vm_types::{
     AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
-    STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
+    PointerLocation, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
 };
 
 impl CodeBuilder<'_> {
@@ -665,7 +665,7 @@ impl CodeBuilder<'_> {
                 let key = self.emit_scalar_rvalue(key_argument, ctx);
                 self.builder.add_map_get_entry_location(
                     maybe_target.unwrap(),
-                    self_addr.unwrap(),
+                    &PointerLocation::new(self_addr.unwrap().clone()),
                     &key,
                     node,
                     "map_subscript",

@@ -58,8 +58,13 @@ impl CodeBuilder<'_> {
 
                 PostfixKind::MapSubscript(map_type, key_expression) => {
                     info!(?map_type, "map_subscript");
-                    current_location =
-                        self.map_subscript_helper(&current_location, map_type, key_expression, ctx);
+                    current_location = self.map_subscript_helper(
+                        &current_location,
+                        map_type,
+                        key_expression,
+                        false,
+                        ctx,
+                    );
                     info!(?current_location, ?map_type, "map_subscript");
                 }
 

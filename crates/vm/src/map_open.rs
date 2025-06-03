@@ -8,7 +8,7 @@ use crate::{Vm, get_reg};
 use crate::{set_reg, u16_from_u8s};
 use fxhash::FxHasher64;
 use std::cmp::min;
-use std::hash::{DefaultHasher, Hasher};
+use std::hash::Hasher;
 use std::{ptr, slice};
 use swamp_vm_types::{MAP_BUCKETS_OFFSET, MAP_HEADER_ALIGNMENT, MapHeader};
 
@@ -45,55 +45,6 @@ impl Vm {
 
     pub const ELEMENT_COUNT_FACTOR: f32 = 1.5;
 
-    /*
-    pub(crate) fn execute_map_open_addressing_from_slice(&mut self, dst_reg: u8, slice_reg: u8) {
-        let slice_pairs = self.slice_pair_header_from_reg(slice_reg);
-
-        debug_assert_ne!(slice_pairs.key_size, 0);
-        debug_assert_ne!(slice_pairs.value_size, 0);
-        //debug_assert_ne!(element_count, 0);
-
-        // TODO: HACK: count should not be adjusted to 128 in the future
-        let adjusted_count = slice_pairs.element_count.max(128);
-        let min_capacity = ((adjusted_count as u32 * 4 + 2) / 3).max(8) as u16;
-        let capacity = min_capacity.next_power_of_two() as u16;
-
-        // The bucket doesn't have to be aligned since we will copy key and value in bytes
-        let buckets_heap_addr = self.memory.heap_allocate(
-            (capacity * (1 + slice_pairs.key_size + slice_pairs.value_size)) as usize,
-        );
-
-        let map_header_addr = self.memory.heap_allocate(MAP_HEADER_SIZE.0 as usize);
-        set_reg!(self, dst_reg, map_header_addr);
-        let map_header_ptr = self.get_map_header_mut(map_header_addr);
-
-        unsafe {
-            (*map_header_ptr).capacity = capacity;
-            (*map_header_ptr).element_count = slice_pairs.element_count;
-            (*map_header_ptr).key_size = slice_pairs.key_size;
-            (*map_header_ptr).value_size = slice_pairs.value_size;
-        }
-
-        let buckets_ptr = self.memory.get_heap_ptr(buckets_heap_addr as usize);
-
-        let slice_ptr = self.memory.get_heap_ptr(slice_pairs.heap_offset as usize);
-
-        let pair_size = slice_pairs.key_size + slice_pairs.value_size;
-        for i in 0..slice_pairs.element_count {
-            eprintln!("inserting {i}");
-            let pair_offset = i * pair_size;
-            let key_ptr = unsafe { slice_ptr.add(pair_offset as usize) };
-            let value_ptr = unsafe { key_ptr.add(slice_pairs.key_size as usize) };
-
-            let worked = unsafe {
-                Self::get_or_reserve_entry(buckets_ptr, &*map_header_ptr, key_ptr, value_ptr)
-            };
-            assert!(worked, "problem with hashmap");
-        }
-    }
-
-     */
-
     const MAX_PROBE_DISTANCE: usize = 32; // TODO: tweak this, only guessing for now
 
     // Looks up the key in the map. If it can not find the key, it reserves an entry and
@@ -110,7 +61,7 @@ impl Vm {
         unsafe {
             let capacity = header.capacity as usize;
             let key_size = header.key_size as usize;
-            let element_size = header.element_size as usize;
+            let element_size = header.tuple_size as usize;
             debug_assert_ne!(key_size, 0);
             debug_assert_ne!(element_size, 0);
             debug_assert_ne!(capacity, 0);
@@ -166,7 +117,7 @@ impl Vm {
                     //ptr::copy_nonoverlapping(value_ptr, target_value_ptr, value_size);
                     #[cfg(feature = "debug_vm")]
                     {
-                        eprintln!("found empty bucket, overwriting index {index}");
+                        eprintln!("found empty bucket, write to index {index}");
                     }
 
                     return memory.get_heap_offset(target_value_ptr);
@@ -236,16 +187,6 @@ impl Vm {
         }
     }
 
-    // TODO: Use the default hasher for now, but maybe use a noice hash or fnv-1a or something
-    fn default_calculate_hash(key_bytes: &[u8]) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        hasher.write(key_bytes);
-        let unique = hasher.finish();
-        eprintln!("hash: {unique:08X}");
-        unique
-    }
-
-    // TODO: Use the default hasher for now, but maybe use a noice hash or fnv-1a or something
     fn calculate_hash(key_bytes: &[u8]) -> u64 {
         let mut hasher = FxHasher64::default();
         hasher.write(key_bytes);
@@ -283,7 +224,10 @@ impl Vm {
                 &map_header,
                 key_source_address,
             );
-            assert_ne!(address_to_entry, 0);
+        }
+
+        if address_to_entry == 0 {
+            return self.execute_trap(2);
         }
 
         set_reg!(self, dst_entry_address, address_to_entry);
@@ -306,7 +250,7 @@ impl Vm {
         let map_header = self.get_map_header(self_map_header_reg);
         let capacity = u16_from_u8s!(capacity_lower, capacity_upper);
         let key_size = u16_from_u8s!(key_size_lower, key_size_upper);
-        let element_size = u16_from_u8s!(tuple_size_lower, tuple_size_upper);
+        let tuple_size = u16_from_u8s!(tuple_size_lower, tuple_size_upper);
         assert!(Self::is_power_of_two(capacity as usize));
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
@@ -318,7 +262,7 @@ impl Vm {
         unsafe {
             (*map_header).capacity = capacity;
             (*map_header).key_size = key_size;
-            (*map_header).element_size = element_size;
+            (*map_header).tuple_size = tuple_size;
         }
     }
 
@@ -335,7 +279,7 @@ impl Vm {
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             eprintln!(
-                "map_get_or_reserve_entry {map_header_addr:08X}, key_source: {key_source_address:08X}"
+                "map_get_or_reserve_entry {map_header_addr:X}, key_source: {key_source_address:08X}"
             );
         }
 
@@ -360,6 +304,9 @@ impl Vm {
                     &map_header,
                     key_source_address,
                 );
+                if entry_address == 0 {
+                    return self.execute_trap(2);
+                }
             }
         }
 
@@ -399,7 +346,7 @@ impl Vm {
         unsafe {
             let capacity = header.capacity as usize;
             let key_size = header.key_size as usize;
-            let element_size = header.element_size as usize;
+            let element_size = header.tuple_size as usize;
             debug_assert_ne!(key_size, 0);
             debug_assert_ne!(element_size, 0);
             debug_assert_ne!(capacity, 0);
@@ -476,7 +423,7 @@ impl Vm {
             debug_assert!(Self::is_power_of_two(capacity));
             let key_size = header.key_size as usize;
             debug_assert_ne!(key_size, 0);
-            let element_size = header.element_size as usize;
+            let element_size = header.tuple_size as usize;
             debug_assert_ne!(element_size, 0);
 
             // Calculate bucket layout sizes (same as insert)

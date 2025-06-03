@@ -1665,7 +1665,7 @@ impl<'a> Analyzer<'a> {
         Ok((resolved_entries, key_type, value_type))
     }
 
-    fn analyze_slice_pair_key_and_value_types(
+    fn analyze_internal_initializer_pair_list(
         &mut self,
         node: &swamp_ast::Node,
         items: &[(swamp_ast::Expression, swamp_ast::Expression)],
@@ -1674,7 +1674,15 @@ impl<'a> Analyzer<'a> {
         let (collection_type, key_type, value_type) =
             if let Some(expected_type) = context.expected_type {
                 match expected_type {
-                    Type::MapStorage(key, value, _) => {
+                    Type::MapStorage(key, value, capacity) => {
+                        if items.len() > *capacity {
+                            return Err(self.create_err(
+                                ErrorKind::TooManyInitializerListElementsForStorage {
+                                    capacity: *capacity,
+                                },
+                                node,
+                            ));
+                        }
                         (expected_type.clone(), *key.clone(), *value.clone())
                     }
                     Type::DynamicLengthMapView(key, value) => {
@@ -1733,8 +1741,18 @@ impl<'a> Analyzer<'a> {
         let (collection_type, element_type) = if let Some(expected_type) = context.expected_type {
             let destination_type = expected_type.underlying();
             match destination_type {
-                // We can infer the slice type from target
-                Type::VecStorage(element_type, _) => (destination_type, *element_type.clone()),
+                Type::VecStorage(element_type, capacity) => {
+                    if items.len() > *capacity {
+                        return Err(self.create_err(
+                            ErrorKind::TooManyInitializerListElementsForStorage {
+                                capacity: *capacity,
+                            },
+                            node,
+                        ));
+                    }
+
+                    (destination_type, *element_type.clone())
+                }
                 Type::FixedCapacityAndLengthArray(element_type, _size) => {
                     (destination_type, *element_type.clone())
                 }

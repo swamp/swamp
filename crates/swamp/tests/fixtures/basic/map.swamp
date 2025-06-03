@@ -11,6 +11,7 @@ enum CardId {
     Earthquake,
     MysticSpring, // No one knows what mystic spring does, that is why it is mystic.
     EtherealDragon, // Ethereal Dragon is never there.
+    GoblinScout,
 }
 
 struct Game {
@@ -39,3 +40,51 @@ fn basic_map() {
     print('mana: {game.card_templates[CardId::MysticSpring].mana}')
     assert(game.card_templates[CardId::MysticSpring].mana == 2, "should be 2")
 }
+
+
+#[test]
+#[should_trap(code=2)]
+fn add_too_many() {
+	mut game = Game {
+		card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+            ]
+	}
+
+    game.card_templates[CardId::EtherealDragon] = CardTemplate { mana: 10, healing_per_second: 0.0 }
+    game.card_templates[CardId::GoblinScout] = CardTemplate { mana: 1, healing_per_second: 0.1 }
+}
+
+#[test]
+fn add_to_map() {
+	mut game = Game {
+		card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            ]
+	}
+
+    assert(!game.card_templates.has(CardId::EtherealDragon), "should not have EtherealDragon")
+
+    game.card_templates[CardId::EtherealDragon] = CardTemplate { mana: 10, healing_per_second: 0.0 }
+
+    assert(game.card_templates.has(CardId::EtherealDragon), "should have EtherealDragon")
+}
+
+#[test]
+fn overwrite_existing() {
+	mut game = Game {
+		card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 42, healing_per_second: 0.3 },
+            ]
+	}
+    assert(game.card_templates[CardId::Earthquake].mana == 42, "should be 42")
+
+    game.card_templates[CardId::Earthquake] = CardTemplate { mana: -1, healing_per_second: 0.0 }
+    assert(game.card_templates[CardId::Earthquake].mana == -1, "should be -1")
+}
+
+

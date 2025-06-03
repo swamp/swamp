@@ -14,6 +14,7 @@ impl CodeBuilder<'_> {
         map_header_location: &Destination,
         map_type: &MapType,
         key_expression: &Expression,
+        should_create_if_needed: bool,
         ctx: &Context,
     ) -> Destination {
         let map_header_ptr_reg = self.emit_compute_effective_address_to_register(
@@ -21,6 +22,8 @@ impl CodeBuilder<'_> {
             &key_expression.node,
             "get map header absolute pointer",
         );
+
+        let pointer_location = PointerLocation::new(map_header_ptr_reg);
 
         let gen_key_type = layout_type(&map_type.key);
 
@@ -37,13 +40,23 @@ impl CodeBuilder<'_> {
             "map entry temp",
         );
 
-        self.builder.add_map_get_entry_location(
-            map_entry_reg.register(),
-            &map_header_ptr_reg,
-            &key_temp_storage_reg,
-            &key_expression.node,
-            "lookup the entry for this key in the map",
-        );
+        if should_create_if_needed {
+            self.builder.add_map_get_or_reserve_entry_location(
+                map_entry_reg.register(),
+                &pointer_location,
+                &key_temp_storage_reg,
+                &key_expression.node,
+                "lookup the entry for this key in the map",
+            );
+        } else {
+            self.builder.add_map_get_entry_location(
+                map_entry_reg.register(),
+                &pointer_location,
+                &key_temp_storage_reg,
+                &key_expression.node,
+                "lookup the entry for this key in the map",
+            );
+        }
 
         Destination::new_reg(map_entry_reg.register)
     }
@@ -62,7 +75,10 @@ impl CodeBuilder<'_> {
 
         let len = initializer_pair_list_expressions.len();
         let aligned_key_size = key_value_tuple_type.aligned_size_of_field(0);
-        debug_assert!(capacity >= len);
+        debug_assert!(
+            capacity >= len,
+            "this should have been checked with analyzer"
+        );
         if capacity > 0 || len > 0 {
             self.builder.add_map_init_set_capacity(
                 target_map_header_ptr_reg,

@@ -13,6 +13,10 @@ use swamp_semantic::SemanticError;
 #[must_use]
 pub fn build_semantic_error(err: &SemanticError, span: &Span) -> Builder<usize> {
     let mut b = match err {
+        SemanticError::DuplicateDefinition(name) => {
+            Report::build(Kind::Error, 140, "Duplicate Definition", span)
+                .with_note(&format!("name: {name}"))
+        }
         SemanticError::CouldNotInsertStruct => {
             Report::build(Kind::Error, 140, "CouldNotInsertStruct", span)
         }

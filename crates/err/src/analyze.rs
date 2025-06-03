@@ -15,6 +15,10 @@ use swamp_analyzer::err::{Error, ErrorKind};
 pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
     let span = &err.node.span;
     let mut b = match &err.kind {
+        ErrorKind::TooManyInitializerListElementsForStorage { capacity } => {
+            Report::build(Kind::Error, 5, "too many initializer elements", span)
+                .with_note(&format!("capacity: {capacity}"))
+        }
         ErrorKind::NoInferredTypeForEmptyInitializer => {
             Report::build(Kind::Error, 5, "empty initializer without known type", span)
         }

@@ -275,6 +275,15 @@ pub struct PointerLocation {
 }
 
 impl PointerLocation {
+    pub fn new(ptr_reg: TypedRegister) -> Self {
+        Self { ptr_reg }
+    }
+    pub fn addressing(&self) -> u8 {
+        self.ptr_reg.addressing()
+    }
+}
+
+impl PointerLocation {
     #[must_use]
     pub fn memory_location(&self) -> MemoryLocation {
         MemoryLocation {
@@ -695,7 +704,7 @@ pub struct MapHeader {
     pub element_count: u16, // Count should be first
     pub capacity: u16,      // Capacity always second
     pub key_size: u16,
-    pub element_size: u16,
+    pub tuple_size: u16,
 }
 
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);

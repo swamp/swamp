@@ -3,10 +3,10 @@ use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use swamp_runtime::{RunConstantsOptions, RunOptions, compile_codegen_and_create_vm};
 use swamp_std::print::print_fn;
-use swamp_vm::VmState;
 use swamp_vm::host::HostFunctionCallback;
+use swamp_vm::{VmSetup, VmState};
 use time_dilation::ScopedTimer;
-use tracing::error;
+use tracing::{error, info};
 
 #[derive(Debug, Default, Clone, Copy)]
 struct TestContext;
@@ -147,9 +147,13 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
     let crate_main_path = &["crate".to_string(), "lib".to_string()];
     let mut result = compile_codegen_and_create_vm(test_dir, crate_main_path).unwrap();
 
-    let mut panic_tests = Vec::new();
     let mut passed_tests = Vec::new();
+
+    let mut panic_tests = Vec::new();
     let mut trap_tests = Vec::new();
+    let mut failed_tests = Vec::new();
+    let mut expected_panic_passed: Vec<TestInfo> = Vec::new();
+    let mut expected_trap_passed: Vec<TestInfo> = Vec::new();
 
     if options.should_run {
         let some_form_of_debug = options.debug_opcodes || options.debug_output;
@@ -184,6 +188,27 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                         .functions
                         .get(&internal_fn.program_unique_id)
                         .unwrap();
+
+                    let all_attributes = &function_to_run.internal_function_definition.attributes;
+
+                    let mut expected_vm_state = VmState::Normal;
+
+                    if !all_attributes.is_empty() {
+                        let code = all_attributes.get_int_from_fn_arg("should_trap", "code", 0);
+                        if let Some(code) = code {
+                            expected_vm_state = VmState::Trap(code as u8);
+                        } else {
+                            let panic_message = all_attributes.get_string_from_fn_arg(
+                                "should_panic",
+                                "expected",
+                                0,
+                            );
+                            if let Some(panic_message) = panic_message {
+                                expected_vm_state = VmState::Panic(panic_message.clone());
+                            }
+                        }
+                    }
+
                     let complete_name = format!(
                         "{}::{}",
                         colorful_module_name(module_name),
@@ -222,7 +247,7 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                                     },
                                 },
                             );
-                            if result.vm.state != VmState::Normal {
+                            if result.vm.state != expected_vm_state {
                                 break;
                             }
                         }
@@ -245,55 +270,160 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                                     },
                                 },
                             );
-                            if result.vm.state != VmState::Normal {
+                            if result.vm.state != expected_vm_state {
                                 break;
                             }
                         }
                     }
 
-                    match &result.vm.state {
-                        VmState::Panic(message) => {
-                            panic_tests.push(test_info);
-                            error!(message, "PANIC!");
-                            eprintln!("❌ Panic {complete_name} {message}");
+                    if expected_vm_state == VmState::Normal {
+                        match &result.vm.state {
+                            VmState::Panic(message) => {
+                                panic_tests.push(test_info);
+                                error!(message, "PANIC!");
+                                eprintln!("❌ Panic {complete_name} {message}");
+                            }
+                            VmState::Normal => {
+                                passed_tests.push(test_info);
+                                eprintln!("✅ {complete_name} worked!");
+                            }
+                            VmState::Trap(trap_code) => {
+                                trap_tests.push(test_info);
+                                error!(trap_code, "TRAP");
+                                eprintln!("❌ trap {complete_name} {trap_code}");
+                            }
                         }
-                        VmState::Normal => {
-                            passed_tests.push(test_info);
-                            eprintln!("✅ {complete_name} worked!");
+                    } else if let VmState::Trap(expected_trap_code) = expected_vm_state {
+                        match &result.vm.state {
+                            VmState::Trap(actual_trap_code) => {
+                                if actual_trap_code == &expected_trap_code {
+                                    expected_trap_passed.push(test_info.clone());
+                                    eprintln!(
+                                        "✅ Expected Trap {complete_name} (code: {actual_trap_code})"
+                                    );
+                                } else {
+                                    failed_tests.push(test_info.clone());
+                                    error!(expected_trap_code, actual_trap_code, "WRONG TRAP CODE");
+                                    eprintln!(
+                                        "❌ Wrong Trap Code {complete_name} (Expected: {expected_trap_code}, Got: {actual_trap_code})"
+                                    );
+                                }
+                            }
+                            VmState::Normal => {
+                                failed_tests.push(test_info.clone());
+                                error!("Expected TRAP, got NORMAL");
+                                eprintln!("❌ Expected Trap {complete_name}, but it ran normally.");
+                            }
+                            VmState::Panic(message) => {
+                                failed_tests.push(test_info.clone());
+                                error!(message, "Expected TRAP, got PANIC");
+                                eprintln!(
+                                    "❌ Expected Trap {complete_name}, but it panicked: {message}"
+                                );
+                            }
                         }
-                        VmState::Trap(trap_code) => {
-                            trap_tests.push(test_info);
-                            error!(trap_code, "TRAP");
-                            eprintln!("❌ trap {complete_name} {trap_code}");
+                    } else if let VmState::Panic(expected_panic_message) = expected_vm_state {
+                        match &result.vm.state {
+                            VmState::Panic(actual_panic_message) => {
+                                if actual_panic_message.contains(&expected_panic_message) {
+                                    expected_panic_passed.push(test_info.clone());
+                                    eprintln!(
+                                        "✅ Expected Panic {complete_name} (message contains: \"{expected_panic_message}\")",
+                                    );
+                                } else {
+                                    failed_tests.push(test_info.clone());
+                                    error!(
+                                        expected_panic_message,
+                                        actual_panic_message, "WRONG PANIC MESSAGE"
+                                    );
+                                    eprintln!(
+                                        "❌ Wrong Panic Message {complete_name} (Expected contains: \"{expected_panic_message}\", Got: \"{actual_panic_message}\")"
+                                    );
+                                }
+                            }
+                            VmState::Normal => {
+                                failed_tests.push(test_info.clone());
+                                error!("Expected PANIC, got NORMAL");
+                                eprintln!(
+                                    "❌ Expected Panic {complete_name}, but it ran normally."
+                                );
+                            }
+                            VmState::Trap(trap_code) => {
+                                failed_tests.push(test_info.clone());
+                                error!(trap_code, "Expected PANIC, got TRAP");
+                                eprintln!(
+                                    "❌ Expected Panic {complete_name}, but it trapped: {trap_code}"
+                                );
+                            }
                         }
                     }
                 }
             }
         }
 
-        let pass_count = passed_tests.len();
-        let fail_count = panic_tests.len() + trap_tests.len();
-        let total_count = pass_count + fail_count;
-        println!("---\n🚀 Test Run Complete! 🚀\n");
-        println!("Results:");
-        println!("  ✅ Passed: {pass_count}");
-        if fail_count > 0 {
-            println!("  ❌ Failed: {fail_count}");
-        }
-        println!("  Total Tests: {total_count}");
+        // Calculate counts for each category
+        let passed_normal_count = passed_tests.len();
+        let unexpected_panic_count = panic_tests.len();
+        let unexpected_trap_count = trap_tests.len();
+        let failed_mismatch_count = failed_tests.len(); // These are tests that failed for reasons other than an unexpected panic/trap
 
-        if fail_count > 0 {
-            println!("failing tests:");
-            for test in &panic_tests {
-                println!("- {test}");
+        let expected_panic_pass_count = expected_panic_passed.len();
+        let expected_trap_pass_count = expected_trap_passed.len();
+
+        // Total counts
+        let total_passed_count =
+            passed_normal_count + expected_panic_pass_count + expected_trap_pass_count;
+        let total_failed_count =
+            unexpected_panic_count + unexpected_trap_count + failed_mismatch_count;
+        let total_tests_run = total_passed_count + total_failed_count;
+
+        // ---
+        // ## Test Run Summary
+        // ---
+        println!("\n---\n🚀 Test Run Complete! 🚀\n");
+
+        println!("Results:");
+        println!("  ✅ Passed Normally: {passed_normal_count}");
+        println!("  ✅ Passed (Expected Panic): {expected_panic_pass_count}");
+        println!("  ✅ Passed (Expected Trap): {expected_trap_pass_count}");
+
+        if total_failed_count > 0 {
+            println!("  ❌ **TOTAL FAILED:** {total_failed_count}",);
+        }
+
+        println!("  Total Tests Run: {total_tests_run}",);
+
+        // ---
+        // ## Failing Test Details
+        // ---
+        if total_failed_count > 0 {
+            println!("\n--- Failing Tests Details ---");
+
+            if unexpected_panic_count > 0 {
+                println!("\n### Unexpected Panics:");
+                for test in &panic_tests {
+                    println!("- ❌ {}", test.name);
+                }
             }
-            for test in &trap_tests {
-                println!("- {test}");
+
+            if unexpected_trap_count > 0 {
+                println!("\n### Unexpected Traps:");
+                for test in &trap_tests {
+                    println!("- ❌ {}", test.name);
+                }
+            }
+
+            if failed_mismatch_count > 0 {
+                println!("\n### Other Failures:");
+                for test in &failed_tests {
+                    println!("- ❌ {}", test.name);
+                }
             }
         }
 
         eprintln!("\n\nvm stats {:?}", result.vm.debug);
     }
+
     let failed_tests = [trap_tests, panic_tests].concat();
     TestResult {
         passed_tests,
