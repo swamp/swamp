@@ -3109,7 +3109,22 @@ impl<'a> Analyzer<'a> {
                     return_type: Box::new(Type::Bool),
                 },
             ),
-            _ => todo!(),
+            "remove" => (
+                IntrinsicFunction::MapRemove,
+                Signature {
+                    parameters: vec![
+                        self_type_param,
+                        TypeForParameter {
+                            name: "key".to_string(),
+                            resolved_type: key_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: Box::new(Type::Unit),
+                },
+            ),
+            _ => todo!("unknown map member"),
         };
 
         Ok(intrinsic_and_signature)

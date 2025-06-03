@@ -275,10 +275,12 @@ pub struct PointerLocation {
 }
 
 impl PointerLocation {
-    #[must_use] pub const fn new(ptr_reg: TypedRegister) -> Self {
+    #[must_use]
+    pub const fn new(ptr_reg: TypedRegister) -> Self {
         Self { ptr_reg }
     }
-    #[must_use] pub const fn addressing(&self) -> u8 {
+    #[must_use]
+    pub const fn addressing(&self) -> u8 {
         self.ptr_reg.addressing()
     }
 }

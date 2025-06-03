@@ -1036,8 +1036,8 @@ pub fn disasm(
         ],
 
         OpCode::MapRemove => &[
-            to_write_reg(operands[0], &map_type(), frame_memory_info),
-            to_read_reg(operands[1], &bytes_type(), frame_memory_info),
+            to_write_reg(operands[0], &map_type(), frame_memory_info), // Map
+            to_read_reg(operands[1], &bytes_type(), frame_memory_info), // Key to remove
         ],
 
         OpCode::MapGetEntryLocation => &[

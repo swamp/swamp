@@ -3,8 +3,8 @@ use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use swamp_runtime::{RunConstantsOptions, RunOptions, compile_codegen_and_create_vm};
 use swamp_std::print::print_fn;
-use swamp_vm::host::HostFunctionCallback;
 use swamp_vm::VmState;
+use swamp_vm::host::HostFunctionCallback;
 use time_dilation::ScopedTimer;
 use tracing::error;
 
@@ -194,9 +194,10 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                     let mut expected_vm_state = VmState::Normal;
 
                     if !all_attributes.is_empty() {
-                        let code = all_attributes.get_int_from_fn_arg("should_trap", "code", 0);
+                        let code =
+                            all_attributes.get_string_from_fn_arg("should_trap", "expected", 0);
                         if let Some(code) = code {
-                            expected_vm_state = VmState::Trap(code as u8);
+                            expected_vm_state = VmState::Trap(code.parse().unwrap());
                         } else {
                             let panic_message = all_attributes.get_string_from_fn_arg(
                                 "should_panic",
@@ -289,7 +290,7 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                             }
                             VmState::Trap(trap_code) => {
                                 trap_tests.push(test_info);
-                                error!(trap_code, "TRAP");
+                                error!(%trap_code, "TRAP");
                                 eprintln!("❌ trap {complete_name} {trap_code}");
                             }
                         }
@@ -303,7 +304,7 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                                     );
                                 } else {
                                     failed_tests.push(test_info.clone());
-                                    error!(expected_trap_code, actual_trap_code, "WRONG TRAP CODE");
+                                    error!(%expected_trap_code, %actual_trap_code, "WRONG TRAP CODE");
                                     eprintln!(
                                         "❌ Wrong Trap Code {complete_name} (Expected: {expected_trap_code}, Got: {actual_trap_code})"
                                     );
@@ -350,7 +351,7 @@ pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> Tes
                             }
                             VmState::Trap(trap_code) => {
                                 failed_tests.push(test_info.clone());
-                                error!(trap_code, "Expected PANIC, got TRAP");
+                                error!(%trap_code, "Expected PANIC, got TRAP");
                                 eprintln!(
                                     "❌ Expected Panic {complete_name}, but it trapped: {trap_code}"
                                 );

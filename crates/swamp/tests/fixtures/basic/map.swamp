@@ -43,7 +43,7 @@ fn basic_map() {
 
 
 #[test]
-#[should_trap(code=2)]
+#[should_trap(expected="map_entry_or_create_failed")]
 fn add_too_many() {
 	mut game = Game {
 		card_templates: [
@@ -89,4 +89,20 @@ fn overwrite_existing() {
     assert(game.card_templates[CardId::Earthquake].mana == -1, "should be -1")
 }
 
+#[test]
+fn remove_card() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: -2, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 99, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ]
+    }
+
+    assert(game.card_templates.has(CardId::MysticSpring), "should have MysticSpring")
+
+    game.card_templates.remove(CardId::MysticSpring)
+
+    assert(!game.card_templates.has(CardId::MysticSpring), "should not have MysticSpring")
+}
 

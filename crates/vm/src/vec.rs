@@ -278,7 +278,7 @@ impl Vm {
 
     fn trap(&mut self, code: u8) {
         self.execution_complete = true;
-        self.state = VmState::Trap(code);
+        self.state = VmState::Trap(code.try_into().unwrap());
     }
 
     #[inline]

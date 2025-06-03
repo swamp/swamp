@@ -14,7 +14,7 @@ use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
 use swamp_types::Type;
 use swamp_vm::host::HostFunctionCallback;
-use swamp_vm::{Vm, VmSetup, VmState};
+use swamp_vm::{TrapCode, Vm, VmSetup, VmState};
 use swamp_vm_debug_info::{DebugInfo, KeepTrackOfSourceLine, SourceFileLineInfo};
 use swamp_vm_disasm::{disasm_color, display_lines};
 use swamp_vm_types::types::BasicTypeKind;
@@ -247,7 +247,7 @@ pub fn run_function_with_debug(
 
         if run_options.max_count != 0 && (debug_count >= run_options.max_count) {
             if vm.state == VmState::Normal {
-                vm.state = VmState::Trap(0);
+                vm.internal_trap(TrapCode::StoppedByTestHarness);
             }
             break;
         }

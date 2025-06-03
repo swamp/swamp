@@ -8,7 +8,10 @@ use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
 use fixed32::Fp;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::ptr;
+use std::str::FromStr;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
@@ -117,11 +120,72 @@ pub struct CallFrame {
 
 type RegContents = u32;
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+#[derive(Debug)]
+pub enum TrapCode {
+    StoppedByTestHarness,
+    VecBoundsFail,
+    MapOutOfSpace,
+    MapEntryNotFound,
+    MapEntryNotFoundAndCouldNotBeCreated,
+    MapEntryNotFoundForRemoval,
+}
+impl TryFrom<u8> for TrapCode {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        let code = match value {
+            0 => Self::StoppedByTestHarness,
+            1 => Self::VecBoundsFail,
+            2 => Self::MapOutOfSpace,
+            3 => Self::MapEntryNotFound,
+            4 => Self::MapEntryNotFoundAndCouldNotBeCreated,
+            5 => Self::MapEntryNotFoundForRemoval,
+            _ => return Err(()),
+        };
+        Ok(code)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseTrapCodeError;
+
+impl Display for ParseTrapCodeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Unable to parse string into a valid TrapCode")
+    }
+}
+impl Error for ParseTrapCodeError {}
+impl FromStr for TrapCode {
+    type Err = ParseTrapCodeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let code = match s {
+            "stopped_by_test_harness" => Self::StoppedByTestHarness,
+            "vec_bounds_fail" => Self::VecBoundsFail,
+            "map_out_of_space" => Self::MapOutOfSpace,
+            "map_entry_not_found" => Self::MapEntryNotFound,
+            "map_entry_or_create_failed" => Self::MapEntryNotFoundAndCouldNotBeCreated,
+            "map_entry_remove_failed" => Self::MapEntryNotFoundForRemoval,
+            _ => return Err(ParseTrapCodeError),
+        };
+
+        Ok(code)
+    }
+}
+
+impl Display for TrapCode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "trap {:?} code: {}", self, *self as u8)
+    }
+}
+
 #[derive(Eq, PartialEq)]
 pub enum VmState {
     Normal,
     Panic(String),
-    Trap(u8),
+    Trap(TrapCode),
 }
 
 pub struct Vm {
@@ -407,6 +471,8 @@ impl Vm {
             HandlerType::Args3(Self::execute_map_open_addressing_get_or_reserve_entry);
         vm.handlers[OpCode::MapHas as usize] =
             HandlerType::Args3(Self::execute_map_open_addressing_has);
+        vm.handlers[OpCode::MapRemove as usize] =
+            HandlerType::Args2(Self::execute_map_open_addressing_remove);
 
         // Map
         /* TODO: BRING THESE BACK
@@ -1153,16 +1219,21 @@ impl Vm {
 
     #[inline]
     fn execute_trap(&mut self, trap_code: u8) {
+        self.internal_trap(TrapCode::try_from(trap_code).unwrap());
+    }
+
+    pub fn internal_trap(&mut self, trap_code: TrapCode) {
         self.execution_complete = true;
-        #[cfg(feature = "debug_vm")]
-        if self.debug_opcodes_enabled {
-            self.debug_output();
-        }
-        self.state = VmState::Trap(trap_code);
 
         #[cfg(feature = "debug_vm")]
         if self.debug_stats_enabled {
             eprintln!("vm trap: '{trap_code}'");
+        }
+        self.state = VmState::Trap(trap_code);
+
+        #[cfg(feature = "debug_vm")]
+        if self.debug_opcodes_enabled {
+            self.debug_output();
         }
     }
 

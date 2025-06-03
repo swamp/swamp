@@ -18,7 +18,7 @@ pub fn very_basic(test_dir: &Path) {
             debug_operations: true,
             debug_stats: true,
         },
-        "",
+        "map::",
     );
 
     assert!(test_result.succeeded());
