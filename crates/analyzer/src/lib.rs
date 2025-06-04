@@ -1534,6 +1534,7 @@ impl<'a> Analyzer<'a> {
             Type::String => (Some(Type::Int), Type::String),
             Type::SliceView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::VecStorage(element_type, _fixed_size) => (Some(Type::Int), *element_type.clone()),
+            Type::DynamicLengthVecView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::MapStorage(key_type, value_type, _fixed_size) => {
                 (Some(*key_type.clone()), *value_type.clone())
             }
@@ -1862,6 +1863,9 @@ impl<'a> Analyzer<'a> {
                         ));
                     }
 
+                    (destination_type, *element_type.clone())
+                }
+                Type::DynamicLengthVecView(element_type) => {
                     (destination_type, *element_type.clone())
                 }
                 Type::FixedCapacityAndLengthArray(element_type, _size) => {

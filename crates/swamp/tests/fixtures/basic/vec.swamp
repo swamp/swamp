@@ -39,6 +39,12 @@ fn pushing_a_thing(mut things: Vec<Thing>, a: Int) {
     things.push(Thing { a: a, b: a + 44 })
 }
 
+fn pass_things(things: Vec<Thing>) {
+    for x in things {
+        print('thing: {x.a}')
+    }
+}
+
 #[test]
 fn vec_assign_and_subscript() {
 
@@ -231,4 +237,10 @@ fn trap_remove() {
     another.things.remove(2) // This should trap
 
     panic("should not be reached")
+}
+
+#[test]
+fn pass_in_param() {
+    things = [Thing { a: 33, b: 55 }]
+    pass_things(things)
 }

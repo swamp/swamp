@@ -48,7 +48,9 @@ impl CodeBuilder<'_> {
                 );
             }
 
-            Type::VecStorage(element_type, ..) | Type::SliceView(element_type) => {
+            Type::DynamicLengthVecView(element_type)
+            | Type::VecStorage(element_type, ..)
+            | Type::SliceView(element_type) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,
