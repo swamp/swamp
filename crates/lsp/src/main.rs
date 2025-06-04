@@ -25,39 +25,129 @@ fn main() {
                 will_save: None, // The user should always be able to save when they want
                 will_save_wait_until: None, // The user should always be able to save when they want
             }
-            .into(),
+                .into(),
         ),
-        notebook_document_sync: None, // how to synchronize notebook documents (e.g. Jupyter-style .ipynb or VS Code’s own notebook formats). when user updates cell it gets reported.
-        selection_range_provider: None, // Enables “Selection Range” (`textDocument/selectionRange`). What are those?
-        hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)), // Respond with a Markdown text that can contain Code Blocks.
-        completion_provider: None, // IntelliSense” completion (`textDocument/completion`)
-        signature_help_provider: None, // “Signature Help” (parameter hints when user types) (`textDocument/signatureHelp`)
-        definition_provider: Some(lsp_types::OneOf::Left(true)), // Go to Definition
-        type_definition_provider: None, // Enables “Go to Type Definition” `textDocument/typeDefinition`
-        implementation_provider: None, // “Go to Implementation” `textDocument/implementation`.  interfaces or abstract methods, probably not useful for Swamp.
-        references_provider: None,     // “Find References” `textDocument/references`. Very useful.
-        document_highlight_provider: None, // “Document Symbol Highlights” (what is this?) `textDocument/documentHighlight`.
-        document_symbol_provider: None, // “Outline view” for the current file only. (textDocument/documentSymbol). Makes sense to implement. Can be Package,Module,Struct,Enum, etc
-        workspace_symbol_provider: None, // “Workspace Symbols” `workspace/symbol` (same as Outline View but for the whole workspace). `Ctrl+T`.
-        code_action_provider: None, // Quick fixes, optimize imports, sort members, etc. Probably not that useful for Swamp.
-        code_lens_provider: None,   // Enables `textDocument/codeLens`
-        document_formatting_provider: None, // “Format Document” (`textDocument/formatting`)
-        document_range_formatting_provider: None, // “Format Selection” (`textDocument/rangeFormatting`).
-        document_on_type_formatting_provider: None, // auto-format when the user type.
-        rename_provider: None,                    // Renaming, could be super useful
-        document_link_provider: None, // For "hyperlinks", probably mostly for documentation? `textDocument/documentLink`
-        color_provider: None, // "Document Color” support (`textDocument/documentColor`, `textDocument/colorPresentation`)
-        folding_range_provider: None, // Also cool to implement.
-        declaration_provider: None, // “Go to Declaration” (`textDocument/declaration`). what is difference with definition_provider?
-        execute_command_provider: None, // “Command” requests (`workspace/executeCommand`). Can provide a list of commands.
-        workspace: None, // combination of workspace_folders, file_operations, execute_command_provider
-        call_hierarchy_provider: None, // The workspace can show cross‐file call graphs. What is that?
-        semantic_tokens_provider: None, // Enables Semantic Highlighting (reporting back what is variables, function names, types, constants, ...)
-        moniker_provider: None,         // cross‐jumping between files. No idea how that works?
-        linked_editing_range_provider: None, // Show simultaneous renames
-        inline_value_provider: None, // Enables “Inline Values” (`textDocument/inlineValue`). Debugger to show values for variables, etc.
-        inlay_hint_provider: None, //  “Inlay Hints” (parameter name hints, type hints) (`textDocument/inlayHint`)
-        diagnostic_provider: None, // interFileDependencies, workspaceDiagnostics
+
+        // how to synchronize notebook documents (e.g. Jupyter-style .ipynb or VS Code’s own notebook formats). when user updates cell it gets reported.
+        notebook_document_sync: None,
+
+        // Enables “Selection Range” (`textDocument/selectionRange`). What are those?
+        // Default VS Code key bindings:
+        //   • Expand selection: Shift + Alt + Right Arrow
+        //   • Shrink selection: Shift + Alt + Left Arrow
+        selection_range_provider: None,
+
+        // Respond with a Markdown text that can contain Code Blocks.
+        // Default VS Code key binding: Ctrl + K Ctrl + I
+        hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
+
+        // "IntelliSense" completion (`textDocument/completion`)
+        // Default VS Code key binding: Ctrl + Space
+        completion_provider: None,
+
+        // “Signature Help” (parameter hints when user types) (`textDocument/signatureHelp`)
+        // Default VS Code key binding: Ctrl + Shift + Space
+        signature_help_provider: None,
+
+        // Go to Definition (`textDocument/definition`)
+        // Default VS Code key bindings:
+        //   • F12 (Go to Definition)
+        //   • Alt + F12 (Peek Definition)
+        //   • Ctrl + Click on symbol
+        definition_provider: Some(lsp_types::OneOf::Left(true)),
+
+        // “Go to Type Definition” `textDocument/typeDefinition`
+        // Default VS Code key binding: Ctrl + Shift + F12
+        type_definition_provider: None,
+
+        // “Go to Implementation” `textDocument/implementation`. Interfaces or abstract methods, probably not useful for Swamp.
+        // Default VS Code key binding: Ctrl + F12
+        implementation_provider: None,
+
+        // “Find References” `textDocument/references`. Very useful.
+        // Default VS Code key binding: Shift + F12
+        references_provider: None,
+
+        // “Document Symbol Highlights” (what is this?) `textDocument/documentHighlight`.
+        document_highlight_provider: None,
+
+        // “Outline view” for the current file only. (textDocument/documentSymbol). Makes sense to implement. Can be Package,Module,Struct,Enum, etc.
+        // Default VS Code key binding to reveal document symbols: Ctrl + Shift + O
+        document_symbol_provider: None,
+
+        // “Workspace Symbols” `workspace/symbol` (same as Outline View but for the whole workspace). `Ctrl+T`.
+        // Default VS Code key binding: Ctrl + T (or Ctrl + P then type “@”)
+        workspace_symbol_provider: None,
+
+        // Quick fixes, optimize imports, sort members, etc. Probably not that useful for Swamp.
+        // Default VS Code key binding: Ctrl + .  (Show Code Actions)
+        code_action_provider: None,
+
+        // Enables `textDocument/codeLens`
+        code_lens_provider: None,
+
+        // “Format Document” (`textDocument/formatting`)
+        // Default VS Code key binding: Shift + Alt + F
+        document_formatting_provider: None,
+
+        // “Format Selection” (`textDocument/rangeFormatting`).
+        // Default VS Code key binding: Ctrl + K Ctrl + F
+        document_range_formatting_provider: None,
+
+        // auto-format when the user type.
+        document_on_type_formatting_provider: None,
+
+        // Renaming, could be super useful. `textDocument/rename`
+        // Default VS Code key binding: F2
+        rename_provider: None,
+
+        // For "hyperlinks", probably mostly for documentation? `textDocument/documentLink`
+        document_link_provider: None,
+
+        // "Document Color” support (`textDocument/documentColor`, `textDocument/colorPresentation`)
+        color_provider: None,
+
+        // Folding ranges. Also cool to implement.
+        // Default VS Code key bindings:
+        //   • Fold: Ctrl + Shift + [
+        //   • Unfold: Ctrl + Shift + ]
+        folding_range_provider: None,
+
+        // “Go to Declaration” (`textDocument/declaration`). what is difference with definition_provider?
+        // Default VS Code key binding: Ctrl + F12
+        declaration_provider: None,
+
+        // “Command” requests (`workspace/executeCommand`). Can provide a list of commands.
+        execute_command_provider: None,
+
+        // combination of workspace_folders, file_operations, execute_command_provider
+        workspace: None,
+
+        // The workspace can show cross‐file call graphs.
+        // who calls a given function, and who that function calls
+        // `textDocument/prepareCallHierarchy`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls`
+        call_hierarchy_provider: None, 
+
+        // Enables Semantic Highlighting (reporting back what is variables, function names, types, constants, ...)
+        semantic_tokens_provider: None,
+
+        // cross‐jumping between files. No idea how that works? it is only for package registry, where it can jump to external files?
+        moniker_provider: None,
+
+        // Show simultaneous renames
+        linked_editing_range_provider: None,
+
+        // Enables “Inline Values” (`textDocument/inlineValue`). Debugger to show values for variables, etc.
+        inline_value_provider: None,
+
+        //  “Inlay Hints” (parameter name hints, type hints) (`textDocument/inlayHint`)
+        inlay_hint_provider: None,
+
+        // interFileDependencies, workspaceDiagnostics
+        // Problems panel key binding: Ctrl + Shift + M
+        diagnostic_provider: None,
+        
+        // We shouldn't implement experimental stuff.
         experimental: None,
     };
 
