@@ -110,8 +110,7 @@ impl CodeBuilder<'_> {
                 node,
                 "create absolute pointer reg for vec_create",
             );
-            self.builder
-                .add_vec_create(&pointer_reg, node, "target result vector");
+  
         }
 
         let hwm = self.temp_registers.save_mark();
@@ -279,7 +278,7 @@ impl CodeBuilder<'_> {
                     error!(
                         ?collection_self_addr,
                         "can no start iterating with this strange vec collection"
-                    )
+                    );
                 }
                 self.builder.add_vec_iter_init(
                     &target_iterator_header_reg,

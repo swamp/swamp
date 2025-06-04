@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
+    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
 };
 use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta};
 
@@ -134,7 +134,7 @@ impl<'a> InstructionBuilder<'a> {
 
 impl InstructionBuilder<'_> {
     pub fn add_not_t(&mut self, node: &Node, comment: &str) {
-        self.state.add_instruction(OpCode::NotT, &[], node, comment);
+        self.state.add_instruction(OpCode::NotP, &[], node, comment);
     }
 
     #[must_use]
@@ -1036,17 +1036,6 @@ impl InstructionBuilder<'_> {
             comment,
         );
     }
-
-    pub fn add_vec_create(&mut self, mut_self_addr: &TypedRegister, node: &Node, comment: &str) {
-        // assert_ne!(element_byte_size.0, 0); // TODO: Bring this back
-        self.state.add_instruction(
-            OpCode::VecCreate,
-            &[mut_self_addr.addressing()],
-            node,
-            comment,
-        );
-    }
-
     pub fn add_vec_init_fill_capacity_and_element_addr(
         &mut self,
         target_vec_to_init: &PointerLocation,
@@ -1838,7 +1827,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_tst_reg(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
         self.state.add_instruction(
-            OpCode::MovToTFlagFromReg,
+            OpCode::MovToPFlagFromReg,
             &[addr.addressing()],
             node,
             comment,
@@ -1847,7 +1836,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_not_tst_reg(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
         self.state.add_instruction(
-            OpCode::MovToNotTFlagFromReg,
+            OpCode::MovToNotPFlagFromReg,
             &[addr.addressing()],
             node,
             comment,
@@ -1862,7 +1851,7 @@ impl InstructionBuilder<'_> {
     pub fn add_stz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
         //assert_eq!(target.underlying().total_size.0, 1);
         self.state.add_instruction(
-            OpCode::MovFromTFlagToReg,
+            OpCode::MovFromPFlagToReg,
             &[target.addressing()],
             node,
             comment,
@@ -1872,7 +1861,7 @@ impl InstructionBuilder<'_> {
     pub fn add_stnz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
         // assert_eq!(target.underlying().total_size.0, 1);
         self.state.add_instruction(
-            OpCode::MovFromNotTFlagToReg,
+            OpCode::MovFromNotPFlagToReg,
             &[target.addressing()],
             node,
             comment,

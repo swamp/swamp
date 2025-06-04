@@ -1,15 +1,15 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use crate::{Collection, FlagState, FlagStateKind, Transformer, TransformerResult};
+use crate::{Collection, FlagState, FlagStateKind, Transformer};
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, RValueOrLValue, TypedRegister, VmType, pointer_type};
+use swamp_vm_types::types::{pointer_type, Destination, RValueOrLValue, TypedRegister, VmType};
 use swamp_vm_types::{
-    AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
-    PointerLocation, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
+    AggregateMemoryLocation, MemoryLocation, MemoryOffset, MemorySize,
+    MAP_HEADER_COUNT_OFFSET, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
 };
 use tracing::info;
 
@@ -431,88 +431,6 @@ impl CodeBuilder<'_> {
                     "vec get",
                 );
             }
-            IntrinsicFunction::VecCreate => {
-                self.builder
-                    .add_vec_create(maybe_target.unwrap(), node, "vec create"); // TODO: Fix to have proper element memory size
-            }
-            IntrinsicFunction::VecFromSlice => {
-                /*
-                let maybe_key_argument = &arguments[0];
-                let MutRefOrImmutableExpression::Expression(slice_expression) = maybe_key_argument
-                else {
-                    panic!();
-                };
-
-                let element_base_ptr_reg = self.temp_registers.allocate(
-                    VmType::new_unknown_placement(vec_type()),
-                    "element base ptr",
-                );
-                let BasicTypeKind::InternalVecStorage(element_type, fixed_size_capacity) =
-                    &target_reg.ty.basic_type.kind
-                else {
-                    panic!("mut have storage");
-                };
-
-                self.builder.add_vec_init_fill_capacity_and_element_addr(
-                    target_reg,
-                    element_base_ptr_reg.register(),
-                    *fixed_size_capacity as u16,
-                    0,
-                    node,
-                    "vec create",
-                ); // TODO: Fix to have proper element memory size
-
-                // let slice_register = self.emit_slice_literal( element_base_ptr_reg.register(), element_type, node, ctx);
-
-                self.emit_expression_materialize(
-                    element_base_ptr_reg.register(),
-                    slice_expression,
-                    ctx,
-                );
-
-                 */
-                todo!()
-            }
-
-            IntrinsicFunction::VecSubscript => {
-                let maybe_index_argument = &arguments[0];
-                let ArgumentExpression::Expression(index_expr) = maybe_index_argument else {
-                    panic!();
-                };
-                let index_region = self.emit_scalar_rvalue(index_expr, ctx);
-                self.builder.add_vec_subscript(
-                    maybe_target.unwrap(),
-                    self_addr.unwrap(),
-                    &index_region,
-                    MemorySize(0),
-                    node,
-                    "vec get element at index",
-                );
-            }
-            IntrinsicFunction::VecSubscriptRange => {
-                let maybe_range_argument = &arguments[0];
-                let ArgumentExpression::Expression(range_expr) = maybe_range_argument else {
-                    panic!();
-                };
-                let range_header_region = self.emit_scalar_rvalue(range_expr, ctx);
-                // TODO: Bring this back // assert_eq!(range_header_region.size(), RANGE_HEADER_SIZE);
-                self.builder.add_vec_get_range(
-                    maybe_target.unwrap(),
-                    self_addr.unwrap(),   // mut self (string header)
-                    &range_header_region, // range x..=y
-                    node,
-                    "vec subscript range",
-                );
-            }
-            IntrinsicFunction::VecIter => {
-                // TODO:
-                // Intentionally empty, since it should never be called
-            }
-            IntrinsicFunction::VecIterMut => {
-                // TODO:
-                // Intentionally empty, since it should never be called
-            }
-
             IntrinsicFunction::VecWhile => todo!(), // Low prio
             IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
@@ -591,9 +509,6 @@ impl CodeBuilder<'_> {
             }
 
             // Map
-            IntrinsicFunction::MapCreate => {
-                // TODO:
-            }
             IntrinsicFunction::MapHas => {
                 let ArgumentExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");
@@ -643,21 +558,6 @@ impl CodeBuilder<'_> {
                     "convert the map length to inverted bool",
                 );
             }
-            IntrinsicFunction::MapSubscript => {
-                let ArgumentExpression::Expression(key_argument) = &arguments[0] else {
-                    panic!("must be expression for key");
-                };
-                let key = self.emit_scalar_rvalue(key_argument, ctx);
-                self.builder.add_map_get_entry_location(
-                    maybe_target.unwrap(),
-                    &PointerLocation::new(self_addr.unwrap().clone()),
-                    &key,
-                    node,
-                    "map_subscript",
-                );
-            }
-            IntrinsicFunction::MapSubscriptMut => {}
-            IntrinsicFunction::MapSubscriptMutCreateIfNeeded => {}
 
             // Grid
             IntrinsicFunction::GridCreate => {

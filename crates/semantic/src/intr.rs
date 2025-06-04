@@ -43,18 +43,12 @@ pub enum IntrinsicFunction {
     // TODO: StringSubscript, StringConcat
 
     // Vec
-    VecCreate, // create from empty
-    VecFromSlice,
     VecPush,
     VecPop,
     VecRemoveIndex,
     VecRemoveIndexGetValue,
     VecLen,
     VecClear,
-    VecSubscript,
-    VecSubscriptRange,
-    VecIter,
-    VecIterMut,
     VecSwap,
     VecInsert,
     VecFirst,
@@ -73,15 +67,12 @@ pub enum IntrinsicFunction {
     VecFold,
 
     // Map
-    MapCreate,
+    MapIsEmpty,
     MapHas,
     MapRemove,
     MapIter,
     MapIterMut,
     MapLen,
-    MapSubscript,
-    MapSubscriptMut,
-    MapSubscriptMutCreateIfNeeded,
 
     // Map2
     Map2Create,
@@ -114,7 +105,6 @@ pub enum IntrinsicFunction {
 
     RuntimePanic,
     RangeInit,
-    MapIsEmpty,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -162,18 +152,12 @@ impl fmt::Display for IntrinsicFunction {
             Self::StringLen => "string_len",
 
             // Vec
-            Self::VecFromSlice => "vec_from_slice",
             Self::VecPush => "vec_push",
             Self::VecPop => "vec_pop",
             Self::VecRemoveIndex => "vec_remove_index",
             Self::VecRemoveIndexGetValue => "vec_remove_index_get_value",
             Self::VecClear => "vec_clear",
             Self::VecGet => "vec_get",
-            Self::VecCreate => "vec_create",
-            Self::VecSubscript => "vec_subscript",
-            Self::VecSubscriptRange => "vec_subscript_range",
-            Self::VecIter => "vec_iter",
-            Self::VecIterMut => "vec_iter_mut",
             Self::VecFor => "vec_for",
             Self::VecWhile => "vec_while",
             Self::VecFindMap => "vec_find_map",
@@ -191,12 +175,8 @@ impl fmt::Display for IntrinsicFunction {
             Self::VecLast => "vec_last",
 
             // Map
-            Self::MapCreate => "map_create",
             Self::MapHas => "map_has",
             Self::MapRemove => "map_remove",
-            Self::MapSubscriptMut => "map_subscript_mut",
-            Self::MapSubscriptMutCreateIfNeeded => "map_subscript_mut_create_if_needed",
-            Self::MapSubscript => "map_subscript",
             Self::MapIter => "map_iter",
             Self::MapIterMut => "map_iter_mut",
             Self::MapLen => "map_len",

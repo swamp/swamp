@@ -31,7 +31,7 @@ pub enum OpCode {
     DivF32,
 
     // Comparisons
-    // Reads or sets the z flag
+    // Clears or sets the P flag
     // Integer and Float
     LtI32,
     LeI32,
@@ -42,12 +42,12 @@ pub enum OpCode {
     GeU32,
     LtU32,
 
-    // Comparison, set z flag
+    // Comparison, set P flag
     Eq8Imm,
     CmpReg,
     CmpBlock,
 
-    NotT, // Invert z flag
+    NotP, // Invert P flag
 
     // Conditional branching
     BFalse,
@@ -91,10 +91,10 @@ pub enum OpCode {
 
     // Movers
     MovReg,
-    MovToTFlagFromReg, // Load the byte into the z flag (zero = clears the t flag, any other value = sets the t flag)
-    MovToNotTFlagFromReg, // Load the byte into the z flag (zero = sets the t flag, any other value = clears the t flag)
-    MovFromTFlagToReg,
-    MovFromNotTFlagToReg,
+    MovToPFlagFromReg, // Load the byte into the P flag (zero = clears the P flag, any other value = sets the P flag)
+    MovToNotPFlagFromReg, // Load the byte into the P flag (zero = sets the P flag, any other value = clears the P flag)
+    MovFromPFlagToReg,
+    MovFromNotPFlagToReg,
     // Mov immediate
     Mov8FromImmediateValue,
     Mov16FromImmediateValue,
@@ -144,19 +144,18 @@ pub enum OpCode {
     ArrayInitWithLenAndCapacityAddr,
 
     // Vec
-    VecIterInit,
-    VecIterNext,
-    VecIterNextPair,
     VecInitWithLenAndCapacityAddr,
     VecPushAddr,
     VecRemoveIndex,
     VecPop,
     VecRemoveIndexGetValue,
     VecClear,
-    VecCreate,
     VecGet,
     VecGetRange,
     VecSwap,
+    VecIterInit,
+    VecIterNext,
+    VecIterNextPair,
 
     // Map
     MapInitWithCapacityAndKeyAndTupleSizeAddr, // Initialize the Map
@@ -193,13 +192,13 @@ impl OpCode {
             Self::MulU32 => "mul",
             Self::SubU32 => "sub",
 
-            Self::NegI32 => "sneg",
-            Self::ModI32 => "smod",
-            Self::DivI32 => "sdiv",
+            Self::NegI32 => "s.neg",
+            Self::ModI32 => "s.mod",
+            Self::DivI32 => "s.div",
 
             // Float arithmetic
-            Self::MulF32 => "fmul",
-            Self::DivF32 => "fdiv",
+            Self::MulF32 => "f.mul",
+            Self::DivF32 => "f.div",
 
             // Integer comparisons
             Self::LtI32 => "slt",
@@ -212,15 +211,13 @@ impl OpCode {
 
             // Byte/memory comparisons
             Self::Eq8Imm | Self::CmpReg => "cmp",
-            Self::CmpBlock => "cmpblk",
-            Self::MovToTFlagFromReg => "tst",
-            Self::MovToNotTFlagFromReg => "tst_not",
-            Self::FrameMemClr => "clrblkf",
+            Self::CmpBlock => "cmp.blk",
+            Self::FrameMemClr => "clr.blk.f",
 
-            // Store T flag (maybe rename to Predicate flag?)
-            Self::NotT => "notpf",
-            Self::MovFromTFlagToReg => "movpf",
-            Self::MovFromNotTFlagToReg => "movnpf",
+            // Store Predicate Flag
+            Self::NotP => "notpf",
+            Self::MovFromPFlagToReg => "movpf",
+            Self::MovFromNotPFlagToReg => "movnpf",
 
             // Branches
             Self::BFalse => "b.false",
@@ -233,7 +230,7 @@ impl OpCode {
             Self::Ret => "ret",
 
             // Mem
-            Self::BlockCopyWithOffsets | Self::BlockCopy => "blkcpy",
+            Self::BlockCopyWithOffsets | Self::BlockCopy => "blk.cpy",
             Self::LdPtrFromEffectiveFrameAddress | Self::LoadEffectiveAddressIndexMultiplier => {
                 "lea"
             }
@@ -242,56 +239,58 @@ impl OpCode {
             Self::Mov8FromImmediateValue => "mov.b",
             Self::Mov16FromImmediateValue => "mov.h",
             Self::MovReg | Self::Mov32FromImmediateValue => "mov", // alias for `mov.w`
-            Self::BooleanNot => "bnot",
+            Self::BooleanNot => "bool.not",
+            Self::MovToPFlagFromReg => "tst",
+            Self::MovToNotPFlagFromReg => "tst.not",
 
-            // Load
+            // Load. From memory to register
             Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ld.b",
             Self::Ld16FromPointerWithOffset => "ld.h",
             Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ld", // alias for `ld.w`
             Self::LdRegFromFrameUsingMask | Self::LdRegFromFrame => "ldmf",
 
-            // Store
+            // Store. From register to memory
             Self::St32UsingPtrWithOffset => "st", // alias for `st.w`
             Self::St16UsingPtrWithOffset => "st.h",
             Self::St8UsingPtrWithOffset => "st.b",
             Self::StRegToFrameUsingMask | Self::StRegToFrame => "stmf",
 
             // Float functions
-            Self::FloatRound => "fround",
-            Self::FloatFloor => "ffloor",
-            Self::FloatSqrt => "fsqrt",
-            Self::FloatSign => "fsign",
-            Self::FloatAbs => "fabs",
-            Self::FloatPseudoRandom => "fprnd",
-            Self::FloatSin => "fsin",
-            Self::FloatCos => "fcos",
-            Self::FloatAcos => "facos",
-            Self::FloatAsin => "fasin",
-            Self::FloatAtan2 => "fatan2",
-            Self::FloatMin => "fmin",
-            Self::FloatMax => "fmax",
-            Self::FloatClamp => "fclamp",
-            Self::FloatToString => "ftos",
+            Self::FloatRound => "f.round",
+            Self::FloatFloor => "f.floor",
+            Self::FloatSqrt => "f.sqrt",
+            Self::FloatSign => "f.sign",
+            Self::FloatAbs => "f.abs",
+            Self::FloatPseudoRandom => "f.prnd",
+            Self::FloatSin => "f.sin",
+            Self::FloatCos => "f.cos",
+            Self::FloatAcos => "f.acos",
+            Self::FloatAsin => "f.asin",
+            Self::FloatAtan2 => "f.atan2",
+            Self::FloatMin => "f.min",
+            Self::FloatMax => ".f.max",
+            Self::FloatClamp => "f.clamp",
+            Self::FloatToString => "f.to.str",
 
             // Int functions
-            Self::IntToRnd => "irnd",
-            Self::IntToFloat => "itof",
-            Self::IntAbs => "iabs",
-            Self::IntMin => "imin",
-            Self::IntMax => "imax",
-            Self::IntClamp => "iclamp",
-            Self::IntToString => "itos",
+            Self::IntToRnd => "i.rnd",
+            Self::IntToFloat => "i.tof",
+            Self::IntAbs => "i.abs",
+            Self::IntMin => "i.min",
+            Self::IntMax => "i.max",
+            Self::IntClamp => "i.clamp",
+            Self::IntToString => "i.tos",
 
             // Other
             Self::HostCall => "host",
 
             // Bool
-            Self::BoolToString => "btos",
+            Self::BoolToString => "bool.to.str",
 
             // Range
             Self::RangeInit => "range.init",
             Self::RangeIterInit => "range.iter",
-            Self::RangeIterNext => "range.itern",
+            Self::RangeIterNext => "range.iter.next",
 
             // Fixed capacity size array
             Self::ArrayInitWithLenAndCapacityAddr => "array.init",
@@ -299,28 +298,26 @@ impl OpCode {
             // Vec
             Self::VecInitWithLenAndCapacityAddr => "vec.init",
             Self::VecPushAddr => "vec.push",
-            Self::VecIterInit => "vec.iter",
-            Self::VecIterNext => "vec.itern",
-            Self::VecIterNextPair => "vec.iternp",
             Self::VecRemoveIndex => "vec.rem",
             Self::VecPop => "vec.pop",
-            Self::VecRemoveIndexGetValue => "vec.remv",
+            Self::VecRemoveIndexGetValue => "vec.rem.v",
             Self::VecClear => "vec.clear",
-            Self::VecCreate => "vec.create",
             Self::VecGet => "vec.get",
-            Self::VecGetRange => "vec.getrn",
+            Self::VecGetRange => "vec.get.range",
             Self::VecSwap => "vec.swap",
+            Self::VecIterInit => "vec.iter",
+            Self::VecIterNext => "vec.iter.next",
+            Self::VecIterNextPair => "vec.iter.next.pair",
 
             // Map
             Self::MapInitWithCapacityAndKeyAndTupleSizeAddr => "map.init",
             Self::MapGetEntryLocation => "map.entry",
             Self::MapGetOrReserveEntryLocation => "map.entry.or_create",
-
+            Self::MapHas => "map.has",
             Self::MapRemove => "map.rem",
             Self::MapIterInit => "map.iter.init",
             Self::MapIterNext => "map.iter.next",
             Self::MapIterNextPair => "map.iter.next.pair",
-            Self::MapHas => "map.has",
 
             // String
             Self::StringAppend => "str.app",
