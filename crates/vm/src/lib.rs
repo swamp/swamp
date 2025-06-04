@@ -466,7 +466,7 @@ impl Vm {
         vm.handlers[OpCode::MapInitWithCapacityAndKeyAndTupleSizeAddr as usize] =
             HandlerType::Args8(Self::execute_map_open_addressing_init);
         vm.handlers[OpCode::MapIterInit as usize] = HandlerType::Args2(Self::execute_map_iter_init);
-        //vm.handlers[OpCode::MapIterNext as usize] = HandlerType::Args3(Self::execute_map_iter_next);
+        vm.handlers[OpCode::MapIterNext as usize] = HandlerType::Args4(Self::execute_map_iter_next);
         vm.handlers[OpCode::MapIterNextPair as usize] =
             HandlerType::Args5(Self::execute_map_iter_next_pair);
         vm.handlers[OpCode::MapGetEntryLocation as usize] =

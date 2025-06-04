@@ -10,7 +10,7 @@ use fxhash::FxHasher64;
 use std::cmp::min;
 use std::hash::Hasher;
 use std::{ptr, slice};
-use swamp_vm_types::{MAP_BUCKETS_OFFSET, MAP_HEADER_ALIGNMENT, MapHeader, MapIterator};
+use swamp_vm_types::{MAP_BUCKETS_OFFSET, MapHeader, MapIterator};
 
 impl Vm {
     const MAX_PROBES: usize = 8;
@@ -805,6 +805,88 @@ impl Vm {
                     }
 
                     set_reg!(self, target_key_reg, key_addr);
+                    set_reg!(self, target_value_reg, value_addr);
+
+                    return;
+                }
+
+                index += 1;
+            }
+
+            // Jump to the provided address if we're done
+            let branch_offset = i16_from_u8s!(branch_offset_lower, branch_offset_upper);
+
+            #[cfg(feature = "debug_vm")]
+            {
+                if self.debug_operations_enabled {
+                    eprintln!("map_iter_next_pair complete. jumping with offset {branch_offset}");
+                }
+            }
+
+            self.pc = (self.pc as i32 + branch_offset as i32) as usize;
+        }
+    }
+
+    pub fn execute_map_iter_next(
+        &mut self,
+        map_iterator_header_reg: u8,
+        target_value_reg: u8,
+        branch_offset_lower: u8,
+        branch_offset_upper: u8,
+    ) {
+        let map_iterator = self.get_map_iterator_header_ptr_from_reg(map_iterator_header_reg);
+
+        unsafe {
+            let map_header_addr = (*map_iterator).map_header_frame_offset;
+            let map_header_ptr =
+                self.memory.get_heap_const_ptr(map_header_addr as usize) as *const MapHeader;
+            let map_header = &*map_header_ptr;
+
+            #[cfg(feature = "debug_vm")]
+            if self.debug_operations_enabled {
+                let iter_addr = get_reg!(self, map_iterator_header_reg);
+                let index = (*map_iterator).index;
+                eprintln!(
+                    "map_iter_next: iter_addr: {iter_addr:04X} addr:{map_header_addr:04X} index:{index} len: {}, capacity: {}",
+                    map_header.element_count, map_header.capacity
+                );
+            }
+
+            let mut index = (*map_iterator).index;
+            let bucket_size = map_header.bucket_size as u32;
+
+            let buckets_start =
+                (*map_iterator).map_header_frame_offset + MAP_BUCKETS_OFFSET.0 as u32;
+
+            while index < map_header.capacity as u32 {
+                // Calculate the address of the current element
+                let element_start_address_including_status = buckets_start + index * bucket_size;
+
+                let status = *self
+                    .memory
+                    .get_heap_const_ptr(element_start_address_including_status as usize);
+
+                #[cfg(feature = "debug_vm")]
+                if self.debug_operations_enabled {
+                    eprintln!(
+                        "map_iter_next_pair: iterating to bucket_addr:{element_start_address_including_status:X}, index:{index}, status:{status}"
+                    );
+                }
+
+                if status == Self::BUCKET_OCCUPIED {
+                    (*map_iterator).index = index + 1;
+
+                    let value_addr = element_start_address_including_status
+                        + map_header.status_size as u32
+                        + map_header.key_size as u32;
+
+                    #[cfg(feature = "debug_vm")]
+                    if self.debug_operations_enabled {
+                        eprintln!(
+                            "map_iter_next: value_addr 0x{value_addr:X} to r{target_value_reg}"
+                        );
+                    }
+
                     set_reg!(self, target_value_reg, value_addr);
 
                     return;

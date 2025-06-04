@@ -25,7 +25,7 @@ fn main() {
                 will_save: None, // The user should always be able to save when they want
                 will_save_wait_until: None, // The user should always be able to save when they want
             }
-                .into(),
+            .into(),
         ),
 
         // how to synchronize notebook documents (e.g. Jupyter-style .ipynb or VS Code’s own notebook formats). when user updates cell it gets reported.
@@ -126,7 +126,7 @@ fn main() {
         // The workspace can show cross‐file call graphs.
         // who calls a given function, and who that function calls
         // `textDocument/prepareCallHierarchy`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls`
-        call_hierarchy_provider: None, 
+        call_hierarchy_provider: None,
 
         // Enables Semantic Highlighting (reporting back what is variables, function names, types, constants, ...)
         semantic_tokens_provider: None,
@@ -146,7 +146,7 @@ fn main() {
         // interFileDependencies, workspaceDiagnostics
         // Problems panel key binding: Ctrl + Shift + M
         diagnostic_provider: None,
-        
+
         // We shouldn't implement experimental stuff.
         experimental: None,
     };

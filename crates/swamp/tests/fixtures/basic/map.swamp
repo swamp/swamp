@@ -125,3 +125,27 @@ fn iterate_cards() {
 
     assert(count == 3, "should iterate over 3 cards")
 }
+
+#[test]
+fn iterate_cards_value_only() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ]
+    }
+
+    mut count = 0
+    for card_template in game.card_templates {
+        print('Mana: {card_template.mana}, Healing per second: {card_template.healing_per_second}')
+        if count == 1 {
+            // note: the order can be change in different versions of Swamp
+            // it is deterministic, but the insert order depends on the hash function
+            assert(card_template.mana == 3, "second should be EarthQuake")
+        }
+        count += 1
+    }
+
+    assert(count == 3, "should iterate over 3 cards")
+}
