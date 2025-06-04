@@ -275,7 +275,8 @@ pub enum ForPattern {
 }
 
 impl ForPattern {
-    pub fn is_key_variable_mut(&self) -> bool {
+    #[must_use]
+    pub const fn is_key_variable_mut(&self) -> bool {
         match self {
             Self::Single(a) => false,
             Self::Pair(a, b) => a.is_mut.is_some(),

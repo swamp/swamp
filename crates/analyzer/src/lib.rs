@@ -3102,6 +3102,7 @@ impl<'a> Analyzer<'a> {
         Ok(intrinsic_and_signature)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn slice_member_signature(
         &mut self,
         element_type: &Type,
@@ -3110,7 +3111,7 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::SliceView(Box::from(element_type.clone())).clone(),
+            resolved_type: Type::SliceView(Box::from(element_type.clone())),
             is_mutable: false,
             node: None,
         };
@@ -3166,6 +3167,34 @@ impl<'a> Analyzer<'a> {
                             },
                         ],
                         return_type: Box::new(Type::SliceView(Box::from(element_type.clone()))),
+                    },
+                )
+            }
+            "find" => {
+                info!(?self_type_param, "what is self type param for find");
+                let lambda_signature = Signature {
+                    parameters: vec![TypeForParameter {
+                        name: "element".to_string(),
+                        resolved_type: element_type.clone(),
+                        is_mutable: false,
+                        node: None,
+                    }],
+                    return_type: Box::new(Type::Bool),
+                };
+                let lambda_function_type = Type::Function(lambda_signature);
+                (
+                    IntrinsicFunction::VecFind,
+                    Signature {
+                        parameters: vec![
+                            self_type_param,
+                            TypeForParameter {
+                                name: "lambda".to_string(),
+                                resolved_type: lambda_function_type,
+                                is_mutable: false,
+                                node: None,
+                            },
+                        ],
+                        return_type: Box::new(Type::Optional(Box::from(element_type.clone()))),
                     },
                 )
             }

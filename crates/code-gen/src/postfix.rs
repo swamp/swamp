@@ -93,7 +93,7 @@ impl CodeBuilder<'_> {
                             if let Some((intrinsic_fn, intrinsic_arguments)) =
                                 single_intrinsic_fn(&internal_fn.body)
                             {
-                                //info!(?intrinsic_fn, "intrinsic");
+                                info!(?intrinsic_fn, "intrinsic");
                                 let merged_arguments = Self::merge_arguments_keep_literals(
                                     arguments,
                                     intrinsic_arguments,

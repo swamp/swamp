@@ -1234,7 +1234,7 @@ impl AstParser {
             Rule::prefix => self.parse_prefix(sub),
 
             Rule::match_expr => self.parse_match_expr(sub),
-            Rule::initializer_list => self.parse_internal_initializer_list_literal(sub),
+            Rule::initializer_list => self.parse_initializer_list_literal(sub),
             Rule::initializer_pair_list => self.parse_initializer_pair_list(sub),
             Rule::guard_expr => self.parse_guard_expr_list(sub),
             Rule::with_expr => self.parse_with_expr(sub),
@@ -1926,6 +1926,8 @@ impl AstParser {
             }
             Rule::struct_literal => self.parse_struct_literal(sub),
             Rule::anonymous_struct_literal => self.parse_anonymous_struct_literal(sub),
+            Rule::initializer_list => self.parse_initializer_list_literal(sub),
+            Rule::initializer_pair_list => self.parse_initializer_pair_list(sub),
 
             Rule::interpolated_string => self.parse_interpolated_string(sub),
 
@@ -2234,10 +2236,7 @@ impl AstParser {
         Ok((literal_kind, self.to_node(&inner)))
     }
 
-    fn parse_internal_initializer_list_literal(
-        &self,
-        pair: &Pair<Rule>,
-    ) -> Result<Expression, ParseError> {
+    fn parse_initializer_list_literal(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
         let mut elements = Vec::new();
         for element in Self::convert_into_iterator(pair) {
             elements.push(self.parse_expression(&element)?);

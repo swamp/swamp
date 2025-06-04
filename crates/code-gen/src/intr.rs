@@ -1,7 +1,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
-use crate::{Collection, FlagState, FlagStateKind, Transformer};
+use crate::{Collection, FlagState, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression};
@@ -11,6 +11,7 @@ use swamp_vm_types::{
     AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
     PointerLocation, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
 };
+use tracing::info;
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -576,6 +577,7 @@ impl CodeBuilder<'_> {
             } // Low prio      IntrinsicFunction::VecFor => {
 
             IntrinsicFunction::VecFind => {
+                info!(?self_type, "what is the self type for vec find");
                 self.emit_iterate_over_collection_with_lambda(
                     target_destination,
                     node,

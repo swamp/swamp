@@ -414,8 +414,8 @@ with_expr
 | match_expr
 | for_loop
 | while_loop
-| initializer_list
-| initializer_pair_list
+// | initializer_list
+//| initializer_pair_list
 | destructuring_assignment // TODO: move to statement
 | variable_definition // TODO: move to statement
 | assignment // TODO: move to assignment_statement
@@ -453,6 +453,8 @@ static_member_reference
 | constant_reference
 | struct_literal
 | anonymous_struct_literal
+| initializer_list
+| initializer_pair_list
 | interpolated_string
 | lambda
 

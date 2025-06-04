@@ -1,3 +1,19 @@
 use core::{assert}
 use std::{print}
 
+#[test]
+fn something_else() {
+    assert(2 ==2, "must be same")
+}
+
+//#[test]
+/*
+fn find_in_array() {
+    maybe_int = [1, 2, 3, 4].find(|x| x == 2)
+}
+
+#[test]
+fn filter() {
+    maybe_int = [1, 2, 3, 4].filter(|x| x == 2)
+}
+*/

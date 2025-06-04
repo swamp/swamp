@@ -134,12 +134,14 @@ impl Type {
     }
 
     #[must_use]
-    pub fn primary_element_type(&self) -> Option<&Self> {
+    pub fn iteration_primary_element_type(&self) -> Option<&Self> {
         match self {
             Self::SliceView(element_type) => Some(element_type),
             Self::FixedCapacityAndLengthArray(element_type, _) => Some(element_type),
+            Self::DynamicLengthVecView(element_type) => Some(element_type),
             Self::VecStorage(element_type, _) => Some(element_type),
-            Self::MutableReference(inner) => inner.primary_element_type(),
+            Self::DynamicLengthVecView(element_type) => Some(element_type),
+            Self::MutableReference(inner) => inner.iteration_primary_element_type(),
             _ => None,
         }
     }

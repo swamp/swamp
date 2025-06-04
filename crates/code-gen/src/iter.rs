@@ -9,6 +9,7 @@ use swamp_vm_types::types::{
     BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type,
 };
 use swamp_vm_types::{InstructionPosition, MemoryLocation, PatchPosition};
+use tracing::error;
 
 impl CodeBuilder<'_> {
     /// Generates code to iterate over a collection using a transformer (e.g., map, filter, `filter_map`)
@@ -63,7 +64,7 @@ impl CodeBuilder<'_> {
             panic!();
         };
 
-        let primary_element_type = source_collection_analyzed_type.primary_element_type();
+        let primary_element_type = source_collection_analyzed_type.iteration_primary_element_type();
         let maybe_primary_element_gen_type = primary_element_type.map(layout_type);
 
         let target_variables: Vec<_> = lambda_variables
@@ -274,6 +275,12 @@ impl CodeBuilder<'_> {
         let iter_next_position = InstructionPosition(self.builder.position().0 + 1);
         let placeholder = match collection_type {
             Collection::Vec => {
+                if maybe_element_type.is_none() {
+                    error!(
+                        ?collection_self_addr,
+                        "can no start iterating with this strange vec collection"
+                    )
+                }
                 self.builder.add_vec_iter_init(
                     &target_iterator_header_reg,
                     collection_self_addr,
