@@ -254,17 +254,6 @@ impl Analyzer<'_> {
         let (source_order_expressions, missing_fields) = self
             .place_anon_struct_fields_that_exist_and_return_missing(anon_struct_type, ast_fields)?;
 
-        Ok(self.create_expr(
-            ExpressionKind::AnonymousStructLiteral(AnonymousStructLiteral {
-                struct_like_type: Self::get_struct_like_type(super_type),
-                source_order_expressions,
-            }),
-            super_type.clone(),
-            node,
-        ))
-
-        // TODO: Bring back
-        /*
         if missing_fields.is_empty() {
             // No missing fields, we are done!
             Ok(self.create_expr(
@@ -291,12 +280,10 @@ impl Analyzer<'_> {
                         missing_fields.to_vec(),
                         anon_struct_type.clone(),
                     ),
-                    &node,
+                    node,
                 ))
             }
-
-            }
-             */
+        }
     }
 
     /*
