@@ -312,7 +312,7 @@ impl Vm {
 
         // Copy data in frame memory
         vm.handlers[OpCode::MovReg as usize] = HandlerType::Args2(Self::execute_mov_reg);
-        vm.handlers[OpCode::LdPtrFromEffectiveAddress as usize] =
+        vm.handlers[OpCode::LdPtrFromEffectiveFrameAddress as usize] =
             HandlerType::Args3(Self::execute_lea);
 
         vm.handlers[OpCode::Ld32FromAbsoluteAddress as usize] =

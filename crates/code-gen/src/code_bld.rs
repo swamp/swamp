@@ -18,7 +18,7 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset,
-    MemorySize, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
+    MemorySize, PointerLocation, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
 
 pub struct EmitArgumentInfo {
@@ -364,14 +364,42 @@ impl CodeBuilder<'_> {
             &format!("{comment}: allocate frame space"),
         );
 
-        self.builder.add_lea(
+        self.builder.add_lea_from_frame_region(
             &reg,
-            reg.addr(),
+            reg.region(),
             node,
             &format!("{comment}: set the allocated memory to pointer reg"),
         );
 
         reg
+    }
+
+    pub fn allocate_frame_space_and_return_pointer_location(
+        &mut self,
+        ty: &BasicType,
+        node: &Node,
+        comment: &str,
+    ) -> PointerLocation {
+        let absolute_base_ptr_reg =
+            self.allocate_frame_space_and_return_absolute_pointer_reg(ty, node, comment);
+        PointerLocation {
+            ptr_reg: absolute_base_ptr_reg,
+        }
+    }
+
+    pub fn allocate_frame_space_and_return_memory_location(
+        &mut self,
+        ty: &BasicType,
+        node: &Node,
+        comment: &str,
+    ) -> MemoryLocation {
+        let absolute_base_ptr_reg =
+            self.allocate_frame_space_and_return_pointer_location(ty, node, comment);
+        MemoryLocation {
+            ty: absolute_base_ptr_reg.ptr_reg.ty.clone(),
+            base_ptr_reg: absolute_base_ptr_reg.ptr_reg,
+            offset: MemoryOffset(0),
+        }
     }
 
     pub fn allocate_frame_space_and_return_destination_to_it(
@@ -380,14 +408,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) -> Destination {
-        let absolute_base_ptr_reg =
-            self.allocate_frame_space_and_return_absolute_pointer_reg(ty, node, comment);
-        let location = MemoryLocation {
-            ty: absolute_base_ptr_reg.ty.clone(),
-            base_ptr_reg: absolute_base_ptr_reg,
-            offset: MemoryOffset(0),
-        };
-
+        let location = self.allocate_frame_space_and_return_memory_location(ty, node, comment);
         Destination::new_location(location)
     }
 

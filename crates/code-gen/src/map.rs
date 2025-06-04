@@ -24,14 +24,9 @@ impl CodeBuilder<'_> {
 
         let pointer_location = PointerLocation::new(map_header_ptr_reg);
 
-        let gen_key_type = layout_type(&map_type.key);
-
         // We have to get the key materialized in a temporary storage, so the map can calculate the hash for it.
-        let key_temp_storage_reg = if gen_key_type.is_aggregate() {
-            self.emit_scalar_rvalue(key_expression, ctx)
-        } else {
-            todo!()
-        };
+        let key_temp_storage_reg =
+            self.emit_aggregate_pointer_or_pointer_to_scalar_memory(key_expression, ctx);
 
         let gen_value_type = layout_type(&map_type.value);
         let map_entry_reg = self.temp_registers.allocate(

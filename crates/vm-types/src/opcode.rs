@@ -68,7 +68,7 @@ pub enum OpCode {
     // Loaders --------------
 
     // Load immediate into reg
-    LdPtrFromEffectiveAddress, // Load effective address
+    LdPtrFromEffectiveFrameAddress, // Load effective address
     LoadEffectiveAddressIndexMultiplier,
     Ld8FromPointerWithOffset,
     Ld16FromPointerWithOffset,
@@ -230,7 +230,9 @@ impl OpCode {
 
             // Move
             Self::BlockCopyWithOffsets | Self::BlockCopy => "blkcpy",
-            Self::LdPtrFromEffectiveAddress | Self::LoadEffectiveAddressIndexMultiplier => "lea",
+            Self::LdPtrFromEffectiveFrameAddress | Self::LoadEffectiveAddressIndexMultiplier => {
+                "lea"
+            }
 
             // Load
             Self::Mov8FromImmediateValue => "mov.b",

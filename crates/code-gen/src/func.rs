@@ -219,9 +219,9 @@ impl TopLevelGenState {
     ) {
         for variable_reg in variable_registers {
             if let VmTypeOrigin::Frame(frame_region) = variable_reg.register.ty.origin {
-                instruction_builder.add_lea(
+                instruction_builder.add_lea_from_frame_region(
                     &variable_reg.register,
-                    frame_region.addr,
+                    frame_region,
                     node,
                     &format!("define frame placed register {variable_reg}"),
                 );

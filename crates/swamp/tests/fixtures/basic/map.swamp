@@ -97,7 +97,7 @@ fn remove_card() {
             CardId::MightyGolem:  CardTemplate { mana: -2, healing_per_second: 42.13 },
             CardId::Earthquake:   CardTemplate { mana: 99, healing_per_second: 0.3 },
             CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
-        ]
+        ],
     }
 
     assert(game.card_templates.has(CardId::MysticSpring), "should have MysticSpring")
@@ -114,7 +114,7 @@ fn remove_non_existing_card() {
         card_templates: [
             CardId::MightyGolem:  CardTemplate { mana: -2, healing_per_second: 42.13 },
             CardId::Earthquake:   CardTemplate { mana: 99, healing_per_second: 0.3 },
-        ]
+        ],
     }
 
     // Intentionally cause a trap, there is no mystic spring
@@ -130,7 +130,7 @@ fn iterate_cards() {
             CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
             CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
             CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
-        ]
+        ],
     }
 
     mut count = 0
@@ -149,15 +149,15 @@ fn iterate_cards_value_only() {
             CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
             CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
             CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
-        ]
+        ],
     }
 
     mut count = 0
     for card_template in game.card_templates {
         print('Mana: {card_template.mana}, Healing per second: {card_template.healing_per_second}')
         if count == 1 {
-            // note: the order can be change in different versions of Swamp
-            // it is deterministic, but the insert order depends on the hash function
+            // Note: the order can change in different versions of Swamp.
+            // It is always deterministic, but the insert order depends on the hash function
             assert(card_template.mana == 3, "second should be EarthQuake")
         }
         count += 1
@@ -170,7 +170,7 @@ fn iterate_cards_value_only() {
 #[test]
 fn length() {
     mut game = Game {
-        card_templates: [ : ]
+        card_templates: [ : ],
     }
 
     assert(game.card_templates.len() == 0, "should be zero")
@@ -192,7 +192,25 @@ fn length() {
     assert(game.card_templates.len() == 1, "should be 1 after removing a card")
 }
 
+
+struct ScalarGame {
+    card_templates: [Int: CardTemplate; 2],
+}
+
 #[test]
 fn scalar_key() {
+    mut game = ScalarGame {
+        card_templates: [ -909: CardTemplate { mana: 3, healing_per_second: 0.3 } ],
+    }
+    assert(game.card_templates.len() == 1, "should be 1 after adding a card")
+    game.card_templates[2] = CardTemplate { mana: 92, healing_per_second: 909.0 }
 
+    assert(game.card_templates.len() == 2, "should be 2 after adding a card")
+    assert(game.card_templates[-909].mana == 3, "mana should be 3 for card -909")
+
+    game.card_templates.remove(-909)
+    assert(game.card_templates.len() == 1, "should be 1 after removing")
+
+    game.card_templates.remove(2)
+    assert(game.card_templates.len() == 0, "should be 1 after removing")
 }

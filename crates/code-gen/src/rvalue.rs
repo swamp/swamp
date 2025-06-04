@@ -5,6 +5,35 @@ use swamp_semantic::{Expression, ExpressionKind};
 use swamp_vm_types::types::{Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
+    /// Make sure we have a pointer to something, no matter if it is a scalar or aggregate
+    ///
+    /// Mostly (only?) used for making sure we have a key value memory region for
+    /// `Map` to calculate a hash for (and copy this memory for inserting)
+    pub fn emit_aggregate_pointer_or_pointer_to_scalar_memory(
+        &mut self,
+        aggregate_or_scalar_expr: &Expression,
+        ctx: &Context,
+    ) -> TypedRegister {
+        let gen_key_type = layout_type(&aggregate_or_scalar_expr.ty);
+        if gen_key_type.is_aggregate() {
+            self.emit_scalar_rvalue(aggregate_or_scalar_expr, ctx)
+        } else {
+            // for scalar values, we need to materialize in a temp memory
+            let memory_location = self.allocate_frame_space_and_return_memory_location(
+                &gen_key_type,
+                &aggregate_or_scalar_expr.node,
+                "temp space for scalar key",
+            );
+            self.emit_expression_into_target_memory(
+                &memory_location,
+                aggregate_or_scalar_expr,
+                "temp space for scalar",
+                ctx,
+            );
+            memory_location.pointer_location().unwrap().ptr_reg
+        }
+    }
+
     pub fn emit_bool_expression(
         &mut self,
         target_reg: &Destination,

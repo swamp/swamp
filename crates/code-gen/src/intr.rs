@@ -746,12 +746,13 @@ impl CodeBuilder<'_> {
     fn emit_intrinsic_map_remove(
         &mut self,
         map_region: &TypedRegister,
-        key_expr: &Expression,
+        key_expression: &Expression,
         ctx: &Context,
     ) {
-        let key_region = self.emit_scalar_rvalue(key_expr, ctx);
+        let key_register =
+            self.emit_aggregate_pointer_or_pointer_to_scalar_memory(&key_expression, ctx);
 
         self.builder
-            .add_map_remove(map_region, &key_region, &key_expr.node, "");
+            .add_map_remove(map_region, &key_register, &key_expression.node, "");
     }
 }

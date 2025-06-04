@@ -880,7 +880,7 @@ pub fn disasm(
             to_read_reg(operands[1], &u32_type(), frame_memory_info),
         ],
 
-        OpCode::LdPtrFromEffectiveAddress => {
+        OpCode::LdPtrFromEffectiveFrameAddress => {
             let data = u16::from_le_bytes([operands[1], operands[2]]);
             &[
                 to_write_reg(operands[0], &pointer_type_again(), frame_memory_info),

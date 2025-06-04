@@ -499,19 +499,19 @@ impl InstructionBuilder<'_> {
         PatchPosition(position)
     }
 
-    pub fn add_lea(
+    pub fn add_lea_from_frame_region(
         &mut self,
         target_heap: &TypedRegister,
-        frame_address_to_convert: FrameMemoryAddress,
+        frame_address_to_convert: FrameMemoryRegion,
         node: &Node,
         comment: &str,
     ) {
-        let pairs = u16_to_u8_pair(frame_address_to_convert.0);
+        let pairs = u16_to_u8_pair(frame_address_to_convert.addr.0);
         self.state.add_instruction(
-            OpCode::LdPtrFromEffectiveAddress,
+            OpCode::LdPtrFromEffectiveFrameAddress,
             &[target_heap.addressing(), pairs.0, pairs.1],
             node,
-            comment,
+            &format!("{comment} region: {frame_address_to_convert}"),
         );
     }
 
