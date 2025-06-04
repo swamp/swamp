@@ -1021,7 +1021,8 @@ impl TypedRegister {
         self.frame_placed().addr
     }
 
-    #[must_use] pub fn region(&self) -> FrameMemoryRegion {
+    #[must_use]
+    pub fn region(&self) -> FrameMemoryRegion {
         self.frame_placed().region()
     }
 

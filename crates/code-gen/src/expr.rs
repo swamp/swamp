@@ -186,7 +186,7 @@ impl CodeBuilder<'_> {
                         mem_loc,
                         temp_reg.register(),
                         node,
-                        "store binary op result directly to memory with field offset",
+                        "store binary op result directly to memory with offset",
                     );
                 }
                 Destination::Unit => {
@@ -207,7 +207,7 @@ impl CodeBuilder<'_> {
                         mem_loc,
                         temp_reg.register(),
                         node,
-                        "store unary op result directly to memory with field offset",
+                        "store unary op result directly to memory with offset",
                     );
                 }
                 Destination::Unit => {

@@ -58,6 +58,7 @@ fn add_too_many() {
     game.card_templates[CardId::GoblinScout] = CardTemplate { mana: 1, healing_per_second: 0.1 }
 }
 
+
 #[test]
 fn add_to_map() {
 	mut game = Game {
@@ -174,6 +175,7 @@ fn length() {
     }
 
     assert(game.card_templates.len() == 0, "should be zero")
+    assert(game.card_templates.is_empty(), "should be empty") // Intentionally redundant
 
     game.card_templates[CardId::Earthquake] = CardTemplate { mana: -1, healing_per_second: 0.0 }
 
@@ -213,4 +215,44 @@ fn scalar_key() {
 
     game.card_templates.remove(2)
     assert(game.card_templates.is_empty(), "should be empty after removing")
+}
+
+struct Deck {
+   card_id_to_mana: [Int: Float; 2],
+}
+
+struct DeckHolder {
+    deck: Deck,
+}
+
+#[test]
+fn scalar_value() {
+    holder = DeckHolder {
+        deck: Deck {
+            card_id_to_mana: [2: 3.14]
+        }
+    }
+
+    assert(holder.deck.card_id_to_mana[2] == 3.14, "must be found")
+}
+
+#[test]
+fn scalar_value_insert() {
+    mut holder = DeckHolder {
+        deck: Deck {
+            card_id_to_mana: [2: 3.14]
+        }
+    }
+
+    assert(holder.deck.card_id_to_mana[2] == 3.14, "must be found")
+
+    assert(holder.deck.card_id_to_mana.len() == 1, "two cards")
+
+    holder.deck.card_id_to_mana[-99999] = 6.28
+
+    assert(holder.deck.card_id_to_mana.len() == 2, "two cards")
+
+    assert(holder.deck.card_id_to_mana[2] == 3.14, "must be found")
+    assert(holder.deck.card_id_to_mana[-99999] == 6.28, "must be found")
+
 }
