@@ -15,6 +15,9 @@ use swamp_analyzer::err::{Error, ErrorKind};
 pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
     let span = &err.node.span;
     let mut b = match &err.kind {
+        ErrorKind::KeyVariableNotAllowedToBeMutable => {
+            Report::build(Kind::Error, 5, "key variables can not be mut", span)
+        }
         ErrorKind::TooManyInitializerListElementsForStorage { capacity } => {
             Report::build(Kind::Error, 5, "too many initializer elements", span)
                 .with_note(&format!("capacity: {capacity}"))

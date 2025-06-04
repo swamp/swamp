@@ -729,8 +729,14 @@ impl<'a> Analyzer<'a> {
             }
 
             swamp_ast::ExpressionKind::ForLoop(pattern, iterable_expression, statements) => {
+                if pattern.is_key_variable_mut() {
+                    return Err(self.create_err(
+                        ErrorKind::KeyVariableNotAllowedToBeMutable,
+                        &ast_expression.node,
+                    ));
+                }
                 let resolved_iterator =
-                    self.analyze_iterable(pattern.any_mut(), &iterable_expression.expression)?;
+                    self.analyze_iterable(pattern.is_value_mut(), &iterable_expression.expression)?;
 
                 self.push_block_scope("for_loop");
                 let pattern = self.analyze_for_pattern(
@@ -1516,7 +1522,7 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_iterable(
         &mut self,
-        mut_requested_for_lambda_variables: Option<swamp_ast::Node>,
+        mut_requested_for_value_variable: Option<swamp_ast::Node>,
         expression: &swamp_ast::Expression,
     ) -> Result<Iterable, Error> {
         let any_context = TypeContext::new_anything_argument();
@@ -1535,9 +1541,9 @@ impl<'a> Analyzer<'a> {
             _ => return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node)),
         };
 
-        if mut_requested_for_lambda_variables.is_some() {
+        if mut_requested_for_value_variable.is_some() {
             // we check if we can get to a lvalue, otherwise it is not mutable:
-            let resulting_location =
+            let _resulting_location =
                 self.analyze_to_location(expression, &any_context, LocationSide::Mutable)?;
             value_type = Type::MutableReference(Box::from(value_type.clone()));
         }

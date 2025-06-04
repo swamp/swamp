@@ -111,6 +111,7 @@ pub enum ErrorKind {
     TooManyInitializerListElementsForStorage {
         capacity: usize,
     },
+    KeyVariableNotAllowedToBeMutable,
 }
 
 impl From<SemanticError> for Error {

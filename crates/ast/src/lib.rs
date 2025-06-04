@@ -275,11 +275,23 @@ pub enum ForPattern {
 }
 
 impl ForPattern {
+    pub fn is_key_variable_mut(&self) -> bool {
+        match self {
+            Self::Single(a) => false,
+            Self::Pair(a, b) => a.is_mut.is_some(),
+        }
+    }
     #[must_use]
-    pub fn any_mut(&self) -> Option<Node> {
+    pub fn is_value_mut(&self) -> Option<Node> {
         match self {
             Self::Single(a) => a.is_mut.clone(),
-            Self::Pair(a, b) => a.is_mut.clone().or_else(|| b.is_mut.clone()),
+            Self::Pair(a, b) => {
+                assert!(
+                    a.is_mut.is_none(),
+                    "key target var is not allowed to be mut"
+                );
+                b.is_mut.clone()
+            }
         }
     }
 }
