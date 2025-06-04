@@ -1836,13 +1836,27 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_tst_u8(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
+    pub fn add_tst_reg(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
         self.state.add_instruction(
             OpCode::MovToTFlagFromReg,
             &[addr.addressing()],
             node,
             comment,
         );
+    }
+
+    pub fn add_not_tst_reg(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
+        self.state.add_instruction(
+            OpCode::MovToNotTFlagFromReg,
+            &[addr.addressing()],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_boolean_not(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
+        self.state
+            .add_instruction(OpCode::BooleanNot, &[addr.addressing()], node, comment);
     }
 
     pub fn add_stz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {

@@ -176,7 +176,7 @@ impl CodeBuilder<'_> {
                         "load optional tag",
                     );
 
-                    self.builder.add_tst_u8(
+                    self.builder.add_tst_reg(
                         resolved_location.register(),
                         &element.node,
                         "test if optional tag is None",
@@ -219,7 +219,7 @@ impl CodeBuilder<'_> {
                             "load optional tag",
                         );
 
-                        self.builder.add_tst_u8(
+                        self.builder.add_tst_reg(
                             temp_reg.register(),
                             &element.node,
                             "test tag - sets T=0 if None (0), T=1 if Some (1)",

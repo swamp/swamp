@@ -629,6 +629,20 @@ impl CodeBuilder<'_> {
                     "get the map length",
                 );
             }
+            IntrinsicFunction::MapIsEmpty => {
+                self.builder.add_ld16_from_pointer_with_offset_u16(
+                    maybe_target.unwrap(),
+                    self_addr.unwrap(),
+                    MAP_HEADER_COUNT_OFFSET,
+                    node,
+                    "get the map length for testing if it is empty",
+                );
+                self.builder.add_boolean_not(
+                    maybe_target.unwrap(),
+                    node,
+                    "convert the map length to inverted bool",
+                );
+            }
             IntrinsicFunction::MapSubscript => {
                 let ArgumentExpression::Expression(key_argument) = &arguments[0] else {
                     panic!("must be expression for key");

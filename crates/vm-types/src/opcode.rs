@@ -92,12 +92,15 @@ pub enum OpCode {
     // Movers
     MovReg,
     MovToTFlagFromReg, // Load the byte into the z flag (zero = clears the t flag, any other value = sets the t flag)
+    MovToNotTFlagFromReg, // Load the byte into the z flag (zero = sets the t flag, any other value = clears the t flag)
     MovFromTFlagToReg,
     MovFromNotTFlagToReg,
     // Mov immediate
     Mov8FromImmediateValue,
     Mov16FromImmediateValue,
     Mov32FromImmediateValue,
+
+    BooleanNot,
 
     // Type specific -----
 
@@ -211,6 +214,7 @@ impl OpCode {
             Self::Eq8Imm | Self::CmpReg => "cmp",
             Self::CmpBlock => "cmpblk",
             Self::MovToTFlagFromReg => "tst",
+            Self::MovToNotTFlagFromReg => "tst_not",
             Self::FrameMemClr => "clrblkf",
 
             // Store T flag (maybe rename to Predicate flag?)
@@ -228,22 +232,25 @@ impl OpCode {
             Self::Enter => "enter",
             Self::Ret => "ret",
 
-            // Move
+            // Mem
             Self::BlockCopyWithOffsets | Self::BlockCopy => "blkcpy",
             Self::LdPtrFromEffectiveFrameAddress | Self::LoadEffectiveAddressIndexMultiplier => {
                 "lea"
             }
 
-            // Load
+            // Move
             Self::Mov8FromImmediateValue => "mov.b",
             Self::Mov16FromImmediateValue => "mov.h",
             Self::MovReg | Self::Mov32FromImmediateValue => "mov", // alias for `mov.w`
+            Self::BooleanNot => "bnot",
 
+            // Load
             Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ld.b",
             Self::Ld16FromPointerWithOffset => "ld.h",
             Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ld", // alias for `ld.w`
             Self::LdRegFromFrameUsingMask | Self::LdRegFromFrame => "ldmf",
 
+            // Store
             Self::St32UsingPtrWithOffset => "st", // alias for `st.w`
             Self::St16UsingPtrWithOffset => "st.h",
             Self::St8UsingPtrWithOffset => "st.b",

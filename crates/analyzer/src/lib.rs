@@ -3251,6 +3251,13 @@ impl<'a> Analyzer<'a> {
                     return_type: Box::new(Type::Int),
                 },
             ),
+            "is_empty" => (
+                IntrinsicFunction::MapIsEmpty,
+                Signature {
+                    parameters: vec![self_type_param],
+                    return_type: Box::new(Type::Bool),
+                },
+            ),
             _ => todo!("unknown map member"),
         };
 

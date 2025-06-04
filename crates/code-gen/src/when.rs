@@ -47,7 +47,7 @@ impl CodeBuilder<'_> {
             }
 
             self.builder
-                .add_tst_u8(tag_reg.register(), binding.expr.node(), "check tag value");
+                .add_tst_reg(tag_reg.register(), binding.expr.node(), "check tag value");
 
             self.temp_registers.restore_to_mark(hwm);
 

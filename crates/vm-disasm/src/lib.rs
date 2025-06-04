@@ -462,6 +462,8 @@ pub fn disasm(
         OpCode::Trap => &[DecoratedOperandAccessKind::ImmediateU8(operands[0])],
         OpCode::Panic => &[to_read_reg(operands[0], &string_type(), frame_memory_info)],
 
+        OpCode::BooleanNot => &[to_write_reg(operands[0], &u32_type(), frame_memory_info)],
+
         OpCode::St32UsingPtrWithOffset => {
             let offset = u16::from_le_bytes([operands[1], operands[2]]);
 
@@ -793,6 +795,7 @@ pub fn disasm(
         }
 
         OpCode::MovToTFlagFromReg => &[to_read_reg(operands[0], &u8_type(), frame_memory_info)],
+        OpCode::MovToNotTFlagFromReg => &[to_read_reg(operands[0], &u8_type(), frame_memory_info)],
 
         OpCode::MovFromTFlagToReg => &[to_write_reg(operands[0], &b8_type(), frame_memory_info)],
 

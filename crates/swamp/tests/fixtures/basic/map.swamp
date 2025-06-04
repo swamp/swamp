@@ -212,5 +212,5 @@ fn scalar_key() {
     assert(game.card_templates.len() == 1, "should be 1 after removing")
 
     game.card_templates.remove(2)
-    assert(game.card_templates.len() == 0, "should be 1 after removing")
+    assert(game.card_templates.is_empty(), "should be empty after removing")
 }

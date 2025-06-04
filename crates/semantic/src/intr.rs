@@ -114,6 +114,7 @@ pub enum IntrinsicFunction {
 
     RuntimePanic,
     RangeInit,
+    MapIsEmpty,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -199,6 +200,7 @@ impl fmt::Display for IntrinsicFunction {
             Self::MapIter => "map_iter",
             Self::MapIterMut => "map_iter_mut",
             Self::MapLen => "map_len",
+            Self::MapIsEmpty => "map_is_empty",
 
             // Map2
             Self::Map2Create => "map2_create",

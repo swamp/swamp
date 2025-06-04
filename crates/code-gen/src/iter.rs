@@ -404,27 +404,27 @@ impl CodeBuilder<'_> {
             Transformer::Filter => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 self.builder
-                    .add_tst_u8(in_value, node, "filter bool to z flag");
+                    .add_tst_reg(in_value, node, "filter bool to z flag");
                 FlagStateKind::TFlagIsTrueWhenSet
             }
             Transformer::Find => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 self.builder
-                    .add_tst_u8(in_value, node, "find: bool to z flag");
+                    .add_tst_reg(in_value, node, "find: bool to z flag");
                 FlagStateKind::TFlagIsTrueWhenClear
             }
             Transformer::Map => FlagStateKind::TFlagIsIndeterminate,
             Transformer::Any => {
-                self.builder.add_tst_u8(in_value, node, "any, check tag");
+                self.builder.add_tst_reg(in_value, node, "any, check tag");
                 FlagStateKind::TFlagIsTrueWhenClear
             }
             Transformer::All => {
-                self.builder.add_tst_u8(in_value, node, "all, check tag");
+                self.builder.add_tst_reg(in_value, node, "all, check tag");
                 FlagStateKind::TFlagIsTrueWhenSet
             }
             Transformer::FilterMap => {
                 self.builder
-                    .add_tst_u8(in_value, node, "filter map, check tag");
+                    .add_tst_reg(in_value, node, "filter map, check tag");
                 FlagStateKind::TFlagIsTrueWhenSet
             }
         }

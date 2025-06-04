@@ -347,7 +347,9 @@ impl Vm {
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
 
         // Z flag
-        vm.handlers[OpCode::MovToTFlagFromReg as usize] = HandlerType::Args1(Self::execute_tst8);
+        vm.handlers[OpCode::MovToTFlagFromReg as usize] = HandlerType::Args1(Self::execute_tst_reg);
+        vm.handlers[OpCode::MovToNotTFlagFromReg as usize] =
+            HandlerType::Args1(Self::execute_not_tst_reg);
 
         vm.handlers[OpCode::NotT as usize] = HandlerType::Args0(Self::execute_not_z); // needed for normalized Z
         vm.handlers[OpCode::MovFromTFlagToReg as usize] = HandlerType::Args1(Self::execute_st_z);
@@ -355,6 +357,7 @@ impl Vm {
             HandlerType::Args1(Self::execute_st_nz);
 
         // Logical Operations
+        vm.handlers[OpCode::BooleanNot as usize] = HandlerType::Args1(Self::execute_boolean_not);
 
         // Conditional jumps
         vm.handlers[OpCode::BFalse as usize] = HandlerType::Args2(Self::execute_bnz);
@@ -1166,9 +1169,15 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_tst8(&mut self, val_reg: u8) {
+    fn execute_tst_reg(&mut self, val_reg: u8) {
         let val = get_reg!(self, val_reg);
         self.flags.t = val != 0;
+    }
+
+    #[inline]
+    fn execute_not_tst_reg(&mut self, val_reg: u8) {
+        let val = get_reg!(self, val_reg);
+        self.flags.t = val == 0;
     }
 
     #[inline]
@@ -1206,6 +1215,11 @@ impl Vm {
     fn execute_b(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
         self.pc =
             (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
+    }
+
+    #[inline]
+    const fn execute_boolean_not(&mut self, dst_reg: u8) {
+        set_reg!(self, dst_reg, get_reg!(self, dst_reg) == 0);
     }
 
     #[inline]

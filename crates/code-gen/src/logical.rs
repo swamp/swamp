@@ -86,7 +86,7 @@ impl CodeBuilder<'_> {
                     "load option tag",
                 );
 
-                self.builder.add_tst_u8(
+                self.builder.add_tst_reg(
                     tag_reg.register(),
                     &option_union_expr.node,
                     "test option tag",
@@ -146,7 +146,7 @@ impl CodeBuilder<'_> {
         let output_destination = Destination::new_reg(temp_reg.register.clone());
         self.emit_bool_expression(&output_destination, condition, ctx);
 
-        self.builder.add_tst_u8(
+        self.builder.add_tst_reg(
             temp_reg.register(),
             &condition.node,
             "set P flag from register",
