@@ -48,6 +48,7 @@ pub enum AssignmentMode {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum LocationSide {
     Lhs,
+    Mutable,
     Rhs,
 }
 
@@ -727,19 +728,7 @@ impl<'a> Analyzer<'a> {
                 self.analyze_complex_literal_to_expression(ast_expression, literal, context)?
             }
 
-            swamp_ast::ExpressionKind::ForLoop(
-                pattern,
-                iterable_expression,
-                guard_expr,
-                statements,
-            ) => {
-                let _analyzed_guard = if let Some(found_guard) = guard_expr {
-                    // TODO: Remove guard in for loops
-                    Some(self.analyze_bool_argument_expression(found_guard)?)
-                } else {
-                    None
-                };
-
+            swamp_ast::ExpressionKind::ForLoop(pattern, iterable_expression, statements) => {
                 let resolved_iterator =
                     self.analyze_iterable(pattern.any_mut(), &iterable_expression.expression)?;
 
@@ -1527,7 +1516,7 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_iterable(
         &mut self,
-        force_mut: Option<swamp_ast::Node>,
+        mut_requested_for_lambda_variables: Option<swamp_ast::Node>,
         expression: &swamp_ast::Expression,
     ) -> Result<Iterable, Error> {
         let any_context = TypeContext::new_anything_argument();
@@ -1546,7 +1535,10 @@ impl<'a> Analyzer<'a> {
             _ => return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node)),
         };
 
-        if force_mut.is_some() {
+        if mut_requested_for_lambda_variables.is_some() {
+            // we check if we can get to a lvalue, otherwise it is not mutable:
+            let resulting_location =
+                self.analyze_to_location(expression, &any_context, LocationSide::Mutable)?;
             value_type = Type::MutableReference(Box::from(value_type.clone()));
         }
 
@@ -2730,7 +2722,7 @@ impl<'a> Analyzer<'a> {
                                         &ast_key_expression.node,
                                     );
                                 }
-                                LocationSide::Rhs => {
+                                LocationSide::Mutable | LocationSide::Rhs => {
                                     self.add_location_item(
                                         &mut items,
                                         LocationAccessKind::MapSubscriptMustExist(

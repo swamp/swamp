@@ -1186,7 +1186,7 @@ impl AstParser {
 
         // Return the ForLoop statement with MutExpression
         Ok(self.create_expr(
-            ExpressionKind::ForLoop(pattern, mut_expression, None, Box::from(body)),
+            ExpressionKind::ForLoop(pattern, mut_expression, Box::from(body)),
             pair,
         ))
     }

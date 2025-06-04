@@ -441,12 +441,7 @@ pub enum ExpressionKind {
     ),
 
     // Control flow
-    ForLoop(
-        ForPattern,
-        IterableExpression,
-        Option<Box<Expression>>,
-        Box<Expression>,
-    ),
+    ForLoop(ForPattern, IterableExpression, Box<Expression>),
     WhileLoop(Box<Expression>, Box<Expression>),
 
     // Compare and Matching

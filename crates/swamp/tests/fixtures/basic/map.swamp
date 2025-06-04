@@ -167,6 +167,31 @@ fn iterate_cards_value_only() {
     assert(count == 3, "should iterate over 3 cards")
 }
 
+fn overwite_card_template(mut card_template: CardTemplate, some_value: Int) {
+    card_template.mana = some_value * 2
+}
+
+#[test]
+fn iterate_cards_and_mutate() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ],
+    }
+
+    mut count = 0
+    for mut card_template in game.card_templates {
+        print('Before: Mana: {card_template.mana}, Healing per second: {card_template.healing_per_second}')
+        overwite_card_template(&card_template, count)
+        print('After: Mana: {card_template.mana}, Healing per second: {card_template.healing_per_second}')
+        count += 1
+    }
+
+    assert(count == 3, "should iterate over 3 cards")
+}
+
 
 #[test]
 fn length() {
@@ -193,6 +218,8 @@ fn length() {
     game.card_templates.remove(CardId::Earthquake)
     assert(game.card_templates.len() == 1, "should be 1 after removing a card")
 }
+
+
 
 
 struct ScalarGame {
