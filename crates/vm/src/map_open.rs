@@ -372,17 +372,19 @@ impl Vm {
 
     pub fn execute_map_open_addressing_remove(
         &mut self,
-        self_const_map_header_reg: u8,
+        self_map_header_reg: u8,
         key_source_reg: u8,
     ) {
-        let (map_header, map_header_addr) = self.read_map_header(self_const_map_header_reg);
+        let map_header_addr = get_reg!(self, self_map_header_reg);
+        let map_header = self.get_map_header_mut(map_header_addr);
+
         let key_source_address = get_reg!(self, key_source_reg) as usize;
         let buckets_start_addr = (map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
         unsafe {
             let found = Self::remove_open_addressing(
                 &self.memory,
                 buckets_start_addr,
-                &map_header,
+                map_header,
                 key_source_address,
             );
             if !found {
@@ -569,22 +571,22 @@ impl Vm {
     unsafe fn remove_open_addressing(
         memory: &Memory,
         buckets_ptr_addr: usize,
-        header: &MapHeader,
+        header: *mut MapHeader,
         key_ptr_addr: usize,
     ) -> bool {
         unsafe {
-            let capacity = header.capacity as usize;
+            let capacity = (*header).capacity as usize;
             debug_assert_ne!(capacity, 0);
             debug_assert!(Self::is_power_of_two(capacity));
 
-            let key_size = header.key_size as usize;
+            let key_size = (*header).key_size as usize;
             debug_assert_ne!(key_size, 0);
 
-            let element_size = header.tuple_size as usize;
+            let element_size = (*header).tuple_size as usize;
             debug_assert_ne!(element_size, 0);
 
-            let status_size: usize = header.status_size as usize;
-            let bucket_size: usize = header.bucket_size as usize;
+            let status_size: usize = (*header).status_size as usize;
+            let bucket_size: usize = (*header).bucket_size as usize;
 
             let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
             let key_slice = slice::from_raw_parts(key_ptr, key_size);
@@ -625,6 +627,7 @@ impl Vm {
                     if key_slice == existing_key_slice {
                         // We found it! Mark this bucket as a tombstone.
                         ptr::write(status_ptr_mut, Self::BUCKET_TOMBSTONE);
+                        (*header).element_count -= 1;
                         #[cfg(feature = "debug_vm")]
                         {
                             eprintln!("Successfully removed (tombstone) entry at index: {index}");

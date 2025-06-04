@@ -1,4 +1,4 @@
-use core::{assert}
+use core::{assert, panic}
 use std::{print}
 
 struct CardTemplate {
@@ -108,6 +108,22 @@ fn remove_card() {
 }
 
 #[test]
+#[should_trap(expected="map_entry_remove_failed")]
+fn remove_non_existing_card() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: -2, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 99, healing_per_second: 0.3 },
+        ]
+    }
+
+    // Intentionally cause a trap, there is no mystic spring
+    game.card_templates.remove(CardId::MysticSpring)
+    panic("you shouldn't reach this")
+}
+
+
+#[test]
 fn iterate_cards() {
     mut game = Game {
         card_templates: [
@@ -172,5 +188,7 @@ fn length() {
     game.card_templates[CardId::EtherealDragon] = CardTemplate { mana: 10, healing_per_second: 0.0 }
     assert(game.card_templates.len() == 2, "should be 2 after the dragon")
 
-    //game.card_templates.remove(CardId::Earthquake)
+    game.card_templates.remove(CardId::Earthquake)
+    assert(game.card_templates.len() == 1, "should be 1 after removing a card")
 }
+
