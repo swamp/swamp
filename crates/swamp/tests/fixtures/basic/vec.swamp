@@ -39,9 +39,15 @@ fn pushing_a_thing(mut things: Vec<Thing>, a: Int) {
     things.push(Thing { a: a, b: a + 44 })
 }
 
+fn pass_things_slice(things: [Thing]) {
+    for x in things {
+        print('slice: thing: {x.a}')
+    }
+}
+
 fn pass_things(things: Vec<Thing>) {
     for x in things {
-        print('thing: {x.a}')
+        print('vec: thing: {x.a}')
     }
 }
 
@@ -241,6 +247,7 @@ fn trap_remove() {
 
 #[test]
 fn pass_in_param() {
-    things = [Thing { a: 33, b: 55 }]
+    things = [ Thing { a: 33, b: 55 }, Thing { a: -4, b: 9 }, ]
     pass_things(things)
+    pass_things_slice(things)
 }
