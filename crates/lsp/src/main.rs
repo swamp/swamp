@@ -190,24 +190,21 @@ fn main() {
 }
 
 fn handle_request(req: Request, send_connection: &SendConnectionImpl, server: &mut Server) {
-    let result = match req.method.as_str() {
-        "textDocument/hover" => {
-            let params: HoverParams = serde_json::from_value(req.params.clone()).unwrap();
-            server.on_hover(&params, send_connection)
-        }
-        _ => {
-            let resp = Response::new_err(
-                req.id.clone(),
-                ErrorCode::MethodNotFound as i32,
-                "Method not implemented".to_string(),
-            );
-            send_connection
-                .connection
-                .sender
-                .send(Message::Response(resp))
-                .unwrap();
-            return;
-        }
+    let result = if req.method.as_str() == "textDocument/hover" {
+        let params: HoverParams = serde_json::from_value(req.params.clone()).unwrap();
+        server.on_hover(&params, send_connection)
+    } else {
+        let resp = Response::new_err(
+            req.id,
+            ErrorCode::MethodNotFound as i32,
+            "Method not implemented".to_string(),
+        );
+        send_connection
+            .connection
+            .sender
+            .send(Message::Response(resp))
+            .unwrap();
+        return;
     };
 
     let resp = Response::new_ok(req.id, result);

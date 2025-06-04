@@ -7,7 +7,7 @@ use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type,
+    BasicType, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,

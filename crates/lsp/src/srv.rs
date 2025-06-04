@@ -28,7 +28,7 @@ impl Server {
         let text = &params.text_document.text;
 
         self.source_map
-            .add_manual_no_id("crate", uri.to_string().as_ref(), &text);
+            .add_manual_no_id("crate", uri.to_string().as_ref(), text);
 
         connection.log("did_open happened");
     }
