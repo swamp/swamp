@@ -94,7 +94,7 @@ impl Vm {
         let str_a = self.get_string(string_a).to_string();
         let str_b = self.get_string(string_b).to_string();
 
-        self.flags.t = str_a == str_b;
+        self.flags.p = str_a == str_b;
     }
 
     pub fn read_string(heap_addr: u32, heap: &Memory) -> &str {

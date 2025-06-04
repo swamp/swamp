@@ -21,7 +21,7 @@ impl CodeBuilder<'_> {
     /// 2. Initialize the iterator for the collection.
     /// 3. Generate code to fetch the next element from the iterator.
     /// 4. Inline the lambda code for the current element.
-    /// 5. If the transformer supports early exit (e.g., filter, find), set the Z flag based on the lambda result.
+    /// 5. If the transformer supports early exit (e.g., filter, find), set the P flag based on the lambda result.
     /// 6. Conditionally skip result insertion if early exit is triggered.
     /// 7. (Optional) If applicable, insert the (possibly unwrapped) result into the target vector.
     /// 8. Loop back to fetch the next element.
@@ -110,7 +110,6 @@ impl CodeBuilder<'_> {
                 node,
                 "create absolute pointer reg for vec_create",
             );
-  
         }
 
         let hwm = self.temp_registers.save_mark();
@@ -128,7 +127,7 @@ impl CodeBuilder<'_> {
         // 3. Inline the lambda code for the current element(s).
         let lambda_result = self.emit_scalar_rvalue(lambda_expr, ctx);
 
-        // 4. If the transformer supports early exit, set the Z flag based on the lambda result.
+        // 4. If the transformer supports early exit, set the P flag based on the lambda result.
         let transformer_t_flag_state =
             self.check_if_transformer_sets_t_flag(transformer, &lambda_result, node);
 
@@ -137,7 +136,7 @@ impl CodeBuilder<'_> {
             transformer_t_flag_state,
             FlagStateKind::TFlagIsTrueWhenSet | FlagStateKind::TFlagIsTrueWhenClear
         ) {
-            // The z flag is set so we can act on it
+            // The P flag is set so we can act on it
             let skip_early = self.builder.add_jmp_if_not_equal_polarity_placeholder(
                 &transformer_t_flag_state.polarity(),
                 node,
@@ -146,7 +145,7 @@ impl CodeBuilder<'_> {
 
             Some(skip_early)
         } else {
-            // Z flag is not set, we have to iterate through the whole collection
+            // P flag is not set, we have to iterate through the whole collection
             None
         };
 
@@ -202,7 +201,7 @@ impl CodeBuilder<'_> {
 
         match transformer.return_type() {
             TransformerResult::Bool => {
-                // It is a transformer that returns a bool, lets store z flag as bool it
+                // It is a transformer that returns a bool, lets store P flag as bool it
                 self.builder.add_stz(
                     target_destination.register().unwrap(),
                     node,
@@ -410,13 +409,13 @@ impl CodeBuilder<'_> {
             Transformer::Filter => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 self.builder
-                    .add_tst_reg(in_value, node, "filter bool to z flag");
+                    .add_tst_reg(in_value, node, "filter bool to P flag");
                 FlagStateKind::TFlagIsTrueWhenSet
             }
             Transformer::Find => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 self.builder
-                    .add_tst_reg(in_value, node, "find: bool to z flag");
+                    .add_tst_reg(in_value, node, "find: bool to P flag");
                 FlagStateKind::TFlagIsTrueWhenClear
             }
             Transformer::Map => FlagStateKind::TFlagIsIndeterminate,

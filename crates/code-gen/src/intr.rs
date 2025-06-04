@@ -6,10 +6,10 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
-use swamp_vm_types::types::{pointer_type, Destination, RValueOrLValue, TypedRegister, VmType};
+use swamp_vm_types::types::{Destination, RValueOrLValue, TypedRegister, VmType, pointer_type};
 use swamp_vm_types::{
-    AggregateMemoryLocation, MemoryLocation, MemoryOffset, MemorySize,
-    MAP_HEADER_COUNT_OFFSET, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
+    AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
+    STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
 };
 use tracing::info;
 

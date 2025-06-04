@@ -45,7 +45,7 @@ impl CodeBuilder<'_> {
                 }
                 _ => panic!("unknown not"),
             },
-            _ => panic!("unary operator do not provide t flag"),
+            _ => panic!("unary operator do not provide P flag"),
         }
     }
 
@@ -126,7 +126,7 @@ impl CodeBuilder<'_> {
                     );
                 }
                 _ => panic!(
-                    "binary operator does not provide us with t flag {:?}",
+                    "binary operator does not provide us with P flag {:?}",
                     condition.kind
                 ),
             },
@@ -134,7 +134,7 @@ impl CodeBuilder<'_> {
                 UnaryOperatorKind::Not => {
                     return self.emit_unary_operator_logical_to_t_flag(operator, ctx);
                 }
-                _ => panic!("unary operator does not provide us with t flag"),
+                _ => panic!("unary operator does not provide us with P flag"),
             },
             _ => {}
         }

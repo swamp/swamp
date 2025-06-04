@@ -63,7 +63,7 @@ fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let string_unit_functions = [IntrinsicFunction::RuntimePanic];
@@ -88,7 +88,7 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let slice_to_self_functions = [IntrinsicFunction::SparseFromSlice];
@@ -128,7 +128,7 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
 
@@ -163,7 +163,7 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
 
@@ -204,7 +204,7 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
 
@@ -236,7 +236,7 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Bool),
     };
 
@@ -268,7 +268,7 @@ fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Optional(Box::new(Type::Unit))),
     };
 
@@ -309,7 +309,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Bool),
     };
     let self_value_to_bool_functions = [IntrinsicFunction::Map2Has];
@@ -339,7 +339,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_to_vec_functions = [IntrinsicFunction::Map2GetColumn];
@@ -375,7 +375,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_value_to_value_functions = [IntrinsicFunction::Map2Get];
@@ -405,7 +405,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_y_to_vec_functions = [IntrinsicFunction::Map2GetRow];
@@ -441,7 +441,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_value_to_unit_functions = [IntrinsicFunction::Map2Remove];
@@ -483,7 +483,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_value_value_to_unit_functions = [IntrinsicFunction::Map2Insert];
@@ -524,7 +524,7 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
 
@@ -556,7 +556,7 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Bool),
     };
 
@@ -588,7 +588,7 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
 
@@ -612,7 +612,7 @@ fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Int),
     };
 
@@ -678,7 +678,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let int_int_value_to_self_functions = [IntrinsicFunction::GridCreate];
@@ -720,7 +720,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_int_int_value_to_unit_functions = [IntrinsicFunction::GridSet];
@@ -756,7 +756,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_int_int_to_value_functions = [IntrinsicFunction::GridGet];
@@ -786,7 +786,7 @@ fn add_intrinsic_grid_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_int_to_array_value_functions = [IntrinsicFunction::GridGetColumn];
@@ -819,7 +819,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
 
@@ -843,7 +843,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             is_mutable: true,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_to_option_functions = [IntrinsicFunction::VecPop];
@@ -873,7 +873,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
 
@@ -892,7 +892,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let mut_self_int_to_value_functions = [IntrinsicFunction::VecRemoveIndexGetValue];
@@ -922,7 +922,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_int_to_unit_value_functions = [IntrinsicFunction::VecRemoveIndex];
@@ -952,7 +952,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Optional(Box::new(Type::Unit))),
     };
     let self_int_to_optional_value_functions = [IntrinsicFunction::VecGet];
@@ -974,7 +974,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             is_mutable: true,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let mut_self_to_unit_functions = [IntrinsicFunction::VecClear];
@@ -996,13 +996,10 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
-    let self_to_value_functions = [
-        IntrinsicFunction::VecFirst,
-        IntrinsicFunction::VecLast,
-    ];
+    let self_to_value_functions = [IntrinsicFunction::VecFirst, IntrinsicFunction::VecLast];
     for intrinsic_fn in self_to_value_functions {
         let name = intrinsic_fn.to_string();
         core_ns
@@ -1029,7 +1026,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_block_to_unit_functions = [IntrinsicFunction::VecFor, IntrinsicFunction::VecWhile];
@@ -1059,7 +1056,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_block_to_generic_functions = [
@@ -1101,7 +1098,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_element_block_to_generic_functions = [IntrinsicFunction::VecFold];
@@ -1131,7 +1128,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Bool),
     };
     let self_block_to_bool_functions = [IntrinsicFunction::VecAny, IntrinsicFunction::VecAll];
@@ -1153,7 +1150,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Int),
     };
 
@@ -1216,7 +1213,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let mut_self_int_int_to_unit_functions = [IntrinsicFunction::VecSwap];
@@ -1252,7 +1249,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Unit),
     };
     let mut_self_int_value_to_unit_functions = [IntrinsicFunction::VecInsert];
@@ -1277,7 +1274,7 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Int),
     };
 
@@ -1303,7 +1300,7 @@ fn add_intrinsic_bool_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::String),
     };
     let self_to_string_functions = [IntrinsicFunction::BoolToString];
@@ -1328,7 +1325,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Int),
     };
     let int_to_int_functions = [IntrinsicFunction::IntAbs, IntrinsicFunction::IntRnd];
@@ -1350,7 +1347,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::String),
     };
     let self_to_string_functions = [IntrinsicFunction::IntToString];
@@ -1380,7 +1377,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Int),
     };
     let int_int_to_int_functions = [IntrinsicFunction::IntMax, IntrinsicFunction::IntMin];
@@ -1417,7 +1414,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Int),
     };
     let int_int_int_to_int_functions = [IntrinsicFunction::IntClamp];
@@ -1439,7 +1436,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Float),
     };
 
@@ -1461,7 +1458,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Float),
     };
 
@@ -1493,7 +1490,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Int),
     };
     let float_to_int_functions = [IntrinsicFunction::FloatRound, IntrinsicFunction::FloatFloor];
@@ -1515,7 +1512,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
             is_mutable: false,
             node: None,
         }]
-            .into(),
+        .into(),
         return_type: Box::new(Type::String),
     };
     let self_to_string_functions = [IntrinsicFunction::FloatToString];
@@ -1545,7 +1542,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Float),
     };
 
@@ -1587,7 +1584,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-            .into(),
+        .into(),
         return_type: Box::new(Type::Float),
     };
 

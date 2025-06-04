@@ -79,7 +79,7 @@ result = match a {
 > 0006: jmp @E ; jump to exit
 > 0007: eq8 $0001 02 ; check for enum variant (i32, int:2)
 > 0008: bnz @D ; placeholder for enum match
-> 0009: tst8 $0000 ; set z flag for sun_is_shining
+> 0009: tst8 $0000 ; set P flag for sun_is_shining
 > 000A: bnz @D ; placeholder for skip guard
 > 000B: ld32 $0004 00000003 ; int literal (i32, int:3)
 > 000C: jmp @E ; jump to exit

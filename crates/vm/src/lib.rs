@@ -4,9 +4,9 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
-use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -102,7 +102,7 @@ enum HandlerType {
 }
 
 pub struct Flags {
-    pub t: bool,
+    pub p: bool, // Predicate flag.
 }
 
 #[derive(Debug, Default)]
@@ -252,7 +252,7 @@ impl Vm {
             call_stack: vec![],
             handlers: [const { HandlerType::Args0(Self::execute_unimplemented) }; 256],
             registers: [const { 0 }; 256],
-            flags: Flags { t: false },
+            flags: Flags { p: false },
             debug: Debug {
                 opcodes_executed: 0,
                 call_depth: 0,
@@ -346,7 +346,7 @@ impl Vm {
 
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
 
-        // Z flag
+        // P flag
         vm.handlers[OpCode::MovToPFlagFromReg as usize] = HandlerType::Args1(Self::execute_tst_reg);
         vm.handlers[OpCode::MovToNotPFlagFromReg as usize] =
             HandlerType::Args1(Self::execute_not_tst_reg);
@@ -580,7 +580,7 @@ impl Vm {
     #[allow(clippy::too_many_lines)]
     pub fn execute_internal(&mut self, host_function_callback: &mut dyn HostFunctionCallback) {
         self.execution_complete = false;
-        self.flags.t = false;
+        self.flags.p = false;
         self.call_stack.clear();
         self.memory.reset_offset();
 
@@ -1049,21 +1049,21 @@ impl Vm {
     fn execute_lt_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
-        self.flags.t = lhs < rhs;
+        self.flags.p = lhs < rhs;
     }
 
     #[inline]
     fn execute_le_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
-        self.flags.t = lhs <= rhs;
+        self.flags.p = lhs <= rhs;
     }
 
     #[inline]
     fn execute_gt_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
-        self.flags.t = lhs > rhs;
+        self.flags.p = lhs > rhs;
     }
 
     #[inline]
@@ -1071,7 +1071,7 @@ impl Vm {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
 
-        self.flags.t = lhs >= rhs;
+        self.flags.p = lhs >= rhs;
     }
 
     #[inline]
@@ -1079,7 +1079,7 @@ impl Vm {
         let lhs = get_reg!(self, lhs_reg);
         let rhs = get_reg!(self, rhs_reg);
 
-        self.flags.t = lhs >= rhs;
+        self.flags.p = lhs >= rhs;
     }
 
     #[inline]
@@ -1087,7 +1087,7 @@ impl Vm {
         let lhs = get_reg!(self, lhs_reg);
         let rhs = get_reg!(self, rhs_reg);
 
-        self.flags.t = lhs < rhs;
+        self.flags.p = lhs < rhs;
     }
 
     #[inline]
@@ -1159,45 +1159,45 @@ impl Vm {
 
     #[inline]
     fn execute_cmp_reg(&mut self, lhs_reg: u8, rhs_reg: u8) {
-        self.flags.t = self.registers[lhs_reg as usize] == self.registers[rhs_reg as usize];
+        self.flags.p = self.registers[lhs_reg as usize] == self.registers[rhs_reg as usize];
     }
 
     #[inline]
     fn execute_eq_8_imm(&mut self, val_reg: u8, octet: u8) {
         let compare = get_reg!(self, val_reg);
-        self.flags.t = compare == octet as u32;
+        self.flags.p = compare == octet as u32;
     }
 
     #[inline]
     fn execute_tst_reg(&mut self, val_reg: u8) {
         let val = get_reg!(self, val_reg);
-        self.flags.t = val != 0;
+        self.flags.p = val != 0;
     }
 
     #[inline]
     fn execute_not_tst_reg(&mut self, val_reg: u8) {
         let val = get_reg!(self, val_reg);
-        self.flags.t = val == 0;
+        self.flags.p = val == 0;
     }
 
     #[inline]
     fn execute_not_z(&mut self) {
-        self.flags.t = !self.flags.t;
+        self.flags.p = !self.flags.p;
     }
 
     #[inline]
     fn execute_st_z(&mut self, dst_reg: u8) {
-        set_reg!(self, dst_reg, self.flags.t);
+        set_reg!(self, dst_reg, self.flags.p);
     }
 
     #[inline]
     fn execute_st_nz(&mut self, dst_reg: u8) {
-        set_reg!(self, dst_reg, !self.flags.t);
+        set_reg!(self, dst_reg, !self.flags.p);
     }
 
     #[inline]
     const fn execute_bnz(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
-        if !self.flags.t {
+        if !self.flags.p {
             self.pc =
                 (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
         }
@@ -1205,7 +1205,7 @@ impl Vm {
 
     #[inline]
     const fn execute_bz(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
-        if self.flags.t {
+        if self.flags.p {
             self.pc =
                 (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
         }
@@ -1624,7 +1624,7 @@ impl Vm {
             let slice_a = std::slice::from_raw_parts(src_ptr_a, size);
             let slice_b = std::slice::from_raw_parts(src_ptr_b, size);
 
-            self.flags.t = slice_a == slice_b;
+            self.flags.p = slice_a == slice_b;
         }
     }
 
