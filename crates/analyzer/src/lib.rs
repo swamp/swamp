@@ -3202,6 +3202,13 @@ impl<'a> Analyzer<'a> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
+            is_mutable: false,
+            node: None,
+        };
+
+        let mutable_self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: Type::MutableReference(Box::from(self_type.clone())),
             is_mutable: true,
             node: None,
         };
@@ -3226,7 +3233,7 @@ impl<'a> Analyzer<'a> {
                 IntrinsicFunction::MapRemove,
                 Signature {
                     parameters: vec![
-                        self_type_param,
+                        mutable_self_type_param,
                         TypeForParameter {
                             name: "key".to_string(),
                             resolved_type: key_type.clone(),
@@ -3289,7 +3296,7 @@ impl<'a> Analyzer<'a> {
         field_name_str: &str,
         ast_maybe_generic_arguments: Option<Vec<swamp_ast::GenericParameter>>,
         ast_arguments: &[swamp_ast::Expression],
-        is_mutable: bool,
+        chain_self_is_mutable: bool,
         node: &swamp_ast::Node,
     ) -> Result<(PostfixKind, Type), Error> {
         let generic_arguments = if let Some(ast_generic_arguments) = ast_maybe_generic_arguments {
@@ -3315,7 +3322,7 @@ impl<'a> Analyzer<'a> {
                 &found_function,
                 generic_arguments,
                 ast_arguments,
-                is_mutable,
+                chain_self_is_mutable,
                 node,
             )?;
             (found_function, signature)
@@ -3336,14 +3343,16 @@ impl<'a> Analyzer<'a> {
             (function_ref, def.signature)
         };
 
-        let self_type = &instantiated_signature.parameters[0];
+        let self_type_in_signature = &instantiated_signature.parameters[0];
 
-        if !self_type
+        if !self_type_in_signature
             .resolved_type
+            .underlying()
             .compatible_with(type_that_member_is_on)
-            || self_type.is_mutable && !is_mutable
+            || self_type_in_signature.is_mutable && !chain_self_is_mutable
         {
-            //   return Err(self.create_err(ErrorKind::SelfNotCorrectType, node));
+            error!(?self_type_in_signature.resolved_type, ?type_that_member_is_on, self_type_in_signature.is_mutable, ?chain_self_is_mutable, "self problem");
+            return Err(self.create_err(ErrorKind::SelfNotCorrectType, node));
         }
 
         let resolved_arguments = self.analyze_and_verify_parameters(

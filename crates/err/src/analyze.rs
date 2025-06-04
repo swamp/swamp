@@ -166,7 +166,9 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
             Report::build(Kind::Error, 9904, "chain error", span)
         }
 
-        ErrorKind::SelfNotCorrectType => Report::build(Kind::Error, 9901, "chain error", span),
+        ErrorKind::SelfNotCorrectType => {
+            Report::build(Kind::Error, 9901, "self is of wrong mutable status", span)
+        }
         ErrorKind::CanNotNoneCoalesce => {
             Report::build(Kind::Error, 39, "can not coalesce to none", span)
         }

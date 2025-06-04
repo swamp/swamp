@@ -20,7 +20,7 @@ struct Game {
 
 #[test]
 fn basic_map() {
-	mut game = Game {
+	game = Game {
 		card_templates: [
             CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
             CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
@@ -125,7 +125,7 @@ fn remove_non_existing_card() {
 
 #[test]
 fn iterate_cards() {
-    mut game = Game {
+    game = Game {
         card_templates: [
             CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
             CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
@@ -144,7 +144,7 @@ fn iterate_cards() {
 
 #[test]
 fn iterate_cards_value_only() {
-    mut game = Game {
+    game = Game {
         card_templates: [
             CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
             CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
@@ -192,3 +192,7 @@ fn length() {
     assert(game.card_templates.len() == 1, "should be 1 after removing a card")
 }
 
+#[test]
+fn scalar_key() {
+
+}
