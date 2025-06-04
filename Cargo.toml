@@ -44,5 +44,5 @@ members = [
     "crates/fentext",
     "crates/fentext-ui",
     "crates/fs-change-detector",
-    "crates/lsp",
+    "crates/lsp", "crates/swamp-test",
 ]
