@@ -4,7 +4,7 @@
  */
 use crate::memory::Memory;
 use crate::{TrapCode, Vm, get_reg, i16_from_u8s, u16_from_u8s};
-use crate::{VmState, set_reg, u8s_to_u16};
+use crate::{set_reg, u8s_to_u16};
 use std::ptr;
 use swamp_vm_types::{VEC_HEADER_PAYLOAD_OFFSET, VecHeader, VecIterator};
 
@@ -22,7 +22,10 @@ impl Vm {
         capacity_upper: u8,
     ) {
         let vec_addr = get_reg!(self, target_vec_ptr_reg);
-        let mut_vec_ptr = self.memory.get_heap_ptr(vec_addr as usize) as *mut VecHeader;
+        let mut_vec_ptr = self
+            .memory
+            .get_heap_ptr(vec_addr as usize)
+            .cast::<VecHeader>();
         let capacity = u16_from_u8s!(capacity_lower, capacity_upper);
         unsafe {
             (*mut_vec_ptr).count = capacity;
@@ -100,8 +103,10 @@ impl Vm {
 
         unsafe {
             let vec_header_addr = (*vec_iterator).vec_header_heap_ptr;
-            let vec_header_ptr =
-                self.memory.get_heap_const_ptr(vec_header_addr as usize) as *const VecHeader;
+            let vec_header_ptr = self
+                .memory
+                .get_heap_const_ptr(vec_header_addr as usize)
+                .cast::<VecHeader>();
             let vec_header = &*vec_header_ptr;
             #[cfg(feature = "debug_vm")]
             if self.debug_operations_enabled {
@@ -278,11 +283,6 @@ impl Vm {
         }
     }
 
-    fn trap(&mut self, code: u8) {
-        self.execution_complete = true;
-        self.state = VmState::Trap(code.try_into().unwrap());
-    }
-
     #[inline]
     pub fn execute_vec_push_addr(
         &mut self,
@@ -303,7 +303,7 @@ impl Vm {
         unsafe {
             len = (*mut_vec_ptr).count;
             if len >= (*mut_vec_ptr).capacity {
-                return self.trap(5);
+                return self.internal_trap(TrapCode::VecBoundsFail);
             }
             (*mut_vec_ptr).count += 1;
         }
@@ -326,22 +326,25 @@ impl Vm {
             u8s_to_u16!(size_of_elements_lower, size_of_elements_upper) as u32;
 
         let vec_addr = get_reg!(self, vec_header_ptr_reg);
-        let mut_vec_ptr = self.memory.get_heap_ptr(vec_addr as usize) as *mut VecHeader;
+        let mut_vec_ptr = self
+            .memory
+            .get_heap_ptr(vec_addr as usize)
+            .cast::<VecHeader>();
 
         let index = get_reg!(self, remove_index_reg);
 
         unsafe {
-            if index >= (*mut_vec_ptr).count as u32 {
+            if index >= u32::from((*mut_vec_ptr).count) {
                 return self.internal_trap(TrapCode::VecBoundsFail);
             }
         }
 
         let address_of_element_to_be_removed =
-            vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32 + index as u32 * size_of_each_element;
+            vec_addr + u32::from(VEC_HEADER_PAYLOAD_OFFSET.0) + index * size_of_each_element;
 
         unsafe {
             let header = &mut *mut_vec_ptr;
-            let count = header.count as u32;
+            let count = u32::from(header.count);
 
             if index < count - 1 {
                 let src_addr = address_of_element_to_be_removed + size_of_each_element;
@@ -349,7 +352,7 @@ impl Vm {
                 let elems_after = (count - index - 1) as usize;
                 let bytes_to_move = elems_after * size_of_each_element as usize;
 
-                let src_ptr = self.memory.get_heap_ptr(src_addr as usize) as *const u8;
+                let src_ptr = self.memory.get_heap_ptr(src_addr as usize).cast_const();
                 let dst_ptr = self.memory.get_heap_ptr(dst_addr as usize);
 
                 // MemMove (copy *with* overlap)
