@@ -596,6 +596,10 @@ impl Type {
                 vec_element.compatible_with(storage_element)
             }
 
+            (Self::DynamicLengthVecView(storage_element), Self::VecStorage(vec_element, _size)) => {
+                vec_element.compatible_with(storage_element)
+            }
+
             (Self::Enum(a), Self::Enum(b)) => a == b,
 
             (Self::NamedStruct(a), Self::NamedStruct(b)) => compare_struct_types(a, b),

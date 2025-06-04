@@ -435,7 +435,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
             IntrinsicFunction::VecLen => {
-                self.builder.add_ld32_from_pointer_with_offset_u16(
+                self.builder.add_ld16_from_pointer_with_offset_u16(
                     maybe_target.unwrap(),
                     self_addr.unwrap(),
                     VEC_HEADER_COUNT_OFFSET,

@@ -7,7 +7,7 @@ struct Thing {
 }
 
 struct Another {
-  things: Vec<Thing; 3>,
+  things: Vec<Thing; 4>,
 }
 
 fn reading_things(things: [Thing]) {
@@ -33,6 +33,10 @@ fn writing_second_element_in_things_directly(mut things: [Thing]) {
 
 fn writing_second_b_in_things(mut things: [Thing]) {
   things[1].b = -999
+}
+
+fn pushing_a_thing(mut things: Vec<Thing>, a: Int) {
+    things.push(Thing { a: a, b: a + 44 })
 }
 
 #[test]
@@ -185,14 +189,32 @@ fn push() {
       Thing { a:  32, b: 8086 },
     ]
   }
+  assert(another.things.len() == 2, "wrong length after initialization")
+
   assert(another.things[1].a == 32, 'another.things[1].a is wrong')
   assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
 
   another.things.push(Thing { a: 100, b: 200 })
+  assert(another.things.len() == 3, "wrong length after push")
+
   another.things[2] = Thing { a: 100, b: 200 }
+
+  assert(another.things.len() == 3, "wrong length")
+
+  pushing_a_thing(&another.things, -2)
+
+  assert(another.things.len() == 4, "wrong length after pushing a thing")
+
+
   print('another.things[2]: a:{another.things[2].a} b: {another.things[2].b}')
+
   assert(another.things[1].a == 32, 'another.things[1].a is wrong')
   assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
+
   assert(another.things[2].a == 100, 'another.things[2].a is wrong')
   assert(another.things[2].b == 200, 'another.things[2].b is wrong')
+
+  assert(another.things[3].a == -2, 'another.things[3].a is wrong')
+  assert(another.things[3].b == -2 + 44, 'another.things[3].b is wrong')
+
 }

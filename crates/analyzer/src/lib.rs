@@ -3299,12 +3299,8 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let ty = type_that_member_is_on.underlying();
         match ty {
-            Type::VecStorage(element_type, ..) => self.vec_member_signature(
-                type_that_member_is_on,
-                element_type,
-                field_name_str,
-                node,
-            ),
+            Type::VecStorage(element_type, ..) | Type::DynamicLengthVecView(element_type) => self
+                .vec_member_signature(type_that_member_is_on, element_type, field_name_str, node),
             Type::SliceView(element_type) => self.vec_member_signature(
                 type_that_member_is_on,
                 element_type,
