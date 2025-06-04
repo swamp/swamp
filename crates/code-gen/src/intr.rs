@@ -23,30 +23,28 @@ impl CodeBuilder<'_> {
         arguments: &[ArgumentExpression],
         ctx: &Context,
     ) -> FlagState {
-        match intrinsic_fn {
-            _ => {
-                let (self_arg, maybe_self_type) = if arguments.is_empty() {
-                    (None, None)
-                } else {
-                    let self_region = self.emit_argument_expression(&arguments[0], ctx);
-                    (Some(self_region), Some(arguments[0].ty()))
-                };
-                let rest_args = if arguments.len() > 1 {
-                    &arguments[1..]
-                } else {
-                    &vec![]
-                };
-                self.emit_single_intrinsic_call_with_self(
-                    target_reg,
-                    node,
-                    intrinsic_fn,
-                    maybe_self_type,
-                    self_arg.as_ref(),
-                    rest_args,
-                    ctx,
-                    "single intrinsic call",
-                )
-            }
+        {
+            let (self_arg, maybe_self_type) = if arguments.is_empty() {
+                (None, None)
+            } else {
+                let self_region = self.emit_argument_expression(&arguments[0], ctx);
+                (Some(self_region), Some(arguments[0].ty()))
+            };
+            let rest_args = if arguments.len() > 1 {
+                &arguments[1..]
+            } else {
+                &vec![]
+            };
+            self.emit_single_intrinsic_call_with_self(
+                target_reg,
+                node,
+                intrinsic_fn,
+                maybe_self_type,
+                self_arg.as_ref(),
+                rest_args,
+                ctx,
+                "single intrinsic call",
+            )
         }
     }
 
@@ -764,7 +762,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         let key_register =
-            self.emit_aggregate_pointer_or_pointer_to_scalar_memory(&key_expression, ctx);
+            self.emit_aggregate_pointer_or_pointer_to_scalar_memory(key_expression, ctx);
 
         self.builder
             .add_map_remove(map_region, &key_register, &key_expression.node, "");
