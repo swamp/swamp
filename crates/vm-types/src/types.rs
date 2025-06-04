@@ -1407,6 +1407,8 @@ impl BasicType {
     pub fn element(&self) -> Option<&Self> {
         match &self.kind {
             BasicTypeKind::SliceView(inner) => Some(inner),
+            BasicTypeKind::VecStorage(inner, _) => Some(inner),
+            BasicTypeKind::DynamicLengthVecView(inner) => Some(inner),
             _ => None,
         }
     }

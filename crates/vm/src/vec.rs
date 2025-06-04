@@ -313,4 +313,50 @@ impl Vm {
 
         set_reg!(self, dst_reg, address_of_new_element);
     }
+
+    #[inline]
+    pub fn execute_vec_remove_index(
+        &mut self,
+        vec_header_ptr_reg: u8,
+        remove_index_reg: u8,
+        size_of_elements_lower: u8,
+        size_of_elements_upper: u8,
+    ) {
+        let size_of_each_element =
+            u8s_to_u16!(size_of_elements_lower, size_of_elements_upper) as u32;
+
+        let vec_addr = get_reg!(self, vec_header_ptr_reg);
+        let mut_vec_ptr = self.memory.get_heap_ptr(vec_addr as usize) as *mut VecHeader;
+
+        let index = get_reg!(self, remove_index_reg);
+
+        unsafe {
+            if index >= (*mut_vec_ptr).count as u32 {
+                return self.internal_trap(TrapCode::VecBoundsFail);
+            }
+        }
+
+        let address_of_element_to_be_removed =
+            vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32 + index as u32 * size_of_each_element;
+
+        unsafe {
+            let header = &mut *mut_vec_ptr;
+            let count = header.count as u32;
+
+            if index < count - 1 {
+                let src_addr = address_of_element_to_be_removed + size_of_each_element;
+                let dst_addr = address_of_element_to_be_removed;
+                let elems_after = (count - index - 1) as usize;
+                let bytes_to_move = elems_after * size_of_each_element as usize;
+
+                let src_ptr = self.memory.get_heap_ptr(src_addr as usize) as *const u8;
+                let dst_ptr = self.memory.get_heap_ptr(dst_addr as usize);
+
+                // MemMove (copy *with* overlap)
+                ptr::copy(src_ptr, dst_ptr, bytes_to_move);
+            }
+
+            header.count -= 1;
+        }
+    }
 }

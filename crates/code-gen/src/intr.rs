@@ -6,7 +6,9 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
-use swamp_vm_types::types::{Destination, RValueOrLValue, TypedRegister, VmType, pointer_type};
+use swamp_vm_types::types::{
+    BasicType, BasicTypeKind, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type,
+};
 use swamp_vm_types::{
     AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
     STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
@@ -41,6 +43,7 @@ impl CodeBuilder<'_> {
                 node,
                 intrinsic_fn,
                 maybe_self_type,
+                None,
                 self_arg.as_ref(),
                 rest_args,
                 ctx,
@@ -57,6 +60,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         self_type: Option<Type>,
+        self_basic_type: Option<&BasicType>,
         self_addr_l_or_rvalue: Option<&RValueOrLValue>,
         arguments: &[ArgumentExpression],
         ctx: &Context,
@@ -387,9 +391,13 @@ impl CodeBuilder<'_> {
                     panic!();
                 };
                 let index_region = self.emit_scalar_rvalue(index_expr, ctx);
+                info!(?self_basic_type, "self_addr ty!");
+                let element_type = self_basic_type.unwrap().element().unwrap();
+
                 self.builder.add_vec_remove_index(
                     self_addr.unwrap(),
                     &index_region,
+                    &element_type.total_size,
                     node,
                     "remove index",
                 );

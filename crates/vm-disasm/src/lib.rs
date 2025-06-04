@@ -941,10 +941,23 @@ pub fn disasm(
 
         OpCode::VecClear => &[to_write_reg(operands[0], &vec_type(), frame_memory_info)],
 
-        OpCode::VecPushAddr => &[
-            to_write_reg(operands[0], &vec_type(), frame_memory_info),
-            to_read_reg(operands[1], &bytes_type(), frame_memory_info),
-        ],
+        OpCode::VecPushAddr => {
+            let element_size = u16::from_le_bytes([operands[2], operands[3]]);
+            &[
+                to_write_reg(operands[0], &vec_type(), frame_memory_info),
+                to_write_reg(operands[1], &bytes_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
+            ]
+        }
+
+        OpCode::VecRemoveIndex => {
+            let element_size = u16::from_le_bytes([operands[2], operands[3]]);
+            &[
+                to_write_reg(operands[0], &vec_type(), frame_memory_info),
+                to_read_reg(operands[1], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
+            ]
+        }
 
         OpCode::VecInitWithLenAndCapacityAddr => {
             let length_count = u16::from_le_bytes([operands[2], operands[3]]);
@@ -965,11 +978,6 @@ pub fn disasm(
                 DecoratedOperandAccessKind::CountU16(capacity_count),
             ]
         }
-
-        OpCode::VecRemoveIndex => &[
-            to_write_reg(operands[0], &vec_type(), frame_memory_info),
-            to_read_reg(operands[1], &int_type(), frame_memory_info),
-        ],
 
         OpCode::VecRemoveIndexGetValue => &[
             to_write_reg(operands[0], &vec_type(), frame_memory_info),

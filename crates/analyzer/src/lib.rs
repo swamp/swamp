@@ -3115,6 +3115,12 @@ impl<'a> Analyzer<'a> {
             is_mutable: false,
             node: None,
         };
+        let self_mut_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: Type::SliceView(Box::from(element_type.clone())),
+            is_mutable: true,
+            node: None,
+        };
         let intrinsic_and_signature = match field_name_str {
             "for" => {
                 let signature = Signature {
@@ -3204,6 +3210,21 @@ impl<'a> Analyzer<'a> {
                     return_type: Box::new(Type::Int),
                 };
                 (IntrinsicFunction::VecLen, signature)
+            }
+            "remove" => {
+                let signature = Signature {
+                    parameters: vec![
+                        self_mut_type_param,
+                        TypeForParameter {
+                            name: "index".to_string(),
+                            resolved_type: Type::Int,
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: Box::new(Type::Unit),
+                };
+                (IntrinsicFunction::VecRemoveIndex, signature)
             }
             _ => {
                 return Err(self.create_err(

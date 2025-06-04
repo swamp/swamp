@@ -372,6 +372,7 @@ impl InstructionBuilder<'_> {
         &mut self,
         self_addr: &TypedRegister,
         element_item: &TypedRegister,
+        element_size: &MemorySize,
         node: &Node,
         comment: &str,
     ) {
@@ -382,9 +383,15 @@ impl InstructionBuilder<'_> {
         ));
 
          */
+        let element_size_bytes = Self::u16_to_octets(element_size.0);
         self.state.add_instruction(
             OpCode::VecRemoveIndex,
-            &[self_addr.addressing(), element_item.addressing()],
+            &[
+                self_addr.addressing(),
+                element_item.addressing(),
+                element_size_bytes.0,
+                element_size_bytes.1,
+            ],
             node,
             comment,
         );
