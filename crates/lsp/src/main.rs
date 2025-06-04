@@ -1,13 +1,17 @@
-use lsp_server::{Connection, ErrorCode, Message, Notification, Response};
-use lsp_types::Uri;
+mod conn;
+mod srv;
+
+use crate::conn::SendConnection;
+use crate::conn::SendConnectionImpl;
+use crate::srv::Server;
+use lsp_server::{Connection, ErrorCode, Message, Notification, Request, Response};
+use lsp_types::{DidChangeTextDocumentParams, HoverParams, InitializeResult, Uri, WorkspaceFolder};
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, DidOpenTextDocumentParams, InitializeParams, Position,
-    PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncKind,
+    DidOpenTextDocumentParams, InitializeParams, ServerCapabilities, TextDocumentSyncKind,
     TextDocumentSyncOptions,
 };
-use lsp_types::{DidChangeTextDocumentParams, InitializeResult};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 
 fn main() {
     let (connection, io_threads) = Connection::stdio();
@@ -159,23 +163,22 @@ fn main() {
         .initialize_finish(init_id, serde_json::to_value(init_result).unwrap())
         .unwrap();
 
-    let open_docs: Arc<Mutex<HashMap<Uri, String>>> = Arc::new(Mutex::new(HashMap::new()));
+    let send_connection = SendConnectionImpl { connection };
 
-    for msg in &connection.receiver {
+    send_connection.log("initialize done");
+
+    let mut server = Server::new();
+
+    for msg in &send_connection.connection.receiver {
         match msg {
             Message::Request(req) => {
-                if connection.handle_shutdown(&req).unwrap() {
+                if send_connection.connection.handle_shutdown(&req).unwrap() {
                     break;
                 }
-                let resp = Response::new_err(
-                    req.id,
-                    ErrorCode::MethodNotFound as i32,
-                    "Method not implemented".to_string(),
-                );
-                connection.sender.send(Message::Response(resp)).unwrap();
+                handle_request(req, &send_connection, &mut server);
             }
             Message::Notification(notif) => {
-                handle_notification(notif, &Arc::clone(&open_docs), &connection);
+                handle_notification(notif, &send_connection, &mut server);
             }
             Message::Response(_) => {
                 // no custom requests, so ignore.
@@ -186,67 +189,83 @@ fn main() {
     io_threads.join().unwrap();
 }
 
-fn handle_notification(
-    notif: Notification,
-    open_docs: &Arc<Mutex<HashMap<Uri, String>>>,
-    connection: &Connection,
-) {
+fn handle_request(req: Request, send_connection: &SendConnectionImpl, server: &mut Server) {
+    let result = match req.method.as_str() {
+        "textDocument/hover" => {
+            let params: HoverParams = serde_json::from_value(req.params.clone()).unwrap();
+            server.on_hover(&params, send_connection)
+        }
+        _ => {
+            let resp = Response::new_err(
+                req.id.clone(),
+                ErrorCode::MethodNotFound as i32,
+                "Method not implemented".to_string(),
+            );
+            send_connection
+                .connection
+                .sender
+                .send(Message::Response(resp))
+                .unwrap();
+            return;
+        }
+    };
+
+    let resp = Response::new_ok(req.id, result);
+    send_connection
+        .connection
+        .sender
+        .send(Message::Response(resp))
+        .unwrap();
+}
+
+fn handle_notification(notif: Notification, connection: &SendConnectionImpl, server: &mut Server) {
     match notif.method.as_str() {
         "textDocument/didOpen" => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(notif.params).unwrap();
-            let uri = params.text_document.uri.clone();
-            let text = params.text_document.text;
-            open_docs.lock().unwrap().insert(uri.clone(), text.clone());
-            publish_diagnostics(uri, &text, connection);
+            server.on_did_open(&params, connection);
         }
         "textDocument/didChange" => {
             let params: DidChangeTextDocumentParams = serde_json::from_value(notif.params).unwrap();
-            let uri = params.text_document.uri.clone();
-            let new_text = params.content_changes[0].text.clone();
-            open_docs
-                .lock()
-                .unwrap()
-                .insert(uri.clone(), new_text.clone());
-            publish_diagnostics(uri, &new_text, connection);
+            server.on_did_change(&params, connection);
         }
         _ => {}
     }
 }
 
-fn publish_diagnostics(uri: Uri, text: &str, connection: &Connection) {
-    let mut diagnostics = Vec::new();
-    for (i, line) in text.lines().enumerate() {
-        if let Some(col) = line.find("error") {
-            diagnostics.push(Diagnostic {
-                range: Range {
-                    start: Position {
-                        line: i as u32,
-                        character: col as u32,
-                    },
-                    end: Position {
-                        line: i as u32,
-                        character: (col + 5) as u32,
-                    },
-                },
-                severity: Some(DiagnosticSeverity::ERROR),
-                code: None,
-                code_description: None,
-                source: Some("swamp-lsp".into()),
-                message: "Found “error” in code".into(),
-                related_information: None,
-                tags: None,
-                data: None,
-            });
+fn uri_to_path(uri: &Uri) -> Option<PathBuf> {
+    Some(uri.to_string().parse().unwrap())
+}
+
+fn to_relative_key(workspace_root: &Path, path: &Path) -> Result<String, ()> {
+    let rel = path.strip_prefix(workspace_root).map_err(|_| ())?;
+
+    let s = rel
+        .to_string_lossy()
+        .replace(std::path::MAIN_SEPARATOR, "/");
+    Ok(s)
+}
+
+fn extract_workspace_roots(params: &InitializeParams) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+
+    if let Some(folder_list) = &params.workspace_folders {
+        for WorkspaceFolder { uri, .. } in folder_list {
+            if let Some(path) = uri_to_path(uri) {
+                roots.push(path);
+            }
         }
     }
-    let params = PublishDiagnosticsParams {
-        uri,
-        diagnostics,
-        version: None,
-    };
-    let notif = Notification::new("textDocument/publishDiagnostics".into(), params);
-    connection
-        .sender
-        .send(Message::Notification(notif))
-        .unwrap();
+    roots
+}
+
+fn collect_swamp_files(root: &PathBuf) -> Vec<PathBuf> {
+    WalkDir::new(root)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry.file_type().is_file()
+                && entry.path().extension().is_some_and(|ext| ext == "swamp")
+        })
+        .map(walkdir::DirEntry::into_path)
+        .collect()
 }
