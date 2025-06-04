@@ -7,7 +7,7 @@ struct Thing {
 }
 
 struct Another {
-  things: Vec<Thing; 3>,
+  things: [Thing; 3],
 }
 
 fn reading_things(things: [Thing]) {
@@ -188,7 +188,6 @@ fn push() {
   assert(another.things[1].a == 32, 'another.things[1].a is wrong')
   assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
 
-  another.things.push(Thing { a: 100, b: 200 })
   another.things[2] = Thing { a: 100, b: 200 }
   print('another.things[2]: a:{another.things[2].a} b: {another.things[2].b}')
   assert(another.things[1].a == 32, 'another.things[1].a is wrong')

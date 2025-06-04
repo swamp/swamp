@@ -575,6 +575,11 @@ impl Type {
                 Self::DynamicLengthVecView(element_first),
                 Self::DynamicLengthVecView(element_second),
             ) => element_first.compatible_with(element_second),
+
+            (Self::SliceView(element_first), Self::DynamicLengthVecView(element_second)) => {
+                element_first.compatible_with(element_second)
+            }
+
             (Self::SliceView(element_a), Self::SliceView(element_b)) => {
                 element_a.compatible_with(element_b)
             }

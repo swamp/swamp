@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::Memory;
-use crate::{Vm, get_reg, i16_from_u8s, u16_from_u8s};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s, u16_from_u8s};
 use crate::{VmState, set_reg, u8s_to_u16};
 use std::ptr;
 use swamp_vm_types::{VEC_HEADER_PAYLOAD_OFFSET, VecHeader, VecIterator};
@@ -258,7 +258,9 @@ impl Vm {
             }
         }
 
-        assert!(index < vec_header.count as u32, "subscript error ");
+        if index >= vec_header.count as u32 {
+            return self.internal_trap(TrapCode::VecBoundsFail);
+        }
 
         let element_size = u16_from_u8s!(element_size_lower, element_size_upper);
 

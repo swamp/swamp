@@ -213,7 +213,9 @@ field_label       = { identifier ~ ":" }
 
 generic_argument_item = _{ type_name | unsigned_int_lit }
 
-generic_arguments  = { "<" ~ generic_argument_item ~ (COMMA ~ generic_argument_item)* ~ ">" }
+COMMA_HACK = _{ ("," | ";")? ~ " "* }
+
+generic_arguments  = { "<" ~ generic_argument_item ~ (COMMA_HACK ~ generic_argument_item)* ~ ">" }
 function_type   = {
 "(" ~ function_params? ~ ")" ~ "->" ~ type_name
 }

@@ -1,5 +1,6 @@
 mod anonymous_struct
 mod arithmetic
+mod array
 mod bool
 mod constant
 mod enum
