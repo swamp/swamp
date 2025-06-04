@@ -133,7 +133,8 @@ impl SymbolTable {
         structs
     }
 
-    #[must_use] pub fn enums(&self) -> SeqMap<String, EnumType> {
+    #[must_use]
+    pub fn enums(&self) -> SeqMap<String, EnumType> {
         let mut enums = SeqMap::new();
 
         for (name, symbol) in &self.symbols {
