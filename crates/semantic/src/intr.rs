@@ -74,7 +74,6 @@ pub enum IntrinsicFunction {
 
     // Map
     MapCreate,
-    MapFromSlicePair,
     MapHas,
     MapRemove,
     MapIter,
@@ -192,7 +191,6 @@ impl fmt::Display for IntrinsicFunction {
 
             // Map
             Self::MapCreate => "map_create",
-            Self::MapFromSlicePair => "map_from_slice_pair",
             Self::MapHas => "map_has",
             Self::MapRemove => "map_remove",
             Self::MapSubscriptMut => "map_subscript_mut",

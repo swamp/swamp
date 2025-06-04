@@ -517,28 +517,6 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
 
 #[allow(clippy::too_many_lines)]
 fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
-    let slice_to_self = Signature {
-        parameters: [TypeForParameter {
-            name: "slice_pair".to_string(),
-            resolved_type: Type::Unit,
-            is_mutable: false,
-            node: None,
-        }]
-        .into(),
-        return_type: Box::new(Type::Unit),
-    };
-    let slice_to_self_functions = [IntrinsicFunction::MapFromSlicePair];
-    for intrinsic_fn in slice_to_self_functions {
-        let name = intrinsic_fn.to_string();
-        core_ns
-            .add_intrinsic_function(IntrinsicFunctionDefinition {
-                name,
-                intrinsic: intrinsic_fn,
-                signature: slice_to_self.clone(),
-            })
-            .unwrap();
-    }
-
     let unit_to_value = Signature {
         parameters: [].into(),
         return_type: Box::new(Type::Unit),

@@ -3237,6 +3237,13 @@ impl<'a> Analyzer<'a> {
                     return_type: Box::new(Type::Unit),
                 },
             ),
+            "len" => (
+                IntrinsicFunction::MapLen,
+                Signature {
+                    parameters: vec![self_type_param],
+                    return_type: Box::new(Type::Int),
+                },
+            ),
             _ => todo!("unknown map member"),
         };
 

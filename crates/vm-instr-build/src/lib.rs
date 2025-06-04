@@ -1908,24 +1908,6 @@ impl InstructionBuilder<'_> {
     }
 
     // Collection specific
-    pub fn add_map_new_from_slice(
-        &mut self,
-        map_target_addr: &TypedRegister,
-        slice_source_addr: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        //assert_ne!(key_size.0, 0); // TODO: Bring this back
-        //assert_ne!(value_size.0, 0); // TODO: Bring this back
-        // assert_ne!(element_size.0, 0); // TODO: Bring this back
-
-        self.state.add_instruction(
-            OpCode::MapNewFromPairs,
-            &[map_target_addr.addressing(), slice_source_addr.addressing()],
-            node,
-            comment,
-        );
-    }
 
     pub fn add_map_has(
         &mut self,

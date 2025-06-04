@@ -156,16 +156,15 @@ pub enum OpCode {
     VecSwap,
 
     // Map
-    MapInitWithCapacityAndKeyAndTupleSizeAddr,
-    MapGetEntryLocation,
-    MapGetOrReserveEntryLocation,
+    MapInitWithCapacityAndKeyAndTupleSizeAddr, // Initialize the Map
+    MapGetEntryLocation,                       // RHS, lookup, do not add
+    MapGetOrReserveEntryLocation,              // For the LHS, create entry if needed
+    MapRemove,
+    MapHas,
 
     MapIterInit,
     MapIterNext,
     MapIterNextPair,
-    MapNewFromPairs,
-    MapRemove,
-    MapHas,
 
     // String
     StringAppend,
@@ -308,7 +307,6 @@ impl OpCode {
             Self::MapGetEntryLocation => "map.entry",
             Self::MapGetOrReserveEntryLocation => "map.entry.or_create",
 
-            Self::MapNewFromPairs => "map.new",
             Self::MapRemove => "map.rem",
             Self::MapIterInit => "map.iter.init",
             Self::MapIterNext => "map.iter.next",

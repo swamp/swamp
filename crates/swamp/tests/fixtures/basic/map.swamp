@@ -149,3 +149,28 @@ fn iterate_cards_value_only() {
 
     assert(count == 3, "should iterate over 3 cards")
 }
+
+
+#[test]
+fn length() {
+    mut game = Game {
+        card_templates: [ : ]
+    }
+
+    assert(game.card_templates.len() == 0, "should be zero")
+
+    game.card_templates[CardId::Earthquake] = CardTemplate { mana: -1, healing_per_second: 0.0 }
+
+    assert(game.card_templates.len() == 1, "should be one after inserting")
+    assert(game.card_templates[CardId::Earthquake].mana == -1, "should be initial value of -1")
+
+    game.card_templates[CardId::Earthquake] = CardTemplate { mana: 92, healing_per_second: 909.0 }
+
+    assert(game.card_templates.len() == 1, "should still be one after updating existing")
+    assert(game.card_templates[CardId::Earthquake].mana == 92, "should be 92 after the update")
+
+    game.card_templates[CardId::EtherealDragon] = CardTemplate { mana: 10, healing_per_second: 0.0 }
+    assert(game.card_templates.len() == 2, "should be 2 after the dragon")
+
+    //game.card_templates.remove(CardId::Earthquake)
+}

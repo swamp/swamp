@@ -13,8 +13,8 @@ use swamp_vm_types::types::{
     BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
     DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, FramePlacedType, PathInfo,
     TypedRegister, b8_type, bytes_type, float_type, int_type, map_iter_type, map_type,
-    pointer_type_again, range_iter_type, range_type, slice_type, string_type, u8_type, u32_type,
-    vec_iter_type, vec_type,
+    pointer_type_again, range_iter_type, range_type, string_type, u8_type, u32_type, vec_iter_type,
+    vec_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, HeapMemoryAddress, InstructionPosition,
@@ -989,20 +989,6 @@ pub fn disasm(
             to_write_reg(operands[0], &bytes_type(), frame_memory_info),
             to_read_reg(operands[1], &bytes_type(), frame_memory_info),
             to_read_reg(operands[2], &range_type(), frame_memory_info),
-        ],
-
-        OpCode::MapNewFromPairs => &[
-            to_write_reg(operands[0], &map_type(), frame_memory_info),
-            to_read_reg(operands[1], &slice_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
-                operands[2],
-                operands[3],
-            ))),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
-                operands[2],
-                operands[3],
-            ))),
-            DecoratedOperandAccessKind::CountU16(u8_pair_to_u16(operands[2], operands[3])),
         ],
 
         OpCode::MapInitWithCapacityAndKeyAndTupleSizeAddr => {

@@ -24,32 +24,6 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> FlagState {
         match intrinsic_fn {
-            IntrinsicFunction::MapFromSlicePair => {
-                let ArgumentExpression::Expression(expr) = &arguments[0] else {
-                    panic!("problem");
-                };
-
-                let slice_region = self.emit_scalar_rvalue(expr, ctx);
-
-                let slice_type = arguments[0].ty();
-
-                let Type::MapStorage(key_type, value_type, _) = slice_type else {
-                    panic!("problem");
-                };
-
-                assert!(key_type.is_concrete_or_unit()); // is unit when it is empty
-                assert!(value_type.is_concrete_or_unit());
-
-                self.builder.add_map_new_from_slice(
-                    target_reg.grab_register(),
-                    &slice_region,
-                    node,
-                    "create map from temporary slice pair",
-                );
-
-                FlagState::default()
-            }
-
             _ => {
                 let (self_arg, maybe_self_type) = if arguments.is_empty() {
                     (None, None)
@@ -364,9 +338,6 @@ impl CodeBuilder<'_> {
             }
 
             // Vec
-            IntrinsicFunction::MapFromSlicePair => {
-                panic!("no self in mac from slice")
-            }
             IntrinsicFunction::VecPush => {
                 let maybe_element_expr = &arguments[0];
                 let ArgumentExpression::Expression(element_expr) = maybe_element_expr else {
@@ -650,7 +621,7 @@ impl CodeBuilder<'_> {
                 // Never called directly
             }
             IntrinsicFunction::MapLen => {
-                self.builder.add_ld32_from_pointer_with_offset_u16(
+                self.builder.add_ld16_from_pointer_with_offset_u16(
                     maybe_target.unwrap(),
                     self_addr.unwrap(),
                     MAP_HEADER_COUNT_OFFSET,

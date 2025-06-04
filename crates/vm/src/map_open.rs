@@ -52,16 +52,17 @@ impl Vm {
     // Uses linear probing with a max distance. Hopefully it will work out
     // otherwise we have to go through the capacity.
     // https://en.wikipedia.org/wiki/Open_addressing
+    #[allow(clippy::too_many_lines)]
     unsafe fn get_or_reserve_entry(
         memory: &Memory,
         buckets_ptr_addr: usize,
-        header: &MapHeader,
+        header: *mut MapHeader,
         key_ptr_addr: usize,
     ) -> u32 {
         unsafe {
-            let capacity = header.capacity as usize;
-            let key_size = header.key_size as usize;
-            let element_size = header.tuple_size as usize;
+            let capacity = (*header).capacity as usize;
+            let key_size = (*header).key_size as usize;
+            let element_size = (*header).tuple_size as usize;
             debug_assert_ne!(key_size, 0);
             debug_assert_ne!(element_size, 0);
             debug_assert_ne!(capacity, 0);
@@ -71,8 +72,8 @@ impl Vm {
             let key_ptr = memory.get_heap_ptr(key_ptr_addr);
 
             // Calculate bucket layout sizes
-            let status_size: usize = header.status_size.into();
-            let bucket_size = header.bucket_size as usize;
+            let status_size: usize = (*header).status_size.into();
+            let bucket_size = (*header).bucket_size as usize;
 
             let key_slice = slice::from_raw_parts(key_ptr, key_size);
             let hash = Self::calculate_hash(key_slice);
@@ -83,7 +84,7 @@ impl Vm {
             {
                 eprintln!(
                     "map_get_or_reserve_entry: wants to insert hash: {hash:08X} starting at: {index} capacity: {}, key_size: {key_size} element_size: {element_size}",
-                    header.capacity
+                    (*header).capacity
                 );
             }
 
@@ -116,8 +117,8 @@ impl Vm {
 
                     // Write status, key, and value
                     ptr::write(target_status_ptr, Self::BUCKET_OCCUPIED);
+                    (*header).element_count += 1;
                     ptr::copy_nonoverlapping(key_ptr, target_key_ptr, key_size);
-                    //ptr::copy_nonoverlapping(value_ptr, target_value_ptr, value_size);
                     #[cfg(feature = "debug_vm")]
                     {
                         eprintln!(
@@ -183,6 +184,7 @@ impl Vm {
                 }
                 // Write status, key, and value
                 ptr::write(target_status_ptr, Self::BUCKET_OCCUPIED);
+                (*header).element_count += 1;
                 ptr::copy_nonoverlapping(key_ptr, target_key_ptr, key_size);
 
                 return memory.get_heap_offset(target_value_ptr);
@@ -300,7 +302,9 @@ impl Vm {
         self_map_header_reg: u8,
         key_source_ptr_reg: u8,
     ) {
-        let (map_header, map_header_addr) = self.read_map_header(self_map_header_reg);
+        let map_header_addr = get_reg!(self, self_map_header_reg);
+        let map_header = self.get_map_header_mut(map_header_addr);
+
         let key_source_address = get_reg!(self, key_source_ptr_reg) as usize;
         let buckets_start_addr = (map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
 
@@ -311,6 +315,7 @@ impl Vm {
             );
         }
 
+        /*
         let mut entry_address = unsafe {
             Self::lookup_open_addressing(
                 &self.memory,
@@ -320,23 +325,26 @@ impl Vm {
             )
         };
 
-        if entry_address == 0 {
-            #[cfg(feature = "debug_vm")]
-            if self.debug_operations_enabled {
-                eprintln!("map_get_or_reserve_entry: it didn't exist, so try to find a new entry");
-            }
-            unsafe {
-                entry_address = Self::get_or_reserve_entry(
-                    &self.memory,
-                    buckets_start_addr,
-                    &map_header,
-                    key_source_address,
-                );
-                if entry_address == 0 {
-                    return self.internal_trap(TrapCode::MapEntryNotFoundAndCouldNotBeCreated);
-                }
+         */
+        let mut entry_address;
+
+        //if entry_address == 0 {
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            eprintln!("map_get_or_reserve_entry: it didn't exist, so try to find a new entry");
+        }
+        unsafe {
+            entry_address = Self::get_or_reserve_entry(
+                &self.memory,
+                buckets_start_addr,
+                map_header,
+                key_source_address,
+            );
+            if entry_address == 0 {
+                return self.internal_trap(TrapCode::MapEntryNotFoundAndCouldNotBeCreated);
             }
         }
+        //}
 
         set_reg!(self, dst_entry_address, entry_address);
     }
