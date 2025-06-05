@@ -32,13 +32,13 @@ fn main() {
             .into(),
         ),
 
-        // how to synchronize notebook documents (e.g. Jupyter-style .ipynb or VS Code’s own notebook formats). when user updates cell it gets reported.
+        // how to synchronize notebook documents (e.g. Jupyter-style .ipynb or VS Code's own notebook formats). when user updates cell it gets reported.
         notebook_document_sync: None,
 
-        // Enables “Selection Range” (`textDocument/selectionRange`). What are those?
+        // Enables "Selection Range" (`textDocument/selectionRange`). What are those?
         // Default VS Code key bindings:
-        //   • Expand selection: Shift + Alt + Right Arrow
-        //   • Shrink selection: Shift + Alt + Left Arrow
+        //   * Expand selection: Shift + Alt + Right Arrow
+        //   * Shrink selection: Shift + Alt + Left Arrow
         selection_range_provider: None,
 
         // Respond with a Markdown text that can contain Code Blocks.
@@ -49,38 +49,38 @@ fn main() {
         // Default VS Code key binding: Ctrl + Space
         completion_provider: None,
 
-        // “Signature Help” (parameter hints when user types) (`textDocument/signatureHelp`)
+        // "Signature Help" (parameter hints when user types) (`textDocument/signatureHelp`)
         // Default VS Code key binding: Ctrl + Shift + Space
         signature_help_provider: None,
 
         // Go to Definition (`textDocument/definition`)
         // Default VS Code key bindings:
-        //   • F12 (Go to Definition)
-        //   • Alt + F12 (Peek Definition)
-        //   • Ctrl + Click on symbol
+        //   * F12 (Go to Definition)
+        //   * Alt + F12 (Peek Definition)
+        //   * Ctrl + Click on symbol
         definition_provider: Some(lsp_types::OneOf::Left(true)),
 
-        // “Go to Type Definition” `textDocument/typeDefinition`
+        // "Go to Type Definition" `textDocument/typeDefinition`
         // Default VS Code key binding: Ctrl + Shift + F12
         type_definition_provider: None,
 
-        // “Go to Implementation” `textDocument/implementation`. Interfaces or abstract methods, probably not useful for Swamp.
+        // "Go to Implementation" `textDocument/implementation`. Interfaces or abstract methods, probably not useful for Swamp.
         // Default VS Code key binding: Ctrl + F12
         implementation_provider: None,
 
-        // “Find References” `textDocument/references`. Very useful.
+        // "Find References" `textDocument/references`. Very useful.
         // Default VS Code key binding: Shift + F12
         references_provider: None,
 
-        // “Document Symbol Highlights” (what is this?) `textDocument/documentHighlight`.
+        // "Document Symbol Highlights" (what is this?) `textDocument/documentHighlight`.
         document_highlight_provider: None,
 
-        // “Outline view” for the current file only. (textDocument/documentSymbol). Makes sense to implement. Can be Package,Module,Struct,Enum, etc.
+        // "Outline view" for the current file only. (textDocument/documentSymbol). Makes sense to implement. Can be Package,Module,Struct,Enum, etc.
         // Default VS Code key binding to reveal document symbols: Ctrl + Shift + O
         document_symbol_provider: None,
 
-        // “Workspace Symbols” `workspace/symbol` (same as Outline View but for the whole workspace). `Ctrl+T`.
-        // Default VS Code key binding: Ctrl + T (or Ctrl + P then type “@”)
+        // "Workspace Symbols" `workspace/symbol` (same as Outline View but for the whole workspace). `Ctrl+T`.
+        // Default VS Code key binding: Ctrl + T (or Ctrl + P then type "@")
         workspace_symbol_provider: None,
 
         // Quick fixes, optimize imports, sort members, etc. Probably not that useful for Swamp.
@@ -90,11 +90,11 @@ fn main() {
         // Enables `textDocument/codeLens`
         code_lens_provider: None,
 
-        // “Format Document” (`textDocument/formatting`)
+        // "Format Document" (`textDocument/formatting`)
         // Default VS Code key binding: Shift + Alt + F
         document_formatting_provider: None,
 
-        // “Format Selection” (`textDocument/rangeFormatting`).
+        // "Format Selection" (`textDocument/rangeFormatting`).
         // Default VS Code key binding: Ctrl + K Ctrl + F
         document_range_formatting_provider: None,
 
@@ -108,26 +108,26 @@ fn main() {
         // For "hyperlinks", probably mostly for documentation? `textDocument/documentLink`
         document_link_provider: None,
 
-        // "Document Color” support (`textDocument/documentColor`, `textDocument/colorPresentation`)
+        // "Document Color" support (`textDocument/documentColor`, `textDocument/colorPresentation`)
         color_provider: None,
 
         // Folding ranges. Also cool to implement.
         // Default VS Code key bindings:
-        //   • Fold: Ctrl + Shift + [
-        //   • Unfold: Ctrl + Shift + ]
+        //   * Fold: Ctrl + Shift + [
+        //   * Unfold: Ctrl + Shift + ]
         folding_range_provider: None,
 
-        // “Go to Declaration” (`textDocument/declaration`). what is difference with definition_provider?
+        // "Go to Declaration" (`textDocument/declaration`). what is difference with definition_provider?
         // Default VS Code key binding: Ctrl + F12
         declaration_provider: None,
 
-        // “Command” requests (`workspace/executeCommand`). Can provide a list of commands.
+        // "Command" requests (`workspace/executeCommand`). Can provide a list of commands.
         execute_command_provider: None,
 
         // combination of workspace_folders, file_operations, execute_command_provider
         workspace: None,
 
-        // The workspace can show cross‐file call graphs.
+        // The workspace can show cross-file call graphs.
         // who calls a given function, and who that function calls
         // `textDocument/prepareCallHierarchy`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls`
         call_hierarchy_provider: None,
@@ -135,16 +135,16 @@ fn main() {
         // Enables Semantic Highlighting (reporting back what is variables, function names, types, constants, ...)
         semantic_tokens_provider: None,
 
-        // cross‐jumping between files. No idea how that works? it is only for package registry, where it can jump to external files?
+        // cross-jumping between files. No idea how that works? it is only for package registry, where it can jump to external files?
         moniker_provider: None,
 
         // Show simultaneous renames
         linked_editing_range_provider: None,
 
-        // Enables “Inline Values” (`textDocument/inlineValue`). Debugger to show values for variables, etc.
+        // Enables "Inline Values" (`textDocument/inlineValue`). Debugger to show values for variables, etc.
         inline_value_provider: None,
 
-        //  “Inlay Hints” (parameter name hints, type hints) (`textDocument/inlayHint`)
+        //  "Inlay Hints" (parameter name hints, type hints) (`textDocument/inlayHint`)
         inlay_hint_provider: None,
 
         // interFileDependencies, workspaceDiagnostics

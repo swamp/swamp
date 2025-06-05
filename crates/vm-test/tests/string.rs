@@ -60,7 +60,7 @@ fn string_with_emoji_print() {
         r#"
 external fn print(extra_arg: Int, output: String)
 
-print(23, "🐱if this works it is 🔥😎!")
+print(23, "\u{1F431}if this works it is \u{1F525}\u{1F60E}!")
 
         "#,
         "
@@ -82,7 +82,7 @@ print(23, "🐱if this works it is 🔥😎!")
             let extra_arg = args.get_i32();
             assert_eq!(extra_arg, 23);
             let output = args.get_str();
-            assert_eq!("🐱if this works it is 🔥😎!", output);
+            assert_eq!("\u{1F431}if this works it is \u{1F525}\u{1F60E}!", output);
             eprintln!("print({output})");
         },
     );
@@ -94,7 +94,7 @@ fn string_append() {
         r#"
 external fn print(extra_arg: Int, output: String)
 
-print(23, "🐱if this works it is 🔥😎!" + "extra")
+print(23, "\u{1F431}if this works it is \u{1F525}\u{1F60E}!" + "extra")
 
         "#,
         "
@@ -118,7 +118,7 @@ print(23, "🐱if this works it is 🔥😎!" + "extra")
             let extra_arg = args.get_i32();
             assert_eq!(extra_arg, 23);
             let output = args.get_str();
-            assert_eq!("🐱if this works it is 🔥😎!extra", output);
+            assert_eq!("\u{1F431}if this works it is \u{1F525}\u{1F60E}!extra", output);
             eprintln!("print({output})");
         },
     );
@@ -129,7 +129,7 @@ fn string_len() {
     exec_with_assembly(
         r#"
 
-a = "🐱if this works it is 🔥😎!"
+a = "\u{1F431}if this works it is \u{1F525}\u{1F60E}!"
 r = a.len()
 
         "#,

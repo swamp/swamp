@@ -21,7 +21,7 @@ fn format_duration(nanos: f64) -> String {
     if nanos < 1_000.0 {
         format!("{nanos:.2} ns")
     } else if nanos < 100_000.0 {
-        format!("{:.2} μs", nanos / 1_000.0)
+        format!("{:.2} us", nanos / 1_000.0)
     } else if nanos < 1_000_000_000.0 {
         format!("{:.2} ms", nanos / 1_000_000.0)
     } else {

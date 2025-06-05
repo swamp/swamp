@@ -75,7 +75,7 @@ impl Server {
                     code: None,
                     code_description: None,
                     source: Some("swamp-lsp".into()),
-                    message: "Found “error” in code".into(),
+                    message: "Found error in code".into(),
                     related_information: None,
                     tags: None,
                     data: None,

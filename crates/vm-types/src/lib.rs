@@ -205,7 +205,7 @@ pub fn align_to(addr: MemoryOffset, alignment: MemoryAlignment) -> MemoryOffset 
 /// It also ensures that arrays of the struct are correctly aligned according to the ABI,
 /// and matches the behavior of C, C++, and Rust.
 /// Note: The tail padding at the end of a struct is not reused for subsequent fields
-/// in a parent struct—this is required for safe and predictable layout
+/// in a parent struct-this is required for safe and predictable layout
 #[must_use]
 pub fn adjust_size_to_alignment(
     unaligned_size: MemorySize,
