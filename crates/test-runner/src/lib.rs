@@ -319,7 +319,7 @@ pub fn run_tests(
 
                             VmState::Step | VmState::Halt => {
                                 panic_tests.push(test_info);
-                                error!( "Step or Halt");
+                                error!("Step or Halt");
                                 eprintln!("❌ trap {complete_name}");
                             }
                         }
@@ -353,7 +353,7 @@ pub fn run_tests(
                             }
                             VmState::Step | VmState::Halt => {
                                 panic_tests.push(test_info);
-                                error!( "Step or Halt");
+                                error!("Step or Halt");
                                 eprintln!("❌ trap {complete_name}");
                             }
                         }
@@ -392,7 +392,7 @@ pub fn run_tests(
                             }
                             VmState::Step | VmState::Halt => {
                                 panic_tests.push(test_info);
-                                error!( "Step or Halt");
+                                error!("Step or Halt");
                                 eprintln!("❌ trap {complete_name}");
                             }
                         }

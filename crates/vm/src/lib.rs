@@ -1237,7 +1237,6 @@ impl Vm {
         }
     }
 
-
     #[inline]
     fn execute_user_halt(&mut self) {
         self.execution_complete = true;
@@ -1257,8 +1256,6 @@ impl Vm {
             self.debug_output();
         }
     }
-
-
 
     #[inline]
     fn execute_trap(&mut self, trap_code: u8) {

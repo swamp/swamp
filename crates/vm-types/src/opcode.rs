@@ -9,9 +9,9 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug)]
 pub enum OpCode {
     Nop,
-    Hlt,   // Return to the host
+    Hlt, // Return to the host
     UserHalt,
-    Step, // Stop executing and return to host. User has a step-point here.
+    Step,  // Stop executing and return to host. User has a step-point here.
     Panic, // Stop executing and return to host. String provides reason.
     Trap,  // Provides a reason code.
     Brk,   // Breakpoint. pause execution, keep all relevant state

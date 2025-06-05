@@ -273,7 +273,7 @@ impl Type {
             Self::DynamicLengthMapView(a, b) => {
                 eprintln!("NOT CONCRETE {a:?}, {b:?}");
                 false
-            },
+            }
 
             Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::VecStorage(_, _) => true,
@@ -572,14 +572,14 @@ impl Type {
             (
                 Self::MapStorage(key_a, value_a, size_a),
                 Self::MapStorage(key_b, value_b, size_b),
-            ) => size_a >= size_b && key_a.compatible_with(key_b) && value_a.compatible_with(value_b),
-
+            ) => {
+                size_a >= size_b && key_a.compatible_with(key_b) && value_a.compatible_with(value_b)
+            }
 
             (
                 Self::MapStorage(key_a, value_a, size_a),
                 Self::DynamicLengthMapView(key_b, value_b),
             ) => key_a.compatible_with(key_b) && value_a.compatible_with(value_b),
-
 
             (
                 Self::DynamicLengthMapView(key_a, value_a),
@@ -590,7 +590,6 @@ impl Type {
                 Self::DynamicLengthMapView(key_a, value_a),
                 Self::DynamicLengthMapView(key_b, value_b),
             ) => key_a.compatible_with(key_b) && value_a.compatible_with(value_b),
-
 
             (
                 Self::DynamicLengthVecView(element_first),
@@ -622,7 +621,7 @@ impl Type {
             }
 
             (Self::VecStorage(storage_element, size_a), Self::VecStorage(vec_element, size_b)) => {
-               size_a >= size_b &&  vec_element.compatible_with(storage_element)
+                size_a >= size_b && vec_element.compatible_with(storage_element)
             }
 
             (Self::Enum(a), Self::Enum(b)) => a == b,

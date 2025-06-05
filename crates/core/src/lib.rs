@@ -79,11 +79,13 @@ fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable) {
     }
 
     let nothing_unit = Signature {
-        parameters: []
-            .into(),
+        parameters: [].into(),
         return_type: Box::new(Type::Unit),
     };
-    let nothing_unit_functions = [IntrinsicFunction::RuntimeHalt, IntrinsicFunction::RuntimeStep];
+    let nothing_unit_functions = [
+        IntrinsicFunction::RuntimeHalt,
+        IntrinsicFunction::RuntimeStep,
+    ];
     for intrinsic_fn in nothing_unit_functions {
         let name = intrinsic_fn.to_string();
         core_ns

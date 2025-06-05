@@ -458,7 +458,7 @@ pub fn disasm(
     let operands = binary_instruction.operands;
 
     let operands_slice: &[DecoratedOperandAccessKind] = match opcode {
-        OpCode::Hlt | OpCode::Ret | OpCode::Brk  | OpCode::Step | OpCode::UserHalt => &[],
+        OpCode::Hlt | OpCode::Ret | OpCode::Brk | OpCode::Step | OpCode::UserHalt => &[],
         OpCode::Trap => &[DecoratedOperandAccessKind::ImmediateU8(operands[0])],
         OpCode::Panic => &[to_read_reg(operands[0], &string_type(), frame_memory_info)],
 

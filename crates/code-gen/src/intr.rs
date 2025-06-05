@@ -78,13 +78,11 @@ impl CodeBuilder<'_> {
             }
 
             IntrinsicFunction::RuntimeHalt => {
-                self.builder
-                    .add_halt( node, "intrinsic halt");
+                self.builder.add_halt(node, "intrinsic halt");
             }
 
             IntrinsicFunction::RuntimeStep => {
-                self.builder
-                    .add_step( node, "intrinsic step");
+                self.builder.add_step(node, "intrinsic step");
             }
 
             IntrinsicFunction::RangeInit => {
