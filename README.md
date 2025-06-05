@@ -5,11 +5,34 @@
 ## 🌟 Features
 
 - 🎯 Simple and intuitive syntax
-- 🔄 (Not that fast) interpreted execution
+- 🔄 (Not that fast) Swamp VM execution
 
 ## 📗 Documentation
 
 Not done yet, but check out https://swamp-lang.org/ to learn more about the syntax.
+
+### Installing
+
+#### Homebrew
+
+1. Add the `swamp` tap (only needed once):
+
+   ```sh
+   brew tap swamp/tap
+   ```
+
+2. Install the `swamp` formula:
+
+   ```sh
+   brew install swamp
+   ```
+
+`swamp-build`, `swamp-test`, should be in your `PATH`. When you need to upgrade, just run:
+
+```sh
+brew update
+brew upgrade swamp
+```
 
 ## About Contributions
 
