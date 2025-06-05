@@ -4,8 +4,14 @@
  */
 
 use source_map_cache::SourceMapWrapper;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
+use std::io;
+use std::io::Write;
+use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::thread::sleep;
+use std::time::Duration;
 use swamp_runtime::prelude::CodeGenOptions;
 use swamp_runtime::{
     CompileAndCodeGenOptions, CompileOptions, RunConstantsOptions, RunOptions,
@@ -101,6 +107,52 @@ pub fn test_name_matches_filter(test_name: &str, filter_string: &str) -> bool {
     false
 }
 
+pub enum StepBehavior {
+    ResumeExecution,
+    WaitForUserInput,
+    Pause(Duration),
+}
+
+pub enum StepParseError {
+    UnknownVariant(String),
+    MissingDuration,
+    ParseInt(ParseIntError),
+}
+
+impl Display for StepParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnknownVariant(_) => write!(f, "unknown"),
+            Self::MissingDuration => write!(f, "missing duration"),
+            Self::ParseInt(_) => write!(f, "parse int failed"),
+        }
+    }
+}
+
+impl FromStr for StepBehavior {
+    type Err = StepParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let lower = s.to_lowercase();
+        let mut parts = lower.splitn(2, ':');
+        let variant = parts.next().unwrap();
+
+        match variant {
+            "resume" => Ok(Self::ResumeExecution),
+            "wait" => Ok(Self::WaitForUserInput),
+            "pause" => match parts.next() {
+                Some(ms_str) => {
+                    let ms: u64 = ms_str.parse().map_err(StepParseError::ParseInt)?;
+                    Ok(Self::Pause(Duration::from_millis(ms)))
+                }
+                None => Err(StepParseError::MissingDuration),
+            },
+
+            other => Err(StepParseError::UnknownVariant(other.to_string())),
+        }
+    }
+}
+
 pub struct TestRunOptions {
     pub should_run: bool,
     pub iteration_count: usize,
@@ -112,6 +164,7 @@ pub struct TestRunOptions {
     pub show_semantic: bool,
     pub show_disasm: bool,
     pub show_modules: bool,
+    pub step_behaviour: StepBehavior,
 }
 
 pub fn init_logger() {
@@ -276,6 +329,13 @@ pub fn run_tests(
                                     },
                                 },
                             );
+
+                            while result.vm.state == VmState::Step {
+                                handle_step(&options.step_behaviour);
+                                result.vm.state = VmState::Normal;
+                                result.vm.resume(&mut TestExternals {});
+                            }
+
                             if result.vm.state != expected_vm_state {
                                 break;
                             }
@@ -299,6 +359,11 @@ pub fn run_tests(
                                     },
                                 },
                             );
+                            while result.vm.state == VmState::Step {
+                                handle_step(&options.step_behaviour);
+                                result.vm.state = VmState::Normal;
+                                result.vm.resume(&mut TestExternals {});
+                            }
                             if result.vm.state != expected_vm_state {
                                 break;
                             }
@@ -474,4 +539,26 @@ pub fn run_tests(
         passed_tests,
         failed_tests,
     }
+}
+
+fn handle_step(step_behavior: &StepBehavior) {
+    match step_behavior {
+        StepBehavior::ResumeExecution => {}
+        StepBehavior::WaitForUserInput => {
+            wait_for_user_pressing_enter();
+        }
+        StepBehavior::Pause(duration) => {
+            eprintln!("step. waiting {duration:?}");
+            sleep(*duration);
+        }
+    }
+}
+
+fn wait_for_user_pressing_enter() {
+    let mut buf = String::new();
+    print!("Step detected. press ENTER to continue");
+    io::stdout().flush().unwrap();
+
+    // Blocks until the user hits Enter
+    io::stdin().read_line(&mut buf).expect("should work");
 }

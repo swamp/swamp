@@ -8,7 +8,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
-use swamp_test_runner::{TestRunOptions, init_logger, run_tests};
+use swamp_test_runner::{StepBehavior, TestRunOptions, init_logger, run_tests};
 
 fn print_usage<W: Write>(mut out: W) {
     let _ = write!(
@@ -88,6 +88,14 @@ fn main() -> ExitCode {
     let show_assembly = args.contains(["-a", "--show-assembly"]);
     let show_instructions = args.contains(["-i", "--show-instructions"]);
 
+    let step_behavior: StepBehavior = match args
+        .opt_value_from_str::<_, StepBehavior>("--step")
+        .expect("should work")
+    {
+        Some(sb) => sb,
+        None => StepBehavior::ResumeExecution,
+    };
+
     // Check for any unexpected positional arguments
     let leftover = args.finish();
     if !leftover.is_empty() {
@@ -111,6 +119,7 @@ fn main() -> ExitCode {
             show_semantic: false,
             show_disasm: show_debug | show_assembly,
             show_modules: false,
+            step_behaviour: step_behavior,
         },
         &filter_pattern.unwrap_or_default(),
         &module.unwrap_or_else(|| "lib".to_string()),

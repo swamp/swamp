@@ -215,8 +215,6 @@ pub struct Vm {
     pub state: VmState,
 }
 
-impl Vm {}
-
 impl Vm {
     #[must_use]
     pub const fn is_execution_complete(&self) -> bool {
@@ -586,9 +584,6 @@ impl Vm {
     #[allow(clippy::too_many_lines)]
     pub fn execute_internal(&mut self, host_function_callback: &mut dyn HostFunctionCallback) {
         self.execution_complete = false;
-        self.flags.p = false;
-        self.call_stack.clear();
-        self.memory.reset_offset();
 
         #[cfg(feature = "debug_vm")]
         if self.debug_opcodes_enabled {
@@ -597,12 +592,6 @@ impl Vm {
                 self.memory.frame_offset, self.memory.heap_alloc_offset
             );
         }
-
-        self.call_stack.push(CallFrame {
-            return_address: 1,
-            previous_frame_offset: 0,
-            previous_stack_offset: 0,
-        });
 
         while !self.execution_complete {
             let instruction = &self.instructions[self.pc];
@@ -718,6 +707,10 @@ impl Vm {
         self.memory.set_stack_and_frame(addr);
     }
 
+    pub fn resume(&mut self, host_function_callback: &mut dyn HostFunctionCallback) {
+        self.execute_internal(host_function_callback);
+    }
+
     pub fn execute_from_ip(
         &mut self,
         ip: &InstructionPosition,
@@ -730,6 +723,21 @@ impl Vm {
                 self.memory.stack_start, self.memory.stack_offset, self.memory.frame_offset
             );
         }
+
+        self.flags.p = false;
+        self.call_stack.clear();
+        self.memory.reset_offset();
+
+        /*
+        // Is this needed?
+        self.call_stack.push(CallFrame {
+            return_address: 1,
+            previous_frame_offset: 0,
+            previous_stack_offset: 0,
+        });
+
+         */
+
         self.execute_internal(host_function_callback);
     }
 
