@@ -4,7 +4,6 @@ use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_vm_types::PointerLocation;
 use swamp_vm_types::types::{BasicTypeKind, Destination};
-use tracing::debug;
 
 impl CodeBuilder<'_> {
     /*
