@@ -7,6 +7,8 @@ use swamp_test_runner::{TestRunOptions, init_logger, run_tests};
 pub fn very_basic(test_dir: &Path) {
     init_logger();
 
+    let module_suffix = "lib";
+
     let test_result = run_tests(
         test_dir,
         &TestRunOptions {
@@ -22,6 +24,7 @@ pub fn very_basic(test_dir: &Path) {
             show_modules: false,
         },
         "vec::pass_in_param",
+        module_suffix,
     );
 
     assert!(test_result.succeeded());

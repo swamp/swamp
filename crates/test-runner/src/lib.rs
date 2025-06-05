@@ -150,8 +150,13 @@ impl HostFunctionCallback for TestExternals {
 
 /// # Panics
 #[allow(clippy::too_many_lines)]
-pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> TestResult {
-    let crate_main_path = &["crate".to_string(), "lib".to_string()];
+pub fn run_tests(
+    test_dir: &Path,
+    options: &TestRunOptions,
+    filter: &str,
+    module_suffix: &str,
+) -> TestResult {
+    let crate_main_path = &["crate".to_string(), module_suffix.to_string()];
     let compile_and_code_gen_options = CompileAndCodeGenOptions {
         compile_options: CompileOptions {
             show_semantic: options.show_semantic,

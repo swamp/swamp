@@ -17,6 +17,7 @@ pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
 #[test_log::test]
 fn very_basic() {
     let test_dir = get_fixture_dir(&["basic"]);
+    let module_suffix = "lib";
     let result = run_tests(
         &test_dir,
         &TestRunOptions {
@@ -32,6 +33,7 @@ fn very_basic() {
             show_modules: false,
         },
         "",
+        module_suffix,
     );
     assert!(result.failed_tests.is_empty());
 }
