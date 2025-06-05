@@ -425,6 +425,14 @@ fn assert(condition: Bool, message: String) {
 }
 
 
+fn halt() {
+    runtime_halt()
+}
+
+fn step() {
+    runtime_step()
+}
+
     "#;
 
     text.to_string()

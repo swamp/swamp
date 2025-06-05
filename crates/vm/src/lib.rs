@@ -186,6 +186,8 @@ pub enum VmState {
     Normal,
     Panic(String),
     Trap(TrapCode),
+    Halt,
+    Step,
 }
 
 pub struct Vm {
@@ -389,6 +391,8 @@ impl Vm {
 
         // Halt - return to host
         vm.handlers[OpCode::Hlt as usize] = HandlerType::Args0(Self::execute_hlt);
+        vm.handlers[OpCode::UserHalt as usize] = HandlerType::Args0(Self::execute_user_halt);
+        vm.handlers[OpCode::Step as usize] = HandlerType::Args0(Self::execute_step);
         vm.handlers[OpCode::Trap as usize] = HandlerType::Args1(Self::execute_trap);
         vm.handlers[OpCode::Panic as usize] = HandlerType::Args1(Self::execute_panic);
 
@@ -1232,6 +1236,29 @@ impl Vm {
             self.debug_output();
         }
     }
+
+
+    #[inline]
+    fn execute_user_halt(&mut self) {
+        self.execution_complete = true;
+        self.state = VmState::Halt;
+        #[cfg(feature = "debug_vm")]
+        if self.debug_opcodes_enabled {
+            self.debug_output();
+        }
+    }
+
+    #[inline]
+    fn execute_step(&mut self) {
+        self.execution_complete = true;
+        self.state = VmState::Step;
+        #[cfg(feature = "debug_vm")]
+        if self.debug_opcodes_enabled {
+            self.debug_output();
+        }
+    }
+
+
 
     #[inline]
     fn execute_trap(&mut self, trap_code: u8) {

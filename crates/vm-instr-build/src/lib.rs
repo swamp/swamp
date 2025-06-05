@@ -623,6 +623,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+
         debug_assert_eq!(
             target_output_destination.ty.basic_type.total_size,
             source_memory_location.ty.basic_type.total_size
@@ -777,6 +778,16 @@ impl InstructionBuilder<'_> {
             .add_instruction(OpCode::Panic, &[str.addressing()], node, comment);
     }
 
+    pub fn add_halt(&mut self,  node: &Node, comment: &str) {
+        self.state
+            .add_instruction(OpCode::Hlt, &[], node, comment);
+    }
+
+
+    pub fn add_step(&mut self,  node: &Node, comment: &str) {
+        self.state
+            .add_instruction(OpCode::Step, &[], node, comment);
+    }
     pub fn add_call(&mut self, function_ip: &InstructionPosition, node: &Node, comment: &str) {
         let ip_bytes = function_ip.0.to_le_bytes();
         self.state.add_instruction(

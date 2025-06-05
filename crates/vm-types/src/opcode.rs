@@ -10,6 +10,8 @@ use std::fmt::{Display, Formatter};
 pub enum OpCode {
     Nop,
     Hlt,   // Return to the host
+    UserHalt,
+    Step, // Stop executing and return to host. User has a step-point here.
     Panic, // Stop executing and return to host. String provides reason.
     Trap,  // Provides a reason code.
     Brk,   // Breakpoint. pause execution, keep all relevant state
@@ -183,6 +185,8 @@ impl OpCode {
         match self {
             Self::Nop => "nop",
             Self::Hlt => "hlt",
+            Self::UserHalt => "user_halt",
+            Self::Step => "step",
             Self::Panic => "panic",
             Self::Trap => "trap",
             Self::Brk => "brk",

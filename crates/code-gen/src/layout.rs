@@ -520,11 +520,11 @@ pub fn layout_variables(
     variables: &Vec<VariableRef>,
     exp_return_type: &Type,
 ) -> FrameAndVariableInfo {
-    const TEMPORARY_SIZE: MemorySize = MemorySize(8 * 1024);
+    const TEMPORARY_SIZE: MemorySize = MemorySize(32 * 1024);
 
     let mut local_frame_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
-        MemorySize(16 * 1024),
+        MemorySize(32 * 1024),
     ));
 
     //    let return_placed_type_pointer = layout_type(exp_return_type).create_mutable_pointer();

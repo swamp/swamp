@@ -77,6 +77,16 @@ impl CodeBuilder<'_> {
                     .add_panic(self_addr.unwrap(), node, "intrinsic panic");
             }
 
+            IntrinsicFunction::RuntimeHalt => {
+                self.builder
+                    .add_halt( node, "intrinsic halt");
+            }
+
+            IntrinsicFunction::RuntimeStep => {
+                self.builder
+                    .add_step( node, "intrinsic step");
+            }
+
             IntrinsicFunction::RangeInit => {
                 let start_reg = self_addr.unwrap();
                 // let MutRefOrImmutableExpression::Expression(start_arg_expr) = start_arg else {

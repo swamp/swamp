@@ -104,6 +104,8 @@ pub enum IntrinsicFunction {
     Float2Magnitude,
 
     RuntimePanic,
+    RuntimeHalt,
+    RuntimeStep,
     RangeInit,
 }
 
@@ -212,6 +214,8 @@ impl fmt::Display for IntrinsicFunction {
             // Other
             Self::Float2Magnitude => "float2_magnitude",
             Self::RuntimePanic => "runtime_panic",
+            Self::RuntimeHalt => "runtime_halt",
+            Self::RuntimeStep => "runtime_step",
             Self::RangeInit => "rinit",
         };
 

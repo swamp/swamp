@@ -316,6 +316,12 @@ pub fn run_tests(
                                 error!(%trap_code, "TRAP");
                                 eprintln!("❌ trap {complete_name} {trap_code}");
                             }
+
+                            VmState::Step | VmState::Halt => {
+                                panic_tests.push(test_info);
+                                error!( "Step or Halt");
+                                eprintln!("❌ trap {complete_name}");
+                            }
                         }
                     } else if let VmState::Trap(expected_trap_code) = expected_vm_state {
                         match &result.vm.state {
@@ -344,6 +350,11 @@ pub fn run_tests(
                                 eprintln!(
                                     "❌ Expected Trap {complete_name}, but it panicked: {message}"
                                 );
+                            }
+                            VmState::Step | VmState::Halt => {
+                                panic_tests.push(test_info);
+                                error!( "Step or Halt");
+                                eprintln!("❌ trap {complete_name}");
                             }
                         }
                     } else if let VmState::Panic(expected_panic_message) = expected_vm_state {
@@ -378,6 +389,11 @@ pub fn run_tests(
                                 eprintln!(
                                     "❌ Expected Panic {complete_name}, but it trapped: {trap_code}"
                                 );
+                            }
+                            VmState::Step | VmState::Halt => {
+                                panic_tests.push(test_info);
+                                error!( "Step or Halt");
+                                eprintln!("❌ trap {complete_name}");
                             }
                         }
                     }
