@@ -6,7 +6,6 @@ use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainK
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
-use tracing::info;
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -57,7 +56,6 @@ impl CodeBuilder<'_> {
                 }
 
                 PostfixKind::MapSubscript(map_type, key_expression) => {
-                    info!(?map_type, "map_subscript");
                     current_location = self.map_subscript_helper(
                         &current_location,
                         map_type,
@@ -65,7 +63,6 @@ impl CodeBuilder<'_> {
                         false,
                         ctx,
                     );
-                    info!(?current_location, ?map_type, "map_subscript");
                 }
 
                 PostfixKind::MemberCall(function_to_call, arguments) => {
@@ -93,7 +90,6 @@ impl CodeBuilder<'_> {
                             if let Some((intrinsic_fn, intrinsic_arguments)) =
                                 single_intrinsic_fn(&internal_fn.body)
                             {
-                                info!(?intrinsic_fn, "intrinsic");
                                 let merged_arguments = Self::merge_arguments_keep_literals(
                                     arguments,
                                     intrinsic_arguments,

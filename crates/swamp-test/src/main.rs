@@ -2,7 +2,7 @@ use pico_args::Arguments;
 use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
-use swamp_test_runner::{init_logger, run_tests, TestRunOptions};
+use swamp_test_runner::{TestRunOptions, init_logger, run_tests};
 
 fn print_usage() {
     eprintln!(
@@ -24,12 +24,10 @@ fn main() -> ExitCode {
 
     let test_path: PathBuf = match args.opt_value_from_str::<_, String>("--path") {
         Ok(Some(path_str)) => PathBuf::from(path_str),
-        Ok(None) => {
-            env::current_dir().unwrap_or_else(|e| {
-                eprintln!("error: failed to get current directory: {e}");
-                std::process::exit(1);
-            })
-        }
+        Ok(None) => env::current_dir().unwrap_or_else(|e| {
+            eprintln!("error: failed to get current directory: {e}");
+            std::process::exit(1);
+        }),
         Err(e) => {
             eprintln!("error: invalid value for `--path`: {e}\n");
             print_usage();
@@ -81,6 +79,9 @@ fn main() -> ExitCode {
             debug_opcodes: false,
             debug_operations: false,
             debug_stats: true,
+            show_semantic: false,
+            show_disasm: false,
+            show_modules: false,
         },
         &filter_pattern.unwrap_or_default(),
     );

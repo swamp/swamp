@@ -6,18 +6,27 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{process, thread};
 use swamp::prelude::{
-    CodeGenAndVmResult, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
-    RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align, compile_codegen_and_create_vm,
-    layout_type, run_first_time, run_function, run_function_with_debug,
+    CodeGenAndVmResult, CodeGenOptions, CompileAndCodeGenOptions, CompileOptions, GenFunctionInfo,
+    HostArgs, HostFunctionCallback, RunConstantsOptions, RunOptions, SAFE_ALIGNMENT,
+    SourceMapWrapper, VmState, align, compile_codegen_and_create_vm, layout_type, run_first_time,
+    run_function, run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 use tracing::{error, info, warn};
 
 #[must_use]
 pub fn compile() -> Option<CodeGenAndVmResult> {
+    let options = CompileAndCodeGenOptions {
+        compile_options: CompileOptions {
+            show_semantic: false,
+            show_modules: false,
+        },
+        code_gen_options: CodeGenOptions { show_disasm: false },
+    };
     compile_codegen_and_create_vm(
         Path::new("assets/crawler"),
         &["crate".to_string(), "main".to_string()],
+        options,
     )
 }
 

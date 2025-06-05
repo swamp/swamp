@@ -8,6 +8,7 @@ use swamp_dep_loader::DepLoaderError;
 pub mod prelude;
 
 use swamp_analyzer::Program;
+use swamp_compile::CompileOptions;
 use swamp_error_report::ScriptResolveError;
 use swamp_semantic::SemanticError;
 
@@ -45,5 +46,9 @@ pub fn compile_and_analyze(
     module_path: &[String],
     source_map: &mut SourceMap,
 ) -> Result<Program, ScriptResolveError> {
-    swamp_compile::bootstrap_and_compile(source_map, module_path)
+    let options = CompileOptions {
+        show_semantic: false,
+        show_modules: false,
+    };
+    swamp_compile::bootstrap_and_compile(source_map, module_path, options)
 }

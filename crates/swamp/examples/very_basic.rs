@@ -17,8 +17,11 @@ pub fn very_basic(test_dir: &Path) {
             debug_opcodes: false,
             debug_operations: false,
             debug_stats: true,
+            show_semantic: false,
+            show_disasm: false,
+            show_modules: false,
         },
-        "",
+        "vec::pass_in_param",
     );
 
     assert!(test_result.succeeded());

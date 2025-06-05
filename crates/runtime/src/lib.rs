@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
 use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
+pub use swamp_compile::CompileOptions;
 use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
@@ -134,19 +135,21 @@ impl CodeGenResult {
 }
 
 pub fn compile_and_codegen_main_path(
-    source_map: &mut source_map_cache::SourceMap,
+    source_map: &mut SourceMap,
     root_module_path: &[String],
     current_dir: &Path,
-    options: CodeGenOptions,
+    options: CompileAndCodeGenOptions,
 ) -> Option<CodeGenResult> {
-    let program = swamp_compile::bootstrap_and_compile(source_map, root_module_path).ok()?;
+    let program =
+        swamp_compile::bootstrap_and_compile(source_map, root_module_path, options.compile_options)
+            .ok()?;
 
     let source_map_wrapper = SourceMapWrapper {
         source_map,
         current_dir: current_dir.to_path_buf(),
     };
 
-    let top_gen_state = code_gen_program(&program, &source_map_wrapper, &options);
+    let top_gen_state = code_gen_program(&program, &source_map_wrapper, &options.code_gen_options);
 
     let (instructions, constants_in_order, emit_function_infos, constant_memory, debug_info) =
         top_gen_state.take_instructions_and_constants();
@@ -346,17 +349,23 @@ pub fn run_function_with_debug(
     }
 }
 
+pub struct CompileAndCodeGenOptions {
+    pub compile_options: CompileOptions,
+    pub code_gen_options: CodeGenOptions,
+}
+
 #[must_use]
 pub fn compile_and_code_gen(
     path_to_root_of_swamp_files: &Path,
     main_module_path: &[String],
+    options: CompileAndCodeGenOptions,
 ) -> Option<(CodeGenResult, SourceMap)> {
     let mut source_map = crate_and_registry(path_to_root_of_swamp_files);
     let current_dir = PathBuf::from(Path::new(""));
-    let options = CodeGenOptions { show_disasm: true };
 
     let result =
         compile_and_codegen_main_path(&mut source_map, main_module_path, &current_dir, options);
+
     result.map(|result| (result, source_map))
 }
 
@@ -398,8 +407,10 @@ impl CodeGenAndVmResult {
 pub fn compile_codegen_and_create_vm(
     root_directory: &Path,
     root_module: &[String],
+    compile_and_code_gen_options: CompileAndCodeGenOptions,
 ) -> Option<CodeGenAndVmResult> {
-    let (code_gen_result, source_map) = compile_and_code_gen(root_directory, root_module)?;
+    let (code_gen_result, source_map) =
+        compile_and_code_gen(root_directory, root_module, compile_and_code_gen_options)?;
 
     let vm = create_vm_with_standard_settings(
         &code_gen_result.instructions,

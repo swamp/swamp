@@ -1608,3 +1608,12 @@ pub fn create_module(tiny_version: &TinyVersion) -> Module {
 
     Module::new(intrinsic_types_symbol_table, None)
 }
+
+/// # Panics
+/// if `versioned_name` is wrong
+#[must_use]
+pub fn create_module_with_name(path: &[String]) -> Module {
+    let intrinsic_types_symbol_table = SymbolTable::new(path);
+
+    Module::new(intrinsic_types_symbol_table, None)
+}

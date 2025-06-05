@@ -391,7 +391,6 @@ impl CodeBuilder<'_> {
                     panic!();
                 };
                 let index_region = self.emit_scalar_rvalue(index_expr, ctx);
-                info!(?self_basic_type, "self_addr ty!");
                 let element_type = self_basic_type.unwrap().element().unwrap();
 
                 self.builder.add_vec_remove_index(

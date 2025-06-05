@@ -1,7 +1,11 @@
 use source_map_cache::SourceMapWrapper;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
-use swamp_runtime::{RunConstantsOptions, RunOptions, compile_codegen_and_create_vm};
+use swamp_runtime::prelude::CodeGenOptions;
+use swamp_runtime::{
+    CompileAndCodeGenOptions, CompileOptions, RunConstantsOptions, RunOptions,
+    compile_codegen_and_create_vm,
+};
 use swamp_std::print::print_fn;
 use swamp_vm::VmState;
 use swamp_vm::host::HostFunctionCallback;
@@ -100,6 +104,9 @@ pub struct TestRunOptions {
     pub debug_opcodes: bool,
     pub debug_operations: bool,
     pub debug_stats: bool,
+    pub show_semantic: bool,
+    pub show_disasm: bool,
+    pub show_modules: bool,
 }
 
 pub fn init_logger() {
@@ -145,7 +152,18 @@ impl HostFunctionCallback for TestExternals {
 #[allow(clippy::too_many_lines)]
 pub fn run_tests(test_dir: &Path, options: &TestRunOptions, filter: &str) -> TestResult {
     let crate_main_path = &["crate".to_string(), "lib".to_string()];
-    let mut result = compile_codegen_and_create_vm(test_dir, crate_main_path).unwrap();
+    let compile_and_code_gen_options = CompileAndCodeGenOptions {
+        compile_options: CompileOptions {
+            show_semantic: options.show_semantic,
+            show_modules: options.show_modules,
+        },
+        code_gen_options: CodeGenOptions {
+            show_disasm: options.show_disasm,
+        },
+    };
+    let mut result =
+        compile_codegen_and_create_vm(test_dir, crate_main_path, compile_and_code_gen_options)
+            .unwrap();
 
     let mut passed_tests = Vec::new();
 

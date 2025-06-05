@@ -63,8 +63,6 @@ impl CodeBuilder<'_> {
                     ptr_reg: target_map_header_ptr_reg,
                 };
 
-                debug!(?tuple_type, "emit map storage ");
-
                 //let adjusted_capacity = capacity.next_power_of_two();
                 self.emit_map_storage_init_from_initializer_pair_list(
                     &pointer_target,

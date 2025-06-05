@@ -27,6 +27,9 @@ fn very_basic() {
             debug_opcodes: false,
             debug_operations: false,
             debug_stats: false,
+            show_semantic: false,
+            show_disasm: false,
+            show_modules: false,
         },
         "",
     );

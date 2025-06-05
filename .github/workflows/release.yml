@@ -39,15 +39,59 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt install librust-alsa-sys-dev libudev-dev
 
-      - name: Install Rust 1.85.0
+      - name: Install latest stable Rust
         run: rustup update stable
 
       - name: Add target
         run: rustup target add ${{ matrix.target }}
 
-      - name: Install zip (Windows) # Zip is not installed in the runner, love it :)
+      - name: Install zip (Windows)
         if: matrix.os == 'windows-latest'
         run: choco install zip
 
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+      - name: Build all workspace binaries
+        run: cargo build --color=always --release --target ${{ matrix.target }}
+
+      - name: Package binaries into a single “swamp-<platform>-<arch>” archive
+        shell: bash
+        run: |
+          # Define the binaries we want to ship:
+          BINARIES=("swamp-build" "swamp-test")
+
+          # Make sure dist/ is clean
+          rm -rf dist
+          mkdir -p dist
+
+          for BIN in "${BINARIES[@]}"; do
+            # Determine the file name (add .exe on Windows)
+            if [ "${{ matrix.os }}" = "windows-latest" ]; then
+              BIN_NAME="${BIN}.exe"
+            else
+              BIN_NAME="${BIN}"
+            fi
+
+            # Strip debug symbols on non-Windows
+            if [ "${{ matrix.os }}" != "windows-latest" ]; then
+              strip "target/${{ matrix.target }}/release/${BIN}"
+            fi
+
+            # Copy each compiled binary into dist/
+            cp "target/${{ matrix.target }}/release/${BIN_NAME}" "dist/${BIN_NAME}"
+          done
+
+          # Now package all binary files into a single archive “swamp-<platform>-<arch>.*”
+          ARCHIVE_BASE="swamp-${{ matrix.platform }}-${{ matrix.arch }}"
+
+          cd dist
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            zip "../${ARCHIVE_BASE}.zip" ./*.exe
+          else
+            tar czf "../${ARCHIVE_BASE}.tar.gz" ./*
+          fi
+          cd ..
+
+      - name: Upload Release Asset (current repo)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            swamp-${{ matrix.platform }}-${{ matrix.arch }}.*

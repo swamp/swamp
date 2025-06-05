@@ -107,48 +107,50 @@ impl<C: Display + Clone> Report<C> {
         if primary_span.file_id == 0 {
             eprintln!("{}", format!("header {} {}", header.message, header.code));
         }
-        let (row, col) =
-            source_map.get_span_location_utf8(primary_span.file_id, primary_span.offset as usize);
-        let filename = source_map.get_relative_path_to(primary_span.file_id, current_dir)?;
+        if primary_span.file_id != 0 {
+            let (row, col) = source_map
+                .get_span_location_utf8(primary_span.file_id, primary_span.offset as usize);
+            let filename = source_map.get_relative_path_to(primary_span.file_id, current_dir)?;
 
-        eira::FileSpanMessage::write(
-            filename.to_str().unwrap(),
-            &PosSpan {
-                pos: Pos { x: col, y: row },
-                length: primary_span.length as usize,
-            },
-            &mut writer,
-        )?;
+            eira::FileSpanMessage::write(
+                filename.to_str().unwrap(),
+                &PosSpan {
+                    pos: Pos { x: col, y: row },
+                    length: primary_span.length as usize,
+                },
+                &mut writer,
+            )?;
 
-        let mut source_file_section = eira::SourceFileSection::new();
-        for label in &self.config.labels {
-            let (row, col) =
-                source_map.get_span_location_utf8(label.span.file_id, label.span.offset as usize);
+            let mut source_file_section = eira::SourceFileSection::new();
+            for label in &self.config.labels {
+                let (row, col) = source_map
+                    .get_span_location_utf8(label.span.file_id, label.span.offset as usize);
 
-            source_file_section.labels.push(eira::Label {
-                start: Pos { x: col, y: row },
-                character_count: label.span.length as usize,
-                text: label.description.clone(),
-                color: Color::default(),
-            });
+                source_file_section.labels.push(eira::Label {
+                    start: Pos { x: col, y: row },
+                    character_count: label.span.length as usize,
+                    text: label.description.clone(),
+                    color: Color::default(),
+                });
+            }
+
+            if self.config.labels.is_empty() {
+                source_file_section.labels.push(eira::Label {
+                    start: Pos { x: col, y: row },
+                    character_count: primary_span.length as usize,
+                    text: self.config.error_name.clone(),
+                    color: Color::default(),
+                });
+            }
+
+            source_file_section.layout();
+
+            let source_line_wrap = SourceLinesWrap {
+                file_id: primary_span.file_id,
+                source_map,
+            };
+            source_file_section.draw(&source_line_wrap, &mut writer)?;
         }
-
-        if self.config.labels.is_empty() {
-            source_file_section.labels.push(eira::Label {
-                start: Pos { x: col, y: row },
-                character_count: primary_span.length as usize,
-                text: self.config.error_name.clone(),
-                color: Color::default(),
-            });
-        }
-
-        source_file_section.layout();
-
-        let source_line_wrap = SourceLinesWrap {
-            file_id: primary_span.file_id,
-            source_map,
-        };
-        source_file_section.draw(&source_line_wrap, &mut writer)?;
 
         if let Some(found_note) = &self.config.note {
             let header = eira::Header {

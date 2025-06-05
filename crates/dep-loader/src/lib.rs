@@ -270,6 +270,27 @@ pub fn parse_single_module(
     Ok(parse_module)
 }
 
+pub fn parse_single_module_from_text(
+    source_map: &mut SourceMap,
+    module_path: &[String],
+    script: &str,
+) -> Result<ParsedAstModule, DependencyError> {
+    let debug = format!("parse module {module_path:?}");
+    let _parse_module_timer = ScopedTimer::new(&debug);
+
+    let mount_name = mount_name_from_path(module_path);
+
+    let file_id = source_map.add_manual_no_id(
+        mount_name,
+        &module_path_to_relative_swamp_file_string(module_path).as_ref(),
+        script,
+    );
+
+    let parse_module = ParseRoot.parse(script.to_string(), file_id)?;
+
+    Ok(parse_module)
+}
+
 impl DependencyParser {
     pub fn parse_local_modules(
         &mut self,
@@ -289,7 +310,7 @@ impl DependencyParser {
                     parsed_module
                 } else if self.already_resolved_modules.contains(module_path_vec) {
                     continue;
-                } else if path == ["core"] {
+                } else if path == ["core"] || path == ["std"] {
                     continue;
                 } else {
                     let parsed_ast_module = parse_single_module(source_map, &path)?;
