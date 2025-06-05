@@ -564,7 +564,7 @@ impl GenericParameter {
     #[must_use]
     pub fn get_type(&self) -> &Type {
         let Self::Type(ty) = self else {
-            panic!("wasn't type")
+            panic!("{}", format!("wasn't type {self:?}"))
         };
         ty
     }
