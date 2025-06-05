@@ -1,11 +1,4 @@
 /*
-use test_log::tracing_subscriber;
-
-pub fn setup_trace() {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_writer(std::io::stderr)
-        .init();
-}
-
+ * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
  */

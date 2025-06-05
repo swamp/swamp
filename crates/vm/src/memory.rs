@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
 use crate::{ALIGNMENT, ALIGNMENT_MASK, ALIGNMENT_REST};
 use std::{alloc, mem, ptr, slice};
 use swamp_vm_types::aligner::align;

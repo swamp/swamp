@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
 use std::path::PathBuf;
 use swamp_test_runner::{TestRunOptions, run_tests};
 

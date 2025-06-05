@@ -2,7 +2,6 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use swamp_vm_test::util::{exec_with_assembly, exec_with_host_function_show_heap};
 #[test_log::test]
 fn emit_string() {

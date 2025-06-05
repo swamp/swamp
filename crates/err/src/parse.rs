@@ -2,7 +2,6 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use crate::{Builder, Report, build_and_print};
 use eira::Kind;
 use source_map_cache::SourceMap;

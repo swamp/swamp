@@ -2,7 +2,6 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 /*
 pub fn overwrite_value(target: &ValueRef, source: Value) {
     if let Value::AnonymousStruct(ref mut target_struct_type_ref, ref mut target_fields) =
