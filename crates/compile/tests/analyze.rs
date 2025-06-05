@@ -1449,7 +1449,7 @@ fn blueprint_add_with_field() {
 
     42.to_float()
 
-	fn shuffle_int_list(mut list : [Int]) -> [Int] {
+    fn shuffle_int_list(mut list : [Int]) -> [Int] {
         a = list.len()
         list
     }

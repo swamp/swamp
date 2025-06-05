@@ -118,7 +118,10 @@ print(23, "\u{1F431}if this works it is \u{1F525}\u{1F60E}!" + "extra")
             let extra_arg = args.get_i32();
             assert_eq!(extra_arg, 23);
             let output = args.get_str();
-            assert_eq!("\u{1F431}if this works it is \u{1F525}\u{1F60E}!extra", output);
+            assert_eq!(
+                "\u{1F431}if this works it is \u{1F525}\u{1F60E}!extra",
+                output
+            );
             eprintln!("print({output})");
         },
     );
