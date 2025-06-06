@@ -22,7 +22,9 @@ Options:
   --repeat <count>        (optional) how many times to rerun each test
   --module <module>       (optional) which module to use, default is `lib`
   -d, --debug             (show a lot of debug)
-  -a, --show-assembly     (show assembly)
+  -s, --show-semantic     (show semantic output before the tests run)
+  -m, --show-modules      (show semantic symbol tables before the tests run)
+  -a, --show-assembly     (show assembly output before the tests run)
   -i, --show-instructions (show Swamp VM instructions when running)
   -h, --help              print this help and exit
 "
@@ -86,6 +88,8 @@ fn main() -> ExitCode {
 
     let show_debug = args.contains(["-d", "--debug"]);
     let show_assembly = args.contains(["-a", "--show-assembly"]);
+    let show_semantic = args.contains(["-s", "--show-semantic"]);
+    let show_modules = args.contains(["-m", "--show-modules"]);
     let show_instructions = args.contains(["-i", "--show-instructions"]);
 
     let step_behavior: StepBehavior = match args
@@ -116,9 +120,9 @@ fn main() -> ExitCode {
             debug_opcodes: show_debug | show_instructions,
             debug_operations: show_debug,
             debug_stats: true,
-            show_semantic: false,
+            show_semantic,
             show_disasm: show_debug | show_assembly,
-            show_modules: false,
+            show_modules,
             step_behaviour: step_behavior,
         },
         &filter_pattern.unwrap_or_default(),

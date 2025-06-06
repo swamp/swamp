@@ -568,6 +568,22 @@ impl Type {
             (Self::VecStorage(element_a, size_a), Self::VecStorage(element_b, size_b)) => {
                 size_a >= size_b && element_a.compatible_with(element_b)
             }
+            (
+                Self::FixedCapacityAndLengthArray(element_a, size_a),
+                Self::DynamicLengthVecView(element_b),
+            ) => element_a.compatible_with(element_b),
+            (Self::VecStorage(storage_element, _size), Self::SliceView(vec_element)) => {
+                vec_element.compatible_with(storage_element)
+            }
+            (Self::VecStorage(storage_element, _size), Self::DynamicLengthVecView(vec_element)) => {
+                vec_element.compatible_with(storage_element)
+            }
+            (Self::SliceView(vec_element), Self::VecStorage(storage_element, _size)) => {
+                vec_element.compatible_with(storage_element)
+            }
+            (Self::DynamicLengthVecView(storage_element), Self::VecStorage(vec_element, _size)) => {
+                vec_element.compatible_with(storage_element)
+            }
 
             (
                 Self::MapStorage(key_a, value_a, size_a),
@@ -603,27 +619,13 @@ impl Type {
             (Self::SliceView(element_a), Self::SliceView(element_b)) => {
                 element_a.compatible_with(element_b)
             }
-            (Self::SliceView(vec_element), Self::VecStorage(storage_element, _size)) => {
-                vec_element.compatible_with(storage_element)
-            }
+
             (
                 Self::SliceView(vec_element),
                 Self::FixedCapacityAndLengthArray(storage_element, _size),
             ) => vec_element.compatible_with(storage_element),
             // TODO: These are not technically the same, so it should probably be in a can_be_converted from, in a special
             // analyze_assignment_like() helper
-            (Self::VecStorage(storage_element, _size), Self::SliceView(vec_element)) => {
-                vec_element.compatible_with(storage_element)
-            }
-
-            (Self::DynamicLengthVecView(storage_element), Self::VecStorage(vec_element, _size)) => {
-                vec_element.compatible_with(storage_element)
-            }
-
-            (Self::VecStorage(storage_element, size_a), Self::VecStorage(vec_element, size_b)) => {
-                size_a >= size_b && vec_element.compatible_with(storage_element)
-            }
-
             (Self::Enum(a), Self::Enum(b)) => a == b,
 
             (Self::NamedStruct(a), Self::NamedStruct(b)) => compare_struct_types(a, b),

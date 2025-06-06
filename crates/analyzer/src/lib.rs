@@ -636,6 +636,10 @@ impl<'a> Analyzer<'a> {
                 self.analyze_variable_reference(&variable.name)?
             }
 
+            swamp_ast::ExpressionKind::ContextAccess => {
+                todo!("context access is not done yet")
+            }
+
             swamp_ast::ExpressionKind::StaticMemberFunctionReference(
                 type_identifier,
                 member_name,
@@ -714,15 +718,15 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                &ast_expression.node,
-                fields,
-                *rest_was_specified,
-                context,
-            )?,
+                    &ast_expression.node,
+                    fields,
+                    *rest_was_specified,
+                    context,
+                )?,
 
-            swamp_ast::ExpressionKind::InPlacementInitCall(function_identifier, arguments) => {
-                info!(?function_identifier, ?arguments, "in placement call");
-                todo!()
+            swamp_ast::ExpressionKind::ContextAccess => {
+                //info!(?function_identifier, ?arguments, "in placement call");
+                todo!("in placement calls not done")
             }
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
@@ -1127,6 +1131,12 @@ impl<'a> Analyzer<'a> {
 
         for item in &chain.postfixes[start_index..] {
             match item {
+                /*
+                swamp_ast::Postfix::AdvancedFunctionCall(..) => {
+                    todo!("AdvancedFunctionCall")
+                }
+
+                 */
                 swamp_ast::Postfix::FieldAccess(field_name) => {
                     let (struct_type_ref, index, return_type) =
                         self.analyze_struct_field(&field_name.clone(), &tv.resolved_type)?;
@@ -1378,8 +1388,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {
-            } else {
+            if let Type::Optional(_) = tv.resolved_type {} else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -2762,6 +2771,12 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::MemberCall(node, _generic_arguments, _regular_args) => {
                     return Err(self.create_err(ErrorKind::CallsCanNotBePartOfChain, node));
                 }
+                /*
+                swamp_ast::Postfix::AdvancedFunctionCall(_, node, ..) => {
+                    return Err(self.create_err(ErrorKind::CallsCanNotBePartOfChain, node));
+                }
+
+                 */
 
                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, _regular_args) => {
                     return Err(self.create_err(ErrorKind::CallsCanNotBePartOfChain, node));

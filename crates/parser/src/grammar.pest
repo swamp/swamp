@@ -448,7 +448,8 @@ destructuring_assignment = { at_least_two_variables_list ~ "=" ~ expression }
 parenthesized = { "(" ~ expression ~ ")" }
 
 term = {
-    placement_term
+    member_call_postfix        // e.g. `.foo()`, or `.bar<T>(…)`
+    | member_access_postfix      // e.g. `.x`
     | static_member_reference
     | enum_literal
     | parenthesized
@@ -462,9 +463,6 @@ term = {
     | interpolated_string
     | lambda
 }
-
-general_function_identifier = { qualified_identifier | static_member_reference }
-placement_term = {"." ~ general_function_identifier ~ function_call_args }
 
 lambda = {
 "|" ~ optional_variable_list ~ "|" ~ expression

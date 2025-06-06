@@ -23,7 +23,7 @@ use swamp_modules::modules::{ModuleRef, Modules};
 use swamp_modules::symtbl::{SymbolTable, SymbolTableRef};
 use swamp_pretty_print::{SourceMapDisplay, SymbolTableDisplay};
 use swamp_program_analyzer::analyze_modules_in_order;
-use swamp_semantic::ProgramState;
+use swamp_semantic::{ProgramState, formal_module_name, pretty_module_name};
 use time_dilation::ScopedTimer;
 use tiny_ver::TinyVersion;
 use tracing::{info, trace};
@@ -724,7 +724,11 @@ pub fn debug_module(symbol_table: &SymbolTable, source_map: &SourceMap) {
         source_map_display: &pretty_printer,
     };
 
-    info!(%symbol_table_display, "{:?}", symbol_table.module_path());
+    info!(
+        "module: {}{}",
+        formal_module_name(&symbol_table.module_path()),
+        symbol_table_display
+    );
 }
 
 pub fn compile_string(script: &str) -> Result<(Program, ModuleRef, SourceMap), ScriptResolveError> {

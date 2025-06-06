@@ -4,6 +4,7 @@
  */
 use seq_map::SeqMap;
 use source_map_cache::SourceMapLookup;
+use source_map_node::Node;
 use std::fmt::{Display, Formatter};
 use swamp_modules::modules::{ModuleRef, Modules};
 use swamp_modules::symtbl::{FuncDef, Symbol, SymbolTable};
@@ -13,7 +14,8 @@ use swamp_semantic::{
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
 };
 use swamp_types::{
-    AliasType, AnonymousStructType, EnumType, NamedStructType, Signature, Type, TypeForParameter,
+    AliasType, AnonymousStructType, EnumType, NamedStructType, Signature, StructLikeType, Type,
+    TypeForParameter,
 };
 use yansi::{Color, Paint};
 
@@ -75,14 +77,14 @@ impl SourceMapDisplay<'_> {
         let tab_str = "..".repeat(tabs);
 
         let color = Self::get_color_from_symbol(symbol);
-        write!(f, "{tab_str}{}: ", name.paint(color))?;
+        write!(f, "{tab_str}{} ", name.paint(color))?;
 
         match symbol {
-            Symbol::Type(ty) => self.show_type(f, ty, tabs + 1),
+            Symbol::Type(ty) => self.show_type_except_name(f, ty, tabs + 1),
             Symbol::Module(module_ref) => {
                 write!(f, "{module_ref:?}")
             }
-            Symbol::Constant(constant_ref) => self.show_constant(f, constant_ref, tabs),
+            Symbol::Constant(constant_ref) => self.show_constant_content(f, constant_ref, tabs),
             Symbol::FunctionDefinition(func_def) => match func_def {
                 FuncDef::Internal(internal_fn) => self.show_internal_function(f, internal_fn, tabs),
                 FuncDef::Intrinsic(intrinsic_fn) => {
@@ -194,14 +196,14 @@ impl SourceMapDisplay<'_> {
     ) -> std::fmt::Result {
         for (_struct_name, struct_type) in structs {
             writeln!(f, "{}: ", struct_type.assigned_name.yellow())?;
-            self.show_struct(f, struct_type, tabs)?;
+            self.show_named_struct_type(f, struct_type, tabs)?;
         }
         Ok(())
     }
 
     /// # Errors
     ///
-    pub fn show_struct(
+    pub fn show_named_struct_type(
         &self,
         f: &mut Formatter<'_>,
         struct_type: &NamedStructType,
@@ -209,12 +211,12 @@ impl SourceMapDisplay<'_> {
     ) -> std::fmt::Result {
         write!(f, "{} ", struct_type.assigned_name.bright_magenta())?;
 
-        self.show_anon_struct(f, &struct_type.anon_struct_type, tabs)?;
+        self.show_anon_struct_type(f, &struct_type.anon_struct_type, tabs)?;
 
         Ok(())
     }
 
-    pub fn show_anon_struct(
+    pub fn show_anon_struct_type(
         &self,
         f: &mut Formatter<'_>,
         anon_struct_type: &AnonymousStructType,
@@ -263,6 +265,21 @@ impl SourceMapDisplay<'_> {
             constant.assigned_name.blue(),
             constant.resolved_type.bright_yellow()
         )?;
+
+        self.show_expression(f, &constant.expr, tabs)?;
+
+        Ok(())
+    }
+
+    /// # Errors
+    ///
+    pub fn show_constant_content(
+        &self,
+        f: &mut Formatter<'_>,
+        constant: &ConstantRef,
+        tabs: usize,
+    ) -> std::fmt::Result {
+        write!(f, ": {} = ", constant.resolved_type.bright_yellow())?;
 
         self.show_expression(f, &constant.expr, tabs)?;
 
@@ -404,6 +421,13 @@ impl SourceMapDisplay<'_> {
             ExpressionKind::Literal(basic_literal) => {
                 self.show_basic_literal(f, basic_literal, tabs)
             }
+            ExpressionKind::AnonymousStructLiteral(struct_literal) => self
+                .show_named_struct_literal(
+                    f,
+                    &struct_literal.struct_like_type,
+                    &struct_literal.source_order_expressions,
+                    tabs,
+                ),
             ExpressionKind::Option(_) => {
                 write!(f, "Option()")
             }
@@ -456,6 +480,7 @@ impl SourceMapDisplay<'_> {
                 Self::new_line_and_tab(f, tabs + 1)?;
                 self.show_arguments(f, arguments, tabs + 1)
             }
+
             _ => todo!("not implemented {:?}", expr.kind),
         }
     }
@@ -503,13 +528,13 @@ impl SourceMapDisplay<'_> {
                 write!(f, "]")
             }
             Literal::InitializerPairList(_slice_pair_type, pairs) => {
-                write!(f, "[|")?;
+                write!(f, "[")?;
                 for (key, value) in pairs {
                     self.show_expression(f, key, tabs + 1)?;
                     write!(f, "{}", ":".bright_blue())?;
                     self.show_expression(f, value, tabs + 1)?;
                 }
-                write!(f, "|]")
+                write!(f, "]")
             }
         }
     }
@@ -620,7 +645,7 @@ impl SourceMapDisplay<'_> {
             }
 
             Type::NamedStruct(struct_ref) => write!(f, "{}", struct_ref.assigned_name.blue()),
-            Type::AnonymousStruct(struct_ref) => self.show_anon_struct(f, struct_ref, tabs),
+            Type::AnonymousStruct(struct_ref) => self.show_anon_struct_type(f, struct_ref, tabs),
 
             Type::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name.bright_cyan()),
             Type::Function(signature) => write!(f, "function {signature}"),
@@ -661,8 +686,54 @@ impl SourceMapDisplay<'_> {
                 write!(f, ")")
             }
 
-            Type::NamedStruct(struct_ref) => self.show_struct(f, struct_ref, tabs),
-            Type::AnonymousStruct(struct_ref) => self.show_anon_struct(f, struct_ref, tabs),
+            Type::NamedStruct(struct_ref) => self.show_named_struct_type(f, struct_ref, tabs),
+            Type::AnonymousStruct(struct_ref) => self.show_anon_struct_type(f, struct_ref, tabs),
+
+            Type::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name),
+            Type::Function(signature) => write!(f, "function {signature}"),
+            Type::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
+            Type::MutableReference(base_type) => {
+                write!(f, "{}", "mut ref".red());
+                self.show_type_short(f, base_type, tabs)
+            }
+            Type::SliceView(_) => todo!(),
+            Type::DynamicLengthVecView(_) => todo!(),
+            Type::VecStorage(_, _) => todo!(),
+            Type::FixedCapacityAndLengthArray(_, _) => todo!(),
+            Type::DynamicLengthMapView(_, _) => todo!(),
+            Type::MapStorage(_, _, _) => todo!(),
+        }
+    }
+
+    fn show_type_except_name(
+        &self,
+        f: &mut Formatter,
+        resolved_type: &Type,
+        tabs: usize,
+    ) -> std::fmt::Result {
+        match resolved_type {
+            Type::Int => write!(f, "{}", "Int".bright_blue()),
+            Type::Float => write!(f, "{}", "Float".bright_blue()),
+            Type::String => write!(f, "{}", "String".bright_blue()),
+            Type::Bool => write!(f, "{}", "Bool".bright_blue()),
+            Type::Unit => write!(f, "{}", "()".bright_blue()),
+            Type::Range(_) => write!(f, "Range"),
+
+            Type::Tuple(tuple_type) => {
+                write!(f, "(")?;
+                for (index, item_type) in tuple_type.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, "{}", ", ".bright_black())?;
+                    }
+                    self.show_type(f, item_type, tabs + 1)?;
+                }
+                write!(f, ")")
+            }
+
+            Type::NamedStruct(struct_ref) => {
+                self.show_anon_struct_type(f, &struct_ref.anon_struct_type, tabs)
+            }
+            Type::AnonymousStruct(struct_ref) => self.show_anon_struct_type(f, struct_ref, tabs),
 
             Type::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name),
             Type::Function(signature) => write!(f, "function {signature}"),
@@ -686,6 +757,7 @@ impl SourceMapDisplay<'_> {
         external_function: &ExternalFunctionDefinition,
         tabs: usize,
     ) -> std::fmt::Result {
+        write!(f, " [{}] ", external_function.id);
         self.show_signature(f, &external_function.signature, tabs)
     }
 
@@ -889,22 +961,17 @@ impl SourceMapDisplay<'_> {
         }
     }
 
-    /*
     fn show_struct_literal(
         &self,
         f: &mut Formatter,
-        struct_instantiation: &StructInstantiation,
+        struct_like_type: &StructLikeType,
+        source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         tabs: usize,
     ) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {{",
-            struct_instantiation.struct_type_ref.assigned_name.green()
-        )?;
-        for (index, expression) in &struct_instantiation.source_order_expressions {
-            let borrow = struct_instantiation.struct_type_ref.clone();
-            let (name, _struct_field) = borrow
-                .anon_struct_type
+        write!(f, "{{",)?;
+        for (index, some_node, expression) in source_order_expressions {
+            let (name, _struct_field) = struct_like_type
+                .anonymous_struct_type
                 .field_name_sorted_fields
                 .iter()
                 .collect::<Vec<_>>()[*index];
@@ -920,7 +987,27 @@ impl SourceMapDisplay<'_> {
         Ok(())
     }
 
-     */
+    fn show_named_struct_literal(
+        &self,
+        f: &mut Formatter,
+        struct_like_type: &StructLikeType,
+        source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
+        tabs: usize,
+    ) -> std::fmt::Result {
+        write!(f, "{}", struct_like_type.assigned_name.green())?;
+
+        self.show_struct_literal(f, struct_like_type, source_order_expressions, tabs)
+    }
+
+    fn show_named_struct_literal_content(
+        &self,
+        f: &mut Formatter,
+        struct_like_type: &StructLikeType,
+        source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
+        tabs: usize,
+    ) -> std::fmt::Result {
+        self.show_struct_literal(f, struct_like_type, source_order_expressions, tabs)
+    }
 
     fn show_type_variable(
         &self,

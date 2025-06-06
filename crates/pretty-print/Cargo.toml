@@ -11,6 +11,7 @@ swamp-semantic = { path = "../semantic", version = "0.1.16" }
 swamp-modules = { path = "../modules", version = "0.1.16" }
 swamp-types = { path = "../types", version = "0.1.16" }
 source-map-cache = "0.0.2"
+source-map-node = "0.0.1"
 
 tracing = "0.1.40"
 seq-map = "0.0.13"
