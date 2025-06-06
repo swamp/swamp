@@ -437,7 +437,7 @@ pub enum ExpressionKind {
     PostfixChain(PostfixChain),
 
     // References
-    ContextAccess, // Lone dot
+    ContextAccess, // Context/Lone/Bare-dot
     VariableReference(Variable),
     ConstantReference(QualifiedConstantIdentifier),
     StaticMemberFunctionReference(QualifiedTypeIdentifier, Node),

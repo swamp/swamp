@@ -1874,6 +1874,10 @@ impl AstParser {
         ))
     }
 
+    fn parse_context_access(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
+        Ok(self.create_expr(ExpressionKind::ContextAccess, pair))
+    }
+
     fn parse_static_member_reference(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
         let mut inner = pair.clone().into_inner();
 
@@ -1932,6 +1936,7 @@ impl AstParser {
             Rule::interpolated_string => self.parse_interpolated_string(sub),
 
             Rule::lambda => self.parse_lambda(sub),
+            Rule::context_access => self.parse_context_access(sub),
 
             _ => {
                 Err(self

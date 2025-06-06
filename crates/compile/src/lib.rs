@@ -21,9 +21,9 @@ use swamp_dep_loader::{
 use swamp_error_report::{ScriptResolveError, prelude::show_script_resolve_error};
 use swamp_modules::modules::{ModuleRef, Modules};
 use swamp_modules::symtbl::{SymbolTable, SymbolTableRef};
-use swamp_pretty_print::{SourceMapDisplay, SymbolTableDisplay};
+use swamp_pretty_print::{ImplsDisplay, SourceMapDisplay, SymbolTableDisplay};
 use swamp_program_analyzer::analyze_modules_in_order;
-use swamp_semantic::{ProgramState, formal_module_name, pretty_module_name};
+use swamp_semantic::{AssociatedImpls, ProgramState, formal_module_name, pretty_module_name};
 use time_dilation::ScopedTimer;
 use tiny_ver::TinyVersion;
 use tracing::{info, trace};
@@ -702,6 +702,10 @@ pub fn bootstrap_and_compile(
         debug_all_modules(&program.modules, source_map);
     }
 
+    if options.show_semantic {
+        debug_all_impl_functions(&program.state.associated_impls, source_map);
+    }
+
     Ok(program)
 }
 
@@ -729,6 +733,23 @@ pub fn debug_module(symbol_table: &SymbolTable, source_map: &SourceMap) {
         formal_module_name(&symbol_table.module_path()),
         symbol_table_display
     );
+}
+
+fn debug_all_impl_functions(all_impls: &AssociatedImpls, source_map: &mut SourceMap) {
+    let source_map_lookup = SourceMapWrapper {
+        source_map,
+        current_dir: current_dir().unwrap(),
+    };
+    let pretty_printer = SourceMapDisplay {
+        source_map: &source_map_lookup,
+    };
+
+    let symbol_table_display = ImplsDisplay {
+        all_impls,
+        source_map: &pretty_printer,
+    };
+
+    info!("impls: {}", symbol_table_display);
 }
 
 pub fn compile_string(script: &str) -> Result<(Program, ModuleRef, SourceMap), ScriptResolveError> {

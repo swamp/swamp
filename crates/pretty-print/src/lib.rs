@@ -130,6 +130,17 @@ impl Display for SymbolTableDisplay<'_> {
     }
 }
 
+pub struct ImplsDisplay<'a> {
+    pub all_impls: &'a AssociatedImpls,
+    pub source_map: &'a SourceMapDisplay<'a>,
+}
+
+impl Display for ImplsDisplay<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.source_map.show_impls(f, self.all_impls, 0)
+    }
+}
+
 pub struct ExpressionDisplay<'a> {
     pub expression: &'a Expression,
     pub source_map_display: &'a SourceMapDisplay<'a>,
@@ -139,17 +150,6 @@ impl Display for ExpressionDisplay<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.source_map_display
             .show_expression(f, self.expression, 0)
-    }
-}
-
-pub struct ImplsDisplay<'a> {
-    pub all_impls: &'a AssociatedImpls,
-    pub source_map: &'a SourceMapDisplay<'a>,
-}
-
-impl Display for ImplsDisplay<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.source_map.show_impls(f, self.all_impls, 0)
     }
 }
 
@@ -525,7 +525,22 @@ impl SourceMapDisplay<'_> {
                 write!(f, "{}", b.bright_white())
             }
             Literal::EnumVariantLiteral(enum_type, variant, data) => {
-                write!(f, "{:?}::{:?}", enum_type.blue(), data.green())
+                if let EnumLiteralData::Nothing = data {
+                    write!(
+                        f,
+                        "{}::{}",
+                        enum_type.assigned_name.yellow(),
+                        variant.common().assigned_name.blue()
+                    )
+                } else {
+                    write!(
+                        f,
+                        "{}::{} {:?}",
+                        enum_type.assigned_name.yellow(),
+                        variant.common().assigned_name.blue(),
+                        data.green()
+                    )
+                }
             }
             Literal::TupleLiteral(_tuple_type, expressions) => {
                 write!(f, "(")?;
@@ -533,15 +548,18 @@ impl SourceMapDisplay<'_> {
                 write!(f, ")")
             }
             Literal::InitializerList(_slice_type, expressions) => {
-                write!(f, "[")?;
+                write!(f, "{}[", "Initializer".green())?;
                 self.show_expressions(f, expressions, tabs + 1)?;
                 write!(f, "]")
             }
             Literal::InitializerPairList(_slice_pair_type, pairs) => {
-                write!(f, "[")?;
-                for (key, value) in pairs {
+                write!(f, "{}[", "InitializerPairs".green())?;
+                for (index, (key, value)) in pairs.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
                     self.show_expression(f, key, tabs + 1)?;
-                    write!(f, "{}", ":".bright_blue())?;
+                    write!(f, " {} ", ":".bright_blue())?;
                     self.show_expression(f, value, tabs + 1)?;
                 }
                 write!(f, "]")
@@ -664,7 +682,7 @@ impl SourceMapDisplay<'_> {
                 write!(f, "{}", "?".yellow())
             }
             Type::MutableReference(base_type) => {
-                write!(f, "{}", "mut ref".red())?;
+                write!(f, "{}", "&".red())?;
                 self.show_type_short(f, base_type, tabs)
             }
             Type::SliceView(a) => write!(f, "[{a}]"),
@@ -749,7 +767,7 @@ impl SourceMapDisplay<'_> {
             Type::Function(signature) => write!(f, "function {signature}"),
             Type::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
             Type::MutableReference(base_type) => {
-                write!(f, "{}", "mut ref".red());
+                write!(f, "{}", "&".red());
                 self.show_type_short(f, base_type, tabs)
             }
             Type::SliceView(_) => todo!(),
@@ -792,7 +810,7 @@ impl SourceMapDisplay<'_> {
     ) -> std::fmt::Result {
         write!(
             f,
-            "{}{}:",
+            "{}{}: ",
             if parameter_type.is_mutable {
                 "mut ".red()
             } else {
@@ -877,7 +895,12 @@ impl SourceMapDisplay<'_> {
         Ok(())
     }
 
-    fn show_function(&self, f: &mut Formatter, func: &Function, tabs: usize) -> std::fmt::Result {
+    pub fn show_function(
+        &self,
+        f: &mut Formatter,
+        func: &Function,
+        tabs: usize,
+    ) -> std::fmt::Result {
         match func {
             Function::Internal(internal) => self.show_internal_function(f, internal, tabs),
             Function::External(external) => {

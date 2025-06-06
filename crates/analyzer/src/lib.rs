@@ -725,8 +725,7 @@ impl<'a> Analyzer<'a> {
             )?,
 
             swamp_ast::ExpressionKind::ContextAccess => {
-                //info!(?function_identifier, ?arguments, "in placement call");
-                todo!("in placement calls not done")
+                todo!("lone dot not implemented yet")
             }
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {

@@ -447,7 +447,8 @@ destructuring_assignment = { at_least_two_variables_list ~ "=" ~ expression }
 parenthesized = { "(" ~ expression ~ ")" }
 
 term = {
-static_member_reference
+context_access
+| static_member_reference
 | enum_literal
 | parenthesized
 | basic_literal // must be before identifier_reference
@@ -461,6 +462,10 @@ static_member_reference
 | lambda
 
 }
+
+// “@” is a temporary placeholder for context access.
+// In a future update, this will be removed so you can write “.x” or “.calling(…)” directly.
+context_access = @{ "@" }
 
 lambda = {
 "|" ~ optional_variable_list ~ "|" ~ expression
