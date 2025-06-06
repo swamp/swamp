@@ -267,6 +267,7 @@ impl Vm {
         let key_size = u16_from_u8s!(key_size_lower, key_size_upper);
         let tuple_size = u16_from_u8s!(tuple_size_lower, tuple_size_upper);
         let capacity = logical_limit.next_power_of_two();
+        debug_assert_ne!(capacity, 0);
         assert!(Self::is_power_of_two(capacity as usize));
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {

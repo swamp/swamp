@@ -12,7 +12,6 @@ use swamp_semantic::{CompoundOperatorKind, Expression, TargetAssignmentLocation,
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
-use tracing::info;
 
 impl CodeBuilder<'_> {
     /// Emits code for an assignment operation (lhs = rhs).
@@ -87,7 +86,6 @@ impl CodeBuilder<'_> {
                 offset: MemoryOffset(0),
                 ty: target_register.ty,
             };
-            info!(?variable, "assign variable");
             self.emit_expression_into_target_memory(
                 &memory_location,
                 expression,

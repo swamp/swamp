@@ -48,17 +48,18 @@ impl SourceMapDisplay<'_> {
         impls: &AssociatedImpls,
         tabs: usize,
     ) -> std::fmt::Result {
-        writeln!(f)?;
         Self::new_line_and_tab(f, tabs)?;
-        for (type_number, associated_impl) in &impls.functions {
-            writeln!(f, "{type_number}: ")?;
+        for (ty, associated_impl) in &impls.functions {
+            writeln!(f)?;
+            Self::new_line_and_tab(f, tabs)?;
+            write!(f, "{ty}: ")?;
 
             for (name, associated_fn) in &associated_impl.functions {
+                writeln!(f)?;
                 Self::new_line_and_tab(f, tabs + 1)?;
                 write!(f, "{}:", name.blue())?;
 
                 self.show_function(f, associated_fn, tabs + 1)?;
-                writeln!(f)?;
             }
         }
 
@@ -414,12 +415,6 @@ impl SourceMapDisplay<'_> {
             ExpressionKind::VariableReassignment(_, _) => {
                 write!(f, "VariableReassignment()")
             }
-            /*
-            ExpressionKind::StructInstantiation(struct_literal) => {
-                self.show_struct_literal(f, struct_literal, tabs)
-            }
-
-             */
             ExpressionKind::Literal(basic_literal) => {
                 self.show_basic_literal(f, basic_literal, tabs)
             }
@@ -527,7 +522,7 @@ impl SourceMapDisplay<'_> {
                 write!(f, "{}", b.bright_white())
             }
             Literal::EnumVariantLiteral(enum_type, variant, data) => {
-                if let EnumLiteralData::Nothing = data {
+                if matches!(data, EnumLiteralData::Nothing) {
                     write!(
                         f,
                         "{}::{}",
@@ -552,6 +547,7 @@ impl SourceMapDisplay<'_> {
             Literal::InitializerList(_slice_type, expressions) => {
                 write!(f, "{}[", "Initializer".green())?;
                 self.show_expressions(f, expressions, tabs + 1)?;
+                Self::new_line_and_tab(f, tabs)?;
                 write!(f, "]")
             }
             Literal::InitializerPairList(_slice_pair_type, pairs) => {
@@ -576,16 +572,9 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         for (i, expr) in expressions.iter().enumerate() {
-            if i > 0 {
-                writeln!(f, ", ")?;
-            }
+            Self::new_line_and_tab(f, tabs)?;
             self.show_expression(f, expr, tabs + 1)?;
         }
-
-        if !expressions.is_empty() {
-            writeln!(f)?;
-        }
-
         Ok(())
     }
 
@@ -857,7 +846,7 @@ impl SourceMapDisplay<'_> {
     }
 
     pub fn new_line_and_tab(f: &mut Formatter, tabs: usize) -> std::fmt::Result {
-        let tab_str = "..".repeat(tabs);
+        let tab_str = " ".repeat(tabs);
         writeln!(f)?;
         write!(f, "{tab_str}")
     }
@@ -869,7 +858,7 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         self.show_signature(f, &internal_func.signature, tabs)?;
-        Self::new_line_and_tab(f, tabs)?;
+        //Self::new_line_and_tab(f, tabs)?;
         self.show_expression(f, &internal_func.body, tabs)
     }
 
@@ -1003,7 +992,7 @@ impl SourceMapDisplay<'_> {
                 .collect::<Vec<_>>()[*index];
             Self::new_line_and_tab(f, tabs + 1)?;
             write!(f, "{}: ", name.yellow())?;
-            self.show_expression(f, expression, tabs)?;
+            self.show_expression(f, expression, tabs + 1)?;
             write!(f, "{}", ", ".white())?;
         }
 
@@ -1020,7 +1009,7 @@ impl SourceMapDisplay<'_> {
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         tabs: usize,
     ) -> std::fmt::Result {
-        write!(f, "{}", struct_like_type.assigned_name.green())?;
+        write!(f, "{} ", struct_like_type.assigned_name.green())?;
 
         self.show_struct_literal(f, struct_like_type, source_order_expressions, tabs)
     }

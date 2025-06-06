@@ -101,9 +101,10 @@ impl CodeBuilder<'_> {
         );
         let key_frame_place = key_frame_location.vm_type().frame_placed_type().unwrap();
 
-        let value_target_register = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(u32_type()), "key temp");
+        let value_target_register = self.temp_registers.allocate(
+            VmType::new_unknown_placement(key_value_tuple_type.fields[1].ty.clone()),
+            "key temp",
+        );
 
         for (key_expr, value_expr) in initializer_pair_list_expressions {
             let initializer_pair_node = &key_expr.node;
