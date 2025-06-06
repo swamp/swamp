@@ -385,11 +385,13 @@ impl SourceMapDisplay<'_> {
                 write!(f, "UnaryOp()")
             }
             ExpressionKind::PostfixChain(base_expr, postfixes) => {
+                write!(f, "PostfixChain[| ")?;
                 self.show_start_chain(f, base_expr, tabs)?;
                 for postfix in postfixes {
-                    write!(f, " . ")?;
+                    write!(f, " | ")?;
                     self.show_postfix(f, postfix, tabs)?;
                 }
+                write!(f, "|]")?;
                 Ok(())
             }
             ExpressionKind::CoerceOptionToBool(_) => {
@@ -977,20 +979,11 @@ impl SourceMapDisplay<'_> {
         location: &SingleLocationExpression,
         tabs: usize,
     ) -> std::fmt::Result {
-        /*
-                pub kind: SingleLocationExpressionKind,
-        pub node: Node,
-        pub ty: Type,
-
-        pub starting_variable: VariableRef,
-        pub access_chain: Vec<LocationAccess>,
-             */
-
         self.show_variable(f, &location.starting_variable)?;
         //  self.show_type(f, &location.ty, tabs);
         match location.kind {
-            MutableReferenceKind::MutStructFieldRef(..) => write!(f, "mut_struct_field"),
-            MutableReferenceKind::MutVariableRef => write!(f, "mut_var"),
+            MutableReferenceKind::MutStructFieldRef(..) => write!(f, "(&field)"),
+            MutableReferenceKind::MutVariableRef => write!(f, "(&var)"),
         }
     }
 
