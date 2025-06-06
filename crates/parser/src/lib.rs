@@ -11,14 +11,12 @@ use pest_derive::Parser;
 use std::iter::Peekable;
 use std::str::Chars;
 use swamp_ast::{
-    AssignmentOperatorKind, Attribute, BinaryOperatorKind, CompoundOperator, CompoundOperatorKind,
-    Definition, DefinitionKind, EnumVariantLiteral, Expression, ExpressionKind, FieldExpression,
-    FieldName, ForPattern, ForVar, FunctionDeclaration, FunctionWithBody, ImportItems,
-    IterableExpression, LocalConstantIdentifier, LocalIdentifier, LocalTypeIdentifier,
-    LocalTypeIdentifierWithOptionalTypeVariables, Mod, Module, NamedStructDef, Node, Parameter,
-    Pattern, PatternElement, QualifiedIdentifier, QualifiedTypeIdentifier, RangeMode,
-    SpanWithoutFileId, StructTypeField, Type, TypeForParameter, TypeVariable, Use, Variable,
-    VariableBinding, prelude::*,
+    AssignmentOperatorKind, BinaryOperatorKind, CompoundOperator, CompoundOperatorKind,
+    EnumVariantLiteral, ExpressionKind, FieldExpression, FieldName, ForPattern, ForVar,
+    ImportItems, IterableExpression, LocalConstantIdentifier,
+    LocalTypeIdentifierWithOptionalTypeVariables, Mod, NamedStructDef, PatternElement,
+    QualifiedIdentifier, RangeMode, SpanWithoutFileId, StructTypeField, TypeForParameter,
+    TypeVariable, VariableBinding, prelude::*,
 };
 use swamp_ast::{AttributeLiteralKind, Function};
 use swamp_ast::{GenericParameter, LiteralKind};
@@ -613,76 +611,99 @@ impl AstParser {
 
     #[allow(clippy::too_many_lines)]
     fn parse_postfix_expression(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
-        debug_assert_eq!(pair.as_rule(), Rule::postfix);
+        assert_eq!(pair.as_rule(), Rule::postfix);
         let mut inner = pair.clone().into_inner();
 
         let primary_pair = inner.next().ok_or_else(|| {
             self.create_error_pair(SpecificError::UnexpectedPostfixOperator, pair)
         })?;
         let start_expr = self.parse_term(&primary_pair)?;
+        //info!(?start_expr, "start");
+        let mut postfixes = Vec::new();
+        if inner.len() == 0 {
+            return Ok(start_expr);
+        }
 
-        let (mut base, mut postfixes) = match start_expr.kind {
-            ExpressionKind::PostfixChain(ref chain)
-                if matches!(chain.base.kind, ExpressionKind::ContextAccess) =>
-            {
-                (chain.base.clone(), chain.postfixes.clone())
-            }
-            _ => (Box::new(start_expr), Vec::new()),
-        };
+        for op_pair in inner.clone() {
+            //info!(rule=?op_pair.as_rule(), "..continuing chain");
+            match op_pair.as_rule() {
+                Rule::postfix_op => {
+                    let mut sub_inner = op_pair.clone().into_inner();
+                    let child = sub_inner.next().ok_or_else(|| {
+                        self.create_error_pair(SpecificError::UnexpectedPostfixOperator, &op_pair)
+                    })?;
 
-        for op_pair in inner {
-            debug_assert_eq!(op_pair.as_rule(), Rule::postfix_op);
-            let mut sub_inner = op_pair.clone().into_inner();
-            let child = sub_inner.next().ok_or_else(|| {
-                self.create_error_pair(SpecificError::UnexpectedPostfixOperator, &op_pair)
-            })?;
+                    match child.as_rule() {
+                        Rule::unwrap_postfix => {
+                            postfixes
+                                .push(Postfix::OptionalChainingOperator(self.to_node(&op_pair)));
+                        }
 
-            match child.as_rule() {
-                Rule::unwrap_postfix => {
-                    postfixes.push(Postfix::OptionalChainingOperator(self.to_node(&op_pair)));
-                }
-                Rule::none_coalesce_postfix => {
-                    let mut postfix_inner = Self::convert_into_iterator(&child);
-                    let expr_pair = postfix_inner.next().expect("must have following");
-                    let default_expression = self.parse_expression(&expr_pair)?;
-                    postfixes.push(Postfix::NoneCoalescingOperator(default_expression));
-                }
-                Rule::function_call_postfix => {
-                    let (maybe_generics, args) = self.parse_function_call_postfix(&child)?;
-                    let node = self.to_node(&op_pair);
-                    postfixes.push(Postfix::FunctionCall(node, maybe_generics, args));
-                }
-                Rule::member_call_postfix => {
-                    let (member_identifier, maybe_generics, args) =
-                        self.parse_member_call_postfix(&child)?;
-                    postfixes.push(Postfix::MemberCall(
-                        member_identifier.0,
-                        maybe_generics,
-                        args,
-                    ));
-                }
-                Rule::member_access_postfix => {
-                    let mut inner2 = child.into_inner();
-                    let dot_id = Self::next_pair(&mut inner2)?;
-                    let identifier = self.parse_dot_identifier(&dot_id)?;
-                    postfixes.push(Postfix::FieldAccess(identifier.0));
-                }
-                Rule::subscript_postfix => {
-                    let mut arr_inner = child.clone().into_inner();
-                    let index_pair = arr_inner.next().expect("must have following");
-                    let index_expr = self.parse_expression(&index_pair)?;
-                    postfixes.push(Postfix::Subscript(index_expr));
+                        Rule::none_coalesce_postfix => {
+                            let mut postfix_inner = Self::convert_into_iterator(&child);
+                            let expr_pair = postfix_inner.next().expect("must have following");
+                            let default_expression = self.parse_expression(&expr_pair)?;
+                            postfixes.push(Postfix::NoneCoalescingOperator(default_expression));
+                        }
+
+                        Rule::function_call_postfix => {
+                            let (maybe_generics, args) =
+                                self.parse_function_call_postfix(&child)?;
+                            let node = self.to_node(&op_pair);
+                            postfixes.push(Postfix::FunctionCall(node, maybe_generics, args));
+                        }
+
+                        Rule::member_call_postfix => {
+                            let (member_identifier, maybe_generics, args) =
+                                self.parse_member_call_postfix(&child)?;
+
+                            postfixes.push(Postfix::MemberCall(
+                                member_identifier.0,
+                                maybe_generics,
+                                args,
+                            ));
+                        }
+
+                        Rule::member_access_postfix => {
+                            let mut inner = child.into_inner();
+                            let dot_id = Self::next_pair(&mut inner)?;
+                            let identifier = self.parse_dot_identifier(&dot_id)?;
+                            postfixes.push(Postfix::FieldAccess(identifier.0));
+                        }
+
+                        Rule::subscript_postfix => {
+                            let mut arr_inner = child.clone().into_inner();
+                            let index_pair = arr_inner.next().ok_or_else(|| {
+                                self.create_error_pair(
+                                    SpecificError::UnexpectedPostfixOperator,
+                                    &child,
+                                )
+                            })?;
+                            let index_expr = self.parse_expression(&index_pair)?;
+                            postfixes.push(Postfix::Subscript(index_expr));
+                        }
+
+                        _ => {
+                            return Err(self.create_error_pair(
+                                SpecificError::UnexpectedPostfixOperator,
+                                &child,
+                            ));
+                        }
+                    }
                 }
                 _ => {
                     return Err(
-                        self.create_error_pair(SpecificError::UnexpectedPostfixOperator, &child)
+                        self.create_error_pair(SpecificError::UnexpectedPostfixOperator, &op_pair)
                     );
                 }
             }
         }
 
         Ok(self.create_expr(
-            ExpressionKind::PostfixChain(PostfixChain { base, postfixes }),
+            ExpressionKind::PostfixChain(PostfixChain {
+                base: Box::from(start_expr),
+                postfixes,
+            }),
             pair,
         ))
     }
@@ -1907,9 +1928,8 @@ impl AstParser {
             Rule::anonymous_struct_literal => self.parse_anonymous_struct_literal(sub),
             Rule::initializer_list => self.parse_initializer_list_literal(sub),
             Rule::initializer_pair_list => self.parse_initializer_pair_list(sub),
+
             Rule::interpolated_string => self.parse_interpolated_string(sub),
-            Rule::member_access_postfix => self.parse_lone_dot_member_access(sub),
-            Rule::member_call_postfix => self.parse_lone_dot_member_call(sub),
 
             Rule::lambda => self.parse_lambda(sub),
 
@@ -2931,51 +2951,5 @@ impl AstParser {
             }
             _ => panic!("unexpected meta_value {:?}", pair.as_rule()),
         }
-    }
-
-    fn parse_lone_dot_member_access(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
-        let mut inner = pair.clone().into_inner();
-        let dot_id = Self::next_pair(&mut inner)?;
-        let field_name = self.parse_dot_identifier(&dot_id)?;
-        let base_expr = Expression {
-            kind: ExpressionKind::ContextAccess,
-            node: Node::default(),
-        };
-        let postfixes = vec![Postfix::FieldAccess(field_name.0)];
-        let chain = ExpressionKind::PostfixChain(PostfixChain {
-            base: Box::new(base_expr),
-            postfixes,
-        });
-        Ok(self.create_expr(chain, pair))
-    }
-
-    fn parse_lone_dot_member_call(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
-        let mut inner = pair.clone().into_inner();
-        let member_access = Self::next_pair(&mut inner)?;
-        debug_assert_eq!(member_access.as_rule(), Rule::member_access_postfix);
-        let mut ma_inner = member_access.clone().into_inner();
-        let dot_id = Self::next_pair(&mut ma_inner)?;
-        let method_ident = self.parse_dot_identifier(&dot_id)?;
-
-        let mut generic_args: Option<Vec<GenericParameter>> = None;
-        if let Some(peeked) = inner.peek() {
-            if peeked.as_rule() == Rule::generic_arguments {
-                let ga_pair = Self::next_pair(&mut inner)?;
-                generic_args = Some(self.parse_generic_arguments(&ga_pair)?);
-            }
-        }
-        let args_pair = Self::next_pair(&mut inner)?;
-        let args = self.parse_function_call_arguments(&args_pair)?;
-
-        let base_expr = Expression {
-            kind: ExpressionKind::ContextAccess,
-            node: Node::default(),
-        };
-        let postfixes = vec![Postfix::MemberCall(method_ident.0, generic_args, args)];
-        let chain = ExpressionKind::PostfixChain(PostfixChain {
-            base: Box::new(base_expr),
-            postfixes,
-        });
-        Ok(self.create_expr(chain, pair))
     }
 }

@@ -480,8 +480,18 @@ impl SourceMapDisplay<'_> {
                 Self::new_line_and_tab(f, tabs + 1)?;
                 self.show_arguments(f, arguments, tabs + 1)
             }
-
-            _ => todo!("not implemented {:?}", expr.kind),
+            ExpressionKind::HostCall(call, arguments) => {
+                write!(f, "host_call {} '{}'", call.id, call.assigned_name)?;
+                Self::new_line_and_tab(f, tabs + 1)?;
+                self.show_arguments(f, arguments, tabs + 1)
+            }
+            ExpressionKind::Lambda(..) => {
+                write!(f, "lambda")
+            }
+            ExpressionKind::BorrowMutRef(x) => {
+                write!(f, "&")?;
+                self.show_location(f, x, tabs)
+            }
         }
     }
 
@@ -570,26 +580,26 @@ impl SourceMapDisplay<'_> {
                 write!(f, ".{}", name.bright_blue())
             }
             PostfixKind::SliceViewSubscript(slice_type, index_expr) => {
-                todo!()
+                write!(f, "[")?;
+                self.show_expression(f, index_expr, tabs)?;
+                write!(f, "]")
             }
-            PostfixKind::VecSubscript(_, _) => {
-                todo!()
+            PostfixKind::VecSubscript(a, b) => {
+                write!(f, "[")?;
+                self.show_expression(f, b, tabs)?;
+                write!(f, "]")
             }
-            PostfixKind::MapSubscript(_, _) => {
-                todo!()
+            PostfixKind::MapSubscript(a, b) => {
+                write!(f, "[")?;
+                self.show_expression(f, b, tabs)?;
+                write!(f, "]")
             }
             PostfixKind::MemberCall(_function_ref, b) => write!(f, "membercall {b:?}"),
             PostfixKind::OptionalChainingOperator => todo!(),
-            PostfixKind::NoneCoalescingOperator(_) => todo!(),
-            /*
-            PostfixKind::IntrinsicCallEx(intrinsic_fn, arguments) => {
-                write!(f, "[intrinsic_call_ex: {intrinsic_fn:?}")?;
-                self.show_arguments(f, arguments, tabs + 1)?;
-                write!(f, "]")
+            PostfixKind::NoneCoalescingOperator(x) => {
+                self.show_expression(f, x, tabs)?;
+                write!(f, "?")
             }
-
-
-             */
         }
     }
 
@@ -657,12 +667,12 @@ impl SourceMapDisplay<'_> {
                 write!(f, "{}", "mut ref".red())?;
                 self.show_type_short(f, base_type, tabs)
             }
-            Type::DynamicLengthVecView(_) => todo!(),
-            Type::VecStorage(_, _) => todo!(),
-            Type::FixedCapacityAndLengthArray(_, _) => todo!(),
-            Type::SliceView(_) => todo!(),
-            Type::MapStorage(_, _, _) => todo!(),
-            Type::DynamicLengthMapView(_, _) => todo!(),
+            Type::SliceView(a) => write!(f, "[{a}]"),
+            Type::DynamicLengthVecView(a) => write!(f, "Vec<{a}>"),
+            Type::VecStorage(a, b) => write!(f, "Vec<{a};{b}>"),
+            Type::FixedCapacityAndLengthArray(a, b) => write!(f, "[{a};{b}]"),
+            Type::DynamicLengthMapView(key, value) => write!(f, "[{key}:{value}]"),
+            Type::MapStorage(key, value, size) => write!(f, "MapStorage<{key}, {value}; {size}>"),
         }
     }
 
@@ -693,15 +703,15 @@ impl SourceMapDisplay<'_> {
             Type::Function(signature) => write!(f, "function {signature}"),
             Type::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
             Type::MutableReference(base_type) => {
-                write!(f, "{}", "mut ref".red());
+                write!(f, "{}", "mut ref".red())?;
                 self.show_type_short(f, base_type, tabs)
             }
-            Type::SliceView(_) => todo!(),
-            Type::DynamicLengthVecView(_) => todo!(),
-            Type::VecStorage(_, _) => todo!(),
-            Type::FixedCapacityAndLengthArray(_, _) => todo!(),
-            Type::DynamicLengthMapView(_, _) => todo!(),
-            Type::MapStorage(_, _, _) => todo!(),
+            Type::SliceView(a) => write!(f, "[{a}]"),
+            Type::DynamicLengthVecView(a) => write!(f, "Vec<{a}>"),
+            Type::VecStorage(a, b) => write!(f, "Vec<{a};{b}>"),
+            Type::FixedCapacityAndLengthArray(a, b) => write!(f, "[{a};{b}]"),
+            Type::DynamicLengthMapView(key, value) => write!(f, "[{key}:{value}]"),
+            Type::MapStorage(key, value, size) => write!(f, "MapStorage<{key}, {value}; {size}>"),
         }
     }
 

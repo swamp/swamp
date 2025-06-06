@@ -107,7 +107,8 @@ pub fn build_parse_error(err: &SpecificError, span: &Span) -> Builder<usize> {
         SpecificError::ExpectedIdentifier => todo!(),
         SpecificError::ExpectedIdentifierAfterPath => todo!(),
         SpecificError::ExpectedFieldOrRest => todo!(),
-        SpecificError::UnknownTerm(_) => Report::build(Kind::Error, 32241, "UnknownTerm", span),
+        SpecificError::UnknownTerm(term) => Report::build(Kind::Error, 32241, "UnknownTerm", span)
+            .with_note(&format!("term {}", term)),
         SpecificError::UnknownExpr(_) => todo!(),
         SpecificError::CouldNotMoveDown
         | SpecificError::CouldNotMoveRight

@@ -718,11 +718,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                    &ast_expression.node,
-                    fields,
-                    *rest_was_specified,
-                    context,
-                )?,
+                &ast_expression.node,
+                fields,
+                *rest_was_specified,
+                context,
+            )?,
 
             swamp_ast::ExpressionKind::ContextAccess => {
                 //info!(?function_identifier, ?arguments, "in placement call");
@@ -1388,7 +1388,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {} else {
+            if let Type::Optional(_) = tv.resolved_type {
+            } else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -2777,7 +2778,6 @@ impl<'a> Analyzer<'a> {
                 }
 
                  */
-
                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, _regular_args) => {
                     return Err(self.create_err(ErrorKind::CallsCanNotBePartOfChain, node));
                 }
