@@ -720,6 +720,11 @@ impl<'a> Analyzer<'a> {
                 context,
             )?,
 
+            swamp_ast::ExpressionKind::InPlacementInitCall(function_identifier, arguments) => {
+                info!(?function_identifier, ?arguments, "in placement call");
+                todo!()
+            }
+
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
             }

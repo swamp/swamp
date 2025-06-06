@@ -25,6 +25,7 @@ use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset,
     MemorySize, PointerLocation, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
+use tracing::info;
 
 pub struct EmitArgumentInfo {
     pub argument_and_temp_scope: ArgumentAndTempScope,
@@ -424,7 +425,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        //info!(?constant_reference, "looking up constant");
+        info!(?constant_reference, "emit constant access");
         let constant_region = self
             .state
             .constant_offsets
@@ -433,6 +434,11 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back// assert_eq!(target_reg.size(), constant_region.size());
 
         if constant_region.ty().is_aggregate() {
+            info!(
+                "{} {}",
+                constant_region.ty(),
+                "emit constant access aggregate"
+            );
             // load the known constant address into a temp register to use as a base for the block copy
             let source_base_ptr = self.temp_registers.allocate(
                 VmType::new_contained_in_register(u32_type()),
@@ -458,24 +464,68 @@ impl CodeBuilder<'_> {
                 ),
             };
 
+            let output_reg = output.memory_location_or_pointer_reg();
+
+            info!(
+                "{:?} {:?} {}",
+                output_reg,
+                constant_region.ty(),
+                "copy block"
+            );
+
             self.builder.add_block_copy_with_offset(
-                output.grab_memory_location(),
+                &output_reg,
                 &source_memory_location,
                 node,
                 "copy from constant memory area to target memory",
             );
         } else {
-            self.emit_load_scalar_from_absolute_address_instruction(
-                output.grab_register(),
-                constant_region.addr(),
-                &VmType::new_unknown_placement(constant_region.ty().clone()),
-                node,
-                &format!(
-                    "load constant primitive '{}' {:?}",
-                    constant_reference.assigned_name,
-                    constant_region.ty()
-                ),
+            info!(
+                "{:?} {:?} {}",
+                output,
+                constant_region.ty(),
+                "load scalar from absolute"
             );
+            if let Some(output_memory_location) = output.memory_location() {
+                let hwm = self.temp_registers.save_mark();
+                let temp_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(constant_region.ty().clone()),
+                    "temporary for constant",
+                );
+
+                self.emit_load_scalar_from_absolute_address_instruction(
+                    temp_reg.register(),
+                    constant_region.addr(),
+                    &VmType::new_unknown_placement(constant_region.ty().clone()),
+                    node,
+                    &format!(
+                        "load constant primitive '{}' {:?}",
+                        constant_reference.assigned_name,
+                        constant_region.ty()
+                    ),
+                );
+
+                self.emit_store_scalar_to_memory_offset_instruction(
+                    output_memory_location,
+                    temp_reg.register(),
+                    node,
+                    "put constant into memory",
+                );
+
+                self.temp_registers.restore_to_mark(hwm);
+            } else {
+                self.emit_load_scalar_from_absolute_address_instruction(
+                    output.grab_register(),
+                    constant_region.addr(),
+                    &VmType::new_unknown_placement(constant_region.ty().clone()),
+                    node,
+                    &format!(
+                        "load constant primitive '{}' {:?}",
+                        constant_reference.assigned_name,
+                        constant_region.ty()
+                    ),
+                );
+            }
         }
     }
 

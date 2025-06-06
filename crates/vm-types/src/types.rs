@@ -883,6 +883,21 @@ impl Destination {
     }
 
     #[must_use]
+    pub fn memory_location_or_pointer_reg(&self) -> MemoryLocation {
+        match self {
+            Self::Register(reg) => MemoryLocation {
+                base_ptr_reg: reg.clone(),
+                offset: MemoryOffset(0),
+                ty: reg.ty.clone(),
+            },
+            Self::Memory(location) => location.clone(),
+            Self::Unit => {
+                panic!("assumed it would be a memory location, but was unit")
+            }
+        }
+    }
+
+    #[must_use]
     pub fn grab_aggregate_memory_location(&self) -> AggregateMemoryLocation {
         AggregateMemoryLocation {
             location: self.grab_memory_location().clone(),

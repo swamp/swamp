@@ -585,14 +585,6 @@ impl Vm {
     pub fn execute_internal(&mut self, host_function_callback: &mut dyn HostFunctionCallback) {
         self.execution_complete = false;
 
-        #[cfg(feature = "debug_vm")]
-        if self.debug_opcodes_enabled {
-            eprintln!(
-                "start executing --------- frame {:X} heap: {:X}",
-                self.memory.frame_offset, self.memory.heap_alloc_offset
-            );
-        }
-
         while !self.execution_complete {
             let instruction = &self.instructions[self.pc];
             let opcode = instruction.opcode;
@@ -724,19 +716,16 @@ impl Vm {
             );
         }
 
-        self.flags.p = false;
         self.call_stack.clear();
         self.memory.reset_offset();
 
-        /*
-        // Is this needed?
-        self.call_stack.push(CallFrame {
-            return_address: 1,
-            previous_frame_offset: 0,
-            previous_stack_offset: 0,
-        });
-
-         */
+        #[cfg(feature = "debug_vm")]
+        if self.debug_opcodes_enabled {
+            eprintln!(
+                "start executing --------- frame {:X} heap: {:X}",
+                self.memory.frame_offset, self.memory.heap_alloc_offset
+            );
+        }
 
         self.execute_internal(host_function_callback);
     }

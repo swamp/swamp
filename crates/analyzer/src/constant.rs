@@ -21,6 +21,7 @@ impl Analyzer<'_> {
         let context = TypeContext::new_unsure_argument(maybe_annotation_type.as_ref());
         let resolved_expr = self.analyze_expression(&constant.expression, &context)?;
         let resolved_type = resolved_expr.ty.clone();
+        info!(?resolved_type, "constant");
         assert!(resolved_type.can_be_stored_in_field()); // TODO: investigate why FixedSizeArray gets converted to InitializerList
 
         let name_node = self.to_node(&constant.constant_identifier.0);

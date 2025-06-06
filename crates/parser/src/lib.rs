@@ -11,12 +11,14 @@ use pest_derive::Parser;
 use std::iter::Peekable;
 use std::str::Chars;
 use swamp_ast::{
-    AssignmentOperatorKind, BinaryOperatorKind, CompoundOperator, CompoundOperatorKind,
-    EnumVariantLiteral, ExpressionKind, FieldExpression, FieldName, ForPattern, ForVar,
-    ImportItems, IterableExpression, LocalConstantIdentifier,
-    LocalTypeIdentifierWithOptionalTypeVariables, Mod, NamedStructDef, PatternElement,
-    QualifiedIdentifier, RangeMode, SpanWithoutFileId, StructTypeField, TypeForParameter,
-    TypeVariable, VariableBinding, prelude::*,
+    AssignmentOperatorKind, Attribute, BinaryOperatorKind, CompoundOperator, CompoundOperatorKind,
+    Definition, DefinitionKind, EnumVariantLiteral, Expression, ExpressionKind, FieldExpression,
+    FieldName, ForPattern, ForVar, FunctionDeclaration, FunctionIdentifier, FunctionWithBody,
+    ImportItems, IterableExpression, LocalConstantIdentifier, LocalIdentifier, LocalTypeIdentifier,
+    LocalTypeIdentifierWithOptionalTypeVariables, Mod, Module, NamedStructDef, Node, Parameter,
+    Pattern, PatternElement, QualifiedIdentifier, QualifiedTypeIdentifier, RangeMode,
+    SpanWithoutFileId, StructTypeField, Type, TypeForParameter, TypeVariable, Use, Variable,
+    VariableBinding, prelude::*,
 };
 use swamp_ast::{AttributeLiteralKind, Function};
 use swamp_ast::{GenericParameter, LiteralKind};
@@ -1928,8 +1930,8 @@ impl AstParser {
             Rule::anonymous_struct_literal => self.parse_anonymous_struct_literal(sub),
             Rule::initializer_list => self.parse_initializer_list_literal(sub),
             Rule::initializer_pair_list => self.parse_initializer_pair_list(sub),
-
             Rule::interpolated_string => self.parse_interpolated_string(sub),
+            Rule::placement_term => self.parse_placement_term(sub),
 
             Rule::lambda => self.parse_lambda(sub),
 
@@ -2951,5 +2953,56 @@ impl AstParser {
             }
             _ => panic!("unexpected meta_value {:?}", pair.as_rule()),
         }
+    }
+
+    fn parse_placement_term(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
+        let mut inner = pair.clone().into_inner();
+
+        let identifier_pair = inner.next().ok_or_else(|| {
+            self.create_error_pair(SpecificError::ExpectedLocationExpression, pair)
+        })?;
+
+        let function_identifier = if identifier_pair.as_rule() == Rule::general_function_identifier
+        {
+            let inner_pair = identifier_pair.clone().into_inner().next().ok_or_else(|| {
+                self.create_error_pair(SpecificError::ExpectedLocationExpression, &identifier_pair)
+            })?;
+
+            match inner_pair.as_rule() {
+                Rule::qualified_identifier => {
+                    let qualified = self.parse_qualified_identifier(&inner_pair)?;
+                    FunctionIdentifier::Free(qualified)
+                }
+                Rule::static_member_reference => {
+                    let static_member = self.parse_static_member_reference(&inner_pair)?;
+                    if let ExpressionKind::StaticMemberFunctionReference(type_id, member) =
+                        static_member.kind
+                    {
+                        let module_path =
+                            type_id.module_path.map(|path| path.0).unwrap_or_default();
+                        let qualified = QualifiedIdentifier::new(member, module_path);
+                        FunctionIdentifier::Member(qualified, self.to_node(&inner_pair))
+                    } else {
+                        panic!("unexpected static member reference kind");
+                    }
+                }
+                _ => {
+                    panic!("unknown rule in general_function_identifier")
+                }
+            }
+        } else {
+            panic!("expected general_function_identifier");
+        };
+
+        let args_pair = inner.next().ok_or_else(|| {
+            self.create_error_pair(SpecificError::ExpectedLocationExpression, pair)
+        })?;
+
+        let arguments = self.parse_function_call_arguments(&args_pair)?;
+
+        Ok(self.create_expr(
+            ExpressionKind::InPlacementInitCall(function_identifier, arguments),
+            pair,
+        ))
     }
 }

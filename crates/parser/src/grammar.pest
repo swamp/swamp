@@ -170,7 +170,7 @@ unwrap_postfix        = { "?" }
 none_coalesce_postfix = { "??" ~ expression }
 
 static_member_reference = {
-qualified_type_identifier ~ SCOPE_OPERATOR ~ identifier
+ qualified_type_identifier ~ SCOPE_OPERATOR ~ identifier
 }
 
 
@@ -409,21 +409,22 @@ Expressions
 =============================================================
 */
 expression = {
-with_expr
-| if_expr
-| when_expr
-| guard_expr
-| match_expr
-| for_loop
-| while_loop
-// | initializer_list
-//| initializer_pair_list
-| destructuring_assignment // TODO: move to statement
-| variable_definition // TODO: move to statement
-| assignment // TODO: move to assignment_statement
-| block
-// | logical // maybe lowest
+    with_expr
+    | if_expr
+    | when_expr
+    | guard_expr
+    | match_expr
+    | for_loop
+    | while_loop
+    // | initializer_list
+    // | initializer_pair_list
+    | destructuring_assignment // TODO: move to statement
+    | variable_definition // TODO: move to statement
+    | assignment // TODO: move to assignment_statement
+    | block
 }
+
+
 
 //statement = {
    //   variable_definition |
@@ -447,20 +448,23 @@ destructuring_assignment = { at_least_two_variables_list ~ "=" ~ expression }
 parenthesized = { "(" ~ expression ~ ")" }
 
 term = {
-static_member_reference
-| enum_literal
-| parenthesized
-| basic_literal // must be before identifier_reference
-| qualified_identifier
-| constant_reference
-| struct_literal
-| anonymous_struct_literal
-| initializer_list
-| initializer_pair_list
-| interpolated_string
-| lambda
-
+    placement_term
+    | static_member_reference
+    | enum_literal
+    | parenthesized
+    | basic_literal // must be before identifier_reference
+    | qualified_identifier
+    | constant_reference
+    | struct_literal
+    | anonymous_struct_literal
+    | initializer_list
+    | initializer_pair_list
+    | interpolated_string
+    | lambda
 }
+
+general_function_identifier = { qualified_identifier | static_member_reference }
+placement_term = {"." ~ general_function_identifier ~ function_call_args }
 
 lambda = {
 "|" ~ optional_variable_list ~ "|" ~ expression

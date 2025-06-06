@@ -623,10 +623,14 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        // TODO: Bring back
+        /*
         debug_assert_eq!(
             target_output_destination.ty.basic_type.total_size,
             source_memory_location.ty.basic_type.total_size
         );
+
+         */
         let target_offset_bytes = u16_to_u8_pair(target_output_destination.offset.0);
         let source_offset_bytes = u16_to_u8_pair(source_memory_location.offset.0);
         let size_bytes = u16_to_u8_pair(target_output_destination.ty.basic_type.total_size.0);

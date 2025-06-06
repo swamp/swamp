@@ -77,6 +77,12 @@ impl QualifiedTypeIdentifier {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum FunctionIdentifier {
+    Free(QualifiedIdentifier),
+    Member(QualifiedIdentifier, Node),
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct QualifiedIdentifier {
     pub name: Node,
@@ -469,6 +475,8 @@ pub enum ExpressionKind {
     NamedStructLiteral(QualifiedTypeIdentifier, Vec<FieldExpression>, bool),
     Range(Box<Expression>, Box<Expression>, RangeMode),
     Literal(LiteralKind),
+    InPlacementInitCall(FunctionIdentifier, Vec<Expression>),
+
     Lambda(Vec<Variable>, Box<Expression>),
 }
 
