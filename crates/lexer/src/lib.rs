@@ -10,6 +10,11 @@ pub enum TokenKind {
     // End-of-file
     EOF,
 
+    // Comments
+    DocComment,   // /// doc comments
+    LineComment,  // // line comments
+    BlockComment, // /* block comments */
+
     // Literals
     Integer(i32),  // e.g. 123, 1000
     Fixed(i32),    // 16.16 fixed point format
@@ -233,6 +238,28 @@ impl Lexer<'_> {
 
         // Handle different token types
         match b {
+            // Comments
+            b'/' if self.pos + 1 < self.len => match self.src[self.pos + 1] {
+                b'/' => self.lex_line_comment(start),
+                b'*' => self.lex_block_comment(start),
+                b'=' => {
+                    self.pos += 2;
+                    Token {
+                        kind: TokenKind::SlashEqual,
+                        start: start as u32,
+                        len: 2,
+                    }
+                }
+                _ => {
+                    self.pos += 1;
+                    Token {
+                        kind: TokenKind::Slash,
+                        start: start as u32,
+                        len: 1,
+                    }
+                }
+            },
+
             // String literals
             b'"' => self.lex_regular_string(start),
             b'\'' => {
@@ -815,6 +842,55 @@ impl Lexer<'_> {
             })
         } else {
             None
+        }
+    }
+
+    // Lex a line comment starting with //
+    fn lex_line_comment(&mut self, start: usize) -> Token {
+        self.pos += 2;
+
+        let is_doc = self.pos < self.len && self.src[self.pos] == b'/';
+        if is_doc {
+            self.pos += 1;
+        }
+
+        // Read until newline or EOF
+        while self.pos < self.len && self.src[self.pos] != b'\n' {
+            self.pos += 1;
+        }
+
+        Token {
+            kind: if is_doc {
+                TokenKind::DocComment
+            } else {
+                TokenKind::LineComment
+            },
+            start: start as u32,
+            len: (self.pos - start) as u16,
+        }
+    }
+
+    // Lex a block comment `/* ... */`
+    fn lex_block_comment(&mut self, start: usize) -> Token {
+        self.pos += 2; // Skip `/*`
+        while self.pos + 1 < self.len {
+            // Find end
+            if self.src[self.pos] == b'*' && self.src[self.pos + 1] == b'/' {
+                self.pos += 2;
+                return Token {
+                    kind: TokenKind::BlockComment,
+                    start: start as u32,
+                    len: (self.pos - start) as u16,
+                };
+            }
+            self.pos += 1;
+        }
+
+        // Unterminated block comment
+        Token {
+            kind: TokenKind::Unknown('*'),
+            start: start as u32,
+            len: (self.pos - start) as u16,
         }
     }
 }
