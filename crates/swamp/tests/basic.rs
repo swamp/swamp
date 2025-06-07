@@ -28,17 +28,17 @@ fn very_basic() {
         &TestRunOptions {
             should_run: true,
             print_output: false,
-            iteration_count: 4,
+            iteration_count: 5,
             debug_output: false,
-            debug_opcodes: true,
-            debug_operations: true,
-            debug_stats: false,
+            debug_opcodes: false,
+            debug_operations: false,
+            debug_stats: true,
             show_semantic: false,
-            show_assembly: true,
+            show_assembly: false,
             show_modules: false,
             step_behaviour: StepBehavior::ResumeExecution,
         },
-        "constant::check_constant_map",
+        "",
         module_suffix,
     );
     assert!(result.failed_tests.is_empty());
