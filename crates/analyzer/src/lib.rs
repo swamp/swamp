@@ -1544,7 +1544,7 @@ impl<'a> Analyzer<'a> {
         let resolved_expression = self.analyze_expression(expression, &any_context)?;
 
         let resolved_type = &resolved_expression.ty.clone();
-        let (key_type, mut value_type): (Option<Type>, Type) = match resolved_type {
+        let (key_type, mut value_type): (Option<Type>, Type) = match resolved_type.underlying() {
             Type::String => (Some(Type::Int), Type::String),
             Type::SliceView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::VecStorage(element_type, _fixed_size) => (Some(Type::Int), *element_type.clone()),

@@ -36,7 +36,6 @@ impl Vm {
         set_reg!(self, element_ptr_reg, element_addr);
     }
 
-
     #[inline]
     pub fn execute_vec_iter_init(
         &mut self,

@@ -109,7 +109,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-
     // When initializing a VecStorage with an initialization list
     pub(crate) fn emit_fixed_storage_array_init(
         &mut self,

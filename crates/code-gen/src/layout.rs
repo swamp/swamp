@@ -523,7 +523,8 @@ pub fn layout_tuple(types: &[Type]) -> BasicType {
 /// # Errors
 ///
 #[allow(clippy::too_many_lines)]
-#[must_use] pub fn layout_variables(
+#[must_use]
+pub fn layout_variables(
     _node: &Node,
     parameters: &Vec<VariableRef>,
     variables: &Vec<VariableRef>,

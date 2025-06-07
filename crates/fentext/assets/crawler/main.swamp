@@ -199,9 +199,9 @@ impl Crawler {
             write('Entity {index}: {entity.type} at ({entity.point.x}, {entity.point.y}) ({entity.direction.x}, {entity.direction.y}) wait: {entity.wait}  wait_value: ({entity.wait_value})  ', Color::Cyan)
 
             if entity.type != Type::Player && entity.wait == 0 {
-                Crawler::ai_tick(&entity, &self.grid)
+                Crawler::ai_tick(&entity, &grid)
             }
-            Crawler::entity_tick(&entity, &self.grid)
+            Crawler::entity_tick(&entity, &grid)
         }
     }
 
@@ -239,30 +239,35 @@ fn main() -> Crawler {
                 point: Point { x: 4, y: 0 }, // initial position must match the grid below
                 direction: Point { x: 0, y: 0 },
                 wait_value: 2,
+								..
             },
             Entity {
                 type: Type::Spider,
                 point: Point { x: 2, y: 0 }, // initial position must match the grid below
                 direction: Point { x: 1, y: 1 },
                 wait_value: 4,
+								..
             },
             Entity {
                 type: Type::Octopus,
                 point: Point { x: 5, y: 0 }, // initial position must match the grid below
                 direction: Point { x: 0, y: 1 },
                 wait_value: 8,
+								..
             },
             Entity {
                 type: Type::Octopus,
                 point: Point { x: 6, y: 0 }, // initial position must match the grid below
                 direction: Point { x: 1, y: 0 },
                 wait_value: 8,
+								..
             },
             Entity {
                 type: Type::Spider,
                 point: Point { x: 7, y: 0 }, // initial position must match the grid below
                 direction: Point { x: -1, y: 0 },
                 wait_value: 5,
+								..
             },
         ],
         grid: [0, 0, 2, 0, 1, 3, 4, 5],

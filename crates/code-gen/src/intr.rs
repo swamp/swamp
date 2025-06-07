@@ -11,7 +11,9 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
-use swamp_vm_types::types::{BasicType, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type, u16_type};
+use swamp_vm_types::types::{
+    BasicType, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type, u16_type,
+};
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
     MAP_HEADER_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
@@ -428,10 +430,22 @@ impl CodeBuilder<'_> {
                 );
             }
             IntrinsicFunction::VecClear => {
-                let temp_element_count_reg = self.temp_registers.allocate(VmType::new_contained_in_register(u16_type()), "vec_clear zero");
-                self.builder.add_mov_16_immediate_value(temp_element_count_reg.register(), 0, node, "set to zero");
-                self.builder.add_st16_using_ptr_with_offset(target_destination.grab_memory_location(), temp_element_count_reg.register(), node, "set element_count to zero");
-    
+                let temp_element_count_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u16_type()),
+                    "vec_clear zero",
+                );
+                self.builder.add_mov_16_immediate_value(
+                    temp_element_count_reg.register(),
+                    0,
+                    node,
+                    "set to zero",
+                );
+                self.builder.add_st16_using_ptr_with_offset(
+                    target_destination.grab_memory_location(),
+                    temp_element_count_reg.register(),
+                    node,
+                    "set element_count to zero",
+                );
             }
             IntrinsicFunction::VecGet => {
                 let maybe_key_argument = &arguments[0];

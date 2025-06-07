@@ -39,7 +39,7 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
 
         let collection_ptr_reg = self.emit_scalar_rvalue(&iterable.resolved_expression, ctx);
-        match collection_type {
+        match collection_type.underlying() {
             Type::Range(anon_struct_type) => {
                 self.emit_for_loop_lambda(
                     destination,
@@ -82,52 +82,9 @@ impl CodeBuilder<'_> {
             Type::String => {
                 todo!();
             }
-            Type::NamedStruct(named_type) => {
-                if named_type.is_vec() {
-                } else if named_type.is_map() {
-                    self.emit_for_loop_lambda(
-                        destination,
-                        node,
-                        Collection::Map,
-                        &collection_ptr_reg,
-                        collection_type,
-                        for_pattern,
-                        lambda_non_capturing_expr,
-                        ctx,
-                    );
-                } else if named_type.is_range() {
-                } else if named_type.is_stack() {
-                    /*
-                    self.emit_for_loop_lambda(
-                        node,
-                        Collection::Stack,
-                        &gen_collection,
-                        collection_type,
-                        for_pattern,
-                        &lambda_non_capturing_expr,
-                        ctx,
-                    )?
 
-                     */
-                } else if named_type.is_grid() {
-                    /*
-                    self.emit_for_loop_lambda(
-                        node,
-                        Collection::Grid,
-                        &gen_collection,
-                        collection_type,
-                        for_pattern,
-                        &lambda_non_capturing_expr,
-                        ctx,
-                    )?
-
-                     */
-                } else {
-                    panic!("can not iterate this collection");
-                }
-            }
             _ => {
-                panic!("can not iterate this collection");
+                panic!("can not iterate this collection {collection_type}");
             }
         }
 
