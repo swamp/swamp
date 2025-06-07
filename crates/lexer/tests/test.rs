@@ -68,3 +68,24 @@ fn arrow() {
         panic!("must be identifier literal")
     }
 }
+
+#[test]
+fn string_interpolation() {
+    let mut lexer = Lexer::new(" 'start thing {x+1} middle stuff -{y}");
+
+    assert_eq!(
+        TokenKind::StringStart("'start thing ".to_string()),
+        lexer.next_token().kind
+    );
+    assert_eq!(TokenKind::LBrace, lexer.next_token().kind);
+    assert_eq!(
+        TokenKind::Identifier("x".to_string()),
+        lexer.next_token().kind
+    );
+    assert_eq!(TokenKind::Plus, lexer.next_token().kind);
+    assert_eq!(TokenKind::Integer(1), lexer.next_token().kind);
+    assert_eq!(
+        TokenKind::StringMiddle("middle stuff -".to_string()),
+        lexer.next_token().kind
+    );
+}

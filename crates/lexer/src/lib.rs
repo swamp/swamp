@@ -7,6 +7,9 @@ pub enum TokenKind {
     Integer(i32),          // e.g. 123, 1000
     Fixed(i32),            // 16.16 fixed point format
     StringLiteral(String), // e.g. "\"hello\""
+    StringStart(String),   // Start of interpolated string e.g. "hello {"
+    StringMiddle(String),  // Middle of interpolated string e.g. "} world {"
+    StringEnd(String),     // End of interpolated string e.g. "} world"
     Identifier(String),    // e.g. "some_identifier"
 
     // Single-char operators
@@ -71,9 +74,10 @@ const MAX_LOOKAHEAD: usize = 4;
 
 pub struct Lexer<'a> {
     src: &'a [u8],
-    len: usize,              // length of `src`
-    pos: usize,              // current byte index into `src`
-    token_cache: Vec<Token>, // Dynamic cache for peeking, limited to MAX_LOOKAHEAD
+    len: usize,                 // length of `src`
+    pos: usize,                 // current byte index into `src`
+    token_cache: Vec<Token>,    // Dynamic cache for peeking, limited to MAX_LOOKAHEAD
+    interpolation_depth: usize, // Track nested interpolation depth
 }
 
 impl<'a> Lexer<'a> {
@@ -86,6 +90,7 @@ impl<'a> Lexer<'a> {
             len: bytes.len(),
             pos: 0,
             token_cache: Vec::with_capacity(MAX_LOOKAHEAD),
+            interpolation_depth: 0,
         }
     }
 
@@ -154,7 +159,151 @@ impl<'a> Lexer<'a> {
         Some(if is_negative { -result } else { result })
     }
 
-    /// Internal function to generate the next token
+    // Helper to lex a string or string interpolation part
+    fn lex_string_part(&mut self, start: usize, in_interpolation: bool) -> Token {
+        let mut escaped = false;
+
+        while self.pos < self.len {
+            let c = self.src[self.pos];
+
+            if !escaped {
+                match c {
+                    b'\\' => {
+                        escaped = true;
+                        self.pos += 1;
+                        continue;
+                    }
+                    b'\'' => {
+                        if !in_interpolation {
+                            // End of interpolated string
+                            let slice = &self.src[start..=self.pos];
+                            let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
+                            self.pos += 1;
+                            return Token {
+                                kind: TokenKind::StringLiteral(text),
+                                start: start as u32,
+                                len: (self.pos - start) as u16,
+                            };
+                        }
+                    }
+                    b'{' => {
+                        if !in_interpolation {
+                            // Start of interpolation
+                            let slice = &self.src[start..self.pos];
+                            let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
+                            self.interpolation_depth += 1;
+                            // Don't consume the '{' - it will be lexed as a separate token
+                            return Token {
+                                kind: TokenKind::StringStart(text),
+                                start: start as u32,
+                                len: (self.pos - start) as u16,
+                            };
+                        }
+                    }
+                    b'}' => {
+                        if in_interpolation && self.interpolation_depth > 0 {
+                            // Look ahead for string end or another interpolation
+                            let mut look_pos = self.pos + 1;
+                            let mut found_end = false;
+                            let mut found_interpolation = false;
+
+                            while look_pos < self.len {
+                                match self.src[look_pos] {
+                                    b'\'' => {
+                                        found_end = true;
+                                        break;
+                                    }
+                                    b'{' => {
+                                        found_interpolation = true;
+                                        break;
+                                    }
+                                    b' ' | b'\t' | b'\n' | b'\r' => {
+                                        look_pos += 1;
+                                        continue;
+                                    }
+                                    _ => break,
+                                }
+                            }
+
+                            let slice = &self.src[start..self.pos];
+                            let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
+
+                            if found_end {
+                                // End of interpolation and string
+                                self.interpolation_depth -= 1;
+                                self.pos += 1; // consume the '}'
+                                return Token {
+                                    kind: TokenKind::StringEnd(text),
+                                    start: start as u32,
+                                    len: (self.pos - start) as u16,
+                                };
+                            } else if found_interpolation {
+                                // Middle part - more interpolation coming
+                                self.pos += 1; // consume the '}'
+                                return Token {
+                                    kind: TokenKind::StringMiddle(text),
+                                    start: start as u32,
+                                    len: (self.pos - start) as u16,
+                                };
+                            } else {
+                                // Regular text with a '}' in it
+                                self.pos += 1;
+                                continue;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            escaped = false;
+            self.pos += 1;
+        }
+
+        // Unterminated string
+        Token {
+            kind: TokenKind::Unknown('\''),
+            start: start as u32,
+            len: (self.pos - start) as u16,
+        }
+    }
+
+    fn lex_regular_string(&mut self, start: usize) -> Token {
+        let mut escaped = false;
+        self.pos += 1; // consume opening quote
+
+        while self.pos < self.len {
+            let c = self.src[self.pos];
+            if !escaped {
+                if c == b'\\' {
+                    escaped = true;
+                    self.pos += 1;
+                    continue;
+                }
+                if c == b'"' {
+                    let slice = &self.src[start..=self.pos];
+                    let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
+                    self.pos += 1; // consume closing quote
+                    return Token {
+                        kind: TokenKind::StringLiteral(text),
+                        start: start as u32,
+                        len: (self.pos - start) as u16,
+                    };
+                }
+            } else {
+                escaped = false;
+            }
+            self.pos += 1;
+        }
+
+        // Unterminated string
+        Token {
+            kind: TokenKind::Unknown('"'),
+            start: start as u32,
+            len: (self.pos - start) as u16,
+        }
+    }
+
     #[inline]
     #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
     fn next_token_internal(&mut self) -> Token {
@@ -176,157 +325,190 @@ impl<'a> Lexer<'a> {
         let start = self.pos;
         let b = self.src[self.pos];
 
-        // Handle numbers (both integer and float)
-        if b.is_ascii_digit()
-            || (b == b'-' && self.pos + 1 < self.len && self.src[self.pos + 1].is_ascii_digit())
-        {
-            let starts_with_minus = b == b'-';
-            if starts_with_minus {
-                self.pos += 1;
+        // Handle different token types
+        match b {
+            // String literals
+            b'"' => self.lex_regular_string(start),
+            b'\'' => {
+                self.pos += 1; // consume opening quote
+                self.lex_string_part(start, false)
             }
 
-            // Parse digits before decimal point, allowing underscores
-            while self.pos < self.len {
-                let c = self.src[self.pos];
-                if !c.is_ascii_digit() && c != b'_' && c != b'.' {
-                    break;
-                }
-                if c == b'.' {
-                    break;
-                }
-                self.pos += 1;
-            }
-
-            // Check for decimal point
-            let is_float = self.pos < self.len && self.src[self.pos] == b'.';
-            if is_float {
-                self.pos += 1; // consume the dot
-
-                // Must have at least one digit after the dot
-                if self.pos >= self.len || !self.src[self.pos].is_ascii_digit() {
-                    // Invalid float, no digits after decimal point
+            // Numbers
+            b'0'..=b'9' | b'-' => {
+                if b == b'-'
+                    && (self.pos + 1 >= self.len || !self.src[self.pos + 1].is_ascii_digit())
+                {
+                    self.pos += 1;
                     return Token {
-                        kind: TokenKind::Unknown('.'),
+                        kind: TokenKind::Minus,
                         start: start as u32,
-                        len: (self.pos - start) as u16,
+                        len: 1,
                     };
                 }
 
-                // Parse digits after decimal point, allowing underscores
+                let starts_with_minus = b == b'-';
+                if starts_with_minus {
+                    self.pos += 1;
+                }
+
+                // Parse digits before decimal point, allowing underscores
                 while self.pos < self.len {
                     let c = self.src[self.pos];
-                    if !c.is_ascii_digit() && c != b'_' {
+                    if !c.is_ascii_digit() && c != b'_' && c != b'.' {
+                        break;
+                    }
+                    if c == b'.' {
                         break;
                     }
                     self.pos += 1;
                 }
-            }
 
-            let slice = &self.src[start..self.pos];
-            // Remove underscores `_` and create the final string
-            let text: String = slice
-                .iter()
-                .filter(|&&c| c != b'_')
-                .map(|&c| c as char)
-                .collect();
+                // Check for decimal point
+                let is_float = self.pos < self.len && self.src[self.pos] == b'.';
+                if is_float {
+                    self.pos += 1; // consume the dot
 
-            return Token {
-                kind: if is_float {
-                    // Split into integer and fractional parts for fixed point 16.16
-                    let parts: Vec<&str> = text.split('.').collect();
-                    if parts.len() == 2 {
-                        let is_negative = parts[0].starts_with('-');
-                        let int_part = if is_negative {
-                            &parts[0][1..]
-                        } else {
-                            parts[0]
+                    // Must have at least one digit after the dot
+                    if self.pos >= self.len || !self.src[self.pos].is_ascii_digit() {
+                        // Invalid float, no digits after decimal point
+                        return Token {
+                            kind: TokenKind::Unknown('.'),
+                            start: start as u32,
+                            len: (self.pos - start) as u16,
                         };
-
-                        Self::parse_fixed_point(int_part, parts[1], is_negative)
-                            .map_or(TokenKind::Unknown('.'), TokenKind::Fixed)
-                    } else {
-                        TokenKind::Unknown('.')
                     }
-                } else {
-                    // TODO: Maybe have actual error handling?
-                    text.parse::<i32>()
-                        .map_or(TokenKind::Unknown('0'), TokenKind::Integer)
-                },
-                start: start as u32,
-                len: (self.pos - start) as u16,
-            };
-        }
 
-        // Identifier
-        // TODO: is `contains` faster than `is_ascii_lowercase` and `is_ascii_digit`?
-        if b == b'_' || b.is_ascii_lowercase() {
-            self.pos += 1;
-            while self.pos < self.len {
-                let c = self.src[self.pos];
-                if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'_') {
-                    break;
-                }
-                self.pos += 1;
-            }
-            let slice = &self.src[start..self.pos];
-            // SAFETY: slice contains only ASCII chars, so it's valid UTF-8
-            let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
-            return Token {
-                kind: TokenKind::Identifier(text),
-                start: start as u32,
-                len: (self.pos - start) as u16,
-            };
-        }
-
-        // String literal
-        if b == b'"' {
-            self.pos += 1; // consume the opening quote
-            let mut escaped = false;
-            while self.pos < self.len {
-                let c = self.src[self.pos];
-                if !escaped && c == b'\\' {
-                    // TODO: Handle escape characters
-                    escaped = true;
-                    self.pos += 1;
-                    // If next char exists, treat it as data (we'll decode later or let the AST do it).
-                    if self.pos < self.len {
+                    // Parse digits after decimal point, allowing underscores
+                    while self.pos < self.len {
+                        let c = self.src[self.pos];
+                        if !c.is_ascii_digit() && c != b'_' {
+                            break;
+                        }
                         self.pos += 1;
                     }
-                    escaped = false;
-                    continue;
                 }
-                if c == b'"' && !escaped {
-                    let slice = &self.src[start..=self.pos];
-                    let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
-                    self.pos += 1; // consume closing quote
-                    return Token {
-                        kind: TokenKind::StringLiteral(text),
-                        start: start as u32,
-                        len: slice.len() as u16,
-                    };
+
+                let slice = &self.src[start..self.pos];
+                // Remove underscores `_` and create the final string
+                let text: String = slice
+                    .iter()
+                    .filter(|&&c| c != b'_')
+                    .map(|&c| c as char)
+                    .collect();
+
+                Token {
+                    kind: if is_float {
+                        // Split into integer and fractional parts for fixed point 16.16
+                        let parts: Vec<&str> = text.split('.').collect();
+                        if parts.len() == 2 {
+                            let is_negative = parts[0].starts_with('-');
+                            let int_part = if is_negative {
+                                &parts[0][1..]
+                            } else {
+                                parts[0]
+                            };
+
+                            Self::parse_fixed_point(int_part, parts[1], is_negative)
+                                .map_or(TokenKind::Unknown('.'), TokenKind::Fixed)
+                        } else {
+                            TokenKind::Unknown('.')
+                        }
+                    } else {
+                        // TODO: Maybe have actual error handling?
+                        text.parse::<i32>()
+                            .map_or(TokenKind::Unknown('0'), TokenKind::Integer)
+                    },
+                    start: start as u32,
+                    len: (self.pos - start) as u16,
                 }
-                self.pos += 1;
             }
 
-            // TODO: Maybe better error handling
-            return Token {
-                kind: TokenKind::Unknown('"'),
-                start: start as u32,
-                len: (self.pos - start) as u16,
-            };
-        }
+            // Identifiers
+            b'_' | b'a'..=b'z' => {
+                self.pos += 1;
+                while self.pos < self.len {
+                    let c = self.src[self.pos];
+                    if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'_') {
+                        break;
+                    }
+                    self.pos += 1;
+                }
+                let slice = &self.src[start..self.pos];
+                // SAFETY: slice contains only ASCII chars, so it's valid UTF-8
+                let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
+                Token {
+                    kind: TokenKind::Identifier(text),
+                    start: start as u32,
+                    len: (self.pos - start) as u16,
+                }
+            }
 
-        // Single-character tokens
-        self.pos += 1;
-        let kind = match b {
-            b'(' => TokenKind::LParen,
-            b')' => TokenKind::RParen,
-            b'{' => TokenKind::LBrace,
-            b'}' => TokenKind::RBrace,
-            b'[' => TokenKind::LBracket,
-            b']' => TokenKind::RBracket,
-            b'#' => TokenKind::Hash,
-            b',' => TokenKind::Comma,
+            // Single-character tokens
+            b'(' => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::LParen,
+                    start: start as u32,
+                    len: 1,
+                }
+            }
+            b')' => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::RParen,
+                    start: start as u32,
+                    len: 1,
+                }
+            }
+            b'{' => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::LBrace,
+                    start: start as u32,
+                    len: 1,
+                }
+            }
+            b'}' => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::RBrace,
+                    start: start as u32,
+                    len: 1,
+                }
+            }
+            b'[' => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::LBracket,
+                    start: start as u32,
+                    len: 1,
+                }
+            }
+            b']' => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::RBracket,
+                    start: start as u32,
+                    len: 1,
+                }
+            }
+            b'#' => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::Hash,
+                    start: start as u32,
+                    len: 1,
+                }
+            }
+            b',' => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::Comma,
+                    start: start as u32,
+                    len: 1,
+                }
+            }
             b'.' => {
                 if self.pos < self.len {
                     match self.src[self.pos] {
@@ -334,88 +516,201 @@ impl<'a> Lexer<'a> {
                             self.pos += 1;
                             if self.pos < self.len && self.src[self.pos] == b'=' {
                                 self.pos += 1;
-                                TokenKind::DotDotEqual
+                                Token {
+                                    kind: TokenKind::DotDotEqual,
+                                    start: start as u32,
+                                    len: 2,
+                                }
                             } else {
-                                TokenKind::DotDot
+                                Token {
+                                    kind: TokenKind::DotDot,
+                                    start: start as u32,
+                                    len: 2,
+                                }
                             }
                         }
-                        _ => TokenKind::Dot,
+                        _ => Token {
+                            kind: TokenKind::Dot,
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 } else {
-                    TokenKind::Dot
+                    Token {
+                        kind: TokenKind::Dot,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
             }
-            b';' => TokenKind::Semicolon,
-            b':' => TokenKind::Colon,
+            b';' => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::Semicolon,
+                    start: start as u32,
+                    len: 1,
+                }
+            }
+            b':' => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::Colon,
+                    start: start as u32,
+                    len: 1,
+                }
+            }
 
             // Operators that might be compound
             b'+' => {
                 if self.pos < self.len && self.src[self.pos] == b'=' {
                     self.pos += 1;
-                    TokenKind::PlusEqual
+                    Token {
+                        kind: TokenKind::PlusEqual,
+                        start: start as u32,
+                        len: 2,
+                    }
                 } else {
-                    TokenKind::Plus
+                    Token {
+                        kind: TokenKind::Plus,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
             }
             b'?' => match self.src[self.pos] {
                 b'?' => {
                     self.pos += 1;
-                    TokenKind::QuestionQuestion
+                    Token {
+                        kind: TokenKind::QuestionQuestion,
+                        start: start as u32,
+                        len: 2,
+                    }
                 }
-                _ => TokenKind::Question,
+                _ => Token {
+                    kind: TokenKind::Question,
+                    start: start as u32,
+                    len: 1,
+                },
             },
             b'-' => match self.src[self.pos] {
                 b'=' => {
                     self.pos += 1;
-                    TokenKind::MinusEqual
+                    Token {
+                        kind: TokenKind::MinusEqual,
+                        start: start as u32,
+                        len: 2,
+                    }
                 }
                 b'>' => {
                     self.pos += 1;
-                    TokenKind::ThinArrow
+                    Token {
+                        kind: TokenKind::ThinArrow,
+                        start: start as u32,
+                        len: 2,
+                    }
                 }
-                _ => TokenKind::Minus,
+                _ => Token {
+                    kind: TokenKind::Minus,
+                    start: start as u32,
+                    len: 1,
+                },
             },
             b'*' => {
                 if self.pos < self.len && self.src[self.pos] == b'=' {
                     self.pos += 1;
-                    TokenKind::StarEqual
+                    Token {
+                        kind: TokenKind::StarEqual,
+                        start: start as u32,
+                        len: 2,
+                    }
                 } else {
-                    TokenKind::Star
+                    Token {
+                        kind: TokenKind::Star,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
             }
             b'/' => {
                 if self.pos < self.len && self.src[self.pos] == b'=' {
                     self.pos += 1;
-                    TokenKind::SlashEqual
+                    Token {
+                        kind: TokenKind::SlashEqual,
+                        start: start as u32,
+                        len: 2,
+                    }
                 } else {
-                    TokenKind::Slash
+                    Token {
+                        kind: TokenKind::Slash,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
             }
             b'%' => {
                 if self.pos < self.len && self.src[self.pos] == b'=' {
                     self.pos += 1;
-                    TokenKind::PercentEqual
+                    Token {
+                        kind: TokenKind::PercentEqual,
+                        start: start as u32,
+                        len: 2,
+                    }
                 } else {
-                    TokenKind::Percent
+                    Token {
+                        kind: TokenKind::Percent,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
             }
-            b'=' => match self.src[self.pos] {
-                b'=' => {
-                    self.pos += 1;
-                    TokenKind::EqualEqual
+            b'=' => {
+                self.pos += 1;
+                if self.pos < self.len {
+                    match self.src[self.pos] {
+                        b'=' => {
+                            self.pos += 1;
+                            Token {
+                                kind: TokenKind::EqualEqual,
+                                start: start as u32,
+                                len: 2,
+                            }
+                        }
+                        b'>' => {
+                            self.pos += 1;
+                            Token {
+                                kind: TokenKind::FatArrow,
+                                start: start as u32,
+                                len: 2,
+                            }
+                        }
+                        _ => Token {
+                            kind: TokenKind::Equal,
+                            start: start as u32,
+                            len: 1,
+                        },
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Equal,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
-                b'>' => {
-                    self.pos += 1;
-                    TokenKind::FatArrow
-                }
-                _ => TokenKind::Equal,
-            },
+            }
             b'!' => {
                 if self.pos < self.len && self.src[self.pos] == b'=' {
                     self.pos += 1;
-                    TokenKind::BangEqual
+                    Token {
+                        kind: TokenKind::BangEqual,
+                        start: start as u32,
+                        len: 2,
+                    }
                 } else {
-                    TokenKind::Bang
+                    Token {
+                        kind: TokenKind::Bang,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
             }
             b'<' => {
@@ -423,12 +718,24 @@ impl<'a> Lexer<'a> {
                     match self.src[self.pos] {
                         b'=' => {
                             self.pos += 1;
-                            TokenKind::LessEqual
+                            Token {
+                                kind: TokenKind::LessEqual,
+                                start: start as u32,
+                                len: 2,
+                            }
                         }
-                        _ => TokenKind::Less,
+                        _ => Token {
+                            kind: TokenKind::Less,
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 } else {
-                    TokenKind::Less
+                    Token {
+                        kind: TokenKind::Less,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
             }
             b'>' => {
@@ -436,13 +743,24 @@ impl<'a> Lexer<'a> {
                     match self.src[self.pos] {
                         b'=' => {
                             self.pos += 1;
-                            TokenKind::GreaterEqual
+                            Token {
+                                kind: TokenKind::GreaterEqual,
+                                start: start as u32,
+                                len: 2,
+                            }
                         }
-
-                        _ => TokenKind::Greater,
+                        _ => Token {
+                            kind: TokenKind::Greater,
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 } else {
-                    TokenKind::Greater
+                    Token {
+                        kind: TokenKind::Greater,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
             }
             b'&' => {
@@ -450,16 +768,32 @@ impl<'a> Lexer<'a> {
                     match self.src[self.pos] {
                         b'=' => {
                             self.pos += 1;
-                            TokenKind::AmpersandEqual
+                            Token {
+                                kind: TokenKind::AmpersandEqual,
+                                start: start as u32,
+                                len: 2,
+                            }
                         }
                         b'&' => {
                             self.pos += 1;
-                            TokenKind::AmpersandAmpersand
+                            Token {
+                                kind: TokenKind::AmpersandAmpersand,
+                                start: start as u32,
+                                len: 2,
+                            }
                         }
-                        _ => TokenKind::Ampersand,
+                        _ => Token {
+                            kind: TokenKind::Ampersand,
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 } else {
-                    TokenKind::Ampersand
+                    Token {
+                        kind: TokenKind::Ampersand,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
             }
             b'|' => {
@@ -467,29 +801,44 @@ impl<'a> Lexer<'a> {
                     match self.src[self.pos] {
                         b'=' => {
                             self.pos += 1;
-                            TokenKind::PipeEqual
+                            Token {
+                                kind: TokenKind::PipeEqual,
+                                start: start as u32,
+                                len: 2,
+                            }
                         }
                         b'|' => {
                             self.pos += 1;
-                            TokenKind::PipePipe
+                            Token {
+                                kind: TokenKind::PipePipe,
+                                start: start as u32,
+                                len: 2,
+                            }
                         }
-                        _ => TokenKind::Pipe,
+                        _ => Token {
+                            kind: TokenKind::Pipe,
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 } else {
-                    TokenKind::Pipe
+                    Token {
+                        kind: TokenKind::Pipe,
+                        start: start as u32,
+                        len: 1,
+                    }
                 }
             }
 
-            other => {
-                let ch = other as char;
-                TokenKind::Unknown(ch)
+            // Unknown character
+            _ => {
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::Unknown(b as char),
+                    start: start as u32,
+                    len: 1,
+                }
             }
-        };
-
-        Token {
-            kind,
-            start: start as u32,
-            len: (self.pos - start) as u16,
         }
     }
 }
