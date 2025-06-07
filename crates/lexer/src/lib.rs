@@ -1,3 +1,10 @@
+#[derive(Clone, PartialEq)]
+enum StringMode {
+    Normal,
+    InString,
+    InInterpolation,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind {
     // End-of-file
@@ -74,10 +81,11 @@ const MAX_LOOKAHEAD: usize = 4;
 
 pub struct Lexer<'a> {
     src: &'a [u8],
-    len: usize,                 // length of `src`
-    pos: usize,                 // current byte index into `src`
-    token_cache: Vec<Token>,    // Dynamic cache for peeking, limited to MAX_LOOKAHEAD
-    interpolation_depth: usize, // Track nested interpolation depth
+    len: usize,              // length of `src`
+    pos: usize,              // current byte index into `src`
+    token_cache: Vec<Token>, // Dynamic cache for peeking, limited to MAX_LOOKAHEAD
+    string_mode: StringMode,
+    seen_interpolation: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -90,7 +98,8 @@ impl<'a> Lexer<'a> {
             len: bytes.len(),
             pos: 0,
             token_cache: Vec::with_capacity(MAX_LOOKAHEAD),
-            interpolation_depth: 0,
+            string_mode: StringMode::Normal,
+            seen_interpolation: false,
         }
     }
 
@@ -159,122 +168,17 @@ impl<'a> Lexer<'a> {
         Some(if is_negative { -result } else { result })
     }
 
-    // Helper to lex a string or string interpolation part
-    fn lex_string_part(&mut self, start: usize, in_interpolation: bool) -> Token {
-        let mut escaped = false;
-
-        while self.pos < self.len {
-            let c = self.src[self.pos];
-
-            if !escaped {
-                match c {
-                    b'\\' => {
-                        escaped = true;
-                        self.pos += 1;
-                        continue;
-                    }
-                    b'\'' => {
-                        if !in_interpolation {
-                            // End of interpolated string
-                            let slice = &self.src[start..=self.pos];
-                            let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
-                            self.pos += 1;
-                            return Token {
-                                kind: TokenKind::StringLiteral(text),
-                                start: start as u32,
-                                len: (self.pos - start) as u16,
-                            };
-                        }
-                    }
-                    b'{' => {
-                        if !in_interpolation {
-                            // Start of interpolation
-                            let slice = &self.src[start..self.pos];
-                            let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
-                            self.interpolation_depth += 1;
-                            // Don't consume the '{' - it will be lexed as a separate token
-                            return Token {
-                                kind: TokenKind::StringStart(text),
-                                start: start as u32,
-                                len: (self.pos - start) as u16,
-                            };
-                        }
-                    }
-                    b'}' => {
-                        if in_interpolation && self.interpolation_depth > 0 {
-                            // Look ahead for string end or another interpolation
-                            let mut look_pos = self.pos + 1;
-                            let mut found_end = false;
-                            let mut found_interpolation = false;
-
-                            while look_pos < self.len {
-                                match self.src[look_pos] {
-                                    b'\'' => {
-                                        found_end = true;
-                                        break;
-                                    }
-                                    b'{' => {
-                                        found_interpolation = true;
-                                        break;
-                                    }
-                                    b' ' | b'\t' | b'\n' | b'\r' => {
-                                        look_pos += 1;
-                                        continue;
-                                    }
-                                    _ => break,
-                                }
-                            }
-
-                            let slice = &self.src[start..self.pos];
-                            let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
-
-                            if found_end {
-                                // End of interpolation and string
-                                self.interpolation_depth -= 1;
-                                self.pos += 1; // consume the '}'
-                                return Token {
-                                    kind: TokenKind::StringEnd(text),
-                                    start: start as u32,
-                                    len: (self.pos - start) as u16,
-                                };
-                            } else if found_interpolation {
-                                // Middle part - more interpolation coming
-                                self.pos += 1; // consume the '}'
-                                return Token {
-                                    kind: TokenKind::StringMiddle(text),
-                                    start: start as u32,
-                                    len: (self.pos - start) as u16,
-                                };
-                            } else {
-                                // Regular text with a '}' in it
-                                self.pos += 1;
-                                continue;
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-
-            escaped = false;
-            self.pos += 1;
-        }
-
-        // Unterminated string
-        Token {
-            kind: TokenKind::Unknown('\''),
-            start: start as u32,
-            len: (self.pos - start) as u16,
-        }
-    }
-
+    /// Lex a normal string `"..."` with escape support
+    /// TODO: more escape sequences
     fn lex_regular_string(&mut self, start: usize) -> Token {
         let mut escaped = false;
-        self.pos += 1; // consume opening quote
+        self.pos += 1;
 
         while self.pos < self.len {
             let c = self.src[self.pos];
-            if !escaped {
+            if escaped {
+                escaped = false;
+            } else {
                 if c == b'\\' {
                     escaped = true;
                     self.pos += 1;
@@ -290,8 +194,6 @@ impl<'a> Lexer<'a> {
                         len: (self.pos - start) as u16,
                     };
                 }
-            } else {
-                escaped = false;
             }
             self.pos += 1;
         }
@@ -304,22 +206,19 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn next_token_internal(&mut self) -> Token {
+        match self.string_mode {
+            StringMode::InString => self.lex_inside_string(),
+            StringMode::InInterpolation => self.lex_inside_interpolation(),
+            StringMode::Normal => self.lex_normal(),
+        }
+    }
+
     #[inline]
     #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
-    fn next_token_internal(&mut self) -> Token {
-        while self.pos < self.len {
-            match self.src[self.pos] {
-                b' ' | b'\t' | b'\r' | b'\n' => self.pos += 1,
-                _ => break,
-            }
-        }
-
-        if self.pos >= self.len {
-            return Token {
-                kind: TokenKind::EOF,
-                start: self.pos as u32,
-                len: 0,
-            };
+    fn lex_normal(&mut self) -> Token {
+        if let Some(end_token) = self.skip_whitespace() {
+            return end_token;
         }
 
         let start = self.pos;
@@ -330,8 +229,10 @@ impl<'a> Lexer<'a> {
             // String literals
             b'"' => self.lex_regular_string(start),
             b'\'' => {
-                self.pos += 1; // consume opening quote
-                self.lex_string_part(start, false)
+                self.pos += 1;
+                self.string_mode = StringMode::InString;
+                self.seen_interpolation = false;
+                self.lex_inside_string()
             }
 
             // Numbers
@@ -562,19 +463,11 @@ impl<'a> Lexer<'a> {
 
             // Operators that might be compound
             b'+' => {
-                if self.pos < self.len && self.src[self.pos] == b'=' {
-                    self.pos += 1;
-                    Token {
-                        kind: TokenKind::PlusEqual,
-                        start: start as u32,
-                        len: 2,
-                    }
-                } else {
-                    Token {
-                        kind: TokenKind::Plus,
-                        start: start as u32,
-                        len: 1,
-                    }
+                self.pos += 1;
+                Token {
+                    kind: TokenKind::Plus,
+                    start: start as u32,
+                    len: 1,
                 }
             }
             b'?' => match self.src[self.pos] {
@@ -839,6 +732,103 @@ impl<'a> Lexer<'a> {
                     len: 1,
                 }
             }
+        }
+    }
+
+    /// When we are inside a string interpolation block `{...}`
+    /// Should lex as normal
+    fn lex_inside_interpolation(&mut self) -> Token {
+        if let Some(end_token) = self.skip_whitespace() {
+            return end_token;
+        }
+
+        let start = self.pos;
+        let b = self.src[self.pos];
+
+        // If we see a closing brace, switch back to string mode
+        if b == b'}' {
+            self.pos += 1;
+            self.string_mode = StringMode::InString;
+            Token {
+                kind: TokenKind::RBrace,
+                start: start as u32,
+                len: 1,
+            }
+        } else {
+            self.lex_normal()
+        }
+    }
+
+    /// When we are in a string part of the string interpolation
+    /// The string parts between the interpolation string `'...'` and the `{...}` parts.
+    fn lex_inside_string(&mut self) -> Token {
+        let start = self.pos;
+        let mut escaped = false;
+
+        while self.pos < self.len {
+            let c = self.src[self.pos];
+            if escaped {
+                escaped = false;
+            } else {
+                match c {
+                    b'\\' => {
+                        escaped = true;
+                        self.pos += 1;
+                        continue;
+                    }
+                    b'{' => {
+                        let slice = &self.src[start..self.pos];
+                        let text = String::from_utf8_lossy(slice).to_string();
+                        self.string_mode = StringMode::InInterpolation;
+                        let was_seen = self.seen_interpolation;
+                        self.seen_interpolation = true;
+                        return Token {
+                            kind: if was_seen {
+                                TokenKind::StringMiddle(text)
+                            } else {
+                                TokenKind::StringStart(text)
+                            },
+                            start: start as u32,
+                            len: (self.pos - start) as u16,
+                        };
+                    }
+                    b'\'' => {
+                        let slice = &self.src[start..self.pos];
+                        let text = String::from_utf8_lossy(slice).to_string();
+                        self.pos += 1;
+                        self.string_mode = StringMode::Normal;
+                        self.seen_interpolation = false;
+                        return Token {
+                            kind: TokenKind::StringEnd(text),
+                            start: start as u32,
+                            len: (self.pos - start) as u16,
+                        };
+                    }
+                    _ => {}
+                }
+            }
+            self.pos += 1;
+        }
+
+        Token {
+            kind: TokenKind::Unknown('\''),
+            start: start as u32,
+            len: (self.pos - start) as u16,
+        }
+    }
+
+    fn skip_whitespace(&mut self) -> Option<Token> {
+        while self.pos < self.len && self.src[self.pos].is_ascii_whitespace() {
+            self.pos += 1;
+        }
+        if self.pos == self.len {
+            Some(Token {
+                kind: TokenKind::EOF,
+                start: self.pos as u32,
+                len: 0,
+            })
+        } else {
+            None
         }
     }
 }
