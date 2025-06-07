@@ -24,10 +24,11 @@ fn identifier() {
 
 #[test]
 fn identifier_underscores() {
-    let mut lexer = Lexer::new("   __xx_32=3 ");
+    let mut lexer = Lexer::new("   __xx_32=42 ");
 
     if let TokenKind::Identifier(ident) = lexer.next_token().kind {
         assert_eq!(ident, "__xx_32");
+        assert_eq!(TokenKind::Integer(42), lexer.peek_n(1).kind);
     } else {
         panic!("must be identifier literal")
     }
@@ -62,6 +63,7 @@ fn arrow() {
     if let TokenKind::Identifier(ident) = lexer.next_token().kind {
         assert_eq!(ident, "xx_y");
         assert_eq!(TokenKind::FatArrow, lexer.next_token().kind);
+        assert_eq!(TokenKind::Integer(3), lexer.peek().kind);
     } else {
         panic!("must be identifier literal")
     }
