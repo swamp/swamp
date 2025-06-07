@@ -14,12 +14,12 @@ use std::thread::sleep;
 use std::time::Duration;
 use swamp_runtime::prelude::CodeGenOptions;
 use swamp_runtime::{
-    CompileAndCodeGenOptions, CompileOptions, RunConstantsOptions, RunOptions,
-    compile_codegen_and_create_vm,
+    compile_codegen_and_create_vm, CompileAndCodeGenOptions, CompileOptions, RunConstantsOptions,
+    RunOptions,
 };
 use swamp_std::print::print_fn;
-use swamp_vm::VmState;
 use swamp_vm::host::HostFunctionCallback;
+use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
 use tracing::error;
 
@@ -162,7 +162,7 @@ pub struct TestRunOptions {
     pub debug_operations: bool,
     pub debug_stats: bool,
     pub show_semantic: bool,
-    pub show_disasm: bool,
+    pub show_assembly: bool,
     pub show_modules: bool,
     pub step_behaviour: StepBehavior,
 }
@@ -221,7 +221,7 @@ pub fn run_tests(
             show_modules: options.show_modules,
         },
         code_gen_options: CodeGenOptions {
-            show_disasm: options.show_disasm,
+            show_disasm: options.show_assembly,
         },
     };
     let mut result =
@@ -498,10 +498,10 @@ pub fn run_tests(
         println!("  ✅ Passed (Expected Trap): {expected_trap_pass_count}");
 
         if total_failed_count > 0 {
-            println!("  ❌ **TOTAL FAILED:** {total_failed_count}",);
+            println!("  ❌ **TOTAL FAILED:** {total_failed_count}", );
         }
 
-        println!("  Total Tests Run: {total_tests_run}",);
+        println!("  Total Tests Run: {total_tests_run}", );
 
         // ---
         // ## Failing Test Details

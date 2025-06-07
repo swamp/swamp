@@ -8,7 +8,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
-use swamp_test_runner::{StepBehavior, TestRunOptions, init_logger, run_tests};
+use swamp_test_runner::{init_logger, run_tests, StepBehavior, TestRunOptions};
 
 fn print_usage<W: Write>(mut out: W) {
     let _ = write!(
@@ -123,7 +123,7 @@ fn main() -> ExitCode {
             debug_operations: show_debug | show_operations,
             debug_stats: true,
             show_semantic,
-            show_disasm: show_debug | show_assembly,
+            show_assembly: show_debug | show_assembly,
             show_modules,
             step_behaviour: step_behavior,
         },

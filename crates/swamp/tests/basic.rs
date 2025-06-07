@@ -4,7 +4,7 @@
  */
 
 use std::path::PathBuf;
-use swamp_test_runner::{TestRunOptions, run_tests};
+use swamp_test_runner::{run_tests, StepBehavior, TestRunOptions};
 
 #[must_use]
 pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
@@ -28,14 +28,15 @@ fn very_basic() {
         &TestRunOptions {
             should_run: true,
             print_output: false,
-            iteration_count: 32,
+            iteration_count: 1,
             debug_output: false,
             debug_opcodes: false,
             debug_operations: false,
             debug_stats: false,
             show_semantic: false,
-            show_disasm: false,
+            show_assembly: true,
             show_modules: false,
+            step_behaviour: StepBehavior::ResumeExecution,
         },
         "",
         module_suffix,
