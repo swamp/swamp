@@ -137,6 +137,39 @@ impl CodeBuilder<'_> {
     /// is returned directly. If the `location` is `Memory` (defined by a base pointer and an offset),
     /// this function generates an `add_u32_imm` instruction to add the offset to the base pointer,
     /// storing the resulting calculated address in a new temporary register.
+    pub(crate) fn emit_compute_effective_address_from_location_to_register(
+        &mut self,
+        memory_location: &MemoryLocation,
+        node: &Node,
+        comment: &str,
+    ) -> TypedRegister {
+        if memory_location.offset.0 == 0 {
+            memory_location.base_ptr_reg.clone()
+        } else {
+            let final_ptr_target_reg = self.temp_registers.allocate(
+                memory_location.ty.clone(),
+                &format!("{comment} - final_ptr_target_reg"),
+            );
+
+            self.builder.add_add_u32_imm(
+                final_ptr_target_reg.register(),
+                &memory_location.base_ptr_reg,
+                u32::from(memory_location.offset.0),
+                node,
+                &format!("{comment} (add to resolved new base_ptr)"),
+            );
+
+            final_ptr_target_reg.register().clone()
+        }
+    }
+
+    /// Computes the **effective memory address** based on a given `Destination` and
+    /// places this address into a `TypedRegister`.
+    ///
+    /// If the `location` is already a `Register`, that register's content (expected to be an address)
+    /// is returned directly. If the `location` is `Memory` (defined by a base pointer and an offset),
+    /// this function generates an `add_u32_imm` instruction to add the offset to the base pointer,
+    /// storing the resulting calculated address in a new temporary register.
     pub(crate) fn emit_compute_effective_address_to_register(
         &mut self,
         location: &Destination,
@@ -145,26 +178,12 @@ impl CodeBuilder<'_> {
     ) -> TypedRegister {
         match location {
             Destination::Register(reg) => reg.clone(),
-            Destination::Memory(memory_location) => {
-                if memory_location.offset.0 == 0 {
-                    memory_location.base_ptr_reg.clone()
-                } else {
-                    let final_ptr_target_reg = self.temp_registers.allocate(
-                        memory_location.ty.clone(),
-                        &format!("{comment} - final_ptr_target_reg"),
-                    );
-
-                    self.builder.add_add_u32_imm(
-                        final_ptr_target_reg.register(),
-                        &memory_location.base_ptr_reg,
-                        u32::from(memory_location.offset.0),
-                        node,
-                        &format!("{comment} (add to resolved new base_ptr)"),
-                    );
-
-                    final_ptr_target_reg.register().clone()
-                }
-            }
+            Destination::Memory(memory_location) => self
+                .emit_compute_effective_address_from_location_to_register(
+                    memory_location,
+                    node,
+                    comment,
+                ),
             Destination::Unit => {
                 panic!("can not compute effective address from unit")
             }

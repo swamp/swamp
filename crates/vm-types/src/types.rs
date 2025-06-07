@@ -1309,8 +1309,11 @@ pub struct BasicType {
 
 impl BasicType {}
 
+impl BasicType {}
+
 impl BasicType {
-    #[must_use] pub const fn is_vec_like(&self) -> bool {
+    #[must_use]
+    pub const fn is_vec_like(&self) -> bool {
         matches!(
             self.kind,
             BasicTypeKind::DynamicLengthVecView(..)
@@ -1319,7 +1322,8 @@ impl BasicType {
         )
     }
 
-    #[must_use] pub const fn is_collection_like(&self) -> bool {
+    #[must_use]
+    pub const fn is_collection_like(&self) -> bool {
         matches!(
             self.kind,
             BasicTypeKind::FixedCapacityArray(..)
@@ -1331,7 +1335,8 @@ impl BasicType {
             | BasicTypeKind::DynamicLengthMapView(..)
         )
     }
-    #[must_use] pub const fn is_collection_with_capacity(&self) -> bool {
+    #[must_use]
+    pub const fn is_collection_with_capacity(&self) -> bool {
         matches!(
             self.kind,
             BasicTypeKind::FixedCapacityArray(..)
@@ -1342,7 +1347,8 @@ impl BasicType {
         )
     }
 
-    #[must_use] pub const fn get_collection_capacity(&self) -> Option<MemorySize> {
+    #[must_use]
+    pub const fn get_collection_capacity(&self) -> Option<MemorySize> {
         match &self.kind {
             BasicTypeKind::FixedCapacityArray(_element_type, capacity) => {
                 Some(MemorySize(*capacity as u16))
@@ -1362,7 +1368,8 @@ impl BasicType {
         }
     }
 
-    #[must_use] pub const fn get_vec_slice_like_capacity(&self) -> Option<MemorySize> {
+    #[must_use]
+    pub const fn get_vec_slice_like_capacity(&self) -> Option<MemorySize> {
         match &self.kind {
             BasicTypeKind::FixedCapacityArray(_element_type, capacity) => {
                 Some(MemorySize(*capacity as u16))
@@ -1500,9 +1507,28 @@ impl BasicType {
         }
     }
 
+    pub fn bucket_size(&self) -> Option<MemorySize> {
+        match &self.kind {
+            BasicTypeKind::FixedCapacityArray(inner, capacity) => Some(inner.total_size),
+            BasicTypeKind::SliceView(inner) => Some(inner.total_size),
+            BasicTypeKind::VecStorage(inner, _) => Some(inner.total_size),
+            BasicTypeKind::DynamicLengthVecView(inner) => Some(inner.total_size),
+            BasicTypeKind::MapStorage {
+                element_type,
+                tuple_type,
+                logical_limit,
+                capacity,
+                status_size,
+                bucket_size,
+            } => Some(MemorySize(*bucket_size as u16)),
+            _ => None,
+        }
+    }
+
     #[must_use]
     pub fn element(&self) -> Option<&Self> {
         match &self.kind {
+            BasicTypeKind::FixedCapacityArray(inner, capacity) => Some(inner),
             BasicTypeKind::SliceView(inner) => Some(inner),
             BasicTypeKind::VecStorage(inner, _) => Some(inner),
             BasicTypeKind::DynamicLengthVecView(inner) => Some(inner),

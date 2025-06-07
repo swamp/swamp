@@ -4,7 +4,7 @@
  */
 
 use std::path::PathBuf;
-use swamp_test_runner::{run_tests, StepBehavior, TestRunOptions};
+use swamp_test_runner::{StepBehavior, TestRunOptions, run_tests};
 
 #[must_use]
 pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
@@ -30,15 +30,15 @@ fn very_basic() {
             print_output: false,
             iteration_count: 1,
             debug_output: false,
-            debug_opcodes: false,
-            debug_operations: false,
+            debug_opcodes: true,
+            debug_operations: true,
             debug_stats: false,
             show_semantic: false,
             show_assembly: true,
             show_modules: false,
             step_behaviour: StepBehavior::ResumeExecution,
         },
-        "",
+        "constant::check_constant_map",
         module_suffix,
     );
     assert!(result.failed_tests.is_empty());

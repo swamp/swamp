@@ -34,7 +34,7 @@ impl CodeBuilder<'_> {
 
         match &expr.kind {
             ExpressionKind::Literal(Literal::InitializerList(element_type, expressions)) => {
-                self.emit_container_init_from_initialization_list(
+                self.emit_collection_init_from_initialization_list(
                     output,
                     expressions,
                     &expr.node,

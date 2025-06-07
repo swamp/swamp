@@ -128,6 +128,7 @@ impl CodeBuilder<'_> {
                 panic!("mut have storage");
             };
 
+            /*
             self.builder.add_vec_init_fill_capacity_and_element_addr(
                 pointer_lvalue_location,
                 &element_base_ptr_reg.register,
@@ -136,6 +137,8 @@ impl CodeBuilder<'_> {
                 node,
                 "init vec",
             );
+
+             */
 
             let memory = self.emit_scalar_rvalue(found_expr, ctx);
             self.temp_registers.restore_to_mark(hwm);
@@ -191,6 +194,7 @@ impl CodeBuilder<'_> {
         );
     }
 
+    /*
     // When initializing a VecStorage with an initialization list
     pub(crate) fn emit_vec_storage_init(
         &mut self,
@@ -237,4 +241,6 @@ impl CodeBuilder<'_> {
             ctx,
         );
     }
+
+     */
 }

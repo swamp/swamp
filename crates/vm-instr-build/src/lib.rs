@@ -1098,6 +1098,7 @@ impl InstructionBuilder<'_> {
             comment,
         );
     }
+    /*
     pub fn add_vec_init_fill_capacity_and_element_addr(
         &mut self,
         target_vec_to_init: &PointerLocation,
@@ -1126,6 +1127,8 @@ impl InstructionBuilder<'_> {
             comment,
         );
     }
+
+     */
 
     pub fn add_fixed_capacity_array_init_fill_capacity_and_get_element_addr(
         &mut self,

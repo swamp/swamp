@@ -1630,10 +1630,11 @@ impl Vm {
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             eprintln!(
-                "BLKCPY WITH OFFSET: {:04X}>  Size={:04X} \n  \
+                "BLKCPY WITH OFFSET AND REG SIZE: {:04X}>  Size={:X} #{} \n  \
            DST_REG={} (0x{:08X}) + DST_OFF=0x{:04X} => DST_ADDR=0x{:08X}\n  \
            SRC_REG={} (0x{:08X}) + SRC_OFF=0x{:04X} => SRC_ADDR=0x{:08X}",
                 self.pc - 1,
+                memory_size,
                 memory_size,
                 dst_pointer_reg,
                 get_reg!(self, dst_pointer_reg),
