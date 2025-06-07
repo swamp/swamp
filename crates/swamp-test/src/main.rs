@@ -26,6 +26,7 @@ Options:
   -m, --show-modules      (show semantic symbol tables before the tests run)
   -a, --show-assembly     (show assembly output before the tests run)
   -i, --show-instructions (show Swamp VM instructions when running)
+  -o, --show-operations   (show Swamp VM operations for complex opcodes)
   -h, --help              print this help and exit
 "
     );
@@ -91,6 +92,7 @@ fn main() -> ExitCode {
     let show_semantic = args.contains(["-s", "--show-semantic"]);
     let show_modules = args.contains(["-m", "--show-modules"]);
     let show_instructions = args.contains(["-i", "--show-instructions"]);
+    let show_operations = args.contains(["-o", "--show-operations"]);
 
     let step_behavior: StepBehavior = match args
         .opt_value_from_str::<_, StepBehavior>("--step")
@@ -118,7 +120,7 @@ fn main() -> ExitCode {
             iteration_count: repeat_count,
             debug_output: show_debug,
             debug_opcodes: show_debug | show_instructions,
-            debug_operations: show_debug,
+            debug_operations: show_debug | show_operations,
             debug_stats: true,
             show_semantic,
             show_disasm: show_debug | show_assembly,
