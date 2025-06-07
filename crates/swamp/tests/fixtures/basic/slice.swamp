@@ -2,12 +2,12 @@ use core::{assert}
 use std::{print}
 
 struct Thing {
-		list: [Int; 4],
+        list: [Int; 4],
 }
 
 #[test]
 fn push_and_subscript() {
-	mut thing = Thing { list: [] }
-	thing.list[0] = 1
-	print('list[0]:{thing.list[0]}')
+    mut thing = Thing { list: [] }
+    thing.list[0] = 1
+    print('list[0]:{thing.list[0]}')
 }

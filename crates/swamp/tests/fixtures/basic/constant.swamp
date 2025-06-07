@@ -21,7 +21,7 @@ const SPAWN_POINTS : [Player: Vec<Point;2>; 2] = [
 ]
 
 struct Game {
-	spawn_points: [Player: Vec<Point; 3>; 4],
+    spawn_points: [Player: Vec<Point; 3>; 4],
 }
 
 

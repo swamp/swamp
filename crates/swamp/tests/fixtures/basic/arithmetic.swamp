@@ -16,8 +16,8 @@ fn div() {
 
 #[test]
 fn float_mul() {
-	r = 1.5 * 8.0
-	print('r:{r}')
+    r = 1.5 * 8.0
+    print('r:{r}')
   assert(r == 12.0, "float mul problem")
 }
 
