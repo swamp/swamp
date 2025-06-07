@@ -61,7 +61,7 @@ fn arrow() {
 
     if let TokenKind::Identifier(ident) = lexer.next_token().kind {
         assert_eq!(ident, "xx_y");
-        assert_eq!(TokenKind::EqualGreater, lexer.next_token().kind);
+        assert_eq!(TokenKind::FatArrow, lexer.next_token().kind);
     } else {
         panic!("must be identifier literal")
     }

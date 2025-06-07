@@ -16,6 +16,7 @@ pub enum TokenKind {
     RBrace,    // '}'
     LBracket,  // '['
     RBracket,  // ']'
+    Hash,      // '#'
     Plus,      // '+'
     Minus,     // '-'
     Star,      // '*'
@@ -27,7 +28,6 @@ pub enum TokenKind {
     Bang,      // '!'
     Ampersand, // '&'
     Pipe,      // '|'
-    Caret,     // '^'
     Comma,     // ','
     Dot,       // '.'
     Semicolon, // ';'
@@ -46,10 +46,12 @@ pub enum TokenKind {
     BangEqual,          // '!='
     LessEqual,          // '<='
     GreaterEqual,       // '>='
-    EqualGreater,       // '=>'
-    MinusGreater,       // '->'
+    ThinArrow,          // '->'
+    FatArrow,           // '=>'
     AmpersandAmpersand, // '&&'
     PipePipe,           // '||'
+    QuestionQuestion,   // '??'
+    Question,           // '?'
 
     // Really an error token
     Unknown(char),
@@ -279,6 +281,7 @@ impl<'a> Lexer<'a> {
             b'}' => TokenKind::RBrace,
             b'[' => TokenKind::LBracket,
             b']' => TokenKind::RBracket,
+            b'#' => TokenKind::Hash,
             b',' => TokenKind::Comma,
             b'.' => TokenKind::Dot,
             b';' => TokenKind::Semicolon,
@@ -293,6 +296,13 @@ impl<'a> Lexer<'a> {
                     TokenKind::Plus
                 }
             }
+            b'?' => match self.src[self.pos] {
+                b'?' => {
+                    self.pos += 1;
+                    TokenKind::QuestionQuestion
+                }
+                _ => TokenKind::Question,
+            },
             b'-' => match self.src[self.pos] {
                 b'=' => {
                     self.pos += 1;
@@ -300,7 +310,7 @@ impl<'a> Lexer<'a> {
                 }
                 b'>' => {
                     self.pos += 1;
-                    TokenKind::MinusGreater
+                    TokenKind::ThinArrow
                 }
                 _ => TokenKind::Minus,
             },
@@ -335,7 +345,7 @@ impl<'a> Lexer<'a> {
                 }
                 b'>' => {
                     self.pos += 1;
-                    TokenKind::EqualGreater
+                    TokenKind::FatArrow
                 }
                 _ => TokenKind::Equal,
             },
@@ -408,14 +418,7 @@ impl<'a> Lexer<'a> {
                     TokenKind::Pipe
                 }
             }
-            b'^' => {
-                if self.pos < self.len && self.src[self.pos] == b'=' {
-                    self.pos += 1;
-                    TokenKind::CaretEqual
-                } else {
-                    TokenKind::Caret
-                }
-            }
+
             other => {
                 let ch = other as char;
                 TokenKind::Unknown(ch)
