@@ -15,7 +15,7 @@ use swamp_vm_types::types::{BasicType, Destination, RValueOrLValue, TypedRegiste
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
     MAP_HEADER_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
-    STRING_HEADER_COUNT_OFFSET, VEC_HEADER_ELEMENT_COUNT_OFFSET,
+    STRING_HEADER_COUNT_OFFSET,
 };
 use tracing::info;
 
