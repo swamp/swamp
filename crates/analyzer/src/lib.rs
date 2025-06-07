@@ -3234,6 +3234,13 @@ impl<'a> Analyzer<'a> {
                 };
                 (IntrinsicFunction::VecLen, signature)
             }
+            "capacity" => {
+                let signature = Signature {
+                    parameters: vec![self_type_param],
+                    return_type: Box::new(Type::Int),
+                };
+                (IntrinsicFunction::VecCapacity, signature)
+            }
             "remove" => {
                 let signature = Signature {
                     parameters: vec![
@@ -3317,6 +3324,13 @@ impl<'a> Analyzer<'a> {
             ),
             "len" => (
                 IntrinsicFunction::MapLen,
+                Signature {
+                    parameters: vec![self_type_param],
+                    return_type: Box::new(Type::Int),
+                },
+            ),
+            "capacity" => (
+                IntrinsicFunction::MapCapacity,
                 Signature {
                     parameters: vec![self_type_param],
                     return_type: Box::new(Type::Int),

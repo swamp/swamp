@@ -149,12 +149,10 @@ pub enum OpCode {
     ArrayInitWithLenAndCapacityAddr,
 
     // Vec
-    VecInitWithLenAndCapacityAddr,
     VecPushAddr,
     VecRemoveIndex,
     VecPop,
     VecRemoveIndexGetValue,
-    VecClear,
     VecGet,
     VecGetRange,
     VecSwap,
@@ -308,12 +306,10 @@ impl OpCode {
             Self::ArrayInitWithLenAndCapacityAddr => "array.init",
 
             // Vec
-            Self::VecInitWithLenAndCapacityAddr => "vec.init",
             Self::VecPushAddr => "vec.push",
             Self::VecRemoveIndex => "vec.rem",
             Self::VecPop => "vec.pop",
             Self::VecRemoveIndexGetValue => "vec.rem.v",
-            Self::VecClear => "vec.clear",
             Self::VecGet => "vec.get",
             Self::VecGetRange => "vec.get.range",
             Self::VecSwap => "vec.swap",

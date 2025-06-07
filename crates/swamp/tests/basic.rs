@@ -28,7 +28,7 @@ fn very_basic() {
         &TestRunOptions {
             should_run: true,
             print_output: false,
-            iteration_count: 1,
+            iteration_count: 4,
             debug_output: false,
             debug_opcodes: true,
             debug_operations: true,

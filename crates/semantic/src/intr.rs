@@ -107,6 +107,8 @@ pub enum IntrinsicFunction {
     RuntimeHalt,
     RuntimeStep,
     RangeInit,
+    VecCapacity,
+    MapCapacity,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -164,6 +166,7 @@ impl fmt::Display for IntrinsicFunction {
             Self::VecWhile => "vec_while",
             Self::VecFindMap => "vec_find_map",
             Self::VecLen => "vec_len",
+            Self::VecCapacity => "vec_capacity",
             Self::VecAny => "vec_any",
             Self::VecAll => "vec_all",
             Self::VecMap => "vec_map",
@@ -182,6 +185,7 @@ impl fmt::Display for IntrinsicFunction {
             Self::MapIter => "map_iter",
             Self::MapIterMut => "map_iter_mut",
             Self::MapLen => "map_len",
+            Self::MapCapacity => "map_len",
             Self::MapIsEmpty => "map_is_empty",
 
             // Map2

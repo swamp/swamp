@@ -109,43 +109,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_intrinsic_vec_init_capacity_set_payload_addr(
-        &mut self,
-        pointer_lvalue_location: &PointerLocation,
-        arguments: &[ArgumentExpression],
-        node: &Node,
-        ctx: &Context,
-    ) {
-        if let ArgumentExpression::Expression(found_expr) = &arguments[0] {
-            let hwm = self.temp_registers.save_mark();
-            let element_base_ptr_reg = self.temp_registers.allocate(
-                VmType::new_unknown_placement(vec_type()),
-                "element base ptr",
-            );
-            let BasicTypeKind::VecStorage(element_type, fixed_size_capacity) =
-                &pointer_lvalue_location.ptr_reg.ty.basic_type.kind
-            else {
-                panic!("mut have storage");
-            };
-
-            /*
-            self.builder.add_vec_init_fill_capacity_and_element_addr(
-                pointer_lvalue_location,
-                &element_base_ptr_reg.register,
-                *fixed_size_capacity as u16,
-                0,
-                node,
-                "init vec",
-            );
-
-             */
-
-            let memory = self.emit_scalar_rvalue(found_expr, ctx);
-            self.temp_registers.restore_to_mark(hwm);
-        } else {
-            panic!("vec_from_slice");
-        }
-    }
 
     // When initializing a VecStorage with an initialization list
     pub(crate) fn emit_fixed_storage_array_init(
@@ -193,54 +156,4 @@ impl CodeBuilder<'_> {
             ctx,
         );
     }
-
-    /*
-    // When initializing a VecStorage with an initialization list
-    pub(crate) fn emit_vec_storage_init(
-        &mut self,
-        vec_storage_lvalue_memory_location: &PointerLocation, // Points to VecStorage
-        slice_literal: &[Expression],
-        element_type: &BasicType,
-        capacity: usize,
-        debug_vec_storage_type: &BasicType,
-        node: &Node,
-        ctx: &Context,
-    ) {
-        let elements_base_ptr_reg = self.temp_registers.allocate(
-            VmType::new_unknown_placement(u32_type()),
-            &format!("{debug_vec_storage_type}::elements"),
-        );
-
-        let len = slice_literal.len();
-        debug_assert!(capacity >= len);
-        if capacity > 0 || len > 0 {
-            self.builder.add_vec_init_fill_capacity_and_element_addr(
-                vec_storage_lvalue_memory_location,
-                elements_base_ptr_reg.register(),
-                capacity as u16,
-                len as u16,
-                node,
-                "initialize vec from slice",
-            );
-        } else {
-            info!("skipping, no capacity or no length");
-        }
-
-        let elements_base_ptr_reg = AggregateMemoryLocation {
-            location: MemoryLocation {
-                base_ptr_reg: elements_base_ptr_reg.register,
-                offset: MemoryOffset(0),
-                ty: VmType::new_unknown_placement(element_type.clone()),
-            },
-        };
-
-        self.emit_initializer_list_into_target_lvalue_memory_location(
-            &elements_base_ptr_reg,
-            element_type,
-            slice_literal,
-            ctx,
-        );
-    }
-
-     */
 }

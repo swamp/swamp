@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
+    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
 };
 use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta};
 
@@ -1090,45 +1090,6 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_vec_clear(&mut self, mut_self_addr: &TypedRegister, node: &Node, comment: &str) {
-        self.state.add_instruction(
-            OpCode::VecClear,
-            &[mut_self_addr.addressing()],
-            node,
-            comment,
-        );
-    }
-    /*
-    pub fn add_vec_init_fill_capacity_and_element_addr(
-        &mut self,
-        target_vec_to_init: &PointerLocation,
-        element_target_reg: &TypedRegister,
-        capacity: u16,
-        len: u16,
-        node: &Node,
-        comment: &str,
-    ) {
-        //debug_assert!(len > 0);
-        debug_assert!(capacity > 0);
-
-        let capacity_bytes = u16_to_u8_pair(capacity);
-        let len_bytes = u16_to_u8_pair(len);
-        self.state.add_instruction(
-            OpCode::VecInitWithLenAndCapacityAddr,
-            &[
-                target_vec_to_init.ptr_reg.addressing(),
-                element_target_reg.addressing(),
-                len_bytes.0,
-                len_bytes.1,
-                capacity_bytes.0,
-                capacity_bytes.1,
-            ],
-            node,
-            comment,
-        );
-    }
-
-     */
 
     pub fn add_fixed_capacity_array_init_fill_capacity_and_get_element_addr(
         &mut self,

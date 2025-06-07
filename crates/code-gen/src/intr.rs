@@ -11,12 +11,11 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
-use swamp_vm_types::types::{
-    BasicType, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type,
-};
+use swamp_vm_types::types::{BasicType, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type, u16_type};
 use swamp_vm_types::{
-    AggregateMemoryLocation, MAP_HEADER_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
-    MemorySize, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_ELEMENT_COUNT_OFFSET,
+    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
+    MAP_HEADER_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
+    STRING_HEADER_COUNT_OFFSET, VEC_HEADER_ELEMENT_COUNT_OFFSET,
 };
 use tracing::info;
 
@@ -429,11 +428,10 @@ impl CodeBuilder<'_> {
                 );
             }
             IntrinsicFunction::VecClear => {
-                self.builder.add_vec_clear(
-                    self_addr.unwrap(), // mut self
-                    node,
-                    "vec clear",
-                );
+                let temp_element_count_reg = self.temp_registers.allocate(VmType::new_contained_in_register(u16_type()), "vec_clear zero");
+                self.builder.add_mov_16_immediate_value(temp_element_count_reg.register(), 0, node, "set to zero");
+                self.builder.add_st16_using_ptr_with_offset(target_destination.grab_memory_location(), temp_element_count_reg.register(), node, "set element_count to zero");
+    
             }
             IntrinsicFunction::VecGet => {
                 let maybe_key_argument = &arguments[0];
@@ -454,13 +452,22 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecWhile => todo!(), // Low prio
             IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
-            IntrinsicFunction::VecLen => {
+            IntrinsicFunction::MapLen | IntrinsicFunction::VecLen => {
                 self.builder.add_ld16_from_pointer_with_offset_u16(
                     maybe_target.unwrap(),
                     self_addr.unwrap(),
-                    VEC_HEADER_ELEMENT_COUNT_OFFSET,
+                    COLLECTION_ELEMENT_COUNT_OFFSET,
                     node,
-                    "get the vec length",
+                    "get the collection element_count",
+                );
+            }
+            IntrinsicFunction::MapCapacity | IntrinsicFunction::VecCapacity => {
+                self.builder.add_ld16_from_pointer_with_offset_u16(
+                    maybe_target.unwrap(),
+                    self_addr.unwrap(),
+                    COLLECTION_CAPACITY_OFFSET,
+                    node,
+                    "get the collection capacity",
                 );
             }
             IntrinsicFunction::VecAny => todo!(), // Low prio

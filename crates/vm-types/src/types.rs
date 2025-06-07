@@ -1097,7 +1097,8 @@ impl VmType {
                 .should_be_copied_back_when_mutable_arg_or_return()
     }
 
-    #[must_use] pub const fn element_count_always_same_as_capacity(&self) -> bool {
+    #[must_use]
+    pub const fn element_count_always_same_as_capacity(&self) -> bool {
         self.basic_type.element_count_always_same_as_capacity()
     }
 }
@@ -1518,7 +1519,8 @@ impl BasicType {
         }
     }
 
-    #[must_use] pub fn bucket_size(&self) -> Option<MemorySize> {
+    #[must_use]
+    pub fn bucket_size(&self) -> Option<MemorySize> {
         match &self.kind {
             BasicTypeKind::FixedCapacityArray(inner, capacity) => Some(inner.total_size),
             BasicTypeKind::SliceView(inner) => Some(inner.total_size),

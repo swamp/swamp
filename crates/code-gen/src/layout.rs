@@ -24,7 +24,6 @@ use swamp_vm_types::{
     MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
     VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
 };
-use tracing::trace;
 
 #[derive(Copy, Clone)]
 struct VariantLayout {
@@ -577,7 +576,7 @@ pub fn layout_variables(
             // TODO: Should have a check if the variable needs the storage (if it is in an assignment in a copy)
 
             let var_frame_placed_type = local_frame_allocator.allocate_type(basic_type);
-            trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
+            //trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
             writeln!(
                 &mut enter_comment,
                 "  {}:{} {}",
