@@ -71,10 +71,10 @@ fn arrow() {
 
 #[test]
 fn string_interpolation() {
-    let mut lexer = Lexer::new(" 'start thing {x+1} middle stuff -{y}");
+    let mut lexer = Lexer::new("'hello {x + 1} world'");
 
     assert_eq!(
-        TokenKind::StringStart("'start thing ".to_string()),
+        TokenKind::StringStart("hello ".to_string()),
         lexer.next_token().kind
     );
     assert_eq!(TokenKind::LBrace, lexer.next_token().kind);
@@ -84,8 +84,41 @@ fn string_interpolation() {
     );
     assert_eq!(TokenKind::Plus, lexer.next_token().kind);
     assert_eq!(TokenKind::Integer(1), lexer.next_token().kind);
+    assert_eq!(TokenKind::RBrace, lexer.next_token().kind);
     assert_eq!(
-        TokenKind::StringMiddle("middle stuff -".to_string()),
+        TokenKind::StringEnd(" world".to_string()),
         lexer.next_token().kind
     );
+    assert_eq!(TokenKind::EOF, lexer.next_token().kind);
+}
+
+#[test]
+fn nested_string_interpolation() {
+    let mut lexer = Lexer::new("'a{x}b{y}c'");
+
+    assert_eq!(
+        TokenKind::StringStart("a".to_string()),
+        lexer.next_token().kind
+    );
+    assert_eq!(TokenKind::LBrace, lexer.next_token().kind);
+    assert_eq!(
+        TokenKind::Identifier("x".to_string()),
+        lexer.next_token().kind
+    );
+    assert_eq!(TokenKind::RBrace, lexer.next_token().kind);
+    assert_eq!(
+        TokenKind::StringMiddle("b".to_string()),
+        lexer.next_token().kind
+    );
+    assert_eq!(TokenKind::LBrace, lexer.next_token().kind);
+    assert_eq!(
+        TokenKind::Identifier("y".to_string()),
+        lexer.next_token().kind
+    );
+    assert_eq!(TokenKind::RBrace, lexer.next_token().kind);
+    assert_eq!(
+        TokenKind::StringEnd("c".to_string()),
+        lexer.next_token().kind
+    );
+    assert_eq!(TokenKind::EOF, lexer.next_token().kind);
 }
