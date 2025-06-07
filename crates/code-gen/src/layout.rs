@@ -277,6 +277,11 @@ pub fn layout_type(ty: &Type) -> BasicType {
 
             create_basic_type(
                 BasicTypeKind::MapStorage {
+                    element_type: Box::from(BasicType {
+                        kind: BasicTypeKind::Tuple(tuple_gen_type.clone()),
+                        total_size: tuple_gen_type.total_size,
+                        max_alignment: tuple_gen_type.max_alignment,
+                    }),
                     tuple_type: Box::from(tuple_gen_type),
                     logical_limit: *logical_size,
                     capacity,

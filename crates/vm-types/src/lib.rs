@@ -303,7 +303,11 @@ pub struct MemoryLocation {
     pub ty: VmType,
 }
 
-impl MemoryLocation {}
+impl Display for MemoryLocation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}+{} ({})]", self.base_ptr_reg, self.offset, self.ty)
+    }
+}
 
 impl MemoryLocation {
     #[must_use]
@@ -397,6 +401,12 @@ impl MemoryOffset {
     #[must_use]
     pub const fn to_size(&self) -> MemorySize {
         MemorySize(self.0)
+    }
+}
+
+impl Display for MemoryOffset {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "+{:X}", self.0)
     }
 }
 
@@ -640,18 +650,37 @@ pub const HEAP_PTR_ON_FRAME_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 pub const REG_ON_FRAME_SIZE: MemorySize = MemorySize(4);
 pub const REG_ON_FRAME_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
+pub const COLLECTION_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(0); // Capacity should always be first
+pub const COLLECTION_LENGTH_OFFSET: MemoryOffset = MemoryOffset(2); // Count/Length should always be second
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct VecHeader {
-    pub count: u16, // must be second. useful for iterator
-    pub capacity: u16, // capacity is always third
-                    // TODO: decide if it is worth it: pub element_size: u16, // size (in bytes) of each element; useful for iterator
+    /// Do not change the order of the fields!
+    ///
+    /// Keep the capacity field at the start of the header for consistency across all
+    /// container types. Because capacity must never be overwritten by memcpy, placing it
+    /// first simplifies our copy logic: we can verify and preserve it before copying
+    /// the remainder of the header in one contiguous operation.
+    pub capacity: u16,
+
+    /// Number of active elements in the collection.
+    ///
+    /// Always at offset 2 so that:
+    /// - **Logical length**: Expresses the "used" portion of the buffer.
+    /// - **Bounds checking**: Index and assignment checks (`0 <= idx < count`) can
+    ///   load from a fixed offset in one instruction.
+    /// - **Iteration**: Iterators uniformly read this field to know when to stop.
+    /// - **ABI stability**: External tools and serializers find the two most critical
+    ///   fields (`capacity`, then `count`) in the same location for all containers.
+    pub count: u16,
 }
+
 pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u16);
 pub const VEC_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(size_of::<VecHeader>() as u16);
 pub const VEC_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
-pub const VEC_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(0);
-pub const VEC_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(2);
+pub const VEC_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(2);
+pub const VEC_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(0);
 
 pub const VEC_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
 pub const VEC_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
@@ -704,8 +733,25 @@ pub const GRID_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct MapHeader {
-    pub element_count: u16, // Count should be first
-    pub capacity: u16,      // Capacity always second
+    // Do not change the order of the fields!
+    //
+    // Keep the capacity field at the start of the header for consistency across all
+    // container types. Because capacity must never be overwritten by memcpy, placing it
+    // first simplifies our copy logic: we can verify and preserve it before copying
+    // the remainder of the header in one contiguous operation.
+    pub capacity: u16,
+
+    /// Number of active elements in the collection.
+    ///
+    /// Always at offset 2 so that:
+    /// - **Logical length**: Expresses the "used" portion of the buffer.
+    /// - **Bounds checking**: Index and assignment checks (`0 <= idx < count`) can
+    ///   load from a fixed offset in one instruction.
+    /// - **Iteration**: Iterators uniformly read this field to know when to stop.
+    /// - **ABI stability**: External tools and serializers find the two most critical
+    ///   fields (`capacity`, then `count`) in the same location for all containers.
+    pub element_count: u16,
+
     pub key_size: u16,
     pub tuple_size: u16, // Element Size: Key and Value
     pub logical_limit: u16,
@@ -718,8 +764,8 @@ pub struct MapHeader {
 
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
-pub const MAP_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(0);
-pub const MAP_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(2);
+pub const MAP_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(2);
+pub const MAP_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(0);
 pub const MAP_HEADER_KEY_SIZE_OFFSET: MemoryOffset = MemoryOffset(4);
 pub const MAP_HEADER_VALUE_SIZE_OFFSET: MemoryOffset = MemoryOffset(6);
 pub const MAP_BUCKETS_OFFSET: MemoryOffset = MemoryOffset(MAP_HEADER_SIZE.0);

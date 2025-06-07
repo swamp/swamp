@@ -13,8 +13,8 @@ use swamp_vm_types::types::{
     BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
     DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, FramePlacedType, PathInfo,
     TypedRegister, b8_type, bytes_type, float_type, int_type, map_iter_type, map_type,
-    pointer_type_again, range_iter_type, range_type, string_type, u8_type, u32_type, vec_iter_type,
-    vec_type,
+    pointer_type_again, range_iter_type, range_type, string_type, u8_type, u16_type, u32_type,
+    vec_iter_type, vec_type,
 };
 use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, HeapMemoryAddress, InstructionPosition,
@@ -460,6 +460,10 @@ pub fn disasm(
     let operands_slice: &[DecoratedOperandAccessKind] = match opcode {
         OpCode::Hlt | OpCode::Ret | OpCode::Brk | OpCode::Step | OpCode::UserHalt => &[],
         OpCode::Trap => &[DecoratedOperandAccessKind::ImmediateU8(operands[0])],
+        OpCode::TrapOnLessThan => &[
+            to_read_reg(operands[0], &u16_type(), frame_memory_info),
+            to_read_reg(operands[1], &u16_type(), frame_memory_info),
+        ],
         OpCode::Panic => &[to_read_reg(operands[0], &string_type(), frame_memory_info)],
 
         OpCode::BooleanNot => &[to_write_reg(operands[0], &u32_type(), frame_memory_info)],
@@ -857,6 +861,23 @@ pub fn disasm(
                     operands[6],
                     operands[7],
                 ]))),
+            ]
+        }
+
+        OpCode::BlockCopyWithOffsetsVariableSize => {
+            let dst_offset = u16::from_le_bytes([operands[1], operands[2]]);
+            let src_offset = u16::from_le_bytes([operands[4], operands[5]]);
+
+            &[
+                DecoratedOperandAccessKind::WriteBaseRegWithOffset(
+                    RegIndex(operands[0]),
+                    MemoryOffset(dst_offset),
+                ),
+                DecoratedOperandAccessKind::ReadBaseRegWithOffset(
+                    RegIndex(operands[3]),
+                    MemoryOffset(src_offset),
+                ),
+                to_read_reg(operands[6], &u32_type(), frame_memory_info),
             ]
         }
 

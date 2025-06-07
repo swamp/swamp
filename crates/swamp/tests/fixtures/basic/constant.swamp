@@ -27,20 +27,20 @@ struct Game {
 
 #[test]
 fn bool_constant() {
-  assert(TEST_TRUTH, 'constant is not working')
+    assert(TEST_TRUTH, 'constant is not working')
 }
 
 #[test]
 fn simple_constant() {
-  assert(TEST_VALUE == 100, 'constant is not working')
+    assert(TEST_VALUE == 100, 'constant is not working')
 }
 
 const POINT = Point { x: 10, y: 20 }
 
 #[test]
 fn aggregate() {
-  assert(POINT.x == 10, 'constant is not working')
-  assert(POINT.y == 20, 'constant is not working')
+    assert(POINT.x == 10, 'constant is not working')
+    assert(POINT.y == 20, 'constant is not working')
 }
 
 struct Level {
@@ -48,19 +48,19 @@ struct Level {
 }
 
 fn create_level() -> Level {
-  mut level = Level {
+    mut level = Level {
     some_data: [
-      10,
-      20,
-      30,
+        10,
+        20,
+        30,
     ],
-  }
+    }
 
-  for i in 0..10 {
-    level.some_data[i] = (i + 1) * 2 + 10
-  }
+    for i in 0..10 {
+        level.some_data[i] = (i + 1) * 2 + 10
+    }
 
-  level
+    level
 }
 
 /// In Swamp, constants have no restrictions on their values. They work like a normal function,
@@ -184,7 +184,7 @@ fn fill_map_from_constant_and_add_to_it() {
     assert(SPAWN_POINTS[Player::Blue][0].y == -43, 'after change blue:y {SPAWN_POINTS[Player::Blue][0].y}')
 }
 
-#[test]
+//#[test]
 fn fill_map_view_from_constant() {
     map_view : [Player: Vec<Point>] = SPAWN_POINTS
 

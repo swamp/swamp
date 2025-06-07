@@ -6,8 +6,11 @@
 use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
-use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Destination, TypedRegister};
+use swamp_vm_types::types::{BasicType, Destination, TypedRegister, VmType, u16_type};
+use swamp_vm_types::{
+    COLLECTION_CAPACITY_OFFSET, COLLECTION_LENGTH_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
+    VEC_HEADER_SIZE,
+};
 use tracing::error;
 
 impl CodeBuilder<'_> {
@@ -158,6 +161,129 @@ impl CodeBuilder<'_> {
     }
 
     // Store -------------------------------------------------------
+    pub(crate) fn emit_copy_collection_like_value_helper(
+        &mut self,
+        destination_memory_location: &MemoryLocation,
+        source_memory_location: &MemoryLocation,
+        element_size: MemorySize,
+        collection_header_size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        // First check if the destination capacity is greater or equal to the source location so we don't overwrite too much
+        // Then always preserve the capacity. We should fill in the elements count and other things, but never overwrite capacity.
+        let hwm = self.temp_registers.save_mark();
+
+        let destination_capacity_reg = self.temp_registers.allocate(
+            VmType::new_contained_in_register(u16_type()),
+            "destination capacity",
+        );
+        self.builder.add_ld16_from_pointer_from_memory_location(
+            destination_capacity_reg.register(),
+            &destination_memory_location.unsafe_add_offset(COLLECTION_CAPACITY_OFFSET),
+            node,
+            &format!("{comment} - load capacity for destination"),
+        );
+
+        let source_length_reg = self.temp_registers.allocate(
+            VmType::new_contained_in_register(u16_type()),
+            "source capacity",
+        );
+        self.builder.add_ld16_from_pointer_from_memory_location(
+            source_length_reg.register(),
+            &source_memory_location.unsafe_add_offset(COLLECTION_LENGTH_OFFSET),
+            node,
+            &format!("{comment} - load capacity for source"),
+        );
+
+        self.builder.add_trap_if_lt(
+            destination_capacity_reg.register(),
+            source_length_reg.register(),
+            node,
+            &format!("{comment} - verify that we are within bounds"),
+        );
+
+        let skip_capacity = MemoryOffset(2);
+        let destination_tail = destination_memory_location.unsafe_add_offset(skip_capacity);
+        let source_tail = source_memory_location.unsafe_add_offset(skip_capacity);
+
+        // Compute bytes = (header_bytes - 2) + (count * element_size)
+        let src_count_in_bytes_reg = self.temp_registers.allocate(
+            VmType::new_contained_in_register(u16_type()),
+            "calculate byte length",
+        );
+        let element_size_reg = self.temp_registers.allocate(
+            VmType::new_contained_in_register(u16_type()),
+            "element_size",
+        );
+        self.builder.add_mov_16_immediate_value(
+            element_size_reg.register(),
+            element_size.0,
+            node,
+            "load in element size",
+        );
+
+        self.builder.add_mul_i32(
+            src_count_in_bytes_reg.register(),
+            source_length_reg.register(),
+            element_size_reg.register(),
+            node,
+            "count * element_size",
+        );
+
+        let header_tail_size = collection_header_size.0 - skip_capacity.0;
+        self.builder.add_add_u32_imm(
+            src_count_in_bytes_reg.register(),
+            src_count_in_bytes_reg.register(),
+            header_tail_size as u32,
+            node,
+            "(count*element_size) + collection header size",
+        );
+
+        self.builder.add_block_copy_with_offset_with_variable_size(
+            &destination_tail,
+            &source_tail,
+            src_count_in_bytes_reg.register(),
+            node,
+            &format!("{comment} - copy whole collection except capacity"),
+        );
+
+        self.temp_registers.restore_to_mark(hwm);
+    }
+
+    pub(crate) fn emit_copy_aggregate_value_helper(
+        &mut self,
+        destination_memory_location: &MemoryLocation,
+        source_memory_location: &MemoryLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        let ty = &source_memory_location.ty;
+        if ty.is_collection_like() {
+            let element_size = source_memory_location
+                .ty
+                .basic_type
+                .element()
+                .unwrap()
+                .total_size;
+            let header_size = source_memory_location.ty.basic_type.header_size().unwrap();
+            self.emit_copy_collection_like_value_helper(
+                destination_memory_location,
+                source_memory_location,
+                element_size,
+                header_size,
+                node,
+                comment,
+            );
+        } else {
+            self.builder.add_block_copy_with_offset(
+                destination_memory_location,
+                source_memory_location,
+                node,
+                &format!("block copy {comment} to memory pointed by register {destination_memory_location} <- {source_memory_location}"),
+            );
+        }
+    }
 
     /// Stores a **value** from a `value_source` (either a register or memory) to a
     /// target memory location specified by `output_destination`.
@@ -186,17 +312,15 @@ impl CodeBuilder<'_> {
                         &format!("store {comment} to memory pointed by register {output_destination} <- {value_reg}"),
                     );
                 } else {
-                    // This implies value_reg holds an aggregate type (represented by a pointer)
-                    // Existing block copy for aggregate types
                     let source_memory_location =
                         MemoryLocation::new_copy_over_whole_type_with_zero_offset(
                             value_reg.clone(),
                         );
-                    self.builder.add_block_copy_with_offset(
-                        output_mem_loc,
+                    self.emit_copy_aggregate_value_helper(
+                        &output_destination.memory_location_or_pointer_reg(),
                         &source_memory_location,
                         node,
-                        &format!("block copy {comment} to memory pointed by register {output_destination} <- {value_reg}"),
+                        "copy aggregate",
                     );
                 }
             }
@@ -220,17 +344,11 @@ impl CodeBuilder<'_> {
                         &format!("store {comment} from temp to memory pointed by register"),
                     );
                 } else {
-                    // This implies temp_reg holds an aggregate type (represented by a pointer)
-                    let source_memory_location =
-                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                            temp_reg.register,
-                        );
-
-                    self.builder.add_block_copy_with_offset(
-                        output_mem_loc,
-                        &source_memory_location,
+                    self.emit_copy_aggregate_value_helper(
+                        output_destination.grab_memory_location(),
+                        source_mem_loc,
                         node,
-                        &format!("block copy '{comment}' from temp to memory pointed by register"),
+                        "copy aggregate",
                     );
                 }
             }

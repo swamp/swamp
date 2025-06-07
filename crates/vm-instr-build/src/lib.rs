@@ -122,6 +122,8 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -135,6 +137,21 @@ impl<'a> InstructionBuilder<'a> {
 impl InstructionBuilder<'_> {
     pub fn add_not_t(&mut self, node: &Node, comment: &str) {
         self.state.add_instruction(OpCode::NotP, &[], node, comment);
+    }
+
+    pub fn add_trap_if_lt(
+        &mut self,
+        a: &TypedRegister,
+        b: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::TrapOnLessThan,
+            &[a.addressing(), b.addressing()],
+            node,
+            comment,
+        );
     }
 
     #[must_use]
@@ -675,6 +692,33 @@ impl InstructionBuilder<'_> {
                 source_offset_bytes.1,
                 size_bytes.0,
                 size_bytes.1,
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_block_copy_with_offset_with_variable_size(
+        &mut self,
+        target_output_destination: &MemoryLocation,
+        source_memory_location: &MemoryLocation,
+        memory_size_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        let target_offset_bytes = u16_to_u8_pair(target_output_destination.offset.0);
+        let source_offset_bytes = u16_to_u8_pair(source_memory_location.offset.0);
+
+        self.state.add_instruction(
+            OpCode::BlockCopyWithOffsetsVariableSize,
+            &[
+                target_output_destination.base_ptr_reg.addressing(),
+                target_offset_bytes.0,
+                target_offset_bytes.1,
+                source_memory_location.base_ptr_reg.addressing(),
+                source_offset_bytes.0,
+                source_offset_bytes.1,
+                memory_size_reg.addressing(),
             ],
             node,
             comment,
@@ -1350,6 +1394,22 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::Ld32FromAbsoluteAddress,
             &[dst_reg.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_ld16_from_pointer_from_memory_location(
+        &mut self,
+        dst_reg: &TypedRegister,
+        source_memory_location: &MemoryLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.add_ld16_from_pointer_with_offset_u16(
+            dst_reg,
+            &source_memory_location.base_ptr_reg,
+            source_memory_location.offset,
             node,
             comment,
         );

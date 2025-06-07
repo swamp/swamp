@@ -11,7 +11,7 @@ use source_map_node::Node;
 use swamp_semantic::{AnonymousStructLiteral, Expression};
 use swamp_types::{AnonymousStructType, Type};
 use swamp_vm_types::AggregateMemoryLocation;
-use swamp_vm_types::types::{BasicType, BasicTypeKind};
+use swamp_vm_types::types::{BasicType, BasicTypeKind, VmType, u16_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_anonymous_struct_into_memory(
@@ -65,6 +65,25 @@ impl CodeBuilder<'_> {
             let real_offset_item = struct_type.get_field_offset(*field_index).unwrap();
             let modified_lvalue_location =
                 lvalue_location.offset(real_offset_item.offset, real_offset_item.ty.clone());
+
+            if let Some(capacity) = real_offset_item.ty.get_collection_capacity() {
+                let init_capacity_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u16_type()),
+                    "init capacity reg",
+                );
+                self.builder.add_mov_16_immediate_value(
+                    init_capacity_reg.register(),
+                    capacity.0,
+                    node,
+                    "set init capacity value",
+                );
+                self.builder.add_st16_using_ptr_with_offset(
+                    &modified_lvalue_location.location,
+                    init_capacity_reg.register(),
+                    node,
+                    &format!("{comment} - store capacity"),
+                );
+            }
 
             self.emit_expression_into_target_memory(
                 &modified_lvalue_location.location,

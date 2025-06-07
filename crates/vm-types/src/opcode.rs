@@ -48,6 +48,9 @@ pub enum OpCode {
     CmpReg,
     CmpBlock,
 
+    // Other Comparisons
+    TrapOnLessThan,
+
     NotP, // Invert P flag
 
     // Conditional branching
@@ -64,6 +67,7 @@ pub enum OpCode {
 
     BlockCopyWithOffsets, // Copy from heap region with offset to frame region
     BlockCopy,            // Copy without offsets
+    BlockCopyWithOffsetsVariableSize, // Copy from heap region with offset to frame region with register holding the size
     FrameMemClr,
 
     // Loaders --------------
@@ -217,6 +221,9 @@ impl OpCode {
             Self::CmpBlock => "cmp.blk",
             Self::FrameMemClr => "clr.blk.f",
 
+            // Other comparisons
+            Self::TrapOnLessThan => "trap.lt",
+
             // Store Predicate Flag
             Self::NotP => "notpf",
             Self::MovFromPFlagToReg => "movpf",
@@ -233,7 +240,9 @@ impl OpCode {
             Self::Ret => "ret",
 
             // Mem
-            Self::BlockCopyWithOffsets | Self::BlockCopy => "blk.cpy",
+            Self::BlockCopyWithOffsets
+            | Self::BlockCopyWithOffsetsVariableSize
+            | Self::BlockCopy => "blk.cpy",
             Self::LdPtrFromEffectiveFrameAddress | Self::LoadEffectiveAddressIndexMultiplier => {
                 "lea"
             }

@@ -459,7 +459,7 @@ impl CodeBuilder<'_> {
 
             let output_reg = output.memory_location_or_pointer_reg();
 
-            self.builder.add_block_copy_with_offset(
+            self.emit_copy_aggregate_value_helper(
                 &output_reg,
                 &source_memory_location,
                 node,

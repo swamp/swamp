@@ -10,7 +10,8 @@ use crate::{
     MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryLocation,
     MemoryOffset, MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
     RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, align_to,
+    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
+    align_to,
 };
 use seq_fmt::comma;
 use std::cmp::{Ordering, max};
@@ -277,6 +278,7 @@ pub enum BasicTypeKind {
     DynamicLengthVecView(Box<BasicType>),
     VecStorage(Box<BasicType>, usize),
     MapStorage {
+        element_type: Box<BasicType>,
         tuple_type: Box<TupleType>,
         logical_limit: usize,
         capacity: usize,
@@ -1079,6 +1081,13 @@ pub struct VmType {
 
 impl VmType {
     #[must_use]
+    pub const fn is_collection_like(&self) -> bool {
+        self.basic_type.is_collection_like()
+    }
+}
+
+impl VmType {
+    #[must_use]
     pub const fn is_mutable_primitive(&self) -> bool {
         self.basic_type.is_mutable_reference()
             && self
@@ -1298,6 +1307,62 @@ pub struct BasicType {
     pub max_alignment: MemoryAlignment,
 }
 
+impl BasicType {}
+
+impl BasicType {
+    pub const fn is_vec_like(&self) -> bool {
+        matches!(
+            self.kind,
+            BasicTypeKind::DynamicLengthVecView(..)
+                | BasicTypeKind::VecStorage(..)
+                | BasicTypeKind::FixedCapacityArray(..)
+        )
+    }
+
+    pub const fn is_collection_like(&self) -> bool {
+        matches!(
+            self.kind,
+            BasicTypeKind::FixedCapacityArray(..)
+            // Vec
+            | BasicTypeKind::VecStorage(..)
+            | BasicTypeKind::DynamicLengthVecView(..)
+            // Map
+            | BasicTypeKind::MapStorage { element_type: _, tuple_type: _, logical_limit: _, capacity: _, status_size: _, bucket_size: _ }
+            | BasicTypeKind::DynamicLengthMapView(..)
+        )
+    }
+    pub fn is_collection_with_capacity(&self) -> bool {
+        matches!(
+            self.kind,
+            BasicTypeKind::FixedCapacityArray(..)
+            // Vec
+            | BasicTypeKind::VecStorage(..)
+            // Map
+            | BasicTypeKind::MapStorage { element_type: _, tuple_type: _, logical_limit: _, capacity: _, status_size: _, bucket_size: _ }
+        )
+    }
+
+    pub fn get_collection_capacity(&self) -> Option<MemorySize> {
+        match &self.kind {
+            BasicTypeKind::FixedCapacityArray(_element_type, capacity) => {
+                Some(MemorySize(*capacity as u16))
+            }
+            BasicTypeKind::VecStorage(_element_type, capacity) => {
+                Some(MemorySize(*capacity as u16))
+            }
+            BasicTypeKind::MapStorage {
+                element_type: _,
+                tuple_type: _,
+                logical_limit: _,
+                capacity,
+                status_size: _,
+                bucket_size: _,
+            } => Some(MemorySize(*capacity as u16)),
+            _ => None,
+        }
+    }
+}
+
 impl BasicType {
     pub(crate) const fn manifestation(&self) -> Manifestation {
         self.kind.manifestation()
@@ -1429,6 +1494,33 @@ impl BasicType {
             BasicTypeKind::SliceView(inner) => Some(inner),
             BasicTypeKind::VecStorage(inner, _) => Some(inner),
             BasicTypeKind::DynamicLengthVecView(inner) => Some(inner),
+            BasicTypeKind::MapStorage {
+                element_type,
+                tuple_type,
+                logical_limit,
+                capacity,
+                status_size,
+                bucket_size,
+            } => Some(element_type),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn header_size(&self) -> Option<MemorySize> {
+        match &self.kind {
+            BasicTypeKind::SliceView(_)
+            | BasicTypeKind::DynamicLengthVecView(_)
+            | BasicTypeKind::VecStorage(_, _) => Some(VEC_HEADER_SIZE),
+            BasicTypeKind::MapStorage {
+                element_type: _,
+                tuple_type: _,
+                logical_limit: _,
+                capacity: _,
+                status_size: _,
+                bucket_size: _,
+            }
+            | BasicTypeKind::DynamicLengthMapView(..) => Some(MAP_HEADER_SIZE),
             _ => None,
         }
     }

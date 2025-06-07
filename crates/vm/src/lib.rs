@@ -130,6 +130,7 @@ pub enum TrapCode {
     MapEntryNotFound,
     MapEntryNotFoundAndCouldNotBeCreated,
     MapEntryNotFoundForRemoval,
+    LessThanTrap,
 }
 impl TryFrom<u8> for TrapCode {
     type Error = ();
@@ -328,6 +329,9 @@ impl Vm {
         vm.handlers[OpCode::BlockCopyWithOffsets as usize] =
             HandlerType::Args8(Self::execute_mov_mem_with_offsets);
         vm.handlers[OpCode::BlockCopy as usize] = HandlerType::Args4(Self::execute_mov_mem);
+        vm.handlers[OpCode::BlockCopyWithOffsetsVariableSize as usize] =
+            HandlerType::Args7(Self::execute_mov_mem_with_offsets_with_variable_size);
+
         vm.handlers[OpCode::FrameMemClr as usize] =
             HandlerType::Args4(Self::execute_frame_memory_clear);
 
@@ -345,6 +349,8 @@ impl Vm {
         vm.handlers[OpCode::CmpBlock as usize] = HandlerType::Args4(Self::execute_cmp_block);
 
         vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
+        vm.handlers[OpCode::TrapOnLessThan as usize] =
+            HandlerType::Args2(Self::execute_trap_on_less_than);
 
         // P flag
         vm.handlers[OpCode::MovToPFlagFromReg as usize] = HandlerType::Args1(Self::execute_tst_reg);
@@ -1172,6 +1178,15 @@ impl Vm {
     }
 
     #[inline]
+    fn execute_trap_on_less_than(&mut self, a_reg: u8, b_reg: u8) {
+        let a = get_reg!(self, a_reg);
+        let b = get_reg!(self, b_reg);
+        if a < b {
+            self.internal_trap(TrapCode::LessThanTrap)
+        }
+    }
+
+    #[inline]
     fn execute_tst_reg(&mut self, val_reg: u8) {
         let val = get_reg!(self, val_reg);
         self.flags.p = val != 0;
@@ -1566,6 +1581,51 @@ impl Vm {
         let src_addr = get_reg!(self, src_pointer_reg) + src_offset as u32;
 
         let memory_size = u8s_to_u16!(memory_size_lower, memory_size_upper);
+
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            eprintln!(
+                "BLKCPY WITH OFFSET: {:04X}>  Size={:04X} \n  \
+           DST_REG={} (0x{:08X}) + DST_OFF=0x{:04X} => DST_ADDR=0x{:08X}\n  \
+           SRC_REG={} (0x{:08X}) + SRC_OFF=0x{:04X} => SRC_ADDR=0x{:08X}",
+                self.pc - 1,
+                memory_size,
+                dst_pointer_reg,
+                get_reg!(self, dst_pointer_reg),
+                dst_offset,
+                dest_addr,
+                src_pointer_reg,
+                get_reg!(self, src_pointer_reg),
+                src_offset,
+                src_addr,
+            );
+        }
+
+        let dst_ptr = self.memory.get_heap_ptr(dest_addr as usize);
+        let src_ptr = self.memory.get_heap_const_ptr(src_addr as usize);
+
+        unsafe {
+            ptr::copy_nonoverlapping(src_ptr, dst_ptr, memory_size as usize);
+        }
+    }
+
+    #[inline]
+    fn execute_mov_mem_with_offsets_with_variable_size(
+        &mut self,
+        dst_pointer_reg: u8,
+        dst_offset_lower: u8,
+        dst_offset_upper: u8,
+        src_pointer_reg: u8,
+        src_offset_lower: u8,
+        src_offset_upper: u8,
+        memory_size_reg: u8,
+    ) {
+        let src_offset = u8s_to_u16!(src_offset_lower, src_offset_upper);
+        let dst_offset = u8s_to_u16!(dst_offset_lower, dst_offset_upper);
+        let dest_addr = get_reg!(self, dst_pointer_reg) + dst_offset as u32;
+        let src_addr = get_reg!(self, src_pointer_reg) + src_offset as u32;
+
+        let memory_size = get_reg!(self, memory_size_reg);
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {

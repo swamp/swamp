@@ -4,13 +4,13 @@
  */
 extern crate fxhash;
 use crate::memory::Memory;
-use crate::{get_reg, i16_from_u8s, TrapCode, Vm};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s};
 use crate::{set_reg, u16_from_u8s};
 use fxhash::FxHasher64;
 use std::cmp::min;
 use std::hash::Hasher;
 use std::{ptr, slice};
-use swamp_vm_types::{MapHeader, MapIterator, MAP_BUCKETS_OFFSET};
+use swamp_vm_types::{MAP_BUCKETS_OFFSET, MapHeader, MapIterator};
 
 impl Vm {
     const MAX_PROBES: usize = 8;
@@ -82,11 +82,12 @@ impl Vm {
             // Use bitwise AND for modulo (capacity is always a power of two)
             let mut index = (hash as usize) & (capacity - 1);
             #[cfg(feature = "debug_vm")]
-            if log
-            {
+            if log {
                 eprintln!(
                     "map_get_or_reserve_entry: wants to insert hash: {hash:08X} starting at: {index} capacity: {}, len: {}, logical_limit:{} key_size: {key_size} element_size: {element_size}",
-                    (*header).capacity, (*header).element_count, (*header).logical_limit,
+                    (*header).capacity,
+                    (*header).element_count,
+                    (*header).logical_limit,
                 );
             }
 
@@ -101,8 +102,7 @@ impl Vm {
 
                 let status = ptr::read(status_ptr);
                 #[cfg(feature = "debug_vm")]
-                if log
-                {
+                if log {
                     eprintln!(
                         "map_get_or_reserve_entry. checking index: {index}, status {status}, bucket_size {bucket_size}"
                     );
@@ -123,8 +123,7 @@ impl Vm {
                     (*header).element_count += 1;
                     ptr::copy_nonoverlapping(key_ptr, target_key_ptr, key_size);
                     #[cfg(feature = "debug_vm")]
-                    if log
-                    {
+                    if log {
                         eprintln!(
                             "map_get_or_reserve_entry. found empty bucket, write to index {index}. set bucket to occupied"
                         );
@@ -138,8 +137,7 @@ impl Vm {
 
                     if key_slice == existing_key_slice {
                         #[cfg(feature = "debug_vm")]
-                        if log
-                        {
+                        if log {
                             eprintln!("keys matched, so we found it. overwriting index {index}");
                         }
                         // Keys match, we can just overwrite the value portion
@@ -147,8 +145,7 @@ impl Vm {
                         return memory.get_heap_offset(value_dest_ptr);
                     }
                     #[cfg(feature = "debug_vm")]
-                    if log
-                    {
+                    if log {
                         eprintln!(
                             "map_get_or_reserve_entry. keys didn't match, so continue searching"
                         );
@@ -160,8 +157,7 @@ impl Vm {
                         first_tombstone_index = Some(index);
                     }
                     #[cfg(feature = "debug_vm")]
-                    if log
-                    {
+                    if log {
                         eprintln!(
                             "map_get_or_reserve_entry. found tombstone but continue searching"
                         );
@@ -184,8 +180,7 @@ impl Vm {
                 let target_value_ptr = target_key_ptr.add(key_size);
 
                 #[cfg(feature = "debug_vm")]
-                if log
-                {
+                if log {
                     eprintln!(
                         "map_get_or_reserve_entry. found tombstone in the end, overwriting with occupied"
                     );
@@ -199,8 +194,7 @@ impl Vm {
             }
 
             #[cfg(feature = "debug_vm")]
-            if log
-            {
+            if log {
                 eprintln!("map_get_or_reserve_entry. MAP IS FULL, CAN NOT INSERT");
             }
 
@@ -423,8 +417,7 @@ impl Vm {
             let mut index = (hash as usize) & (capacity - 1);
 
             #[cfg(feature = "debug_vm")]
-            if log
-            {
+            if log {
                 eprintln!(
                     "checks if has item with hash: {hash:08X} start index: {index} capacity: {capacity} key_size:{key_size} value_size: {element_size}"
                 );
@@ -501,8 +494,7 @@ impl Vm {
             let buckets_ptr = memory.get_heap_const_ptr(buckets_ptr_addr);
 
             #[cfg(feature = "debug_vm")]
-            if log
-            {
+            if log {
                 eprintln!(
                     "map_lookup_existing_entry: calculated search hash {hash:08X} starting at {index}"
                 );
@@ -520,8 +512,7 @@ impl Vm {
                     // Found an empty slot. The key cannot be present further down
                     // the probe sequence, because insertion would have stopped here.
                     #[cfg(feature = "debug_vm")]
-                    if log
-                    {
+                    if log {
                         eprintln!(
                             "map_lookup_existing_entry: found empty bucket, so gave up on searching"
                         );
@@ -534,8 +525,7 @@ impl Vm {
 
                     if key_slice == existing_key_slice {
                         #[cfg(feature = "debug_vm")]
-                        if log
-                        {
+                        if log {
                             eprintln!(
                                 "map_lookup_existing_entry: matching new key {key_slice:?} with existing key {existing_key_slice:?}. returning this existing entry at {index}, adding key_size {key_size}"
                             );
@@ -558,8 +548,7 @@ impl Vm {
             // without finding the key or hitting an empty slot.
             // Therefore, the key is not considered present within the probe limit.
             #[cfg(feature = "debug_vm")]
-            if log
-            {
+            if log {
                 eprintln!(
                     "map_lookup_existing_entry: lookup failed to find any matches, returning 0"
                 );
@@ -603,8 +592,7 @@ impl Vm {
             let mut index = (hash as usize) & (capacity - 1);
 
             #[cfg(feature = "debug_vm")]
-            if log
-            {
+            if log {
                 eprintln!(
                     "Attempting to remove item with hash: {hash:08X} starting at index: {index}"
                 );
@@ -622,8 +610,7 @@ impl Vm {
                     // Found an empty slot. The key cannot be present further down
                     // the probe sequence, because insertion would have stopped here.
                     #[cfg(feature = "debug_vm")]
-                    if log
-                    {
+                    if log {
                         eprintln!("Found empty bucket, key not found for removal.");
                     }
                     return false;
@@ -636,8 +623,7 @@ impl Vm {
                         ptr::write(status_ptr_mut, Self::BUCKET_TOMBSTONE);
                         (*header).element_count -= 1;
                         #[cfg(feature = "debug_vm")]
-                        if log
-                        {
+                        if log {
                             eprintln!("Successfully removed (tombstone) entry at index: {index}");
                         }
                         return true;
