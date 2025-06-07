@@ -59,28 +59,70 @@ pub enum TokenKind {
     Unknown(char),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     pub kind: TokenKind,
     pub start: u32,
     pub len: u16,
 }
 
+// Maximum number of tokens we can look ahead
+const MAX_LOOKAHEAD: usize = 4;
+
 pub struct Lexer<'a> {
     src: &'a [u8],
-    len: usize, // length of `src`
-    pos: usize, // current byte index into `src`
+    len: usize,              // length of `src`
+    pos: usize,              // current byte index into `src`
+    token_cache: Vec<Token>, // Dynamic cache for peeking, limited to MAX_LOOKAHEAD
 }
 
 impl<'a> Lexer<'a> {
     #[inline]
     #[must_use]
-    pub const fn new(input: &'a str) -> Self {
+    pub fn new(input: &'a str) -> Self {
         let bytes = input.as_bytes();
         Lexer {
             src: bytes,
             len: bytes.len(),
             pos: 0,
+            token_cache: Vec::with_capacity(MAX_LOOKAHEAD),
+        }
+    }
+
+    /// Peek at the next token without consuming it.
+    /// Subsequent calls to `peek()` return the same token.
+    #[inline]
+    pub fn peek(&mut self) -> &Token {
+        self.peek_n(0)
+    }
+
+    /// Peek at the nth token ahead without consuming any tokens.
+    /// n=0 means the next token
+    /// Returns EOF token if peeking beyond the end of input.
+    /// # Panics
+    /// if n >= `MAX_LOOKAHEAD`
+    #[inline]
+    pub fn peek_n(&mut self, n: usize) -> &Token {
+        assert!(
+            n < MAX_LOOKAHEAD,
+            "Cannot peek more than {MAX_LOOKAHEAD} tokens ahead"
+        );
+
+        while self.token_cache.len() <= n {
+            let token = self.next_token_internal();
+            self.token_cache.push(token);
+        }
+
+        &self.token_cache[n]
+    }
+
+    /// Return the next token, consuming it
+    #[inline]
+    pub fn next_token(&mut self) -> Token {
+        if self.token_cache.is_empty() {
+            self.next_token_internal()
+        } else {
+            self.token_cache.remove(0)
         }
     }
 
@@ -112,10 +154,10 @@ impl<'a> Lexer<'a> {
         Some(if is_negative { -result } else { result })
     }
 
-    /// Return the next token (advancing `self.pos`).
+    /// Internal function to generate the next token
     #[inline]
-    #[allow(clippy::too_many_lines)]
-    pub fn next_token(&mut self) -> Token {
+    #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
+    fn next_token_internal(&mut self) -> Token {
         while self.pos < self.len {
             match self.src[self.pos] {
                 b' ' | b'\t' | b'\r' | b'\n' => self.pos += 1,
