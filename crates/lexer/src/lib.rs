@@ -67,12 +67,14 @@ pub enum TokenKind {
     PipePipe,           // '||'
     QuestionQuestion,   // '??'
     Question,           // '?'
+    ColonColon,         // '::'
 
     // Three character
     DotDotEqual, // '..='
 
     // Really an error token
     Unknown(char),
+    Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -377,6 +379,23 @@ impl Lexer<'_> {
                 }
             }
 
+            // Types
+            b'A'..=b'Z' => {
+                self.pos += 1;
+                while self.pos < self.len {
+                    let c = self.src[self.pos];
+                    if !(c.is_ascii_lowercase() || c.is_ascii_uppercase() || c.is_ascii_digit()) {
+                        break;
+                    }
+                    self.pos += 1;
+                }
+                Token {
+                    kind: TokenKind::Type,
+                    start: start as u32,
+                    len: (self.pos - start) as u16,
+                }
+            }
+
             // Single-character tokens
             b'(' => {
                 self.pos += 1;
@@ -443,32 +462,25 @@ impl Lexer<'_> {
                 }
             }
             b'.' => {
-                if self.pos < self.len {
-                    match self.src[self.pos] {
-                        b'.' => {
-                            self.pos += 1;
-                            if self.pos < self.len && self.src[self.pos] == b'=' {
-                                self.pos += 1;
-                                Token {
-                                    kind: TokenKind::DotDotEqual,
-                                    start: start as u32,
-                                    len: 2,
-                                }
-                            } else {
-                                Token {
-                                    kind: TokenKind::DotDot,
-                                    start: start as u32,
-                                    len: 2,
-                                }
-                            }
-                        }
-                        _ => Token {
-                            kind: TokenKind::Dot,
+                if self.pos + 1 < self.len && self.src[self.pos + 1] == b'.' {
+                    self.pos += 1;
+                    if self.pos + 1 < self.len && self.src[self.pos + 1] == b'=' {
+                        self.pos += 2;
+                        Token {
+                            kind: TokenKind::DotDotEqual,
                             start: start as u32,
-                            len: 1,
-                        },
+                            len: 3,
+                        }
+                    } else {
+                        self.pos += 1;
+                        Token {
+                            kind: TokenKind::DotDot,
+                            start: start as u32,
+                            len: 2,
+                        }
                     }
                 } else {
+                    self.pos += 1;
                     Token {
                         kind: TokenKind::Dot,
                         start: start as u32,
@@ -480,14 +492,6 @@ impl Lexer<'_> {
                 self.pos += 1;
                 Token {
                     kind: TokenKind::Semicolon,
-                    start: start as u32,
-                    len: 1,
-                }
-            }
-            b':' => {
-                self.pos += 1;
-                Token {
-                    kind: TokenKind::Colon,
                     start: start as u32,
                     len: 1,
                 }
@@ -588,6 +592,24 @@ impl Lexer<'_> {
                     }
                 }
             }
+            b':' => {
+                self.pos += 1;
+                match self.src[self.pos] {
+                    b':' => {
+                        self.pos += 1;
+                        Token {
+                            kind: TokenKind::ColonColon,
+                            start: start as u32,
+                            len: 2,
+                        }
+                    }
+                    _ => Token {
+                        kind: TokenKind::Colon,
+                        start: start as u32,
+                        len: 1,
+                    },
+                }
+            }
             b'=' => {
                 self.pos += 1;
                 if self.pos < self.len {
@@ -640,22 +662,26 @@ impl Lexer<'_> {
             }
             b'<' => {
                 if self.pos < self.len {
-                    match self.src[self.pos] {
+                    match self.src[self.pos + 1] {
                         b'=' => {
-                            self.pos += 1;
+                            self.pos += 2;
                             Token {
                                 kind: TokenKind::LessEqual,
                                 start: start as u32,
                                 len: 2,
                             }
                         }
-                        _ => Token {
-                            kind: TokenKind::Less,
-                            start: start as u32,
-                            len: 1,
-                        },
+                        _ => {
+                            self.pos += 1;
+                            Token {
+                                kind: TokenKind::Less,
+                                start: start as u32,
+                                len: 1,
+                            }
+                        }
                     }
                 } else {
+                    self.pos += 1;
                     Token {
                         kind: TokenKind::Less,
                         start: start as u32,
@@ -665,22 +691,26 @@ impl Lexer<'_> {
             }
             b'>' => {
                 if self.pos < self.len {
-                    match self.src[self.pos] {
+                    match self.src[self.pos + 1] {
                         b'=' => {
-                            self.pos += 1;
+                            self.pos += 2;
                             Token {
                                 kind: TokenKind::GreaterEqual,
                                 start: start as u32,
                                 len: 2,
                             }
                         }
-                        _ => Token {
-                            kind: TokenKind::Greater,
-                            start: start as u32,
-                            len: 1,
-                        },
+                        _ => {
+                            self.pos += 1;
+                            Token {
+                                kind: TokenKind::Greater,
+                                start: start as u32,
+                                len: 1,
+                            }
+                        }
                     }
                 } else {
+                    self.pos += 1;
                     Token {
                         kind: TokenKind::Greater,
                         start: start as u32,
@@ -690,22 +720,26 @@ impl Lexer<'_> {
             }
             b'&' => {
                 if self.pos < self.len {
-                    match self.src[self.pos] {
+                    match self.src[self.pos + 1] {
                         b'&' => {
-                            self.pos += 1;
+                            self.pos += 2;
                             Token {
                                 kind: TokenKind::AmpersandAmpersand,
                                 start: start as u32,
                                 len: 2,
                             }
                         }
-                        _ => Token {
-                            kind: TokenKind::Ampersand,
-                            start: start as u32,
-                            len: 1,
-                        },
+                        _ => {
+                            self.pos += 1;
+                            Token {
+                                kind: TokenKind::Ampersand,
+                                start: start as u32,
+                                len: 1,
+                            }
+                        }
                     }
                 } else {
+                    self.pos += 1;
                     Token {
                         kind: TokenKind::Ampersand,
                         start: start as u32,
@@ -715,22 +749,26 @@ impl Lexer<'_> {
             }
             b'|' => {
                 if self.pos < self.len {
-                    match self.src[self.pos] {
+                    match self.src[self.pos + 1] {
                         b'|' => {
-                            self.pos += 1;
+                            self.pos += 2;
                             Token {
                                 kind: TokenKind::PipePipe,
                                 start: start as u32,
                                 len: 2,
                             }
                         }
-                        _ => Token {
-                            kind: TokenKind::Pipe,
-                            start: start as u32,
-                            len: 1,
-                        },
+                        _ => {
+                            self.pos += 1;
+                            Token {
+                                kind: TokenKind::Pipe,
+                                start: start as u32,
+                                len: 1,
+                            }
+                        }
                     }
                 } else {
+                    self.pos += 1;
                     Token {
                         kind: TokenKind::Pipe,
                         start: start as u32,
