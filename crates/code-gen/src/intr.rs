@@ -15,8 +15,8 @@ use swamp_vm_types::types::{
     BasicType, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type,
 };
 use swamp_vm_types::{
-    AggregateMemoryLocation, MAP_HEADER_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
-    STRING_HEADER_COUNT_OFFSET, VEC_HEADER_COUNT_OFFSET,
+    AggregateMemoryLocation, MAP_HEADER_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
+    MemorySize, STRING_HEADER_COUNT_OFFSET, VEC_HEADER_ELEMENT_COUNT_OFFSET,
 };
 use tracing::info;
 
@@ -458,7 +458,7 @@ impl CodeBuilder<'_> {
                 self.builder.add_ld16_from_pointer_with_offset_u16(
                     maybe_target.unwrap(),
                     self_addr.unwrap(),
-                    VEC_HEADER_COUNT_OFFSET,
+                    VEC_HEADER_ELEMENT_COUNT_OFFSET,
                     node,
                     "get the vec length",
                 );
@@ -559,7 +559,7 @@ impl CodeBuilder<'_> {
                 self.builder.add_ld16_from_pointer_with_offset_u16(
                     maybe_target.unwrap(),
                     self_addr.unwrap(),
-                    MAP_HEADER_COUNT_OFFSET,
+                    MAP_HEADER_ELEMENT_COUNT_OFFSET,
                     node,
                     "get the map length",
                 );
@@ -568,7 +568,7 @@ impl CodeBuilder<'_> {
                 self.builder.add_ld16_from_pointer_with_offset_u16(
                     maybe_target.unwrap(),
                     self_addr.unwrap(),
-                    MAP_HEADER_COUNT_OFFSET,
+                    MAP_HEADER_ELEMENT_COUNT_OFFSET,
                     node,
                     "get the map length for testing if it is empty",
                 );

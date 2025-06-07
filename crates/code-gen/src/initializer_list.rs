@@ -9,7 +9,7 @@ use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_vm_types::types::{BasicType, Destination, VmType};
 use swamp_vm_types::{
-    AggregateMemoryLocation, COLLECTION_LENGTH_OFFSET, MemoryLocation, MemoryOffset,
+    AggregateMemoryLocation, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
     VEC_HEADER_PAYLOAD_OFFSET,
 };
 
@@ -72,13 +72,19 @@ impl CodeBuilder<'_> {
             "check initializer elements can fix",
         );
 
-        let len_location = output_memory_location.unsafe_add_offset(COLLECTION_LENGTH_OFFSET);
-        self.builder.add_st16_using_ptr_with_offset(
-            &len_location,
-            &length_reg,
-            node,
-            "initialize len so initializer list doesn't have to",
-        );
+        if !output_memory_location
+            .ty
+            .element_count_always_same_as_capacity()
+        {
+            let len_location =
+                output_memory_location.unsafe_add_offset(COLLECTION_ELEMENT_COUNT_OFFSET);
+            self.builder.add_st16_using_ptr_with_offset(
+                &len_location,
+                &length_reg,
+                node,
+                "initialize element_count so initializer list doesn't have to",
+            );
+        }
 
         let bucket_start_memory_location =
             output_memory_location.unsafe_add_offset(VEC_HEADER_PAYLOAD_OFFSET);

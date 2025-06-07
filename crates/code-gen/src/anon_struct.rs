@@ -11,7 +11,10 @@ use source_map_node::Node;
 use swamp_semantic::{AnonymousStructLiteral, Expression};
 use swamp_types::{AnonymousStructType, Type};
 use swamp_vm_types::types::{BasicType, BasicTypeKind, VmType, u16_type};
-use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation};
+use swamp_vm_types::{
+    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
+    MemoryLocation,
+};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_anonymous_struct_into_memory(
@@ -131,11 +134,22 @@ impl CodeBuilder<'_> {
                 &format!("{comment} -set init capacity value"),
             );
             self.builder.add_st16_using_ptr_with_offset(
-                lvalue_location,
+                &lvalue_location.unsafe_add_offset(COLLECTION_CAPACITY_OFFSET),
                 init_capacity_reg.register(),
                 node,
                 &format!("{comment} - store capacity"),
             );
+
+            // if it is a fixed static array, we have to set the element_count
+            // it never changes at runtime
+            if lvalue_location.ty.element_count_always_same_as_capacity() {
+                self.builder.add_st16_using_ptr_with_offset(
+                    &lvalue_location.unsafe_add_offset(COLLECTION_ELEMENT_COUNT_OFFSET),
+                    init_capacity_reg.register(),
+                    node,
+                    &format!("{comment} - store element_count to same as capacity"),
+                );
+            }
 
             self.temp_registers.restore_to_mark(hwm);
         } else {

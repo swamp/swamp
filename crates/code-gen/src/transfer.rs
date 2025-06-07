@@ -8,7 +8,8 @@ use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType, u16_type};
 use swamp_vm_types::{
-    COLLECTION_CAPACITY_OFFSET, COLLECTION_LENGTH_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
+    COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
+    MemorySize,
 };
 use tracing::error;
 
@@ -202,7 +203,7 @@ impl CodeBuilder<'_> {
         source_length_reg.register
     }
 
-    pub fn emit_check_that_len_is_less_or_equal_to_capacity(
+    pub fn emit_check_that_element_count_is_less_or_equal_to_capacity(
         &mut self,
         destination_memory_location: &MemoryLocation,
         source_memory_location: &MemoryLocation,
@@ -229,9 +230,9 @@ impl CodeBuilder<'_> {
         );
         self.builder.add_ld16_from_pointer_from_memory_location(
             source_length_reg.register(),
-            &source_memory_location.unsafe_add_offset(COLLECTION_LENGTH_OFFSET),
+            &source_memory_location.unsafe_add_offset(COLLECTION_ELEMENT_COUNT_OFFSET),
             node,
-            &format!("{comment} - load length for source"),
+            &format!("{comment} - load source element_count"),
         );
 
         self.builder.add_trap_if_lt(
@@ -296,17 +297,17 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) {
         let hwm = self.temp_registers.save_mark();
-        let source_length_reg = self.emit_check_that_len_is_less_or_equal_to_capacity(
+        let source_length_reg = self.emit_check_that_element_count_is_less_or_equal_to_capacity(
             destination_memory_location,
             source_memory_location,
             node,
-            &format!("{comment} - check len is less or equal than capacity"),
+            &format!("{comment} - check `destination capacity` >= `source element_count`"),
         );
         let skip_capacity = MemoryOffset(2);
         let destination_tail = destination_memory_location.unsafe_add_offset(skip_capacity);
         let source_tail = source_memory_location.unsafe_add_offset(skip_capacity);
 
-        // Compute bytes = (header_bytes - 2) + (count * element_size)
+        // Compute bytes = (header_bytes - 2) + (element_count * element_size)
         let src_count_in_bytes_reg = self.temp_registers.allocate(
             VmType::new_contained_in_register(u16_type()),
             "calculate byte length",
@@ -327,7 +328,7 @@ impl CodeBuilder<'_> {
             &source_length_reg,
             element_size_reg.register(),
             node,
-            "count * element_size",
+            "element_count * element_size",
         );
 
         let header_tail_size = collection_header_size.0 - skip_capacity.0;
@@ -336,7 +337,7 @@ impl CodeBuilder<'_> {
             src_count_in_bytes_reg.register(),
             u32::from(header_tail_size),
             node,
-            "(count*element_size) + collection header size",
+            "(element_count*element_size) + collection header size",
         );
 
         self.builder.add_block_copy_with_offset_with_variable_size(

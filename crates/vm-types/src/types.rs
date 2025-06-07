@@ -1079,6 +1079,8 @@ pub struct VmType {
     pub origin: VmTypeOrigin,
 }
 
+impl VmType {}
+
 impl VmType {
     #[must_use]
     pub const fn is_collection_like(&self) -> bool {
@@ -1093,6 +1095,10 @@ impl VmType {
             && self
                 .basic_type
                 .should_be_copied_back_when_mutable_arg_or_return()
+    }
+
+    pub fn element_count_always_same_as_capacity(&self) -> bool {
+        self.basic_type.element_count_always_same_as_capacity()
     }
 }
 
@@ -1311,6 +1317,8 @@ impl BasicType {}
 
 impl BasicType {}
 
+impl BasicType {}
+
 impl BasicType {
     #[must_use]
     pub const fn is_vec_like(&self) -> bool {
@@ -1322,6 +1330,9 @@ impl BasicType {
         )
     }
 
+    pub(crate) const fn element_count_always_same_as_capacity(&self) -> bool {
+        matches!(self.kind, BasicTypeKind::FixedCapacityArray(..))
+    }
     #[must_use]
     pub const fn is_collection_like(&self) -> bool {
         matches!(

@@ -651,7 +651,7 @@ pub const REG_ON_FRAME_SIZE: MemorySize = MemorySize(4);
 pub const REG_ON_FRAME_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 pub const COLLECTION_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(0); // Capacity should always be first
-pub const COLLECTION_LENGTH_OFFSET: MemoryOffset = MemoryOffset(2); // Count/Length should always be second
+pub const COLLECTION_ELEMENT_COUNT_OFFSET: MemoryOffset = MemoryOffset(2); // Element count should always be second
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -659,27 +659,26 @@ pub struct VecHeader {
     /// Do not change the order of the fields!
     ///
     /// Keep the capacity field at the start of the header for consistency across all
-    /// container types. Because capacity must never be overwritten by memcpy, placing it
-    /// first simplifies our copy logic: we can verify and preserve it before copying
-    /// the remainder of the header in one contiguous operation.
+    /// container types. Placing it first simplifies copy operations: we can verify
+    /// and preserve capacity before copying the remainder of the header in one contiguous operation.
     pub capacity: u16,
 
-    /// Number of active elements in the collection.
+    /// Number of live (active) elements currently stored in the collection.
     ///
-    /// Always at offset 2 so that:
-    /// - **Logical length**: Expresses the "used" portion of the buffer.
-    /// - **Bounds checking**: Index and assignment checks (`0 <= idx < count`) can
-    ///   load from a fixed offset in one instruction.
-    /// - **Iteration**: Iterators uniformly read this field to know when to stop.
-    /// - **ABI stability**: External tools and serializers find the two most critical
-    ///   fields (`capacity`, then `count`) in the same location for all containers.
+    /// Always located at offset 2, enabling:
+    /// - **Logical size**: Represents the number of valid elements in use.
+    /// - **Bounds checking**: Index and assignment checks (`0 <= idx < element_count`)
+    ///   can load this field in a single instruction.
+    /// - **Iteration**: Iterators read this field to determine the end of the collection.
+    /// - **ABI stability**: External tools, debuggers, and serializers can consistently locate
+    ///   `capacity` and `element_count` across all container types.
     pub count: u16,
 }
 
 pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u16);
 pub const VEC_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(size_of::<VecHeader>() as u16);
 pub const VEC_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
-pub const VEC_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(2);
+pub const VEC_HEADER_ELEMENT_COUNT_OFFSET: MemoryOffset = MemoryOffset(2);
 pub const VEC_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(0);
 
 pub const VEC_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
@@ -733,23 +732,22 @@ pub const GRID_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct MapHeader {
-    // Do not change the order of the fields!
-    //
-    // Keep the capacity field at the start of the header for consistency across all
-    // container types. Because capacity must never be overwritten by memcpy, placing it
-    // first simplifies our copy logic: we can verify and preserve it before copying
-    // the remainder of the header in one contiguous operation.
+    /// Do not change the order of the fields!
+    ///
+    /// Keep the capacity field at the start of the header for consistency across all
+    /// container types. Placing it first simplifies copy operations: we can verify
+    /// and preserve capacity before copying the remainder of the header in one contiguous operation.
     pub capacity: u16,
 
-    /// Number of active elements in the collection.
+    /// Number of live (active) elements currently stored in the collection.
     ///
-    /// Always at offset 2 so that:
-    /// - **Logical length**: Expresses the "used" portion of the buffer.
-    /// - **Bounds checking**: Index and assignment checks (`0 <= idx < count`) can
-    ///   load from a fixed offset in one instruction.
-    /// - **Iteration**: Iterators uniformly read this field to know when to stop.
-    /// - **ABI stability**: External tools and serializers find the two most critical
-    ///   fields (`capacity`, then `count`) in the same location for all containers.
+    /// Always located at offset 2, enabling:
+    /// - **Logical size**: Represents the number of valid elements in use.
+    /// - **Bounds checking**: Index and assignment checks (`0 <= idx < element_count`)
+    ///   can load this field in a single instruction.
+    /// - **Iteration**: Iterators read this field to determine the end of the collection.
+    /// - **ABI stability**: External tools, debuggers, and serializers can consistently locate
+    ///   `capacity` and `element_count` across all container types.
     pub element_count: u16,
 
     pub key_size: u16,
@@ -764,7 +762,7 @@ pub struct MapHeader {
 
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
-pub const MAP_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(2);
+pub const MAP_HEADER_ELEMENT_COUNT_OFFSET: MemoryOffset = MemoryOffset(2);
 pub const MAP_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(0);
 pub const MAP_HEADER_KEY_SIZE_OFFSET: MemoryOffset = MemoryOffset(4);
 pub const MAP_HEADER_VALUE_SIZE_OFFSET: MemoryOffset = MemoryOffset(6);
@@ -793,30 +791,3 @@ pub const STRING_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 pub const STRING_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
 pub const STRING_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct SliceHeader {
-    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
-    pub element_count: u16,
-    pub element_size: u16,
-}
-
-pub const SLICE_HEADER_SIZE: MemorySize = MemorySize(size_of::<SliceHeader>() as u16);
-pub const SLICE_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
-pub const SLICE_PTR_OFFSET: MemoryOffset = MemoryOffset(0);
-pub const SLICE_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct SlicePairHeader {
-    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
-    pub element_count: u16,
-    pub key_size: u16,
-    pub value_size: u16,
-}
-
-pub const SLICE_PAIR_HEADER_SIZE: MemorySize = MemorySize(size_of::<SlicePairHeader>() as u16);
-pub const SLICE_PAIR_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
-pub const SLICE_PAIR_PTR_OFFSET: MemoryOffset = MemoryOffset(0);
-pub const SLICE_PAIR_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
