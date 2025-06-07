@@ -9,14 +9,47 @@ pub enum TokenKind {
     StringLiteral(String), // e.g. "\"hello\""
     Identifier(String),    // e.g. "some_identifier"
 
-    // Single-char punctuation / operators
-    LParen, // '('
-    RParen, // ')'
-    Plus,   // '+'
-    Minus,  // '-'
-    Star,   // '*'
-    Slash,  // '/'
-    Equal,  // '='
+    // Single-char operators
+    LParen,    // '('
+    RParen,    // ')'
+    LBrace,    // '{'
+    RBrace,    // '}'
+    LBracket,  // '['
+    RBracket,  // ']'
+    Plus,      // '+'
+    Minus,     // '-'
+    Star,      // '*'
+    Slash,     // '/'
+    Percent,   // '%'
+    Equal,     // '='
+    Less,      // '<'
+    Greater,   // '>'
+    Bang,      // '!'
+    Ampersand, // '&'
+    Pipe,      // '|'
+    Caret,     // '^'
+    Comma,     // ','
+    Dot,       // '.'
+    Semicolon, // ';'
+    Colon,     // ':'
+
+    // Compound operators
+    PlusEqual,          // '+='
+    MinusEqual,         // '-='
+    StarEqual,          // '*='
+    SlashEqual,         // '/='
+    PercentEqual,       // '%='
+    AmpersandEqual,     // '&='
+    PipeEqual,          // '|='
+    CaretEqual,         // '^='
+    EqualEqual,         // '=='
+    BangEqual,          // '!='
+    LessEqual,          // '<='
+    GreaterEqual,       // '>='
+    EqualGreater,       // '=>'
+    MinusGreater,       // '->'
+    AmpersandAmpersand, // '&&'
+    PipePipe,           // '||'
 
     // Really an error token
     Unknown(char),
@@ -242,11 +275,147 @@ impl<'a> Lexer<'a> {
         let kind = match b {
             b'(' => TokenKind::LParen,
             b')' => TokenKind::RParen,
-            b'+' => TokenKind::Plus,
-            b'-' => TokenKind::Minus,
-            b'*' => TokenKind::Star,
-            b'/' => TokenKind::Slash,
-            b'=' => TokenKind::Equal,
+            b'{' => TokenKind::LBrace,
+            b'}' => TokenKind::RBrace,
+            b'[' => TokenKind::LBracket,
+            b']' => TokenKind::RBracket,
+            b',' => TokenKind::Comma,
+            b'.' => TokenKind::Dot,
+            b';' => TokenKind::Semicolon,
+            b':' => TokenKind::Colon,
+
+            // Operators that might be compound
+            b'+' => {
+                if self.pos < self.len && self.src[self.pos] == b'=' {
+                    self.pos += 1;
+                    TokenKind::PlusEqual
+                } else {
+                    TokenKind::Plus
+                }
+            }
+            b'-' => match self.src[self.pos] {
+                b'=' => {
+                    self.pos += 1;
+                    TokenKind::MinusEqual
+                }
+                b'>' => {
+                    self.pos += 1;
+                    TokenKind::MinusGreater
+                }
+                _ => TokenKind::Minus,
+            },
+            b'*' => {
+                if self.pos < self.len && self.src[self.pos] == b'=' {
+                    self.pos += 1;
+                    TokenKind::StarEqual
+                } else {
+                    TokenKind::Star
+                }
+            }
+            b'/' => {
+                if self.pos < self.len && self.src[self.pos] == b'=' {
+                    self.pos += 1;
+                    TokenKind::SlashEqual
+                } else {
+                    TokenKind::Slash
+                }
+            }
+            b'%' => {
+                if self.pos < self.len && self.src[self.pos] == b'=' {
+                    self.pos += 1;
+                    TokenKind::PercentEqual
+                } else {
+                    TokenKind::Percent
+                }
+            }
+            b'=' => match self.src[self.pos] {
+                b'=' => {
+                    self.pos += 1;
+                    TokenKind::EqualEqual
+                }
+                b'>' => {
+                    self.pos += 1;
+                    TokenKind::EqualGreater
+                }
+                _ => TokenKind::Equal,
+            },
+            b'!' => {
+                if self.pos < self.len && self.src[self.pos] == b'=' {
+                    self.pos += 1;
+                    TokenKind::BangEqual
+                } else {
+                    TokenKind::Bang
+                }
+            }
+            b'<' => {
+                if self.pos < self.len {
+                    match self.src[self.pos] {
+                        b'=' => {
+                            self.pos += 1;
+                            TokenKind::LessEqual
+                        }
+                        _ => TokenKind::Less,
+                    }
+                } else {
+                    TokenKind::Less
+                }
+            }
+            b'>' => {
+                if self.pos < self.len {
+                    match self.src[self.pos] {
+                        b'=' => {
+                            self.pos += 1;
+                            TokenKind::GreaterEqual
+                        }
+
+                        _ => TokenKind::Greater,
+                    }
+                } else {
+                    TokenKind::Greater
+                }
+            }
+            b'&' => {
+                if self.pos < self.len {
+                    match self.src[self.pos] {
+                        b'=' => {
+                            self.pos += 1;
+                            TokenKind::AmpersandEqual
+                        }
+                        b'&' => {
+                            self.pos += 1;
+                            TokenKind::AmpersandAmpersand
+                        }
+                        _ => TokenKind::Ampersand,
+                    }
+                } else {
+                    TokenKind::Ampersand
+                }
+            }
+            b'|' => {
+                if self.pos < self.len {
+                    match self.src[self.pos] {
+                        b'=' => {
+                            self.pos += 1;
+                            TokenKind::PipeEqual
+                        }
+                        b'|' => {
+                            self.pos += 1;
+                            TokenKind::PipePipe
+                        }
+                        _ => TokenKind::Pipe,
+                    }
+                } else {
+                    TokenKind::Pipe
+                }
+            }
+            b'^' => {
+                if self.pos < self.len && self.src[self.pos] == b'=' {
+                    self.pos += 1;
+                    TokenKind::CaretEqual
+                } else {
+                    TokenKind::Caret
+                }
+            }
             other => {
                 let ch = other as char;
                 TokenKind::Unknown(ch)
@@ -256,7 +425,7 @@ impl<'a> Lexer<'a> {
         Token {
             kind,
             start: start as u32,
-            len: 1,
+            len: (self.pos - start) as u16,
         }
     }
 }

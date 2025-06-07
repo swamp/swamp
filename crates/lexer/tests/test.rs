@@ -54,3 +54,15 @@ fn fixed() {
         panic!("must be fixed literal")
     }
 }
+
+#[test]
+fn arrow() {
+    let mut lexer = Lexer::new("   xx_y=>3 ");
+
+    if let TokenKind::Identifier(ident) = lexer.next_token().kind {
+        assert_eq!(ident, "xx_y");
+        assert_eq!(TokenKind::EqualGreater, lexer.next_token().kind);
+    } else {
+        panic!("must be identifier literal")
+    }
+}
