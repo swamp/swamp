@@ -1310,7 +1310,7 @@ pub struct BasicType {
 impl BasicType {}
 
 impl BasicType {
-    pub const fn is_vec_like(&self) -> bool {
+    #[must_use] pub const fn is_vec_like(&self) -> bool {
         matches!(
             self.kind,
             BasicTypeKind::DynamicLengthVecView(..)
@@ -1319,7 +1319,7 @@ impl BasicType {
         )
     }
 
-    pub const fn is_collection_like(&self) -> bool {
+    #[must_use] pub const fn is_collection_like(&self) -> bool {
         matches!(
             self.kind,
             BasicTypeKind::FixedCapacityArray(..)
@@ -1331,7 +1331,7 @@ impl BasicType {
             | BasicTypeKind::DynamicLengthMapView(..)
         )
     }
-    pub fn is_collection_with_capacity(&self) -> bool {
+    #[must_use] pub const fn is_collection_with_capacity(&self) -> bool {
         matches!(
             self.kind,
             BasicTypeKind::FixedCapacityArray(..)
@@ -1342,7 +1342,7 @@ impl BasicType {
         )
     }
 
-    pub fn get_collection_capacity(&self) -> Option<MemorySize> {
+    #[must_use] pub const fn get_collection_capacity(&self) -> Option<MemorySize> {
         match &self.kind {
             BasicTypeKind::FixedCapacityArray(_element_type, capacity) => {
                 Some(MemorySize(*capacity as u16))
@@ -1362,7 +1362,7 @@ impl BasicType {
         }
     }
 
-    pub fn get_vec_slice_like_capacity(&self) -> Option<MemorySize> {
+    #[must_use] pub const fn get_vec_slice_like_capacity(&self) -> Option<MemorySize> {
         match &self.kind {
             BasicTypeKind::FixedCapacityArray(_element_type, capacity) => {
                 Some(MemorySize(*capacity as u16))

@@ -6,10 +6,9 @@
 use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
-use swamp_vm_types::types::{BasicType, Destination, TypedRegister, VmType, u16_type};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType, u16_type};
 use swamp_vm_types::{
     COLLECTION_CAPACITY_OFFSET, COLLECTION_LENGTH_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
-    VEC_HEADER_SIZE,
 };
 use tracing::error;
 
@@ -235,7 +234,7 @@ impl CodeBuilder<'_> {
         self.builder.add_add_u32_imm(
             src_count_in_bytes_reg.register(),
             src_count_in_bytes_reg.register(),
-            header_tail_size as u32,
+            u32::from(header_tail_size),
             node,
             "(count*element_size) + collection header size",
         );
