@@ -48,6 +48,8 @@ pub enum TokenKind {
     GreaterEqual,       // '>='
     ThinArrow,          // '->'
     FatArrow,           // '=>'
+    DotDot,             // '..'
+    DotDotEqual,        // '..='
     AmpersandAmpersand, // '&&'
     PipePipe,           // '||'
     QuestionQuestion,   // '??'
@@ -283,7 +285,24 @@ impl<'a> Lexer<'a> {
             b']' => TokenKind::RBracket,
             b'#' => TokenKind::Hash,
             b',' => TokenKind::Comma,
-            b'.' => TokenKind::Dot,
+            b'.' => {
+                if self.pos < self.len {
+                    match self.src[self.pos] {
+                        b'.' => {
+                            self.pos += 1;
+                            if self.pos < self.len && self.src[self.pos] == b'=' {
+                                self.pos += 1;
+                                TokenKind::DotDotEqual
+                            } else {
+                                TokenKind::DotDot
+                            }
+                        }
+                        _ => TokenKind::Dot,
+                    }
+                } else {
+                    TokenKind::Dot
+                }
+            }
             b';' => TokenKind::Semicolon,
             b':' => TokenKind::Colon,
 
