@@ -11,13 +11,13 @@ pub enum TokenKind {
     EOF,
 
     // Literals
-    Integer(i32),          // e.g. 123, 1000
-    Fixed(i32),            // 16.16 fixed point format
-    StringLiteral(String), // e.g. "\"hello\""
-    StringStart(String),   // Start of interpolated string e.g. "hello {"
-    StringMiddle(String),  // Middle of interpolated string e.g. "} world {"
-    StringEnd(String),     // End of interpolated string e.g. "} world"
-    Identifier(String),    // e.g. "some_identifier"
+    Integer(i32),  // e.g. 123, 1000
+    Fixed(i32),    // 16.16 fixed point format
+    StringLiteral, // e.g. "\"hello\""
+    StringStart,   // Start of interpolated string e.g. "hello {"
+    StringMiddle,  // Middle of interpolated string e.g. "} world {"
+    StringEnd,     // End of interpolated string e.g. "} world"
+    Identifier,    // e.g. "some_identifier"
 
     // Single-char operators
     LParen,    // '('
@@ -44,15 +44,15 @@ pub enum TokenKind {
     Colon,     // ':'
 
     // Compound operators
-    PlusEqual,          // '+='
-    MinusEqual,         // '-='
-    StarEqual,          // '*='
-    SlashEqual,         // '/='
-    PercentEqual,       // '%='
-    EqualEqual,         // '=='
-    BangEqual,          // '!='
-    LessEqual,          // '<='
-    GreaterEqual,       // '>='
+    PlusEqual,    // '+='
+    MinusEqual,   // '-='
+    StarEqual,    // '*='
+    SlashEqual,   // '/='
+    PercentEqual, // '%='
+    EqualEqual,   // '=='
+    BangEqual,    // '!='
+    LessEqual,    // '<='
+    GreaterEqual, // '>='
 
     // Two character:
     ThinArrow,          // '->'
@@ -64,7 +64,7 @@ pub enum TokenKind {
     Question,           // '?'
 
     // Three character
-    DotDotEqual,        // ..='
+    DotDotEqual, // '..='
 
     // Really an error token
     Unknown(char),
@@ -82,11 +82,11 @@ const MAX_LOOKAHEAD: usize = 4;
 
 pub struct Lexer<'a> {
     src: &'a [u8],
-    len: usize,              // length of `src`
-    pos: usize,              // current byte index into `src`
-    token_cache: Vec<Token>, // Dynamic cache for peeking, limited to MAX_LOOKAHEAD
-    string_mode: StringMode,
-    seen_interpolation: bool,
+    len: usize,               // length of `src`
+    pos: usize,               // current byte index into `src`
+    token_cache: Vec<Token>,  // Dynamic cache for peeking, limited to MAX_LOOKAHEAD
+    string_mode: StringMode,  // Support for string interpolation
+    seen_interpolation: bool, // To determine if it is StringStart or StringMiddle
 }
 
 impl<'a> Lexer<'a> {
@@ -102,6 +102,14 @@ impl<'a> Lexer<'a> {
             string_mode: StringMode::Normal,
             seen_interpolation: false,
         }
+    }
+}
+
+impl Lexer<'_> {
+    #[must_use]
+    pub fn get_string(&self, token: &Token) -> String {
+        let slice = &self.src[token.start as usize..token.start as usize + token.len as usize];
+        unsafe { std::str::from_utf8_unchecked(slice) }.to_owned()
     }
 
     /// Peek at the next token without consuming it.
@@ -186,11 +194,9 @@ impl<'a> Lexer<'a> {
                     continue;
                 }
                 if c == b'"' {
-                    let slice = &self.src[start..=self.pos];
-                    let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
                     self.pos += 1; // consume closing quote
                     return Token {
-                        kind: TokenKind::StringLiteral(text),
+                        kind: TokenKind::StringLiteral,
                         start: start as u32,
                         len: (self.pos - start) as u16,
                     };
@@ -239,7 +245,9 @@ impl<'a> Lexer<'a> {
             // Numbers
             b'0'..=b'9' | b'-' => {
                 // Handle standalone minus operator
-                if b == b'-' && (self.pos + 1 >= self.len || !matches!(self.src[self.pos + 1], b'0'..=b'9')) {
+                if b == b'-'
+                    && (self.pos + 1 >= self.len || !matches!(self.src[self.pos + 1], b'0'..=b'9'))
+                {
                     self.pos += 1;
                     return Token {
                         kind: TokenKind::Minus,
@@ -335,11 +343,8 @@ impl<'a> Lexer<'a> {
                     }
                     self.pos += 1;
                 }
-                let slice = &self.src[start..self.pos];
-                // SAFETY: slice contains only ASCII chars, so it's valid UTF-8
-                let text = unsafe { std::str::from_utf8_unchecked(slice) }.to_owned();
                 Token {
-                    kind: TokenKind::Identifier(text),
+                    kind: TokenKind::Identifier,
                     start: start as u32,
                     len: (self.pos - start) as u16,
                 }
@@ -720,7 +725,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// When we are inside a string interpolation block `{...}`
-    /// Should lex as normal
+    /// Should lex as normal until it finds the end `'`
     fn lex_inside_interpolation(&mut self) -> Token {
         if let Some(end_token) = self.skip_whitespace() {
             return end_token;
@@ -745,6 +750,7 @@ impl<'a> Lexer<'a> {
 
     /// When we are in a string part of the string interpolation
     /// The string parts between the interpolation string `'...'` and the `{...}` parts.
+    /// Continues to build a string until it finds a starting `{` or and end `'`.
     fn lex_inside_string(&mut self) -> Token {
         let start = self.pos;
         let mut escaped = false;
@@ -761,31 +767,27 @@ impl<'a> Lexer<'a> {
                         continue;
                     }
                     b'{' => {
-                        let slice = &self.src[start..self.pos];
-                        let text = String::from_utf8_lossy(slice).to_string();
                         self.string_mode = StringMode::InInterpolation;
                         let was_seen = self.seen_interpolation;
                         self.seen_interpolation = true;
                         return Token {
                             kind: if was_seen {
-                                TokenKind::StringMiddle(text)
+                                TokenKind::StringMiddle
                             } else {
-                                TokenKind::StringStart(text)
+                                TokenKind::StringStart
                             },
                             start: start as u32,
                             len: (self.pos - start) as u16,
                         };
                     }
                     b'\'' => {
-                        let slice = &self.src[start..self.pos];
-                        let text = String::from_utf8_lossy(slice).to_string();
                         self.pos += 1;
                         self.string_mode = StringMode::Normal;
                         self.seen_interpolation = false;
                         return Token {
-                            kind: TokenKind::StringEnd(text),
+                            kind: TokenKind::StringEnd,
                             start: start as u32,
-                            len: (self.pos - start) as u16,
+                            len: (self.pos - start - 1) as u16, // extra -1 to not contain the end `'`
                         };
                     }
                     _ => {}
