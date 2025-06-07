@@ -49,21 +49,22 @@ pub enum TokenKind {
     StarEqual,          // '*='
     SlashEqual,         // '/='
     PercentEqual,       // '%='
-    AmpersandEqual,     // '&='
-    PipeEqual,          // '|='
-    CaretEqual,         // '^='
     EqualEqual,         // '=='
     BangEqual,          // '!='
     LessEqual,          // '<='
     GreaterEqual,       // '>='
+
+    // Two character:
     ThinArrow,          // '->'
     FatArrow,           // '=>'
     DotDot,             // '..'
-    DotDotEqual,        // '..='
     AmpersandAmpersand, // '&&'
     PipePipe,           // '||'
     QuestionQuestion,   // '??'
     Question,           // '?'
+
+    // Three character
+    DotDotEqual,        // ..='
 
     // Really an error token
     Unknown(char),
@@ -237,9 +238,8 @@ impl<'a> Lexer<'a> {
 
             // Numbers
             b'0'..=b'9' | b'-' => {
-                if b == b'-'
-                    && (self.pos + 1 >= self.len || !self.src[self.pos + 1].is_ascii_digit())
-                {
+                // Handle standalone minus operator
+                if b == b'-' && (self.pos + 1 >= self.len || !matches!(self.src[self.pos + 1], b'0'..=b'9')) {
                     self.pos += 1;
                     return Token {
                         kind: TokenKind::Minus,
@@ -659,14 +659,6 @@ impl<'a> Lexer<'a> {
             b'&' => {
                 if self.pos < self.len {
                     match self.src[self.pos] {
-                        b'=' => {
-                            self.pos += 1;
-                            Token {
-                                kind: TokenKind::AmpersandEqual,
-                                start: start as u32,
-                                len: 2,
-                            }
-                        }
                         b'&' => {
                             self.pos += 1;
                             Token {
@@ -692,14 +684,6 @@ impl<'a> Lexer<'a> {
             b'|' => {
                 if self.pos < self.len {
                     match self.src[self.pos] {
-                        b'=' => {
-                            self.pos += 1;
-                            Token {
-                                kind: TokenKind::PipeEqual,
-                                start: start as u32,
-                                len: 2,
-                            }
-                        }
                         b'|' => {
                             self.pos += 1;
                             Token {
