@@ -187,6 +187,9 @@ fn test_unterminated_block_comment() {
 fn all_tokens() {
     let script = r#"
     use std::{print}
+    
+    const SOME_CONSTANT: Int = 3
+    
     struct Battle {
 	seed: Int,
 	id_gen: IDSource,
