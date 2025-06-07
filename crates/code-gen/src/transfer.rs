@@ -351,8 +351,22 @@ impl CodeBuilder<'_> {
         self.temp_registers.restore_to_mark(hwm);
     }
 
-    // In the case of a Map like we must copy the whole capacity
-    // since elements can be stored in any of the buckets
+    /// Copies the data for a map-like collection using open addressing.
+    ///
+    /// In open-addressed hash maps, the placement of elements is determined by their hash values
+    /// and the linear probing strategy used to resolve collisions. As a result, elements
+    /// may reside in any bucket.
+    ///
+    /// The `element_count` reflects the number of live entries, and is not coupled to their physical locations.
+    /// To preserve the full internal state (including occupied buckets, empty slots, and tombstones),
+    /// we copy the entire allocated bucket array (`capacity * bucket_size`) from the source.
+    ///
+    /// The `capacity` field in the destination is not modified because the allocated memory
+    /// for the destination map remains unchanged. The header copy therefore skips the `capacity`
+    /// field and starts from the following fields.
+    ///
+    /// The source capacity is only used for verification to ensure that the source data fits
+    /// within the destination's allocated space.
     pub(crate) fn emit_copy_map_like_value_helper(
         &mut self,
         destination_memory_location: &MemoryLocation,
