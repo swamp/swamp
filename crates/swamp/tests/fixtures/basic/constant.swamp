@@ -155,7 +155,7 @@ fn fill_map_from_constant_and_overwrite_it() {
     assert(SPAWN_POINTS[Player::Blue][0].y == -43, 'after change blue:y {SPAWN_POINTS[Player::Blue][0].y}')
 }
 
-//#[test]
+#[test]
 fn fill_map_from_constant_and_add_to_it() {
     mut game = Game {
         spawn_points:SPAWN_POINTS,
@@ -184,9 +184,22 @@ fn fill_map_from_constant_and_add_to_it() {
     assert(SPAWN_POINTS[Player::Blue][0].y == -43, 'after change blue:y {SPAWN_POINTS[Player::Blue][0].y}')
 }
 
-//#[test]
+#[test]
 fn fill_map_view_from_constant() {
-    map_view : [Player: Vec<Point>] = SPAWN_POINTS
+    mut map_view : [Player: Vec<Point; 2>] = SPAWN_POINTS
+
+    assert(map_view.len() == 2, 'spawn points length {map_view.len()}')
+    assert(map_view[Player::Blue][0].x == -42, 'spawn point blue:x {map_view[Player::Blue][0].x}')
+    assert(map_view[Player::Blue][0].y == -43, 'spawn point blue:y {map_view[Player::Blue][0].y}')
+    assert(map_view[Player::Red][0].x == 12, 'spawn point red:x {map_view[Player::Red][0].x}')
+    assert(map_view[Player::Red][0].y == 13, 'spawn point red:y {map_view[Player::Red][0].y}')
+    assert(map_view[Player::Red][1].x == 42, 'spawn point red:x {map_view[Player::Red][1].x}')
+    assert(map_view[Player::Red][1].y == 43, 'spawn point red:y {map_view[Player::Red][1].y}')
+}
+
+#[test]
+fn assign_immutable_map_view_from_constant() {
+    map_view = SPAWN_POINTS
 
     assert(map_view.len() == 2, 'spawn points length {map_view.len()}')
     assert(map_view[Player::Blue][0].x == -42, 'spawn point blue:x {map_view[Player::Blue][0].x}')

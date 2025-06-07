@@ -86,6 +86,13 @@ impl CodeBuilder<'_> {
                 offset: MemoryOffset(0),
                 ty: target_register.ty,
             };
+
+            self.emit_initialize_target_memory_first_time(
+                &memory_location,
+                &variable.name,
+                "initialize variable for the first time",
+            );
+
             self.emit_expression_into_target_memory(
                 &memory_location,
                 expression,

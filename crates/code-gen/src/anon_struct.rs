@@ -10,8 +10,8 @@ use crate::layout::layout_struct_type;
 use source_map_node::Node;
 use swamp_semantic::{AnonymousStructLiteral, Expression};
 use swamp_types::{AnonymousStructType, Type};
-use swamp_vm_types::AggregateMemoryLocation;
 use swamp_vm_types::types::{BasicType, BasicTypeKind, VmType, u16_type};
+use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_anonymous_struct_into_memory(
@@ -66,24 +66,11 @@ impl CodeBuilder<'_> {
             let modified_lvalue_location =
                 lvalue_location.offset(real_offset_item.offset, real_offset_item.ty.clone());
 
-            if let Some(capacity) = real_offset_item.ty.get_collection_capacity() {
-                let init_capacity_reg = self.temp_registers.allocate(
-                    VmType::new_contained_in_register(u16_type()),
-                    "init capacity reg",
-                );
-                self.builder.add_mov_16_immediate_value(
-                    init_capacity_reg.register(),
-                    capacity.0,
-                    node,
-                    "set init capacity value",
-                );
-                self.builder.add_st16_using_ptr_with_offset(
-                    &modified_lvalue_location.location,
-                    init_capacity_reg.register(),
-                    node,
-                    &format!("{comment} - store capacity"),
-                );
-            }
+            self.emit_initialize_target_memory_first_time(
+                &modified_lvalue_location.location,
+                node,
+                &format!("{comment} - initialize struct literal field"),
+            );
 
             self.emit_expression_into_target_memory(
                 &modified_lvalue_location.location,
@@ -122,5 +109,37 @@ impl CodeBuilder<'_> {
             comment,
             ctx,
         )
+    }
+
+    pub(crate) fn emit_initialize_target_memory_first_time(
+        &mut self,
+        lvalue_location: &MemoryLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        if let Some(capacity) = lvalue_location.ty.underlying().get_collection_capacity() {
+            let hwm = self.temp_registers.save_mark();
+
+            let init_capacity_reg = self.temp_registers.allocate(
+                VmType::new_contained_in_register(u16_type()),
+                &format!("{comment} - init vec slice capacity reg"),
+            );
+            self.builder.add_mov_16_immediate_value(
+                init_capacity_reg.register(),
+                capacity.0,
+                node,
+                &format!("{comment} -set init capacity value"),
+            );
+            self.builder.add_st16_using_ptr_with_offset(
+                lvalue_location,
+                init_capacity_reg.register(),
+                node,
+                &format!("{comment} - store capacity"),
+            );
+
+            self.temp_registers.restore_to_mark(hwm);
+        } else {
+            // if there is no collection capacity
+        }
     }
 }

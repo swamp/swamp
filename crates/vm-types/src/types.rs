@@ -1361,6 +1361,18 @@ impl BasicType {
             _ => None,
         }
     }
+
+    pub fn get_vec_slice_like_capacity(&self) -> Option<MemorySize> {
+        match &self.kind {
+            BasicTypeKind::FixedCapacityArray(_element_type, capacity) => {
+                Some(MemorySize(*capacity as u16))
+            }
+            BasicTypeKind::VecStorage(_element_type, capacity) => {
+                Some(MemorySize(*capacity as u16))
+            }
+            _ => None,
+        }
+    }
 }
 
 impl BasicType {
