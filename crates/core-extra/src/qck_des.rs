@@ -218,6 +218,7 @@ pub fn quick_deserialize(resolved_type: &Type, buf: &[u8], depth: usize) -> (Val
         &swamp_types::Type::Range(_) => todo!(),
         &swamp_types::Type::DynamicLengthVecView(_) => todo!(),
         &swamp_types::Type::FixedCapacityAndLengthArray(_, _) => todo!(),
+        &swamp_types::Type::StackView(_) | &swamp_types::Type::StackStorage(_, _) => todo!(),
     };
 
     (val, octet_size)

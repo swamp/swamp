@@ -266,6 +266,18 @@ impl Lexer<'_> {
                 return self.lex_inside_string();
             }
 
+            // Single character operators
+            b'*' => {
+                self.pos += 1;
+                return Token {
+                    kind: TokenKind::Star,
+                    node: Node {
+                        start: start as u32,
+                        len: 1,
+                    },
+                };
+            }
+
             // Numbers
             b'0'..=b'9' | b'-' => {
                 // Handle standalone minus operator

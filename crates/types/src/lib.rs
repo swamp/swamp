@@ -46,6 +46,9 @@ pub enum Type {
     DynamicLengthVecView(Box<Type>), // `Vec<T>`
     VecStorage(Box<Type>, usize),    // `Vec<T;N>`
 
+    StackView(Box<Type>),           // `Stack<T>`
+    StackStorage(Box<Type>, usize), // `Stack<T;N>`
+
     MapStorage(Box<Type>, Box<Type>, usize), // `Map<K, V; N>`
     DynamicLengthMapView(Box<Type>, Box<Type>), // Map<K, V>`
 }
@@ -270,6 +273,7 @@ impl Type {
 
             Self::SliceView(_) => false,
             Self::DynamicLengthVecView(a) => false,
+            Self::StackView(_) => false,
             Self::DynamicLengthMapView(a, b) => {
                 eprintln!("NOT CONCRETE {a:?}, {b:?}");
                 false
@@ -277,6 +281,7 @@ impl Type {
 
             Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::VecStorage(_, _) => true,
+            Self::StackStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -340,11 +345,13 @@ impl Type {
             Self::Function(_)
             | Self::SliceView(_)
             | Self::DynamicLengthMapView(_, _)
+            | Self::StackView(_)
             | Self::DynamicLengthVecView(_) => false,
 
             Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
+            Self::StackStorage(_, _) => true,
             Self::Range(_) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -408,10 +415,12 @@ impl Type {
             | Self::MutableReference(_)
             | Self::SliceView(_)
             | Self::DynamicLengthMapView(_, _)
+            | Self::StackView(_)
             | Self::DynamicLengthVecView(_) => false,
 
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
+            Self::StackStorage(_, _) => true,
             Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::Range(_) => true,
 
@@ -483,6 +492,12 @@ impl Debug for Type {
             Self::MapStorage(key_type, value_type, size) => {
                 write!(f, "MapStorage<{key_type:?}, {value_type:?}, {size}>")
             }
+            Self::StackStorage(key_type, size) => {
+                write!(f, "Stack<{key_type:?}; {size}>")
+            }
+            Self::StackView(key_type) => {
+                write!(f, "Stack<{key_type:?}>")
+            }
             Self::DynamicLengthMapView(key_type, value_type) => {
                 write!(f, "Map<{key_type:?}, {value_type:?}>")
             }
@@ -512,8 +527,14 @@ impl Display for Type {
             Self::VecStorage(value_type, size) => {
                 write!(f, "VecStorage<{value_type:?}, {size}>")
             }
+            Self::StackStorage(value_type, size) => {
+                write!(f, "StackStorage<{value_type:?}, {size}>")
+            }
             Self::DynamicLengthVecView(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
+            }
+            Self::StackView(value_type) => {
+                write!(f, "Stack<{value_type:?}>")
             }
             Self::SliceView(value_type) => {
                 write!(f, "[{value_type:?}]")

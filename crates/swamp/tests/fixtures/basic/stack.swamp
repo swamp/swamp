@@ -1,0 +1,5 @@
+#[test]
+fn create_stack() {
+    stack = Stack<Int>::new()
+
+}

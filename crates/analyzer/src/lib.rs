@@ -1507,6 +1507,8 @@ impl<'a> Analyzer<'a> {
             Type::SliceView(_) => todo!(),
             Type::DynamicLengthVecView(_) => todo!(),
             Type::VecStorage(_, _) => todo!(),
+            Type::StackView(_) => todo!(),
+            Type::StackStorage(_, _) => todo!(),
             Type::MapStorage(_, _, _) => todo!(),
             Type::DynamicLengthMapView(_, _) => todo!(),
         };
@@ -3613,6 +3615,23 @@ impl<'a> Analyzer<'a> {
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     Type::VecStorage(Box::from(element_type), fixed_size)
+                } else {
+                    panic!("todo: make this into an error")
+                }
+            }
+            "Stack" => {
+                if ast_generic_parameters.len() == 1 {
+                    let element_type = self
+                        .analyze_type(ast_generic_parameters[0].get_type())
+                        .unwrap();
+                    Type::StackView(Box::from(element_type))
+                } else if ast_generic_parameters.len() == 2 {
+                    let element_type = self
+                        .analyze_type(ast_generic_parameters[0].get_type())
+                        .unwrap();
+                    let fixed_size =
+                        self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
+                    Type::StackStorage(Box::from(element_type), fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }

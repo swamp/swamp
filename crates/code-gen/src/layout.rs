@@ -242,17 +242,6 @@ pub fn layout_type(ty: &Type) -> BasicType {
             )
         }
 
-        Type::VecStorage(element_type, fixed_size_element_count) => {
-            let element_type_basic = layout_type(element_type);
-            let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count
-                + VEC_HEADER_SIZE.0 as usize;
-            let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
-            create_basic_type(
-                BasicTypeKind::VecStorage(Box::from(element_type_basic), *fixed_size_element_count),
-                MemorySize(total_size as u16),
-                max_alignment,
-            )
-        }
         Type::DynamicLengthMapView(key_type, element_type) => {
             let tuple_gen_type = layout_tuple_items(&[*key_type.clone(), *element_type.clone()]);
             create_basic_type(
@@ -292,7 +281,29 @@ pub fn layout_type(ty: &Type) -> BasicType {
             )
         }
 
-        Type::DynamicLengthVecView(inner_type) => {
+        Type::StackStorage(element_type, fixed_size_element_count)
+        | Type::VecStorage(element_type, fixed_size_element_count) => {
+            let element_type_basic = layout_type(element_type);
+            let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count
+                + VEC_HEADER_SIZE.0 as usize;
+            let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
+            create_basic_type(
+                BasicTypeKind::VecStorage(Box::from(element_type_basic), *fixed_size_element_count),
+                MemorySize(total_size as u16),
+                max_alignment,
+            )
+        }
+
+        Type::StackView(inner_type) | Type::DynamicLengthVecView(inner_type) => {
+            let inner_gen_type = layout_type(inner_type);
+            create_basic_type(
+                BasicTypeKind::DynamicLengthVecView(Box::from(inner_gen_type)),
+                PTR_SIZE,
+                PTR_ALIGNMENT,
+            )
+        }
+
+        Type::StackView(inner_type) => {
             let inner_gen_type = layout_type(inner_type);
             create_basic_type(
                 BasicTypeKind::DynamicLengthVecView(Box::from(inner_gen_type)),
