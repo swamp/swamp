@@ -370,16 +370,27 @@ impl InstructionBuilder<'_> {
         &mut self,
         target_addr: &TypedRegister,
         self_addr: &TypedRegister,
+        element_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
+        /* TODO: Bring back
         assert!(matches!(
             self_addr.ty().kind,
             BasicTypeKind::DynamicLengthVecView(_)
         ));
+
+         */
+
+        let element_size_bytes = Self::u16_to_octets(element_size.0);
         self.state.add_instruction(
             OpCode::VecPop,
-            &[target_addr.addressing(), self_addr.addressing()],
+            &[
+                target_addr.addressing(),
+                self_addr.addressing(),
+                element_size_bytes.0,
+                element_size_bytes.1,
+            ],
             node,
             comment,
         );

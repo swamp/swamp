@@ -34,11 +34,11 @@ fn very_basic() {
             debug_operations: false,
             debug_stats: true,
             show_semantic: false,
-            show_assembly: false,
+            show_assembly: true,
             show_modules: false,
             step_behaviour: StepBehavior::ResumeExecution,
         },
-        "",
+        "stack::",
         module_suffix,
     );
     assert!(result.failed_tests.is_empty());

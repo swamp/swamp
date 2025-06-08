@@ -24,7 +24,7 @@ use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::rc::Rc;
 use std::str::{FromStr, ParseBoolError};
-use swamp_ast::GenericParameter;
+use swamp_ast::{GenericParameter, QualifiedTypeIdentifier};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::*;
@@ -416,10 +416,14 @@ impl<'a> Analyzer<'a> {
         named_type: &swamp_ast::QualifiedTypeIdentifier,
         member_name_node: &swamp_ast::Node,
     ) -> Option<Function> {
-        let some_type = self.analyze_named_type(named_type).ok()?;
+        if let Some(found_function) = self.special_static_member(named_type, member_name_node) {
+            Some(found_function)
+        } else {
+            let some_type = self.analyze_named_type(named_type).ok()?;
 
-        let member_name = self.get_text(member_name_node);
-        self.lookup_associated_function(&some_type, member_name)
+            let member_name = self.get_text(member_name_node);
+            self.lookup_associated_function(&some_type, member_name)
+        }
     }
 
     pub fn analyze_local_function_access(
@@ -562,8 +566,8 @@ impl<'a> Analyzer<'a> {
         ast_expression: &swamp_ast::Expression,
         context: &TypeContext,
     ) -> Result<Expression, Error> {
-        //        info!(?ast_expression, "analyze expression");
-        //self.debug_expression(ast_expression);
+        //info!(?ast_expression, "analyze expression");
+        //self.debug_expression(ast_expression, "analyze");
         let expr = self.analyze_expression_internal(ast_expression, context)?;
 
         let encountered_type = expr.ty.clone();
@@ -1176,7 +1180,9 @@ impl<'a> Analyzer<'a> {
                             // Keep previous mutable
                             tv.resolved_type = *element_type_in_slice.clone();
                         }
-                        Type::VecStorage(element_type, _) | Type::SliceView(element_type) => {
+                        Type::StackStorage(element_type, _)
+                        | Type::VecStorage(element_type, _)
+                        | Type::SliceView(element_type) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
                                 self.analyze_expression(lookup_expr, &unsigned_int_context)?;
@@ -1870,7 +1876,8 @@ impl<'a> Analyzer<'a> {
         let (collection_type, element_type) = if let Some(expected_type) = context.expected_type {
             let destination_type = expected_type.underlying();
             match destination_type {
-                Type::VecStorage(element_type, capacity) => {
+                Type::StackStorage(element_type, capacity)
+                | Type::VecStorage(element_type, capacity) => {
                     if items.len() > *capacity {
                         return Err(self.create_err(
                             ErrorKind::TooManyInitializerListElementsForStorage {
@@ -1879,10 +1886,9 @@ impl<'a> Analyzer<'a> {
                             node,
                         ));
                     }
-
                     (destination_type, *element_type.clone())
                 }
-                Type::DynamicLengthVecView(element_type) => {
+                Type::StackView(element_type) | Type::DynamicLengthVecView(element_type) => {
                     (destination_type, *element_type.clone())
                 }
                 Type::FixedCapacityAndLengthArray(element_type, _size) => {
@@ -3104,6 +3110,12 @@ impl<'a> Analyzer<'a> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
+            is_mutable: false,
+            node: None,
+        };
+        let self_mutable_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
             is_mutable: true,
             node: None,
         };
@@ -3112,7 +3124,7 @@ impl<'a> Analyzer<'a> {
                 IntrinsicFunction::VecPush,
                 Signature {
                     parameters: vec![
-                        self_type_param,
+                        self_mutable_type_param,
                         TypeForParameter {
                             name: "element".to_string(),
                             resolved_type: element_type.clone(),
@@ -3121,6 +3133,20 @@ impl<'a> Analyzer<'a> {
                         },
                     ],
                     return_type: Box::new(Type::Unit),
+                },
+            ),
+            "pop" => (
+                IntrinsicFunction::VecPop,
+                Signature {
+                    parameters: vec![self_mutable_type_param],
+                    return_type: Box::new(element_type.clone()),
+                },
+            ),
+            "is_empty" => (
+                IntrinsicFunction::VecIsEmpty,
+                Signature {
+                    parameters: vec![self_type_param],
+                    return_type: Box::new(Type::Bool),
                 },
             ),
             _ => { self.slice_member_signature(element_type, field_name_str, node) }?,
@@ -3360,8 +3386,14 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let ty = type_that_member_is_on.underlying();
         match ty {
-            Type::VecStorage(element_type, ..) | Type::DynamicLengthVecView(element_type) => self
-                .vec_member_signature(type_that_member_is_on, element_type, field_name_str, node),
+            Type::StackStorage(element_type, ..)
+            | Type::VecStorage(element_type, ..)
+            | Type::DynamicLengthVecView(element_type) => self.vec_member_signature(
+                type_that_member_is_on,
+                element_type,
+                field_name_str,
+                node,
+            ),
             Type::SliceView(element_type) => self.vec_member_signature(
                 type_that_member_is_on,
                 element_type,
@@ -3640,5 +3672,29 @@ impl<'a> Analyzer<'a> {
         };
 
         Some(converted_type)
+    }
+
+    fn special_static_member(
+        &self,
+        type_identifier: &QualifiedTypeIdentifier,
+        member_name_node: &swamp_ast::Node,
+    ) -> Option<Function> {
+        if type_identifier.generic_params.is_empty() {
+            return None;
+        }
+
+        if type_identifier.module_path.is_some() {
+            return None;
+        }
+
+        let member_name = self.get_text(member_name_node);
+        let name = self.get_text(&type_identifier.name.0);
+
+        match name {
+            "Stack" => match member_name {
+                _ => None,
+            },
+            _ => None,
+        }
     }
 }

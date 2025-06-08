@@ -464,6 +464,7 @@ impl Vm {
             HandlerType::Args5(Self::execute_vec_iter_next_pair);
         vm.handlers[OpCode::VecPushAddr as usize] = HandlerType::Args4(Self::execute_vec_push_addr);
         vm.handlers[OpCode::VecGet as usize] = HandlerType::Args5(Self::execute_vec_get);
+        vm.handlers[OpCode::VecPop as usize] = HandlerType::Args4(Self::execute_vec_pop);
         vm.handlers[OpCode::VecRemoveIndex as usize] =
             HandlerType::Args4(Self::execute_vec_remove_index);
 

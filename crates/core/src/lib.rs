@@ -49,8 +49,8 @@ fn add_intrinsic_functions(core_ns: &mut SymbolTable) {
     add_intrinsic_grid_functions(core_ns);
     add_intrinsic_vec_functions(core_ns);
     add_intrinsic_map_functions(core_ns);
-    add_intrinsic_map2_functions(core_ns);
-    add_intrinsic_sparse_functions(core_ns);
+    //add_intrinsic_map2_functions(core_ns);
+    //add_intrinsic_sparse_functions(core_ns);
     add_intrinsic_debug_functions(core_ns);
 }
 
@@ -97,6 +97,7 @@ fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable) {
     }
 }
 
+/*
 #[allow(clippy::too_many_lines)]
 fn add_intrinsic_sparse_functions(core_ns: &mut SymbolTable) {
     let slice_to_self = Signature {
@@ -327,7 +328,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-        .into(),
+            .into(),
         return_type: Box::new(Type::Bool),
     };
     let self_value_to_bool_functions = [IntrinsicFunction::Map2Has];
@@ -357,7 +358,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-        .into(),
+            .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_to_vec_functions = [IntrinsicFunction::Map2GetColumn];
@@ -393,7 +394,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-        .into(),
+            .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_value_to_value_functions = [IntrinsicFunction::Map2Get];
@@ -423,7 +424,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-        .into(),
+            .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_y_to_vec_functions = [IntrinsicFunction::Map2GetRow];
@@ -459,7 +460,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-        .into(),
+            .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_value_to_unit_functions = [IntrinsicFunction::Map2Remove];
@@ -501,7 +502,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
                 node: None,
             },
         ]
-        .into(),
+            .into(),
         return_type: Box::new(Type::Unit),
     };
     let self_value_value_value_to_unit_functions = [IntrinsicFunction::Map2Insert];
@@ -532,6 +533,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
             .unwrap();
     }
 }
+*/
 
 #[allow(clippy::too_many_lines)]
 fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {

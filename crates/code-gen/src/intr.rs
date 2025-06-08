@@ -16,7 +16,7 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
-    MAP_HEADER_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
+    MAP_HEADER_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize, PointerLocation,
     STRING_HEADER_COUNT_OFFSET,
 };
 use tracing::info;
@@ -391,13 +391,37 @@ impl CodeBuilder<'_> {
                 );
             }
 
+            IntrinsicFunction::VecIsEmpty => {
+                self.emit_collection_is_empty(
+                    maybe_target.unwrap().clone(),
+                    &PointerLocation {
+                        ptr_reg: self_addr.unwrap().clone(),
+                    },
+                    node,
+                    "vec empty",
+                );
+            }
             IntrinsicFunction::VecPop => {
+                let element_type = self_basic_type.unwrap().element().unwrap();
                 self.builder.add_vec_pop(
                     maybe_target.unwrap(),
                     self_addr.unwrap(), // mut self
+                    element_type.total_size,
                     node,
                     "vec pop",
                 );
+                let source_memory_location =
+                    MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                        maybe_target.unwrap().clone(),
+                    );
+                if element_type.is_scalar() {
+                    self.emit_load_scalar_from_memory_offset_instruction(
+                        maybe_target.unwrap(),
+                        &source_memory_location,
+                        node,
+                        "load scalar from popped value",
+                    );
+                }
             }
             IntrinsicFunction::VecRemoveIndex => {
                 let maybe_index_argument = &arguments[0];
@@ -586,17 +610,13 @@ impl CodeBuilder<'_> {
                 );
             }
             IntrinsicFunction::MapIsEmpty => {
-                self.builder.add_ld16_from_pointer_with_offset_u16(
-                    maybe_target.unwrap(),
-                    self_addr.unwrap(),
-                    MAP_HEADER_ELEMENT_COUNT_OFFSET,
+                self.emit_collection_is_empty(
+                    maybe_target.unwrap().clone(),
+                    &PointerLocation {
+                        ptr_reg: self_addr.unwrap().clone(),
+                    },
                     node,
-                    "get the map length for testing if it is empty",
-                );
-                self.builder.add_boolean_not(
-                    maybe_target.unwrap(),
-                    node,
-                    "convert the map length to inverted bool",
+                    "map is empty",
                 );
             }
 
@@ -662,35 +682,6 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::GridGetColumn => {}
             IntrinsicFunction::GridFromSlice => {}
 
-            // Map2
-            IntrinsicFunction::Map2Remove => {}
-            IntrinsicFunction::Map2Insert => {}
-            IntrinsicFunction::Map2GetColumn => {}
-            IntrinsicFunction::Map2GetRow => {}
-            IntrinsicFunction::Map2Get => {}
-            IntrinsicFunction::Map2Has => {}
-            IntrinsicFunction::Map2Create => {}
-
-            // Low prio ========
-            // Sparse
-            IntrinsicFunction::SparseCreate => {
-                /*
-                self.state.builder.add_sparse_create(
-                    ctx.target(),
-                    "map_subscript_mut_create (set)",
-                );
-
-                 */
-            }
-            IntrinsicFunction::SparseAdd => {}
-            IntrinsicFunction::SparseFromSlice => {}
-            IntrinsicFunction::SparseIter => {}
-            IntrinsicFunction::SparseIterMut => {}
-            IntrinsicFunction::SparseSubscript => {}
-            IntrinsicFunction::SparseSubscriptMut => {}
-            IntrinsicFunction::SparseHas => {}
-            IntrinsicFunction::SparseRemove => {}
-
             // Other
             IntrinsicFunction::Float2Magnitude => {}
         }
@@ -709,5 +700,23 @@ impl CodeBuilder<'_> {
 
         self.builder
             .add_map_remove(map_region, &key_register, &key_expression.node, "");
+    }
+
+    fn emit_collection_is_empty(
+        &mut self,
+        output_reg: TypedRegister,
+        collection_addr: &PointerLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.builder.add_ld16_from_pointer_with_offset_u16(
+            &output_reg,
+            &collection_addr.ptr_reg,
+            MAP_HEADER_ELEMENT_COUNT_OFFSET,
+            node,
+            "get the map length for testing if it is empty",
+        );
+        self.builder
+            .add_boolean_not(&output_reg, node, "convert the map length to inverted bool");
     }
 }

@@ -672,7 +672,7 @@ pub struct VecHeader {
     /// - **Iteration**: Iterators read this field to determine the end of the collection.
     /// - **ABI stability**: External tools, debuggers, and serializers can consistently locate
     ///   `capacity` and `element_count` across all container types.
-    pub count: u16,
+    pub element_count: u16,
 }
 
 pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u16);

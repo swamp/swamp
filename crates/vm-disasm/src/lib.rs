@@ -927,10 +927,14 @@ pub fn disasm(
         }
         OpCode::Nop => &[],
 
-        OpCode::VecPop => &[
-            to_write_reg(operands[0], &bytes_type(), frame_memory_info),
-            to_write_reg(operands[1], &vec_type(), frame_memory_info),
-        ],
+        OpCode::VecPop => {
+            let element_size = u16::from_le_bytes([operands[2], operands[3]]);
+            &[
+                to_write_reg(operands[0], &bytes_type(), frame_memory_info),
+                to_write_reg(operands[1], &vec_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
+            ]
+        }
 
         OpCode::VecSwap => &[
             to_write_reg(operands[0], &vec_type(), frame_memory_info),

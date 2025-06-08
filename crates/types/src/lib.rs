@@ -62,6 +62,7 @@ impl Type {
     pub fn lowest_common_denominator(&self) -> Self {
         match self {
             Self::VecStorage(inner, _size) => Self::DynamicLengthVecView(inner.clone()), //Self::Vec(Box::from(*inner.clone())),
+            Self::StackStorage(inner, _size) => Self::DynamicLengthVecView(inner.clone()),
             _ => self.clone(),
         }
     }
@@ -599,7 +600,18 @@ impl Type {
             (Self::VecStorage(storage_element, _size), Self::DynamicLengthVecView(vec_element)) => {
                 vec_element.compatible_with(storage_element)
             }
+            (
+                Self::StackStorage(storage_element, _size),
+                Self::DynamicLengthVecView(vec_element),
+            ) => vec_element.compatible_with(storage_element),
+            (
+                Self::StackStorage(storage_element, a_size),
+                Self::StackStorage(vec_element, b_size),
+            ) => a_size >= b_size && vec_element.compatible_with(storage_element),
             (Self::SliceView(vec_element), Self::VecStorage(storage_element, _size)) => {
+                vec_element.compatible_with(storage_element)
+            }
+            (Self::SliceView(vec_element), Self::StackStorage(storage_element, _size)) => {
                 vec_element.compatible_with(storage_element)
             }
             (Self::DynamicLengthVecView(storage_element), Self::VecStorage(vec_element, _size)) => {

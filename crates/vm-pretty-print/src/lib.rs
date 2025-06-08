@@ -167,7 +167,7 @@ fn print(
             let header_offset = slice_to_u32_le(frame);
             let header = Vm::vec_header_from_heap(heap, header_offset);
             //let buckets = heap.get_heap_const_ptr(header.heap_offset as usize);
-            for i in 0..header.count {}
+            for i in 0..header.element_count {}
             write!(f, "]")
         }
         BasicTypeKind::FixedCapacityArray(item_type, size) => {
@@ -175,7 +175,7 @@ fn print(
             let header_offset = slice_to_u32_le(frame);
             let header = Vm::vec_header_from_heap(heap, header_offset);
             //let buckets = heap.get_heap_const_ptr(header.heap_offset as usize);
-            for i in 0..header.count {}
+            for i in 0..header.element_count {}
             write!(f, "; {size}]")
         }
         BasicTypeKind::MapStorage {

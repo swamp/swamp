@@ -28,7 +28,7 @@ impl Vm {
             .cast::<VecHeader>();
         let capacity = u16_from_u8s!(capacity_lower, capacity_upper);
         unsafe {
-            (*mut_vec_ptr).count = capacity;
+            (*mut_vec_ptr).element_count = capacity;
             (*mut_vec_ptr).capacity = capacity;
         }
 
@@ -91,12 +91,12 @@ impl Vm {
                 let index = (*vec_iterator).index;
                 eprintln!(
                     "vec_iter_next: iter_addr: {iter_addr:04X} addr:{vec_header_addr:04X} index:{index} len: {}, capacity: {}",
-                    vec_header.count, vec_header.capacity
+                    vec_header.element_count, vec_header.capacity
                 );
             }
 
             // Check if we've reached the end
-            if (*vec_iterator).index >= vec_header.count {
+            if (*vec_iterator).index >= vec_header.element_count {
                 // Jump to the provided address if we're done
                 let branch_offset = i16_from_u8s!(branch_offset_lower, branch_offset_upper);
 
@@ -152,12 +152,12 @@ impl Vm {
                 let index = (*vec_iterator).index;
                 eprintln!(
                     "vec_iter_next: iter_addr: {iter_addr:04X} addr:{vec_header_addr:04X} index:{index} len: {}, capacity: {}",
-                    vec_header.count, vec_header.capacity
+                    vec_header.element_count, vec_header.capacity
                 );
             }
 
             // Check if we've reached the end
-            if (*vec_iterator).index >= vec_header.count {
+            if (*vec_iterator).index >= vec_header.element_count {
                 // Jump to the provided address if we're done
                 let branch_offset = i16_from_u8s!(branch_offset_lower, branch_offset_upper);
 
@@ -226,7 +226,7 @@ impl Vm {
         if self.debug_operations_enabled {
             eprintln!(
                 "vec_get: vec_header_addr: {vec_addr:04X} index: {index} count: {}, capacity: {} ",
-                vec_header.count, vec_header.capacity
+                vec_header.element_count, vec_header.capacity
             );
         }
 
@@ -235,12 +235,12 @@ impl Vm {
             if self.debug_operations_enabled {
                 eprintln!(
                     "vec_get {} {} (capacity: {}) ",
-                    index, vec_header.count, vec_header.capacity
+                    index, vec_header.element_count, vec_header.capacity
                 );
             }
         }
 
-        if index >= vec_header.count as u32 {
+        if index >= vec_header.element_count as u32 {
             return self.internal_trap(TrapCode::VecBoundsFail);
         }
 
@@ -278,17 +278,55 @@ impl Vm {
         let mut len = 0;
 
         unsafe {
-            len = (*mut_vec_ptr).count;
+            len = (*mut_vec_ptr).element_count;
             if len >= (*mut_vec_ptr).capacity {
                 return self.internal_trap(TrapCode::VecBoundsFail);
             }
-            (*mut_vec_ptr).count += 1;
+            (*mut_vec_ptr).element_count += 1;
         }
 
         let address_of_new_element =
             vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32 + len as u32 * size_of_each_element;
 
         set_reg!(self, dst_reg, address_of_new_element);
+    }
+
+    #[inline]
+    pub fn execute_vec_pop(
+        &mut self,
+        dst_reg: u8,
+        vec_header_ptr_reg: u8,
+        size_of_elements_lower: u8,
+        size_of_elements_upper: u8,
+    ) {
+        let size_of_each_element =
+            u8s_to_u16!(size_of_elements_lower, size_of_elements_upper) as u32;
+
+        let vec_addr = get_reg!(self, vec_header_ptr_reg);
+        let mut_vec_ptr = self
+            .memory
+            .get_heap_ptr(vec_addr as usize)
+            .cast::<VecHeader>();
+
+        unsafe {
+            let header = &mut *mut_vec_ptr;
+
+            // Check if vector is empty
+            if header.element_count == 0 {
+                return self.internal_trap(TrapCode::VecBoundsFail);
+            }
+            // Get the last element index
+            let last_index = u32::from(header.element_count) - 1;
+
+            // Calculate address of the element to be popped
+            let address_of_element_to_pop = vec_addr
+                + u32::from(VEC_HEADER_PAYLOAD_OFFSET.0)
+                + last_index * size_of_each_element;
+
+            header.element_count -= 1;
+
+            set_reg!(self, dst_reg, address_of_element_to_pop);
+        }
     }
 
     #[inline]
@@ -311,7 +349,7 @@ impl Vm {
         let index = get_reg!(self, remove_index_reg);
 
         unsafe {
-            if index >= u32::from((*mut_vec_ptr).count) {
+            if index >= u32::from((*mut_vec_ptr).element_count) {
                 return self.internal_trap(TrapCode::VecBoundsFail);
             }
         }
@@ -321,7 +359,7 @@ impl Vm {
 
         unsafe {
             let header = &mut *mut_vec_ptr;
-            let count = u32::from(header.count);
+            let count = u32::from(header.element_count);
 
             if index < count - 1 {
                 let src_addr = address_of_element_to_be_removed + size_of_each_element;
@@ -336,7 +374,7 @@ impl Vm {
                 ptr::copy(src_ptr, dst_ptr, bytes_to_move);
             }
 
-            header.count -= 1;
+            header.element_count -= 1;
         }
     }
 }

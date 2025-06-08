@@ -65,6 +65,8 @@ pub enum IntrinsicFunction {
     VecFilterMap,
     VecFind,
     VecFold,
+    VecCapacity,
+    VecIsEmpty,
 
     // Map
     MapIsEmpty,
@@ -73,26 +75,6 @@ pub enum IntrinsicFunction {
     MapIter,
     MapIterMut,
     MapLen,
-
-    // Map2
-    Map2Create,
-    Map2Insert,
-    Map2Remove,
-    Map2Get,
-    Map2GetColumn,
-    Map2GetRow,
-    Map2Has,
-
-    // Sparse
-    SparseCreate,
-    SparseAdd,
-    SparseFromSlice,
-    SparseIter,
-    SparseIterMut,
-    SparseSubscript,
-    SparseSubscriptMut,
-    SparseHas,
-    SparseRemove,
 
     // Grid
     GridCreate,
@@ -107,7 +89,6 @@ pub enum IntrinsicFunction {
     RuntimeHalt,
     RuntimeStep,
     RangeInit,
-    VecCapacity,
     MapCapacity,
 }
 
@@ -163,6 +144,7 @@ impl fmt::Display for IntrinsicFunction {
             Self::VecClear => "vec_clear",
             Self::VecGet => "vec_get",
             Self::VecFor => "vec_for",
+            Self::VecIsEmpty => "vec_is_empty",
             Self::VecWhile => "vec_while",
             Self::VecFindMap => "vec_find_map",
             Self::VecLen => "vec_len",
@@ -187,26 +169,6 @@ impl fmt::Display for IntrinsicFunction {
             Self::MapLen => "map_len",
             Self::MapCapacity => "map_len",
             Self::MapIsEmpty => "map_is_empty",
-
-            // Map2
-            Self::Map2Create => "map2_create",
-            Self::Map2Insert => "map2_insert",
-            Self::Map2Remove => "map2_remove",
-            Self::Map2Has => "map2_has",
-            Self::Map2GetColumn => "map2_get_column",
-            Self::Map2GetRow => "map2_get_row",
-            Self::Map2Get => "map2_get",
-
-            // Sparse
-            Self::SparseCreate => "sparse_create",
-            Self::SparseFromSlice => "sparse_from_slice",
-            Self::SparseAdd => "sparse_add",
-            Self::SparseHas => "sparse_has",
-            Self::SparseRemove => "sparse_remove",
-            Self::SparseSubscriptMut => "sparse_subscript_mut",
-            Self::SparseSubscript => "sparse_subscript",
-            Self::SparseIter => "sparse_iter",
-            Self::SparseIterMut => "sparse_iter_mut",
 
             // Grid
             Self::GridCreate => "grid_new",

@@ -1,5 +1,44 @@
-#[test]
-fn create_stack() {
-    stack = Stack<Int>::new()
+use core::{assert}
 
+#[test]
+fn create() {
+    stack: Stack<Int; 42> = []
+}
+
+fn modify_element_one(mut slice: [Int]) {
+    slice[1] = 3
+}
+
+#[test]
+fn push() {
+    mut stack: Stack<Int; 42> = []
+
+    assert(stack.is_empty(), "should be empty")
+    assert(stack.capacity() == 42, "capacity failed")
+    stack.push(100)
+    assert(stack.len() == 1, "should be one")
+    stack.push(10)
+    assert(stack.len() == 2, "should be 2")
+    assert(stack[1] == 10, "element 1 should have been changed")
+    modify_element_one(&stack)
+    assert(stack.len() == 2, "should be 2")
+    assert(stack[1] == 3, "element 1 should have been changed")
+}
+
+#[test]
+fn init_and_push() {
+    mut stack: Stack<Int; 42> = [23, 44, -1]
+
+    assert(stack.capacity() == 42, "capacity failed")
+    assert(stack.len() == 3, "len")
+    assert(stack[0] == 23, "element 0 should be 23")
+    assert(stack[1] == 44, "element 1 should be 44")
+    assert(stack[2] == -1, "element 2 should be -1")
+    assert(stack.is_empty() == false, "should not be empty")
+    stack.push(100)
+    assert(stack.len() == 4, "len")
+    value = stack.pop()
+    assert(value == 100, 'popped value should be 100 {value}')
+    assert(stack.len() == 3, "len after pop")
+    assert(stack[0] == 23, "element 0 should be 23")
 }
