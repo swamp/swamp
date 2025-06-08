@@ -282,7 +282,7 @@ impl Lexer<'_> {
             b'0'..=b'9' | b'-' => {
                 // Handle standalone minus operator
                 if b == b'-'
-                    && (self.pos + 1 >= self.len || !matches!(self.src[self.pos + 1], b'0'..=b'9'))
+                    && (self.pos + 1 >= self.len || !self.src[self.pos + 1].is_ascii_digit())
                 {
                     self.pos += 1;
                     return Token {

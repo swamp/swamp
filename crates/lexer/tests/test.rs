@@ -176,7 +176,7 @@ fn test_block_comment() {
 fn test_unterminated_block_comment() {
     let mut lexer = Lexer::new("/* Unterminated");
 
-    if let TokenKind::Unknown('*') = lexer.next_token().kind {
+    if lexer.next_token().kind == TokenKind::Unknown('*') {
         // Test passed
     } else {
         panic!("Expected unknown token for unterminated block comment");
@@ -185,7 +185,7 @@ fn test_unterminated_block_comment() {
 
 #[test]
 fn all_tokens() {
-    let script = r#"
+    let script = r"
     use std::{print}
     
     const SOME_CONSTANT: Int = 3
@@ -303,7 +303,7 @@ fn test() {
 	print('{battle.arena.width}')
 }
 
-    "#;
+    ";
 
     let mut lexer = Lexer::new(script);
 
