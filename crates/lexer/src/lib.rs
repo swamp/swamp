@@ -79,10 +79,15 @@ pub enum TokenKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Token {
-    pub kind: TokenKind,
+pub struct Node {
     pub start: u32,
     pub len: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub node: Node,
 }
 
 // Maximum number of tokens we can look ahead
@@ -115,7 +120,7 @@ impl<'a> Lexer<'a> {
 
 impl Lexer<'_> {
     #[must_use]
-    pub fn get_string(&self, token: &Token) -> String {
+    pub fn get_string(&self, token: &Node) -> String {
         let slice = &self.src[token.start as usize..token.start as usize + token.len as usize];
         unsafe { std::str::from_utf8_unchecked(slice) }.to_owned()
     }
@@ -205,8 +210,10 @@ impl Lexer<'_> {
                     self.pos += 1; // consume closing quote
                     return Token {
                         kind: TokenKind::StringLiteral,
-                        start: start as u32,
-                        len: (self.pos - start) as u16,
+                        node: Node {
+                            start: start as u32,
+                            len: (self.pos - start) as u16,
+                        },
                     };
                 }
             }
@@ -216,8 +223,10 @@ impl Lexer<'_> {
         // Unterminated string
         Token {
             kind: TokenKind::Unknown('"'),
-            start: start as u32,
-            len: (self.pos - start) as u16,
+            node: Node {
+                start: start as u32,
+                len: (self.pos - start) as u16,
+            },
         }
     }
 
@@ -266,8 +275,10 @@ impl Lexer<'_> {
                     self.pos += 1;
                     return Token {
                         kind: TokenKind::Minus,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     };
                 }
 
@@ -298,8 +309,10 @@ impl Lexer<'_> {
                         // Invalid float, no digits after decimal point
                         return Token {
                             kind: TokenKind::Unknown('.'),
-                            start: start as u32,
-                            len: (self.pos - start) as u16,
+                            node: Node {
+                                start: start as u32,
+                                len: (self.pos - start) as u16,
+                            },
                         };
                     }
 
@@ -343,8 +356,10 @@ impl Lexer<'_> {
                         text.parse::<i32>()
                             .map_or(TokenKind::Unknown('0'), TokenKind::Integer)
                     },
-                    start: start as u32,
-                    len: (self.pos - start) as u16,
+                    node: Node {
+                        start: start as u32,
+                        len: (self.pos - start) as u16,
+                    },
                 };
             }
 
@@ -360,8 +375,10 @@ impl Lexer<'_> {
                 }
                 return Token {
                     kind: TokenKind::Identifier,
-                    start: start as u32,
-                    len: (self.pos - start) as u16,
+                    node: Node {
+                        start: start as u32,
+                        len: (self.pos - start) as u16,
+                    },
                 };
             }
 
@@ -381,8 +398,10 @@ impl Lexer<'_> {
                         }
                         return Token {
                             kind: TokenKind::Constant,
-                            start: start as u32,
-                            len: (self.pos - start) as u16,
+                            node: Node {
+                                start: start as u32,
+                                len: (self.pos - start) as u16,
+                            },
                         };
                     } else if c.is_ascii_lowercase() {
                         // It is a type
@@ -398,15 +417,19 @@ impl Lexer<'_> {
                         }
                         return Token {
                             kind: TokenKind::Type,
-                            start: start as u32,
-                            len: (self.pos - start) as u16,
+                            node: Node {
+                                start: start as u32,
+                                len: (self.pos - start) as u16,
+                            },
                         };
                     }
                 }
                 return Token {
                     kind: TokenKind::Type,
-                    start: start as u32,
-                    len: (self.pos - start) as u16,
+                    node: Node {
+                        start: start as u32,
+                        len: (self.pos - start) as u16,
+                    },
                 };
             }
 
@@ -419,48 +442,66 @@ impl Lexer<'_> {
             // Single-character tokens
             b'(' => Token {
                 kind: TokenKind::LParen,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
             b')' => Token {
                 kind: TokenKind::RParen,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
             b'{' => Token {
                 kind: TokenKind::LBrace,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
             b'}' => Token {
                 kind: TokenKind::RBrace,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
             b'[' => Token {
                 kind: TokenKind::LBracket,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
             b']' => Token {
                 kind: TokenKind::RBracket,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
             b'#' => Token {
                 kind: TokenKind::Hash,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
             b',' => Token {
                 kind: TokenKind::Comma,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
             b';' => Token {
                 kind: TokenKind::Semicolon,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
 
             // Potentially compound tokens
@@ -469,14 +510,18 @@ impl Lexer<'_> {
                     self.pos += 1;
                     Token {
                         kind: TokenKind::ColonColon,
-                        start: start as u32,
-                        len: 2,
+                        node: Node {
+                            start: start as u32,
+                            len: 2,
+                        },
                     }
                 } else {
                     Token {
                         kind: TokenKind::Colon,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 }
             }
@@ -487,21 +532,27 @@ impl Lexer<'_> {
                         self.pos += 1;
                         Token {
                             kind: TokenKind::DotDotEqual,
-                            start: start as u32,
-                            len: 3,
+                            node: Node {
+                                start: start as u32,
+                                len: 3,
+                            },
                         }
                     } else {
                         Token {
                             kind: TokenKind::DotDot,
-                            start: start as u32,
-                            len: 2,
+                            node: Node {
+                                start: start as u32,
+                                len: 2,
+                            },
                         }
                     }
                 } else {
                     Token {
                         kind: TokenKind::Dot,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 }
             }
@@ -510,14 +561,18 @@ impl Lexer<'_> {
                     self.pos += 1;
                     Token {
                         kind: TokenKind::LessEqual,
-                        start: start as u32,
-                        len: 2,
+                        node: Node {
+                            start: start as u32,
+                            len: 2,
+                        },
                     }
                 } else {
                     Token {
                         kind: TokenKind::Less,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 }
             }
@@ -526,14 +581,18 @@ impl Lexer<'_> {
                     self.pos += 1;
                     Token {
                         kind: TokenKind::GreaterEqual,
-                        start: start as u32,
-                        len: 2,
+                        node: Node {
+                            start: start as u32,
+                            len: 2,
+                        },
                     }
                 } else {
                     Token {
                         kind: TokenKind::Greater,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 }
             }
@@ -542,14 +601,18 @@ impl Lexer<'_> {
                     self.pos += 1;
                     Token {
                         kind: TokenKind::AmpersandAmpersand,
-                        start: start as u32,
-                        len: 2,
+                        node: Node {
+                            start: start as u32,
+                            len: 2,
+                        },
                     }
                 } else {
                     Token {
                         kind: TokenKind::Ampersand,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 }
             }
@@ -558,14 +621,18 @@ impl Lexer<'_> {
                     self.pos += 1;
                     Token {
                         kind: TokenKind::PipePipe,
-                        start: start as u32,
-                        len: 2,
+                        node: Node {
+                            start: start as u32,
+                            len: 2,
+                        },
                     }
                 } else {
                     Token {
                         kind: TokenKind::Pipe,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 }
             }
@@ -576,29 +643,37 @@ impl Lexer<'_> {
                             self.pos += 1;
                             Token {
                                 kind: TokenKind::EqualEqual,
-                                start: start as u32,
-                                len: 2,
+                                node: Node {
+                                    start: start as u32,
+                                    len: 2,
+                                },
                             }
                         }
                         b'>' => {
                             self.pos += 1;
                             Token {
                                 kind: TokenKind::FatArrow,
-                                start: start as u32,
-                                len: 2,
+                                node: Node {
+                                    start: start as u32,
+                                    len: 2,
+                                },
                             }
                         }
                         _ => Token {
                             kind: TokenKind::Equal,
-                            start: start as u32,
-                            len: 1,
+                            node: Node {
+                                start: start as u32,
+                                len: 1,
+                            },
                         },
                     }
                 } else {
                     Token {
                         kind: TokenKind::Equal,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 }
             }
@@ -607,14 +682,18 @@ impl Lexer<'_> {
                     self.pos += 1;
                     Token {
                         kind: TokenKind::BangEqual,
-                        start: start as u32,
-                        len: 2,
+                        node: Node {
+                            start: start as u32,
+                            len: 2,
+                        },
                     }
                 } else {
                     Token {
                         kind: TokenKind::Bang,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 }
             }
@@ -623,14 +702,18 @@ impl Lexer<'_> {
                     self.pos += 1;
                     Token {
                         kind: TokenKind::QuestionQuestion,
-                        start: start as u32,
-                        len: 2,
+                        node: Node {
+                            start: start as u32,
+                            len: 2,
+                        },
                     }
                 } else {
                     Token {
                         kind: TokenKind::Question,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 }
             }
@@ -639,28 +722,36 @@ impl Lexer<'_> {
                     self.pos += 1;
                     Token {
                         kind: TokenKind::SlashEqual,
-                        start: start as u32,
-                        len: 2,
+                        node: Node {
+                            start: start as u32,
+                            len: 2,
+                        },
                     }
                 } else {
                     Token {
                         kind: TokenKind::Slash,
-                        start: start as u32,
-                        len: 1,
+                        node: Node {
+                            start: start as u32,
+                            len: 1,
+                        },
                     }
                 }
             }
             b'+' => Token {
                 kind: TokenKind::Plus,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
 
             // Unknown character
             _ => Token {
                 kind: TokenKind::Unknown(b as char),
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             },
         }
     }
@@ -681,8 +772,10 @@ impl Lexer<'_> {
             self.string_mode = StringMode::InString;
             Token {
                 kind: TokenKind::RBrace,
-                start: start as u32,
-                len: 1,
+                node: Node {
+                    start: start as u32,
+                    len: 1,
+                },
             }
         } else {
             self.lex_normal()
@@ -717,8 +810,10 @@ impl Lexer<'_> {
                             } else {
                                 TokenKind::StringStart
                             },
-                            start: start as u32,
-                            len: (self.pos - start) as u16,
+                            node: Node {
+                                start: start as u32,
+                                len: (self.pos - start) as u16,
+                            },
                         };
                     }
                     b'\'' => {
@@ -727,8 +822,10 @@ impl Lexer<'_> {
                         self.seen_interpolation = false;
                         return Token {
                             kind: TokenKind::StringEnd,
-                            start: start as u32,
-                            len: (self.pos - start - 1) as u16, // extra -1 to not contain the end `'`
+                            node: Node {
+                                start: start as u32,
+                                len: (self.pos - start - 1) as u16,
+                            }, // extra -1 to not contain the end `'`
                         };
                     }
                     _ => {}
@@ -739,8 +836,10 @@ impl Lexer<'_> {
 
         Token {
             kind: TokenKind::Unknown('\''),
-            start: start as u32,
-            len: (self.pos - start) as u16,
+            node: Node {
+                start: start as u32,
+                len: (self.pos - start) as u16,
+            },
         }
     }
 
@@ -751,8 +850,10 @@ impl Lexer<'_> {
         if self.pos == self.len {
             Some(Token {
                 kind: TokenKind::EOF,
-                start: self.pos as u32,
-                len: 0,
+                node: Node {
+                    start: self.pos as u32,
+                    len: 0,
+                },
             })
         } else {
             None
@@ -779,8 +880,10 @@ impl Lexer<'_> {
             } else {
                 TokenKind::LineComment
             },
-            start: start as u32,
-            len: (self.pos - start) as u16,
+            node: Node {
+                start: start as u32,
+                len: (self.pos - start) as u16,
+            },
         }
     }
 
@@ -793,8 +896,10 @@ impl Lexer<'_> {
                 self.pos += 2;
                 return Token {
                     kind: TokenKind::BlockComment,
-                    start: start as u32,
-                    len: (self.pos - start) as u16,
+                    node: Node {
+                        start: start as u32,
+                        len: (self.pos - start) as u16,
+                    },
                 };
             }
             self.pos += 1;
@@ -803,8 +908,10 @@ impl Lexer<'_> {
         // Unterminated block comment
         Token {
             kind: TokenKind::Unknown('*'),
-            start: start as u32,
-            len: (self.pos - start) as u16,
+            node: Node {
+                start: start as u32,
+                len: (self.pos - start) as u16,
+            },
         }
     }
 }

@@ -804,6 +804,7 @@ impl<'a> Analyzer<'a> {
             swamp_ast::ExpressionKind::Lambda(variables, expression) => {
                 self.analyze_lambda(&ast_expression.node, variables, expression, context)?
             }
+            swamp_ast::ExpressionKind::Error => todo!(),
         };
 
         //info!(ty=%expression.ty, kind=?expression.kind,  "resolved expression");

@@ -17,7 +17,7 @@ fn identifier() {
 fn get_identifier(lexer: &mut Lexer) -> String {
     let tok = lexer.next_token();
     if tok.kind == TokenKind::Identifier {
-        lexer.get_string(&tok)
+        lexer.get_string(&tok.node)
     } else {
         panic!("not a string")
     }
@@ -26,7 +26,7 @@ fn get_identifier(lexer: &mut Lexer) -> String {
 fn get_string(lexer: &mut Lexer) -> String {
     let tok = lexer.next_token();
     if tok.kind == TokenKind::StringLiteral {
-        lexer.get_string(&tok)
+        lexer.get_string(&tok.node)
     } else {
         panic!("not a string {tok:?}")
     }
@@ -35,7 +35,7 @@ fn get_string(lexer: &mut Lexer) -> String {
 fn get_string_start(lexer: &mut Lexer) -> String {
     let tok = lexer.next_token();
     if tok.kind == TokenKind::StringStart {
-        lexer.get_string(&tok)
+        lexer.get_string(&tok.node)
     } else {
         panic!("not a string start {tok:?}")
     }
@@ -44,7 +44,7 @@ fn get_string_start(lexer: &mut Lexer) -> String {
 fn get_doc_comment(lexer: &mut Lexer) -> String {
     let tok = lexer.next_token();
     if tok.kind == TokenKind::DocComment {
-        lexer.get_string(&tok)
+        lexer.get_string(&tok.node)
     } else {
         panic!("get_doc_comment {tok:?}")
     }
@@ -53,7 +53,7 @@ fn get_doc_comment(lexer: &mut Lexer) -> String {
 fn get_block_comment(lexer: &mut Lexer) -> String {
     let tok = lexer.next_token();
     if tok.kind == TokenKind::BlockComment {
-        lexer.get_string(&tok)
+        lexer.get_string(&tok.node)
     } else {
         panic!("get_block_comment {tok:?}")
     }
@@ -62,7 +62,7 @@ fn get_block_comment(lexer: &mut Lexer) -> String {
 fn get_line_comment(lexer: &mut Lexer) -> String {
     let tok = lexer.next_token();
     if tok.kind == TokenKind::LineComment {
-        lexer.get_string(&tok)
+        lexer.get_string(&tok.node)
     } else {
         panic!("get_block_comment {tok:?}")
     }
@@ -71,7 +71,7 @@ fn get_line_comment(lexer: &mut Lexer) -> String {
 fn get_string_middle(lexer: &mut Lexer) -> String {
     let tok = lexer.next_token();
     if tok.kind == TokenKind::StringMiddle {
-        lexer.get_string(&tok)
+        lexer.get_string(&tok.node)
     } else {
         panic!("not a get_string_middle {tok:?}")
     }
@@ -80,7 +80,7 @@ fn get_string_middle(lexer: &mut Lexer) -> String {
 fn get_string_end(lexer: &mut Lexer) -> String {
     let tok = lexer.next_token();
     if tok.kind == TokenKind::StringEnd {
-        lexer.get_string(&tok)
+        lexer.get_string(&tok.node)
     } else {
         panic!("not a string end {tok:?}")
     }

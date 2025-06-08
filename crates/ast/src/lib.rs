@@ -278,8 +278,8 @@ impl ForPattern {
     #[must_use]
     pub const fn is_key_variable_mut(&self) -> bool {
         match self {
-            Self::Single(a) => false,
-            Self::Pair(a, b) => a.is_mut.is_some(),
+            Self::Single(_a) => false,
+            Self::Pair(a, _b) => a.is_mut.is_some(),
         }
     }
     #[must_use]
@@ -481,6 +481,7 @@ pub enum ExpressionKind {
     Literal(LiteralKind),
 
     Lambda(Vec<Variable>, Box<Expression>),
+    Error, // Something was wrong in parsing
 }
 
 #[derive(Debug, Clone)]
