@@ -1,9 +1,9 @@
 use lexer::{Lexer, Token, TokenKind};
-use source_map_node::Node;
 use swamp_ast::{
-    Expression, ExpressionKind, FieldExpression, FieldName, LiteralKind,
-    QualifiedConstantIdentifier,
+    BinaryOperator, BinaryOperatorKind, Expression, ExpressionKind, FieldExpression, FieldName,
+    LiteralKind, QualifiedConstantIdentifier, SpanWithoutFileId, UnaryOperator, Variable,
 };
+use tracing::info;
 
 #[derive(Debug)]
 pub enum ErrorKind {
@@ -13,6 +13,9 @@ pub enum ErrorKind {
     ExpectedColon,
     UnknownTerm,
     RestMustBeLast,
+    ExpectedExpression,
+    UnexpectedToken,
+    ExpectedRParen,
 }
 
 #[derive(Debug)]
@@ -40,13 +43,129 @@ impl Parser {
             doc_comments: Vec::default(),
         }
     }
-}
 
-pub struct Term {
-    pub node: Node,
-}
+    const fn get_precedence(kind: &TokenKind) -> u8 {
+        match kind {
+            TokenKind::PipePipe => 1,                          // ||
+            TokenKind::AmpersandAmpersand => 2,                // &&
+            TokenKind::EqualEqual | TokenKind::BangEqual => 3, // == !=
+            TokenKind::Less
+            | TokenKind::Greater
+            | TokenKind::LessEqual
+            | TokenKind::GreaterEqual => 4, // < > <= >=
+            TokenKind::Plus | TokenKind::Minus => 5,           // + -
+            TokenKind::Star | TokenKind::Slash | TokenKind::Percent => 6, // * / %
+            // Unary: 7
+            _ => 0,
+        }
+    }
 
-impl Parser {
+    const fn get_binary_op_kind(kind: &TokenKind) -> Option<BinaryOperatorKind> {
+        match kind {
+            TokenKind::Plus => Some(BinaryOperatorKind::Add),
+            TokenKind::Minus => Some(BinaryOperatorKind::Subtract),
+            TokenKind::Star => Some(BinaryOperatorKind::Multiply),
+            TokenKind::Slash => Some(BinaryOperatorKind::Divide),
+            TokenKind::Percent => Some(BinaryOperatorKind::Modulo),
+            TokenKind::PipePipe => Some(BinaryOperatorKind::LogicalOr),
+            TokenKind::AmpersandAmpersand => Some(BinaryOperatorKind::LogicalAnd),
+            TokenKind::EqualEqual => Some(BinaryOperatorKind::Equal),
+            TokenKind::BangEqual => Some(BinaryOperatorKind::NotEqual),
+            TokenKind::Less => Some(BinaryOperatorKind::LessThan),
+            TokenKind::LessEqual => Some(BinaryOperatorKind::LessEqual),
+            TokenKind::Greater => Some(BinaryOperatorKind::GreaterThan),
+            TokenKind::GreaterEqual => Some(BinaryOperatorKind::GreaterEqual),
+            _ => None,
+        }
+    }
+
+    const fn get_unary_op(kind: &TokenKind, token: &Token) -> Option<UnaryOperator> {
+        match kind {
+            TokenKind::Bang => Some(UnaryOperator::Not(Self::to_node(token))),
+            TokenKind::Minus => Some(UnaryOperator::Negate(Self::to_node(token))),
+            _ => None,
+        }
+    }
+
+    pub fn parse_expression(&mut self, lexer: &mut Lexer) -> Expression {
+        self.parse_expression_bp(lexer, 0)
+    }
+
+    fn parse_expression_bp(&mut self, lexer: &mut Lexer, min_bp: u8) -> Expression {
+        info!(?min_bp, "parse_expression_bp");
+
+        let mut lhs = self.parse_prefix(lexer);
+        info!(?lhs, "initial lhs");
+
+        loop {
+            let peek_token = lexer.peek();
+            let peek_kind = peek_token.kind.clone();
+            info!(?peek_kind, "peeked token");
+
+            if peek_kind == TokenKind::EOF {
+                break;
+            }
+
+            // Help out if called from a LParen
+            if peek_kind == TokenKind::RParen {
+                break;
+            }
+
+            let bp = Self::get_precedence(&peek_kind);
+            if bp < min_bp {
+                info!(?bp, ?min_bp, "bp is lower than min. breaking out");
+                break;
+            }
+
+            let op_token = self.next_token(lexer);
+            info!(?op_token, "operator token");
+
+            if let Some(op_kind) = Self::get_binary_op_kind(&op_token.kind) {
+                info!(?op_kind, "found binary operator");
+                let rhs = self.parse_expression_bp(lexer, bp + 1);
+                info!(?rhs, "parsed rhs");
+
+                let op = BinaryOperator {
+                    kind: op_kind,
+                    node: Self::to_node(&op_token),
+                };
+                lhs = Self::expr(
+                    ExpressionKind::BinaryOp(Box::new(lhs), op, Box::new(rhs)),
+                    &op_token,
+                    &op_token,
+                );
+                info!(?lhs, "updated lhs");
+            } else {
+                self.errors.push(Error {
+                    kind: ErrorKind::UnexpectedToken,
+                    node: Self::to_node(&op_token),
+                });
+                break;
+            }
+        }
+
+        info!(?lhs, "final result");
+
+        lhs
+    }
+
+    fn parse_prefix(&mut self, lexer: &mut Lexer) -> Expression {
+        info!("parse_prefix");
+        let peek_kind = Self::peek(lexer);
+
+        if let Some(unary_op) = Self::get_unary_op(&peek_kind, lexer.peek()) {
+            let op_token = self.next_token(lexer);
+            let expr = self.parse_expression_bp(lexer, 7);
+            return Self::expr(
+                ExpressionKind::UnaryOp(unary_op, Box::new(expr)),
+                &op_token,
+                &op_token,
+            );
+        }
+
+        self.parse_term(lexer)
+    }
+
     fn next_token(&mut self, lexer: &mut Lexer) -> Token {
         let token = lexer.next_token();
         match token.kind {
@@ -55,7 +174,10 @@ impl Parser {
                 self.next_token(lexer)
             }
             TokenKind::BlockComment | TokenKind::LineComment => self.next_token(lexer),
-            _ => token,
+            _ => {
+                info!(?token, "next token");
+                token
+            }
         }
     }
 
@@ -63,19 +185,22 @@ impl Parser {
         let peek_kind = Self::peek(lexer);
 
         match peek_kind {
-            TokenKind::EOF => todo!(),
+            TokenKind::EOF => {
+                let token = self.next_token(lexer);
+                self.err(ErrorKind::ExpectedExpression, &token)
+            }
 
             TokenKind::Integer(_value) => {
                 let token = self.next_token(lexer);
-                self.expr(ExpressionKind::Literal(LiteralKind::Int), &token, &token)
+                Self::expr(ExpressionKind::Literal(LiteralKind::Int), &token, &token)
             }
             TokenKind::Fixed(_) => {
                 let token = self.next_token(lexer);
-                self.expr(ExpressionKind::Literal(LiteralKind::Float), &token, &token)
+                Self::expr(ExpressionKind::Literal(LiteralKind::Float), &token, &token)
             }
             TokenKind::StringLiteral => {
                 let token = self.next_token(lexer);
-                self.expr(
+                Self::expr(
                     ExpressionKind::Literal(LiteralKind::String(lexer.get_string(&token.node))),
                     &token,
                     &token,
@@ -83,7 +208,7 @@ impl Parser {
             }
             TokenKind::Constant => {
                 let token = self.next_token(lexer);
-                self.expr(
+                Self::expr(
                     ExpressionKind::ConstantReference(QualifiedConstantIdentifier::new(
                         Self::to_node(&token),
                         None,
@@ -93,6 +218,31 @@ impl Parser {
                 )
             }
             TokenKind::LBrace => self.parse_struct_literal(lexer),
+            TokenKind::LParen => {
+                self.bump(lexer);
+                let expr = self.parse_expression(lexer);
+                let rparen = self.next_token(lexer);
+
+                if rparen.kind != TokenKind::RParen {
+                    self.errors.push(Error {
+                        kind: ErrorKind::ExpectedRParen,
+                        node: Self::to_node(&rparen),
+                    });
+                }
+
+                expr
+            }
+            TokenKind::Identifier => {
+                let token = self.next_token(lexer);
+                Self::expr(
+                    ExpressionKind::VariableReference(Variable {
+                        name: Self::to_node(&token),
+                        is_mutable: None,
+                    }),
+                    &token,
+                    &token,
+                )
+            }
             _ => {
                 let token = self.next_token(lexer);
                 self.err(ErrorKind::UnknownTerm, &token)
@@ -102,7 +252,7 @@ impl Parser {
 
     const fn to_node(token: &Token) -> swamp_ast::Node {
         swamp_ast::Node {
-            span: swamp_ast::SpanWithoutFileId {
+            span: SpanWithoutFileId {
                 offset: token.node.start,
                 length: token.node.len,
             },
@@ -127,9 +277,12 @@ impl Parser {
             if tok.kind == TokenKind::DotDot {
                 found_rest = true;
             } else if tok.kind == TokenKind::Identifier {
-                tok = self.next_token(lexer);
-                if tok.kind != TokenKind::Colon {
-                    self.error(ErrorKind::ExpectedColon, &tok);
+                info!("before reading colon");
+                let colon_tok = self.next_token(lexer);
+                info!("after reading colon");
+                if colon_tok.kind != TokenKind::Colon {
+                    info!("could not find colon");
+                    self.error(ErrorKind::ExpectedColon, &colon_tok);
                     break;
                 }
                 field_expressions.push(FieldExpression {
@@ -140,6 +293,7 @@ impl Parser {
                 self.error(ErrorKind::ExpectedIdentifierOrRest, &tok);
                 break;
             }
+            info!("peek for `}}` or `,`");
             let next_kind = Self::peek(lexer);
             if next_kind == TokenKind::RBrace {
             } else if next_kind == TokenKind::Comma {
@@ -152,7 +306,7 @@ impl Parser {
 
         let kind = ExpressionKind::AnonymousStructLiteral(field_expressions, found_rest);
 
-        self.expr(kind, &start, &tok)
+        Self::expr(kind, &start, &tok)
     }
 
     fn error(&mut self, error_kind: ErrorKind, token: &Token) {
@@ -168,16 +322,10 @@ impl Parser {
             node: Self::to_node(token),
         });
 
-        self.expr(ExpressionKind::Error, token, token)
-    }
-
-    fn parse_expression(&mut self, lexer: &mut Lexer) -> Expression {
-        // TODO: For now just parse terms
-        self.parse_term(lexer)
+        Self::expr(ExpressionKind::Literal(LiteralKind::Int), token, token)
     }
 
     const fn expr(
-        &self,
         expression_kind: ExpressionKind,
         start_token: &Token,
         _end_token: &Token, // TODO: use end_token as well to get range
@@ -189,13 +337,26 @@ impl Parser {
     }
 
     fn peek(lexer: &mut Lexer) -> TokenKind {
-        let token = lexer.peek();
+        Self::peek_n(lexer, 0)
+    }
 
-        match &token.kind {
-            TokenKind::BlockComment | TokenKind::LineComment | TokenKind::DocComment => {
-                Self::peek(lexer)
+    fn peek_n(lexer: &mut Lexer, i: usize) -> TokenKind {
+        let mut current_i = i;
+        loop {
+            let token = lexer.peek_n(current_i);
+            match &token.kind {
+                TokenKind::BlockComment | TokenKind::LineComment | TokenKind::DocComment => {
+                    current_i += 1;
+                    if current_i > 3 {
+                        // TODO: This is a hack
+                        return TokenKind::EOF;
+                    }
+                }
+                _ => {
+                    info!("peeking {current_i}: {token:?}");
+                    return token.kind.clone();
+                }
             }
-            _ => token.kind.clone(),
         }
     }
 
