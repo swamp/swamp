@@ -8,8 +8,8 @@ I dislike and want to avoid the following:
   having the managing of collections like stacks and lists spread out on to very
   small "entities".
 
-- **heap allocation** during runtime. It can be done in the engine for certain containers, like
-  SlotMap or similar concepts.
+- **heap allocation** during runtime. It can be done in the engine for certain
+  containers, like SlotMap or similar concepts.
 
 - **garbage collection**. Even though it is allocated in an arena and the
   garbage collection is just one root, it still takes time to do a deep clone of
@@ -201,28 +201,28 @@ not manually "dereference" handles in an unsafe manner.
 
 - **Behavior & Rationale:**
 
-    1. The runtime uses the handle's static type to identify the target
-       `container`.
+  1. The runtime uses the handle's static type to identify the target
+     `container`.
 
-    2. It uses the handle's internal `index` field to access the specific slot
-       within that `container`.
+  2. It uses the handle's internal `index` field to access the specific slot
+     within that `container`.
 
-    3. Crucially, it compares the `generation` value stored within the handle
-       (from when it was created) with the current `generation` value of the slot
-       in the `container`.
+  3. Crucially, it compares the `generation` value stored within the handle
+     (from when it was created) with the current `generation` value of the slot
+     in the `container`.
 
-    4. **Matching Generations:** Access is granted (both for reads or writes). The
-       reference handle is valid and points to the intended live element.
+  4. **Matching Generations:** Access is granted (both for reads or writes). The
+     reference handle is valid and points to the intended live element.
 
-    5. **Mismatched Generations (Dangling Handle):** The handle is stale — it
-       refers to a slot that has been reused or whose element has been
-       invalidated. Access is denied for writes to prevent data corruption (or
-       might be allowed for write using use a zeroed area. If many multiple writes
-       occur, how to handle that? zeroed area may run out for writes.
-        - The operation returns a default-initialized (e.g., zeroed) value for the
-          field's type. This ensures program stability and predictability even with
-          stale handles.
-        - Debug builds may issue warnings.
+  5. **Mismatched Generations (Dangling Handle):** The handle is stale — it
+     refers to a slot that has been reused or whose element has been
+     invalidated. Access is denied for writes to prevent data corruption (or
+     might be allowed for write using use a zeroed area. If many multiple writes
+     occur, how to handle that? zeroed area may run out for writes.
+     - The operation returns a default-initialized (e.g., zeroed) value for the
+       field's type. This ensures program stability and predictability even with
+       stale handles.
+     - Debug builds may issue warnings.
 
 **Rationale:** This mechanism is fundamental to Swamp's safety, virtually
 eliminating use-after-free errors for elements within **containers**. It
@@ -413,7 +413,8 @@ container GameEntity[1024] {
 ## Questions
 
 - Maybe we need containers that are hashmaps, so a value is hashed to an index
-  and linear probing and similar. Or should those be solved a "normal" collections?
+  and linear probing and similar. Or should those be solved a "normal"
+  collections?
 
 ## Reference Handle
 
@@ -445,194 +446,214 @@ mana: Int? = entity.main_spell?.mana
 
 ## Swamp Collection Types
 
-Swamp's collection types are designed for performance and clarity, storing their elements in *
-*contiguous blocks of memory**. Crucially, the data *always follows directly* after the type header
-fields (like `len` and `capacity`), meaning **no separate pointers** are typically involved for
-accessing the elements within an instance of these types.
+Swamp's collection types are designed for performance and clarity, storing their
+elements in \* *contiguous blocks of memory\*\*. Crucially, the data *always
+follows directly\* after the type header fields (like `len` and `capacity`),
+meaning **no separate pointers** are typically involved for accessing the
+elements within an instance of these types.
 
-**Regarding Memory Alignment (32-bit Architecture)**: The len and capacity fields, both `u16` (2
-bytes), collectively occupy 4 bytes. On a typical 32-bit architecture, this 4-byte header naturally
-aligns the subsequent data elements, meaning no padding bytes are required between the capacity
-field and the first data item (Item 0).
+**Regarding Memory Alignment (32-bit Architecture)**: The len and capacity
+fields, both `u16` (2 bytes), collectively occupy 4 bytes. On a typical 32-bit
+architecture, this 4-byte header naturally aligns the subsequent data elements,
+meaning no padding bytes are required between the capacity field and the first
+data item (Item 0).
 
-**Mutability in Swamp is verified in the analyzer semantic step in the compiler, the underlying
-memory layout is exactly the same, irrespective of mutability.**
+**Mutability in Swamp is verified in the analyzer semantic step in the compiler,
+the underlying memory layout is exactly the same, irrespective of mutability.**
 
 ---
 
 ### 1. Fixed-Capacity Array (Raw Storage): `[T; N]`
 
-This is Swamp's most basic, fixed-size container. Think of it as a raw, compile-time sized chunk of
-memory.
+This is Swamp's most basic, fixed-size container. Think of it as a raw,
+compile-time sized chunk of memory.
 
-* **Syntax:** `[ElementType; Capacity]` (e.g., `[Int; 42]`)
-* **Purpose:** Ideal for fixed-size buffers where the maximum number of elements is always known
-  at
-  compile time.
-* **Opcode**: `array.subscript $R$m, #fixed_known_size`
+- **Syntax:** `[ElementType; Capacity]` (e.g., `[Int; 42]`)
+- **Purpose:** Ideal for fixed-size buffers where the maximum number of elements
+  is always known at compile time.
+- **Opcode**: `array.subscript $R$m, #fixed_known_size`
 
-#### Memory Layout:
+#### Memory Layout
 
 | Field      | Type     | Notes                                           |
-|:-----------|:---------|:------------------------------------------------|
-| `len`      | `u16`    | Current number of elements                      |
+| :--------- | :------- | :---------------------------------------------- |
 | `capacity` | `u16`    | Maximum allocated capacity (will always be `N`) |
+| `len`      | `u16`    | Current number of elements                      |
 | `Item 0`   | `Type T` | First element                                   |
 | `Item 1`   | `Type T` |                                                 |
 | `...`      | `...`    |                                                 |
 | `Item N-1` | `Type T` | Last element; `N` is the compile-time capacity  |
 
-* **Key Behavior:**
-    * **Capacity**: Fixed N, known at compile time. This N is stored in the capacity field.
-    * **Length**: Internally stored as N in the len field. Cannot be altered by API calls; elements
-      cannot be pushed or popped.
-    * **Bounds Check:** Access is checked against `N` by the compiler, potentially at
-      compile-time or by generating assembly that compares against the literal `N`.
-    * **Design Rationale for Header Fields**: While len and capacity are known at compile time
-      for [T; N], they are explicitly allocated space (4 bytes) in the array's memory layout.
-      This deliberate trade-off provides out-of-the-box, zero-cost compatibility (no data copies, no
-      pointer indirection) when converting an [T; N] to a Vec<T> or [T] slice. This is crucial
-      for avoiding expensive memory operations, especially for large arrays,
-    * Note on len/capacity usage: Although [T; N] structurally contains len and capacity fields,
-      it's generally not recommended to use these fields for dynamic length management
-      within [T; N] itself. Its len is effectively always N. However, due to the shared memory
-      layout, it could technically be bounds-checked in the same way as a Vec (i.e., index < len),
-      but this is usually redundant as len will simply be N.
+- **Key Behavior:**
+  - **Capacity**: Fixed N, known at compile time. This N is stored in the
+    capacity field.
+  - **Length**: Internally stored as N in the len field. Cannot be altered by
+    API calls; elements cannot be pushed or popped.
+  - **Bounds Check:** Access is checked against `N` by the compiler, potentially
+    at compile-time or by generating assembly that compares against the literal
+    `N`.
+  - **Design Rationale for Header Fields**: While len and capacity are known at
+    compile time for [T; N], they are explicitly allocated space (4 bytes) in
+    the array's memory layout. This deliberate trade-off provides
+    out-of-the-box, zero-cost compatibility (no data copies, no pointer
+    indirection) when converting an [T; N] to a Vec`<T>` or [T] slice. This is
+    crucial for avoiding expensive memory operations, especially for large
+    arrays,
+  - Note on len/capacity usage: Although [T; N] structurally contains len and
+    capacity fields, it's generally not recommended to use these fields for
+    dynamic length management within [T; N] itself. Its len is effectively
+    always N. However, due to the shared memory layout, it could technically be
+    bounds-checked in the same way as a Vec (i.e., index < len), but this is
+    usually redundant as len will simply be N.
 
 ---
 
 ### 2. Fixed-Capacity Vector (Owned Storage): `Vec<T; N>`
 
-This type *owns* a fixed-size, compile-time allocated buffer and manages a dynamic `length` within
-that buffer. The data is stored directly after its fields.
+This type _owns_ a fixed-size, compile-time allocated buffer and manages a
+dynamic `length` within that buffer. The data is stored directly after its
+fields.
 
-* **Syntax:** `Vec<ElementType; Capacity>` (e.g., `Vec<Int; 42>`)
-* **Purpose:** Use when you need a growable collection but know its absolute maximum size at compile
-  time, allowing for stack allocation or static data. And if it is in a "Root type" in Swamp.
+- **Syntax:** `Vec<ElementType; Capacity>` (e.g., `Vec<Int; 42>`)
+- **Purpose:** Use when you need a growable collection but know its absolute
+  maximum size at compile time, allowing for stack allocation or static data.
+  And if it is in a "Root type" in Swamp.
 
-#### Memory Layout:
+#### Fixed-Capacity Vector Memory Layout
 
-| Field      | Type     | Notes                                                             |
-|:-----------|:---------|:------------------------------------------------------------------|
-| `len`      | `u16`    | Current number of elements                                        |
-| `capacity` | `u16`    | Maximum allocated capacity (will always be `N`)                   |
-| `Item 0`   | `Type T` | First element of the buffer, **immediately following `capacity`** |
-| `Item 1`   | `Type T` |                                                                   |
-| `...`      | `...`    |                                                                   |
-| `Item N-1` | `Type T` | Last element of the buffer                                        |
+| Field      | Type     | Notes                                           |
+| :--------- | :------- | :---------------------------------------------- |
+| `capacity` | `u16`    | Maximum allocated capacity (will always be `N`) |
+| `len`      | `u16`    | Current number of elements                      |
+| `Item 0`   | `Type T` | First element of the buffer                     |
+| `Item 1`   | `Type T` |                                                 |
+| `...`      | `...`    |                                                 |
+| `Item N-1` | `Type T` | Last element of the buffer                      |
 
-* **Key Behavior:**
-    * **Capacity:** Fixed `N`, known at compile time. This `N` is stored in the `capacity` field.
-    * **Length:** **Explicitly tracked** by a `len` field (`u16`).
-    * **Bounds Check:** Accesses are checked against `len`; additions are checked against
-      `capacity` (`N`).
-    * `Vec<T; 10>` and `Vec<T; 20>` are **distinct types**.
+- **Key Behavior:**
+  - **Capacity:** Fixed `N`, known at compile time. This `N` is stored in the
+    `capacity` field.
+  - **Length:** **Explicitly tracked** by a `len` field (`u16`).
+  - **Bounds Check:** Accesses are checked against `len`; additions are checked
+    against `capacity` (`N`).
+  - `Vec<T; 10>` and `Vec<T; 20>` are **distinct types**.
 
 ---
 
 ### 3. Dynamic-Length Vector: `Vec<T>`
 
-This is the non-capacity-specific type that represents a vector. **It has the exact same in-memory
-structure as `Vec<T; N>`**, allowing it to be passed around without the specific `N` being part of
-its type. Its `len` can be changed. It is an **Unsized Type (DST)**, meaning its total size is not
-known at compile time.
+This is the non-capacity-specific type that represents a vector. **It has the
+exact same in-memory structure as `Vec<T; N>`**, allowing it to be passed around
+without the specific `N` being part of its type. Its `len` can be changed. It is
+an **Unsized Type (DST)**, meaning its total size is not known at compile time.
 
-* **Syntax:** `Vec<ElementType>` (e.g., `Vec<Int>`)
-* **Opcode**: `vec.subscript $R$m, $R$n`. $R$m is the pointer to the vec header, $R$n is the Int
-  index.
-* **Purpose:** For functions that operate on vectors without requiring knowledge of their
-  compile-time fixed capacity. It allows modifying the `len` and elements (if the binding is
-  mutable).
-* **Memory Allocation**: `Vec<T>` instances can be allocated either on the stack (if their size is
-  known at compile time and reasonably small) or on the heap (for dynamically sized
-  vectors). This choice doesn't affect the memory layout, only where the memory is obtained.
+- **Syntax:** `Vec<ElementType>` (e.g., `Vec<Int>`)
+- **Opcode**: `vec.subscript $R$m, $R$n`. $R$m is the pointer to the vec header,
+  $R$n is the Int index.
+- **Purpose:** For functions that operate on vectors without requiring knowledge
+  of their compile-time fixed capacity. It allows modifying the `len` and
+  elements (if the binding is mutable).
+- **Memory Allocation**: `Vec<T>` instances can be allocated either on the stack
+  (if their size is known at compile time and reasonably small) or on the heap
+  (for dynamically sized vectors). This choice doesn't affect the memory layout,
+  only where the memory is obtained.
 
-#### Memory Layout:
+#### Dynamic-Length Vector
 
-| Field      | Type     | Notes                                                             |
-|:-----------|:---------|:------------------------------------------------------------------|
-| `len`      | `u16`    | Current number of elements                                        |
-| `capacity` | `u16`    | Maximum allocated capacity (runtime value)                        |
-| `Item 0`   | `Type T` | First element of the buffer, **immediately following `capacity`** |
-| `Item 1`   | `Type T` |                                                                   |
-| `...`      | `...`    |                                                                   |
-| `Item M-1` | `Type T` | Last element of the buffer (where `M` is the runtime `capacity`)  |
+| Field      | Type     | Notes                                      |
+| :--------- | :------- | :----------------------------------------- |
+| `capacity` | `u16`    | Maximum allocated capacity (runtime value) |
+| `len`      | `u16`    | Current number of elements                 |
+| `Item 0`   | `Type T` | First element of the buffer,               |
+| `Item 1`   | `Type T` |                                            |
+| `...`      | `...`    |                                            |
+| `Item M-1` | `Type T` | Last element of the buffer                 |
 
-* **Key Behavior:**
-    * **Capacity:** Stored **runtime `u16` field**. Cannot typically be changed (no re-allocation),
-      as its underlying storage has a fixed size.
-    * **Length:** Stored **runtime `u16` field**, can be modified (e.g., `push`, `pop`), if the
-      `Vec<T>` binding is mutable.
-    * **Bounds Check:** Accesses are checked against `len`; additions against `capacity`.
-    * **Dynamic:** A `Vec<T; N>` can be passed to functions expecting `Vec<T>`, regardless of
-      the original `N`.
+- **Key Behavior:**
+  - **Capacity:** Stored **runtime `u16` field**. Cannot typically be changed
+    (no re-allocation), as its underlying storage has a fixed size.
+  - **Length:** Stored **runtime `u16` field**, can be modified (e.g., `push`,
+    `pop`), if the `Vec<T>` binding is mutable.
+  - **Bounds Check:** Accesses are checked against `len`; additions against
+    `capacity`.
+  - **Dynamic:** A `Vec<T; N>` can be passed to functions expecting `Vec<T>`,
+    regardless of the original `N`.
 
 ---
 
 ### 4. Slice/View: `[T]`
 
-This is the primary way to refer to a contiguous sequence of elements without owning the data. **It
-is structurally identical to `Vec<T>`**, containing `len` and `capacity` fields with the data
-directly following. It is an Unsized Type (DST). It is structurally identical to `Vec<T>` (and `Vec<
-T;N`> / `[T;N]`), containing len and capacity fields with the data directly following.
+This is the primary way to refer to a contiguous sequence of elements without
+owning the data. **It is structurally identical to `Vec<T>`**, containing `len`
+and `capacity` fields with the data directly following. It is an Unsized Type
+(DST). It is structurally identical to `Vec<T>` (and `Vec< T;N`> / `[T;N]`),
+containing len and capacity fields with the data directly following.
 
-* **Syntax:** `[ElementType]` (e.g., `[Int]`)
-* **Purpose:** For functions that need to read or modify elements within any contiguous memory
-  block, without changing its length or ownership.
-* **Universal Compatibility (Zero-Cost Conversion)**: Due to the unified memory layout across all
-  contiguous vector/array-like types, a [T] slice can represent the active portion of any `[T; N]` (
-  Fixed-Capacity Array), `Vec<T; N>` (Fixed-Capacity Vector), or `Vec<T>` (Dynamic-Length Vector)
-  with *zero-cost conversion* (no data copying or runtime transformation required). It's simply a
-  reinterpretation of the existing memory.
+- **Syntax:** `[ElementType]` (e.g., `[Int]`)
+- **Purpose:** For functions that need to read or modify elements within any
+  contiguous memory block, without changing its length or ownership.
+- **Universal Compatibility (Zero-Cost Conversion)**: Due to the unified memory
+  layout across all contiguous vector/array-like types, a [T] slice can
+  represent the active portion of any `[T; N]` ( Fixed-Capacity Array),
+  `Vec<T; N>` (Fixed-Capacity Vector), or `Vec<T>` (Dynamic-Length Vector) with
+  _zero-cost conversion_ (no data copying or runtime transformation required).
+  It's simply a reinterpretation of the existing memory.
 
-#### Memory Layout:
+#### Slice/View Memory Layout
 
-| Field      | Type     | Notes                                                             |
-|:-----------|:---------|:------------------------------------------------------------------|
-| `len`      | `u16`    | Number of elements in this view                                   |
-| `capacity` | `u16`    | Maximum allocated capacity (from the source)                      |
-| `Item 0`   | `Type T` | First element of the buffer, **immediately following `capacity`** |
-| `Item 1`   | `Type T` |                                                                   |
-| `...`      | `...`    |                                                                   |
-| `Item M-1` | `Type T` | Last element of the buffer (where `M` is the runtime `capacity`)  |
+| Field      | Type     | Notes                                        |
+| :--------- | :------- | :------------------------------------------- |
+| `capacity` | `u16`    | Maximum allocated capacity (from the source) |
+| `len`      | `u16`    | Number of elements in this view              |
+| `Item 0`   | `Type T` | First element of the buffer                  |
+| `Item 1`   | `Type T` |                                              |
+| `...`      | `...`    |                                              |
+| `Item M-1` | `Type T` | Last element of the buffer                   |
 
-* **Key Behavior:**
-    * **Structural Identity:** This type has the **exact same memory layout and fields** as
-      `Vec<T>`.
-    * **Capacity:** Stored **runtime `u16` field**.
-    * **Length:** Stored **runtime `u16` field**, represents the length of the *view*. **Cannot be
-      changed** through the slice type (even if the binding is mutable).
-    * **Bounds Check:** Access is checked against `len`.
-    * **Usage:** A `Vec<T>` (or `Vec<T; N>`) can be passed as `[T]` to a function.
+- **Key Behavior:**
+  - **Structural Identity:** This type has the **exact same memory layout and
+    fields** as `Vec<T>`.
+  - **Capacity:** Stored **runtime `u16` field**.
+  - **Length:** Stored **runtime `u16` field**, represents the length of the
+    _view_. **Cannot be changed** through the slice type (even if the binding is
+    mutable).
+  - **Bounds Check:** Access is checked against `len`.
+  - **Usage:** A `Vec<T>` (or `Vec<T; N>`) can be passed as `[T]` to a function.
 
 ### 5. Fixed-Capacity Map (Owned Storage): `Map<K, V; N>`
 
-This type represents an owned, fixed-size hash map where all buckets are stored directly within its
-contiguous memory block. It uses an open addressing (e.g., linear probing) strategy for collision
-resolution.
+This type represents an owned, fixed-size hash map where all buckets are stored
+directly within its contiguous memory block. It uses an open addressing (e.g.,
+linear probing) strategy for collision resolution.
 
     Syntax: MapStorage<KeyType, ValueType; Capacity> (e.g., MapStorage<String, Int; 100>)
     Purpose: For maps where the maximum number of buckets (N) is known at compile time.
 
-Slice mutability is a checked at compile time, and is not any different in runtime.
+Slice mutability is a checked at compile time, and is not any different in
+runtime.
 
 ### 6. Dynamic-Length Map: `Map<K, V>`
 
-This is the non-capacity-specific type that represents a map. It has the exact same in-memory
-structure as `Map<K, V; N>`, allowing it to be passed around without the specific N being part
-of its type. Its len can be changed (if mutable), and elements can be inserted/removed up to the
-underlying capacity.
+This is the non-capacity-specific type that represents a map. It has the exact
+same in-memory structure as `Map<K, V; N>`, allowing it to be passed around
+without the specific N being part of its type. Its len can be changed (if
+mutable), and elements can be inserted/removed up to the underlying capacity.
 
 ### 7. Internal Compiler Concept: Compiler-Internal Initializer List
 
-This is **not a runtime type** that programmers would declare or manipulate directly. It is an
-internal compiler construct used to optimize the initialization of all collection types (`[T;N]`,
-`Vec<T;N]`, `Map<K,V;N>`, etc.) from literal values or expressions.
+This is **not a runtime type** that programmers would declare or manipulate
+directly. It is an internal compiler construct used to optimize the
+initialization of all collection types (`[T;N]`, `Vec<T;N]`, `Map<K,V;N>`, etc.)
+from literal values or expressions.
 
-* **Purpose:** To provide a highly efficient mechanism for populating new collection instances.
-* **Structure (Conceptual):** At compile time, it represents a sequence of expressions that will
-  yield elements (for vectors/arrays) or key-value pairs (for maps).
-* **Mechanism:** The compiler generates specialized, optimized code that directly evaluates these
-  expressions and places the resulting values into the target collection's allocated memory. This
-  direct filling ensures that there is **no intermediate collection created** and no extra memory
-  copy overhead during initialization, making it as performant as hand-coded initialization loops.
+- **Purpose:** To provide a highly efficient mechanism for populating new
+  collection instances.
+- **Structure (Conceptual):** At compile time, it represents a sequence of
+  expressions that will yield elements (for vectors/arrays) or key-value pairs
+  (for maps).
+- **Mechanism:** The compiler generates specialized, optimized code that
+  directly evaluates these expressions and places the resulting values into the
+  target collection's allocated memory. This direct filling ensures that there
+  is **no intermediate collection created** and no extra memory copy overhead
+  during initialization, making it as performant as hand-coded initialization
+  loops.
