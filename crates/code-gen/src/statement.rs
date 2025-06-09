@@ -53,7 +53,11 @@ impl CodeBuilder<'_> {
                 );
             }
 
-            Type::DynamicLengthVecView(element_type)
+            Type::StackStorage(element_type, _)
+            | Type::StackView(element_type)
+            | Type::QueueStorage(element_type, _)
+            | Type::QueueView(element_type)
+            | Type::DynamicLengthVecView(element_type)
             | Type::VecStorage(element_type, ..)
             | Type::SliceView(element_type) => {
                 self.emit_for_loop_lambda(

@@ -42,3 +42,31 @@ fn init_and_enqueue() {
     assert(queue.len() == 3, "len after dequeue")
     assert(queue[0] == 44, "element 0 should be 44")
 }
+
+#[test]
+fn for_loop() {
+    mut queue: Queue<Int; 42> = [1, 2, 3, 4, 5]
+
+    assert(queue.len() == 5, "len")
+    mut sum = 0
+    for val in queue {
+        sum += val
+    }
+    assert(sum == 15, "sum should be 15")
+}
+
+#[test]
+fn for_loop_index() {
+    mut queue: Queue<Int; 42> = [1, 2, 3, 4, 5]
+
+    assert(queue.capacity() == 42, "capacity failed")
+    assert(queue.len() == 5, "len")
+    mut sum = 0
+    mut index = 0
+    for i, val in queue {
+        assert(i == index, "index should match")
+        sum += val
+        index += 1
+    }
+    assert(sum == 15, "sum should be 15")
+}

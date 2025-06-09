@@ -54,8 +54,12 @@ impl CodeBuilder<'_> {
             .ty
             .basic_type
             .element()
-            .unwrap_or_else(|| panic!("could not find element for {:?}",
-                output_memory_location.ty.basic_type));
+            .unwrap_or_else(|| {
+                panic!(
+                    "could not find element for {:?}",
+                    output_memory_location.ty.basic_type
+                )
+            });
         self.emit_initialize_target_memory_first_time(
             output_memory_location,
             node,

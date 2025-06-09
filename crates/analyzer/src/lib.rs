@@ -1561,6 +1561,14 @@ impl<'a> Analyzer<'a> {
             Type::String => (Some(Type::Int), Type::String),
             Type::SliceView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::VecStorage(element_type, _fixed_size) => (Some(Type::Int), *element_type.clone()),
+            Type::StackStorage(element_type, _fixed_size) => {
+                (Some(Type::Int), *element_type.clone())
+            }
+            Type::StackView(element_type) => (Some(Type::Int), *element_type.clone()),
+            Type::QueueStorage(element_type, _fixed_size) => {
+                (Some(Type::Int), *element_type.clone())
+            }
+            Type::QueueView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::DynamicLengthVecView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::MapStorage(key_type, value_type, _fixed_size) => {
                 (Some(*key_type.clone()), *value_type.clone())

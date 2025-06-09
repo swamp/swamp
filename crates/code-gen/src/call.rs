@@ -325,7 +325,7 @@ impl CodeBuilder<'_> {
 
                             let base_reg_to_use = base_reg_replacement_lookup
                                 .get(&original_base_reg.index)
-                                .unwrap();
+                                .expect("could not find base reg");
 
                             // Construct a replacement location with the new temporary register (replacement_base_reg)
                             let replacement_memory_location = MemoryLocation {
