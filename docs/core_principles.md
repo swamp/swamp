@@ -664,7 +664,7 @@ mutable), and elements can be inserted/removed up to the underlying capacity.
 
 This is **not a runtime type** that programmers would declare or manipulate
 directly. It is an internal compiler construct used to optimize the
-initialization of all collection types (`[T;N]`, `Vec<T;N>`, `[K,V;N]`, etc.)
+initialization of all collection types  (`[T;N]`, `Vec<T;N>`, `[K,V;N]`, etc.)
 from literal values or expressions.
 
 - **Purpose:** To provide a highly efficient mechanism for populating new

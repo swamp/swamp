@@ -20,6 +20,7 @@ pub mod map_open;
 pub mod memory;
 pub mod prelude;
 mod range;
+mod sparse;
 mod string;
 mod vec;
 
