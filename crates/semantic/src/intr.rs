@@ -91,6 +91,7 @@ pub enum IntrinsicFunction {
     RuntimeStep,
     RangeInit,
     MapCapacity,
+    SparseAdd,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -178,6 +179,9 @@ impl fmt::Display for IntrinsicFunction {
             Self::GridGet => "grid_get",
             Self::GridFromSlice => "grid_from_slice",
             Self::GridGetColumn => "grid_get_column",
+
+            // Sparse
+            Self::SparseAdd => "sparse_add",
 
             // Other
             Self::Float2Magnitude => "float2_magnitude",

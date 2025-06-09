@@ -180,6 +180,12 @@ fn print(
             for i in 0..header.element_count {}
             write!(f, "; {size}]")
         }
+        BasicTypeKind::SparseView(element_type) => {
+            todo!()
+        }
+        BasicTypeKind::SparseStorage(element_type, capacity) => {
+            todo!()
+        }
         BasicTypeKind::MapStorage {
             tuple_type,
             logical_limit: logical_size,

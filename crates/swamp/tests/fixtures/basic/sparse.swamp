@@ -1,0 +1,9 @@
+use core::{assert, panic}
+use std::{print}
+
+#[test]
+fn sparse() {
+    mut sparse: Sparse<Int; 10> = []
+
+    id = sparse.add(1)
+}

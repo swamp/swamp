@@ -719,6 +719,8 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::GridGetColumn => {}
             IntrinsicFunction::GridFromSlice => {}
 
+            IntrinsicFunction::SparseAdd => {}
+
             // Other
             IntrinsicFunction::Float2Magnitude => {}
         }

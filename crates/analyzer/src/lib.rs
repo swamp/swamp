@@ -1515,8 +1515,10 @@ impl<'a> Analyzer<'a> {
             Type::SliceView(_) => todo!(),
             Type::DynamicLengthVecView(_) => todo!(),
             Type::VecStorage(_, _) => todo!(),
+            Type::SparseStorage(_, _) => todo!(),
             Type::StackView(_) => todo!(),
             Type::QueueView(_) => todo!(),
+            Type::SparseView(_) => todo!(),
             Type::StackStorage(_, _) => todo!(),
             Type::QueueStorage(_, _) => todo!(),
             Type::MapStorage(_, _, _) => todo!(),
@@ -1890,6 +1892,7 @@ impl<'a> Analyzer<'a> {
             match destination_type {
                 Type::StackStorage(element_type, capacity)
                 | Type::QueueStorage(element_type, capacity)
+                | Type::SparseStorage(element_type, capacity)
                 | Type::VecStorage(element_type, capacity) => {
                     if items.len() > *capacity {
                         return Err(self.create_err(
@@ -1902,6 +1905,7 @@ impl<'a> Analyzer<'a> {
                     (destination_type, *element_type.clone())
                 }
                 Type::QueueView(element_type)
+                | Type::SparseView(element_type)
                 | Type::StackView(element_type)
                 | Type::DynamicLengthVecView(element_type) => {
                     (destination_type, *element_type.clone())
@@ -3164,6 +3168,46 @@ impl<'a> Analyzer<'a> {
         Ok(intrinsic_and_signature)
     }
 
+    fn sparse_member_signature(
+        &mut self,
+        self_type: &Type,
+        element_type: &Type,
+        field_name_str: &str,
+        node: &swamp_ast::Node,
+    ) -> Result<(IntrinsicFunction, Signature), Error> {
+        let self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: false,
+            node: None,
+        };
+        let self_mutable_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: true,
+            node: None,
+        };
+        let intrinsic_and_signature = match field_name_str {
+            "add" => (
+                IntrinsicFunction::SparseAdd,
+                Signature {
+                    parameters: vec![
+                        self_mutable_type_param,
+                        TypeForParameter {
+                            name: "element".to_string(),
+                            resolved_type: element_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: Box::new(Type::Int),
+                },
+            ),
+            _ => { self.slice_member_signature(self_type, element_type, field_name_str, node) }?,
+        };
+        Ok(intrinsic_and_signature)
+    }
+
     fn vec_member_signature(
         &mut self,
         self_type: &Type,
@@ -3452,6 +3496,13 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let ty = type_that_member_is_on.underlying();
         match ty {
+            Type::SparseStorage(element_type, ..) | Type::SparseView(element_type) => self
+                .sparse_member_signature(
+                    type_that_member_is_on,
+                    element_type,
+                    field_name_str,
+                    node,
+                ),
             Type::QueueStorage(element_type, ..) => self.queue_member_signature(
                 type_that_member_is_on,
                 element_type,
@@ -3757,6 +3808,23 @@ impl<'a> Analyzer<'a> {
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     Type::QueueStorage(Box::from(element_type), fixed_size)
+                } else {
+                    panic!("todo: make this into an error")
+                }
+            }
+            "Sparse" => {
+                if ast_generic_parameters.len() == 1 {
+                    let element_type = self
+                        .analyze_type(ast_generic_parameters[0].get_type())
+                        .unwrap();
+                    Type::SparseView(Box::from(element_type))
+                } else if ast_generic_parameters.len() == 2 {
+                    let element_type = self
+                        .analyze_type(ast_generic_parameters[0].get_type())
+                        .unwrap();
+                    let fixed_size =
+                        self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
+                    Type::SparseStorage(Box::from(element_type), fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }

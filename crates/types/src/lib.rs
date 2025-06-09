@@ -54,6 +54,8 @@ pub enum Type {
 
     MapStorage(Box<Type>, Box<Type>, usize), // `Map<K, V; N>`
     DynamicLengthMapView(Box<Type>, Box<Type>), // Map<K, V>`
+    SparseView(Box<Type>),
+    SparseStorage(Box<Type>, usize),
 }
 
 impl Type {
@@ -300,7 +302,7 @@ impl Type {
 
             Self::SliceView(_) => false,
             Self::DynamicLengthVecView(a) => false,
-            Self::QueueView(_) | Self::StackView(_) => false,
+            Self::QueueView(_) | Self::SparseView(_) | Self::StackView(_) => false,
             Self::DynamicLengthMapView(a, b) => {
                 eprintln!("NOT CONCRETE DynLengthMapView {a:?}, {b:?}");
                 false
@@ -310,6 +312,7 @@ impl Type {
             | Self::FixedCapacityAndLengthArray(_, _)
             | Self::VecStorage(_, _)
             | Self::QueueStorage(_, _)
+            | Self::SparseStorage(_, _)
             | Self::StackStorage(_, _) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -374,6 +377,7 @@ impl Type {
             | Self::SliceView(_)
             | Self::DynamicLengthMapView(_, _)
             | Self::StackView(_)
+            | Self::SparseView(_)
             | Self::DynamicLengthVecView(_)
             | Self::QueueView(_) => false, // views should be blittable?
 
@@ -382,6 +386,7 @@ impl Type {
             | Self::VecStorage(_, _)
             | Self::QueueStorage(_, _)
             | Self::StackStorage(_, _)
+            | Self::SparseStorage(_, _)
             | Self::Range(_) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -447,11 +452,12 @@ impl Type {
             | Self::DynamicLengthMapView(_, _)
             | Self::StackView(_)
             | Self::QueueView(_)
+            | Self::SparseView(_)
             | Self::DynamicLengthVecView(_) => false, // Views can not be stored in fields, since it is "views" / "pointers" to data stored elsewhere
 
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
-            Self::QueueStorage(_, _) | Self::StackStorage(_, _) => true,
+            Self::SparseStorage(_, _) | Self::QueueStorage(_, _) | Self::StackStorage(_, _) => true,
             Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::Range(_) => true,
 
@@ -517,11 +523,17 @@ impl Debug for Type {
             Self::DynamicLengthVecView(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
             }
+            Self::SparseView(value_type) => {
+                write!(f, "Sparse<{value_type:?}>")
+            }
             Self::SliceView(value_type) => {
                 write!(f, "[{value_type:?}]")
             }
             Self::MapStorage(key_type, value_type, size) => {
                 write!(f, "MapStorage<{key_type:?}, {value_type:?}, {size}>")
+            }
+            Self::SparseStorage(value_type, size) => {
+                write!(f, "SparseStorage< {value_type:?}, {size}>")
             }
             Self::StackStorage(key_type, size) => {
                 write!(f, "Stack<{key_type:?}; {size}>")
@@ -564,6 +576,9 @@ impl Display for Type {
             Self::VecStorage(value_type, size) => {
                 write!(f, "VecStorage<{value_type:?}, {size}>")
             }
+            Self::SparseStorage(value_type, size) => {
+                write!(f, "Sparse<{value_type:?}, {size}>")
+            }
             Self::StackStorage(value_type, size) => {
                 write!(f, "StackStorage<{value_type:?}, {size}>")
             }
@@ -572,6 +587,9 @@ impl Display for Type {
             }
             Self::DynamicLengthVecView(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
+            }
+            Self::SparseView(value_type) => {
+                write!(f, "Sparse<{value_type:?}>")
             }
             Self::StackView(value_type) => {
                 write!(f, "Stack<{value_type:?}>")
@@ -633,6 +651,10 @@ impl Type {
                 size_a >= size_b && element_a.compatible_with(element_b)
             }
 
+            (Self::SparseStorage(element_a, size_a), Self::SparseStorage(element_b, size_b)) => {
+                size_a >= size_b && element_a.compatible_with(element_b)
+            }
+
             (
                 Self::StackStorage(storage_element, a_size),
                 Self::StackStorage(vec_element, b_size),
@@ -647,6 +669,10 @@ impl Type {
                 Self::DynamicLengthVecView(element_first),
                 Self::DynamicLengthVecView(element_second),
             ) => element_first.compatible_with(element_second),
+
+            (Self::SparseView(element_first), Self::SparseView(element_second)) => {
+                element_first.compatible_with(element_second)
+            }
 
             (Self::SliceView(element_a), Self::SliceView(element_b)) => {
                 element_a.compatible_with(element_b)

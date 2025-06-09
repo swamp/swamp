@@ -269,6 +269,17 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 PTR_ALIGNMENT,
             )
         }
+        Type::SparseStorage(value_type, capacity) => {
+            let generator_value = layout_type(value_type);
+            let total_size =
+                sparse_mem::layout_size(*capacity as u16, generator_value.total_size.0);
+
+            create_basic_type(
+                BasicTypeKind::SparseStorage(Box::from(generator_value), *capacity),
+                MemorySize(total_size as u16),
+                sparse_mem::alignment().try_into().unwrap(),
+            )
+        }
         Type::MapStorage(key_type, value_type, logical_size) => {
             let tuple_gen_type = layout_tuple_items(&[*key_type.clone(), *value_type.clone()]);
             let capacity = (*logical_size).max(1).next_power_of_two();
@@ -338,6 +349,15 @@ pub fn layout_type(ty: &Type) -> BasicType {
             let inner_gen_type = layout_type(inner_type);
             create_basic_type(
                 BasicTypeKind::DynamicLengthVecView(Box::from(inner_gen_type)),
+                PTR_SIZE,
+                PTR_ALIGNMENT,
+            )
+        }
+
+        Type::SparseView(inner_type) => {
+            let inner_gen_type = layout_type(inner_type);
+            create_basic_type(
+                BasicTypeKind::SparseView(Box::from(inner_gen_type)),
                 PTR_SIZE,
                 PTR_ALIGNMENT,
             )

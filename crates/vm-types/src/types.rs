@@ -287,6 +287,9 @@ pub enum BasicTypeKind {
         status_size: usize,
         bucket_size: usize,
     },
+    SparseView(Box<BasicType>),
+    SparseStorage(Box<BasicType>, usize),
+
     DynamicLengthMapView(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
     // DynamicLengthMapView(),
 }
@@ -375,14 +378,16 @@ impl Display for BasicTypeKind {
             Self::U8 => write!(f, "u8"),
             Self::B8 => write!(f, "b8"),
             Self::U16 => write!(f, "u16"),
-            Self::S32 => write!(f, "int"),
-            Self::Fixed32 => write!(f, "fixed"),
+            Self::S32 => write!(f, "i32"),
+            Self::Fixed32 => write!(f, "Fixed(i32)"),
             Self::U32 => write!(f, "u32"),
             Self::InternalStringPointer => write!(f, "String"),
             Self::InternalRangeHeader => write!(f, "Range"),
             Self::FixedCapacityArray(item_type, size) => write!(f, "[{item_type}; {size}]"),
             Self::DynamicLengthVecView(item_type) => write!(f, "Vec<{item_type}>"),
             Self::VecStorage(item_type, size) => write!(f, "Vec<{item_type}, {size}>"),
+            Self::SparseView(item_type) => write!(f, "Sparse<{item_type}>"),
+            Self::SparseStorage(item_type, size) => write!(f, "SparseStorage<{item_type}, {size}>"),
             Self::StackStorage(item_type, size) => write!(f, "StackStorage<{item_type}, {size}>"),
             Self::QueueStorage(item_type, size) => write!(f, "QueueStorage<{item_type}, {size}>"),
             Self::MapStorage {
@@ -1553,6 +1558,8 @@ impl BasicType {
     pub fn element(&self) -> Option<&Self> {
         match &self.kind {
             BasicTypeKind::StackStorage(inner, _)
+            | BasicTypeKind::SparseStorage(inner, _)
+            | BasicTypeKind::SparseView(inner)
             | BasicTypeKind::QueueStorage(inner, _)
             | BasicTypeKind::DynamicLengthVecView(inner)
             | BasicTypeKind::FixedCapacityArray(inner, _)
@@ -2037,6 +2044,12 @@ pub fn write_basic_type(
         }
         BasicTypeKind::StackStorage(element_type, size) => {
             write!(f, "StackStorage<{element_type}, {size}>")
+        }
+        BasicTypeKind::SparseView(element_type) => {
+            write!(f, "Sparse<{element_type}>")
+        }
+        BasicTypeKind::SparseStorage(element_type, size) => {
+            write!(f, "SparseStorage<{element_type}, {size}>")
         }
         BasicTypeKind::DynamicLengthMapView(key, value) => {
             write!(f, "Map<{key}, {value}>")

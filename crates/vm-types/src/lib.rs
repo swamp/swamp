@@ -555,6 +555,22 @@ impl From<MemoryAlignment> for usize {
     }
 }
 
+impl TryInto<MemoryAlignment> for usize {
+    type Error = ();
+
+    fn try_into(self) -> Result<MemoryAlignment, Self::Error> {
+        let converted = match self {
+            1 => MemoryAlignment::U8,
+            2 => MemoryAlignment::U16,
+            4 => MemoryAlignment::U32,
+            8 => MemoryAlignment::U64,
+
+            _ => return Err(()),
+        };
+        Ok(converted)
+    }
+}
+
 impl From<MemoryAlignment> for MemoryOffset {
     fn from(val: MemoryAlignment) -> Self {
         let octets: usize = val.into();
