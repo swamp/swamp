@@ -4,9 +4,9 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
+use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -20,7 +20,6 @@ pub mod map_open;
 pub mod memory;
 pub mod prelude;
 mod range;
-mod sparse;
 mod string;
 mod vec;
 
