@@ -100,7 +100,7 @@ impl CodeBuilder<'_> {
                                     intrinsic_arguments,
                                 );
 
-                                let z_result = self.emit_single_intrinsic_call_with_self(
+                                self.emit_single_intrinsic_call_with_self(
                                     &call_return_destination,
                                     &start_expression.node,
                                     intrinsic_fn,

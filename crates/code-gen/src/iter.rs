@@ -4,12 +4,9 @@
  */
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::{layout_optional_type, layout_type};
 use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
-use std::ops::Deref;
 use swamp_semantic::{ArgumentExpression, ExpressionKind};
-use swamp_types::Type;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type, u32_type,
 };

@@ -52,7 +52,7 @@ impl CodeBuilder<'_> {
                 rest_args,
                 ctx,
                 "single intrinsic call",
-            )
+            );
         }
     }
 
