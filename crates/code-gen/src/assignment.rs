@@ -12,7 +12,6 @@ use swamp_semantic::{CompoundOperatorKind, Expression, TargetAssignmentLocation,
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
-use tracing::info;
 
 impl CodeBuilder<'_> {
     /// Emits code for an assignment operation (lhs = rhs).

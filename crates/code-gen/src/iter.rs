@@ -540,7 +540,7 @@ impl CodeBuilder<'_> {
         self.temp_registers.restore_to_mark(hwm);
     }
 
-    fn check_if_transformer_can_skip_early(&self, transformer: Transformer) -> bool {
+    const fn check_if_transformer_can_skip_early(&self, transformer: Transformer) -> bool {
         match transformer {
             Transformer::For => false,
             Transformer::Filter => false,

@@ -15,7 +15,6 @@ use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
     MemoryLocation,
 };
-use tracing::info;
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_anonymous_struct_into_memory(
