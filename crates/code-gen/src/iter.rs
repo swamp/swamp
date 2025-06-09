@@ -71,6 +71,7 @@ impl CodeBuilder<'_> {
         let maybe_primary_element_gen_type = source_collection_self_region
             .ty
             .basic_type
+            .underlying()
             .element()
             .cloned();
 
@@ -86,11 +87,6 @@ impl CodeBuilder<'_> {
 
         // Primary is the right most variable
         let primary_variable = &target_variables[target_variables.len() - 1];
-
-        let lambda_return_analyzed_type = &lambda_expr.ty;
-
-        // 1. Optionally initialize the result vector if the transformer produces one.
-        //        let lambda_return_gen_type = layout_type(lambda_return_analyzed_type);
 
         let hwm = self.temp_registers.save_mark();
 

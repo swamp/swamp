@@ -9,7 +9,7 @@ I dislike and want to avoid the following:
   small "entities".
 
 - **heap allocation** during runtime. It can be done in the engine for certain
-  containers, like SlotMap or similar concepts.
+  containers, like Strings, SlotMap or similar concepts.
 
 - **garbage collection**. Even though it is allocated in an arena and the
   garbage collection is just one root, it still takes time to do a deep clone of
@@ -22,6 +22,16 @@ game is self-contained, efficiently managed, and ready for each new tick without
 any essential/useful data residing on the general heap.
 
 ## 1. The World Model
+
+- **Single Implicit World**: All Swamp code operates within one implicit `World`
+  context, simplifying the programmer's mental model.
+
+- **World Management**: The host application creates and manages `World`
+  instances, allowing multiple isolated worlds (gameplay, UI, render) when
+  needed.
+
+- **Central Data Repository**: The World exclusively holds data containers,
+  centralizing data ownership and lifetime management.
 
 ### Principle 1.1: One World to Rule Them All
 
@@ -61,6 +71,17 @@ managed data elements reside within these **containers**.
 
 This section describes Swamp's primary mechanism for storing collections of data
 elements. These are the fundamental building blocks for organizing game data.
+
+- **Explicit Declaration**: Containers must be declared with a unique identifier
+  (which becomes its handle type), fixed maximum capacity, and element
+  structure.
+
+- **Fixed Capacity**: Container capacity is determined at declaration and
+  remains constant during the World's lifetime, enabling upfront memory
+  allocation.
+
+- **Static Lifetime**: Containers exist for the entire lifetime of their parent
+  World instance, eliminating concerns about container availability.
 
 ### Principle 2.1: Explicit Declaration and Nature of Data Containers
 
@@ -447,8 +468,8 @@ mana: Int? = entity.main_spell?.mana
 ## Swamp Collection Types
 
 Swamp's collection types are designed for performance and clarity, storing their
-elements in \* *contiguous blocks of memory\*\*. Crucially, the data *always
-follows directly\* after the type header fields (like `len` and `capacity`),
+elements in **contiguous blocks of memory**. Crucially, the data *always
+follows directly* after the type header fields (like `len` and `capacity`),
 meaning **no separate pointers** are typically involved for accessing the
 elements within an instance of these types.
 
@@ -510,7 +531,7 @@ compile-time sized chunk of memory.
 
 ### 2. Fixed-Capacity Vector (Owned Storage): `Vec<T; N>`
 
-This type _owns_ a fixed-size, compile-time allocated buffer and manages a
+This type *owns* a fixed-size, compile-time allocated buffer and manages a
 dynamic `length` within that buffer. The data is stored directly after its
 fields.
 
@@ -540,7 +561,7 @@ fields.
 
 ---
 
-### 3. Dynamic-Length Vector: `Vec<T>`
+### 3. Dynamic-Length Vector (View): `Vec<T>`
 
 This is the non-capacity-specific type that represents a vector. **It has the
 exact same in-memory structure as `Vec<T; N>`**, allowing it to be passed around
@@ -558,7 +579,7 @@ an **Unsized Type (DST)**, meaning its total size is not known at compile time.
   (for dynamically sized vectors). This choice doesn't affect the memory layout,
   only where the memory is obtained.
 
-#### Dynamic-Length Vector
+#### Dynamic-Length Vector Memory Layout
 
 | Field      | Type     | Notes                                      |
 | :--------- | :------- | :----------------------------------------- |
@@ -596,7 +617,7 @@ containing len and capacity fields with the data directly following.
   layout across all contiguous vector/array-like types, a [T] slice can
   represent the active portion of any `[T; N]` ( Fixed-Capacity Array),
   `Vec<T; N>` (Fixed-Capacity Vector), or `Vec<T>` (Dynamic-Length Vector) with
-  _zero-cost conversion_ (no data copying or runtime transformation required).
+  *zero-cost conversion* (no data copying or runtime transformation required).
   It's simply a reinterpretation of the existing memory.
 
 #### Slice/View Memory Layout
@@ -615,27 +636,27 @@ containing len and capacity fields with the data directly following.
     fields** as `Vec<T>`.
   - **Capacity:** Stored **runtime `u16` field**.
   - **Length:** Stored **runtime `u16` field**, represents the length of the
-    _view_. **Cannot be changed** through the slice type (even if the binding is
+    *view*. **Cannot be changed** through the slice type (even if the binding is
     mutable).
   - **Bounds Check:** Access is checked against `len`.
   - **Usage:** A `Vec<T>` (or `Vec<T; N>`) can be passed as `[T]` to a function.
 
-### 5. Fixed-Capacity Map (Owned Storage): `Map<K, V; N>`
+### 5. Fixed-Capacity Map (Owned Storage): `[K, V; N]`
 
 This type represents an owned, fixed-size hash map where all buckets are stored
 directly within its contiguous memory block. It uses an open addressing (e.g.,
 linear probing) strategy for collision resolution.
 
-    Syntax: MapStorage<KeyType, ValueType; Capacity> (e.g., MapStorage<String, Int; 100>)
-    Purpose: For maps where the maximum number of buckets (N) is known at compile time.
+Syntax: `[KeyType, ValueType; Capacity]` (e.g., `[String, Int; 100]`)
+Purpose: For maps where the maximum number of buckets (N) is known at compile time.
 
 Slice mutability is a checked at compile time, and is not any different in
 runtime.
 
-### 6. Dynamic-Length Map: `Map<K, V>`
+### 6. Dynamic-Length Map: `[K, V]`
 
 This is the non-capacity-specific type that represents a map. It has the exact
-same in-memory structure as `Map<K, V; N>`, allowing it to be passed around
+same in-memory structure as `[K, V; N]`, allowing it to be passed around
 without the specific N being part of its type. Its len can be changed (if
 mutable), and elements can be inserted/removed up to the underlying capacity.
 
@@ -643,7 +664,7 @@ mutable), and elements can be inserted/removed up to the underlying capacity.
 
 This is **not a runtime type** that programmers would declare or manipulate
 directly. It is an internal compiler construct used to optimize the
-initialization of all collection types (`[T;N]`, `Vec<T;N]`, `Map<K,V;N>`, etc.)
+initialization of all collection types (`[T;N]`, `Vec<T;N>`, `[K,V;N]`, etc.)
 from literal values or expressions.
 
 - **Purpose:** To provide a highly efficient mechanism for populating new
