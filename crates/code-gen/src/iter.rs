@@ -11,7 +11,7 @@ use std::ops::Deref;
 use swamp_semantic::{ArgumentExpression, ExpressionKind};
 use swamp_types::Type;
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type, u32_type,
+    u32_type, u8_type, BasicType, BasicTypeKind, Destination, TypedRegister, VmType,
 };
 use swamp_vm_types::{InstructionPosition, MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::error;
@@ -90,34 +90,7 @@ impl CodeBuilder<'_> {
         let lambda_return_analyzed_type = &lambda_expr.ty;
 
         // 1. Optionally initialize the result vector if the transformer produces one.
-        let lambda_return_gen_type = layout_type(lambda_return_analyzed_type);
-
-        if matches!(
-            transformer.return_type(),
-            TransformerResult::VecWithLambdaResult | TransformerResult::VecFromSourceCollection
-        ) {
-            let element_size_in_target_vec = match transformer.return_type() {
-                TransformerResult::VecFromSourceCollection => {
-                    maybe_primary_element_gen_type.as_ref().unwrap().total_size
-                }
-                TransformerResult::VecWithLambdaResult => {
-                    if transformer.needs_tag_removed() {
-                        let (_tag_size, _tag_offset, _payload_offset, payload_size) =
-                            lambda_return_gen_type.unwrap_info().unwrap();
-                        payload_size
-                    } else {
-                        lambda_return_gen_type.total_size
-                    }
-                }
-                _ => panic!("should not happen"),
-            };
-
-            let pointer_reg = self.emit_compute_effective_address_to_register(
-                target_destination,
-                node,
-                "create absolute pointer reg for vec_create",
-            );
-        }
+//        let lambda_return_gen_type = layout_type(lambda_return_analyzed_type);
 
         let hwm = self.temp_registers.save_mark();
 
@@ -301,6 +274,7 @@ impl CodeBuilder<'_> {
                         "can no start iterating with this strange vec collection"
                     );
                 }
+
                 self.builder.add_vec_iter_init(
                     &target_iterator_header_reg,
                     collection_self_addr,

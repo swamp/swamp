@@ -1,6 +1,7 @@
 use core::{assert, panic}
 use std::{print}
-/*
+
+
 struct Thing {
     x: Int,
     y: Int,
@@ -14,6 +15,7 @@ struct FoundNumbers {
     numbers: Vec<Int; 4>,
 }
 
+/*
 #[test]
 fn filter() {
     found = FoundNumbers {
@@ -36,6 +38,7 @@ fn filter_things() {
     assert(positive_things[1].x == 4, 'second even number should be 4')
 }
 */
+
 
 #[test]
 fn find_in_array() {
