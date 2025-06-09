@@ -176,6 +176,22 @@ const fn create_basic_type(
     }
 }
 
+fn layout_vec_like(
+    element_type: &Type,
+    capacity: usize,
+) -> (BasicType, MemorySize, MemoryAlignment) {
+    let element_type_basic = layout_type(element_type);
+    let total_size =
+        element_type_basic.total_size.0 as usize * capacity + VEC_HEADER_SIZE.0 as usize;
+    let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
+
+    (
+        element_type_basic,
+        MemorySize(total_size as u16),
+        max_alignment,
+    )
+}
+
 /// Computes the memory layout for a type in the target architecture.
 ///
 /// In compiler terminology:
@@ -281,20 +297,44 @@ pub fn layout_type(ty: &Type) -> BasicType {
             )
         }
 
-        Type::StackStorage(element_type, fixed_size_element_count)
-        | Type::VecStorage(element_type, fixed_size_element_count) => {
-            let element_type_basic = layout_type(element_type);
-            let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count
-                + VEC_HEADER_SIZE.0 as usize;
-            let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
+        Type::QueueStorage(element_type, fixed_size_element_count) => {
+            let (element_type_basic, total_size, max_alignment) =
+                layout_vec_like(element_type, *fixed_size_element_count);
             create_basic_type(
-                BasicTypeKind::VecStorage(Box::from(element_type_basic), *fixed_size_element_count),
-                MemorySize(total_size as u16),
+                BasicTypeKind::QueueStorage(
+                    Box::from(element_type_basic),
+                    *fixed_size_element_count,
+                ),
+                total_size,
                 max_alignment,
             )
         }
 
-        Type::StackView(inner_type) | Type::DynamicLengthVecView(inner_type) => {
+        Type::StackStorage(element_type, fixed_size_element_count) => {
+            let (element_type_basic, total_size, max_alignment) =
+                layout_vec_like(element_type, *fixed_size_element_count);
+            create_basic_type(
+                BasicTypeKind::StackStorage(
+                    Box::from(element_type_basic),
+                    *fixed_size_element_count,
+                ),
+                total_size,
+                max_alignment,
+            )
+        }
+        Type::VecStorage(element_type, fixed_size_element_count) => {
+            let (element_type_basic, total_size, max_alignment) =
+                layout_vec_like(element_type, *fixed_size_element_count);
+            create_basic_type(
+                BasicTypeKind::VecStorage(Box::from(element_type_basic), *fixed_size_element_count),
+                total_size,
+                max_alignment,
+            )
+        }
+
+        Type::QueueView(inner_type)
+        | Type::StackView(inner_type)
+        | Type::DynamicLengthVecView(inner_type) => {
             let inner_gen_type = layout_type(inner_type);
             create_basic_type(
                 BasicTypeKind::DynamicLengthVecView(Box::from(inner_gen_type)),

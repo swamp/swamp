@@ -573,10 +573,9 @@ impl<'a> Analyzer<'a> {
         let encountered_type = expr.ty.clone();
 
         let expr = if let Some(found_expected_type) = context.expected_type {
-            let reduced_expected = found_expected_type.underlying().lowest_common_denominator();
+            let reduced_expected = found_expected_type.underlying();
 
-            let reduced_encountered_type =
-                encountered_type.underlying().lowest_common_denominator();
+            let reduced_encountered_type = encountered_type.underlying();
             if reduced_expected.compatible_with(&reduced_encountered_type) {
                 return Ok(expr);
             }
@@ -1180,8 +1179,11 @@ impl<'a> Analyzer<'a> {
                             // Keep previous mutable
                             tv.resolved_type = *element_type_in_slice.clone();
                         }
-                        Type::StackStorage(element_type, _)
+                        Type::QueueStorage(element_type, _)
+                        | Type::StackStorage(element_type, _)
+                        | Type::StackView(element_type)
                         | Type::VecStorage(element_type, _)
+                        | Type::DynamicLengthVecView(element_type)
                         | Type::SliceView(element_type) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expression =
@@ -1514,7 +1516,9 @@ impl<'a> Analyzer<'a> {
             Type::DynamicLengthVecView(_) => todo!(),
             Type::VecStorage(_, _) => todo!(),
             Type::StackView(_) => todo!(),
+            Type::QueueView(_) => todo!(),
             Type::StackStorage(_, _) => todo!(),
+            Type::QueueStorage(_, _) => todo!(),
             Type::MapStorage(_, _, _) => todo!(),
             Type::DynamicLengthMapView(_, _) => todo!(),
         };
@@ -1877,6 +1881,7 @@ impl<'a> Analyzer<'a> {
             let destination_type = expected_type.underlying();
             match destination_type {
                 Type::StackStorage(element_type, capacity)
+                | Type::QueueStorage(element_type, capacity)
                 | Type::VecStorage(element_type, capacity) => {
                     if items.len() > *capacity {
                         return Err(self.create_err(
@@ -1888,7 +1893,9 @@ impl<'a> Analyzer<'a> {
                     }
                     (destination_type, *element_type.clone())
                 }
-                Type::StackView(element_type) | Type::DynamicLengthVecView(element_type) => {
+                Type::QueueView(element_type)
+                | Type::StackView(element_type)
+                | Type::DynamicLengthVecView(element_type) => {
                     (destination_type, *element_type.clone())
                 }
                 Type::FixedCapacityAndLengthArray(element_type, _size) => {
@@ -3100,6 +3107,54 @@ impl<'a> Analyzer<'a> {
         Ok(found_function.signature().clone())
     }
 
+    fn queue_member_signature(
+        &mut self,
+        self_type: &Type,
+        element_type: &Type,
+        field_name_str: &str,
+        node: &swamp_ast::Node,
+    ) -> Result<(IntrinsicFunction, Signature), Error> {
+        let self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: false,
+            node: None,
+        };
+        let self_mutable_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: true,
+            node: None,
+        };
+        let intrinsic_and_signature = match field_name_str {
+            "enqueue" => (
+                IntrinsicFunction::VecPush,
+                Signature {
+                    parameters: vec![
+                        self_mutable_type_param,
+                        TypeForParameter {
+                            name: "element".to_string(),
+                            resolved_type: element_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: Box::new(Type::Unit),
+                },
+            ),
+            "dequeue" => (
+                IntrinsicFunction::VecRemoveFirstIndexGetValue,
+                Signature {
+                    parameters: vec![self_mutable_type_param],
+                    return_type: Box::new(element_type.clone()),
+                },
+            ),
+            _ => { self.slice_member_signature(self_type, element_type, field_name_str, node) }?,
+        };
+
+        Ok(intrinsic_and_signature)
+    }
+
     fn vec_member_signature(
         &mut self,
         self_type: &Type,
@@ -3142,14 +3197,8 @@ impl<'a> Analyzer<'a> {
                     return_type: Box::new(element_type.clone()),
                 },
             ),
-            "is_empty" => (
-                IntrinsicFunction::VecIsEmpty,
-                Signature {
-                    parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Bool),
-                },
-            ),
-            _ => { self.slice_member_signature(element_type, field_name_str, node) }?,
+
+            _ => { self.slice_member_signature(self_type, element_type, field_name_str, node) }?,
         };
         Ok(intrinsic_and_signature)
     }
@@ -3157,6 +3206,7 @@ impl<'a> Analyzer<'a> {
     #[allow(clippy::too_many_lines)]
     fn slice_member_signature(
         &mut self,
+        self_type: &Type,
         element_type: &Type,
         field_name_str: &str,
         node: &swamp_ast::Node,
@@ -3263,6 +3313,13 @@ impl<'a> Analyzer<'a> {
                 };
                 (IntrinsicFunction::VecLen, signature)
             }
+            "is_empty" => (
+                IntrinsicFunction::VecIsEmpty,
+                Signature {
+                    parameters: vec![self_type_param],
+                    return_type: Box::new(Type::Bool),
+                },
+            ),
             "capacity" => {
                 let signature = Signature {
                     parameters: vec![self_type_param],
@@ -3386,7 +3443,14 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let ty = type_that_member_is_on.underlying();
         match ty {
+            Type::QueueStorage(element_type, ..) => self.queue_member_signature(
+                type_that_member_is_on,
+                element_type,
+                field_name_str,
+                node,
+            ),
             Type::StackStorage(element_type, ..)
+            | Type::QueueStorage(element_type, ..)
             | Type::VecStorage(element_type, ..)
             | Type::DynamicLengthVecView(element_type) => self.vec_member_signature(
                 type_that_member_is_on,
@@ -3394,7 +3458,7 @@ impl<'a> Analyzer<'a> {
                 field_name_str,
                 node,
             ),
-            Type::SliceView(element_type) => self.vec_member_signature(
+            Type::SliceView(element_type) => self.slice_member_signature(
                 type_that_member_is_on,
                 element_type,
                 field_name_str,
@@ -3403,9 +3467,12 @@ impl<'a> Analyzer<'a> {
             Type::MapStorage(key, value, _) => {
                 self.map_member_signature(type_that_member_is_on, key, value, field_name_str, node)
             }
-            Type::FixedCapacityAndLengthArray(element_type, _) => {
-                self.slice_member_signature(element_type, field_name_str, node)
-            }
+            Type::FixedCapacityAndLengthArray(element_type, _) => self.slice_member_signature(
+                type_that_member_is_on,
+                element_type,
+                field_name_str,
+                node,
+            ),
             _ => Err(self.create_err(
                 ErrorKind::UnknownMemberFunction(type_that_member_is_on.clone()),
                 node,
@@ -3664,6 +3731,23 @@ impl<'a> Analyzer<'a> {
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     Type::StackStorage(Box::from(element_type), fixed_size)
+                } else {
+                    panic!("todo: make this into an error")
+                }
+            }
+            "Queue" => {
+                if ast_generic_parameters.len() == 1 {
+                    let element_type = self
+                        .analyze_type(ast_generic_parameters[0].get_type())
+                        .unwrap();
+                    Type::QueueView(Box::from(element_type))
+                } else if ast_generic_parameters.len() == 2 {
+                    let element_type = self
+                        .analyze_type(ast_generic_parameters[0].get_type())
+                        .unwrap();
+                    let fixed_size =
+                        self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
+                    Type::QueueStorage(Box::from(element_type), fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }

@@ -12,6 +12,7 @@ mod logical
 mod map
 mod operator
 mod option
+mod queue
 mod slice
 mod stack
 mod step

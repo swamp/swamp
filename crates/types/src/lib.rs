@@ -43,11 +43,14 @@ pub enum Type {
     SliceView(Box<Type>),
 
     // Collections
-    DynamicLengthVecView(Box<Type>), // `Vec<T>`
     VecStorage(Box<Type>, usize),    // `Vec<T;N>`
+    DynamicLengthVecView(Box<Type>), // `Vec<T>`
 
-    StackView(Box<Type>),           // `Stack<T>`
     StackStorage(Box<Type>, usize), // `Stack<T;N>`
+    StackView(Box<Type>),           // `Stack<T>`
+
+    QueueStorage(Box<Type>, usize), // `Queue<T;N>`
+    QueueView(Box<Type>),           // `Queue<T;N>`
 
     MapStorage(Box<Type>, Box<Type>, usize), // `Map<K, V; N>`
     DynamicLengthMapView(Box<Type>, Box<Type>), // Map<K, V>`
@@ -59,11 +62,30 @@ impl Type {
         matches!(self, Self::Bool)
     }
     #[must_use]
-    pub fn lowest_common_denominator(&self) -> Self {
+    pub fn lowest_common_denominator_view(&self) -> Option<Self> {
         match self {
-            Self::VecStorage(inner, _size) => Self::DynamicLengthVecView(inner.clone()), //Self::Vec(Box::from(*inner.clone())),
-            Self::StackStorage(inner, _size) => Self::DynamicLengthVecView(inner.clone()),
-            _ => self.clone(),
+            Self::FixedCapacityAndLengthArray(inner, _size)
+            | Self::QueueStorage(inner, _size)
+            | Self::StackStorage(inner, _size)
+            | Self::VecStorage(inner, _size) => Some(Self::SliceView(inner.clone())),
+            Self::SliceView(inner)
+            | Self::QueueView(inner)
+            | Self::StackView(inner)
+            | Self::DynamicLengthVecView(inner) => Some(Self::SliceView(inner.clone())),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn lowest_common_denominator_storage(&self) -> Option<Self> {
+        match self {
+            Self::FixedCapacityAndLengthArray(inner, size)
+            | Self::VecStorage(inner, size)
+            | Self::QueueStorage(inner, size)
+            | Self::StackStorage(inner, size) => {
+                Some(Self::FixedCapacityAndLengthArray(inner.clone(), *size))
+            }
+            _ => None,
         }
     }
 
@@ -274,16 +296,17 @@ impl Type {
 
             Self::SliceView(_) => false,
             Self::DynamicLengthVecView(a) => false,
-            Self::StackView(_) => false,
+            Self::QueueView(_) | Self::StackView(_) => false,
             Self::DynamicLengthMapView(a, b) => {
                 eprintln!("NOT CONCRETE {a:?}, {b:?}");
                 false
             }
 
-            Self::FixedCapacityAndLengthArray(_, _) => true,
-            Self::VecStorage(_, _) => true,
-            Self::StackStorage(_, _) => true,
-            Self::MapStorage(_, _, _) => true,
+            Self::MapStorage(_, _, _)
+            | Self::FixedCapacityAndLengthArray(_, _)
+            | Self::VecStorage(_, _)
+            | Self::QueueStorage(_, _)
+            | Self::StackStorage(_, _) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
@@ -347,13 +370,15 @@ impl Type {
             | Self::SliceView(_)
             | Self::DynamicLengthMapView(_, _)
             | Self::StackView(_)
-            | Self::DynamicLengthVecView(_) => false,
+            | Self::DynamicLengthVecView(_)
+            | Self::QueueView(_) => false, // views should be blittable?
 
-            Self::FixedCapacityAndLengthArray(_, _) => true,
-            Self::VecStorage(_, _) => true,
-            Self::MapStorage(_, _, _) => true,
-            Self::StackStorage(_, _) => true,
-            Self::Range(_) => true,
+            Self::MapStorage(_, _, _)
+            | Self::FixedCapacityAndLengthArray(_, _)
+            | Self::VecStorage(_, _)
+            | Self::QueueStorage(_, _)
+            | Self::StackStorage(_, _)
+            | Self::Range(_) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
 
@@ -417,11 +442,12 @@ impl Type {
             | Self::SliceView(_)
             | Self::DynamicLengthMapView(_, _)
             | Self::StackView(_)
-            | Self::DynamicLengthVecView(_) => false,
+            | Self::QueueView(_)
+            | Self::DynamicLengthVecView(_) => false, // Views can not be stored in fields, since it is "views" / "pointers" to data stored elsewhere
 
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
-            Self::StackStorage(_, _) => true,
+            Self::QueueStorage(_, _) | Self::StackStorage(_, _) => true,
             Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::Range(_) => true,
 
@@ -499,6 +525,12 @@ impl Debug for Type {
             Self::StackView(key_type) => {
                 write!(f, "Stack<{key_type:?}>")
             }
+            Self::QueueStorage(key_type, size) => {
+                write!(f, "Queue<{key_type:?}; {size}>")
+            }
+            Self::QueueView(key_type) => {
+                write!(f, "Queue<{key_type:?}>")
+            }
             Self::DynamicLengthMapView(key_type, value_type) => {
                 write!(f, "Map<{key_type:?}, {value_type:?}>")
             }
@@ -531,11 +563,17 @@ impl Display for Type {
             Self::StackStorage(value_type, size) => {
                 write!(f, "StackStorage<{value_type:?}, {size}>")
             }
+            Self::QueueStorage(value_type, size) => {
+                write!(f, "QueueStorage<{value_type:?}, {size}>")
+            }
             Self::DynamicLengthVecView(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
             }
             Self::StackView(value_type) => {
                 write!(f, "Stack<{value_type:?}>")
+            }
+            Self::QueueView(value_type) => {
+                write!(f, "Queue<{value_type:?}>")
             }
             Self::SliceView(value_type) => {
                 write!(f, "[{value_type:?}]")
@@ -590,7 +628,33 @@ impl Type {
             (Self::VecStorage(element_a, size_a), Self::VecStorage(element_b, size_b)) => {
                 size_a >= size_b && element_a.compatible_with(element_b)
             }
+
             (
+                Self::StackStorage(storage_element, a_size),
+                Self::StackStorage(vec_element, b_size),
+            ) => a_size >= b_size && vec_element.compatible_with(storage_element),
+
+            (
+                Self::QueueStorage(storage_element, a_size),
+                Self::QueueStorage(vec_element, b_size),
+            ) => a_size >= b_size && vec_element.compatible_with(storage_element),
+
+            (
+                Self::DynamicLengthVecView(element_first),
+                Self::DynamicLengthVecView(element_second),
+            ) => element_first.compatible_with(element_second),
+
+            (Self::SliceView(element_a), Self::SliceView(element_b)) => {
+                element_a.compatible_with(element_b)
+            }
+
+            /*
+                        (
+                Self::StackStorage(storage_element, _size),
+                Self::DynamicLengthVecView(vec_element),
+            ) => vec_element.compatible_with(storage_element),
+
+                      (
                 Self::FixedCapacityAndLengthArray(element_a, size_a),
                 Self::DynamicLengthVecView(element_b),
             ) => element_a.compatible_with(element_b),
@@ -600,15 +664,8 @@ impl Type {
             (Self::VecStorage(storage_element, _size), Self::DynamicLengthVecView(vec_element)) => {
                 vec_element.compatible_with(storage_element)
             }
-            (
-                Self::StackStorage(storage_element, _size),
-                Self::DynamicLengthVecView(vec_element),
-            ) => vec_element.compatible_with(storage_element),
-            (
-                Self::StackStorage(storage_element, a_size),
-                Self::StackStorage(vec_element, b_size),
-            ) => a_size >= b_size && vec_element.compatible_with(storage_element),
-            (Self::SliceView(vec_element), Self::VecStorage(storage_element, _size)) => {
+
+                        (Self::SliceView(vec_element), Self::VecStorage(storage_element, _size)) => {
                 vec_element.compatible_with(storage_element)
             }
             (Self::SliceView(vec_element), Self::StackStorage(storage_element, _size)) => {
@@ -618,6 +675,19 @@ impl Type {
                 vec_element.compatible_with(storage_element)
             }
 
+
+            (Self::SliceView(element_first), Self::DynamicLengthVecView(element_second)) => {
+                element_first.compatible_with(element_second)
+            }
+
+
+
+            (
+                Self::SliceView(vec_element),
+                Self::FixedCapacityAndLengthArray(storage_element, _size),
+            ) => vec_element.compatible_with(storage_element),
+
+            */
             (
                 Self::MapStorage(key_a, value_a, size_a),
                 Self::MapStorage(key_b, value_b, size_b),
@@ -640,23 +710,6 @@ impl Type {
                 Self::DynamicLengthMapView(key_b, value_b),
             ) => key_a.compatible_with(key_b) && value_a.compatible_with(value_b),
 
-            (
-                Self::DynamicLengthVecView(element_first),
-                Self::DynamicLengthVecView(element_second),
-            ) => element_first.compatible_with(element_second),
-
-            (Self::SliceView(element_first), Self::DynamicLengthVecView(element_second)) => {
-                element_first.compatible_with(element_second)
-            }
-
-            (Self::SliceView(element_a), Self::SliceView(element_b)) => {
-                element_a.compatible_with(element_b)
-            }
-
-            (
-                Self::SliceView(vec_element),
-                Self::FixedCapacityAndLengthArray(storage_element, _size),
-            ) => vec_element.compatible_with(storage_element),
             // TODO: These are not technically the same, so it should probably be in a can_be_converted from, in a special
             // analyze_assignment_like() helper
             (Self::Enum(a), Self::Enum(b)) => a == b,
@@ -679,7 +732,19 @@ impl Type {
                 inner_type_a.compatible_with(inner_type_b)
             }
 
-            _ => false,
+            _ => {
+                // Match those with clear layouts
+                let storage = self.lowest_common_denominator_view();
+                let view = self.lowest_common_denominator_view();
+
+                if let Some(storage) = storage {
+                    if let Some(view) = view {
+                        return storage.compatible_with(&view);
+                    }
+                }
+
+                false
+            }
         }
     }
 }

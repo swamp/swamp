@@ -38,7 +38,7 @@ fn init_and_push() {
     stack.push(100)
     assert(stack.len() == 4, "len")
     value = stack.pop()
-    assert(value == 100, 'popped value should be 100 {value}')
+    assert(value == 100, 'popped value should be the last one pushed: 100 {value}')
     assert(stack.len() == 3, "len after pop")
     assert(stack[0] == 23, "element 0 should be 23")
 }

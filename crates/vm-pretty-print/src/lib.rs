@@ -162,6 +162,8 @@ fn print(
             write!(f, "\"{str}\" (%{heap_addr:X})")
         }
         BasicTypeKind::DynamicLengthVecView(item_type)
+        | BasicTypeKind::QueueStorage(item_type, _)
+        | BasicTypeKind::StackStorage(item_type, _)
         | BasicTypeKind::VecStorage(item_type, _) => {
             write!(f, "[")?;
             let header_offset = slice_to_u32_le(frame);
@@ -185,6 +187,7 @@ fn print(
         } => {
             todo!()
         }
+
         BasicTypeKind::DynamicLengthMapView(key_type, value_type) => {
             write!(f, "[")?;
             /*

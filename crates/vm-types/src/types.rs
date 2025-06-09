@@ -277,6 +277,8 @@ pub enum BasicTypeKind {
     FixedCapacityArray(Box<BasicType>, usize),
     DynamicLengthVecView(Box<BasicType>),
     VecStorage(Box<BasicType>, usize),
+    StackStorage(Box<BasicType>, usize),
+    QueueStorage(Box<BasicType>, usize),
     MapStorage {
         element_type: Box<BasicType>,
         tuple_type: Box<TupleType>,
@@ -381,6 +383,8 @@ impl Display for BasicTypeKind {
             Self::FixedCapacityArray(item_type, size) => write!(f, "[{item_type}; {size}]"),
             Self::DynamicLengthVecView(item_type) => write!(f, "Vec<{item_type}>"),
             Self::VecStorage(item_type, size) => write!(f, "Vec<{item_type}, {size}>"),
+            Self::StackStorage(item_type, size) => write!(f, "StackStorage<{item_type}, {size}>"),
+            Self::QueueStorage(item_type, size) => write!(f, "QueueStorage<{item_type}, {size}>"),
             Self::MapStorage {
                 tuple_type,
                 logical_limit: logical_size,
@@ -1368,6 +1372,12 @@ impl BasicType {
             BasicTypeKind::VecStorage(_element_type, capacity) => {
                 Some(MemorySize(*capacity as u16))
             }
+            BasicTypeKind::StackStorage(_element_type, capacity) => {
+                Some(MemorySize(*capacity as u16))
+            }
+            BasicTypeKind::QueueStorage(_element_type, capacity) => {
+                Some(MemorySize(*capacity as u16))
+            }
             BasicTypeKind::MapStorage {
                 element_type: _,
                 tuple_type: _,
@@ -1541,10 +1551,12 @@ impl BasicType {
     #[must_use]
     pub fn element(&self) -> Option<&Self> {
         match &self.kind {
-            BasicTypeKind::FixedCapacityArray(inner, capacity) => Some(inner),
-            BasicTypeKind::SliceView(inner) => Some(inner),
-            BasicTypeKind::VecStorage(inner, _) => Some(inner),
-            BasicTypeKind::DynamicLengthVecView(inner) => Some(inner),
+            BasicTypeKind::StackStorage(inner, _)
+            | BasicTypeKind::QueueStorage(inner, _)
+            | BasicTypeKind::DynamicLengthVecView(inner)
+            | BasicTypeKind::FixedCapacityArray(inner, _)
+            | BasicTypeKind::VecStorage(inner, _)
+            | BasicTypeKind::SliceView(inner) => Some(inner),
             BasicTypeKind::MapStorage {
                 element_type,
                 tuple_type,
@@ -2017,6 +2029,12 @@ pub fn write_basic_type(
         }
         BasicTypeKind::VecStorage(element_type, size) => {
             write!(f, "VecStorage<{element_type}, {size}>")
+        }
+        BasicTypeKind::QueueStorage(element_type, size) => {
+            write!(f, "QueueStorage<{element_type}, {size}>")
+        }
+        BasicTypeKind::StackStorage(element_type, size) => {
+            write!(f, "StackStorage<{element_type}, {size}>")
         }
         BasicTypeKind::DynamicLengthMapView(key, value) => {
             write!(f, "Map<{key}, {value}>")

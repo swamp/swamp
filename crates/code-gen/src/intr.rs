@@ -12,7 +12,8 @@ use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
 use swamp_vm_types::types::{
-    BasicType, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type, u16_type,
+    BasicType, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type, u8_type, u16_type,
+    u32_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
@@ -451,6 +452,46 @@ impl CodeBuilder<'_> {
                     &key_region,
                     node,
                     "vec remove index get value",
+                );
+            }
+            IntrinsicFunction::VecRemoveFirstIndexGetValue => {
+                let zero_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u8_type()),
+                    "vec remove first. set index 0",
+                );
+                self.builder
+                    .add_mov8_immediate(zero_reg.register(), 0, node, "zero index");
+                let value_addr_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u32_type()),
+                    "vec entry addr to copy from",
+                );
+                let element_type = self_basic_type.unwrap().element().unwrap();
+                self.builder.add_vec_subscript(
+                    value_addr_reg.register(),
+                    self_addr.unwrap(),
+                    zero_reg.register(),
+                    element_type.total_size,
+                    node,
+                    "lookup first entry in vec",
+                );
+
+                let source_memory_location =
+                    MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                        value_addr_reg.register,
+                    );
+                self.emit_load_value_from_memory_source(
+                    maybe_target.unwrap(),
+                    &source_memory_location,
+                    node,
+                    "load the vec entry to target register",
+                );
+
+                self.builder.add_vec_remove_index(
+                    self_addr.unwrap(), // mut self
+                    zero_reg.register(),
+                    &element_type.total_size,
+                    node,
+                    "vec remove first index",
                 );
             }
             IntrinsicFunction::VecClear => {

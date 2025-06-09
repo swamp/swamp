@@ -50,7 +50,14 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         let output_memory_location = output_destination.grab_memory_location();
-        let element_type = output_memory_location.ty.basic_type.element().unwrap();
+        let element_type = output_memory_location
+            .ty
+            .basic_type
+            .element()
+            .expect(&format!(
+                "could not find element for {:?}",
+                output_memory_location.ty.basic_type
+            ));
         self.emit_initialize_target_memory_first_time(
             output_memory_location,
             node,
