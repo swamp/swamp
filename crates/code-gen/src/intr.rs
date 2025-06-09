@@ -10,7 +10,6 @@ use crate::{Collection, FlagState, FlagStateKind, Transformer};
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression};
-use swamp_types::Type;
 use swamp_vm_types::types::{
     BasicType, Destination, RValueOrLValue, TypedRegister, VmType, pointer_type, u8_type, u16_type,
     u32_type,
@@ -30,7 +29,7 @@ impl CodeBuilder<'_> {
         intrinsic_fn: &IntrinsicFunction,
         arguments: &[ArgumentExpression],
         ctx: &Context,
-    ) -> FlagState {
+    ) {
         {
             let (self_arg, maybe_self_type) = if arguments.is_empty() {
                 (None, None)
@@ -48,7 +47,6 @@ impl CodeBuilder<'_> {
                 target_reg,
                 node,
                 intrinsic_fn,
-                maybe_self_type,
                 None,
                 self_arg.as_ref(),
                 rest_args,
@@ -65,13 +63,12 @@ impl CodeBuilder<'_> {
         target_destination: &Destination,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
-        self_type: Option<Type>,
         self_basic_type: Option<&BasicType>,
         self_addr_l_or_rvalue: Option<&RValueOrLValue>,
         arguments: &[ArgumentExpression],
         ctx: &Context,
         comment: &str,
-    ) -> FlagState {
+    ) {
         let maybe_target = target_destination.register();
         let self_addr: Option<&TypedRegister> = self_addr_l_or_rvalue.and_then(|s| s.rvalue());
 
@@ -725,8 +722,6 @@ impl CodeBuilder<'_> {
             // Other
             IntrinsicFunction::Float2Magnitude => {}
         }
-
-        t_flag_result
     }
 
     fn emit_intrinsic_map_remove(

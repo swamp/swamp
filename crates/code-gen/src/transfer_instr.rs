@@ -144,7 +144,13 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) -> TypedRegister {
         if memory_location.offset.0 == 0 {
-            memory_location.base_ptr_reg.clone()
+            // Create a new TypedRegister with the same register but *updated* type
+            // Caused bugs for things like transformers that needed the correct type.
+            TypedRegister {
+                index: memory_location.base_ptr_reg.index,
+                ty: memory_location.ty.clone(), // Use the field's type, not the base register's type
+                comment: comment.to_string(),
+            }
         } else {
             let final_ptr_target_reg = self.temp_registers.allocate(
                 memory_location.ty.clone(),

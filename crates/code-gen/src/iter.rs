@@ -11,7 +11,7 @@ use std::ops::Deref;
 use swamp_semantic::{ArgumentExpression, ExpressionKind};
 use swamp_types::Type;
 use swamp_vm_types::types::{
-    u32_type, u8_type, BasicType, BasicTypeKind, Destination, TypedRegister, VmType,
+    BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type, u32_type,
 };
 use swamp_vm_types::{InstructionPosition, MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::error;
@@ -90,7 +90,7 @@ impl CodeBuilder<'_> {
         let lambda_return_analyzed_type = &lambda_expr.ty;
 
         // 1. Optionally initialize the result vector if the transformer produces one.
-//        let lambda_return_gen_type = layout_type(lambda_return_analyzed_type);
+        //        let lambda_return_gen_type = layout_type(lambda_return_analyzed_type);
 
         let hwm = self.temp_registers.save_mark();
 

@@ -15,7 +15,7 @@ struct FoundNumbers {
     numbers: Vec<Int; 4>,
 }
 
-/*
+
 #[test]
 fn filter() {
     found = FoundNumbers {
@@ -37,7 +37,6 @@ fn filter_things() {
     assert(positive_things[0].x == 2, 'first even number should be 2')
     assert(positive_things[1].x == 4, 'second even number should be 4')
 }
-*/
 
 
 #[test]
