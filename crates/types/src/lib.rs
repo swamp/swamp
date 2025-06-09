@@ -302,7 +302,7 @@ impl Type {
             Self::DynamicLengthVecView(a) => false,
             Self::QueueView(_) | Self::StackView(_) => false,
             Self::DynamicLengthMapView(a, b) => {
-                eprintln!("NOT CONCRETE {a:?}, {b:?}");
+                eprintln!("NOT CONCRETE DynLengthMapView {a:?}, {b:?}");
                 false
             }
 

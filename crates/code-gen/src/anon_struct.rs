@@ -15,6 +15,7 @@ use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
     MemoryLocation,
 };
+use tracing::info;
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_anonymous_struct_into_memory(
@@ -127,6 +128,7 @@ impl CodeBuilder<'_> {
                 VmType::new_contained_in_register(u16_type()),
                 &format!("{comment} - init vec slice capacity reg"),
             );
+
             self.builder.add_mov_16_immediate_value(
                 init_capacity_reg.register(),
                 capacity.0,

@@ -388,10 +388,11 @@ impl Display for BasicTypeKind {
             Self::MapStorage {
                 tuple_type,
                 logical_limit: logical_size,
+                capacity,
                 ..
             } => write!(
                 f,
-                "MapStorage<{}, {}, {logical_size}>",
+                "MapStorage<{}, {}, {logical_size} ({capacity})>",
                 tuple_type.fields[0], tuple_type.fields[1],
             ),
             Self::DynamicLengthMapView(key, value) => write!(f, "Map<{key}, {value}>"),
@@ -1681,6 +1682,7 @@ pub struct FrameAddressInfo {
 
 #[derive(Clone, Debug)]
 pub struct VariableRegister {
+    pub unique_id_in_function: usize,
     pub variable: VariableInfo,
     pub register: TypedRegister,
 }

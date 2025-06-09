@@ -263,7 +263,7 @@ impl Vm {
     #[inline]
     pub fn execute_vec_push_addr(
         &mut self,
-        dst_reg: u8,
+        destination_entry_addr_reg: u8,
         src_vec_header_ptr_reg: u8,
         size_of_elements_lower: u8,
         size_of_elements_upper: u8,
@@ -288,7 +288,7 @@ impl Vm {
         let address_of_new_element =
             vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32 + len as u32 * size_of_each_element;
 
-        set_reg!(self, dst_reg, address_of_new_element);
+        set_reg!(self, destination_entry_addr_reg, address_of_new_element);
     }
 
     #[inline]

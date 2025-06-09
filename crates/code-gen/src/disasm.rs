@@ -38,14 +38,15 @@ pub fn show_parameters_and_variables(
         )?;
     }
 
-    for reg in variables {
+    for variable_register in variables {
         writeln!(
             f,
-            "{}: {}: {} {}",
-            tinter::yellow(format!("r{}", reg.register.index)),
-            tinter::blue(&reg.variable.name),
-            reg.register.ty,
-            reg.register.comment
+            "{}: {} ({}): {} {}",
+            tinter::yellow(format!("r{}", variable_register.register.index)),
+            tinter::blue(&variable_register.unique_id_in_function),
+            tinter::magenta(variable_register),
+            variable_register.register.ty,
+            variable_register.register.comment
         )?;
     }
 

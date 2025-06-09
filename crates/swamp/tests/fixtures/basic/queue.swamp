@@ -35,8 +35,10 @@ fn init_and_enqueue() {
     assert(queue[1] == 44, "element 1 should be 44")
     assert(queue[2] == -1, "element 2 should be -1")
     assert(queue.is_empty() == false, "should not be empty")
+
     queue.enqueue(100)
     assert(queue.len() == 4, "len")
+
     value = queue.dequeue()
     assert(value == 23, 'dequeued value should be 23 {value}')
     assert(queue.len() == 3, "len after dequeue")

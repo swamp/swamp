@@ -11,7 +11,7 @@ use source_map_node::Node;
 use swamp_semantic::{ArgumentExpression, ExpressionKind};
 use swamp_types::Type;
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type,
+    BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type, u32_type,
 };
 use swamp_vm_types::{InstructionPosition, MemoryLocation, PatchPosition};
 use tracing::error;
@@ -137,10 +137,11 @@ impl CodeBuilder<'_> {
             self.check_if_transformer_sets_t_flag(transformer, &lambda_result, node);
 
         // 5. Conditionally skip result insertion if early exit is triggered.
-        let maybe_skip_early = if matches!(
-            transformer_t_flag_state,
-            FlagStateKind::TFlagIsTrueWhenSet | FlagStateKind::TFlagIsTrueWhenClear
-        ) {
+        let maybe_skip_early = if self.check_if_transformer_can_skip_early(transformer)
+            && matches!(
+                transformer_t_flag_state,
+                FlagStateKind::TFlagIsTrueWhenSet | FlagStateKind::TFlagIsTrueWhenClear
+            ) {
             // The P flag is set so we can act on it
             let skip_early = self.builder.add_jmp_if_not_equal_polarity_placeholder(
                 &transformer_t_flag_state.polarity(),
@@ -175,6 +176,10 @@ impl CodeBuilder<'_> {
                 );
             }
             TransformerResult::VecFromSourceCollection => {
+                let skip_if_false_patch_position = self
+                    .builder
+                    .add_jmp_if_not_true_placeholder(node, "skip the result if it is false");
+
                 let absolute_pointer = self.emit_compute_effective_address_to_register(
                     target_destination,
                     node,
@@ -186,6 +191,8 @@ impl CodeBuilder<'_> {
                     &absolute_pointer,
                     primary_variable,
                 );
+
+                self.builder.patch_jump_here(skip_if_false_patch_position);
             }
         }
 
@@ -449,13 +456,34 @@ impl CodeBuilder<'_> {
     ) {
         match collection {
             Collection::Vec => {
+                let hwm = self.temp_registers.save_mark();
+
+                let target_element_addr_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u32_type()),
+                    "address for the element entry",
+                );
+
                 self.builder.add_vec_push_addr(
+                    target_element_addr_reg.register(),
                     mut_collection,
-                    value,
                     value.ty.basic_type.total_size,
                     node,
-                    "push",
+                    "add_to_collection for transformer",
                 );
+
+                let vec_entry_destination =
+                    Destination::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                        target_element_addr_reg.register,
+                    ));
+
+                self.emit_store_scalar_to_memory_offset_instruction(
+                    &vec_entry_destination.memory_location_or_pointer_reg(),
+                    value,
+                    node,
+                    "store value in the new vec entry slot",
+                );
+
+                self.temp_registers.restore_to_mark(hwm);
             }
             Collection::Map => todo!(),
             Collection::Grid => todo!(),
@@ -510,5 +538,17 @@ impl CodeBuilder<'_> {
         );
 
         self.temp_registers.restore_to_mark(hwm);
+    }
+
+    fn check_if_transformer_can_skip_early(&self, transformer: Transformer) -> bool {
+        match transformer {
+            Transformer::For => false,
+            Transformer::Filter => false,
+            Transformer::Find => true,
+            Transformer::Map => false,
+            Transformer::Any => true,
+            Transformer::All => true,
+            Transformer::FilterMap => false,
+        }
     }
 }

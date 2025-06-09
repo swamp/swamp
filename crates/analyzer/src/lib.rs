@@ -2628,24 +2628,25 @@ impl<'a> Analyzer<'a> {
         annotation_type: Option<&swamp_ast::Type>,
         source_expression: &swamp_ast::Expression,
     ) -> Result<Expression, Error> {
-        let ty = if let Some(found_ast_type) = annotation_type {
+        let maybe_annotated_type = if let Some(found_ast_type) = annotation_type {
             Some(self.analyze_type(found_ast_type)?)
         } else {
             None
         };
 
-        let unsure_arg_context = TypeContext::new_unsure_argument(ty.as_ref());
+        let unsure_arg_context = TypeContext::new_unsure_argument(maybe_annotated_type.as_ref());
 
         let resolved_source = self.analyze_expression(source_expression, &unsure_arg_context)?;
 
-        let var_ref = self.create_local_variable(
-            &var.name,
-            Option::from(&var.is_mutable),
-            &resolved_source.ty,
-        )?;
+        let resulting_type = if let Some(annotated_type) = maybe_annotated_type {
+            annotated_type
+        } else {
+            resolved_source.ty.clone()
+        };
+        let var_ref =
+            self.create_local_variable(&var.name, Option::from(&var.is_mutable), &resulting_type)?;
 
-        let resolved_type = resolved_source.ty.clone();
-        assert_ne!(resolved_type, Type::Unit);
+        assert_ne!(resulting_type, Type::Unit);
         let kind = ExpressionKind::VariableDefinition(var_ref, Box::from(resolved_source));
 
         let resolved_expr = self.create_expr(kind, Type::Unit, &var.name);
@@ -3260,7 +3261,7 @@ impl<'a> Analyzer<'a> {
                 )
             }
             "filter" => {
-                let signature = Signature {
+                let lambda_signature = Signature {
                     parameters: vec![TypeForParameter {
                         name: "element".to_string(),
                         resolved_type: element_type.clone(),
@@ -3269,7 +3270,7 @@ impl<'a> Analyzer<'a> {
                     }],
                     return_type: Box::new(Type::Bool),
                 };
-                let lambda_function_type = Type::Function(signature);
+                let lambda_function_type = Type::Function(lambda_signature);
                 (
                     IntrinsicFunction::VecFilter,
                     Signature {

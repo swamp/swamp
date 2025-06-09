@@ -38,7 +38,7 @@ fn very_basic() {
             show_modules: false,
             step_behaviour: StepBehavior::ResumeExecution,
         },
-        "stack::",
+        "transformer::",
         module_suffix,
     );
     assert!(result.failed_tests.is_empty());

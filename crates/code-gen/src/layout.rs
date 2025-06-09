@@ -607,6 +607,7 @@ pub fn layout_variables(
         );
 
         parameter_registers.push(VariableRegister {
+            unique_id_in_function: var_ref.unique_id_within_function,
             variable: VariableInfo {
                 is_mutable: var_ref.is_mutable(),
                 name: var_ref.assigned_name.clone(),
@@ -666,6 +667,7 @@ pub fn layout_variables(
         };
 
         variable_registers.push(VariableRegister {
+            unique_id_in_function: var_ref.unique_id_within_function,
             variable: VariableInfo {
                 is_mutable: var_ref.is_mutable(),
                 name: var_ref.assigned_name.clone(),

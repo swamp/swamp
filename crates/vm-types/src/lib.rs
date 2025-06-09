@@ -678,8 +678,6 @@ pub struct VecHeader {
 pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u16);
 pub const VEC_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(size_of::<VecHeader>() as u16);
 pub const VEC_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
-pub const VEC_HEADER_ELEMENT_COUNT_OFFSET: MemoryOffset = MemoryOffset(2);
-pub const VEC_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(0);
 
 pub const VEC_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
 pub const VEC_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
@@ -762,8 +760,6 @@ pub struct MapHeader {
 
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
-pub const MAP_HEADER_ELEMENT_COUNT_OFFSET: MemoryOffset = MemoryOffset(2);
-pub const MAP_HEADER_CAPACITY_OFFSET: MemoryOffset = MemoryOffset(0);
 pub const MAP_HEADER_KEY_SIZE_OFFSET: MemoryOffset = MemoryOffset(4);
 pub const MAP_HEADER_VALUE_SIZE_OFFSET: MemoryOffset = MemoryOffset(6);
 pub const MAP_BUCKETS_OFFSET: MemoryOffset = MemoryOffset(MAP_HEADER_SIZE.0);

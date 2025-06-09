@@ -80,6 +80,12 @@ pub enum Transformer {
     FilterMap,
 }
 
+pub enum TransformerLambdaResultConversion {
+    NoConversion,
+    SkipOnFalse,
+    SkipOnNone,
+}
+
 pub enum TransformerResult {
     Unit,
     Bool,
@@ -149,6 +155,14 @@ impl Transformer {
             Self::All | Self::Any => TransformerResult::Bool,
             Self::Find => TransformerResult::WrappedValueFromSourceCollection,
             Self::For => TransformerResult::Unit,
+        }
+    }
+
+    pub const fn lambda_result_conversion(self) -> TransformerLambdaResultConversion {
+        match self {
+            Self::Filter => TransformerLambdaResultConversion::SkipOnFalse,
+            Self::Find => TransformerLambdaResultConversion::SkipOnNone,
+            _ => TransformerLambdaResultConversion::NoConversion,
         }
     }
 

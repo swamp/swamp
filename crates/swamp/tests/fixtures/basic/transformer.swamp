@@ -1,19 +1,25 @@
 use core::{assert}
 use std::{print}
 
-#[test]
-fn something_else() {
-    assert(2 ==2, "must be same")
+struct Thing {
+    a: Int,
+    b: Int,
 }
 
-//#[test]
-/*
-fn find_in_array() {
-    maybe_int = [1, 2, 3, 4].find(|x| x == 2)
+struct Another {
+    things: Vec<Int; 4>,
 }
 
 #[test]
 fn filter() {
-    maybe_int = [1, 2, 3, 4].filter(|x| x == 2)
+    another = Another {
+        things: [1, 2, 3, 4],
+    }
+    even_numbers : Vec<Int; 8> = another.things.filter(|x| x % 2 == 0)
+    assert(even_numbers.len() == 2, 'should have 2 even numbers {even_numbers.len()}')
 }
-*/
+
+//#[test]
+//fn find_in_array() {
+  //  maybe_int = [1, 2, 3, 4].find(|x| x == 2)
+//}

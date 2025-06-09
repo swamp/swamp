@@ -116,13 +116,13 @@ impl CodeBuilder<'_> {
             let ty = layout_type(&expr.ty);
             let temp_target_reg = self.temp_registers.allocate(
                 VmType::new_unknown_placement(ty),
-                "to produce a scalar rvalue, we have to allocate a temporary variable",
+                "to produce a rvalue, we have to allocate a temporary variable",
             );
 
             self.emit_expression_into_register(
                 temp_target_reg.register(),
                 expr,
-                "emit_scalar_rvalue",
+                "emit_rvalue",
                 ctx,
             );
 

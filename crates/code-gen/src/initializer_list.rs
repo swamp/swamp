@@ -49,7 +49,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        let output_memory_location = output_destination.grab_memory_location();
+        let output_memory_location = output_destination.memory_location_or_pointer_reg();
         let element_type = output_memory_location
             .ty
             .basic_type
@@ -61,7 +61,7 @@ impl CodeBuilder<'_> {
                 )
             });
         self.emit_initialize_target_memory_first_time(
-            output_memory_location,
+            &output_memory_location,
             node,
             "initialize collection for the first time",
         );
@@ -75,7 +75,7 @@ impl CodeBuilder<'_> {
 
         // Make sure that the destination can hold all the elements, and initialize length
         let length_reg = self.emit_check_that_known_len_is_less_or_equal_to_capacity(
-            output_memory_location,
+            &output_memory_location,
             elements.len(),
             node,
             "check initializer elements can fix",

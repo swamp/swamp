@@ -17,8 +17,7 @@ use swamp_vm_types::types::{
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
-    MAP_HEADER_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize, PointerLocation,
-    STRING_HEADER_COUNT_OFFSET,
+    MemoryLocation, MemoryOffset, MemorySize, PointerLocation, STRING_HEADER_COUNT_OFFSET,
 };
 use tracing::info;
 
@@ -532,21 +531,25 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
             IntrinsicFunction::MapLen | IntrinsicFunction::VecLen => {
-                self.builder.add_ld16_from_pointer_with_offset_u16(
+                let collection_pointer = PointerLocation {
+                    ptr_reg: self_addr.unwrap().clone(),
+                };
+                self.emit_collection_len(
                     maybe_target.unwrap(),
-                    self_addr.unwrap(),
-                    COLLECTION_ELEMENT_COUNT_OFFSET,
+                    &collection_pointer,
                     node,
                     "get the collection element_count",
                 );
             }
             IntrinsicFunction::MapCapacity | IntrinsicFunction::VecCapacity => {
-                self.builder.add_ld16_from_pointer_with_offset_u16(
+                let collection_pointer = PointerLocation {
+                    ptr_reg: self_addr.unwrap().clone(),
+                };
+                self.emit_collection_capacity(
                     maybe_target.unwrap(),
-                    self_addr.unwrap(),
-                    COLLECTION_CAPACITY_OFFSET,
+                    &collection_pointer,
                     node,
-                    "get the collection capacity",
+                    "get the collection element_count",
                 );
             }
             IntrinsicFunction::VecAny => todo!(), // Low prio
@@ -642,12 +645,13 @@ impl CodeBuilder<'_> {
                 // Never called directly
             }
             IntrinsicFunction::MapLen => {
-                self.builder.add_ld16_from_pointer_with_offset_u16(
-                    maybe_target.unwrap(),
-                    self_addr.unwrap(),
-                    MAP_HEADER_ELEMENT_COUNT_OFFSET,
+                self.emit_collection_len(
+                    &maybe_target.unwrap().clone(),
+                    &PointerLocation {
+                        ptr_reg: self_addr.unwrap().clone(),
+                    },
                     node,
-                    "get the map length",
+                    "map len",
                 );
             }
             IntrinsicFunction::MapIsEmpty => {
@@ -743,6 +747,38 @@ impl CodeBuilder<'_> {
             .add_map_remove(map_region, &key_register, &key_expression.node, "");
     }
 
+    fn emit_collection_capacity(
+        &mut self,
+        output_reg: &TypedRegister,
+        collection_addr: &PointerLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.builder.add_ld16_from_pointer_with_offset_u16(
+            output_reg,
+            &collection_addr.ptr_reg,
+            COLLECTION_CAPACITY_OFFSET,
+            node,
+            comment,
+        );
+    }
+
+    fn emit_collection_len(
+        &mut self,
+        output_reg: &TypedRegister,
+        collection_addr: &PointerLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.builder.add_ld16_from_pointer_with_offset_u16(
+            output_reg,
+            &collection_addr.ptr_reg,
+            COLLECTION_ELEMENT_COUNT_OFFSET,
+            node,
+            &format!("{comment} - collection element_count"),
+        );
+    }
+
     fn emit_collection_is_empty(
         &mut self,
         output_reg: TypedRegister,
@@ -753,7 +789,7 @@ impl CodeBuilder<'_> {
         self.builder.add_ld16_from_pointer_with_offset_u16(
             &output_reg,
             &collection_addr.ptr_reg,
-            MAP_HEADER_ELEMENT_COUNT_OFFSET,
+            COLLECTION_ELEMENT_COUNT_OFFSET,
             node,
             "get the map length for testing if it is empty",
         );

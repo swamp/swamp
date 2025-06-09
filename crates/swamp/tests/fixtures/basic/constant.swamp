@@ -192,9 +192,10 @@ fn fill_map_from_constant_and_add_to_it() {
     assert(SPAWN_POINTS[Player::Blue][0].y == -43, 'after change blue[0]:y {SPAWN_POINTS[Player::Blue][0].y}')
 }
 
+
 #[test]
 fn fill_map_view_from_constant() {
-    mut map_view : [Player: Vec<Point; 2>] = SPAWN_POINTS
+    mut map_view : [Player: Vec<Point;2> ; 2] = SPAWN_POINTS
 
     assert(map_view.capacity() == 2, 'spawn points capacity {map_view.capacity()}')
     assert(map_view.len() == 2, 'spawn points length {map_view.len()}')
