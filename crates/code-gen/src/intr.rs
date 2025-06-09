@@ -19,7 +19,6 @@ use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
     MemoryLocation, MemoryOffset, MemorySize, PointerLocation, STRING_HEADER_COUNT_OFFSET,
 };
-use tracing::info;
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -39,6 +38,7 @@ impl CodeBuilder<'_> {
                 let self_region = self.emit_argument_expression(&arguments[0], ctx);
                 (Some(self_region), Some(arguments[0].ty()))
             };
+
             let rest_args = if arguments.len() > 1 {
                 &arguments[1..]
             } else {
@@ -73,7 +73,6 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) -> FlagState {
         let maybe_target = target_destination.register();
-        let maybe_pointer = target_destination.memory_location();
         let self_addr: Option<&TypedRegister> = self_addr_l_or_rvalue.and_then(|s| s.rvalue());
 
         let mut t_flag_result = FlagState::default();
@@ -584,7 +583,6 @@ impl CodeBuilder<'_> {
                     Collection::Vec,
                     Transformer::Filter,
                     self_addr.unwrap(),
-                    &self_type.unwrap(),
                     &arguments[0],
                     ctx,
                 );
@@ -597,21 +595,18 @@ impl CodeBuilder<'_> {
                     Collection::Vec,
                     Transformer::For,
                     self_addr.unwrap(),
-                    &self_type.unwrap(),
                     &arguments[0],
                     ctx,
                 );
             } // Low prio      IntrinsicFunction::VecFor => {
 
             IntrinsicFunction::VecFind => {
-                info!(?self_type, "what is the self type for vec find");
                 self.emit_iterate_over_collection_with_lambda(
                     target_destination,
                     node,
                     Collection::Vec,
                     Transformer::Find,
                     self_addr.unwrap(),
-                    &self_type.unwrap(),
                     &arguments[0],
                     ctx,
                 );

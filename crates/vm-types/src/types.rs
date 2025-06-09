@@ -912,7 +912,7 @@ impl Destination {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum RValueOrLValue {
     Scalar(TypedRegister),
     Memory(Destination),

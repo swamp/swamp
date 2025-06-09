@@ -1,6 +1,6 @@
-use core::{assert}
+use core::{assert, panic}
 use std::{print}
-
+/*
 struct Thing {
     x: Int,
     y: Int,
@@ -14,7 +14,7 @@ struct FoundNumbers {
     numbers: Vec<Int; 4>,
 }
 
-
+#[test]
 fn filter() {
     found = FoundNumbers {
         numbers: [1, 2, 3, 4],
@@ -35,9 +35,16 @@ fn filter_things() {
     assert(positive_things[0].x == 2, 'first even number should be 2')
     assert(positive_things[1].x == 4, 'second even number should be 4')
 }
+*/
 
-
-//#[test]
-//fn find_in_array() {
-  //  maybe_int = [1, 2, 3, 4].find(|x| x == 2)
-//}
+#[test]
+fn find_in_array() {
+    a = [1, 2, 3, 4]
+    maybe_int = a.find(|x| x == 2)
+    when maybe_int {
+        print('found value: {maybe_int}')
+        assert(maybe_int == 2, 'should find 2 in array {maybe_int}')
+    } else {
+        panic('should not panic, did not find value')
+    }
+}

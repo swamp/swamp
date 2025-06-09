@@ -125,7 +125,6 @@ impl CodeBuilder<'_> {
             collection,
             Transformer::For,
             source_collection,
-            source_collection_type,
             &fake_lambda_expr,
             ctx,
         );

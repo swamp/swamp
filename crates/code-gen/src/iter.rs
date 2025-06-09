@@ -2,18 +2,18 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::{layout_optional_type, layout_type};
 use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
+use std::ops::Deref;
 use swamp_semantic::{ArgumentExpression, ExpressionKind};
 use swamp_types::Type;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type, u32_type,
 };
-use swamp_vm_types::{InstructionPosition, MemoryLocation, PatchPosition};
+use swamp_vm_types::{InstructionPosition, MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::error;
 
 impl CodeBuilder<'_> {
@@ -56,7 +56,6 @@ impl CodeBuilder<'_> {
         source_collection_type: Collection,
         transformer: Transformer,
         source_collection_self_region: &TypedRegister,
-        source_collection_analyzed_type: &Type,
         lambda_expression: &ArgumentExpression,
         ctx: &Context,
     ) {
@@ -69,8 +68,11 @@ impl CodeBuilder<'_> {
             panic!();
         };
 
-        let primary_element_type = source_collection_analyzed_type.iteration_primary_element_type();
-        let maybe_primary_element_gen_type = primary_element_type.map(layout_type);
+        let maybe_primary_element_gen_type = source_collection_self_region
+            .ty
+            .basic_type
+            .element()
+            .cloned();
 
         let target_variables: Vec<_> = lambda_variables
             .iter()
@@ -221,36 +223,44 @@ impl CodeBuilder<'_> {
                 );
             }
             TransformerResult::WrappedValueFromSourceCollection => {
-                let some_payload = layout_optional_type(&Type::Optional(Box::from(
-                    lambda_return_analyzed_type.clone(),
-                )));
-                let BasicTypeKind::Optional(tagged_union) = &some_payload.kind else {
-                    panic!("expected optional {:?}", target_destination.ty());
+                let destination_type = target_destination.ty();
+                let BasicTypeKind::Optional(tagged_union) = &destination_type.kind else {
+                    panic!("expected optional {destination_type:?}");
                 };
 
-                //let tag_target = ctx.target_register().move_to_optional_tag();
-                let tag_target = self.temp_registers.allocate(
+                let tag_some_value_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u8_type()),
                     "iterate over collection target",
                 );
 
-                self.builder
-                    .add_mov8_immediate(tag_target.register(), 1, node, "mark tag as Some");
-                /* TODO:
-
-                self.builder.add_st8_using_ptr_with_offset(
-                    primary_variable,
-                    tagged_union.tag_offset,
-                    tag_target.register(),
+                self.builder.add_mov8_immediate(
+                    tag_some_value_reg.register(),
+                    1,
                     node,
-                    "copy Tag value of (1)",
+                    "mark tag as Some",
                 );
 
-                 */
+                let result_location = target_destination.grab_memory_location();
 
-                //self.copy_contents_to_memory(node, primary_variable, tagged_union.payload_offset, )
+                self.builder.add_st8_using_ptr_with_offset(
+                    &result_location.unsafe_add_offset(tagged_union.tag_offset),
+                    tag_some_value_reg.register(),
+                    node,
+                    "store Tag value of (1) into memory",
+                );
 
-                // TODO: Unsure how to copy to memory in a good way
+                // TODO: let payload_memory_location = result_location.unsafe_add_offset(tagged_union.payload_offset);
+                let payload_memory_location = result_location.unsafe_add_offset(MemoryOffset(4));
+                let payload_destination = Destination::Memory(payload_memory_location);
+
+                let source_location = Destination::Register(primary_variable.clone());
+
+                self.emit_store_value_to_memory_destination(
+                    &payload_destination,
+                    &source_location,
+                    node,
+                    "copy result in place",
+                );
             }
             _ => {}
         }
