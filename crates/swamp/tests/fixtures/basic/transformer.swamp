@@ -2,22 +2,40 @@ use core::{assert}
 use std::{print}
 
 struct Thing {
-    a: Int,
-    b: Int,
+    x: Int,
+    y: Int,
 }
 
-struct Another {
-    things: Vec<Int; 4>,
+struct Things {
+    items: Vec<Thing; 4>,
+}
+
+struct FoundNumbers {
+    numbers: Vec<Int; 4>,
+}
+
+
+fn filter() {
+    found = FoundNumbers {
+        numbers: [1, 2, 3, 4],
+    }
+    even_numbers : Vec<Int; 8> = found.numbers.filter(|x| x % 2 == 0)
+    assert(even_numbers.len() == 2, 'should have 2 even numbers {even_numbers.len()}')
+    assert(even_numbers[0] == 2, 'first even number should be 2')
+    assert(even_numbers[1] == 4, 'second even number should be 4')
 }
 
 #[test]
-fn filter() {
-    another = Another {
-        things: [1, 2, 3, 4],
+fn filter_things() {
+    things = Things {
+        items: [Thing {x: -2, y: 10}, Thing {x: 2, y: 20}, Thing {x: -3, y: 30}, Thing {x: 4, y: 40}],
     }
-    even_numbers : Vec<Int; 8> = another.things.filter(|x| x % 2 == 0)
-    assert(even_numbers.len() == 2, 'should have 2 even numbers {even_numbers.len()}')
+    positive_things : Vec<Thing; 3> = things.items.filter(|thing| thing.x >= 0)
+    assert(positive_things.len() == 2, 'should have 2 positive_things things {positive_things.len()}')
+    assert(positive_things[0].x == 2, 'first even number should be 2')
+    assert(positive_things[1].x == 4, 'second even number should be 4')
 }
+
 
 //#[test]
 //fn find_in_array() {

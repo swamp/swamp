@@ -158,7 +158,8 @@ impl Transformer {
         }
     }
 
-    #[must_use] pub const fn lambda_result_conversion(self) -> TransformerLambdaResultConversion {
+    #[must_use]
+    pub const fn lambda_result_conversion(self) -> TransformerLambdaResultConversion {
         match self {
             Self::Filter => TransformerLambdaResultConversion::SkipOnFalse,
             Self::Find => TransformerLambdaResultConversion::SkipOnNone,

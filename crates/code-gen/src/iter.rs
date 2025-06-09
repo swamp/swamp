@@ -476,9 +476,17 @@ impl CodeBuilder<'_> {
                         target_element_addr_reg.register,
                     ));
 
-                self.emit_store_scalar_to_memory_offset_instruction(
-                    &vec_entry_destination.memory_location_or_pointer_reg(),
-                    value,
+                let source_destination = if value.ty.is_scalar() {
+                    Destination::Register(value.clone())
+                } else {
+                    Destination::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                        value.clone(),
+                    ))
+                };
+
+                self.emit_store_value_to_memory_destination(
+                    &vec_entry_destination,
+                    &source_destination,
                     node,
                     "store value in the new vec entry slot",
                 );
