@@ -30,9 +30,10 @@ use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::*;
 use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
-    InternalMainExpression, LocationAccess, LocationAccessKind, MapType, MutableReferenceKind,
-    NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceViewType, SparseType,
-    TargetAssignmentLocation, TypeWithMut, VariableType, VecType, WhenBinding,
+    GridType, InternalMainExpression, LocationAccess, LocationAccessKind, MapType,
+    MutableReferenceKind, NormalPattern, Postfix, PostfixKind, SingleLocationExpression,
+    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, VariableType, VecType,
+    WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::prelude::*;
@@ -1152,6 +1153,40 @@ impl<'a> Analyzer<'a> {
 
                     tv.resolved_type = return_type.clone();
                     // keep previous `is_mutable`
+                }
+
+                swamp_ast::Postfix::SubscriptTuple(col_expr, row_expr) => {
+                    let collection_type = tv.resolved_type.clone();
+                    match &collection_type.underlying() {
+                        Type::GridStorage(element_type, x, _) => {
+                            let unsigned_int_x_context = TypeContext::new_argument(&Type::Int);
+                            let unsigned_int_x_expression =
+                                self.analyze_expression(col_expr, &unsigned_int_x_context)?;
+
+                            let unsigned_int_y_context = TypeContext::new_argument(&Type::Int);
+                            let unsigned_int_y_expression =
+                                self.analyze_expression(row_expr, &unsigned_int_y_context)?;
+
+                            let vec_type = GridType {
+                                element: element_type.clone(),
+                            };
+
+                            self.add_postfix(
+                                &mut suffixes,
+                                PostfixKind::GridSubscript(
+                                    vec_type,
+                                    unsigned_int_x_expression,
+                                    unsigned_int_y_expression,
+                                ),
+                                *element_type.clone(),
+                                &col_expr.node,
+                            );
+
+                            // Keep previous mutable
+                            tv.resolved_type = *element_type.clone();
+                        }
+                        _ => panic!("not a subscript tuple"),
+                    }
                 }
 
                 swamp_ast::Postfix::Subscript(lookup_expr) => {
@@ -2530,6 +2565,7 @@ impl<'a> Analyzer<'a> {
                 }
                 PostfixKind::VecSubscript(_, _) => {}
                 PostfixKind::SparseSubscript(_, _) => {}
+                PostfixKind::GridSubscript(_, _, _) => {}
                 PostfixKind::MapSubscript(_, _) => {}
             }
         }
@@ -2761,6 +2797,34 @@ impl<'a> Analyzer<'a> {
 
                     ty = return_type.clone();
                 }
+                swamp_ast::Postfix::SubscriptTuple(x_expr, y_expr) => match &ty.underlying() {
+                    Type::GridView(element_type) | Type::GridStorage(element_type, _, _) => {
+                        let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                        let unsigned_int_x_expr =
+                            self.analyze_expression(x_expr, &unsigned_int_context)?;
+
+                        let unsigned_int_y_expr =
+                            self.analyze_expression(y_expr, &unsigned_int_context)?;
+
+                        let grid_type = GridType {
+                            element: Box::new(*element_type.clone()),
+                        };
+
+                        self.add_location_item(
+                            &mut items,
+                            LocationAccessKind::GridSubscript(
+                                grid_type,
+                                unsigned_int_x_expr,
+                                unsigned_int_y_expr,
+                            ),
+                            *element_type.clone(),
+                            &x_expr.node,
+                        );
+
+                        ty = *element_type.clone();
+                    }
+                    _ => panic!("not allowed"),
+                },
                 swamp_ast::Postfix::Subscript(ast_key_expression) => {
                     match &ty.underlying() {
                         Type::SliceView(element_type)

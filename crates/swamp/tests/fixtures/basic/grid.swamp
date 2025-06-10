@@ -5,12 +5,38 @@ use std::{print}
 fn add_remove() {
     mut grid: Grid<Int; (10,10)> = []
 
-    x = grid.get(0,0)
+    x = grid[0, 0]
     assert(x == 0, "should be 0 at start")
 
-    grid.set(1,0,42)
-    assert(grid.get(1,0) == 42, "should be 42 after setting")
+    grid[1, 0] = 42
+    assert(grid[1, 0] == 42, "should be 42 after setting")
 
-    grid.set(4,8,-101)
-    assert(grid.get(4,8) == -101, "should be -101 after setting")
+    grid[4, 8] = -101
+    assert(grid[4, 8] == -101, "should be -101 after setting")
+}
+
+fn grid_setter(mut grid: Grid<Int>) {
+    grid[1, 1] = 1024
+}
+
+fn element_setter(mut element:Int) {
+    element = -32
+}
+
+#[test]
+fn call_mut_func() {
+    mut grid: Grid<Int; (3,4)> = []
+
+    x = grid[0, 0]
+    assert(x == 0, "should be 0 at start")
+
+    assert(grid[1, 1] == 0, "should be 0 before setting")
+    grid_setter(&grid)
+    assert(grid[1, 1] == 1024, "should be 1024 after setting")
+
+    // BUG: not working yet // element_setter(&grid[1,1])
+    // BUG: not working yet // assert(grid[1, 1] == -32, "should still be -32 after element setter")
+
+    grid[2, 3] = -101
+    assert(grid[2, 3] == -101, "should be -101 after setting")
 }

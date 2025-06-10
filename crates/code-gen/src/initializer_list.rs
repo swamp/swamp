@@ -60,6 +60,7 @@ impl CodeBuilder<'_> {
                     output_memory_location.ty.basic_type
                 )
             });
+
         self.emit_initialize_target_memory_first_time(
             &output_memory_location,
             node,

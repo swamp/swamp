@@ -673,14 +673,28 @@ impl AstParser {
 
                         Rule::subscript_postfix => {
                             let mut arr_inner = child.clone().into_inner();
-                            let index_pair = arr_inner.next().ok_or_else(|| {
+
+                            let first_expr_pair = arr_inner.next().ok_or_else(|| {
                                 self.create_error_pair(
                                     SpecificError::UnexpectedPostfixOperator,
                                     &child,
                                 )
                             })?;
-                            let index_expr = self.parse_expression(&index_pair)?;
-                            postfixes.push(Postfix::Subscript(index_expr));
+                            let first_expression = self.parse_expression(&first_expr_pair)?;
+
+                            let second_expr_pair = arr_inner.next();
+                            match second_expr_pair {
+                                Some(pair) => {
+                                    let second_expression = self.parse_expression(&pair)?;
+                                    postfixes.push(Postfix::SubscriptTuple(
+                                        first_expression,
+                                        second_expression,
+                                    ));
+                                }
+                                None => {
+                                    postfixes.push(Postfix::Subscript(first_expression));
+                                }
+                            }
                         }
 
                         _ => {

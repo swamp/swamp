@@ -14,6 +14,24 @@ use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset, Poin
 use tracing::info;
 
 impl CodeBuilder<'_> {
+    pub(crate) fn grid_subscript_helper(
+        &mut self,
+        grid_header_location: &Destination,
+        analyzed_element_type: &Type,
+        x_expr: &Expression,
+        y_expr: &Expression,
+        ctx: &Context,
+    ) -> Destination {
+        let pointer_location = self.grid_subscript_helper_helper(
+            grid_header_location,
+            analyzed_element_type,
+            x_expr,
+            y_expr,
+            ctx,
+        );
+        Destination::Memory(pointer_location.memory_location())
+    }
+
     /// Emits Swamp VM opcodes to calculate the memory address of an element within an array.
     ///
     /// The function targets a vec-like structured with a `u16` length prefix followed by
@@ -34,6 +52,44 @@ impl CodeBuilder<'_> {
             ctx,
         );
         Destination::Memory(pointer_location.memory_location())
+    }
+
+    pub fn grid_subscript_helper_helper(
+        &mut self,
+        grid_header_location: &Destination,
+        analyzed_element_type: &Type,
+        x_int_expr: &Expression,
+        y_int_expr: &Expression,
+        ctx: &Context,
+    ) -> PointerLocation {
+        let gen_element_type = layout_type(analyzed_element_type);
+        let x_int_reg = self.emit_scalar_rvalue(x_int_expr, ctx);
+        let y_int_reg = self.emit_scalar_rvalue(y_int_expr, ctx);
+        let node = &x_int_expr.node;
+
+        let grid_header_ptr_reg = self.emit_compute_effective_address_to_register(
+            grid_header_location,
+            node,
+            "get grid header absolute pointer",
+        );
+
+        let absolute_pointer_to_element = self.temp_registers.allocate(
+            VmType::new_contained_in_register(gen_element_type.clone()),
+            "temporary target",
+        );
+        self.builder.add_grid_get_entry_addr(
+            absolute_pointer_to_element.register(),
+            &grid_header_ptr_reg,
+            &x_int_reg,
+            &y_int_reg,
+            gen_element_type.total_size,
+            node,
+            "lookup grid subscript",
+        );
+
+        PointerLocation {
+            ptr_reg: absolute_pointer_to_element.register,
+        }
     }
 
     pub fn vec_subscript_helper_helper(

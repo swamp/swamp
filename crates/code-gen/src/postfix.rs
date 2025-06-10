@@ -60,6 +60,16 @@ impl CodeBuilder<'_> {
                     );
                 }
 
+                PostfixKind::GridSubscript(grid_type, x_int_expression, y_int_expression) => {
+                    current_location = self.grid_subscript_helper(
+                        &current_location,
+                        &grid_type.element,
+                        x_int_expression,
+                        y_int_expression,
+                        ctx,
+                    );
+                }
+
                 PostfixKind::SparseSubscript(vec_type, int_expression) => {
                     current_location = self.sparse_subscript_helper(
                         &current_location,

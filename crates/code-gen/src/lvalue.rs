@@ -103,6 +103,16 @@ impl CodeBuilder<'_> {
                     );
                 }
 
+                LocationAccessKind::GridSubscript(slice_type, x_expr, y_expr) => {
+                    current_location = self.grid_subscript_helper(
+                        &current_location,
+                        &slice_type.element,
+                        x_expr,
+                        y_expr,
+                        ctx,
+                    );
+                }
+
                 LocationAccessKind::SparseSubscript(sparse_type, int_expr) => {
                     current_location = self.sparse_subscript_helper(
                         &current_location,

@@ -598,6 +598,11 @@ impl SourceMapDisplay<'_> {
                 self.show_expression(f, b, tabs)?;
                 write!(f, "]")
             }
+            PostfixKind::GridSubscript(grid_type, a, b) => {
+                write!(f, "[")?;
+                self.show_expression(f, b, tabs)?;
+                write!(f, "]")
+            }
             PostfixKind::SparseSubscript(a, b) => {
                 write!(f, "[")?;
                 self.show_expression(f, b, tabs)?;

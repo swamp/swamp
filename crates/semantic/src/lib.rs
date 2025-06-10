@@ -570,6 +570,11 @@ pub struct VecType {
 }
 
 #[derive(Debug, Clone)]
+pub struct GridType {
+    pub element: Box<Type>,
+}
+
+#[derive(Debug, Clone)]
 pub struct SparseType {
     pub element: Box<Type>,
 }
@@ -590,6 +595,7 @@ pub enum PostfixKind {
     VecSubscript(VecType, Expression),
     SparseSubscript(SparseType, Expression),
     MapSubscript(MapType, Expression),
+    GridSubscript(GridType, Expression, Expression),
 }
 
 #[derive(Debug, Clone)]
@@ -600,6 +606,7 @@ pub enum LocationAccessKind {
     MapSubscriptCreateIfNeeded(MapType, Expression),
     MapSubscriptMustExist(MapType, Expression),
     SparseSubscript(SparseType, Expression),
+    GridSubscript(GridType, Expression, Expression),
 }
 
 #[derive(Debug, Clone)]

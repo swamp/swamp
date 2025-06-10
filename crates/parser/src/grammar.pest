@@ -163,7 +163,7 @@ function_call_args = {
 "(" ~ (arg_expression ~ (COMMA ~ arg_expression)* ~ TRAILING_COMMA)? ~ ")"
 }
 
-subscript_postfix     = { "[" ~ expression ~ "]" }
+subscript_postfix = { "[" ~ expression ~ ("," ~ expression)? ~ "]" }
 member_access_postfix = { dot_identifier }
 dot_identifier        = { "." ~ identifier }
 unwrap_postfix        = { "?" }

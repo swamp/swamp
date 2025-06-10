@@ -422,6 +422,7 @@ pub enum Postfix {
      */
     OptionalChainingOperator(Node),     // ?-postfix
     NoneCoalescingOperator(Expression), // ??-postfix
+    SubscriptTuple(Expression, Expression),
 }
 
 #[derive(Debug, Clone)]

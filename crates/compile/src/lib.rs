@@ -116,6 +116,8 @@ fn core_text() -> String {
 /// Some functions in this module, such as `int_rnd` and `float_rnd`, are not normal functions.
 /// They are compiler intrinsics that are replaced with optimized code during compilation.
 
+type SparseId = Int
+
 impl Bool {
   fn default() -> Bool {
     false
