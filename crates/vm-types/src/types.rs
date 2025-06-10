@@ -267,6 +267,7 @@ pub enum BasicTypeKind {
     // Can not be stored:
     InternalVecIterator,
     InternalMapIterator,
+    InternalSparseIterator,
     InternalRangeIterator,
     //InternalGridIterator,
     MutablePointer(Box<BasicType>),
@@ -404,6 +405,7 @@ impl Display for BasicTypeKind {
             Self::InternalGridPointer => write!(f, "Grid"),
             Self::InternalVecIterator => write!(f, "Vec::Iterator"),
             Self::InternalMapIterator => write!(f, "Map::Iterator"),
+            Self::InternalSparseIterator => write!(f, "Sparse::Iterator"),
             Self::InternalRangeIterator => write!(f, "Range::Iterator"),
             Self::Struct(struct_type) => write!(f, "{}", struct_type.name),
             Self::TaggedUnion(union) => write!(f, "enum {}", union.name),
@@ -2079,6 +2081,9 @@ pub fn write_basic_type(
         }
         BasicTypeKind::InternalMapIterator => {
             write!(f, "map_iter")
+        }
+        BasicTypeKind::InternalSparseIterator => {
+            write!(f, "sparse_iter")
         }
     }
 }

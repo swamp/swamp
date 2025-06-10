@@ -181,6 +181,9 @@ pub enum OpCode {
     SparseAddGiveEntryAddress,
     SparseRemove,
     SparseGetEntryAddr,
+    SparseIterNext,
+    SparseIterNextPair,
+    SparseIterInit,
 }
 
 impl OpCode {
@@ -336,6 +339,10 @@ impl OpCode {
             Self::SparseAddGiveEntryAddress => "sparse.add_entry_addr",
             Self::SparseRemove => "sparse.remove",
             Self::SparseGetEntryAddr => "sparse.entry_addr",
+            // iter
+            Self::SparseIterInit => "sparse.iter.init",
+            Self::SparseIterNext => "sparse.iter.next",
+            Self::SparseIterNextPair => "sparse.iter.next.pair",
 
             // String
             Self::StringAppend => "str.app",

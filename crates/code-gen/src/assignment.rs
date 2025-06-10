@@ -65,7 +65,7 @@ impl CodeBuilder<'_> {
             .get(&variable.unique_id_within_function)
             .unwrap_or_else(|| {
                 panic!(
-                    "could not find id {} {}",
+                    "could not find variable id {} {}",
                     variable.unique_id_within_function, variable.assigned_name
                 )
             })

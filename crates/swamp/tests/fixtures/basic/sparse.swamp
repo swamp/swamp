@@ -2,7 +2,7 @@ use core::{assert, panic}
 use std::{print}
 
 #[test]
-fn sparse() {
+fn add_remove() {
     mut sparse: Sparse<Int; 10> = []
     assert(sparse.is_empty(), "should be empty at start")
 
@@ -18,3 +18,21 @@ fn sparse() {
 
     assert(sparse.len() == 0, "length should be 0 after removing the element")
 }
+
+#[test]
+fn iterate() {
+    mut sparse: Sparse<Int; 10> = []
+
+    a = sparse.add(1)
+    b = sparse.add(2)
+    c = sparse.add(3)
+
+    mut count = 0
+    for v in sparse {
+        print('element: {count}: {v}')
+        count += 1
+    }
+
+    assert(count == 3, 'count of elements should be 3, got {count}')
+}
+

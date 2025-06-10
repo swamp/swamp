@@ -339,6 +339,7 @@ fn print(
         BasicTypeKind::DynamicLengthMapView(_, _) => panic!("slice pairs should not be stored"),
         BasicTypeKind::InternalVecIterator => panic!("vec iterators should not be stored"),
         BasicTypeKind::InternalMapIterator => panic!("map iterators should not be stored"),
+        BasicTypeKind::InternalSparseIterator => panic!("sparse iterators should not be stored"),
         BasicTypeKind::InternalRangeIterator => panic!("iterators should not be stored"),
         BasicTypeKind::InternalRangeHeader => panic!("ranges can not be stored"),
     }

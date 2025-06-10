@@ -7,8 +7,8 @@ use crate::layout::layout_type;
 use swamp_types::Type;
 use swamp_vm_types::types::{BasicType, BasicTypeKind, FramePlacedType, unknown_type};
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize, VEC_ITERATOR_ALIGNMENT,
-    VEC_ITERATOR_SIZE, align_frame_addr,
+    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize, SPARSE_ITERATOR_ALIGNMENT,
+    SPARSE_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, align_frame_addr,
 };
 use tracing::error;
 
@@ -52,6 +52,11 @@ impl ScopeAllocator {
                 kind: BasicTypeKind::DynamicLengthVecView(Box::new(unknown_type())),
                 total_size: VEC_ITERATOR_SIZE,
                 max_alignment: VEC_ITERATOR_ALIGNMENT,
+            },
+            Collection::Sparse => BasicType {
+                kind: BasicTypeKind::SparseView(Box::new(unknown_type())),
+                total_size: SPARSE_ITERATOR_SIZE,
+                max_alignment: SPARSE_ITERATOR_ALIGNMENT,
             },
             Collection::Map => todo!(),
             Collection::Grid => todo!(),

@@ -497,6 +497,13 @@ impl Vm {
         vm.handlers[OpCode::SparseGetEntryAddr as usize] =
             HandlerType::Args5(Self::execute_sparse_get_entry_addr);
 
+        vm.handlers[OpCode::SparseIterInit as usize] =
+            HandlerType::Args2(Self::execute_sparse_iter_init);
+        vm.handlers[OpCode::SparseIterNext as usize] =
+            HandlerType::Args4(Self::execute_sparse_iter_next);
+        vm.handlers[OpCode::SparseIterNextPair as usize] =
+            HandlerType::Args5(Self::execute_sparse_iter_next_pair);
+
         vm
     }
     #[must_use]

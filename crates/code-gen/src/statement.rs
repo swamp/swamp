@@ -71,6 +71,18 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
+            Type::SparseStorage(element_type, _) | Type::SparseView(element_type) => {
+                self.emit_for_loop_lambda(
+                    destination,
+                    node,
+                    Collection::Sparse,
+                    &collection_ptr_reg,
+                    collection_type,
+                    for_pattern,
+                    lambda_non_capturing_expr,
+                    ctx,
+                );
+            }
             Type::MapStorage(key, value, size) => {
                 self.emit_for_loop_lambda(
                     destination,

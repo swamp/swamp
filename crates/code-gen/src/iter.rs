@@ -260,6 +260,94 @@ impl CodeBuilder<'_> {
 
         let iter_next_position = InstructionPosition(self.builder.position().0 + 1);
         let placeholder = match collection_type {
+            Collection::Range => {
+                self.builder.add_range_iter_init(
+                    &target_iterator_header_reg,
+                    collection_self_addr,
+                    node,
+                    "range init",
+                );
+
+                assert_eq!(target_variables.len(), 1);
+                self.builder.add_range_iter_next_placeholder(
+                    &target_iterator_header_reg,
+                    &target_variables[0],
+                    node,
+                    "range iter next single",
+                )
+            }
+
+            // Low  prio
+            Collection::String => todo!(),
+            _ => {
+                let (temp_registers, target_variables_to_use) =
+                    if primary_register.ty.basic_type.is_scalar() {
+                        // For primitives, create temp register to hold the address, since they do not want
+                        // the address
+                        let temp_addr = self
+                            .temp_registers
+                            .allocate(primary_register.ty.clone(), "temp address for value");
+
+                        if target_variables.len() == 2 {
+                            (
+                                Some(temp_addr.register().clone()),
+                                vec![target_variables[0].clone(), temp_addr.register.clone()],
+                            )
+                        } else {
+                            (
+                                Some(temp_addr.register().clone()),
+                                vec![temp_addr.register.clone()],
+                            )
+                        }
+                    } else {
+                        (None, target_variables.to_vec())
+                    };
+
+                let patch_position = self.emit_iter_init_and_next_to_memory(
+                    &target_iterator_header_reg,
+                    node,
+                    collection_type,
+                    maybe_element_type,
+                    collection_self_addr,
+                    &target_variables_to_use,
+                );
+
+                if let Some(temp_regs) = temp_registers {
+                    let source_memory_location =
+                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                            temp_regs.clone(),
+                        );
+                    self.emit_load_value_from_memory_source(
+                        primary_register,
+                        &source_memory_location,
+                        node,
+                        "load primitive from element address",
+                    );
+                }
+
+                patch_position
+            }
+        };
+
+        (iter_next_position, placeholder)
+    }
+
+    fn emit_iter_init_and_next_to_memory(
+        &mut self,
+        target_iterator_header_reg: &TypedRegister,
+        node: &Node,
+        collection_type: Collection,
+        maybe_element_type: Option<BasicType>,
+        collection_self_addr: &TypedRegister,
+        target_variables: &[TypedRegister],
+    ) -> PatchPosition {
+        let primary_register = if target_variables.len() == 2 {
+            &target_variables[1]
+        } else {
+            &target_variables[0]
+        };
+        let is_pair = target_variables.len() == 2;
+        match collection_type {
             Collection::Vec => {
                 if maybe_element_type.is_none() {
                     error!(
@@ -276,46 +364,9 @@ impl CodeBuilder<'_> {
                     "vec iter init",
                 );
 
-                let hwm = self.temp_registers.save_mark();
                 let is_pair = target_variables.len() == 2;
 
-                let placeholder = if primary_register.ty.basic_type.is_scalar() {
-                    // For primitives, create temp register to hold the address, since they do not want
-                    // the address
-                    let temp_addr = self.temp_registers.allocate(
-                        primary_register.ty.clone(),
-                        "temp address for iterator value",
-                    );
-
-                    let p = if is_pair {
-                        self.builder.add_vec_iter_next_pair_placeholder(
-                            &target_iterator_header_reg,
-                            &target_variables[0],
-                            &temp_addr.register,
-                            node,
-                            "vec iter next single into temp",
-                        )
-                    } else {
-                        self.builder.add_vec_iter_next_placeholder(
-                            &target_iterator_header_reg,
-                            &temp_addr.register,
-                            node,
-                            "vec iter next single into temp",
-                        )
-                    };
-
-                    let source_memory_location =
-                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                            temp_addr.register,
-                        );
-                    self.emit_load_value_from_memory_source(
-                        primary_register,
-                        &source_memory_location,
-                        node,
-                        "load primitive from element address",
-                    );
-                    p
-                } else if is_pair {
+                let placeholder = if is_pair {
                     // For non-primitives, use target directly
                     self.builder.add_vec_iter_next_pair_placeholder(
                         &target_iterator_header_reg,
@@ -328,15 +379,40 @@ impl CodeBuilder<'_> {
                     // For non-primitives, use target directly
                     self.builder.add_vec_iter_next_placeholder(
                         &target_iterator_header_reg,
-                        &target_variables[0],
+                        primary_register,
                         node,
                         "vec iter next single",
                     )
                 };
 
-                self.temp_registers.restore_to_mark(hwm);
                 placeholder
             }
+            Collection::Sparse => {
+                self.builder.add_sparse_iter_init(
+                    &target_iterator_header_reg,
+                    collection_self_addr,
+                    node,
+                    "sparse init",
+                );
+
+                if is_pair {
+                    self.builder.add_sparse_iter_next_pair_placeholder(
+                        &target_iterator_header_reg,
+                        &target_variables[0],
+                        &target_variables[1],
+                        node,
+                        "sparse next_pair",
+                    )
+                } else {
+                    self.builder.add_sparse_iter_next_placeholder(
+                        &target_iterator_header_reg,
+                        &primary_register,
+                        node,
+                        "sparse next_single",
+                    )
+                }
+            }
+
             Collection::Map => {
                 self.builder.add_map_iter_init(
                     &target_iterator_header_reg,
@@ -363,28 +439,8 @@ impl CodeBuilder<'_> {
                 }
             }
             Collection::Grid => todo!(),
-            Collection::Range => {
-                self.builder.add_range_iter_init(
-                    &target_iterator_header_reg,
-                    collection_self_addr,
-                    node,
-                    "range init",
-                );
-
-                assert_eq!(target_variables.len(), 1);
-                self.builder.add_range_iter_next_placeholder(
-                    &target_iterator_header_reg,
-                    &target_variables[0],
-                    node,
-                    "range iter next single",
-                )
-            }
-
-            // Low  prio
-            Collection::String => todo!(),
-        };
-
-        (iter_next_position, placeholder)
+            _ => panic!("unknown collection"),
+        }
     }
 
     fn check_if_transformer_sets_t_flag(
@@ -470,6 +526,7 @@ impl CodeBuilder<'_> {
 
                 self.temp_registers.restore_to_mark(hwm);
             }
+            Collection::Sparse => panic!("not supported by sparse"),
             Collection::Map => todo!(),
             Collection::Grid => todo!(),
             Collection::String => todo!(),

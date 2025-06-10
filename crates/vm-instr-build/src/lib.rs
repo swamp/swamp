@@ -972,6 +972,9 @@ impl InstructionBuilder<'_> {
         const MAP_ITER_NEXT: u8 = OpCode::MapIterNext as u8;
         const MAP_ITER_NEXT_PAIR: u8 = OpCode::MapIterNextPair as u8;
 
+        const SPARSE_ITER_NEXT: u8 = OpCode::SparseIterNext as u8;
+        const SPARSE_ITER_NEXT_PAIR: u8 = OpCode::SparseIterNextPair as u8;
+
         const RANGE_ITER_NEXT: u8 = OpCode::RangeIterNext as u8;
 
         //const UNWRAP_JMP_NONE: u8 = OpCode::UnwrapJmpNone as u8;
@@ -989,12 +992,12 @@ impl InstructionBuilder<'_> {
                 instruction.operands[1] = delta_bytes[1];
             }
 
-            VEC_ITER_NEXT | MAP_ITER_NEXT | RANGE_ITER_NEXT => {
+            SPARSE_ITER_NEXT | VEC_ITER_NEXT | MAP_ITER_NEXT | RANGE_ITER_NEXT => {
                 instruction.operands[2] = delta_bytes[0];
                 instruction.operands[3] = delta_bytes[1];
             }
 
-            VEC_ITER_NEXT_PAIR | MAP_ITER_NEXT_PAIR => {
+            SPARSE_ITER_NEXT_PAIR | VEC_ITER_NEXT_PAIR | MAP_ITER_NEXT_PAIR => {
                 instruction.operands[3] = delta_bytes[0];
                 instruction.operands[4] = delta_bytes[1];
             }
@@ -2557,5 +2560,68 @@ impl InstructionBuilder<'_> {
             node,
             comment,
         );
+    }
+
+    pub fn add_sparse_iter_init(
+        &mut self,
+        iterator_target: &TypedRegister,
+        pointer_to_sparse_header: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::SparseIterInit,
+            &[
+                iterator_target.addressing(),
+                pointer_to_sparse_header.addressing(),
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_sparse_iter_next_placeholder(
+        &mut self,
+        iterator_target: &TypedRegister,
+        closure_variable: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) -> PatchPosition {
+        let position = self.position();
+        self.state.add_instruction(
+            OpCode::SparseIterNext,
+            &[
+                iterator_target.addressing(),
+                closure_variable.addressing(),
+                0,
+                0,
+            ],
+            node,
+            comment,
+        );
+        PatchPosition(position)
+    }
+
+    pub fn add_sparse_iter_next_pair_placeholder(
+        &mut self,
+        iterator_target: &TypedRegister,
+        closure_variable: &TypedRegister,
+        closure_variable_b: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) -> PatchPosition {
+        let position = self.position();
+        self.state.add_instruction(
+            OpCode::SparseIterNextPair,
+            &[
+                iterator_target.addressing(),
+                closure_variable.addressing(),
+                closure_variable_b.addressing(),
+                0,
+            ],
+            node,
+            comment,
+        );
+        PatchPosition(position)
     }
 }

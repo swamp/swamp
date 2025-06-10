@@ -1100,6 +1100,24 @@ pub fn disasm(
             ]
         }
 
+        OpCode::SparseIterInit => &[
+            to_write_reg(operands[0], &map_iter_type(), frame_memory_info),
+            to_read_reg(operands[1], &map_type(), frame_memory_info),
+        ],
+
+        OpCode::SparseIterNext => &[
+            to_write_reg(operands[0], &map_iter_type(), frame_memory_info),
+            to_write_reg(operands[1], &bytes_type(), frame_memory_info),
+            to_branch_offset(i16::from_le_bytes([operands[2], operands[3]])),
+        ],
+
+        OpCode::SparseIterNextPair => &[
+            to_write_reg(operands[0], &map_iter_type(), frame_memory_info),
+            to_write_reg(operands[1], &bytes_type(), frame_memory_info),
+            to_write_reg(operands[2], &bytes_type(), frame_memory_info),
+            to_branch_offset(i16::from_le_bytes([operands[3], operands[4]])),
+        ],
+
         // Range
         OpCode::RangeInit => &[
             to_write_reg(operands[0], &range_iter_type(), frame_memory_info),

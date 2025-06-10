@@ -709,6 +709,15 @@ pub const VEC_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<VecIterator>() as
 pub const VEC_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
+pub struct SparseIterator {
+    pub sparse_header_heap_ptr: u32,
+    pub index: u16,
+}
+
+pub const SPARSE_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<SparseIterator>() as u16);
+pub const SPARSE_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+
+#[repr(C)]
 #[derive(Debug)]
 pub struct RangeIterator {
     pub index: i32,

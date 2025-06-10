@@ -5,11 +5,12 @@
 /// ```text
 /// offset 0:   capacity                (u16)
 /// offset 2:   element_count           (u16)
-/// offset 4:   slot_to_id              (u16[capacity])             // reverse lookup
-/// offset 4+2*capacity: id_to_slot     (u16[capacity])             // forward lookup
-/// offset 4+4*capacity: generation     (u16[capacity])             // bumped on alloc/remove
-/// offset 4+4*capacity+2*capacity:     pad (u8[pad])               // pad to 4-byte boundary
-/// offset 4+4*capacity+2*capacity+pad: values (raw bytes)
+/// offset 4:   element_size            (u16)
+/// offset 6:   slot_to_id              (u16[capacity])             // reverse lookup
+/// offset 6+2*capacity: id_to_slot     (u16[capacity])             // forward lookup
+/// offset 6+4*capacity: generation     (u16[capacity])             // bumped on alloc/remove
+/// offset 6+6*capacity:     pad (u8[pad])                          // pad to 4-byte boundary
+/// offset 6+6*capacity+pad: values (raw bytes)
 /// ```
 use std::ptr;
 
@@ -17,16 +18,14 @@ use std::ptr;
 /// how much space to reserve.
 pub const fn layout_size(capacity: u16, element_size: u16) -> usize {
     let cap = capacity as usize;
-    // Header: capacity + element_count (u16 each)
-    let header = 2 * size_of::<u16>();
     // slot_to_id + id_to_slot: each u16[capacity]
     let lookup = 2 * cap * size_of::<u16>();
     // generation: u16[capacity]
     let generation_size = cap * size_of::<u16>();
     // bytes before values
-    let before_vals = header + lookup + generation_size;
-    // pad to 4-byte alignment. // TODO: Maybe align to 8-byte in the future?
-    let pad = (4 - (before_vals % 4)) % 4;
+    let before_vals = HEADER_SIZE + lookup + generation_size;
+    // pad to 8-byte alignment
+    let pad = (8 - (before_vals % 8)) % 8;
     // values: raw bytes per element
     let vals = cap * element_size as usize;
     before_vals + pad + vals
@@ -34,22 +33,26 @@ pub const fn layout_size(capacity: u16, element_size: u16) -> usize {
 
 /// Alignment requirement for the sparse array.
 /// Report 4 just for the benefit of values
-pub fn alignment() -> usize {
-    4
+#[must_use]
+pub const fn alignment() -> usize {
+    8
 }
+
+const SLOT_OFFSET: usize = HEADER_SIZE;
+const HEADER_SIZE: usize = 6;
 
 /// Initialize the sparse array to memory specified by the raw memory pointer.
 /// `base` must point to a region of at least `layout_size(capacity, element_size)` bytes.
-pub unsafe fn init(base: *mut u8, capacity: u16) {
+pub unsafe fn init(base: *mut u8, capacity: u16, element_size: u16) {
     ptr::write(base.cast::<u16>(), capacity);
     ptr::write(base.add(2).cast::<u16>(), 0);
+    ptr::write(base.add(4).cast::<u16>(), element_size);
     let cap = capacity as usize;
-    let slot_offset = 4;
-    let id_offset = slot_offset + cap * size_of::<u16>();
+    let id_offset = SLOT_OFFSET + cap * size_of::<u16>();
     let generation_offset = id_offset + cap * size_of::<u16>();
     for i in 0..cap {
         ptr::write(
-            base.add(slot_offset).cast::<u16>().add(i),
+            base.add(SLOT_OFFSET).cast::<u16>().add(i),
             (cap - 1 - i) as u16,
         );
     }
@@ -70,11 +73,10 @@ pub unsafe fn allocate(base: *mut u8) -> Option<(u16, u16)> {
         return None;
     }
 
-    let slot_offset = 4;
-    let id_offset = slot_offset + capacity * size_of::<u16>();
+    let id_offset = SLOT_OFFSET + capacity * size_of::<u16>();
     let generation_offset = id_offset + capacity * size_of::<u16>();
 
-    let id = *base.add(slot_offset).cast::<u16>().add(count);
+    let id = *base.add(SLOT_OFFSET).cast::<u16>().add(count);
     ptr::write(count_ptr, (count as u16).wrapping_add(1));
     ptr::write(
         base.add(id_offset).cast::<u16>().add(id as usize),
@@ -89,14 +91,13 @@ pub unsafe fn allocate(base: *mut u8) -> Option<(u16, u16)> {
     Some((id, new_gen))
 }
 
-/// Compute offset of values region (values are aligned to 4 bytes)
-pub fn values_offset(base: *mut u8) -> usize {
+/// Compute offset of values region (values are aligned to 8 bytes)
+pub fn values_offset(base: *const u8) -> usize {
     let capacity = unsafe { *base.cast::<u16>() } as usize;
-    let slot_off = 4;
-    let id_offset = slot_off + capacity * size_of::<u16>();
+    let id_offset = SLOT_OFFSET + capacity * size_of::<u16>();
     let generation_offset = id_offset + capacity * size_of::<u16>();
     let before_values = generation_offset + capacity * size_of::<u16>();
-    let padding = (4 - (before_values % 4)) % 4;
+    let padding = (8 - (before_values % 8)) % 8;
     before_values + padding
 }
 
@@ -104,7 +105,8 @@ pub fn values_offset(base: *mut u8) -> usize {
 /// # Safety
 ///
 #[inline]
-pub unsafe fn insert(base: *mut u8, id: u16, element_size: u16, src: *const u8) {
+pub unsafe fn insert(base: *mut u8, id: u16, src: *const u8) {
+    let element_size = *base.add(4).cast::<u16>() as usize;
     let off = values_offset(base) + id as usize * element_size as usize;
     ptr::copy_nonoverlapping(src, base.add(off), element_size as usize);
 }
@@ -118,15 +120,14 @@ pub unsafe fn remove(base: *mut u8, id: u16, generation: u16) -> bool {
     }
 
     let capacity = *base.cast::<u16>() as usize;
-    let slot_offset = 4;
-    let id_offset = slot_offset + capacity * size_of::<u16>();
+    let id_offset = SLOT_OFFSET + capacity * size_of::<u16>();
     let generation_offset = id_offset + capacity * size_of::<u16>();
     let count_ptr = base.add(2).cast::<u16>();
     let count = (*count_ptr) as usize;
     let last = count - 1;
     ptr::write(count_ptr, last as u16);
 
-    let slot_ptr = base.add(slot_offset).cast::<u16>();
+    let slot_ptr = base.add(SLOT_OFFSET).cast::<u16>();
     let slot_idx = *base.add(id_offset).cast::<u16>().add(id as usize) as usize;
     let last_id = *slot_ptr.add(last);
     ptr::write(slot_ptr.add(slot_idx), last_id);
@@ -148,8 +149,7 @@ pub unsafe fn remove(base: *mut u8, id: u16, generation: u16) -> bool {
 pub unsafe fn is_alive(base: *mut u8, id: u16, generation: u16) -> bool {
     let capacity = *base.cast::<u16>() as usize;
     let count = *base.add(2).cast::<u16>() as usize;
-    let slot_offset = 4;
-    let id_offset = slot_offset + capacity * size_of::<u16>();
+    let id_offset = SLOT_OFFSET + capacity * size_of::<u16>();
     let generation_offset = id_offset + capacity * size_of::<u16>();
     // Not only check generation, but also check that it slot is among the live ones.
     // Also makes extra check to look in the other direction as well.
@@ -157,14 +157,21 @@ pub unsafe fn is_alive(base: *mut u8, id: u16, generation: u16) -> bool {
     let current_generation = *base.add(generation_offset).cast::<u16>().add(id as usize);
     slot < count
         && current_generation == generation
-        && *base.add(slot_offset).cast::<u16>().add(slot) == id
+        && *base.add(SLOT_OFFSET).cast::<u16>().add(slot) == id
 }
 
 /// Get a pointer to the `slot_to_id` array (reverse lookup)
 /// # Safety
 ///
 pub const unsafe fn slot_to_id_ptr(base: *mut u8) -> *mut u16 {
-    base.add(4).cast::<u16>()
+    base.add(SLOT_OFFSET).cast::<u16>()
+}
+
+/// Get a pointer to the `slot_to_id` array (reverse lookup)
+/// # Safety
+///
+pub const unsafe fn slot_to_id_ptr_const(base: *const u8) -> *const u16 {
+    base.add(SLOT_OFFSET).cast::<u16>()
 }
 
 /// Get a pointer to the `id_to_slot` array (forward lookup)
@@ -172,10 +179,27 @@ pub const unsafe fn slot_to_id_ptr(base: *mut u8) -> *mut u16 {
 ///
 pub unsafe fn id_to_slot_ptr(base: *mut u8) -> *mut u16 {
     let capacity = *base.cast::<u16>() as usize;
-    base.add(4 + capacity * size_of::<u16>()).cast::<u16>()
+    base.add(SLOT_OFFSET + capacity * size_of::<u16>())
+        .cast::<u16>()
+}
+
+pub unsafe fn id_to_slot_ptr_const(base: *const u8) -> *const u16 {
+    let capacity = *base.cast::<u16>() as usize;
+    base.add(SLOT_OFFSET + capacity * size_of::<u16>())
+        .cast::<u16>()
 }
 
 /// Get current element count
-pub unsafe fn element_count(base: *mut u8) -> u16 {
+/// # Safety
+///
+#[must_use]
+pub const unsafe fn element_count(base: *const u8) -> u16 {
     *base.add(2).cast::<u16>()
+}
+
+/// Get current element size
+/// # Safety
+#[must_use]
+pub const unsafe fn element_size(base: *const u8) -> u16 {
+    *base.add(4).cast::<u16>()
 }

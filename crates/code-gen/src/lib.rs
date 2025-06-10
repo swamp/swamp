@@ -58,12 +58,10 @@ use swamp_vm_types::types::{
     TypedRegister, VariableRegister, VmType,
 };
 use swamp_vm_types::{
-    CountU16, FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, InstructionPosition,
-    InstructionRange, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT,
-    MAP_ITERATOR_SIZE, MemoryAlignment, MemorySize, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_HEADER_ALIGNMENT, STRING_HEADER_SIZE,
-    TempFrameMemoryAddress, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT,
-    VEC_ITERATOR_SIZE, ZFlagPolarity,
+    CountU16, FrameMemoryRegion, InstructionPosition, InstructionRange, MAP_ITERATOR_ALIGNMENT,
+    MAP_ITERATOR_SIZE, MemoryAlignment, MemorySize, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE,
+    SPARSE_ITERATOR_ALIGNMENT, SPARSE_ITERATOR_SIZE, TempFrameMemoryAddress,
+    VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 
 const fn is_power_of_two(n: usize) -> bool {
@@ -180,6 +178,7 @@ pub enum Collection {
     Grid,
     String,
     Range,
+    Sparse,
 }
 
 pub enum DetailedLocationResolved {
@@ -199,23 +198,13 @@ impl DetailedLocationResolved {
 
 impl Collection {
     #[must_use]
-    pub const fn size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
-        match self {
-            Self::Vec => (VEC_HEADER_SIZE, VEC_HEADER_ALIGNMENT),
-            Self::Map => (MAP_HEADER_SIZE, MAP_HEADER_ALIGNMENT),
-            Self::Grid => (GRID_HEADER_SIZE, GRID_HEADER_ALIGNMENT),
-            Self::String => (STRING_HEADER_SIZE, STRING_HEADER_ALIGNMENT),
-            Self::Range => (RANGE_HEADER_SIZE, RANGE_HEADER_ALIGNMENT),
-        }
-    }
-
-    #[must_use]
     pub fn iterator_size_and_alignment(&self) -> (MemorySize, MemoryAlignment) {
         match self {
             Self::Vec => (VEC_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT),
             Self::Map => (MAP_ITERATOR_SIZE, MAP_ITERATOR_ALIGNMENT),
             Self::Grid => todo!(),
             Self::String => todo!(),
+            Self::Sparse => (SPARSE_ITERATOR_SIZE, SPARSE_ITERATOR_ALIGNMENT),
             Self::Range => (RANGE_ITERATOR_SIZE, RANGE_ITERATOR_ALIGNMENT),
         }
     }
@@ -228,6 +217,7 @@ impl Collection {
             //Self::Grid => BasicTypeKind::InternalGridIterator,
             //Self::String => BasicTypeKind::InternalStringIterator,
             Self::Range => BasicTypeKind::InternalRangeIterator,
+            Self::Sparse => BasicTypeKind::InternalSparseIterator,
             _ => todo!(),
         };
         let (size, alignment) = self.iterator_size_and_alignment();
