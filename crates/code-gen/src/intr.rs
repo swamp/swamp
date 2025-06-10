@@ -594,7 +594,7 @@ impl CodeBuilder<'_> {
                         VmType::new_contained_in_register(element_type.clone()),
                         "temporary scalar",
                     );
-                    (Some(temp_reg.register.clone()), temp_reg.register.clone())
+                    (Some(temp_reg.register.clone()), temp_reg.register)
                 } else {
                     (None, maybe_target.unwrap().clone())
                 };
