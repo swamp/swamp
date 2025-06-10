@@ -60,6 +60,15 @@ impl CodeBuilder<'_> {
                     );
                 }
 
+                PostfixKind::SparseSubscript(vec_type, int_expression) => {
+                    current_location = self.sparse_subscript_helper(
+                        &current_location,
+                        &vec_type.element,
+                        int_expression,
+                        ctx,
+                    );
+                }
+
                 PostfixKind::MapSubscript(map_type, key_expression) => {
                     current_location = self.map_subscript_helper(
                         &current_location,

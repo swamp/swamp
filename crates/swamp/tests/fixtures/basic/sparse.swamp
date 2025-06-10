@@ -4,9 +4,17 @@ use std::{print}
 #[test]
 fn sparse() {
     mut sparse: Sparse<Int; 10> = []
+    assert(sparse.is_empty(), "should be empty at start")
 
-    id = sparse.add(1)
-    assert(sparse.len() == 1, "Length should be 1 after adding one element")
+    id = sparse.add(-909)
+    assert(sparse.len() == 1, "length should be 1 after adding one element")
+
+    assert(sparse[id] == -909, 'element should be -909 after adding: {sparse[id]}')
+
+    sparse[id] = 100
+    assert(sparse[id] == 100, 'element should be updated to 100: {sparse[id]}')
+
     sparse.remove(id)
-    assert(sparse.len() == 0, "Length should be 0 after removing the element")
+
+    assert(sparse.len() == 0, "length should be 0 after removing the element")
 }

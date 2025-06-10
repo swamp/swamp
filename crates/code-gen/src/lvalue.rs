@@ -103,6 +103,15 @@ impl CodeBuilder<'_> {
                     );
                 }
 
+                LocationAccessKind::SparseSubscript(sparse_type, int_expr) => {
+                    current_location = self.sparse_subscript_helper(
+                        &current_location,
+                        &sparse_type.element,
+                        int_expr,
+                        ctx,
+                    );
+                }
+
                 LocationAccessKind::MapSubscriptCreateIfNeeded(map_type, key_expr) => {
                     current_location =
                         self.map_subscript_helper(&current_location, map_type, key_expr, true, ctx);

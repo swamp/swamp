@@ -1090,6 +1090,16 @@ pub fn disasm(
             ]
         }
 
+        OpCode::SparseGetEntryAddr => {
+            let element_size = u8_pair_to_u16(operands[3], operands[4]);
+            &[
+                to_write_reg(operands[0], &b8_type(), frame_memory_info), // address
+                to_read_reg(operands[1], &u32_type(), frame_memory_info), // sparse addr
+                to_read_reg(operands[2], &u32_type(), frame_memory_info), // handle
+                DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
+            ]
+        }
+
         // Range
         OpCode::RangeInit => &[
             to_write_reg(operands[0], &range_iter_type(), frame_memory_info),

@@ -570,6 +570,11 @@ pub struct VecType {
 }
 
 #[derive(Debug, Clone)]
+pub struct SparseType {
+    pub element: Box<Type>,
+}
+
+#[derive(Debug, Clone)]
 pub struct MapType {
     pub key: Box<Type>,
     pub value: Box<Type>,
@@ -583,6 +588,7 @@ pub enum PostfixKind {
     NoneCoalescingOperator(Expression), // ?? operator
     SliceViewSubscript(SliceViewType, Expression),
     VecSubscript(VecType, Expression),
+    SparseSubscript(SparseType, Expression),
     MapSubscript(MapType, Expression),
 }
 
@@ -593,6 +599,7 @@ pub enum LocationAccessKind {
     SliceViewSubscript(SliceViewType, Expression),
     MapSubscriptCreateIfNeeded(MapType, Expression),
     MapSubscriptMustExist(MapType, Expression),
+    SparseSubscript(SparseType, Expression),
 }
 
 #[derive(Debug, Clone)]

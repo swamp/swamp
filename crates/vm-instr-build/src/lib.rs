@@ -122,6 +122,8 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -262,14 +264,37 @@ impl InstructionBuilder<'_> {
     pub fn add_sparse_remove(
         &mut self,
         sparse_ptr_reg: &PointerLocation,
-        int_reg: TypedRegister,
+        int_reg: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
-        //        let element_size_octets = Self::u16_to_octets(element_size.0);
         self.state.add_instruction(
             OpCode::SparseRemove,
             &[sparse_ptr_reg.addressing(), int_reg.addressing()],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_sparse_get_entry_addr(
+        &mut self,
+        dest_entry_address_reg: &TypedRegister,
+        sparse_ptr_reg: &PointerLocation,
+        int_handle_reg: &TypedRegister,
+        memory_size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        let memory_size_bytes = u16_to_u8_pair(memory_size.0);
+        self.state.add_instruction(
+            OpCode::SparseGetEntryAddr,
+            &[
+                dest_entry_address_reg.addressing(),
+                sparse_ptr_reg.addressing(),
+                int_handle_reg.addressing(),
+                memory_size_bytes.0,
+                memory_size_bytes.1,
+            ],
             node,
             comment,
         );

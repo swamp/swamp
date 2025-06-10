@@ -31,7 +31,7 @@ use swamp_semantic::prelude::*;
 use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
     InternalMainExpression, LocationAccess, LocationAccessKind, MapType, MutableReferenceKind,
-    NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceViewType,
+    NormalPattern, Postfix, PostfixKind, SingleLocationExpression, SliceViewType, SparseType,
     TargetAssignmentLocation, TypeWithMut, VariableType, VecType, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
@@ -1196,6 +1196,25 @@ impl<'a> Analyzer<'a> {
                             self.add_postfix(
                                 &mut suffixes,
                                 PostfixKind::VecSubscript(vec_type, unsigned_int_expression),
+                                *element_type.clone(),
+                                &lookup_expr.node,
+                            );
+
+                            // Keep previous mutable
+                            tv.resolved_type = *element_type.clone();
+                        }
+                        Type::SparseStorage(element_type, _) | Type::SparseView(element_type) => {
+                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                            let unsigned_int_expression =
+                                self.analyze_expression(lookup_expr, &unsigned_int_context)?;
+
+                            let vec_type = SparseType {
+                                element: element_type.clone(),
+                            };
+
+                            self.add_postfix(
+                                &mut suffixes,
+                                PostfixKind::SparseSubscript(vec_type, unsigned_int_expression),
                                 *element_type.clone(),
                                 &lookup_expr.node,
                             );
@@ -2493,6 +2512,7 @@ impl<'a> Analyzer<'a> {
                     is_mutable = false;
                 }
                 PostfixKind::VecSubscript(_, _) => {}
+                PostfixKind::SparseSubscript(_, _) => {}
                 PostfixKind::MapSubscript(_, _) => {}
             }
         }
@@ -2736,7 +2756,6 @@ impl<'a> Analyzer<'a> {
                             let slice_type = SliceViewType {
                                 element: Box::new(*element_type.clone()),
                             };
-                            let mut_type = Box::from(Type::MutableReference(element_type.clone()));
 
                             self.add_location_item(
                                 &mut items,
@@ -2744,6 +2763,24 @@ impl<'a> Analyzer<'a> {
                                     slice_type,
                                     unsigned_int_expr,
                                 ),
+                                *element_type.clone(),
+                                &ast_key_expression.node,
+                            );
+
+                            ty = *element_type.clone();
+                        }
+                        Type::SparseView(element_type) | Type::SparseStorage(element_type, _) => {
+                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                            let unsigned_int_expr =
+                                self.analyze_expression(ast_key_expression, &unsigned_int_context)?;
+
+                            let slice_type = SparseType {
+                                element: Box::new(*element_type.clone()),
+                            };
+
+                            self.add_location_item(
+                                &mut items,
+                                LocationAccessKind::SparseSubscript(slice_type, unsigned_int_expr),
                                 *element_type.clone(),
                                 &ast_key_expression.node,
                             );

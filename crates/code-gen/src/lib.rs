@@ -33,6 +33,7 @@ pub mod prelude;
 pub mod reg_pool;
 mod relational;
 mod rvalue;
+mod sparse;
 pub mod state;
 mod statement;
 pub mod top_state;

@@ -134,6 +134,7 @@ pub enum TrapCode {
     LessThanTrap,
     SparseOutOfSpace,
     SparseRemoveFailed,
+    SparseGetFailed,
 }
 impl TryFrom<u8> for TrapCode {
     type Error = ();
@@ -493,6 +494,8 @@ impl Vm {
             HandlerType::Args5(Self::execute_sparse_add_get_entry_addr);
         vm.handlers[OpCode::SparseRemove as usize] =
             HandlerType::Args2(Self::execute_sparse_remove);
+        vm.handlers[OpCode::SparseGetEntryAddr as usize] =
+            HandlerType::Args5(Self::execute_sparse_get_entry_addr);
 
         vm
     }

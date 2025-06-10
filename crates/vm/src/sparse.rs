@@ -50,6 +50,34 @@ impl Vm {
         }
     }
 
+    pub fn execute_sparse_get_entry_addr(
+        &mut self,
+        dest_entry_addr_reg: u8,
+        sparse_ptr_reg: u8,
+        int_handle_reg: u8,
+        memory_size_lower: u8,
+        memory_size_upper: u8,
+    ) {
+        let element_size = u16_from_u8s!(memory_size_lower, memory_size_upper);
+        let handle = get_reg!(self, int_handle_reg);
+
+        let index = handle >> 16;
+        let generation = handle & 0xffff;
+
+        unsafe {
+            let sparse_addr = get_reg!(self, sparse_ptr_reg);
+            let sparse_ptr = self.memory.get_heap_ptr(sparse_addr as usize);
+            if sparse_mem::is_alive(sparse_ptr, index as u16, generation as u16) {
+                let relative_sparse_addr_offset = sparse_mem::values_offset(sparse_ptr);
+                let addr_for_values_start = sparse_addr as usize + relative_sparse_addr_offset;
+                let element_addr = addr_for_values_start + index as usize * element_size as usize;
+                set_reg!(self, dest_entry_addr_reg, element_addr);
+            } else {
+                self.internal_trap(TrapCode::SparseGetFailed)
+            }
+        }
+    }
+
     pub fn execute_sparse_remove(&mut self, sparse_ptr_reg: u8, int_handle_reg: u8) {
         unsafe {
             let sparse_addr = get_reg!(self, sparse_ptr_reg);

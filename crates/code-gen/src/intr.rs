@@ -690,57 +690,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_sparse_add(
-        &mut self,
-        target: &TypedRegister,
-        self_addr: &PointerLocation,
-        element_expr: &Expression,
-        node: &Node,
-        ctx: &Context,
-    ) {
-        let element_gen_type = layout_type(&element_expr.ty);
-
-        let temp_element_ptr = self.temp_registers.allocate(
-            VmType::new_contained_in_register(pointer_type()),
-            "pointer to new element",
-        );
-
-        self.builder.add_sparse_add_give_entry_address(
-            temp_element_ptr.register(),
-            target, // Should be the Int target
-            self_addr,
-            element_gen_type.total_size,
-            node,
-            "add space and get pointer to new element",
-        );
-
-        let location = AggregateMemoryLocation {
-            location: MemoryLocation {
-                base_ptr_reg: temp_element_ptr.register,
-                offset: MemoryOffset(0),
-                ty: VmType::new_unknown_placement(element_gen_type),
-            },
-        };
-
-        self.emit_expression_into_target_memory(
-            &location.location,
-            element_expr,
-            "sparse add, put expression into entry memory location",
-            ctx,
-        );
-    }
-
-    fn emit_sparse_remove(
-        &mut self,
-        self_addr: &PointerLocation,
-        element_expr: &Expression,
-        node: &Node,
-        ctx: &Context,
-    ) {
-        let int_reg = self.emit_scalar_rvalue(element_expr, ctx);
-        self.builder.add_sparse_remove(self_addr, int_reg, node, "");
-    }
-
     fn emit_intrinsic_map_remove(
         &mut self,
         map_region: &TypedRegister,
