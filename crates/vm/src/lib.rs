@@ -15,6 +15,7 @@ use std::str::FromStr;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition};
 
+mod grid;
 pub mod host;
 pub mod map_open;
 pub mod memory;
@@ -505,6 +506,8 @@ impl Vm {
             HandlerType::Args4(Self::execute_sparse_iter_next);
         vm.handlers[OpCode::SparseIterNextPair as usize] =
             HandlerType::Args5(Self::execute_sparse_iter_next_pair);
+
+        vm.handlers[OpCode::GridInit as usize] = HandlerType::Args7(Self::execute_grid_init);
 
         vm
     }

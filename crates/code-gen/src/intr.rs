@@ -650,8 +650,38 @@ impl CodeBuilder<'_> {
             }
 
             // Grid
-            IntrinsicFunction::GridSet => todo!(),
-            IntrinsicFunction::GridGet => todo!(),
+            IntrinsicFunction::GridSet => {
+                let maybe_element_expr = &arguments[0];
+                let ArgumentExpression::Expression(x_expr) = maybe_element_expr else {
+                    panic!();
+                };
+                let maybe_element_expr = &arguments[1];
+                let ArgumentExpression::Expression(y_expr) = maybe_element_expr else {
+                    panic!();
+                };
+                let maybe_element_expr = &arguments[2];
+                let ArgumentExpression::Expression(value_expr) = maybe_element_expr else {
+                    panic!();
+                };
+
+                let x_reg = self.emit_scalar_rvalue(x_expr, ctx);
+                let y_reg = self.emit_scalar_rvalue(y_expr, ctx);
+            }
+            IntrinsicFunction::GridGet => {
+                let maybe_element_expr = &arguments[0];
+                let ArgumentExpression::Expression(x_expr) = maybe_element_expr else {
+                    panic!();
+                };
+                let maybe_element_expr = &arguments[1];
+                let ArgumentExpression::Expression(y_expr) = maybe_element_expr else {
+                    panic!();
+                };
+
+                let x_reg = self.emit_scalar_rvalue(x_expr, ctx);
+                let y_reg = self.emit_scalar_rvalue(y_expr, ctx);
+
+                //self.builder.add_grid_get_entry_addr()
+            }
 
             // Sparse
             IntrinsicFunction::SparseAdd => {

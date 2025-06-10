@@ -185,6 +185,7 @@ pub enum OpCode {
     SparseIterNextPair,
     SparseIterInit,
     SparseIsAlive,
+    GridInit,
 }
 
 impl OpCode {
@@ -345,6 +346,9 @@ impl OpCode {
             Self::SparseIterInit => "sparse.iter.init",
             Self::SparseIterNext => "sparse.iter.next",
             Self::SparseIterNextPair => "sparse.iter.next.pair",
+
+            // Grid
+            Self::GridInit => "grid.init",
 
             // String
             Self::StringAppend => "str.app",

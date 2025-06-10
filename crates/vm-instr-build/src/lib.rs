@@ -122,6 +122,8 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl InstructionBuilder<'_> {}
 
 impl<'a> InstructionBuilder<'a> {
@@ -211,6 +213,34 @@ impl InstructionBuilder<'_> {
             ZFlagPolarity::TrueWhenSet => self.add_jmp_if_not_equal_placeholder(node, comment),
             ZFlagPolarity::TrueWhenClear => self.add_jmp_if_equal_placeholder(node, comment),
         }
+    }
+
+    pub fn add_grid_init(
+        &mut self,
+        target: &TypedRegister,
+        element_size: MemorySize,
+        width: u16,
+        height: u16,
+        node: &Node,
+        comment: &str,
+    ) {
+        let element_size_octets = Self::u16_to_octets(element_size.0);
+        let width_octets = Self::u16_to_octets(width);
+        let height_octets = Self::u16_to_octets(height);
+        self.state.add_instruction(
+            OpCode::GridInit,
+            &[
+                target.addressing(),
+                element_size_octets.0,
+                element_size_octets.1,
+                width_octets.0,
+                width_octets.1,
+                height_octets.0,
+                height_octets.1,
+            ],
+            node,
+            comment,
+        );
     }
 
     pub fn add_sparse_init(

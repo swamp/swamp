@@ -3361,16 +3361,42 @@ impl<'a> Analyzer<'a> {
             is_mutable: true,
             node: None,
         };
+        let element_param = TypeForParameter {
+            name: "element".to_string(),
+            resolved_type: element_type.clone(),
+            is_mutable: false,
+            node: None,
+        };
+
+        let int_param = TypeForParameter {
+            name: "x_or_y".to_string(),
+            resolved_type: Type::Int,
+            is_mutable: false,
+            node: None,
+        };
         let intrinsic_and_signature = match field_name_str {
-            "is_empty" => (
-                IntrinsicFunction::VecIsEmpty,
+            "set" => (
+                IntrinsicFunction::GridSet,
                 Signature {
-                    parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Bool),
+                    parameters: vec![
+                        self_type_param,
+                        int_param.clone(),
+                        int_param.clone(),
+                        element_param.clone(),
+                    ],
+                    return_type: Box::new(Type::Unit),
                 },
             ),
 
-            _ => panic!("unknown grid method"),
+            "get" => (
+                IntrinsicFunction::GridGet,
+                Signature {
+                    parameters: vec![self_type_param, int_param.clone(), int_param.clone()],
+                    return_type: Box::new(element_type.clone()),
+                },
+            ),
+
+            _ => panic!("unknown grid method {field_name_str}"),
         };
         Ok(intrinsic_and_signature)
     }

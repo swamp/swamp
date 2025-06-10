@@ -179,13 +179,16 @@ pub const unsafe fn slot_to_id_ptr(base: *mut u8) -> *mut u16 {
     unsafe { base.add(SLOT_OFFSET).cast::<u16>() }
 }
 
-#[must_use] pub const unsafe fn generation_ptr_const(base: *const u8) -> *const u16 { unsafe {
-    let capacity = *base.cast::<u16>() as usize;
-    let id_offset = SLOT_OFFSET + capacity * size_of::<u16>();
-    let generation_offset = id_offset + capacity * size_of::<u16>();
+#[must_use]
+pub const unsafe fn generation_ptr_const(base: *const u8) -> *const u16 {
+    unsafe {
+        let capacity = *base.cast::<u16>() as usize;
+        let id_offset = SLOT_OFFSET + capacity * size_of::<u16>();
+        let generation_offset = id_offset + capacity * size_of::<u16>();
 
-    base.add(generation_offset).cast::<u16>()
-}}
+        base.add(generation_offset).cast::<u16>()
+    }
+}
 
 /// Get a pointer to the `slot_to_id` array (reverse lookup)
 /// # Safety

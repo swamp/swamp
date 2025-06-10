@@ -120,53 +120,64 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        if let Some(capacity) = lvalue_location.ty.underlying().get_collection_capacity() {
-            if let BasicTypeKind::SparseStorage(element_type, capacity) =
-                lvalue_location.ty.underlying().kind
-            {
+        match &lvalue_location.ty.underlying().kind {
+            BasicTypeKind::SparseStorage(element_type, capacity) => {
                 self.builder.add_sparse_init(
                     &lvalue_location.pointer_location().unwrap().ptr_reg,
                     element_type.total_size,
-                    capacity as u16,
+                    *capacity as u16,
                     node,
                     comment,
                 );
             }
-
-            let hwm = self.temp_registers.save_mark();
-
-            let init_capacity_reg = self.temp_registers.allocate(
-                VmType::new_contained_in_register(u16_type()),
-                &format!("{comment} - init vec slice capacity reg"),
-            );
-
-            self.builder.add_mov_16_immediate_value(
-                init_capacity_reg.register(),
-                capacity.0,
-                node,
-                &format!("{comment} -set init capacity value"),
-            );
-            self.builder.add_st16_using_ptr_with_offset(
-                &lvalue_location.unsafe_add_offset(COLLECTION_CAPACITY_OFFSET),
-                init_capacity_reg.register(),
-                node,
-                &format!("{comment} - store capacity"),
-            );
-
-            // if it is a fixed static array, we have to set the element_count
-            // it never changes at runtime
-            if lvalue_location.ty.element_count_always_same_as_capacity() {
-                self.builder.add_st16_using_ptr_with_offset(
-                    &lvalue_location.unsafe_add_offset(COLLECTION_ELEMENT_COUNT_OFFSET),
-                    init_capacity_reg.register(),
+            BasicTypeKind::GridStorage(element_type, width, height) => {
+                self.builder.add_grid_init(
+                    &lvalue_location.pointer_location().unwrap().ptr_reg,
+                    element_type.total_size,
+                    *width as u16,
+                    *height as u16,
                     node,
-                    &format!("{comment} - store element_count to same as capacity"),
+                    comment,
                 );
             }
+            _ => {
+                if let Some(capacity) = lvalue_location.ty.underlying().get_collection_capacity() {
+                    let hwm = self.temp_registers.save_mark();
 
-            self.temp_registers.restore_to_mark(hwm);
-        } else {
-            // if there is no collection capacity
+                    let init_capacity_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u16_type()),
+                        &format!("{comment} - init vec slice capacity reg"),
+                    );
+
+                    self.builder.add_mov_16_immediate_value(
+                        init_capacity_reg.register(),
+                        capacity.0,
+                        node,
+                        &format!("{comment} -set init capacity value"),
+                    );
+                    self.builder.add_st16_using_ptr_with_offset(
+                        &lvalue_location.unsafe_add_offset(COLLECTION_CAPACITY_OFFSET),
+                        init_capacity_reg.register(),
+                        node,
+                        &format!("{comment} - store capacity"),
+                    );
+
+                    // if it is a fixed static array, we have to set the element_count
+                    // it never changes at runtime
+                    if lvalue_location.ty.element_count_always_same_as_capacity() {
+                        self.builder.add_st16_using_ptr_with_offset(
+                            &lvalue_location.unsafe_add_offset(COLLECTION_ELEMENT_COUNT_OFFSET),
+                            init_capacity_reg.register(),
+                            node,
+                            &format!("{comment} - store element_count to same as capacity"),
+                        );
+                    }
+
+                    self.temp_registers.restore_to_mark(hwm);
+                } else {
+                    // if there is no collection capacity
+                }
+            }
         }
     }
 }

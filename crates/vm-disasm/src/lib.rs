@@ -1125,6 +1125,19 @@ pub fn disasm(
             to_branch_offset(i16::from_le_bytes([operands[3], operands[4]])),
         ],
 
+        // Grid
+        OpCode::GridInit => {
+            let element_size = u8_pair_to_u16(operands[1], operands[2]);
+            let width = u8_pair_to_u16(operands[3], operands[4]);
+            let height = u8_pair_to_u16(operands[5], operands[6]);
+            &[
+                to_write_reg(operands[0], &b8_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
+                DecoratedOperandAccessKind::CountU16(width),
+                DecoratedOperandAccessKind::CountU16(height),
+            ]
+        }
+
         // Range
         OpCode::RangeInit => &[
             to_write_reg(operands[0], &range_iter_type(), frame_memory_info),
