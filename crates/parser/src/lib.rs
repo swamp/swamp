@@ -1717,6 +1717,14 @@ impl AstParser {
         for generic_parameter_pair in inner_pairs {
             let generic_parameter = match generic_parameter_pair.as_rule() {
                 Rule::type_name => GenericParameter::Type(self.parse_type(generic_parameter_pair)?),
+                Rule::generic_argument_int_tuple => {
+                    let mut pairs = generic_parameter_pair.clone().into_inner();
+                    let first = pairs.next().unwrap();
+                    let second = pairs.next().unwrap();
+                    let first_node = self.to_node(&first);
+                    let second_node = self.to_node(&second);
+                    GenericParameter::UnsignedTupleInt(first_node, second_node)
+                }
                 Rule::unsigned_int_lit => {
                     GenericParameter::UnsignedInt(self.to_node(&generic_parameter_pair))
                 }

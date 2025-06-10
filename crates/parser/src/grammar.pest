@@ -211,7 +211,9 @@ unit_type     = @{ "()" }
 
 field_label       = { identifier ~ ":" }
 
-generic_argument_item = _{ type_name | unsigned_int_lit }
+generic_argument_int_tuple = { "(" ~ unsigned_int_lit ~ COMMA ~ unsigned_int_lit ~ ")"}
+
+generic_argument_item = _{ type_name | generic_argument_int_tuple | unsigned_int_lit }
 
 COMMA_HACK = _{ ("," | ";")? ~ " "* }
 

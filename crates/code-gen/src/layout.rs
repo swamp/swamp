@@ -20,9 +20,10 @@ use swamp_vm_types::types::{
     VmType, range_type,
 };
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MemoryAlignment,
-    MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE, adjust_size_to_alignment, align_to,
+    FrameMemoryAddress, FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
+    MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
+    PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
+    adjust_size_to_alignment, align_to,
 };
 
 #[derive(Copy, Clone)]
@@ -280,6 +281,22 @@ pub fn layout_type(ty: &Type) -> BasicType {
                 sparse_mem::alignment().try_into().unwrap(),
             )
         }
+
+        Type::GridStorage(element_type, width, height) => {
+            let layout_element = layout_type(element_type);
+
+            let total_capacity_byte_count = width * height * (layout_element.total_size.0 as usize);
+
+            let max_alignment = max(layout_element.max_alignment, GRID_HEADER_ALIGNMENT);
+            let total_size = MemorySize(GRID_HEADER_SIZE.0 + total_capacity_byte_count as u16);
+
+            create_basic_type(
+                BasicTypeKind::GridStorage(Box::from(layout_element), *width, *height),
+                total_size,
+                max_alignment,
+            )
+        }
+
         Type::MapStorage(key_type, value_type, logical_size) => {
             let tuple_gen_type = layout_tuple_items(&[*key_type.clone(), *value_type.clone()]);
             let capacity = (*logical_size).max(1).next_power_of_two();
@@ -363,6 +380,15 @@ pub fn layout_type(ty: &Type) -> BasicType {
             )
         }
 
+        Type::GridView(inner_type) => {
+            let inner_gen_type = layout_type(inner_type);
+            create_basic_type(
+                BasicTypeKind::GridView(Box::from(inner_gen_type)),
+                PTR_SIZE,
+                PTR_ALIGNMENT,
+            )
+        }
+
         Type::StackView(inner_type) => {
             let inner_gen_type = layout_type(inner_type);
             create_basic_type(
@@ -406,45 +432,6 @@ fn layout_mutable_reference(analyzed_type: &Type) -> BasicType {
 }
 
 fn layout_named_struct(named_struct_type: &NamedStructType) -> BasicType {
-    if named_struct_type.is_vec() {
-        return create_basic_type(
-            BasicTypeKind::DynamicLengthVecView(Box::from(layout_type(
-                &named_struct_type.instantiated_type_parameters[0],
-            ))),
-            VEC_PTR_SIZE,
-            VEC_PTR_ALIGNMENT,
-        );
-    }
-
-    if named_struct_type.is_grid() {
-        return create_basic_type(
-            BasicTypeKind::DynamicLengthVecView(Box::from(layout_type(
-                &named_struct_type.instantiated_type_parameters[0],
-            ))),
-            VEC_PTR_SIZE,
-            VEC_PTR_ALIGNMENT,
-        );
-    }
-    if named_struct_type.is_stack() {
-        return create_basic_type(
-            BasicTypeKind::DynamicLengthVecView(Box::from(layout_type(
-                &named_struct_type.instantiated_type_parameters[0],
-            ))),
-            VEC_PTR_SIZE,
-            VEC_PTR_ALIGNMENT,
-        );
-    }
-
-    if named_struct_type.is_queue() {
-        return create_basic_type(
-            BasicTypeKind::DynamicLengthVecView(Box::from(layout_type(
-                &named_struct_type.instantiated_type_parameters[0],
-            ))),
-            VEC_PTR_SIZE,
-            VEC_PTR_ALIGNMENT,
-        );
-    }
-
     layout_struct(
         &named_struct_type.anon_struct_type,
         //memory_offset,

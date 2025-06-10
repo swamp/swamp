@@ -740,16 +740,32 @@ pub const RANGE_HEADER_SIZE: MemorySize = MemorySize(size_of::<RangeHeader>() as
 pub const RANGE_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct GridHeader {
-    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
-    pub width: u32,
-    pub height: u32,
+    /// Do not change the order of the fields!
+    ///
+    /// Keep the capacity field at the start of the header for consistency across all
+    /// container types. Placing it first simplifies copy operations: we can verify
+    /// and preserve capacity before copying the remainder of the header in one contiguous operation.
+    pub capacity: u16,
+
+    /// Number of live (active) elements currently stored in the collection.
+    ///
+    /// Always located at offset 2, enabling:
+    /// - **Logical size**: Represents the number of valid elements in use.
+    /// - **Bounds checking**: Index and assignment checks (`0 <= idx < element_count`)
+    ///   can load this field in a single instruction.
+    /// - **Iteration**: Iterators read this field to determine the end of the collection.
+    /// - **ABI stability**: External tools, debuggers, and serializers can consistently locate
+    ///   `capacity` and `element_count` across all container types.
+    pub element_count: u16, // Always same as capacity
+
+    pub width: u16,
+    pub height: u16,
 }
 
 pub const GRID_HEADER_SIZE: MemorySize = MemorySize(size_of::<GridHeader>() as u16);
-pub const GRID_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
-pub const GRID_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
-pub const GRID_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
+pub const GRID_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
 
 // NOTE: Must align to U32, therefor the padding at the end
 #[repr(C)]

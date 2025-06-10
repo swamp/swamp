@@ -221,6 +221,7 @@ pub fn quick_deserialize(resolved_type: &Type, buf: &[u8], depth: usize) -> (Val
         &swamp_types::Type::StackView(_) | &swamp_types::Type::StackStorage(_, _) => todo!(),
         &swamp_types::Type::QueueStorage(_, _) | &swamp_types::Type::QueueView(_) => todo!(),
         &swamp_types::Type::SparseView(_) | &swamp_types::Type::SparseStorage(_, _) => todo!(),
+        &swamp_types::Type::GridStorage(_, _, _) | &swamp_types::Type::GridView(_) => todo!(),
     };
 
     (val, octet_size)

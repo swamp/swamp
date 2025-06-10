@@ -560,6 +560,7 @@ pub struct TypeForParameter {
 pub enum GenericParameter {
     Type(Type),
     UnsignedInt(Node),
+    UnsignedTupleInt(Node, Node),
 }
 
 impl GenericParameter {
@@ -569,6 +570,14 @@ impl GenericParameter {
             panic!("wasn't unsigned int")
         };
         node
+    }
+
+    #[must_use]
+    pub fn get_unsigned_int_tuple_nodes(&self) -> (&Node, &Node) {
+        let Self::UnsignedTupleInt(first, second) = self else {
+            panic!("wasn't unsigned int tuple")
+        };
+        (first, second)
     }
 }
 

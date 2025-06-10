@@ -686,6 +686,8 @@ impl SourceMapDisplay<'_> {
             Type::VecStorage(a, b) => write!(f, "Vec<{a};{b}>"),
             Type::SparseView(a) => write!(f, "Sparse<{a}>"),
             Type::SparseStorage(a, b) => write!(f, "SparseStorage<{a};{b}>"),
+            Type::GridView(a) => write!(f, "Grid<{a}>"),
+            Type::GridStorage(a, width, height) => write!(f, "GridStorage<{a};({width},{height})>"),
             Type::StackView(a) => write!(f, "Stack<{a}>"),
             Type::StackStorage(a, b) => write!(f, "Stack<{a};{b}>"),
             Type::QueueView(a) => write!(f, "Queue<{a}>"),
@@ -731,6 +733,10 @@ impl SourceMapDisplay<'_> {
             Type::VecStorage(a, b) => write!(f, "Vec<{a};{b}>"),
             Type::SparseView(a) => write!(f, "Sparse<{a}>"),
             Type::SparseStorage(a, b) => write!(f, "SparseStorage<{a};{b}>"),
+            Type::GridView(a) => write!(f, "Grid<{a}>"),
+            Type::GridStorage(a, width, height) => {
+                write!(f, "SparseStorage<{a};({width},{height})>")
+            }
             Type::StackView(a) => write!(f, "Stack<{a}>"),
             Type::StackStorage(a, b) => write!(f, "Stack<{a};{b}>"),
             Type::QueueView(a) => write!(f, "Queue<{a}>"),
@@ -783,6 +789,8 @@ impl SourceMapDisplay<'_> {
             Type::VecStorage(_, _) => todo!(),
             Type::SparseView(_) => todo!(),
             Type::SparseStorage(_, _) => todo!(),
+            Type::GridView(_) => todo!(),
+            Type::GridStorage(_, _, _) => todo!(),
             Type::StackView(_) => todo!(),
             Type::StackStorage(_, _) => todo!(),
             Type::QueueView(_) => todo!(),

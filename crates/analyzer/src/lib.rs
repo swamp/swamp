@@ -1535,8 +1535,10 @@ impl<'a> Analyzer<'a> {
             Type::DynamicLengthVecView(_) => todo!(),
             Type::VecStorage(_, _) => todo!(),
             Type::SparseStorage(_, _) => todo!(),
+            Type::GridStorage(_, _, _) => todo!(),
             Type::StackView(_) => todo!(),
             Type::QueueView(_) => todo!(),
+            Type::GridView(_) => todo!(),
             Type::SparseView(_) => todo!(),
             Type::StackStorage(_, _) => todo!(),
             Type::QueueStorage(_, _) => todo!(),
@@ -1913,6 +1915,16 @@ impl<'a> Analyzer<'a> {
         let (collection_type, element_type) = if let Some(expected_type) = context.expected_type {
             let destination_type = expected_type.underlying();
             match destination_type {
+                Type::GridStorage(element_type, width, height) => {
+                    let capacity = width * height;
+                    if items.len() > capacity {
+                        return Err(self.create_err(
+                            ErrorKind::TooManyInitializerListElementsForStorage { capacity },
+                            node,
+                        ));
+                    }
+                    (destination_type, *element_type.clone())
+                }
                 Type::StackStorage(element_type, capacity)
                 | Type::QueueStorage(element_type, capacity)
                 | Type::SparseStorage(element_type, capacity)
@@ -1930,6 +1942,7 @@ impl<'a> Analyzer<'a> {
                 Type::QueueView(element_type)
                 | Type::SparseView(element_type)
                 | Type::StackView(element_type)
+                | Type::GridView(element_type)
                 | Type::DynamicLengthVecView(element_type) => {
                     (destination_type, *element_type.clone())
                 }
@@ -3328,6 +3341,40 @@ impl<'a> Analyzer<'a> {
         Ok(intrinsic_and_signature)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
+    fn grid_member_signature(
+        &mut self,
+        self_type: &Type,
+        element_type: &Type,
+        field_name_str: &str,
+        node: &swamp_ast::Node,
+    ) -> Result<(IntrinsicFunction, Signature), Error> {
+        let self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: false,
+            node: None,
+        };
+        let self_mutable_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: true,
+            node: None,
+        };
+        let intrinsic_and_signature = match field_name_str {
+            "is_empty" => (
+                IntrinsicFunction::VecIsEmpty,
+                Signature {
+                    parameters: vec![self_type_param],
+                    return_type: Box::new(Type::Bool),
+                },
+            ),
+
+            _ => panic!("unknown grid method"),
+        };
+        Ok(intrinsic_and_signature)
+    }
+
     #[allow(clippy::too_many_lines)]
     fn slice_member_signature(
         &mut self,
@@ -3568,6 +3615,8 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let ty = type_that_member_is_on.underlying();
         match ty {
+            Type::GridStorage(element_type, ..) | Type::GridView(element_type) => self
+                .grid_member_signature(type_that_member_is_on, element_type, field_name_str, node),
             Type::SparseStorage(element_type, ..) | Type::SparseView(element_type) => self
                 .sparse_member_signature(
                     type_that_member_is_on,
@@ -3826,6 +3875,20 @@ impl<'a> Analyzer<'a> {
         Self::str_to_unsigned_int(usize_str).unwrap() as usize
     }
 
+    #[must_use]
+    pub fn analyze_generic_parameter_usize_tuple(
+        &self,
+        generic_parameter: &GenericParameter,
+    ) -> (usize, usize) {
+        let (first, second) = generic_parameter.get_unsigned_int_tuple_nodes();
+        let first_str = self.get_text(first);
+        let second_str = self.get_text(second);
+        let first_value = Self::str_to_unsigned_int(first_str).unwrap() as usize;
+        let second_value = Self::str_to_unsigned_int(second_str).unwrap() as usize;
+
+        (first_value, second_value)
+    }
+
     pub fn analyze_special_named_type(
         &mut self,
         path: &[String],
@@ -3901,6 +3964,25 @@ impl<'a> Analyzer<'a> {
                     panic!("todo: make this into an error")
                 }
             }
+
+            "Grid" => {
+                if ast_generic_parameters.len() == 1 {
+                    let element_type = self
+                        .analyze_type(ast_generic_parameters[0].get_type())
+                        .unwrap();
+                    Type::GridView(Box::from(element_type))
+                } else if ast_generic_parameters.len() == 2 {
+                    let element_type = self
+                        .analyze_type(ast_generic_parameters[0].get_type())
+                        .unwrap();
+                    let (width, height) =
+                        self.analyze_generic_parameter_usize_tuple(&ast_generic_parameters[1]);
+                    Type::GridStorage(Box::from(element_type), width, height)
+                } else {
+                    panic!("todo: make this into an error")
+                }
+            }
+
             _ => return None,
         };
 

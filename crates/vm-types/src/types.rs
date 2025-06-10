@@ -293,6 +293,8 @@ pub enum BasicTypeKind {
 
     DynamicLengthMapView(Box<OffsetMemoryItem>, Box<OffsetMemoryItem>),
     // DynamicLengthMapView(),
+    GridView(Box<BasicType>),
+    GridStorage(Box<BasicType>, usize, usize),
 }
 
 impl BasicTypeKind {}
@@ -388,8 +390,12 @@ impl Display for BasicTypeKind {
             Self::DynamicLengthVecView(item_type) => write!(f, "Vec<{item_type}>"),
             Self::VecStorage(item_type, size) => write!(f, "Vec<{item_type}, {size}>"),
             Self::SparseView(item_type) => write!(f, "Sparse<{item_type}>"),
+            Self::GridView(item_type) => write!(f, "Grid<{item_type}>"),
             Self::SparseStorage(item_type, size) => write!(f, "SparseStorage<{item_type}, {size}>"),
             Self::StackStorage(item_type, size) => write!(f, "StackStorage<{item_type}, {size}>"),
+            Self::GridStorage(item_type, width, height) => {
+                write!(f, "GridStorage<{item_type}, ({width},{height})>")
+            }
             Self::QueueStorage(item_type, size) => write!(f, "QueueStorage<{item_type}, {size}>"),
             Self::MapStorage {
                 tuple_type,
@@ -1563,6 +1569,8 @@ impl BasicType {
     pub fn element(&self) -> Option<&Self> {
         match &self.kind {
             BasicTypeKind::StackStorage(inner, _)
+            | BasicTypeKind::GridView(inner)
+            | BasicTypeKind::GridStorage(inner, ..)
             | BasicTypeKind::SparseStorage(inner, _)
             | BasicTypeKind::SparseView(inner)
             | BasicTypeKind::QueueStorage(inner, _)
@@ -2047,11 +2055,17 @@ pub fn write_basic_type(
         BasicTypeKind::QueueStorage(element_type, size) => {
             write!(f, "QueueStorage<{element_type}, {size}>")
         }
+        BasicTypeKind::GridStorage(element_type, width, height) => {
+            write!(f, "GridStorage<{element_type}, ({width},{height})>")
+        }
         BasicTypeKind::StackStorage(element_type, size) => {
             write!(f, "StackStorage<{element_type}, {size}>")
         }
         BasicTypeKind::SparseView(element_type) => {
             write!(f, "Sparse<{element_type}>")
+        }
+        BasicTypeKind::GridView(element_type) => {
+            write!(f, "grid<{element_type}>")
         }
         BasicTypeKind::SparseStorage(element_type, size) => {
             write!(f, "SparseStorage<{element_type}, {size}>")

@@ -186,6 +186,12 @@ fn print(
         BasicTypeKind::SparseStorage(element_type, capacity) => {
             todo!()
         }
+        BasicTypeKind::GridView(element_type) => {
+            todo!()
+        }
+        BasicTypeKind::GridStorage(element_type, width, height) => {
+            todo!()
+        }
         BasicTypeKind::MapStorage {
             tuple_type,
             logical_limit: logical_size,

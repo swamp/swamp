@@ -1,0 +1,8 @@
+use core::{assert, panic}
+use std::{print}
+
+#[test]
+fn add_remove() {
+    mut grid: Grid<Int; (10,10)> = []
+    assert(grid.is_empty(), "should be empty at start")
+}

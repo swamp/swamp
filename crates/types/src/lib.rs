@@ -56,6 +56,8 @@ pub enum Type {
     DynamicLengthMapView(Box<Type>, Box<Type>), // Map<K, V>`
     SparseView(Box<Type>),
     SparseStorage(Box<Type>, usize),
+    GridStorage(Box<Type>, usize, usize),
+    GridView(Box<Type>),
 }
 
 impl Type {
@@ -98,13 +100,6 @@ impl Type {
             _ => self,
         }
     }
-    #[must_use]
-    pub fn is_vec(&self) -> bool {
-        match self {
-            Self::NamedStruct(named_struct) => named_struct.is_vec(),
-            _ => false,
-        }
-    }
 
     #[must_use]
     pub const fn is_primitive(&self) -> bool {
@@ -117,30 +112,6 @@ impl Type {
     #[must_use]
     pub const fn is_unit(&self) -> bool {
         matches!(self, Self::Unit)
-    }
-
-    #[must_use]
-    pub fn is_map(&self) -> bool {
-        match self {
-            Self::NamedStruct(named_struct) => named_struct.is_map(),
-            _ => false,
-        }
-    }
-
-    #[must_use]
-    pub fn is_stack(&self) -> bool {
-        match self {
-            Self::NamedStruct(named_struct) => named_struct.is_stack(),
-            _ => false,
-        }
-    }
-
-    #[must_use]
-    pub fn is_range(&self) -> bool {
-        match self {
-            Self::NamedStruct(named_struct) => named_struct.is_range(),
-            _ => false,
-        }
     }
 
     fn is_core_type_with_name(&self, name: &str) -> bool {
@@ -301,7 +272,7 @@ impl Type {
             Self::Unit | Self::Function(_) => false,
 
             Self::SliceView(_) => false,
-            Self::DynamicLengthVecView(a) => false,
+            Self::GridView(a) | Self::DynamicLengthVecView(a) => false,
             Self::QueueView(_) | Self::SparseView(_) | Self::StackView(_) => false,
             Self::DynamicLengthMapView(a, b) => {
                 eprintln!("NOT CONCRETE DynLengthMapView {a:?}, {b:?}");
@@ -313,6 +284,7 @@ impl Type {
             | Self::VecStorage(_, _)
             | Self::QueueStorage(_, _)
             | Self::SparseStorage(_, _)
+            | Self::GridStorage(_, _, _)
             | Self::StackStorage(_, _) => true,
 
             Self::Float | Self::Int | Self::String | Self::Bool => true,
@@ -339,27 +311,6 @@ impl Type {
     }
 
     #[must_use]
-    pub fn is_collection(&self) -> bool {
-        self.is_vec() || self.is_grid() || self.is_stack() || self.is_map()
-    }
-
-    pub fn is_blittable_collection(&self) -> bool {
-        match self {
-            Self::NamedStruct(struct_type) => {
-                if self.is_collection() {
-                    struct_type
-                        .instantiated_type_parameters
-                        .iter()
-                        .all(Self::is_blittable)
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-
-    #[must_use]
     pub const fn is_direct(&self) -> bool {
         match self {
             Self::Unit => true,
@@ -379,9 +330,11 @@ impl Type {
             | Self::StackView(_)
             | Self::SparseView(_)
             | Self::DynamicLengthVecView(_)
+            | Self::GridView(_)
             | Self::QueueView(_) => false, // views should be blittable?
 
             Self::MapStorage(_, _, _)
+            | Self::GridStorage(_, _, _)
             | Self::FixedCapacityAndLengthArray(_, _)
             | Self::VecStorage(_, _)
             | Self::QueueStorage(_, _)
@@ -394,17 +347,11 @@ impl Type {
             Self::Optional(inner) | Self::MutableReference(inner) => inner.is_blittable(),
 
             Self::Tuple(types) => types.iter().all(Self::is_blittable),
-            Self::NamedStruct(struct_type) => {
-                if self.is_collection() {
-                    false
-                } else {
-                    struct_type
-                        .anon_struct_type
-                        .field_name_sorted_fields
-                        .iter()
-                        .all(|(_name, field)| field.field_type.is_blittable())
-                }
-            }
+            Self::NamedStruct(struct_type) => struct_type
+                .anon_struct_type
+                .field_name_sorted_fields
+                .iter()
+                .all(|(_name, field)| field.field_type.is_blittable()),
             Self::AnonymousStruct(anon_struct_type) => anon_struct_type
                 .field_name_sorted_fields
                 .iter()
@@ -452,12 +399,16 @@ impl Type {
             | Self::DynamicLengthMapView(_, _)
             | Self::StackView(_)
             | Self::QueueView(_)
+            | Self::GridView(_)
             | Self::SparseView(_)
             | Self::DynamicLengthVecView(_) => false, // Views can not be stored in fields, since it is "views" / "pointers" to data stored elsewhere
 
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
-            Self::SparseStorage(_, _) | Self::QueueStorage(_, _) | Self::StackStorage(_, _) => true,
+            Self::GridStorage(_, _, _)
+            | Self::SparseStorage(_, _)
+            | Self::QueueStorage(_, _)
+            | Self::StackStorage(_, _) => true,
             Self::FixedCapacityAndLengthArray(_, _) => true,
             Self::Range(_) => true,
 
@@ -516,6 +467,12 @@ impl Debug for Type {
             Self::MutableReference(base_type) => write!(f, "mut & {base_type:?}"),
             Self::FixedCapacityAndLengthArray(element_type, size) => {
                 write!(f, "[{element_type:?}; {size}]")
+            }
+            Self::GridStorage(value_type, width, height) => {
+                write!(f, "GridStorage<{value_type:?}, ({width}, {height})>")
+            }
+            Self::GridView(value_type) => {
+                write!(f, "Grid<{value_type:?}>")
             }
             Self::VecStorage(value_type, size) => {
                 write!(f, "VecStorage<{value_type:?}, {size}>")
@@ -576,6 +533,9 @@ impl Display for Type {
             Self::VecStorage(value_type, size) => {
                 write!(f, "VecStorage<{value_type:?}, {size}>")
             }
+            Self::GridStorage(value_type, width, height) => {
+                write!(f, "GridStorage<{value_type:?}; ({width}, {height})>")
+            }
             Self::SparseStorage(value_type, size) => {
                 write!(f, "Sparse<{value_type:?}, {size}>")
             }
@@ -587,6 +547,9 @@ impl Display for Type {
             }
             Self::DynamicLengthVecView(value_type) => {
                 write!(f, "Vec<{value_type:?}>")
+            }
+            Self::GridView(value_type) => {
+                write!(f, "Grid<{value_type:?}>")
             }
             Self::SparseView(value_type) => {
                 write!(f, "Sparse<{value_type:?}>")
@@ -654,6 +617,11 @@ impl Type {
             (Self::SparseStorage(element_a, size_a), Self::SparseStorage(element_b, size_b)) => {
                 size_a >= size_b && element_a.compatible_with(element_b)
             }
+
+            (
+                Self::GridStorage(element_a, width_a, height_a),
+                Self::GridStorage(element_b, width_b, height_b),
+            ) => width_a >= width_b && height_a >= height_b && element_a.compatible_with(element_b),
 
             (
                 Self::StackStorage(storage_element, a_size),
@@ -1101,35 +1069,6 @@ pub struct NamedStructType {
 impl NamedStructType {
     fn is_core_type_with_name(&self, name: &str) -> bool {
         self.module_path == vec!["core-0.0.0".to_string()] && self.assigned_name.starts_with(name)
-    }
-
-    #[must_use]
-    pub fn is_vec(&self) -> bool {
-        self.is_core_type_with_name("Vec")
-    }
-
-    #[must_use]
-    pub fn is_stack(&self) -> bool {
-        self.is_core_type_with_name("Stack")
-    }
-
-    #[must_use]
-    pub fn is_queue(&self) -> bool {
-        self.is_core_type_with_name("Queue")
-    }
-
-    #[must_use]
-    pub fn is_grid(&self) -> bool {
-        self.is_core_type_with_name("Grid")
-    }
-    #[must_use]
-    pub fn is_range(&self) -> bool {
-        self.is_core_type_with_name("Range")
-    }
-
-    #[must_use]
-    pub fn is_map(&self) -> bool {
-        self.is_core_type_with_name("Map<")
     }
 }
 
