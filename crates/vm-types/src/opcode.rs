@@ -184,6 +184,7 @@ pub enum OpCode {
     SparseIterNext,
     SparseIterNextPair,
     SparseIterInit,
+    SparseIsAlive,
 }
 
 impl OpCode {
@@ -339,6 +340,7 @@ impl OpCode {
             Self::SparseAddGiveEntryAddress => "sparse.add_entry_addr",
             Self::SparseRemove => "sparse.remove",
             Self::SparseGetEntryAddr => "sparse.entry_addr",
+            Self::SparseIsAlive => "sparse.is_alive",
             // iter
             Self::SparseIterInit => "sparse.iter.init",
             Self::SparseIterNext => "sparse.iter.next",

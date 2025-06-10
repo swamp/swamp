@@ -276,6 +276,26 @@ impl InstructionBuilder<'_> {
         );
     }
 
+    pub fn add_sparse_is_alive(
+        &mut self,
+        dest_bool_reg: &TypedRegister,
+        sparse_ptr_reg: &PointerLocation,
+        int_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::SparseIsAlive,
+            &[
+                dest_bool_reg.addressing(),
+                sparse_ptr_reg.addressing(),
+                int_reg.addressing(),
+            ],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_sparse_get_entry_addr(
         &mut self,
         dest_entry_address_reg: &TypedRegister,
@@ -2617,6 +2637,7 @@ impl InstructionBuilder<'_> {
                 iterator_target.addressing(),
                 closure_variable.addressing(),
                 closure_variable_b.addressing(),
+                0,
                 0,
             ],
             node,

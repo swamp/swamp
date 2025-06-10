@@ -94,6 +94,23 @@ impl Vm {
         }
     }
 
+    pub fn execute_sparse_is_alive(
+        &mut self,
+        dest_reg_bool: u8,
+        sparse_ptr_reg: u8,
+        int_handle_reg: u8,
+    ) {
+        unsafe {
+            let sparse_addr = get_reg!(self, sparse_ptr_reg);
+            let sparse_ptr = self.memory.get_heap_ptr(sparse_addr as usize);
+            let handle = get_reg!(self, int_handle_reg);
+            let index = handle >> 16;
+            let generation = handle & 0xffff;
+            let is_alive = sparse_mem::is_alive(sparse_ptr, index as u16, generation as u16);
+            set_reg!(self, dest_reg_bool, is_alive);
+        }
+    }
+
     pub(crate) fn execute_sparse_iter_init(
         &mut self,
         target_map_iterator_header_reg: u8,
@@ -116,22 +133,62 @@ impl Vm {
         }
     }
 
-    pub fn execute_sparse_iter_next_pair(
-        &mut self,
-        map_iterator_header_reg: u8,
-        target_key_reg: u8,
-        target_value_reg: u8,
-        branch_offset_lower: u8,
-        branch_offset_upper: u8,
-    ) {
-        let sparse_iterator = self.get_map_iterator_header_ptr_from_reg(map_iterator_header_reg);
-    }
-
     pub fn get_sparse_iterator_header_ptr_from_reg(
         &self,
         map_iterator_reg: u8,
     ) -> *mut SparseIterator {
         self.get_ptr_from_reg(map_iterator_reg) as *mut SparseIterator
+    }
+
+    pub fn execute_sparse_iter_next_pair(
+        &mut self,
+        sparse_iterator_header_reg: u8,
+        target_key_reg: u8,
+        target_value_reg: u8,
+        branch_offset_lower: u8,
+        branch_offset_upper: u8,
+    ) {
+        let sparse_iterator =
+            self.get_sparse_iterator_header_ptr_from_reg(sparse_iterator_header_reg);
+
+        unsafe {
+            let sparse_header_addr = (*sparse_iterator).sparse_header_heap_ptr;
+            let sparse_header_ptr = self.memory.get_heap_const_ptr(sparse_header_addr as usize);
+
+            let element_count = sparse_mem::element_count(sparse_header_ptr);
+            let current_index = (*sparse_iterator).index as usize;
+            if (current_index as u32) < element_count as u32 {
+                let values_index = (*sparse_mem::slot_to_id_ptr_const(sparse_header_ptr)
+                    .add(current_index)) as usize;
+
+                #[cfg(feature = "debug_vm")]
+                if self.debug_operations_enabled {
+                    eprintln!("index {current_index}, slot: {values_index}");
+                }
+
+                let offset_to_values = sparse_mem::values_offset(sparse_header_ptr);
+                let values_start = sparse_header_addr as usize + offset_to_values;
+
+                let element_size = sparse_mem::element_size(sparse_header_ptr) as usize;
+                let entry_addr = values_start + values_index * element_size;
+
+                let generation =
+                    *sparse_mem::generation_ptr_const(sparse_header_ptr).add(current_index);
+                let handle = (values_index as u32) << 16 | (generation as u32);
+                set_reg!(self, target_key_reg, handle);
+                set_reg!(self, target_value_reg, entry_addr);
+                (*sparse_iterator).index += 1;
+            } else {
+                // Jump to the provided address if we're done
+                let branch_offset = i16_from_u8s!(branch_offset_lower, branch_offset_upper);
+
+                #[cfg(feature = "debug_vm")]
+                if self.debug_operations_enabled {
+                    eprintln!("iteration done, jumping {branch_offset}");
+                }
+                self.pc = (self.pc as i32 + branch_offset as i32) as usize;
+            }
+        }
     }
 
     pub fn execute_sparse_iter_next(

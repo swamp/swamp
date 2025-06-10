@@ -314,9 +314,7 @@ impl CodeBuilder<'_> {
 
                 if let Some(temp_regs) = temp_registers {
                     let source_memory_location =
-                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                            temp_regs,
-                        );
+                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(temp_regs);
                     self.emit_load_value_from_memory_source(
                         primary_register,
                         &source_memory_location,
@@ -365,8 +363,6 @@ impl CodeBuilder<'_> {
                 );
 
                 let is_pair = target_variables.len() == 2;
-
-                
 
                 if is_pair {
                     // For non-primitives, use target directly

@@ -121,7 +121,9 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) {
         if let Some(capacity) = lvalue_location.ty.underlying().get_collection_capacity() {
-            if let BasicTypeKind::SparseStorage(element_type, capacity) = lvalue_location.ty.underlying().kind {
+            if let BasicTypeKind::SparseStorage(element_type, capacity) =
+                lvalue_location.ty.underlying().kind
+            {
                 self.builder.add_sparse_init(
                     &lvalue_location.pointer_location().unwrap().ptr_reg,
                     element_type.total_size,

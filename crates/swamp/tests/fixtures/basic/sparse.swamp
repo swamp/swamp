@@ -23,7 +23,11 @@ fn add_remove() {
 fn iterate() {
     mut sparse: Sparse<Int; 10> = []
 
+    assert(!sparse.is_alive(0), "an invalid handle should not be alive")
+
     a = sparse.add(1)
+    assert(sparse.is_alive(a), "element should be alive after adding")
+
     b = sparse.add(2)
     c = sparse.add(3)
 
@@ -32,7 +36,14 @@ fn iterate() {
         print('element: {count}: {v}')
         count += 1
     }
-
     assert(count == 3, 'count of elements should be 3, got {count}')
+
+    assert(sparse.is_alive(b), "element should be alive after adding")
+    sparse.remove(b)
+    assert(!sparse.is_alive(b), "element should not be alive after removing it")
+
+    for id, v in sparse {
+        print('element: {id}: {v}')
+    }
 }
 

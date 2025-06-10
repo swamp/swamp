@@ -81,6 +81,18 @@ impl CodeBuilder<'_> {
             .add_sparse_remove(self_addr, &int_reg, node, "");
     }
 
+    pub(crate) fn emit_sparse_is_alive(
+        &mut self,
+        dest_bool_reg: &TypedRegister,
+        self_addr: &PointerLocation,
+        element_expr: &Expression,
+        node: &Node,
+        ctx: &Context,
+    ) {
+        let int_reg = self.emit_scalar_rvalue(element_expr, ctx);
+        self.builder
+            .add_sparse_is_alive(dest_bool_reg, self_addr, &int_reg, node, "");
+    }
     pub fn sparse_subscript_helper_helper(
         &mut self,
         sparse_header_location: &Destination,

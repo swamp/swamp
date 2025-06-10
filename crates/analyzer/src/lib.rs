@@ -3259,6 +3259,22 @@ impl<'a> Analyzer<'a> {
                     return_type: Box::new(Type::Unit),
                 },
             ),
+            "is_alive" => (
+                IntrinsicFunction::SparseIsAlive,
+                Signature {
+                    parameters: vec![
+                        self_type_param,
+                        TypeForParameter {
+                            name: "element".to_string(),
+                            resolved_type: element_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: Box::new(Type::Bool),
+                },
+            ),
+
             _ => { self.slice_member_signature(self_type, element_type, field_name_str, node) }?,
         };
         Ok(intrinsic_and_signature)

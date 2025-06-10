@@ -90,6 +90,7 @@ pub enum IntrinsicFunction {
     MapCapacity,
     SparseAdd,
     SparseRemove,
+    SparseIsAlive,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -178,6 +179,7 @@ impl fmt::Display for IntrinsicFunction {
             // Sparse
             Self::SparseAdd => "sparse_add",
             Self::SparseRemove => "sparse_remove",
+            Self::SparseIsAlive => "sparse_is_alive",
 
             // Other
             Self::Float2Magnitude => "float2_magnitude",

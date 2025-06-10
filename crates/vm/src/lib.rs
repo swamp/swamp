@@ -496,6 +496,8 @@ impl Vm {
             HandlerType::Args2(Self::execute_sparse_remove);
         vm.handlers[OpCode::SparseGetEntryAddr as usize] =
             HandlerType::Args5(Self::execute_sparse_get_entry_addr);
+        vm.handlers[OpCode::SparseIsAlive as usize] =
+            HandlerType::Args3(Self::execute_sparse_is_alive);
 
         vm.handlers[OpCode::SparseIterInit as usize] =
             HandlerType::Args2(Self::execute_sparse_iter_init);

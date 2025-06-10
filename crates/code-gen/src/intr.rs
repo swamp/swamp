@@ -685,6 +685,22 @@ impl CodeBuilder<'_> {
                 );
             }
 
+            IntrinsicFunction::SparseIsAlive => {
+                let maybe_element_expr = &arguments[0];
+                let ArgumentExpression::Expression(element_expr) = maybe_element_expr else {
+                    panic!();
+                };
+                self.emit_sparse_is_alive(
+                    &maybe_target.unwrap().clone(),
+                    &PointerLocation {
+                        ptr_reg: self_addr.unwrap().clone(),
+                    },
+                    element_expr,
+                    node,
+                    ctx,
+                );
+            }
+
             // Other
             IntrinsicFunction::Float2Magnitude => todo!(),
         }
