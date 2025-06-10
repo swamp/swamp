@@ -526,6 +526,101 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecWhile => todo!(), // Low prio
             IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
+            // Grid
+            IntrinsicFunction::GridSet => {
+                let maybe_element_expr = &arguments[0];
+                let ArgumentExpression::Expression(x_expr) = maybe_element_expr else {
+                    panic!();
+                };
+                let maybe_element_expr = &arguments[1];
+                let ArgumentExpression::Expression(y_expr) = maybe_element_expr else {
+                    panic!();
+                };
+                let maybe_element_expr = &arguments[2];
+                let ArgumentExpression::Expression(value_expr) = maybe_element_expr else {
+                    panic!();
+                };
+
+                let x_reg = self.emit_scalar_rvalue(x_expr, ctx);
+                let y_reg = self.emit_scalar_rvalue(y_expr, ctx);
+                let element_gen_type = self_addr.unwrap().ty.basic_type.element().unwrap();
+
+                let temp_element_ptr = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(element_gen_type.clone()),
+                    "temporary scalar",
+                );
+
+                self.builder.add_grid_get_entry_addr(
+                    &temp_element_ptr.register,
+                    self_addr.unwrap(),
+                    &x_reg,
+                    &y_reg,
+                    element_gen_type.total_size,
+                    node,
+                    comment,
+                );
+
+                let location = AggregateMemoryLocation {
+                    location: MemoryLocation {
+                        base_ptr_reg: temp_element_ptr.register,
+                        offset: MemoryOffset(0),
+                        ty: VmType::new_unknown_placement(element_gen_type.clone()),
+                    },
+                };
+
+                self.emit_expression_into_target_memory(
+                    &location.location,
+                    value_expr,
+                    "grid set",
+                    ctx,
+                );
+            }
+            IntrinsicFunction::GridGet => {
+                let maybe_element_expr = &arguments[0];
+                let ArgumentExpression::Expression(x_expr) = maybe_element_expr else {
+                    panic!();
+                };
+                let maybe_element_expr = &arguments[1];
+                let ArgumentExpression::Expression(y_expr) = maybe_element_expr else {
+                    panic!();
+                };
+
+                let x_reg = self.emit_scalar_rvalue(x_expr, ctx);
+                let y_reg = self.emit_scalar_rvalue(y_expr, ctx);
+                let element_type = self_addr.unwrap().ty.basic_type.element().unwrap();
+
+                let (temp_reg, target_reg) = if element_type.is_scalar() {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(element_type.clone()),
+                        "temporary scalar",
+                    );
+                    (Some(temp_reg.register.clone()), temp_reg.register.clone())
+                } else {
+                    (None, maybe_target.unwrap().clone())
+                };
+
+                self.builder.add_grid_get_entry_addr(
+                    &target_reg,
+                    self_addr.unwrap(),
+                    &x_reg,
+                    &y_reg,
+                    element_type.total_size,
+                    node,
+                    comment,
+                );
+
+                if let Some(temp_reg) = temp_reg {
+                    let source_location =
+                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(temp_reg);
+                    self.emit_load_scalar_from_memory_offset_instruction(
+                        maybe_target.unwrap(),
+                        &source_location,
+                        node,
+                        comment,
+                    );
+                }
+            }
+
             // Common Collection
             IntrinsicFunction::MapLen | IntrinsicFunction::VecLen => {
                 let collection_pointer = PointerLocation {
@@ -647,40 +742,6 @@ impl CodeBuilder<'_> {
                     node,
                     "map is empty",
                 );
-            }
-
-            // Grid
-            IntrinsicFunction::GridSet => {
-                let maybe_element_expr = &arguments[0];
-                let ArgumentExpression::Expression(x_expr) = maybe_element_expr else {
-                    panic!();
-                };
-                let maybe_element_expr = &arguments[1];
-                let ArgumentExpression::Expression(y_expr) = maybe_element_expr else {
-                    panic!();
-                };
-                let maybe_element_expr = &arguments[2];
-                let ArgumentExpression::Expression(value_expr) = maybe_element_expr else {
-                    panic!();
-                };
-
-                let x_reg = self.emit_scalar_rvalue(x_expr, ctx);
-                let y_reg = self.emit_scalar_rvalue(y_expr, ctx);
-            }
-            IntrinsicFunction::GridGet => {
-                let maybe_element_expr = &arguments[0];
-                let ArgumentExpression::Expression(x_expr) = maybe_element_expr else {
-                    panic!();
-                };
-                let maybe_element_expr = &arguments[1];
-                let ArgumentExpression::Expression(y_expr) = maybe_element_expr else {
-                    panic!();
-                };
-
-                let x_reg = self.emit_scalar_rvalue(x_expr, ctx);
-                let y_reg = self.emit_scalar_rvalue(y_expr, ctx);
-
-                //self.builder.add_grid_get_entry_addr()
             }
 
             // Sparse

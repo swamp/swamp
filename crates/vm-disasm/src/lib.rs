@@ -1138,6 +1138,18 @@ pub fn disasm(
             ]
         }
 
+        // Grid
+        OpCode::GridGetEntryAddr => {
+            let element_size = u8_pair_to_u16(operands[4], operands[5]);
+            &[
+                to_write_reg(operands[0], &b8_type(), frame_memory_info),
+                to_read_reg(operands[1], &b8_type(), frame_memory_info), // self
+                to_read_reg(operands[2], &b8_type(), frame_memory_info), // x
+                to_read_reg(operands[3], &b8_type(), frame_memory_info), // y
+                DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
+            ]
+        }
+
         // Range
         OpCode::RangeInit => &[
             to_write_reg(operands[0], &range_iter_type(), frame_memory_info),

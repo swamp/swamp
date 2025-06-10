@@ -765,7 +765,8 @@ pub struct GridHeader {
 }
 
 pub const GRID_HEADER_SIZE: MemorySize = MemorySize(size_of::<GridHeader>() as u16);
-pub const GRID_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
+pub const GRID_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+pub const GRID_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(8);
 
 // NOTE: Must align to U32, therefor the padding at the end
 #[repr(C)]

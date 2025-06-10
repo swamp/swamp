@@ -508,6 +508,8 @@ impl Vm {
             HandlerType::Args5(Self::execute_sparse_iter_next_pair);
 
         vm.handlers[OpCode::GridInit as usize] = HandlerType::Args7(Self::execute_grid_init);
+        vm.handlers[OpCode::GridGetEntryAddr as usize] =
+            HandlerType::Args6(Self::execute_grid_get_entry_addr);
 
         vm
     }

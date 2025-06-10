@@ -122,10 +122,6 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
-impl<'a> InstructionBuilder<'a> {}
-
-impl InstructionBuilder<'_> {}
-
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -237,6 +233,32 @@ impl InstructionBuilder<'_> {
                 width_octets.1,
                 height_octets.0,
                 height_octets.1,
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_grid_get_entry_addr(
+        &mut self,
+        target: &TypedRegister,
+        grid_self_addr_reg: &TypedRegister,
+        x_reg: &TypedRegister,
+        y_reg: &TypedRegister,
+        element_size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        let element_size_bytes = u16_to_u8_pair(element_size.0);
+        self.state.add_instruction(
+            OpCode::GridGetEntryAddr,
+            &[
+                target.addressing(),
+                grid_self_addr_reg.addressing(),
+                x_reg.addressing(),
+                y_reg.addressing(),
+                element_size_bytes.0,
+                element_size_bytes.1,
             ],
             node,
             comment,

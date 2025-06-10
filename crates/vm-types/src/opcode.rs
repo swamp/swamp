@@ -186,6 +186,7 @@ pub enum OpCode {
     SparseIterInit,
     SparseIsAlive,
     GridInit,
+    GridGetEntryAddr,
 }
 
 impl OpCode {
@@ -349,6 +350,7 @@ impl OpCode {
 
             // Grid
             Self::GridInit => "grid.init",
+            Self::GridGetEntryAddr => "grid.entry_addr",
 
             // String
             Self::StringAppend => "str.app",
