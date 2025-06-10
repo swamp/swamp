@@ -122,8 +122,6 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
-impl InstructionBuilder<'_> {}
-
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -211,6 +209,70 @@ impl InstructionBuilder<'_> {
             ZFlagPolarity::TrueWhenSet => self.add_jmp_if_not_equal_placeholder(node, comment),
             ZFlagPolarity::TrueWhenClear => self.add_jmp_if_equal_placeholder(node, comment),
         }
+    }
+
+    pub fn add_sparse_init(
+        &mut self,
+        target: &TypedRegister,
+        element_size: MemorySize,
+        capacity: u16,
+        node: &Node,
+        comment: &str,
+    ) {
+        let element_size_octets = Self::u16_to_octets(element_size.0);
+        let capacity_octets = Self::u16_to_octets(capacity);
+        self.state.add_instruction(
+            OpCode::SparseInit,
+            &[
+                target.addressing(),
+                element_size_octets.0,
+                element_size_octets.1,
+                capacity_octets.0,
+                capacity_octets.1,
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_sparse_add_give_entry_address(
+        &mut self,
+        target_entry_addr_reg: &TypedRegister,
+        dest_handle_reg: &TypedRegister,
+        sparse_addr_reg: &PointerLocation,
+        element_size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        let element_size_octets = Self::u16_to_octets(element_size.0);
+        self.state.add_instruction(
+            OpCode::SparseAddGiveEntryAddress,
+            &[
+                target_entry_addr_reg.addressing(),
+                dest_handle_reg.addressing(),
+                sparse_addr_reg.addressing(),
+                element_size_octets.0,
+                element_size_octets.1,
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_sparse_remove(
+        &mut self,
+        sparse_ptr_reg: &PointerLocation,
+        int_reg: TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        //        let element_size_octets = Self::u16_to_octets(element_size.0);
+        self.state.add_instruction(
+            OpCode::SparseRemove,
+            &[sparse_ptr_reg.addressing(), int_reg.addressing()],
+            node,
+            comment,
+        );
     }
 
     pub fn add_vec_swap(

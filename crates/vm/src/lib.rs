@@ -20,6 +20,7 @@ pub mod map_open;
 pub mod memory;
 pub mod prelude;
 mod range;
+mod sparse;
 mod string;
 mod vec;
 
@@ -131,6 +132,8 @@ pub enum TrapCode {
     MapEntryNotFoundAndCouldNotBeCreated,
     MapEntryNotFoundForRemoval,
     LessThanTrap,
+    SparseOutOfSpace,
+    SparseRemoveFailed,
 }
 impl TryFrom<u8> for TrapCode {
     type Error = ();
@@ -468,13 +471,7 @@ impl Vm {
         vm.handlers[OpCode::VecRemoveIndex as usize] =
             HandlerType::Args4(Self::execute_vec_remove_index);
 
-        /*
-        vm.handlers[OpCode::MapNewFromPairs as usize] =
-            HandlerType::Args2(Self::execute_map_open_addressing_from_slice);
-
-
-         */
-
+        // Map
         vm.handlers[OpCode::MapInitWithCapacityAndKeyAndTupleSizeAddr as usize] =
             HandlerType::Args8(Self::execute_map_open_addressing_init);
         vm.handlers[OpCode::MapIterInit as usize] = HandlerType::Args2(Self::execute_map_iter_init);
@@ -490,10 +487,12 @@ impl Vm {
         vm.handlers[OpCode::MapRemove as usize] =
             HandlerType::Args2(Self::execute_map_open_addressing_remove);
 
-        // Map
-        /* TODO: BRING THESE BACK
-        vm.handlers[OpCode::MapLen as usize] = HandlerType::Args2(Self::execute_map_len);
-         */
+        // Sparse
+        vm.handlers[OpCode::SparseInit as usize] = HandlerType::Args5(Self::execute_sparse_init);
+        vm.handlers[OpCode::SparseAddGiveEntryAddress as usize] =
+            HandlerType::Args5(Self::execute_sparse_add_get_entry_addr);
+        vm.handlers[OpCode::SparseRemove as usize] =
+            HandlerType::Args2(Self::execute_sparse_remove);
 
         vm
     }

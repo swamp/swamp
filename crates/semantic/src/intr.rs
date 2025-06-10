@@ -78,9 +78,6 @@ pub enum IntrinsicFunction {
     MapLen,
 
     // Grid
-    GridCreate,
-    GridFromSlice,
-    GridGetColumn,
     GridSet,
     GridGet,
 
@@ -92,6 +89,7 @@ pub enum IntrinsicFunction {
     RangeInit,
     MapCapacity,
     SparseAdd,
+    SparseRemove,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -174,14 +172,12 @@ impl fmt::Display for IntrinsicFunction {
             Self::MapIsEmpty => "map_is_empty",
 
             // Grid
-            Self::GridCreate => "grid_new",
             Self::GridSet => "grid_set",
             Self::GridGet => "grid_get",
-            Self::GridFromSlice => "grid_from_slice",
-            Self::GridGetColumn => "grid_get_column",
 
             // Sparse
             Self::SparseAdd => "sparse_add",
+            Self::SparseRemove => "sparse_remove",
 
             // Other
             Self::Float2Magnitude => "float2_magnitude",

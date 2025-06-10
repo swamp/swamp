@@ -177,6 +177,9 @@ pub enum OpCode {
 
     // Other
     HostCall, // calls back into host
+    SparseInit,
+    SparseAddGiveEntryAddress,
+    SparseRemove,
 }
 
 impl OpCode {
@@ -326,6 +329,11 @@ impl OpCode {
             Self::MapIterInit => "map.iter.init",
             Self::MapIterNext => "map.iter.next",
             Self::MapIterNextPair => "map.iter.next.pair",
+
+            // Sparse
+            Self::SparseInit => "sparse.init",
+            Self::SparseAddGiveEntryAddress => "sparse.add_entry_addr",
+            Self::SparseRemove => "sparse.remove",
 
             // String
             Self::StringAppend => "str.app",

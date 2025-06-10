@@ -6,4 +6,7 @@ fn sparse() {
     mut sparse: Sparse<Int; 10> = []
 
     id = sparse.add(1)
+    assert(sparse.len() == 1, "Length should be 1 after adding one element")
+    sparse.remove(id)
+    assert(sparse.len() == 0, "Length should be 0 after removing the element")
 }

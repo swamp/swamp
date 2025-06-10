@@ -526,6 +526,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::VecWhile => todo!(), // Low prio
             IntrinsicFunction::VecFindMap => todo!(), // Low prio
 
+            // Common Collection
             IntrinsicFunction::MapLen | IntrinsicFunction::VecLen => {
                 let collection_pointer = PointerLocation {
                     ptr_reg: self_addr.unwrap().clone(),
@@ -636,16 +637,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::MapIterMut => {
                 // Never called directly
             }
-            IntrinsicFunction::MapLen => {
-                self.emit_collection_len(
-                    &maybe_target.unwrap().clone(),
-                    &PointerLocation {
-                        ptr_reg: self_addr.unwrap().clone(),
-                    },
-                    node,
-                    "map len",
-                );
-            }
+
             IntrinsicFunction::MapIsEmpty => {
                 self.emit_collection_is_empty(
                     maybe_target.unwrap().clone(),
@@ -658,72 +650,95 @@ impl CodeBuilder<'_> {
             }
 
             // Grid
-            IntrinsicFunction::GridCreate => {
-                /*
-                self.state.builder.add_sparse_create(
-                    ctx.target(),
-                    "map_subscript_mut_create (set)",
-                );
+            IntrinsicFunction::GridSet => todo!(),
+            IntrinsicFunction::GridGet => todo!(),
 
-                 */
+            // Sparse
+            IntrinsicFunction::SparseAdd => {
+                let maybe_element_expr = &arguments[0];
+                let ArgumentExpression::Expression(element_expr) = maybe_element_expr else {
+                    panic!();
+                };
+                self.emit_sparse_add(
+                    &maybe_target.unwrap().clone(),
+                    &PointerLocation {
+                        ptr_reg: self_addr.unwrap().clone(),
+                    },
+                    element_expr,
+                    node,
+                    ctx,
+                )
             }
 
-            IntrinsicFunction::GridSet => {
-                /*
-                let MutRefOrImmutableExpression::Expression(x_argument) = &arguments[0] else {
-                    panic!("must be expression for key");
+            IntrinsicFunction::SparseRemove => {
+                let maybe_element_expr = &arguments[0];
+                let ArgumentExpression::Expression(element_expr) = maybe_element_expr else {
+                    panic!();
                 };
-                let x_region = self.emit_expression_for_access(x_argument)?;
-                let MutRefOrImmutableExpression::Expression(y_argument) = &arguments[1] else {
-                    panic!("must be expression for key");
-                };
-                let y_region = self.emit_expression_for_access(y_argument)?;
-
-                let MutRefOrImmutableExpression::Expression(value) = &arguments[2] else {
-                    panic!("must be expression for key");
-                };
-                let value_region = self.emit_expression_for_access(value)?;
-
-                self.state.builder.add_grid_set(
-                    ctx.target(),
-                    &self_addr.unwrap(),
-                    x_region.addr(),
-                    y_region.addr(),
-                    value_region.addr(),
-                    "grid_get",
-                );
-
-                 */
+                self.emit_sparse_remove(
+                    &PointerLocation {
+                        ptr_reg: self_addr.unwrap().clone(),
+                    },
+                    element_expr,
+                    node,
+                    ctx,
+                )
             }
-            IntrinsicFunction::GridGet => {
-                /*
-                let MutRefOrImmutableExpression::Expression(x_argument) = &arguments[0] else {
-                    panic!("must be expression for key");
-                };
-                let x_region = self.emit_expression_for_access(x_argument)?;
-                let MutRefOrImmutableExpression::Expression(y_argument) = &arguments[1] else {
-                    panic!("must be expression for key");
-                };
-                let y_region = self.emit_expression_for_access(y_argument)?;
-                self.state.builder.add_grid_get(
-                    ctx.target(),
-                    &self_addr.unwrap(),
-                    x_region.addr(),
-                    y_region.addr(),
-                    "grid_get",
-                );
-
-                 */
-            }
-
-            IntrinsicFunction::GridGetColumn => {}
-            IntrinsicFunction::GridFromSlice => {}
-
-            IntrinsicFunction::SparseAdd => {}
 
             // Other
-            IntrinsicFunction::Float2Magnitude => {}
+            IntrinsicFunction::Float2Magnitude => todo!(),
         }
+    }
+
+    fn emit_sparse_add(
+        &mut self,
+        target: &TypedRegister,
+        self_addr: &PointerLocation,
+        element_expr: &Expression,
+        node: &Node,
+        ctx: &Context,
+    ) {
+        let element_gen_type = layout_type(&element_expr.ty);
+
+        let temp_element_ptr = self.temp_registers.allocate(
+            VmType::new_contained_in_register(pointer_type()),
+            "pointer to new element",
+        );
+
+        self.builder.add_sparse_add_give_entry_address(
+            temp_element_ptr.register(),
+            target, // Should be the Int target
+            self_addr,
+            element_gen_type.total_size,
+            node,
+            "add space and get pointer to new element",
+        );
+
+        let location = AggregateMemoryLocation {
+            location: MemoryLocation {
+                base_ptr_reg: temp_element_ptr.register,
+                offset: MemoryOffset(0),
+                ty: VmType::new_unknown_placement(element_gen_type),
+            },
+        };
+
+        self.emit_expression_into_target_memory(
+            &location.location,
+            element_expr,
+            "sparse add, put expression into entry memory location",
+            ctx,
+        );
+    }
+
+    fn emit_sparse_remove(
+        &mut self,
+        self_addr: &PointerLocation,
+        element_expr: &Expression,
+        node: &Node,
+        ctx: &Context,
+    ) {
+        let int_reg = self.emit_scalar_rvalue(element_expr, ctx);
+        self.builder.add_sparse_remove(self_addr, int_reg, node, "");
     }
 
     fn emit_intrinsic_map_remove(

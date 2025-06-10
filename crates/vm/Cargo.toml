@@ -17,5 +17,7 @@ squirrel-prng = "0.0.1"
 tinter = "0.1.0"
 fxhash = "0.2.1"
 
+sparse-mem = { path = "../sparse-mem", version = "0.1.16" }
+
 [features]
 debug_vm = []  # Enable VM debug output

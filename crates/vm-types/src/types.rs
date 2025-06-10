@@ -1384,6 +1384,9 @@ impl BasicType {
             BasicTypeKind::QueueStorage(_element_type, capacity) => {
                 Some(MemorySize(*capacity as u16))
             }
+            BasicTypeKind::SparseStorage(_element_type, capacity) => {
+                Some(MemorySize(*capacity as u16))
+            }
             BasicTypeKind::MapStorage {
                 element_type: _,
                 tuple_type: _,

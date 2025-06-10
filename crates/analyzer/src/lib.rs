@@ -3203,6 +3203,21 @@ impl<'a> Analyzer<'a> {
                     return_type: Box::new(Type::Int),
                 },
             ),
+            "remove" => (
+                IntrinsicFunction::SparseRemove,
+                Signature {
+                    parameters: vec![
+                        self_mutable_type_param,
+                        TypeForParameter {
+                            name: "element".to_string(),
+                            resolved_type: element_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: Box::new(Type::Unit),
+                },
+            ),
             _ => { self.slice_member_signature(self_type, element_type, field_name_str, node) }?,
         };
         Ok(intrinsic_and_signature)
