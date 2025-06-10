@@ -15,6 +15,40 @@ fn add_remove() {
     assert(grid[4, 8] == -101, "should be -101 after setting")
 }
 
+struct Thing {
+    x: Int,
+    y: Int,
+}
+
+
+fn thing_setter(mut thing: Thing) {
+    thing.x = 1024
+    thing.y = 2048
+}
+
+#[test]
+fn aggregate_type() {
+    mut grid: Grid<Thing; (10,10)> = []
+
+    x = grid[2, 4]
+    assert(x == Thing { x: 0, y: 0 }, "should be 0 at start")
+
+    grid[1, 0] = Thing { x: 42, y: 0 }
+
+    thing_setter(&grid[1, 1])
+    assert(grid[1, 1].x == 1024, "should be 1024 after setting")
+    assert(grid[1, 1].y == 2048, "should be 2048 after setting")
+    assert(grid[1, 1] == Thing { x: 1024, y: 2048 }, "should be 1024, 2048 after setting")
+
+    assert(grid[1, 0] == Thing { x: 42, y: 0 }, "should be 42 after setting")
+    assert(grid[1, 0].x == 42, "should be 42 after setting")
+
+    grid[4, 8] = Thing { x: -101, y: 0 }
+    assert(grid[4, 8] == Thing { x: -101, y: 0 }, "should be -101 after setting")
+}
+
+
+
 fn grid_setter(mut grid: Grid<Int>) {
     grid[1, 1] = 1024
 }
@@ -34,8 +68,7 @@ fn call_mut_func() {
     grid_setter(&grid)
     assert(grid[1, 1] == 1024, "should be 1024 after setting")
 
-    // BUG: not working yet // element_setter(&grid[1,1])
-    // BUG: not working yet // assert(grid[1, 1] == -32, "should still be -32 after element setter")
+    // BUG: not working yet for scalar types // element_setter(&grid[1,1])
 
     grid[2, 3] = -101
     assert(grid[2, 3] == -101, "should be -101 after setting")
