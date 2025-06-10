@@ -122,7 +122,7 @@ pub struct InstructionBuilder<'a> {
     temp_reg: u8,
 }
 
-impl<'a> InstructionBuilder<'a> {}
+impl InstructionBuilder<'_> {}
 
 impl<'a> InstructionBuilder<'a> {
     #[must_use]

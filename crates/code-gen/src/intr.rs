@@ -667,7 +667,7 @@ impl CodeBuilder<'_> {
                     element_expr,
                     node,
                     ctx,
-                )
+                );
             }
 
             IntrinsicFunction::SparseRemove => {
@@ -682,7 +682,7 @@ impl CodeBuilder<'_> {
                     element_expr,
                     node,
                     ctx,
-                )
+                );
             }
 
             // Other

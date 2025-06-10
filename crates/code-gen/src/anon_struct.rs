@@ -121,17 +121,14 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) {
         if let Some(capacity) = lvalue_location.ty.underlying().get_collection_capacity() {
-            match lvalue_location.ty.underlying().kind {
-                BasicTypeKind::SparseStorage(element_type, capacity) => {
-                    self.builder.add_sparse_init(
-                        &lvalue_location.pointer_location().unwrap().ptr_reg,
-                        element_type.total_size,
-                        capacity as u16,
-                        node,
-                        comment,
-                    );
-                }
-                _ => {}
+            if let BasicTypeKind::SparseStorage(element_type, capacity) = lvalue_location.ty.underlying().kind {
+                self.builder.add_sparse_init(
+                    &lvalue_location.pointer_location().unwrap().ptr_reg,
+                    element_type.total_size,
+                    capacity as u16,
+                    node,
+                    comment,
+                );
             }
 
             let hwm = self.temp_registers.save_mark();

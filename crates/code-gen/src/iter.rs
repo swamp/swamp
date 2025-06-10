@@ -315,7 +315,7 @@ impl CodeBuilder<'_> {
                 if let Some(temp_regs) = temp_registers {
                     let source_memory_location =
                         MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                            temp_regs.clone(),
+                            temp_regs,
                         );
                     self.emit_load_value_from_memory_source(
                         primary_register,
@@ -357,7 +357,7 @@ impl CodeBuilder<'_> {
                 }
 
                 self.builder.add_vec_iter_init(
-                    &target_iterator_header_reg,
+                    target_iterator_header_reg,
                     collection_self_addr,
                     maybe_element_type.unwrap().total_size,
                     node,
@@ -366,10 +366,12 @@ impl CodeBuilder<'_> {
 
                 let is_pair = target_variables.len() == 2;
 
-                let placeholder = if is_pair {
+                
+
+                if is_pair {
                     // For non-primitives, use target directly
                     self.builder.add_vec_iter_next_pair_placeholder(
-                        &target_iterator_header_reg,
+                        target_iterator_header_reg,
                         &target_variables[0],
                         &target_variables[1],
                         node,
@@ -378,18 +380,16 @@ impl CodeBuilder<'_> {
                 } else {
                     // For non-primitives, use target directly
                     self.builder.add_vec_iter_next_placeholder(
-                        &target_iterator_header_reg,
+                        target_iterator_header_reg,
                         primary_register,
                         node,
                         "vec iter next single",
                     )
-                };
-
-                placeholder
+                }
             }
             Collection::Sparse => {
                 self.builder.add_sparse_iter_init(
-                    &target_iterator_header_reg,
+                    target_iterator_header_reg,
                     collection_self_addr,
                     node,
                     "sparse init",
@@ -397,7 +397,7 @@ impl CodeBuilder<'_> {
 
                 if is_pair {
                     self.builder.add_sparse_iter_next_pair_placeholder(
-                        &target_iterator_header_reg,
+                        target_iterator_header_reg,
                         &target_variables[0],
                         &target_variables[1],
                         node,
@@ -405,8 +405,8 @@ impl CodeBuilder<'_> {
                     )
                 } else {
                     self.builder.add_sparse_iter_next_placeholder(
-                        &target_iterator_header_reg,
-                        &primary_register,
+                        target_iterator_header_reg,
+                        primary_register,
                         node,
                         "sparse next_single",
                     )
@@ -415,7 +415,7 @@ impl CodeBuilder<'_> {
 
             Collection::Map => {
                 self.builder.add_map_iter_init(
-                    &target_iterator_header_reg,
+                    target_iterator_header_reg,
                     collection_self_addr,
                     node,
                     "map init",
@@ -423,7 +423,7 @@ impl CodeBuilder<'_> {
 
                 if target_variables.len() == 2 {
                     self.builder.add_map_iter_next_pair_placeholder(
-                        &target_iterator_header_reg,
+                        target_iterator_header_reg,
                         &target_variables[0],
                         &target_variables[1],
                         node,
@@ -431,7 +431,7 @@ impl CodeBuilder<'_> {
                     )
                 } else {
                     self.builder.add_map_iter_next_placeholder(
-                        &target_iterator_header_reg,
+                        target_iterator_header_reg,
                         &target_variables[0],
                         node,
                         "map next_single",
