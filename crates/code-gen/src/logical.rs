@@ -105,7 +105,7 @@ impl CodeBuilder<'_> {
                     "load option tag",
                 );
 
-                self.builder.add_snez(
+                self.builder.add_mov_reg(
                     dest_bool_reg,
                     tag_reg.register(),
                     &option_union_expr.node,

@@ -2096,21 +2096,6 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_snez(
-        &mut self,
-        dest_bool_reg: &TypedRegister,
-        v: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        self.state.add_instruction(
-            OpCode::MovNotZero,
-            &[dest_bool_reg.addressing(), v.addressing()],
-            node,
-            comment,
-        );
-    }
-
     pub fn add_seqz(
         &mut self,
         dest_bool_reg: &TypedRegister,

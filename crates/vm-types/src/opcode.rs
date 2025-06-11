@@ -181,7 +181,6 @@ pub enum OpCode {
     SparseIsAlive,
     GridInit,
     GridGetEntryAddr,
-    MovNotZero,
 }
 
 impl OpCode {
@@ -229,7 +228,6 @@ impl OpCode {
 
             // Store Predicate Flag
             Self::MovEqualToZero => "seqz",
-            Self::MovNotZero => "snez",
 
             // Branches
             Self::BFalse => "b.false",

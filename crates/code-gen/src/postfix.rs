@@ -240,12 +240,15 @@ impl CodeBuilder<'_> {
                             "load optional tag",
                         );
 
-                        self.builder.add_snez(
+                        /*
+                        self.builder.add_mov_reg(
                             temp_reg.register(),
                             temp_reg.register(),
                             &element.node,
                             "test tag - sets 0 if None(0), 1 if Some(1)",
                         );
+
+                         */
 
                         // If P=1 (Some), skip fallback
                         let skip_fallback_patch = self.builder.add_jmp_if_true_placeholder(

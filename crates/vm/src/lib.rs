@@ -351,14 +351,9 @@ impl Vm {
         vm.handlers[OpCode::TrapOnLessThan as usize] =
             HandlerType::Args2(Self::execute_trap_on_less_than);
 
-        vm.handlers[OpCode::MovEqualToZero as usize] =
-            HandlerType::Args2(Self::execute_move_equal_to_zero);
-        vm.handlers[OpCode::MovNotZero as usize] =
-            HandlerType::Args2(Self::execute_mov_not_equal_to_zero);
-
         // Logical Operations
         vm.handlers[OpCode::MovEqualToZero as usize] =
-            HandlerType::Args1(Self::execute_boolean_not);
+            HandlerType::Args2(Self::execute_move_equal_to_zero);
 
         // Conditional jumps
         vm.handlers[OpCode::BFalse as usize] = HandlerType::Args3(Self::execute_branch_if_false);
@@ -1203,11 +1198,6 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_mov_not_equal_to_zero(&mut self, dst_reg: u8, src_reg: u8) {
-        set_reg!(self, dst_reg, get_reg!(self, src_reg) != 0);
-    }
-
-    #[inline]
     const fn execute_branch_if_false(
         &mut self,
         test_reg: u8,
@@ -1237,11 +1227,6 @@ impl Vm {
     fn execute_b(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
         self.pc =
             (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
-    }
-
-    #[inline]
-    const fn execute_boolean_not(&mut self, dst_reg: u8) {
-        set_reg!(self, dst_reg, get_reg!(self, dst_reg) == 0);
     }
 
     #[inline]

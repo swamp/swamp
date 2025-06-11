@@ -904,11 +904,6 @@ pub fn disasm(
             to_read_reg(operands[1], &u32_type(), frame_memory_info),
         ],
 
-        OpCode::MovNotZero => &[
-            to_write_reg(operands[0], &b8_type(), frame_memory_info),
-            to_read_reg(operands[1], &u32_type(), frame_memory_info),
-        ],
-
         OpCode::MovEqualToZero => &[
             to_write_reg(operands[0], &b8_type(), frame_memory_info),
             to_read_reg(operands[1], &u32_type(), frame_memory_info),

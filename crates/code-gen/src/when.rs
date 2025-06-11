@@ -51,13 +51,16 @@ impl CodeBuilder<'_> {
                 }
             }
 
-            self.builder.add_snez(
+            /*
+            self.builder.add_mov_reg(
                 tag_reg.register(),
                 tag_reg.register(),
                 binding.expr.node(),
                 "check tag value",
             );
 
+
+             */
             self.temp_registers.restore_to_mark(hwm);
 
             let patch = self.builder.add_jmp_if_not_equal_placeholder(
