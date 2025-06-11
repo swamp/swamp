@@ -6,7 +6,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
-use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
+use swamp_semantic::{Expression, VariableRef};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type, u32_type,
 };
@@ -90,7 +90,7 @@ impl CodeBuilder<'_> {
             );
 
         // 3. Inline the lambda code for the current element(s).
-        let lambda_result = self.emit_scalar_rvalue(&lambda_expr, ctx);
+        let lambda_result = self.emit_scalar_rvalue(lambda_expr, ctx);
 
         // 4. If the transformer supports early exit, set the P flag based on the lambda result.
         let transformer_t_flag_state =

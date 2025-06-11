@@ -253,7 +253,7 @@ impl CodeBuilder<'_> {
                     location: MemoryLocation {
                         base_ptr_reg: temp_element_ptr.register,
                         offset: MemoryOffset(0),
-                        ty: VmType::new_unknown_placement(element_gen_type.clone()),
+                        ty: VmType::new_unknown_placement(element_gen_type),
                     },
                 };
 
@@ -463,7 +463,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::IntToString => {
                 self.builder
-                    .add_int_to_string(target_reg, first_argument, node, "int_to_string")
+                    .add_int_to_string(target_reg, first_argument, node, "int_to_string");
             }
             _ => {}
         }
@@ -481,11 +481,11 @@ impl CodeBuilder<'_> {
         match intrinsic_fn {
             IntrinsicFunction::FloatRound => {
                 self.builder
-                    .add_float_round(target_reg, first_argument_reg, node, "float round")
+                    .add_float_round(target_reg, first_argument_reg, node, "float round");
             }
             IntrinsicFunction::FloatFloor => {
                 self.builder
-                    .add_float_floor(target_reg, first_argument_reg, node, "float floor")
+                    .add_float_floor(target_reg, first_argument_reg, node, "float floor");
             }
             IntrinsicFunction::FloatSqrt => {
                 self.builder
@@ -517,22 +517,22 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::FloatAcos => {
                 self.builder
-                    .add_float_acos(target_reg, first_argument_reg, node, "float acos")
+                    .add_float_acos(target_reg, first_argument_reg, node, "float acos");
             }
             IntrinsicFunction::FloatAsin => {
                 self.builder
-                    .add_float_asin(target_reg, first_argument_reg, node, "float asin")
+                    .add_float_asin(target_reg, first_argument_reg, node, "float asin");
             }
             IntrinsicFunction::FloatAtan2 => {
                 self.builder
-                    .add_float_atan2(target_reg, first_argument_reg, node, "float atan2")
+                    .add_float_atan2(target_reg, first_argument_reg, node, "float atan2");
             }
             IntrinsicFunction::FloatMin => {
                 let float_region = &arguments[1];
                 self.builder.add_float_min(
                     target_reg,
                     first_argument_reg,
-                    &float_region,
+                    float_region,
                     node,
                     "float min",
                 );
@@ -542,7 +542,7 @@ impl CodeBuilder<'_> {
                 self.builder.add_float_max(
                     target_reg,
                     first_argument_reg,
-                    &float_region,
+                    float_region,
                     node,
                     "float max",
                 );
@@ -553,9 +553,9 @@ impl CodeBuilder<'_> {
 
                 self.builder.add_float_clamp(
                     target_reg,
-                    &float_region,
+                    float_region,
                     first_argument_reg,
-                    &float_b_region,
+                    float_b_region,
                     node,
                     "float round",
                 );
@@ -636,7 +636,7 @@ impl CodeBuilder<'_> {
         let maybe_target = target_destination.register();
         let self_addr: Option<&TypedRegister> = self_addr_l_or_rvalue.and_then(|s| s.rvalue());
 
-        let mut t_flag_result = FlagState::default();
+        let t_flag_result = FlagState::default();
         match intrinsic_fn {
             IntrinsicFunction::Float2Magnitude
             | IntrinsicFunction::FloatAbs
@@ -663,7 +663,7 @@ impl CodeBuilder<'_> {
                         "temporary destination for low level intrinsic",
                     );
 
-                    (Some(temp_reg.register.clone()), temp_reg.register.clone())
+                    (Some(temp_reg.register.clone()), temp_reg.register)
                 };
 
                 let converted: Vec<_> = arguments
@@ -711,7 +711,7 @@ impl CodeBuilder<'_> {
                         "temporary destination for low level intrinsic",
                     );
 
-                    (Some(temp_reg.register.clone()), temp_reg.register.clone())
+                    (Some(temp_reg.register.clone()), temp_reg.register)
                 };
 
                 let converted: Vec<_> = arguments

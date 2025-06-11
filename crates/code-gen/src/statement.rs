@@ -8,7 +8,7 @@ use crate::ctx::Context;
 use crate::{Collection, Transformer};
 use source_map_node::Node;
 use swamp_semantic::{
-    ArgumentExpression, BooleanExpression, Expression, ExpressionKind, ForPattern, Iterable,
+    BooleanExpression, Expression, ForPattern, Iterable,
 };
 use swamp_types::Type;
 use swamp_vm_types::types::{Destination, TypedRegister};
