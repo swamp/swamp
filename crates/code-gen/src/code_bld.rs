@@ -113,8 +113,13 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        self.builder
-            .add_ld_regs_from_frame(start_reg.index, start_address, count, node, comment);
+        self.builder.add_ld_contiguous_regs_from_frame(
+            start_reg.index,
+            start_address,
+            count,
+            node,
+            comment,
+        );
     }
 
     pub fn total_aligned_frame_size(&self) -> FrameMemorySize {

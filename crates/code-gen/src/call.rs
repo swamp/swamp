@@ -144,7 +144,7 @@ impl CodeBuilder<'_> {
             ABI_ARGUMENT_RETURN_AND_ARGUMENT_REGISTERS as u8,
             &format!("emit abi arguments r0-r5 {comment}"),
         );
-        self.builder.add_st_regs_using_mask_to_frame(
+        self.builder.add_st_masked_regs_to_frame(
             abi_parameter_frame_memory_region.addr,
             ABI_ARGUMENT_MASK,
             node,
@@ -170,7 +170,7 @@ impl CodeBuilder<'_> {
                 frame_memory_region: temp_register_frame_memory_region,
             };
 
-            self.builder.add_st_regs_to_frame_using_range(
+            self.builder.add_st_contiguous_regs_to_frame(
                 temp_register_frame_memory_region,
                 first_temp_register_index,
                 temp_register_probable_live_count,
@@ -469,6 +469,12 @@ impl CodeBuilder<'_> {
         );
     }
 
+    #[allow(clippy::too_many_lines)]
+    // TODO:@investigate:
+    // Instead of filtering out individual registers that should not be restored
+    // It seems to be better to make those decision and store the proper regions in the first place
+    // Not sure what is the fastest approach. Maybe there is a slight advantage to spilling "too much"
+    // as it is written now. Since you have unbroken ranges in the spilling, it takes less instructions.
     pub fn emit_restore_region(
         &mut self,
         region: SpilledRegisterRegion,
@@ -478,15 +484,58 @@ impl CodeBuilder<'_> {
     ) {
         match region.registers {
             RepresentationOfRegisters::Individual(spilled_registers_list) => {
-                for typed_reg_to_restore in spilled_registers_list {
-                    if !output_destination_registers.contains(&typed_reg_to_restore.index) {
-                        self.builder.add_ld_regs_from_frame(
-                            typed_reg_to_restore.index,
-                            region.frame_memory_region,
-                            1, // Count is 1 for individual register
-                            node,
-                            &format!("restoring r{} {comment}", typed_reg_to_restore.index),
-                        );
+                if !spilled_registers_list.is_empty() {
+                    let mut sorted_regs = spilled_registers_list;
+                    sorted_regs.sort_by_key(|reg| reg.index);
+
+                    // Filter out registers that are in output_destination_registers
+                    let filtered_regs: Vec<_> = sorted_regs
+                        .into_iter()
+                        .filter(|reg| !output_destination_registers.contains(&reg.index))
+                        .collect();
+
+                    if !filtered_regs.is_empty() {
+                        let mut i = 0;
+                        while i < filtered_regs.len() {
+                            let seq_start_idx = i;
+                            let start_reg = filtered_regs[i].index;
+                            let mut seq_length = 1;
+
+                            while i + 1 < filtered_regs.len()
+                                && filtered_regs[i + 1].index == filtered_regs[i].index + 1
+                            {
+                                seq_length += 1;
+                                i += 1;
+                            }
+
+                            let memory_offset = if seq_start_idx > 0 {
+                                (filtered_regs[seq_start_idx].index - filtered_regs[0].index)
+                                    as usize
+                                    * REG_ON_FRAME_SIZE.0 as usize
+                            } else {
+                                0
+                            };
+
+                            let specific_mem_location = FrameMemoryRegion {
+                                addr: region.frame_memory_region.addr
+                                    + swamp_vm_types::MemoryOffset(memory_offset as u16),
+                                size: REG_ON_FRAME_SIZE,
+                            };
+
+                            self.builder.add_ld_contiguous_regs_from_frame(
+                                start_reg,
+                                specific_mem_location,
+                                seq_length,
+                                node,
+                                &format!(
+                                    "restoring r{}-r{} (sequence) {comment}",
+                                    start_reg,
+                                    start_reg + seq_length - 1
+                                ),
+                            );
+
+                            i += 1;
+                        }
                     }
                 }
             }
@@ -504,7 +553,7 @@ impl CodeBuilder<'_> {
                 }
 
                 if mask_to_actually_restore != 0 {
-                    self.builder.add_ld_regs_from_frame_using_mask(
+                    self.builder.add_ld_masked_regs_from_frame(
                         mask_to_actually_restore,
                         region.frame_memory_region,
                         node,
@@ -515,29 +564,43 @@ impl CodeBuilder<'_> {
             RepresentationOfRegisters::Range { start_reg, count } => {
                 let base_mem_addr_of_spilled_range = region.frame_memory_region.addr;
 
-                for i in 0..count {
-                    // For each register in the original spilled range
-                    let current_reg_idx_to_check = start_reg + i;
+                // Find contiguous sequences of registers that need to be restored
+                let mut i = 0;
+                while i < count {
+                    while i < count && output_destination_registers.contains(&(start_reg + i)) {
+                        i += 1;
+                    }
 
-                    if !output_destination_registers.contains(&current_reg_idx_to_check) {
-                        let memory_offset_for_this_reg =
-                            (i as usize) * REG_ON_FRAME_SIZE.0 as usize;
+                    if i < count {
+                        let seq_start_reg = start_reg + i;
+                        let seq_start_offset = (i as usize) * REG_ON_FRAME_SIZE.0 as usize;
+                        let mut seq_length = 1;
 
-                        let specific_mem_location_for_this_reg = FrameMemoryRegion {
+                        while i + seq_length < count
+                            && !output_destination_registers.contains(&(start_reg + i + seq_length))
+                        {
+                            seq_length += 1;
+                        }
+
+                        let specific_mem_location = FrameMemoryRegion {
                             addr: base_mem_addr_of_spilled_range
-                                + swamp_vm_types::MemoryOffset(memory_offset_for_this_reg as u16), // Adjust if addr is not simple offset
+                                + swamp_vm_types::MemoryOffset(seq_start_offset as u16),
                             size: REG_ON_FRAME_SIZE,
                         };
 
-                        self.builder.add_ld_regs_from_frame(
-                            current_reg_idx_to_check,
-                            specific_mem_location_for_this_reg,
-                            1,
+                        self.builder.add_ld_contiguous_regs_from_frame(
+                            seq_start_reg,
+                            specific_mem_location,
+                            seq_length,
                             node,
                             &format!(
-                                "restoring r{current_reg_idx_to_check} (from range) {comment}"
+                                "restoring r{}-r{} (continuous range) {comment}",
+                                seq_start_reg,
+                                seq_start_reg + seq_length - 1
                             ),
                         );
+
+                        i += seq_length;
                     }
                 }
             }

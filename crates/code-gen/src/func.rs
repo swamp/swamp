@@ -187,7 +187,7 @@ impl TopLevelGenState {
                 }
             }
 
-            code_builder.builder.add_st_regs_using_mask_to_frame(
+            code_builder.builder.add_st_masked_regs_to_frame(
                 abi_parameter_frame_memory_region.addr,
                 mask,
                 node,
@@ -199,7 +199,7 @@ impl TopLevelGenState {
                 frame_memory_region: abi_parameter_frame_memory_region,
             })
         } else {
-            code_builder.builder.add_st_regs_to_frame_using_range(
+            code_builder.builder.add_st_contiguous_regs_to_frame(
                 abi_parameter_frame_memory_region,
                 0,
                 count,

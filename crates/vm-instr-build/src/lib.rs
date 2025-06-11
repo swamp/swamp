@@ -737,7 +737,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_ld_regs_from_frame(
+    pub fn add_ld_contiguous_regs_from_frame(
         &mut self,
         target_reg: u8,
         stored_in_frame: FrameMemoryRegion,
@@ -754,7 +754,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_ld_regs_from_frame_using_mask(
+    pub fn add_ld_masked_regs_from_frame(
         &mut self,
         register_mask: u8,
         stored_in_frame: FrameMemoryRegion,
@@ -770,7 +770,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_st_regs_to_frame_using_range(
+    pub fn add_st_contiguous_regs_to_frame(
         &mut self,
         frame_mem: FrameMemoryRegion,
         source_reg: u8,
@@ -787,7 +787,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_st_regs_using_mask_to_frame(
+    pub fn add_st_masked_regs_to_frame(
         &mut self,
         start_frame_mem: FrameMemoryAddress,
         source_reg_mask: u8,
