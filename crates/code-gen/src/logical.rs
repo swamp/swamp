@@ -17,7 +17,7 @@ use swamp_vm_types::PatchPosition;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType, b8_type};
 
 impl CodeBuilder<'_> {
-    pub(crate) fn materialize_t_flag_to_bool_if_needed(
+    pub(crate) fn force_normalized_bool_reg_if_needed(
         &mut self,
         target: &TypedRegister,
         t_flag_state: FlagState,
@@ -32,8 +32,8 @@ impl CodeBuilder<'_> {
                 //   .add_stz(target, node, "materialize positive P flag");
             }
             FlagStateKind::TFlagIsTrueWhenClear => {
-                //self.builder
-                //  .add_stnz(target, node, "materialize inverse P flag");
+                self.builder
+                    .add_seqz(target, target, node, "materialize inverse boolean");
             }
         }
     }
@@ -128,7 +128,7 @@ impl CodeBuilder<'_> {
                     let left = self.emit_scalar_rvalue(&operator.left, ctx);
                     let right = self.emit_scalar_rvalue(&operator.right, ctx);
                     let is_equal_polarity = matches!(operator.kind, BinaryOperatorKind::Equal);
-                    return self.emit_binary_operator_equal_to_t_flag_only(
+                    return self.emit_binary_operator_equality_to_bool(
                         dest_bool_reg,
                         &left,
                         is_equal_polarity,

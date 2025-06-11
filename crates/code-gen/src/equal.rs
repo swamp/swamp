@@ -13,7 +13,7 @@ use source_map_node::Node;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 
 impl CodeBuilder<'_> {
-    pub fn emit_binary_operator_equal_to_t_flag_only(
+    pub fn emit_binary_operator_equality_to_bool(
         &mut self,
         dest_bool_reg: &TypedRegister,
         left_source: &TypedRegister,
@@ -63,7 +63,7 @@ impl CodeBuilder<'_> {
             left_source,
             right_source,
             node,
-            "compare reg and set result to P flag",
+            "compare reg and set result to bool reg",
         );
 
         FlagState {

@@ -684,6 +684,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_eq_u8_immediate(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         source_addr: &TypedRegister,
         immediate: u8,
         node: &Node,
@@ -692,7 +693,11 @@ impl InstructionBuilder<'_> {
         // TODO: BRING THIS BACK // assert!(source_addr.size().0 >= 1);
         self.state.add_instruction(
             OpCode::Eq8Imm,
-            &[source_addr.addressing(), immediate],
+            &[
+                dest_bool_reg.addressing(),
+                source_addr.addressing(),
+                immediate,
+            ],
             node,
             comment,
         );
@@ -1080,9 +1085,14 @@ impl InstructionBuilder<'_> {
         let delta_bytes = raw.to_le_bytes();
 
         match instruction.opcode {
-            JMP_IF_NOT | JMP_IF | JMP => {
+            JMP_IF_NOT | JMP_IF => {
                 instruction.operands[1] = delta_bytes[0];
                 instruction.operands[2] = delta_bytes[1];
+            }
+
+            JMP => {
+                instruction.operands[0] = delta_bytes[0];
+                instruction.operands[1] = delta_bytes[1];
             }
 
             SPARSE_ITER_NEXT | VEC_ITER_NEXT | MAP_ITER_NEXT | RANGE_ITER_NEXT => {
@@ -1279,7 +1289,7 @@ impl InstructionBuilder<'_> {
     ) {
         self.state.add_instruction(
             OpCode::StringCmp,
-            &[a.addressing(), b.addressing()],
+            &[dest_bool_reg.addressing(), a.addressing(), b.addressing()],
             node,
             comment,
         );
@@ -2154,6 +2164,7 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::CmpBlock,
             &[
+                dest_bool_reg.addressing(),
                 first_ptr.addressing(),
                 second_ptr.addressing(),
                 bytes.0,

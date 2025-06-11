@@ -795,25 +795,28 @@ pub fn disasm(
         ],
 
         OpCode::Eq8Imm => {
-            let data = operands[1];
+            let data = operands[2];
 
             &[
-                to_read_reg(operands[0], &u8_type(), frame_memory_info),
+                to_write_reg(operands[0], &b8_type(), frame_memory_info),
+                to_read_reg(operands[1], &u8_type(), frame_memory_info),
                 DecoratedOperandAccessKind::ImmediateU8(data),
             ]
         }
 
         OpCode::CmpReg => &[
-            to_read_reg(operands[0], &u32_type(), frame_memory_info),
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
             to_read_reg(operands[1], &u32_type(), frame_memory_info),
+            to_read_reg(operands[2], &u32_type(), frame_memory_info),
         ],
 
         OpCode::CmpBlock => &[
-            to_read_reg(operands[0], &u32_type(), frame_memory_info),
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
             to_read_reg(operands[1], &u32_type(), frame_memory_info),
+            to_read_reg(operands[2], &u32_type(), frame_memory_info),
             DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
-                operands[2],
                 operands[3],
+                operands[4],
             ))),
         ],
 

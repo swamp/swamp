@@ -24,7 +24,7 @@ impl CodeBuilder<'_> {
             BinaryOperatorKind::LogicalOr | BinaryOperatorKind::LogicalAnd => {
                 let t_flag_result =
                     self.emit_binary_operator_logical_to_boolean(target_reg, binary_operator, ctx);
-                self.materialize_t_flag_to_bool_if_needed(
+                self.force_normalized_bool_reg_if_needed(
                     target_reg,
                     t_flag_result,
                     &binary_operator.node,
@@ -48,7 +48,7 @@ impl CodeBuilder<'_> {
         match &binary_operator.kind {
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
                 let is_equal_polarity = matches!(binary_operator.kind, BinaryOperatorKind::Equal);
-                let t_flag = self.emit_binary_operator_equal_to_t_flag_only(
+                let t_flag = self.emit_binary_operator_equality_to_bool(
                     dest_bool_reg,
                     &left_source,
                     is_equal_polarity,
@@ -56,7 +56,7 @@ impl CodeBuilder<'_> {
                     &binary_operator.node,
                     ctx,
                 );
-                self.materialize_t_flag_to_bool_if_needed(
+                self.force_normalized_bool_reg_if_needed(
                     dest_bool_reg,
                     t_flag,
                     &binary_operator.node,
@@ -72,7 +72,7 @@ impl CodeBuilder<'_> {
                     binary_operator,
                     &right_source,
                 );
-                self.materialize_t_flag_to_bool_if_needed(
+                self.force_normalized_bool_reg_if_needed(
                     dest_bool_reg,
                     t_flag,
                     &binary_operator.node,

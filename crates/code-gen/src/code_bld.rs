@@ -156,6 +156,7 @@ impl CodeBuilder<'_> {
             UnaryOperatorKind::Not => match &unary_operator.left.ty.underlying() {
                 Type::Bool => {
                     let t_flag = self.emit_unary_operator_logical(target_reg, unary_operator, ctx);
+                    self.force_normalized_bool_reg_if_needed(target_reg, t_flag, node);
                 }
                 _ => panic!("unknown not op"),
             },

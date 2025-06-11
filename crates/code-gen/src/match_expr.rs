@@ -6,7 +6,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Match, NormalPattern, Pattern, PatternElement};
-use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, u8_type};
+use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, b8_type, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 use tracing::info;
 
@@ -33,6 +33,11 @@ impl CodeBuilder<'_> {
             "temp reg for enum tag",
         ); // TODO: support different tag sizes
 
+        let condition_reg = self.temp_registers.allocate(
+            VmType::new_contained_in_register(b8_type()),
+            "comparison reg",
+        );
+
         self.builder.add_ld8_from_pointer_with_offset_u16(
             enum_tag_temp_reg.register(),
             &enum_ptr_reg,
@@ -54,6 +59,7 @@ impl CodeBuilder<'_> {
                     NormalPattern::PatternList(_) => None,
                     NormalPattern::EnumPattern(enum_variant, maybe_patterns) => {
                         self.builder.add_eq_u8_immediate(
+                            condition_reg.register(),
                             enum_tag_temp_reg.register(),
                             enum_variant.common().container_index,
                             &arm.expression.node,
@@ -75,7 +81,7 @@ impl CodeBuilder<'_> {
 
             let maybe_skip_added = if did_add_comparison {
                 Some(self.builder.add_jmp_if_not_equal_placeholder(
-                    enum_tag_temp_reg.register(),
+                    condition_reg.register(),
                     &arm.expression.node,
                     "placeholder for enum match",
                 ))

@@ -351,8 +351,10 @@ impl Vm {
         vm.handlers[OpCode::TrapOnLessThan as usize] =
             HandlerType::Args2(Self::execute_trap_on_less_than);
 
-        vm.handlers[OpCode::MovEqualToZero as usize] = HandlerType::Args2(Self::execute_st_z);
-        vm.handlers[OpCode::MovNotZero as usize] = HandlerType::Args2(Self::execute_st_nz);
+        vm.handlers[OpCode::MovEqualToZero as usize] =
+            HandlerType::Args2(Self::execute_move_equal_to_zero);
+        vm.handlers[OpCode::MovNotZero as usize] =
+            HandlerType::Args2(Self::execute_mov_not_equal_to_zero);
 
         // Logical Operations
         vm.handlers[OpCode::MovEqualToZero as usize] =
@@ -1196,13 +1198,13 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_st_z(&mut self, dst_reg: u8, src_reg: u8) {
-        set_reg!(self, dst_reg, !get_reg!(self, src_reg));
+    fn execute_move_equal_to_zero(&mut self, dst_reg: u8, src_reg: u8) {
+        set_reg!(self, dst_reg, get_reg!(self, src_reg) == 0);
     }
 
     #[inline]
-    fn execute_st_nz(&mut self, dst_reg: u8, src_reg: u8) {
-        set_reg!(self, dst_reg, get_reg!(self, src_reg));
+    fn execute_mov_not_equal_to_zero(&mut self, dst_reg: u8, src_reg: u8) {
+        set_reg!(self, dst_reg, get_reg!(self, src_reg) != 0);
     }
 
     #[inline]
