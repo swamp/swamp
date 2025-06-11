@@ -242,7 +242,7 @@ impl InstructionBuilder<'_> {
     pub fn add_grid_get_entry_addr(
         &mut self,
         target: &TypedRegister,
-        grid_self_addr_reg: &TypedRegister,
+        grid_self_addr_reg: &PointerLocation,
         x_reg: &TypedRegister,
         y_reg: &TypedRegister,
         element_size: MemorySize,
@@ -2129,13 +2129,13 @@ impl InstructionBuilder<'_> {
     pub fn add_map_has(
         &mut self,
         dest_reg: &TypedRegister,
-        self_addr: &TypedRegister,
+        self_addr: &PointerLocation,
         key_addr: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         matches!(
-            self_addr.ty().kind,
+            self_addr.ptr_reg.ty().kind,
             BasicTypeKind::DynamicLengthMapView(_, _)
         );
         self.state.add_instruction(
@@ -2152,13 +2152,13 @@ impl InstructionBuilder<'_> {
 
     pub fn add_map_remove(
         &mut self,
-        self_addr: &TypedRegister,
+        self_addr: &PointerLocation,
         key_addr: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         matches!(
-            self_addr.ty().kind,
+            self_addr.ptr_reg.ty().kind,
             BasicTypeKind::DynamicLengthMapView(_, _)
         );
         self.state.add_instruction(

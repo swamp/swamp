@@ -73,13 +73,17 @@ impl CodeBuilder<'_> {
             "get grid header absolute pointer",
         );
 
+        let grid_header_ptr_location = PointerLocation {
+            ptr_reg: grid_header_ptr_reg,
+        };
+
         let absolute_pointer_to_element = self.temp_registers.allocate(
             VmType::new_contained_in_register(gen_element_type.clone()),
             "temporary target",
         );
         self.builder.add_grid_get_entry_addr(
             absolute_pointer_to_element.register(),
-            &grid_header_ptr_reg,
+            &grid_header_ptr_location,
             &x_int_reg,
             &y_int_reg,
             gen_element_type.total_size,

@@ -77,8 +77,6 @@ pub enum IntrinsicFunction {
     MapIsEmpty,
     MapHas,
     MapRemove,
-    MapIter,
-    MapIterMut,
     MapLen,
     MapCapacity,
 
@@ -171,8 +169,6 @@ impl fmt::Display for IntrinsicFunction {
             // Map
             Self::MapHas => "map_has",
             Self::MapRemove => "map_remove",
-            Self::MapIter => "map_iter",
-            Self::MapIterMut => "map_iter_mut",
             Self::MapLen => "map_len",
             Self::MapCapacity => "map_len",
             Self::MapIsEmpty => "map_is_empty",

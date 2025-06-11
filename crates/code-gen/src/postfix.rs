@@ -123,7 +123,6 @@ impl CodeBuilder<'_> {
                                     &call_return_destination,
                                     &start_expression.node,
                                     intrinsic_fn,
-                                    Some(&absolute_self_pointer_register.ty.basic_type.clone()),
                                     Some(&RValueOrLValue::Scalar(
                                         absolute_self_pointer_register.clone(),
                                     )),
@@ -165,7 +164,6 @@ impl CodeBuilder<'_> {
                                 &call_return_destination,
                                 &start_expression.node,
                                 &intrinsic_def.intrinsic,
-                                Some(&current_location.ty().clone()),
                                 Some(&RValueOrLValue::Scalar(absolute_self_pointer_register)),
                                 arguments,
                                 ctx,
