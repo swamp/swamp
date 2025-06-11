@@ -37,7 +37,7 @@ jobs:
 
       - name: Install Linux dependencies
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt install librust-alsa-sys-dev libudev-dev
+        run: sudo apt-get install librust-alsa-sys-dev libudev-dev
 
       - name: Install latest stable Rust
         run: rustup update stable
