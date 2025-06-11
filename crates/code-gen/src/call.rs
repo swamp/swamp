@@ -148,7 +148,7 @@ impl CodeBuilder<'_> {
             abi_parameter_frame_memory_region.addr,
             ABI_ARGUMENT_MASK,
             node,
-            "spill register to stack memory",
+            "spill masked registers to stack frame memory",
         );
 
         let abi_parameter_region = SpilledRegisterRegion {
@@ -175,7 +175,7 @@ impl CodeBuilder<'_> {
                 first_temp_register_index,
                 temp_register_probable_live_count,
                 node,
-                "spill register to stack memory",
+                "spill contiguous range of registers to stack frame memory",
             );
             Some(temp_register_region)
         } else {
@@ -267,7 +267,7 @@ impl CodeBuilder<'_> {
             let parameter_basic_type = layout_type(&type_for_parameter.resolved_type);
             let target_canonical_argument_register = argument_registers.alloc_register(
                 VmType::new_unknown_placement(parameter_basic_type.clone()),
-                &format!("emit argument {index_in_signature}"),
+                &format!("{index_in_signature}:{}", type_for_parameter.name),
             );
 
             let argument_to_use = if self.argument_needs_to_be_in_a_temporary_register_first(
@@ -275,7 +275,10 @@ impl CodeBuilder<'_> {
             ) {
                 let temp_reg = self.temp_registers.allocate(
                     target_canonical_argument_register.ty.clone(),
-                    "just to put arguments in place at the end",
+                    &format!(
+                        "temporary argument for '{}'",
+                        target_canonical_argument_register.comment
+                    ),
                 );
                 let copy_argument = CopyArgument {
                     canonical_target: target_canonical_argument_register.clone(),
@@ -376,12 +379,16 @@ impl CodeBuilder<'_> {
             }
         }
 
-        for copy_argument in copy_arguments_in_place {
+        for (index, copy_argument) in copy_arguments_in_place.iter().enumerate() {
+            let parameter_in_signature = &signature.parameters[index];
             self.builder.add_mov_reg(
                 &copy_argument.canonical_target,
                 &copy_argument.source_temporary,
                 node,
-                "copy argument in place from temporary",
+                &format!(
+                    "copy argument {index} ({}) in place from temporary '{}'",
+                    parameter_in_signature.name, copy_argument.source_temporary.comment
+                ),
             );
         }
 
@@ -594,7 +601,7 @@ impl CodeBuilder<'_> {
                             seq_length,
                             node,
                             &format!(
-                                "restoring r{}-r{} (continuous range) {comment}",
+                                "restoring spilled contiguous range of registers from stack frame r{}-r{} {comment}",
                                 seq_start_reg,
                                 seq_start_reg + seq_length - 1
                             ),

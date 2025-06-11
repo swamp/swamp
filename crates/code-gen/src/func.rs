@@ -191,7 +191,7 @@ impl TopLevelGenState {
                 abi_parameter_frame_memory_region.addr,
                 mask,
                 node,
-                "prologue, store regs to frame",
+                "prologue, spill masked registers to stack frame memory",
             );
 
             Some(SpilledRegisterRegion {
@@ -204,7 +204,7 @@ impl TopLevelGenState {
                 0,
                 count,
                 node,
-                "prologue, store regs to frame",
+                "prologue, spill contiguous range of registers to stack frame memory",
             );
 
             Some(SpilledRegisterRegion {
