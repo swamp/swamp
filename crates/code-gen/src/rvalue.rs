@@ -49,6 +49,11 @@ impl CodeBuilder<'_> {
         self.emit_expression(target_reg, expr, ctx);
     }
 
+    pub fn emit_bool_value(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
+        debug_assert!(expr.ty.underlying().is_bool(), "must have scalar type");
+        self.emit_scalar_rvalue(expr, ctx)
+    }
+
     /// Emits code to evaluate an expression into a scalar rvalue.
     ///
     /// In compiler terminology:

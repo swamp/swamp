@@ -42,7 +42,11 @@ fn to_string() {
 // It wrongfully assumed that the target always was a register.
 #[test]
 fn floor_to_tuple() {
-    x = 1.0
+    x = 1.9
 
     tuple = (x.floor(), 2.0)
+    a, b = tuple
+    assert(a == 1, "floor to tuple first element is wrong")
+    assert(b == 2.0, "second element is unchanged in tuple")
+    print('a: {a}, b: {b}')
 }

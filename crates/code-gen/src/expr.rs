@@ -127,7 +127,7 @@ impl CodeBuilder<'_> {
                             target_reg,
                             &variable_register,
                             &expr.node,
-                            "extra copy var access",
+                            "Extra copy variable access. Use `emit_scalar_rvalue` to avoid this extra copy",
                         );
                     }
                     Destination::Memory(location) => {

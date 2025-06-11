@@ -144,18 +144,10 @@ impl CodeBuilder<'_> {
             _ => {}
         }
 
-        let temp_reg = self
-            .temp_registers
-            .allocate(VmType::new_unknown_placement(u32_type()), "temp");
+        let reg_to_test = self.emit_bool_value(condition, ctx);
 
-        let output_destination = Destination::new_reg(temp_reg.register.clone());
-        self.emit_bool_expression(&output_destination, condition, ctx);
-
-        self.builder.add_tst_reg(
-            temp_reg.register(),
-            &condition.node,
-            "set P flag from register",
-        );
+        self.builder
+            .add_tst_reg(&reg_to_test, &condition.node, "set P flag from register");
         FlagState {
             kind: FlagStateKind::TFlagIsTrueWhenSet,
         }

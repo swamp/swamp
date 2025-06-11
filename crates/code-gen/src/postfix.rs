@@ -240,13 +240,13 @@ impl CodeBuilder<'_> {
                         self.builder.add_tst_reg(
                             temp_reg.register(),
                             &element.node,
-                            "test tag - sets T=0 if None (0), T=1 if Some (1)",
+                            "test tag - sets P=0 if None(0), P=1 if Some(1)",
                         );
 
-                        // If T=1 (Some), skip fallback
+                        // If P=1 (Some), skip fallback
                         let skip_fallback_patch = self
                             .builder
-                            .add_jmp_if_true_placeholder(&element.node, "jump if T=1 (Some)");
+                            .add_jmp_if_true_placeholder(&element.node, "jump if P=1 (Some)");
 
                         // None case: evaluate the fallback expression
                         self.emit_expression(output_destination, expression, ctx);

@@ -6,7 +6,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::prelude::layout_type;
-use crate::{Collection, FlagState, Transformer};
+use crate::{Collection, Transformer};
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
@@ -636,7 +636,6 @@ impl CodeBuilder<'_> {
         let maybe_target = target_destination.register();
         let self_addr: Option<&TypedRegister> = self_addr_l_or_rvalue.and_then(|s| s.rvalue());
 
-        let t_flag_result = FlagState::default();
         match intrinsic_fn {
             IntrinsicFunction::Float2Magnitude
             | IntrinsicFunction::FloatAbs
@@ -690,7 +689,7 @@ impl CodeBuilder<'_> {
                         target_destination.grab_memory_location(),
                         &temp_reg,
                         node,
-                        "put the low level intrinsic fixed (float) back to memory",
+                        "store the fixed point value into memory",
                     );
                 }
             }
