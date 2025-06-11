@@ -14,7 +14,7 @@ use swamp_semantic::{
 };
 use swamp_types::Type;
 use swamp_vm_types::PatchPosition;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, u32_type};
+use swamp_vm_types::types::{TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     pub(crate) fn materialize_t_flag_to_bool_if_needed(
