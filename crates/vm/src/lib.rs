@@ -103,10 +103,6 @@ enum HandlerType {
     Args8(Handler8),
 }
 
-pub struct Flags {
-    pub p: bool, // Predicate flag.
-}
-
 #[derive(Debug, Default)]
 pub struct Debug {
     pub opcodes_executed: usize,
@@ -213,7 +209,6 @@ pub struct Vm {
     pub registers: [u32; 256], // Normal CPUs have around 31 general purpose registers
 
     // TODO: Error state
-    pub flags: Flags,
     pub debug: Debug,
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
@@ -258,7 +253,6 @@ impl Vm {
             call_stack: vec![],
             handlers: [const { HandlerType::Args0(Self::execute_unimplemented) }; 256],
             registers: [const { 0 }; 256],
-            flags: Flags { p: false },
             debug: Debug {
                 opcodes_executed: 0,
                 call_depth: 0,
@@ -341,38 +335,32 @@ impl Vm {
             HandlerType::Args4(Self::execute_frame_memory_clear);
 
         // Comparisons - Int
-        vm.handlers[OpCode::LtI32 as usize] = HandlerType::Args2(Self::execute_lt_i32);
-        vm.handlers[OpCode::LeI32 as usize] = HandlerType::Args2(Self::execute_le_i32);
-        vm.handlers[OpCode::GtI32 as usize] = HandlerType::Args2(Self::execute_gt_i32);
-        vm.handlers[OpCode::GeI32 as usize] = HandlerType::Args2(Self::execute_ge_i32);
+        vm.handlers[OpCode::LtI32 as usize] = HandlerType::Args3(Self::execute_lt_i32);
+        vm.handlers[OpCode::LeI32 as usize] = HandlerType::Args3(Self::execute_le_i32);
+        vm.handlers[OpCode::GtI32 as usize] = HandlerType::Args3(Self::execute_gt_i32);
+        vm.handlers[OpCode::GeI32 as usize] = HandlerType::Args3(Self::execute_ge_i32);
 
-        vm.handlers[OpCode::GeU32 as usize] = HandlerType::Args2(Self::execute_ge_u32);
-        vm.handlers[OpCode::LtU32 as usize] = HandlerType::Args2(Self::execute_lt_u32);
+        vm.handlers[OpCode::GeU32 as usize] = HandlerType::Args3(Self::execute_ge_u32);
+        vm.handlers[OpCode::LtU32 as usize] = HandlerType::Args3(Self::execute_lt_u32);
 
         // Comparison
-        vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args2(Self::execute_cmp_reg);
-        vm.handlers[OpCode::CmpBlock as usize] = HandlerType::Args4(Self::execute_cmp_block);
+        vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args3(Self::execute_cmp_reg);
+        vm.handlers[OpCode::CmpBlock as usize] = HandlerType::Args5(Self::execute_cmp_block);
 
-        vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args2(Self::execute_eq_8_imm);
+        vm.handlers[OpCode::Eq8Imm as usize] = HandlerType::Args3(Self::execute_eq_8_imm);
         vm.handlers[OpCode::TrapOnLessThan as usize] =
             HandlerType::Args2(Self::execute_trap_on_less_than);
 
-        // P flag
-        vm.handlers[OpCode::MovToPFlagFromReg as usize] = HandlerType::Args1(Self::execute_tst_reg);
-        vm.handlers[OpCode::MovToNotPFlagFromReg as usize] =
-            HandlerType::Args1(Self::execute_not_tst_reg);
-
-        vm.handlers[OpCode::NotP as usize] = HandlerType::Args0(Self::execute_not_z); // needed for normalized Z
-        vm.handlers[OpCode::MovFromPFlagToReg as usize] = HandlerType::Args1(Self::execute_st_z);
-        vm.handlers[OpCode::MovFromNotPFlagToReg as usize] =
-            HandlerType::Args1(Self::execute_st_nz);
+        vm.handlers[OpCode::MovEqualToZero as usize] = HandlerType::Args2(Self::execute_st_z);
+        vm.handlers[OpCode::MovNotZero as usize] = HandlerType::Args2(Self::execute_st_nz);
 
         // Logical Operations
-        vm.handlers[OpCode::BooleanNot as usize] = HandlerType::Args1(Self::execute_boolean_not);
+        vm.handlers[OpCode::MovEqualToZero as usize] =
+            HandlerType::Args1(Self::execute_boolean_not);
 
         // Conditional jumps
-        vm.handlers[OpCode::BFalse as usize] = HandlerType::Args2(Self::execute_bnz);
-        vm.handlers[OpCode::BTrue as usize] = HandlerType::Args2(Self::execute_bz);
+        vm.handlers[OpCode::BFalse as usize] = HandlerType::Args3(Self::execute_branch_if_false);
+        vm.handlers[OpCode::BTrue as usize] = HandlerType::Args3(Self::execute_branch_if_true);
 
         // Unconditional jump
         vm.handlers[OpCode::B as usize] = HandlerType::Args2(Self::execute_b);
@@ -413,7 +401,7 @@ impl Vm {
         vm.handlers[OpCode::StringAppend as usize] =
             HandlerType::Args3(Self::execute_string_append);
 
-        vm.handlers[OpCode::StringCmp as usize] = HandlerType::Args2(Self::execute_string_cmp);
+        vm.handlers[OpCode::StringCmp as usize] = HandlerType::Args3(Self::execute_string_cmp);
 
         // Int
         vm.handlers[OpCode::IntToRnd as usize] =
@@ -1070,48 +1058,48 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_lt_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+    fn execute_lt_i32(&mut self, dest_bool_reg: u8, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
-        self.flags.p = lhs < rhs;
+        set_reg!(self, dest_bool_reg, lhs < rhs);
     }
 
     #[inline]
-    fn execute_le_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+    fn execute_le_i32(&mut self, dest_bool_reg: u8, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
-        self.flags.p = lhs <= rhs;
+        set_reg!(self, dest_bool_reg, lhs <= rhs);
     }
 
     #[inline]
-    fn execute_gt_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+    fn execute_gt_i32(&mut self, dest_bool_reg: u8, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
-        self.flags.p = lhs > rhs;
+        set_reg!(self, dest_bool_reg, lhs > rhs);
     }
 
     #[inline]
-    fn execute_ge_i32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+    fn execute_ge_i32(&mut self, dest_bool_reg: u8, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg) as i32;
         let rhs = get_reg!(self, rhs_reg) as i32;
 
-        self.flags.p = lhs >= rhs;
+        set_reg!(self, dest_bool_reg, lhs >= rhs);
     }
 
     #[inline]
-    fn execute_ge_u32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+    fn execute_ge_u32(&mut self, dest_bool_reg: u8, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg);
         let rhs = get_reg!(self, rhs_reg);
 
-        self.flags.p = lhs >= rhs;
+        set_reg!(self, dest_bool_reg, lhs >= rhs);
     }
 
     #[inline]
-    fn execute_lt_u32(&mut self, lhs_reg: u8, rhs_reg: u8) {
+    fn execute_lt_u32(&mut self, dest_bool_reg: u8, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg);
         let rhs = get_reg!(self, rhs_reg);
 
-        self.flags.p = lhs < rhs;
+        set_reg!(self, dest_bool_reg, lhs < rhs);
     }
 
     #[inline]
@@ -1181,15 +1169,21 @@ impl Vm {
         );
     }
 
+    // Sort of the same as `sub`
     #[inline]
-    fn execute_cmp_reg(&mut self, lhs_reg: u8, rhs_reg: u8) {
-        self.flags.p = self.registers[lhs_reg as usize] == self.registers[rhs_reg as usize];
+    fn execute_cmp_reg(&mut self, dest_bool_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        set_reg!(
+            self,
+            dest_bool_reg,
+            self.registers[lhs_reg as usize] == self.registers[rhs_reg as usize]
+        );
     }
 
+    // Sort of the same as `sub`
     #[inline]
-    fn execute_eq_8_imm(&mut self, val_reg: u8, octet: u8) {
+    fn execute_eq_8_imm(&mut self, dest_bool_reg: u8, val_reg: u8, octet: u8) {
         let compare = get_reg!(self, val_reg);
-        self.flags.p = compare == octet as u32;
+        set_reg!(self, dest_bool_reg, compare == octet as u32);
     }
 
     #[inline]
@@ -1202,43 +1196,36 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_tst_reg(&mut self, val_reg: u8) {
-        let val = get_reg!(self, val_reg);
-        self.flags.p = val != 0;
+    fn execute_st_z(&mut self, dst_reg: u8, src_reg: u8) {
+        set_reg!(self, dst_reg, !get_reg!(self, src_reg));
     }
 
     #[inline]
-    fn execute_not_tst_reg(&mut self, val_reg: u8) {
-        let val = get_reg!(self, val_reg);
-        self.flags.p = val == 0;
+    fn execute_st_nz(&mut self, dst_reg: u8, src_reg: u8) {
+        set_reg!(self, dst_reg, get_reg!(self, src_reg));
     }
 
     #[inline]
-    fn execute_not_z(&mut self) {
-        self.flags.p = !self.flags.p;
-    }
-
-    #[inline]
-    fn execute_st_z(&mut self, dst_reg: u8) {
-        set_reg!(self, dst_reg, self.flags.p);
-    }
-
-    #[inline]
-    fn execute_st_nz(&mut self, dst_reg: u8) {
-        set_reg!(self, dst_reg, !self.flags.p);
-    }
-
-    #[inline]
-    const fn execute_bnz(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
-        if !self.flags.p {
+    const fn execute_branch_if_false(
+        &mut self,
+        test_reg: u8,
+        branch_offset_0: u8,
+        branch_offset_1: u8,
+    ) {
+        if get_reg!(self, test_reg) == 0 {
             self.pc =
                 (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
         }
     }
 
     #[inline]
-    const fn execute_bz(&mut self, branch_offset_0: u8, branch_offset_1: u8) {
-        if self.flags.p {
+    const fn execute_branch_if_true(
+        &mut self,
+        test_reg: u8,
+        branch_offset_0: u8,
+        branch_offset_1: u8,
+    ) {
+        if get_reg!(self, test_reg) != 0 {
             self.pc =
                 (self.pc as i32 + i16_from_u8s!(branch_offset_0, branch_offset_1) as i32) as usize;
         }
@@ -1706,6 +1693,7 @@ impl Vm {
     #[inline]
     fn execute_cmp_block(
         &mut self,
+        dest_bool_reg: u8,
         src_addr_reg_a: u8,
         src_addr_reg_b: u8,
         size_lower: u8,
@@ -1723,7 +1711,7 @@ impl Vm {
             let slice_a = std::slice::from_raw_parts(src_ptr_a, size);
             let slice_b = std::slice::from_raw_parts(src_ptr_b, size);
 
-            self.flags.p = slice_a == slice_b;
+            set_reg!(self, dest_bool_reg, slice_a == slice_b);
         }
     }
 

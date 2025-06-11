@@ -93,8 +93,7 @@ impl CodeBuilder<'_> {
         let lambda_result = self.emit_scalar_rvalue(lambda_expr, ctx);
 
         // 4. If the transformer supports early exit, set the P flag based on the lambda result.
-        let transformer_t_flag_state =
-            self.check_if_transformer_sets_t_flag(transformer, &lambda_result, node);
+        let transformer_t_flag_state = self.check_if_transformer_sets_t_flag(transformer);
 
         // 5. Conditionally skip result insertion if early exit is triggered.
         let maybe_skip_early = if self.check_if_transformer_can_skip_early(transformer)
@@ -104,6 +103,7 @@ impl CodeBuilder<'_> {
             ) {
             // The P flag is set so we can act on it
             let skip_early = self.builder.add_jmp_if_not_equal_polarity_placeholder(
+                &lambda_result,
                 &transformer_t_flag_state.polarity(),
                 node,
                 "skip early",
@@ -136,9 +136,11 @@ impl CodeBuilder<'_> {
                 );
             }
             TransformerResult::VecFromSourceCollection => {
-                let skip_if_false_patch_position = self
-                    .builder
-                    .add_jmp_if_not_true_placeholder(node, "skip the result if it is false");
+                let skip_if_false_patch_position = self.builder.add_jmp_if_not_true_placeholder(
+                    &lambda_result,
+                    node,
+                    "skip the result if it is false",
+                );
 
                 let absolute_pointer = self.emit_compute_effective_address_to_register(
                     target_destination,
@@ -174,11 +176,6 @@ impl CodeBuilder<'_> {
         match transformer.return_type() {
             TransformerResult::Bool => {
                 // It is a transformer that returns a bool, lets store P flag as bool it
-                self.builder.add_stz(
-                    target_destination.register().unwrap(),
-                    node,
-                    "transformer sets standard bool",
-                );
             }
             TransformerResult::WrappedValueFromSourceCollection => {
                 let destination_type = target_destination.ty();
@@ -431,40 +428,21 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn check_if_transformer_sets_t_flag(
-        &mut self,
-        transformer: Transformer,
-        in_value: &TypedRegister,
-        node: &Node,
-    ) -> FlagStateKind {
+    fn check_if_transformer_sets_t_flag(&mut self, transformer: Transformer) -> FlagStateKind {
         match transformer {
             Transformer::For => FlagStateKind::TFlagIsIndeterminate,
             Transformer::Filter => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
-                self.builder
-                    .add_tst_reg(in_value, node, "filter bool to P flag");
                 FlagStateKind::TFlagIsTrueWhenSet
             }
             Transformer::Find => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
-                self.builder
-                    .add_tst_reg(in_value, node, "find: bool to P flag");
                 FlagStateKind::TFlagIsTrueWhenClear
             }
             Transformer::Map => FlagStateKind::TFlagIsIndeterminate,
-            Transformer::Any => {
-                self.builder.add_tst_reg(in_value, node, "any, check tag");
-                FlagStateKind::TFlagIsTrueWhenClear
-            }
-            Transformer::All => {
-                self.builder.add_tst_reg(in_value, node, "all, check tag");
-                FlagStateKind::TFlagIsTrueWhenSet
-            }
-            Transformer::FilterMap => {
-                self.builder
-                    .add_tst_reg(in_value, node, "filter map, check tag");
-                FlagStateKind::TFlagIsTrueWhenSet
-            }
+            Transformer::Any => FlagStateKind::TFlagIsTrueWhenClear,
+            Transformer::All => FlagStateKind::TFlagIsTrueWhenSet,
+            Transformer::FilterMap => FlagStateKind::TFlagIsTrueWhenSet,
         }
     }
 

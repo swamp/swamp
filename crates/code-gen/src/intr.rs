@@ -1063,7 +1063,11 @@ impl CodeBuilder<'_> {
             node,
             "get the map length for testing if it is empty",
         );
-        self.builder
-            .add_boolean_not(&output_reg, node, "convert the map length to inverted bool");
+        self.builder.add_seqz(
+            &output_reg,
+            &output_reg,
+            node,
+            "convert the map length to inverted bool",
+        );
     }
 }

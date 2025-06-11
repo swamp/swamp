@@ -89,11 +89,11 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_string_cmp(&mut self, string_a: u8, string_b: u8) {
+    pub fn execute_string_cmp(&mut self, dest_reg: u8, string_a: u8, string_b: u8) {
         let str_a = self.get_string(string_a).to_string();
         let str_b = self.get_string(string_b).to_string();
 
-        self.flags.p = str_a == str_b;
+        set_reg!(self, dest_reg, str_a == str_b);
     }
 
     pub fn read_string(heap_addr: u32, heap: &Memory) -> &str {

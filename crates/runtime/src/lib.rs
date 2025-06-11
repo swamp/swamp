@@ -271,11 +271,6 @@ pub fn run_function_with_debug(
                     tinter::bright_black(&format!("fp:{:08X}, sp:{:08X}, ", vm.fp(), vm.sp()))
                 );
 
-                eprint!(
-                    "{}",
-                    tinter::bright_black(&format!("p:{} ", if vm.flags.p { "1" } else { "0" }))
-                );
-
                 for reg in regs {
                     let reg_name = &format!("r{reg}");
                     eprint!(
@@ -287,8 +282,6 @@ pub fn run_function_with_debug(
             } else {
                 // TODO!: Use style instead
                 eprint!("{}", &format!("fp:{:08X}, sp:{:08X}, ", vm.fp(), vm.sp()));
-
-                eprint!("{}", &format!("p:{} ", if vm.flags.p { "1" } else { "0" }));
 
                 for reg in regs {
                     let reg_name = &format!("r{reg}");

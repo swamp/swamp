@@ -466,7 +466,7 @@ pub fn disasm(
         ],
         OpCode::Panic => &[to_read_reg(operands[0], &string_type(), frame_memory_info)],
 
-        OpCode::BooleanNot => &[to_write_reg(operands[0], &u32_type(), frame_memory_info)],
+        OpCode::MovEqualToZero => &[to_write_reg(operands[0], &u32_type(), frame_memory_info)],
 
         OpCode::St32UsingPtrWithOffset => {
             let offset = u16::from_le_bytes([operands[1], operands[2]]);
@@ -685,13 +685,15 @@ pub fn disasm(
         ],
 
         OpCode::LtI32 => &[
-            to_read_reg(operands[0], &int_type(), frame_memory_info),
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
+            to_read_reg(operands[2], &int_type(), frame_memory_info),
         ],
 
         OpCode::LeI32 => &[
-            to_read_reg(operands[0], &int_type(), frame_memory_info),
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
+            to_read_reg(operands[2], &int_type(), frame_memory_info),
         ],
 
         OpCode::GtI32 => &[
@@ -699,16 +701,19 @@ pub fn disasm(
             to_read_reg(operands[1], &int_type(), frame_memory_info),
         ],
         OpCode::GeI32 => &[
-            to_read_reg(operands[0], &int_type(), frame_memory_info),
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
+            to_read_reg(operands[2], &int_type(), frame_memory_info),
         ],
         OpCode::LtU32 => &[
-            to_read_reg(operands[0], &int_type(), frame_memory_info),
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
+            to_read_reg(operands[2], &int_type(), frame_memory_info),
         ],
         OpCode::GeU32 => &[
-            to_read_reg(operands[0], &int_type(), frame_memory_info),
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
             to_read_reg(operands[1], &int_type(), frame_memory_info),
+            to_read_reg(operands[2], &int_type(), frame_memory_info),
         ],
         OpCode::FloatToString => &[
             to_write_reg(operands[0], &string_type(), frame_memory_info),
@@ -798,13 +803,6 @@ pub fn disasm(
             ]
         }
 
-        OpCode::MovToPFlagFromReg => &[to_read_reg(operands[0], &u8_type(), frame_memory_info)],
-        OpCode::MovToNotPFlagFromReg => &[to_read_reg(operands[0], &u8_type(), frame_memory_info)],
-
-        OpCode::MovFromPFlagToReg => &[to_write_reg(operands[0], &b8_type(), frame_memory_info)],
-
-        OpCode::MovFromNotPFlagToReg => &[to_write_reg(operands[0], &b8_type(), frame_memory_info)],
-
         OpCode::CmpReg => &[
             to_read_reg(operands[0], &u32_type(), frame_memory_info),
             to_read_reg(operands[1], &u32_type(), frame_memory_info),
@@ -819,17 +817,16 @@ pub fn disasm(
             ))),
         ],
 
-        OpCode::BFalse | OpCode::BTrue => &[to_branch_offset(i16::from_le_bytes([
-            operands[0],
-            operands[1],
-        ]))],
+        OpCode::BFalse | OpCode::BTrue => &[
+            to_read_reg(operands[0], &b8_type(), frame_memory_info),
+            to_branch_offset(i16::from_le_bytes([operands[1], operands[2]])),
+        ],
         OpCode::Call => &[to_absolute_branch_pc(u32::from_le_bytes([
             operands[0],
             operands[1],
             operands[2],
             operands[3],
         ]))],
-        OpCode::NotP => &[],
         OpCode::HostCall => &[
             DecoratedOperandAccessKind::ImmediateU16(u8_pair_to_u16(operands[0], operands[1])),
             DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
@@ -901,6 +898,16 @@ pub fn disasm(
         ],
         OpCode::MovReg => &[
             to_write_reg(operands[0], &u32_type(), frame_memory_info),
+            to_read_reg(operands[1], &u32_type(), frame_memory_info),
+        ],
+
+        OpCode::MovNotZero => &[
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
+            to_read_reg(operands[1], &u32_type(), frame_memory_info),
+        ],
+
+        OpCode::MovEqualToZero => &[
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
             to_read_reg(operands[1], &u32_type(), frame_memory_info),
         ],
 
@@ -1176,8 +1183,9 @@ pub fn disasm(
         ],
 
         OpCode::StringCmp => &[
-            to_read_reg(operands[0], &string_type(), frame_memory_info),
+            to_write_reg(operands[0], &b8_type(), frame_memory_info),
             to_read_reg(operands[1], &string_type(), frame_memory_info),
+            to_read_reg(operands[2], &string_type(), frame_memory_info),
         ],
 
         OpCode::IntToRnd => &[

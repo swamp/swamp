@@ -133,10 +133,6 @@ impl<'a> InstructionBuilder<'a> {
 }
 
 impl InstructionBuilder<'_> {
-    pub fn add_not_t(&mut self, node: &Node, comment: &str) {
-        self.state.add_instruction(OpCode::NotP, &[], node, comment);
-    }
-
     pub fn add_trap_if_lt(
         &mut self,
         a: &TypedRegister,
@@ -169,45 +165,70 @@ impl InstructionBuilder<'_> {
         self.state.patch_enter(patch_position, size);
     }
 
-    pub fn add_jmp_if_equal_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
-        let position = self.position();
-
-        self.state
-            .add_instruction(OpCode::BTrue, &[0, 0], node, comment);
-
-        PatchPosition(position)
-    }
-
-    pub fn add_jmp_if_true_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
-        self.add_jmp_if_equal_placeholder(node, comment)
-    }
-
-    pub fn add_jmp_if_not_equal_placeholder(
+    pub fn add_jmp_if_equal_placeholder(
         &mut self,
+        test_reg: &TypedRegister,
         node: &Node,
         comment: &str,
     ) -> PatchPosition {
         let position = self.position();
 
         self.state
-            .add_instruction(OpCode::BFalse, &[0, 0], node, comment);
+            .add_instruction(OpCode::BTrue, &[test_reg.addressing(), 0, 0], node, comment);
 
         PatchPosition(position)
     }
 
-    pub fn add_jmp_if_not_true_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
-        self.add_jmp_if_not_equal_placeholder(node, comment)
+    pub fn add_jmp_if_true_placeholder(
+        &mut self,
+        test_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) -> PatchPosition {
+        self.add_jmp_if_equal_placeholder(test_reg, node, comment)
+    }
+
+    pub fn add_jmp_if_not_equal_placeholder(
+        &mut self,
+        test_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) -> PatchPosition {
+        let position = self.position();
+
+        self.state.add_instruction(
+            OpCode::BFalse,
+            &[test_reg.addressing(), 0, 0],
+            node,
+            comment,
+        );
+
+        PatchPosition(position)
+    }
+
+    pub fn add_jmp_if_not_true_placeholder(
+        &mut self,
+        test_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) -> PatchPosition {
+        self.add_jmp_if_not_equal_placeholder(test_reg, node, comment)
     }
 
     pub fn add_jmp_if_not_equal_polarity_placeholder(
         &mut self,
+        test_reg: &TypedRegister,
         polarity: &ZFlagPolarity,
         node: &Node,
         comment: &str,
     ) -> PatchPosition {
         match polarity {
-            ZFlagPolarity::TrueWhenSet => self.add_jmp_if_not_equal_placeholder(node, comment),
-            ZFlagPolarity::TrueWhenClear => self.add_jmp_if_equal_placeholder(node, comment),
+            ZFlagPolarity::TrueWhenSet => {
+                self.add_jmp_if_not_equal_placeholder(test_reg, node, comment)
+            }
+            ZFlagPolarity::TrueWhenClear => {
+                self.add_jmp_if_equal_placeholder(test_reg, node, comment)
+            }
         }
     }
 
@@ -1060,8 +1081,8 @@ impl InstructionBuilder<'_> {
 
         match instruction.opcode {
             JMP_IF_NOT | JMP_IF | JMP => {
-                instruction.operands[0] = delta_bytes[0];
-                instruction.operands[1] = delta_bytes[1];
+                instruction.operands[1] = delta_bytes[0];
+                instruction.operands[2] = delta_bytes[1];
             }
 
             SPARSE_ITER_NEXT | VEC_ITER_NEXT | MAP_ITER_NEXT | RANGE_ITER_NEXT => {
@@ -1250,6 +1271,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_string_cmp(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         a: &TypedRegister,
         b: &TypedRegister,
         node: &Node,
@@ -1939,6 +1961,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_lt_i32(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         lhs_offset: &TypedRegister,
         rhs_offset: &TypedRegister,
         node: &Node,
@@ -1948,7 +1971,11 @@ impl InstructionBuilder<'_> {
         // TODO: Bring Back //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LtI32,
-            &[lhs_offset.addressing(), rhs_offset.addressing()],
+            &[
+                dest_bool_reg.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
+            ],
             node,
             comment,
         );
@@ -1973,6 +2000,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_le_i32(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         lhs_offset: &TypedRegister,
         rhs_offset: &TypedRegister,
         node: &Node,
@@ -1982,7 +2010,11 @@ impl InstructionBuilder<'_> {
         // TODO: Bring this back // assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LeI32,
-            &[lhs_offset.addressing(), rhs_offset.addressing()],
+            &[
+                dest_bool_reg.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
+            ],
             node,
             comment,
         );
@@ -1990,6 +2022,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_gt_i32(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         lhs_offset: &TypedRegister,
         rhs_offset: &TypedRegister,
         node: &Node,
@@ -1999,7 +2032,11 @@ impl InstructionBuilder<'_> {
         // TODO: Bring this back. //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::GtI32,
-            &[lhs_offset.addressing(), rhs_offset.addressing()],
+            &[
+                dest_bool_reg.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
+            ],
             node,
             comment,
         );
@@ -2007,6 +2044,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_ge_i32(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         lhs_offset: &TypedRegister,
         rhs_offset: &TypedRegister,
         node: &Node,
@@ -2016,7 +2054,11 @@ impl InstructionBuilder<'_> {
         // TODO: bring this back //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::GeI32,
-            &[lhs_offset.addressing(), rhs_offset.addressing()],
+            &[
+                dest_bool_reg.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
+            ],
             node,
             comment,
         );
@@ -2024,6 +2066,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_ge_u32(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         lhs_offset: &TypedRegister,
         rhs_offset: &TypedRegister,
         node: &Node,
@@ -2033,50 +2076,41 @@ impl InstructionBuilder<'_> {
         // TODO: bring this back //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::GeU32,
-            &[lhs_offset.addressing(), rhs_offset.addressing()],
+            &[
+                dest_bool_reg.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
+            ],
             node,
             comment,
         );
     }
 
-    pub fn add_tst_reg(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
+    pub fn add_snez(
+        &mut self,
+        dest_bool_reg: &TypedRegister,
+        v: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
         self.state.add_instruction(
-            OpCode::MovToPFlagFromReg,
-            &[addr.addressing()],
+            OpCode::MovNotZero,
+            &[dest_bool_reg.addressing(), v.addressing()],
             node,
             comment,
         );
     }
 
-    pub fn add_not_tst_reg(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
+    pub fn add_seqz(
+        &mut self,
+        dest_bool_reg: &TypedRegister,
+        addr: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
         self.state.add_instruction(
-            OpCode::MovToNotPFlagFromReg,
-            &[addr.addressing()],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_boolean_not(&mut self, addr: &TypedRegister, node: &Node, comment: &str) {
-        self.state
-            .add_instruction(OpCode::BooleanNot, &[addr.addressing()], node, comment);
-    }
-
-    pub fn add_stz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
-        //assert_eq!(target.underlying().total_size.0, 1);
-        self.state.add_instruction(
-            OpCode::MovFromPFlagToReg,
-            &[target.addressing()],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_stnz(&mut self, target: &TypedRegister, node: &Node, comment: &str) {
-        // assert_eq!(target.underlying().total_size.0, 1);
-        self.state.add_instruction(
-            OpCode::MovFromNotPFlagToReg,
-            &[target.addressing()],
+            OpCode::MovEqualToZero,
+            &[dest_bool_reg.addressing(), addr.addressing()],
             node,
             comment,
         );
@@ -2089,6 +2123,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_cmp_reg(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         source_a: &TypedRegister,
         source_b: &TypedRegister,
         node: &Node,
@@ -2096,7 +2131,11 @@ impl InstructionBuilder<'_> {
     ) {
         self.state.add_instruction(
             OpCode::CmpReg,
-            &[source_a.addressing(), source_b.addressing()],
+            &[
+                dest_bool_reg.addressing(),
+                source_a.addressing(),
+                source_b.addressing(),
+            ],
             node,
             comment,
         );
@@ -2104,6 +2143,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_block_cmp(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         first_ptr: &TypedRegister,
         second_ptr: &TypedRegister,
         size: MemorySize,

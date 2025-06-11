@@ -75,6 +75,7 @@ impl CodeBuilder<'_> {
 
             let maybe_skip_added = if did_add_comparison {
                 Some(self.builder.add_jmp_if_not_equal_placeholder(
+                    enum_tag_temp_reg.register(),
                     &arm.expression.node,
                     "placeholder for enum match",
                 ))

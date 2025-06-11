@@ -51,8 +51,6 @@ pub enum OpCode {
     // Other Comparisons
     TrapOnLessThan,
 
-    NotP, // Invert P flag
-
     // Conditional branching
     BFalse,
     BTrue,
@@ -96,16 +94,12 @@ pub enum OpCode {
 
     // Movers
     MovReg,
-    MovToPFlagFromReg, // Load the byte into the P flag (zero = clears the P flag, any other value = sets the P flag)
-    MovToNotPFlagFromReg, // Load the byte into the P flag (zero = sets the P flag, any other value = clears the P flag)
-    MovFromPFlagToReg,
-    MovFromNotPFlagToReg,
     // Mov immediate
     Mov8FromImmediateValue,
     Mov16FromImmediateValue,
     Mov32FromImmediateValue,
 
-    BooleanNot,
+    MovEqualToZero,
 
     // Type specific -----
 
@@ -187,6 +181,7 @@ pub enum OpCode {
     SparseIsAlive,
     GridInit,
     GridGetEntryAddr,
+    MovNotZero,
 }
 
 impl OpCode {
@@ -216,13 +211,13 @@ impl OpCode {
             Self::DivF32 => "f.div",
 
             // Integer comparisons
-            Self::LtI32 => "slt",
-            Self::LeI32 => "sle",
-            Self::GtI32 => "sgt",
-            Self::GeI32 => "sge",
+            Self::LtI32 => "lt",
+            Self::LeI32 => "le",
+            Self::GtI32 => "gt",
+            Self::GeI32 => "ge",
 
-            Self::GeU32 => "ge",
-            Self::LtU32 => "lt",
+            Self::GeU32 => "uge",
+            Self::LtU32 => "ult",
 
             // Byte/memory comparisons
             Self::Eq8Imm | Self::CmpReg => "cmp",
@@ -233,9 +228,8 @@ impl OpCode {
             Self::TrapOnLessThan => "trap.lt",
 
             // Store Predicate Flag
-            Self::NotP => "notpf",
-            Self::MovFromPFlagToReg => "movpf",
-            Self::MovFromNotPFlagToReg => "movnpf",
+            Self::MovEqualToZero => "seqz",
+            Self::MovNotZero => "snez",
 
             // Branches
             Self::BFalse => "b.false",
@@ -259,9 +253,7 @@ impl OpCode {
             Self::Mov8FromImmediateValue => "mov.b",
             Self::Mov16FromImmediateValue => "mov.h",
             Self::MovReg | Self::Mov32FromImmediateValue => "mov", // alias for `mov.w`
-            Self::BooleanNot => "bool.not",
-            Self::MovToPFlagFromReg => "tst",
-            Self::MovToNotPFlagFromReg => "tst.not",
+            Self::MovEqualToZero => "bool.not",
 
             // Load. From memory to register
             Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ld.b",

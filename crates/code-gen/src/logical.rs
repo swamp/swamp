@@ -14,7 +14,7 @@ use swamp_semantic::{
 };
 use swamp_types::Type;
 use swamp_vm_types::PatchPosition;
-use swamp_vm_types::types::{TypedRegister, VmType};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType, b8_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn materialize_t_flag_to_bool_if_needed(
@@ -28,24 +28,26 @@ impl CodeBuilder<'_> {
                 // intentionally do nothing
             }
             FlagStateKind::TFlagIsTrueWhenSet => {
-                self.builder
-                    .add_stz(target, node, "materialize positive P flag");
+                // self.builder
+                //   .add_stz(target, node, "materialize positive P flag");
             }
             FlagStateKind::TFlagIsTrueWhenClear => {
-                self.builder
-                    .add_stnz(target, node, "materialize inverse P flag");
+                //self.builder
+                //  .add_stnz(target, node, "materialize inverse P flag");
             }
         }
     }
-    pub fn emit_unary_operator_logical_to_t_flag(
+    pub fn emit_unary_operator_logical(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         unary_operator: &UnaryOperator,
         ctx: &Context,
     ) -> FlagState {
         match &unary_operator.kind {
             UnaryOperatorKind::Not => match &unary_operator.left.ty.underlying() {
                 Type::Bool => {
-                    let bool_result = self.emit_expression_to_t_flag(&unary_operator.left, ctx);
+                    let bool_result =
+                        self.emit_expression_to_boolean(dest_bool_reg, &unary_operator.left, ctx);
                     bool_result.invert_polarity()
                 }
                 _ => panic!("unknown not"),
@@ -59,17 +61,29 @@ impl CodeBuilder<'_> {
         condition: &BooleanExpression,
         ctx: &Context,
     ) -> PatchPosition {
-        let result = self.emit_expression_to_t_flag(&condition.expression, ctx);
+        let hwm = self.temp_registers.save_mark();
+        let temp_truth_reg = self.temp_registers.allocate(
+            VmType::new_contained_in_register(b8_type()),
+            "true-register for condition",
+        );
+        let result =
+            self.emit_expression_to_boolean(temp_truth_reg.register(), &condition.expression, ctx);
 
-        self.builder.add_jmp_if_not_equal_polarity_placeholder(
+        let patch = self.builder.add_jmp_if_not_equal_polarity_placeholder(
+            temp_truth_reg.register(),
             &result.polarity(),
             &condition.expression.node,
             "jump boolean condition false",
-        )
+        );
+
+        self.temp_registers.restore_to_mark(hwm);
+
+        patch
     }
 
-    pub(crate) fn emit_expression_to_t_flag(
+    pub(crate) fn emit_expression_to_boolean(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         condition: &Expression,
         ctx: &Context,
     ) -> FlagState {
@@ -91,7 +105,8 @@ impl CodeBuilder<'_> {
                     "load option tag",
                 );
 
-                self.builder.add_tst_reg(
+                self.builder.add_snez(
+                    dest_bool_reg,
                     tag_reg.register(),
                     &option_union_expr.node,
                     "test option tag",
@@ -103,13 +118,18 @@ impl CodeBuilder<'_> {
             }
             ExpressionKind::BinaryOp(operator) => match &operator.kind {
                 BinaryOperatorKind::LogicalAnd | BinaryOperatorKind::LogicalOr => {
-                    return self.emit_binary_operator_logical_to_t_flag(operator, ctx);
+                    return self.emit_binary_operator_logical_to_boolean(
+                        dest_bool_reg,
+                        operator,
+                        ctx,
+                    );
                 }
                 BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
                     let left = self.emit_scalar_rvalue(&operator.left, ctx);
                     let right = self.emit_scalar_rvalue(&operator.right, ctx);
                     let is_equal_polarity = matches!(operator.kind, BinaryOperatorKind::Equal);
                     return self.emit_binary_operator_equal_to_t_flag_only(
+                        dest_bool_reg,
                         &left,
                         is_equal_polarity,
                         &right,
@@ -124,7 +144,8 @@ impl CodeBuilder<'_> {
                     let left_source = self.emit_scalar_rvalue(&operator.left, ctx);
                     let right_source = self.emit_scalar_rvalue(&operator.right, ctx);
 
-                    return self.emit_binary_operator_relational_to_t_flag_only(
+                    return self.emit_binary_operator_relational(
+                        dest_bool_reg,
                         &left_source,
                         operator,
                         &right_source,
@@ -137,33 +158,42 @@ impl CodeBuilder<'_> {
             },
             ExpressionKind::UnaryOp(operator) => match &operator.kind {
                 UnaryOperatorKind::Not => {
-                    return self.emit_unary_operator_logical_to_t_flag(operator, ctx);
+                    return self.emit_unary_operator_logical(dest_bool_reg, operator, ctx);
                 }
                 _ => panic!("unary operator does not provide us with P flag"),
             },
-            _ => {}
+            _ => {
+                let destination = Destination::Register(dest_bool_reg.clone());
+                self.emit_expression(&destination, condition, ctx);
+            }
         }
 
-        let reg_to_test = self.emit_bool_value(condition, ctx);
-
-        self.builder
-            .add_tst_reg(&reg_to_test, &condition.node, "set P flag from register");
         FlagState {
             kind: FlagStateKind::TFlagIsTrueWhenSet,
         }
     }
 
-    fn emit_expression_to_normalized_t_flag(&mut self, condition: &Expression, ctx: &Context) {
-        let result = self.emit_expression_to_t_flag(condition, ctx);
+    fn emit_expression_to_normalized_t_flag(
+        &mut self,
+        dest_bool_reg: &TypedRegister,
+        condition: &Expression,
+        ctx: &Context,
+    ) {
+        let result = self.emit_expression_to_boolean(dest_bool_reg, condition, ctx);
         assert_ne!(result.kind, FlagStateKind::TFlagIsIndeterminate);
 
         if result.kind == FlagStateKind::TFlagIsTrueWhenClear {
-            self.builder
-                .add_not_t(&condition.node, "normalized z is required");
+            self.builder.add_seqz(
+                dest_bool_reg,
+                dest_bool_reg,
+                &condition.node,
+                "normalized z is required",
+            );
         }
     }
-    pub(crate) fn emit_binary_operator_logical_to_t_flag(
+    pub(crate) fn emit_binary_operator_logical_to_boolean(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         binary_operator: &BinaryOperator,
         context: &Context,
     ) -> FlagState {
@@ -174,24 +204,44 @@ impl CodeBuilder<'_> {
 
         match binary_operator.kind {
             BinaryOperatorKind::LogicalOr => {
-                self.emit_expression_to_normalized_t_flag(&binary_operator.left, context);
+                self.emit_expression_to_normalized_t_flag(
+                    dest_bool_reg,
+                    &binary_operator.left,
+                    context,
+                );
 
-                let jump_after_patch = self
-                    .builder
-                    .add_jmp_if_true_placeholder(node, "OR: skip rhs because lhs is true");
+                let jump_after_patch = self.builder.add_jmp_if_true_placeholder(
+                    dest_bool_reg,
+                    node,
+                    "OR: skip rhs because lhs is true",
+                );
 
-                self.emit_expression_to_normalized_t_flag(&binary_operator.right, context);
+                self.emit_expression_to_normalized_t_flag(
+                    dest_bool_reg,
+                    &binary_operator.right,
+                    context,
+                );
 
                 self.builder.patch_jump_here(jump_after_patch);
             }
             BinaryOperatorKind::LogicalAnd => {
-                self.emit_expression_to_normalized_t_flag(&binary_operator.left, context);
+                self.emit_expression_to_normalized_t_flag(
+                    dest_bool_reg,
+                    &binary_operator.left,
+                    context,
+                );
 
-                let jump_after_patch = self
-                    .builder
-                    .add_jmp_if_not_true_placeholder(node, "AND: skip rhs because lhs is false");
+                let jump_after_patch = self.builder.add_jmp_if_not_true_placeholder(
+                    dest_bool_reg,
+                    node,
+                    "AND: skip rhs because lhs is false",
+                );
 
-                self.emit_expression_to_normalized_t_flag(&binary_operator.right, context);
+                self.emit_expression_to_normalized_t_flag(
+                    dest_bool_reg,
+                    &binary_operator.right,
+                    context,
+                );
 
                 self.builder.patch_jump_here(jump_after_patch);
             }

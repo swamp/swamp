@@ -194,16 +194,19 @@ impl CodeBuilder<'_> {
                         "load optional tag",
                     );
 
-                    self.builder.add_tst_reg(
+                    self.builder.add_seqz(
+                        resolved_location.register(),
                         resolved_location.register(),
                         &element.node,
                         "test if optional tag is None",
                     );
 
                     // If None, add patch to jump to end of all processing
-                    let skip_to_end_patch = self
-                        .builder
-                        .add_jmp_if_equal_placeholder(&element.node, "jump if None");
+                    let skip_to_end_patch = self.builder.add_jmp_if_equal_placeholder(
+                        resolved_location.register(),
+                        &element.node,
+                        "jump if None",
+                    );
                     none_patches.push(skip_to_end_patch);
 
                     // If Some, update current_location to point to the payload
@@ -237,16 +240,19 @@ impl CodeBuilder<'_> {
                             "load optional tag",
                         );
 
-                        self.builder.add_tst_reg(
+                        self.builder.add_snez(
+                            temp_reg.register(),
                             temp_reg.register(),
                             &element.node,
-                            "test tag - sets P=0 if None(0), P=1 if Some(1)",
+                            "test tag - sets 0 if None(0), 1 if Some(1)",
                         );
 
                         // If P=1 (Some), skip fallback
-                        let skip_fallback_patch = self
-                            .builder
-                            .add_jmp_if_true_placeholder(&element.node, "jump if P=1 (Some)");
+                        let skip_fallback_patch = self.builder.add_jmp_if_true_placeholder(
+                            temp_reg.register(),
+                            &element.node,
+                            "jump if 1 (Some)",
+                        );
 
                         // None case: evaluate the fallback expression
                         self.emit_expression(output_destination, expression, ctx);

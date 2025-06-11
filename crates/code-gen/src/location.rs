@@ -8,7 +8,7 @@ use source_map_node::Node;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, BoundsCheck, Destination, RValueOrLValue, TypedRegister, VmType,
-    int_type,
+    b8_type, int_type,
 };
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
@@ -133,16 +133,23 @@ impl CodeBuilder<'_> {
             BoundsCheck::RegisterWithMaxCount(reg) => reg,
         };
 
+        let bool_reg = self.temp_registers.allocate(
+            VmType::new_contained_in_register(b8_type()),
+            "truth from bounds check",
+        );
         // Bounds check it
         self.builder.add_ge_u32(
+            &bool_reg.register,
             &index_int_reg,
             &reg_to_use_for_upper_bound,
             node,
             &format!("check if it is >= len {comment}"),
         );
-        let patch = self
-            .builder
-            .add_jmp_if_not_true_placeholder(node, "jump over trap if within bounds");
+        let patch = self.builder.add_jmp_if_not_true_placeholder(
+            &bool_reg.register,
+            node,
+            "jump over trap if within bounds",
+        );
         self.builder.add_trap(5, node, "out of bounds trap");
         self.builder.patch_jump_here(patch);
 

@@ -23,7 +23,7 @@ impl CodeBuilder<'_> {
         match &binary_operator.kind {
             BinaryOperatorKind::LogicalOr | BinaryOperatorKind::LogicalAnd => {
                 let t_flag_result =
-                    self.emit_binary_operator_logical_to_t_flag(binary_operator, ctx);
+                    self.emit_binary_operator_logical_to_boolean(target_reg, binary_operator, ctx);
                 self.materialize_t_flag_to_bool_if_needed(
                     target_reg,
                     t_flag_result,
@@ -36,7 +36,7 @@ impl CodeBuilder<'_> {
 
     fn emit_binary_operator_normal(
         &mut self,
-        target_reg: &TypedRegister,
+        dest_bool_reg: &TypedRegister,
         binary_operator: &BinaryOperator,
         ctx: &Context,
     ) {
@@ -49,6 +49,7 @@ impl CodeBuilder<'_> {
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
                 let is_equal_polarity = matches!(binary_operator.kind, BinaryOperatorKind::Equal);
                 let t_flag = self.emit_binary_operator_equal_to_t_flag_only(
+                    dest_bool_reg,
                     &left_source,
                     is_equal_polarity,
                     &right_source,
@@ -56,7 +57,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
                 self.materialize_t_flag_to_bool_if_needed(
-                    target_reg,
+                    dest_bool_reg,
                     t_flag,
                     &binary_operator.node,
                 );
@@ -65,13 +66,14 @@ impl CodeBuilder<'_> {
             | BinaryOperatorKind::GreaterThan
             | BinaryOperatorKind::LessThan
             | BinaryOperatorKind::LessEqual => {
-                let t_flag = self.emit_binary_operator_relational_to_t_flag_only(
+                let t_flag = self.emit_binary_operator_relational(
+                    dest_bool_reg,
                     &left_source,
                     binary_operator,
                     &right_source,
                 );
                 self.materialize_t_flag_to_bool_if_needed(
-                    target_reg,
+                    dest_bool_reg,
                     t_flag,
                     &binary_operator.node,
                 );
@@ -82,7 +84,7 @@ impl CodeBuilder<'_> {
             ) {
                 //(Type::Bool, Type::Bool) => self.emit_binary_operator_logical(binary_operator),
                 (Type::Int, Type::Int) => self.emit_binary_operator_i32(
-                    target_reg,
+                    dest_bool_reg,
                     &left_source,
                     &binary_operator.node,
                     &binary_operator.kind,
@@ -90,7 +92,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 ),
                 (Type::Float, Type::Float) => self.emit_binary_operator_f32(
-                    target_reg,
+                    dest_bool_reg,
                     &left_source,
                     &binary_operator.node,
                     &binary_operator.kind,
@@ -98,7 +100,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 ),
                 (Type::String, Type::String) => self.emit_binary_operator_string(
-                    target_reg,
+                    dest_bool_reg,
                     &left_source,
                     &binary_operator.node,
                     &binary_operator.kind,
