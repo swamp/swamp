@@ -3062,9 +3062,7 @@ impl<'a> Analyzer<'a> {
         target_type: &Type,
         ast_source_expression: &swamp_ast::Expression,
     ) -> Result<Expression, Error> {
-        assert!(target_type.is_concrete());
-
-        let base_context = TypeContext::new_anything_argument();
+        let base_context = TypeContext::new_argument(target_type);
         let source_expr = self.analyze_expression(ast_source_expression, &base_context)?;
 
         /*
@@ -3073,9 +3071,11 @@ impl<'a> Analyzer<'a> {
         let source_expr = self.analyze_expression(ast_source_expression, &lhs_argument_context)?;
          */
 
+        let target_type_underlying = target_type.underlying();
+        let source_type_underlying = source_expr.ty.underlying();
         let final_expr = if Self::is_type_assignment_compatible(
-            target_type.underlying(),
-            &source_expr.ty.underlying(),
+            target_type_underlying,
+            source_type_underlying,
         ) {
             source_expr
         }
@@ -3088,8 +3088,8 @@ impl<'a> Analyzer<'a> {
         else {
             return Err(self.create_err(
                 ErrorKind::IncompatibleTypesForAssignment {
-                    expected: target_type.clone(),
-                    found: source_expr.ty,
+                    expected: target_type_underlying.clone(),
+                    found: source_type_underlying.clone(),
                 },
                 &ast_source_expression.node,
             ));
@@ -3241,8 +3241,10 @@ impl<'a> Analyzer<'a> {
     fn queue_member_signature(
         &mut self,
         self_type: &Type,
+        key_type: Option<&Type>,
         element_type: &Type,
         field_name_str: &str,
+        lambda_variable_count: usize,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let self_type_param = TypeForParameter {
@@ -3280,7 +3282,16 @@ impl<'a> Analyzer<'a> {
                     return_type: Box::new(element_type.clone()),
                 },
             ),
-            _ => { self.slice_member_signature(self_type, element_type, field_name_str, node) }?,
+            _ => {
+                self.slice_member_signature(
+                    self_type,
+                    key_type,
+                    element_type,
+                    field_name_str,
+                    lambda_variable_count,
+                    node,
+                )
+            }?,
         };
 
         Ok(intrinsic_and_signature)
@@ -3291,8 +3302,11 @@ impl<'a> Analyzer<'a> {
         self_type: &Type,
         element_type: &Type,
         field_name_str: &str,
+        lambda_variable_count: usize,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
+        let key_type = &Type::Int; // SparseID
+
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
@@ -3327,8 +3341,8 @@ impl<'a> Analyzer<'a> {
                     parameters: vec![
                         self_mutable_type_param,
                         TypeForParameter {
-                            name: "element".to_string(),
-                            resolved_type: element_type.clone(),
+                            name: "key".to_string(),
+                            resolved_type: key_type.clone(),
                             is_mutable: false,
                             node: None,
                         },
@@ -3352,7 +3366,16 @@ impl<'a> Analyzer<'a> {
                 },
             ),
 
-            _ => { self.slice_member_signature(self_type, element_type, field_name_str, node) }?,
+            _ => {
+                self.slice_member_signature(
+                    self_type,
+                    Option::from(key_type),
+                    element_type,
+                    field_name_str,
+                    lambda_variable_count,
+                    node,
+                )
+            }?,
         };
         Ok(intrinsic_and_signature)
     }
@@ -3362,8 +3385,10 @@ impl<'a> Analyzer<'a> {
         self_type: &Type,
         element_type: &Type,
         field_name_str: &str,
+        lambda_variable_count: usize,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
+        let key_type = &Type::Int;
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
@@ -3400,7 +3425,16 @@ impl<'a> Analyzer<'a> {
                 },
             ),
 
-            _ => { self.slice_member_signature(self_type, element_type, field_name_str, node) }?,
+            _ => {
+                self.slice_member_signature(
+                    self_type,
+                    Option::from(key_type),
+                    element_type,
+                    field_name_str,
+                    lambda_variable_count,
+                    node,
+                )
+            }?,
         };
         Ok(intrinsic_and_signature)
     }
@@ -3469,8 +3503,10 @@ impl<'a> Analyzer<'a> {
     fn slice_member_signature(
         &mut self,
         self_type: &Type,
+        key_type: Option<&Type>,
         element_type: &Type,
         field_name_str: &str,
+        lambda_variable_count: usize,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let self_type_param = TypeForParameter {
@@ -3487,18 +3523,81 @@ impl<'a> Analyzer<'a> {
         };
         let intrinsic_and_signature = match field_name_str {
             "for" => {
-                let signature = Signature {
-                    parameters: vec![TypeForParameter {
+                let parameters = if lambda_variable_count == 2 {
+                    vec![
+                        TypeForParameter {
+                            name: "key".to_string(),
+                            resolved_type: key_type.unwrap().clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                        TypeForParameter {
+                            name: "element".to_string(),
+                            resolved_type: element_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ]
+                } else {
+                    vec![TypeForParameter {
                         name: "element".to_string(),
                         resolved_type: element_type.clone(),
                         is_mutable: false,
                         node: None,
-                    }],
+                    }]
+                };
+                let lambda_signature = Signature {
+                    parameters,
                     return_type: Box::new(Type::Unit),
                 };
-                let lambda_function_type = Type::Function(signature);
+                let lambda_function_type = Type::Function(lambda_signature);
                 (
-                    IntrinsicFunction::VecFor,
+                    IntrinsicFunction::TransformerFor,
+                    Signature {
+                        parameters: vec![
+                            self_type_param,
+                            TypeForParameter {
+                                name: "lambda".to_string(),
+                                resolved_type: lambda_function_type,
+                                is_mutable: false,
+                                node: None,
+                            },
+                        ],
+                        return_type: Box::new(Type::Unit), // VecFor is only used for side effects
+                    },
+                )
+            }
+            "while" => {
+                let parameters = if lambda_variable_count == 2 {
+                    vec![
+                        TypeForParameter {
+                            name: "key".to_string(),
+                            resolved_type: key_type.unwrap().clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                        TypeForParameter {
+                            name: "element".to_string(),
+                            resolved_type: element_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ]
+                } else {
+                    vec![TypeForParameter {
+                        name: "element".to_string(),
+                        resolved_type: element_type.clone(),
+                        is_mutable: false,
+                        node: None,
+                    }]
+                };
+                let lambda_signature = Signature {
+                    parameters,
+                    return_type: Box::new(Type::Bool), // it returns if the while loop should continue
+                };
+                let lambda_function_type = Type::Function(lambda_signature);
+                (
+                    IntrinsicFunction::TransformerWhile,
                     Signature {
                         parameters: vec![
                             self_type_param,
@@ -3525,7 +3624,7 @@ impl<'a> Analyzer<'a> {
                 };
                 let lambda_function_type = Type::Function(lambda_signature);
                 (
-                    IntrinsicFunction::VecFilter,
+                    IntrinsicFunction::TransformerFilter,
                     Signature {
                         parameters: vec![
                             self_type_param,
@@ -3553,7 +3652,7 @@ impl<'a> Analyzer<'a> {
                 };
                 let lambda_function_type = Type::Function(lambda_signature);
                 (
-                    IntrinsicFunction::VecFind,
+                    IntrinsicFunction::TransformerFind,
                     Signature {
                         parameters: vec![
                             self_type_param,
@@ -3701,6 +3800,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         type_that_member_is_on: &Type,
         field_name_str: &str,
+        lambda_variables_count: usize,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let ty = type_that_member_is_on.underlying();
@@ -3712,12 +3812,15 @@ impl<'a> Analyzer<'a> {
                     type_that_member_is_on,
                     element_type,
                     field_name_str,
+                    lambda_variables_count,
                     node,
                 ),
             Type::QueueStorage(element_type, ..) => self.queue_member_signature(
                 type_that_member_is_on,
+                None,
                 element_type,
                 field_name_str,
+                lambda_variables_count,
                 node,
             ),
             Type::StackStorage(element_type, ..)
@@ -3727,12 +3830,15 @@ impl<'a> Analyzer<'a> {
                 type_that_member_is_on,
                 element_type,
                 field_name_str,
+                lambda_variables_count,
                 node,
             ),
             Type::SliceView(element_type) => self.slice_member_signature(
                 type_that_member_is_on,
+                Some(&Type::Int),
                 element_type,
                 field_name_str,
+                lambda_variables_count,
                 node,
             ),
             Type::MapStorage(key, value, _) => {
@@ -3740,8 +3846,10 @@ impl<'a> Analyzer<'a> {
             }
             Type::FixedCapacityAndLengthArray(element_type, _) => self.slice_member_signature(
                 type_that_member_is_on,
+                Some(&Type::Int),
                 element_type,
                 field_name_str,
+                lambda_variables_count,
                 node,
             ),
             _ => Err(self.create_err(
@@ -3788,9 +3896,18 @@ impl<'a> Analyzer<'a> {
             )?;
             (found_function, signature)
         } else {
+            let lambda_variables_count = if ast_arguments.is_empty() {
+                0
+            } else if let swamp_ast::ExpressionKind::Lambda(variables, ..) = &ast_arguments[0].kind
+            {
+                variables.len()
+            } else {
+                0
+            };
             let (intrinsic_fn, signature) = self.check_intrinsic_member_signature(
                 type_that_member_is_on,
                 field_name_str,
+                lambda_variables_count,
                 node,
             )?;
             let def = IntrinsicFunctionDefinition {

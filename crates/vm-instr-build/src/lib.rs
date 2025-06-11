@@ -2277,14 +2277,23 @@ impl InstructionBuilder<'_> {
         &mut self,
         dest: &TypedRegister,
         self_int: &TypedRegister,
+        min_int: &TypedRegister,
+        max_int: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
         assert!(dest.ty().is_int());
         assert!(self_int.ty().is_int());
+        assert!(min_int.ty().is_int());
+        assert!(max_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntClamp,
-            &[dest.addressing(), self_int.addressing()],
+            &[
+                dest.addressing(),
+                self_int.addressing(),
+                min_int.addressing(),
+                max_int.addressing(),
+            ],
             node,
             comment,
         );

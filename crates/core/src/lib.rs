@@ -983,7 +983,10 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         .into(),
         return_type: Box::new(Type::Unit),
     };
-    let self_block_to_unit_functions = [IntrinsicFunction::VecFor, IntrinsicFunction::VecWhile];
+    let self_block_to_unit_functions = [
+        IntrinsicFunction::TransformerFor,
+        IntrinsicFunction::TransformerWhile,
+    ];
     for intrinsic_fn in self_block_to_unit_functions {
         let name = intrinsic_fn.to_string();
         core_ns
@@ -1014,11 +1017,11 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         return_type: Box::new(Type::Unit),
     };
     let self_block_to_generic_functions = [
-        IntrinsicFunction::VecMap,
-        IntrinsicFunction::VecFindMap,
-        IntrinsicFunction::VecFilter,
-        IntrinsicFunction::VecFilterMap,
-        IntrinsicFunction::VecFind,
+        IntrinsicFunction::TransformerMap,
+        IntrinsicFunction::TransformerFindMap,
+        IntrinsicFunction::TransformerFilter,
+        IntrinsicFunction::TransformerFilterMap,
+        IntrinsicFunction::TransformerFind,
     ];
     for intrinsic_fn in self_block_to_generic_functions {
         let name = intrinsic_fn.to_string();
@@ -1055,7 +1058,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         .into(),
         return_type: Box::new(Type::Unit),
     };
-    let self_element_block_to_generic_functions = [IntrinsicFunction::VecFold];
+    let self_element_block_to_generic_functions = [IntrinsicFunction::TransformerFold];
     for intrinsic_fn in self_element_block_to_generic_functions {
         let name = intrinsic_fn.to_string();
         core_ns
@@ -1085,7 +1088,10 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
         .into(),
         return_type: Box::new(Type::Bool),
     };
-    let self_block_to_bool_functions = [IntrinsicFunction::VecAny, IntrinsicFunction::VecAll];
+    let self_block_to_bool_functions = [
+        IntrinsicFunction::TransformerAny,
+        IntrinsicFunction::TransformerAll,
+    ];
     for intrinsic_fn in self_block_to_bool_functions {
         let name = intrinsic_fn.to_string();
         core_ns

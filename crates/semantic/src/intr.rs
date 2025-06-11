@@ -42,32 +42,36 @@ pub enum IntrinsicFunction {
     StringLen,
     // TODO: StringSubscript, StringConcat
 
+    // Range
+    RangeInit,
+
     // Vec
     VecPush,
     VecPop,
     VecRemoveIndex,
     VecRemoveIndexGetValue,
     VecRemoveFirstIndexGetValue,
-    VecLen,
     VecClear,
     VecSwap,
     VecInsert,
     VecFirst,
     VecGet,
     VecLast,
-
-    VecFor,
-    VecWhile,
-    VecFindMap,
-    VecAny,
-    VecAll,
-    VecMap,
-    VecFilter,
-    VecFilterMap,
-    VecFind,
-    VecFold,
+    VecLen,
     VecCapacity,
     VecIsEmpty,
+
+    // Transformer
+    TransformerFor,
+    TransformerWhile,
+    TransformerFindMap,
+    TransformerAny,
+    TransformerAll,
+    TransformerMap,
+    TransformerFilter,
+    TransformerFilterMap,
+    TransformerFind,
+    TransformerFold,
 
     // Map
     MapIsEmpty,
@@ -76,21 +80,22 @@ pub enum IntrinsicFunction {
     MapIter,
     MapIterMut,
     MapLen,
+    MapCapacity,
 
     // Grid
     GridSet,
     GridGet,
+
+    // Sparse
+    SparseAdd,
+    SparseRemove,
+    SparseIsAlive,
 
     Float2Magnitude,
 
     RuntimePanic,
     RuntimeHalt,
     RuntimeStep,
-    RangeInit,
-    MapCapacity,
-    SparseAdd,
-    SparseRemove,
-    SparseIsAlive,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -145,19 +150,19 @@ impl fmt::Display for IntrinsicFunction {
             Self::VecRemoveFirstIndexGetValue => "vec_remove_first_get_value",
             Self::VecClear => "vec_clear",
             Self::VecGet => "vec_get",
-            Self::VecFor => "vec_for",
+            Self::TransformerFor => "vec_for",
             Self::VecIsEmpty => "vec_is_empty",
-            Self::VecWhile => "vec_while",
-            Self::VecFindMap => "vec_find_map",
+            Self::TransformerWhile => "vec_while",
+            Self::TransformerFindMap => "vec_find_map",
             Self::VecLen => "vec_len",
             Self::VecCapacity => "vec_capacity",
-            Self::VecAny => "vec_any",
-            Self::VecAll => "vec_all",
-            Self::VecMap => "vec_map",
-            Self::VecFilter => "vec_filter",
-            Self::VecFilterMap => "vec_filter_map",
-            Self::VecFind => "vec_find",
-            Self::VecFold => "vec_fold",
+            Self::TransformerAny => "vec_any",
+            Self::TransformerAll => "vec_all",
+            Self::TransformerMap => "vec_map",
+            Self::TransformerFilter => "vec_filter",
+            Self::TransformerFilterMap => "vec_filter_map",
+            Self::TransformerFind => "vec_find",
+            Self::TransformerFold => "vec_fold",
             Self::VecSwap => "vec_swap",
             Self::VecInsert => "vec_insert",
             Self::VecFirst => "vec_first",

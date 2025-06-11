@@ -6,7 +6,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
-use swamp_semantic::{ArgumentExpression, ExpressionKind};
+use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type, u32_type,
 };
@@ -52,20 +52,12 @@ impl CodeBuilder<'_> {
         node: &Node,
         source_collection_type: Collection,
         transformer: Transformer,
-        source_collection_self_region: &TypedRegister,
-        lambda_expression: &ArgumentExpression,
+        source_collection_reg: &TypedRegister,
+        lambda_tuple: (Vec<VariableRef>, &Expression),
         ctx: &Context,
     ) {
-        // Take out lambda and other lookups before generating the code
-        let ArgumentExpression::Expression(expr) = lambda_expression else {
-            panic!("internal error");
-        };
-
-        let ExpressionKind::Lambda(lambda_variables, lambda_expr) = &expr.kind else {
-            panic!();
-        };
-
-        let maybe_primary_element_gen_type = source_collection_self_region
+        let (lambda_variables, lambda_expr) = lambda_tuple;
+        let maybe_primary_element_gen_type = source_collection_reg
             .ty
             .basic_type
             .underlying()
@@ -93,12 +85,12 @@ impl CodeBuilder<'_> {
                 node,
                 source_collection_type,
                 maybe_primary_element_gen_type,
-                source_collection_self_region,
+                source_collection_reg,
                 &target_variables,
             );
 
         // 3. Inline the lambda code for the current element(s).
-        let lambda_result = self.emit_scalar_rvalue(lambda_expr, ctx);
+        let lambda_result = self.emit_scalar_rvalue(&lambda_expr, ctx);
 
         // 4. If the transformer supports early exit, set the P flag based on the lambda result.
         let transformer_t_flag_state =

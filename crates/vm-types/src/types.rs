@@ -834,6 +834,11 @@ impl Destination {
     pub const fn is_memory_location(&self) -> bool {
         matches!(self, Self::Memory(_))
     }
+
+    #[must_use]
+    pub const fn is_register(&self) -> bool {
+        matches!(self, Self::Register(_))
+    }
     #[must_use]
     pub const fn ty(&self) -> &BasicType {
         match self {

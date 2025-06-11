@@ -124,12 +124,12 @@ impl CodeBuilder<'_> {
             ForPattern::Pair(a, b) => vec![a.clone(), b.clone()],
         };
 
-        let fake_lambda_kind = ExpressionKind::Lambda(variables, Box::from(lambda_expr.clone()));
-        let fake_lambda_expr = ArgumentExpression::Expression(Expression {
-            ty: lambda_expr.ty.clone(),
-            node: node.clone(),
-            kind: fake_lambda_kind,
-        });
+        //let fake_lambda_kind = ExpressionKind::Lambda(variables, Box::from(lambda_expr.clone()));
+        //let fake_lambda_expr = ArgumentExpression::Expression(Expression {
+        //            ty: lambda_expr.ty.clone(),
+        //          node: node.clone(),
+        //        kind: fake_lambda_kind,
+        //   });
 
         self.emit_iterate_over_collection_with_lambda(
             target_reg,
@@ -137,7 +137,7 @@ impl CodeBuilder<'_> {
             collection,
             Transformer::For,
             source_collection,
-            &fake_lambda_expr,
+            (variables, lambda_expr),
             ctx,
         );
     }

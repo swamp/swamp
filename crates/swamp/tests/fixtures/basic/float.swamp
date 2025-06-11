@@ -37,3 +37,12 @@ fn mid() {
 fn to_string() {
   assert(3.0.to_string() == "3.00", "to_string(3.0) is wrong")
 }
+
+// A bug where materializing intrinsic operations results (e.g. `floor`) into a memory location didn't work correctly.
+// It wrongfully assumed that the target always was a register.
+#[test]
+fn floor_to_tuple() {
+    x = 1.0
+
+    tuple = (x.floor(), 2.0)
+}
