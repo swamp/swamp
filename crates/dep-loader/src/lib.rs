@@ -441,18 +441,37 @@ pub fn path_from_environment_variable() -> Option<PathBuf> {
         .ok()
 }
 
-#[must_use] pub fn swamp_home() -> Option<PathBuf> {
+#[must_use]
+pub fn swamp_home() -> Option<PathBuf> {
     // First try environment variable
     path_from_environment_variable()
         .or_else(|| os_home_relative_path("swamp"))
 }
 
+// Verifies the structure of swamp_home to make sure if we can use it
+#[must_use]
+pub fn verify_if_swamp_home_seems_correct(swamp_home: &Path) -> bool {
+    let mut swamp_packages_dir = swamp_home.to_path_buf();
+
+    swamp_packages_dir.push("packages");
+
+    swamp_packages_dir.exists() && swamp_packages_dir.is_dir()
+}
+
 /// # Errors
 ///
+#[must_use]
 pub fn swamp_registry_path() -> Option<PathBuf> {
-    let mut swamp_home = swamp_home()?;
-    swamp_home.push("packages");
-    Some(swamp_home)
+    let swamp_home = swamp_home()?;
+
+    if verify_if_swamp_home_seems_correct(&swamp_home) {
+        let mut packages_path = swamp_home.clone();
+        packages_path.push("packages");
+
+        Some(swamp_home)
+    } else {
+        None
+    }
 }
 
 pub fn parse_local_modules_and_get_order(
