@@ -132,6 +132,7 @@ pub enum TrapCode {
     SparseOutOfSpace,
     SparseRemoveFailed,
     SparseGetFailed,
+    MapCouldNotBeCopied,
 }
 impl TryFrom<u8> for TrapCode {
     type Error = ();
@@ -290,7 +291,7 @@ impl Vm {
             HandlerType::Args4(Self::execute_stb_using_base_ptr_and_offset);
 
         // Load
-        vm.handlers[OpCode::LdRegFromFrame as usize] =
+        vm.handlers[OpCode::LdRegFromFrameRange as usize] =
             HandlerType::Args4(Self::execute_ld_regs_from_frame);
         vm.handlers[OpCode::LdRegFromFrameUsingMask as usize] =
             HandlerType::Args3(Self::execute_ld_regs_from_frame_using_mask);
@@ -473,6 +474,8 @@ impl Vm {
             HandlerType::Args3(Self::execute_map_open_addressing_has);
         vm.handlers[OpCode::MapRemove as usize] =
             HandlerType::Args2(Self::execute_map_open_addressing_remove);
+        vm.handlers[OpCode::MapOverwrite as usize] =
+            HandlerType::Args2(Self::execute_map_overwrite);
 
         // Sparse
         vm.handlers[OpCode::SparseInit as usize] = HandlerType::Args5(Self::execute_sparse_init);

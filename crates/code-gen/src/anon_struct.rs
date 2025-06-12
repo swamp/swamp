@@ -12,7 +12,7 @@ use swamp_semantic::{AnonymousStructLiteral, Expression};
 use swamp_types::{AnonymousStructType, Type};
 use swamp_vm_types::types::{BasicType, BasicTypeKind, VmType, u16_type};
 use swamp_vm_types::{
-    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
+    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, CountU16,
     MemoryLocation,
 };
 
@@ -140,6 +140,46 @@ impl CodeBuilder<'_> {
                     comment,
                 );
             }
+            BasicTypeKind::MapStorage {
+                capacity,
+                logical_limit,
+                tuple_type,
+                tuple_alignment,
+                ..
+            } => {
+                let hwm = self.temp_registers.save_mark();
+
+                let init_capacity_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u16_type()),
+                    &format!("{comment} - init map capacity reg"),
+                );
+
+                self.builder.add_mov_16_immediate_value(
+                    init_capacity_reg.register(),
+                    capacity.0,
+                    node,
+                    &format!("{comment} -set init map capacity value to {lvalue_location}"),
+                );
+                self.builder.add_st16_using_ptr_with_offset(
+                    &lvalue_location.unsafe_add_offset(COLLECTION_CAPACITY_OFFSET),
+                    init_capacity_reg.register(),
+                    node,
+                    &format!("{comment} - store capacity"),
+                );
+                self.temp_registers.restore_to_mark(hwm);
+
+                let unaligned_key_size = tuple_type.fields[0].ty.total_size;
+                let unaligned_value_size = tuple_type.fields[1].ty.total_size;
+                self.builder.add_map_init_set_capacity(
+                    &lvalue_location.pointer_location().unwrap(),
+                    CountU16(*logical_limit as u16),
+                    unaligned_key_size,
+                    unaligned_value_size,
+                    tuple_type.max_alignment,
+                    node,
+                    "initialize map (capacity, key_size, total_key_and_value_size)",
+                );
+            }
             _ => {
                 if let Some(capacity) = lvalue_location.ty.underlying().get_collection_capacity() {
                     let hwm = self.temp_registers.save_mark();
@@ -153,7 +193,7 @@ impl CodeBuilder<'_> {
                         init_capacity_reg.register(),
                         capacity.0,
                         node,
-                        &format!("{comment} -set init capacity value"),
+                        &format!("{comment} -set init capacity value to {lvalue_location}"),
                     );
                     self.builder.add_st16_using_ptr_with_offset(
                         &lvalue_location.unsafe_add_offset(COLLECTION_CAPACITY_OFFSET),

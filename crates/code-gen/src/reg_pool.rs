@@ -3,12 +3,18 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use swamp_vm_types::types::{TypedRegister, VmType};
 
 #[derive(Debug)]
 pub struct TempRegister {
     pub(crate) register: TypedRegister,
+}
+
+impl Display for TempRegister {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.register)
+    }
 }
 
 impl TempRegister {

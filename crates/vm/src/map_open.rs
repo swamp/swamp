@@ -12,6 +12,14 @@ use std::hash::Hasher;
 use std::{ptr, slice};
 use swamp_vm_types::{MAP_BUCKETS_OFFSET, MapHeader, MapIterator};
 
+// Define a struct for map layout information
+struct MapLayout {
+    bucket_size: u16,
+    tuple_offset: u8,
+    tuple_size: u16,
+    value_offset: u16,
+}
+
 impl Vm {
     const MAX_PROBES: usize = 8;
     pub const BUCKET_EMPTY: u8 = 0;
@@ -73,7 +81,8 @@ impl Vm {
             let key_ptr = memory.get_heap_ptr(key_ptr_addr);
 
             // Calculate bucket layout sizes
-            let status_size: usize = (*header).status_size.into();
+            let tuple_offset: usize = (*header).tuple_offset.into();
+            let value_offset: usize = (*header).value_offset.into(); // Use the stored value_offset
             let bucket_size = (*header).bucket_size as usize;
 
             let key_slice = slice::from_raw_parts(key_ptr, key_size);
@@ -84,7 +93,7 @@ impl Vm {
             #[cfg(feature = "debug_vm")]
             if log {
                 eprintln!(
-                    "map_get_or_reserve_entry: wants to insert hash: {hash:08X} starting at: {index} capacity: {}, len: {}, logical_limit:{} key_size: {key_size} element_size: {element_size}",
+                    "map_get_or_reserve_entry: wants to insert hash: {hash:016X} starting at: {index} capacity: {}, len: {}, logical_limit:{} key_size: {key_size} element_size: {element_size}",
                     (*header).capacity,
                     (*header).element_count,
                     (*header).logical_limit,
@@ -115,8 +124,10 @@ impl Vm {
                     // Calculate pointers for the insertion spot.
                     let target_bucket_ptr = buckets_ptr.add(insertion_index * bucket_size);
                     let target_status_ptr = target_bucket_ptr;
-                    let target_key_ptr = target_bucket_ptr.add(status_size);
-                    let target_value_ptr = target_key_ptr.add(key_size);
+                    let target_key_ptr = target_bucket_ptr.add(tuple_offset);
+
+                    // Use the pre-calculated value_offset instead of key_ptr + key_size
+                    let target_value_ptr = target_bucket_ptr.add(value_offset);
 
                     // Write status, key, and value
                     ptr::write(target_status_ptr, Self::BUCKET_OCCUPIED);
@@ -132,7 +143,7 @@ impl Vm {
                     return memory.get_heap_offset(target_value_ptr);
                 } else if status == Self::BUCKET_OCCUPIED {
                     // Slot is occupied, check if keys match.
-                    let existing_key_ptr = bucket_start_ptr.add(status_size);
+                    let existing_key_ptr = bucket_start_ptr.add(tuple_offset);
                     let existing_key_slice = slice::from_raw_parts(existing_key_ptr, key_size);
 
                     if key_slice == existing_key_slice {
@@ -140,8 +151,10 @@ impl Vm {
                         if log {
                             eprintln!("keys matched, so we found it. overwriting index {index}");
                         }
-                        // Keys match, we can just overwrite the value portion
-                        let value_dest_ptr = existing_key_ptr.add(key_size);
+
+                        // Use the pre-calculated value_offset instead of key_ptr + key_size
+                        let value_dest_ptr = bucket_start_ptr.add(value_offset);
+
                         return memory.get_heap_offset(value_dest_ptr);
                     }
                     #[cfg(feature = "debug_vm")]
@@ -176,8 +189,10 @@ impl Vm {
                 // calculate pointers to the earliest tombstone
                 let target_bucket_ptr = buckets_ptr.add(tombstone_index * bucket_size);
                 let target_status_ptr = target_bucket_ptr;
-                let target_key_ptr = target_bucket_ptr.add(status_size);
-                let target_value_ptr = target_key_ptr.add(key_size);
+                let target_key_ptr = target_bucket_ptr.add(tuple_offset);
+
+                // Use the pre-calculated value_offset instead of key_ptr + key_size
+                let target_value_ptr = target_bucket_ptr.add(value_offset);
 
                 #[cfg(feature = "debug_vm")]
                 if log {
@@ -219,7 +234,10 @@ impl Vm {
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
-            eprintln!("lookup in bucket: {map_header_addr:04X}");
+            eprintln!(
+                "lookup in bucket: {map_header_addr:04X} element_count:{}, capacity:{} bucket_size:{}",
+                map_header.element_count, map_header.capacity, map_header.bucket_size
+            );
         }
 
         let buckets_start_addr = (map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
@@ -249,6 +267,31 @@ impl Vm {
         n > 0 && (n & (n - 1)) == 0
     }
 
+    // Had a bug where layout_type calculated the alignment and sizes
+    // in one way, and the VM in another. Especially the value offset
+    // were incorrectly calculated by tuple_offset + key_size.
+    #[inline]
+    pub const fn calculate_map_layout(key_size: u16, value_size: u16, alignment: u8) -> MapLayout {
+        let status_size: u8 = 1;
+        let alignment = alignment as u16;
+
+        let tuple_offset = ((status_size as u16 + alignment - 1) / alignment) * alignment;
+
+        let value_offset = tuple_offset + ((key_size + alignment - 1) / alignment) * alignment;
+
+        let tuple_size = key_size + value_size;
+
+        let bucket_end = value_offset + value_size;
+        let bucket_size = ((bucket_end + alignment - 1) / alignment) * alignment;
+
+        MapLayout {
+            bucket_size,
+            tuple_offset: tuple_offset as u8,
+            tuple_size,
+            value_offset,
+        }
+    }
+
     pub fn execute_map_open_addressing_init(
         &mut self,
         self_map_header_reg: u8,
@@ -256,33 +299,37 @@ impl Vm {
         logical_limit_upper: u8,
         key_size_lower: u8,
         key_size_upper: u8,
-        tuple_size_lower: u8,
-        tuple_size_upper: u8,
-        status_size: u8,
+        value_size_lower: u8,
+        value_size_upper: u8,
+        alignment: u8,
     ) {
         let map_header_addr = get_reg!(self, self_map_header_reg);
         let map_header = self.get_map_header_mut(map_header_addr);
         let logical_limit = u16_from_u8s!(logical_limit_lower, logical_limit_upper);
         let key_size = u16_from_u8s!(key_size_lower, key_size_upper);
-        let tuple_size = u16_from_u8s!(tuple_size_lower, tuple_size_upper);
+        let value_size = u16_from_u8s!(value_size_lower, value_size_upper);
         let capacity = logical_limit.next_power_of_two();
         debug_assert_ne!(capacity, 0);
         assert!(Self::is_power_of_two(capacity as usize));
+
+        let layout = Self::calculate_map_layout(key_size, value_size, alignment);
+
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             let map_header_addr = get_reg!(self, self_map_header_reg);
             eprintln!(
-                "map_init {map_header_addr:08X}:  logical_limit: {logical_limit} capacity: {capacity}, key_size: {key_size}, tuple_size: {tuple_size_lower}"
+                "map_init {map_header_addr:08X}:  logical_limit: {logical_limit} capacity: {capacity}, key_size: {key_size}, tuple_size:{}, bucket_size:{}, value_offset:{}",
+                layout.tuple_size, layout.bucket_size, layout.value_offset,
             );
         }
-        let bucket_size = tuple_size as u32 + status_size as u32;
         unsafe {
             (*map_header).capacity = capacity;
             (*map_header).logical_limit = logical_limit;
             (*map_header).key_size = key_size;
-            (*map_header).tuple_size = tuple_size;
-            (*map_header).status_size = status_size;
-            (*map_header).bucket_size = bucket_size as u16;
+            (*map_header).tuple_size = layout.tuple_size;
+            (*map_header).bucket_size = layout.bucket_size;
+            (*map_header).tuple_offset = layout.tuple_offset;
+            (*map_header).value_offset = layout.value_offset;
             (*map_header).element_count = 0;
         }
 
@@ -290,7 +337,7 @@ impl Vm {
             let buckets_start = map_header_addr + MAP_BUCKETS_OFFSET.0 as u32;
 
             for i in 0..(*map_header).capacity {
-                let status_addr = (buckets_start + (i as u32) * bucket_size) as usize;
+                let status_addr = (buckets_start + (i as u32) * layout.bucket_size as u32) as usize;
                 *self.memory.get_heap_ptr(status_addr) = Self::BUCKET_EMPTY;
             }
         }
@@ -360,6 +407,86 @@ impl Vm {
         }
     }
 
+    pub fn execute_map_overwrite(&mut self, target_map_header_reg: u8, source_map_header_reg: u8) {
+        let target_map_header_addr = get_reg!(self, target_map_header_reg);
+        let target_map_header = self.get_map_header_mut(target_map_header_addr);
+
+        let source_map_header_addr = get_reg!(self, source_map_header_reg);
+        let source_map_header = self.get_map_header_const(source_map_header_addr);
+
+        unsafe {
+            #[cfg(feature = "debug_vm")]
+            if self.debug_operations_enabled {
+                eprintln!(
+                    "map_overwrite: target_capacity:{} target_logical_limit:{}, source_capacity:{}, source_element_count:{}",
+                    (*target_map_header).capacity,
+                    (*target_map_header).logical_limit,
+                    (*source_map_header).capacity,
+                    (*source_map_header).element_count
+                );
+            }
+
+            if (*target_map_header).logical_limit < (*source_map_header).element_count {
+                #[cfg(feature = "debug_vm")]
+                if self.debug_operations_enabled {
+                    eprintln!(
+                        "map_overwrite: target_capacity:{} source_capacity:{}, source_element_count:{}",
+                        (*target_map_header).capacity,
+                        (*source_map_header).capacity,
+                        (*source_map_header).element_count
+                    );
+                }
+
+                self.internal_trap(TrapCode::MapCouldNotBeCopied);
+                return;
+            }
+
+            let source_buckets_start_addr =
+                (source_map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
+            let source_buckets_ptr = self.memory.get_heap_const_ptr(source_buckets_start_addr);
+            let target_buckets_start_addr =
+                (target_map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
+
+            let key_size = (*source_map_header).key_size as usize;
+            let bucket_size = (*source_map_header).bucket_size as usize;
+            let tuple_offset = (*source_map_header).tuple_offset as usize;
+            let value_offset = (*source_map_header).value_offset as usize;
+
+            // For each bucket in source
+            for i in 0..(*source_map_header).capacity as usize {
+                let source_bucket_ptr = source_buckets_ptr.add(i * bucket_size);
+                let status = ptr::read(source_bucket_ptr);
+
+                if status == Self::BUCKET_OCCUPIED {
+                    let source_key_ptr = source_bucket_ptr.add(tuple_offset);
+                    let source_value_ptr = source_bucket_ptr.add(value_offset);
+
+                    let target_value_offset = Self::get_or_reserve_entry(
+                        &self.memory,
+                        target_buckets_start_addr,
+                        target_map_header,
+                        self.memory.get_heap_offset(source_key_ptr) as usize,
+                        self.debug_operations_enabled,
+                    );
+
+                    if target_value_offset == 0 {
+                        return self.internal_trap(TrapCode::MapCouldNotBeCopied);
+                    }
+
+                    let target_value_ptr = self.memory.get_heap_ptr(target_value_offset as usize);
+                    let value_size = (*source_map_header).tuple_size as usize - key_size;
+                    ptr::copy_nonoverlapping(source_value_ptr, target_value_ptr, value_size);
+                }
+            }
+
+            debug_assert_eq!(
+                (*target_map_header).element_count,
+                (*source_map_header).element_count,
+                "Target map should have same number of elements as source after copy"
+            );
+        }
+    }
+
     pub fn execute_map_open_addressing_remove(
         &mut self,
         self_map_header_reg: u8,
@@ -410,7 +537,7 @@ impl Vm {
             let buckets_ptr = memory.get_heap_const_ptr(buckets_ptr_addr);
 
             // Calculate bucket layout sizes
-            let status_size: usize = header.status_size as usize;
+            let tuple_offset: usize = header.tuple_offset as usize;
             let bucket_size: usize = header.bucket_size as usize;
 
             // Use bitwise AND for modulo (capacity is always a power of two)
@@ -436,7 +563,7 @@ impl Vm {
                     return false;
                 } else if status == Self::BUCKET_OCCUPIED {
                     // Slot is occupied, check if the keys match.
-                    let existing_key_ptr = bucket_start_ptr.add(status_size);
+                    let existing_key_ptr = bucket_start_ptr.add(tuple_offset);
                     let existing_key_slice = slice::from_raw_parts(existing_key_ptr, key_size);
 
                     if key_slice == existing_key_slice {
@@ -480,7 +607,7 @@ impl Vm {
             debug_assert_ne!(element_size, 0);
 
             // Calculate bucket layout sizes (same as insert)
-            let status_size: usize = header.status_size as usize;
+            let tuple_offset: usize = header.tuple_offset as usize;
             let bucket_size: usize = header.bucket_size as usize;
 
             let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
@@ -496,7 +623,7 @@ impl Vm {
             #[cfg(feature = "debug_vm")]
             if log {
                 eprintln!(
-                    "map_lookup_existing_entry: calculated search hash {hash:08X} starting at {index}"
+                    "map_lookup_existing_entry: calculated search hash {hash:16X} starting at {index}"
                 );
             }
 
@@ -520,18 +647,20 @@ impl Vm {
                     return 0;
                 } else if status == Self::BUCKET_OCCUPIED {
                     // Slot is occupied, check if the keys match.
-                    let existing_key_ptr = bucket_start_ptr.add(status_size);
+                    let existing_key_ptr = bucket_start_ptr.add(tuple_offset);
                     let existing_key_slice = slice::from_raw_parts(existing_key_ptr, key_size);
 
                     if key_slice == existing_key_slice {
                         #[cfg(feature = "debug_vm")]
                         if log {
                             eprintln!(
-                                "map_lookup_existing_entry: matching new key {key_slice:?} with existing key {existing_key_slice:?}. returning this existing entry at {index}, adding key_size {key_size}"
+                                "map_lookup_existing_entry: matching new key {key_slice:?} with existing key {existing_key_slice:?}. returning this existing entry at {index} value_offset:{}",
+                                header.value_offset
                             );
                         }
                         // Keys match! return the pointer.
-                        let value_src_ptr = existing_key_ptr.add(key_size);
+                        let value_src_ptr = bucket_start_ptr.add(header.value_offset as usize);
+
                         return memory.get_heap_offset(value_src_ptr);
                     }
                     // Keys don't match (collision), continue probing.
@@ -579,7 +708,7 @@ impl Vm {
             let element_size = (*header).tuple_size as usize;
             debug_assert_ne!(element_size, 0);
 
-            let status_size: usize = (*header).status_size as usize;
+            let tuple_offset: usize = (*header).tuple_offset as usize;
             let bucket_size: usize = (*header).bucket_size as usize;
 
             let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
@@ -615,7 +744,7 @@ impl Vm {
                     }
                     return false;
                 } else if status == Self::BUCKET_OCCUPIED {
-                    let existing_key_ptr = bucket_start_ptr_mut.add(status_size);
+                    let existing_key_ptr = bucket_start_ptr_mut.add(tuple_offset);
                     let existing_key_slice = slice::from_raw_parts(existing_key_ptr, key_size);
 
                     if key_slice == existing_key_slice {
@@ -722,11 +851,11 @@ impl Vm {
             let iter_addr = get_reg!(self, target_map_iterator_header_reg);
             let map_header = Self::read_map_header_from_heap(map_header_addr, &self.memory);
             eprintln!(
-                "map_iter_init: iter_addr: {iter_addr:04X} map_header_addr:{map_header_addr:04X} key_size:{}, status_size:{}, tuple_size:{} bucket_size: {}",
+                "map_iter_init: iter_addr: {iter_addr:04X} map_header_addr:{map_header_addr:04X} key_size:{}, tuple_offset:{}, tuple_size:{} bucket_size: {}",
                 map_header.key_size,
-                map_header.status_size,
+                map_header.tuple_offset,
                 map_header.tuple_size,
-                (map_header.status_size as usize + map_header.tuple_size as usize)
+                (map_header.bucket_size)
             );
         }
         let map_iterator = MapIterator {
@@ -797,10 +926,9 @@ impl Vm {
                     (*map_iterator).index = index + 1;
 
                     let key_addr =
-                        element_start_address_including_status + map_header.status_size as u32;
-                    let value_addr = element_start_address_including_status
-                        + map_header.status_size as u32
-                        + map_header.key_size as u32;
+                        element_start_address_including_status + map_header.tuple_offset as u32;
+                    let value_addr =
+                        element_start_address_including_status + map_header.value_offset as u32;
 
                     #[cfg(feature = "debug_vm")]
                     if self.debug_operations_enabled {
@@ -881,9 +1009,8 @@ impl Vm {
                 if status == Self::BUCKET_OCCUPIED {
                     (*map_iterator).index = index + 1;
 
-                    let value_addr = element_start_address_including_status
-                        + map_header.status_size as u32
-                        + map_header.key_size as u32;
+                    let value_addr =
+                        element_start_address_including_status + map_header.value_offset as u32;
 
                     #[cfg(feature = "debug_vm")]
                     if self.debug_operations_enabled {

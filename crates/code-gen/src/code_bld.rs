@@ -443,7 +443,7 @@ impl CodeBuilder<'_> {
                 constant_region.addr().0,
                 node,
                 &format!(
-                    "load constant pointer '{}' {:?}",
+                    "load constant pointer '{}' type:{}",
                     constant_reference.assigned_name,
                     constant_region.ty()
                 ),
@@ -464,7 +464,7 @@ impl CodeBuilder<'_> {
                 &output_reg,
                 &source_memory_location,
                 node,
-                "copy from constant memory area to target memory",
+                &format!("copy to target memory {output_reg} from constant memory area {source_memory_location}"),
             );
         } else if let Some(output_memory_location) = output.memory_location() {
             let hwm = self.temp_registers.save_mark();
@@ -489,7 +489,7 @@ impl CodeBuilder<'_> {
                 output_memory_location,
                 temp_reg.register(),
                 node,
-                "put constant into memory",
+                &format!("put constant into memory {output_memory_location} <- {temp_reg}"),
             );
 
             self.temp_registers.restore_to_mark(hwm);

@@ -54,8 +54,14 @@ impl Add<MemoryOffset> for StackMemoryAddress {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct CountU16(pub u16);
+
+impl Display for CountU16 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct CountU32(pub u32);
@@ -380,6 +386,12 @@ pub struct AggregateMemoryLocation {
     pub location: MemoryLocation,
 }
 
+impl Display for AggregateMemoryLocation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.location)
+    }
+}
+
 impl AggregateMemoryLocation {
     #[must_use]
     pub fn offset(&self, memory_offset: MemoryOffset, new_type: BasicType) -> Self {
@@ -545,6 +557,17 @@ impl MemoryAlignment {
 }
 
 impl From<MemoryAlignment> for usize {
+    fn from(val: MemoryAlignment) -> Self {
+        match val {
+            MemoryAlignment::U8 => 1,
+            MemoryAlignment::U16 => 2,
+            MemoryAlignment::U32 => 4,
+            MemoryAlignment::U64 => 8,
+        }
+    }
+}
+
+impl From<MemoryAlignment> for u8 {
     fn from(val: MemoryAlignment) -> Self {
         match val {
             MemoryAlignment::U8 => 1,
@@ -791,19 +814,19 @@ pub struct MapHeader {
     pub element_count: u16,
 
     pub key_size: u16,
-    pub tuple_size: u16, // Element Size: Key and Value
-    pub logical_limit: u16,
-    pub bucket_size: u16,
-    pub status_size: u8,
-    pub padding0: u8,
-    pub padding1: u8,
+    pub tuple_size: u16,    // Element Size: Key and Value
+    pub logical_limit: u16, // The logical limit set by the user. Capacity is always equal or greater than this value.
+    pub bucket_size: u16,   // Size of the whole bucket, including status, key, and value.
+    pub value_offset: u16,  // Offset from bucket start to value.
+    pub tuple_offset: u8,   // Offset from the bucket start to the key.
     pub padding2: u8,
 }
 
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
 pub const MAP_HEADER_KEY_SIZE_OFFSET: MemoryOffset = MemoryOffset(4);
-pub const MAP_HEADER_VALUE_SIZE_OFFSET: MemoryOffset = MemoryOffset(6);
+pub const MAP_HEADER_TUPLE_SIZE_OFFSET: MemoryOffset = MemoryOffset(6);
+pub const MAP_HEADER_LOGICAL_LIMIT_OFFSET: MemoryOffset = MemoryOffset(8);
 pub const MAP_BUCKETS_OFFSET: MemoryOffset = MemoryOffset(MAP_HEADER_SIZE.0);
 
 #[repr(C)]

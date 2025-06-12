@@ -46,7 +46,7 @@ impl CodeBuilder<'_> {
             &tag_memory_location.location,
             temp_payload_reg.register(),
             node,
-            "put enum tag in place",
+            &format!("put enum tag in place {tag_memory_location} <- {temp_payload_reg}"),
         );
 
         let payload_memory_location =

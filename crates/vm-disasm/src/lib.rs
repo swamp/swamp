@@ -591,7 +591,7 @@ pub fn disasm(
             ]
         }
 
-        OpCode::LdRegFromFrame => {
+        OpCode::LdRegFromFrameRange => {
             let frame_pointer_offset = u16::from_le_bytes([operands[1], operands[2]]);
 
             &[
@@ -1023,9 +1023,14 @@ pub fn disasm(
                 DecoratedOperandAccessKind::CountU16(logical_limit),
                 DecoratedOperandAccessKind::MemorySize(MemorySize(key_memory_size)),
                 DecoratedOperandAccessKind::MemorySize(MemorySize(total_tuple_size)),
-                DecoratedOperandAccessKind::CountU8(operands[7]),
+                DecoratedOperandAccessKind::CountU8(operands[7]), // Alignment byte
             ]
         }
+
+        OpCode::MapOverwrite => &[
+            to_write_reg(operands[0], &bytes_type(), frame_memory_info),
+            to_read_reg(operands[1], &bytes_type(), frame_memory_info),
+        ],
 
         OpCode::MapIterInit => &[
             to_write_reg(operands[0], &map_iter_type(), frame_memory_info),

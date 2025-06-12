@@ -108,7 +108,7 @@ impl CodeBuilder<'_> {
 
         let bucket_start_aggregate_location = AggregateMemoryLocation {
             location: MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                bucket_start_memory_location_reg,
+                bucket_start_memory_location_reg.ptr_reg,
             ),
         };
 

@@ -17,7 +17,7 @@ use crate::{
 use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{InternalFunctionDefinitionRef, InternalMainExpression, pretty_module_name};
+use swamp_semantic::{InternalFunctionDefinitionRef, InternalMainExpression, formal_function_name};
 use swamp_vm_debug_info::FunctionDebugInfo;
 use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_types::types::{
@@ -39,11 +39,7 @@ impl TopLevelGenState {
     ) {
         assert_ne!(internal_fn_def.program_unique_id, 0);
 
-        let complete_function_name = format!(
-            "{}::{}",
-            pretty_module_name(&internal_fn_def.defined_in_module_path),
-            internal_fn_def.assigned_name
-        );
+        let complete_function_name = formal_function_name(internal_fn_def);
 
         let in_data = FunctionInData {
             function_name_node: internal_fn_def.name.0.clone(),

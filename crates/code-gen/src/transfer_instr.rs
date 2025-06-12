@@ -6,7 +6,7 @@
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType};
-use swamp_vm_types::{HeapMemoryAddress, MemoryLocation};
+use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
     /// Emits a Swamp VM instruction to load a **scalar** value from a memory location defined by a
@@ -142,14 +142,16 @@ impl CodeBuilder<'_> {
         memory_location: &MemoryLocation,
         node: &Node,
         comment: &str,
-    ) -> TypedRegister {
+    ) -> PointerLocation {
         if memory_location.offset.0 == 0 {
             // Create a new TypedRegister with the same register but *updated* type
             // Caused bugs for things like transformers that needed the correct type.
-            TypedRegister {
-                index: memory_location.base_ptr_reg.index,
-                ty: memory_location.ty.clone(), // Use the field's type, not the base register's type
-                comment: comment.to_string(),
+            PointerLocation {
+                ptr_reg: TypedRegister {
+                    index: memory_location.base_ptr_reg.index,
+                    ty: memory_location.ty.clone(), // Use the field's type, not the base register's type
+                    comment: comment.to_string(),
+                },
             }
         } else {
             let final_ptr_target_reg = self.temp_registers.allocate(
@@ -164,8 +166,9 @@ impl CodeBuilder<'_> {
                 node,
                 &format!("{comment} (add to resolved new base_ptr)"),
             );
-
-            final_ptr_target_reg.register().clone()
+            PointerLocation {
+                ptr_reg: final_ptr_target_reg.register().clone(),
+            }
         }
     }
 
@@ -184,12 +187,14 @@ impl CodeBuilder<'_> {
     ) -> TypedRegister {
         match location {
             Destination::Register(reg) => reg.clone(),
-            Destination::Memory(memory_location) => self
-                .emit_compute_effective_address_from_location_to_register(
+            Destination::Memory(memory_location) => {
+                self.emit_compute_effective_address_from_location_to_register(
                     memory_location,
                     node,
                     comment,
-                ),
+                )
+                .ptr_reg
+            }
             Destination::Unit => {
                 panic!("can not compute effective address from unit")
             }

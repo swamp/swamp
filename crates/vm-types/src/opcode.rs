@@ -77,7 +77,7 @@ pub enum OpCode {
     Ld16FromPointerWithOffset,
     Ld32FromPointerWithOffset,
 
-    LdRegFromFrame,
+    LdRegFromFrameRange,
     LdRegFromFrameUsingMask,
 
     // TODO: LEA Rddest, [Rbase + ImmediateOffset]
@@ -160,6 +160,7 @@ pub enum OpCode {
     MapGetOrReserveEntryLocation,              // For the LHS, create entry if needed
     MapRemove,
     MapHas,
+    MapOverwrite,
 
     MapIterInit,
     MapIterNext,
@@ -171,6 +172,8 @@ pub enum OpCode {
 
     // Other
     HostCall, // calls back into host
+
+    // Sparse
     SparseInit,
     SparseAddGiveEntryAddress,
     SparseRemove,
@@ -179,6 +182,8 @@ pub enum OpCode {
     SparseIterNextPair,
     SparseIterInit,
     SparseIsAlive,
+
+    // Grid
     GridInit,
     GridGetEntryAddr,
 }
@@ -257,7 +262,7 @@ impl OpCode {
             Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ld.b",
             Self::Ld16FromPointerWithOffset => "ld.h",
             Self::Ld32FromPointerWithOffset | Self::Ld32FromAbsoluteAddress => "ld", // alias for `ld.w`
-            Self::LdRegFromFrameUsingMask | Self::LdRegFromFrame => "ldmf",
+            Self::LdRegFromFrameUsingMask | Self::LdRegFromFrameRange => "ldmf",
 
             // Store. From register to memory
             Self::St32UsingPtrWithOffset => "st", // alias for `st.w`
@@ -322,6 +327,7 @@ impl OpCode {
             Self::MapGetEntryLocation => "map.entry",
             Self::MapGetOrReserveEntryLocation => "map.entry.or_create",
             Self::MapHas => "map.has",
+            Self::MapOverwrite => "map.overwrite",
             Self::MapRemove => "map.rem",
             Self::MapIterInit => "map.iter.init",
             Self::MapIterNext => "map.iter.next",

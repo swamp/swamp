@@ -30,15 +30,15 @@ fn very_basic() {
             print_output: false,
             iteration_count: 5,
             debug_output: false,
-            debug_opcodes: false,
-            debug_operations: false,
+            debug_opcodes: true,
+            debug_operations: true,
             debug_stats: true,
             show_semantic: false,
             show_assembly: true,
             show_modules: false,
             step_behaviour: StepBehavior::ResumeExecution,
         },
-        "transformer::",
+        "map::iterate_cards",
         module_suffix,
     );
     assert!(result.failed_tests.is_empty());

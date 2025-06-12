@@ -637,7 +637,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling {function_name} ({comment})",);
+        let call_comment = &format!("calling `{function_name}` ({comment})",);
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {

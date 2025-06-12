@@ -60,6 +60,21 @@ pub struct InternalMainExpression {
     pub program_unique_id: InternalFunctionId,
 }
 
+pub fn formal_function_name(internal_fn_def: &InternalFunctionDefinition) -> String {
+    let prefix = internal_fn_def
+        .associated_with_type
+        .as_ref()
+        .map_or_else(String::new, |associated_with_type| {
+            format!("{associated_with_type}::")
+        });
+    format!(
+        "{}::{}{}",
+        formal_module_name(&internal_fn_def.defined_in_module_path),
+        prefix,
+        internal_fn_def.assigned_name
+    )
+}
+
 //#[derive(Debug,Clone)]
 pub struct InternalFunctionDefinition {
     pub body: Expression,

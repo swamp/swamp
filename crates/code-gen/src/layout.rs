@@ -20,11 +20,12 @@ use swamp_vm_types::types::{
     VmType, range_type,
 };
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
+    CountU16, FrameMemoryAddress, FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
     MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
     PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
     adjust_size_to_alignment, align_to,
 };
+use tracing::info;
 
 #[derive(Copy, Clone)]
 struct VariantLayout {
@@ -299,13 +300,20 @@ pub fn layout_type(ty: &Type) -> BasicType {
 
         Type::MapStorage(key_type, value_type, logical_size) => {
             let tuple_gen_type = layout_tuple_items(&[*key_type.clone(), *value_type.clone()]);
-            let capacity = (*logical_size).max(1).next_power_of_two();
+            let tuple_alignment = tuple_gen_type.max_alignment;
+            let status_size: usize = 1;
+            let tuple_offset = ((status_size + tuple_alignment as usize - 1)
+                / tuple_alignment as usize)
+                * tuple_alignment as usize;
+
+            let bucket_size = tuple_offset + tuple_gen_type.total_size.0 as usize;
+            // bucket_size = ((bucket_size + tuple_alignment as usize - 1) / tuple_alignment as usize) * tuple_alignment as usize;
 
             let max_alignment = max(tuple_gen_type.max_alignment, MAP_HEADER_ALIGNMENT);
-            let status_size: usize = max_alignment.into();
-            let bucket_size = status_size + tuple_gen_type.total_size.0 as usize;
 
+            let capacity = (*logical_size).max(1).next_power_of_two();
             let total_size = bucket_size * capacity + MAP_HEADER_SIZE.0 as usize;
+            info!(?total_size, ?bucket_size, element_size=?tuple_gen_type.total_size, "calculated map size");
 
             create_basic_type(
                 BasicTypeKind::MapStorage {
@@ -316,9 +324,9 @@ pub fn layout_type(ty: &Type) -> BasicType {
                     }),
                     tuple_type: Box::from(tuple_gen_type),
                     logical_limit: *logical_size,
-                    capacity,
-                    status_size,
-                    bucket_size,
+                    capacity: CountU16(capacity as u16),
+                    tuple_alignment,
+                    bucket_size: MemorySize(bucket_size as u16),
                 },
                 MemorySize(total_size as u16),
                 max_alignment,
@@ -535,8 +543,17 @@ pub fn layout_optional_type_items(inner_type: &Type) -> TaggedUnion {
 
 #[must_use]
 pub fn layout_tuple_items(types: &[Type]) -> TupleType {
-    let mut offset = MemoryOffset(0);
+    // First pass: Determine maximum alignment requirement
     let mut max_alignment = MemoryAlignment::U8;
+    for ty in types.iter() {
+        let elem_layout = layout_type(ty);
+        if elem_layout.max_alignment > max_alignment {
+            max_alignment = elem_layout.max_alignment;
+        }
+    }
+
+    // Second pass: Layout fields using the maximum alignment
+    let mut offset = MemoryOffset(0);
     let mut items = Vec::with_capacity(types.len());
 
     for (i, ty) in types.iter().enumerate() {
@@ -552,12 +569,9 @@ pub fn layout_tuple_items(types: &[Type]) -> TupleType {
         });
 
         offset = offset + elem_layout.total_size;
-
-        if elem_layout.max_alignment > max_alignment {
-            max_alignment = elem_layout.max_alignment;
-        }
     }
 
+    // Ensure total size is aligned to max_alignment
     let total_size = adjust_size_to_alignment(offset.as_size(), max_alignment);
 
     TupleType {
@@ -566,7 +580,6 @@ pub fn layout_tuple_items(types: &[Type]) -> TupleType {
         max_alignment,
     }
 }
-
 #[must_use]
 pub fn layout_tuple(types: &[Type]) -> BasicType {
     let tuple_type = layout_tuple_items(types);

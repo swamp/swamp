@@ -8,8 +8,8 @@ use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType, u16_type};
 use swamp_vm_types::{
-    COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
-    MemorySize,
+    COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MAP_HEADER_KEY_SIZE_OFFSET,
+    MAP_HEADER_LOGICAL_LIMIT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
 };
 use tracing::error;
 
@@ -161,47 +161,7 @@ impl CodeBuilder<'_> {
     }
 
     // Store -------------------------------------------------------
-    pub fn emit_check_that_source_capacity_is_less_or_equal_to_target_capacity(
-        &mut self,
-        destination_memory_location: &MemoryLocation,
-        source_memory_location: &MemoryLocation,
-        node: &Node,
-        comment: &str,
-    ) -> TypedRegister {
-        // First check if the destination capacity is greater or equal to the source location so we don't overwrite too much
-        // Then always preserve the capacity. We should fill in the elements count and other things, but never overwrite capacity.
-
-        let destination_capacity_reg = self.temp_registers.allocate(
-            VmType::new_contained_in_register(u16_type()),
-            "destination capacity",
-        );
-        self.builder.add_ld16_from_pointer_from_memory_location(
-            destination_capacity_reg.register(),
-            &destination_memory_location.unsafe_add_offset(COLLECTION_CAPACITY_OFFSET),
-            node,
-            &format!("{comment} - load capacity for destination"),
-        );
-
-        let source_length_reg = self.temp_registers.allocate(
-            VmType::new_contained_in_register(u16_type()),
-            "source capacity",
-        );
-        self.builder.add_ld16_from_pointer_from_memory_location(
-            source_length_reg.register(),
-            &source_memory_location.unsafe_add_offset(COLLECTION_CAPACITY_OFFSET),
-            node,
-            &format!("{comment} - load capacity for source"),
-        );
-
-        self.builder.add_trap_if_lt(
-            destination_capacity_reg.register(),
-            source_length_reg.register(),
-            node,
-            &format!("{comment} - verify that we are within bounds"),
-        );
-
-        source_length_reg.register
-    }
+ 
 
     pub fn emit_check_that_element_count_is_less_or_equal_to_capacity(
         &mut self,
@@ -210,8 +170,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) -> TypedRegister {
-        // First check if the destination capacity is greater or equal to the source location so we don't overwrite too much
-        // Then always preserve the capacity. We should fill in the elements count and other things, but never overwrite capacity.
+        // First check if the destination capacity is greater or equal to the source location element_count so we don't overwrite too much
 
         let destination_capacity_reg = self.temp_registers.allocate(
             VmType::new_contained_in_register(u16_type()),
@@ -353,83 +312,42 @@ impl CodeBuilder<'_> {
 
     /// Copies the data for a map-like collection using open addressing.
     ///
-    /// In open-addressed hash maps, the placement of elements is determined by their hash values
-    /// and the linear probing strategy used to resolve collisions. As a result, elements
-    /// may reside in any bucket.
+    /// This implementation safely handles maps with different capacities by:
+    /// 1. Verifying that the source `element_count` doesn't exceed target capacity
+    /// 2. Re-inserting each element into the target map individually
     ///
-    /// The `element_count` reflects the number of live entries, and is not coupled to their physical locations.
-    /// To preserve the full internal state (including occupied buckets, empty slots, and tombstones),
-    /// we copy the entire allocated bucket array (`capacity * bucket_size`) from the source.
+    /// Rather than performing a direct bucket array copy (which would be incorrect when
+    /// capacities differ), this approach ensures each element is inserted at the correct
+    /// index in the target map. Since element positions are determined by `hash % capacity`,
+    /// this recalculation is essential when source and target capacities differ.
     ///
-    /// The `capacity` field in the destination is not modified because the allocated memory
-    /// for the destination map remains unchanged. The header copy therefore skips the `capacity`
-    /// field and starts from the following fields.
-    ///
-    /// The source capacity is only used for verification to ensure that the source data fits
-    /// within the destination's allocated space.
+    /// Performance note: When source and target have identical capacities, a more
+    /// efficient direct copy could be used, but this implementation prioritizes
+    /// correctness across all scenarios.
     pub(crate) fn emit_copy_map_like_value_helper(
         &mut self,
         destination_memory_location: &MemoryLocation,
         source_memory_location: &MemoryLocation,
-        bucket_size: MemorySize,
-        collection_header_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
-        let hwm = self.temp_registers.save_mark();
-        let source_capacity_reg = self
-            .emit_check_that_source_capacity_is_less_or_equal_to_target_capacity(
+        let destination_ptr_location = self
+            .emit_compute_effective_address_from_location_to_register(
                 destination_memory_location,
-                source_memory_location,
                 node,
-                &format!("{comment} - check source capacity is less or equal than target capacity"),
+                comment,
             );
-        let skip_capacity = MemoryOffset(2);
-
-        // Compute bytes = (header_bytes - 2) + (source_capacity * bucket size)
-        let src_count_in_bytes_reg = self.temp_registers.allocate(
-            VmType::new_contained_in_register(u16_type()),
-            "calculate byte length",
-        );
-        let bucket_size_reg = self
-            .temp_registers
-            .allocate(VmType::new_contained_in_register(u16_type()), "bucket_size");
-        self.builder.add_mov_16_immediate_value(
-            bucket_size_reg.register(),
-            bucket_size.0,
+        let source_ptr_location = self.emit_compute_effective_address_from_location_to_register(
+            source_memory_location,
             node,
-            "set bucket_size to reg",
+            comment,
         );
-
-        self.builder.add_mul_i32(
-            src_count_in_bytes_reg.register(),
-            &source_capacity_reg,
-            bucket_size_reg.register(),
+        self.builder.add_map_overwrite(
+            &destination_ptr_location,
+            &source_ptr_location,
             node,
-            "count * bucket_size",
+            comment,
         );
-
-        let header_tail_size = collection_header_size.0 - skip_capacity.0;
-        self.builder.add_add_u32_imm(
-            src_count_in_bytes_reg.register(),
-            src_count_in_bytes_reg.register(),
-            u32::from(header_tail_size),
-            node,
-            "(count*element_size) + collection header size",
-        );
-
-        let destination_tail = destination_memory_location.unsafe_add_offset(skip_capacity);
-        let source_tail = source_memory_location.unsafe_add_offset(skip_capacity);
-
-        self.builder.add_block_copy_with_offset_with_variable_size(
-            &destination_tail,
-            &source_tail,
-            src_count_in_bytes_reg.register(),
-            node,
-            &format!("{comment} - copy whole buckets except capacity"),
-        );
-
-        self.temp_registers.restore_to_mark(hwm);
     }
 
     pub(crate) fn emit_copy_aggregate_value_helper(
@@ -453,11 +371,14 @@ impl CodeBuilder<'_> {
                     comment,
                 );
             } else {
+                self.emit_compute_effective_address_from_location_to_register(
+                    destination_memory_location,
+                    node,
+                    comment,
+                );
                 self.emit_copy_map_like_value_helper(
                     destination_memory_location,
                     source_memory_location,
-                    element_size,
-                    header_size,
                     node,
                     comment,
                 );

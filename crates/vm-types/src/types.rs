@@ -4,7 +4,7 @@
  */
 
 use crate::{
-    AggregateMemoryLocation, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
+    AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
     HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryRegion,
     InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
     MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryLocation,
@@ -284,9 +284,9 @@ pub enum BasicTypeKind {
         element_type: Box<BasicType>,
         tuple_type: Box<TupleType>,
         logical_limit: usize,
-        capacity: usize,
-        status_size: usize,
-        bucket_size: usize,
+        capacity: CountU16,
+        tuple_alignment: MemoryAlignment,
+        bucket_size: MemorySize,
     },
     SparseView(Box<BasicType>),
     SparseStorage(Box<BasicType>, usize),
@@ -1366,7 +1366,7 @@ impl BasicType {
             | BasicTypeKind::VecStorage(..)
             | BasicTypeKind::DynamicLengthVecView(..)
             // Map
-            | BasicTypeKind::MapStorage { element_type: _, tuple_type: _, logical_limit: _, capacity: _, status_size: _, bucket_size: _ }
+            | BasicTypeKind::MapStorage { element_type: _, tuple_type: _, logical_limit: _, capacity: _, tuple_alignment: _, bucket_size: _ }
             | BasicTypeKind::DynamicLengthMapView(..)
         )
     }
@@ -1378,36 +1378,34 @@ impl BasicType {
             // Vec
             | BasicTypeKind::VecStorage(..)
             // Map
-            | BasicTypeKind::MapStorage { element_type: _, tuple_type: _, logical_limit: _, capacity: _, status_size: _, bucket_size: _ }
+            | BasicTypeKind::MapStorage { element_type: _, tuple_type: _, logical_limit: _, capacity: _, tuple_alignment: _, bucket_size: _ }
         )
     }
 
     #[must_use]
-    pub const fn get_collection_capacity(&self) -> Option<MemorySize> {
+    pub const fn get_collection_capacity(&self) -> Option<CountU16> {
         match &self.kind {
             BasicTypeKind::FixedCapacityArray(_element_type, capacity) => {
-                Some(MemorySize(*capacity as u16))
+                Some(CountU16(*capacity as u16))
             }
-            BasicTypeKind::VecStorage(_element_type, capacity) => {
-                Some(MemorySize(*capacity as u16))
-            }
+            BasicTypeKind::VecStorage(_element_type, capacity) => Some(CountU16(*capacity as u16)),
             BasicTypeKind::StackStorage(_element_type, capacity) => {
-                Some(MemorySize(*capacity as u16))
+                Some(CountU16(*capacity as u16))
             }
             BasicTypeKind::QueueStorage(_element_type, capacity) => {
-                Some(MemorySize(*capacity as u16))
+                Some(CountU16(*capacity as u16))
             }
             BasicTypeKind::SparseStorage(_element_type, capacity) => {
-                Some(MemorySize(*capacity as u16))
+                Some(CountU16(*capacity as u16))
             }
             BasicTypeKind::MapStorage {
                 element_type: _,
                 tuple_type: _,
                 logical_limit: _,
                 capacity,
-                status_size: _,
+                tuple_alignment: _,
                 bucket_size: _,
-            } => Some(MemorySize(*capacity as u16)),
+            } => Some(*capacity),
             _ => None,
         }
     }
@@ -1563,9 +1561,9 @@ impl BasicType {
                 tuple_type,
                 logical_limit,
                 capacity,
-                status_size,
+                tuple_alignment,
                 bucket_size,
-            } => Some(MemorySize(*bucket_size as u16)),
+            } => Some(*bucket_size),
             _ => None,
         }
     }
@@ -1588,7 +1586,7 @@ impl BasicType {
                 tuple_type,
                 logical_limit,
                 capacity,
-                status_size,
+                tuple_alignment,
                 bucket_size,
             } => Some(element_type),
             _ => None,
@@ -1606,7 +1604,7 @@ impl BasicType {
                 tuple_type: _,
                 logical_limit: _,
                 capacity: _,
-                status_size: _,
+                tuple_alignment: _,
                 bucket_size: _,
             }
             | BasicTypeKind::DynamicLengthMapView(..) => Some(MAP_HEADER_SIZE),

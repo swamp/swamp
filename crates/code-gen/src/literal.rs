@@ -48,7 +48,7 @@ impl CodeBuilder<'_> {
                         location,
                         temp_int_literal_reg.register(),
                         node,
-                        "copy int literal into destination memory",
+                        &format!("copy int literal into destination memory {location} <- {temp_int_literal_reg}"),
                     );
                 }
                 Destination::Unit => {

@@ -6,7 +6,7 @@ pub const SAFE_ALIGNMENT: usize = 8;
 
 #[must_use]
 pub fn align(addr: usize, alignment: usize) -> usize {
-    assert!(
+    debug_assert!(
         alignment.is_power_of_two(),
         "alignment must be a power of two"
     );

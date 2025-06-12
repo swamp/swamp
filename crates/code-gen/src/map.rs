@@ -9,7 +9,7 @@ use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::{Expression, MapType};
 use swamp_vm_types::types::{Destination, TupleType, VmType, u32_type};
-use swamp_vm_types::{MemoryLocation, PointerLocation};
+use swamp_vm_types::{CountU16, MemoryAlignment, MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
     /// Emits Swamp VM opcodes to calculate the memory address of an element within a map.
@@ -69,7 +69,7 @@ impl CodeBuilder<'_> {
         initializer_pair_list_expressions: &[(Expression, Expression)],
         key_value_tuple_type: &TupleType,
         logical_limit: usize,
-        status_size: usize,
+        tuple_alignment: MemoryAlignment,
         node: &Node,
         ctx: &Context,
     ) {
@@ -77,7 +77,10 @@ impl CodeBuilder<'_> {
         //assert!(is_power_of_two(logical_limit));
 
         let len = initializer_pair_list_expressions.len();
-        let aligned_key_size = key_value_tuple_type.aligned_size_of_field(0);
+        //        let aligned_key_size = key_value_tuple_type.aligned_size_of_field(0);
+        //      let aligned_value_size = key_value_tuple_type.aligned_size_of_field(1);
+        let unaligned_key_size = key_value_tuple_type.fields[0].ty.total_size;
+        let unaligned_value_size = key_value_tuple_type.fields[1].ty.total_size;
         debug_assert!(
             logical_limit >= len,
             "this should have been checked with analyzer"
@@ -85,10 +88,10 @@ impl CodeBuilder<'_> {
         if logical_limit > 0 || len > 0 {
             self.builder.add_map_init_set_capacity(
                 target_map_header_ptr_reg,
-                logical_limit as u16,
-                aligned_key_size,
-                key_value_tuple_type.total_size,
-                status_size as u8,
+                CountU16(logical_limit as u16),
+                unaligned_key_size,
+                unaligned_value_size,
+                tuple_alignment,
                 node,
                 "initialize map (capacity, key_size, total_key_and_value_size)",
             );

@@ -18,6 +18,11 @@ struct Game {
     card_templates: [CardId: CardTemplate; 3],
 }
 
+const CARD_LIB = [
+    CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+    CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+]
+
 #[test]
 fn basic_map() {
     game = Game {
@@ -281,4 +286,24 @@ fn scalar_value_insert() {
 
     assert(holder.deck.card_id_to_mana[2] == 3.14, "must be found")
     assert(holder.deck.card_id_to_mana[-99999] == 6.28, "must be found")
+}
+
+// Tests that map copying correctly handles maps with different capacities.
+//
+// This fixes a bug where map copy optimization performed shallow copies of internal
+// buckets without recalculating element positions. Since element positions are determined
+// by `hash % capacity`, direct bucket copying between maps with different capacities
+// would place elements in incorrect locations, making them unfindable.
+//
+// The test ensures that map copy properly *re-inserts* all elements into their correct
+// bucket positions rather than attempting a direct bucket copy, so lookups work
+// correctly after copying between maps with different capacities.
+#[test]
+fn copy_from_constant_with_different_capacity() {
+    // Copy from `CARD_LIB` with capacity 3 (len 2), into `card_templates` with a different capacity (512)
+    card_templates : [CardId: CardTemplate; 128] = CARD_LIB
+
+    assert(card_templates.len() == 2, "should have 2 cards from constant {card_templates.len()}")
+    assert(card_templates[CardId::MightyGolem].mana == 5, "should be 5")
+    assert(card_templates[CardId::Earthquake].mana == 3, "should be 3")
 }

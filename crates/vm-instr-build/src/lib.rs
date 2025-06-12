@@ -11,7 +11,10 @@ pub use swamp_vm_types::{
     InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
     RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
-use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation, ProgramCounterDelta};
+use swamp_vm_types::{
+    CountU16, HeapMemoryAddress, MemoryAlignment, MemoryLocation, PointerLocation,
+    ProgramCounterDelta,
+};
 
 /// Keeps track of all the instructions, and the corresponding meta information (comments and node).
 pub struct InstructionBuilderState {
@@ -121,6 +124,8 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
     temp_reg: u8,
 }
+
+impl<'a> InstructionBuilder<'a> {}
 
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
@@ -773,7 +778,7 @@ impl InstructionBuilder<'_> {
     ) {
         let address_bytes = stored_in_frame.addr.0.to_le_bytes();
         self.state.add_instruction(
-            OpCode::LdRegFromFrame,
+            OpCode::LdRegFromFrameRange,
             &[target_reg, address_bytes[0], address_bytes[1], count],
             node,
             comment,
@@ -1323,31 +1328,48 @@ impl InstructionBuilder<'_> {
     pub fn add_map_init_set_capacity(
         &mut self,
         target_map_to_init: &PointerLocation,
-        logical_limit: u16,
+        logical_limit: CountU16,
         key_size: MemorySize,
-        tuple_element_size: MemorySize,
-        status_size: u8,
+        value_size: MemorySize,
+        tuple_alignment: MemoryAlignment,
         node: &Node,
         comment: &str,
     ) {
-        debug_assert!(logical_limit > 0);
+        debug_assert!(logical_limit.0 > 0);
 
-        let capacity_bytes = u16_to_u8_pair(logical_limit);
+        let logical_limit_bytes = u16_to_u8_pair(logical_limit.0);
         let key_size_bytes = u16_to_u8_pair(key_size.0);
-        let tuple_element_size_bytes = u16_to_u8_pair(tuple_element_size.0);
+        let value_size_bytes = u16_to_u8_pair(value_size.0);
+
+        let tuple_alignment_byte: usize = tuple_alignment.into();
         //let value_size_bytes = u16_to_u8_pair(value_size.0);
         self.state.add_instruction(
             OpCode::MapInitWithCapacityAndKeyAndTupleSizeAddr,
             &[
                 target_map_to_init.ptr_reg.addressing(),
-                capacity_bytes.0,
-                capacity_bytes.1,
+                logical_limit_bytes.0,
+                logical_limit_bytes.1,
                 key_size_bytes.0,
                 key_size_bytes.1,
-                tuple_element_size_bytes.0,
-                tuple_element_size_bytes.1,
-                status_size,
+                value_size_bytes.0,
+                value_size_bytes.1,
+                tuple_alignment_byte as u8,
             ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_map_overwrite(
+        &mut self,
+        destination_map: &PointerLocation,
+        source_map: &PointerLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::MapOverwrite,
+            &[destination_map.addressing(), source_map.addressing()],
             node,
             comment,
         );

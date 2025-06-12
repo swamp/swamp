@@ -138,7 +138,7 @@ impl CodeBuilder<'_> {
                                         location,
                                         &variable_register,
                                         node,
-                                        "var access to primitive memory location",
+                                        &format!("var access to primitive memory location {location} <- {variable_register}"),
                                     );
                                 }
                                 BasicTypeKind::S32
@@ -148,7 +148,7 @@ impl CodeBuilder<'_> {
                                         location,
                                         &variable_register,
                                         node,
-                                        "var access to primitive memory location",
+                                        &format!("var access to primitive memory location {location} <- {variable_register}"),
                                     );
                                 }
                                 _ => panic!("not sure"),
