@@ -3499,6 +3499,55 @@ impl<'a> Analyzer<'a> {
         Ok(intrinsic_and_signature)
     }
 
+    fn basic_collection_member_signature(
+        &mut self,
+        self_type: &Type,
+        field_name_str: &str,
+        node: &swamp_ast::Node,
+    ) -> Result<(IntrinsicFunction, Signature), Error> {
+        let self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: false,
+            node: None,
+        };
+        let self_mut_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: true,
+            node: None,
+        };
+        let intrinsic_and_signature = match field_name_str {
+            "len" => {
+                let signature = Signature {
+                    parameters: vec![self_type_param],
+                    return_type: Box::new(Type::Int),
+                };
+                (IntrinsicFunction::VecLen, signature)
+            }
+            "is_empty" => (
+                IntrinsicFunction::VecIsEmpty,
+                Signature {
+                    parameters: vec![self_type_param],
+                    return_type: Box::new(Type::Bool),
+                },
+            ),
+            "capacity" => {
+                let signature = Signature {
+                    parameters: vec![self_type_param],
+                    return_type: Box::new(Type::Int),
+                };
+                (IntrinsicFunction::VecCapacity, signature)
+            }
+            _ => {
+                return Err(
+                    self.create_err(ErrorKind::UnknownMemberFunction(self_type.clone()), node)
+                );
+            }
+        };
+        Ok(intrinsic_and_signature)
+    }
+
     #[allow(clippy::too_many_lines)]
     fn slice_member_signature(
         &mut self,
@@ -3666,27 +3715,7 @@ impl<'a> Analyzer<'a> {
                     },
                 )
             }
-            "len" => {
-                let signature = Signature {
-                    parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Int),
-                };
-                (IntrinsicFunction::VecLen, signature)
-            }
-            "is_empty" => (
-                IntrinsicFunction::VecIsEmpty,
-                Signature {
-                    parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Bool),
-                },
-            ),
-            "capacity" => {
-                let signature = Signature {
-                    parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Int),
-                };
-                (IntrinsicFunction::VecCapacity, signature)
-            }
+
             "remove" => {
                 let signature = Signature {
                     parameters: vec![
@@ -3702,14 +3731,7 @@ impl<'a> Analyzer<'a> {
                 };
                 (IntrinsicFunction::VecRemoveIndex, signature)
             }
-            _ => {
-                return Err(self.create_err(
-                    ErrorKind::UnknownMemberFunction(Type::SliceView(Box::from(
-                        element_type.clone(),
-                    ))),
-                    node,
-                ));
-            }
+            _ => return self.basic_collection_member_signature(self_type, field_name_str, node),
         };
         Ok(intrinsic_and_signature)
     }
@@ -3921,15 +3943,25 @@ impl<'a> Analyzer<'a> {
         };
 
         let self_type_in_signature = &instantiated_signature.parameters[0];
+        let binding = type_that_member_is_on.lowest_common_denominator_view();
+
+        let lowest_denominator_type_that_it_is_on = if let Some(found) = &binding {
+            found
+        } else {
+            type_that_member_is_on
+        };
 
         if !self_type_in_signature
             .resolved_type
             .underlying()
-            .compatible_with(type_that_member_is_on)
-            || self_type_in_signature.is_mutable && !chain_self_is_mutable
+            .compatible_with(lowest_denominator_type_that_it_is_on)
         {
             error!(?self_type_in_signature.resolved_type, ?type_that_member_is_on, self_type_in_signature.is_mutable, ?chain_self_is_mutable, "self problem");
             return Err(self.create_err(ErrorKind::SelfNotCorrectType, node));
+        }
+
+        if self_type_in_signature.is_mutable && !chain_self_is_mutable {
+            return Err(self.create_err(ErrorKind::SelfNotCorrectMutableState, node));
         }
 
         let resolved_arguments = self.analyze_and_verify_parameters(

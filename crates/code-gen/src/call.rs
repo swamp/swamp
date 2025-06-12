@@ -241,11 +241,13 @@ impl CodeBuilder<'_> {
         let base_reg_replacement_lookup =
             self.find_replacements_for_mutable_primitive_arguments(arguments, node, ctx);
 
+        let r0_is_used_as_return = !signature.return_type.is_unit();
+
         let scope =
-            self.spill_required_registers(false, is_host_call, node, "spill before emit arguments");
+            self.spill_required_registers(false, is_host_call, node, "spill before emit arguments"); // TODO: when to use r0_is_used_as_return
 
         // Handle return primitive or aggregate types
-        if !signature.return_type.is_unit() {
+        if r0_is_used_as_return {
             let return_basic_type = layout_type(&signature.return_type);
 
             if return_basic_type.is_aggregate() {

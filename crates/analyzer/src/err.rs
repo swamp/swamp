@@ -112,6 +112,7 @@ pub enum ErrorKind {
         capacity: usize,
     },
     KeyVariableNotAllowedToBeMutable,
+    SelfNotCorrectMutableState,
 }
 
 impl From<SemanticError> for Error {

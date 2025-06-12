@@ -272,7 +272,7 @@ impl TopLevelGenState {
                 spilled_register_region,
                 &HashSet::new(),
                 node,
-                comment,
+                &format!("function epilogue: {comment}"),
             );
         }
     }

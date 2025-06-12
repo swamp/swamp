@@ -10,7 +10,7 @@ use crate::layout::layout_struct_type;
 use source_map_node::Node;
 use swamp_semantic::{AnonymousStructLiteral, Expression};
 use swamp_types::{AnonymousStructType, Type};
-use swamp_vm_types::types::{BasicType, BasicTypeKind, VmType, u16_type};
+use swamp_vm_types::types::{BasicType, BasicTypeKind, Destination, VmType, u16_type, u32_type};
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, CountU16,
     MemoryLocation,
@@ -35,6 +35,13 @@ impl CodeBuilder<'_> {
         );
     }
 
+    // TODO: Bring this back // assert_eq!(target_reg.size().0, gen_source_struct_type.total_size.0);
+    /* TODO: Bring this back
+    assert_eq!(
+        source_order_expressions.len(),
+        gen_source_struct_type.fields.len()
+    );
+    */
     fn emit_struct_literal_into_memory_location(
         &mut self,
         lvalue_location: &AggregateMemoryLocation,
@@ -46,13 +53,23 @@ impl CodeBuilder<'_> {
     ) -> FlagState {
         let gen_source_struct_type = layout_struct_type(struct_type_ref, "");
 
-        // TODO: Bring this back // assert_eq!(target_reg.size().0, gen_source_struct_type.total_size.0);
-        /* TODO: Bring this back
-        assert_eq!(
-            source_order_expressions.len(),
-            gen_source_struct_type.fields.len()
+        let base_ptr_register = self.temp_registers.allocate(
+            VmType::new_contained_in_register(u32_type()),
+            "temporary so it isn't clobbered during filling in the structure",
         );
-        */
+        let output_destination = Destination::Memory(lvalue_location.location.clone());
+
+        self.emit_compute_effective_address_to_target_register(
+            base_ptr_register.register(),
+            &output_destination,
+            node,
+            "flatten the pointer before, to minimize offset",
+        );
+        let output_aggregate_location = AggregateMemoryLocation {
+            location: MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                base_ptr_register.register,
+            ),
+        };
 
         let struct_type = BasicType {
             total_size: gen_source_struct_type.total_size,
@@ -66,8 +83,8 @@ impl CodeBuilder<'_> {
             .zip(source_order_expressions)
         {
             let real_offset_item = struct_type.get_field_offset(*field_index).unwrap();
-            let modified_lvalue_location =
-                lvalue_location.offset(real_offset_item.offset, real_offset_item.ty.clone());
+            let modified_lvalue_location = output_aggregate_location
+                .offset(real_offset_item.offset, real_offset_item.ty.clone());
 
             self.emit_initialize_target_memory_first_time(
                 &modified_lvalue_location.location,
@@ -85,6 +102,8 @@ impl CodeBuilder<'_> {
                 ctx,
             );
         }
+
+        // After we are done, let's copy back the register
 
         FlagState::default()
     }

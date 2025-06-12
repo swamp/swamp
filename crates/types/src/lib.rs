@@ -594,8 +594,9 @@ impl Type {
         }
     }
 
-    #[must_use]
+    // Modified compatible_with to use strict checks for nested elements
     pub fn compatible_with(&self, other: &Self) -> bool {
+        // Top-level compatibility check - permits capacity differences
         match (self, other) {
             (Self::Function(a), Self::Function(b)) => a.same_type(b),
 
@@ -608,132 +609,108 @@ impl Type {
             (
                 Self::FixedCapacityAndLengthArray(a, _size),
                 Self::FixedCapacityAndLengthArray(b, _),
-            ) => a.compatible_with(b),
+            ) => a.strict_compatible_with_capacity(b),
 
             (Self::VecStorage(element_a, size_a), Self::VecStorage(element_b, size_b)) => {
-                size_a >= size_b && element_a.compatible_with(element_b)
+                size_a >= size_b && element_a.strict_compatible_with_capacity(element_b)
             }
 
             (Self::SparseStorage(element_a, size_a), Self::SparseStorage(element_b, size_b)) => {
-                size_a >= size_b && element_a.compatible_with(element_b)
+                size_a >= size_b && element_a.strict_compatible_with_capacity(element_b)
             }
 
             (
                 Self::GridStorage(element_a, width_a, height_a),
                 Self::GridStorage(element_b, width_b, height_b),
-            ) => width_a >= width_b && height_a >= height_b && element_a.compatible_with(element_b),
+            ) => {
+                width_a >= width_b
+                    && height_a >= height_b
+                    && element_a.strict_compatible_with_capacity(element_b)
+            }
 
             (
                 Self::StackStorage(storage_element, a_size),
                 Self::StackStorage(vec_element, b_size),
-            ) => a_size >= b_size && vec_element.compatible_with(storage_element),
+            ) => a_size >= b_size && vec_element.strict_compatible_with_capacity(storage_element),
 
             (
                 Self::QueueStorage(storage_element, a_size),
                 Self::QueueStorage(vec_element, b_size),
-            ) => a_size >= b_size && vec_element.compatible_with(storage_element),
+            ) => a_size >= b_size && vec_element.strict_compatible_with_capacity(storage_element),
 
             (
                 Self::DynamicLengthVecView(element_first),
                 Self::DynamicLengthVecView(element_second),
-            ) => element_first.compatible_with(element_second),
+            ) => element_first.strict_compatible_with_capacity(element_second),
 
             (Self::SparseView(element_first), Self::SparseView(element_second)) => {
-                element_first.compatible_with(element_second)
+                element_first.strict_compatible_with_capacity(element_second)
             }
 
             (Self::SliceView(element_a), Self::SliceView(element_b)) => {
-                element_a.compatible_with(element_b)
+                element_a.strict_compatible_with_capacity(element_b)
             }
 
-            /*
-                        (
-                Self::StackStorage(storage_element, _size),
-                Self::DynamicLengthVecView(vec_element),
-            ) => vec_element.compatible_with(storage_element),
-
-                      (
-                Self::FixedCapacityAndLengthArray(element_a, size_a),
-                Self::DynamicLengthVecView(element_b),
-            ) => element_a.compatible_with(element_b),
-            (Self::VecStorage(storage_element, _size), Self::SliceView(vec_element)) => {
-                vec_element.compatible_with(storage_element)
-            }
-            (Self::VecStorage(storage_element, _size), Self::DynamicLengthVecView(vec_element)) => {
-                vec_element.compatible_with(storage_element)
-            }
-
-                        (Self::SliceView(vec_element), Self::VecStorage(storage_element, _size)) => {
-                vec_element.compatible_with(storage_element)
-            }
-            (Self::SliceView(vec_element), Self::StackStorage(storage_element, _size)) => {
-                vec_element.compatible_with(storage_element)
-            }
-            (Self::DynamicLengthVecView(storage_element), Self::VecStorage(vec_element, _size)) => {
-                vec_element.compatible_with(storage_element)
-            }
-
-
-            (Self::SliceView(element_first), Self::DynamicLengthVecView(element_second)) => {
-                element_first.compatible_with(element_second)
-            }
-
-
-
-            (
-                Self::SliceView(vec_element),
-                Self::FixedCapacityAndLengthArray(storage_element, _size),
-            ) => vec_element.compatible_with(storage_element),
-
-            */
             (
                 Self::MapStorage(key_a, value_a, size_a),
                 Self::MapStorage(key_b, value_b, size_b),
             ) => {
-                size_a >= size_b && key_a.compatible_with(key_b) && value_a.compatible_with(value_b)
+                size_a >= size_b
+                    && key_a.strict_compatible_with_capacity(key_b)
+                    && value_a.strict_compatible_with_capacity(value_b)
             }
 
             (
-                Self::MapStorage(key_a, value_a, size_a),
+                Self::MapStorage(key_a, value_a, _size_a),
                 Self::DynamicLengthMapView(key_b, value_b),
-            ) => key_a.compatible_with(key_b) && value_a.compatible_with(value_b),
+            ) => {
+                key_a.strict_compatible_with_capacity(key_b)
+                    && value_a.strict_compatible_with_capacity(value_b)
+            }
 
             (
                 Self::DynamicLengthMapView(key_a, value_a),
-                Self::MapStorage(key_b, value_b, size_b),
-            ) => key_a.compatible_with(key_b) && value_a.compatible_with(value_b),
+                Self::MapStorage(key_b, value_b, _size_b),
+            ) => {
+                key_a.strict_compatible_with_capacity(key_b)
+                    && value_a.strict_compatible_with_capacity(value_b)
+            }
 
             (
                 Self::DynamicLengthMapView(key_a, value_a),
                 Self::DynamicLengthMapView(key_b, value_b),
-            ) => key_a.compatible_with(key_b) && value_a.compatible_with(value_b),
+            ) => {
+                key_a.strict_compatible_with_capacity(key_b)
+                    && value_a.strict_compatible_with_capacity(value_b)
+            }
 
-            // TODO: These are not technically the same, so it should probably be in a can_be_converted from, in a special
-            // analyze_assignment_like() helper
             (Self::Enum(a), Self::Enum(b)) => a == b,
 
-            (Self::NamedStruct(a), Self::NamedStruct(b)) => compare_struct_types(a, b),
+            (Self::NamedStruct(a), Self::NamedStruct(b)) => same_named_struct_ref(a, b),
 
-            (Self::AnonymousStruct(a), Self::AnonymousStruct(b)) => {
-                compare_anonymous_struct_types(a, b)
+            (Self::AnonymousStruct(a), Self::AnonymousStruct(b)) => same_anon_struct_ref(a, b),
+
+            (Self::MutableReference(a), Self::MutableReference(b)) => {
+                a.strict_compatible_with_capacity(b)
             }
-            (Self::MutableReference(a), Self::MutableReference(b)) => a.compatible_with(b),
 
             (Self::Tuple(a), Self::Tuple(b)) => {
                 if a.len() != b.len() {
                     return false;
                 }
-                a.iter().zip(b.iter()).all(|(a, b)| a.compatible_with(b))
+                a.iter()
+                    .zip(b.iter())
+                    .all(|(a, b)| a.strict_compatible_with_capacity(b))
             }
 
             (Self::Optional(inner_type_a), Self::Optional(inner_type_b)) => {
-                inner_type_a.compatible_with(inner_type_b)
+                inner_type_a.strict_compatible_with_capacity(inner_type_b)
             }
 
             _ => {
                 // Match those with clear layouts
                 let storage = self.lowest_common_denominator_view();
-                let view = self.lowest_common_denominator_view();
+                let view = other.lowest_common_denominator_view();
 
                 if let Some(storage) = storage {
                     if let Some(view) = view {
@@ -745,6 +722,177 @@ impl Type {
             }
         }
     }
+
+    pub fn strict_compatible_with_capacity(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Function(a), Self::Function(b)) => a.same_type(b),
+
+            (Self::Int, Self::Int)
+            | (Self::Float, Self::Float)
+            | (Self::String, Self::String)
+            | (Self::Bool, Self::Bool)
+            | (Self::Unit, Self::Unit) => true,
+
+            (
+                Self::FixedCapacityAndLengthArray(a, size_a),
+                Self::FixedCapacityAndLengthArray(b, size_b),
+            ) => size_a == size_b && a.strict_compatible_with_capacity(b),
+
+            (Self::VecStorage(element_a, size_a), Self::VecStorage(element_b, size_b)) => {
+                size_a == size_b && element_a.strict_compatible_with_capacity(element_b)
+            }
+
+            (Self::SparseStorage(element_a, size_a), Self::SparseStorage(element_b, size_b)) => {
+                size_a == size_b && element_a.strict_compatible_with_capacity(element_b)
+            }
+
+            (
+                Self::GridStorage(element_a, width_a, height_a),
+                Self::GridStorage(element_b, width_b, height_b),
+            ) => {
+                width_a == width_b
+                    && height_a == height_b
+                    && element_a.strict_compatible_with_capacity(element_b)
+            }
+
+            (
+                Self::StackStorage(storage_element, a_size),
+                Self::StackStorage(vec_element, b_size),
+            ) => a_size == b_size && vec_element.strict_compatible_with_capacity(storage_element),
+
+            (
+                Self::QueueStorage(storage_element, a_size),
+                Self::QueueStorage(vec_element, b_size),
+            ) => a_size == b_size && vec_element.strict_compatible_with_capacity(storage_element),
+
+            (
+                Self::DynamicLengthVecView(element_first),
+                Self::DynamicLengthVecView(element_second),
+            ) => element_first.strict_compatible_with_capacity(element_second),
+
+            (Self::SparseView(element_first), Self::SparseView(element_second)) => {
+                element_first.strict_compatible_with_capacity(element_second)
+            }
+
+            (Self::SliceView(element_a), Self::SliceView(element_b)) => {
+                element_a.strict_compatible_with_capacity(element_b)
+            }
+
+            (
+                Self::MapStorage(key_a, value_a, size_a),
+                Self::MapStorage(key_b, value_b, size_b),
+            ) => {
+                size_a == size_b
+                    && key_a.strict_compatible_with_capacity(key_b)
+                    && value_a.strict_compatible_with_capacity(value_b)
+            }
+
+            (
+                Self::MapStorage(key_a, value_a, _size_a),
+                Self::DynamicLengthMapView(key_b, value_b),
+            ) => {
+                key_a.strict_compatible_with_capacity(key_b)
+                    && value_a.strict_compatible_with_capacity(value_b)
+            }
+
+            (
+                Self::DynamicLengthMapView(key_a, value_a),
+                Self::MapStorage(key_b, value_b, _size_b),
+            ) => {
+                key_a.strict_compatible_with_capacity(key_b)
+                    && value_a.strict_compatible_with_capacity(value_b)
+            }
+
+            (
+                Self::DynamicLengthMapView(key_a, value_a),
+                Self::DynamicLengthMapView(key_b, value_b),
+            ) => {
+                key_a.strict_compatible_with_capacity(key_b)
+                    && value_a.strict_compatible_with_capacity(value_b)
+            }
+
+            (Self::Enum(a), Self::Enum(b)) => a == b,
+
+            (Self::NamedStruct(a), Self::NamedStruct(b)) => same_named_struct_ref_strict(a, b),
+
+            (Self::AnonymousStruct(a), Self::AnonymousStruct(b)) => {
+                same_anon_struct_ref_strict(a, b)
+            }
+
+            (Self::MutableReference(a), Self::MutableReference(b)) => {
+                a.strict_compatible_with_capacity(b)
+            }
+
+            (Self::Tuple(a), Self::Tuple(b)) => {
+                if a.len() != b.len() {
+                    return false;
+                }
+                a.iter()
+                    .zip(b.iter())
+                    .all(|(a, b)| a.strict_compatible_with_capacity(b))
+            }
+
+            (Self::Optional(inner_type_a), Self::Optional(inner_type_b)) => {
+                inner_type_a.strict_compatible_with_capacity(inner_type_b)
+            }
+
+            _ => {
+                let storage = self.lowest_common_denominator_view();
+                let view = other.lowest_common_denominator_view();
+
+                if let Some(storage) = storage {
+                    if let Some(view) = view {
+                        return storage.strict_compatible_with_capacity(&view);
+                    }
+                }
+
+                false
+            }
+        }
+    }
+}
+
+#[must_use]
+pub fn same_anon_struct_ref_strict(a: &AnonymousStructType, b: &AnonymousStructType) -> bool {
+    compare_anonymous_struct_types_strict(a, b)
+}
+
+#[must_use]
+pub fn same_named_struct_ref_strict(a: &NamedStructType, b: &NamedStructType) -> bool {
+    if a.assigned_name != b.assigned_name {
+        return false;
+    }
+
+    compare_anonymous_struct_types_strict(&a.anon_struct_type, &b.anon_struct_type)
+}
+
+#[must_use]
+pub fn compare_anonymous_struct_types_strict(
+    a: &AnonymousStructType,
+    b: &AnonymousStructType,
+) -> bool {
+    if a.field_name_sorted_fields.len() != b.field_name_sorted_fields.len() {
+        return false;
+    }
+
+    for ((a_name, a_type), (b_name, b_type)) in a
+        .field_name_sorted_fields
+        .iter()
+        .zip(b.field_name_sorted_fields.clone())
+    {
+        if *a_name != b_name {
+            return false;
+        }
+
+        if !a_type
+            .field_type
+            .strict_compatible_with_capacity(&b_type.field_type)
+        {
+            return false;
+        }
+    }
+
+    true
 }
 
 fn compare_struct_types(a: &NamedStructType, b: &NamedStructType) -> bool {

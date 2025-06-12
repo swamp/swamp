@@ -15,7 +15,7 @@ enum Player {
     Green,
 }
 
-const SPAWN_POINTS : [Player: Vec<Point;2>; 2] = [
+const SPAWN_POINTS : [Player: Vec<Point;3>; 2] = [
     Player::Red: [Point{x:12, y:13}, Point{x:42, y:43}],
     Player::Blue: [Point{x:-42, y:-43}],
 ]
@@ -195,7 +195,7 @@ fn fill_map_from_constant_and_add_to_it() {
 
 #[test]
 fn fill_map_view_from_constant() {
-    mut map_view : [Player: Vec<Point;2> ; 2] = SPAWN_POINTS
+    mut map_view : [Player: Vec<Point;3> ; 2] = SPAWN_POINTS
 
     assert(map_view.capacity() == 2, 'spawn points capacity {map_view.capacity()}')
     assert(map_view.len() == 2, 'spawn points length {map_view.len()}')

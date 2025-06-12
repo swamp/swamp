@@ -169,6 +169,9 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
         }
 
         ErrorKind::SelfNotCorrectType => {
+            Report::build(Kind::Error, 9901, "self is of wrong type", span)
+        }
+        ErrorKind::SelfNotCorrectMutableState => {
             Report::build(Kind::Error, 9901, "self is of wrong mutable status", span)
         }
         ErrorKind::CanNotNoneCoalesce => {

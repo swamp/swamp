@@ -343,7 +343,10 @@ pub fn run_function_with_debug(
 
         if run_options.debug_operations_enabled {
             let hash_after = calculate_memory_checksum(vm.constant_memory());
-            assert_eq!(hash_before, hash_after);
+            assert_eq!(
+                hash_before, hash_after,
+                "constant memory has been clobbered"
+            );
         }
     }
 }
