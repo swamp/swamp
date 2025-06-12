@@ -144,7 +144,7 @@ impl CodeBuilder<'_> {
                 capacity,
                 logical_limit,
                 tuple_type,
-                tuple_alignment,
+                
                 ..
             } => {
                 let hwm = self.temp_registers.save_mark();

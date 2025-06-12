@@ -3,7 +3,6 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 mod util;
-use crate::util::check;
 /*
 #[test_log::test]
 fn init_var() {

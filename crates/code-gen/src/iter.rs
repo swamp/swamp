@@ -428,7 +428,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn check_if_transformer_sets_t_flag(&mut self, transformer: Transformer) -> FlagStateKind {
+    const fn check_if_transformer_sets_t_flag(&mut self, transformer: Transformer) -> FlagStateKind {
         match transformer {
             Transformer::For => FlagStateKind::TFlagIsIndeterminate,
             Transformer::Filter => {
