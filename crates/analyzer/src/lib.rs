@@ -3640,7 +3640,6 @@ impl<'a> Analyzer<'a> {
                 )
             }
             "find" => {
-                info!(?self_type_param, "what is self type param for find");
                 let lambda_signature = Signature {
                     parameters: vec![TypeForParameter {
                         name: "element".to_string(),

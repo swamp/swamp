@@ -161,7 +161,6 @@ impl CodeBuilder<'_> {
     }
 
     // Store -------------------------------------------------------
- 
 
     pub fn emit_check_that_element_count_is_less_or_equal_to_capacity(
         &mut self,

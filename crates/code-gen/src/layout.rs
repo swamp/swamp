@@ -313,7 +313,6 @@ pub fn layout_type(ty: &Type) -> BasicType {
 
             let capacity = (*logical_size).max(1).next_power_of_two();
             let total_size = bucket_size * capacity + MAP_HEADER_SIZE.0 as usize;
-            info!(?total_size, ?bucket_size, element_size=?tuple_gen_type.total_size, "calculated map size");
 
             create_basic_type(
                 BasicTypeKind::MapStorage {

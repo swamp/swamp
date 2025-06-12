@@ -59,7 +59,7 @@ fn string_with_emoji_print() {
         r#"
 external fn print(extra_arg: Int, output: String)
 
-print(23, "\u{1F431}if this works it is \u{1F525}\u{1F60E}!")
+print(23, "\u(1F431)if this works it is \u(1F525)\u(1F60E)!")
 
         "#,
         "
@@ -93,7 +93,7 @@ fn string_append() {
         r#"
 external fn print(extra_arg: Int, output: String)
 
-print(23, "\u{1F431}if this works it is \u{1F525}\u{1F60E}!" + "extra")
+print(23, "\u(1F431)if this works it is \u(1F525)\u(1F60E)!" + "extra")
 
         "#,
         "
@@ -131,7 +131,7 @@ fn string_len() {
     exec_with_assembly(
         r#"
 
-a = "\u{1F431}if this works it is \u{1F525}\u{1F60E}!"
+a = "\u(1F431)if this works it is \u(1F525)\u(1F60E)!"
 r = a.len()
 
         "#,

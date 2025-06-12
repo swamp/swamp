@@ -39,6 +39,18 @@ jobs:
       - name: Build all workspace binaries
         run: cargo build --color=always --release --target ${{ matrix.target }}
 
+      - name: run tests with color multiple times
+        env:
+          RUST_LOG: trace
+          RUST_LOG_STYLE: always
+          TERM: xterm-256color
+        run: |
+          cargo test --color=always -- --nocapture --color=always
+          cargo test --color=always -- --nocapture --color=always
+          cargo test --color=always -- --nocapture --color=always
+          cargo test --color=always -- --nocapture --color=always
+          cargo test --color=always -- --nocapture --color=always
+
       - name: Package both binaries into a single “swamp-<platform>-<arch>” archive
         shell: bash
         run: |

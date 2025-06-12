@@ -20,7 +20,7 @@ a = Test::Another
 result = match a {
     Another => 2,
     Third => 3,
-    _ => 0
+    _ => 0,
 }
         ",
         "
@@ -62,7 +62,7 @@ a = Test::Third
 result = match a {
     Another => 2,
     Third | sun_is_shining => 3,
-    _ => 255
+    _ => 255,
 }
         ",
         "

@@ -129,7 +129,7 @@ fn call_mut_argument() {
 
         a = 20
         mut b = 30
-        add_and_overwrite(a, mut b)
+        add_and_overwrite(a, &b)
         ",
         "
 > 0000: enter 58
@@ -164,7 +164,7 @@ fn call_struct_function() {
         }
 
         mut s = Something { a: 10, b: 20 }
-        add(mut s, 40)
+        add(&s, 40)
         ",
         "
 > 0000: enter 58
