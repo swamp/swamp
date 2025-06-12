@@ -13,7 +13,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
-use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
+use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 pub use swamp_compile::CompileOptions;
 use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
@@ -51,7 +51,8 @@ pub fn run_constants_in_order(
         // do not reset heap, all allocations from heap should remain (for now)
         vm.reset_call_stack();
 
-        if constant.target_constant_memory.ty().is_scalar() {} else {
+        if constant.target_constant_memory.ty().is_scalar() {
+        } else {
             // set memory location into to r0
             vm.registers[0] = constant.target_constant_memory.addr().0;
         }
@@ -98,7 +99,7 @@ pub fn run_constants_in_order(
                 &return_layout,
                 &constant.constant_ref.assigned_name,
             )
-                .unwrap();
+            .unwrap();
         }
     }
 }

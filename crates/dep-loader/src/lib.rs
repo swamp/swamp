@@ -10,8 +10,8 @@ use std::collections::HashSet;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::{env, io};
-use swamp_ast::prelude::*;
 use swamp_ast::Function;
+use swamp_ast::prelude::*;
 use swamp_parser::{AstParser, SpecificError};
 use time_dilation::ScopedTimer;
 use tracing::error;
@@ -430,9 +430,7 @@ impl From<DependencyError> for DepLoaderError {
 /// # Errors
 ///
 fn os_home_relative_path(project_name: &str) -> Option<PathBuf> {
-    home_dir().map(|home_path| {
-        home_path.join(format!(".{project_name}"))
-    })
+    home_dir().map(|home_path| home_path.join(format!(".{project_name}")))
 }
 
 pub fn path_from_environment_variable() -> Option<PathBuf> {
@@ -444,8 +442,7 @@ pub fn path_from_environment_variable() -> Option<PathBuf> {
 #[must_use]
 pub fn swamp_home() -> Option<PathBuf> {
     // First try environment variable
-    path_from_environment_variable()
-        .or_else(|| os_home_relative_path("swamp"))
+    path_from_environment_variable().or_else(|| os_home_relative_path("swamp"))
 }
 
 // Verifies the structure of swamp_home to make sure if we can use it

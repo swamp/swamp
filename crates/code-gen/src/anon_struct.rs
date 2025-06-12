@@ -170,8 +170,16 @@ impl CodeBuilder<'_> {
 
                 let unaligned_key_size = tuple_type.fields[0].ty.total_size;
                 let unaligned_value_size = tuple_type.fields[1].ty.total_size;
+
+                let map_pointer_location = self
+                    .emit_compute_effective_address_from_location_to_register(
+                        lvalue_location,
+                        node,
+                        "find location of map to init",
+                    );
+
                 self.builder.add_map_init_set_capacity(
-                    &lvalue_location.pointer_location().unwrap(),
+                    &map_pointer_location,
                     CountU16(*logical_limit as u16),
                     unaligned_key_size,
                     unaligned_value_size,

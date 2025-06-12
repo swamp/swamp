@@ -759,9 +759,7 @@ pub fn compile_string(script: &str) -> Result<(Program, ModuleRef, SourceMap), S
     let file_id = 0xffff;
 
     if let Some(swamp_home) = swamp_registry_path() {
-        source_map
-            .add_mount("registry", &swamp_home)
-            .unwrap();
+        source_map.add_mount("registry", &swamp_home).unwrap();
     }
 
     source_map.add_mount("crate", Path::new("/tmp/")).unwrap();
