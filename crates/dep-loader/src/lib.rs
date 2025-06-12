@@ -432,7 +432,8 @@ fn os_home_relative_path(project_name: &str) -> Option<PathBuf> {
     home_dir().map(|home_path| home_path.join(format!(".{project_name}")))
 }
 
-#[must_use] pub fn path_from_environment_variable() -> Option<PathBuf> {
+#[must_use]
+pub fn path_from_environment_variable() -> Option<PathBuf> {
     env::var("SWAMP_HOME")
         .map(|string_value| Path::new(&string_value).to_path_buf())
         .ok()

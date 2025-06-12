@@ -191,116 +191,116 @@ fn all_tokens() {
     const SOME_CONSTANT: Int = 3
     
     struct Battle {
-	seed: Int,
-	id_gen: IDSource,
-	mod_data: ModifierData,
-	teams: [Alliance: Team; 2],
-	tick_counter: Int,
-	turn_counter: Int,
-	sudden_death_check: Bool,
-	sudden_death_counter: Int,
-	game_end: Bool,
-	turn_phase: Phase,
-	turn_alliance: Alliance,
-	arena: Arena,
-	objective: Objective,
-	units_spawned: [Int: Int; 100],
-	unit_turn_order: Vec<Int; 100>,
-	unit_current: Int?,
-	stack: Vec<String; 100>,
-	next_stack: Vec<String; 100>,
-	triggers: [Int: Trigger; 100],
-	tick_log: Vec<String; 100>
+    seed: Int,
+    id_gen: IDSource,
+    mod_data: ModifierData,
+    teams: [Alliance: Team; 2],
+    tick_counter: Int,
+    turn_counter: Int,
+    sudden_death_check: Bool,
+    sudden_death_counter: Int,
+    game_end: Bool,
+    turn_phase: Phase,
+    turn_alliance: Alliance,
+    arena: Arena,
+    objective: Objective,
+    units_spawned: [Int: Int; 100],
+    unit_turn_order: Vec<Int; 100>,
+    unit_current: Int?,
+    stack: Vec<String; 100>,
+    next_stack: Vec<String; 100>,
+    triggers: [Int: Trigger; 100],
+    tick_log: Vec<String; 100>
 }
 
 impl Battle {
-	fn fake_new() -> Battle {
-	 	Battle {
-			seed: 0,
-			id_gen: IDSource::new(),
-			mod_data: ModifierData{modifiers: []},
-			teams: [:],
-			tick_counter: 0,
-			turn_counter: 0,
-			sudden_death_check: false,
-			sudden_death_counter: 0,
-			game_end: false,
-			turn_phase: Phase::Start,
-			turn_alliance: Alliance::West, // west always starts
-			arena: Arena::new(),
-			objective: Objective { 	id: 0,
-				position: Point { x: 0, y: 0 },
-				holder_id: none,
-				holder_alliance: none,
-				alignment: 0 } ,
-			units_spawned: [:],
-			unit_turn_order: [],
-			unit_current: none,
-			stack: [],
-			next_stack: [],
-			triggers: [:],
-			tick_log: []
-		}
-	}
+    fn fake_new() -> Battle {
+         Battle {
+            seed: 0,
+            id_gen: IDSource::new(),
+            mod_data: ModifierData{modifiers: []},
+            teams: [:],
+            tick_counter: 0,
+            turn_counter: 0,
+            sudden_death_check: false,
+            sudden_death_counter: 0,
+            game_end: false,
+            turn_phase: Phase::Start,
+            turn_alliance: Alliance::West, // west always starts
+            arena: Arena::new(),
+            objective: Objective {     id: 0,
+                position: Point { x: 0, y: 0 },
+                holder_id: none,
+                holder_alliance: none,
+                alignment: 0 } ,
+            units_spawned: [:],
+            unit_turn_order: [],
+            unit_current: none,
+            stack: [],
+            next_stack: [],
+            triggers: [:],
+            tick_log: []
+        }
+    }
 
 
-	fn new() -> Battle {
-		player_order = [0,1]
-		team_owners = [Owner::Player, Owner::Opponent]
-		mut id_gen = IDSource::new()
+    fn new() -> Battle {
+        player_order = [0,1]
+        team_owners = [Owner::Player, Owner::Opponent]
+        mut id_gen = IDSource::new()
 
-		mut objective = Objective::new(id_gen.get_id(), OBJECTIVE_SPAWN_POINT)
+        mut objective = Objective::new(id_gen.get_id(), OBJECTIVE_SPAWN_POINT)
 
-		mut default_triggers: [Int:Trigger;42] = [:]  // allocation ?
-		for t in DEFAULT_TRIGGERS {
-			id = id_gen.get_id()
-			default_triggers[id] = t
-		}
+        mut default_triggers: [Int:Trigger;42] = [:]  // allocation ?
+        for t in DEFAULT_TRIGGERS {
+            id = id_gen.get_id()
+            default_triggers[id] = t
+        }
 
 
-		decks = [
-			Alliance::West: [1:'Hej'],
-			Alliance::East: [1:'Hej']
-		]
+        decks = [
+            Alliance::West: [1:'Hej'],
+            Alliance::East: [1:'Hej']
+        ]
 
-		teams = [
-			Alliance::West: Team::new(Alliance::West, decks[Alliance::West], 1, team_owners[player_order[0]], 0, &id_gen),
-			Alliance::East: Team::new(Alliance::East, decks[Alliance::East], 2, team_owners[player_order[1]], 1, &id_gen)
-		]
+        teams = [
+            Alliance::West: Team::new(Alliance::West, decks[Alliance::West], 1, team_owners[player_order[0]], 0, &id_gen),
+            Alliance::East: Team::new(Alliance::East, decks[Alliance::East], 2, team_owners[player_order[1]], 1, &id_gen)
+        ]
 
-		empty_unit_id_list: Vec<Int; 25> = []
+        empty_unit_id_list: Vec<Int; 25> = []
 
-		Battle{
-			seed: 0,
-			id_gen: id_gen,
-			mod_data: ModifierData{modifiers: []},
-			teams: teams,
-			tick_counter: 0,
-			turn_counter: 0,
-			sudden_death_check: false,
-			sudden_death_counter: 0,
-			game_end: false,
-			turn_phase: Phase::Start,
-			turn_alliance: Alliance::West, // west always starts
-			arena: Arena::new(),
-			objective: objective,
-			units_spawned: [:],
-			unit_turn_order: [],
-			unit_current: none,
-			stack: [],
-			next_stack: [],
-			triggers: default_triggers,
-			tick_log: []
-		}
-	}
+        Battle{
+            seed: 0,
+            id_gen: id_gen,
+            mod_data: ModifierData{modifiers: []},
+            teams: teams,
+            tick_counter: 0,
+            turn_counter: 0,
+            sudden_death_check: false,
+            sudden_death_counter: 0,
+            game_end: false,
+            turn_phase: Phase::Start,
+            turn_alliance: Alliance::West, // west always starts
+            arena: Arena::new(),
+            objective: objective,
+            units_spawned: [:],
+            unit_turn_order: [],
+            unit_current: none,
+            stack: [],
+            next_stack: [],
+            triggers: default_triggers,
+            tick_log: []
+        }
+    }
 
 }
 
 
 #[test]
 fn test() {
-	battle = Battle::fake_new()
-	print('{battle.arena.width}')
+    battle = Battle::fake_new()
+    print('{battle.arena.width}')
 }
 
     ";

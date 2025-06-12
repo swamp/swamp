@@ -301,8 +301,8 @@ pub fn layout_type(ty: &Type) -> BasicType {
             let tuple_gen_type = layout_tuple_items(&[*key_type.clone(), *value_type.clone()]);
             let tuple_alignment = tuple_gen_type.max_alignment;
             let status_size: usize = 1;
-            let tuple_offset = status_size.div_ceil(tuple_alignment as usize)
-                * tuple_alignment as usize;
+            let tuple_offset =
+                status_size.div_ceil(tuple_alignment as usize) * tuple_alignment as usize;
 
             let bucket_size = tuple_offset + tuple_gen_type.total_size.0 as usize;
             // bucket_size = ((bucket_size + tuple_alignment as usize - 1) / tuple_alignment as usize) * tuple_alignment as usize;

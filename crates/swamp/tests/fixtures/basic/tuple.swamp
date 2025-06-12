@@ -53,10 +53,9 @@ fn function_returning_tuple_and_destructuring() {
   id_val, code_val, active_val = create_status_tuple(99, 200, false)
 
   print('function_returning_tuple_and_destructuring: id:{id_val}, code:{code_val}, active:{active_val}')
-  // TODO: @Bug: it can not handle tuple as return value
-  // assert(id_val == 99, 'Function return destructure: id_val is wrong')
-  // assert(code_val == 200, 'Function return destructure: code_val is wrong')
-  // assert(active_val == false, 'Function return destructure: active_val is wrong')
+  assert(id_val == 99, 'Function return destructure: id_val is wrong')
+  assert(code_val == 200, 'Function return destructure: code_val is wrong')
+  assert(active_val == false, 'Function return destructure: active_val is wrong')
 }
 
 /*

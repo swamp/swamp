@@ -8,7 +8,8 @@ use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType, u16_type};
 use swamp_vm_types::{
-    COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset, MemorySize,
+    COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
+    MemorySize,
 };
 use tracing::error;
 
