@@ -187,7 +187,9 @@ impl CodeBuilder<'_> {
                 self.temp_registers.restore_to_mark(hwm);
 
                 let unaligned_key_size = tuple_type.fields[0].ty.total_size;
+                let key_alignment = tuple_type.fields[0].ty.max_alignment;
                 let unaligned_value_size = tuple_type.fields[1].ty.total_size;
+                let value_alignment = tuple_type.fields[1].ty.max_alignment;
 
                 let map_pointer_location = self
                     .emit_compute_effective_address_from_location_to_register(
@@ -200,8 +202,9 @@ impl CodeBuilder<'_> {
                     &map_pointer_location,
                     CountU16(*logical_limit as u16),
                     unaligned_key_size,
+                    key_alignment,
                     unaligned_value_size,
-                    tuple_type.max_alignment,
+                    value_alignment,
                     node,
                     "initialize map (capacity, key_size, total_key_and_value_size)",
                 );

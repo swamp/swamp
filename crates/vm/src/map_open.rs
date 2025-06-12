@@ -4,19 +4,18 @@
  */
 extern crate fxhash;
 use crate::memory::Memory;
-use crate::{TrapCode, Vm, get_reg, i16_from_u8s};
+use crate::{get_reg, i16_from_u8s, TrapCode, Vm};
 use crate::{set_reg, u16_from_u8s};
 use fxhash::FxHasher64;
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::hash::Hasher;
 use std::{ptr, slice};
-use swamp_vm_types::{MAP_BUCKETS_OFFSET, MapHeader, MapIterator};
+use swamp_vm_types::{MapHeader, MapIterator, MAP_BUCKETS_OFFSET};
 
 // Define a struct for map layout information
 struct MapLayout {
     bucket_size: u16,
     tuple_offset: u8,
-    tuple_size: u16,
     value_offset: u16,
 }
 
@@ -80,9 +79,8 @@ impl Vm {
             let buckets_ptr = memory.get_heap_ptr(buckets_ptr_addr);
             let key_ptr = memory.get_heap_ptr(key_ptr_addr);
 
-            // Calculate bucket layout sizes
             let tuple_offset: usize = (*header).tuple_offset.into();
-            let value_offset: usize = (*header).value_offset.into(); // Use the stored value_offset
+            let value_offset: usize = (*header).value_offset.into();
             let bucket_size = (*header).bucket_size as usize;
 
             let key_slice = slice::from_raw_parts(key_ptr, key_size);
@@ -271,23 +269,33 @@ impl Vm {
     // in one way, and the VM in another. Especially the value offset
     // were incorrectly calculated by tuple_offset + key_size.
     #[inline]
-    pub const fn calculate_map_layout(key_size: u16, value_size: u16, alignment: u8) -> MapLayout {
-        let status_size: u8 = 1;
-        let alignment = alignment as u16;
+    pub fn calculate_map_layout(
+        key_size: u16,
+        key_alignment: u8,
+        value_size: u16,
+        value_alignment: u8,
+    ) -> MapLayout {
+        let status_size: u16 = 1;
+        let mut current_offset = status_size;
 
-        let tuple_offset = ((status_size as u16 + alignment - 1) / alignment) * alignment;
+        let key_align = key_alignment as u16;
+        let key_offset = (current_offset + key_align - 1) / key_align * key_align;
 
-        let value_offset = tuple_offset + ((key_size + alignment - 1) / alignment) * alignment;
+        current_offset = key_offset + key_size;
 
-        let tuple_size = key_size + value_size;
+        let value_align = value_alignment as u16;
+        let value_offset = (current_offset + value_align - 1) / value_align * value_align;
 
-        let bucket_end = value_offset + value_size;
-        let bucket_size = ((bucket_end + alignment - 1) / alignment) * alignment;
+        current_offset = value_offset + value_size;
+
+        let bucket_content_alignment = max(key_align, value_align);
+        let bucket_size = (current_offset + bucket_content_alignment - 1)
+            / bucket_content_alignment
+            * bucket_content_alignment;
 
         MapLayout {
             bucket_size,
-            tuple_offset: tuple_offset as u8,
-            tuple_size,
+            tuple_offset: key_offset as u8,
             value_offset,
         }
     }
@@ -301,7 +309,7 @@ impl Vm {
         key_size_upper: u8,
         value_size_lower: u8,
         value_size_upper: u8,
-        alignment: u8,
+        key_and_value_alignment: u8,
     ) {
         let map_header_addr = get_reg!(self, self_map_header_reg);
         let map_header = self.get_map_header_mut(map_header_addr);
@@ -311,15 +319,18 @@ impl Vm {
         let capacity = logical_limit.next_power_of_two();
         debug_assert_ne!(capacity, 0);
         assert!(Self::is_power_of_two(capacity as usize));
+        let key_alignment = key_and_value_alignment >> 4;
+        let value_alignment = key_and_value_alignment & 0xf;
 
-        let layout = Self::calculate_map_layout(key_size, value_size, alignment);
+        let layout =
+            Self::calculate_map_layout(key_size, key_alignment, value_size, value_alignment);
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             let map_header_addr = get_reg!(self, self_map_header_reg);
             eprintln!(
-                "map_init {map_header_addr:08X}:  logical_limit: {logical_limit} capacity: {capacity}, key_size: {key_size}, tuple_size:{}, bucket_size:{}, value_offset:{}",
-                layout.tuple_size, layout.bucket_size, layout.value_offset,
+                "map_init {map_header_addr:08X}:  logical_limit:{logical_limit} capacity:{capacity}, key_size:{key_size}, key_alignment:{key_alignment}, value_size:{value_size}, value_alignment:{value_alignment}, bucket_size:{}, value_offset:{}",
+                layout.bucket_size, layout.value_offset,
             );
         }
         unsafe {
@@ -333,11 +344,26 @@ impl Vm {
             (*map_header).element_count = 0;
         }
 
+        let buckets_start_addr = map_header_addr + MAP_BUCKETS_OFFSET.0 as u32;
+
+        let capacity = unsafe { (*map_header).capacity as u32 };
+        let bucket_size = layout.bucket_size as u32;
+        let buffer_end_addr = buckets_start_addr + (capacity * bucket_size);
+
         unsafe {
             let buckets_start = map_header_addr + MAP_BUCKETS_OFFSET.0 as u32;
 
             for i in 0..(*map_header).capacity {
                 let status_addr = (buckets_start + (i as u32) * layout.bucket_size as u32) as usize;
+
+                // ASSERT that the write is in bounds!
+                assert!(
+                    status_addr < buffer_end_addr as usize,
+                    "MEMORY CORRUPTION: map_init trying to write to 0x{:X}, which is outside its buffer ending at 0x{:X}",
+                    status_addr,
+                    buffer_end_addr
+                );
+
                 *self.memory.get_heap_ptr(status_addr) = Self::BUCKET_EMPTY;
             }
         }
@@ -447,14 +473,21 @@ impl Vm {
             let target_buckets_start_addr =
                 (target_map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
 
-            let key_size = (*source_map_header).key_size as usize;
             let bucket_size = (*source_map_header).bucket_size as usize;
             let tuple_offset = (*source_map_header).tuple_offset as usize;
             let value_offset = (*source_map_header).value_offset as usize;
 
+            let target_bucket_size = (*target_map_header).bucket_size as usize;
+            debug_assert_eq!(bucket_size, target_bucket_size);
+
+            let target_capacity = (*target_map_header).capacity as usize;
+            let target_buffer_end_addr =
+                (target_map_header_addr as usize) + (target_capacity * bucket_size);
+
             // For each bucket in source
             for i in 0..(*source_map_header).capacity as usize {
                 let source_bucket_ptr = source_buckets_ptr.add(i * bucket_size);
+
                 let status = ptr::read(source_bucket_ptr);
 
                 if status == Self::BUCKET_OCCUPIED {
@@ -472,6 +505,12 @@ impl Vm {
                     if target_value_offset == 0 {
                         return self.internal_trap(TrapCode::MapCouldNotBeCopied);
                     }
+                    assert!(
+                        target_value_offset < target_buffer_end_addr as u32,
+                        "MEMORY CORRUPTION: map_overwrite trying to write to 0x{:X}, which is outside its buffer ending at 0x{:X}",
+                        target_value_offset,
+                        target_buffer_end_addr
+                    );
 
                     let target_value_ptr = self.memory.get_heap_ptr(target_value_offset as usize);
                     let value_size = (*source_map_header).value_size as usize;

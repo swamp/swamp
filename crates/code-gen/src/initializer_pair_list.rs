@@ -51,7 +51,6 @@ impl CodeBuilder<'_> {
             BasicTypeKind::MapStorage {
                 tuple_type,
                 logical_limit,
-                tuple_alignment,
                 ..
             } => {
                 assert!(
@@ -73,7 +72,6 @@ impl CodeBuilder<'_> {
                     elements,
                     tuple_type,
                     *logical_limit,
-                    *tuple_alignment,
                     node,
                     ctx,
                 );

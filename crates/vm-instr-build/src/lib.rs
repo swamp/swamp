@@ -1330,8 +1330,9 @@ impl InstructionBuilder<'_> {
         target_map_to_init: &PointerLocation,
         logical_limit: CountU16,
         key_size: MemorySize,
+        key_alignment: MemoryAlignment,
         value_size: MemorySize,
-        tuple_alignment: MemoryAlignment,
+        value_alignment: MemoryAlignment,
         node: &Node,
         comment: &str,
     ) {
@@ -1341,7 +1342,11 @@ impl InstructionBuilder<'_> {
         let key_size_bytes = u16_to_u8_pair(key_size.0);
         let value_size_bytes = u16_to_u8_pair(value_size.0);
 
-        let tuple_alignment_byte: usize = tuple_alignment.into();
+        let key_alignment_usize: usize = key_alignment.into();
+        let value_alignment_usize: usize = value_alignment.into();
+        let packed_alignment =
+            ((key_alignment_usize as u8) << 4) | ((value_alignment_usize as u8) & 0xf as u8);
+
         //let value_size_bytes = u16_to_u8_pair(value_size.0);
         self.state.add_instruction(
             OpCode::MapInitWithCapacityAndKeyAndTupleSizeAddr,
@@ -1353,7 +1358,7 @@ impl InstructionBuilder<'_> {
                 key_size_bytes.1,
                 value_size_bytes.0,
                 value_size_bytes.1,
-                tuple_alignment_byte as u8,
+                packed_alignment,
             ],
             node,
             comment,

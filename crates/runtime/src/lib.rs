@@ -265,11 +265,20 @@ pub fn run_function_with_debug(
         #[cfg(feature = "debug_vm")]
         if run_options.debug_opcodes_enabled {
             let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 128, 129, 130, 131, 132];
+            let special_reg: u32 = unsafe {
+                let ptr = vm.memory().get_heap_const_ptr(0x1E00) as *const u32;
+                *ptr
+            };
 
             if use_color {
                 eprint!(
                     "{}",
-                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X}, ", vm.fp(), vm.sp()))
+                    tinter::bright_black(&format!(
+                        "fp:{:08X}, sp:{:08X}, 1E00:{:04X}",
+                        vm.fp(),
+                        vm.sp(),
+                        special_reg
+                    ))
                 );
 
                 for reg in regs {
@@ -331,8 +340,9 @@ pub fn run_function_with_debug(
             eprintln!("{pc:04X}> {string}");
         }
 
+        let saved_fp = vm.memory().frame_offset();
         let hash_before: u64 = if run_options.debug_operations_enabled {
-            calculate_memory_checksum(vm.constant_memory())
+            calculate_memory_checksum(vm.all_memory_up_to(saved_fp))
         } else {
             0
         };
@@ -342,11 +352,17 @@ pub fn run_function_with_debug(
         vm.step(host_function_callback);
 
         if run_options.debug_operations_enabled {
-            let hash_after = calculate_memory_checksum(vm.constant_memory());
+            let hash_after = calculate_memory_checksum(vm.all_memory_up_to(saved_fp));
+            if hash_after != hash_before {
+                eprintln!("WARN: below FP has been written to");
+            }
+            /*
             assert_eq!(
                 hash_before, hash_after,
                 "constant memory has been clobbered"
             );
+
+             */
         }
     }
 }

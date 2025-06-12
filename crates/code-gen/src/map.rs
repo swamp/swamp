@@ -69,7 +69,6 @@ impl CodeBuilder<'_> {
         initializer_pair_list_expressions: &[(Expression, Expression)],
         key_value_tuple_type: &TupleType,
         logical_limit: usize,
-        tuple_alignment: MemoryAlignment,
         node: &Node,
         ctx: &Context,
     ) {
@@ -80,7 +79,9 @@ impl CodeBuilder<'_> {
         //        let aligned_key_size = key_value_tuple_type.aligned_size_of_field(0);
         //      let aligned_value_size = key_value_tuple_type.aligned_size_of_field(1);
         let unaligned_key_size = key_value_tuple_type.fields[0].ty.total_size;
+        let key_alignment = key_value_tuple_type.fields[0].ty.max_alignment;
         let unaligned_value_size = key_value_tuple_type.fields[1].ty.total_size;
+        let value_alignment = key_value_tuple_type.fields[1].ty.max_alignment;
         debug_assert!(
             logical_limit >= len,
             "this should have been checked with analyzer"
@@ -90,8 +91,9 @@ impl CodeBuilder<'_> {
                 target_map_header_ptr_reg,
                 CountU16(logical_limit as u16),
                 unaligned_key_size,
+                key_alignment,
                 unaligned_value_size,
-                tuple_alignment,
+                value_alignment,
                 node,
                 "initialize map (capacity, key_size, total_key_and_value_size)",
             );

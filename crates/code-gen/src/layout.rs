@@ -298,20 +298,28 @@ pub fn layout_type(ty: &Type) -> BasicType {
         }
 
         Type::MapStorage(key_type, value_type, logical_size) => {
+            let key_layout = layout_type(key_type);
+            let value_layout = layout_type(value_type);
+
+            let status_size: u16 = 1;
+            let mut current_offset = status_size;
+
+            let key_offset = align(current_offset as usize, key_layout.max_alignment.into());
+            current_offset = key_offset as u16 + key_layout.total_size.0;
+
+            let value_offset = align(current_offset as usize, value_layout.max_alignment.into());
+            current_offset = value_offset as u16 + value_layout.total_size.0;
+            let bucket_content_alignment =
+                max(key_layout.max_alignment, value_layout.max_alignment);
+
+            let bucket_size = align(current_offset as usize, bucket_content_alignment.into());
+
+            let max_alignment = max(bucket_content_alignment, MAP_HEADER_ALIGNMENT);
+
+            let capacity = (*logical_size).max(1).next_power_of_two() as u16;
+            let total_size = (bucket_size * capacity as usize) + MAP_HEADER_SIZE.0 as usize;
+
             let tuple_gen_type = layout_tuple_items(&[*key_type.clone(), *value_type.clone()]);
-            let tuple_alignment = tuple_gen_type.max_alignment;
-            let status_size: usize = 1;
-            let tuple_offset =
-                status_size.div_ceil(tuple_alignment as usize) * tuple_alignment as usize;
-
-            let mut bucket_size = tuple_offset + tuple_gen_type.total_size.0 as usize;
-            bucket_size = ((bucket_size + tuple_alignment as usize - 1) / tuple_alignment as usize)
-                * tuple_alignment as usize;
-
-            let max_alignment = max(tuple_gen_type.max_alignment, MAP_HEADER_ALIGNMENT);
-
-            let capacity = (*logical_size).max(1).next_power_of_two();
-            let total_size = bucket_size * capacity + MAP_HEADER_SIZE.0 as usize;
 
             create_basic_type(
                 BasicTypeKind::MapStorage {
@@ -323,7 +331,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
                     tuple_type: Box::from(tuple_gen_type),
                     logical_limit: *logical_size,
                     capacity: CountU16(capacity as u16),
-                    tuple_alignment,
+                    tuple_alignment: bucket_content_alignment,
                     bucket_size: MemorySize(bucket_size as u16),
                 },
                 MemorySize(total_size as u16),

@@ -763,10 +763,6 @@ impl Vm {
         panic!("unknown OPCODE! {unknown_opcode} {unknown_opcode:?}");
     }
 
-    pub fn stack_memory(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.memory.stack_ptr(), self.memory.memory_size) }
-    }
-
     pub fn frame_memory(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.memory.frame_ptr(), self.memory.memory_size) }
     }
@@ -782,6 +778,10 @@ impl Vm {
                 self.memory.constant_memory_size,
             )
         }
+    }
+
+    pub fn all_memory_up_to(&self, offset: usize) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.memory.get_heap_ptr(0), offset) }
     }
 
     pub fn constant_size(&self) -> usize {

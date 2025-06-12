@@ -10,7 +10,7 @@ use swamp_vm_types::aligner::align;
 pub struct Memory {
     pub(crate) memory: *mut u8,
     pub(crate) memory_size: usize,
-    pub(crate) stack_offset: usize, // Current stack position
+    pub stack_offset: usize,        // Current stack position
     pub(crate) frame_offset: usize, // Current frame position
     pub stack_start: usize,
     pub heap_start: usize,
@@ -196,26 +196,17 @@ impl Memory {
         self.get_frame_ptr(0)
     }
 
-    #[must_use]
-    pub fn stack_ptr(&self) -> *mut u8 {
-        self.get_frame_ptr(0)
-    }
-
     #[inline(always)]
-    pub fn get_frame_ptr_as_u32(&self, addressing: u16) -> *mut u32 {
+    pub fn get_frame_ptr_as_u32(&self, offset: u16) -> *mut u32 {
         debug_assert!(
-            (self.frame_offset + addressing as usize) < self.memory_size,
-            "out of stack space frame base:{} offset:{addressing} total: {}",
+            (self.frame_offset + offset as usize) < self.memory_size,
+            "out of stack space frame base:{} offset:{offset} total: {}",
             self.frame_offset,
             self.memory_size,
         );
-        debug_assert_eq!(
-            addressing % 4,
-            0,
-            "Unaligned i32 access at offset {addressing}"
-        );
+        debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
 
-        unsafe { self.get_memory_ptr(addressing) as *mut u32 }
+        unsafe { self.get_heap_ptr((offset as usize + self.frame_offset)) as *mut u32 }
     }
 
     #[inline(always)]
@@ -231,7 +222,7 @@ impl Memory {
             "Unaligned u16 access at offset {addressing}",
         );
 
-        unsafe { self.get_memory_ptr(addressing) as *mut u16 }
+        unsafe { self.get_frame_ptr(addressing) as *mut u16 }
     }
 
     pub(crate) fn read_debug_stack_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
@@ -247,23 +238,24 @@ impl Memory {
 
     #[inline(always)]
     #[must_use]
-    pub fn get_frame_ptr(&self, addressing: u16) -> *mut u8 {
+    pub fn get_frame_ptr(&self, fp_offset: u16) -> *mut u8 {
         debug_assert!(
-            (self.frame_offset + addressing as usize) < self.memory_size,
+            (self.frame_offset + fp_offset as usize) < self.memory_size,
             "wrong frame addr"
         );
 
-        unsafe { self.get_memory_ptr(addressing) }
+        unsafe { self.get_heap_ptr((fp_offset as usize + self.frame_offset)) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn get_frame_const_ptr(&self, addressing: u16) -> *const u8 {
+    pub fn get_frame_const_ptr(&self, fp_offset: u16) -> *mut u8 {
         debug_assert!(
-            (self.frame_offset + addressing as usize) < self.memory_size,
+            (self.frame_offset + fp_offset as usize) < self.memory_size,
             "wrong frame addr"
         );
-        unsafe { self.get_memory_const_ptr(addressing) }
+
+        unsafe { self.get_heap_ptr((fp_offset as usize + self.frame_offset)) }
     }
 
     #[inline(always)]
@@ -298,41 +290,7 @@ impl Memory {
         );
         // Inline ptr_at functionality
 
-        unsafe { self.get_memory_ptr(some_addressing) as *mut i32 }
-    }
-
-    #[inline(always)]
-    #[must_use]
-    pub fn get_memory_const_ptr(&self, some_addressing: u16) -> *const u8 {
-        if (some_addressing & 0x1000) != 0 {
-            self.get_heap_const_ptr((some_addressing & 0x07fff) as usize)
-        } else {
-            unsafe {
-                self.memory
-                    .add(self.frame_offset + some_addressing as usize) as *const u8
-            }
-        }
-    }
-
-    #[inline(always)]
-    #[must_use]
-    pub fn get_memory_ptr(&self, some_addressing: u16) -> *mut u8 {
-        if (some_addressing & 0x1000) != 0 {
-            debug_assert!(
-                ((some_addressing & 0x07fff) as usize) < self.memory_size,
-                "wrong frame addr"
-            );
-            self.get_heap_ptr((some_addressing & 0x07fff) as usize)
-        } else {
-            debug_assert!(
-                (self.frame_offset + some_addressing as usize) < self.memory_size,
-                "wrong frame addr"
-            );
-            unsafe {
-                self.memory
-                    .add(self.frame_offset + some_addressing as usize) as *mut u8
-            }
-        }
+        unsafe { self.get_frame_ptr(some_addressing) as *mut i32 }
     }
 
     #[inline(always)]
@@ -349,7 +307,7 @@ impl Memory {
             "wrong frame addr"
         );
 
-        unsafe { self.get_memory_const_ptr(addressing) as *const i32 }
+        unsafe { self.get_frame_const_ptr(addressing) as *const i32 }
     }
 
     #[inline(always)]
@@ -371,7 +329,7 @@ impl Memory {
         );
 
         // Inline ptr_at functionality
-        unsafe { self.memory.add(self.frame_offset + offset as usize) as *const u32 }
+        unsafe { self.get_frame_const_ptr(offset) as *const u32 }
     }
 
     #[inline(always)]
@@ -393,7 +351,7 @@ impl Memory {
         );
 
         // Inline ptr_at functionality
-        unsafe { self.get_memory_const_ptr(addressing) as *const u16 }
+        unsafe { self.get_frame_const_ptr(addressing) as *const u16 }
     }
 
     #[must_use]
