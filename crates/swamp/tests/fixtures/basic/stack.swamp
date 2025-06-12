@@ -76,7 +76,7 @@ fn for_loop_index() {
 }
 
 struct Thing {
-    f: Float,
+        f: Float,
 }
 
 #[test]

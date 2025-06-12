@@ -2,7 +2,7 @@ use core::{assert}
 use std::{print}
 
 struct Thing {
-        list: [Int; 4],
+    list: [Int; 4],
 }
 
 #[test]

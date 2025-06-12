@@ -5,8 +5,8 @@ const TEST_TRUTH = true
 const TEST_VALUE = 100
 
 struct Point {
-  x: Int,
-  y: Int,
+    x: Int,
+    y: Int,
 }
 
 enum Player {
@@ -44,7 +44,7 @@ fn aggregate() {
 }
 
 struct Level {
-  some_data: [Int; 20],
+    some_data: [Int; 20],
 }
 
 fn create_level() -> Level {

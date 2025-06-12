@@ -3,44 +3,44 @@ use std::{print}
 
 #[test]
 fn option_some() {
-  a: Int? = 10
-  assert(a, 'a should be Some')
+    a: Int? = 10
+    assert(a, 'a should be Some')
 
-  when a {
-    assert(a == 10, 'a should be 10')
-  }
+    when a {
+        assert(a == 10, 'a should be 10')
+    }
 }
 
 #[test]
 fn option_none() {
-  a: Int? = none
-  assert(!a, 'a should be None')
+    a: Int? = none
+    assert(!a, 'a should be None')
 }
 
 
 struct Attacker {
-  health: Int,
+    health: Int,
 }
 
 impl Attacker {
-  fn to_string(self) -> String {
-    'Attacker health: {self.health}'
-  }
+    fn to_string(self) -> String {
+        'Attacker health: {self.health}'
+    }
 }
 
 struct Unit {
-  attacker: Attacker?
+    attacker: Attacker?
 }
 
 impl Unit {
-  fn to_string(self) -> String {
-    x = when attacker=self.attacker {
-      '{attacker}'
-    } else {
-      "None"
+    fn to_string(self) -> String {
+        x = when attacker=self.attacker {
+          '{attacker}'
+        } else {
+          "None"
+        }
+        'Unit attacker: {x}'
     }
-    'Unit attacker: {x}'
-  }
 }
 
 #[test]
@@ -48,65 +48,65 @@ fn when_in_when() {
     unit: Unit? = none
 
     when unit {
-      panic('unit should be None')
-      when attacker=unit.attacker {
+        panic('unit should be None')
+        when attacker=unit.attacker {
         panic('unit.attacker should be None')
-      }
+        }
     }
 }
 
 #[test]
 fn when_in_when_no_attacker() {
     unit: Unit? = Unit {
-      attacker: none
+        attacker: none
     }
 
     when unit {
-      print('found unit: {unit}')
-      assert(!unit.attacker, 'unit.attacker should be None')
+        print('found unit: {unit}')
+        assert(!unit.attacker, 'unit.attacker should be None')
 
-      when attacker=unit.attacker {
+        when attacker=unit.attacker {
         panic('unit.attacker should be None, `when` failed')
-      } else {
+        } else {
         print('unit.attacker is None')
-      }
+        }
     }
 }
 
 #[test]
 fn when_in_when_some() {
     unit: Unit? = Unit {
-      attacker: Attacker {
+        attacker: Attacker {
         health: 100
-      }
+        }
     }
 
     when unit {
-      print('found unit: {unit}')
-      assert(unit.attacker, 'unit.attacker should be Some')
+        print('found unit: {unit}')
+        assert(unit.attacker, 'unit.attacker should be Some')
 
-      when attacker=unit.attacker {
+        when attacker=unit.attacker {
         print('attacker: {attacker}')
-      }
+        }
     }
 }
 
 fn option_param(unit: Unit?) {
-  print('starting option_param')
-  when unit {
-    print('found unit: {unit}')
-  } else {
-    panic('unit should be Some')
-  }
+    print('starting option_param')
+    when unit {
+        print('found unit: {unit}')
+    } else {
+        panic('unit should be Some')
+    }
 }
 
 #[test]
 fn call_option_param() {
-  unit: Unit? = Unit {
-    attacker: Attacker {
-      health: 100
+    unit: Unit? = Unit {
+        attacker: Attacker {
+          health: 100
+        }
     }
-  }
 
-  option_param(unit)
+    option_param(unit)
 }

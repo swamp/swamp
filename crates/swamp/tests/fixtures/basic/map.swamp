@@ -250,7 +250,7 @@ fn scalar_key() {
 }
 
 struct Deck {
-   card_id_to_mana: [Int: Float; 2],
+    card_id_to_mana: [Int: Float; 2],
 }
 
 struct DeckHolder {
@@ -304,6 +304,10 @@ fn copy_from_constant_with_different_capacity() {
     card_templates : [CardId: CardTemplate; 128] = CARD_LIB
 
     assert(card_templates.len() == 2, "should have 2 cards from constant {card_templates.len()}")
+    assert(card_templates.capacity() == 128, "should have capacity 128")
+    assert(card_templates.has(CardId::MightyGolem), "should have MightyGolem")
+    assert(card_templates.has(CardId::Earthquake), "should have Earthquake")
+    assert(!card_templates.has(CardId::MysticSpring), "should not have MysticSpring")
     assert(card_templates[CardId::MightyGolem].mana == 5, "should be 5")
     assert(card_templates[CardId::Earthquake].mana == 3, "should be 3")
 }
