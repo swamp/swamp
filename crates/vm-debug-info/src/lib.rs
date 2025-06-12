@@ -9,7 +9,7 @@ use swamp_vm_types::{InstructionPosition, Meta};
 
 pub struct KeepTrackOfSourceLine {
     pub last_line_info: SourceFileLineInfo,
-    pub expected_next_row_to_show: usize,
+    pub current_line: usize,
 }
 
 impl Default for KeepTrackOfSourceLine {
@@ -26,20 +26,20 @@ impl KeepTrackOfSourceLine {
                 row: usize::MAX,
                 file_id: usize::MAX,
             },
-            expected_next_row_to_show: usize::MAX,
+            current_line: usize::MAX,
         }
     }
 
     pub fn check_if_new_line(&mut self, found: &SourceFileLineInfo) -> Option<(usize, usize)> {
-        if self.last_line_info.file_id != found.file_id {
+        if self.last_line_info.file_id != found.file_id || found.row != self.current_line {
             self.last_line_info = found.clone();
-            self.expected_next_row_to_show = self.last_line_info.row + 1;
+            self.current_line = self.last_line_info.row;
             Some((self.last_line_info.row, self.last_line_info.row))
-        } else if found.row < self.expected_next_row_to_show {
+        } else if found.row == self.current_line {
             None
         } else {
-            let line_start = self.expected_next_row_to_show;
-            self.expected_next_row_to_show = found.row + 1;
+            let line_start = self.current_line;
+            self.current_line = found.row;
             Some((line_start, found.row))
         }
     }

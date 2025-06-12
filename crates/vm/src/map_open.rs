@@ -71,9 +71,9 @@ impl Vm {
         unsafe {
             let capacity = (*header).capacity as usize;
             let key_size = (*header).key_size as usize;
-            let element_size = (*header).tuple_size as usize;
+            let value_size = (*header).value_size as usize;
             debug_assert_ne!(key_size, 0);
-            debug_assert_ne!(element_size, 0);
+            debug_assert_ne!(value_size, 0);
             debug_assert_ne!(capacity, 0);
             debug_assert!(Self::is_power_of_two(capacity));
 
@@ -93,7 +93,7 @@ impl Vm {
             #[cfg(feature = "debug_vm")]
             if log {
                 eprintln!(
-                    "map_get_or_reserve_entry: wants to insert hash: {hash:016X} starting at: {index} capacity: {}, len: {}, logical_limit:{} key_size: {key_size} element_size: {element_size}",
+                    "map_get_or_reserve_entry: wants to insert hash: {hash:016X} starting at: {index} capacity: {}, len: {}, logical_limit:{} key_size: {key_size} value_size: {value_size}",
                     (*header).capacity,
                     (*header).element_count,
                     (*header).logical_limit,
@@ -326,7 +326,7 @@ impl Vm {
             (*map_header).capacity = capacity;
             (*map_header).logical_limit = logical_limit;
             (*map_header).key_size = key_size;
-            (*map_header).tuple_size = layout.tuple_size;
+            (*map_header).value_size = value_size;
             (*map_header).bucket_size = layout.bucket_size;
             (*map_header).tuple_offset = layout.tuple_offset;
             (*map_header).value_offset = layout.value_offset;
@@ -474,7 +474,7 @@ impl Vm {
                     }
 
                     let target_value_ptr = self.memory.get_heap_ptr(target_value_offset as usize);
-                    let value_size = (*source_map_header).tuple_size as usize - key_size;
+                    let value_size = (*source_map_header).value_size as usize;
                     ptr::copy_nonoverlapping(source_value_ptr, target_value_ptr, value_size);
                 }
             }
@@ -524,9 +524,9 @@ impl Vm {
         unsafe {
             let capacity = header.capacity as usize;
             let key_size = header.key_size as usize;
-            let element_size = header.tuple_size as usize;
+            let value_size = header.value_size as usize;
             debug_assert_ne!(key_size, 0);
-            debug_assert_ne!(element_size, 0);
+            debug_assert_ne!(value_size, 0);
             debug_assert_ne!(capacity, 0);
             debug_assert!(Self::is_power_of_two(capacity));
 
@@ -546,7 +546,7 @@ impl Vm {
             #[cfg(feature = "debug_vm")]
             if log {
                 eprintln!(
-                    "checks if has item with hash: {hash:08X} start index: {index} capacity: {capacity} key_size:{key_size} value_size: {element_size}"
+                    "checks if has item with hash: {hash:08X} start index: {index} capacity: {capacity} key_size:{key_size} value_size: {value_size}"
                 );
             }
             let max_probe_count = min(capacity, Self::MAX_PROBE_DISTANCE);
@@ -603,8 +603,8 @@ impl Vm {
             debug_assert!(Self::is_power_of_two(capacity));
             let key_size = header.key_size as usize;
             debug_assert_ne!(key_size, 0);
-            let element_size = header.tuple_size as usize;
-            debug_assert_ne!(element_size, 0);
+            let value_size = header.value_size as usize;
+            debug_assert_ne!(value_size, 0);
 
             // Calculate bucket layout sizes (same as insert)
             let tuple_offset: usize = header.tuple_offset as usize;
@@ -705,8 +705,8 @@ impl Vm {
             let key_size = (*header).key_size as usize;
             debug_assert_ne!(key_size, 0);
 
-            let element_size = (*header).tuple_size as usize;
-            debug_assert_ne!(element_size, 0);
+            let value_size = (*header).value_size as usize;
+            debug_assert_ne!(value_size, 0);
 
             let tuple_offset: usize = (*header).tuple_offset as usize;
             let bucket_size: usize = (*header).bucket_size as usize;
@@ -776,69 +776,6 @@ impl Vm {
         }
     }
 
-    /*
-
-
-    #[inline]
-    pub fn execute_vec_iter_next(
-        &mut self,
-        vec_iterator_header_reg: u8,
-        target_variable: u8,
-        branch_offset_lower: u8,
-        branch_offset_upper: u8,
-    ) {
-        let vec_iterator = self.get_vec_iterator_header_ptr_from_reg(vec_iterator_header_reg);
-
-        unsafe {
-            let vec_header_addr = (*vec_iterator).vec_header_heap_ptr;
-            let vec_header_ptr =
-                self.memory.get_heap_const_ptr(vec_header_addr as usize) as *const VecHeader;
-            let vec_header = &*vec_header_ptr;
-            #[cfg(feature = "debug_vm")]
-            if self.debug_operations_enabled {
-                let iter_addr = get_reg!(self, vec_iterator_header_reg);
-                let index = (*vec_iterator).index;
-                eprintln!(
-                    "vec_iter_next: iter_addr: {iter_addr:04X} addr:{vec_header_addr:04X} index:{index} len: {}, capacity: {}",
-                    vec_header.count, vec_header.capacity
-                );
-            }
-
-            // Check if we've reached the end
-            if (*vec_iterator).index >= vec_header.count {
-                // Jump to the provided address if we're done
-                let branch_offset = i16_from_u8s!(branch_offset_lower, branch_offset_upper);
-
-                #[cfg(feature = "debug_vm")]
-                {
-                    if self.debug_operations_enabled {
-                        eprintln!("vec_iter_next complete. jumping with offset {branch_offset}");
-                    }
-                }
-
-                self.pc = (self.pc as i32 + branch_offset as i32) as usize;
-
-                return;
-            }
-
-            // Calculate the address of the current element
-            let element_addr = (*vec_iterator).vec_header_heap_ptr
-                + VEC_HEADER_PAYLOAD_OFFSET.0 as u32
-                + (*vec_iterator).index as u32 * (*vec_iterator).element_size as u32;
-
-            #[cfg(feature = "debug_vm")]
-            if self.debug_operations_enabled {
-                eprintln!(
-                    "vec_iter_next: element_addr {element_addr:04X} to reg {target_variable}"
-                );
-            }
-
-            set_reg!(self, target_variable, element_addr);
-
-            (*vec_iterator).index += 1;
-        }
-     */
-
     pub(crate) fn execute_map_iter_init(
         &mut self,
         target_map_iterator_header_reg: u8,
@@ -851,10 +788,10 @@ impl Vm {
             let iter_addr = get_reg!(self, target_map_iterator_header_reg);
             let map_header = Self::read_map_header_from_heap(map_header_addr, &self.memory);
             eprintln!(
-                "map_iter_init: iter_addr: {iter_addr:04X} map_header_addr:{map_header_addr:04X} key_size:{}, tuple_offset:{}, tuple_size:{} bucket_size: {}",
+                "map_iter_init: iter_addr: {iter_addr:04X} map_header_addr:{map_header_addr:04X} key_size:{}, tuple_offset:{}, value_size:{} bucket_size: {}",
                 map_header.key_size,
                 map_header.tuple_offset,
-                map_header.tuple_size,
+                map_header.value_size,
                 (map_header.bucket_size)
             );
         }

@@ -814,7 +814,7 @@ pub struct MapHeader {
     pub element_count: u16,
 
     pub key_size: u16,
-    pub tuple_size: u16,    // Element Size: Key and Value
+    pub value_size: u16,    // Size of the value part
     pub logical_limit: u16, // The logical limit set by the user. Capacity is always equal or greater than this value.
     pub bucket_size: u16,   // Size of the whole bucket, including status, key, and value.
     pub value_offset: u16,  // Offset from bucket start to value.

@@ -304,8 +304,9 @@ pub fn layout_type(ty: &Type) -> BasicType {
             let tuple_offset =
                 status_size.div_ceil(tuple_alignment as usize) * tuple_alignment as usize;
 
-            let bucket_size = tuple_offset + tuple_gen_type.total_size.0 as usize;
-            // bucket_size = ((bucket_size + tuple_alignment as usize - 1) / tuple_alignment as usize) * tuple_alignment as usize;
+            let mut bucket_size = tuple_offset + tuple_gen_type.total_size.0 as usize;
+            bucket_size = ((bucket_size + tuple_alignment as usize - 1) / tuple_alignment as usize)
+                * tuple_alignment as usize;
 
             let max_alignment = max(tuple_gen_type.max_alignment, MAP_HEADER_ALIGNMENT);
 
