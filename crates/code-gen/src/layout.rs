@@ -330,7 +330,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
                     }),
                     tuple_type: Box::from(tuple_gen_type),
                     logical_limit: *logical_size,
-                    capacity: CountU16(capacity as u16),
+                    capacity: CountU16(capacity),
                     tuple_alignment: bucket_content_alignment,
                     bucket_size: MemorySize(bucket_size as u16),
                 },

@@ -9,7 +9,7 @@ use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::{Expression, MapType};
 use swamp_vm_types::types::{Destination, TupleType, VmType, u32_type};
-use swamp_vm_types::{CountU16, MemoryAlignment, MemoryLocation, PointerLocation};
+use swamp_vm_types::{CountU16, MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
     /// Emits Swamp VM opcodes to calculate the memory address of an element within a map.

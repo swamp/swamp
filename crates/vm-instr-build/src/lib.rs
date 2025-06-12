@@ -1345,7 +1345,7 @@ impl InstructionBuilder<'_> {
         let key_alignment_usize: usize = key_alignment.into();
         let value_alignment_usize: usize = value_alignment.into();
         let packed_alignment =
-            ((key_alignment_usize as u8) << 4) | ((value_alignment_usize as u8) & 0xf as u8);
+            ((key_alignment_usize as u8) << 4) | ((value_alignment_usize as u8) & 0xf_u8);
 
         //let value_size_bytes = u16_to_u8_pair(value_size.0);
         self.state.add_instruction(

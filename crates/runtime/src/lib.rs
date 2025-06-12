@@ -266,7 +266,7 @@ pub fn run_function_with_debug(
         if run_options.debug_opcodes_enabled {
             let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 128, 129, 130, 131, 132];
             let special_reg: u32 = unsafe {
-                let ptr = vm.memory().get_heap_const_ptr(0x1E00) as *const u32;
+                let ptr = vm.memory().get_heap_const_ptr(0x1E00).cast::<u32>();
                 *ptr
             };
 

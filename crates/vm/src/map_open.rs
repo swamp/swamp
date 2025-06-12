@@ -4,13 +4,13 @@
  */
 extern crate fxhash;
 use crate::memory::Memory;
-use crate::{get_reg, i16_from_u8s, TrapCode, Vm};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s};
 use crate::{set_reg, u16_from_u8s};
 use fxhash::FxHasher64;
 use std::cmp::{max, min};
 use std::hash::Hasher;
 use std::{ptr, slice};
-use swamp_vm_types::{MapHeader, MapIterator, MAP_BUCKETS_OFFSET};
+use swamp_vm_types::{MAP_BUCKETS_OFFSET, MapHeader, MapIterator};
 
 // Define a struct for map layout information
 struct MapLayout {
