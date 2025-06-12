@@ -10,8 +10,8 @@ use std::collections::HashSet;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::{env, io};
-use swamp_ast::Function;
 use swamp_ast::prelude::*;
+use swamp_ast::Function;
 use swamp_parser::{AstParser, SpecificError};
 use time_dilation::ScopedTimer;
 use tracing::error;
@@ -429,33 +429,30 @@ impl From<DependencyError> for DepLoaderError {
 
 /// # Errors
 ///
-pub fn os_home_relative_path(project_name: &str) -> io::Result<PathBuf> {
-    home_dir().map_or_else(
-        || Err(io::Error::other("Could not determine home directory")),
-        |home_path| {
-            let mut path = home_path;
-            path.push(format!(".{project_name}"));
-            Ok(path)
-        },
-    )
+fn os_home_relative_path(project_name: &str) -> Option<PathBuf> {
+    home_dir().map(|home_path| {
+        home_path.join(format!(".{project_name}"))
+    })
 }
 
-pub fn path_from_environment_variable() -> io::Result<PathBuf> {
-    env::var("SWAMP_HOME").as_ref().map_or_else(
-        |_| Err(io::Error::new(ErrorKind::InvalidData, "missing SWAMP_HOME")),
-        |string_value| Ok(Path::new(string_value).to_path_buf()),
-    )
+pub fn path_from_environment_variable() -> Option<PathBuf> {
+    env::var("SWAMP_HOME")
+        .map(|string_value| Path::new(&string_value).to_path_buf())
+        .ok()
 }
-pub fn swamp_home() -> io::Result<PathBuf> {
-    path_from_environment_variable().map_or_else(|_| os_home_relative_path("swamp"), Ok)
+
+#[must_use] pub fn swamp_home() -> Option<PathBuf> {
+    // First try environment variable
+    path_from_environment_variable()
+        .or_else(|| os_home_relative_path("swamp"))
 }
 
 /// # Errors
 ///
-pub fn swamp_registry_path() -> io::Result<PathBuf> {
+pub fn swamp_registry_path() -> Option<PathBuf> {
     let mut swamp_home = swamp_home()?;
     swamp_home.push("packages");
-    Ok(swamp_home)
+    Some(swamp_home)
 }
 
 pub fn parse_local_modules_and_get_order(

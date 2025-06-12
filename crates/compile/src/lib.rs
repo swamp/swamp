@@ -758,9 +758,11 @@ pub fn compile_string(script: &str) -> Result<(Program, ModuleRef, SourceMap), S
     let mut source_map = SourceMap::new(&SeqMap::default()).unwrap();
     let file_id = 0xffff;
 
-    source_map
-        .add_mount("registry", &swamp_registry_path().unwrap())
-        .unwrap(); // registry must be present, since it reads core .swamp source file
+    if let Some(swamp_home) = swamp_registry_path() {
+        source_map
+            .add_mount("registry", &swamp_home)
+            .unwrap();
+    }
 
     source_map.add_mount("crate", Path::new("/tmp/")).unwrap();
     source_map.add_to_cache("crate", Path::new("test.swamp"), script, file_id);
