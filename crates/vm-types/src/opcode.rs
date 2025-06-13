@@ -245,9 +245,7 @@ impl OpCode {
             Self::BlockCopyWithOffsets
             | Self::BlockCopyWithOffsetsVariableSize
             | Self::BlockCopy => "blk.cpy",
-            Self::LdPtrFromEffectiveFrameAddress => {
-                "lea"
-            }
+            Self::LdPtrFromEffectiveFrameAddress => "lea",
 
             // Move
             Self::Mov8FromImmediateValue => "mov.b",

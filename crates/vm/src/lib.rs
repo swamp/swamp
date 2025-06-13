@@ -4,9 +4,9 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
-use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -1515,7 +1515,6 @@ impl Vm {
             ptr_addr + u8s_to_u16!(src_offset_0, src_offset_1) as u32
         );
     }
-
 
     #[inline]
     pub fn execute_frame_memory_clear(

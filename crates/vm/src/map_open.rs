@@ -8,7 +8,7 @@ use crate::{set_reg, u16_from_u8s};
 use hashmap_mem::MapHeader;
 use std::ptr;
 use std::ptr::null_mut;
-use swamp_vm_types::{MapIterator};
+use swamp_vm_types::MapIterator;
 
 impl Vm {
     pub fn get_map_header(&self, header_reg: u8) -> *mut MapHeader {
