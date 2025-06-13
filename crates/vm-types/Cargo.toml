@@ -12,3 +12,4 @@ yansi = "1.0.1"
 tracing = "0.1.40"
 seq-fmt = "0.0.1"
 tinter = "0.1.0"
+hashmap-mem = { path = "../hashmap-mem", version = "0.1.16" }

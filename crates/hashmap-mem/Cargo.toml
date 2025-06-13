@@ -1,0 +1,7 @@
+[package]
+name = "hashmap-mem"
+version = "0.1.16"
+edition = "2024"
+
+[dependencies]
+fxhash = "0.2.1"

@@ -595,7 +595,8 @@ impl Type {
     }
 
     // Modified compatible_with to use strict checks for nested elements
-    #[must_use] pub fn compatible_with(&self, other: &Self) -> bool {
+    #[must_use]
+    pub fn compatible_with(&self, other: &Self) -> bool {
         // Top-level compatibility check - permits capacity differences
         match (self, other) {
             (Self::Function(a), Self::Function(b)) => a.same_type(b),
@@ -723,7 +724,8 @@ impl Type {
         }
     }
 
-    #[must_use] pub fn strict_compatible_with_capacity(&self, other: &Self) -> bool {
+    #[must_use]
+    pub fn strict_compatible_with_capacity(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Function(a), Self::Function(b)) => a.same_type(b),
 

@@ -18,6 +18,7 @@ swamp-semantic = { path = "../semantic", version = "0.1.16" }
 swamp-types = { path = "../types", version = "0.1.16" }
 
 sparse-mem = { path = "../sparse-mem", version = "0.1.16" }
+hashmap-mem = { path = "../hashmap-mem", version = "0.1.16" }
 
 # Source Map
 source-map-node = "0.0.1"

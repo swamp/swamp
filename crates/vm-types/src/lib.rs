@@ -5,6 +5,7 @@
 use crate::aligner::align;
 use crate::types::BasicType;
 use crate::types::{TypedRegister, VmType};
+use hashmap_mem::MapHeader;
 use source_map_node::Node;
 use std::cmp::PartialOrd;
 use std::fmt::{Alignment, Debug, Display, Formatter};
@@ -792,35 +793,6 @@ pub const GRID_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 pub const GRID_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(8);
 
 // NOTE: Must align to U32, therefor the padding at the end
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct MapHeader {
-    /// Do not change the order of the fields!
-    ///
-    /// Keep the capacity field at the start of the header for consistency across all
-    /// container types. Placing it first simplifies copy operations: we can verify
-    /// and preserve capacity before copying the remainder of the header in one contiguous operation.
-    pub capacity: u16,
-
-    /// Number of live (active) elements currently stored in the collection.
-    ///
-    /// Always located at offset 2, enabling:
-    /// - **Logical size**: Represents the number of valid elements in use.
-    /// - **Bounds checking**: Index and assignment checks (`0 <= idx < element_count`)
-    ///   can load this field in a single instruction.
-    /// - **Iteration**: Iterators read this field to determine the end of the collection.
-    /// - **ABI stability**: External tools, debuggers, and serializers can consistently locate
-    ///   `capacity` and `element_count` across all container types.
-    pub element_count: u16,
-
-    pub key_size: u16,
-    pub value_size: u16,    // Size of the value part
-    pub logical_limit: u16, // The logical limit set by the user. Capacity is always equal or greater than this value.
-    pub bucket_size: u16,   // Size of the whole bucket, including status, key, and value.
-    pub value_offset: u16,  // Offset from bucket start to value.
-    pub tuple_offset: u8,   // Offset from the bucket start to the key.
-    pub padding2: u8,
-}
 
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
