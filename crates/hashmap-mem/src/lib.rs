@@ -146,10 +146,10 @@ pub unsafe fn init(map_base: *mut u8, config: &MapInit) {
 }
 
 /// Fast key comparison helper
+// TODO: Check if the performance difference is significant
 #[inline]
 unsafe fn matches_key(a: *const u8, b: *const u8, len: usize) -> bool {
     unsafe {
-        // For small keys (<=16 bytes), do direct comparison - avoids function call overhead
         if len <= 16 {
             match len {
                 0 => true,
@@ -157,7 +157,6 @@ unsafe fn matches_key(a: *const u8, b: *const u8, len: usize) -> bool {
                 2 => *a.cast::<u16>() == *b.cast::<u16>(),
                 4 => *a.cast::<u32>() == *b.cast::<u32>(),
                 8 => *a.cast::<u64>() == *b.cast::<u64>(),
-                // For other small sizes, compare bytes directly
                 _ => {
                     for i in 0..len {
                         if *a.add(i) != *b.add(i) {
@@ -168,7 +167,6 @@ unsafe fn matches_key(a: *const u8, b: *const u8, len: usize) -> bool {
                 }
             }
         } else {
-            // For larger keys, use memcmp equivalent
             slice::from_raw_parts(a, len) == slice::from_raw_parts(b, len)
         }
     }
