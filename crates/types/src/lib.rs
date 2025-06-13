@@ -61,7 +61,7 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn same_as(&self, other: &Type) -> bool {
+    #[must_use] pub fn same_as(&self, other: &Self) -> bool {
         self == other
     }
 }
@@ -272,11 +272,11 @@ impl Type {
         }
     }
 
-    pub fn is_concrete(&self) -> bool {
+    #[must_use] pub fn is_concrete(&self) -> bool {
         //info!("checking this for concrete {self:?}");
-        let was_concrete = self.is_concrete_helper();
+        
         //info!(?was_concrete, "returned: {was_concrete} {self:?}");
-        was_concrete
+        self.is_concrete_helper()
     }
 
     #[must_use]
@@ -402,9 +402,9 @@ impl Type {
         }
     }
 
-    pub fn can_be_stored_in_field(&self) -> bool {
-        let x = self.helper_can_be_stored_in_field();
-        x
+    #[must_use] pub fn can_be_stored_in_field(&self) -> bool {
+        
+        self.helper_can_be_stored_in_field()
     }
 
     #[must_use]
@@ -615,34 +615,34 @@ impl Type {
         }
     }
 
-    pub fn is_allowed_as_return_type(&self) -> bool {
+    #[must_use] pub fn is_allowed_as_return_type(&self) -> bool {
         match self {
-            Type::FixedCapacityAndLengthArray(_, _)
-            | Type::MapStorage(_, _, _)
-            | Type::GridStorage(_, _, _)
-            | Type::SparseStorage(_, _)
-            | Type::QueueStorage(_, _)
-            | Type::VecStorage(_, _)
-            | Type::StackStorage(_, _) => false,
-            Type::Function(_) => false,
-            Type::Optional(inner) => inner.is_allowed_as_return_type(),
-            Type::MutableReference(_) => panic!("mutable return reference"),
+            Self::FixedCapacityAndLengthArray(_, _)
+            | Self::MapStorage(_, _, _)
+            | Self::GridStorage(_, _, _)
+            | Self::SparseStorage(_, _)
+            | Self::QueueStorage(_, _)
+            | Self::VecStorage(_, _)
+            | Self::StackStorage(_, _) => false,
+            Self::Function(_) => false,
+            Self::Optional(inner) => inner.is_allowed_as_return_type(),
+            Self::MutableReference(_) => panic!("mutable return reference"),
             _ => true,
         }
     }
 
-    pub fn is_allowed_as_parameter_type(&self) -> bool {
+    #[must_use] pub fn is_allowed_as_parameter_type(&self) -> bool {
         match self {
-            Type::FixedCapacityAndLengthArray(_, _)
-            | Type::MapStorage(_, _, _)
-            | Type::GridStorage(_, _, _)
-            | Type::SparseStorage(_, _)
-            | Type::QueueStorage(_, _)
-            | Type::VecStorage(_, _)
-            | Type::StackStorage(_, _) => false,
-            Type::Function(_) => false,
-            Type::Optional(inner) => inner.is_allowed_as_return_type(),
-            Type::MutableReference(inner) => inner.is_allowed_as_parameter_type(),
+            Self::FixedCapacityAndLengthArray(_, _)
+            | Self::MapStorage(_, _, _)
+            | Self::GridStorage(_, _, _)
+            | Self::SparseStorage(_, _)
+            | Self::QueueStorage(_, _)
+            | Self::VecStorage(_, _)
+            | Self::StackStorage(_, _) => false,
+            Self::Function(_) => false,
+            Self::Optional(inner) => inner.is_allowed_as_return_type(),
+            Self::MutableReference(inner) => inner.is_allowed_as_parameter_type(),
             _ => true,
         }
     }

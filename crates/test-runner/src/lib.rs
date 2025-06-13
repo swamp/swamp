@@ -225,7 +225,7 @@ pub fn run_tests(
         },
         skip_codegen: false,
     };
-    let mut internal_result =
+    let internal_result =
         compile_codegen_and_create_vm(test_dir, crate_main_path, compile_and_code_gen_options)
             .unwrap();
 

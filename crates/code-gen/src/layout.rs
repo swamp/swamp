@@ -25,7 +25,6 @@ use swamp_vm_types::{
     PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
     adjust_size_to_alignment, align_to,
 };
-use tracing::warn;
 
 #[derive(Copy, Clone)]
 struct VariantLayout {

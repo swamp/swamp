@@ -159,12 +159,12 @@ pub fn compile_main_path(
     Some(CompileResult { program })
 }
 
-pub fn code_gen(
+#[must_use] pub fn code_gen(
     program: &Program,
     source_map_wrapper: &SourceMapWrapper,
     code_gen_options: &CodeGenOptions,
 ) -> CodeGenResult {
-    let top_gen_state = code_gen_program(&program, &source_map_wrapper, code_gen_options);
+    let top_gen_state = code_gen_program(program, source_map_wrapper, code_gen_options);
 
     let (instructions, constants_in_order, emit_function_infos, constant_memory, debug_info) =
         top_gen_state.take_instructions_and_constants();
@@ -395,18 +395,18 @@ pub fn compile_and_code_gen(
 
     let source_map_wrapper = SourceMapWrapper {
         source_map: &source_map,
-        current_dir: current_dir.to_path_buf(),
+        current_dir,
     };
 
-    let maybe_code_gen_result = if !options.skip_codegen {
+    let maybe_code_gen_result = if options.skip_codegen {
+        None
+    } else {
         let code_gen_result = code_gen(
             &compile_result.program,
             &source_map_wrapper,
             &options.code_gen_options,
         );
         Some(code_gen_result)
-    } else {
-        None
     };
 
     Some((
