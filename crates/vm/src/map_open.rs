@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::Memory;
-use crate::{TrapCode, Vm, get_reg, i16_from_u8s};
+use crate::{get_reg, i16_from_u8s, TrapCode, Vm};
 use crate::{set_reg, u16_from_u8s};
 use hashmap_mem::MapHeader;
 use std::ptr;
@@ -98,7 +98,7 @@ impl Vm {
         let value_size = u16_from_u8s!(value_size_lower, value_size_upper);
         let capacity = logical_limit.next_power_of_two();
         debug_assert_ne!(capacity, 0);
-        assert!(hashmap_mem::is_power_of_two(capacity as usize));
+        assert!(capacity.is_power_of_two());
         let key_alignment = key_and_value_alignment >> 4;
         let value_alignment = key_and_value_alignment & 0xf;
 
