@@ -25,6 +25,7 @@ use swamp_vm_types::{
     PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
     adjust_size_to_alignment, align_to,
 };
+use tracing::warn;
 
 #[derive(Copy, Clone)]
 struct VariantLayout {
@@ -611,7 +612,7 @@ pub fn layout_variables(
 
     let mut local_frame_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
-        MemorySize(32 * 1024),
+        MemorySize(63 * 1024),
     ));
 
     //    let return_placed_type_pointer = layout_type(exp_return_type).create_mutable_pointer();
@@ -707,6 +708,7 @@ pub fn layout_variables(
     }
 
     let variable_space = local_frame_allocator.addr().as_size();
+
     let allocate_for_temp = if variable_space.0 > (TEMPORARY_SIZE.0 / 2) {
         TEMPORARY_SIZE
     } else {

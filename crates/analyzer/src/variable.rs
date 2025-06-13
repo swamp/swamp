@@ -80,7 +80,7 @@ impl Analyzer<'_> {
         if !debug_text.starts_with('_') {
             debug_assert!(
                 variable_type_ref.can_be_stored_in_variable(),
-                "{variable_type_ref}"
+                "can not be stored in a variable: {debug_text}: {variable_type_ref}"
             );
         }
         self.create_local_variable_resolved(

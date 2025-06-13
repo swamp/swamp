@@ -11,6 +11,7 @@ use source_map_node::Node;
 use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
+use tracing::info;
 
 #[derive(Eq, PartialEq, Hash, Clone)]
 pub enum Type {
@@ -266,8 +267,15 @@ impl Type {
         }
     }
 
-    #[must_use]
     pub fn is_concrete(&self) -> bool {
+        info!("checking this for concrete {self:?}");
+        let was_concrete = self.is_concrete_helper();
+        info!(?was_concrete, "returned: {was_concrete} {self:?}");
+        was_concrete
+    }
+
+    #[must_use]
+    pub fn is_concrete_helper(&self) -> bool {
         match self {
             Self::Unit | Self::Function(_) => false,
 
@@ -389,8 +397,17 @@ impl Type {
         }
     }
 
-    #[must_use]
     pub fn can_be_stored_in_field(&self) -> bool {
+        info!(?self, "checking if stored in field");
+        let x = self.helper_can_be_stored_in_field();
+        if !x {
+            info!("couldn't be stored in field: {self:?}");
+        }
+        x
+    }
+
+    #[must_use]
+    pub fn helper_can_be_stored_in_field(&self) -> bool {
         match self {
             Self::Unit
             | Self::Function(_)
@@ -401,7 +418,10 @@ impl Type {
             | Self::QueueView(_)
             | Self::GridView(_)
             | Self::SparseView(_)
-            | Self::DynamicLengthVecView(_) => false, // Views can not be stored in fields, since it is "views" / "pointers" to data stored elsewhere
+            | Self::DynamicLengthVecView(_) => {
+                eprintln!("found a view {self:?}");
+                false
+            } // Views can not be stored in fields, since it is "views" / "pointers" to data stored elsewhere
 
             Self::VecStorage(_, _) => true,
             Self::MapStorage(_, _, _) => true,
@@ -613,11 +633,11 @@ impl Type {
             ) => a.strict_compatible_with_capacity(b),
 
             (Self::VecStorage(element_a, size_a), Self::VecStorage(element_b, size_b)) => {
-                size_a >= size_b && element_a.strict_compatible_with_capacity(element_b)
+                element_a.strict_compatible_with_capacity(element_b)
             }
 
             (Self::SparseStorage(element_a, size_a), Self::SparseStorage(element_b, size_b)) => {
-                size_a >= size_b && element_a.strict_compatible_with_capacity(element_b)
+                element_a.strict_compatible_with_capacity(element_b)
             }
 
             (

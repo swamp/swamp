@@ -188,8 +188,9 @@ impl Analyzer<'_> {
             }
             swamp_ast::LiteralKind::None => {
                 if let Some(found_expected_type) = context.expected_type {
-                    if let Type::Optional(_some_type) = found_expected_type {
-                        return Ok((Literal::NoneLiteral, found_expected_type.clone()));
+                    let underlying = found_expected_type.underlying();
+                    if let Type::Optional(_some_type) = underlying {
+                        return Ok((Literal::NoneLiteral, underlying.clone()));
                     }
                 }
                 return Err(self.create_err(ErrorKind::NoneNeedsExpectedTypeHint, ast_node));

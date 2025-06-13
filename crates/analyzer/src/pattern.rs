@@ -13,7 +13,7 @@ impl Analyzer<'_> {
         expression_type: &Type,
         ast_name: &swamp_ast::Node,
     ) -> Result<EnumVariantType, Error> {
-        let enum_type_ref = match expression_type {
+        let enum_type_ref = match expression_type.underlying() {
             Type::Enum(enum_type_ref) => enum_type_ref,
             _ => Err(self.create_err(ErrorKind::ExpectedEnumInPattern, ast_name))?,
         };

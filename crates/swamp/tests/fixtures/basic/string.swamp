@@ -20,3 +20,16 @@ fn string_concatenation() {
     print('combined_string:{combined}')
     assert(combined == "swamp-lang.org", "string concatenation failed")
 }
+
+struct Something {
+    a: String,
+}
+
+// Tests for emtpy string, found by @catnipped
+#[test]
+fn empty_string() {
+    a = ''
+    Something {
+        a: ''
+    }
+}

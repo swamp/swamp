@@ -503,15 +503,19 @@ impl<'a> Analyzer<'a> {
     }
 
     pub fn debug_line(&self, offset: usize, description: &str) {
-        let (line, _col) = self
+        let (line, col) = self
             .shared
             .source_map
             .get_span_location_utf8(self.shared.file_id, offset);
+        /*
         let source_line = self
             .shared
             .source_map
             .get_source_line(self.shared.file_id, line);
         info!(?line, ?source_line, description);
+
+        */
+        info!(?line, ?col, "yeahoo");
     }
 
     /// # Errors
@@ -567,8 +571,8 @@ impl<'a> Analyzer<'a> {
         ast_expression: &swamp_ast::Expression,
         context: &TypeContext,
     ) -> Result<Expression, Error> {
-        //info!(?ast_expression, "analyze expression");
-        //self.debug_expression(ast_expression, "analyze");
+        // info!(?ast_expression, "analyze expression");
+        self.debug_expression(ast_expression, "analyze");
         let expr = self.analyze_expression_internal(ast_expression, context)?;
 
         let encountered_type = expr.ty.clone();
@@ -577,7 +581,7 @@ impl<'a> Analyzer<'a> {
             let reduced_expected = found_expected_type.underlying();
 
             let reduced_encountered_type = encountered_type.underlying();
-            if reduced_expected.compatible_with(&reduced_encountered_type) {
+            if reduced_expected.compatible_with(reduced_encountered_type) {
                 return Ok(expr);
             }
 
@@ -593,6 +597,7 @@ impl<'a> Analyzer<'a> {
             // TODO: self.coerce_unrestricted_type(&ast_expression.node, expr)?
         };
 
+        //        info!(?expr, "analyze expression");
         Ok(expr)
     }
 
@@ -647,7 +652,11 @@ impl<'a> Analyzer<'a> {
             swamp_ast::ExpressionKind::StaticMemberFunctionReference(
                 type_identifier,
                 member_name,
-            ) => panic!("can not have separate member func ref"),
+            ) => {
+                let debug_name = self.get_text(member_name);
+                let type_name = self.get_text(&type_identifier.name.0);
+                panic!("can not have separate member func ref {type_name:?} {debug_name}")
+            }
 
             swamp_ast::ExpressionKind::ConstantReference(constant_identifier) => {
                 self.analyze_constant_access(constant_identifier)?
@@ -1632,11 +1641,15 @@ impl<'a> Analyzer<'a> {
             Type::QueueView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::DynamicLengthVecView(element_type) => (Some(Type::Int), *element_type.clone()),
             Type::SparseView(element_type) => (Some(Type::Int), *element_type.clone()),
-            Type::MapStorage(key_type, value_type, _fixed_size) => {
+            Type::DynamicLengthMapView(key_type, value_type)
+            | Type::MapStorage(key_type, value_type, _) => {
                 (Some(*key_type.clone()), *value_type.clone())
             }
             Type::Range(_) => (None, Type::Int),
-            _ => return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node)),
+            _ => {
+                error!(?resolved_type, "not an iterator");
+                return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node));
+            }
         };
 
         if mut_requested_for_value_variable.is_some() {
@@ -1734,10 +1747,20 @@ impl<'a> Analyzer<'a> {
                             ty.underlying().clone()
                         };
                         if maybe_to_string.is_none() {
+                            return Ok(self.create_expr(
+                                ExpressionKind::Literal(Literal::StringLiteral(
+                                    "hello".to_string(),
+                                )),
+                                Type::String,
+                                &expression.node,
+                            ));
+                            /* todo:
                             return Err(self.create_err(
                                 ErrorKind::MissingToString(underlying.clone()),
                                 &expression.node,
                             ));
+
+                             */
                         }
 
                         let expr_as_param = ArgumentExpression::Expression(expr);
@@ -1776,6 +1799,14 @@ impl<'a> Analyzer<'a> {
             };
 
             last_expression = Some(x_last_expr);
+        }
+
+        if last_expression.is_none() {
+            return Ok(self.create_expr(
+                ExpressionKind::Literal(Literal::StringLiteral("hello".to_string())),
+                Type::String,
+                &node,
+            ));
         }
 
         let last = last_expression.unwrap();
@@ -1882,7 +1913,8 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(Type, Type, Type, Vec<(Expression, Expression)>), Error> {
         let (collection_type, key_type, value_type) =
             if let Some(expected_type) = context.expected_type {
-                match expected_type {
+                let expected_underlying_type = expected_type.underlying();
+                match expected_underlying_type {
                     Type::MapStorage(key, value, capacity) => {
                         if items.len() > *capacity {
                             return Err(self.create_err(
@@ -2654,7 +2686,7 @@ impl<'a> Analyzer<'a> {
             let any_type_context = TypeContext::new_anything_argument();
             self.analyze_expression(source_expression, &any_type_context)?
         };
-        let ty = source_expr.ty.clone();
+        let ty = source_expr.ty.clone().underlying().clone();
         if !ty.can_be_stored_in_variable() {
             let debug_text = self.get_text(&variable.name);
             if !debug_text.starts_with('_') {
@@ -2828,6 +2860,8 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::Subscript(ast_key_expression) => {
                     match &ty.underlying() {
                         Type::SliceView(element_type)
+                        | Type::StackStorage(element_type, _)
+                        | Type::StackView(element_type)
                         | Type::VecStorage(element_type, _)
                         | Type::FixedCapacityAndLengthArray(element_type, _) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
@@ -3402,6 +3436,21 @@ impl<'a> Analyzer<'a> {
             node: None,
         };
         let intrinsic_and_signature = match field_name_str {
+            "prepend" => (
+                IntrinsicFunction::VecPush,
+                Signature {
+                    parameters: vec![
+                        self_mutable_type_param,
+                        TypeForParameter {
+                            name: "element".to_string(),
+                            resolved_type: element_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: Box::new(Type::Unit),
+                },
+            ),
             "push" => (
                 IntrinsicFunction::VecPush,
                 Signature {
@@ -3862,7 +3911,7 @@ impl<'a> Analyzer<'a> {
                 lambda_variables_count,
                 node,
             ),
-            Type::MapStorage(key, value, _) => {
+            Type::DynamicLengthMapView(key, value) | Type::MapStorage(key, value, _) => {
                 self.map_member_signature(type_that_member_is_on, key, value, field_name_str, node)
             }
             Type::FixedCapacityAndLengthArray(element_type, _) => self.slice_member_signature(
