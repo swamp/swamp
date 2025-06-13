@@ -8,7 +8,7 @@ use crate::{set_reg, u16_from_u8s};
 use hashmap_mem::MapHeader;
 use std::ptr;
 use std::ptr::null_mut;
-use swamp_vm_types::{MAP_BUCKETS_OFFSET, MapIterator};
+use swamp_vm_types::{MapIterator};
 
 impl Vm {
     pub fn get_map_header(&self, header_reg: u8) -> *mut MapHeader {
@@ -142,7 +142,6 @@ impl Vm {
         let map_header = self.get_map_header_mut(map_header_addr);
 
         let key_source_address = get_reg!(self, key_source_ptr_reg) as usize;
-        let buckets_start_addr = (map_header_addr + MAP_BUCKETS_OFFSET.0 as u32) as usize;
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {

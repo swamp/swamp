@@ -61,7 +61,7 @@ pub struct BucketLayout {
 }
 
 #[inline]
-pub fn calculate_bucket_layout(
+#[must_use] pub fn calculate_bucket_layout(
     key_size: u16,
     key_alignment: u8,
     value_size: u16,
@@ -70,18 +70,18 @@ pub fn calculate_bucket_layout(
     let status_size: u16 = 1;
     let mut current_offset = status_size;
 
-    let key_align = key_alignment as u16;
-    let key_offset = (current_offset + key_align - 1) / key_align * key_align;
+    let key_align = u16::from(key_alignment);
+    let key_offset = current_offset.div_ceil(key_align) * key_align;
 
     current_offset = key_offset + key_size;
 
-    let value_align = value_alignment as u16;
-    let value_offset = (current_offset + value_align - 1) / value_align * value_align;
+    let value_align = u16::from(value_alignment);
+    let value_offset = current_offset.div_ceil(value_align) * value_align;
 
     current_offset = value_offset + value_size;
 
     let bucket_content_alignment = max(key_align, value_align);
-    let bucket_size = (current_offset + bucket_content_alignment - 1) / bucket_content_alignment
+    let bucket_size = current_offset.div_ceil(bucket_content_alignment)
         * bucket_content_alignment;
 
     BucketLayout {
@@ -93,7 +93,7 @@ pub fn calculate_bucket_layout(
 const MAP_BUCKETS_OFFSET: usize = size_of::<MapHeader>();
 
 pub unsafe fn init(map_base: *mut u8, config: &MapInit) {
-    let mut map_header = map_base as *mut MapHeader;
+    let map_header = map_base.cast::<MapHeader>();
     let layout = calculate_bucket_layout(
         config.key_size,
         config.key_alignment,
@@ -113,8 +113,8 @@ pub unsafe fn init(map_base: *mut u8, config: &MapInit) {
 
     let buckets_start_ptr = unsafe { map_base.add(MAP_BUCKETS_OFFSET) };
 
-    let capacity = unsafe { (*map_header).capacity as u32 };
-    let bucket_size = layout.bucket_size as u32;
+    let capacity = unsafe { u32::from((*map_header).capacity) };
+    let bucket_size = u32::from(layout.bucket_size);
 
     unsafe {
         // TODO: Not really needed if we assumed zeroed memory
@@ -126,8 +126,8 @@ pub unsafe fn init(map_base: *mut u8, config: &MapInit) {
 }
 
 const MAX_PROBE_DISTANCE: usize = 32; // TODO: tweak this, only guessing for now
-pub const fn is_power_of_two(n: usize) -> bool {
-    n > 0 && (n & (n - 1)) == 0
+#[must_use] pub const fn is_power_of_two(n: usize) -> bool {
+    n > 0 && n.is_power_of_two()
 }
 
 // Looks up the key in the map. If it can not find the key, it reserves an entry and
@@ -140,7 +140,7 @@ pub const fn is_power_of_two(n: usize) -> bool {
 #[allow(clippy::too_many_lines)]
 pub unsafe fn get_or_reserve_entry(base_ptr: *mut u8, key_ptr: *const u8) -> *mut u8 {
     unsafe {
-        let header = base_ptr as *mut MapHeader;
+        let header = base_ptr.cast::<MapHeader>();
         let capacity = (*header).capacity as usize;
         let key_size = (*header).key_size as usize;
         let value_size = (*header).value_size as usize;
@@ -284,9 +284,9 @@ pub unsafe fn get_or_reserve_entry(base_ptr: *mut u8, key_ptr: *const u8) -> *mu
     }
 }
 
-pub unsafe fn has(base_ptr: *const u8, key_ptr: *const u8) -> bool {
+#[must_use] pub unsafe fn has(base_ptr: *const u8, key_ptr: *const u8) -> bool {
     unsafe {
-        let header = base_ptr as *const MapHeader;
+        let header = base_ptr.cast::<MapHeader>();
         let capacity = (*header).capacity as usize;
         let key_size = (*header).key_size as usize;
         let value_size = (*header).value_size as usize;
@@ -351,7 +351,7 @@ pub unsafe fn has(base_ptr: *const u8, key_ptr: *const u8) -> bool {
 
 pub unsafe fn lookup(base_ptr: *mut u8, key_ptr: *const u8) -> *mut u8 {
     unsafe {
-        let header = base_ptr as *mut MapHeader;
+        let header = base_ptr.cast::<MapHeader>();
         let capacity = (*header).capacity as usize;
         debug_assert_ne!(capacity, 0);
         debug_assert!(is_power_of_two(capacity));
@@ -437,7 +437,7 @@ pub unsafe fn lookup(base_ptr: *mut u8, key_ptr: *const u8) -> *mut u8 {
 
 pub unsafe fn remove(base_ptr: *mut u8, key_ptr: *const u8) -> bool {
     unsafe {
-        let header = base_ptr as *mut MapHeader;
+        let header = base_ptr.cast::<MapHeader>();
         let capacity = (*header).capacity as usize;
         debug_assert_ne!(capacity, 0);
         debug_assert!(is_power_of_two(capacity));
@@ -514,8 +514,8 @@ pub unsafe fn remove(base_ptr: *mut u8, key_ptr: *const u8) -> bool {
 
 pub unsafe fn overwrite(target_base: *mut u8, source: *const u8) -> bool {
     unsafe {
-        let target_map_header = target_base as *mut MapHeader;
-        let source_map_header = source as *const MapHeader;
+        let target_map_header = target_base.cast::<MapHeader>();
+        let source_map_header = source.cast::<MapHeader>();
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             eprintln!(
@@ -566,7 +566,7 @@ pub unsafe fn overwrite(target_base: *mut u8, source: *const u8) -> bool {
 
                 let target_value_ptr = get_or_reserve_entry(target_base, source_key_ptr);
 
-                if target_value_ptr == null_mut() {
+                if target_value_ptr.is_null() {
                     return false;
                 }
 
@@ -584,7 +584,7 @@ pub unsafe fn overwrite(target_base: *mut u8, source: *const u8) -> bool {
     true
 }
 
-pub unsafe fn find_next_valid_entry(base: *mut u8, start_index: u16) -> (*const u8, *mut u8, u16) {
+pub unsafe fn find_next_valid_entry(base: *mut u8, start_index: u16) -> (*const u8, *mut u8, u16) { unsafe {
     let map_header = base as *const MapHeader;
 
     let bucket_size = (*map_header).bucket_size as usize;
@@ -620,4 +620,4 @@ pub unsafe fn find_next_valid_entry(base: *mut u8, start_index: u16) -> (*const 
     }
 
     (null_mut(), null_mut(), 0xffff)
-}
+}}
