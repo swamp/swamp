@@ -54,7 +54,6 @@ fn calculate_hash_bytes(key_bytes: &[u8]) -> u64 {
     hasher.finish()
 }
 
-
 /// Calculate memory layout for a map bucket
 #[inline]
 #[must_use]
@@ -196,7 +195,10 @@ pub unsafe fn get_or_reserve_entry(base_ptr: *mut u8, key_ptr: *const u8) -> *mu
 
         debug_assert_ne!(key_size, 0, "Key size cannot be zero");
         debug_assert_ne!(capacity, 0, "Capacity cannot be zero");
-        debug_assert!(capacity.is_power_of_two(), "Capacity must be a power of two");
+        debug_assert!(
+            capacity.is_power_of_two(),
+            "Capacity must be a power of two"
+        );
 
         let buckets_ptr = base_ptr.add(MAP_BUCKETS_OFFSET);
         let key_slice = slice::from_raw_parts(key_ptr, key_size);
@@ -281,9 +283,7 @@ pub unsafe fn get_or_reserve_entry(base_ptr: *mut u8, key_ptr: *const u8) -> *mu
 #[inline]
 #[must_use]
 pub unsafe fn has(base_ptr: *const u8, key_ptr: *const u8) -> bool {
-    unsafe {
-        lookup(base_ptr.cast_mut(), key_ptr).is_null().not()
-    }
+    unsafe { lookup(base_ptr.cast_mut(), key_ptr).is_null().not() }
 }
 
 /// Lookup an existing entry in the map
@@ -309,7 +309,10 @@ pub unsafe fn lookup(base_ptr: *mut u8, key_ptr: *const u8) -> *mut u8 {
 
         debug_assert_ne!(key_size, 0, "Key size cannot be zero");
         debug_assert_ne!(capacity, 0, "Capacity cannot be zero");
-        debug_assert!(capacity.is_power_of_two(), "Capacity must be a power of two");
+        debug_assert!(
+            capacity.is_power_of_two(),
+            "Capacity must be a power of two"
+        );
 
         let buckets_ptr = base_ptr.add(MAP_BUCKETS_OFFSET);
         let key_slice = slice::from_raw_parts(key_ptr, key_size);
@@ -369,7 +372,10 @@ pub unsafe fn remove(base_ptr: *mut u8, key_ptr: *const u8) -> bool {
 
         debug_assert_ne!(key_size, 0, "Key size cannot be zero");
         debug_assert_ne!(capacity, 0, "Capacity cannot be zero");
-        debug_assert!(capacity.is_power_of_two(), "Capacity must be a power of two");
+        debug_assert!(
+            capacity.is_power_of_two(),
+            "Capacity must be a power of two"
+        );
 
         let buckets_ptr = base_ptr.add(MAP_BUCKETS_OFFSET);
         let key_slice = slice::from_raw_parts(key_ptr, key_size);
