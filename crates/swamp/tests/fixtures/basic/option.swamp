@@ -35,9 +35,9 @@ struct Unit {
 impl Unit {
     fn to_string(self) -> String {
         x = when attacker=self.attacker {
-          '{attacker}'
+            '{attacker}'
         } else {
-          "None"
+            "<None>"
         }
         'Unit attacker: {x}'
     }
@@ -50,7 +50,7 @@ fn when_in_when() {
     when unit {
         panic('unit should be None')
         when attacker=unit.attacker {
-        panic('unit.attacker should be None')
+            panic('unit.attacker should be None')
         }
     }
 }
@@ -66,9 +66,9 @@ fn when_in_when_no_attacker() {
         assert(!unit.attacker, 'unit.attacker should be None')
 
         when attacker=unit.attacker {
-        panic('unit.attacker should be None, `when` failed')
+            panic('unit.attacker should be None, `when` failed')
         } else {
-        print('unit.attacker is None')
+            print('unit.attacker is None')
         }
     }
 }
@@ -86,7 +86,7 @@ fn when_in_when_some() {
         assert(unit.attacker, 'unit.attacker should be Some')
 
         when attacker=unit.attacker {
-        print('attacker: {attacker}')
+            print('attacker: {attacker}')
         }
     }
 }
@@ -104,7 +104,7 @@ fn option_param(unit: Unit?) {
 fn call_option_param() {
     unit: Unit? = Unit {
         attacker: Attacker {
-          health: 100
+            health: 100
         }
     }
 

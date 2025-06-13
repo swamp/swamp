@@ -57,7 +57,6 @@ fn vec_assign_and_subscript() {
     assert(another.things[1].b == 2, 'another.things[1].b is wrong')
     assert(another.things[2].a == 13, 'another.things[2].a is wrong')
     assert(another.things[2].b == 3, 'another.things[2].b is wrong')
-
 }
 
 #[test]

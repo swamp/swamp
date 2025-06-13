@@ -48,7 +48,6 @@ fn aggregate_type() {
 }
 
 
-
 fn grid_setter(mut grid: Grid<Int>) {
     grid[1, 1] = 1024
 }

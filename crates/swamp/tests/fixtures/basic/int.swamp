@@ -41,7 +41,6 @@ fn clamp_upper() {
     assert(23988.clamp(1, 9) == 9, "clamp() is wrong")
 }
 
-
 #[test]
 fn to_string() {
     assert(3.to_string() == "3", "to_string(3) is wrong")

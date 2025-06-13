@@ -10,9 +10,9 @@ enum Color {
 impl Color {
     fn to_string(self) -> String {
         match self {
-          Red => "Red",
-          Green => "Green",
-          Blue => "Blue",
+            Red => "Red",
+            Green => "Green",
+            Blue => "Blue",
         }
     }
 }
@@ -36,7 +36,6 @@ fn matching() {
 }
 
 
-
 enum Different {
     Nothing,
     FewThings(Color, Int),
@@ -50,8 +49,8 @@ fn matching_enum_with_container() {
         Nothing => 0,
         FewThings _, value => value,
         More name, color => {
-          print('name: {name}, color: {color}')
-          100
+            print('name: {name}, color: {color}')
+            100
         }
     }
     print('result: {result}')
@@ -65,8 +64,8 @@ fn matching_enum_with_container_struct() {
         Nothing => 0,
         FewThings _, value => value,
         More name, color => {
-          print('name: "{name}", color: {color}')
-          100
+            print('name: "{name}", color: {color}')
+            100
         }
     }
     print('result: {result}')
@@ -104,7 +103,7 @@ fn matching_mut_enum_struct() {
             print('after name change: name: "{name}", color: {color}')
 
             100
-          }
+        }
         _ => 200,
     }
     print('result: {result}')
@@ -123,7 +122,7 @@ fn matching_mut_enum_struct_one_field() {
             print('after: name: "{name}", color: {color}')
             assert(color == Color::Green, "enum value is wrong")
             100
-          }
+        }
         _ => 200,
     }
     print('result: {result}')
@@ -136,17 +135,17 @@ fn matching_mut_enum_tuple_one_field() {
     result = match a {
         Nothing => 0,
         FewThings _, mut value => {
-          print('before: value {value}')
-          assert(value == 99, "enum value is wrong")
-          value = 3
-          print('after: value changed: {value}')
-          assert(value == 3, "enum value is wrong")
-          255
+            print('before: value {value}')
+            assert(value == 99, "enum value is wrong")
+            value = 3
+            print('after: value changed: {value}')
+            assert(value == 3, "enum value is wrong")
+            255
         }
         More name, mut color => {
             color = Color::Green
             100
-          }
+        }
         _ => 200,
     }
     print('result: {result}')
