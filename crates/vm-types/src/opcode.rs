@@ -72,7 +72,6 @@ pub enum OpCode {
 
     // Load immediate into reg
     LdPtrFromEffectiveFrameAddress, // Load effective address
-    LoadEffectiveAddressIndexMultiplier,
     Ld8FromPointerWithOffset,
     Ld16FromPointerWithOffset,
     Ld32FromPointerWithOffset,
@@ -100,6 +99,7 @@ pub enum OpCode {
     Mov32FromImmediateValue,
 
     MovEqualToZero,
+    // TODO: Maybe bring back MovNotEqualToZero back for symmetry / completeness?
 
     // Type specific -----
 
@@ -231,9 +231,6 @@ impl OpCode {
             // Other comparisons
             Self::TrapOnLessThan => "trap.lt",
 
-            // Store Predicate Flag
-            Self::MovEqualToZero => "seqz",
-
             // Branches
             Self::BFalse => "b.false",
             Self::BTrue => "b.true",
@@ -248,7 +245,7 @@ impl OpCode {
             Self::BlockCopyWithOffsets
             | Self::BlockCopyWithOffsetsVariableSize
             | Self::BlockCopy => "blk.cpy",
-            Self::LdPtrFromEffectiveFrameAddress | Self::LoadEffectiveAddressIndexMultiplier => {
+            Self::LdPtrFromEffectiveFrameAddress => {
                 "lea"
             }
 
@@ -256,7 +253,7 @@ impl OpCode {
             Self::Mov8FromImmediateValue => "mov.b",
             Self::Mov16FromImmediateValue => "mov.h",
             Self::MovReg | Self::Mov32FromImmediateValue => "mov", // alias for `mov.w`
-            Self::MovEqualToZero => "bool.not",
+            Self::MovEqualToZero => "meqz",
 
             // Load. From memory to register
             Self::Ld8FromPointerWithOffset | Self::Ld8FromAbsoluteAddress => "ld.b",

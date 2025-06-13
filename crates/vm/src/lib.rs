@@ -4,9 +4,9 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
+use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -321,9 +321,6 @@ impl Vm {
 
         vm.handlers[OpCode::Ld8FromAbsoluteAddress as usize] =
             HandlerType::Args5(Self::execute_ldb_from_absolute_address);
-
-        vm.handlers[OpCode::LoadEffectiveAddressIndexMultiplier as usize] =
-            HandlerType::Args7(Self::execute_lea_base_ptr_offset_index_element_size);
 
         // Copy to and from heap
         vm.handlers[OpCode::BlockCopyWithOffsets as usize] =
@@ -1519,23 +1516,6 @@ impl Vm {
         );
     }
 
-    #[inline]
-    fn execute_lea_base_ptr_offset_index_element_size(
-        &mut self,
-        dst_reg: u8,
-        base_ptr_reg: u8,
-        base_ptr_offset_0: u8,
-        base_ptr_offset_1: u8,
-        index_reg: u8,
-        element_size_lower: u8,
-        element_size_upper: u8,
-    ) {
-        let element_size = u16_from_u8s!(element_size_lower, element_size_upper) as u32;
-        let new_addr = get_reg!(self, base_ptr_reg)
-            + u8s_to_u16!(base_ptr_offset_0, base_ptr_offset_1) as u32
-            + get_reg!(self, index_reg) * element_size;
-        set_reg!(self, dst_reg, new_addr);
-    }
 
     #[inline]
     pub fn execute_frame_memory_clear(

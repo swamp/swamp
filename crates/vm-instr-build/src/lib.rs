@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
+    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
 };
 use swamp_vm_types::{
     CountU16, HeapMemoryAddress, MemoryAlignment, MemoryLocation, PointerLocation,
@@ -740,33 +740,6 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_lea_base_ptr_index_imm_element_size(
-        &mut self,
-        dest_reg: &TypedRegister,
-        base_ptr: &TypedRegister,
-        base_ptr_offset: MemoryOffset,
-        index: &TypedRegister,
-        size: MemorySize,
-        node: &Node,
-        comment: &str,
-    ) {
-        let pairs = u16_to_u8_pair(size.0);
-        let base_ptr_offset_bytes = u16_to_u8_pair(base_ptr_offset.0);
-        self.state.add_instruction(
-            OpCode::LoadEffectiveAddressIndexMultiplier,
-            &[
-                dest_reg.addressing(),
-                base_ptr.addressing(),
-                base_ptr_offset_bytes.0,
-                base_ptr_offset_bytes.1,
-                index.addressing(),
-                pairs.0,
-                pairs.1,
-            ],
-            node,
-            comment,
-        );
-    }
 
     pub fn add_ld_contiguous_regs_from_frame(
         &mut self,
