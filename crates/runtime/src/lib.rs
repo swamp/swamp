@@ -159,7 +159,8 @@ pub fn compile_main_path(
     Some(CompileResult { program })
 }
 
-#[must_use] pub fn code_gen(
+#[must_use]
+pub fn code_gen(
     program: &Program,
     source_map_wrapper: &SourceMapWrapper,
     code_gen_options: &CodeGenOptions,

@@ -50,5 +50,5 @@ pub fn compile_and_analyze(
         show_semantic: false,
         show_modules: false,
     };
-    swamp_compile::bootstrap_and_compile(source_map, module_path, options)
+    swamp_compile::bootstrap_and_compile(source_map, module_path, &options)
 }

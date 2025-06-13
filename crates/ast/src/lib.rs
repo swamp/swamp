@@ -361,7 +361,8 @@ pub enum Function {
 }
 
 impl Function {
-    #[must_use] pub const fn node(&self) -> &Node {
+    #[must_use]
+    pub const fn node(&self) -> &Node {
         match self {
             Self::Internal(func_with_body) => &func_with_body.body.node,
             Self::External(node, _) => node,

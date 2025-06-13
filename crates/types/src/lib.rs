@@ -61,7 +61,8 @@ pub enum Type {
 }
 
 impl Type {
-    #[must_use] pub fn same_as(&self, other: &Self) -> bool {
+    #[must_use]
+    pub fn same_as(&self, other: &Self) -> bool {
         self == other
     }
 }
@@ -272,9 +273,10 @@ impl Type {
         }
     }
 
-    #[must_use] pub fn is_concrete(&self) -> bool {
+    #[must_use]
+    pub fn is_concrete(&self) -> bool {
         //info!("checking this for concrete {self:?}");
-        
+
         //info!(?was_concrete, "returned: {was_concrete} {self:?}");
         self.is_concrete_helper()
     }
@@ -402,8 +404,8 @@ impl Type {
         }
     }
 
-    #[must_use] pub fn can_be_stored_in_field(&self) -> bool {
-        
+    #[must_use]
+    pub fn can_be_stored_in_field(&self) -> bool {
         self.helper_can_be_stored_in_field()
     }
 
@@ -615,7 +617,8 @@ impl Type {
         }
     }
 
-    #[must_use] pub fn is_allowed_as_return_type(&self) -> bool {
+    #[must_use]
+    pub fn is_allowed_as_return_type(&self) -> bool {
         match self {
             Self::FixedCapacityAndLengthArray(_, _)
             | Self::MapStorage(_, _, _)
@@ -631,7 +634,8 @@ impl Type {
         }
     }
 
-    #[must_use] pub fn is_allowed_as_parameter_type(&self) -> bool {
+    #[must_use]
+    pub fn is_allowed_as_parameter_type(&self) -> bool {
         match self {
             Self::FixedCapacityAndLengthArray(_, _)
             | Self::MapStorage(_, _, _)

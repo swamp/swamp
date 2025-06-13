@@ -11,16 +11,17 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{process, thread};
 use swamp::prelude::{
-    CodeGenAndVmResult, CodeGenOptions, CompileAndCodeGenOptions, CompileOptions, GenFunctionInfo,
-    HostArgs, HostFunctionCallback, RunConstantsOptions, RunOptions, SAFE_ALIGNMENT,
-    SourceMapWrapper, VmState, align, compile_codegen_and_create_vm, layout_type, run_first_time,
-    run_function, run_function_with_debug,
+    CodeGenAndVmResult, CodeGenOptions, CompileAndCodeGenOptions, CompileAndVmResult,
+    CompileCodeGenVmResult, CompileOptions, GenFunctionInfo, HostArgs, HostFunctionCallback,
+    RunConstantsOptions, RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align,
+    compile_codegen_and_create_vm, layout_type, run_first_time, run_function,
+    run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 use tracing::{error, info, warn};
 
 #[must_use]
-pub fn compile() -> Option<CodeGenAndVmResult> {
+pub fn compile() -> Option<CompileCodeGenVmResult> {
     let options = CompileAndCodeGenOptions {
         skip_codegen: false,
         compile_options: CompileOptions {
@@ -34,6 +35,13 @@ pub fn compile() -> Option<CodeGenAndVmResult> {
         &["crate".to_string(), "main".to_string()],
         options,
     )
+    .map(|x| {
+        let CompileAndVmResult::CompileAndVm(both) = x else {
+            panic!("sjid")
+        };
+
+        both
+    })
 }
 
 pub struct BootInfo {
@@ -185,7 +193,7 @@ impl FenTextEngine {
                 FenTextSwamp::run_once(&mut runtime_result, &mut fake_callbacks);
 
                 let boot_info = FenTextSwamp::boot(&mut runtime_result, &mut fake_callbacks);
-                let swamp = FenTextSwamp::new(runtime_result, boot_info);
+                let swamp = FenTextSwamp::new(runtime_result.codegen, boot_info);
 
                 if should_show_ui {
                     let new_fen_text = FenText::new(swamp);
@@ -249,7 +257,7 @@ impl FenTextSwamp {
 
     #[must_use]
     pub fn boot(
-        runtime_result: &mut CodeGenAndVmResult,
+        runtime_result: &mut CompileCodeGenVmResult,
         application: &mut dyn HostFunctionCallback,
     ) -> BootInfo {
         let run_options = RunOptions {
@@ -258,14 +266,15 @@ impl FenTextSwamp {
             debug_operations_enabled: false,
             use_color: true,
             max_count: 0,
-            debug_info: &runtime_result.code_gen_result.debug_info,
+            debug_info: &runtime_result.codegen.code_gen_result.debug_info,
             source_map_wrapper: SourceMapWrapper {
-                source_map: &runtime_result.source_map,
+                source_map: &runtime_result.codegen.source_map,
                 current_dir: current_dir().unwrap(),
             },
         };
 
         let main_fn = runtime_result
+            .codegen
             .code_gen_result
             .find_function("main")
             .unwrap();
@@ -274,7 +283,7 @@ impl FenTextSwamp {
         let gen_simulation_type = layout_type(simulation_type);
 
         let s = String::new();
-        let constant_memory_size = runtime_result.vm.memory().constant_memory_size as u32;
+        let constant_memory_size = runtime_result.codegen.vm.memory().constant_memory_size as u32;
 
         let root_struct_start = align(constant_memory_size as usize, SAFE_ALIGNMENT);
 
@@ -284,9 +293,15 @@ impl FenTextSwamp {
         );
 
         runtime_result
+            .codegen
             .vm
             .set_return_register_address(constant_memory_size);
-        run_function_with_debug(&mut runtime_result.vm, main_fn, application, run_options);
+        run_function_with_debug(
+            &mut runtime_result.codegen.vm,
+            main_fn,
+            application,
+            run_options,
+        );
 
         //        print_value(&mut s, runtime_result.vm.frame_memory(), runtime_result.vm.memory(), StackMemoryAddress(0), &gen_simulation_type, "main() return").unwrap();
         info!(
@@ -309,7 +324,7 @@ impl FenTextSwamp {
     }
 
     pub fn run_once(
-        runtime_result: &mut CodeGenAndVmResult,
+        runtime_result: &mut CompileCodeGenVmResult,
         application: &mut dyn HostFunctionCallback,
     ) {
         let run_first_options = RunConstantsOptions {
@@ -317,8 +332,8 @@ impl FenTextSwamp {
         };
 
         run_first_time(
-            &mut runtime_result.vm,
-            &runtime_result.code_gen_result.constants_in_order,
+            &mut runtime_result.codegen.vm,
+            &runtime_result.codegen.code_gen_result.constants_in_order,
             application,
             run_first_options,
         );
