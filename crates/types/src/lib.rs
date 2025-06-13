@@ -11,7 +11,6 @@ use source_map_node::Node;
 use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
-use tracing::info;
 
 #[derive(Eq, PartialEq, Hash, Clone)]
 pub enum Type {
@@ -59,6 +58,12 @@ pub enum Type {
     SparseStorage(Box<Type>, usize),
     GridStorage(Box<Type>, usize, usize),
     GridView(Box<Type>),
+}
+
+impl Type {
+    pub fn same_as(&self, other: &Type) -> bool {
+        self == other
+    }
 }
 
 impl Type {
@@ -268,9 +273,9 @@ impl Type {
     }
 
     pub fn is_concrete(&self) -> bool {
-        info!("checking this for concrete {self:?}");
+        //info!("checking this for concrete {self:?}");
         let was_concrete = self.is_concrete_helper();
-        info!(?was_concrete, "returned: {was_concrete} {self:?}");
+        //info!(?was_concrete, "returned: {was_concrete} {self:?}");
         was_concrete
     }
 
@@ -398,11 +403,7 @@ impl Type {
     }
 
     pub fn can_be_stored_in_field(&self) -> bool {
-        info!(?self, "checking if stored in field");
         let x = self.helper_can_be_stored_in_field();
-        if !x {
-            info!("couldn't be stored in field: {self:?}");
-        }
         x
     }
 
@@ -611,6 +612,38 @@ impl Type {
             self.compatible_with(other_reference)
         } else {
             self.compatible_with(other)
+        }
+    }
+
+    pub fn is_allowed_as_return_type(&self) -> bool {
+        match self {
+            Type::FixedCapacityAndLengthArray(_, _)
+            | Type::MapStorage(_, _, _)
+            | Type::GridStorage(_, _, _)
+            | Type::SparseStorage(_, _)
+            | Type::QueueStorage(_, _)
+            | Type::VecStorage(_, _)
+            | Type::StackStorage(_, _) => false,
+            Type::Function(_) => false,
+            Type::Optional(inner) => inner.is_allowed_as_return_type(),
+            Type::MutableReference(_) => panic!("mutable return reference"),
+            _ => true,
+        }
+    }
+
+    pub fn is_allowed_as_parameter_type(&self) -> bool {
+        match self {
+            Type::FixedCapacityAndLengthArray(_, _)
+            | Type::MapStorage(_, _, _)
+            | Type::GridStorage(_, _, _)
+            | Type::SparseStorage(_, _)
+            | Type::QueueStorage(_, _)
+            | Type::VecStorage(_, _)
+            | Type::StackStorage(_, _) => false,
+            Type::Function(_) => false,
+            Type::Optional(inner) => inner.is_allowed_as_return_type(),
+            Type::MutableReference(inner) => inner.is_allowed_as_parameter_type(),
+            _ => true,
         }
     }
 

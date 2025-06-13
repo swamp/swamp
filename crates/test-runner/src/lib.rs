@@ -14,7 +14,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use swamp_runtime::prelude::CodeGenOptions;
 use swamp_runtime::{
-    CompileAndCodeGenOptions, CompileOptions, RunConstantsOptions, RunOptions,
+    CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions, RunConstantsOptions, RunOptions,
     compile_codegen_and_create_vm,
 };
 use swamp_std::print::print_fn;
@@ -223,10 +223,15 @@ pub fn run_tests(
         code_gen_options: CodeGenOptions {
             show_disasm: options.show_assembly,
         },
+        skip_codegen: false,
     };
-    let mut result =
+    let mut internal_result =
         compile_codegen_and_create_vm(test_dir, crate_main_path, compile_and_code_gen_options)
             .unwrap();
+
+    let CompileAndVmResult::CompileAndVm(mut result) = internal_result else {
+        panic!("didn't work to compile")
+    };
 
     let mut passed_tests = Vec::new();
 
@@ -245,16 +250,16 @@ pub fn run_tests(
         };
 
         swamp_runtime::run_first_time(
-            &mut result.vm,
-            &result.code_gen_result.constants_in_order,
+            &mut result.codegen.vm,
+            &result.codegen.code_gen_result.constants_in_order,
             &mut TestExternals {},
             run_first_options,
         );
 
         {
-            let bootstrap_timer = ScopedTimer::new("run tests a bunch of times");
+            let _bootstrap_timer = ScopedTimer::new("run tests a bunch of times");
 
-            for (module_name, module) in result.code_gen_result.program.modules.modules() {
+            for (module_name, module) in result.compile.program.modules.modules() {
                 let mut has_shown_mod_name = false;
                 for internal_fn in module.symbol_table.internal_functions() {
                     if !internal_fn.attributes.has_attribute("test") {
@@ -265,6 +270,7 @@ pub fn run_tests(
                         has_shown_mod_name = true;
                     }
                     let function_to_run = result
+                        .codegen
                         .code_gen_result
                         .functions
                         .get(&internal_fn.program_unique_id)
@@ -313,7 +319,7 @@ pub fn run_tests(
                     if some_form_of_debug {
                         for _ in 0..options.iteration_count {
                             swamp_runtime::run_function_with_debug(
-                                &mut result.vm,
+                                &mut result.codegen.vm,
                                 function_to_run,
                                 &mut TestExternals {},
                                 RunOptions {
@@ -322,28 +328,28 @@ pub fn run_tests(
                                     debug_operations_enabled: options.debug_operations,
                                     max_count: 0,
                                     use_color: true,
-                                    debug_info: &result.code_gen_result.debug_info,
+                                    debug_info: &result.codegen.code_gen_result.debug_info,
                                     source_map_wrapper: SourceMapWrapper {
-                                        source_map: &result.source_map,
+                                        source_map: &result.codegen.source_map,
                                         current_dir: PathBuf::default(),
                                     },
                                 },
                             );
 
-                            while result.vm.state == VmState::Step {
+                            while result.codegen.vm.state == VmState::Step {
                                 handle_step(&options.step_behaviour);
-                                result.vm.state = VmState::Normal;
-                                result.vm.resume(&mut TestExternals {});
+                                result.codegen.vm.state = VmState::Normal;
+                                result.codegen.vm.resume(&mut TestExternals {});
                             }
 
-                            if result.vm.state != expected_vm_state {
+                            if result.codegen.vm.state != expected_vm_state {
                                 break;
                             }
                         }
                     } else {
                         for _ in 0..options.iteration_count {
                             swamp_runtime::run_as_fast_as_possible(
-                                &mut result.vm,
+                                &mut result.codegen.vm,
                                 function_to_run,
                                 &mut TestExternals {},
                                 RunOptions {
@@ -352,26 +358,26 @@ pub fn run_tests(
                                     debug_operations_enabled: options.debug_operations,
                                     max_count: 0,
                                     use_color: true,
-                                    debug_info: &result.code_gen_result.debug_info,
+                                    debug_info: &result.codegen.code_gen_result.debug_info,
                                     source_map_wrapper: SourceMapWrapper {
-                                        source_map: &result.source_map,
+                                        source_map: &result.codegen.source_map,
                                         current_dir: PathBuf::default(),
                                     },
                                 },
                             );
-                            while result.vm.state == VmState::Step {
+                            while result.codegen.vm.state == VmState::Step {
                                 handle_step(&options.step_behaviour);
-                                result.vm.state = VmState::Normal;
-                                result.vm.resume(&mut TestExternals {});
+                                result.codegen.vm.state = VmState::Normal;
+                                result.codegen.vm.resume(&mut TestExternals {});
                             }
-                            if result.vm.state != expected_vm_state {
+                            if result.codegen.vm.state != expected_vm_state {
                                 break;
                             }
                         }
                     }
 
                     if expected_vm_state == VmState::Normal {
-                        match &result.vm.state {
+                        match &result.codegen.vm.state {
                             VmState::Panic(message) => {
                                 panic_tests.push(test_info);
                                 error!(message, "PANIC!");
@@ -394,7 +400,7 @@ pub fn run_tests(
                             }
                         }
                     } else if let VmState::Trap(expected_trap_code) = expected_vm_state {
-                        match &result.vm.state {
+                        match &result.codegen.vm.state {
                             VmState::Trap(actual_trap_code) => {
                                 if actual_trap_code == &expected_trap_code {
                                     expected_trap_passed.push(test_info.clone());
@@ -428,7 +434,7 @@ pub fn run_tests(
                             }
                         }
                     } else if let VmState::Panic(expected_panic_message) = expected_vm_state {
-                        match &result.vm.state {
+                        match &result.codegen.vm.state {
                             VmState::Panic(actual_panic_message) => {
                                 if actual_panic_message.contains(&expected_panic_message) {
                                     expected_panic_passed.push(test_info.clone());
@@ -531,7 +537,7 @@ pub fn run_tests(
             }
         }
 
-        eprintln!("\n\nvm stats {:?}", result.vm.debug);
+        eprintln!("\n\nvm stats {:?}", result.codegen.vm.debug);
     }
 
     let failed_tests = [trap_tests, panic_tests].concat();

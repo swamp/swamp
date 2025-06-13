@@ -75,13 +75,16 @@ impl Analyzer<'_> {
         variable: &swamp_ast::Node,
         is_mutable: Option<&swamp_ast::Node>,
         variable_type_ref: &Type,
+        concrete_check: bool,
     ) -> Result<VariableRef, Error> {
         let debug_text = self.get_text(variable);
         if !debug_text.starts_with('_') {
-            debug_assert!(
-                variable_type_ref.can_be_stored_in_variable(),
-                "can not be stored in a variable: {debug_text}: {variable_type_ref}"
-            );
+            if concrete_check && !variable_type_ref.can_be_stored_in_variable() {
+                return Err(self.create_err(
+                    ErrorKind::VariableTypeMustBeConcrete(variable_type_ref.clone()),
+                    variable,
+                ));
+            }
         }
         self.create_local_variable_resolved(
             &self.to_node(variable),
@@ -99,6 +102,7 @@ impl Analyzer<'_> {
             &variable.name,
             Option::from(&variable.is_mutable),
             variable_type_ref,
+            true,
         )
     }
 
@@ -280,6 +284,7 @@ impl Analyzer<'_> {
                     &ast_variable.name,
                     ast_variable.is_mutable.as_ref(),
                     &expression_type,
+                    false,
                 )?
             }
         } else {
@@ -287,6 +292,7 @@ impl Analyzer<'_> {
                 &ast_variable.name,
                 ast_variable.is_mutable.as_ref(),
                 &expression_type,
+                false,
             )?
         };
 

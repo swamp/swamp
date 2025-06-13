@@ -670,7 +670,7 @@ pub struct CompileOptions {
 pub fn bootstrap_and_compile(
     source_map: &mut SourceMap,
     root_path: &[String],
-    options: CompileOptions,
+    options: &CompileOptions,
 ) -> Result<Program, ScriptResolveError> {
     let bootstrap_timer = ScopedTimer::new("bootstrap");
     let bootstrap_result = bootstrap_modules(source_map).inspect_err(|err| {
@@ -770,7 +770,7 @@ pub fn compile_string(script: &str) -> Result<(Program, ModuleRef, SourceMap), S
         show_semantic: false,
         show_modules: false,
     };
-    let program = bootstrap_and_compile(&mut source_map, &resolved_path_str, compile_options)?;
+    let program = bootstrap_and_compile(&mut source_map, &resolved_path_str, &compile_options)?;
     let main_module = program.modules.get(&resolved_path_str).unwrap().clone();
 
     Ok((program, main_module, source_map))

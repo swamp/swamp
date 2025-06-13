@@ -659,7 +659,7 @@ impl Analyzer<'_> {
                         resolved_type = Type::MutableReference(Box::from(resolved_type));
                     }
 
-                    parameters.push(TypeForParameter {
+                    let resolved_param = TypeForParameter {
                         name: self.get_text(&param.variable.name).to_string(),
                         resolved_type,
                         is_mutable: param.variable.is_mutable.is_some(),
@@ -668,11 +668,33 @@ impl Analyzer<'_> {
                             is_mutable: self
                                 .to_node_option(Option::from(&param.variable.is_mutable)),
                         }),
-                    });
+                    };
+                    if !resolved_param.resolved_type.is_allowed_as_parameter_type() {
+                        return Err(self.create_err(
+                            ErrorKind::ParameterTypeCanNotBeStorage(
+                                resolved_param.resolved_type.clone(),
+                            ),
+                            &function_data.body.node,
+                        ));
+                    }
+
+                    parameters.push(resolved_param);
                 }
 
                 let return_type =
-                    self.analyze_maybe_type(Option::from(&function_data.declaration.return_type))?;
+                    if let Some(ast_return_type) = &function_data.declaration.return_type {
+                        let resolved_return_type = self.analyze_type(ast_return_type)?;
+                        if resolved_return_type.is_allowed_as_return_type() {
+                            resolved_return_type
+                        } else {
+                            return Err(self.create_err(
+                                ErrorKind::NotAllowedAsReturnType(resolved_return_type),
+                                function.node(),
+                            ));
+                        }
+                    } else {
+                        Type::Unit
+                    };
 
                 for param in &parameters {
                     self.create_parameter_resolved(
@@ -713,7 +735,7 @@ impl Analyzer<'_> {
                 let mut parameters = Vec::new();
 
                 if let Some(found_self) = &signature.self_parameter {
-                    parameters.push(TypeForParameter {
+                    let param = TypeForParameter {
                         name: self.get_text(&found_self.self_node).to_string(),
                         resolved_type: self_type.clone(),
                         is_mutable: found_self.is_mutable.is_some(),
@@ -721,7 +743,9 @@ impl Analyzer<'_> {
                             name: self.to_node(&found_self.self_node),
                             is_mutable: self.to_node_option(Option::from(&found_self.is_mutable)),
                         }),
-                    });
+                    };
+
+                    parameters.push(param);
                 }
 
                 // Handle parameters, including self if present

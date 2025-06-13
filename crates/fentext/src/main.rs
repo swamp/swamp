@@ -22,6 +22,7 @@ use tracing::{error, info, warn};
 #[must_use]
 pub fn compile() -> Option<CodeGenAndVmResult> {
     let options = CompileAndCodeGenOptions {
+        skip_codegen: false,
         compile_options: CompileOptions {
             show_semantic: false,
             show_modules: false,

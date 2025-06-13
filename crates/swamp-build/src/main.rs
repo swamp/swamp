@@ -28,6 +28,7 @@ Options:\n\
   -s, --show-semantic     (show semantic information)\n\
   -m, --show-modules      (show module structure)\n\
   -a, --show-assembly     (show Swamp VM disassembly)\n\
+  --skip-codegen          (skip Swamp VM code generation)\n\
   -h, --help              (print this help and exit)\n"
     );
 }
@@ -67,6 +68,7 @@ fn main() -> ExitCode {
     let show_semantic = args.contains(["-s", "--show-semantic"]);
     let show_modules = args.contains(["-m", "--show-modules"]);
     let show_assembly = args.contains(["-a", "--show-assembly"]);
+    let skip_codegen = args.contains("--skip-codegen");
 
     // Check for any unexpected positional arguments
     let leftover = args.finish();
@@ -80,6 +82,7 @@ fn main() -> ExitCode {
     init_logger();
 
     let compile_and_code_gen_options = CompileAndCodeGenOptions {
+        skip_codegen,
         compile_options: CompileOptions {
             show_semantic,
             show_modules,

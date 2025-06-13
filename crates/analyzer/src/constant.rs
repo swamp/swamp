@@ -15,11 +15,37 @@ impl Analyzer<'_> {
         };
 
         let context = TypeContext::new_unsure_argument(maybe_annotation_type.as_ref());
+
         let resolved_expr = self.analyze_expression(&constant.expression, &context)?;
-        let resolved_type = resolved_expr.ty.clone();
+
+        let actual_constant_type = if let Some(annotation_type) = maybe_annotation_type {
+            let extra_verification = false;
+            if extra_verification {
+                let debug_context = TypeContext::new_anything_argument();
+                let result = self.analyze_expression(&constant.expression, &debug_context);
+                if let Ok(worked_without_annotation) = result {
+                    if annotation_type
+                        .underlying()
+                        .same_as(&worked_without_annotation.ty.underlying())
+                    {
+                        let identifier_name =
+                            { self.get_text(&constant.constant_identifier.0).clone() };
+                        eprintln!(
+                            "annotation was not needed for constant: {identifier_name} in {:?}",
+                            self.module_path
+                        );
+                    }
+                }
+            }
+            annotation_type
+        } else {
+            resolved_expr.ty.clone()
+        };
+
+        let identifier_name = { self.get_text(&constant.constant_identifier.0).clone() };
         assert!(
-            resolved_type.can_be_stored_in_field(),
-            "this field is not blittable {constant:?}"
+            actual_constant_type.can_be_stored_in_field(),
+            "this field is not blittable {identifier_name:?}"
         ); // TODO: investigate why FixedSizeArray gets converted to InitializerList
 
         let name_node = self.to_node(&constant.constant_identifier.0);
@@ -29,7 +55,7 @@ impl Analyzer<'_> {
             assigned_name: name_text,
             id: self.shared.state.internal_function_id_allocator.alloc() as ConstantId,
             expr: resolved_expr,
-            resolved_type,
+            resolved_type: actual_constant_type,
             function_scope_state: self.function_variables.clone(),
         };
 

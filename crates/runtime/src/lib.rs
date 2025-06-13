@@ -122,12 +122,20 @@ pub fn crate_and_registry(path_to_swamp: &Path) -> SourceMap {
     SourceMap::new(&mounts).expect("source map failed")
 }
 
+pub struct CompileAndMaybeCodeGenResult {
+    pub compile: CompileResult,
+    pub codegen: Option<CodeGenResult>,
+}
+
+pub struct CompileResult {
+    pub program: Program,
+}
+
 pub struct CodeGenResult {
     pub instructions: Vec<BinaryInstruction>,
     pub constants_in_order: SeqMap<ConstantId, ConstantInfo>,
     pub functions: SeqMap<InternalFunctionId, GenFunctionInfo>,
     pub prepared_constant_memory: Vec<u8>,
-    pub program: Program,
     pub debug_info: DebugInfo,
 }
 
@@ -140,34 +148,34 @@ impl CodeGenResult {
     }
 }
 
-pub fn compile_and_codegen_main_path(
+pub fn compile_main_path(
     source_map: &mut SourceMap,
     root_module_path: &[String],
-    current_dir: &Path,
-    options: CompileAndCodeGenOptions,
-) -> Option<CodeGenResult> {
+    options: &CompileOptions,
+) -> Option<CompileResult> {
     let program =
-        swamp_compile::bootstrap_and_compile(source_map, root_module_path, options.compile_options)
-            .ok()?;
+        swamp_compile::bootstrap_and_compile(source_map, root_module_path, options).ok()?;
 
-    let source_map_wrapper = SourceMapWrapper {
-        source_map,
-        current_dir: current_dir.to_path_buf(),
-    };
+    Some(CompileResult { program })
+}
 
-    let top_gen_state = code_gen_program(&program, &source_map_wrapper, &options.code_gen_options);
+pub fn code_gen(
+    program: &Program,
+    source_map_wrapper: &SourceMapWrapper,
+    code_gen_options: &CodeGenOptions,
+) -> CodeGenResult {
+    let top_gen_state = code_gen_program(&program, &source_map_wrapper, code_gen_options);
 
     let (instructions, constants_in_order, emit_function_infos, constant_memory, debug_info) =
         top_gen_state.take_instructions_and_constants();
 
-    Some(CodeGenResult {
+    CodeGenResult {
         debug_info,
         instructions,
         constants_in_order,
         functions: emit_function_infos,
         prepared_constant_memory: constant_memory,
-        program,
-    })
+    }
 }
 
 #[must_use]
@@ -370,6 +378,7 @@ pub fn run_function_with_debug(
 pub struct CompileAndCodeGenOptions {
     pub compile_options: CompileOptions,
     pub code_gen_options: CodeGenOptions,
+    pub skip_codegen: bool,
 }
 
 #[must_use]
@@ -377,14 +386,46 @@ pub fn compile_and_code_gen(
     path_to_root_of_swamp_files: &Path,
     main_module_path: &[String],
     options: CompileAndCodeGenOptions,
-) -> Option<(CodeGenResult, SourceMap)> {
+) -> Option<(CompileAndMaybeCodeGenResult, SourceMap)> {
     let mut source_map = crate_and_registry(path_to_root_of_swamp_files);
     let current_dir = PathBuf::from(Path::new(""));
 
-    let result =
-        compile_and_codegen_main_path(&mut source_map, main_module_path, &current_dir, options);
+    let compile_result =
+        compile_main_path(&mut source_map, main_module_path, &options.compile_options)?;
 
-    result.map(|result| (result, source_map))
+    let source_map_wrapper = SourceMapWrapper {
+        source_map: &source_map,
+        current_dir: current_dir.to_path_buf(),
+    };
+
+    let maybe_code_gen_result = if !options.skip_codegen {
+        let code_gen_result = code_gen(
+            &compile_result.program,
+            &source_map_wrapper,
+            &options.code_gen_options,
+        );
+        Some(code_gen_result)
+    } else {
+        None
+    };
+
+    Some((
+        CompileAndMaybeCodeGenResult {
+            compile: compile_result,
+            codegen: maybe_code_gen_result,
+        },
+        source_map,
+    ))
+}
+
+pub struct CompileCodeGenVmResult {
+    pub compile: CompileResult,
+    pub codegen: CodeGenAndVmResult,
+}
+
+pub enum CompileAndVmResult {
+    CompileOnly(CompileResult),
+    CompileAndVm(CompileCodeGenVmResult),
 }
 
 pub struct CodeGenAndVmResult {
@@ -393,14 +434,14 @@ pub struct CodeGenAndVmResult {
     pub source_map: SourceMap,
 }
 
-impl CodeGenAndVmResult {
+impl CompileCodeGenVmResult {
     #[must_use]
     pub fn get_internal_member_function(
         &self,
         ty: &Type,
         member_function_str: &str,
     ) -> Option<&InternalFunctionDefinitionRef> {
-        self.code_gen_result
+        self.compile
             .program
             .state
             .associated_impls
@@ -416,7 +457,10 @@ impl CodeGenAndVmResult {
             .get_internal_member_function(ty, member_function_str)
             .unwrap();
 
-        self.code_gen_result.functions.get(&x.program_unique_id)
+        self.codegen
+            .code_gen_result
+            .functions
+            .get(&x.program_unique_id)
     }
 }
 
@@ -426,20 +470,29 @@ pub fn compile_codegen_and_create_vm(
     root_directory: &Path,
     root_module: &[String],
     compile_and_code_gen_options: CompileAndCodeGenOptions,
-) -> Option<CodeGenAndVmResult> {
-    let (code_gen_result, source_map) =
+) -> Option<CompileAndVmResult> {
+    let (compile_and_maybe_code_gen, source_map) =
         compile_and_code_gen(root_directory, root_module, compile_and_code_gen_options)?;
 
-    let vm = create_vm_with_standard_settings(
-        &code_gen_result.instructions,
-        &code_gen_result.prepared_constant_memory,
-    );
+    if let Some(code_gen_result) = compile_and_maybe_code_gen.codegen {
+        let vm = create_vm_with_standard_settings(
+            &code_gen_result.instructions,
+            &code_gen_result.prepared_constant_memory,
+        );
 
-    let result = CodeGenAndVmResult {
-        vm,
-        code_gen_result,
-        source_map,
-    };
+        let code_gen_and_vm = CodeGenAndVmResult {
+            vm,
+            code_gen_result,
+            source_map,
+        };
 
-    Some(result)
+        Some(CompileAndVmResult::CompileAndVm(CompileCodeGenVmResult {
+            compile: compile_and_maybe_code_gen.compile,
+            codegen: code_gen_and_vm,
+        }))
+    } else {
+        Some(CompileAndVmResult::CompileOnly(
+            compile_and_maybe_code_gen.compile,
+        ))
+    }
 }

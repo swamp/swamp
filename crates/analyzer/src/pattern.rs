@@ -84,6 +84,7 @@ impl Analyzer<'_> {
                                 &var.name,
                                 Option::from(&var.is_mutable),
                                 expected_condition_type,
+                                false,
                             )?;
                             resolved_elements.push(PatternElement::Variable(variable_ref));
                         }
@@ -144,6 +145,7 @@ impl Analyzer<'_> {
                                             &var.name,
                                             var.is_mutable.as_ref(),
                                             field_type,
+                                            false,
                                         )?;
                                         /*
                                         resolved_elements
@@ -206,6 +208,7 @@ impl Analyzer<'_> {
                                             &var.name,
                                             Option::from(&var.is_mutable),
                                             &field_type.field_type,
+                                            false,
                                         )?;
 
                                         resolved_elements.push(

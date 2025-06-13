@@ -17,7 +17,7 @@ pub enum ErrorKind {
     NoAssociatedFunction(Type, String),
     MissingSubscriptMember,
     UnusedVariablesCanNotBeMut,
-    VariableTypeMustBeConcrete,
+    VariableTypeMustBeConcrete(Type),
     GuardCanNotHaveMultipleWildcards,
     WildcardMustBeLastInGuard,
     GuardMustHaveWildcard,
@@ -113,6 +113,8 @@ pub enum ErrorKind {
     },
     KeyVariableNotAllowedToBeMutable,
     SelfNotCorrectMutableState,
+    NotAllowedAsReturnType(Type),
+    ParameterTypeCanNotBeStorage(Type),
 }
 
 impl From<SemanticError> for Error {

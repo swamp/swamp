@@ -360,6 +360,15 @@ pub enum Function {
     External(Node, FunctionDeclaration),
 }
 
+impl Function {
+    pub fn node(&self) -> &Node {
+        match self {
+            Function::Internal(func_with_body) => &func_with_body.body.node,
+            Function::External(node, _) => node,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SelfParameter {
     pub is_mutable: Option<Node>,

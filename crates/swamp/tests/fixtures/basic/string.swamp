@@ -25,11 +25,11 @@ struct Something {
     a: String,
 }
 
-// Tests for emtpy string, found by @catnipped
+// Tests for empty string, found by @catnipped
 #[test]
 fn empty_string() {
     a = ''
-    Something {
+    x = Something {
         a: ''
     }
 }

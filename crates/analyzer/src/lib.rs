@@ -338,7 +338,14 @@ impl<'a> Analyzer<'a> {
             Some(x) => self.analyze_type(x)?,
         };
 
-        Ok(resolved_return_type)
+        if resolved_return_type.is_allowed_as_return_type() {
+            Ok(resolved_return_type)
+        } else {
+            Err(self.create_err(
+                ErrorKind::NotAllowedAsReturnType(resolved_return_type),
+                function.node(),
+            ))
+        }
     }
 
     fn analyze_function_body_expression(
@@ -372,6 +379,7 @@ impl<'a> Analyzer<'a> {
                     &var.identifier,
                     Option::from(&var.is_mut),
                     value_type,
+                    false,
                 )?;
                 Ok(ForPattern::Single(variable_ref))
             }
@@ -381,11 +389,13 @@ impl<'a> Analyzer<'a> {
                     &first.identifier,
                     Option::from(&first.is_mut),
                     found_key,
+                    false,
                 )?;
                 let second_var_ref = self.create_local_variable(
                     &second.identifier,
                     Option::from(&second.is_mut),
                     value_type,
+                    false,
                 )?;
                 Ok(ForPattern::Pair(first_var_ref, second_var_ref))
             }
@@ -572,7 +582,7 @@ impl<'a> Analyzer<'a> {
         context: &TypeContext,
     ) -> Result<Expression, Error> {
         // info!(?ast_expression, "analyze expression");
-        self.debug_expression(ast_expression, "analyze");
+        //self.debug_expression(ast_expression, "analyze");
         let expr = self.analyze_expression_internal(ast_expression, context)?;
 
         let encountered_type = expr.ty.clone();
@@ -2548,6 +2558,7 @@ impl<'a> Analyzer<'a> {
                 &variable.name,
                 Some(node),
                 &variable_type.resolved_type,
+                false,
             )?;
             resolved_variables.push(variable_ref);
         }
@@ -2690,7 +2701,9 @@ impl<'a> Analyzer<'a> {
         if !ty.can_be_stored_in_variable() {
             let debug_text = self.get_text(&variable.name);
             if !debug_text.starts_with('_') {
-                return Err(self.create_err(ErrorKind::VariableTypeMustBeConcrete, &variable.name));
+                return Err(
+                    self.create_err(ErrorKind::VariableTypeMustBeConcrete(ty), &variable.name)
+                );
             }
         }
 
@@ -2748,12 +2761,33 @@ impl<'a> Analyzer<'a> {
         let resolved_source = self.analyze_expression(source_expression, &unsure_arg_context)?;
 
         let resulting_type = if let Some(annotated_type) = maybe_annotated_type {
+            let extra_verification = false;
+            if extra_verification {
+                let debug_context = TypeContext::new_anything_argument();
+                let result = self.analyze_expression(&source_expression, &debug_context);
+                if let Ok(worked_without_annotation) = result {
+                    if annotated_type
+                        .underlying()
+                        .same_as(&worked_without_annotation.ty.underlying())
+                    {
+                        let identifier_name = self.get_text(&var.name);
+                        eprintln!(
+                            "annotation was not needed for variable: {identifier_name} in {:?}",
+                            self.module_path
+                        );
+                    }
+                }
+            }
             annotated_type
         } else {
             resolved_source.ty.clone()
         };
-        let var_ref =
-            self.create_local_variable(&var.name, Option::from(&var.is_mutable), &resulting_type)?;
+        let var_ref = self.create_local_variable(
+            &var.name,
+            Option::from(&var.is_mutable),
+            &resulting_type,
+            true,
+        )?;
 
         assert_ne!(resulting_type, Type::Unit);
         let kind = ExpressionKind::VariableDefinition(var_ref, Box::from(resolved_source));
@@ -2858,11 +2892,13 @@ impl<'a> Analyzer<'a> {
                     _ => panic!("not allowed"),
                 },
                 swamp_ast::Postfix::Subscript(ast_key_expression) => {
-                    match &ty.underlying() {
+                    let underlying = ty.underlying();
+                    match underlying {
                         Type::SliceView(element_type)
                         | Type::StackStorage(element_type, _)
                         | Type::StackView(element_type)
                         | Type::VecStorage(element_type, _)
+                        | Type::DynamicLengthVecView(element_type)
                         | Type::FixedCapacityAndLengthArray(element_type, _) => {
                             let unsigned_int_context = TypeContext::new_argument(&Type::Int);
                             let unsigned_int_expr =
@@ -2943,7 +2979,7 @@ impl<'a> Analyzer<'a> {
                         }
 
                         _ => {
-                            eprintln!("can not subscript with this type: {ty}");
+                            eprintln!("can not subscript with this type: {underlying}");
                             todo!()
                         }
                     }
@@ -3245,6 +3281,7 @@ impl<'a> Analyzer<'a> {
                     &ast_variable.name,
                     ast_variable.is_mutable.as_ref(),
                     &tuple_type,
+                    true,
                 )?;
                 variable_refs.push(variable_ref);
             }

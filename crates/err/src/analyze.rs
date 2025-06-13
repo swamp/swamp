@@ -14,6 +14,14 @@ use swamp_analyzer::err::{Error, ErrorKind};
 pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
     let span = &err.node.span;
     let mut b = match &err.kind {
+        ErrorKind::ParameterTypeCanNotBeStorage(ty) => {
+            Report::build(Kind::Error, 5, "parameter type can not be storage", span)
+                .with_note(&format!("type: {ty}"))
+        }
+        ErrorKind::NotAllowedAsReturnType(ty) => {
+            Report::build(Kind::Error, 5, "not allowed as return type", span)
+                .with_note(&format!("type: {ty}"))
+        }
         ErrorKind::KeyVariableNotAllowedToBeMutable => {
             Report::build(Kind::Error, 5, "key variables can not be mut", span)
         }
@@ -197,8 +205,9 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
             Report::build(Kind::Error, 45, "unknown identifier", span)
                 .with_note(&format!("identifier: {x}"))
         }
-        ErrorKind::VariableTypeMustBeConcrete => {
+        ErrorKind::VariableTypeMustBeConcrete(encountered_type) => {
             Report::build(Kind::Error, 46, "variable type must be concrete", span)
+                .with_note(&format!("encountered_type: {encountered_type}"))
         }
         ErrorKind::ArrayIndexMustBeInt(_) => {
             Report::build(Kind::Error, 47, "array index must be int", span)
