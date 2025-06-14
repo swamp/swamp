@@ -5,14 +5,15 @@
 /// ```text
 /// offset 0:   capacity                (u16)
 /// offset 2:   element_count           (u16)
-/// offset 4:   element_size            (u16)
-/// offset 6:   slot_to_id              (u16[capacity])             // reverse lookup
-/// offset 6+2*capacity: id_to_slot     (u16[capacity])             // forward lookup
-/// offset 6+4*capacity: generation     (u16[capacity])             // bumped on alloc/remove
-/// offset 6+6*capacity:     pad (u8[pad])                          // pad to 4-byte boundary
-/// offset 6+6*capacity+pad: values (raw bytes)
+/// offset 4:   element_size            (u32)
+/// offset 8:   slot_to_id              (u16[capacity])             // reverse lookup
+/// offset 8+2*capacity: id_to_slot     (u16[capacity])             // forward lookup
+/// offset 8+4*capacity: generation     (u16[capacity])             // bumped on alloc/remove
+/// offset 8+6*capacity:     pad (u8[pad])                          // pad to 4-byte boundary
+/// offset 8+6*capacity+pad: values (raw bytes)
 /// ```
 use std::ptr;
+
 
 /// Compute total bytes needed in memory for a sparse array. Used for code generator to know
 /// how much space to reserve.
@@ -40,7 +41,7 @@ pub const fn alignment() -> usize {
 }
 
 const SLOT_OFFSET: usize = HEADER_SIZE;
-const HEADER_SIZE: usize = 6;
+const HEADER_SIZE: usize = 8;
 
 /// Initialize the sparse array to memory specified by the raw memory pointer.
 /// `base` must point to a region of at least `layout_size(capacity, element_size)` bytes.
@@ -229,6 +230,6 @@ pub const unsafe fn element_count(base: *const u8) -> u16 {
 /// Get current element size
 /// # Safety
 #[must_use]
-pub const unsafe fn element_size(base: *const u8) -> u16 {
-    unsafe { *base.add(4).cast::<u16>() }
+pub const unsafe fn element_size(base: *const u8) -> u32 {
+    unsafe { *base.add(4).cast::<u32>() }
 }

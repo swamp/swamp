@@ -6,10 +6,10 @@ use sparse_mem::{
 #[test]
 fn test_layout_size_and_alignment() {
     let capacity = 3u16;
-    let element_size = 2u16;
+    let element_size = 2u32;
     let size = layout_size(capacity, element_size);
 
-    let header = 3 * size_of::<u16>(); // capacity + element_count + element_size
+    let header = 3 * size_of::<u32>(); // capacity + element_count + element_size
     let lookup = 2 * capacity as usize * size_of::<u16>(); // slot_to_id + id_to_slot
     let generation_size = capacity as usize * size_of::<u16>();
     let before_vals = header + lookup + generation_size;
@@ -25,7 +25,7 @@ fn test_layout_size_and_alignment() {
 #[test]
 fn test_init_allocate_remove() {
     let capacity = 4u16;
-    let element_size = 1u16;
+    let element_size = 1u32;
     let size = layout_size(capacity, element_size);
     let mut memory_buffer = vec![0u8; size];
     let base = memory_buffer.as_mut_ptr();
@@ -58,7 +58,7 @@ fn test_init_allocate_remove() {
 #[test]
 fn test_element_count_and_slot_to_id_loop() {
     let capacity = 3u16;
-    let element_size = 1u16;
+    let element_size = 1u32;
     let size = layout_size(capacity, element_size);
     let mut memory_buffer = vec![0u8; size];
     let base = memory_buffer.as_mut_ptr();
