@@ -43,7 +43,7 @@ impl Add<MemorySize> for StackMemoryAddress {
     type Output = Self;
 
     fn add(self, rhs: MemorySize) -> Self::Output {
-        Self(self.0 + u32::from(rhs.0))
+        Self(self.0 + rhs.0)
     }
 }
 
@@ -51,7 +51,7 @@ impl Add<MemoryOffset> for StackMemoryAddress {
     type Output = Self;
 
     fn add(self, rhs: MemoryOffset) -> Self::Output {
-        Self(self.0 + u32::from(rhs.0))
+        Self(self.0 + rhs.0)
     }
 }
 
@@ -70,7 +70,7 @@ pub struct CountU32(pub u32);
 impl StackMemoryAddress {
     #[must_use]
     pub const fn add(&self, memory_size: MemorySize) -> Self {
-        Self(self.0 + memory_size.0 as u32)
+        Self(self.0 + memory_size.0)
     }
 }
 
@@ -503,7 +503,7 @@ pub struct MemorySize(pub u32);
 
 impl Display for MemorySize {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let bytes = self.0 as f64;
+        let bytes = f64::from(self.0);
 
         if bytes < 1024.0 {
             write!(f, "{bytes} B")
