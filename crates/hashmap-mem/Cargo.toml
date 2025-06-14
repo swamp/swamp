@@ -2,6 +2,11 @@
 name = "hashmap-mem"
 version = "0.1.16"
 edition = "2024"
+description = "Fast, low-overhead in-memory hashmap implementation optimized for performance using fxhash"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+keywords = ["hashmap", "performance", "memory", "fxhash", "data-structure"]
+categories = ["data-structures", "caching", "memory-management"]
 
 [dependencies]
 fxhash = "0.2.1"
