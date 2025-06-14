@@ -37,7 +37,8 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
 
         let collection_ptr_reg = self.emit_scalar_rvalue(&iterable.resolved_expression, ctx);
-        match collection_type.underlying() {
+        let underlying_collection = collection_type.underlying();
+        match underlying_collection {
             Type::Range(anon_struct_type) => {
                 self.emit_for_loop_lambda(
                     destination,
@@ -81,7 +82,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            Type::MapStorage(key, value, size) => {
+            Type::DynamicLengthMapView(key, value) | Type::MapStorage(key, value, ..) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,
@@ -98,7 +99,7 @@ impl CodeBuilder<'_> {
             }
 
             _ => {
-                panic!("can not iterate this collection {collection_type}");
+                panic!("can not iterate this collection {underlying_collection}");
             }
         }
 

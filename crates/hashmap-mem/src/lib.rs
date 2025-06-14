@@ -17,21 +17,23 @@ pub enum BucketStatus {
 #[derive(Copy, Clone, Debug)]
 pub struct MapHeader {
     // Do not change the order of the fields!
-    pub capacity: u16,
-    pub element_count: u16,
-    pub key_size: u16,
-    pub value_size: u16,
+    pub capacity: u16,      // Do not change,
+    pub element_count: u16, // Do not change
+    pub key_size: u32,
+    pub value_size: u32,
+
+    pub value_offset: u32,
+    pub bucket_size: u32,
+
     pub logical_limit: u16,
-    pub bucket_size: u16,
-    pub value_offset: u16,
     pub key_offset: u8,
     pub padding2: u8,
 }
 
 pub struct MapInit {
-    pub key_size: u16,
+    pub key_size: u32,
     pub key_alignment: u8,
-    pub value_size: u16,
+    pub value_size: u32,
     pub value_alignment: u8,
     pub capacity: u16,
     pub logical_limit: u16,
@@ -39,9 +41,9 @@ pub struct MapInit {
 
 #[derive(Clone, Copy, Debug)]
 pub struct BucketLayout {
-    pub bucket_size: u16,
+    pub bucket_size: u32,
     pub key_offset: u8,
-    pub value_offset: u16,
+    pub value_offset: u32,
 }
 
 const MAP_BUCKETS_OFFSET: usize = size_of::<MapHeader>();
@@ -58,21 +60,21 @@ fn calculate_hash_bytes(key_bytes: &[u8]) -> u64 {
 #[inline]
 #[must_use]
 pub fn calculate_bucket_layout(
-    key_size: u16,
+    key_size: u32,
     key_alignment: u8,
-    value_size: u16,
+    value_size: u32,
     value_alignment: u8,
 ) -> BucketLayout {
-    let status_size: u16 = 1;
+    let status_size: u32 = 1;
     let mut current_offset = status_size;
 
     // Align key
-    let key_align = u16::from(key_alignment);
+    let key_align = u32::from(key_alignment);
     let key_offset = (current_offset + key_align - 1) & !(key_align - 1);
     current_offset = key_offset + key_size;
 
     // Align value
-    let value_align = u16::from(value_alignment);
+    let value_align = u32::from(value_alignment);
     let value_offset = (current_offset + value_align - 1) & !(value_align - 1);
     current_offset = value_offset + value_size;
 
@@ -130,7 +132,7 @@ pub unsafe fn init(map_base: *mut u8, config: &MapInit) {
         // Initialize buckets to empty
         let buckets_start_ptr = map_base.add(MAP_BUCKETS_OFFSET);
         let capacity = usize::from(config.capacity);
-        let bucket_size = usize::from(layout.bucket_size);
+        let bucket_size = layout.bucket_size as usize;
 
         // Zero out all bucket status bytes (Empty = 0)
         for i in 0..capacity {

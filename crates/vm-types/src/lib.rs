@@ -34,7 +34,7 @@ impl Display for RegIndex {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct MemoryAddress(pub u16);
+pub struct MemoryAddress(pub u32);
 
 #[derive(Copy, Clone)]
 pub struct StackMemoryAddress(pub u32);
@@ -95,7 +95,7 @@ impl Display for HeapMemoryRegion {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct FrameMemoryAddress(pub u16);
+pub struct FrameMemoryAddress(pub u32);
 
 impl Display for FrameMemoryAddress {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -193,7 +193,7 @@ impl FrameMemoryAddress {
 
 #[must_use]
 pub fn align_to(addr: MemoryOffset, alignment: MemoryAlignment) -> MemoryOffset {
-    MemoryOffset(align(addr.0 as usize, alignment.into()) as u16)
+    MemoryOffset(align(addr.0 as usize, alignment.into()) as u32)
 }
 
 /// # Arguments
@@ -408,7 +408,7 @@ impl AggregateMemoryLocation {
 }
 
 #[derive(Debug, Copy, Eq, PartialEq, Hash, Clone, Ord, PartialOrd)]
-pub struct MemoryOffset(pub u16);
+pub struct MemoryOffset(pub u32);
 
 impl MemoryOffset {
     #[must_use]
@@ -425,7 +425,7 @@ impl Display for MemoryOffset {
 
 impl MemoryOffset {
     pub fn space(&mut self, memory_size: MemorySize, alignment: MemoryAlignment) -> Self {
-        let start = align(self.0 as usize, alignment.into()) as u16;
+        let start = align(self.0 as usize, alignment.into()) as u32;
         self.0 = start + memory_size.0;
         Self(start)
     }
@@ -466,8 +466,8 @@ impl MemoryOffset {
 impl MemoryOffset {
     #[must_use]
     pub fn add(&self, size: MemorySize, alignment: MemoryAlignment) -> Self {
-        let new_start = align(self.0 as usize, alignment.into());
-        Self(new_start as u16 + size.0)
+        let new_start = align(self.0 as usize, alignment.into()) as u32;
+        Self(new_start + size.0)
     }
 }
 
@@ -499,11 +499,21 @@ impl Div<Self> for HeapMemorySize {
 }
 
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]
-pub struct MemorySize(pub u16);
+pub struct MemorySize(pub u32);
 
 impl Display for MemorySize {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "{:X}", self.0)
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let bytes = self.0 as f64;
+
+        if bytes < 1024.0 {
+            write!(f, "{bytes} B")
+        } else if bytes < 1024.0 * 1024.0 {
+            write!(f, "{:.2} KiB", bytes / 1024.0)
+        } else if bytes < 1024.0 * 1024.0 * 1024.0 {
+            write!(f, "{:.2} MiB", bytes / (1024.0 * 1024.0))
+        } else {
+            write!(f, "{:.2} GiB", bytes / (1024.0 * 1024.0 * 1024.0))
+        }
     }
 }
 
@@ -514,7 +524,7 @@ impl From<MemorySize> for usize {
 }
 
 impl Div<Self> for MemorySize {
-    type Output = CountU16;
+    type Output = CountU32;
 
     fn div(self, rhs: Self) -> Self::Output {
         assert!(rhs.0 > 0, "Division by zero in MemorySize");
@@ -528,7 +538,7 @@ impl Div<Self> for MemorySize {
             "MemorySize division must be exact and positive"
         );
 
-        CountU16(self.0 / rhs.0)
+        CountU32(self.0 / rhs.0)
     }
 }
 
@@ -598,7 +608,7 @@ impl TryInto<MemoryAlignment> for usize {
 impl From<MemoryAlignment> for MemoryOffset {
     fn from(val: MemoryAlignment) -> Self {
         let octets: usize = val.into();
-        Self(octets as u16)
+        Self(octets as u32)
     }
 }
 
@@ -609,18 +619,18 @@ pub fn align_frame_addr(
 ) -> FrameMemoryAddress {
     let raw_addr = align(memory_address.0 as usize, alignment.into());
 
-    FrameMemoryAddress(raw_addr as u16)
+    FrameMemoryAddress(raw_addr as u32)
 }
 
 #[must_use]
 pub fn align_offset(memory_address: MemoryOffset, alignment: MemoryAlignment) -> MemoryOffset {
     let raw_addr = align(memory_address.0 as usize, alignment.into());
 
-    MemoryOffset(raw_addr as u16)
+    MemoryOffset(raw_addr as u32)
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct FrameMemorySize(pub u16);
+pub struct FrameMemorySize(pub u32);
 
 impl Display for FrameMemorySize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -715,8 +725,8 @@ pub struct VecHeader {
     pub element_count: u16,
 }
 
-pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u16);
-pub const VEC_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(size_of::<VecHeader>() as u16);
+pub const VEC_HEADER_SIZE: MemorySize = MemorySize(size_of::<VecHeader>() as u32);
+pub const VEC_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(size_of::<VecHeader>() as u32);
 pub const VEC_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
 
 pub const VEC_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
@@ -729,7 +739,7 @@ pub struct VecIterator {
     pub index: u16,
 }
 
-pub const VEC_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<VecIterator>() as u16);
+pub const VEC_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<VecIterator>() as u32);
 pub const VEC_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
@@ -738,7 +748,7 @@ pub struct SparseIterator {
     pub index: u16,
 }
 
-pub const SPARSE_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<SparseIterator>() as u16);
+pub const SPARSE_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<SparseIterator>() as u32);
 pub const SPARSE_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
@@ -749,7 +759,7 @@ pub struct RangeIterator {
     pub direction: i32,
 }
 
-pub const RANGE_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<RangeIterator>() as u16);
+pub const RANGE_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<RangeIterator>() as u32);
 pub const RANGE_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
@@ -760,7 +770,7 @@ pub struct RangeHeader {
     pub max: i32,
     pub inclusive: bool,
 }
-pub const RANGE_HEADER_SIZE: MemorySize = MemorySize(size_of::<RangeHeader>() as u16);
+pub const RANGE_HEADER_SIZE: MemorySize = MemorySize(size_of::<RangeHeader>() as u32);
 pub const RANGE_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
@@ -783,18 +793,19 @@ pub struct GridHeader {
     /// - **ABI stability**: External tools, debuggers, and serializers can consistently locate
     ///   `capacity` and `element_count` across all container types.
     pub element_count: u16, // Always same as capacity
+    pub element_size: u32,
 
     pub width: u16,
     pub height: u16,
 }
 
-pub const GRID_HEADER_SIZE: MemorySize = MemorySize(size_of::<GridHeader>() as u16);
+pub const GRID_HEADER_SIZE: MemorySize = MemorySize(size_of::<GridHeader>() as u32);
 pub const GRID_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
-pub const GRID_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(8);
+pub const GRID_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(12);
 
 // NOTE: Must align to U32, therefor the padding at the end
 
-pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u16);
+pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u32);
 pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
 pub const MAP_HEADER_KEY_SIZE_OFFSET: MemoryOffset = MemoryOffset(4);
 pub const MAP_HEADER_TUPLE_SIZE_OFFSET: MemoryOffset = MemoryOffset(6);
@@ -807,7 +818,7 @@ pub struct MapIterator {
     pub index: u32,
 }
 
-pub const MAP_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<MapIterator>() as u16);
+pub const MAP_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<MapIterator>() as u32);
 pub const MAP_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
@@ -818,7 +829,7 @@ pub struct StringHeader {
     pub byte_count: u32,  // Count should be second
 }
 
-pub const STRING_HEADER_SIZE: MemorySize = MemorySize(size_of::<StringHeader>() as u16);
+pub const STRING_HEADER_SIZE: MemorySize = MemorySize(size_of::<StringHeader>() as u32);
 pub const STRING_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
 pub const STRING_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 

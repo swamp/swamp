@@ -527,7 +527,7 @@ impl CodeBuilder<'_> {
 
                             let specific_mem_location = FrameMemoryRegion {
                                 addr: region.frame_memory_region.addr
-                                    + swamp_vm_types::MemoryOffset(memory_offset as u16),
+                                    + swamp_vm_types::MemoryOffset(memory_offset as u32),
                                 size: REG_ON_FRAME_SIZE,
                             };
 
@@ -593,7 +593,7 @@ impl CodeBuilder<'_> {
 
                         let specific_mem_location = FrameMemoryRegion {
                             addr: base_mem_addr_of_spilled_range
-                                + swamp_vm_types::MemoryOffset(seq_start_offset as u16),
+                                + swamp_vm_types::MemoryOffset(seq_start_offset as u32),
                             size: REG_ON_FRAME_SIZE,
                         };
 

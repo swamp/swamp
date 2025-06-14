@@ -83,24 +83,22 @@ impl Vm {
     pub fn execute_map_open_addressing_init(
         &mut self,
         self_map_header_reg: u8,
-        logical_limit_lower: u8,
-        logical_limit_upper: u8,
-        key_size_lower: u8,
-        key_size_upper: u8,
-        value_size_lower: u8,
-        value_size_upper: u8,
-        key_and_value_alignment: u8,
+        logical_limit_immediate_lower: u8,
+        logical_limit_immediate_upper: u8,
+        key_size_reg: u8,
+        key_alignment: u8,
+        value_size_reg: u8,
+        value_alignment: u8,
     ) {
         let map_header_addr = get_reg!(self, self_map_header_reg);
         let map_header = self.memory.get_heap_ptr(map_header_addr as usize);
-        let logical_limit = u16_from_u8s!(logical_limit_lower, logical_limit_upper);
-        let key_size = u16_from_u8s!(key_size_lower, key_size_upper);
-        let value_size = u16_from_u8s!(value_size_lower, value_size_upper);
+        let logical_limit =
+            u16_from_u8s!(logical_limit_immediate_lower, logical_limit_immediate_upper);
+        let key_size = get_reg!(self, key_size_reg);
+        let value_size = get_reg!(self, value_size_reg);
         let capacity = logical_limit.next_power_of_two();
         debug_assert_ne!(capacity, 0);
         assert!(capacity.is_power_of_two());
-        let key_alignment = key_and_value_alignment >> 4;
-        let value_alignment = key_and_value_alignment & 0xf;
 
         let bucket_layout = hashmap_mem::calculate_bucket_layout(
             key_size,

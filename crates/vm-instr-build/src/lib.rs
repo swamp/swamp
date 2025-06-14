@@ -28,7 +28,7 @@ pub const fn u16_to_u8_pair(v: u16) -> (u8, u8) {
     (bytes[0], bytes[1])
 }
 
-const fn u32_to_bytes(a: u32) -> (u8, u8, u8, u8) {
+pub const fn u32_to_bytes(a: u32) -> (u8, u8, u8, u8) {
     let bytes = a.to_le_bytes();
     (bytes[0], bytes[1], bytes[2], bytes[3])
 }
@@ -124,8 +124,6 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
     temp_reg: u8,
 }
-
-impl InstructionBuilder<'_> {}
 
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
@@ -240,21 +238,19 @@ impl InstructionBuilder<'_> {
     pub fn add_grid_init(
         &mut self,
         target: &TypedRegister,
-        element_size: MemorySize,
+        element_size_reg: &TypedRegister,
         width: u16,
         height: u16,
         node: &Node,
         comment: &str,
     ) {
-        let element_size_octets = Self::u16_to_octets(element_size.0);
         let width_octets = Self::u16_to_octets(width);
         let height_octets = Self::u16_to_octets(height);
         self.state.add_instruction(
             OpCode::GridInit,
             &[
                 target.addressing(),
-                element_size_octets.0,
-                element_size_octets.1,
+                element_size_reg.addressing(),
                 width_octets.0,
                 width_octets.1,
                 height_octets.0,
@@ -275,7 +271,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let element_size_bytes = u16_to_u8_pair(element_size.0);
+        let element_size_bytes = u32_to_bytes(element_size.0);
         self.state.add_instruction(
             OpCode::GridGetEntryAddr,
             &[
@@ -285,6 +281,8 @@ impl InstructionBuilder<'_> {
                 y_reg.addressing(),
                 element_size_bytes.0,
                 element_size_bytes.1,
+                element_size_bytes.2,
+                element_size_bytes.3,
             ],
             node,
             comment,
@@ -299,7 +297,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let element_size_octets = Self::u16_to_octets(element_size.0);
+        let element_size_octets = u32_to_bytes(element_size.0);
         let capacity_octets = Self::u16_to_octets(capacity);
         self.state.add_instruction(
             OpCode::SparseInit,
@@ -307,6 +305,8 @@ impl InstructionBuilder<'_> {
                 target.addressing(),
                 element_size_octets.0,
                 element_size_octets.1,
+                element_size_octets.2,
+                element_size_octets.3,
                 capacity_octets.0,
                 capacity_octets.1,
             ],
@@ -324,7 +324,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let element_size_octets = Self::u16_to_octets(element_size.0);
+        let element_size_octets = u32_to_bytes(element_size.0);
         self.state.add_instruction(
             OpCode::SparseAddGiveEntryAddress,
             &[
@@ -333,6 +333,8 @@ impl InstructionBuilder<'_> {
                 sparse_addr_reg.addressing(),
                 element_size_octets.0,
                 element_size_octets.1,
+                element_size_octets.2,
+                element_size_octets.3,
             ],
             node,
             comment,
@@ -379,19 +381,21 @@ impl InstructionBuilder<'_> {
         dest_entry_address_reg: &TypedRegister,
         sparse_ptr_reg: &PointerLocation,
         int_handle_reg: &TypedRegister,
-        memory_size: MemorySize,
+        element_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
-        let memory_size_bytes = u16_to_u8_pair(memory_size.0);
+        let element_size_bytes = u32_to_bytes(element_size.0);
         self.state.add_instruction(
             OpCode::SparseGetEntryAddr,
             &[
                 dest_entry_address_reg.addressing(),
                 sparse_ptr_reg.addressing(),
                 int_handle_reg.addressing(),
-                memory_size_bytes.0,
-                memory_size_bytes.1,
+                element_size_bytes.0,
+                element_size_bytes.1,
+                element_size_bytes.2,
+                element_size_bytes.3,
             ],
             node,
             comment,
@@ -439,15 +443,17 @@ impl InstructionBuilder<'_> {
 
          */
 
-        let (element_size_lower, element_size_upper) = u16_to_u8_pair(element_size.0);
+        let element_size_bytes = u32_to_bytes(element_size.0);
         self.state.add_instruction(
             OpCode::VecGet,
             &[
                 target.addressing(),
                 self_addr.addressing(),
                 index.addressing(),
-                element_size_lower,
-                element_size_upper,
+                element_size_bytes.0,
+                element_size_bytes.1,
+                element_size_bytes.2,
+                element_size_bytes.3,
             ],
             node,
             comment,
@@ -537,7 +543,7 @@ impl InstructionBuilder<'_> {
 
 
          */
-        let element_size_bytes = u16_to_u8_pair(element_item.0);
+        let element_size_bytes = u32_to_bytes(element_item.0);
         self.state.add_instruction(
             OpCode::VecPushAddr,
             &[
@@ -545,6 +551,8 @@ impl InstructionBuilder<'_> {
                 vec_self_reg.addressing(),
                 element_size_bytes.0,
                 element_size_bytes.1,
+                element_size_bytes.2,
+                element_size_bytes.3,
             ],
             node,
             comment,
@@ -567,7 +575,7 @@ impl InstructionBuilder<'_> {
 
          */
 
-        let element_size_bytes = Self::u16_to_octets(element_size.0);
+        let element_size_bytes = u32_to_bytes(element_size.0);
         self.state.add_instruction(
             OpCode::VecPop,
             &[
@@ -575,6 +583,8 @@ impl InstructionBuilder<'_> {
                 self_addr.addressing(),
                 element_size_bytes.0,
                 element_size_bytes.1,
+                element_size_bytes.2,
+                element_size_bytes.3,
             ],
             node,
             comment,
@@ -596,7 +606,7 @@ impl InstructionBuilder<'_> {
         ));
 
          */
-        let element_size_bytes = Self::u16_to_octets(element_size.0);
+        let element_size_bytes = u32_to_bytes(element_size.0);
         self.state.add_instruction(
             OpCode::VecRemoveIndex,
             &[
@@ -604,6 +614,8 @@ impl InstructionBuilder<'_> {
                 element_item.addressing(),
                 element_size_bytes.0,
                 element_size_bytes.1,
+                element_size_bytes.2,
+                element_size_bytes.3,
             ],
             node,
             comment,
@@ -731,10 +743,16 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let pairs = u16_to_u8_pair(frame_address_to_convert.addr.0);
+        let frame_addr_bytes = u32_to_bytes(frame_address_to_convert.addr.0);
         self.state.add_instruction(
             OpCode::LdPtrFromEffectiveFrameAddress,
-            &[target_heap.addressing(), pairs.0, pairs.1],
+            &[
+                target_heap.addressing(),
+                frame_addr_bytes.0,
+                frame_addr_bytes.1,
+                frame_addr_bytes.2,
+                frame_addr_bytes.3,
+            ],
             node,
             &format!("{comment} region: {frame_address_to_convert}"),
         );
@@ -751,7 +769,14 @@ impl InstructionBuilder<'_> {
         let address_bytes = stored_in_frame.addr.0.to_le_bytes();
         self.state.add_instruction(
             OpCode::LdRegFromFrameRange,
-            &[target_reg, address_bytes[0], address_bytes[1], count],
+            &[
+                target_reg,
+                address_bytes[0],
+                address_bytes[1],
+                address_bytes[2],
+                address_bytes[3],
+                count,
+            ],
             node,
             comment,
         );
@@ -767,7 +792,13 @@ impl InstructionBuilder<'_> {
         let address_bytes = stored_in_frame.addr.0.to_le_bytes();
         self.state.add_instruction(
             OpCode::LdRegFromFrameUsingMask,
-            &[register_mask, address_bytes[0], address_bytes[1]],
+            &[
+                register_mask,
+                address_bytes[0],
+                address_bytes[1],
+                address_bytes[2],
+                address_bytes[3],
+            ],
             node,
             comment,
         );
@@ -784,7 +815,14 @@ impl InstructionBuilder<'_> {
         let address_bytes = frame_mem.addr.0.to_le_bytes();
         self.state.add_instruction(
             OpCode::StRegToFrame,
-            &[address_bytes[0], address_bytes[1], source_reg, count],
+            &[
+                address_bytes[0],
+                address_bytes[1],
+                address_bytes[2],
+                address_bytes[3],
+                source_reg,
+                count,
+            ],
             node,
             comment,
         );
@@ -800,71 +838,12 @@ impl InstructionBuilder<'_> {
         let address_bytes = start_frame_mem.0.to_le_bytes();
         self.state.add_instruction(
             OpCode::StRegToFrameUsingMask,
-            &[address_bytes[0], address_bytes[1], source_reg_mask],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_block_copy_with_offset(
-        &mut self,
-        target_output_destination: &MemoryLocation,
-        source_memory_location: &MemoryLocation,
-        node: &Node,
-        comment: &str,
-    ) {
-        // TODO: Bring back
-        /*
-        debug_assert_eq!(
-            target_output_destination.ty.basic_type.total_size,
-            source_memory_location.ty.basic_type.total_size
-        );
-
-         */
-        let target_offset_bytes = u16_to_u8_pair(target_output_destination.offset.0);
-        let source_offset_bytes = u16_to_u8_pair(source_memory_location.offset.0);
-        let size_bytes = u16_to_u8_pair(target_output_destination.ty.basic_type.total_size.0);
-
-        self.state.add_instruction(
-            OpCode::BlockCopyWithOffsets,
             &[
-                target_output_destination.base_ptr_reg.addressing(),
-                target_offset_bytes.0,
-                target_offset_bytes.1,
-                source_memory_location.base_ptr_reg.addressing(),
-                source_offset_bytes.0,
-                source_offset_bytes.1,
-                size_bytes.0,
-                size_bytes.1,
-            ],
-            node,
-            comment,
-        );
-    }
-
-    pub fn add_block_copy_with_offset_with_specific_size(
-        &mut self,
-        target_output_destination: &MemoryLocation,
-        source_memory_location: &MemoryLocation,
-        memory_size: MemorySize,
-        node: &Node,
-        comment: &str,
-    ) {
-        let target_offset_bytes = u16_to_u8_pair(target_output_destination.offset.0);
-        let source_offset_bytes = u16_to_u8_pair(source_memory_location.offset.0);
-        let size_bytes = u16_to_u8_pair(memory_size.0);
-
-        self.state.add_instruction(
-            OpCode::BlockCopyWithOffsets,
-            &[
-                target_output_destination.base_ptr_reg.addressing(),
-                target_offset_bytes.0,
-                target_offset_bytes.1,
-                source_memory_location.base_ptr_reg.addressing(),
-                source_offset_bytes.0,
-                source_offset_bytes.1,
-                size_bytes.0,
-                size_bytes.1,
+                address_bytes[0],
+                address_bytes[1],
+                address_bytes[2],
+                address_bytes[3],
+                source_reg_mask,
             ],
             node,
             comment,
@@ -873,24 +852,17 @@ impl InstructionBuilder<'_> {
 
     pub fn add_block_copy_with_offset_with_variable_size(
         &mut self,
-        target_output_destination: &MemoryLocation,
-        source_memory_location: &MemoryLocation,
+        target_output_destination: &PointerLocation,
+        source_memory_location: &PointerLocation,
         memory_size_reg: &TypedRegister,
         node: &Node,
         comment: &str,
     ) {
-        let target_offset_bytes = u16_to_u8_pair(target_output_destination.offset.0);
-        let source_offset_bytes = u16_to_u8_pair(source_memory_location.offset.0);
-
         self.state.add_instruction(
             OpCode::BlockCopyWithOffsetsVariableSize,
             &[
-                target_output_destination.base_ptr_reg.addressing(),
-                target_offset_bytes.0,
-                target_offset_bytes.1,
-                source_memory_location.base_ptr_reg.addressing(),
-                source_offset_bytes.0,
-                source_offset_bytes.1,
+                target_output_destination.ptr_reg.addressing(),
+                source_memory_location.ptr_reg.addressing(),
                 memory_size_reg.addressing(),
             ],
             node,
@@ -898,15 +870,15 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_block_copy(
+    pub fn add_block_copy_with_immediate_size(
         &mut self,
-        target_base_ptr_reg: &TypedRegister,
-        source_base_ptr_reg: &TypedRegister,
+        target_base_ptr_reg: &PointerLocation,
+        source_base_ptr_reg: &PointerLocation,
         memory_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
-        let size_bytes = u16_to_u8_pair(memory_size.0);
+        let size_bytes = u32_to_bytes(memory_size.0);
 
         self.state.add_instruction(
             OpCode::BlockCopy,
@@ -915,6 +887,8 @@ impl InstructionBuilder<'_> {
                 source_base_ptr_reg.addressing(),
                 size_bytes.0,
                 size_bytes.1,
+                size_bytes.2,
+                size_bytes.3,
             ],
             node,
             comment,
@@ -1117,11 +1091,20 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let addr_bytes = u16_to_u8_pair(frame_region.addr.0);
-        let size_bytes = u16_to_u8_pair(frame_region.size.0);
+        let addr_bytes = u32_to_bytes(frame_region.addr.0);
+        let size_bytes = u32_to_bytes(frame_region.size.0);
         self.state.add_instruction(
             OpCode::FrameMemClr,
-            &[addr_bytes.0, addr_bytes.1, size_bytes.0, size_bytes.1],
+            &[
+                addr_bytes.0,
+                addr_bytes.1,
+                addr_bytes.2,
+                addr_bytes.3,
+                size_bytes.0,
+                size_bytes.1,
+                size_bytes.2,
+                size_bytes.3,
+            ],
             node,
             comment,
         );
@@ -1301,9 +1284,9 @@ impl InstructionBuilder<'_> {
         &mut self,
         target_map_to_init: &PointerLocation,
         logical_limit: CountU16,
-        key_size: MemorySize,
+        key_size_reg: &TypedRegister,
         key_alignment: MemoryAlignment,
-        value_size: MemorySize,
+        value_size_reg: &TypedRegister,
         value_alignment: MemoryAlignment,
         node: &Node,
         comment: &str,
@@ -1311,13 +1294,9 @@ impl InstructionBuilder<'_> {
         debug_assert!(logical_limit.0 > 0);
 
         let logical_limit_bytes = u16_to_u8_pair(logical_limit.0);
-        let key_size_bytes = u16_to_u8_pair(key_size.0);
-        let value_size_bytes = u16_to_u8_pair(value_size.0);
 
         let key_alignment_usize: usize = key_alignment.into();
         let value_alignment_usize: usize = value_alignment.into();
-        let packed_alignment =
-            ((key_alignment_usize as u8) << 4) | ((value_alignment_usize as u8) & 0xf_u8);
 
         //let value_size_bytes = u16_to_u8_pair(value_size.0);
         self.state.add_instruction(
@@ -1326,11 +1305,10 @@ impl InstructionBuilder<'_> {
                 target_map_to_init.ptr_reg.addressing(),
                 logical_limit_bytes.0,
                 logical_limit_bytes.1,
-                key_size_bytes.0,
-                key_size_bytes.1,
-                value_size_bytes.0,
-                value_size_bytes.1,
-                packed_alignment,
+                key_size_reg.addressing(),
+                key_alignment_usize as u8,
+                value_size_reg.addressing(),
+                value_alignment_usize as u8,
             ],
             node,
             comment,
@@ -1381,14 +1359,16 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let (element_size_lower, element_size_upper) = u16_to_u8_pair(element_size.0);
+        let element_size_bytes = u32_to_bytes(element_size.0);
         self.state.add_instruction(
             OpCode::VecIterInit,
             &[
                 iterator_target.addressing(),
                 pointer_to_vec_header.addressing(),
-                element_size_lower,
-                element_size_upper,
+                element_size_bytes.0,
+                element_size_bytes.1,
+                element_size_bytes.2,
+                element_size_bytes.3,
             ],
             node,
             comment,
@@ -1457,13 +1437,15 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         //assert_eq!(u32_reg.ty().underlying().total_size.0, 4);
-        let offset_bytes = u16_to_u8_pair(scalar_lvalue_location.offset.0);
+        let offset_bytes = u32_to_bytes(scalar_lvalue_location.offset.0);
         self.state.add_instruction(
             OpCode::St32UsingPtrWithOffset,
             &[
                 scalar_lvalue_location.base_ptr_reg.addressing(),
                 offset_bytes.0,
                 offset_bytes.1,
+                offset_bytes.2,
+                offset_bytes.3,
                 u32_reg.index,
             ],
             node,
@@ -1479,13 +1461,15 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         //assert_eq!(u16_reg.ty().underlying().total_size.0, 2);
-        let offset_bytes = u16_to_u8_pair(scalar_lvalue_location.offset.0);
+        let offset_bytes = u32_to_bytes(scalar_lvalue_location.offset.0);
         self.state.add_instruction(
             OpCode::St16UsingPtrWithOffset,
             &[
                 scalar_lvalue_location.base_ptr_reg.addressing(),
                 offset_bytes.0,
                 offset_bytes.1,
+                offset_bytes.2,
+                offset_bytes.3,
                 u16_reg.index,
             ],
             node,
@@ -1501,13 +1485,15 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         // TODO: Bring this back. // assert_eq!(u8_reg.ty().underlying().total_size.0, 1);
-        let offset_bytes = u16_to_u8_pair(scalar_lvalue_location.offset.0);
+        let offset_bytes = u32_to_bytes(scalar_lvalue_location.offset.0);
         self.state.add_instruction(
             OpCode::St8UsingPtrWithOffset,
             &[
                 scalar_lvalue_location.base_ptr_reg.addressing(),
                 offset_bytes.0,
                 offset_bytes.1,
+                offset_bytes.2,
+                offset_bytes.3,
                 u8_reg.index,
             ],
             node,
@@ -1590,15 +1576,17 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let bytes = u16_to_u8_pair(offset.0);
+        let offset_bytes = u32_to_bytes(offset.0);
 
         self.state.add_instruction(
             OpCode::Ld16FromPointerWithOffset,
             &[
                 dst_reg.addressing(),
                 base_ptr_reg.addressing(),
-                bytes.0,
-                bytes.1,
+                offset_bytes.0,
+                offset_bytes.1,
+                offset_bytes.2,
+                offset_bytes.3,
             ],
             node,
             comment,
@@ -1613,15 +1601,17 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let bytes = u16_to_u8_pair(offset.0);
+        let offset_bytes = u32_to_bytes(offset.0);
 
         self.state.add_instruction(
             OpCode::Ld32FromPointerWithOffset,
             &[
                 dst_reg.addressing(),
                 base_ptr_reg.addressing(),
-                bytes.0,
-                bytes.1,
+                offset_bytes.0,
+                offset_bytes.1,
+                offset_bytes.2,
+                offset_bytes.3,
             ],
             node,
             comment,
@@ -1635,11 +1625,17 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let bytes = u32_to_bytes(absolute_mem_addr.0);
+        let absolute_memory_addr = u32_to_bytes(absolute_mem_addr.0);
 
         self.state.add_instruction(
             OpCode::Ld8FromAbsoluteAddress,
-            &[dst_reg.addressing(), bytes.0, bytes.1, bytes.2, bytes.3],
+            &[
+                dst_reg.addressing(),
+                absolute_memory_addr.0,
+                absolute_memory_addr.1,
+                absolute_memory_addr.2,
+                absolute_memory_addr.3,
+            ],
             node,
             comment,
         );
@@ -1653,15 +1649,17 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let bytes = u16_to_u8_pair(offset.0);
+        let offset_bytes = u32_to_bytes(offset.0);
 
         self.state.add_instruction(
             OpCode::Ld8FromPointerWithOffset,
             &[
                 dst_reg.addressing(),
                 base_ptr_reg.addressing(),
-                bytes.0,
-                bytes.1,
+                offset_bytes.0,
+                offset_bytes.1,
+                offset_bytes.2,
+                offset_bytes.3,
             ],
             node,
             comment,
@@ -2144,15 +2142,17 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let bytes = u16_to_u8_pair(size.0);
+        let block_size_bytes = u32_to_bytes(size.0);
         self.state.add_instruction(
             OpCode::CmpBlock,
             &[
                 dest_bool_reg.addressing(),
                 first_ptr.addressing(),
                 second_ptr.addressing(),
-                bytes.0,
-                bytes.1,
+                block_size_bytes.0,
+                block_size_bytes.1,
+                block_size_bytes.2,
+                block_size_bytes.3,
             ],
             node,
             comment,

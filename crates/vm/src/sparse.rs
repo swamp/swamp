@@ -2,7 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::{TrapCode, Vm, get_reg, i16_from_u8s, set_reg, u16_from_u8s};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s, set_reg, u16_from_u8s, u32_from_u8s};
 use std::ptr;
 use swamp_vm_types::SparseIterator;
 
@@ -10,13 +10,20 @@ impl Vm {
     pub fn execute_sparse_init(
         &mut self,
         dest_reg: u8,
-        memory_size_lower: u8,
-        memory_size_upper: u8,
-        capacity_lower: u8,
-        capacity_upper: u8,
+        element_size_0: u8,
+        element_size_1: u8,
+        element_size_2: u8,
+        element_size_3: u8,
+        capacity_0: u8,
+        capacity_1: u8,
     ) {
-        let element_size = u16_from_u8s!(memory_size_lower, memory_size_upper);
-        let capacity = u16_from_u8s!(capacity_lower, capacity_upper);
+        let element_size = u32_from_u8s!(
+            element_size_0,
+            element_size_1,
+            element_size_2,
+            element_size_3
+        );
+        let capacity = u16_from_u8s!(capacity_0, capacity_1);
 
         unsafe {
             let dest_addr = get_reg!(self, dest_reg);

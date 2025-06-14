@@ -191,13 +191,25 @@ impl Memory {
         self.stack_offset = previous_stack_offset;
     }
 
+    pub(crate) fn read_debug_stack_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
+        let slice = unsafe {
+            slice::from_raw_parts(
+                self.get_stack_const_ptr(start_offset as usize),
+                size as usize,
+            )
+        };
+
+        slice.to_vec()
+    }
+
+    // ---------------- FP relative ----------------------------------
     #[must_use]
     pub fn frame_ptr(&self) -> *mut u8 {
         self.get_frame_ptr(0)
     }
 
     #[inline(always)]
-    pub fn get_frame_ptr_as_u32(&self, offset: u16) -> *mut u32 {
+    pub fn get_frame_ptr_as_u32(&self, offset: u32) -> *mut u32 {
         debug_assert!(
             (self.frame_offset + offset as usize) < self.memory_size,
             "out of stack space frame base:{} offset:{offset} total: {}",
@@ -210,35 +222,24 @@ impl Memory {
     }
 
     #[inline(always)]
-    pub fn get_frame_ptr_as_u16(&self, addressing: u16) -> *mut u16 {
+    pub fn get_frame_ptr_as_u16(&self, offset: u32) -> *mut u16 {
         debug_assert!(
-            (self.frame_offset + addressing as usize) < self.memory_size,
+            (self.frame_offset + offset as usize) < self.memory_size,
             "wrong frame addr"
         );
         // Ensure alignment
         debug_assert_eq!(
-            addressing % 2,
+            (self.frame_offset + offset as usize) % 2,
             0,
-            "Unaligned u16 access at offset {addressing}",
+            "Unaligned u16 access at offset {offset}",
         );
 
-        unsafe { self.get_frame_ptr(addressing) as *mut u16 }
-    }
-
-    pub(crate) fn read_debug_stack_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
-        let slice = unsafe {
-            slice::from_raw_parts(
-                self.get_stack_const_ptr(start_offset as usize),
-                size as usize,
-            )
-        };
-
-        slice.to_vec()
+        unsafe { self.get_frame_ptr(offset) as *mut u16 }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn get_frame_ptr(&self, fp_offset: u16) -> *mut u8 {
+    pub fn get_frame_ptr(&self, fp_offset: u32) -> *mut u8 {
         debug_assert!(
             (self.frame_offset + fp_offset as usize) < self.memory_size,
             "wrong frame addr"
@@ -249,7 +250,7 @@ impl Memory {
 
     #[inline(always)]
     #[must_use]
-    pub fn get_frame_const_ptr(&self, fp_offset: u16) -> *mut u8 {
+    pub fn get_frame_const_ptr(&self, fp_offset: u32) -> *mut u8 {
         debug_assert!(
             (self.frame_offset + fp_offset as usize) < self.memory_size,
             "wrong frame addr"
@@ -257,31 +258,16 @@ impl Memory {
 
         unsafe { self.get_heap_ptr((fp_offset as usize + self.frame_offset)) }
     }
-
-    #[inline(always)]
-    #[must_use]
-    pub const fn get_stack_const_ptr(&self, stack_offset: usize) -> *const u8 {
-        debug_assert!(stack_offset < self.memory_size, "wrong stack addr");
-        unsafe { self.memory.add(stack_offset) }
-    }
-
-    pub(crate) fn read_frame_debug_slice(&self, start_offset: u16, size: u16) -> Vec<u8> {
+    pub(crate) fn read_frame_debug_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
         let slice =
             unsafe { slice::from_raw_parts(self.get_frame_const_ptr(start_offset), size as usize) };
 
         slice.to_vec()
     }
 
-    pub(crate) fn read_debug_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
-        let slice =
-            unsafe { slice::from_raw_parts(self.memory.add(start_offset as usize), size as usize) };
-
-        slice.to_vec()
-    }
-
     #[inline(always)]
     #[must_use]
-    pub fn get_frame_ptr_as_i32(&self, some_addressing: u16) -> *mut i32 {
+    pub fn get_frame_ptr_as_i32(&self, some_addressing: u32) -> *mut i32 {
         // Ensure alignment
         debug_assert_eq!(
             some_addressing % 4,
@@ -295,7 +281,7 @@ impl Memory {
 
     #[inline(always)]
     #[must_use]
-    pub fn get_frame_const_ptr_as_i32(&self, addressing: u16) -> *const i32 {
+    pub fn get_frame_const_ptr_as_i32(&self, addressing: u32) -> *const i32 {
         // Ensure alignment
         debug_assert_eq!(
             addressing % 4,
@@ -312,7 +298,7 @@ impl Memory {
 
     #[inline(always)]
     #[must_use]
-    pub fn get_frame_const_ptr_as_u32(&self, offset: u16) -> *const u32 {
+    pub fn get_frame_const_ptr_as_u32(&self, offset: u32) -> *const u32 {
         let absolute_offset = self.frame_offset + offset as usize;
         debug_assert!(
             (self.frame_offset + offset as usize) < self.memory_size,
@@ -334,7 +320,7 @@ impl Memory {
 
     #[inline(always)]
     #[must_use]
-    pub fn get_frame_const_ptr_as_u16(&self, addressing: u16) -> *const u16 {
+    pub fn get_frame_const_ptr_as_u16(&self, addressing: u32) -> *const u16 {
         let absolute_offset = self.frame_offset + addressing as usize;
         debug_assert!(
             (self.frame_offset + addressing as usize) < self.memory_size,
@@ -355,50 +341,65 @@ impl Memory {
     }
 
     #[must_use]
-    pub fn read_frame_i32(&self, offset: u16) -> i32 {
+    pub fn read_frame_i32(&self, offset: u32) -> i32 {
         unsafe { *(self.get_frame_const_ptr_as_i32(offset)) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn read_frame_u8(&self, offset: u16) -> u8 {
+    pub fn read_frame_u8(&self, offset: u32) -> u8 {
         unsafe { *self.get_frame_const_ptr(offset) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn read_frame_bool(&self, offset: u16) -> bool {
+    pub fn read_frame_bool(&self, offset: u32) -> bool {
         unsafe { *self.get_frame_const_ptr(offset) != 0 }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn read_frame_u16(&self, offset: u16) -> u16 {
+    pub fn read_frame_u16(&self, offset: u32) -> u16 {
         unsafe { *self.get_frame_const_ptr_as_u16(offset) }
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn read_frame_u32(&self, offset: u16) -> u32 {
+    pub fn read_frame_u32(&self, offset: u32) -> u32 {
         unsafe { *self.get_frame_const_ptr_as_u32(offset) }
+    }
+
+    // ---------- Stack ---------------
+    #[inline(always)]
+    #[must_use]
+    pub const fn get_stack_const_ptr(&self, stack_offset: usize) -> *const u8 {
+        debug_assert!(stack_offset < self.memory_size, "wrong stack addr");
+        unsafe { self.memory.add(stack_offset) }
+    }
+
+    pub(crate) fn read_debug_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
+        let slice =
+            unsafe { slice::from_raw_parts(self.memory.add(start_offset as usize), size as usize) };
+
+        slice.to_vec()
     }
 
     #[must_use]
     #[inline(always)]
-    pub fn read_heap_offset_via_frame(&self, frame_offset: u16) -> u32 {
+    pub fn read_heap_offset_via_frame(&self, frame_offset: u32) -> u32 {
         self.read_frame_u32(frame_offset)
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn get_heap_ptr_via_frame(&self, frame_offset: u16) -> *mut u8 {
+    pub fn get_heap_ptr_via_frame(&self, frame_offset: u32) -> *mut u8 {
         let heap_offset = self.read_frame_u32(frame_offset);
         self.get_heap_ptr(heap_offset as usize)
     }
 
     #[inline(always)]
     #[must_use]
-    pub fn get_heap_u32_ptr_via_frame(&self, frame_offset: u16) -> *mut u32 {
+    pub fn get_heap_u32_ptr_via_frame(&self, frame_offset: u32) -> *mut u32 {
         let heap_offset = self.read_frame_u32(frame_offset);
         self.get_heap_ptr(heap_offset as usize) as *mut u32
     }
@@ -407,7 +408,7 @@ impl Memory {
     #[must_use]
     pub fn get_heap_ptr_via_frame_with_offset(
         &self,
-        frame_offset: u16,
+        frame_offset: u32,
         heap_ptr_offset: u32,
     ) -> *mut u8 {
         let heap_offset = self.read_heap_offset_via_frame(frame_offset);

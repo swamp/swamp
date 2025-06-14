@@ -2,13 +2,13 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
+use source_map_node::Node;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
-use swamp_vm_types::MemoryLocation;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
+use swamp_vm_types::{MemoryLocation, MemorySize};
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
@@ -158,7 +158,7 @@ impl CodeBuilder<'_> {
                                 MemoryLocation::new_copy_over_whole_type_with_zero_offset(
                                     variable_register,
                                 );
-                            self.builder.add_block_copy_with_offset(
+                            self.emit_block_copy_with_size_from_location(
                                 location,
                                 &source_memory_location,
                                 node,
@@ -337,5 +337,88 @@ impl CodeBuilder<'_> {
         let output = Destination::new_reg(target_register.clone());
 
         self.emit_expression(&output, expr, ctx);
+    }
+
+    pub fn emit_block_copy_with_size_from_location(
+        &mut self,
+        destination_location: &MemoryLocation,
+        source_location: &MemoryLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        let dest_pointer_location = self.emit_compute_effective_address_from_location_to_register(
+            destination_location,
+            node,
+            "flatten destination location for block copy",
+        );
+        let source_pointer_location = self
+            .emit_compute_effective_address_from_location_to_register(
+                source_location,
+                node,
+                "flatten source location for block copy",
+            );
+        self.builder.add_block_copy_with_immediate_size(
+            &dest_pointer_location,
+            &source_pointer_location,
+            source_location.ty.basic_type.total_size,
+            node,
+            comment,
+        );
+    }
+
+    pub fn emit_block_copy_with_immediate_size(
+        &mut self,
+        destination_location: &MemoryLocation,
+        source_location: &MemoryLocation,
+        size: MemorySize,
+        node: &Node,
+        comment: &str,
+    ) {
+        let dest_pointer_location = self.emit_compute_effective_address_from_location_to_register(
+            destination_location,
+            node,
+            "flatten destination location for block copy",
+        );
+        let source_pointer_location = self
+            .emit_compute_effective_address_from_location_to_register(
+                source_location,
+                node,
+                "flatten source location for block copy",
+            );
+        self.builder.add_block_copy_with_immediate_size(
+            &dest_pointer_location,
+            &source_pointer_location,
+            size,
+            node,
+            comment,
+        );
+    }
+
+    pub fn emit_block_copy_with_variable_size(
+        &mut self,
+        destination_location: &MemoryLocation,
+        source_location: &MemoryLocation,
+        size_reg: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        let dest_pointer_location = self.emit_compute_effective_address_from_location_to_register(
+            destination_location,
+            node,
+            "flatten destination location for block copy",
+        );
+        let source_pointer_location = self
+            .emit_compute_effective_address_from_location_to_register(
+                source_location,
+                node,
+                "flatten source location for block copy",
+            );
+        self.builder.add_block_copy_with_offset_with_variable_size(
+            &dest_pointer_location,
+            &source_pointer_location,
+            size_reg,
+            node,
+            comment,
+        );
     }
 }

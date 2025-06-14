@@ -274,7 +274,7 @@ impl CodeBuilder<'_> {
             VmType::new_contained_in_register(u16_type()),
             "element_size",
         );
-        self.builder.add_mov_16_immediate_value(
+        self.builder.add_mov_32_immediate_value(
             element_size_reg.register(),
             bucket_size.0,
             node,
@@ -298,7 +298,7 @@ impl CodeBuilder<'_> {
             "(element_count*element_size) + collection header size",
         );
 
-        self.builder.add_block_copy_with_offset_with_variable_size(
+        self.emit_block_copy_with_variable_size(
             &destination_tail,
             &source_tail,
             src_count_in_bytes_reg.register(),
@@ -383,7 +383,7 @@ impl CodeBuilder<'_> {
                 );
             }
         } else {
-            self.builder.add_block_copy_with_offset(
+            self.emit_block_copy_with_size_from_location(
                 destination_memory_location,
                 source_memory_location,
                 node,

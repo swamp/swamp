@@ -150,14 +150,29 @@ impl CodeBuilder<'_> {
                 );
             }
             BasicTypeKind::GridStorage(element_type, width, height) => {
+                let hwm = self.temp_registers.save_mark();
+
+                let init_element_size = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u16_type()),
+                    &format!("{comment} - init grid init_element_size"),
+                );
+
+                self.builder.add_mov_32_immediate_value(
+                    init_element_size.register(),
+                    element_type.total_size.0,
+                    node,
+                    &format!("{comment} -set grid element size {lvalue_location}"),
+                );
                 self.builder.add_grid_init(
                     &lvalue_location.pointer_location().unwrap().ptr_reg,
-                    element_type.total_size,
+                    &init_element_size.register,
                     *width as u16,
                     *height as u16,
                     node,
                     comment,
                 );
+
+                self.temp_registers.restore_to_mark(hwm);
             }
             BasicTypeKind::MapStorage {
                 capacity,
@@ -184,12 +199,33 @@ impl CodeBuilder<'_> {
                     node,
                     &format!("{comment} - store capacity"),
                 );
-                self.temp_registers.restore_to_mark(hwm);
 
                 let unaligned_key_size = tuple_type.fields[0].ty.total_size;
                 let key_alignment = tuple_type.fields[0].ty.max_alignment;
                 let unaligned_value_size = tuple_type.fields[1].ty.total_size;
                 let value_alignment = tuple_type.fields[1].ty.max_alignment;
+
+                let init_key_size = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u32_type()),
+                    &format!("{comment} - init map key_size reg"),
+                );
+                self.builder.add_mov_32_immediate_value(
+                    init_key_size.register(),
+                    unaligned_key_size.0,
+                    node,
+                    &format!("{comment} -set init key_size value to {lvalue_location}"),
+                );
+
+                let init_value_size = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u32_type()),
+                    &format!("{comment} - init map value_size reg"),
+                );
+                self.builder.add_mov_32_immediate_value(
+                    init_value_size.register(),
+                    unaligned_value_size.0,
+                    node,
+                    &format!("{comment} -set init value_size value to {lvalue_location}"),
+                );
 
                 let map_pointer_location = self
                     .emit_compute_effective_address_from_location_to_register(
@@ -201,13 +237,15 @@ impl CodeBuilder<'_> {
                 self.builder.add_map_init_set_capacity(
                     &map_pointer_location,
                     CountU16(*logical_limit as u16),
-                    unaligned_key_size,
+                    init_key_size.register(),
                     key_alignment,
-                    unaligned_value_size,
+                    init_value_size.register(),
                     value_alignment,
                     node,
                     "initialize map (capacity, key_size, total_key_and_value_size)",
                 );
+
+                self.temp_registers.restore_to_mark(hwm);
             }
             _ => {
                 if let Some(capacity) = lvalue_location.ty.underlying().get_collection_capacity() {

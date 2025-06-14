@@ -87,7 +87,7 @@ impl CodeBuilder<'_> {
                         offset: field_offset_item.offset,
                         ty: VmType::new_unknown_placement(field_offset_item.ty.clone()),
                     };
-                    self.builder.add_block_copy_with_offset(
+                    self.emit_block_copy_with_size_from_location(
                         &target_memory_location,
                         &source_memory_location,
                         &target_variable.name,

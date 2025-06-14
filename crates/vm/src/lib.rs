@@ -279,29 +279,29 @@ impl Vm {
 
         // Store
         vm.handlers[OpCode::StRegToFrame as usize] =
-            HandlerType::Args4(Self::execute_st_regs_to_frame);
+            HandlerType::Args6(Self::execute_st_regs_to_frame);
         vm.handlers[OpCode::StRegToFrameUsingMask as usize] =
-            HandlerType::Args3(Self::execute_st_regs_to_frame_using_mask);
+            HandlerType::Args5(Self::execute_st_regs_to_frame_using_mask);
 
         vm.handlers[OpCode::St32UsingPtrWithOffset as usize] =
-            HandlerType::Args4(Self::execute_stw_using_base_ptr_and_offset);
+            HandlerType::Args6(Self::execute_stw_using_base_ptr_and_offset);
         vm.handlers[OpCode::St16UsingPtrWithOffset as usize] =
-            HandlerType::Args4(Self::execute_sth_using_base_ptr_and_offset);
+            HandlerType::Args6(Self::execute_sth_using_base_ptr_and_offset);
         vm.handlers[OpCode::St8UsingPtrWithOffset as usize] =
-            HandlerType::Args4(Self::execute_stb_using_base_ptr_and_offset);
+            HandlerType::Args6(Self::execute_stb_using_base_ptr_and_offset);
 
         // Load
         vm.handlers[OpCode::LdRegFromFrameRange as usize] =
-            HandlerType::Args4(Self::execute_ld_regs_from_frame);
+            HandlerType::Args6(Self::execute_ld_regs_from_frame);
         vm.handlers[OpCode::LdRegFromFrameUsingMask as usize] =
-            HandlerType::Args3(Self::execute_ld_regs_from_frame_using_mask);
+            HandlerType::Args5(Self::execute_ld_regs_from_frame_using_mask);
 
         vm.handlers[OpCode::Ld32FromPointerWithOffset as usize] =
-            HandlerType::Args4(Self::execute_ldw_from_base_ptr_and_offset);
+            HandlerType::Args6(Self::execute_ldw_from_base_ptr_and_offset);
         vm.handlers[OpCode::Ld16FromPointerWithOffset as usize] =
-            HandlerType::Args4(Self::execute_ldh_from_base_ptr_and_offset);
+            HandlerType::Args6(Self::execute_ldh_from_base_ptr_and_offset);
         vm.handlers[OpCode::Ld8FromPointerWithOffset as usize] =
-            HandlerType::Args4(Self::execute_ldb_from_base_ptr_and_offset);
+            HandlerType::Args6(Self::execute_ldb_from_base_ptr_and_offset);
 
         // Load immediate
         vm.handlers[OpCode::Mov8FromImmediateValue as usize] =
@@ -314,7 +314,7 @@ impl Vm {
         // Copy data in frame memory
         vm.handlers[OpCode::MovReg as usize] = HandlerType::Args2(Self::execute_mov_reg);
         vm.handlers[OpCode::LdPtrFromEffectiveFrameAddress as usize] =
-            HandlerType::Args3(Self::execute_lea);
+            HandlerType::Args5(Self::execute_lea);
 
         vm.handlers[OpCode::Ld32FromAbsoluteAddress as usize] =
             HandlerType::Args5(Self::execute_ldw_from_absolute_address);
@@ -324,13 +324,14 @@ impl Vm {
 
         // Copy to and from heap
         vm.handlers[OpCode::BlockCopyWithOffsets as usize] =
-            HandlerType::Args8(Self::execute_mov_mem_with_offsets);
-        vm.handlers[OpCode::BlockCopy as usize] = HandlerType::Args4(Self::execute_mov_mem);
+            HandlerType::Args3(Self::execute_mov_mem_with_offsets);
+        vm.handlers[OpCode::BlockCopy as usize] =
+            HandlerType::Args6(Self::execute_mov_mem_with_immediate_size);
         vm.handlers[OpCode::BlockCopyWithOffsetsVariableSize as usize] =
-            HandlerType::Args7(Self::execute_mov_mem_with_offsets_with_variable_size);
+            HandlerType::Args3(Self::execute_mov_mem_with_offsets_with_variable_size);
 
         vm.handlers[OpCode::FrameMemClr as usize] =
-            HandlerType::Args4(Self::execute_frame_memory_clear);
+            HandlerType::Args8(Self::execute_frame_memory_clear);
 
         // Comparisons - Int
         vm.handlers[OpCode::LtI32 as usize] = HandlerType::Args3(Self::execute_lt_i32);
@@ -458,7 +459,7 @@ impl Vm {
 
         // Map
         vm.handlers[OpCode::MapInitWithCapacityAndKeyAndTupleSizeAddr as usize] =
-            HandlerType::Args8(Self::execute_map_open_addressing_init);
+            HandlerType::Args7(Self::execute_map_open_addressing_init);
         vm.handlers[OpCode::MapIterInit as usize] = HandlerType::Args2(Self::execute_map_iter_init);
         vm.handlers[OpCode::MapIterNext as usize] = HandlerType::Args4(Self::execute_map_iter_next);
         vm.handlers[OpCode::MapIterNextPair as usize] =
@@ -475,7 +476,7 @@ impl Vm {
             HandlerType::Args2(Self::execute_map_overwrite);
 
         // Sparse
-        vm.handlers[OpCode::SparseInit as usize] = HandlerType::Args5(Self::execute_sparse_init);
+        vm.handlers[OpCode::SparseInit as usize] = HandlerType::Args7(Self::execute_sparse_init);
         vm.handlers[OpCode::SparseAddGiveEntryAddress as usize] =
             HandlerType::Args5(Self::execute_sparse_add_get_entry_addr);
         vm.handlers[OpCode::SparseRemove as usize] =
@@ -492,7 +493,7 @@ impl Vm {
         vm.handlers[OpCode::SparseIterNextPair as usize] =
             HandlerType::Args5(Self::execute_sparse_iter_next_pair);
 
-        vm.handlers[OpCode::GridInit as usize] = HandlerType::Args7(Self::execute_grid_init);
+        vm.handlers[OpCode::GridInit as usize] = HandlerType::Args6(Self::execute_grid_init);
         vm.handlers[OpCode::GridGetEntryAddr as usize] =
             HandlerType::Args6(Self::execute_grid_get_entry_addr);
 
@@ -1311,19 +1312,45 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_st_regs_to_frame(&mut self, a: u8, b: u8, start_reg: u8, count: u8) {
-        let offset = u8s_to_u16!(a, b);
+    fn execute_st_regs_to_frame(
+        &mut self,
+        frame_offset_0: u8,
+        frame_offset_1: u8,
+        frame_offset_2: u8,
+        frame_offset_3: u8,
+        start_reg: u8,
+        count: u8,
+    ) {
+        let frame_offset = u32_from_u8s!(
+            frame_offset_0,
+            frame_offset_1,
+            frame_offset_2,
+            frame_offset_3
+        );
         let const_reg_ptr = &self.registers[start_reg as usize] as *const u32;
-        let target_ptr = self.memory.get_frame_ptr_as_u32(offset);
+        let target_ptr = self.memory.get_frame_ptr_as_u32(frame_offset);
         unsafe {
             ptr::copy_nonoverlapping(const_reg_ptr, target_ptr, count as usize);
         }
     }
 
     #[inline]
-    fn execute_st_regs_to_frame_using_mask(&mut self, a: u8, b: u8, reg_mask: u8) {
-        let offset = u8s_to_u16!(a, b);
-        let mut target_ptr = self.memory.get_frame_ptr_as_u32(offset);
+    fn execute_st_regs_to_frame_using_mask(
+        &mut self,
+        frame_offset_0: u8,
+        frame_offset_1: u8,
+        frame_offset_2: u8,
+        frame_offset_3: u8,
+        reg_mask: u8,
+    ) {
+        let frame_offset = u32_from_u8s!(
+            frame_offset_0,
+            frame_offset_1,
+            frame_offset_2,
+            frame_offset_3
+        );
+
+        let mut target_ptr = self.memory.get_frame_ptr_as_u32(frame_offset);
         let mut const_reg_ptr = &self.registers[0usize] as *const u32;
         let mut mask = reg_mask;
         for _ in 0..8 {
@@ -1344,11 +1371,13 @@ impl Vm {
     fn execute_stw_using_base_ptr_and_offset(
         &mut self,
         base_ptr_reg: u8,
-        offset_lower: u8,
-        offset_upper: u8,
+        offset_0: u8,
+        offset_1: u8,
+        offset_2: u8,
+        offset_3: u8,
         src_reg: u8,
     ) {
-        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
         //let const_reg_ptr = &self.registers[start_reg as usize] as *const u32;
         let ptr_to_write_to = self.get_ptr_from_reg_with_offset(base_ptr_reg, offset) as *mut u32;
         let value_to_copy = get_reg!(self, src_reg);
@@ -1362,11 +1391,13 @@ impl Vm {
     fn execute_sth_using_base_ptr_and_offset(
         &mut self,
         base_ptr_reg: u8,
-        offset_lower: u8,
-        offset_upper: u8,
+        offset_0: u8,
+        offset_1: u8,
+        offset_2: u8,
+        offset_3: u8,
         src_reg: u8,
     ) {
-        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
         //let const_reg_ptr = &self.registers[start_reg as usize] as *const u32;
         let ptr_to_write_to = self.get_ptr_from_reg_with_offset(base_ptr_reg, offset) as *mut u16;
         let value_to_copy = get_reg!(self, src_reg) as u16;
@@ -1379,11 +1410,13 @@ impl Vm {
     fn execute_stb_using_base_ptr_and_offset(
         &mut self,
         base_ptr_reg: u8,
-        offset_lower: u8,
-        offset_upper: u8,
+        offset_0: u8,
+        offset_1: u8,
+        offset_2: u8,
+        offset_3: u8,
         src_reg: u8,
     ) {
-        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
         //let const_reg_ptr = &self.registers[start_reg as usize] as *const u32;
         let ptr_to_write_to = self.get_ptr_from_reg_with_offset(base_ptr_reg, offset);
         let value_to_copy = get_reg!(self, src_reg) as u8;
@@ -1398,10 +1431,12 @@ impl Vm {
         &mut self,
         dst_reg: u8,
         base_ptr_reg: u8,
-        offset_lower: u8,
-        offset_upper: u8,
+        offset_0: u8,
+        offset_1: u8,
+        offset_2: u8,
+        offset_3: u8,
     ) {
-        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
         let ptr_to_read_from = self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset);
         unsafe {
             set_reg!(self, dst_reg, *ptr_to_read_from);
@@ -1413,10 +1448,12 @@ impl Vm {
         &mut self,
         dst_reg: u8,
         base_ptr_reg: u8,
-        offset_lower: u8,
-        offset_upper: u8,
+        offset_0: u8,
+        offset_1: u8,
+        offset_2: u8,
+        offset_3: u8,
     ) {
-        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
         let ptr_to_read_from =
             self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset) as *const u32;
         unsafe {
@@ -1465,10 +1502,12 @@ impl Vm {
         &mut self,
         dst_reg: u8,
         base_ptr_reg: u8,
-        offset_lower: u8,
-        offset_upper: u8,
+        offset_0: u8,
+        offset_1: u8,
+        offset_2: u8,
+        offset_3: u8,
     ) {
-        let offset = u8s_to_u16!(offset_lower, offset_upper);
+        let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
         let ptr_to_read_from =
             self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset) as *const u16;
         unsafe {
@@ -1477,8 +1516,16 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_ld_regs_from_frame(&mut self, start_reg: u8, a: u8, b: u8, count: u8) {
-        let offset = u8s_to_u16!(a, b);
+    pub fn execute_ld_regs_from_frame(
+        &mut self,
+        start_reg: u8,
+        offset_0: u8,
+        offset_1: u8,
+        offset_2: u8,
+        offset_3: u8,
+        count: u8,
+    ) {
+        let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
         let target_reg_ptr = &mut self.registers[start_reg as usize] as *mut u32;
         let source_frame_start = self.memory.get_frame_const_ptr_as_u32(offset);
         unsafe {
@@ -1487,8 +1534,15 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_ld_regs_from_frame_using_mask(&mut self, reg_mask: u8, a: u8, b: u8) {
-        let offset = u8s_to_u16!(a, b);
+    pub fn execute_ld_regs_from_frame_using_mask(
+        &mut self,
+        reg_mask: u8,
+        offset_0: u8,
+        offset_1: u8,
+        offset_2: u8,
+        offset_3: u8,
+    ) {
+        let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
         let mut target_reg_ptr = &mut self.registers[0usize] as *mut u32;
         let mut source_frame_start = self.memory.get_frame_const_ptr_as_u32(offset);
         let mut mask = reg_mask;
@@ -1507,25 +1561,27 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_lea(&mut self, dst_reg: u8, src_offset_0: u8, src_offset_1: u8) {
+    fn execute_lea(&mut self, dst_reg: u8, offset_0: u8, offset_1: u8, offset_2: u8, offset_3: u8) {
         let ptr_addr = self.memory.frame_offset as u32;
-        set_reg!(
-            self,
-            dst_reg,
-            ptr_addr + u8s_to_u16!(src_offset_0, src_offset_1) as u32
-        );
+        let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
+        set_reg!(self, dst_reg, ptr_addr + offset);
     }
 
     #[inline]
     pub fn execute_frame_memory_clear(
         &mut self,
-        dst_pointer_frame_lower: u8,
-        dst_pointer_frame_upper: u8,
-        memory_size_lower: u8,
-        memory_size_upper: u8,
+        dst_pointer_0: u8,
+        dst_pointer_1: u8,
+        dst_pointer_2: u8,
+        dst_pointer_3: u8,
+        memory_size_0: u8,
+        memory_size_1: u8,
+        memory_size_2: u8,
+        memory_size_3: u8,
     ) {
-        let frame_offset = u8s_to_u16!(dst_pointer_frame_lower, dst_pointer_frame_upper);
-        let total_bytes = u8s_to_u16!(memory_size_lower, memory_size_upper);
+        let frame_offset =
+            u32_from_u8s!(dst_pointer_0, dst_pointer_1, dst_pointer_2, dst_pointer_3);
+        let total_bytes = u32_from_u8s!(memory_size_0, memory_size_1, memory_size_2, memory_size_3);
 
         let dst_ptr = self.memory.get_frame_ptr(frame_offset);
 
@@ -1538,36 +1594,22 @@ impl Vm {
     fn execute_mov_mem_with_offsets(
         &mut self,
         dst_pointer_reg: u8,
-        dst_offset_lower: u8,
-        dst_offset_upper: u8,
         src_pointer_reg: u8,
-        src_offset_lower: u8,
-        src_offset_upper: u8,
-        memory_size_lower: u8,
-        memory_size_upper: u8,
+        memory_size_reg: u8,
     ) {
-        let src_offset = u8s_to_u16!(src_offset_lower, src_offset_upper);
-        let dst_offset = u8s_to_u16!(dst_offset_lower, dst_offset_upper);
-        let dest_addr = get_reg!(self, dst_pointer_reg) + dst_offset as u32;
-        let src_addr = get_reg!(self, src_pointer_reg) + src_offset as u32;
-
-        let memory_size = u8s_to_u16!(memory_size_lower, memory_size_upper);
+        let dest_addr = get_reg!(self, dst_pointer_reg);
+        let src_addr = get_reg!(self, src_pointer_reg);
+        let memory_size = get_reg!(self, memory_size_reg);
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             eprintln!(
-                "BLKCPY WITH OFFSET: {:04X}>  Size={:04X} \n  \
-           DST_REG={} (0x{:08X}) + DST_OFF=0x{:04X} => DST_ADDR=0x{:08X}\n  \
-           SRC_REG={} (0x{:08X}) + SRC_OFF=0x{:04X} => SRC_ADDR=0x{:08X}",
+                "{:04X}> BLKCPY Size={:08X} \n  \
+                DST_ADDR=0x{:08X}\n  \
+                SRC_ADDR=0x{:08X}",
                 self.pc - 1,
                 memory_size,
-                dst_pointer_reg,
-                get_reg!(self, dst_pointer_reg),
-                dst_offset,
                 dest_addr,
-                src_pointer_reg,
-                get_reg!(self, src_pointer_reg),
-                src_offset,
                 src_addr,
             );
         }
@@ -1584,36 +1626,22 @@ impl Vm {
     fn execute_mov_mem_with_offsets_with_variable_size(
         &mut self,
         dst_pointer_reg: u8,
-        dst_offset_lower: u8,
-        dst_offset_upper: u8,
         src_pointer_reg: u8,
-        src_offset_lower: u8,
-        src_offset_upper: u8,
         memory_size_reg: u8,
     ) {
-        let src_offset = u8s_to_u16!(src_offset_lower, src_offset_upper);
-        let dst_offset = u8s_to_u16!(dst_offset_lower, dst_offset_upper);
-        let dest_addr = get_reg!(self, dst_pointer_reg) + dst_offset as u32;
-        let src_addr = get_reg!(self, src_pointer_reg) + src_offset as u32;
-
+        let dest_addr = get_reg!(self, dst_pointer_reg);
+        let src_addr = get_reg!(self, src_pointer_reg);
         let memory_size = get_reg!(self, memory_size_reg);
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             eprintln!(
-                "BLKCPY WITH OFFSET AND REG SIZE: {:04X}>  Size={:X} #{} \n  \
-           DST_REG={} (0x{:08X}) + DST_OFF=0x{:04X} => DST_ADDR=0x{:08X}\n  \
-           SRC_REG={} (0x{:08X}) + SRC_OFF=0x{:04X} => SRC_ADDR=0x{:08X}",
+                "{:04X}> BLKCPY Size={:08X} \n  \
+                DST_ADDR=0x{:08X}\n  \
+                SRC_ADDR=0x{:08X}",
                 self.pc - 1,
                 memory_size,
-                memory_size,
-                dst_pointer_reg,
-                get_reg!(self, dst_pointer_reg),
-                dst_offset,
                 dest_addr,
-                src_pointer_reg,
-                get_reg!(self, src_pointer_reg),
-                src_offset,
                 src_addr,
             );
         }
@@ -1627,29 +1655,31 @@ impl Vm {
     }
 
     #[inline]
-    fn execute_mov_mem(
+    fn execute_mov_mem_with_immediate_size(
         &mut self,
         dst_pointer_reg: u8,
         src_pointer_reg: u8,
-        memory_size_lower: u8,
-        memory_size_upper: u8,
+        memory_size_0: u8,
+        memory_size_1: u8,
+        memory_size_2: u8,
+        memory_size_3: u8,
     ) {
         let dest_addr = get_reg!(self, dst_pointer_reg);
         let src_addr = get_reg!(self, src_pointer_reg);
+        let memory_size = u32_from_u8s!(memory_size_0, memory_size_1, memory_size_2, memory_size_3);
 
-        let memory_size = u8s_to_u16!(memory_size_lower, memory_size_upper);
-
-        eprintln!(
-            "BLKCPY (NO OFFSET): IP={:04X} Size={:04X} \
-         DST_REG={:08X} => DST_ADDR={:08X} \
-         SRC_REG={:08X} => SRC_ADDR={:08X}",
-            self.pc,
-            memory_size,
-            get_reg!(self, dst_pointer_reg),
-            dest_addr,
-            get_reg!(self, src_pointer_reg),
-            src_addr,
-        );
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            eprintln!(
+                "{:04X}> BLKCPY Size={:08X} \n  \
+                DST_ADDR=0x{:08X}\n  \
+                SRC_ADDR=0x{:08X}",
+                self.pc - 1,
+                memory_size,
+                dest_addr,
+                src_addr,
+            );
+        }
 
         let dst_ptr = self.memory.get_heap_ptr(dest_addr as usize);
         let src_ptr = self.memory.get_heap_const_ptr(src_addr as usize);
@@ -1753,7 +1783,7 @@ impl Vm {
         self.pc = absolute_pc as usize;
 
         #[cfg(feature = "debug_vm")]
-        if self.debug_opcodes_enabled {
+        if self.debug_stats_enabled {
             self.debug.call_depth += 1;
             if self.debug.call_depth > self.debug.max_call_depth {
                 self.debug.max_call_depth = self.debug.call_depth;
@@ -1811,7 +1841,7 @@ impl Vm {
         // NOTE: Any return value is always at frame_offset + 0
 
         #[cfg(feature = "debug_vm")]
-        if self.debug_opcodes_enabled {
+        if self.debug_stats_enabled {
             self.debug.call_depth -= 1;
         }
     }
@@ -1828,8 +1858,8 @@ impl Vm {
     }
 
     #[inline]
-    pub fn get_const_ptr_from_reg_with_offset(&self, reg: u8, offset: u16) -> *const u8 {
-        let ptr_addr = get_reg!(self, reg) + offset as u32;
+    pub fn get_const_ptr_from_reg_with_offset(&self, reg: u8, offset: u32) -> *const u8 {
+        let ptr_addr = get_reg!(self, reg) + offset;
         self.memory.get_heap_const_ptr(ptr_addr as usize)
     }
 
@@ -1846,8 +1876,8 @@ impl Vm {
     }
 
     #[inline]
-    pub fn get_ptr_from_reg_with_offset(&self, reg: u8, offset: u16) -> *mut u8 {
-        let ptr_addr = get_reg!(self, reg) + offset as u32;
+    pub fn get_ptr_from_reg_with_offset(&self, reg: u8, offset: u32) -> *mut u8 {
+        let ptr_addr = get_reg!(self, reg) + offset;
         self.memory.get_heap_ptr(ptr_addr as usize)
     }
 }

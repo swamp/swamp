@@ -469,7 +469,7 @@ pub fn disasm(
         OpCode::MovEqualToZero => &[to_write_reg(operands[0], &u32_type(), frame_memory_info)],
 
         OpCode::St32UsingPtrWithOffset => {
-            let offset = u16::from_le_bytes([operands[1], operands[2]]);
+            let offset = u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
 
             &[
                 DecoratedOperandAccessKind::WriteBaseRegWithOffset(
@@ -481,7 +481,7 @@ pub fn disasm(
         }
 
         OpCode::St8UsingPtrWithOffset => {
-            let offset = u16::from_le_bytes([operands[1], operands[2]]);
+            let offset = u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
 
             &[
                 DecoratedOperandAccessKind::WriteBaseRegWithOffset(
@@ -493,7 +493,7 @@ pub fn disasm(
         }
 
         OpCode::St16UsingPtrWithOffset => {
-            let offset = u16::from_le_bytes([operands[1], operands[2]]);
+            let offset = u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
 
             &[
                 DecoratedOperandAccessKind::WriteBaseRegWithOffset(
@@ -505,19 +505,21 @@ pub fn disasm(
         }
 
         OpCode::StRegToFrame => {
-            let frame_ptr_offset = u16::from_le_bytes([operands[0], operands[1]]);
+            let frame_ptr_offset =
+                u32::from_le_bytes([operands[0], operands[1], operands[2], operands[3]]);
 
             &[
                 DecoratedOperandAccessKind::WriteFrameMemoryAddress(FrameMemoryAddress(
                     frame_ptr_offset,
                 )),
-                to_read_reg(operands[2], &int_type(), frame_memory_info),
-                DecoratedOperandAccessKind::CountU8(operands[3]),
+                to_read_reg(operands[4], &int_type(), frame_memory_info),
+                DecoratedOperandAccessKind::CountU8(operands[5]),
             ]
         }
 
         OpCode::StRegToFrameUsingMask => {
-            let frame_ptr_offset = u16::from_le_bytes([operands[0], operands[1]]);
+            let frame_ptr_offset =
+                u32::from_le_bytes([operands[0], operands[1], operands[2], operands[3]]);
 
             &[
                 DecoratedOperandAccessKind::WriteFrameMemoryAddress(FrameMemoryAddress(
@@ -547,7 +549,7 @@ pub fn disasm(
         }
 
         OpCode::Ld8FromPointerWithOffset => {
-            let offset = u16::from_le_bytes([operands[2], operands[3]]);
+            let offset = u32::from_le_bytes([operands[2], operands[3], operands[4], operands[5]]);
 
             &[
                 to_write_reg(operands[0], &b8_type(), frame_memory_info),
@@ -559,7 +561,7 @@ pub fn disasm(
         }
 
         OpCode::Ld16FromPointerWithOffset => {
-            let offset = u16::from_le_bytes([operands[2], operands[3]]);
+            let offset = u32::from_le_bytes([operands[2], operands[3], operands[4], operands[5]]);
 
             &[
                 to_write_reg(operands[0], &int_type(), frame_memory_info),
@@ -571,7 +573,7 @@ pub fn disasm(
         }
 
         OpCode::Ld32FromPointerWithOffset => {
-            let offset = u16::from_le_bytes([operands[2], operands[3]]);
+            let offset = u32::from_le_bytes([operands[2], operands[3], operands[4], operands[5]]);
 
             &[
                 to_write_reg(operands[0], &int_type(), frame_memory_info),
@@ -592,7 +594,8 @@ pub fn disasm(
         }
 
         OpCode::LdRegFromFrameRange => {
-            let frame_pointer_offset = u16::from_le_bytes([operands[1], operands[2]]);
+            let frame_pointer_offset =
+                u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
 
             &[
                 to_write_reg(operands[0], &int_type(), frame_memory_info),
@@ -604,7 +607,8 @@ pub fn disasm(
         }
 
         OpCode::LdRegFromFrameUsingMask => {
-            let frame_pointer_offset = u16::from_le_bytes([operands[1], operands[2]]);
+            let frame_pointer_offset =
+                u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
 
             &[
                 DecoratedOperandAccessKind::WriteMask(operands[0]),
@@ -810,15 +814,17 @@ pub fn disasm(
             to_read_reg(operands[2], &u32_type(), frame_memory_info),
         ],
 
-        OpCode::CmpBlock => &[
-            to_write_reg(operands[0], &b8_type(), frame_memory_info),
-            to_read_reg(operands[1], &u32_type(), frame_memory_info),
-            to_read_reg(operands[2], &u32_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
-                operands[3],
-                operands[4],
-            ))),
-        ],
+        OpCode::CmpBlock => {
+            let memory_size_to_compare =
+                u32::from_le_bytes([operands[3], operands[4], operands[5], operands[6]]);
+
+            &[
+                to_write_reg(operands[0], &b8_type(), frame_memory_info),
+                to_read_reg(operands[1], &u32_type(), frame_memory_info),
+                to_read_reg(operands[2], &u32_type(), frame_memory_info),
+                DecoratedOperandAccessKind::MemorySize(MemorySize(memory_size_to_compare)),
+            ]
+        }
 
         OpCode::BFalse | OpCode::BTrue => &[
             to_read_reg(operands[0], &b8_type(), frame_memory_info),
@@ -832,73 +838,53 @@ pub fn disasm(
         ]))],
         OpCode::HostCall => &[
             DecoratedOperandAccessKind::ImmediateU16(u8_pair_to_u16(operands[0], operands[1])),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
-                operands[2],
-                operands[3],
-            ))),
+            DecoratedOperandAccessKind::CountU8(operands[2]),
         ],
         OpCode::Enter => &[DecoratedOperandAccessKind::MemorySize(MemorySize(
-            u8_pair_to_u16(operands[0], operands[1]),
+            u32::from_le_bytes([operands[0], operands[1], operands[2], operands[3]]),
         ))],
         OpCode::B => &[to_branch_offset(i16::from_le_bytes([
             operands[0],
             operands[1],
         ]))],
-        OpCode::BlockCopyWithOffsets => {
-            let dst_offset = u16::from_le_bytes([operands[1], operands[2]]);
-            let src_offset = u16::from_le_bytes([operands[4], operands[5]]);
 
-            &[
-                DecoratedOperandAccessKind::WriteBaseRegWithOffset(
-                    RegIndex(operands[0]),
-                    MemoryOffset(dst_offset),
-                ),
-                DecoratedOperandAccessKind::ReadBaseRegWithOffset(
-                    RegIndex(operands[3]),
-                    MemoryOffset(src_offset),
-                ),
-                DecoratedOperandAccessKind::MemorySize(MemorySize(u16::from_le_bytes([
-                    operands[6],
-                    operands[7],
-                ]))),
-            ]
-        }
+        // Block Copies and clears
+        OpCode::BlockCopyWithOffsets => &[
+            to_write_reg(operands[0], &bytes_type(), frame_memory_info),
+            to_read_reg(operands[1], &bytes_type(), frame_memory_info),
+            to_read_reg(operands[2], &u32_type(), frame_memory_info),
+        ],
 
-        OpCode::BlockCopyWithOffsetsVariableSize => {
-            let dst_offset = u16::from_le_bytes([operands[1], operands[2]]);
-            let src_offset = u16::from_le_bytes([operands[4], operands[5]]);
-
-            &[
-                DecoratedOperandAccessKind::WriteBaseRegWithOffset(
-                    RegIndex(operands[0]),
-                    MemoryOffset(dst_offset),
-                ),
-                DecoratedOperandAccessKind::ReadBaseRegWithOffset(
-                    RegIndex(operands[3]),
-                    MemoryOffset(src_offset),
-                ),
-                to_read_reg(operands[6], &u32_type(), frame_memory_info),
-            ]
-        }
+        OpCode::BlockCopyWithOffsetsVariableSize => &[
+            to_write_reg(operands[0], &bytes_type(), frame_memory_info),
+            to_read_reg(operands[1], &bytes_type(), frame_memory_info),
+            to_read_reg(operands[2], &u32_type(), frame_memory_info),
+        ],
 
         OpCode::BlockCopy => &[
             to_write_reg(operands[0], &bytes_type(), frame_memory_info),
             to_read_reg(operands[1], &bytes_type(), frame_memory_info),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(u16::from_le_bytes([
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u32::from_le_bytes([
                 operands[2],
                 operands[3],
+                operands[4],
+                operands[5],
             ]))),
         ],
 
         OpCode::FrameMemClr => &[
             DecoratedOperandAccessKind::WriteFrameMemoryAddress(FrameMemoryAddress(
-                u8_pair_to_u16(operands[0], operands[1]),
+                u32::from_le_bytes([operands[0], operands[1], operands[2], operands[3]]),
             )),
-            DecoratedOperandAccessKind::MemorySize(MemorySize(u8_pair_to_u16(
-                operands[2],
-                operands[3],
-            ))),
+            DecoratedOperandAccessKind::MemorySize(MemorySize(u32::from_le_bytes([
+                operands[4],
+                operands[5],
+                operands[6],
+                operands[7],
+            ]))),
         ],
+
+        // Mov
         OpCode::MovReg => &[
             to_write_reg(operands[0], &u32_type(), frame_memory_info),
             to_read_reg(operands[1], &u32_type(), frame_memory_info),
@@ -910,7 +896,7 @@ pub fn disasm(
         ],
 
         OpCode::LdPtrFromEffectiveFrameAddress => {
-            let data = u16::from_le_bytes([operands[1], operands[2]]);
+            let data = u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
             &[
                 to_write_reg(operands[0], &pointer_type_again(), frame_memory_info),
                 DecoratedOperandAccessKind::ReadFrameMemoryAddress(FrameMemoryAddress(data)),
@@ -920,7 +906,8 @@ pub fn disasm(
         OpCode::Nop => &[],
 
         OpCode::VecPop => {
-            let element_size = u16::from_le_bytes([operands[2], operands[3]]);
+            let element_size =
+                u32::from_le_bytes([operands[2], operands[3], operands[4], operands[5]]);
             &[
                 to_write_reg(operands[0], &bytes_type(), frame_memory_info),
                 to_write_reg(operands[1], &vec_type(), frame_memory_info),
@@ -935,7 +922,8 @@ pub fn disasm(
         ],
 
         OpCode::VecIterInit => {
-            let element_size = u16::from_le_bytes([operands[2], operands[3]]);
+            let element_size =
+                u32::from_le_bytes([operands[2], operands[3], operands[4], operands[5]]);
             &[
                 to_write_reg(operands[0], &vec_iter_type(), frame_memory_info),
                 to_read_reg(operands[1], &vec_iter_type(), frame_memory_info),
@@ -957,7 +945,8 @@ pub fn disasm(
         ],
 
         OpCode::VecPushAddr => {
-            let element_size = u16::from_le_bytes([operands[2], operands[3]]);
+            let element_size =
+                u32::from_le_bytes([operands[2], operands[3], operands[4], operands[5]]);
             &[
                 to_write_reg(operands[0], &vec_type(), frame_memory_info),
                 to_write_reg(operands[1], &bytes_type(), frame_memory_info),
@@ -966,7 +955,9 @@ pub fn disasm(
         }
 
         OpCode::VecRemoveIndex => {
-            let element_size = u16::from_le_bytes([operands[2], operands[3]]);
+            let element_size =
+                u32::from_le_bytes([operands[2], operands[3], operands[4], operands[5]]);
+
             &[
                 to_write_reg(operands[0], &vec_type(), frame_memory_info),
                 to_read_reg(operands[1], &int_type(), frame_memory_info),
@@ -1003,14 +994,14 @@ pub fn disasm(
 
         OpCode::MapInitWithCapacityAndKeyAndTupleSizeAddr => {
             let logical_limit = u16::from_le_bytes([operands[1], operands[2]]);
-            let key_memory_size = u16::from_le_bytes([operands[3], operands[4]]);
-            let total_tuple_size = u16::from_le_bytes([operands[5], operands[6]]);
+
             &[
                 to_write_reg(operands[0], &bytes_type(), frame_memory_info),
                 DecoratedOperandAccessKind::CountU16(logical_limit),
-                DecoratedOperandAccessKind::MemorySize(MemorySize(key_memory_size)),
-                DecoratedOperandAccessKind::MemorySize(MemorySize(total_tuple_size)),
-                DecoratedOperandAccessKind::CountU8(operands[7]), // Alignment byte
+                to_read_reg(operands[3], &bytes_type(), frame_memory_info),
+                DecoratedOperandAccessKind::CountU8(operands[4]), // Alignment byte
+                to_read_reg(operands[5], &range_type(), frame_memory_info),
+                DecoratedOperandAccessKind::CountU8(operands[6]), // Alignment byte
             ]
         }
 
@@ -1062,8 +1053,10 @@ pub fn disasm(
 
         // Sparse
         OpCode::SparseInit => {
-            let element_size = u8_pair_to_u16(operands[1], operands[2]);
-            let capacity = u8_pair_to_u16(operands[3], operands[4]);
+            let element_size =
+                u32::from_le_bytes([operands[1], operands[2], operands[3], operands[4]]);
+
+            let capacity = u8_pair_to_u16(operands[5], operands[6]);
             &[
                 to_write_reg(operands[0], &b8_type(), frame_memory_info),
                 DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
@@ -1071,7 +1064,8 @@ pub fn disasm(
             ]
         }
         OpCode::SparseAddGiveEntryAddress => {
-            let element_size = u8_pair_to_u16(operands[3], operands[4]);
+            let element_size =
+                u32::from_le_bytes([operands[3], operands[4], operands[5], operands[6]]);
             &[
                 to_write_reg(operands[0], &b8_type(), frame_memory_info), // address
                 to_write_reg(operands[1], &u32_type(), frame_memory_info), // handle
@@ -1095,7 +1089,8 @@ pub fn disasm(
         }
 
         OpCode::SparseGetEntryAddr => {
-            let element_size = u8_pair_to_u16(operands[3], operands[4]);
+            let element_size =
+                u32::from_le_bytes([operands[3], operands[4], operands[5], operands[6]]);
             &[
                 to_write_reg(operands[0], &b8_type(), frame_memory_info), // address
                 to_read_reg(operands[1], &u32_type(), frame_memory_info), // sparse addr
@@ -1124,12 +1119,11 @@ pub fn disasm(
 
         // Grid
         OpCode::GridInit => {
-            let element_size = u8_pair_to_u16(operands[1], operands[2]);
-            let width = u8_pair_to_u16(operands[3], operands[4]);
-            let height = u8_pair_to_u16(operands[5], operands[6]);
+            let width = u8_pair_to_u16(operands[2], operands[3]);
+            let height = u8_pair_to_u16(operands[4], operands[5]);
             &[
                 to_write_reg(operands[0], &b8_type(), frame_memory_info),
-                DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
+                to_read_reg(operands[1], &u32_type(), frame_memory_info),
                 DecoratedOperandAccessKind::CountU16(width),
                 DecoratedOperandAccessKind::CountU16(height),
             ]
@@ -1137,13 +1131,11 @@ pub fn disasm(
 
         // Grid
         OpCode::GridGetEntryAddr => {
-            let element_size = u8_pair_to_u16(operands[4], operands[5]);
             &[
                 to_write_reg(operands[0], &b8_type(), frame_memory_info),
                 to_read_reg(operands[1], &b8_type(), frame_memory_info), // self
                 to_read_reg(operands[2], &b8_type(), frame_memory_info), // x
                 to_read_reg(operands[3], &b8_type(), frame_memory_info), // y
-                DecoratedOperandAccessKind::MemorySize(MemorySize(element_size)),
             ]
         }
 

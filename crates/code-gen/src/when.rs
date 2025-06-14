@@ -109,7 +109,7 @@ impl CodeBuilder<'_> {
                         ty: target_memory_location.ty.clone(),
                     };
 
-                    self.builder.add_block_copy_with_offset(
+                    self.emit_block_copy_with_size_from_location(
                         &target_memory_location,
                         &source_memory_location,
                         binding.expr.node(),

@@ -82,6 +82,30 @@ impl CodeBuilder<'_> {
         let key_alignment = key_value_tuple_type.fields[0].ty.max_alignment;
         let unaligned_value_size = key_value_tuple_type.fields[1].ty.total_size;
         let value_alignment = key_value_tuple_type.fields[1].ty.max_alignment;
+
+        let comment = "";
+        let init_key_size = self.temp_registers.allocate(
+            VmType::new_contained_in_register(u32_type()),
+            &format!("{comment} - init map key_size reg"),
+        );
+        self.builder.add_mov_32_immediate_value(
+            init_key_size.register(),
+            unaligned_key_size.0,
+            node,
+            &format!("{comment} -set init key_size value to"),
+        );
+
+        let init_value_size = self.temp_registers.allocate(
+            VmType::new_contained_in_register(u32_type()),
+            &format!("{comment} - init map value_size reg"),
+        );
+        self.builder.add_mov_32_immediate_value(
+            init_value_size.register(),
+            unaligned_value_size.0,
+            node,
+            &format!("{comment} -set init value_size value to "),
+        );
+
         debug_assert!(
             logical_limit >= len,
             "this should have been checked with analyzer"
@@ -90,9 +114,9 @@ impl CodeBuilder<'_> {
             self.builder.add_map_init_set_capacity(
                 target_map_header_ptr_reg,
                 CountU16(logical_limit as u16),
-                unaligned_key_size,
+                init_key_size.register(),
                 key_alignment,
-                unaligned_value_size,
+                init_value_size.register(),
                 value_alignment,
                 node,
                 "initialize map (capacity, key_size, total_key_and_value_size)",

@@ -87,9 +87,15 @@ impl CodeBuilder<'_> {
             } else {
                 let size = source_reg.size();
 
-                self.builder.add_block_copy(
-                    target_reg,
-                    source_reg,
+                let target_pointer_location = PointerLocation {
+                    ptr_reg: target_reg.clone(),
+                };
+                let source_pointer_location = PointerLocation {
+                    ptr_reg: source_reg.clone(),
+                };
+                self.builder.add_block_copy_with_immediate_size(
+                    &target_pointer_location,
+                    &source_pointer_location,
                     size,
                     node,
                     &format!("emit_copy_register.copy struct. {comment}"),
@@ -127,7 +133,7 @@ impl CodeBuilder<'_> {
             self.frame_allocator.addr().as_size().0 as usize,
             SAFE_ALIGNMENT,
         );
-        FrameMemorySize(aligned as u16)
+        FrameMemorySize(aligned as u32)
     }
 
     pub fn patch_enter(&mut self, patch_position: PatchPosition) {
@@ -235,7 +241,7 @@ impl CodeBuilder<'_> {
         count: u8,
         comment: &str,
     ) -> FrameMemoryRegion {
-        let total_size = MemorySize(REG_ON_FRAME_SIZE.0 * u16::from(count));
+        let total_size = MemorySize(REG_ON_FRAME_SIZE.0 * u32::from(count));
         let start = self
             .frame_allocator
             .allocate(total_size, REG_ON_FRAME_ALIGNMENT);

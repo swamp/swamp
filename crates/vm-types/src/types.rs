@@ -66,7 +66,7 @@ impl TupleType {
     #[must_use]
     pub fn aligned_size_of_field(&self, field_index: usize) -> MemorySize {
         let max_alignment: usize = self.max_alignment.into();
-        MemorySize(max(self.fields[field_index].size.0 as usize, max_alignment) as u16)
+        MemorySize(max(self.fields[field_index].size.0 as usize, max_alignment) as u32)
     }
 }
 
@@ -1414,10 +1414,10 @@ impl BasicType {
     pub const fn get_vec_slice_like_capacity(&self) -> Option<MemorySize> {
         match &self.kind {
             BasicTypeKind::FixedCapacityArray(_element_type, capacity) => {
-                Some(MemorySize(*capacity as u16))
+                Some(MemorySize(*capacity as u32))
             }
             BasicTypeKind::VecStorage(_element_type, capacity) => {
-                Some(MemorySize(*capacity as u16))
+                Some(MemorySize(*capacity as u32))
             }
             _ => None,
         }

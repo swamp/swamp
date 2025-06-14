@@ -27,7 +27,7 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
 
         for (index, expr) in expressions.iter().enumerate() {
-            let offset_to_element = index as u16 * element_size;
+            let offset_to_element = index as u32 * element_size;
             let slice_element_location = lvalue_location
                 .offset(MemoryOffset(offset_to_element), element_gen_type.clone())
                 .location;

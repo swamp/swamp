@@ -25,6 +25,7 @@ use swamp_vm_types::{
     PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
     adjust_size_to_alignment, align_to,
 };
+use tracing::warn;
 
 #[derive(Copy, Clone)]
 struct VariantLayout {
@@ -188,7 +189,7 @@ fn layout_vec_like(
 
     (
         element_type_basic,
-        MemorySize(total_size as u16),
+        MemorySize(total_size as u32),
         max_alignment,
     )
 }
@@ -254,7 +255,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
                     Box::from(element_type_basic),
                     *fixed_size_element_count,
                 ),
-                MemorySize(total_size as u16),
+                MemorySize(total_size as u32),
                 max_alignment,
             )
         }
@@ -277,7 +278,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
 
             create_basic_type(
                 BasicTypeKind::SparseStorage(Box::from(generator_value), *capacity),
-                MemorySize(total_size as u16),
+                MemorySize(total_size as u32),
                 sparse_mem::alignment().try_into().unwrap(),
             )
         }
@@ -288,7 +289,7 @@ pub fn layout_type(ty: &Type) -> BasicType {
             let total_capacity_byte_count = width * height * (layout_element.total_size.0 as usize);
 
             let max_alignment = max(layout_element.max_alignment, GRID_HEADER_ALIGNMENT);
-            let total_size = MemorySize(GRID_HEADER_SIZE.0 + total_capacity_byte_count as u16);
+            let total_size = MemorySize(GRID_HEADER_SIZE.0 + total_capacity_byte_count as u32);
 
             create_basic_type(
                 BasicTypeKind::GridStorage(Box::from(layout_element), *width, *height),
@@ -301,14 +302,14 @@ pub fn layout_type(ty: &Type) -> BasicType {
             let key_layout = layout_type(key_type);
             let value_layout = layout_type(value_type);
 
-            let status_size: u16 = 1;
+            let status_size: u32 = 1;
             let mut current_offset = status_size;
 
             let key_offset = align(current_offset as usize, key_layout.max_alignment.into());
-            current_offset = key_offset as u16 + key_layout.total_size.0;
+            current_offset = key_offset as u32 + key_layout.total_size.0;
 
             let value_offset = align(current_offset as usize, value_layout.max_alignment.into());
-            current_offset = value_offset as u16 + value_layout.total_size.0;
+            current_offset = value_offset as u32 + value_layout.total_size.0;
             let bucket_content_alignment =
                 max(key_layout.max_alignment, value_layout.max_alignment);
 
@@ -332,9 +333,9 @@ pub fn layout_type(ty: &Type) -> BasicType {
                     logical_limit: *logical_size,
                     capacity: CountU16(capacity),
                     tuple_alignment: bucket_content_alignment,
-                    bucket_size: MemorySize(bucket_size as u16),
+                    bucket_size: MemorySize(bucket_size as u32),
                 },
-                MemorySize(total_size as u16),
+                MemorySize(total_size as u32),
                 max_alignment,
             )
         }
@@ -461,6 +462,10 @@ pub fn layout_struct_type(struct_type: &AnonymousStructType, name: &str) -> Stru
 
     for (field_name, field_type) in &struct_type.field_name_sorted_fields {
         let field_layout = layout_type(&field_type.field_type);
+        check_type_size(
+            &field_layout,
+            &format!("field  {field_name} in struct {name}"),
+        );
 
         offset = align_to(offset, field_layout.max_alignment);
 
@@ -626,6 +631,10 @@ pub fn layout_variables(
     let mut parameter_registers = Vec::new();
     for var_ref in parameters {
         let parameter_basic_type = layout_type(&var_ref.resolved_type);
+        check_type_size(
+            &parameter_basic_type,
+            &format!("parameter '{}'", var_ref.assigned_name),
+        );
 
         let register = frame_register_allocator.alloc_register(
             VmType::new_contained_in_register(parameter_basic_type),
@@ -653,6 +662,10 @@ pub fn layout_variables(
         let basic_type = layout_type(&var_ref.resolved_type);
         let register = if basic_type.is_aggregate() {
             // TODO: Should have a check if the variable needs the storage (if it is in an assignment in a copy)
+            check_type_size(
+                &basic_type,
+                &format!("variable '{}'", var_ref.assigned_name),
+            );
 
             let var_frame_placed_type = local_frame_allocator.allocate_type(basic_type);
             //trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
@@ -712,7 +725,7 @@ pub fn layout_variables(
         TEMPORARY_SIZE
     } else {
         let aligned = TEMPORARY_SIZE.0 as usize - align(variable_space.0 as usize, 8);
-        MemorySize(aligned as u16)
+        MemorySize(aligned as u32)
     };
 
     let temp_allocator_region = FrameMemoryRegion {
@@ -740,5 +753,11 @@ pub fn layout_variables(
         parameter_and_variable_offsets: parameter_and_variable_registers,
         frame_registers: frame_register_allocator,
         highest_register_used,
+    }
+}
+
+fn check_type_size(ty: &BasicType, comment: &str) {
+    if ty.total_size.0 > 4 * 1024 {
+        warn!(size=%ty.total_size,%ty, comment, "this is too much");
     }
 }

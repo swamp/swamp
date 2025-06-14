@@ -17,7 +17,7 @@ use std::ptr;
 /// Compute total bytes needed in memory for a sparse array. Used for code generator to know
 /// how much space to reserve.
 #[must_use]
-pub const fn layout_size(capacity: u16, element_size: u16) -> usize {
+pub const fn layout_size(capacity: u16, element_size: u32) -> usize {
     let cap = capacity as usize;
     // slot_to_id + id_to_slot: each u16[capacity]
     let lookup = 2 * cap * size_of::<u16>();
@@ -44,11 +44,11 @@ const HEADER_SIZE: usize = 6;
 
 /// Initialize the sparse array to memory specified by the raw memory pointer.
 /// `base` must point to a region of at least `layout_size(capacity, element_size)` bytes.
-pub unsafe fn init(base: *mut u8, capacity: u16, element_size: u16) {
+pub unsafe fn init(base: *mut u8, capacity: u16, element_size: u32) {
     unsafe {
         ptr::write(base.cast::<u16>(), capacity);
         ptr::write(base.add(2).cast::<u16>(), 0);
-        ptr::write(base.add(4).cast::<u16>(), element_size);
+        ptr::write(base.add(4).cast::<u32>(), element_size);
         let cap = capacity as usize;
         let id_offset = SLOT_OFFSET + cap * size_of::<u16>();
         let generation_offset = id_offset + cap * size_of::<u16>();
@@ -113,7 +113,7 @@ pub const fn values_offset(base: *const u8) -> usize {
 #[inline]
 pub unsafe fn insert(base: *mut u8, id: u16, src: *const u8) {
     unsafe {
-        let element_size = *base.add(4).cast::<u16>() as usize;
+        let element_size = *base.add(4).cast::<u32>() as usize;
         let off = values_offset(base) + id as usize * element_size;
         ptr::copy_nonoverlapping(src, base.add(off), element_size);
     }
