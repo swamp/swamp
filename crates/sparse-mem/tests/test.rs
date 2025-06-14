@@ -13,7 +13,7 @@ fn test_layout_size_and_alignment() {
     let lookup = 2 * capacity as usize * size_of::<u16>(); // slot_to_id + id_to_slot
     let generation_size = capacity as usize * size_of::<u16>();
     let before_vals = header + lookup + generation_size;
-    let pad = (8 - (before_vals % 8)) % 8; // Changed to 8-byte alignment
+    let pad = (8 - (before_vals % 8)) % 8; // 8-byte alignment
     let vals = capacity as usize * element_size as usize;
 
     let expected = before_vals + pad + vals;
@@ -51,7 +51,7 @@ fn test_init_allocate_remove() {
         assert_eq!(element_count(base), capacity - 1);
         let (id_new, gen_new) = allocate(base).unwrap();
         assert_eq!(id_new, id);
-        assert_eq!(gen_new, generation_before + 2); // Both alloc and remove bumps the generation
+        assert_eq!(gen_new, generation_before + 2); // NOTE: Both alloc and remove bumps the generation
     }
 }
 

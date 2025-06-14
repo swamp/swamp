@@ -1,7 +1,7 @@
 /// Memory layout for a fixed-capacity, generation-tracked sparse array in memory. Designed for the Swamp VM.
 ///
 /// Follows Swamp VM Collection standard with capacity and element count first, 2-bytes each.
-/// Aligns to a 4-byte aligned values region, since it is a 32-bit VM:
+/// Aligns to a 4-byte aligned values region, since it is mainly for a 32-bit VM:
 /// ```text
 /// offset 0:   capacity                (u16)
 /// offset 2:   element_count           (u16)

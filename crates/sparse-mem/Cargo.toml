@@ -2,5 +2,10 @@
 name = "sparse-mem"
 version = "0.1.16"
 edition = "2024"
+description = "Fixed-capacity, generation-tracked sparse array implementation optimized for the Swamp VM"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+keywords = ["sparse-array", "data-structure", "memory", "swamp-vm", "no-std"]
+categories = ["data-structures", "memory-management", "no-std"]
 
 [dependencies]
