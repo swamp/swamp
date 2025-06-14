@@ -93,7 +93,7 @@ bytes:
 | `st.b`                     | `[Rd, #offset], Rn`             | Store an 8-bit value from register $Rn$ to memory at address $Rd$ + `#offset`.                                                          |
 | `st.h`                     | `[Rd, #offset], Rn`             | Store a 16-bit value from register $Rn$ to memory at address $Rd$ + `#offset`.                                                          |
 | `st`                       | `[Rd, #offset], Rn`             | Store a 32-bit value from register $Rn$ to memory at address $Rd$ + `#offset`.                                                          |
-| `stmf`                     | `#fp_offset, Rn, #len`          | Store values from register `$Rn$-$Rn$+#len-1` to the current stack frame starting at `#fp_offset`.                                      |
+| `stmf`                     | `#fp_offset, Rn, #len`          | Store values from register $Rn-Rn+\#len-1$ to the current stack frame starting at `#fp_offset`.                                         |
 | `stmf`                     | `#fp_offset, #mask`             | Store registers specified by mask (R0-R7) to frame starting at `FP + #fp_offset`.                                                       |
 | **Move Operations**        |                                 |                                                                                                                                         |
 | `mov`                      | `Rd, Rm`                        | Move the value from $Rm$ to $Rd$. $Rd = Rm$.                                                                                            |
