@@ -24,7 +24,8 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) {
         // Choose the appropriate load instruction based on the target register's type
-        match target.underlying().kind {
+        let underlying_scalar = target.underlying();
+        match underlying_scalar.kind {
             BasicTypeKind::Fixed32
             | BasicTypeKind::U32
             | BasicTypeKind::S32
@@ -47,8 +48,7 @@ impl CodeBuilder<'_> {
                 );
             }
             _ => panic!(
-                "Unsupported primitive type in add_load_primitive: {:?}",
-                target.ty
+                "Unsupported primitive type in add_load_primitive: {underlying_scalar:?}",
             ),
         }
     }
@@ -162,7 +162,7 @@ impl CodeBuilder<'_> {
             self.builder.add_add_u32_imm(
                 final_ptr_target_reg.register(),
                 &memory_location.base_ptr_reg,
-                u32::from(memory_location.offset.0),
+                memory_location.offset.0,
                 node,
                 &format!("{comment} (add to resolved new base_ptr)"),
             );
@@ -193,7 +193,7 @@ impl CodeBuilder<'_> {
                     node,
                     comment,
                 )
-                .ptr_reg
+                    .ptr_reg
             }
             Destination::Unit => {
                 panic!("can not compute effective address from unit")
@@ -226,7 +226,7 @@ impl CodeBuilder<'_> {
                     self.builder.add_add_u32_imm(
                         target_reg,
                         &memory_location.base_ptr_reg,
-                        u32::from(memory_location.offset.0),
+                        memory_location.offset.0,
                         node,
                         &format!("{comment} (add to resolved new base_ptr)"),
                     );

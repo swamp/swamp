@@ -288,7 +288,7 @@ impl FenTextSwamp {
         let root_struct_start = align(constant_memory_size as usize, SAFE_ALIGNMENT);
 
         let safe_stack_start = align(
-            root_struct_start + u32::from(gen_simulation_type.total_size.0) as usize,
+            root_struct_start + gen_simulation_type.total_size.0 as usize,
             SAFE_ALIGNMENT,
         );
 

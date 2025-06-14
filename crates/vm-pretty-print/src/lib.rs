@@ -100,7 +100,7 @@ impl Add<MemoryOffset> for PrintAddress {
         match self {
             Self::StackMemoryAddress(stack_addr) => Self::StackMemoryAddress(stack_addr + rhs),
             Self::HeapMemoryAddress(heap_addr) => {
-                Self::HeapMemoryAddress(HeapMemoryAddress(heap_addr.0 + u32::from(rhs.0)))
+                Self::HeapMemoryAddress(HeapMemoryAddress(heap_addr.0 + rhs.0))
             }
         }
     }

@@ -161,7 +161,7 @@ impl CodeBuilder<'_> {
         );
         self.builder.add_mov_32_immediate_value(
             element_size_reg.register(),
-            u32::from(element_basic_type.total_size.0),
+            element_basic_type.total_size.0,
             node,
             &format!("element_size: {comment}"),
         );
