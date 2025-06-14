@@ -4,9 +4,9 @@
  */
 
 //! Layouts analyzed into Vm Types (`BasicType`)
+use crate::FrameAndVariableInfo;
 use crate::alloc::ScopeAllocator;
 use crate::reg_pool::RegisterPool;
-use crate::FrameAndVariableInfo;
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::cmp::max;
@@ -15,15 +15,15 @@ use swamp_semantic::{VariableRef, VariableType};
 use swamp_types::{AnonymousStructType, EnumVariantType, NamedStructType, Type};
 use swamp_vm_types::aligner::align;
 use swamp_vm_types::types::{
-    range_type, BasicType, BasicTypeKind, FrameAddressInfo, FrameMemoryInfo, OffsetMemoryItem,
-    StructType, TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo, VariableInfoKind,
-    VariableRegister, VmType,
+    BasicType, BasicTypeKind, FrameAddressInfo, FrameMemoryInfo, OffsetMemoryItem, StructType,
+    TaggedUnion, TaggedUnionVariant, TupleType, VariableInfo, VariableInfoKind, VariableRegister,
+    VmType, range_type,
 };
 use swamp_vm_types::{
-    adjust_size_to_alignment, align_to, CountU16, FrameMemoryAddress, FrameMemoryRegion,
-    MemoryAlignment, MemoryOffset, MemorySize, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
-    MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT,
-    STRING_PTR_SIZE, VEC_HEADER_SIZE,
+    CountU16, FrameMemoryAddress, FrameMemoryRegion, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
+    MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MemoryAlignment, MemoryOffset, MemorySize,
+    PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
+    adjust_size_to_alignment, align_to,
 };
 use tracing::warn;
 
@@ -462,10 +462,7 @@ pub fn layout_struct_type(struct_type: &AnonymousStructType, name: &str) -> Stru
 
     for (field_name, field_type) in &struct_type.field_name_sorted_fields {
         let field_layout = layout_type(&field_type.field_type);
-        check_type_size(
-            &field_layout,
-            &format!("field  {field_name} in struct {name}"),
-        );
+        check_type_size(&field_layout, &format!("field {name}::{field_name}"));
 
         offset = align_to(offset, field_layout.max_alignment);
 
@@ -616,7 +613,7 @@ pub fn layout_variables(
 
     let mut local_frame_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
-        MemorySize(63 * 1024),
+        MemorySize(128 * 1024 * 1024),
     ));
 
     //    let return_placed_type_pointer = layout_type(exp_return_type).create_mutable_pointer();
@@ -676,7 +673,7 @@ pub fn layout_variables(
                 var_frame_placed_type.size().0,
                 var_ref.assigned_name
             )
-                .unwrap();
+            .unwrap();
 
             let kind = match var_ref.variable_type {
                 VariableType::Local => VariableInfoKind::Variable(VariableInfo {

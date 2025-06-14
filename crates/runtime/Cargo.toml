@@ -37,7 +37,7 @@ swamp-vm-disasm = { path = "../vm-disasm", version = "0.1.16" }
 swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.1.16" }
 
 # Source Map
-source-map-cache = "0.0.2"
+source-map-cache = "0.0.3"
 source-map-node = "0.0.1"
 
 tiny-ver = "0.1.2"

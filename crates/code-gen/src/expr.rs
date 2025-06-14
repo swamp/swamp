@@ -32,6 +32,8 @@ impl CodeBuilder<'_> {
     pub fn emit_expression(&mut self, output: &Destination, expr: &Expression, ctx: &Context) {
         let node = &expr.node;
 
+        self.debug_expression(expr, "emitting expression");
+
         match &expr.kind {
             ExpressionKind::Literal(Literal::InitializerList(element_type, expressions)) => {
                 self.emit_collection_init_from_initialization_list(

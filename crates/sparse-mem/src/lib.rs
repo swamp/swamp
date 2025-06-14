@@ -14,7 +14,6 @@
 /// ```
 use std::ptr;
 
-
 /// Compute total bytes needed in memory for a sparse array. Used for code generator to know
 /// how much space to reserve.
 #[must_use]

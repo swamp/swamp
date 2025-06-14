@@ -55,18 +55,13 @@ pub struct ConstantsManager {
     data: Vec<u8>,
 }
 
-impl Default for ConstantsManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl ConstantsManager {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(memory_size: usize) -> Self {
+        let data = vec![0; memory_size];
         Self {
-            allocator: ConstantsAllocator::new(1024 * 1024),
-            data: vec![0u8; 1024 * 1024],
+            allocator: ConstantsAllocator::new(32 * 1024 * 1024),
+            data,
         }
     }
 

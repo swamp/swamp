@@ -39,7 +39,7 @@ swamp-test-runner = { path = "../test-runner", version = "0.1.16" }
 
 
 # Source Map
-source-map-cache = "0.0.2"
+source-map-cache = "0.0.3"
 source-map-node = "0.0.1"
 
 [dev-dependencies]

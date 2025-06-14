@@ -7,6 +7,8 @@ mod err_wrt;
 pub mod prelude;
 mod trace;
 
+use source_map_cache::KeepTrackOfSourceLine;
+use source_map_cache::SourceFileLineInfo;
 use source_map_cache::{FileId, SourceMap, SourceMapWrapper};
 use std::fmt::Write as FmtWrite;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -21,7 +23,7 @@ use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunction
 use swamp_types::Type;
 use swamp_vm::host::HostFunctionCallback;
 use swamp_vm::{TrapCode, Vm, VmSetup, VmState};
-use swamp_vm_debug_info::{DebugInfo, KeepTrackOfSourceLine, SourceFileLineInfo};
+use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_disasm::{disasm_color, display_lines};
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition, StackMemoryAddress};

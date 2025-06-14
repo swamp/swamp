@@ -48,7 +48,7 @@ impl CodeGenState {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            constants_manager: ConstantsManager::default(),
+            constants_manager: ConstantsManager::new(32 * 1024 * 1024),
             constant_offsets: SeqMap::default(),
             function_infos: SeqMap::default(),
             constant_functions_in_order: SeqMap::default(),

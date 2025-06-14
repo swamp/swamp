@@ -28,7 +28,8 @@ pub const fn u16_to_u8_pair(v: u16) -> (u8, u8) {
     (bytes[0], bytes[1])
 }
 
-#[must_use] pub const fn u32_to_bytes(a: u32) -> (u8, u8, u8, u8) {
+#[must_use]
+pub const fn u32_to_bytes(a: u32) -> (u8, u8, u8, u8) {
     let bytes = a.to_le_bytes();
     (bytes[0], bytes[1], bytes[2], bytes[3])
 }

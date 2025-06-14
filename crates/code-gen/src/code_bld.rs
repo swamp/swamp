@@ -9,7 +9,9 @@ use crate::ctx::Context;
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool};
 use crate::state::CodeGenState;
 use seq_map::SeqMap;
-use source_map_cache::{SourceMapLookup, SourceMapWrapper};
+use source_map_cache::{
+    KeepTrackOfSourceLine, SourceFileLineInfo, SourceMapLookup, SourceMapWrapper,
+};
 use source_map_node::Node;
 use swamp_semantic::{
     ArgumentExpression, BooleanExpression, ConstantRef, Expression, SingleLocationExpression,
@@ -25,6 +27,7 @@ use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset,
     MemorySize, PointerLocation, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
+use tracing::info;
 
 pub struct EmitArgumentInfo {
     pub argument_and_temp_scope: ArgumentAndTempScope,
@@ -43,12 +46,13 @@ pub(crate) struct CodeBuilder<'a> {
     frame_memory_registers: RegisterPool,
     pub(crate) temp_registers: HwmTempRegisterPool,
     pub(crate) frame_allocator: ScopeAllocator,
+    pub debug_line_tracker: KeepTrackOfSourceLine,
     //pub spilled_registers: SpilledRegisterScopes,
     pub source_map_lookup: &'a SourceMapWrapper<'a>,
 }
 
 impl<'a> CodeBuilder<'a> {
-    pub const fn new(
+    pub fn new(
         state: &'a mut CodeGenState,
         builder: &'a mut InstructionBuilder<'a>,
         variable_registers: SeqMap<usize, TypedRegister>,
@@ -64,6 +68,7 @@ impl<'a> CodeBuilder<'a> {
             frame_memory_registers,
             temp_registers,
             frame_allocator: temp_allocator,
+            debug_line_tracker: KeepTrackOfSourceLine::default(),
             source_map_lookup,
         }
     }
@@ -146,7 +151,7 @@ impl CodeBuilder<'_> {
         let span_text = self.source_map_lookup.get_text_span(&node.span);
         eprintln!(
             "{}:{}:{}> {}",
-            line_info.relative_file_name, line_info.row, line_info.col, span_text,
+            line_info.relative_file_name, line_info.row, line_info.col, span_text
         );
         //info!(?source_code_line, "generating");
     }
@@ -578,5 +583,40 @@ impl CodeBuilder<'_> {
             node,
             "copy calculated address for borrow",
         );
+    }
+
+    pub fn debug_expression(&mut self, expr: &Expression, description: &str) {
+        let node = &expr.node;
+        let (line, _column) = self
+            .source_map_lookup
+            .source_map
+            .get_span_location_utf8(node.span.file_id, node.span.offset as usize);
+        let source_line_info = SourceFileLineInfo {
+            row: line,
+            file_id: node.span.file_id as usize,
+        };
+
+        let answer = self.debug_line_tracker.check_if_new_line(&source_line_info);
+        if let Some((start, end)) = answer {
+            let relative_file_name = self.source_map_lookup.get_relative_path(node.span.file_id);
+            let (line, col) = self
+                .source_map_lookup
+                .source_map
+                .get_span_location_utf8(node.span.file_id, node.span.offset as usize);
+            let source_line = self
+                .source_map_lookup
+                .source_map
+                .get_source_line(node.span.file_id, line)
+                .unwrap_or("<source line not found>");
+
+            info!(
+                file=%relative_file_name,
+                line=%line,
+                col=%col,
+                source=%source_line,
+                "{}",
+                description
+            );
+        }
     }
 }

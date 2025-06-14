@@ -91,26 +91,34 @@ pub fn calculate_bucket_layout(
     }
 }
 
-#[must_use] pub const fn total_size(capacity: u16, bucket_size: u32) -> u32 {
+#[must_use]
+pub const fn total_size(capacity: u16, bucket_size: u32) -> u32 {
     (MAP_BUCKETS_OFFSET + capacity as usize * bucket_size as usize) as u32
 }
 
 #[must_use]
-pub fn layout(key_size: u32,
-              key_alignment: u8,
-              value_size: u32,
-              value_alignment: u8, logical_limit: u16) -> (BucketLayout, MapInit) {
+pub fn layout(
+    key_size: u32,
+    key_alignment: u8,
+    value_size: u32,
+    value_alignment: u8,
+    logical_limit: u16,
+) -> (BucketLayout, MapInit) {
     let capacity = logical_limit.next_power_of_two();
-    let bucket_layout = calculate_bucket_layout(key_size, key_alignment, value_size, value_alignment);
-    (bucket_layout, MapInit {
-        key_size,
-        key_alignment,
-        value_size,
-        value_alignment,
-        capacity,
-        logical_limit,
-        total_size: total_size(capacity, bucket_layout.bucket_size),
-    })
+    let bucket_layout =
+        calculate_bucket_layout(key_size, key_alignment, value_size, value_alignment);
+    (
+        bucket_layout,
+        MapInit {
+            key_size,
+            key_alignment,
+            value_size,
+            value_alignment,
+            capacity,
+            logical_limit,
+            total_size: total_size(capacity, bucket_layout.bucket_size),
+        },
+    )
 }
 
 /// Initialize a new hash map in pre-allocated memory
@@ -133,7 +141,6 @@ pub unsafe fn init(map_base: *mut u8, config: &MapInit) {
             config.value_size,
             config.value_alignment,
         );
-        
 
         // Initialize header
         unsafe {

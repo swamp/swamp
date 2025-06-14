@@ -4,10 +4,12 @@
  */
 use fixed32::Fp;
 use seq_map::SeqMap;
+use source_map_cache::KeepTrackOfSourceLine;
+use source_map_cache::SourceFileLineInfo;
 use source_map_cache::{SourceMapLookup, SourceMapWrapper};
 use source_map_node::FileId;
 use std::fmt::Write;
-use swamp_vm_debug_info::{DebugInfo, KeepTrackOfSourceLine, SourceFileLineInfo};
+use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{
     BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,

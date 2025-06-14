@@ -7,49 +7,6 @@ use seq_map::SeqMap;
 use swamp_vm_types::types::FunctionInfo;
 use swamp_vm_types::{InstructionPosition, Meta};
 
-pub struct KeepTrackOfSourceLine {
-    pub last_line_info: SourceFileLineInfo,
-    pub current_line: usize,
-}
-
-impl Default for KeepTrackOfSourceLine {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl KeepTrackOfSourceLine {
-    #[must_use]
-    pub const fn new() -> Self {
-        Self {
-            last_line_info: SourceFileLineInfo {
-                row: usize::MAX,
-                file_id: usize::MAX,
-            },
-            current_line: usize::MAX,
-        }
-    }
-
-    pub fn check_if_new_line(&mut self, found: &SourceFileLineInfo) -> Option<(usize, usize)> {
-        if self.last_line_info.file_id != found.file_id || found.row != self.current_line {
-            self.last_line_info = found.clone();
-            self.current_line = self.last_line_info.row;
-            Some((self.last_line_info.row, self.last_line_info.row))
-        } else if found.row == self.current_line {
-            None
-        } else {
-            let line_start = self.current_line;
-            self.current_line = found.row;
-            Some((line_start, found.row))
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, Clone)]
-pub struct SourceFileLineInfo {
-    pub row: usize,
-    pub file_id: usize,
-}
 pub struct FileOffsetEntry {
     pub start_pc: u32,
     pub pc_count: u8, // A line doesn't cover more than 255 instructions
