@@ -23,7 +23,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         let variant_index = a.common().container_index as usize;
-        let variants = enum_type.variants.values().cloned().collect::<Vec<_>>();
+        let variants = enum_type.variants.values().cloned().collect::<Vec<_>>(); // TODO: @perf: takes a lot of performance
         let layout_enum = layout_enum_into_tagged_union(&enum_type.assigned_name, &variants);
         let layout_variant = layout_enum.get_variant_by_index(variant_index);
 

@@ -3,8 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use crate::alloc::ScopeAllocator;
-use crate::code_bld::{CodeBuilder, CodeBuilderOptions};
+use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::{layout_type, layout_variables};
 use crate::reg_pool::HwmTempRegisterPool;
@@ -28,7 +27,6 @@ use swamp_vm_types::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,
     PatchPosition,
 };
-use tracing::info;
 
 impl TopLevelGenState {
     /// # Panics

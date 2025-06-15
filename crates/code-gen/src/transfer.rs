@@ -315,7 +315,7 @@ impl CodeBuilder<'_> {
         self.builder.add_add_u32_imm(
             src_count_in_bytes_reg.register(),
             src_count_in_bytes_reg.register(),
-            u32::from(header_tail_size),
+            header_tail_size,
             node,
             "(element_count*element_size) + collection header size",
         );

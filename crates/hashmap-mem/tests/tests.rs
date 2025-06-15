@@ -20,12 +20,12 @@ fn test_basic_insert_lookup() {
 
         // Create a test key and value
         let key: u32 = 0x12345678;
-        let key_ptr = &key as *const u32 as *const u8;
+        let key_ptr = (&raw const key).cast::<u8>();
 
         // Insert a value
         let value_ptr = get_or_reserve_entry(map_base, key_ptr);
         assert!(!value_ptr.is_null());
-        *(value_ptr as *mut u64) = 0xABCDEF0123456789;
+        *value_ptr.cast::<u64>() = 0xABCDEF0123456789;
 
         // Verify the element was inserted
         let header = &*(map_base as *const MapHeader);
@@ -56,14 +56,14 @@ fn test_remove() {
 
         let key1: u16 = 100;
         let key2: u16 = 200;
-        let key1_ptr = &key1 as *const u16 as *const u8;
-        let key2_ptr = &key2 as *const u16 as *const u8;
+        let key1_ptr = (&raw const key1).cast::<u8>();
+        let key2_ptr = (&raw const key2).cast::<u8>();
 
         let value1_ptr = get_or_reserve_entry(map_base, key1_ptr);
-        *(value1_ptr as *mut u32) = 1000;
+        *value1_ptr.cast::<u32>() = 1000;
 
         let value2_ptr = get_or_reserve_entry(map_base, key2_ptr);
-        *(value2_ptr as *mut u32) = 2000;
+        *value2_ptr.cast::<u32>() = 2000;
 
         // Verify it has two elements
         let header = &*(map_base as *const MapHeader);
@@ -110,9 +110,9 @@ fn test_overwrite() {
         // Insert keys into source
         for i in 0..3 {
             let key = i;
-            let key_ptr = &key as *const i32 as *const u8;
+            let key_ptr = (&raw const key).cast::<u8>();
             let value_ptr = get_or_reserve_entry(source_base, key_ptr);
-            *(value_ptr as *mut i32) = i * 100;
+            *value_ptr.cast::<i32>() = i * 100;
         }
 
         let source_header = &*(source_base as *const MapHeader);
@@ -127,7 +127,7 @@ fn test_overwrite() {
         // Verify all keys were copied correctly
         for i in 0..3 {
             let key = i;
-            let key_ptr = &key as *const i32 as *const u8;
+            let key_ptr = (&raw const key).cast::<u8>();
             let found_ptr = lookup(target_base, key_ptr);
             assert!(!found_ptr.is_null());
             assert_eq!(*(found_ptr as *const i32), i * 100);

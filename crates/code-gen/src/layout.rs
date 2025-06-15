@@ -25,7 +25,6 @@ use swamp_vm_types::{
     PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
     adjust_size_to_alignment, align_to,
 };
-use tracing::{info, warn};
 
 #[derive(Copy, Clone)]
 struct VariantLayout {
@@ -740,7 +739,7 @@ pub fn layout_variables(
     }
 }
 
-fn check_type_size(ty: &BasicType, comment: &str) {
+const fn check_type_size(ty: &BasicType, comment: &str) {
     if ty.total_size.0 > 128 * 1024 {
         //warn!(size=%ty.total_size,%ty, comment, "this is too much");
     }

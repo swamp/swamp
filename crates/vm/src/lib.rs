@@ -1583,6 +1583,7 @@ impl Vm {
             u32_from_u8s!(dst_pointer_0, dst_pointer_1, dst_pointer_2, dst_pointer_3);
         let total_bytes = u32_from_u8s!(memory_size_0, memory_size_1, memory_size_2, memory_size_3);
 
+        assert!(frame_offset + total_bytes < self.memory.memory_size as u32, "trying to overwrite memory!");
         let dst_ptr = self.memory.get_frame_ptr(frame_offset);
 
         unsafe {

@@ -51,7 +51,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub fn emit_load_scalar_from_location(
+    pub const fn emit_load_scalar_from_location(
         &mut self,
         target: &TypedRegister,
         source_location: &Destination,
