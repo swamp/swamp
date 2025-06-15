@@ -19,7 +19,10 @@ fn emit_internal(code: &str) -> (TopLevelGenState, Program) {
     let code_gen = code_gen_program(
         &program,
         &source_map_wrapper,
-        &CodeGenOptions { show_disasm: false },
+        &CodeGenOptions {
+            show_disasm: false,
+            show_debug: false,
+        },
     );
 
     (code_gen, program)

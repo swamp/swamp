@@ -28,7 +28,10 @@ pub fn compile() -> Option<CompileCodeGenVmResult> {
             show_semantic: false,
             show_modules: false,
         },
-        code_gen_options: CodeGenOptions { show_disasm: false },
+        code_gen_options: CodeGenOptions {
+            show_disasm: false,
+            show_debug: false,
+        },
     };
     compile_codegen_and_create_vm(
         Path::new("assets/crawler"),
