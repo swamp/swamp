@@ -187,7 +187,7 @@ pub fn create_vm_with_standard_settings(
     prepared_constant_memory: &[u8],
 ) -> Vm {
     let vm_setup = VmSetup {
-        stack_memory_size: 16 * 1024 * 1024,
+        stack_memory_size: 2 * 1024 * 1024 * 1024,
         constant_memory: prepared_constant_memory.to_vec(),
         debug_opcodes_enabled: false,
         debug_stats_enabled: false,

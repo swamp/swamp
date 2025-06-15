@@ -4,9 +4,9 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
+use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -1671,6 +1671,7 @@ impl Vm {
         let dest_addr = get_reg!(self, dst_pointer_reg);
         let src_addr = get_reg!(self, src_pointer_reg);
         let memory_size = u32_from_u8s!(memory_size_0, memory_size_1, memory_size_2, memory_size_3);
+        assert!(src_addr + memory_size < self.memory.memory_size as u32, "trying to overwrite memory");
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
