@@ -68,6 +68,8 @@ impl InstructionBuilderState {
 
                 instruction.operands[0] = bytes[0];
                 instruction.operands[1] = bytes[1];
+                instruction.operands[2] = bytes[2];
+                instruction.operands[3] = bytes[3];
             }
             _ => {
                 panic!("Attempted to patch a non-enter instruction at position {patch_position:?}")
@@ -160,7 +162,7 @@ impl InstructionBuilder<'_> {
     pub fn add_enter_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
         let patch_position = PatchPosition(self.position());
         self.state
-            .add_instruction(OpCode::Enter, &[0, 0], node, comment);
+            .add_instruction(OpCode::Enter, &[0, 0, 0, 0], node, comment);
 
         patch_position
     }

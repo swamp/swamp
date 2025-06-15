@@ -27,7 +27,7 @@ pub struct MapHeader {
 
     pub logical_limit: u16,
     pub key_offset: u8,
-    pub padding2: u8,
+    pub padding_and_secret_code: u8,
 }
 
 pub struct MapInit {
@@ -121,6 +121,8 @@ pub fn layout(
     )
 }
 
+const SECRET_CODE: u8 = 0x3d;
+
 /// Initialize a new hash map in pre-allocated memory
 ///
 /// # Safety
@@ -155,7 +157,7 @@ pub unsafe fn init(map_base: *mut u8, config: &MapInit) {
                     key_offset: layout.key_offset,
                     value_offset: layout.value_offset,
                     element_count: 0,
-                    padding2: 0,
+                    padding_and_secret_code: SECRET_CODE,
                 },
             );
         }
@@ -226,6 +228,10 @@ pub unsafe fn get_or_reserve_entry(base_ptr: *mut u8, key_ptr: *const u8) -> *mu
         let key_offset = header.key_offset as usize;
         let value_offset = header.value_offset as usize;
 
+        debug_assert_eq!(
+            header.padding_and_secret_code, SECRET_CODE,
+            "hashmap, secret code failed"
+        );
         debug_assert_ne!(key_size, 0, "Key size cannot be zero");
         debug_assert_ne!(capacity, 0, "Capacity cannot be zero");
         debug_assert!(
@@ -340,6 +346,10 @@ pub unsafe fn lookup(base_ptr: *mut u8, key_ptr: *const u8) -> *mut u8 {
         let key_offset = header.key_offset as usize;
         let value_offset = header.value_offset as usize;
 
+        debug_assert_eq!(
+            header.padding_and_secret_code, SECRET_CODE,
+            "hashmap, secret code failed"
+        );
         debug_assert_ne!(key_size, 0, "Key size cannot be zero");
         debug_assert_ne!(capacity, 0, "Capacity cannot be zero");
         debug_assert!(
@@ -403,6 +413,10 @@ pub unsafe fn remove(base_ptr: *mut u8, key_ptr: *const u8) -> bool {
         let bucket_size = header.bucket_size as usize;
         let key_offset = header.key_offset as usize;
 
+        debug_assert_eq!(
+            header.padding_and_secret_code, SECRET_CODE,
+            "hashmap, secret code failed"
+        );
         debug_assert_ne!(key_size, 0, "Key size cannot be zero");
         debug_assert_ne!(capacity, 0, "Capacity cannot be zero");
         debug_assert!(
@@ -467,7 +481,14 @@ pub unsafe fn overwrite(target_base: *mut u8, source: *const u8) -> bool {
     unsafe {
         let target_header = &mut *target_base.cast::<MapHeader>();
         let source_header = &*source.cast::<MapHeader>();
-
+        debug_assert_eq!(
+            target_header.padding_and_secret_code, SECRET_CODE,
+            "hashmap, secret code failed"
+        );
+        debug_assert_eq!(
+            source_header.padding_and_secret_code, SECRET_CODE,
+            "hashmap, secret code failed"
+        );
         // Check if target has enough capacity
         if target_header.logical_limit < source_header.element_count {
             return false;
@@ -533,6 +554,10 @@ pub unsafe fn find_next_valid_entry(base: *mut u8, start_index: u16) -> (*const 
         let buckets_start = base.add(MAP_BUCKETS_OFFSET);
         let key_offset = map_header.key_offset as usize;
         let value_offset = map_header.value_offset as usize;
+        debug_assert_eq!(
+            map_header.padding_and_secret_code, SECRET_CODE,
+            "hashmap, secret code failed"
+        );
 
         let mut index = start_index as usize;
 

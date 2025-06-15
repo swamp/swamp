@@ -4,9 +4,9 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
-use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -377,7 +377,7 @@ impl Vm {
 
         // Call, enter, ret
         vm.handlers[OpCode::Call as usize] = HandlerType::Args4(Self::execute_call);
-        vm.handlers[OpCode::Enter as usize] = HandlerType::Args2(Self::execute_enter);
+        vm.handlers[OpCode::Enter as usize] = HandlerType::Args4(Self::execute_enter);
         vm.handlers[OpCode::Ret as usize] = HandlerType::Args0(Self::execute_ret);
 
         //vm.handlers[OpCode::HostCall as usize] = HandlerType::Args3(Self::execute_host_call);
@@ -801,6 +801,7 @@ impl Vm {
 
     pub fn reset_stack_and_heap_to_constant_limit(&mut self) {
         self.memory.reset_allocator();
+        self.memory.reset_stack_and_fp();
         self.reset_call_stack();
         self.execution_complete = false;
         //self.pc = 0;
@@ -1671,7 +1672,10 @@ impl Vm {
         let dest_addr = get_reg!(self, dst_pointer_reg);
         let src_addr = get_reg!(self, src_pointer_reg);
         let memory_size = u32_from_u8s!(memory_size_0, memory_size_1, memory_size_2, memory_size_3);
-        assert!(src_addr + memory_size < self.memory.memory_size as u32, "trying to overwrite memory");
+        assert!(
+            src_addr + memory_size < self.memory.memory_size as u32,
+            "trying to overwrite memory"
+        );
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
@@ -1824,8 +1828,14 @@ impl Vm {
 
     #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    fn execute_enter(&mut self, frame_size_for_local_lower: u8, frame_size_for_local_upper: u8) {
-        let frame_size = u16_from_u8s!(frame_size_for_local_lower, frame_size_for_local_upper);
+    fn execute_enter(
+        &mut self,
+        frame_size_0: u8,
+        frame_size_1: u8,
+        frame_size_2: u8,
+        frame_size_3: u8,
+    ) {
+        let frame_size = u32_from_u8s!(frame_size_0, frame_size_1, frame_size_2, frame_size_3);
         self.memory.set_fp_from_sp(); // set the frame pointer to what sp is now
         self.memory.inc_sp(frame_size as usize);
     }

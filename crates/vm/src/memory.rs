@@ -79,6 +79,11 @@ impl Memory {
         self.heap_alloc_offset = self.heap_start;
     }
 
+    pub fn reset_stack_and_fp(&mut self) {
+        self.stack_offset = self.stack_start;
+        self.frame_offset = self.stack_offset;
+    }
+
     #[inline(always)]
     #[must_use]
     pub fn get_heap_ptr(&self, offset: usize) -> *mut u8 {
