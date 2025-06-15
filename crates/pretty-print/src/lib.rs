@@ -613,7 +613,9 @@ impl SourceMapDisplay<'_> {
                 self.show_expression(f, b, tabs)?;
                 write!(f, "]")
             }
-            PostfixKind::MemberCall(_function_ref, b) => write!(f, "membercall {b:?}"),
+            PostfixKind::MemberCall(function_ref, b) => {
+                write!(f, "membercall {}({b:?})", function_ref.name())
+            }
             PostfixKind::OptionalChainingOperator => todo!(),
             PostfixKind::NoneCoalescingOperator(x) => {
                 self.show_expression(f, x, tabs)?;

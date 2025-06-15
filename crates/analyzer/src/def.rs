@@ -233,7 +233,7 @@ impl Analyzer<'_> {
             .add_enum_type_link(new_enum_type.clone())
             .map_err(|err| self.create_err(ErrorKind::SemanticError(err), &enum_type_name.name))?;
 
-        self.add_default_functions(Type::Enum(new_enum_type.clone()), &enum_type_name.name);
+        self.add_default_functions(&Type::Enum(new_enum_type), &enum_type_name.name);
         Ok(())
     }
 
@@ -336,7 +336,7 @@ impl Analyzer<'_> {
         let struct_ref = self
             .shared
             .definition_table
-            .add_struct(named_struct_type)
+            .add_struct(named_struct_type.clone())
             .map_err(|err| {
                 self.create_err(
                     ErrorKind::SemanticError(err),
@@ -354,6 +354,10 @@ impl Analyzer<'_> {
                 )
             })?;
 
+        self.add_default_functions(
+            &Type::NamedStruct(named_struct_type),
+            &ast_struct_def.identifier.name,
+        );
         Ok(())
     }
 
@@ -789,16 +793,19 @@ impl Analyzer<'_> {
         Ok(resolved_fn)
     }
 
-    fn add_default_functions(&mut self, type_to_attach_to: Type, node: &swamp_ast::Node) {
+    fn add_default_functions(&mut self, type_to_attach_to: &Type, node: &swamp_ast::Node) {
+        let underlying = type_to_attach_to.underlying();
         if self
             .shared
             .state
             .associated_impls
-            .get_internal_member_function(&type_to_attach_to, "to_string")
+            .get_internal_member_function(&underlying, "to_string")
             .is_none()
         {
-            if let Type::Enum(_some_enum_type) = &type_to_attach_to {
-                // TODO: Only enums supported
+            if matches!(
+                &underlying,
+                Type::Enum(_) | Type::NamedStruct(_) | Type::AnonymousStruct(_)
+            ) {
                 let new_internal_function =
                     self.generate_to_string_function_for_type(&type_to_attach_to, node);
                 self.shared

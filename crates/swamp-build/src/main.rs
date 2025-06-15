@@ -68,6 +68,7 @@ fn main() -> ExitCode {
     let show_semantic = args.contains(["-s", "--show-semantic"]);
     let show_modules = args.contains(["-m", "--show-modules"]);
     let show_assembly = args.contains(["-a", "--show-assembly"]);
+    let debug_codegen = args.contains("--debug-codegen");
     let skip_codegen = args.contains("--skip-codegen");
 
     // Check for any unexpected positional arguments
@@ -89,6 +90,7 @@ fn main() -> ExitCode {
         },
         code_gen_options: CodeGenOptions {
             show_disasm: show_assembly,
+            show_debug: debug_codegen,
         },
     };
 

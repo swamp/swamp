@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+use crate::code_bld::CodeBuilderOptions;
 use crate::state::CodeGenState;
 use crate::{ConstantInfo, FunctionInData, FunctionIps, GenFunctionInfo};
 use seq_map::SeqMap;
@@ -21,20 +22,16 @@ use tracing::error;
 pub struct TopLevelGenState {
     pub builder_state: InstructionBuilderState,
     pub codegen_state: CodeGenState,
-}
-
-impl Default for TopLevelGenState {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub code_builder_options: CodeBuilderOptions,
 }
 
 impl TopLevelGenState {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(code_builder_options: CodeBuilderOptions) -> Self {
         Self {
             builder_state: InstructionBuilderState::new(),
             codegen_state: CodeGenState::new(),
+            code_builder_options,
         }
     }
 

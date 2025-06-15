@@ -125,6 +125,7 @@ impl HwmTempRegisterPool {
     }
 }
 
+#[derive(Debug)]
 pub struct RegisterPool {
     pub start_index: u8,
     pub end_index: u8,

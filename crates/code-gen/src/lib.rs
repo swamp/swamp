@@ -358,7 +358,7 @@ pub struct FrameAndVariableInfo {
     pub return_type: VmType,
     parameters: Vec<VariableRegister>,
     parameter_and_variable_offsets: SeqMap<usize, TypedRegister>,
-    temp_allocator_region: FrameMemoryRegion,
+    local_frame_allocator: ScopeAllocator,
     frame_registers: RegisterPool,
     highest_register_used: u8,
 }
@@ -378,7 +378,7 @@ fn single_intrinsic_fn(
     body: &Expression,
 ) -> Option<(&IntrinsicFunction, &Vec<ArgumentExpression>)> {
     let ExpressionKind::Block(block_expressions) = &body.kind else {
-        panic!("function body should be a block")
+        return None;
     };
 
     if let ExpressionKind::IntrinsicCallEx(found_intrinsic_fn, arguments) =

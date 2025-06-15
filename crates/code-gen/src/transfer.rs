@@ -11,7 +11,6 @@ use swamp_vm_types::{
     COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
     MemorySize,
 };
-use tracing::error;
 
 impl CodeBuilder<'_> {
     // Load -------------------------------------------------------
@@ -58,6 +57,27 @@ impl CodeBuilder<'_> {
     ) {
         let source_type = source_memory_location.vm_type();
         if source_type.is_aggregate() {
+            // We want the pointer since it is an aggregate. So either just copy the register
+            // or flatten the pointer
+            let source_loc = Destination::Memory(source_memory_location.clone());
+
+            self.emit_compute_effective_address_to_target_register(
+                target_reg,
+                &source_loc,
+                node,
+                "copy aggregate pointer to target register",
+            );
+
+            /*
+            self.emit_load_scalar_from_memory_offset_instruction(
+                target_reg,
+                source_memory_location,
+                node,
+                &format!("emit_load_from_memory: ptr to ptr (mutable reference). {comment}"),
+            );
+
+             */
+            /*
             if target_reg.ty().is_mutable_reference() {
                 self.emit_load_scalar_from_memory_offset_instruction(
                     target_reg,
@@ -70,7 +90,7 @@ impl CodeBuilder<'_> {
                     error!(
                         ?target_reg,
                         ?source_memory_location,
-                        "emit_load_value_from_memory_source failed for aggregate that is not a mutable reference"
+                        "emit_load_value_from_memory_source failed for aggregate that is an immutable reference"
                     );
                 }
                 self.builder.add_mov_reg(
@@ -80,6 +100,8 @@ impl CodeBuilder<'_> {
                     "emit_load_from_memory: copy pointer reg to reg",
                 );
             }
+
+             */
         } else {
             self.emit_load_scalar_from_memory_offset_instruction(
                 target_reg,
@@ -389,6 +411,47 @@ impl CodeBuilder<'_> {
                 node,
                 &format!("block copy {comment} to memory pointed by register {destination_memory_location} <- {source_memory_location}"),
             );
+        }
+    }
+
+    pub fn emit_copy_value_between_destinations(
+        &mut self,
+        output_destination: &Destination,
+        value_source: &Destination,
+        node: &Node,
+        comment: &str,
+    ) {
+        if output_destination.is_memory_location() {
+            self.emit_store_value_to_memory_destination(
+                output_destination,
+                value_source,
+                node,
+                comment,
+            );
+        } else {
+            todo!()
+        }
+    }
+
+    pub(crate) fn emit_copy_value_from_memory_location(
+        &mut self,
+        destination: &Destination,
+        source_memory_location: &MemoryLocation,
+        node: &Node,
+        comment: &str,
+    ) {
+        if let Some(_mem_loc) = destination.memory_location() {
+            let source_loc = Destination::Memory(source_memory_location.clone());
+            self.emit_store_value_to_memory_destination(destination, &source_loc, node, comment);
+        } else if let Some(output_target_reg) = destination.register() {
+            self.emit_load_value_from_memory_source(
+                output_target_reg,
+                source_memory_location,
+                node,
+                comment,
+            );
+        } else {
+            panic!("it was unit, not supported");
         }
     }
 

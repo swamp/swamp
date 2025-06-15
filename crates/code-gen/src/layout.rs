@@ -25,7 +25,7 @@ use swamp_vm_types::{
     PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
     adjust_size_to_alignment, align_to,
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 #[derive(Copy, Clone)]
 struct VariantLayout {
@@ -609,8 +609,6 @@ pub fn layout_variables(
     variables: &Vec<VariableRef>,
     exp_return_type: &Type,
 ) -> FrameAndVariableInfo {
-    const TEMPORARY_SIZE: MemorySize = MemorySize(32 * 1024);
-
     let mut local_frame_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
         MemorySize(128 * 1024 * 1024),
@@ -623,7 +621,7 @@ pub fn layout_variables(
     let mut frame_memory_infos = Vec::new();
 
     let mut parameter_and_variable_registers = SeqMap::new();
-    let mut frame_register_allocator = RegisterPool::new(1, 96); // Should start at register 7
+    let mut frame_register_allocator = RegisterPool::new(1, 127);
 
     let mut parameter_registers = Vec::new();
     for var_ref in parameters {
@@ -657,6 +655,7 @@ pub fn layout_variables(
     let mut variable_registers = Vec::new();
     for var_ref in variables {
         let basic_type = layout_type(&var_ref.resolved_type);
+        //info!(var_ref.assigned_name, ?frame_register_allocator, "allocating local variable");
         let register = if basic_type.is_aggregate() {
             // TODO: Should have a check if the variable needs the storage (if it is in an assignment in a copy)
             check_type_size(
@@ -718,18 +717,6 @@ pub fn layout_variables(
 
     let variable_space = local_frame_allocator.addr().as_size();
 
-    let allocate_for_temp = if variable_space.0 > (TEMPORARY_SIZE.0 / 2) {
-        TEMPORARY_SIZE
-    } else {
-        let aligned = TEMPORARY_SIZE.0 as usize - align(variable_space.0 as usize, 8);
-        MemorySize(aligned as u32)
-    };
-
-    let temp_allocator_region = FrameMemoryRegion {
-        addr: local_frame_allocator.allocate(allocate_for_temp, MemoryAlignment::U64),
-        size: allocate_for_temp,
-    };
-
     let frame_size = local_frame_allocator.addr().as_size();
 
     let highest_register_used = frame_register_allocator.current_index;
@@ -740,11 +727,11 @@ pub fn layout_variables(
         frame_memory: FrameMemoryInfo {
             infos: frame_memory_infos,
             total_frame_size: frame_size,
-            variable_frame_size: temp_allocator_region.addr.as_size(),
+            variable_frame_size: frame_size,
             frame_size_for_variables_except_temp: variable_space,
             variable_registers,
         },
-        temp_allocator_region,
+        local_frame_allocator,
         return_type,
         parameters: parameter_registers.clone(),
         parameter_and_variable_offsets: parameter_and_variable_registers,
@@ -754,7 +741,7 @@ pub fn layout_variables(
 }
 
 fn check_type_size(ty: &BasicType, comment: &str) {
-    if ty.total_size.0 > 4 * 1024 {
-        warn!(size=%ty.total_size,%ty, comment, "this is too much");
+    if ty.total_size.0 > 128 * 1024 {
+        //warn!(size=%ty.total_size,%ty, comment, "this is too much");
     }
 }

@@ -229,6 +229,15 @@ fn toggle_flag(mut flag: Bool) {
     print('toggle_flag: after toggling: {flag}')
 }
 
+//#[test]
+fn automatic_to_string() {
+    // This test is to ensure that the automatic conversion to string works correctly.
+    // It is not directly related to the borrow tests, but it is included for completeness.
+    mut mixed = Mixed { num: 42, flag: false, text: "hello" }
+    print('Mixed struct: {mixed}')
+    assert(mixed.to_string() == "Mixed { num: 42, flag: false, text: \"hello\" }", "to_string failed")
+}
+
 /// This uncovered that there was a need for a longer reserve time for certain registers that
 /// were used for copy back of primitive types.
 #[test]

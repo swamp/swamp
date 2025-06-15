@@ -385,7 +385,8 @@ impl CodeBuilder<'_> {
                     }
                 }
                 Destination::Memory(mem_loc) => {
-                    if mem_loc.ty.is_aggregate() {
+                    let underlying = mem_loc.ty.underlying();
+                    if underlying.is_aggregate() {
                         // Complex type - we need to store to memory
                         self.emit_store_value_to_memory_destination(
                             output_destination,
@@ -395,7 +396,7 @@ impl CodeBuilder<'_> {
                         );
                     } else {
                         let rhs_value_temp = self.temp_registers.allocate(
-                            current_location.vm_type().clone(),
+                            mem_loc.vm_type().clone(),
                             "end of chain, load primitive to target",
                         );
 

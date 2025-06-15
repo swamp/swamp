@@ -38,7 +38,7 @@ fn very_basic() {
             show_modules: false,
             step_behaviour: StepBehavior::ResumeExecution,
         },
-        "map::iterate_cards",
+        "struct::automatic_to_string",
         module_suffix,
     );
     assert!(result.failed_tests.is_empty());

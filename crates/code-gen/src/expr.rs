@@ -6,6 +6,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::layout::layout_type;
 use source_map_node::Node;
+use std::env::var;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemorySize};
@@ -32,7 +33,9 @@ impl CodeBuilder<'_> {
     pub fn emit_expression(&mut self, output: &Destination, expr: &Expression, ctx: &Context) {
         let node = &expr.node;
 
-        //self.debug_expression(expr, "emitting expression");
+        if self.options.should_show_debug {
+            self.debug_expression(expr, "emitting expression");
+        }
 
         match &expr.kind {
             ExpressionKind::Literal(Literal::InitializerList(element_type, expressions)) => {
@@ -145,6 +148,7 @@ impl CodeBuilder<'_> {
                                 }
                                 BasicTypeKind::S32
                                 | BasicTypeKind::U32
+                                | BasicTypeKind::InternalStringPointer
                                 | BasicTypeKind::Fixed32 => {
                                     self.builder.add_st32_using_ptr_with_offset(
                                         location,
@@ -153,7 +157,10 @@ impl CodeBuilder<'_> {
                                         &format!("var access to primitive memory location {location} <- {variable_register}"),
                                     );
                                 }
-                                _ => panic!("not sure"),
+                                _ => panic!(
+                                    "unknown scalar {}",
+                                    variable_register.ty.basic_type.kind
+                                ),
                             }
                         } else {
                             let source_memory_location =

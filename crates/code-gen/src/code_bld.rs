@@ -39,6 +39,10 @@ pub struct MutableReturnReg {
     pub parameter_reg: TypedRegister,
 }
 
+#[derive(Copy, Clone)]
+pub struct CodeBuilderOptions {
+    pub should_show_debug: bool,
+}
 pub(crate) struct CodeBuilder<'a> {
     pub state: &'a mut CodeGenState,
     pub(crate) builder: &'a mut InstructionBuilder<'a>,
@@ -49,6 +53,7 @@ pub(crate) struct CodeBuilder<'a> {
     pub debug_line_tracker: KeepTrackOfSourceLine,
     //pub spilled_registers: SpilledRegisterScopes,
     pub source_map_lookup: &'a SourceMapWrapper<'a>,
+    pub options: CodeBuilderOptions,
 }
 
 impl<'a> CodeBuilder<'a> {
@@ -59,6 +64,7 @@ impl<'a> CodeBuilder<'a> {
         frame_memory_registers: RegisterPool,
         temp_registers: HwmTempRegisterPool,
         temp_allocator: ScopeAllocator,
+        options: CodeBuilderOptions,
         source_map_lookup: &'a SourceMapWrapper<'a>,
     ) -> Self {
         Self {
@@ -69,6 +75,7 @@ impl<'a> CodeBuilder<'a> {
             temp_registers,
             frame_allocator: temp_allocator,
             debug_line_tracker: KeepTrackOfSourceLine::default(),
+            options,
             source_map_lookup,
         }
     }

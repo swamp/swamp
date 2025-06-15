@@ -1,6 +1,6 @@
 use std::alloc::{Layout, alloc};
 
-use hashmap_mem::{get_or_reserve_entry, init, layout, lookup, overwrite, remove, MapHeader};
+use hashmap_mem::{MapHeader, get_or_reserve_entry, init, layout, lookup, overwrite, remove};
 
 #[test]
 fn test_basic_insert_lookup() {

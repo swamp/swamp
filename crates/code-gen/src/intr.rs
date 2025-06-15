@@ -191,7 +191,13 @@ impl CodeBuilder<'_> {
                     );
                     (Some(temp_reg.register.clone()), temp_reg.register)
                 } else {
-                    (None, output_destination.register().unwrap().clone())
+                    let flattened_output_destination_ptr_reg = self
+                        .emit_compute_effective_address_to_register(
+                            output_destination,
+                            node,
+                            "flatten output destination for grid get",
+                        );
+                    (None, flattened_output_destination_ptr_reg)
                 };
 
                 self.builder.add_grid_get_entry_addr(
@@ -229,7 +235,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        let self_basic_type = &self_ptr_reg.ptr_reg.ty.basic_type;
+        let self_basic_type = self_ptr_reg.ptr_reg.ty.basic_type.underlying();
         match intrinsic_fn {
             IntrinsicFunction::VecPush => {
                 let element_expr = &arguments[0];
@@ -267,25 +273,31 @@ impl CodeBuilder<'_> {
 
             IntrinsicFunction::VecPop => {
                 let element_type = self_basic_type.element().unwrap();
+                let pop_target_reg = if let Some(found_target_reg) = output_destination.register() {
+                    found_target_reg.clone()
+                } else {
+                    let temp = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(element_type.clone()),
+                        "temp for vec pop",
+                    );
+                    temp.register
+                };
                 self.builder.add_vec_pop(
-                    output_destination.clone().register().unwrap(),
+                    &pop_target_reg,
                     &self_ptr_reg.ptr_reg, // mut self
                     element_type.total_size,
                     node,
                     "vec pop",
                 );
                 let source_memory_location =
-                    MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                        output_destination.clone().register().unwrap().clone(),
-                    );
-                if element_type.is_scalar() {
-                    self.emit_load_scalar_from_memory_offset_instruction(
-                        output_destination.clone().register().unwrap(),
-                        &source_memory_location,
-                        node,
-                        "load scalar from popped value",
-                    );
-                }
+                    MemoryLocation::new_copy_over_whole_type_with_zero_offset(pop_target_reg);
+
+                self.emit_copy_value_from_memory_location(
+                    output_destination,
+                    &source_memory_location,
+                    node,
+                    "copy from vec pop",
+                );
             }
             IntrinsicFunction::VecRemoveIndex => {
                 let index_region_expr = &arguments[0];
@@ -338,8 +350,9 @@ impl CodeBuilder<'_> {
                     MemoryLocation::new_copy_over_whole_type_with_zero_offset(
                         value_addr_reg.register,
                     );
-                self.emit_load_value_from_memory_source(
-                    output_destination.register().unwrap(),
+
+                self.emit_copy_value_from_memory_location(
+                    output_destination,
                     &source_memory_location,
                     node,
                     "load the vec entry to target register",

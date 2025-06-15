@@ -4,7 +4,7 @@
  */
 
 use crate::alloc::ScopeAllocator;
-use crate::code_bld::CodeBuilder;
+use crate::code_bld::{CodeBuilder, CodeBuilderOptions};
 use crate::ctx::Context;
 use crate::layout::{layout_type, layout_variables};
 use crate::reg_pool::HwmTempRegisterPool;
@@ -41,7 +41,7 @@ impl TopLevelGenState {
         assert_ne!(internal_fn_def.program_unique_id, 0);
 
         let complete_function_name = formal_function_name(internal_fn_def);
-        info!(complete_function_name, "code generating function def");
+        //info!(complete_function_name, "code generating function def");
 
         let in_data = FunctionInData {
             function_name_node: internal_fn_def.name.0.clone(),
@@ -241,7 +241,6 @@ impl TopLevelGenState {
     pub fn function_prologue(
         code_builder: &mut CodeBuilder,
         function_info: &FunctionInfo,
-        temp_frame_allocator: &mut ScopeAllocator,
         node: &Node,
     ) -> (Option<SpilledRegisterRegion>, PatchPosition) {
         let enter_patch_position = code_builder
@@ -287,6 +286,8 @@ impl TopLevelGenState {
     ) -> (InstructionPosition, InstructionPosition, FunctionInfo) {
         let start_ip = self.ip();
 
+        //info!(in_data.assigned_name, "emit_function");
+
         let frame_and_variable_info = layout_variables(
             &in_data.function_name_node,
             &in_data.parameter_variables,
@@ -316,9 +317,6 @@ impl TopLevelGenState {
 
         let mut instruction_builder = InstructionBuilder::new(&mut self.builder_state);
 
-        let mut temp_frame_allocator =
-            ScopeAllocator::new(frame_and_variable_info.temp_allocator_region);
-
         let temp_pool = HwmTempRegisterPool::new(128, 64);
 
         let ctx = Context::new();
@@ -329,14 +327,14 @@ impl TopLevelGenState {
             frame_and_variable_info.parameter_and_variable_offsets,
             frame_and_variable_info.frame_registers,
             temp_pool,
-            temp_frame_allocator,
+            frame_and_variable_info.local_frame_allocator,
+            self.code_builder_options,
             source_map_wrapper,
         );
 
         let (maybe_spilled_registers, enter_patch_position) = Self::function_prologue(
             &mut function_code_builder,
             &function_info,
-            &mut temp_frame_allocator,
             &in_data.function_name_node,
         );
 

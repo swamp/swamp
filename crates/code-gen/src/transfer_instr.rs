@@ -51,6 +51,15 @@ impl CodeBuilder<'_> {
         }
     }
 
+    pub fn emit_load_scalar_from_location(
+        &mut self,
+        target: &TypedRegister,
+        source_location: &Destination,
+        node: &Node,
+        comment: &str,
+    ) {
+    }
+
     /// Emits a Swamp VM instruction to load a **scalar** value directly from a fixed,
     /// **absolute memory address**.
     ///
@@ -103,7 +112,8 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        match primitive_reg.ty.basic_type.kind {
+        let underlying = primitive_reg.ty.underlying();
+        match underlying.kind {
             BasicTypeKind::B8 | BasicTypeKind::U8 => {
                 self.builder.add_st8_using_ptr_with_offset(
                     memory_location,
@@ -124,7 +134,7 @@ impl CodeBuilder<'_> {
                 );
             }
 
-            _ => panic!("must be scalar"),
+            _ => panic!("must be scalar {underlying} {}", primitive_reg.ty),
         }
     }
 

@@ -46,8 +46,9 @@ impl CodeBuilder<'_> {
             "read enum tag",
         );
 
-        let BasicTypeKind::TaggedUnion(enum_type) = &enum_ptr_reg.ty.basic_type.kind else {
-            panic!("internal error enum");
+        let underlying_enum = enum_ptr_reg.ty.basic_type.underlying().clone();
+        let BasicTypeKind::TaggedUnion(enum_type) = &underlying_enum.kind else {
+            panic!("internal error enum {}", underlying_enum);
         };
 
         for (index, arm) in match_expr.arms.iter().enumerate() {

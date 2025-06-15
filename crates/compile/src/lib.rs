@@ -369,6 +369,10 @@ impl String {
     fn default() -> String {
         ""
     }
+    
+    fn to_string(self) -> String {
+        "\"todo\""
+    }
 
     /// Computes the length of a String.
     ///

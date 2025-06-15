@@ -23,5 +23,7 @@ swamp-vm-disasm = { path = "../vm-disasm", version = "0.1.16" }
 # Source Map
 source-map-cache = "0.0.3"
 
+time-dilation = "0.1.10"
+
 tracing = "0.1.40"
 seq-map = "0.0.13"

@@ -24,6 +24,7 @@ use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::rc::Rc;
 use std::str::{FromStr, ParseBoolError};
+use swamp_ast::ExpressionKind::PostfixChain;
 use swamp_ast::{GenericParameter, QualifiedTypeIdentifier};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
@@ -1507,6 +1508,158 @@ impl<'a> Analyzer<'a> {
         })
     }
 
+    fn generate_to_string_for_named_struct(
+        &self,
+        named: &NamedStructType,
+        self_expression: Expression,
+    ) -> Expression {
+        let node = self_expression.node.clone();
+        let struct_name_string_kind = ExpressionKind::Literal(Literal::StringLiteral(format!(
+            "{} ",
+            named.assigned_name.clone()
+        )));
+        let struct_name_string_expr =
+            self.create_expr_resolved(struct_name_string_kind, Type::String, &node);
+        let anon_struct_string_expr =
+            self.generate_to_string_for_anon_struct(&named.anon_struct_type, self_expression);
+
+        let concat_kind = BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(struct_name_string_expr),
+            right: Box::new(anon_struct_string_expr),
+            node: node.clone(),
+        };
+
+        self.create_expr_resolved(ExpressionKind::BinaryOp(concat_kind), Type::String, &node)
+    }
+
+    fn generate_to_string_for_anon_struct(
+        &self,
+        anonymous_struct_type: &AnonymousStructType,
+        self_expression: Expression,
+    ) -> Expression {
+        let node = self_expression.node.clone();
+
+        // Create opening brace string
+        let opening_kind = ExpressionKind::Literal(Literal::StringLiteral("{ ".to_string()));
+        let mut result_expr = self.create_expr_resolved(opening_kind, Type::String, &node);
+
+        // Process each field
+        for (field_index, (field_name, field_type)) in anonymous_struct_type
+            .field_name_sorted_fields
+            .iter()
+            .enumerate()
+        {
+            // If not the first field, add a comma separator
+            if field_index > 0 {
+                let separator_kind =
+                    ExpressionKind::Literal(Literal::StringLiteral(", ".to_string()));
+                let separator_expr = self.create_expr_resolved(separator_kind, Type::String, &node);
+
+                // Concatenate using + operator
+                let concat_kind = BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_expr),
+                    right: Box::new(separator_expr),
+                    node: node.clone(),
+                };
+                result_expr = self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(concat_kind),
+                    Type::String,
+                    &node,
+                );
+            }
+
+            // Add field name
+            let field_name_kind =
+                ExpressionKind::Literal(Literal::StringLiteral(format!("{field_name}: ")));
+            let field_name_expr = self.create_expr_resolved(field_name_kind, Type::String, &node);
+
+            // Concatenate field name to result
+            let concat_name_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_expr),
+                right: Box::new(field_name_expr),
+                node: node.clone(),
+            };
+
+            result_expr = self.create_expr_resolved(
+                ExpressionKind::BinaryOp(concat_name_kind),
+                Type::String,
+                &node,
+            );
+
+            // Get field value from the struct
+            let postfix_kind = PostfixKind::StructField(anonymous_struct_type.clone(), field_index);
+            let postfix_lookup_field_in_self = Postfix {
+                node: node.clone(),
+                ty: field_type.field_type.clone(),
+                kind: postfix_kind,
+            };
+
+            // Get to_string function for the field type
+            if let Some(to_string_fn) = self
+                .shared
+                .state
+                .associated_impls
+                .get_internal_member_function(&field_type.field_type, "to_string")
+            {
+                let function_ref = Function::Internal(to_string_fn.clone());
+
+                // Create call to to_string for the field
+                let postfix_call_to_string = Postfix {
+                    node: node.clone(),
+                    ty: Type::String,
+                    kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+                };
+
+                // Create chain to access field and call to_string
+                let start_of_chain = StartOfChain {
+                    kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                    node: node.clone(),
+                };
+
+                let lookup_kind = ExpressionKind::PostfixChain(
+                    start_of_chain,
+                    vec![postfix_lookup_field_in_self, postfix_call_to_string],
+                );
+
+                let field_value_expr = self.create_expr_resolved(lookup_kind, Type::String, &node);
+
+                // Concatenate field value to result
+                let concat_value_kind = BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_expr),
+                    right: Box::new(field_value_expr),
+                    node: node.clone(),
+                };
+                result_expr = self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(concat_value_kind),
+                    Type::String,
+                    &node,
+                );
+            }
+        }
+
+        // Create closing brace string
+        let closing_kind = ExpressionKind::Literal(Literal::StringLiteral(" }".to_string()));
+        let closing_expr = self.create_expr_resolved(closing_kind, Type::String, &node);
+
+        // Concatenate closing brace to result
+        let final_concat_kind = BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(result_expr),
+            right: Box::new(closing_expr),
+            node: node.clone(),
+        };
+
+        self.create_expr_resolved(
+            ExpressionKind::BinaryOp(final_concat_kind),
+            Type::String,
+            &node,
+        )
+    }
+
     fn generate_to_string_for_enum(
         &mut self,
         enum_type: &EnumType,
@@ -1575,8 +1728,12 @@ impl<'a> Analyzer<'a> {
             Type::Bool => todo!(),
             Type::Unit => todo!(),
             Type::Tuple(_) => todo!(),
-            Type::NamedStruct(_) => todo!(),
-            Type::AnonymousStruct(_) => todo!(),
+            Type::NamedStruct(named) => {
+                self.generate_to_string_for_named_struct(&named, first_self_param)
+            }
+            Type::AnonymousStruct(anon_struct) => {
+                self.generate_to_string_for_anon_struct(&anon_struct, first_self_param)
+            }
             Type::Range(_) => todo!(),
             Type::Enum(enum_type) => {
                 self.generate_to_string_for_enum(&enum_type.clone(), first_self_param)

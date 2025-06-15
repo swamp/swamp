@@ -3,13 +3,16 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use source_map_cache::SourceMapWrapper;
+use swamp_code_gen::code_bld::CodeBuilderOptions;
 use swamp_code_gen::disasm::disasm_whole_program;
 use swamp_code_gen::top_state::TopLevelGenState;
 use swamp_compile::Program;
 use swamp_semantic::Function;
+use time_dilation::ScopedTimer;
 
 pub struct CodeGenOptions {
     pub show_disasm: bool,
+    pub show_debug: bool,
 }
 
 /// # Errors
@@ -20,7 +23,10 @@ pub fn code_gen_program(
     source_map_lookup: &SourceMapWrapper,
     options: &CodeGenOptions,
 ) -> TopLevelGenState {
-    let mut code_gen = TopLevelGenState::new();
+    let _compile_all_modules_timer = ScopedTimer::new("code generate whole program");
+    let mut code_gen = TopLevelGenState::new(CodeBuilderOptions {
+        should_show_debug: options.show_debug,
+    });
 
     code_gen.reserve_space_for_constants(&program.state.constants_in_dependency_order);
 
