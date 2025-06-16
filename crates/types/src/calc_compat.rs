@@ -1,6 +1,6 @@
+use crate::Type;
 use crate::supporting_types::{AnonymousStructType, NamedStructType};
 use crate::type_kind::TypeKind;
-use crate::Type;
 
 impl Type {
     pub(crate) fn do_compatible_with(&self, other: &Self) -> bool {
@@ -28,21 +28,18 @@ impl Type {
                 cap_a >= cap_b
             }
 
-            (TypeKind::QueueStorage(_, cap_a), TypeKind::QueueStorage(_, cap_b)) => {
-                cap_a >= cap_b
-            }
+            (TypeKind::QueueStorage(_, cap_a), TypeKind::QueueStorage(_, cap_b)) => cap_a >= cap_b,
 
-            (TypeKind::StackStorage(_, cap_a), TypeKind::StackStorage(_, cap_b)) => {
-                cap_a >= cap_b
-            }
+            (TypeKind::StackStorage(_, cap_a), TypeKind::StackStorage(_, cap_b)) => cap_a >= cap_b,
 
             (TypeKind::MapStorage(_, _, cap_a), TypeKind::MapStorage(_, _, cap_b)) => {
                 cap_a >= cap_b
             }
 
-            (TypeKind::GridStorage(_, rows_a, cols_a), TypeKind::GridStorage(_, rows_b, cols_b)) => {
-                rows_a >= rows_b && cols_a >= cols_b
-            }
+            (
+                TypeKind::GridStorage(_, rows_a, cols_a),
+                TypeKind::GridStorage(_, rows_b, cols_b),
+            ) => rows_a >= rows_b && cols_a >= cols_b,
 
             (TypeKind::SliceView(_), TypeKind::SliceView(_)) => true,
             (TypeKind::SparseView(_), TypeKind::SparseView(_)) => true,
@@ -51,8 +48,10 @@ impl Type {
             (TypeKind::DynamicLengthVecView(_), TypeKind::DynamicLengthVecView(_)) => true,
             (TypeKind::DynamicLengthMapView(_, _), TypeKind::DynamicLengthMapView(_, _)) => true,
 
-            (TypeKind::FixedCapacityAndLengthArray(_, size_a),
-                TypeKind::FixedCapacityAndLengthArray(_, size_b)) => {
+            (
+                TypeKind::FixedCapacityAndLengthArray(_, size_a),
+                TypeKind::FixedCapacityAndLengthArray(_, size_b),
+            ) => {
                 size_a == size_b // Fixed arrays must have the same size
             }
 
@@ -63,18 +62,23 @@ impl Type {
             }
 
             (TypeKind::AnonymousStruct(anon_a), TypeKind::AnonymousStruct(anon_b)) => {
-                anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len() &&
-                    anon_a.field_name_sorted_fields.keys().all(|key| anon_b.field_name_sorted_fields.contains_key(key))
+                anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
+                    && anon_a
+                        .field_name_sorted_fields
+                        .keys()
+                        .all(|key| anon_b.field_name_sorted_fields.contains_key(key))
             }
 
             (TypeKind::NamedStruct(named_a), TypeKind::NamedStruct(named_b)) => {
-                named_a.assigned_name == named_b.assigned_name &&
-                    named_a.instantiated_type_parameters.len() == named_b.instantiated_type_parameters.len()
+                named_a.assigned_name == named_b.assigned_name
+                    && named_a.instantiated_type_parameters.len()
+                        == named_b.instantiated_type_parameters.len()
             }
 
             (TypeKind::Enum(enum_a), TypeKind::Enum(enum_b)) => {
-                enum_a.assigned_name == enum_b.assigned_name &&
-                    enum_a.instantiated_type_parameters.len() == enum_b.instantiated_type_parameters.len()
+                enum_a.assigned_name == enum_b.assigned_name
+                    && enum_a.instantiated_type_parameters.len()
+                        == enum_b.instantiated_type_parameters.len()
             }
 
             (TypeKind::Function(sig_a), TypeKind::Function(sig_b)) => {
@@ -105,30 +109,24 @@ impl Type {
 
     pub fn strict_compatible_with_capacity(&self, other: &Self) -> bool {
         match (&*self.kind, &*other.kind) {
-            (TypeKind::VecStorage(_, cap_a), TypeKind::VecStorage(_, cap_b)) => {
-                cap_a == cap_b
-            }
+            (TypeKind::VecStorage(_, cap_a), TypeKind::VecStorage(_, cap_b)) => cap_a == cap_b,
             (TypeKind::SparseStorage(_, cap_a), TypeKind::SparseStorage(_, cap_b)) => {
                 cap_a == cap_b
             }
-            (TypeKind::QueueStorage(_, cap_a), TypeKind::QueueStorage(_, cap_b)) => {
-                cap_a == cap_b
-            }
-            (TypeKind::StackStorage(_, cap_a), TypeKind::StackStorage(_, cap_b)) => {
-                cap_a == cap_b
-            }
+            (TypeKind::QueueStorage(_, cap_a), TypeKind::QueueStorage(_, cap_b)) => cap_a == cap_b,
+            (TypeKind::StackStorage(_, cap_a), TypeKind::StackStorage(_, cap_b)) => cap_a == cap_b,
             (TypeKind::MapStorage(_, _, cap_a), TypeKind::MapStorage(_, _, cap_b)) => {
                 cap_a == cap_b
             }
-            (TypeKind::GridStorage(_, rows_a, cols_a), TypeKind::GridStorage(_, rows_b, cols_b)) => {
-                rows_a == rows_b && cols_a == cols_b
-            }
+            (
+                TypeKind::GridStorage(_, rows_a, cols_a),
+                TypeKind::GridStorage(_, rows_b, cols_b),
+            ) => rows_a == rows_b && cols_a == cols_b,
             // For all other types, default to regular compatibility
             _ => self.id == other.id,
         }
     }
 }
-
 
 /// Performs a strict comparison of named struct types, requiring exact matches of all fields and types
 #[must_use]
@@ -165,7 +163,10 @@ pub fn compare_anonymous_struct_types_strict(
             return false;
         }
 
-        if !a_type.field_type.strict_compatible_with_capacity(&b_type.field_type) {
+        if !a_type
+            .field_type
+            .strict_compatible_with_capacity(&b_type.field_type)
+        {
             return false;
         }
     }
@@ -182,7 +183,11 @@ pub fn same_named_struct_ref(a: &NamedStructType, b: &NamedStructType) -> bool {
         return false;
     }
 
-    for (a_param, b_param) in a.instantiated_type_parameters.iter().zip(b.instantiated_type_parameters.iter()) {
+    for (a_param, b_param) in a
+        .instantiated_type_parameters
+        .iter()
+        .zip(b.instantiated_type_parameters.iter())
+    {
         if !a_param.do_compatible_with(b_param) {
             return false;
         }
@@ -199,10 +204,7 @@ pub fn same_anon_struct_ref(a: &AnonymousStructType, b: &AnonymousStructType) ->
 
 /// Helper function for regular comparison of anonymous struct types
 #[must_use]
-pub fn compare_anonymous_struct_types(
-    a: &AnonymousStructType,
-    b: &AnonymousStructType,
-) -> bool {
+pub fn compare_anonymous_struct_types(a: &AnonymousStructType, b: &AnonymousStructType) -> bool {
     if a.field_name_sorted_fields.len() != b.field_name_sorted_fields.len() {
         return false;
     }

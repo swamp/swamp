@@ -38,34 +38,38 @@ impl TypeFlags {
     }
 
     /// Compute type flags based on the `TypeKind`
-    #[must_use] pub fn compute_for_type_kind(kind: &TypeKind) -> Self {
+    #[must_use]
+    pub fn compute_for_type_kind(kind: &TypeKind) -> Self {
         let mut flags = Self::NONE;
 
         match kind {
             TypeKind::Int => {
-                flags = flags.union(Self::IS_PRIMITIVE)
+                flags = flags
+                    .union(Self::IS_PRIMITIVE)
                     .union(Self::IS_INT)
                     .union(Self::IS_BLITTABLE)
                     .union(Self::IS_DIRECT);
             }
             TypeKind::Float => {
-                flags = flags.union(Self::IS_PRIMITIVE)
+                flags = flags
+                    .union(Self::IS_PRIMITIVE)
                     .union(Self::IS_FLOAT)
                     .union(Self::IS_BLITTABLE)
                     .union(Self::IS_DIRECT);
             }
             TypeKind::String => {
-                flags = flags.union(Self::IS_PRIMITIVE)
-                    .union(Self::IS_STRING);
+                flags = flags.union(Self::IS_PRIMITIVE).union(Self::IS_STRING);
             }
             TypeKind::Bool => {
-                flags = flags.union(Self::IS_PRIMITIVE)
+                flags = flags
+                    .union(Self::IS_PRIMITIVE)
                     .union(Self::IS_BOOL)
                     .union(Self::IS_BLITTABLE)
                     .union(Self::IS_DIRECT);
             }
             TypeKind::Unit => {
-                flags = flags.union(Self::IS_PRIMITIVE)
+                flags = flags
+                    .union(Self::IS_PRIMITIVE)
                     .union(Self::IS_UNIT)
                     .union(Self::IS_BLITTABLE)
                     .union(Self::IS_DIRECT);
@@ -74,8 +78,7 @@ impl TypeFlags {
                 flags = flags.union(Self::IS_FUNCTION_TYPE);
             }
             TypeKind::MutableReference(_) => {
-                flags = flags.union(Self::IS_BLITTABLE)
-                    .union(Self::IS_DIRECT);
+                flags = flags.union(Self::IS_BLITTABLE).union(Self::IS_DIRECT);
             }
             TypeKind::Enum(enum_type) => {
                 if enum_type.are_all_variants_without_payload() {

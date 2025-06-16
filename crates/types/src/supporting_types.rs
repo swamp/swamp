@@ -81,7 +81,6 @@ pub struct Signature {
     pub return_type: Box<Type>,
 }
 
-
 impl Signature {
     #[must_use]
     pub fn same_type(&self, other: &Self) -> bool {
@@ -96,7 +95,10 @@ impl Signature {
         for (i, self_param) in self.parameters.iter().enumerate() {
             let other_param = &other.parameters[i];
 
-            if !self_param.resolved_type.do_compatible_with(&other_param.resolved_type) {
+            if !self_param
+                .resolved_type
+                .do_compatible_with(&other_param.resolved_type)
+            {
                 return false;
             }
 
@@ -274,4 +276,94 @@ pub fn sort_struct_fields2(
         .into_iter()
         .map(|(name, field)| (name.clone(), field.clone()))
         .collect()
+}
+
+impl Display for NamedStructType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.instantiated_type_parameters.is_empty() {
+            write!(f, "{}", self.assigned_name)
+        } else {
+            write!(
+                f,
+                "{}<{}>",
+                self.assigned_name,
+                seq_fmt::comma(&self.instantiated_type_parameters)
+            )
+        }
+    }
+}
+
+impl Display for AnonymousStructType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{{ {} }}",
+            seq_fmt::comma(
+                &self
+                    .field_name_sorted_fields
+                    .iter()
+                    .map(|(name, field)| format!("{}: {}", name, field.field_type))
+                    .collect::<Vec<_>>()
+            )
+        )
+    }
+}
+
+impl Display for Signature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "({}) -> {}",
+            seq_fmt::comma(&self.parameters),
+            self.return_type
+        )
+    }
+}
+
+impl Display for EnumType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.instantiated_type_parameters.is_empty() {
+            write!(f, "{}", self.assigned_name)
+        } else {
+            write!(
+                f,
+                "{}<{}>",
+                self.assigned_name,
+                seq_fmt::comma(&self.instantiated_type_parameters)
+            )
+        }
+    }
+}
+
+impl Display for EnumVariantType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Struct(variant) => write!(f, "{}", variant),
+            Self::Tuple(variant) => write!(f, "{}", variant),
+            Self::Nothing(variant) => write!(f, "{}", variant),
+        }
+    }
+}
+
+impl Display for EnumVariantStructType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.common.assigned_name, self.anon_struct)
+    }
+}
+
+impl Display for EnumVariantTupleType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}({})",
+            self.common.assigned_name,
+            seq_fmt::comma(&self.fields_in_order)
+        )
+    }
+}
+
+impl Display for EnumVariantSimpleType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.common.assigned_name)
+    }
 }

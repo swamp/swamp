@@ -2,8 +2,8 @@
 mod tests {
     use std::collections::HashSet;
     use std::rc::Rc;
-    use swamp_types::prelude::{TypeCache, TypeKind};
     use swamp_types::TypeId;
+    use swamp_types::prelude::{TypeCache, TypeKind};
 
     fn count_unique_types(cache: &TypeCache) -> usize {
         cache.type_id_to_type().len()
@@ -115,10 +115,7 @@ mod tests {
         assert_ne!(map_vec5_opt.id, map_vec5_opt_diff.id);
 
         match (&*map_vec5_opt.kind, &*map_vec10_opt.kind) {
-            (
-                TypeKind::MapStorage(key1, val1, _),
-                TypeKind::MapStorage(key2, val2, _)
-            ) => {
+            (TypeKind::MapStorage(key1, val1, _), TypeKind::MapStorage(key2, val2, _)) => {
                 // Keys should be different (different vector capacities)
                 assert!(!Rc::ptr_eq(key1, key2));
                 // But values should be the same
@@ -154,7 +151,7 @@ mod tests {
         // Create a type that combines both hierarchies
         let tuple_type = cache.tuple(vec![
             Rc::clone(&map_int_to_stack),
-            Rc::clone(&stack_opt_int)
+            Rc::clone(&stack_opt_int),
         ]);
 
         assert_eq!(count_unique_types(&cache), 8);
@@ -162,7 +159,7 @@ mod tests {
         // Create a different tuple with the same elements in reverse order
         let tuple_reversed = cache.tuple(vec![
             Rc::clone(&stack_opt_int),
-            Rc::clone(&map_int_to_stack)
+            Rc::clone(&map_int_to_stack),
         ]);
 
         // Different order = different type, so 9 total

@@ -2,8 +2,8 @@ use crate::flags::TypeFlags;
 use crate::supporting_types::{AnonymousStructType, EnumType, NamedStructType, Signature};
 use crate::type_kind::TypeKind;
 use crate::{Type, TypeId};
-use std::rc::Rc;
 use seq_map::SeqMap;
+use std::rc::Rc;
 
 /// Type cache for interning and deduplicating types in the system
 pub struct TypeCache {
@@ -35,7 +35,6 @@ impl TypeCache {
     pub const fn type_id_to_type(&self) -> &SeqMap<TypeId, Rc<Type>> {
         &self.type_id_to_type
     }
-
 
     #[must_use]
     pub const fn compatible_cache(&self) -> &SeqMap<(TypeId, TypeId), bool> {
@@ -69,7 +68,9 @@ impl TypeCache {
     /// Find an existing type in the cache by its kind
     #[inline]
     fn find_type(&self, kind: &TypeKind) -> Option<Rc<Type>> {
-        self.kind_to_type_id.get(kind).map(|id| self.type_id_to_type[id].clone())
+        self.kind_to_type_id
+            .get(kind)
+            .map(|id| self.type_id_to_type[id].clone())
     }
 
     /// Add a type to the cache for future lookups
@@ -156,9 +157,10 @@ impl TypeCache {
                 self.compatible_with(key_a, key_b) && self.compatible_with(val_a, val_b)
             }
 
-            (TypeKind::DynamicLengthMapView(key_a, val_a), TypeKind::DynamicLengthMapView(key_b, val_b)) => {
-                self.compatible_with(key_a, key_b) && self.compatible_with(val_a, val_b)
-            }
+            (
+                TypeKind::DynamicLengthMapView(key_a, val_a),
+                TypeKind::DynamicLengthMapView(key_b, val_b),
+            ) => self.compatible_with(key_a, key_b) && self.compatible_with(val_a, val_b),
 
             (TypeKind::GridStorage(elem_a, _, _), TypeKind::GridStorage(elem_b, _, _)) => {
                 self.compatible_with(elem_a, elem_b)
@@ -172,14 +174,17 @@ impl TypeCache {
                 if elems_a.len() != elems_b.len() {
                     false
                 } else {
-                    elems_a.iter().zip(elems_b.iter()).all(|(a, b)| self.compatible_with(a, b))
+                    elems_a
+                        .iter()
+                        .zip(elems_b.iter())
+                        .all(|(a, b)| self.compatible_with(a, b))
                 }
             }
 
-            (TypeKind::FixedCapacityAndLengthArray(elem_a, size_a),
-                TypeKind::FixedCapacityAndLengthArray(elem_b, size_b)) => {
-                size_a == size_b && self.compatible_with(elem_a, elem_b)
-            }
+            (
+                TypeKind::FixedCapacityAndLengthArray(elem_a, size_a),
+                TypeKind::FixedCapacityAndLengthArray(elem_b, size_b),
+            ) => size_a == size_b && self.compatible_with(elem_a, elem_b),
 
             (TypeKind::MutableReference(inner_a), TypeKind::MutableReference(inner_b)) => {
                 self.compatible_with(inner_a, inner_b)
@@ -187,42 +192,58 @@ impl TypeCache {
 
             (TypeKind::AnonymousStruct(anon_a), TypeKind::AnonymousStruct(anon_b)) => {
                 // Check if fields match
-                anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len() &&
-                    anon_a.field_name_sorted_fields.keys().all(|key| {
-                        anon_b.field_name_sorted_fields.contains_key(key) &&
-                            self.compatible_with(&anon_a.field_name_sorted_fields[key].field_type, &anon_b.field_name_sorted_fields[key].field_type)
+                anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
+                    && anon_a.field_name_sorted_fields.keys().all(|key| {
+                        anon_b.field_name_sorted_fields.contains_key(key)
+                            && self.compatible_with(
+                                &anon_a.field_name_sorted_fields[key].field_type,
+                                &anon_b.field_name_sorted_fields[key].field_type,
+                            )
                     })
             }
 
             (TypeKind::Range(range_a), TypeKind::Range(range_b)) => {
                 // Compare range types
-                range_a.field_name_sorted_fields.len() == range_b.field_name_sorted_fields.len() &&
-                    range_a.field_name_sorted_fields.keys().all(|key| {
-                        range_b.field_name_sorted_fields.contains_key(key) &&
-                            self.compatible_with(&range_a.field_name_sorted_fields[key].field_type, &range_b.field_name_sorted_fields[key].field_type)
+                range_a.field_name_sorted_fields.len() == range_b.field_name_sorted_fields.len()
+                    && range_a.field_name_sorted_fields.keys().all(|key| {
+                        range_b.field_name_sorted_fields.contains_key(key)
+                            && self.compatible_with(
+                                &range_a.field_name_sorted_fields[key].field_type,
+                                &range_b.field_name_sorted_fields[key].field_type,
+                            )
                     })
             }
 
             (TypeKind::NamedStruct(named_a), TypeKind::NamedStruct(named_b)) => {
                 // Check named struct compatibility
-                if named_a.assigned_name != named_b.assigned_name ||
-                    named_a.instantiated_type_parameters.len() != named_b.instantiated_type_parameters.len() {
+                if named_a.assigned_name != named_b.assigned_name
+                    || named_a.instantiated_type_parameters.len()
+                        != named_b.instantiated_type_parameters.len()
+                {
                     false
                 } else {
                     // Check type parameters compatibility
-                    named_a.instantiated_type_parameters.iter().zip(named_b.instantiated_type_parameters.iter())
+                    named_a
+                        .instantiated_type_parameters
+                        .iter()
+                        .zip(named_b.instantiated_type_parameters.iter())
                         .all(|(a, b)| self.compatible_with(a, b))
                 }
             }
 
             (TypeKind::Enum(enum_a), TypeKind::Enum(enum_b)) => {
                 // Check enum compatibility
-                if enum_a.assigned_name != enum_b.assigned_name ||
-                    enum_a.instantiated_type_parameters.len() != enum_b.instantiated_type_parameters.len() {
+                if enum_a.assigned_name != enum_b.assigned_name
+                    || enum_a.instantiated_type_parameters.len()
+                        != enum_b.instantiated_type_parameters.len()
+                {
                     false
                 } else {
                     // Check type parameters compatibility
-                    enum_a.instantiated_type_parameters.iter().zip(enum_b.instantiated_type_parameters.iter())
+                    enum_a
+                        .instantiated_type_parameters
+                        .iter()
+                        .zip(enum_b.instantiated_type_parameters.iter())
                         .all(|(a, b)| self.compatible_with(a, b))
                 }
             }
@@ -233,7 +254,10 @@ impl TypeCache {
                     false
                 } else {
                     // Check parameters and return type
-                    let params_match = sig_a.parameters.iter().zip(sig_b.parameters.iter())
+                    let params_match = sig_a
+                        .parameters
+                        .iter()
+                        .zip(sig_b.parameters.iter())
                         .all(|(a, b)| self.compatible_with(&a.resolved_type, &b.resolved_type));
 
                     params_match && self.compatible_with(&sig_a.return_type, &sig_b.return_type)
@@ -395,12 +419,13 @@ impl TypeCache {
         stack_type
     }
 
-    pub fn map_storage(&mut self, key_type: &Rc<Type>, value_type: &Rc<Type>, capacity: usize) -> Rc<Type> {
-        let map_kind = TypeKind::MapStorage(
-            Rc::clone(key_type),
-            Rc::clone(value_type),
-            capacity,
-        );
+    pub fn map_storage(
+        &mut self,
+        key_type: &Rc<Type>,
+        value_type: &Rc<Type>,
+        capacity: usize,
+    ) -> Rc<Type> {
+        let map_kind = TypeKind::MapStorage(Rc::clone(key_type), Rc::clone(value_type), capacity);
 
         if let Some(existing) = self.find_type(&map_kind) {
             return existing;
@@ -496,10 +521,8 @@ impl TypeCache {
     }
 
     pub fn dynamic_map_view(&mut self, key_type: &Rc<Type>, value_type: &Rc<Type>) -> Rc<Type> {
-        let map_view_kind = TypeKind::DynamicLengthMapView(
-            Rc::clone(key_type),
-            Rc::clone(value_type),
-        );
+        let map_view_kind =
+            TypeKind::DynamicLengthMapView(Rc::clone(key_type), Rc::clone(value_type));
 
         if let Some(existing) = self.find_type(&map_view_kind) {
             return existing;

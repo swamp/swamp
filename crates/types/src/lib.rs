@@ -1,30 +1,43 @@
 mod cache;
-mod type_kind;
-mod supporting_types;
 mod calc_compat;
-pub mod prelude;
 mod flag_helper;
 mod flags;
+pub mod prelude;
+mod supporting_types;
+mod type_kind;
 
-use crate::type_kind::TypeKind;
-use std::rc::Rc;
 use crate::flags::TypeFlags;
+use crate::type_kind::TypeKind;
+use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
-#[derive(PartialEq, Clone)]
-#[derive(Eq, Hash, Copy)]
-#[derive(Debug)]
+#[derive(PartialEq, Clone, Eq, Hash, Copy, Debug)]
 pub struct TypeId(u32);
 
 impl TypeId {
-    #[must_use] pub const fn new(id:  u32) -> Self {
+    #[must_use]
+    pub const fn new(id: u32) -> Self {
         Self(id)
     }
 }
+
+impl Display for TypeId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Type {
     pub id: TypeId,
     pub flags: TypeFlags,
     pub kind: Rc<TypeKind>,
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}>{}", self.id, self.kind)
+    }
 }
 
 impl Type {
