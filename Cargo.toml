@@ -45,5 +45,5 @@ members = [
     "crates/fentext-ui",
     "crates/fs-change-detector",
     "crates/lsp", "crates/swamp-test",
-    "crates/swamp-build", "crates/lexer", "crates/parser-next", "crates/sparse-mem", "crates/hashmap-mem",
+    "crates/swamp-build", "crates/lexer", "crates/parser-next", "crates/sparse-mem", "crates/hashmap-mem", "crates/attributes",
 ]

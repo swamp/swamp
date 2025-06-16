@@ -3,9 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 pub use crate::{
+    TypeId,
     cache::TypeCache,
     flags::TypeFlags,
-    supporting_types::{
+    supporting_types::{ EnumVariantTupleType,
         AnonymousStructType, EnumType, EnumVariantCommon, EnumVariantSimpleType,
         EnumVariantStructType, EnumVariantType, NamedStructType, Signature, StructTypeField,
         TypeForParameter,

@@ -2,19 +2,18 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use crate::{
-    AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryRegion,
-    InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
-    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryLocation,
-    MemoryOffset, MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
-    align_to,
+    align_to, AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion,
+    FrameMemorySize, HeapMemoryAddress, HeapMemoryRegion, InstructionPosition,
+    InstructionPositionOffset, InstructionRange, MemoryAlignment, MemoryLocation,
+    MemoryOffset, MemorySize, ProgramCounterDelta, RegIndex, HEAP_PTR_ON_FRAME_ALIGNMENT,
+    HEAP_PTR_ON_FRAME_SIZE, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
+    RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_PTR_ALIGNMENT,
+    STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT,
+    VEC_PTR_SIZE,
 };
 use seq_fmt::comma;
-use std::cmp::{Ordering, max};
+use std::cmp::{max, Ordering};
 use std::fmt::{Debug, Display, Formatter, Write};
 use tracing::error;
 use yansi::Paint;
@@ -105,7 +104,7 @@ pub struct TaggedUnion {
 
 impl Display for TaggedUnion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "union {}:", self.name,)?;
+        write!(f, "union {}:", self.name, )?;
         for (offset, variant) in self.variants.iter().enumerate() {
             writeln!(f, "  {offset}: {variant}")?;
         }
@@ -502,6 +501,7 @@ impl Display for BasicTypeKind {
 #[must_use]
 pub fn pointer_type_again() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::MutablePointer(Box::from(unknown_type())),
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
@@ -511,6 +511,7 @@ pub fn pointer_type_again() -> BasicType {
 #[must_use]
 pub const fn string_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::InternalStringPointer,
         total_size: STRING_PTR_SIZE,
         max_alignment: STRING_PTR_ALIGNMENT,
@@ -519,6 +520,7 @@ pub const fn string_type() -> BasicType {
 #[must_use]
 pub const fn int_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::S32,
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
@@ -528,6 +530,7 @@ pub const fn int_type() -> BasicType {
 #[must_use]
 pub const fn float_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::Fixed32,
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
@@ -537,6 +540,7 @@ pub const fn float_type() -> BasicType {
 #[must_use]
 pub const fn bytes_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::Empty,
         total_size: MemorySize(0),
         max_alignment: MemoryAlignment::U32,
@@ -546,6 +550,7 @@ pub const fn bytes_type() -> BasicType {
 #[must_use]
 pub const fn range_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::InternalRangeHeader,
         total_size: RANGE_HEADER_SIZE,
         max_alignment: RANGE_HEADER_ALIGNMENT,
@@ -555,6 +560,7 @@ pub const fn range_type() -> BasicType {
 #[must_use]
 pub const fn range_iter_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::InternalRangeIterator,
         total_size: RANGE_ITERATOR_SIZE,
         max_alignment: RANGE_ITERATOR_ALIGNMENT,
@@ -564,6 +570,7 @@ pub const fn range_iter_type() -> BasicType {
 #[must_use]
 pub fn slice_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::SliceView(Box::from(u8_type())), // todo: fix
         total_size: MAP_HEADER_SIZE,
         max_alignment: MAP_HEADER_ALIGNMENT,
@@ -573,6 +580,7 @@ pub fn slice_type() -> BasicType {
 #[must_use]
 pub const fn unknown_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::Empty,
         total_size: MemorySize(0),
         max_alignment: MemoryAlignment::U8,
@@ -582,6 +590,7 @@ pub const fn unknown_type() -> BasicType {
 #[must_use]
 pub const fn unit_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::Empty,
         total_size: MemorySize(0),
         max_alignment: MemoryAlignment::U8,
@@ -591,6 +600,7 @@ pub const fn unit_type() -> BasicType {
 #[must_use]
 pub fn vec_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::DynamicLengthVecView(Box::from(unknown_type())),
         total_size: VEC_PTR_SIZE,
         max_alignment: VEC_PTR_ALIGNMENT,
@@ -600,6 +610,7 @@ pub fn vec_type() -> BasicType {
 #[must_use]
 pub const fn vec_iter_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::InternalVecIterator,
         total_size: VEC_ITERATOR_SIZE,
         max_alignment: VEC_ITERATOR_ALIGNMENT,
@@ -609,12 +620,14 @@ pub const fn vec_iter_type() -> BasicType {
 #[must_use]
 pub fn map_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::DynamicLengthMapView(
             Box::from(OffsetMemoryItem {
                 offset: MemoryOffset(0),
                 size: MemorySize(0),
                 name: String::new(),
                 ty: BasicType {
+                    id: BasicTypeId::EMPTY,
                     kind: BasicTypeKind::Empty,
                     total_size: MemorySize(0),
                     max_alignment: MemoryAlignment::U8,
@@ -625,6 +638,7 @@ pub fn map_type() -> BasicType {
                 size: MemorySize(0),
                 name: String::new(),
                 ty: BasicType {
+                    id: BasicTypeId::EMPTY,
                     kind: BasicTypeKind::Empty,
                     total_size: MemorySize(0),
                     max_alignment: MemoryAlignment::U8,
@@ -640,6 +654,7 @@ pub fn map_type() -> BasicType {
 #[must_use]
 pub const fn map_iter_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::InternalMapIterator,
         total_size: MAP_ITERATOR_SIZE,
         max_alignment: MAP_ITERATOR_ALIGNMENT,
@@ -649,6 +664,7 @@ pub const fn map_iter_type() -> BasicType {
 #[must_use]
 pub const fn u32_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::U32,
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
@@ -658,6 +674,7 @@ pub const fn u32_type() -> BasicType {
 #[must_use]
 pub const fn u16_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::U16,
         total_size: MemorySize(2),
         max_alignment: MemoryAlignment::U16,
@@ -667,6 +684,7 @@ pub const fn u16_type() -> BasicType {
 #[must_use]
 pub const fn u8_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::U8,
         total_size: MemorySize(1),
         max_alignment: MemoryAlignment::U8,
@@ -676,6 +694,7 @@ pub const fn u8_type() -> BasicType {
 #[must_use]
 pub const fn b8_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::B8,
         total_size: MemorySize(1),
         max_alignment: MemoryAlignment::U8,
@@ -685,6 +704,7 @@ pub const fn b8_type() -> BasicType {
 #[must_use]
 pub fn pointer_type() -> BasicType {
     BasicType {
+        id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::MutablePointer(Box::from(unknown_type())),
         total_size: HEAP_PTR_ON_FRAME_SIZE,
         max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
@@ -843,6 +863,7 @@ impl Destination {
     pub const fn ty(&self) -> &BasicType {
         match self {
             Self::Unit => &BasicType {
+                id: BasicTypeId::EMPTY,
                 kind: BasicTypeKind::Empty,
                 total_size: MemorySize(0),
                 max_alignment: MemoryAlignment::U8,
@@ -857,6 +878,7 @@ impl Destination {
         match self {
             Self::Unit => &VmType {
                 basic_type: BasicType {
+                    id: BasicTypeId::EMPTY,
                     kind: BasicTypeKind::Empty,
                     total_size: MemorySize(0),
                     max_alignment: MemoryAlignment::U8,
@@ -1116,8 +1138,8 @@ impl VmType {
     pub const fn is_mutable_primitive(&self) -> bool {
         self.basic_type.is_mutable_reference()
             && self
-                .basic_type
-                .should_be_copied_back_when_mutable_arg_or_return()
+            .basic_type
+            .should_be_copied_back_when_mutable_arg_or_return()
     }
 
     #[must_use]
@@ -1316,6 +1338,7 @@ impl FramePlacedType {
         assert_eq!(optional_info.tag_size.0, 1);
 
         let tag_type = BasicType {
+            id: BasicTypeId::EMPTY,
             kind: BasicTypeKind::B8,
             total_size: MemorySize(1),
             max_alignment: MemoryAlignment::U8,
@@ -1331,11 +1354,20 @@ pub enum BoundsCheck {
 }
 
 #[derive(Clone, Debug)]
+pub struct BasicTypeId(pub u32);
+
+impl BasicTypeId {
+    pub const EMPTY: BasicTypeId = BasicTypeId(0xffff_ffff);
+}
+
+#[derive(Clone, Debug)]
 pub struct BasicType {
+    pub id: BasicTypeId,
     pub kind: BasicTypeKind,
     pub total_size: MemorySize,
     pub max_alignment: MemoryAlignment,
 }
+
 
 impl BasicType {}
 
@@ -1451,6 +1483,7 @@ impl BasicType {
     #[must_use]
     pub fn make_pointer(&self) -> Self {
         Self {
+            id: BasicTypeId::EMPTY,
             kind: BasicTypeKind::MutablePointer(Box::new(self.clone())),
             total_size: HEAP_PTR_ON_FRAME_SIZE,
             max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
@@ -1510,6 +1543,7 @@ impl BasicType {
         debug_assert!(!self.is_mutable_reference());
 
         Self {
+            id: BasicTypeId::EMPTY,
             kind: BasicTypeKind::MutablePointer(Box::from(self.clone())),
             total_size: HEAP_PTR_ON_FRAME_SIZE,
             max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,

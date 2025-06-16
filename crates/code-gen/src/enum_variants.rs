@@ -8,9 +8,9 @@ use crate::ctx::Context;
 use crate::layout::layout_enum_into_tagged_union;
 use source_map_node::Node;
 use swamp_semantic::EnumLiteralData;
-use swamp_types::{EnumType, EnumVariantType};
+use swamp_types::prelude::{EnumType, EnumVariantType};
+use swamp_vm_types::types::{u8_type, VmType};
 use swamp_vm_types::AggregateMemoryLocation;
-use swamp_vm_types::types::{VmType, u8_type};
 
 impl CodeBuilder<'_> {
     pub fn emit_enum_variant_to_memory_location(

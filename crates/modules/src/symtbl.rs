@@ -9,6 +9,8 @@ use std::fmt::Debug;
 use std::rc::Rc;
 use swamp_semantic::prelude::*;
 use swamp_types::prelude::*;
+use swamp_types::Type;
+use swamp_types::TypeRef;
 use tiny_ver::TinyVersion;
 
 #[derive(Debug, Clone)]
@@ -37,13 +39,19 @@ pub struct TypeParameterName {
 
 #[derive(Debug)]
 pub struct TypeParameter {
-    pub ty: Type,
+    pub ty: TypeRef,
     pub debug_name: String,
 }
 
 #[derive(Clone, Debug)]
+pub struct AliasType {
+    pub assigned_name: String,
+    pub ty: TypeRef,
+}
+
+#[derive(Clone, Debug)]
 pub enum Symbol {
-    Type(Type),
+    Type(TypeRef),
     Module(ModuleRef),
     PackageVersion(TinyVersion),
     Constant(ConstantRef),
@@ -122,7 +130,7 @@ impl SymbolTable {
 
         for (name, symbol) in &self.symbols {
             if let Symbol::Type(ty) = symbol {
-                if let Type::NamedStruct(struct_ref) = ty {
+                if let TypeKind::NamedStruct(struct_ref) = &*ty.kind {
                     structs
                         .insert(name.to_string(), struct_ref.clone())
                         .unwrap();
@@ -139,7 +147,7 @@ impl SymbolTable {
 
         for (name, symbol) in &self.symbols {
             if let Symbol::Type(ty) = symbol {
-                if let Type::Enum(enum_type) = ty {
+                if let TypeKind::Enum(enum_type) = &*ty.kind {
                     enums.insert(name.to_string(), enum_type.clone()).unwrap();
                 }
             }
@@ -256,7 +264,7 @@ impl SymbolTable {
     pub fn add_generated_struct(
         &mut self,
         name: &str,
-        fields: &[(&str, Type)],
+        fields: &[(&str, TypeRef)],
     ) -> Result<NamedStructType, SemanticError> {
         let mut defined_fields = SeqMap::new();
         for (name, field_type) in fields {
@@ -306,7 +314,7 @@ impl SymbolTable {
     }
 
     pub fn add_enum_type_link(&mut self, enum_type_ref: EnumType) -> Result<(), SemanticError> {
-        let ty = Type::Enum(enum_type_ref.clone());
+        let ty = TypeKind::Enum(enum_type_ref.clone());
         self.symbols
             .insert(enum_type_ref.assigned_name.clone(), Symbol::Type(ty))
             .map_err(|_| SemanticError::DuplicateEnumType(enum_type_ref.assigned_name.clone()))?;
@@ -370,16 +378,16 @@ impl SymbolTable {
 
     #[must_use]
     pub fn get_struct(&self, name: &str) -> Option<&NamedStructType> {
-        match self.get_type(name)? {
-            Type::NamedStruct(struct_ref) => Some(struct_ref),
+        match &*self.get_type(name)?.kind {
+            &TypeKind::NamedStruct(struct_ref) => Some(struct_ref),
             _ => None,
         }
     }
 
     #[must_use]
     pub fn get_enum(&self, name: &str) -> Option<&EnumType> {
-        match self.get_type(name)? {
-            Type::Enum(enum_type) => Some(enum_type),
+        match &*self.get_type(name)?.kind {
+            &TypeKind::Enum(enum_type) => Some(enum_type),
             _ => None,
         }
     }
@@ -467,9 +475,9 @@ impl SymbolTable {
             &decl_ref.assigned_name,
             Symbol::FunctionDefinition(FuncDef::External(decl_ref.clone())),
         )
-        .map_err(|_| {
-            SemanticError::DuplicateExternalFunction(decl_ref.assigned_name.to_string())
-        })?;
+            .map_err(|_| {
+                SemanticError::DuplicateExternalFunction(decl_ref.assigned_name.to_string())
+            })?;
         Ok(())
     }
 

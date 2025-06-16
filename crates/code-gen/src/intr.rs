@@ -5,17 +5,16 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::prelude::layout_type;
 use crate::{Collection, Transformer};
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_types::types::{
-    Destination, RValueOrLValue, TypedRegister, VmType, pointer_type, u8_type, u16_type, u32_type,
+    pointer_type, u16_type, u32_type, u8_type, Destination, RValueOrLValue, TypedRegister, VmType,
 };
 use swamp_vm_types::{
-    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
-    MemoryLocation, MemoryOffset, MemorySize, PointerLocation, STRING_HEADER_COUNT_OFFSET,
+    AggregateMemoryLocation, MemoryLocation, MemoryOffset,
+    MemorySize, PointerLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, STRING_HEADER_COUNT_OFFSET,
 };
 
 impl CodeBuilder<'_> {

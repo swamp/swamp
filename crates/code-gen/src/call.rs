@@ -15,7 +15,7 @@ use seq_map::SeqMap;
 use source_map_node::Node;
 use std::collections::HashSet;
 use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
-use swamp_types::Signature;
+use swamp_types::prelude::Signature;
 use swamp_vm_types::types::{
     BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u32_type,
 };

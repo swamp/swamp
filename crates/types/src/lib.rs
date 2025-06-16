@@ -7,7 +7,7 @@ mod supporting_types;
 mod type_kind;
 
 use crate::flags::TypeFlags;
-use crate::type_kind::TypeKind;
+pub use crate::type_kind::TypeKind;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
@@ -15,10 +15,14 @@ use std::rc::Rc;
 pub struct TypeId(u32);
 
 impl TypeId {
+    const EMPTY: u32 = 0xffffffff;
+    
     #[must_use]
     pub const fn new(id: u32) -> Self {
         Self(id)
     }
+    
+    
 }
 
 impl Display for TypeId {
@@ -33,6 +37,8 @@ pub struct Type {
     pub flags: TypeFlags,
     pub kind: Rc<TypeKind>,
 }
+
+pub type TypeRef = Rc<Type>;
 
 impl Display for Type {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

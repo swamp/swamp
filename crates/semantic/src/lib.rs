@@ -13,13 +13,14 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
-use swamp_types::StructLikeType;
+use swamp_attributes::Attributes;
 use swamp_types::prelude::*;
+use swamp_types::TypeRef;
 use tracing::error;
 
 #[derive(Debug, Clone)]
 pub struct TypeWithMut {
-    pub resolved_type: Type,
+    pub resolved_type: TypeRef,
     pub is_mutable: bool,
 }
 
@@ -43,7 +44,7 @@ pub enum SemanticError {
     WasNotMutable,
     DuplicateSymbolName(String),
     DuplicateNamespaceLink(String),
-    MismatchedTypes { expected: Type, found: Vec<Type> },
+    MismatchedTypes { expected: TypeRef, found: Vec<TypeRef> },
     UnknownImplOnType,
     UnknownTypeVariable,
     DuplicateDefinition(String),
@@ -80,7 +81,7 @@ pub struct InternalFunctionDefinition {
     pub body: Expression,
     pub name: LocalIdentifier,
     pub assigned_name: String,
-    pub associated_with_type: Option<Type>,
+    pub associated_with_type: Option<TypeRef>,
     pub defined_in_module_path: Vec<String>,
     pub signature: Signature,
     pub parameters: Vec<VariableRef>,
@@ -109,30 +110,6 @@ impl InternalFunctionDefinition {
     }
 }
 
-impl Default for InternalFunctionDefinition {
-    fn default() -> Self {
-        Self {
-            body: Expression {
-                ty: Type::Unit,
-                node: Node::default(),
-                kind: ExpressionKind::Block(vec![]),
-            },
-            name: LocalIdentifier(Node::default()),
-            assigned_name: String::new(),
-            associated_with_type: None,
-            defined_in_module_path: vec![],
-            signature: Signature {
-                parameters: vec![],
-                return_type: Box::new(Type::Unit),
-            },
-            //variable_scopes: FunctionScopeState::new(),
-            parameters: Vec::new(),
-            function_variables: Vec::new(),
-            program_unique_id: 0,
-            attributes: Attributes::default(),
-        }
-    }
-}
 
 impl Debug for InternalFunctionDefinition {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -275,7 +252,7 @@ pub enum VariableType {
 pub struct Variable {
     pub name: Node,
     pub assigned_name: String,
-    pub resolved_type: Type,
+    pub resolved_type: TypeRef,
     pub mutable_node: Option<Node>,
     pub variable_type: VariableType,
 
@@ -388,10 +365,10 @@ pub struct MemberCall {
 
 #[derive(Debug, Clone)]
 pub struct ArrayItem {
-    pub item_type: Type,
+    pub item_type: Rc<TypeRef>,
     pub int_expression: Expression,
     pub array_expression: Expression,
-    pub array_type: Type,
+    pub array_type: Rc<TypeRef>,
 }
 
 pub type ArrayItemRef = Rc<ArrayItem>;
@@ -494,7 +471,7 @@ pub struct MatchArm {
     #[allow(unused)]
     pub pattern: Pattern,
     pub expression: Box<Expression>,
-    pub expression_type: Type,
+    pub expression_type: TypeRef,
 }
 
 #[derive(Debug, Clone)]
@@ -519,8 +496,8 @@ pub enum PatternElement {
 
 #[derive(Debug, Clone)]
 pub struct Iterable {
-    pub key_type: Option<Type>, // It does not have to support a key type
-    pub value_type: Type,
+    pub key_type: Option<TypeRef>, // It does not have to support a key type
+    pub value_type: TypeRef,
 
     pub resolved_expression: Box<Expression>,
 }
@@ -528,7 +505,7 @@ pub struct Iterable {
 #[derive(Debug, Clone)]
 pub struct AnonymousStructLiteral {
     pub source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
-    pub struct_like_type: StructLikeType,
+    pub struct_like_type: TypeRef,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -553,13 +530,6 @@ pub struct VariableCompoundAssignment {
     pub compound_operator: CompoundOperator,
 }
 
-#[must_use]
-pub fn create_rust_type(name: &str, external_number: u32) -> ExternalType {
-    ExternalType {
-        type_name: name.to_string(),
-        number: external_number,
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Guard {
@@ -570,34 +540,34 @@ pub struct Guard {
 #[derive(Debug, Clone)]
 pub struct Postfix {
     pub node: Node,
-    pub ty: Type,
+    pub ty: TypeRef,
     pub kind: PostfixKind,
 }
 
 #[derive(Debug, Clone)]
 pub struct SliceViewType {
-    pub element: Box<Type>,
+    pub element: Box<TypeRef>,
 }
 
 #[derive(Debug, Clone)]
 pub struct VecType {
-    pub element: Box<Type>,
+    pub element: Box<TypeRef>,
 }
 
 #[derive(Debug, Clone)]
 pub struct GridType {
-    pub element: Box<Type>,
+    pub element: Box<TypeRef>,
 }
 
 #[derive(Debug, Clone)]
 pub struct SparseType {
-    pub element: Box<Type>,
+    pub element: Box<TypeRef>,
 }
 
 #[derive(Debug, Clone)]
 pub struct MapType {
-    pub key: Box<Type>,
-    pub value: Box<Type>,
+    pub key: Box<TypeRef>,
+    pub value: Box<TypeRef>,
 }
 
 #[derive(Debug, Clone)]
@@ -627,7 +597,7 @@ pub enum LocationAccessKind {
 #[derive(Debug, Clone)]
 pub struct LocationAccess {
     pub node: Node,
-    pub ty: Type,
+    pub ty: TypeRef,
     pub kind: LocationAccessKind,
 }
 
@@ -635,7 +605,7 @@ pub struct LocationAccess {
 pub struct SingleLocationExpression {
     pub kind: MutableReferenceKind,
     pub node: Node,
-    pub ty: Type,
+    pub ty: TypeRef,
 
     pub starting_variable: VariableRef,
     pub access_chain: Vec<LocationAccess>,
@@ -658,7 +628,7 @@ pub enum ArgumentExpression {
 
 impl ArgumentExpression {
     #[must_use]
-    pub fn ty(&self) -> Type {
+    pub fn ty(&self) -> TypeRef {
         match self {
             Self::Expression(expr) => expr.ty.clone(),
             Self::BorrowMutableReference(location) => location.ty.clone(),
@@ -695,7 +665,7 @@ impl ArgumentExpression {
 
 #[derive(Clone)]
 pub struct Expression {
-    pub ty: Type,
+    pub ty: TypeRef,
     pub node: Node,
     pub kind: ExpressionKind,
 }
@@ -761,7 +731,7 @@ impl StartOfChain {}
 
 impl StartOfChainKind {
     #[must_use]
-    pub fn ty(&self) -> Type {
+    pub fn ty(&self) -> TypeRef {
         match self {
             Self::Expression(expr) => expr.ty.clone(),
             Self::Variable(var) => var.resolved_type.clone(),
@@ -829,7 +799,7 @@ pub enum ExpressionKind {
     If(BooleanExpression, Box<Expression>, Option<Box<Expression>>),
     When(Vec<WhenBinding>, Box<Expression>, Option<Box<Expression>>),
 
-    TupleDestructuring(Vec<VariableRef>, Vec<Type>, Box<Expression>),
+    TupleDestructuring(Vec<VariableRef>, Vec<TypeRef>, Box<Expression>),
 
     Lambda(Vec<VariableRef>, Box<Expression>),
     BorrowMutRef(Box<SingleLocationExpression>),
@@ -847,18 +817,18 @@ pub enum Literal {
     BoolLiteral(bool),
 
     EnumVariantLiteral(EnumType, EnumVariantType, EnumLiteralData),
-    TupleLiteral(Vec<Type>, Vec<Expression>),
+    TupleLiteral(Vec<TypeRef>, Vec<Expression>),
 
-    InitializerList(Type, Vec<Expression>),
-    InitializerPairList(Type, Vec<(Expression, Expression)>),
+    InitializerList(TypeRef, Vec<Expression>),
+    InitializerPairList(TypeRef, Vec<(Expression, Expression)>),
 }
 
 #[derive(Debug, Clone)]
 pub struct ArrayInstantiation {
     pub expressions: Vec<Expression>,
-    pub item_type: Type,
-    pub array_type: Type,
-    pub array_type_ref: Type,
+    pub item_type: TypeRef,
+    pub array_type: TypeRef,
+    pub array_type_ref: TypeRef,
 }
 
 #[derive(Debug, Clone)]
@@ -895,7 +865,7 @@ pub struct Constant {
     pub assigned_name: String,
     pub id: ConstantId,
     pub expr: Expression,
-    pub resolved_type: Type,
+    pub resolved_type: TypeRef,
     pub function_scope_state: Vec<VariableRef>,
 }
 pub type ConstantRef = Rc<Constant>;
@@ -904,7 +874,7 @@ pub type OptionTypeRef = Rc<OptionType>;
 
 #[derive(Debug, Clone)]
 pub struct OptionType {
-    pub item_type: Type,
+    pub item_type: TypeRef,
 }
 
 /*
@@ -960,7 +930,7 @@ impl ImplFunctions {
 
 #[derive(Debug, Clone)]
 pub struct AssociatedImpls {
-    pub functions: SeqMap<Type, ImplFunctions>,
+    pub functions: SeqMap<TypeRef, ImplFunctions>,
 }
 
 impl AssociatedImpls {}
@@ -985,18 +955,18 @@ impl AssociatedImpls {
 }
 
 impl AssociatedImpls {
-    pub fn prepare(&mut self, ty: &Type) {
+    pub fn prepare(&mut self, ty: &TypeRef) {
         self.functions
             .insert(ty.clone(), ImplFunctions::new())
             .expect("should work");
     }
 
     #[must_use]
-    pub fn is_prepared(&self, ty: &Type) -> bool {
+    pub fn is_prepared(&self, ty: &TypeRef) -> bool {
         self.functions.contains_key(ty)
     }
     #[must_use]
-    pub fn get_member_function(&self, ty: &Type, function_name: &str) -> Option<&FunctionRef> {
+    pub fn get_member_function(&self, ty: &TypeRef, function_name: &str) -> Option<&FunctionRef> {
         let maybe_found_impl = self.functions.get(ty);
         if let Some(found_impl) = maybe_found_impl {
             if let Some(func) = found_impl.functions.get(&function_name.to_string()) {
@@ -1006,7 +976,7 @@ impl AssociatedImpls {
         None
     }
 
-    fn has_internal_member_function(&self, ty: &Type, function_name: &str) -> bool {
+    fn has_internal_member_function(&self, ty: &TypeRef, function_name: &str) -> bool {
         let maybe_found_impl = self.functions.get(ty);
         if let Some(found_impl) = maybe_found_impl {
             if let Some(func) = found_impl.functions.get(&function_name.to_string()) {
@@ -1019,7 +989,7 @@ impl AssociatedImpls {
     #[must_use]
     pub fn api_get_external_function(
         &self,
-        ty: &Type,
+        ty: &TypeRef,
         function_name: &str,
     ) -> Option<&ExternalFunctionDefinitionRef> {
         if let Some(found) = self.get_member_function(ty, function_name) {
@@ -1033,7 +1003,7 @@ impl AssociatedImpls {
     #[must_use]
     pub fn api_fetch_external_function_id(
         &self,
-        ty: &Type,
+        ty: &TypeRef,
         function_name: &str,
     ) -> ExternalFunctionId {
         self.api_get_external_function(ty, function_name)
@@ -1044,7 +1014,7 @@ impl AssociatedImpls {
     #[must_use]
     pub fn get_internal_member_function(
         &self,
-        ty: &Type,
+        ty: &TypeRef,
         function_name: &str,
     ) -> Option<&InternalFunctionDefinitionRef> {
         if let Some(found) = self.get_member_function(ty, function_name) {
@@ -1055,7 +1025,7 @@ impl AssociatedImpls {
         None
     }
 
-    pub fn remove_internal_function_if_exists(&mut self, ty: &Type, function_name: &str) -> bool {
+    pub fn remove_internal_function_if_exists(&mut self, ty: &TypeRef, function_name: &str) -> bool {
         if self.has_internal_member_function(ty, function_name) {
             let functions = self.functions.get_mut(ty).unwrap();
 
@@ -1068,7 +1038,7 @@ impl AssociatedImpls {
 
     pub fn add_member_function(
         &mut self,
-        ty: &Type,
+        ty: &TypeRef,
         name: &str,
         func: FunctionRef,
     ) -> Result<(), SemanticError> {
@@ -1088,7 +1058,7 @@ impl AssociatedImpls {
 
     pub fn add_internal_function(
         &mut self,
-        ty: &Type,
+        ty: &TypeRef,
         func: InternalFunctionDefinition,
     ) -> Result<(), SemanticError> {
         self.add_member_function(
@@ -1100,7 +1070,7 @@ impl AssociatedImpls {
 
     pub fn add_external_member_function(
         &mut self,
-        ty: &Type,
+        ty: &TypeRef,
         func: ExternalFunctionDefinition,
     ) -> Result<(), SemanticError> {
         self.add_member_function(
@@ -1112,11 +1082,11 @@ impl AssociatedImpls {
 
     pub fn add_external_struct_member_function(
         &mut self,
-        named_struct_type: &NamedStructType,
+        named_struct_type: TypeRef,
         func: Function,
     ) -> Result<(), SemanticError> {
         self.add_member_function(
-            &Type::NamedStruct(named_struct_type.clone()),
+            &named_struct_type,
             &func.name(),
             func.into(),
         )
@@ -1124,11 +1094,11 @@ impl AssociatedImpls {
 
     pub fn add_external_struct_member_function_external(
         &mut self,
-        named_struct_type: NamedStructType,
+        named_struct_type: TypeRef,
         func: ExternalFunctionDefinition,
     ) -> Result<(), SemanticError> {
         self.add_member_function(
-            &Type::NamedStruct(named_struct_type),
+            &named_struct_type,
             &func.assigned_name.clone(),
             Function::External(func.into()).into(),
         )
@@ -1136,11 +1106,11 @@ impl AssociatedImpls {
 
     pub fn add_external_struct_member_function_external_ref(
         &mut self,
-        named_struct_type: NamedStructType,
+        named_struct_type: TypeRef,
         func: ExternalFunctionDefinitionRef,
     ) -> Result<(), SemanticError> {
         self.add_member_function(
-            &Type::NamedStruct(named_struct_type),
+            &named_struct_type,
             &func.assigned_name.clone(),
             Function::External(func).into(),
         )

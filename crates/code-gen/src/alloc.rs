@@ -3,12 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Collection;
-use crate::layout::layout_type;
 use swamp_types::Type;
-use swamp_vm_types::types::{BasicType, BasicTypeKind, FramePlacedType, unknown_type};
+use swamp_vm_types::types::{unknown_type, BasicType, BasicTypeKind, FramePlacedType};
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize, SPARSE_ITERATOR_ALIGNMENT,
-    SPARSE_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, align_frame_addr,
+    align_frame_addr, FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize,
+    SPARSE_ITERATOR_ALIGNMENT, SPARSE_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
 };
 use tracing::error;
 
