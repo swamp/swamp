@@ -5,7 +5,6 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::layout_struct_type;
 use crate::FlagState;
 use source_map_node::Node;
 use swamp_semantic::{AnonymousStructLiteral, Expression};

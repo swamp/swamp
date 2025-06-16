@@ -3,4 +3,4 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-pub use crate::{GenFunctionInfo, layout::layout_type};
+pub use crate::GenFunctionInfo;

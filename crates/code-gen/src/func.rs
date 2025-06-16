@@ -5,7 +5,7 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::{layout_type, layout_variables};
+use crate::layout::layout_variables;
 use crate::reg_pool::HwmTempRegisterPool;
 use crate::state::GenOptions;
 use crate::top_state::TopLevelGenState;
@@ -16,12 +16,12 @@ use crate::{
 use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{InternalFunctionDefinitionRef, InternalMainExpression, formal_function_name};
+use swamp_semantic::{formal_function_name, InternalFunctionDefinitionRef, InternalMainExpression};
 use swamp_vm_debug_info::FunctionDebugInfo;
 use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_types::types::{
-    Destination, FunctionInfo, FunctionInfoKind, TypedRegister, VariableRegister, VmType,
-    VmTypeOrigin, is_callee_save,
+    is_callee_save, Destination, FunctionInfo, FunctionInfoKind, TypedRegister, VariableRegister,
+    VmType, VmTypeOrigin,
 };
 use swamp_vm_types::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,

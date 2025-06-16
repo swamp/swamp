@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::aligner::align;
-use crate::types::BasicType;
+use crate::types::BasicTypeRef;
 use crate::types::{TypedRegister, VmType};
 use hashmap_mem::MapHeader;
 use source_map_node::Node;
@@ -287,7 +287,7 @@ impl PointerLocation {
         Self { ptr_reg }
     }
     #[must_use]
-    pub const fn addressing(&self) -> u8 {
+    pub fn addressing(&self) -> u8 {
         self.ptr_reg.addressing()
     }
 }
@@ -395,7 +395,7 @@ impl Display for AggregateMemoryLocation {
 
 impl AggregateMemoryLocation {
     #[must_use]
-    pub fn offset(&self, memory_offset: MemoryOffset, new_type: BasicType) -> Self {
+    pub fn offset(&self, memory_offset: MemoryOffset, new_type: BasicTypeRef) -> Self {
         let new_location = MemoryLocation {
             base_ptr_reg: self.location.base_ptr_reg.clone(),
             offset: self.location.offset + memory_offset,

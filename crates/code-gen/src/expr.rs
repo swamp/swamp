@@ -4,7 +4,6 @@
  */
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};

@@ -5,7 +5,6 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::layout_type;
 use swamp_semantic::{ArgumentExpression, Expression, WhenBinding};
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};

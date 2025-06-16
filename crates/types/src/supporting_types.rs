@@ -1,4 +1,4 @@
-use crate::Type;
+use crate::{Type, TypeRef};
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::{Debug, Display};
@@ -66,7 +66,7 @@ impl AnonymousStructType {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct StructTypeField {
     pub identifier: Option<Node>,
-    pub field_type: Type,
+    pub field_type: TypeRef,
 }
 
 impl Display for StructTypeField {
@@ -220,7 +220,7 @@ impl EnumVariantType {
     }
 
     #[must_use]
-    pub fn types(&self) -> Vec<Type> {
+    pub fn types(&self) -> Vec<TypeRef> {
         match self {
             Self::Tuple(tuple) => tuple.fields_in_order.clone(),
             Self::Struct(c) => c
@@ -243,7 +243,7 @@ pub struct EnumVariantStructType {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct EnumVariantTupleType {
     pub common: EnumVariantCommon,
-    pub fields_in_order: Vec<Type>,
+    pub fields_in_order: Vec<TypeRef>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]

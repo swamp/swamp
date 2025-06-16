@@ -1126,6 +1126,7 @@ pub struct ProgramState {
     // evaluated in order already
     pub constants_in_dependency_order: Vec<ConstantRef>,
     pub associated_impls: AssociatedImpls,
+    pub types: TypeCache,
 }
 
 impl Default for ProgramState {
@@ -1165,6 +1166,7 @@ impl ProgramState {
             internal_function_id_allocator: InternalFunctionIdAllocator::new(),
             constants_in_dependency_order: Vec::new(),
             associated_impls: AssociatedImpls::new(),
+            types: TypeCache::new(),
         }
     }
     pub const fn allocate_internal_function_id(&mut self) -> InternalFunctionId {

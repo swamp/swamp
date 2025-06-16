@@ -9,7 +9,6 @@ use std::fmt::Debug;
 use std::rc::Rc;
 use swamp_semantic::prelude::*;
 use swamp_types::prelude::*;
-use swamp_types::Type;
 use swamp_types::TypeRef;
 use tiny_ver::TinyVersion;
 
@@ -249,46 +248,17 @@ impl SymbolTable {
         Ok(())
     }
 
+
+    /// # Errors
+    ///
+
     /// # Errors
     ///
     pub fn add_struct(
         &mut self,
-        struct_type: NamedStructType,
+        struct_type: TypeRef,
     ) -> Result<NamedStructType, SemanticError> {
         self.add_struct_link(struct_type.clone())?;
-        Ok(struct_type)
-    }
-
-    /// # Errors
-    ///
-    pub fn add_generated_struct(
-        &mut self,
-        name: &str,
-        fields: &[(&str, TypeRef)],
-    ) -> Result<NamedStructType, SemanticError> {
-        let mut defined_fields = SeqMap::new();
-        for (name, field_type) in fields {
-            defined_fields
-                .insert(
-                    (*name).to_string(),
-                    StructTypeField {
-                        identifier: None,
-                        field_type: field_type.clone(),
-                    },
-                )
-                .unwrap();
-        }
-
-        let struct_type = NamedStructType {
-            name: Node::default(),
-            assigned_name: name.to_string(),
-            anon_struct_type: AnonymousStructType::new(defined_fields),
-            module_path: self.module_path.clone(),
-            instantiated_type_parameters: Vec::default(),
-        };
-
-        self.add_struct_link(struct_type.clone())?;
-
         Ok(struct_type)
     }
 
@@ -296,16 +266,18 @@ impl SymbolTable {
     ///
     pub fn add_struct_link(
         &mut self,
-        struct_type_ref: NamedStructType,
+        struct_type_ref: TypeRef,
     ) -> Result<(), SemanticError> {
-        let name = struct_type_ref.assigned_name.clone();
-        self.symbols
-            .insert(
-                name.clone(),
-                Symbol::Type(Type::NamedStruct(struct_type_ref)),
-            )
-            .map_err(|_| SemanticError::DuplicateStructName(name))?;
-        Ok(())
+        if let TypeKind::NamedStruct(named) = &*struct_type_ref.kind {
+            self.symbols
+                .insert(
+                    named.assigned_name.clone(),
+                    Symbol::Type(struct_type_ref.clone()),
+                )
+                .map_err(|_| SemanticError::DuplicateStructName(named.assigned_name.clone()))
+        } else {
+            panic!("internal error")
+        }
     }
 
     pub fn add_enum_type(&mut self, enum_type: EnumType) -> Result<(), SemanticError> {
@@ -366,7 +338,7 @@ impl SymbolTable {
     }
 
     #[must_use]
-    pub fn get_type(&self, name: &str) -> Option<&Type> {
+    pub fn get_type(&self, name: &str) -> Option<&TypeRef> {
         if let Some(found_symbol) = self.get_symbol(name) {
             if let Symbol::Type(type_ref) = found_symbol {
                 return Some(type_ref);
@@ -377,19 +349,13 @@ impl SymbolTable {
     }
 
     #[must_use]
-    pub fn get_struct(&self, name: &str) -> Option<&NamedStructType> {
-        match &*self.get_type(name)?.kind {
-            &TypeKind::NamedStruct(struct_ref) => Some(struct_ref),
-            _ => None,
-        }
+    pub fn get_struct(&self, name: &str) -> Option<&TypeRef> {
+        self.get_type(name)
     }
 
     #[must_use]
-    pub fn get_enum(&self, name: &str) -> Option<&EnumType> {
-        match &*self.get_type(name)?.kind {
-            &TypeKind::Enum(enum_type) => Some(enum_type),
-            _ => None,
-        }
+    pub fn get_enum(&self, name: &str) -> Option<&TypeRef> {
+        self.get_type(name)
     }
 
     #[must_use]
@@ -400,7 +366,10 @@ impl SymbolTable {
     ) -> Option<EnumVariantType> {
         self.get_enum(enum_type_name).as_ref().map_or_else(
             || None,
-            |found_enum| found_enum.variants.get(&variant_name.to_string()).cloned(),
+            |found_type| {
+                let &TypeKind::Enum(found_enum) = &*found_type else { panic!("internal error")}; 
+                found_enum.variants.get(&variant_name.to_string()).cloned()
+            },
         )
     }
 

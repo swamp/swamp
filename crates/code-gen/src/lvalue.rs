@@ -5,7 +5,6 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::layout_type;
 use swamp_semantic::{LocationAccessKind, SingleLocationExpression};
 use swamp_vm_types::types::{Destination, VmType};
 

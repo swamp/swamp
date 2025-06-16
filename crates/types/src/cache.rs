@@ -6,6 +6,7 @@ use seq_map::SeqMap;
 use std::rc::Rc;
 
 /// Type cache for interning and deduplicating types in the system
+#[derive(Debug, Clone)]
 pub struct TypeCache {
     pub(crate) type_id_to_type: SeqMap<TypeId, Rc<Type>>,
     pub(crate) kind_to_type_id: SeqMap<TypeKind, TypeId>,

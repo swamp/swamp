@@ -15,14 +15,17 @@ use std::rc::Rc;
 pub struct TypeId(u32);
 
 impl TypeId {
-    const EMPTY: u32 = 0xffffffff;
-    
+    pub const EMPTY: u32 = 0xffffffff;
+
     #[must_use]
     pub const fn new(id: u32) -> Self {
         Self(id)
     }
-    
-    
+
+    #[must_use]
+    pub const fn inner(&self) -> u32 {
+        self.0
+    }
 }
 
 impl Display for TypeId {

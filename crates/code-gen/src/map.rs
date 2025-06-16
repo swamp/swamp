@@ -5,10 +5,9 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::layout_type;
 use source_map_node::Node;
 use swamp_semantic::{Expression, MapType};
-use swamp_vm_types::types::{Destination, TupleType, VmType, u32_type};
+use swamp_vm_types::types::{u32_type, Destination, TupleType, VmType};
 use swamp_vm_types::{CountU16, MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {

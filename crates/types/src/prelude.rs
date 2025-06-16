@@ -6,10 +6,10 @@ pub use crate::{
     TypeId,
     cache::TypeCache,
     flags::TypeFlags,
-    supporting_types::{ EnumVariantTupleType,
+    supporting_types::{
         AnonymousStructType, EnumType, EnumVariantCommon, EnumVariantSimpleType,
-        EnumVariantStructType, EnumVariantType, NamedStructType, Signature, StructTypeField,
-        TypeForParameter,
+        EnumVariantStructType, EnumVariantTupleType, EnumVariantType, NamedStructType, Signature,
+        StructTypeField, TypeForParameter,
     },
     type_kind::TypeKind,
 };

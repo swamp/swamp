@@ -5,7 +5,6 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::layout::layout_enum_into_tagged_union;
 use source_map_node::Node;
 use swamp_semantic::EnumLiteralData;
 use swamp_types::prelude::{EnumType, EnumVariantType};
