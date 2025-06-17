@@ -208,7 +208,7 @@ impl CodeBuilder<'_> {
                     none_patches.push(skip_to_end_patch);
 
                     // If Some, update current_location to point to the payload
-                    let optional_layout = layout_optional_type(&element.ty);
+                    let optional_layout = self.state.layout_cache.layout(&element.ty);
                     let (_, _, payload_offset, _) = optional_layout.unwrap_info().unwrap();
 
                     let payload_type = &element.ty.clone();
@@ -268,7 +268,7 @@ impl CodeBuilder<'_> {
 
                         self.builder.patch_jump_here(skip_fallback_patch);
 
-                        let optional_layout = layout_optional_type(&element.ty);
+                        let optional_layout = self.state.layout_cache.layout(&element.ty);
                         let (_, _, payload_offset, _) = optional_layout.unwrap_info().unwrap();
 
                         // `Some`: just update current_location to point to payload

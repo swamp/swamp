@@ -295,6 +295,9 @@ impl TopLevelGenState {
             &in_data.return_type,
         );
 
+        // Get the return type layout before borrowing codegen_state mutably
+        let return_basic_type = self.codegen_state.layout_cache.layout(&in_data.return_type);
+
         let mut function_info = FunctionInfo {
             kind: in_data.kind.clone(),
             frame_memory: frame_and_variable_info.frame_memory,
@@ -337,8 +340,6 @@ impl TopLevelGenState {
             &function_info,
             &in_data.function_name_node,
         );
-
-        let return_basic_type = self.codegen_state.layout_cache.layout(&in_data.return_type);
         let return_register =
             TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 

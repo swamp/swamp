@@ -7,6 +7,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::Literal;
+use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, VmType, int_type, string_type};
 use swamp_vm_types::{HeapMemoryAddress, StringHeader};
 
@@ -173,10 +174,27 @@ impl CodeBuilder<'_> {
             }
             Literal::InitializerList(slice_type, expressions) => {
                 // A tuple literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
-                let element_gen_type = self
-                    .state
-                    .layout_cache
-                    .layout(slice_type.iteration_primary_element_type().unwrap());
+                let element_type = match &*slice_type.kind {
+                    TypeKind::VecStorage(element_type, _)
+                    | TypeKind::DynamicLengthVecView(element_type)
+                    | TypeKind::SliceView(element_type)
+                    | TypeKind::StackStorage(element_type, _)
+                    | TypeKind::StackView(element_type)
+                    | TypeKind::QueueStorage(element_type, _)
+                    | TypeKind::QueueView(element_type)
+                    | TypeKind::SparseStorage(element_type, _)
+                    | TypeKind::SparseView(element_type)
+                    | TypeKind::GridStorage(element_type, _, _)
+                    | TypeKind::GridView(element_type)
+                    | TypeKind::FixedCapacityAndLengthArray(element_type, _) => {
+                        element_type.clone()
+                    }
+                    _ => panic!(
+                        "InitializerList requires a collection type, got: {:?}",
+                        slice_type.kind
+                    ),
+                };
+                let element_gen_type = self.state.layout_cache.layout(&element_type);
                 self.emit_initializer_list_into_target_lvalue_memory_location(
                     &output.grab_aggregate_memory_location(),
                     &element_gen_type,

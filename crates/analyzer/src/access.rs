@@ -12,7 +12,11 @@ use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
     #[must_use]
-    pub fn lookup_associated_function(&self, ty: &Type, function_name: &str) -> Option<Function> {
+    pub fn lookup_associated_function(
+        &self,
+        ty: &TypeRef,
+        function_name: &str,
+    ) -> Option<Function> {
         let x = self
             .shared
             .state
@@ -28,7 +32,7 @@ impl Analyzer<'_> {
         min_expr: &swamp_ast::Expression,
         max_expr: &swamp_ast::Expression,
     ) -> Result<(Expression, Expression), Error> {
-        let context = TypeContext::new_argument(&Type::Int);
+        let context = TypeContext::new_argument(&TypeKind::Int);
 
         let resolved_min = self.analyze_expression(min_expr, &context)?;
         let resolved_max = self.analyze_expression(max_expr, &context)?;
@@ -60,15 +64,15 @@ impl Analyzer<'_> {
         let named_struct_type_ref = self
             .shared
             .state
-            .type_cache
+            .types
             .named_struct(range_anonymous_struct_type);
 
-        let range_type = self.shared.state.type_cache.range(named_struct_type_ref);
+        let range_type = self.shared.state.types.range(named_struct_type_ref);
 
         let is_inclusive = matches!(mode, swamp_ast::RangeMode::Inclusive);
 
         let bool_expr_kind = ExpressionKind::Literal(BoolLiteral(is_inclusive));
-        let bool_expr = self.create_expr(bool_expr_kind, Type::Bool, ast_node);
+        let bool_expr = self.create_expr(bool_expr_kind, TypeKind::Bool, ast_node);
 
         let call_kind = ExpressionKind::IntrinsicCallEx(
             IntrinsicFunction::RangeInit,
