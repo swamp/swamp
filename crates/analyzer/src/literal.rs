@@ -28,8 +28,8 @@ impl Analyzer<'_> {
                     self.analyze_internal_initializer_list(ast_node, items, context)?;
 
                 (
-                    Literal::InitializerList(collection_type.clone(), resolved_items),
-                    collection_type,
+                    Literal::InitializerList(collection_type.clone().into(), resolved_items),
+                    collection_type.clone().into(),
                 )
             }
 
@@ -68,7 +68,7 @@ impl Analyzer<'_> {
                 Literal::IntLiteral(Self::str_to_int(node_text).map_err(|int_conversion_err| {
                     self.create_err(ErrorKind::IntConversionError(int_conversion_err), ast_node)
                 })?),
-                TypeKind::Int,
+                self.shared.state.types.int(),
             ),
             swamp_ast::LiteralKind::Float => {
                 let float = Self::str_to_float(node_text).map_err(|float_conversion_err| {
@@ -77,17 +77,17 @@ impl Analyzer<'_> {
                         ast_node,
                     )
                 })?;
-                (Literal::FloatLiteral(Fp::from(float)), TypeKind::Float)
+                (Literal::FloatLiteral(Fp::from(float)), self.shared.state.types.float())
             }
-            swamp_ast::LiteralKind::String(processed_string) => (
-                Literal::StringLiteral(processed_string.to_string()),
-                TypeKind::String,
-            ),
+            swamp_ast::LiteralKind::String(processed_string) =>                 (
+                    Literal::StringLiteral(processed_string.to_string()),
+                    self.shared.state.types.string(),
+                ),
             swamp_ast::LiteralKind::Bool => {
                 let bool_val = Self::str_to_bool(node_text).map_err(|float_conversion_err| {
                     self.create_err(ErrorKind::BoolConversionError, ast_node)
                 })?;
-                (Literal::BoolLiteral(bool_val), TypeKind::Bool)
+                (Literal::BoolLiteral(bool_val), self.shared.state.types.bool())
             }
             swamp_ast::LiteralKind::EnumVariant(enum_literal) => {
                 let (enum_name, variant_name) = match enum_literal {
@@ -105,7 +105,7 @@ impl Analyzer<'_> {
                 let (symbol_table, name) = self.get_symbol_table_and_name(enum_name)?;
                 if let Some(enum_type_ref) = symbol_table.get_enum(&name) {
                     let enum_type_clone = enum_type_ref.clone();
-                    let enum_type = TypeKind::Enum(enum_type_ref.clone());
+                    let enum_type = self.shared.state.types.enum_type(enum_type_ref.clone());
 
                     // Handle enum variant literals in patterns
                     let variant_ref = self.analyze_enum_variant_ref(enum_name, variant_name)?;
@@ -125,7 +125,10 @@ impl Analyzer<'_> {
                                 &tuple_data.fields_in_order,
                                 ast_expressions,
                             )?;
-                            EnumLiteralData::Tuple(x, resolved)
+                            EnumLiteralData::Tuple(
+                                self.shared.state.types.tuple(tuple_data.fields_in_order.clone()),
+                                resolved,
+                            )
                         }
                         swamp_ast::EnumVariantLiteral::Struct(
                             _qualified_type_identifier,
@@ -181,9 +184,10 @@ impl Analyzer<'_> {
 
             swamp_ast::LiteralKind::Tuple(expressions) => {
                 let (tuple_type_ref, resolved_items) = self.analyze_tuple_literal(expressions)?;
+                let tuple_type = self.shared.state.types.tuple(tuple_type_ref.clone());
                 (
-                    Literal::TupleLiteral(tuple_type_ref.clone(), resolved_items),
-                    TypeKind::Tuple(tuple_type_ref),
+                    Literal::TupleLiteral(tuple_type_ref, resolved_items),
+                    tuple_type,
                 )
             }
             swamp_ast::LiteralKind::None => {

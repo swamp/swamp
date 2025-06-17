@@ -26,6 +26,7 @@ use std::rc::Rc;
 use std::str::{FromStr, ParseBoolError};
 use swamp_ast::ExpressionKind::PostfixChain;
 use swamp_ast::{GenericParameter, QualifiedTypeIdentifier};
+use swamp_attributes::Attributes;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::*;
@@ -37,8 +38,8 @@ use swamp_semantic::{
     WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
-use swamp_types::TypeKind;
 use swamp_types::prelude::*;
+use swamp_types::{Type, TypeKind};
 use tracing::{error, info};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -336,18 +337,11 @@ impl<'a> Analyzer<'a> {
         };
 
         let resolved_return_type = match ast_return_type {
-            None => TypeKind::Unit,
+            None => self.shared.state.types.unit(),
             Some(x) => self.analyze_type(x)?,
         };
 
-        if resolved_return_type.is_allowed_as_return_type() {
-            Ok(resolved_return_type)
-        } else {
-            Err(self.create_err(
-                ErrorKind::NotAllowedAsReturnType(resolved_return_type),
-                function.node(),
-            ))
-        }
+        Ok(resolved_return_type)
     }
 
     fn analyze_function_body_expression(
@@ -366,7 +360,7 @@ impl<'a> Analyzer<'a> {
         maybe_type: Option<&swamp_ast::Type>,
     ) -> Result<TypeRef, Error> {
         let found_type = match maybe_type {
-            None => TypeKind::Unit,
+            None => self.shared.state.types.unit(),
             Some(ast_type) => self.analyze_type(ast_type)?,
         };
         Ok(found_type)
@@ -596,7 +590,7 @@ impl<'a> Analyzer<'a> {
             let reduced_expected = found_expected_type;
 
             let reduced_encountered_type = encountered_type;
-            if reduced_expected.compatible_with(reduced_encountered_type) {
+            if self.shared.state.types.compatible_with(&reduced_expected, &reduced_encountered_type) {
                 return Ok(expr);
             }
 
@@ -704,7 +698,7 @@ impl<'a> Analyzer<'a> {
                     let ty = inner_expr.ty.clone();
                     self.create_expr(
                         ExpressionKind::BorrowMutRef(Box::from(inner_expr)),
-                        TypeKind::MutableReference(Box::from(ty)),
+                        ty,
                         &ast_expression.node,
                     )
                 } else {
@@ -746,11 +740,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                &ast_expression.node,
-                fields,
-                *rest_was_specified,
-                context,
-            )?,
+                    &ast_expression.node,
+                    fields,
+                    *rest_was_specified,
+                    context,
+                )?,
 
             swamp_ast::ExpressionKind::ContextAccess => {
                 todo!("lone dot not implemented yet")
@@ -845,8 +839,8 @@ impl<'a> Analyzer<'a> {
         qualified_type_identifier: &swamp_ast::QualifiedTypeIdentifier,
     ) -> Result<NamedStructType, Error> {
         let maybe_struct_type = self.analyze_named_type(qualified_type_identifier)?;
-        match maybe_struct_type {
-            TypeKind::NamedStruct(struct_type) => Ok(struct_type),
+        match &*maybe_struct_type.kind {
+            TypeKind::NamedStruct(struct_type) => Ok(struct_type.clone()),
             _ => Err(self.create_err(
                 // For other TypeRef variants that are not Struct
                 ErrorKind::UnknownStructTypeReference,
@@ -890,7 +884,7 @@ impl<'a> Analyzer<'a> {
         let result_type = if analyzed_type_parameters.is_empty() {
             match &symbol {
                 Symbol::Type(base_type) => base_type.clone(),
-                Symbol::Alias(alias_type) => alias_type.referenced_type.clone(),
+                Symbol::Alias(alias_type) => alias_type.ty.clone(),
                 _ => {
                     return Err(
                         self.create_err(ErrorKind::UnexpectedType, &type_name_to_find.name.0)
@@ -1040,19 +1034,16 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(AnonymousStructType, usize, TypeRef), Error> {
         let field_name_str = self.get_text(field_name).to_string();
 
-        let anon_struct_ref = match &tv.underlying() {
+        let anon_struct_ref = match &*tv.kind {
             TypeKind::NamedStruct(struct_type) => struct_type.anon_struct_type.clone(),
-            TypeKind::AnonymousStruct(anon_struct) => anon_struct.clone(),
+            TypeKind::AnonymousStruct(anon_struct) => {
+                // Create a TypeRef from the AnonymousStructType
+                self.shared.state.types.anonymous_struct(anon_struct.clone())
+            },
             TypeKind::Range(range_struct_ref) => {
                 // Extract NamedStructType from TypeRef, then AnonymousStructType from that
                 if let TypeKind::NamedStruct(named_struct) = &*range_struct_ref.kind {
-                    if let TypeKind::AnonymousStruct(anon_struct) =
-                        &*named_struct.anon_struct_type.kind
-                    {
-                        anon_struct.clone()
-                    } else {
-                        return Err(self.create_err(ErrorKind::UnknownStructField, field_name));
-                    }
+                    named_struct.anon_struct_type.clone()
                 } else {
                     return Err(self.create_err(ErrorKind::UnknownStructField, field_name));
                 }
@@ -1060,20 +1051,23 @@ impl<'a> Analyzer<'a> {
             _ => return Err(self.create_err(ErrorKind::UnknownStructField, field_name)),
         };
 
-        if let Some(found_field) = anon_struct_ref
-            .field_name_sorted_fields
-            .get(&field_name_str)
-        {
-            let index = anon_struct_ref
+        // Extract the AnonymousStructType from the TypeRef
+        if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_ref.kind {
+            if let Some(found_field) = anon_struct
                 .field_name_sorted_fields
-                .get_index(&field_name_str)
-                .expect("checked earlier");
+                .get(&field_name_str)
+            {
+                let index = anon_struct
+                    .field_name_sorted_fields
+                    .get_index(&field_name_str)
+                    .expect("checked earlier");
 
-            return Ok((
-                anon_struct_ref.clone(),
-                index,
-                found_field.field_type.clone(),
-            ));
+                return Ok((
+                    anon_struct.clone(),
+                    index,
+                    found_field.field_type.clone(),
+                ));
+            }
         }
 
         Err(self.create_err(ErrorKind::UnknownStructField, field_name))
@@ -1196,11 +1190,12 @@ impl<'a> Analyzer<'a> {
                     let collection_type = tv.resolved_type.clone();
                     match &collection_type.kind {
                         TypeKind::GridStorage(element_type, x, _) => {
-                            let unsigned_int_x_context = TypeContext::new_argument(&TypeKind::Int);
+                            let int_type = self.shared.state.types.int();
+                let unsigned_int_x_context = TypeContext::new_argument(&int_type);
                             let unsigned_int_x_expression =
                                 self.analyze_expression(col_expr, &unsigned_int_x_context)?;
 
-                            let unsigned_int_y_context = TypeContext::new_argument(&TypeKind::Int);
+                            let unsigned_int_y_context = TypeContext::new_argument(&int_type);
                             let unsigned_int_y_expression =
                                 self.analyze_expression(row_expr, &unsigned_int_y_context)?;
 
@@ -1489,8 +1484,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
-            } else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
                 tv.resolved_type = TypeKind::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -1506,7 +1500,8 @@ impl<'a> Analyzer<'a> {
         &mut self,
         expression: &swamp_ast::Expression,
     ) -> Result<BooleanExpression, Error> {
-        let bool_context = TypeContext::new_argument(&TypeKind::Bool);
+                        let bool_type = self.shared.state.types.bool();
+                let bool_context = TypeContext::new_argument(&bool_type);
         let resolved_expression = self.analyze_expression(expression, &bool_context)?;
         let expr_type = resolved_expression.ty.clone();
 
@@ -1797,7 +1792,7 @@ impl<'a> Analyzer<'a> {
                     is_mutable: false,
                     node: None,
                 }],
-                return_type: Box::new(TypeKind::String),
+                                        return_type: self.shared.state.types.string(),
             },
             parameters: vec![variable_ref],
             function_variables: vec![],
@@ -1853,7 +1848,8 @@ impl<'a> Analyzer<'a> {
             // we check if we can get to a lvalue, otherwise it is not mutable:
             let _resulting_location =
                 self.analyze_to_location(expression, &any_context, LocationSide::Mutable)?;
-            value_type = TypeKind::MutableReference(Box::from(value_type.clone()));
+                                // Note: mutable references are now handled through SingleLocationExpression
+                    // The value_type stays the same, mutability is tracked separately
         }
 
         Ok(Iterable {
@@ -1884,7 +1880,7 @@ impl<'a> Analyzer<'a> {
         ast_expressions: &[swamp_ast::Expression],
     ) -> Result<(Vec<Expression>, TypeRef), Error> {
         if ast_expressions.is_empty() {
-            return Ok((vec![], TypeKind::Unit));
+            return Ok((vec![], self.shared.state.types.unit()));
         }
 
         self.push_block_scope("block");
@@ -1920,7 +1916,7 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::StringPart::Literal(string_node, processed_string) => {
                     let string_literal = Literal::StringLiteral(processed_string.to_string());
                     let basic_literal = ExpressionKind::Literal(string_literal);
-                    self.create_expr(basic_literal, TypeKind::String, string_node)
+                    self.create_expr(basic_literal, self.shared.state.types.string(), string_node)
                 }
                 swamp_ast::StringPart::Interpolation(expression, format_specifier) => {
                     let any_context = TypeContext::new_anything_argument();
@@ -1975,7 +1971,7 @@ impl<'a> Analyzer<'a> {
 
                          */
 
-                        self.create_expr(call_expr_kind, TypeKind::String, &expression.node)
+                        self.create_expr(call_expr_kind, self.shared.state.types.string(), &expression.node)
                     }
                 }
             };
@@ -1990,7 +1986,7 @@ impl<'a> Analyzer<'a> {
                     node: node.clone(),
                 };
 
-                self.create_expr_resolved(ExpressionKind::BinaryOp(op), TypeKind::String, &node)
+                self.create_expr_resolved(ExpressionKind::BinaryOp(op), self.shared.state.types.string(), &node)
             } else {
                 created_expression
             };
@@ -2001,7 +1997,7 @@ impl<'a> Analyzer<'a> {
         if last_expression.is_none() {
             return Ok(self.create_expr(
                 ExpressionKind::Literal(Literal::StringLiteral("hello".to_string())),
-                TypeKind::String,
+                self.shared.state.types.string(),
                 &node,
             ));
         }
@@ -2054,7 +2050,7 @@ impl<'a> Analyzer<'a> {
         entries: &[(swamp_ast::Expression, swamp_ast::Expression)],
     ) -> Result<(Vec<(Expression, Expression)>, TypeRef, TypeRef), Error> {
         if entries.is_empty() {
-            return Ok((vec![], TypeKind::Unit, TypeKind::Unit));
+            return Ok((vec![], self.shared.state.types.unit(), self.shared.state.types.unit()));
         }
 
         // Resolve first entry to determine map types
@@ -2603,7 +2599,7 @@ impl<'a> Analyzer<'a> {
                     let loc = SingleLocationExpression {
                         kind: MutableReferenceKind::MutVariableRef,
                         node: self.to_node(&variable_binding.variable.name),
-                        ty: TypeKind::MutableReference(Box::from(same_var.resolved_type.clone())),
+                        ty: same_var.resolved_type.clone(),
                         starting_variable: same_var,
                         access_chain: vec![],
                     };
@@ -2928,7 +2924,7 @@ impl<'a> Analyzer<'a> {
             ExpressionKind::VariableDefinition(new_var, Box::from(source_expr))
         };
 
-        Ok(self.create_expr(kind, TypeKind::Unit, &variable.name))
+        Ok(self.create_expr(kind, self.shared.state.types.unit(), &variable.name))
     }
 
     fn analyze_create_variable(
@@ -2976,10 +2972,10 @@ impl<'a> Analyzer<'a> {
             true,
         )?;
 
-        assert_ne!(resulting_type, TypeKind::Unit);
+        assert_ne!(&*resulting_type.kind, &TypeKind::Unit);
         let kind = ExpressionKind::VariableDefinition(var_ref, Box::from(resolved_source));
 
-        let resolved_expr = self.create_expr(kind, TypeKind::Unit, &var.name);
+        let resolved_expr = self.create_expr(kind, self.shared.state.types.unit(), &var.name);
 
         Ok(resolved_expr)
     }
@@ -3238,7 +3234,7 @@ impl<'a> Analyzer<'a> {
                     Ok(SingleLocationExpression {
                         kind: MutableReferenceKind::MutVariableRef,
                         node: self.to_node(&variable.name),
-                        ty: TypeKind::MutableReference(Box::from(var.resolved_type.clone())),
+                        ty: var.resolved_type.clone(),
                         starting_variable: var,
                         access_chain: vec![],
                     })
@@ -3256,7 +3252,7 @@ impl<'a> Analyzer<'a> {
                     Ok(SingleLocationExpression {
                         kind: MutableReferenceKind::MutVariableRef,
                         node: self.to_node(&generated_var.name),
-                        ty: TypeKind::MutableReference(Box::from(var.resolved_type.clone())),
+                        ty: var.resolved_type.clone(),
                         starting_variable: var,
                         access_chain: vec![],
                     })
@@ -3374,7 +3370,7 @@ impl<'a> Analyzer<'a> {
         )?;
 
         let target_type = resolved_location.ty.clone();
-        let mut_type = TypeKind::MutableReference(Box::from(target_type));
+        let mut_type = target_type.clone(); // Mutable references now use the same type
         let mut_location = TargetAssignmentLocation(resolved_location);
 
         let final_expr = self
@@ -3400,7 +3396,7 @@ impl<'a> Analyzer<'a> {
             Box::from(source_expr),
         );
 
-        let expr = self.create_expr(kind, TypeKind::Unit, &target_expression.node);
+        let expr = self.create_expr(kind, self.shared.state.types.unit(), &target_expression.node);
 
         Ok(expr)
     }
@@ -3416,7 +3412,7 @@ impl<'a> Analyzer<'a> {
             self.analyze_expression_for_assignment(target_location, ast_source_expression)?;
         let kind = ExpressionKind::Assignment(Box::from(mut_location), Box::from(source_expr));
 
-        let expr = self.create_expr(kind, TypeKind::Unit, &target_location.node); // Assignments are always of type Unit
+        let expr = self.create_expr(kind, self.shared.state.types.unit(), &target_location.node); // Assignments are always of type Unit
 
         Ok(expr)
     }
@@ -4029,7 +4025,7 @@ impl<'a> Analyzer<'a> {
 
         let mutable_self_type_param = TypeForParameter {
             name: "self".to_string(),
-            resolved_type: TypeKind::MutableReference(Box::from(self_type.clone())),
+                                    resolved_type: self_type.clone(),
             is_mutable: true,
             node: None,
         };

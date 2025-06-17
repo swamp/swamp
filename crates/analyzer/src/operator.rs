@@ -16,10 +16,10 @@ impl Analyzer<'_> {
     ) -> Result<(BinaryOperator, TypeRef), Error> {
         let anything_context = TypeContext::new_anything_argument();
         let left = self.analyze_expression(ast_left, &anything_context)?;
-        let left_type = left.ty.underlying().clone();
+        let left_type = &*left.ty.kind;
 
         let right = self.analyze_expression(ast_right, &anything_context)?;
-        let right_type = right.ty.underlying().clone();
+        let right_type = &*right.ty.kind;
 
         let kind = Self::convert_binary_operator_kind(ast_op);
         let node = self.to_node(&ast_op.node);
@@ -33,7 +33,7 @@ impl Analyzer<'_> {
                     kind,
                     node,
                 },
-                TypeKind::String,
+                self.shared.state.types.string(),
             )),
 
             // Comparison operators
@@ -47,11 +47,11 @@ impl Analyzer<'_> {
                 _,
                 _,
             ) => {
-                if !left_type.underlying().compatible_with(&right_type) {
+                if !self.shared.state.types.compatible_with(&left.ty, &right.ty) {
                     return Err(self.create_err(
                         ErrorKind::IncompatibleTypes {
-                            expected: left_type,
-                            found: right_type,
+                            expected: left.ty.clone(),
+                            found: right.ty.clone(),
                         },
                         &ast_op.node,
                     ));
@@ -63,21 +63,22 @@ impl Analyzer<'_> {
                         kind,
                         node,
                     },
-                    TypeKind::Bool,
+                    self.shared.state.types.bool(),
                 ))
             }
 
             // All other operators require exact type matches
             _ => {
-                if !left_type.compatible_with(&right_type) {
+                if !self.shared.state.types.compatible_with(&left.ty, &right.ty) {
                     return Err(self.create_err_resolved(
                         ErrorKind::IncompatibleTypes {
-                            expected: left_type,
-                            found: right_type,
+                            expected: left.ty.clone(),
+                            found: right.ty.clone(),
                         },
                         &node,
                     ));
                 }
+                let result_type = left.ty.clone();
                 Ok((
                     BinaryOperator {
                         left: Box::new(left),
@@ -85,7 +86,7 @@ impl Analyzer<'_> {
                         kind,
                         node,
                     },
-                    left_type,
+                    result_type,
                 ))
             }
         }
@@ -96,9 +97,10 @@ impl Analyzer<'_> {
         ast_op: &swamp_ast::UnaryOperator,
         ast_left: &swamp_ast::Expression,
     ) -> Result<(UnaryOperator, TypeRef), Error> {
+        let bool_type = self.shared.state.types.bool();
         let (node, kind, require_type) = match ast_op {
             swamp_ast::UnaryOperator::Not(node) => {
-                (node, UnaryOperatorKind::Not, Some(&TypeKind::Bool))
+                (node, UnaryOperatorKind::Not, Some(&bool_type))
             }
             swamp_ast::UnaryOperator::Negate(node) => (node, UnaryOperatorKind::Negate, None),
             swamp_ast::UnaryOperator::BorrowMutRef(_) => {

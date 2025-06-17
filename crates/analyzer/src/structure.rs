@@ -29,15 +29,16 @@ impl Analyzer<'_> {
         let temp_var = self.create_local_variable_generated("__generated", true, super_type)?;
 
         // temp_var = StructType::default()
-        let return_type = *function.signature().return_type.clone();
+        let return_type = function.signature().return_type.clone();
 
         let default_call_kind = self.create_default_static_call(node, super_type)?;
 
         let static_call = self.create_expr(default_call_kind, return_type, node);
 
+        let unit_type = self.shared.state.types.unit();
         let expr = self.create_expr(
             ExpressionKind::VariableDefinition(temp_var.clone(), Box::new(static_call)),
-            TypeKind::Unit,
+            unit_type,
             node,
         );
         expressions.push(expr);
@@ -58,26 +59,26 @@ impl Analyzer<'_> {
                 kind,
             }];
 
-            let actual_type = TypeKind::MutableReference(Box::new(field_expression_type));
             let created_location = SingleLocationExpression {
                 kind: MutableReferenceKind::MutStructFieldRef(
                     anon_struct_type.clone(),
                     field_target_index,
                 ),
                 node: node.clone(),
-                ty: actual_type,
+                ty: field_expression_type.clone(),
                 starting_variable: temp_var.clone(),
                 access_chain: single_chain,
             };
 
             let created_mut_location = TargetAssignmentLocation(created_location);
 
+            let unit_type = self.shared.state.types.unit();
             let overwrite_expression = self.create_expr_resolved(
                 ExpressionKind::Assignment(
                     Box::from(created_mut_location),
                     Box::new(field_source_expression),
                 ),
-                TypeKind::Unit,
+                unit_type,
                 &node,
             );
 
@@ -96,18 +97,8 @@ impl Analyzer<'_> {
         Ok(block)
     }
 
-    fn get_struct_like_type(ty: &TypeRef) -> StructLikeType {
-        match ty {
-            TypeKind::NamedStruct(named_struct) => StructLikeType {
-                assigned_name: named_struct.assigned_name.clone(),
-                anonymous_struct_type: named_struct.anon_struct_type.clone(),
-            },
-            TypeKind::AnonymousStruct(anon_struct_type) => StructLikeType {
-                assigned_name: "".to_string(),
-                anonymous_struct_type: anon_struct_type.clone(),
-            },
-            _ => panic!("must be struct like"),
-        }
+    fn get_struct_like_type(ty: &TypeRef) -> TypeRef {
+        ty.clone()
     }
 
     fn analyze_struct_init_field_by_field(
@@ -192,10 +183,14 @@ impl Analyzer<'_> {
         // First check what we should compare the anonymous struct literal to. Either it is "pure" and then we
         // compare it against itself or otherwise a type that the context require (a named or an anonymous struct type).
         let (super_type, anon_struct_type) = if let Some(expected_type) = context.expected_type {
-            match expected_type {
+            match &*expected_type.kind {
                 TypeKind::NamedStruct(named_struct_type) => {
                     //maybe_named_struct = Some(named_struct.clone());
-                    (expected_type, &named_struct_type.anon_struct_type)
+                    if let TypeKind::AnonymousStruct(anon_struct) = &*named_struct_type.anon_struct_type.kind {
+                        (expected_type, anon_struct)
+                    } else {
+                        return Err(self.create_err(ErrorKind::CouldNotCoerceTo(expected_type.clone()), node));
+                    }
                 }
                 TypeKind::AnonymousStruct(anonymous_struct_type) => {
                     (expected_type, anonymous_struct_type)
@@ -208,9 +203,15 @@ impl Analyzer<'_> {
             }
         } else {
             let deduced_anon_struct_type = self.deduce_the_anon_struct_type(ast_fields)?;
+            let anon_struct_type_ref = self.shared.state.types.anonymous_struct(deduced_anon_struct_type);
+            let anon_struct_type = if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_type_ref.kind {
+                anon_struct
+            } else {
+                return Err(self.create_err(ErrorKind::CouldNotCoerceTo(anon_struct_type_ref.clone()), node));
+            };
             (
-                &TypeKind::AnonymousStruct(deduced_anon_struct_type.clone()),
-                &deduced_anon_struct_type.clone(),
+                &anon_struct_type_ref,
+                anon_struct_type,
             )
         };
 
@@ -231,15 +232,22 @@ impl Analyzer<'_> {
     ) -> Result<Expression, Error> {
         let named_struct_type = self.get_struct_type(qualified_type_identifier)?;
 
-        let super_type = TypeKind::NamedStruct(named_struct_type.clone());
+        let super_type = self.shared.state.types.named_struct(named_struct_type.clone());
 
-        self.analyze_struct_init(
-            &qualified_type_identifier.name.0,
-            &super_type,
-            &named_struct_type.anon_struct_type,
-            ast_fields,
-            rest_was_specified,
-        )
+        if let TypeKind::AnonymousStruct(anon_struct) = &*named_struct_type.anon_struct_type.kind {
+            self.analyze_struct_init(
+                &qualified_type_identifier.name.0,
+                &super_type,
+                anon_struct,
+                ast_fields,
+                rest_was_specified,
+            )
+        } else {
+            Err(self.create_err(
+                ErrorKind::UnknownStructTypeReference,
+                &qualified_type_identifier.name.0,
+            ))
+        }
     }
 
     fn analyze_struct_init(

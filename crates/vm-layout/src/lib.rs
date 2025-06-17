@@ -558,7 +558,7 @@ impl LayoutCache {
                 MemorySize(12),
                 MemoryAlignment::U32,
             ),
-            TypeKind::MutableReference(inner_type) => self.layout_mutable_reference(inner_type),
+
             TypeKind::GridView(element_type) => {
                 let element_layout = self.layout(element_type);
                 let _ = self
@@ -703,10 +703,7 @@ impl LayoutCache {
         basic_type
     }
 
-    fn layout_mutable_reference(&mut self, analyzed_type: &TypeRef) -> BasicTypeRef {
-        // MutablePointer removed - just return the inner type since mutability is handled at analyzer level
-        self.layout_type(analyzed_type)
-    }
+
 
     fn layout_named_struct(
         &mut self,

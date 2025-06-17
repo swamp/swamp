@@ -24,9 +24,7 @@ impl Analyzer<'_> {
                 let debug_context = TypeContext::new_anything_argument();
                 let result = self.analyze_expression(&constant.expression, &debug_context);
                 if let Ok(worked_without_annotation) = result {
-                    if annotation_type
-                        .underlying()
-                        .same_as(&worked_without_annotation.ty.underlying())
+                                          if self.shared.state.types.compatible_with(&annotation_type, &worked_without_annotation.ty)
                     {
                         let identifier_name =
                             { self.get_text(&constant.constant_identifier.0).clone() };

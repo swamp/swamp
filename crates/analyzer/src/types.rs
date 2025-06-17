@@ -4,7 +4,8 @@
  */
 use crate::Analyzer;
 use crate::err::Error;
-use swamp_types::{TypeKind, TypeRef};
+use swamp_types::TypeRef;
+use swamp_types::prelude::{Signature, TypeForParameter};
 
 impl Analyzer<'_> {
     /// # Errors
@@ -42,18 +43,18 @@ impl Analyzer<'_> {
         let resolved = match ast_type {
             swamp_ast::Type::AnonymousStruct(ast_struct) => {
                 let struct_ref = self.analyze_anonymous_struct_type(ast_struct)?;
-                TypeKind::AnonymousStruct(struct_ref)
+                self.shared.state.types.anonymous_struct(struct_ref)
             }
             swamp_ast::Type::FixedCapacityArray(ast_type, fixed_size) => {
                 let element_type = self.analyze_type(ast_type)?;
                 let int_str = self.get_text(fixed_size);
                 let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
-                TypeKind::FixedCapacityAndLengthArray(Box::new(element_type), int_value)
+                self.shared.state.types.fixed_array(&element_type, int_value)
             }
             swamp_ast::Type::Slice(ast_type) => {
                 let element_type = self.analyze_type(ast_type)?;
-                TypeKind::SliceView(Box::new(element_type))
+                self.shared.state.types.slice_view(&element_type)
             }
 
             swamp_ast::Type::FixedCapacityMap(ast_key_type, ast_value_type, fixed_size) => {
@@ -63,32 +64,36 @@ impl Analyzer<'_> {
                 let int_str = self.get_text(fixed_size);
                 let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
-                TypeKind::MapStorage(Box::new(key_type), Box::new(value_type), int_value)
+                self.shared.state.types.map_storage(&key_type, &value_type, int_value)
             }
             swamp_ast::Type::DynamicLengthMap(ast_key_type, ast_value_type) => {
                 let (key_type, value_type) =
                     self.analyze_key_and_value_type(ast_key_type, ast_value_type)?;
 
-                TypeKind::DynamicLengthMapView(Box::new(key_type), Box::new(value_type))
+                self.shared.state.types.dynamic_map_view(&key_type, &value_type)
             }
 
-            swamp_ast::Type::Tuple(types) => TypeKind::Tuple(self.analyze_types(types)?),
+            swamp_ast::Type::Tuple(types) => {
+                let analyzed_types = self.analyze_types(types)?;
+                self.shared.state.types.tuple(analyzed_types)
+            }
             swamp_ast::Type::Named(ast_type_reference) => {
                 self.analyze_named_type(ast_type_reference)?
             }
-            swamp_ast::Type::Unit => TypeKind::Unit,
+            swamp_ast::Type::Unit => self.shared.state.types.unit(),
             swamp_ast::Type::Optional(inner_type_ast, _node) => {
                 let inner_resolved_type = self.analyze_type(inner_type_ast)?;
-                TypeKind::Optional(Box::from(inner_resolved_type))
+                self.shared.state.types.optional(&inner_resolved_type)
             }
             swamp_ast::Type::Function(parameters, return_type) => {
                 let parameter_types = self.analyze_param_types(parameters)?;
 
                 let resolved_return_type = self.analyze_type(return_type)?;
-                TypeKind::Function(Signature {
+                let signature = Signature {
                     parameters: parameter_types,
-                    return_type: Box::new(resolved_return_type),
-                })
+                    return_type: resolved_return_type,
+                };
+                self.shared.state.types.function(signature)
             }
         };
 

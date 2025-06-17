@@ -32,7 +32,8 @@ impl Analyzer<'_> {
         min_expr: &swamp_ast::Expression,
         max_expr: &swamp_ast::Expression,
     ) -> Result<(Expression, Expression), Error> {
-        let context = TypeContext::new_argument(&TypeKind::Int);
+        let int_type = self.shared.state.types.int();
+        let context = TypeContext::new_argument(&int_type);
 
         let resolved_min = self.analyze_expression(min_expr, &context)?;
         let resolved_max = self.analyze_expression(max_expr, &context)?;
@@ -53,26 +54,20 @@ impl Analyzer<'_> {
     ) -> Result<Expression, Error> {
         let (min, max) = self.analyze_min_max_expr(min_expr, max_expr)?;
 
-        let range_anonymous_struct_type = self
+        let range_type_ref = self
             .shared
             .core_symbol_table
             .get_struct("Range")
             .unwrap()
             .clone();
 
-        // Create a TypeRef for the named struct (which contains the anonymous struct)
-        let named_struct_type_ref = self
-            .shared
-            .state
-            .types
-            .named_struct(range_anonymous_struct_type);
-
-        let range_type = self.shared.state.types.range(named_struct_type_ref);
+        let range_type = self.shared.state.types.range(range_type_ref);
 
         let is_inclusive = matches!(mode, swamp_ast::RangeMode::Inclusive);
 
         let bool_expr_kind = ExpressionKind::Literal(BoolLiteral(is_inclusive));
-        let bool_expr = self.create_expr(bool_expr_kind, TypeKind::Bool, ast_node);
+        let bool_type = self.shared.state.types.bool();
+        let bool_expr = self.create_expr(bool_expr_kind, bool_type, ast_node);
 
         let call_kind = ExpressionKind::IntrinsicCallEx(
             IntrinsicFunction::RangeInit,

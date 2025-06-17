@@ -13,7 +13,7 @@ impl Analyzer<'_> {
         expression_type: &TypeRef,
         ast_name: &swamp_ast::Node,
     ) -> Result<EnumVariantType, Error> {
-        let enum_type_ref = match expression_type.underlying() {
+        let enum_type_ref = match &*expression_type.kind {
             TypeKind::Enum(enum_type_ref) => enum_type_ref,
             _ => Err(self.create_err(ErrorKind::ExpectedEnumInPattern, ast_name))?,
         };
@@ -184,39 +184,39 @@ impl Analyzer<'_> {
                                     swamp_ast::PatternElement::Variable(var) => {
                                         let var_name_str = self.get_text(&var.name).to_string();
                                         // Check if the field exists
-                                        let field_index = struct_type
-                                            .anon_struct
-                                            .field_name_sorted_fields
-                                            .get_index(&var_name_str)
-                                            .ok_or_else(|| {
-                                                self.create_err(ErrorKind::UnknownField, &var.name)
-                                            })?;
+                                        if let TypeKind::AnonymousStruct(anon_struct) = &*struct_type.struct_type.kind {
+                                            let field_index = anon_struct.field_name_sorted_fields
+                                                .get_index(&var_name_str)
+                                                .ok_or_else(|| {
+                                                    self.create_err(ErrorKind::UnknownField, &var.name)
+                                                })?;
 
-                                        let field_type = struct_type
-                                            .anon_struct
-                                            .field_name_sorted_fields
-                                            .get(&var_name_str)
-                                            .ok_or_else(|| {
-                                                self.create_err(ErrorKind::UnknownField, &var.name)
-                                            })?;
+                                            let field_type = anon_struct.field_name_sorted_fields
+                                                .get(&var_name_str)
+                                                .ok_or_else(|| {
+                                                    self.create_err(ErrorKind::UnknownField, &var.name)
+                                                })?;
 
-                                        if var.is_mutable.is_some() {
-                                            anyone_wants_mutable = true;
+                                            if var.is_mutable.is_some() {
+                                                anyone_wants_mutable = true;
+                                            }
+
+                                            let variable_ref = self.create_local_variable(
+                                                &var.name,
+                                                Option::from(&var.is_mutable),
+                                                &field_type.field_type,
+                                                false,
+                                            )?;
+
+                                            resolved_elements.push(
+                                                PatternElement::VariableWithFieldIndex(
+                                                    variable_ref,
+                                                    field_index,
+                                                ),
+                                            );
+                                        } else {
+                                            return Err(self.create_err(ErrorKind::UnknownField, &var.name));
                                         }
-
-                                        let variable_ref = self.create_local_variable(
-                                            &var.name,
-                                            Option::from(&var.is_mutable),
-                                            &field_type.field_type,
-                                            false,
-                                        )?;
-
-                                        resolved_elements.push(
-                                            PatternElement::VariableWithFieldIndex(
-                                                variable_ref,
-                                                field_index,
-                                            ),
-                                        );
                                     }
                                     swamp_ast::PatternElement::Wildcard(node) => {
                                         resolved_elements

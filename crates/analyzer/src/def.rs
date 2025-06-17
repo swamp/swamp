@@ -212,7 +212,7 @@ impl Analyzer<'_> {
                         struct_type: self
                             .shared
                             .state
-                            .type_cache
+                            .types
                             .anonymous_struct(AnonymousStructType::new(fields)),
                     };
 
@@ -239,7 +239,8 @@ impl Analyzer<'_> {
             .add_enum_type_link(new_enum_type.clone())
             .map_err(|err| self.create_err(ErrorKind::SemanticError(err), &enum_type_name.name))?;
 
-        self.add_default_functions(&TypeKind::Enum(new_enum_type), &enum_type_name.name);
+        let enum_type_ref = self.shared.state.types.enum_type(new_enum_type);
+        self.add_default_functions(&enum_type_ref, &enum_type_name.name);
         Ok(())
     }
 
@@ -253,9 +254,8 @@ impl Analyzer<'_> {
 
         let alias_name_str = self.get_text(&ast_alias.identifier.0).to_string();
         let resolved_alias = AliasType {
-            name: self.to_node(&ast_alias.identifier.0),
+            ty: resolved_type,
             assigned_name: alias_name_str,
-            referenced_type: resolved_type,
         };
 
         let resolved_alias_ref = self
@@ -335,7 +335,7 @@ impl Analyzer<'_> {
         let anon_struct_type_ref = self
             .shared
             .state
-            .type_cache
+            .types
             .anonymous_struct(analyzed_anonymous_struct);
 
         let named_struct_type = NamedStructType {
@@ -367,8 +367,9 @@ impl Analyzer<'_> {
                 )
             })?;
 
+        let named_struct_type_ref = self.shared.state.types.named_struct(named_struct_type.clone());
         self.add_default_functions(
-            &TypeKind::NamedStruct(named_struct_type),
+            &named_struct_type_ref,
             &ast_struct_def.identifier.name,
         );
         Ok(())
@@ -386,17 +387,13 @@ impl Analyzer<'_> {
                 let return_type = if let Some(found) = &function_data.declaration.return_type {
                     self.analyze_type(found)?
                 } else {
-                    TypeKind::Unit
+                    self.shared.state.types.unit()
                 };
 
                 // Set up scope for function body
                 for param in &parameters {
                     let param_type = &param.resolved_type;
-                    let actual_type = if param.node.as_ref().unwrap().is_mutable() {
-                        TypeKind::MutableReference(Box::new(param_type.clone()))
-                    } else {
-                        param_type.clone()
-                    };
+                    let actual_type = param_type.clone();
                     self.create_parameter_resolved(
                         &param.node.as_ref().unwrap().name,
                         param.node.as_ref().unwrap().is_mutable.as_ref(),
@@ -413,7 +410,7 @@ impl Analyzer<'_> {
                 let internal = InternalFunctionDefinition {
                     signature: Signature {
                         parameters,
-                        return_type: Box::new(return_type),
+                        return_type,
                     },
                     body: statements,
                     name: LocalIdentifier(self.to_node(&function_data.declaration.name)),
@@ -454,7 +451,7 @@ impl Analyzer<'_> {
                 let external_return_type = if let Some(found) = &ast_signature.return_type {
                     self.analyze_type(found)?
                 } else {
-                    TypeKind::Unit
+                    self.shared.state.types.unit()
                 };
 
                 let return_type = external_return_type;
@@ -468,7 +465,7 @@ impl Analyzer<'_> {
                     assigned_name: self.get_text(&ast_signature.name).to_string(),
                     signature: Signature {
                         parameters,
-                        return_type: Box::new(return_type),
+                        return_type,
                     },
                     name: Some(self.to_node(&ast_signature.name)),
                     id: external_function_id,
@@ -654,11 +651,7 @@ impl Analyzer<'_> {
                 let mut parameters = Vec::new();
 
                 if let Some(found_self) = &function_data.declaration.self_parameter {
-                    let actual_self_type = if found_self.is_mutable.is_some() {
-                        TypeKind::MutableReference(Box::from(self_type.clone()))
-                    } else {
-                        self_type.clone()
-                    };
+                    let actual_self_type = self_type.clone();
                     parameters.push(TypeForParameter {
                         name: self.get_text(&found_self.self_node).to_string(),
                         resolved_type: actual_self_type,
@@ -671,10 +664,7 @@ impl Analyzer<'_> {
                 }
 
                 for param in &function_data.declaration.params {
-                    let mut resolved_type = self.analyze_type(&param.param_type)?;
-                    if param.variable.is_mutable.is_some() {
-                        resolved_type = TypeKind::MutableReference(Box::from(resolved_type));
-                    }
+                    let resolved_type = self.analyze_type(&param.param_type)?;
 
                     let resolved_param = TypeForParameter {
                         name: self.get_text(&param.variable.name).to_string(),
@@ -686,14 +676,7 @@ impl Analyzer<'_> {
                                 .to_node_option(Option::from(&param.variable.is_mutable)),
                         }),
                     };
-                    if !resolved_param.resolved_type.is_allowed_as_parameter_type() {
-                        return Err(self.create_err(
-                            ErrorKind::ParameterTypeCanNotBeStorage(
-                                resolved_param.resolved_type.clone(),
-                            ),
-                            &function_data.body.node,
-                        ));
-                    }
+                    // TODO: Add back concrete type checking when public method is available
 
                     parameters.push(resolved_param);
                 }
@@ -701,16 +684,9 @@ impl Analyzer<'_> {
                 let return_type =
                     if let Some(ast_return_type) = &function_data.declaration.return_type {
                         let resolved_return_type = self.analyze_type(ast_return_type)?;
-                        if resolved_return_type.is_allowed_as_return_type() {
-                            resolved_return_type
-                        } else {
-                            return Err(self.create_err(
-                                ErrorKind::NotAllowedAsReturnType(resolved_return_type),
-                                function.node(),
-                            ));
-                        }
+                        resolved_return_type
                     } else {
-                        TypeKind::Unit
+                        self.shared.state.types.unit()
                     };
 
                 for param in &parameters {
@@ -729,7 +705,7 @@ impl Analyzer<'_> {
                 let internal = InternalFunctionDefinition {
                     signature: Signature {
                         parameters,
-                        return_type: Box::new(return_type),
+                        return_type,
                     },
                     body: statements,
                     name: LocalIdentifier(self.to_node(&function_data.declaration.name)),
@@ -793,7 +769,7 @@ impl Analyzer<'_> {
                     name: Some(self.to_node(&signature.name)),
                     signature: Signature {
                         parameters,
-                        return_type: Box::new(return_type),
+                        return_type,
                     },
                     id: external_function_id,
                 };
