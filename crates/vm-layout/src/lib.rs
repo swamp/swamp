@@ -5,7 +5,6 @@
 
 //! Layouts analyzed into Vm Types (`BasicType`)
 use seq_map::SeqMap;
-use source_map_node;
 use std::cmp::max;
 use std::rc::Rc;
 use swamp_types::prelude::{AnonymousStructType, EnumType, EnumVariantType, NamedStructType};
@@ -43,8 +42,14 @@ pub struct LayoutCache {
     pub kind_to_layout: SeqMap<TypeKind, BasicTypeRef>,
 }
 
+impl Default for LayoutCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LayoutCache {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             id_to_layout: SeqMap::default(),
             kind_to_layout: SeqMap::default(),
@@ -231,7 +236,7 @@ impl LayoutCache {
         let enum_kind = TypeKind::Enum(EnumType::new(
             source_map_node::Node::default(),
             name,
-            vec!["".to_string()],
+            vec![String::new()],
         ));
         if let Some(existing_layout) = self.kind_to_layout.get(&enum_kind) {
             return existing_layout.clone();
@@ -400,7 +405,7 @@ impl LayoutCache {
                 // Also store the element type in id_to_layout
                 let _ = self
                     .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                    .insert(element_type.id, element_layout);
 
                 array_type
             }
@@ -416,7 +421,7 @@ impl LayoutCache {
 
                 let _ = self
                     .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                    .insert(element_type.id, element_layout);
 
                 vec_type
             }
@@ -433,7 +438,7 @@ impl LayoutCache {
 
                 let _ = self
                     .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                    .insert(element_type.id, element_layout);
 
                 storage_type
             }
@@ -467,7 +472,9 @@ impl LayoutCache {
                     ty: value_layout.clone(),
                 };
 
-                let map_type = Rc::new(BasicType {
+                
+
+                Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
                     kind: BasicTypeKind::DynamicLengthMapView(
                         Box::new(key_item),
@@ -475,9 +482,7 @@ impl LayoutCache {
                     ),
                     total_size: PTR_SIZE,
                     max_alignment: PTR_ALIGNMENT,
-                });
-
-                map_type
+                })
             }
             TypeKind::MapStorage(key_type, value_type, logical_limit) => {
                 // Layout key type
@@ -535,12 +540,14 @@ impl LayoutCache {
                 // Make sure we're also storing the tuple type in the id_to_layout map
                 let _ = self
                     .id_to_layout
-                    .insert(tuple_type_id, tuple_basic_type.clone());
+                    .insert(tuple_type_id, tuple_basic_type);
 
                 let logical_limit = *logical_limit;
                 let actual_capacity = (logical_limit as u16).next_power_of_two();
 
-                let map_storage_type = Rc::new(BasicType {
+                
+
+                Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
                     kind: BasicTypeKind::MapStorage {
                         element_type: value_layout,
@@ -551,12 +558,10 @@ impl LayoutCache {
                         bucket_size: aligned_tuple_size,
                     },
                     total_size: MemorySize(
-                        MAP_HEADER_SIZE.0 + aligned_tuple_size.0 * (actual_capacity as u32),
+                        MAP_HEADER_SIZE.0 + aligned_tuple_size.0 * u32::from(actual_capacity),
                     ),
                     max_alignment: max(MAP_HEADER_ALIGNMENT, tuple_alignment),
-                });
-
-                map_storage_type
+                })
             }
             TypeKind::Range(range_struct) => create_basic_type(
                 ty.id,
@@ -587,16 +592,16 @@ impl LayoutCache {
                 let element_size = element_layout.total_size;
                 let element_alignment = element_layout.max_alignment;
 
-                let grid_storage_type = Rc::new(BasicType {
+                
+
+                Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
                     kind: BasicTypeKind::GridStorage(element_layout, *width, *height),
                     total_size: MemorySize(
                         GRID_HEADER_SIZE.0 + element_size.0 * (*width as u32) * (*height as u32),
                     ),
                     max_alignment: max(GRID_HEADER_ALIGNMENT, element_alignment),
-                });
-
-                grid_storage_type
+                })
             }
 
             TypeKind::SliceView(element_type) => {
@@ -855,7 +860,7 @@ impl LayoutCache {
             .insert(inner_type.id, inner_layout.clone());
         let _ = self
             .kind_to_layout
-            .insert((*inner_type.kind).clone(), inner_layout.clone());
+            .insert((*inner_type.kind).clone(), inner_layout);
 
         // Create the optional type
         let optional_union = self.layout_optional_type_items(inner_type);

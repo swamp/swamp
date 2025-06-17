@@ -7,8 +7,7 @@ use crate::{
     HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryRegion,
     InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
     MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryLocation,
-    MemoryOffset, MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
+    MemoryOffset, MemorySize, ProgramCounterDelta, RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
     VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
     align_to,
 };
@@ -174,7 +173,7 @@ pub enum DecoratedOperandAccessKind {
 
 impl DecoratedOperandAccessKind {
     #[must_use]
-    pub fn path_info(&self) -> Option<&PathInfo> {
+    pub const fn path_info(&self) -> Option<&PathInfo> {
         match self {
             Self::ReadRegister(addr, maybe_path_info, b) => maybe_path_info.as_ref(),
             Self::WriteRegister(addr, maybe_path_info, _attr) => maybe_path_info.as_ref(),
@@ -318,7 +317,7 @@ pub enum Manifestation {
 
 impl Manifestation {
     #[must_use]
-    pub fn string(&self) -> &str {
+    pub const fn string(&self) -> &str {
         match self {
             Self::Scalar => "scalar",
             Self::Aggregate => "aggregate",
@@ -348,21 +347,21 @@ impl BasicTypeKind {
     }
 
     #[must_use]
-    pub fn is_aggregate(&self) -> bool {
+    pub const fn is_aggregate(&self) -> bool {
         !self.is_scalar()
     }
 
     #[must_use]
-    pub fn is_mutable_reference(&self) -> bool {
+    pub const fn is_mutable_reference(&self) -> bool {
         matches!(self, Self::MutablePointer(..))
     }
 
-    pub(crate) fn is_immutable(&self) -> bool {
+    pub(crate) const fn is_immutable(&self) -> bool {
         !self.is_mutable_reference()
     }
 
     #[must_use]
-    pub fn needs_copy_back_when_mutable(&self) -> bool {
+    pub const fn needs_copy_back_when_mutable(&self) -> bool {
         self.is_scalar()
     }
 
@@ -731,17 +730,17 @@ pub struct HeapPlacedArray {
 
 impl HeapPlacedArray {
     #[must_use]
-    pub fn new(addr: HeapMemoryAddress, byte_count: u32) -> Self {
+    pub const fn new(addr: HeapMemoryAddress, byte_count: u32) -> Self {
         Self { addr, byte_count }
     }
 
     #[must_use]
-    pub fn addr(&self) -> HeapMemoryAddress {
+    pub const fn addr(&self) -> HeapMemoryAddress {
         self.addr
     }
 
     #[must_use]
-    pub fn byte_count(&self) -> u32 {
+    pub const fn byte_count(&self) -> u32 {
         self.byte_count
     }
 }
@@ -755,12 +754,12 @@ pub struct HeapPlacedType {
 
 impl HeapPlacedType {
     #[must_use]
-    pub fn new(addr: HeapMemoryAddress, ty: BasicType) -> Self {
+    pub const fn new(addr: HeapMemoryAddress, ty: BasicType) -> Self {
         Self { addr, ty }
     }
 
     #[must_use]
-    pub fn region(&self) -> HeapMemoryRegion {
+    pub const fn region(&self) -> HeapMemoryRegion {
         HeapMemoryRegion {
             addr: self.addr,
             size: self.ty.total_size,
@@ -768,17 +767,17 @@ impl HeapPlacedType {
     }
 
     #[must_use]
-    pub fn addr(&self) -> HeapMemoryAddress {
+    pub const fn addr(&self) -> HeapMemoryAddress {
         self.addr
     }
 
     #[must_use]
-    pub fn size(&self) -> MemorySize {
+    pub const fn size(&self) -> MemorySize {
         self.ty.total_size
     }
 
     #[must_use]
-    pub fn ty(&self) -> &BasicType {
+    pub const fn ty(&self) -> &BasicType {
         &self.ty
     }
 }
@@ -807,7 +806,7 @@ impl Display for Destination {
 
 impl Destination {
     #[must_use]
-    pub fn memory_location(&self) -> Option<&MemoryLocation> {
+    pub const fn memory_location(&self) -> Option<&MemoryLocation> {
         match self {
             Self::Unit => None,
             Self::Register(_) => None,
@@ -845,29 +844,29 @@ impl Destination {
         }
     }
     #[must_use]
-    pub fn new_unit() -> Self {
+    pub const fn new_unit() -> Self {
         Self::Unit
     }
     #[must_use]
-    pub fn new_reg(register: TypedRegister) -> Self {
+    pub const fn new_reg(register: TypedRegister) -> Self {
         Self::Register(register)
     }
     #[must_use]
-    pub fn new_location(memory_location: MemoryLocation) -> Self {
+    pub const fn new_location(memory_location: MemoryLocation) -> Self {
         Self::Memory(memory_location)
     }
 
     #[must_use]
-    pub fn is_unit(&self) -> bool {
+    pub const fn is_unit(&self) -> bool {
         matches!(self, Self::Unit)
     }
     #[must_use]
-    pub fn is_memory_location(&self) -> bool {
+    pub const fn is_memory_location(&self) -> bool {
         matches!(self, Self::Memory(_))
     }
 
     #[must_use]
-    pub fn is_register(&self) -> bool {
+    pub const fn is_register(&self) -> bool {
         matches!(self, Self::Register(_))
     }
     #[must_use]
@@ -885,7 +884,7 @@ impl Destination {
     }
 
     #[must_use]
-    pub fn register(&self) -> Option<&TypedRegister> {
+    pub const fn register(&self) -> Option<&TypedRegister> {
         match self {
             Self::Register(reg) => Some(reg),
             _ => None,
@@ -893,7 +892,7 @@ impl Destination {
     }
 
     #[must_use]
-    pub fn register_involved_in_destination(&self) -> Option<&TypedRegister> {
+    pub const fn register_involved_in_destination(&self) -> Option<&TypedRegister> {
         match self {
             Self::Register(reg) => Some(reg),
             Self::Memory(memory_location) => Some(memory_location.reg()),
@@ -954,7 +953,7 @@ pub enum RValueOrLValue {
 
 impl RValueOrLValue {
     #[must_use]
-    pub fn rvalue(&self) -> Option<&TypedRegister> {
+    pub const fn rvalue(&self) -> Option<&TypedRegister> {
         match self {
             Self::Scalar(reg) => Some(reg),
             Self::Memory(_) => None,
@@ -962,7 +961,7 @@ impl RValueOrLValue {
     }
 
     #[must_use]
-    pub fn grab_rvalue(&self) -> &TypedRegister {
+    pub const fn grab_rvalue(&self) -> &TypedRegister {
         self.rvalue().unwrap()
     }
 }
@@ -1041,7 +1040,7 @@ impl TypedRegister {
     }
 
     #[must_use]
-    pub fn new_vm_type(index: u8, ty: VmType) -> Self {
+    pub const fn new_vm_type(index: u8, ty: VmType) -> Self {
         Self {
             index,
             ty,
@@ -1054,7 +1053,7 @@ impl TypedRegister {
         self
     }
     #[must_use]
-    pub fn addressing(&self) -> u8 {
+    pub const fn addressing(&self) -> u8 {
         self.index
     }
 
@@ -1173,7 +1172,7 @@ impl VmType {
     }
 
     #[must_use]
-    pub fn new_heap_placement(basic_type: BasicTypeRef, heap_region: HeapMemoryRegion) -> Self {
+    pub const fn new_heap_placement(basic_type: BasicTypeRef, heap_region: HeapMemoryRegion) -> Self {
         Self {
             basic_type,
             origin: VmTypeOrigin::Heap(heap_region),
@@ -1181,7 +1180,7 @@ impl VmType {
     }
 
     #[must_use]
-    pub fn new_contained_in_register(basic_type: BasicTypeRef) -> Self {
+    pub const fn new_contained_in_register(basic_type: BasicTypeRef) -> Self {
         Self {
             basic_type,
             origin: VmTypeOrigin::InsideReg,
@@ -1189,7 +1188,7 @@ impl VmType {
     }
 
     #[must_use]
-    pub fn new_unknown_placement(basic_type: BasicTypeRef) -> Self {
+    pub const fn new_unknown_placement(basic_type: BasicTypeRef) -> Self {
         Self {
             basic_type,
             origin: VmTypeOrigin::Unknown,
@@ -1197,7 +1196,7 @@ impl VmType {
     }
 
     #[must_use]
-    pub fn new_basic_with_origin(basic_type: BasicTypeRef, origin: VmTypeOrigin) -> Self {
+    pub const fn new_basic_with_origin(basic_type: BasicTypeRef, origin: VmTypeOrigin) -> Self {
         Self { basic_type, origin }
     }
 
@@ -1256,7 +1255,7 @@ const FRAME_MEMORY_ADDRESS_IS_POINTER_TAG: u16 = 0x8000;
 
 impl FramePlacedType {
     #[must_use]
-    pub fn new(addr: FrameMemoryAddress, ty: BasicTypeRef) -> Self {
+    pub const fn new(addr: FrameMemoryAddress, ty: BasicTypeRef) -> Self {
         Self { addr, ty }
     }
 
@@ -1269,7 +1268,7 @@ impl FramePlacedType {
     }
 
     #[must_use]
-    pub fn addr(&self) -> FrameMemoryAddress {
+    pub const fn addr(&self) -> FrameMemoryAddress {
         self.addr
     }
 
@@ -1351,7 +1350,7 @@ pub enum BoundsCheck {
 pub struct BasicTypeId(pub u32);
 
 impl BasicTypeId {
-    pub const EMPTY: BasicTypeId = BasicTypeId(0xffff_ffff);
+    pub const EMPTY: Self = Self(0xffff_ffff);
 }
 
 #[derive(Clone, Debug)]
@@ -1364,7 +1363,7 @@ pub struct BasicType {
 
 impl BasicType {
     #[must_use]
-    pub fn is_vec_like(&self) -> bool {
+    pub const fn is_vec_like(&self) -> bool {
         matches!(
             self.kind,
             BasicTypeKind::DynamicLengthVecView(..)
@@ -1377,7 +1376,7 @@ impl BasicType {
         matches!(self.kind, BasicTypeKind::FixedCapacityArray(..))
     }
     #[must_use]
-    pub fn is_collection_like(&self) -> bool {
+    pub const fn is_collection_like(&self) -> bool {
         matches!(
             self.kind,
             BasicTypeKind::FixedCapacityArray(..)
@@ -1390,7 +1389,7 @@ impl BasicType {
         )
     }
     #[must_use]
-    pub fn is_collection_with_capacity(&self) -> bool {
+    pub const fn is_collection_with_capacity(&self) -> bool {
         matches!(
             self.kind,
             BasicTypeKind::FixedCapacityArray(..)
@@ -1402,7 +1401,7 @@ impl BasicType {
     }
 
     #[must_use]
-    pub fn get_collection_capacity(&self) -> Option<CountU16> {
+    pub const fn get_collection_capacity(&self) -> Option<CountU16> {
         match &self.kind {
             BasicTypeKind::FixedCapacityArray(_element_type, capacity) => {
                 Some(CountU16(*capacity as u16))
@@ -1430,7 +1429,7 @@ impl BasicType {
     }
 
     #[must_use]
-    pub fn get_vec_slice_like_capacity(&self) -> Option<MemorySize> {
+    pub const fn get_vec_slice_like_capacity(&self) -> Option<MemorySize> {
         match &self.kind {
             BasicTypeKind::FixedCapacityArray(_element_type, capacity) => {
                 Some(MemorySize(*capacity as u32))
@@ -1494,19 +1493,19 @@ impl BasicType {
 
 impl BasicType {
     #[must_use]
-    pub fn is_scalar(&self) -> bool {
+    pub const fn is_scalar(&self) -> bool {
         self.kind.is_scalar()
     }
 
     #[must_use]
-    pub fn is_mutable_reference(&self) -> bool {
+    pub const fn is_mutable_reference(&self) -> bool {
         self.kind.is_mutable_reference()
     }
 }
 
 impl BasicType {
     #[must_use]
-    pub fn unwrap_info(&self) -> Option<(MemoryOffset, MemorySize, MemoryOffset, MemorySize)> {
+    pub const fn unwrap_info(&self) -> Option<(MemoryOffset, MemorySize, MemoryOffset, MemorySize)> {
         match &self.kind {
             BasicTypeKind::TaggedUnion(tagged) | BasicTypeKind::Optional(tagged) => Some((
                 tagged.tag_offset,
@@ -1544,12 +1543,12 @@ impl BasicType {
     }
 
     #[must_use]
-    pub fn is_aggregate(&self) -> bool {
+    pub const fn is_aggregate(&self) -> bool {
         self.kind.is_aggregate()
     }
 
     #[must_use]
-    pub fn optional_info(&self) -> Option<&TaggedUnion> {
+    pub const fn optional_info(&self) -> Option<&TaggedUnion> {
         match &self.kind {
             BasicTypeKind::Optional(tagged_union) => Some(tagged_union),
             _ => None,
@@ -1613,7 +1612,7 @@ impl BasicType {
     }
 
     #[must_use]
-    pub fn header_size(&self) -> Option<MemorySize> {
+    pub const fn header_size(&self) -> Option<MemorySize> {
         match &self.kind {
             BasicTypeKind::SliceView(_)
             | BasicTypeKind::DynamicLengthVecView(_)
@@ -1794,14 +1793,14 @@ pub struct PathStep {
 
 impl PathStep {
     #[must_use]
-    pub fn absolute_address(&self) -> FrameMemoryAddress {
+    pub const fn absolute_address(&self) -> FrameMemoryAddress {
         FrameMemoryAddress(self.origin.0 + self.item.offset.0)
     }
 }
 
 impl FrameMemoryInfo {
     #[must_use]
-    pub fn size(&self) -> FrameMemorySize {
+    pub const fn size(&self) -> FrameMemorySize {
         self.total_frame_size
     }
 

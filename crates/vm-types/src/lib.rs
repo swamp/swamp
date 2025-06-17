@@ -287,7 +287,7 @@ impl PointerLocation {
         Self { ptr_reg }
     }
     #[must_use]
-    pub fn addressing(&self) -> u8 {
+    pub const fn addressing(&self) -> u8 {
         self.ptr_reg.addressing()
     }
 }
