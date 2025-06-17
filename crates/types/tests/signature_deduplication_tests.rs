@@ -36,12 +36,12 @@ fn test_signature_deduplication_with_typeref() {
             },
             TypeForParameter {
                 name: "b".to_string(), // Different parameter name
-                resolved_type: bool_type.clone(),
+                resolved_type: bool_type,
                 is_mutable: false,
                 node: None,
             },
         ],
-        return_type: int_type.clone(),
+        return_type: int_type,
     };
 
     // Create function types using the signatures
@@ -77,7 +77,7 @@ fn test_signature_different_mutability_no_deduplication() {
             is_mutable: true, // Different mutability
             node: None,
         }],
-        return_type: int_type.clone(),
+        return_type: int_type,
     };
 
     // Create function types using the signatures
@@ -99,7 +99,7 @@ fn test_signature_return_type_sharing() {
     let signature1 = Signature {
         parameters: vec![TypeForParameter {
             name: "x".to_string(),
-            resolved_type: int_type.clone(),
+            resolved_type: int_type,
             is_mutable: false,
             node: None,
         }],
@@ -113,7 +113,7 @@ fn test_signature_return_type_sharing() {
             is_mutable: false,
             node: None,
         }],
-        return_type: bool_type.clone(), // Same return type
+        return_type: bool_type, // Same return type
     };
 
     let func_type1 = type_cache.function(signature1);

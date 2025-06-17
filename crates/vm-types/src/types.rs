@@ -803,11 +803,11 @@ pub enum Destination {
 }
 
 impl Destination {
-    pub fn vm_type(&self) -> Option<&VmType> {
+    #[must_use] pub const fn vm_type(&self) -> Option<&VmType> {
         match self {
-            Destination::Unit => None,
-            Destination::Register(reg) => Some(&reg.ty),
-            Destination::Memory(mem) => Some(&mem.ty),
+            Self::Unit => None,
+            Self::Register(reg) => Some(&reg.ty),
+            Self::Memory(mem) => Some(&mem.ty),
         }
     }
 }
@@ -1071,7 +1071,7 @@ impl TypedRegister {
     }
 
     #[must_use]
-    pub fn ty(&self) -> &BasicTypeRef {
+    pub const fn ty(&self) -> &BasicTypeRef {
         &self.ty.basic_type
     }
 
@@ -1255,7 +1255,7 @@ impl VmType {
             || matches!(self.basic_type.kind, BasicTypeKind::InternalStringPointer)
     }
     #[must_use]
-    pub fn basic_type(&self) -> &BasicTypeRef {
+    pub const fn basic_type(&self) -> &BasicTypeRef {
         &self.basic_type
     }
 }
@@ -1466,7 +1466,7 @@ impl BasicType {
 
 impl BasicType {
     #[must_use]
-    pub fn should_be_copied_back_when_mutable_arg_or_return(&self) -> bool {
+    pub const fn should_be_copied_back_when_mutable_arg_or_return(&self) -> bool {
         !self.is_aggregate()
     }
 }
@@ -1481,7 +1481,7 @@ impl BasicType {
 
 impl BasicType {
     #[must_use]
-    pub fn make_pointer(&self) -> Self {
+    pub const fn make_pointer(&self) -> Self {
         // MutablePointer removed - return a generic pointer type
         Self {
             id: BasicTypeId::EMPTY,
@@ -1597,7 +1597,7 @@ impl BasicType {
     }
 
     #[must_use]
-    pub fn element(&self) -> Option<&BasicTypeRef> {
+    pub const fn element(&self) -> Option<&BasicTypeRef> {
         match &self.kind {
             BasicTypeKind::StackStorage(inner, _)
             | BasicTypeKind::GridView(inner)
