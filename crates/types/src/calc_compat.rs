@@ -107,7 +107,8 @@ impl Type {
         }
     }
 
-    #[must_use] pub fn strict_compatible_with_capacity(&self, other: &Self) -> bool {
+    #[must_use]
+    pub fn strict_compatible_with_capacity(&self, other: &Self) -> bool {
         match (&*self.kind, &*other.kind) {
             (TypeKind::VecStorage(_, cap_a), TypeKind::VecStorage(_, cap_b)) => cap_a == cap_b,
             (TypeKind::SparseStorage(_, cap_a), TypeKind::SparseStorage(_, cap_b)) => {
@@ -135,7 +136,17 @@ pub fn same_named_struct_ref_strict(a: &NamedStructType, b: &NamedStructType) ->
         return false;
     }
 
-    compare_anonymous_struct_types_strict(&a.anon_struct_type, &b.anon_struct_type)
+    // Extract AnonymousStructType from TypeRef
+    let a_anon_struct = match &*a.anon_struct_type.kind {
+        crate::TypeKind::AnonymousStruct(anon_struct) => anon_struct,
+        _ => return false,
+    };
+    let b_anon_struct = match &*b.anon_struct_type.kind {
+        crate::TypeKind::AnonymousStruct(anon_struct) => anon_struct,
+        _ => return false,
+    };
+
+    compare_anonymous_struct_types_strict(a_anon_struct, b_anon_struct)
 }
 
 /// Performs a strict comparison of anonymous struct types, requiring exact matches of all fields and types
@@ -193,7 +204,17 @@ pub fn same_named_struct_ref(a: &NamedStructType, b: &NamedStructType) -> bool {
         }
     }
 
-    compare_anonymous_struct_types(&a.anon_struct_type, &b.anon_struct_type)
+    // Extract AnonymousStructType from TypeRef
+    let a_anon_struct = match &*a.anon_struct_type.kind {
+        crate::TypeKind::AnonymousStruct(anon_struct) => anon_struct,
+        _ => return false,
+    };
+    let b_anon_struct = match &*b.anon_struct_type.kind {
+        crate::TypeKind::AnonymousStruct(anon_struct) => anon_struct,
+        _ => return false,
+    };
+
+    compare_anonymous_struct_types(a_anon_struct, b_anon_struct)
 }
 
 /// Performs a regular comparison of anonymous struct types, allowing compatible field types

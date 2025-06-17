@@ -250,12 +250,15 @@ impl SymbolTable {
 
     /// # Errors
     ///
-
-    /// # Errors
-    ///
     pub fn add_struct(&mut self, struct_type: TypeRef) -> Result<NamedStructType, SemanticError> {
         self.add_struct_link(struct_type.clone())?;
-        Ok(struct_type)
+
+        // Extract NamedStructType from TypeRef
+        if let TypeKind::NamedStruct(named_struct) = &*struct_type.kind {
+            Ok(named_struct.clone())
+        } else {
+            panic!("Expected NamedStruct in TypeRef")
+        }
     }
 
     /// # Errors
@@ -279,12 +282,9 @@ impl SymbolTable {
     }
 
     pub fn add_enum_type_link(&mut self, enum_type_ref: EnumType) -> Result<(), SemanticError> {
-        let ty = TypeKind::Enum(enum_type_ref.clone());
-        self.symbols
-            .insert(enum_type_ref.assigned_name.clone(), Symbol::Type(ty))
-            .map_err(|_| SemanticError::DuplicateEnumType(enum_type_ref.assigned_name.clone()))?;
-
-        Ok(())
+        // TODO: This function needs to be redesigned to work with TypeCache
+        // For now, we'll panic to indicate this needs proper implementation
+        todo!("add_enum_type_link needs to be redesigned to work with TypeCache and TypeRef")
     }
 
     pub fn add_internal_function(
@@ -360,10 +360,11 @@ impl SymbolTable {
         self.get_enum(enum_type_name).as_ref().map_or_else(
             || None,
             |found_type| {
-                let &TypeKind::Enum(found_enum) = &*found_type else {
-                    panic!("internal error")
-                };
-                found_enum.variants.get(&variant_name.to_string()).cloned()
+                if let TypeKind::Enum(found_enum) = &*found_type.kind {
+                    found_enum.variants.get(&variant_name.to_string()).cloned()
+                } else {
+                    panic!("internal error: expected enum type")
+                }
             },
         )
     }

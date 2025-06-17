@@ -152,7 +152,6 @@ pub struct SharedState<'a> {
     pub source_map: &'a SourceMap,
     pub file_id: FileId,
     pub core_symbol_table: SymbolTableRef,
-
 }
 
 impl<'a> SharedState<'a> {
@@ -743,11 +742,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                    &ast_expression.node,
-                    fields,
-                    *rest_was_specified,
-                    context,
-                )?,
+                &ast_expression.node,
+                fields,
+                *rest_was_specified,
+                context,
+            )?,
 
             swamp_ast::ExpressionKind::ContextAccess => {
                 todo!("lone dot not implemented yet")
@@ -1471,7 +1470,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {} else {
+            if let Type::Optional(_) = tv.resolved_type {
+            } else {
                 tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
             }
         }

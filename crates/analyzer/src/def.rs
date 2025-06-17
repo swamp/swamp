@@ -2,8 +2,8 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::err::{Error, ErrorKind};
 use crate::Analyzer;
+use crate::err::{Error, ErrorKind};
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_semantic::{
@@ -207,7 +207,11 @@ impl Analyzer<'_> {
 
                     let enum_variant_struct_type = EnumVariantStructType {
                         common,
-                        anon_struct: AnonymousStructType::new(fields),
+                        struct_type: self
+                            .shared
+                            .state
+                            .type_cache
+                            .anonymous_struct(AnonymousStructType::new(fields)),
                     };
 
                     EnumVariantType::Struct(enum_variant_struct_type)
@@ -325,15 +329,21 @@ impl Analyzer<'_> {
 
         let analyzed_anonymous_struct = AnonymousStructType::new(fields); // the order encountered in source should be kept
 
+        // Create a TypeRef for the anonymous struct to enable deduplication
+        let anon_struct_type_ref = self
+            .shared
+            .state
+            .type_cache
+            .anonymous_struct(analyzed_anonymous_struct);
+
         let named_struct_type = NamedStructType {
             name: self.to_node(&ast_struct_def.identifier.name),
-            anon_struct_type: analyzed_anonymous_struct,
+            anon_struct_type: anon_struct_type_ref,
             assigned_name: struct_name_str,
             module_path: self.shared.definition_table.module_path(),
             instantiated_type_parameters: Vec::default(),
         };
 
-        self.shared.state
         let struct_ref = self
             .shared
             .definition_table

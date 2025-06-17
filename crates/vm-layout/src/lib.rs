@@ -49,7 +49,8 @@ impl Default for LayoutCache {
 }
 
 impl LayoutCache {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             id_to_layout: SeqMap::default(),
             kind_to_layout: SeqMap::default(),
@@ -335,14 +336,14 @@ impl LayoutCache {
                 }
                 TypeKind::NamedStruct(named_struct) => {
                     // Process each field type in the anonymous struct
-                    for field in named_struct
-                        .anon_struct_type
-                        .field_name_sorted_fields
-                        .values()
+                    if let TypeKind::AnonymousStruct(anon_struct) =
+                        &*named_struct.anon_struct_type.kind
                     {
-                        let field_type = &field.field_type;
-                        let field_layout = self.layout(field_type.clone());
-                        let _ = self.id_to_layout.insert(field_type.id, field_layout);
+                        for field in anon_struct.field_name_sorted_fields.values() {
+                            let field_type = &field.field_type;
+                            let field_layout = self.layout(field_type.clone());
+                            let _ = self.id_to_layout.insert(field_type.id, field_layout);
+                        }
                     }
                 }
                 TypeKind::Tuple(tuple_types) => {
@@ -403,9 +404,7 @@ impl LayoutCache {
                 });
 
                 // Also store the element type in id_to_layout
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout);
+                let _ = self.id_to_layout.insert(element_type.id, element_layout);
 
                 array_type
             }
@@ -419,9 +418,7 @@ impl LayoutCache {
                     max_alignment: PTR_ALIGNMENT,
                 });
 
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout);
+                let _ = self.id_to_layout.insert(element_type.id, element_layout);
 
                 vec_type
             }
@@ -436,9 +433,7 @@ impl LayoutCache {
                     max_alignment: max(MemoryAlignment::U16, element_alignment),
                 });
 
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout);
+                let _ = self.id_to_layout.insert(element_type.id, element_layout);
 
                 storage_type
             }
@@ -471,8 +466,6 @@ impl LayoutCache {
                     name: "value".to_string(),
                     ty: value_layout.clone(),
                 };
-
-                
 
                 Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
@@ -538,14 +531,10 @@ impl LayoutCache {
                 let tuple_basic_type = self.layout_tuple(&tuple_types, tuple_type_id);
 
                 // Make sure we're also storing the tuple type in the id_to_layout map
-                let _ = self
-                    .id_to_layout
-                    .insert(tuple_type_id, tuple_basic_type);
+                let _ = self.id_to_layout.insert(tuple_type_id, tuple_basic_type);
 
                 let logical_limit = *logical_limit;
                 let actual_capacity = (logical_limit as u16).next_power_of_two();
-
-                
 
                 Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
@@ -591,8 +580,6 @@ impl LayoutCache {
 
                 let element_size = element_layout.total_size;
                 let element_alignment = element_layout.max_alignment;
-
-                
 
                 Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
@@ -737,10 +724,13 @@ impl LayoutCache {
             return existing_layout.clone();
         }
 
-        let inner_struct = self.layout_struct_type(
-            &named_struct_type.anon_struct_type,
-            &named_struct_type.assigned_name,
-        );
+        // Extract AnonymousStructType from the TypeRef
+        let anon_struct = match &*named_struct_type.anon_struct_type.kind {
+            TypeKind::AnonymousStruct(anon_struct) => anon_struct,
+            _ => panic!("Expected AnonymousStruct in NamedStructType"),
+        };
+
+        let inner_struct = self.layout_struct_type(anon_struct, &named_struct_type.assigned_name);
 
         // Use the provided TypeId
         let basic_type = Rc::new(BasicType {

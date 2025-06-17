@@ -1172,7 +1172,10 @@ impl VmType {
     }
 
     #[must_use]
-    pub const fn new_heap_placement(basic_type: BasicTypeRef, heap_region: HeapMemoryRegion) -> Self {
+    pub const fn new_heap_placement(
+        basic_type: BasicTypeRef,
+        heap_region: HeapMemoryRegion,
+    ) -> Self {
         Self {
             basic_type,
             origin: VmTypeOrigin::Heap(heap_region),
@@ -1505,7 +1508,9 @@ impl BasicType {
 
 impl BasicType {
     #[must_use]
-    pub const fn unwrap_info(&self) -> Option<(MemoryOffset, MemorySize, MemoryOffset, MemorySize)> {
+    pub const fn unwrap_info(
+        &self,
+    ) -> Option<(MemoryOffset, MemorySize, MemoryOffset, MemorySize)> {
         match &self.kind {
             BasicTypeKind::TaggedUnion(tagged) | BasicTypeKind::Optional(tagged) => Some((
                 tagged.tag_offset,

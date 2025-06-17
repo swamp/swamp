@@ -8,7 +8,7 @@ pub struct NamedStructType {
     pub name: Node,
     pub module_path: Vec<String>,
     pub assigned_name: String,
-    pub anon_struct_type: AnonymousStructType,
+    pub anon_struct_type: TypeRef,
     pub instantiated_type_parameters: Vec<Type>,
 }
 
@@ -17,7 +17,7 @@ impl NamedStructType {
     pub fn new(
         name: Node,
         assigned_name: &str,
-        anon_struct_type: AnonymousStructType,
+        anon_struct_type: TypeRef,
         module_path: &[String],
     ) -> Self {
         Self {
@@ -31,9 +31,13 @@ impl NamedStructType {
 
     #[must_use]
     pub fn field_index(&self, field_name: &str) -> Option<usize> {
-        self.anon_struct_type
-            .field_name_sorted_fields
-            .get_index(&field_name.to_string())
+        if let crate::TypeKind::AnonymousStruct(anon_struct) = &*self.anon_struct_type.kind {
+            anon_struct
+                .field_name_sorted_fields
+                .get_index(&field_name.to_string())
+        } else {
+            None
+        }
     }
 
     #[must_use]
