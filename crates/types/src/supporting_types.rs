@@ -237,7 +237,7 @@ pub struct EnumVariantStructType {
 
 impl EnumVariantStructType {
     #[must_use]
-    pub fn struct_type(&self) -> &TypeRef {
+    pub const fn struct_type(&self) -> &TypeRef {
         &self.struct_type
     }
 }
@@ -340,9 +340,9 @@ impl Display for EnumType {
 impl Display for EnumVariantType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Struct(variant) => write!(f, "{}", variant),
-            Self::Tuple(variant) => write!(f, "{}", variant),
-            Self::Nothing(variant) => write!(f, "{}", variant),
+            Self::Struct(variant) => write!(f, "{variant}"),
+            Self::Tuple(variant) => write!(f, "{variant}"),
+            Self::Nothing(variant) => write!(f, "{variant}"),
         }
     }
 }

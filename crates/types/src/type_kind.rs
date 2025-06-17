@@ -61,43 +61,43 @@ impl Display for TypeKind {
             Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "()"),
             Self::Tuple(types) => write!(f, "({})", seq_fmt::comma(types)),
-            Self::NamedStruct(named_struct) => write!(f, "{}", named_struct),
-            Self::AnonymousStruct(anon_struct) => write!(f, "{}", anon_struct),
-            Self::Range(range) => write!(f, "range{}", range),
-            Self::Enum(enum_type) => write!(f, "{}", enum_type),
-            Self::Function(signature) => write!(f, "{}", signature),
-            Self::Optional(inner) => write!(f, "{}?", inner),
-            Self::MutableReference(inner) => write!(f, "&mut {}", inner),
+            Self::NamedStruct(named_struct) => write!(f, "{named_struct}"),
+            Self::AnonymousStruct(anon_struct) => write!(f, "{anon_struct}"),
+            Self::Range(range) => write!(f, "range{range}"),
+            Self::Enum(enum_type) => write!(f, "{enum_type}"),
+            Self::Function(signature) => write!(f, "{signature}"),
+            Self::Optional(inner) => write!(f, "{inner}?"),
+            Self::MutableReference(inner) => write!(f, "&mut {inner}"),
             Self::FixedCapacityAndLengthArray(inner, size) => {
-                write!(f, "[{}; {}]", inner, size)
+                write!(f, "[{inner}; {size}]")
             }
-            Self::SliceView(inner) => write!(f, "[{}]", inner),
+            Self::SliceView(inner) => write!(f, "[{inner}]"),
             Self::VecStorage(inner, capacity) => {
-                write!(f, "Vec<{}, {}>", inner, capacity)
+                write!(f, "Vec<{inner}, {capacity}>")
             }
-            Self::DynamicLengthVecView(inner) => write!(f, "Vec<{}>", inner),
+            Self::DynamicLengthVecView(inner) => write!(f, "Vec<{inner}>"),
             Self::StackStorage(inner, capacity) => {
-                write!(f, "Stack<{}, {}>", inner, capacity)
+                write!(f, "Stack<{inner}, {capacity}>")
             }
-            Self::StackView(inner) => write!(f, "Stack<{}>", inner),
+            Self::StackView(inner) => write!(f, "Stack<{inner}>"),
             Self::QueueStorage(inner, capacity) => {
-                write!(f, "Queue<{}, {}>", inner, capacity)
+                write!(f, "Queue<{inner}, {capacity}>")
             }
-            Self::QueueView(inner) => write!(f, "Queue<{}>", inner),
+            Self::QueueView(inner) => write!(f, "Queue<{inner}>"),
             Self::MapStorage(key, value, capacity) => {
-                write!(f, "Map<{}, {}, {}>", key, value, capacity)
+                write!(f, "Map<{key}, {value}, {capacity}>")
             }
             Self::DynamicLengthMapView(key, value) => {
-                write!(f, "Map<{}, {}>", key, value)
+                write!(f, "Map<{key}, {value}>")
             }
-            Self::SparseView(inner) => write!(f, "Sparse<{}>", inner),
+            Self::SparseView(inner) => write!(f, "Sparse<{inner}>"),
             Self::SparseStorage(inner, capacity) => {
-                write!(f, "Sparse<{}, {}>", inner, capacity)
+                write!(f, "Sparse<{inner}, {capacity}>")
             }
             Self::GridStorage(inner, width, height) => {
-                write!(f, "Grid<{}, {}, {}>", inner, width, height)
+                write!(f, "Grid<{inner}, {width}, {height}>")
             }
-            Self::GridView(inner) => write!(f, "Grid<{}>", inner),
+            Self::GridView(inner) => write!(f, "Grid<{inner}>"),
         }
     }
 }

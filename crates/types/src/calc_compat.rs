@@ -107,7 +107,7 @@ impl Type {
         }
     }
 
-    pub fn strict_compatible_with_capacity(&self, other: &Self) -> bool {
+    #[must_use] pub fn strict_compatible_with_capacity(&self, other: &Self) -> bool {
         match (&*self.kind, &*other.kind) {
             (TypeKind::VecStorage(_, cap_a), TypeKind::VecStorage(_, cap_b)) => cap_a == cap_b,
             (TypeKind::SparseStorage(_, cap_a), TypeKind::SparseStorage(_, cap_b)) => {

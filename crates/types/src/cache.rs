@@ -172,13 +172,13 @@ impl TypeCache {
             }
 
             (TypeKind::Tuple(elems_a), TypeKind::Tuple(elems_b)) => {
-                if elems_a.len() != elems_b.len() {
-                    false
-                } else {
+                if elems_a.len() == elems_b.len() {
                     elems_a
                         .iter()
                         .zip(elems_b.iter())
                         .all(|(a, b)| self.compatible_with(a, b))
+                } else {
+                    false
                 }
             }
 
@@ -251,9 +251,7 @@ impl TypeCache {
 
             (TypeKind::Function(sig_a), TypeKind::Function(sig_b)) => {
                 // Compare function signatures
-                if sig_a.parameters.len() != sig_b.parameters.len() {
-                    false
-                } else {
+                if sig_a.parameters.len() == sig_b.parameters.len() {
                     // Check parameters and return type
                     let params_match = sig_a
                         .parameters
@@ -262,6 +260,8 @@ impl TypeCache {
                         .all(|(a, b)| self.compatible_with(&a.resolved_type, &b.resolved_type));
 
                     params_match && self.compatible_with(&sig_a.return_type, &sig_b.return_type)
+                } else {
+                    false
                 }
             }
 
