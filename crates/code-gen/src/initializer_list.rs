@@ -7,7 +7,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::Expression;
-use swamp_vm_types::types::{BasicType, Destination, VmType};
+use swamp_vm_types::types::{BasicTypeRef, Destination, VmType};
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
     VEC_HEADER_PAYLOAD_OFFSET,
@@ -17,7 +17,7 @@ impl CodeBuilder<'_> {
     pub(crate) fn emit_initializer_list_into_target_lvalue_memory_location(
         &mut self,
         lvalue_location: &AggregateMemoryLocation,
-        element_gen_type: &BasicType,
+        element_gen_type: &BasicTypeRef,
         expressions: &[Expression],
         ctx: &Context,
     ) {

@@ -32,7 +32,7 @@ impl CodeBuilder<'_> {
         let key_temp_storage_reg =
             self.emit_aggregate_pointer_or_pointer_to_scalar_memory(key_expression, ctx);
 
-        let gen_value_type = layout_type(&map_type.value);
+        let gen_value_type = self.state.layout_cache.layout(&map_type.value);
         let map_entry_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(gen_value_type),
             "map entry temp",
@@ -127,7 +127,11 @@ impl CodeBuilder<'_> {
             node,
             "key temporary storage",
         );
-        let key_frame_place = key_frame_location.vm_type().frame_placed_type().unwrap();
+        let key_frame_place = key_frame_location
+            .vm_type()
+            .unwrap()
+            .frame_placed_type()
+            .unwrap();
 
         let value_target_register = self.temp_registers.allocate(
             VmType::new_unknown_placement(key_value_tuple_type.fields[1].ty.clone()),

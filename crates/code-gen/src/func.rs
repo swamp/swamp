@@ -47,7 +47,7 @@ impl TopLevelGenState {
             assigned_name: complete_function_name,
             function_variables: internal_fn_def.function_variables.clone(),
             parameter_variables: internal_fn_def.parameters.clone(),
-            return_type: *internal_fn_def.signature.return_type.clone(),
+            return_type: internal_fn_def.signature.return_type.clone(),
             expression: internal_fn_def.body.clone(),
         };
 
@@ -104,6 +104,7 @@ impl TopLevelGenState {
         source_map_lookup: &SourceMapWrapper,
     ) {
         let variable_and_frame_memory = layout_variables(
+            &mut self.codegen_state.layout_cache,
             &main.expression.node,
             &main.function_parameters,
             &main.function_variables,
@@ -287,6 +288,7 @@ impl TopLevelGenState {
         //info!(in_data.assigned_name, "emit_function");
 
         let frame_and_variable_info = layout_variables(
+            &mut self.codegen_state.layout_cache,
             &in_data.function_name_node,
             &in_data.parameter_variables,
             &in_data.function_variables,
@@ -336,7 +338,7 @@ impl TopLevelGenState {
             &in_data.function_name_node,
         );
 
-        let return_basic_type = layout_type(&in_data.return_type);
+        let return_basic_type = self.codegen_state.layout_cache.layout(&in_data.return_type);
         let return_register =
             TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 

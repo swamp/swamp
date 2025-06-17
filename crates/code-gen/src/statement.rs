@@ -8,12 +8,13 @@ use crate::ctx::Context;
 use crate::{Collection, Transformer};
 use source_map_node::Node;
 use swamp_semantic::{BooleanExpression, Expression, ForPattern, Iterable};
-use swamp_types::Type;
+use swamp_types::TypeKind;
+use swamp_types::TypeRef;
 use swamp_vm_types::types::{Destination, TypedRegister};
 
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
-        debug_assert!(matches!(expr.ty, Type::Unit));
+        debug_assert!(matches!(&*expr.ty.kind, TypeKind::Unit));
         let output_destination = Destination::new_unit();
         self.emit_expression(&output_destination, expr, ctx);
     }
@@ -37,9 +38,9 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
 
         let collection_ptr_reg = self.emit_scalar_rvalue(&iterable.resolved_expression, ctx);
-        let underlying_collection = collection_type.underlying();
-        match underlying_collection {
-            Type::Range(_range_struct_ref) => {
+        let underlying_collection = collection_type;
+        match &*underlying_collection.kind {
+            TypeKind::Range(_range_struct_ref) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,
@@ -52,13 +53,13 @@ impl CodeBuilder<'_> {
                 );
             }
 
-            Type::StackStorage(element_type, _)
-            | Type::StackView(element_type)
-            | Type::QueueStorage(element_type, _)
-            | Type::QueueView(element_type)
-            | Type::DynamicLengthVecView(element_type)
-            | Type::VecStorage(element_type, ..)
-            | Type::SliceView(element_type) => {
+            TypeKind::StackStorage(element_type, _)
+            | TypeKind::StackView(element_type)
+            | TypeKind::QueueStorage(element_type, _)
+            | TypeKind::QueueView(element_type)
+            | TypeKind::DynamicLengthVecView(element_type)
+            | TypeKind::VecStorage(element_type, ..)
+            | TypeKind::SliceView(element_type) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,
@@ -70,7 +71,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            Type::SparseStorage(element_type, _) | Type::SparseView(element_type) => {
+            TypeKind::SparseStorage(element_type, _) | TypeKind::SparseView(element_type) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,
@@ -82,7 +83,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            Type::DynamicLengthMapView(key, value) | Type::MapStorage(key, value, ..) => {
+            TypeKind::DynamicLengthMapView(key, value) | TypeKind::MapStorage(key, value, ..) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,
@@ -94,7 +95,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            Type::String => {
+            TypeKind::String => {
                 todo!();
             }
 
@@ -112,7 +113,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         collection: Collection,
         source_collection: &TypedRegister,
-        source_collection_type: &Type,
+        source_collection_type: &TypeRef,
         for_pattern: &ForPattern,
         lambda_expr: &Expression,
 

@@ -3,8 +3,12 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Collection;
-use swamp_types::Type;
-use swamp_vm_types::types::{BasicType, BasicTypeKind, FramePlacedType, unknown_type};
+use std::rc::Rc;
+use swamp_types::{Type, TypeRef};
+use swamp_vm_layout::LayoutCache;
+use swamp_vm_types::types::{
+    BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, FramePlacedType, unknown_type,
+};
 use swamp_vm_types::{
     FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize, SPARSE_ITERATOR_ALIGNMENT,
     SPARSE_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, align_frame_addr,
@@ -48,12 +52,14 @@ impl ScopeAllocator {
     pub fn reserve_iterator(&mut self, collection: Collection) -> FramePlacedType {
         let gen_type = match collection {
             Collection::Vec => BasicType {
-                kind: BasicTypeKind::DynamicLengthVecView(Box::new(unknown_type())),
+                id: BasicTypeId::EMPTY,
+                kind: BasicTypeKind::DynamicLengthVecView(unknown_type()),
                 total_size: VEC_ITERATOR_SIZE,
                 max_alignment: VEC_ITERATOR_ALIGNMENT,
             },
             Collection::Sparse => BasicType {
-                kind: BasicTypeKind::SparseView(Box::new(unknown_type())),
+                id: BasicTypeId::EMPTY,
+                kind: BasicTypeKind::SparseView(unknown_type()),
                 total_size: SPARSE_ITERATOR_SIZE,
                 max_alignment: SPARSE_ITERATOR_ALIGNMENT,
             },
@@ -63,19 +69,23 @@ impl ScopeAllocator {
             Collection::Range => todo!(),
         };
 
-        self.allocate_type(gen_type)
+        self.allocate_type(&Rc::new(gen_type))
     }
 
-    pub fn allocate_type(&mut self, gen_type: BasicType) -> FramePlacedType {
+    pub fn allocate_type(&mut self, gen_type: &BasicTypeRef) -> FramePlacedType {
         FramePlacedType::new(
             self.allocate(gen_type.total_size, gen_type.max_alignment),
-            gen_type,
+            gen_type.clone(),
         )
     }
 
-    pub fn reserve(&mut self, analyzed_type: &Type) -> FramePlacedType {
-        let gen_type = layout_type(analyzed_type);
-        self.allocate_type(gen_type)
+    pub fn reserve(
+        &mut self,
+        layout_cache: &mut LayoutCache,
+        analyzed_type: &TypeRef,
+    ) -> FramePlacedType {
+        let gen_type = layout_cache.layout(analyzed_type);
+        self.allocate_type(&gen_type)
     }
 
     #[must_use]

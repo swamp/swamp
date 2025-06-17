@@ -7,7 +7,7 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BoundsCheck, Destination, RValueOrLValue, TypedRegister, VmType,
+    BasicTypeKind, BasicTypeRef, BoundsCheck, Destination, RValueOrLValue, TypedRegister, VmType,
     b8_type, int_type,
 };
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
@@ -62,7 +62,7 @@ impl CodeBuilder<'_> {
     pub fn subscript_helper_from_location_to_location(
         &mut self,
         detailed_location_to_slice: Destination,
-        element_basic_type: &BasicType,
+        element_basic_type: &BasicTypeRef,
         int_expr: &Expression,
         bounds_check: BoundsCheck,
         node: &Node,
@@ -76,7 +76,7 @@ impl CodeBuilder<'_> {
                 "{comment} (get the the base pointer to the start of where to subscript from)"
             ),
         );
-        //let basic_slice_type = layout_type(&Type::Slice(Box::new(*slice_type.element.clone()), slice_type.fixed_size));
+        //let basic_slice_type = layout_type(&TypeKind::Slice(Box::new(*slice_type.element.clone()), slice_type.fixed_size));
         let new_base_pointer_reg = self.temp_registers.allocate(
             VmType::new_unknown_placement(element_basic_type.clone()),
             &format!("{comment} (new_base_pointer reg temp)"),
@@ -106,7 +106,7 @@ impl CodeBuilder<'_> {
         &mut self,
         target_reg: &TypedRegister,
         ptr_to_slice_reg: &TypedRegister,
-        element_basic_type: &BasicType,
+        element_basic_type: &BasicTypeRef,
         bounds_check: BoundsCheck,
         int_expr: &Expression,
         node: &Node,

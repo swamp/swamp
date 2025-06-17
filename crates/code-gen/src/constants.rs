@@ -2,7 +2,8 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use swamp_types::Type;
+use swamp_types::TypeRef;
+use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::HeapMemoryAddress;
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{HeapPlacedArray, HeapPlacedType};
@@ -23,8 +24,8 @@ impl ConstantsAllocator {
 
     /// # Panics
     ///
-    pub fn allocate(&mut self, ty: &Type) -> HeapPlacedType {
-        let gen_type = layout_type(ty);
+    pub fn allocate(&mut self, layout_cache: &mut LayoutCache, ty: &TypeRef) -> HeapPlacedType {
+        let gen_type = layout_cache.layout(ty);
         let alignment: usize = gen_type.max_alignment.into();
         let start_addr = align(self.current_addr as usize, alignment) as u32;
 

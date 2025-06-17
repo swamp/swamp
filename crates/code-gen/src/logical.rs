@@ -12,7 +12,7 @@ use swamp_semantic::{
     BinaryOperator, BinaryOperatorKind, BooleanExpression, Expression, ExpressionKind,
     UnaryOperator, UnaryOperatorKind,
 };
-use swamp_types::Type;
+use swamp_types::TypeKind;
 use swamp_vm_types::PatchPosition;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType, b8_type};
 
@@ -44,8 +44,8 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) -> FlagState {
         match &unary_operator.kind {
-            UnaryOperatorKind::Not => match &unary_operator.left.ty.underlying() {
-                Type::Bool => {
+            UnaryOperatorKind::Not => match &*unary_operator.left.ty.kind {
+                TypeKind::Bool => {
                     let bool_result =
                         self.emit_expression_to_boolean(dest_bool_reg, &unary_operator.left, ctx);
                     bool_result.invert_polarity()

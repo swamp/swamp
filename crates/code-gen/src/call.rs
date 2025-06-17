@@ -16,7 +16,7 @@ use std::collections::HashSet;
 use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
 use swamp_types::prelude::Signature;
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u32_type,
+    BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType, u32_type,
 };
 use swamp_vm_types::{FrameMemoryRegion, MemoryLocation, REG_ON_FRAME_SIZE};
 
@@ -71,7 +71,7 @@ impl CodeBuilder<'_> {
         let mut stable_base_ptr_cache = SeqMap::new();
         for argument in arguments {
             if let ArgumentExpression::BorrowMutableReference(lvalue) = argument {
-                let parameter_basic_type = layout_type(&argument.ty());
+                let parameter_basic_type = self.state.layout_cache.layout(&argument.ty());
                 if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
                     // first we need to save the base register into a temporary register
                     // so it won't be clobbered
@@ -191,7 +191,7 @@ impl CodeBuilder<'_> {
         &mut self,
         output_destination: &Destination,
         copy_back_mutable_reg_pairs: &mut Vec<MutableReturnReg>,
-        return_basic_type: BasicType,
+        return_basic_type: BasicTypeRef,
     ) {
         // For simple types, we need to copy from r0 to destination after the call
         let r0 = TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
@@ -204,7 +204,7 @@ impl CodeBuilder<'_> {
     pub fn setup_return_pointer_reg(
         &mut self,
         output_destination: &Destination,
-        return_basic_type: BasicType,
+        return_basic_type: BasicTypeRef,
         node: &Node,
     ) {
         let r0 = TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
@@ -247,7 +247,7 @@ impl CodeBuilder<'_> {
 
         // Handle return primitive or aggregate types
         if r0_is_used_as_return {
-            let return_basic_type = layout_type(&signature.return_type);
+            let return_basic_type = self.state.layout_cache.layout(&signature.return_type);
 
             if return_basic_type.is_aggregate() {
                 self.setup_return_pointer_reg(output_destination, return_basic_type, node);
@@ -265,7 +265,10 @@ impl CodeBuilder<'_> {
         let mut argument_registers = RegisterPool::new(1, 10);
 
         for (index_in_signature, type_for_parameter) in signature.parameters.iter().enumerate() {
-            let parameter_basic_type = layout_type(&type_for_parameter.resolved_type);
+            let parameter_basic_type = self
+                .state
+                .layout_cache
+                .layout(&type_for_parameter.resolved_type);
             let target_canonical_argument_register = argument_registers.alloc_register(
                 VmType::new_unknown_placement(parameter_basic_type.clone()),
                 &format!("{index_in_signature}:{}", type_for_parameter.name),
@@ -335,7 +338,7 @@ impl CodeBuilder<'_> {
                             let replacement_memory_location = MemoryLocation {
                                 base_ptr_reg: base_reg_to_use.clone(),
                                 offset: original_destination.grab_memory_location().offset,
-                                ty: original_destination.vm_type().clone(),
+                                ty: original_destination.vm_type().unwrap().clone(),
                             };
                             let replacement_location =
                                 Destination::Memory(replacement_memory_location);

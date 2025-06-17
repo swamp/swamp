@@ -112,7 +112,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        let underlying = primitive_reg.ty.underlying();
+        let underlying = primitive_reg.ty.basic_type();
         match underlying.kind {
             BasicTypeKind::B8 | BasicTypeKind::U8 => {
                 self.builder.add_st8_using_ptr_with_offset(

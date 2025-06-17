@@ -8,7 +8,7 @@ use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, Destination, TypedRegister, VmType, u8_type, u32_type,
+    BasicType, BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType, u8_type, u32_type,
 };
 use swamp_vm_types::{InstructionPosition, MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::error;
@@ -57,12 +57,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         let (lambda_variables, lambda_expr) = lambda_tuple;
-        let maybe_primary_element_gen_type = source_collection_reg
-            .ty
-            .basic_type
-            .underlying()
-            .element()
-            .cloned();
+        let maybe_primary_element_gen_type = source_collection_reg.ty.basic_type.element().cloned();
 
         let target_variables: Vec<_> = lambda_variables
             .iter()
@@ -229,7 +224,7 @@ impl CodeBuilder<'_> {
         &mut self,
         node: &Node,
         collection_type: Collection,
-        maybe_element_type: Option<BasicType>,
+        maybe_element_type: Option<BasicTypeRef>,
         collection_self_addr: &TypedRegister,
         target_variables: &[TypedRegister],
     ) -> (InstructionPosition, PatchPosition) {
@@ -324,7 +319,7 @@ impl CodeBuilder<'_> {
         target_iterator_header_reg: &TypedRegister,
         node: &Node,
         collection_type: Collection,
-        maybe_element_type: Option<BasicType>,
+        maybe_element_type: Option<BasicTypeRef>,
         collection_self_addr: &TypedRegister,
         target_variables: &[TypedRegister],
     ) -> PatchPosition {

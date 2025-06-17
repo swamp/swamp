@@ -1,4 +1,12 @@
 use crate::FrameAndVariableInfo;
+use crate::alloc::ScopeAllocator;
+use crate::reg_pool::RegisterPool;
+use seq_map::SeqMap;
+use source_map_node::Node;
+use std::fmt::Write;
+use swamp_semantic::{VariableRef, VariableType};
+use swamp_types::TypeRef;
+use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{
     FrameAddressInfo, FrameMemoryInfo, VariableInfo, VariableInfoKind, VariableRegister, VmType,
 };
@@ -9,10 +17,11 @@ use swamp_vm_types::{FrameMemoryAddress, FrameMemoryRegion, MemorySize};
 #[allow(clippy::too_many_lines)]
 #[must_use]
 pub fn layout_variables(
+    layout_cache: &mut LayoutCache,
     _node: &Node,
     parameters: &Vec<VariableRef>,
     variables: &Vec<VariableRef>,
-    exp_return_type: &Type,
+    exp_return_type: &TypeRef,
 ) -> FrameAndVariableInfo {
     let mut local_frame_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
@@ -30,8 +39,8 @@ pub fn layout_variables(
 
     let mut parameter_registers = Vec::new();
     for var_ref in parameters {
-        let parameter_basic_type = layout_type(&var_ref.resolved_type);
-        check_type_size(
+        let parameter_basic_type = layout_cache.layout(&var_ref.resolved_type);
+        swamp_vm_layout::check_type_size(
             &parameter_basic_type,
             &format!("parameter '{}'", var_ref.assigned_name),
         );
@@ -59,16 +68,16 @@ pub fn layout_variables(
 
     let mut variable_registers = Vec::new();
     for var_ref in variables {
-        let basic_type = layout_type(&var_ref.resolved_type);
+        let basic_type = layout_cache.layout(&var_ref.resolved_type);
         //info!(var_ref.assigned_name, ?frame_register_allocator, "allocating local variable");
         let register = if basic_type.is_aggregate() {
             // TODO: Should have a check if the variable needs the storage (if it is in an assignment in a copy)
-            check_type_size(
+            swamp_vm_layout::check_type_size(
                 &basic_type,
                 &format!("variable '{}'", var_ref.assigned_name),
             );
 
-            let var_frame_placed_type = local_frame_allocator.allocate_type(basic_type);
+            let var_frame_placed_type = local_frame_allocator.allocate_type(&basic_type);
             //trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
             writeln!(
                 &mut enter_comment,
@@ -126,7 +135,8 @@ pub fn layout_variables(
 
     let highest_register_used = frame_register_allocator.current_index;
 
-    let return_type = VmType::new_contained_in_register(layout_type(exp_return_type));
+    let return_type_ref = TypeRef::from(exp_return_type.clone());
+    let return_type = VmType::new_contained_in_register(layout_cache.layout(&return_type_ref));
 
     FrameAndVariableInfo {
         frame_memory: FrameMemoryInfo {

@@ -9,6 +9,7 @@ use seq_map::SeqMap;
 use source_map_node::Node;
 use swamp_semantic::{ConstantId, ConstantRef, InternalFunctionDefinitionRef, InternalFunctionId};
 use swamp_vm_debug_info::DebugInfo;
+use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, HeapPlacedType};
 use swamp_vm_types::{InstructionPosition, InstructionPositionOffset, PatchPosition};
 use tracing::info;
@@ -32,6 +33,7 @@ pub struct CodeGenState {
     pub function_fixups: Vec<FunctionFixup>,
     pub functions: SeqMap<usize, CompleteFunctionInfo>,
     pub constants: SeqMap<usize, CompleteFunctionInfo>,
+    pub layout_cache: LayoutCache,
 
     pub debug_info: DebugInfo,
 }
@@ -57,6 +59,7 @@ impl CodeGenState {
             functions: SeqMap::default(),
             constants: SeqMap::default(),
             debug_info: DebugInfo::default(),
+            layout_cache: LayoutCache::new(),
         }
     }
 
@@ -148,7 +151,7 @@ impl CodeGenState {
             let heap_placed_type = self
                 .constants_manager
                 .allocator
-                .allocate(&constant.resolved_type);
+                .allocate(&mut self.layout_cache, &constant.resolved_type);
 
             self.constant_offsets
                 .insert(constant.id, heap_placed_type)

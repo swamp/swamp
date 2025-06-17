@@ -21,7 +21,7 @@ impl CodeBuilder<'_> {
         let mut all_false_jumps = Vec::new();
 
         for binding in bindings {
-            let binding_gen_type = layout_type(&binding.expr.ty());
+            let binding_gen_type = self.state.layout_cache.layout(&binding.expr.ty());
             let (tag_offset, ..) = binding_gen_type.unwrap_info().unwrap();
             let old_variable_region = self.emit_for_access_or_location(&binding.expr, ctx);
             let hwm = self.temp_registers.save_mark();
@@ -88,7 +88,7 @@ impl CodeBuilder<'_> {
                 let optional_tagged_union_reg =
                     self.emit_scalar_rvalue(variable_access_expression, ctx);
 
-                let tagged_union_binding = optional_tagged_union_reg.ty.underlying();
+                let tagged_union_binding = optional_tagged_union_reg.ty.basic_type();
                 let tagged_union = tagged_union_binding.optional_info().unwrap();
 
                 // Optional Tagged Union Payload is grabbed.
@@ -103,7 +103,7 @@ impl CodeBuilder<'_> {
                     };
 
                     let source_memory_location = MemoryLocation {
-                        base_ptr_reg: optional_tagged_union_reg,
+                        base_ptr_reg: optional_tagged_union_reg.clone(),
                         offset: tagged_union.payload_offset,
                         ty: target_memory_location.ty.clone(),
                     };
@@ -116,7 +116,7 @@ impl CodeBuilder<'_> {
                     );
                 } else {
                     let source_memory_location = MemoryLocation {
-                        base_ptr_reg: optional_tagged_union_reg,
+                        base_ptr_reg: optional_tagged_union_reg.clone(),
                         offset: tagged_union.payload_offset,
                         ty: target_binding_variable_reg.ty.clone(),
                     };

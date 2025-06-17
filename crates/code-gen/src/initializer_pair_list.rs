@@ -47,7 +47,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        match &output_destination.ty().underlying().kind {
+        match &output_destination.ty().kind {
             BasicTypeKind::MapStorage {
                 tuple_type,
                 logical_limit,
@@ -70,7 +70,7 @@ impl CodeBuilder<'_> {
                 self.emit_map_storage_init_from_initializer_pair_list(
                     &pointer_target,
                     elements,
-                    tuple_type,
+                    &tuple_type,
                     *logical_limit,
                     node,
                     ctx,

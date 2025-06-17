@@ -8,8 +8,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{AnonymousStructLiteral, Expression};
-use swamp_types::Type;
 use swamp_types::prelude::AnonymousStructType;
+use swamp_types::{Type, TypeKind, TypeRef};
 use swamp_vm_types::types::{BasicType, BasicTypeKind, Destination, VmType, u16_type, u32_type};
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, CountU16,
@@ -20,7 +20,7 @@ impl CodeBuilder<'_> {
     pub(crate) fn emit_anonymous_struct_into_memory(
         &mut self,
         aggregate_lvalue_memory_location: &AggregateMemoryLocation,
-        anon_struct_type: &AnonymousStructType,
+        anon_struct_type: &TypeRef,
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         node: &Node,
         base_context: &Context,
@@ -45,13 +45,13 @@ impl CodeBuilder<'_> {
     fn emit_struct_literal_into_memory_location(
         &mut self,
         lvalue_location: &AggregateMemoryLocation,
-        struct_type_ref: &AnonymousStructType,
+        struct_type_ref: &TypeRef,
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         node: &Node,
         comment: &str,
         ctx: &Context,
     ) -> FlagState {
-        let gen_source_struct_type = layout_struct_type(struct_type_ref, "");
+        let struct_type = self.state.layout_cache.layout(struct_type_ref);
 
         let base_ptr_register = self.temp_registers.allocate(
             VmType::new_contained_in_register(u32_type()),
@@ -71,10 +71,17 @@ impl CodeBuilder<'_> {
             ),
         };
 
+        /*
         let struct_type = BasicType {
             total_size: gen_source_struct_type.total_size,
             max_alignment: gen_source_struct_type.max_alignment,
             kind: BasicTypeKind::Struct(gen_source_struct_type.clone()),
+        };
+
+         */
+
+        let BasicTypeKind::Struct(gen_source_struct_type) = &struct_type.kind else {
+            panic!("must be named struct type or anon struct literal")
         };
 
         for (offset_item, (field_index, _node, source_expression)) in gen_source_struct_type
@@ -112,14 +119,14 @@ impl CodeBuilder<'_> {
         &mut self,
         lvalue_location: &AggregateMemoryLocation,
         anon_struct_literal: &AnonymousStructLiteral,
-        ty: &Type,
+        ty: &TypeRef,
         node: &Node,
         comment: &str,
         ctx: &Context,
     ) -> FlagState {
-        let anon_struct_type = match ty {
-            Type::NamedStruct(named_struct) => named_struct.anon_struct_type.clone(),
-            Type::AnonymousStruct(anon_struct_type) => anon_struct_type.clone(),
+        let anon_struct_type = match &*ty.kind {
+            TypeKind::NamedStruct(named_struct) => named_struct.anon_struct_type.clone(),
+            TypeKind::AnonymousStruct(anon_struct_type) => ty.clone(),
             _ => panic!("internal error with struct literal"),
         };
 
@@ -139,7 +146,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        match &lvalue_location.ty.underlying().kind {
+        match &lvalue_location.ty.basic_type().kind {
             BasicTypeKind::SparseStorage(element_type, capacity) => {
                 self.builder.add_sparse_init(
                     &lvalue_location.pointer_location().unwrap().ptr_reg,
@@ -248,7 +255,7 @@ impl CodeBuilder<'_> {
                 self.temp_registers.restore_to_mark(hwm);
             }
             _ => {
-                if let Some(capacity) = lvalue_location.ty.underlying().get_collection_capacity() {
+                if let Some(capacity) = lvalue_location.ty.basic_type().get_collection_capacity() {
                     let hwm = self.temp_registers.save_mark();
 
                     let init_capacity_reg = self.temp_registers.allocate(

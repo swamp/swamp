@@ -47,15 +47,17 @@ use crate::alloc::ScopeAllocator;
 use crate::reg_pool::{RegisterPool, TempRegister};
 use seq_map::SeqMap;
 use source_map_node::Node;
+use std::rc::Rc;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     ArgumentExpression, ConstantId, ConstantRef, Expression, ExpressionKind,
     InternalFunctionDefinitionRef, InternalFunctionId, VariableRef,
 };
-use swamp_types::Type;
+use swamp_types::TypeRef;
+use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, FrameMemoryInfo, FramePlacedType, FunctionInfoKind, HeapPlacedType,
-    TypedRegister, VariableRegister, VmType,
+    BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, FrameMemoryInfo, FramePlacedType,
+    FunctionInfoKind, HeapPlacedType, TypedRegister, VariableRegister, VmType,
 };
 use swamp_vm_types::{
     CountU16, FrameMemoryRegion, InstructionPosition, InstructionRange, MAP_ITERATOR_ALIGNMENT,
@@ -210,7 +212,7 @@ impl Collection {
     }
 
     #[must_use]
-    pub fn iterator_gen_type(&self) -> BasicType {
+    pub fn iterator_gen_type(&self) -> BasicTypeRef {
         let kind = match self {
             Self::Vec => BasicTypeKind::InternalVecIterator,
             Self::Map => BasicTypeKind::InternalMapIterator,
@@ -221,11 +223,13 @@ impl Collection {
             _ => todo!(),
         };
         let (size, alignment) = self.iterator_size_and_alignment();
-        BasicType {
+        // HACK: Should use cache
+        Rc::new(BasicType {
+            id: BasicTypeId::EMPTY, // HACK
             kind,
             total_size: size,
             max_alignment: alignment,
-        }
+        })
     }
 }
 
@@ -310,7 +314,7 @@ pub struct GenFunctionInfo {
 
 impl GenFunctionInfo {
     #[must_use]
-    pub fn return_type(&self) -> &Type {
+    pub fn return_type(&self) -> &TypeRef {
         &self.internal_function_definition.signature.return_type
     }
 }
@@ -349,8 +353,12 @@ impl FunctionIps {
     }
 }
 
-pub fn reserve(ty: &Type, allocator: &mut ScopeAllocator) -> FramePlacedType {
-    allocator.reserve(ty)
+pub fn reserve(
+    ty: &TypeRef,
+    layout_cache: &mut LayoutCache,
+    allocator: &mut ScopeAllocator,
+) -> FramePlacedType {
+    allocator.reserve(layout_cache, ty)
 }
 
 pub struct FrameAndVariableInfo {
@@ -370,7 +378,7 @@ pub struct FunctionInData {
     pub assigned_name: String,
     pub parameter_variables: Vec<VariableRef>,
     pub function_variables: Vec<VariableRef>,
-    pub return_type: Type,
+    pub return_type: TypeRef,
     pub expression: Expression,
 }
 

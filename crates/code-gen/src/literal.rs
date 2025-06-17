@@ -173,8 +173,10 @@ impl CodeBuilder<'_> {
             }
             Literal::InitializerList(slice_type, expressions) => {
                 // A tuple literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
-                let element_gen_type =
-                    layout_type(slice_type.iteration_primary_element_type().unwrap());
+                let element_gen_type = self
+                    .state
+                    .layout_cache
+                    .layout(slice_type.iteration_primary_element_type().unwrap());
                 self.emit_initializer_list_into_target_lvalue_memory_location(
                     &output.grab_aggregate_memory_location(),
                     &element_gen_type,

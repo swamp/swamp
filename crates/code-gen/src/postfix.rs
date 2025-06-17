@@ -7,7 +7,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::single_intrinsic_fn;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
-use swamp_types::Type;
+use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
 
@@ -31,8 +31,7 @@ impl CodeBuilder<'_> {
             let is_last = index == chain.len() - 1;
             match &element.kind {
                 PostfixKind::StructField(anonymous_struct, field_index) => {
-                    let struct_layout =
-                        layout_type(&Type::AnonymousStruct(anonymous_struct.clone()));
+                    let struct_layout = self.state.layout_cache.layout(&anonymous_struct);
 
                     let offset_item = struct_layout.get_field_offset(*field_index).unwrap();
 
@@ -103,7 +102,7 @@ impl CodeBuilder<'_> {
                     } else {
                         // we are not at the end of the chain, create temporary
                         let return_type = &element.ty;
-                        let return_basic_type = layout_type(return_type);
+                        let return_basic_type = self.state.layout_cache.layout(return_type);
 
                         self.allocate_frame_space_and_return_destination_to_it(&return_basic_type, &element.node, "create temporary return destination for when not in the end of the chain")
                     };
@@ -216,7 +215,9 @@ impl CodeBuilder<'_> {
 
                     current_location = current_location.add_offset(
                         payload_offset,
-                        VmType::new_unknown_placement(layout_type(payload_type).clone()),
+                        VmType::new_unknown_placement(
+                            self.state.layout_cache.layout(payload_type).clone(),
+                        ),
                     );
 
                     if !is_last {
@@ -273,7 +274,9 @@ impl CodeBuilder<'_> {
                         // `Some`: just update current_location to point to payload
                         current_location = current_location.add_offset(
                             payload_offset,
-                            VmType::new_unknown_placement(layout_type(&element.ty).clone()),
+                            VmType::new_unknown_placement(
+                                self.state.layout_cache.layout(&element.ty).clone(),
+                            ),
                         );
 
                         none_coalesce_final_load_skip = Some(skip_final_load);
@@ -384,7 +387,7 @@ impl CodeBuilder<'_> {
                     }
                 }
                 Destination::Memory(mem_loc) => {
-                    let underlying = mem_loc.ty.underlying();
+                    let underlying = mem_loc.ty.basic_type();
                     if underlying.is_aggregate() {
                         // Complex type - we need to store to memory
                         self.emit_store_value_to_memory_destination(

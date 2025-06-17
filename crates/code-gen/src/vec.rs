@@ -8,7 +8,8 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
-use swamp_vm_types::types::{BasicType, Destination, VmType, u32_type};
+use swamp_types::TypeRef;
+use swamp_vm_types::types::{BasicType, BasicTypeRef, Destination, VmType, u32_type};
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset, PointerLocation};
 use tracing::info;
 
@@ -16,7 +17,7 @@ impl CodeBuilder<'_> {
     pub(crate) fn grid_subscript_helper(
         &mut self,
         grid_header_location: &Destination,
-        analyzed_element_type: &Type,
+        analyzed_element_type: &TypeRef,
         x_expr: &Expression,
         y_expr: &Expression,
         ctx: &Context,
@@ -40,7 +41,7 @@ impl CodeBuilder<'_> {
     pub fn vec_subscript_helper(
         &mut self,
         vec_header_location: &Destination,
-        analyzed_element_type: &Type,
+        analyzed_element_type: &TypeRef,
         int_expr: &Expression,
         ctx: &Context,
     ) -> Destination {
@@ -56,12 +57,12 @@ impl CodeBuilder<'_> {
     pub fn grid_subscript_helper_helper(
         &mut self,
         grid_header_location: &Destination,
-        analyzed_element_type: &Type,
+        analyzed_element_type: &TypeRef,
         x_int_expr: &Expression,
         y_int_expr: &Expression,
         ctx: &Context,
     ) -> PointerLocation {
-        let gen_element_type = layout_type(analyzed_element_type);
+        let gen_element_type = self.state.layout_cache.layout(analyzed_element_type);
         let x_int_reg = self.emit_scalar_rvalue(x_int_expr, ctx);
         let y_int_reg = self.emit_scalar_rvalue(y_int_expr, ctx);
         let node = &x_int_expr.node;
@@ -98,11 +99,11 @@ impl CodeBuilder<'_> {
     pub fn vec_subscript_helper_helper(
         &mut self,
         vec_header_location: &Destination,
-        analyzed_element_type: &Type,
+        analyzed_element_type: &TypeRef,
         int_expr: &Expression,
         ctx: &Context,
     ) -> PointerLocation {
-        let gen_element_type = layout_type(analyzed_element_type);
+        let gen_element_type = self.state.layout_cache.layout(analyzed_element_type);
         let index_int_reg = self.emit_scalar_rvalue(int_expr, ctx);
         let node = &int_expr.node;
 
@@ -173,9 +174,9 @@ impl CodeBuilder<'_> {
         &mut self,
         vec_storage_lvalue_memory_location: &PointerLocation, // Points to VecStorage
         slice_literal: &[Expression],
-        element_type: &BasicType,
+        element_type: &BasicTypeRef,
         capacity: usize,
-        debug_vec_storage_type: &BasicType,
+        debug_vec_storage_type: &BasicTypeRef,
         node: &Node,
         ctx: &Context,
     ) {

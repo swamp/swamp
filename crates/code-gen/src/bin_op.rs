@@ -8,7 +8,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind};
-use swamp_types::Type;
+use swamp_types::TypeKind;
 use swamp_vm_types::types::TypedRegister;
 
 impl CodeBuilder<'_> {
@@ -79,11 +79,11 @@ impl CodeBuilder<'_> {
                 );
             }
             _ => match (
-                &binary_operator.left.ty.underlying(),
-                &binary_operator.right.ty.underlying(),
+                &*binary_operator.left.ty.kind,
+                &*binary_operator.right.ty.kind,
             ) {
-                //(Type::Bool, Type::Bool) => self.emit_binary_operator_logical(binary_operator),
-                (Type::Int, Type::Int) => self.emit_binary_operator_i32(
+                //(TypeKind::Bool, TypeKind::Bool) => self.emit_binary_operator_logical(binary_operator),
+                (TypeKind::Int, TypeKind::Int) => self.emit_binary_operator_i32(
                     dest_bool_reg,
                     &left_source,
                     &binary_operator.node,
@@ -91,7 +91,7 @@ impl CodeBuilder<'_> {
                     &right_source,
                     ctx,
                 ),
-                (Type::Float, Type::Float) => self.emit_binary_operator_f32(
+                (TypeKind::Float, TypeKind::Float) => self.emit_binary_operator_f32(
                     dest_bool_reg,
                     &left_source,
                     &binary_operator.node,
@@ -99,7 +99,7 @@ impl CodeBuilder<'_> {
                     &right_source,
                     ctx,
                 ),
-                (Type::String, Type::String) => self.emit_binary_operator_string(
+                (TypeKind::String, TypeKind::String) => self.emit_binary_operator_string(
                     dest_bool_reg,
                     &left_source,
                     &binary_operator.node,

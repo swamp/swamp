@@ -7,20 +7,24 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
-use swamp_types::Type;
-use swamp_vm_types::types::VmType;
+use swamp_types::{Type, TypeRef};
+use swamp_vm_types::types::{BasicTypeKind, VmType};
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_tuple_literal_into_memory(
         &mut self,
         aggregate_lvalue_location: &AggregateMemoryLocation,
-        types: &[Type],
+        tuple_type_ref: &TypeRef,
         expressions: &[Expression],
         ctx: &Context,
         node: &Node,
     ) {
-        let gen_tuple_type = layout_tuple_items(types);
+        let gen_tuple_type_ref = self.state.layout_cache.layout(tuple_type_ref);
+        let BasicTypeKind::Tuple(gen_tuple_type) = &gen_tuple_type_ref.kind else {
+            panic!("something is wrong");
+        };
+
         // TODO: Bring this back. //assert_eq!(gen_tuple_placed.total_size, target_reg.size());
         // TODO: Bring this back. //assert_eq!(gen_tuple_type.fields.len(), expressions.len());
 
@@ -40,14 +44,17 @@ impl CodeBuilder<'_> {
     pub(crate) fn emit_tuple_destructuring(
         &mut self,
         target_variables: &[VariableRef],
-        tuple_type: &[Type],
+        tuple_type_ref: &TypeRef,
         source_tuple_expression: &Expression,
         context: &Context,
     ) {
         let node = &source_tuple_expression.node;
         let tuple_base_pointer_reg = self.emit_scalar_rvalue(source_tuple_expression, context);
 
-        let tuple_type = layout_tuple_items(tuple_type);
+        let gen_tuple_type_ref = self.state.layout_cache.layout(&tuple_type_ref);
+        let BasicTypeKind::Tuple(tuple_type) = &gen_tuple_type_ref.kind else {
+            panic!("something is wrong");
+        };
         // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
 
         for (tuple_index, target_variable) in target_variables.iter().enumerate() {

@@ -85,7 +85,7 @@ impl CodeBuilder<'_> {
         for access in location_expression.access_chain.iter().take(accesses_count) {
             match &access.kind {
                 LocationAccessKind::FieldIndex(_anonymous_struct_type, field_index) => {
-                    let ty = current_location.vm_type().underlying();
+                    let ty = current_location.vm_type().unwrap().basic_type();
                     let offset_item = ty.get_field_offset(*field_index).unwrap();
 
                     current_location = current_location.add_offset(
@@ -140,7 +140,7 @@ impl CodeBuilder<'_> {
                     _intrinsic_function,
                     arguments_to_the_intrinsic,
                 ) => {
-                    let layout_item_type = layout_type(&access.ty);
+                    let layout_item_type = self.state.layout_cache.layout(&access.ty);
                     let get_item_target_reg = self.temp_registers.allocate(
                         VmType::new_unknown_placement(layout_item_type),
                         "intrinsic subscript",

@@ -6,6 +6,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, ExpressionKind, Literal};
+use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemorySize};
 
@@ -60,7 +61,10 @@ impl CodeBuilder<'_> {
         // If the expression needs a memory target, and the current output is not a memory target, create temp memory to materialize in
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, Destination::Memory(_))
-            && Self::rvalue_needs_memory_location_to_materialize_in(expr)
+            && Self::rvalue_needs_memory_location_to_materialize_in(
+                &mut self.state.layout_cache,
+                expr,
+            )
         {
             let temp_materialization_target = self
                 .allocate_frame_space_and_return_destination_to_it(
@@ -248,9 +252,9 @@ impl CodeBuilder<'_> {
             }
 
             // Statements - can not return anything, so should assert that output is unit (nothing)
-            ExpressionKind::TupleDestructuring(variables, tuple_types, tuple_expression) => {
+            ExpressionKind::TupleDestructuring(variables, tuple_type, tuple_expression) => {
                 debug_assert!(output.is_unit());
-                self.emit_tuple_destructuring(variables, tuple_types, tuple_expression, ctx);
+                self.emit_tuple_destructuring(variables, tuple_type, tuple_expression, ctx);
             }
             ExpressionKind::Assignment(target_mut_location_expr, source_expr) => {
                 debug_assert!(output.is_unit());
@@ -293,7 +297,10 @@ impl CodeBuilder<'_> {
         self.temp_registers.restore_to_mark(hwm);
     }
 
-    pub(crate) fn rvalue_needs_memory_location_to_materialize_in(expr: &Expression) -> bool {
+    pub(crate) fn rvalue_needs_memory_location_to_materialize_in(
+        layout_cache: &mut LayoutCache,
+        expr: &Expression,
+    ) -> bool {
         let specific_kind_of_expression_needs_memory_target = match &expr.kind {
             ExpressionKind::Literal(literal) => matches!(
                 literal,
@@ -314,7 +321,7 @@ impl CodeBuilder<'_> {
                 ExpressionKind::InternalCall(_, _)
                 | ExpressionKind::HostCall(_, _)
                 | ExpressionKind::IntrinsicCallEx(_, _) => {
-                    let basic_type = layout_type(&expr.ty);
+                    let basic_type = layout_cache.layout(&expr.ty);
                     basic_type.is_aggregate()
                 }
                 _ => false,

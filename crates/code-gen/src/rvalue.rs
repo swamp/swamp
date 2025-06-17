@@ -18,7 +18,7 @@ impl CodeBuilder<'_> {
         aggregate_or_scalar_expr: &Expression,
         ctx: &Context,
     ) -> TypedRegister {
-        let gen_key_type = layout_type(&aggregate_or_scalar_expr.ty);
+        let gen_key_type = self.state.layout_cache.layout(&aggregate_or_scalar_expr.ty);
         if gen_key_type.is_aggregate() {
             self.emit_scalar_rvalue(aggregate_or_scalar_expr, ctx)
         } else {
@@ -44,12 +44,12 @@ impl CodeBuilder<'_> {
         expr: &Expression,
         ctx: &Context,
     ) {
-        debug_assert!(expr.ty.underlying().is_bool(), "must have scalar type");
+        debug_assert!(expr.ty.is_bool(), "must have scalar type");
         self.emit_expression(target_reg, expr, ctx);
     }
 
     pub fn emit_bool_value(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
-        debug_assert!(expr.ty.underlying().is_bool(), "must have scalar type");
+        debug_assert!(expr.ty.is_bool(), "must have scalar type");
         self.emit_scalar_rvalue(expr, ctx)
     }
 
@@ -98,7 +98,7 @@ impl CodeBuilder<'_> {
                 return self.get_variable_register(variable_ref).clone();
             }
             ExpressionKind::ConstantAccess(constant_ref) => {
-                let constant_type = layout_type(&constant_ref.resolved_type);
+                let constant_type = self.state.layout_cache.layout(&constant_ref.resolved_type);
                 if constant_type.is_aggregate() {
                     let temp_target_reg = self.temp_registers.allocate(
                         VmType::new_unknown_placement(constant_type),
@@ -117,7 +117,7 @@ impl CodeBuilder<'_> {
             _ => {}
         }
         {
-            let ty = layout_type(&expr.ty);
+            let ty = self.state.layout_cache.layout(&expr.ty);
             let temp_target_reg = self.temp_registers.allocate(
                 VmType::new_unknown_placement(ty),
                 "to produce a rvalue, we have to allocate a temporary variable",

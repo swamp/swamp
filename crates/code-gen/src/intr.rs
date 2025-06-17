@@ -234,12 +234,12 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        let self_basic_type = self_ptr_reg.ptr_reg.ty.basic_type.underlying();
+        let self_basic_type = &self_ptr_reg.ptr_reg.ty.basic_type;
         match intrinsic_fn {
             IntrinsicFunction::VecPush => {
                 let element_expr = &arguments[0];
 
-                let element_gen_type = layout_type(element_expr.ty.underlying());
+                let element_gen_type = self.state.layout_cache.layout(&element_expr.ty);
 
                 let temp_element_ptr = self.temp_registers.allocate(
                     VmType::new_contained_in_register(pointer_type()),

@@ -17,11 +17,12 @@ use swamp_semantic::{
     ArgumentExpression, BooleanExpression, ConstantRef, Expression, SingleLocationExpression,
     UnaryOperator, UnaryOperatorKind, VariableRef,
 };
-use swamp_types::Type;
+use swamp_types::{Type, TypeKind, TypeRef};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    BasicType, Destination, FramePlacedType, TypedRegister, VmType, b8_type, u8_type, u32_type,
+    BasicType, BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType, b8_type, u8_type,
+    u32_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset,
@@ -171,22 +172,22 @@ impl CodeBuilder<'_> {
     ) {
         let node = &unary_operator.node;
         match &unary_operator.kind {
-            UnaryOperatorKind::Not => match &unary_operator.left.ty.underlying() {
-                Type::Bool => {
+            UnaryOperatorKind::Not => match &*unary_operator.left.ty.kind {
+                TypeKind::Bool => {
                     let t_flag = self.emit_unary_operator_logical(target_reg, unary_operator, ctx);
                     self.force_normalized_bool_reg_if_needed(target_reg, t_flag, node);
                 }
                 _ => panic!("unknown not op"),
             },
 
-            UnaryOperatorKind::Negate => match &unary_operator.left.ty {
-                Type::Int => {
+            UnaryOperatorKind::Negate => match &*unary_operator.left.ty.kind {
+                TypeKind::Int => {
                     let left_source = self.emit_scalar_rvalue(&unary_operator.left, ctx);
                     self.builder
                         .add_neg_i32(target_reg, &left_source, node, "negate i32");
                 }
 
-                Type::Float => {
+                TypeKind::Float => {
                     let left_source = self.emit_scalar_rvalue(&unary_operator.left, ctx);
                     self.builder
                         .add_neg_f32(target_reg, &left_source, node, "negate f32");
@@ -283,7 +284,7 @@ impl CodeBuilder<'_> {
             let union_information = memory_lvalue_location
                 .location
                 .ty
-                .underlying()
+                .basic_type()
                 .optional_info()
                 .unwrap()
                 .clone();
@@ -367,21 +368,13 @@ impl CodeBuilder<'_> {
         frame_address.frame_placed()
     }
 
-    pub(crate) fn referenced_or_not_type(ty: &Type) -> Type {
-        if let Type::MutableReference(inner_type) = ty {
-            *inner_type.clone()
-        } else {
-            ty.clone()
-        }
-    }
-
     pub fn allocate_frame_space_and_return_absolute_pointer_reg(
         &mut self,
-        ty: &BasicType,
+        ty: &BasicTypeRef,
         node: &Node,
         comment: &str,
     ) -> TypedRegister {
-        let frame_placed_type = self.frame_allocator.allocate_type(ty.clone());
+        let frame_placed_type = self.frame_allocator.allocate_type(&ty);
 
         let reg = self.frame_memory_registers.alloc_register(
             VmType::new_frame_placed(frame_placed_type),
@@ -400,7 +393,7 @@ impl CodeBuilder<'_> {
 
     pub fn allocate_frame_space_and_return_pointer_location(
         &mut self,
-        ty: &BasicType,
+        ty: &BasicTypeRef,
         node: &Node,
         comment: &str,
     ) -> PointerLocation {
@@ -413,7 +406,7 @@ impl CodeBuilder<'_> {
 
     pub fn allocate_frame_space_and_return_memory_location(
         &mut self,
-        ty: &BasicType,
+        ty: &BasicTypeRef,
         node: &Node,
         comment: &str,
     ) -> MemoryLocation {
@@ -428,7 +421,7 @@ impl CodeBuilder<'_> {
 
     pub fn allocate_frame_space_and_return_destination_to_it(
         &mut self,
-        ty: &BasicType,
+        ty: &BasicTypeRef,
         node: &Node,
         comment: &str,
     ) -> Destination {

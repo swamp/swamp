@@ -7,23 +7,26 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::EnumLiteralData;
-use swamp_types::prelude::{EnumType, EnumVariantType};
+use swamp_types::TypeRef;
+use swamp_types::prelude::EnumVariantType;
 use swamp_vm_types::AggregateMemoryLocation;
-use swamp_vm_types::types::{VmType, u8_type};
+use swamp_vm_types::types::{BasicTypeKind, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     pub fn emit_enum_variant_to_memory_location(
         &mut self,
         target_memory_location: &AggregateMemoryLocation,
-        enum_type: &EnumType,
+        enum_type: &TypeRef,
         a: &EnumVariantType,
         b: &EnumLiteralData,
         node: &Node,
         ctx: &Context,
     ) {
         let variant_index = a.common().container_index as usize;
-        let variants = enum_type.variants.values().cloned().collect::<Vec<_>>(); // TODO: @perf: takes a lot of performance
-        let layout_enum = layout_enum_into_tagged_union(&enum_type.assigned_name, &variants);
+        let layout_gen_enum = self.state.layout_cache.layout(&enum_type);
+        let BasicTypeKind::TaggedUnion(layout_enum) = &layout_gen_enum.kind else {
+            panic!("wrong")
+        };
         let layout_variant = layout_enum.get_variant_by_index(variant_index);
 
         let hwm = self.temp_registers.save_mark();
@@ -52,26 +55,23 @@ impl CodeBuilder<'_> {
             target_memory_location.offset(layout_enum.payload_offset, u8_type());
         match b {
             EnumLiteralData::Nothing => {}
-            EnumLiteralData::Tuple(expressions) => {
-                let EnumVariantType::Tuple(tuple_type) = a else {
-                    panic!();
-                };
+            EnumLiteralData::Tuple(tuple_type, expressions) => {
                 self.emit_tuple_literal_into_memory(
                     &payload_memory_location,
-                    &tuple_type.fields_in_order,
+                    tuple_type,
                     expressions,
                     ctx,
                     node,
                 );
             }
-            EnumLiteralData::Struct(sorted_expressions) => {
+            EnumLiteralData::Struct(struct_type_ref, sorted_expressions) => {
                 let EnumVariantType::Struct(variant_struct_type) = a else {
                     panic!()
                 };
 
                 self.emit_anonymous_struct_into_memory(
                     &payload_memory_location,
-                    &variant_struct_type.anon_struct,
+                    &variant_struct_type.struct_type,
                     sorted_expressions,
                     node,
                     ctx,

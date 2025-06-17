@@ -17,8 +17,11 @@ swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.1.16" }
 swamp-semantic = { path = "../semantic", version = "0.1.16" }
 swamp-types = { path = "../types", version = "0.1.16" }
 
-sparse-mem = { path = "../sparse-mem", version = "0.1.16" }
-hashmap-mem = { path = "../hashmap-mem", version = "0.1.16" }
+# Layouter
+swamp-vm-layout = { path = "../vm-layout", version = "0.1.16" }
+
+# Attributes
+swamp-attributes = { path = "../attributes", version = "0.1.16" }
 
 # Source Map
 source-map-node = "0.0.1"

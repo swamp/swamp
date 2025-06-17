@@ -7,7 +7,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::Expression;
-use swamp_types::Type;
+use swamp_types::TypeRef;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType, pointer_type};
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset, PointerLocation};
 
@@ -15,7 +15,7 @@ impl CodeBuilder<'_> {
     pub fn sparse_subscript_helper(
         &mut self,
         vec_header_location: &Destination,
-        analyzed_element_type: &Type,
+        analyzed_element_type: &TypeRef,
         int_expr: &Expression,
         ctx: &Context,
     ) -> Destination {
@@ -36,7 +36,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        let element_gen_type = layout_type(&element_expr.ty);
+        let element_gen_type = self.state.layout_cache.layout(&element_expr.ty);
 
         let temp_element_ptr = self.temp_registers.allocate(
             VmType::new_contained_in_register(pointer_type()),
@@ -95,11 +95,11 @@ impl CodeBuilder<'_> {
     pub fn sparse_subscript_helper_helper(
         &mut self,
         sparse_header_location: &Destination,
-        analyzed_element_type: &Type,
+        analyzed_element_type: &TypeRef,
         int_expr: &Expression,
         ctx: &Context,
     ) -> PointerLocation {
-        let gen_element_type = layout_type(analyzed_element_type);
+        let gen_element_type = self.state.layout_cache.layout(analyzed_element_type);
         let index_int_reg = self.emit_scalar_rvalue(int_expr, ctx);
         let node = &int_expr.node;
 

@@ -9,7 +9,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{CompoundOperatorKind, Expression, TargetAssignmentLocation, VariableRef};
-use swamp_types::Type;
+use swamp_types::{Type, TypeKind};
 use swamp_vm_types::types::{Destination, TypedRegister};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
@@ -130,10 +130,10 @@ impl CodeBuilder<'_> {
 
         let source_info = self.emit_scalar_rvalue(source, ctx);
 
-        let type_to_consider = Self::referenced_or_not_type(&source.ty);
+        let type_to_consider = &source.ty;
 
-        match &type_to_consider {
-            Type::Int => {
+        match &*type_to_consider.kind {
+            TypeKind::Int => {
                 self.emit_compound_assignment_i32(
                     &source.node,
                     resolved.register(),
@@ -141,7 +141,7 @@ impl CodeBuilder<'_> {
                     &source_info,
                 );
             }
-            Type::Float => {
+            TypeKind::Float => {
                 self.emit_compound_assignment_f32(
                     &source.node,
                     resolved.register(),
@@ -149,7 +149,7 @@ impl CodeBuilder<'_> {
                     &source_info,
                 );
             }
-            Type::String => todo!(),
+            TypeKind::String => todo!(),
             _ => panic!("not allowed as a compound assignment"),
         }
 
