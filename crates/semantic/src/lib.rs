@@ -14,8 +14,8 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 use swamp_attributes::Attributes;
-use swamp_types::prelude::*;
 use swamp_types::TypeRef;
+use swamp_types::prelude::*;
 use tracing::error;
 
 #[derive(Debug, Clone)]
@@ -44,7 +44,10 @@ pub enum SemanticError {
     WasNotMutable,
     DuplicateSymbolName(String),
     DuplicateNamespaceLink(String),
-    MismatchedTypes { expected: TypeRef, found: Vec<TypeRef> },
+    MismatchedTypes {
+        expected: TypeRef,
+        found: Vec<TypeRef>,
+    },
     UnknownImplOnType,
     UnknownTypeVariable,
     DuplicateDefinition(String),
@@ -109,7 +112,6 @@ impl InternalFunctionDefinition {
         true
     }
 }
-
 
 impl Debug for InternalFunctionDefinition {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -529,7 +531,6 @@ pub struct VariableCompoundAssignment {
     pub expression: Box<Expression>,
     pub compound_operator: CompoundOperator,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Guard {
@@ -1025,7 +1026,11 @@ impl AssociatedImpls {
         None
     }
 
-    pub fn remove_internal_function_if_exists(&mut self, ty: &TypeRef, function_name: &str) -> bool {
+    pub fn remove_internal_function_if_exists(
+        &mut self,
+        ty: &TypeRef,
+        function_name: &str,
+    ) -> bool {
         if self.has_internal_member_function(ty, function_name) {
             let functions = self.functions.get_mut(ty).unwrap();
 
@@ -1085,11 +1090,7 @@ impl AssociatedImpls {
         named_struct_type: TypeRef,
         func: Function,
     ) -> Result<(), SemanticError> {
-        self.add_member_function(
-            &named_struct_type,
-            &func.name(),
-            func.into(),
-        )
+        self.add_member_function(&named_struct_type, &func.name(), func.into())
     }
 
     pub fn add_external_struct_member_function_external(
