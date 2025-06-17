@@ -8,8 +8,8 @@ use source_map_node::Node;
 use std::fmt::Debug;
 use std::rc::Rc;
 use swamp_semantic::prelude::*;
-use swamp_types::prelude::*;
 use swamp_types::TypeRef;
+use swamp_types::prelude::*;
 use tiny_ver::TinyVersion;
 
 #[derive(Debug, Clone)]
@@ -248,26 +248,19 @@ impl SymbolTable {
         Ok(())
     }
 
-
     /// # Errors
     ///
 
     /// # Errors
     ///
-    pub fn add_struct(
-        &mut self,
-        struct_type: TypeRef,
-    ) -> Result<NamedStructType, SemanticError> {
+    pub fn add_struct(&mut self, struct_type: TypeRef) -> Result<NamedStructType, SemanticError> {
         self.add_struct_link(struct_type.clone())?;
         Ok(struct_type)
     }
 
     /// # Errors
     ///
-    pub fn add_struct_link(
-        &mut self,
-        struct_type_ref: TypeRef,
-    ) -> Result<(), SemanticError> {
+    pub fn add_struct_link(&mut self, struct_type_ref: TypeRef) -> Result<(), SemanticError> {
         if let TypeKind::NamedStruct(named) = &*struct_type_ref.kind {
             self.symbols
                 .insert(
@@ -367,7 +360,9 @@ impl SymbolTable {
         self.get_enum(enum_type_name).as_ref().map_or_else(
             || None,
             |found_type| {
-                let &TypeKind::Enum(found_enum) = &*found_type else { panic!("internal error")}; 
+                let &TypeKind::Enum(found_enum) = &*found_type else {
+                    panic!("internal error")
+                };
                 found_enum.variants.get(&variant_name.to_string()).cloned()
             },
         )
@@ -444,9 +439,9 @@ impl SymbolTable {
             &decl_ref.assigned_name,
             Symbol::FunctionDefinition(FuncDef::External(decl_ref.clone())),
         )
-            .map_err(|_| {
-                SemanticError::DuplicateExternalFunction(decl_ref.assigned_name.to_string())
-            })?;
+        .map_err(|_| {
+            SemanticError::DuplicateExternalFunction(decl_ref.assigned_name.to_string())
+        })?;
         Ok(())
     }
 

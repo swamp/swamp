@@ -156,7 +156,6 @@ pub enum AttributeArg {
     Function(AttributeIdentifier, Vec<AttributeArg>), // e.g., any(unix, windows)
 }
 
-
 #[derive(Debug, Clone)]
 pub enum AttributeValue {
     String(String),

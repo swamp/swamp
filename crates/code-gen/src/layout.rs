@@ -1,6 +1,8 @@
-use swamp_vm_types::{FrameMemoryAddress, FrameMemoryRegion, MemorySize};
-use swamp_vm_types::types::{FrameAddressInfo, FrameMemoryInfo, VariableInfo, VariableInfoKind, VariableRegister, VmType};
 use crate::FrameAndVariableInfo;
+use swamp_vm_types::types::{
+    FrameAddressInfo, FrameMemoryInfo, VariableInfo, VariableInfoKind, VariableRegister, VmType,
+};
+use swamp_vm_types::{FrameMemoryAddress, FrameMemoryRegion, MemorySize};
 
 /// # Errors
 ///
@@ -75,7 +77,7 @@ pub fn layout_variables(
                 var_frame_placed_type.size().0,
                 var_ref.assigned_name
             )
-                .unwrap();
+            .unwrap();
 
             let kind = match var_ref.variable_type {
                 VariableType::Local => VariableInfoKind::Variable(VariableInfo {

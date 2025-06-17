@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use swamp_types::Type;
-use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
-use swamp_vm_types::types::{HeapPlacedArray, HeapPlacedType};
 use swamp_vm_types::HeapMemoryAddress;
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::types::{HeapPlacedArray, HeapPlacedType};
 
 pub struct ConstantsAllocator {
     current_addr: u32,

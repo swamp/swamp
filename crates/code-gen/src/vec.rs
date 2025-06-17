@@ -8,7 +8,7 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{ArgumentExpression, Expression};
 use swamp_types::Type;
-use swamp_vm_types::types::{u32_type, BasicType, Destination, VmType};
+use swamp_vm_types::types::{BasicType, Destination, VmType, u32_type};
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset, PointerLocation};
 use tracing::info;
 

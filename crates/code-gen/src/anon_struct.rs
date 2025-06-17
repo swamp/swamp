@@ -3,17 +3,17 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+use crate::FlagState;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::FlagState;
 use source_map_node::Node;
 use swamp_semantic::{AnonymousStructLiteral, Expression};
-use swamp_types::prelude::AnonymousStructType;
 use swamp_types::Type;
-use swamp_vm_types::types::{u16_type, u32_type, BasicType, BasicTypeKind, Destination, VmType};
+use swamp_types::prelude::AnonymousStructType;
+use swamp_vm_types::types::{BasicType, BasicTypeKind, Destination, VmType, u16_type, u32_type};
 use swamp_vm_types::{
-    AggregateMemoryLocation, CountU16, MemoryLocation, COLLECTION_CAPACITY_OFFSET,
-    COLLECTION_ELEMENT_COUNT_OFFSET,
+    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, CountU16,
+    MemoryLocation,
 };
 
 impl CodeBuilder<'_> {
