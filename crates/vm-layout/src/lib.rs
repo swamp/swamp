@@ -5,15 +5,14 @@
 
 //! Layouts analyzed into Vm Types (`BasicType`)
 use seq_map::SeqMap;
+use source_map_node;
 use std::cmp::max;
 use std::rc::Rc;
-use swamp_types::prelude::{AnonymousStructType, EnumVariantType, NamedStructType};
+use swamp_types::prelude::{AnonymousStructType, EnumType, EnumVariantType, NamedStructType};
 use swamp_types::{TypeId, TypeKind, TypeRef};
-use swamp_vm_types::aligner::align;
-use swamp_vm_types::types::BasicTypeId;
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BasicTypeRef, OffsetMemoryItem, StructType, TaggedUnion,
-    TaggedUnionVariant, TupleType, range_type,
+    BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, OffsetMemoryItem, StructType, TaggedUnion,
+    TaggedUnionVariant, TupleType,
 };
 use swamp_vm_types::{
     CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE,
@@ -52,24 +51,26 @@ impl LayoutCache {
         }
     }
     pub fn layout(&mut self, analyzed_type: TypeRef) -> BasicTypeRef {
+        // First check if we already have a layout for this type ID
         if let Some(x) = self.id_to_layout.get(&analyzed_type.id) {
             return x.clone();
         }
 
         // Check if we already have a layout for this kind of type
         if let Some(existing_layout) = self.kind_to_layout.get(&analyzed_type.kind) {
-            // Store the mapping from this type ID to the existing layout
-            self.id_to_layout
-                .insert(analyzed_type.id, existing_layout.clone())
-                .expect("should work");
+            // For deduplication, we reuse the existing layout directly
+            // This ensures pointer equality for structurally identical types
+            let _ = self
+                .id_to_layout
+                .insert(analyzed_type.id, existing_layout.clone());
             return existing_layout.clone();
         }
 
         let basic_type = self.layout_type(&analyzed_type);
 
-        self.id_to_layout
-            .insert(analyzed_type.id, basic_type.clone())
-            .expect("should work");
+        let _ = self
+            .id_to_layout
+            .insert(analyzed_type.id, basic_type.clone());
         // Also store in kind_to_layout for future deduplication
         let _ = self
             .kind_to_layout
@@ -126,24 +127,18 @@ impl LayoutCache {
     ) -> TaggedUnion {
         let variant_infos = variants.iter().map(|variant| match variant {
             EnumVariantType::Struct(s) => {
-                let struct_type = self.layout_struct_type(&s.anon_struct, &s.common.assigned_name);
-                let struct_basic_type = Rc::new(BasicType {
-                    id: BasicTypeId(0), // Using 0 as a consistent ID for all intermediate types
-                    total_size: struct_type.total_size,
-                    max_alignment: struct_type.max_alignment,
-                    kind: BasicTypeKind::Struct(struct_type.clone()),
-                });
+                // Get the struct type from the TypeRef
+                let struct_type_ref = s.struct_type.clone();
 
-                // Add to kind_to_layout cache for deduplication
-                let struct_kind = TypeKind::AnonymousStruct(s.anon_struct.clone());
-                let _ = self
-                    .kind_to_layout
-                    .insert(struct_kind, struct_basic_type.clone());
+                // Check if we already have a layout for this type
+                let struct_basic_type = self.layout_type(&struct_type_ref);
+
+                // No need to add to kind_to_layout cache as layout_type already does this
 
                 (
                     VariantLayout {
-                        size: struct_type.total_size,
-                        alignment: struct_type.max_alignment,
+                        size: struct_basic_type.total_size,
+                        alignment: struct_basic_type.max_alignment,
                     },
                     TaggedUnionVariant {
                         name: s.common.assigned_name.clone(),
@@ -152,24 +147,34 @@ impl LayoutCache {
                 )
             }
             EnumVariantType::Tuple(t) => {
-                let tuple_type = self.layout_tuple_items(&t.fields_in_order);
-                let tuple_basic_type = Rc::new(BasicType {
-                    id: BasicTypeId(0), // Using 0 as a consistent ID for all intermediate types
-                    total_size: tuple_type.total_size,
-                    max_alignment: tuple_type.max_alignment,
-                    kind: BasicTypeKind::Tuple(tuple_type.clone()),
-                });
-
-                // Add to kind_to_layout cache for deduplication
+                // Check if we already have a layout for this tuple type
                 let tuple_kind = TypeKind::Tuple(t.fields_in_order.clone());
-                let _ = self
-                    .kind_to_layout
-                    .insert(tuple_kind, tuple_basic_type.clone());
+
+                let tuple_basic_type =
+                    if let Some(existing_layout) = self.kind_to_layout.get(&tuple_kind) {
+                        // Use the existing layout if we have one
+                        existing_layout.clone()
+                    } else {
+                        // Otherwise create a new layout
+                        let tuple_layout = self.layout_tuple_items(&t.fields_in_order);
+                        let new_tuple_basic_type = Rc::new(BasicType {
+                            id: BasicTypeId(0), // Using 0 as a consistent ID for all intermediate types
+                            total_size: tuple_layout.total_size,
+                            max_alignment: tuple_layout.max_alignment,
+                            kind: BasicTypeKind::Tuple(tuple_layout),
+                        });
+
+                        // Add to kind_to_layout cache for deduplication
+                        let _ = self
+                            .kind_to_layout
+                            .insert(tuple_kind, new_tuple_basic_type.clone());
+                        new_tuple_basic_type
+                    };
 
                 (
                     VariantLayout {
-                        size: tuple_type.total_size,
-                        alignment: tuple_type.max_alignment,
+                        size: tuple_basic_type.total_size,
+                        alignment: tuple_basic_type.max_alignment,
                     },
                     TaggedUnionVariant {
                         name: t.common.assigned_name.clone(),
@@ -216,15 +221,35 @@ impl LayoutCache {
     }
 
     #[must_use]
-    pub fn layout_enum(&mut self, name: &str, variants: &[EnumVariantType]) -> BasicTypeRef {
+    pub fn layout_enum(
+        &mut self,
+        name: &str,
+        variants: &[EnumVariantType],
+        type_id: TypeId,
+    ) -> BasicTypeRef {
+        // Check if we already have a layout for this kind
+        let enum_kind = TypeKind::Enum(EnumType::new(
+            source_map_node::Node::default(),
+            name,
+            vec!["".to_string()],
+        ));
+        if let Some(existing_layout) = self.kind_to_layout.get(&enum_kind) {
+            return existing_layout.clone();
+        }
+
         let tagged_union = self.layout_enum_into_tagged_union(name, variants);
 
-        Rc::new(BasicType {
-            id: BasicTypeId(TypeId::EMPTY),
+        let basic_type = Rc::new(BasicType {
+            id: BasicTypeId(type_id.inner()),
             total_size: tagged_union.total_size,
             max_alignment: tagged_union.max_alignment,
             kind: BasicTypeKind::TaggedUnion(tagged_union),
-        })
+        });
+
+        // Store in kind_to_layout
+        let _ = self.kind_to_layout.insert(enum_kind, basic_type.clone());
+
+        basic_type
     }
 
     fn layout_vec_like(
@@ -272,9 +297,60 @@ impl LayoutCache {
     #[allow(clippy::too_many_lines)]
     #[must_use]
     fn layout_type(&mut self, ty: &TypeRef) -> BasicTypeRef {
-        // First check if we already have a layout for this kind
+        // First check if we already have a layout for this type ID
+        if let Some(x) = self.id_to_layout.get(&ty.id) {
+            return x.clone();
+        }
+
+        // Check if we already have a layout for this kind of type
         if let Some(existing_layout) = self.kind_to_layout.get(&ty.kind) {
-            return existing_layout.clone();
+            // For deduplication, we need to create a new BasicType with the same structure
+            // but with the original TypeId, so that pointer equality works for the same
+            // structural types but we still have separate entries for each TypeId
+            let new_basic_type = Rc::new(BasicType {
+                id: BasicTypeId(ty.id.inner()),
+                total_size: existing_layout.total_size,
+                max_alignment: existing_layout.max_alignment,
+                kind: existing_layout.kind.clone(),
+            });
+
+            // Store the mapping from this type ID to the new layout
+            let _ = self.id_to_layout.insert(ty.id, new_basic_type.clone());
+
+            // For nested types, we need to properly track all component types
+            // This is essential for the deduplication to work correctly
+            match &*ty.kind {
+                TypeKind::AnonymousStruct(struct_type) => {
+                    // Process each field type
+                    for field in struct_type.field_name_sorted_fields.values() {
+                        let field_type = &field.field_type;
+                        let field_layout = self.layout(field_type.clone());
+                        let _ = self.id_to_layout.insert(field_type.id, field_layout);
+                    }
+                }
+                TypeKind::NamedStruct(named_struct) => {
+                    // Process each field type in the anonymous struct
+                    for field in named_struct
+                        .anon_struct_type
+                        .field_name_sorted_fields
+                        .values()
+                    {
+                        let field_type = &field.field_type;
+                        let field_layout = self.layout(field_type.clone());
+                        let _ = self.id_to_layout.insert(field_type.id, field_layout);
+                    }
+                }
+                TypeKind::Tuple(tuple_types) => {
+                    // Process each tuple element type
+                    for elem_type in tuple_types {
+                        let elem_layout = self.layout(elem_type.clone());
+                        let _ = self.id_to_layout.insert(elem_type.id, elem_layout);
+                    }
+                }
+                _ => {}
+            }
+
+            return new_basic_type;
         }
 
         let basic_type = match &*ty.kind {
@@ -293,227 +369,341 @@ impl LayoutCache {
             TypeKind::Bool => {
                 create_basic_type(ty.id, BasicTypeKind::B8, MemorySize(1), MemoryAlignment::U8)
             }
-            TypeKind::Unit => create_basic_type(
-                ty.id,
-                BasicTypeKind::Empty,
-                MemorySize(0),
-                MemoryAlignment::U8,
-            ),
             TypeKind::String => create_basic_type(
                 ty.id,
                 BasicTypeKind::InternalStringPointer,
                 STRING_PTR_SIZE,
                 STRING_PTR_ALIGNMENT,
             ),
-            TypeKind::Range(_) => range_type(),
-            TypeKind::SliceView(element_type) => {
-                let element_type_basic = self.layout_type(element_type);
-                create_basic_type(
-                    ty.id,
-                    BasicTypeKind::SliceView(element_type_basic),
-                    PTR_SIZE,
-                    PTR_ALIGNMENT,
-                )
+            TypeKind::AnonymousStruct(struct_type) => {
+                self.layout_struct(struct_type, "anonymous", ty.id)
             }
+            TypeKind::NamedStruct(named_struct) => self.layout_named_struct(named_struct, ty.id),
 
-            // Fixed Capacity Array and Vec Storage are the same when it comes to layout
-            TypeKind::FixedCapacityAndLengthArray(element_type, fixed_size_element_count) => {
-                let element_type_basic = self.layout_type(element_type);
-                let total_size = element_type_basic.total_size.0 as usize
-                    * fixed_size_element_count
-                    + VEC_HEADER_SIZE.0 as usize;
-                let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
-                create_basic_type(
-                    element_type.id,
-                    BasicTypeKind::FixedCapacityArray(
-                        element_type_basic,
-                        *fixed_size_element_count,
-                    ),
-                    MemorySize(total_size as u32),
-                    max_alignment,
-                )
+            TypeKind::Tuple(tuple_types) => self.layout_tuple(tuple_types, ty.id),
+            TypeKind::Optional(inner_type) => self.layout_optional_type(inner_type, ty.id),
+            TypeKind::Enum(enum_type) => {
+                let variants = enum_type.variants.values().cloned().collect::<Vec<_>>();
+                self.layout_enum(&enum_type.assigned_name, &variants, ty.id)
             }
+            TypeKind::FixedCapacityAndLengthArray(element_type, capacity) => {
+                let (element_layout, element_size, element_alignment) =
+                    self.layout_vec_like(element_type, *capacity);
 
-            TypeKind::DynamicLengthMapView(key_type, element_type) => {
-                let tuple_gen_type =
-                    self.layout_tuple_items(&[key_type.clone(), element_type.clone()]);
-                create_basic_type(
-                    ty.id,
-                    BasicTypeKind::DynamicLengthMapView(
-                        Box::from(tuple_gen_type.fields[0].clone()),
-                        Box::from(tuple_gen_type.fields[1].clone()),
-                    ),
-                    PTR_SIZE,
-                    PTR_ALIGNMENT,
-                )
-            }
-            TypeKind::SparseStorage(value_type, capacity) => {
-                let generator_value = self.layout_type(value_type);
-                let total_size =
-                    sparse_mem::layout_size(*capacity as u16, generator_value.total_size.0);
-
-                create_basic_type(
-                    ty.id,
-                    BasicTypeKind::SparseStorage(generator_value, *capacity),
-                    MemorySize(total_size as u32),
-                    sparse_mem::alignment().try_into().unwrap(),
-                )
-            }
-
-            TypeKind::GridStorage(element_type, width, height) => {
-                let layout_element = self.layout_type(element_type);
-
-                let total_capacity_byte_count =
-                    width * height * (layout_element.total_size.0 as usize);
-
-                let max_alignment = max(layout_element.max_alignment, GRID_HEADER_ALIGNMENT);
-                let total_size = MemorySize(GRID_HEADER_SIZE.0 + total_capacity_byte_count as u32);
-
-                create_basic_type(
-                    ty.id,
-                    BasicTypeKind::GridStorage(layout_element, *width, *height),
-                    total_size,
-                    max_alignment,
-                )
-            }
-
-            TypeKind::MapStorage(key_type, value_type, logical_size) => {
-                let key_layout = self.layout_type(key_type);
-                let value_layout = self.layout_type(value_type);
-
-                let status_size: u32 = 1;
-                let mut current_offset = status_size;
-
-                let key_offset = align(current_offset as usize, key_layout.max_alignment.into());
-                current_offset = key_offset as u32 + key_layout.total_size.0;
-
-                let value_offset =
-                    align(current_offset as usize, value_layout.max_alignment.into());
-                current_offset = value_offset as u32 + value_layout.total_size.0;
-                let bucket_content_alignment =
-                    max(key_layout.max_alignment, value_layout.max_alignment);
-
-                let bucket_size = align(current_offset as usize, bucket_content_alignment.into());
-
-                let max_alignment = max(bucket_content_alignment, MAP_HEADER_ALIGNMENT);
-
-                let capacity = (*logical_size).max(1).next_power_of_two() as u16;
-                let total_size = (bucket_size * capacity as usize) + MAP_HEADER_SIZE.0 as usize;
-
-                let tuple_gen_type =
-                    self.layout_tuple_items(&[key_type.clone(), value_type.clone()]);
-
-                // Create a tuple type that can be shared
-                let tuple_basic_type = Rc::new(BasicType {
-                    id: BasicTypeId(0),
-                    kind: BasicTypeKind::Tuple(tuple_gen_type.clone()),
-                    total_size: tuple_gen_type.total_size,
-                    max_alignment: tuple_gen_type.max_alignment,
+                let array_type = Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::FixedCapacityArray(element_layout.clone(), *capacity),
+                    total_size: MemorySize(element_size.0 * (*capacity as u32)),
+                    max_alignment: element_alignment,
                 });
 
-                // Add the tuple type to the cache for deduplication
-                let tuple_kind = TypeKind::Tuple(vec![key_type.clone(), value_type.clone()]);
+                // Also store the element type in id_to_layout
                 let _ = self
-                    .kind_to_layout
-                    .insert(tuple_kind, tuple_basic_type.clone());
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
 
-                create_basic_type(
-                    ty.id,
-                    BasicTypeKind::MapStorage {
-                        element_type: tuple_basic_type,
-                        tuple_type: Box::from(tuple_gen_type),
-                        logical_limit: *logical_size,
-                        capacity: CountU16(capacity),
-                        tuple_alignment: bucket_content_alignment,
-                        bucket_size: MemorySize(bucket_size as u32),
+                array_type
+            }
+            TypeKind::DynamicLengthVecView(element_type) => {
+                let (element_layout, _, _) = self.layout_vec_like(element_type, 0);
+
+                let vec_type = Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::DynamicLengthVecView(element_layout.clone()),
+                    total_size: PTR_SIZE,
+                    max_alignment: PTR_ALIGNMENT,
+                });
+
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                vec_type
+            }
+            TypeKind::VecStorage(element_type, capacity) => {
+                let (element_layout, element_size, element_alignment) =
+                    self.layout_vec_like(element_type, *capacity);
+
+                let storage_type = Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::VecStorage(element_layout.clone(), *capacity),
+                    total_size: MemorySize(VEC_HEADER_SIZE.0 + element_size.0 * (*capacity as u32)),
+                    max_alignment: max(MemoryAlignment::U16, element_alignment),
+                });
+
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                storage_type
+            }
+            TypeKind::DynamicLengthMapView(key_type, value_type) => {
+                // Layout key type
+                let key_layout = self.layout(key_type.clone());
+                let _ = self.id_to_layout.insert(key_type.id, key_layout.clone());
+
+                // Layout value type
+                let value_layout = self.layout(value_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(value_type.id, value_layout.clone());
+
+                let key_item = OffsetMemoryItem {
+                    offset: MemoryOffset(0),
+                    size: key_layout.total_size,
+                    name: "key".to_string(),
+                    ty: key_layout.clone(),
+                };
+
+                let value_offset = align_to(
+                    MemoryOffset(key_layout.total_size.0),
+                    value_layout.max_alignment,
+                );
+
+                let value_item = OffsetMemoryItem {
+                    offset: value_offset,
+                    size: value_layout.total_size,
+                    name: "value".to_string(),
+                    ty: value_layout.clone(),
+                };
+
+                let map_type = Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::DynamicLengthMapView(
+                        Box::new(key_item),
+                        Box::new(value_item),
+                    ),
+                    total_size: PTR_SIZE,
+                    max_alignment: PTR_ALIGNMENT,
+                });
+
+                map_type
+            }
+            TypeKind::MapStorage(key_type, value_type, logical_limit) => {
+                // Layout key type
+                let key_layout = self.layout(key_type.clone());
+                let _ = self.id_to_layout.insert(key_type.id, key_layout.clone());
+
+                // Layout value type
+                let value_layout = self.layout(value_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(value_type.id, value_layout.clone());
+
+                let key_item = OffsetMemoryItem {
+                    offset: MemoryOffset(0),
+                    size: key_layout.total_size,
+                    name: "key".to_string(),
+                    ty: key_layout.clone(),
+                };
+
+                let value_offset = align_to(
+                    MemoryOffset(key_layout.total_size.0),
+                    value_layout.max_alignment,
+                );
+
+                let value_item = OffsetMemoryItem {
+                    offset: value_offset,
+                    size: value_layout.total_size,
+                    name: "value".to_string(),
+                    ty: value_layout.clone(),
+                };
+
+                let tuple_fields = vec![key_item, value_item];
+
+                let tuple_size = value_offset.0 + value_layout.total_size.0;
+                let tuple_alignment = max(key_layout.max_alignment, value_layout.max_alignment);
+                let aligned_tuple_size =
+                    adjust_size_to_alignment(MemorySize(tuple_size), tuple_alignment);
+
+                // Create a tuple type for the key-value pair
+                let tuple_type = TupleType {
+                    fields: tuple_fields,
+                    total_size: aligned_tuple_size,
+                    max_alignment: tuple_alignment,
+                };
+
+                // Create the tuple type using the layout_tuple method
+                // This will handle proper deduplication and caching
+                let tuple_types = vec![key_type.clone(), value_type.clone()];
+                let tuple_type_id =
+                    TypeId::new(key_type.id.inner().wrapping_add(value_type.id.inner()));
+
+                // Use layout_tuple to ensure consistent handling of tuple types
+                let tuple_basic_type = self.layout_tuple(&tuple_types, tuple_type_id);
+
+                // Make sure we're also storing the tuple type in the id_to_layout map
+                let _ = self
+                    .id_to_layout
+                    .insert(tuple_type_id, tuple_basic_type.clone());
+
+                let logical_limit = *logical_limit;
+                let actual_capacity = (logical_limit as u16).next_power_of_two();
+
+                let map_storage_type = Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::MapStorage {
+                        element_type: value_layout,
+                        tuple_type: Box::new(tuple_type),
+                        logical_limit,
+                        capacity: CountU16(actual_capacity),
+                        tuple_alignment,
+                        bucket_size: aligned_tuple_size,
                     },
-                    MemorySize(total_size as u32),
-                    max_alignment,
-                )
-            }
+                    total_size: MemorySize(
+                        MAP_HEADER_SIZE.0 + aligned_tuple_size.0 * (actual_capacity as u32),
+                    ),
+                    max_alignment: max(MAP_HEADER_ALIGNMENT, tuple_alignment),
+                });
 
-            TypeKind::QueueStorage(element_type, fixed_size_element_count) => {
-                let (element_type_basic, total_size, max_alignment) =
-                    self.layout_vec_like(element_type, *fixed_size_element_count);
-                create_basic_type(
-                    ty.id,
-                    BasicTypeKind::QueueStorage(element_type_basic, *fixed_size_element_count),
-                    total_size,
-                    max_alignment,
-                )
+                map_storage_type
             }
-
-            TypeKind::StackStorage(element_type, fixed_size_element_count) => {
-                let (element_type_basic, total_size, max_alignment) =
-                    self.layout_vec_like(element_type, *fixed_size_element_count);
-                create_basic_type(
-                    ty.id,
-                    BasicTypeKind::StackStorage(element_type_basic, *fixed_size_element_count),
-                    total_size,
-                    max_alignment,
-                )
-            }
-            TypeKind::VecStorage(element_type, fixed_size_element_count) => {
-                let (element_type_basic, total_size, max_alignment) =
-                    self.layout_vec_like(element_type, *fixed_size_element_count);
-                create_basic_type(
-                    ty.id,
-                    BasicTypeKind::VecStorage(element_type_basic, *fixed_size_element_count),
-                    total_size,
-                    max_alignment,
-                )
-            }
-
-            TypeKind::QueueView(inner_type)
-            | TypeKind::StackView(inner_type)
-            | TypeKind::DynamicLengthVecView(inner_type) => {
-                let inner_gen_type = self.layout_type(inner_type);
-                create_basic_type(
-                    ty.id,
-                    BasicTypeKind::DynamicLengthVecView(inner_gen_type),
-                    PTR_SIZE,
-                    PTR_ALIGNMENT,
-                )
-            }
-
-            TypeKind::SparseView(inner_type) => {
-                let inner_gen_type = self.layout_type(inner_type);
-                create_basic_type(
-                    inner_type.id,
-                    BasicTypeKind::SparseView(inner_gen_type),
-                    PTR_SIZE,
-                    PTR_ALIGNMENT,
-                )
-            }
-
-            TypeKind::GridView(inner_type) => {
-                let inner_gen_type = self.layout_type(inner_type);
-                create_basic_type(
-                    inner_type.id,
-                    BasicTypeKind::GridView(inner_gen_type),
-                    PTR_SIZE,
-                    PTR_ALIGNMENT,
-                )
-            }
-
-            TypeKind::Tuple(types) => self.layout_tuple(types),
-            TypeKind::NamedStruct(named_struct_type) => {
-                self.layout_named_struct(named_struct_type) // NOTE: memory_offset removed
-            }
-            TypeKind::AnonymousStruct(anon_struct_type) => {
-                self.layout_struct(anon_struct_type, "") // NOTE: memory_offset removed
-            }
-            TypeKind::Enum(a) => self.layout_enum(
-                &a.assigned_name,
-                &a.variants.values().cloned().collect::<Vec<_>>(),
+            TypeKind::Range(range_struct) => create_basic_type(
+                ty.id,
+                BasicTypeKind::InternalRangeHeader,
+                MemorySize(12),
+                MemoryAlignment::U32,
             ),
-            TypeKind::Optional(inner_type) => self.layout_optional_type(inner_type),
             TypeKind::MutableReference(inner_type) => self.layout_mutable_reference(inner_type),
-            // ----------
-            TypeKind::Function(_) => panic!("function types should not be a part of codegen"),
+            TypeKind::GridView(element_type) => {
+                let element_layout = self.layout(element_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::GridView(element_layout),
+                    total_size: PTR_SIZE,
+                    max_alignment: PTR_ALIGNMENT,
+                })
+            }
+            TypeKind::GridStorage(element_type, width, height) => {
+                let element_layout = self.layout(element_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                let element_size = element_layout.total_size;
+                let element_alignment = element_layout.max_alignment;
+
+                let grid_storage_type = Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::GridStorage(element_layout, *width, *height),
+                    total_size: MemorySize(
+                        GRID_HEADER_SIZE.0 + element_size.0 * (*width as u32) * (*height as u32),
+                    ),
+                    max_alignment: max(GRID_HEADER_ALIGNMENT, element_alignment),
+                });
+
+                grid_storage_type
+            }
+
+            TypeKind::SliceView(element_type) => {
+                let element_layout = self.layout(element_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::SliceView(element_layout),
+                    total_size: PTR_SIZE,
+                    max_alignment: PTR_ALIGNMENT,
+                })
+            }
+            TypeKind::SparseStorage(element_type, capacity) => {
+                let element_layout = self.layout(element_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::SparseStorage(element_layout, *capacity),
+                    total_size: PTR_SIZE,
+                    max_alignment: PTR_ALIGNMENT,
+                })
+            }
+
+            TypeKind::SparseView(element_type) => {
+                let element_layout = self.layout(element_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::SparseView(element_layout),
+                    total_size: PTR_SIZE,
+                    max_alignment: PTR_ALIGNMENT,
+                })
+            }
+            TypeKind::StackStorage(element_type, capacity) => {
+                let element_layout = self.layout(element_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::StackStorage(element_layout, *capacity),
+                    total_size: PTR_SIZE,
+                    max_alignment: PTR_ALIGNMENT,
+                })
+            }
+            TypeKind::StackView(element_type) => {
+                let element_layout = self.layout(element_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::DynamicLengthVecView(element_layout),
+                    total_size: PTR_SIZE,
+                    max_alignment: PTR_ALIGNMENT,
+                })
+            }
+            TypeKind::QueueStorage(element_type, capacity) => {
+                let element_layout = self.layout(element_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::QueueStorage(element_layout, *capacity),
+                    total_size: PTR_SIZE,
+                    max_alignment: PTR_ALIGNMENT,
+                })
+            }
+            TypeKind::QueueView(element_type) => {
+                let element_layout = self.layout(element_type.clone());
+                let _ = self
+                    .id_to_layout
+                    .insert(element_type.id, element_layout.clone());
+
+                Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::DynamicLengthVecView(element_layout),
+                    total_size: PTR_SIZE,
+                    max_alignment: PTR_ALIGNMENT,
+                })
+            }
+            TypeKind::Function(_) => {
+                panic!("function types can not be laid out")
+            }
+            TypeKind::Unit => create_basic_type(
+                ty.id,
+                BasicTypeKind::Empty,
+                MemorySize(0),
+                MemoryAlignment::U8,
+            ),
         };
 
-        // Store the type in the kind_to_layout cache for future deduplication
+        // Store in both caches
+        let _ = self.id_to_layout.insert(ty.id, basic_type.clone());
         let _ = self
             .kind_to_layout
             .insert((*ty.kind).clone(), basic_type.clone());
@@ -531,11 +721,34 @@ impl LayoutCache {
         })
     }
 
-    fn layout_named_struct(&mut self, named_struct_type: &NamedStructType) -> BasicTypeRef {
-        self.layout_struct(
+    fn layout_named_struct(
+        &mut self,
+        named_struct_type: &NamedStructType,
+        type_id: TypeId,
+    ) -> BasicTypeRef {
+        // Check if we already have a layout for this kind
+        let struct_kind = TypeKind::NamedStruct(named_struct_type.clone());
+        if let Some(existing_layout) = self.kind_to_layout.get(&struct_kind) {
+            return existing_layout.clone();
+        }
+
+        let inner_struct = self.layout_struct_type(
             &named_struct_type.anon_struct_type,
             &named_struct_type.assigned_name,
-        )
+        );
+
+        // Use the provided TypeId
+        let basic_type = Rc::new(BasicType {
+            id: BasicTypeId(type_id.inner()), // Use the provided type ID
+            total_size: inner_struct.total_size,
+            max_alignment: inner_struct.max_alignment,
+            kind: BasicTypeKind::Struct(inner_struct),
+        });
+
+        // Store in kind_to_layout for future deduplication
+        let _ = self.kind_to_layout.insert(struct_kind, basic_type.clone());
+
+        basic_type
     }
 
     #[must_use]
@@ -549,8 +762,14 @@ impl LayoutCache {
         let mut items = Vec::with_capacity(struct_type.field_name_sorted_fields.len());
 
         for (field_name, field_type) in &struct_type.field_name_sorted_fields {
-            let field_layout = self.layout_type(&field_type.field_type);
+            // Use layout instead of layout_type to ensure proper caching
+            let field_layout = self.layout(field_type.field_type.clone());
             check_type_size(&field_layout, &format!("field {name}::{field_name}"));
+
+            // Make sure the field type is in the id_to_layout map
+            let _ = self
+                .id_to_layout
+                .insert(field_type.field_type.id, field_layout.clone());
 
             offset = align_to(offset, field_layout.max_alignment);
 
@@ -578,27 +797,86 @@ impl LayoutCache {
         }
     }
 
-    #[must_use]
-    pub fn layout_struct(&mut self, struct_type: &AnonymousStructType, name: &str) -> BasicTypeRef {
-        let inner_struct = self.layout_struct_type(struct_type, name);
-        Rc::new(BasicType {
-            id: BasicTypeId(0),
-            total_size: inner_struct.total_size,
-            max_alignment: inner_struct.max_alignment,
-            kind: BasicTypeKind::Struct(inner_struct),
-        })
+    pub fn layout_struct(
+        &mut self,
+        struct_type: &AnonymousStructType,
+        name: &str,
+        type_id: TypeId,
+    ) -> BasicTypeRef {
+        // Always process each field's type to ensure it's in the cache
+        for (_field_name, struct_field) in &struct_type.field_name_sorted_fields {
+            let field_type = &struct_field.field_type;
+            let _field_layout = self.layout(field_type.clone());
+
+            // The layout method already handles storing in both caches
+        }
+
+        // Check if we already have a layout for this kind
+        let struct_kind = TypeKind::AnonymousStruct(struct_type.clone());
+        if let Some(existing_layout) = self.kind_to_layout.get(&struct_kind) {
+            // Store the mapping from this type ID to the existing layout
+            let _ = self.id_to_layout.insert(type_id, existing_layout.clone());
+            return existing_layout.clone();
+        }
+
+        let struct_layout = self.layout_struct_type(struct_type, name);
+
+        // Use the provided type ID
+        let struct_id = type_id;
+
+        let basic_type = Rc::new(BasicType {
+            id: BasicTypeId(struct_id.inner()),
+            total_size: struct_layout.total_size,
+            max_alignment: struct_layout.max_alignment,
+            kind: BasicTypeKind::Struct(struct_layout),
+        });
+
+        // Store in both caches
+        let _ = self.id_to_layout.insert(struct_id, basic_type.clone());
+        let _ = self.kind_to_layout.insert(struct_kind, basic_type.clone());
+
+        basic_type
     }
 
     #[must_use]
-    pub fn layout_optional_type(&mut self, inner_type: &TypeRef) -> BasicTypeRef {
-        let tagged_union_type = self.layout_optional_type_items(inner_type);
+    pub fn layout_optional_type(&mut self, inner_type: &TypeRef, type_id: TypeId) -> BasicTypeRef {
+        // Check if we already have a layout for this kind
+        let optional_kind = TypeKind::Optional(inner_type.clone());
+        if let Some(existing_layout) = self.kind_to_layout.get(&optional_kind) {
+            return existing_layout.clone();
+        }
 
-        Rc::new(BasicType {
-            id: BasicTypeId(0),
-            total_size: tagged_union_type.total_size,
-            max_alignment: tagged_union_type.max_alignment,
-            kind: BasicTypeKind::Optional(tagged_union_type),
-        })
+        // Layout the inner type first
+        let inner_layout = self.layout(inner_type.clone());
+
+        // Store the inner type in both caches
+        let _ = self
+            .id_to_layout
+            .insert(inner_type.id, inner_layout.clone());
+        let _ = self
+            .kind_to_layout
+            .insert((*inner_type.kind).clone(), inner_layout.clone());
+
+        // Create the optional type
+        let optional_union = self.layout_optional_type_items(inner_type);
+
+        // Use the provided type ID
+        let optional_id = type_id;
+
+        let basic_type = Rc::new(BasicType {
+            id: BasicTypeId(optional_id.inner()),
+            total_size: optional_union.total_size,
+            max_alignment: optional_union.max_alignment,
+            kind: BasicTypeKind::Optional(optional_union),
+        });
+
+        // Store in both caches
+        let _ = self.id_to_layout.insert(optional_id, basic_type.clone());
+        let _ = self
+            .kind_to_layout
+            .insert(optional_kind, basic_type.clone());
+
+        basic_type
     }
 
     #[must_use]
@@ -646,7 +924,12 @@ impl LayoutCache {
         // First pass: Determine maximum alignment requirement
         let mut max_alignment = MemoryAlignment::U8;
         for ty in types {
-            let elem_layout = self.layout_type(ty);
+            // Use layout instead of layout_type to ensure proper caching
+            let elem_layout = self.layout(ty.clone());
+
+            // Make sure the element type is in the id_to_layout map
+            let _ = self.id_to_layout.insert(ty.id, elem_layout.clone());
+
             if elem_layout.max_alignment > max_alignment {
                 max_alignment = elem_layout.max_alignment;
             }
@@ -657,7 +940,8 @@ impl LayoutCache {
         let mut items = Vec::with_capacity(types.len());
 
         for (i, ty) in types.iter().enumerate() {
-            let elem_layout = self.layout_type(ty);
+            // Reuse the layout from the cache
+            let elem_layout = self.layout(ty.clone());
 
             offset = align_to(offset, elem_layout.max_alignment);
 
@@ -681,23 +965,35 @@ impl LayoutCache {
         }
     }
     #[must_use]
-    pub fn layout_tuple(&mut self, types: &[TypeRef]) -> BasicTypeRef {
-        // First check if we already have a layout for this tuple kind
+    pub fn layout_tuple(&mut self, types: &[TypeRef], tuple_id: TypeId) -> BasicTypeRef {
+        // Always process each inner type to ensure it's in the cache
+        for ty in types {
+            let inner_layout = self.layout(ty.clone());
+            let _ = self.id_to_layout.insert(ty.id, inner_layout.clone());
+            let _ = self
+                .kind_to_layout
+                .insert((*ty.kind).clone(), inner_layout.clone());
+        }
+
+        // Check if we already have a layout for this kind
         let tuple_kind = TypeKind::Tuple(types.to_vec());
         if let Some(existing_layout) = self.kind_to_layout.get(&tuple_kind) {
+            // Store the mapping from this type ID to the existing layout
+            let _ = self.id_to_layout.insert(tuple_id, existing_layout.clone());
             return existing_layout.clone();
         }
 
-        let tuple_type = self.layout_tuple_items(types);
+        let tuple_layout = self.layout_tuple_items(types);
 
         let basic_type = Rc::new(BasicType {
-            id: BasicTypeId(0),
-            total_size: tuple_type.total_size,
-            max_alignment: tuple_type.max_alignment,
-            kind: BasicTypeKind::Tuple(tuple_type),
+            id: BasicTypeId(tuple_id.inner()),
+            total_size: tuple_layout.total_size,
+            max_alignment: tuple_layout.max_alignment,
+            kind: BasicTypeKind::Tuple(tuple_layout),
         });
 
-        // Add to kind_to_layout cache for deduplication
+        // Store in both caches
+        let _ = self.id_to_layout.insert(tuple_id, basic_type.clone());
         let _ = self.kind_to_layout.insert(tuple_kind, basic_type.clone());
 
         basic_type
@@ -705,15 +1001,16 @@ impl LayoutCache {
 }
 
 fn create_basic_type(
-    id: TypeId,
-    basic_type_kind: BasicTypeKind,
+    type_id: TypeId,
+    kind: BasicTypeKind,
     size: MemorySize,
     alignment: MemoryAlignment,
 ) -> BasicTypeRef {
-    // TODO: Maybe should insert directly into cache
+    let basic_type_id = BasicTypeId(type_id.inner());
+
     Rc::new(BasicType {
-        id: BasicTypeId(id.inner()),
-        kind: basic_type_kind,
+        id: basic_type_id,
+        kind,
         total_size: size,
         max_alignment: alignment,
     })

@@ -37,13 +37,17 @@ fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
         },
     );
 
+    // Create the anonymous struct type first
+    let anon_struct = AnonymousStructType::new(int_fields);
+    let anon_struct_type = type_cache.anonymous_struct(anon_struct);
+
     let int_variant = EnumVariantStructType {
         common: EnumVariantCommon {
             name: Node::default(),
             assigned_name: "Int".to_string(),
             container_index: 1,
         },
-        anon_struct: AnonymousStructType::new(int_fields),
+        struct_type: anon_struct_type,
     };
     let _ = enum_type
         .variants
@@ -78,13 +82,17 @@ fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
         },
     );
 
+    // Create the anonymous struct type first
+    let anon_struct = AnonymousStructType::new(mixed_fields);
+    let anon_struct_type = type_cache.anonymous_struct(anon_struct);
+
     let mixed_variant = EnumVariantStructType {
         common: EnumVariantCommon {
             name: Node::default(),
             assigned_name: "Mixed".to_string(),
             container_index: 2,
         },
-        anon_struct: AnonymousStructType::new(mixed_fields),
+        struct_type: anon_struct_type,
     };
     let _ = enum_type
         .variants

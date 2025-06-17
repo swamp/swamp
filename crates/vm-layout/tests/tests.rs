@@ -1,11 +1,36 @@
+// IMPORTANT: Understanding id_to_layout vs kind_to_layout
+//
+// These two caches serve different purposes and can have different sizes:
+//
+// id_to_layout: Maps TypeId -> BasicTypeRef
+// - Contains one entry per unique TypeId from swamp-types
+// - Size depends on how many distinct types swamp-types creates
+//
+// kind_to_layout: Maps TypeKind -> BasicTypeRef
+// - Contains one entry per unique structural layout
+// - Enables sharing layouts between structurally identical types
+// - Size depends on structural uniqueness, not TypeId uniqueness
+//
+// Possible relationships:
+// 1. id_to_layout.len() == kind_to_layout.len()
+//    - Each TypeId has a unique structure (most common case)
+// 2. id_to_layout.len() > kind_to_layout.len()
+//    - Multiple TypeIds share the same layout structure
+//    - Example: Two different named structs with identical field layout
+// 3. id_to_layout.len() < kind_to_layout.len()
+//    - Internal types created for layout purposes without explicit TypeIds
+//    - Example: MapStorage creates internal tuple types for key-value pair.
+//    TODO: This is something that should be removed or changed. Maybe a layout can be created for
+//    the whole bucket size (status, key, value) to be more correct
+
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_types::prelude::{
     AnonymousStructType, EnumVariantType, StructTypeField, TypeCache, TypeRef,
 };
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::MemoryOffset;
 use swamp_vm_types::types::BasicTypeKind;
+use swamp_vm_types::MemoryOffset;
 
 #[test]
 fn test_create_cache() {
@@ -169,9 +194,34 @@ fn test_nested_struct_deduplication() {
         _ => panic!("Expected struct type for outer struct"),
     }
 
-    assert_eq!(layout_cache.id_to_layout.len(), 1);
-    // The kind_to_layout cache contains all types: int, inner point struct, and outer struct
-    assert_eq!(layout_cache.kind_to_layout.len(), 3);
+    // Test for nested struct deduplication
+    //
+    // What swamp-types does: The TypeCache deduplicates structurally identical types.
+    // When we create the inner struct {x: int, y: int} and use it twice in the outer struct,
+    // swamp-types recognizes they're the same structure and assigns the same TypeId.
+    //
+    // Expected types in id_to_layout:
+    // 1. int type (S32) - used in the inner struct fields
+    // 2. inner struct type - the {x: int, y: int} point struct (used twice but same TypeId)
+    // 3. outer struct type - contains two fields referencing the same inner struct
+    //
+    // Total: 3 unique TypeIds, even though the inner struct is referenced twice
+    assert_eq!(
+        layout_cache.id_to_layout.len(),
+        3,
+        "id_to_layout should contain exactly 3 entries: int type, inner struct type, and outer struct type. \
+        The inner struct appears twice in the outer struct but swamp-types deduplicates it to the same TypeId."
+    );
+
+    // kind_to_layout also has 3 entries: int kind, inner struct kind, outer struct kind
+    //
+    // Note: kind_to_layout.len() == id_to_layout.len() in this case because each TypeId
+    // corresponds to a unique TypeKind. There's no layout sharing between different types here.
+    assert_eq!(
+        layout_cache.kind_to_layout.len(),
+        3,
+        "kind_to_layout should contain exactly 3 entries: int kind, inner struct kind, and outer struct kind"
+    );
 }
 
 #[test]
@@ -192,10 +242,36 @@ fn test_tuple_deduplication() {
     // Verify that they point to the same memory location
     assert!(Rc::ptr_eq(&layout1, &layout2));
 
-    // The `id_to_layout` cache only contains the tuple type. (TODO: The int_type should also be in the id_to_layout)
-    assert_eq!(layout_cache.id_to_layout.len(), 1);
-    // The `kind_to_layout` contains: int, bool, and tuple
-    assert_eq!(layout_cache.kind_to_layout.len(), 3);
+    // Test for tuple deduplication
+    //
+    // What swamp-types does: When we call type_cache.tuple() twice with the same element types,
+    // swamp-types recognizes the structural equality and returns the SAME TypeId for both calls.
+    // This is because tuples are deduplicated based on their element types.
+    //
+    // Expected types in id_to_layout:
+    // 1. int type (S32) - first element type
+    // 2. bool type - second element type
+    // 3. tuple type (int, bool) - only ONE tuple type because both tuple1 and tuple2 have the same TypeId
+    //
+    // Total: 3 unique TypeIds
+    assert_eq!(
+        layout_cache.id_to_layout.len(),
+        3,
+        "id_to_layout should contain exactly 3 entries: int type, bool type, and tuple type. \
+        Even though we created tuple1 and tuple2 separately, swamp-types deduplicates them to the same TypeId \
+        because they have identical structure (int, bool)."
+    );
+
+    // kind_to_layout has 3 entries: int kind, bool kind, tuple kind
+    //
+    // Note: kind_to_layout.len() == id_to_layout.len() in this case because swamp-types
+    // already deduplicated tuple1 and tuple2 to the same TypeId, so there's only one
+    // tuple TypeKind as well. No additional layout sharing occurs at the layout cache level.
+    assert_eq!(
+        layout_cache.kind_to_layout.len(),
+        3,
+        "kind_to_layout should contain exactly 3 entries: int kind, bool kind, and tuple kind"
+    );
 }
 
 #[test]
@@ -232,10 +308,24 @@ fn test_optional_type_deduplication() {
         _ => panic!("Expected Optional type"),
     }
 
-    // The `id_to_layout` cache only contains the optional type //TODO: should contain 2 in the future, the optional and the int.
-    assert_eq!(layout_cache.id_to_layout.len(), 1);
-    // The kind_to_layout cache contains all types: int and optional
-    assert_eq!(layout_cache.kind_to_layout.len(), 2);
+    // Test for optional type deduplication
+    // id_to_layout contains: optional type and int type
+    assert_eq!(
+        layout_cache.id_to_layout.len(),
+        2,
+        "id_to_layout should contain exactly 2 entries: optional type and int type"
+    );
+    // kind_to_layout contains: int and optional
+    //
+    // Note: kind_to_layout.len() == id_to_layout.len() here (both are 2) because
+    // the optional type creates a unique structure. Even though it internally
+    // creates variant types, those are managed within the Optional structure
+    // and don't create separate kind entries.
+    assert_eq!(
+        layout_cache.kind_to_layout.len(),
+        2,
+        "kind_to_layout should contain exactly 2 entries: int and optional"
+    );
 }
 
 #[test]
@@ -263,10 +353,24 @@ fn test_collection_type_deduplication() {
         _ => panic!("Expected VecStorage types"),
     }
 
-    // The `id_to_layout` cache contains both vec storage types // TODO: The int type should have gotten picked up as an ID as well
-    assert_eq!(layout_cache.id_to_layout.len(), 2);
-    // The kind_to_layout cache contains all types: int and both vec storage types
-    assert_eq!(layout_cache.kind_to_layout.len(), 3);
+    // Test for collection type deduplication
+    // id_to_layout contains: vec1, vec2, and int type
+    assert_eq!(
+        layout_cache.id_to_layout.len(),
+        3,
+        "id_to_layout should contain exactly 3 entries: vec1, vec2, and int type"
+    );
+    // kind_to_layout contains: int and both vec storage types
+    //
+    // Note: kind_to_layout.len() == id_to_layout.len() here (both are 3) because
+    // vec1 and vec2 have different capacities, making them structurally different
+    // at both the TypeId level and the TypeKind level. The int type is shared
+    // between them, but the VecStorage types are distinct due to different capacities.
+    assert_eq!(
+        layout_cache.kind_to_layout.len(),
+        3,
+        "kind_to_layout should contain exactly 3 entries: int and both vec storage types (with different capacities)"
+    );
 }
 
 #[test]
@@ -296,7 +400,7 @@ fn test_map_storage_deduplication() {
             ..
         } => {
             // Verify capacity and logical limit
-            assert_eq!(*logical_limit, 10);
+            assert_eq!(*logical_limit, 10); // logical_limit should be preserved as input
             assert_eq!(capacity.0, 16); // Next power of 2 after 10
 
             // Verify the tuple type has string and int fields
@@ -315,10 +419,52 @@ fn test_map_storage_deduplication() {
         _ => panic!("Expected MapStorage type"),
     }
 
-    // The id_to_layout cache only contains the map storage type. // TODO: should be 4, since string, int, tuple and map have unique ID themselves
-    assert_eq!(layout_cache.id_to_layout.len(), 1);
-    // The kind_to_layout cache contains all types: string, int, tuple, and map storage
-    assert_eq!(layout_cache.kind_to_layout.len(), 4);
+    // Test for map storage deduplication
+    //
+    // What swamp-types does: When we create two maps with identical key/value types and capacity,
+    // swamp-types deduplicates them and assigns the same TypeId. The map storage internally
+    // creates a tuple type for key-value pairs, which is also deduplicated.
+    //
+    // Expected types in id_to_layout:
+    // 1. string type (InternalStringPointer) - key type
+    // 2. int type (S32) - value type
+    // 3. map storage type - only ONE because map1 and map2 have identical structure
+    //
+    // Note: The internal tuple type (string, int) for key-value pairs is created but doesn't
+    // get a separate entry in id_to_layout because it's managed internally by the map storage.
+    // It does appear in kind_to_layout for structural deduplication.
+    //
+    // Total: 3 unique TypeIds in id_to_layout, 4 kinds in kind_to_layout
+    assert_eq!(
+        layout_cache.id_to_layout.len(),
+        3,
+        "id_to_layout should contain exactly 3 entries: string type, int type, and map storage type. \
+        Even though we created map1 and map2 separately, swamp-types deduplicates them to the same TypeId \
+        because they have identical structure (same key/value types and capacity)."
+    );
+
+    // kind_to_layout contains: string kind, int kind, tuple kind (for key-value pairs), and map storage kind
+    //
+    // IMPORTANT: kind_to_layout.len() > id_to_layout.len() here (4 vs 3)!
+    //
+    // This happens because the layout cache creates an internal tuple type for key-value pairs
+    // that doesn't get its own TypeId in swamp-types (it's managed internally by MapStorage),
+    // but it DOES get stored in kind_to_layout for structural layout sharing.
+    // It will probably be changed/fixed in the future. But we can leave it for now.
+    //
+    // So we have:
+    // - id_to_layout: 3 entries (string TypeId, int TypeId, map TypeId)
+    // - kind_to_layout: 4 entries (string kind, int kind, tuple kind, map kind)
+    //
+    // The tuple kind exists for layout purposes but has no corresponding user-visible TypeId.
+    // This demonstrates how the layout cache can share layouts between structurally identical
+    // types even when those types don't have explicit TypeIds in the swamp-types system.
+    assert_eq!(
+        layout_cache.kind_to_layout.len(),
+        4,
+        "kind_to_layout should contain exactly 4 entries: string kind, int kind, \
+        tuple kind (for internal key-value pairs), and map storage kind"
+    );
 }
 
 #[test]
@@ -356,10 +502,33 @@ fn test_enum_variant_deduplication() {
         _ => panic!("Expected TaggedUnion type"),
     }
 
-    // The `id_to_layout` contains: the enum type
-    assert_eq!(layout_cache.id_to_layout.len(), 1);
-    // The `kind_to_layout`: int, struct for Some variant, and enum
-    assert_eq!(layout_cache.kind_to_layout.len(), 3);
+    // Test for enum variant deduplication
+    // id_to_layout contains: enum type, int type, and struct type for Some variant
+    assert_eq!(
+        layout_cache.id_to_layout.len(),
+        3,
+        "id_to_layout should contain exactly 3 entries: enum type, int type, and struct type for Some variant"
+    );
+
+    // kind_to_layout contains: int, struct for Some variant, enum, and Empty type for None variant
+    //
+    // IMPORTANT: kind_to_layout.len() > id_to_layout.len() here (4 vs 3)!
+    //
+    // This happens because the enum creates internal variant types:
+    // - The "None" variant creates an Empty type that gets stored in kind_to_layout
+    //   but doesn't get its own TypeId (it's managed internally by the enum)
+    // - The "Some" variant creates a struct type that DOES get a TypeId
+    //
+    // So we have:
+    // - id_to_layout: 3 entries (int TypeId, struct TypeId for Some, enum TypeId)
+    // - kind_to_layout: 4 entries (int kind, struct kind, enum kind, Empty kind for None)
+    //
+    // This demonstrates internal type creation for layout optimization.
+    assert_eq!(
+        layout_cache.kind_to_layout.len(),
+        4,
+        "kind_to_layout should contain exactly 4 entries: int, struct for Some variant, enum, and Empty type for None variant"
+    );
 }
 
 fn create_test_enum(type_cache: &mut TypeCache) -> TypeRef {
@@ -393,13 +562,17 @@ fn create_test_enum(type_cache: &mut TypeCache) -> TypeRef {
         },
     );
 
+    // Create the anonymous struct type first
+    let anon_struct = AnonymousStructType::new(some_fields);
+    let anon_struct_type = type_cache.anonymous_struct(anon_struct);
+
     let some_variant = EnumVariantStructType {
         common: EnumVariantCommon {
             name: Node::default(),
             assigned_name: "Some".to_string(),
             container_index: 1,
         },
-        anon_struct: AnonymousStructType::new(some_fields),
+        struct_type: anon_struct_type,
     };
     let _ = enum_type
         .variants
@@ -468,8 +641,34 @@ fn test_structural_type_equality() {
     // even though they're structurally similar
     assert!(!Rc::ptr_eq(&layout1, &layout2));
 
-    // The `id_to_layout` contains both struct types
-    assert_eq!(layout_cache.id_to_layout.len(), 2);
-    // The `kind_to_layout` contains: int and both struct types
-    assert_eq!(layout_cache.kind_to_layout.len(), 3);
+    // Test for structural type equality
+    //
+    // What swamp-types does: Even though both structs have the same field types (int, int),
+    // they have DIFFERENT field names ({x, y} vs {a, b}), so swamp-types treats anonymous structs as
+    // structurally DIFFERENT types and assigns different TypeIds.
+    //
+    // Expected types in id_to_layout:
+    // 1. int type (S32) - shared by both structs' fields
+    // 2. first struct type {x: int, y: int} - unique TypeId
+    // 3. second struct type {a: int, b: int} - different TypeId because field names differ
+    //
+    // Total: 3 unique TypeIds
+    assert_eq!(
+        layout_cache.id_to_layout.len(),
+        3,
+        "id_to_layout should contain exactly 3 entries: int type, first struct type {{x,y}}, and second struct type {{a,b}}. \
+        Even though both structs have the same field types, swamp-types treats them as different types \
+        because their field names differ (structural inequality)."
+    );
+
+    // kind_to_layout has 3 entries: int kind, first struct kind, second struct kind
+    //
+    // Note: kind_to_layout.len() == id_to_layout.len() in this case because the two structs
+    // have different field names, making them structurally different at both the swamp-types
+    // level (different TypeIds) AND the layout level (different TypeKinds). No layout sharing.
+    assert_eq!(
+        layout_cache.kind_to_layout.len(),
+        3,
+        "kind_to_layout should contain exactly 3 entries: int kind, first struct kind, and second struct kind"
+    );
 }

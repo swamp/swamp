@@ -8,6 +8,7 @@ swamp-vm-types = { path = "../vm-types", version = "0.1.16" }
 swamp-types = { path = "../types", version = "0.1.16" }
 seq-map = "0.0.13"
 sparse-mem = { path = "../sparse-mem", version = "0.1.16" }
+source-map-node = "0.0.1"
 
 [dev-dependencies]
 source-map-node = "0.0.1"

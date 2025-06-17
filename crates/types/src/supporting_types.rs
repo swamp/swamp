@@ -223,12 +223,7 @@ impl EnumVariantType {
     pub fn types(&self) -> Vec<TypeRef> {
         match self {
             Self::Tuple(tuple) => tuple.fields_in_order.clone(),
-            Self::Struct(c) => c
-                .anon_struct
-                .field_name_sorted_fields
-                .iter()
-                .map(|(_name, field)| field.field_type.clone())
-                .collect(),
+            Self::Struct(c) => vec![c.struct_type.clone()],
             Self::Nothing(_c) => vec![],
         }
     }
@@ -237,7 +232,14 @@ impl EnumVariantType {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct EnumVariantStructType {
     pub common: EnumVariantCommon,
-    pub anon_struct: AnonymousStructType,
+    pub struct_type: TypeRef,
+}
+
+impl EnumVariantStructType {
+    #[must_use]
+    pub fn struct_type(&self) -> &TypeRef {
+        &self.struct_type
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -347,7 +349,7 @@ impl Display for EnumVariantType {
 
 impl Display for EnumVariantStructType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.common.assigned_name, self.anon_struct)
+        write!(f, "{} {:?}", self.common.assigned_name, self.struct_type)
     }
 }
 
