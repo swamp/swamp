@@ -13,8 +13,6 @@ swamp-types = { path = "../types", version = "0.1.16" }
 seq-map = "0.0.13"
 fixed32 = "0.0.17"
 tracing = "0.1.40"
-seq-fmt = "0.0.1"
-tiny-ver = "0.1.2"
 swamp-attributes = { path = "../attributes", version = "0.1.16" }
 
 [dev-dependencies]

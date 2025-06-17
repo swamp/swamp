@@ -803,7 +803,8 @@ pub enum Destination {
 }
 
 impl Destination {
-    #[must_use] pub const fn vm_type(&self) -> Option<&VmType> {
+    #[must_use]
+    pub const fn vm_type(&self) -> Option<&VmType> {
         match self {
             Self::Unit => None,
             Self::Register(reg) => Some(&reg.ty),

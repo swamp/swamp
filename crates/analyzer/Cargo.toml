@@ -15,8 +15,8 @@ source-map-cache = "0.0.3"
 swamp-modules = { path = "../modules", version = "0.1.16" }
 swamp-pretty-print = { path = "../pretty-print", version = "0.1.16" }
 
-seq-map = "0.0.13"
 seq-set = "0.0.2"
 tracing = "0.1.40"
 
 [dev-dependencies]
+seq-map = "0.0.13"

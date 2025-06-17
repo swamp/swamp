@@ -67,8 +67,7 @@ impl Display for TypeKind {
             Self::AnonymousStruct(anon_struct) => write!(f, "{anon_struct}"),
             Self::Range(range) => {
                 if let Self::NamedStruct(named_struct) = &*range.kind {
-                    if let Self::AnonymousStruct(anon_struct) =
-                        &*named_struct.anon_struct_type.kind
+                    if let Self::AnonymousStruct(anon_struct) = &*named_struct.anon_struct_type.kind
                     {
                         write!(f, "range{anon_struct}")
                     } else {

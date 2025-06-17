@@ -7,15 +7,16 @@ use source_map_cache::SourceMapLookup;
 use source_map_node::Node;
 use std::fmt::{Display, Formatter};
 use swamp_modules::modules::{ModuleRef, Modules};
-use swamp_modules::symtbl::{FuncDef, Symbol, SymbolTable};
+use swamp_modules::symtbl::{AliasType, FuncDef, Symbol, SymbolTable};
 use swamp_semantic::prelude::*;
 use swamp_semantic::{
     ArgumentExpression, AssociatedImpls, MutableReferenceKind, Postfix, PostfixKind,
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
 };
+use swamp_types::prelude::{EnumType, NamedStructType, Signature, TypeForParameter};
 use swamp_types::{
-    AliasType, AnonymousStructType, EnumType, NamedStructType, Signature, StructLikeType, Type,
-    TypeForParameter,
+    AnonymousStructType, EnumType, NamedStructType, Signature, StructLikeType, Type,
+    TypeForParameter, TypeKind, TypeRef,
 };
 use yansi::{Color, Paint};
 
@@ -653,18 +654,18 @@ impl SourceMapDisplay<'_> {
     fn show_type_short(
         &self,
         f: &mut Formatter,
-        resolved_type: &Type,
+        resolved_type: &TypeRef,
         tabs: usize,
     ) -> std::fmt::Result {
-        match resolved_type {
-            Type::Int => write!(f, "{}", "Int".bright_blue()),
-            Type::Float => write!(f, "{}", "Float".bright_blue()),
-            Type::String => write!(f, "{}", "String".bright_blue()),
-            Type::Bool => write!(f, "{}", "Bool".bright_blue()),
-            Type::Unit => write!(f, "{}", "()".bright_blue()),
-            Type::Range(_) => write!(f, "Range"),
+        match &*resolved_type.kind {
+            TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
+            TypeKind::Float => write!(f, "{}", "Float".bright_blue()),
+            TypeKind::String => write!(f, "{}", "String".bright_blue()),
+            TypeKind::Bool => write!(f, "{}", "Bool".bright_blue()),
+            TypeKind::Unit => write!(f, "{}", "()".bright_blue()),
+            TypeKind::Range(_) => write!(f, "Range"),
 
-            Type::Tuple(tuple_type) => {
+            TypeKind::Tuple(tuple_type) => {
                 write!(f, "(")?;
                 for (index, item_type) in tuple_type.iter().enumerate() {
                     if index > 0 {
@@ -675,46 +676,57 @@ impl SourceMapDisplay<'_> {
                 write!(f, ")")
             }
 
-            Type::NamedStruct(struct_ref) => write!(f, "{}", struct_ref.assigned_name.blue()),
-            Type::AnonymousStruct(struct_ref) => self.show_anon_struct_type(f, struct_ref, tabs),
+            TypeKind::NamedStruct(struct_ref) => write!(f, "{}", struct_ref.assigned_name.blue()),
+            TypeKind::AnonymousStruct(struct_ref) => {
+                self.show_anon_struct_type(f, struct_ref, tabs)
+            }
 
-            Type::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name.bright_cyan()),
-            Type::Function(signature) => write!(f, "function {signature}"),
-            Type::Optional(base_type) => {
+            TypeKind::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name.bright_cyan()),
+            TypeKind::Function(signature) => write!(f, "function {signature}"),
+            TypeKind::Optional(base_type) => {
                 self.show_type_short(f, base_type, tabs)?;
                 write!(f, "{}", "?".yellow())
             }
-            Type::MutableReference(base_type) => {
+            TypeKind::MutableReference(base_type) => {
                 write!(f, "{}", "&".red())?;
                 self.show_type_short(f, base_type, tabs)
             }
-            Type::SliceView(a) => write!(f, "[{a}]"),
-            Type::DynamicLengthVecView(a) => write!(f, "Vec<{a}>"),
-            Type::VecStorage(a, b) => write!(f, "Vec<{a};{b}>"),
-            Type::SparseView(a) => write!(f, "Sparse<{a}>"),
-            Type::SparseStorage(a, b) => write!(f, "SparseStorage<{a};{b}>"),
-            Type::GridView(a) => write!(f, "Grid<{a}>"),
-            Type::GridStorage(a, width, height) => write!(f, "GridStorage<{a};({width},{height})>"),
-            Type::StackView(a) => write!(f, "Stack<{a}>"),
-            Type::StackStorage(a, b) => write!(f, "Stack<{a};{b}>"),
-            Type::QueueView(a) => write!(f, "Queue<{a}>"),
-            Type::QueueStorage(a, b) => write!(f, "Queue<{a};{b}>"),
-            Type::FixedCapacityAndLengthArray(a, b) => write!(f, "[{a};{b}]"),
-            Type::DynamicLengthMapView(key, value) => write!(f, "[{key}:{value}]"),
-            Type::MapStorage(key, value, size) => write!(f, "MapStorage<{key}, {value}; {size}>"),
+            TypeKind::SliceView(a) => write!(f, "[{a}]"),
+            TypeKind::DynamicLengthVecView(a) => write!(f, "Vec<{a}>"),
+            TypeKind::VecStorage(a, b) => write!(f, "Vec<{a};{b}>"),
+            TypeKind::SparseView(a) => write!(f, "Sparse<{a}>"),
+            TypeKind::SparseStorage(a, b) => write!(f, "SparseStorage<{a};{b}>"),
+            TypeKind::GridView(a) => write!(f, "Grid<{a}>"),
+            TypeKind::GridStorage(a, width, height) => {
+                write!(f, "GridStorage<{a};({width},{height})>")
+            }
+            TypeKind::StackView(a) => write!(f, "Stack<{a}>"),
+            TypeKind::StackStorage(a, b) => write!(f, "Stack<{a};{b}>"),
+            TypeKind::QueueView(a) => write!(f, "Queue<{a}>"),
+            TypeKind::QueueStorage(a, b) => write!(f, "Queue<{a};{b}>"),
+            TypeKind::FixedCapacityAndLengthArray(a, b) => write!(f, "[{a};{b}]"),
+            TypeKind::DynamicLengthMapView(key, value) => write!(f, "[{key}:{value}]"),
+            TypeKind::MapStorage(key, value, size) => {
+                write!(f, "MapStorage<{key}, {value}; {size}>")
+            }
         }
     }
 
-    fn show_type(&self, f: &mut Formatter, resolved_type: &Type, tabs: usize) -> std::fmt::Result {
-        match resolved_type {
-            Type::Int => write!(f, "{}", "Int".bright_blue()),
-            Type::Float => write!(f, "{}", "Float".bright_blue()),
-            Type::String => write!(f, "{}", "String".bright_blue()),
-            Type::Bool => write!(f, "{}", "Bool".bright_blue()),
-            Type::Unit => write!(f, "{}", "()".bright_blue()),
-            Type::Range(_) => write!(f, "Range"),
+    fn show_type(
+        &self,
+        f: &mut Formatter,
+        resolved_type: &TypeRef,
+        tabs: usize,
+    ) -> std::fmt::Result {
+        match &*resolved_type.kind {
+            TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
+            TypeKind::Float => write!(f, "{}", "Float".bright_blue()),
+            TypeKind::String => write!(f, "{}", "String".bright_blue()),
+            TypeKind::Bool => write!(f, "{}", "Bool".bright_blue()),
+            TypeKind::Unit => write!(f, "{}", "()".bright_blue()),
+            TypeKind::Range(_) => write!(f, "Range"),
 
-            Type::Tuple(tuple_type) => {
+            TypeKind::Tuple(tuple_type) => {
                 write!(f, "(")?;
                 for (index, item_type) in tuple_type.iter().enumerate() {
                     if index > 0 {
@@ -725,50 +737,54 @@ impl SourceMapDisplay<'_> {
                 write!(f, ")")
             }
 
-            Type::NamedStruct(struct_ref) => self.show_named_struct_type(f, struct_ref, tabs),
-            Type::AnonymousStruct(struct_ref) => self.show_anon_struct_type(f, struct_ref, tabs),
+            TypeKind::NamedStruct(struct_ref) => self.show_named_struct_type(f, struct_ref, tabs),
+            TypeKind::AnonymousStruct(struct_ref) => {
+                self.show_anon_struct_type(f, struct_ref, tabs)
+            }
 
-            Type::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name),
-            Type::Function(signature) => write!(f, "function {signature}"),
-            Type::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
-            Type::MutableReference(base_type) => {
+            TypeKind::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name),
+            TypeKind::Function(signature) => write!(f, "function {signature}"),
+            TypeKind::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
+            TypeKind::MutableReference(base_type) => {
                 write!(f, "{}", "mut ref".red())?;
                 self.show_type_short(f, base_type, tabs)
             }
-            Type::SliceView(a) => write!(f, "[{a}]"),
-            Type::DynamicLengthVecView(a) => write!(f, "Vec<{a}>"),
-            Type::VecStorage(a, b) => write!(f, "Vec<{a};{b}>"),
-            Type::SparseView(a) => write!(f, "Sparse<{a}>"),
-            Type::SparseStorage(a, b) => write!(f, "SparseStorage<{a};{b}>"),
-            Type::GridView(a) => write!(f, "Grid<{a}>"),
-            Type::GridStorage(a, width, height) => {
+            TypeKind::SliceView(a) => write!(f, "[{a}]"),
+            TypeKind::DynamicLengthVecView(a) => write!(f, "Vec<{a}>"),
+            TypeKind::VecStorage(a, b) => write!(f, "Vec<{a};{b}>"),
+            TypeKind::SparseView(a) => write!(f, "Sparse<{a}>"),
+            TypeKind::SparseStorage(a, b) => write!(f, "SparseStorage<{a};{b}>"),
+            TypeKind::GridView(a) => write!(f, "Grid<{a}>"),
+            TypeKind::GridStorage(a, width, height) => {
                 write!(f, "SparseStorage<{a};({width},{height})>")
             }
-            Type::StackView(a) => write!(f, "Stack<{a}>"),
-            Type::StackStorage(a, b) => write!(f, "Stack<{a};{b}>"),
-            Type::QueueView(a) => write!(f, "Queue<{a}>"),
-            Type::QueueStorage(a, b) => write!(f, "Queue<{a};{b}>"),
-            Type::FixedCapacityAndLengthArray(a, b) => write!(f, "[{a};{b}]"),
-            Type::DynamicLengthMapView(key, value) => write!(f, "[{key}:{value}]"),
-            Type::MapStorage(key, value, size) => write!(f, "MapStorage<{key}, {value}; {size}>"),
+            TypeKind::StackView(a) => write!(f, "Stack<{a}>"),
+            TypeKind::StackStorage(a, b) => write!(f, "Stack<{a};{b}>"),
+            TypeKind::QueueView(a) => write!(f, "Queue<{a}>"),
+            TypeKind::QueueStorage(a, b) => write!(f, "Queue<{a};{b}>"),
+            TypeKind::FixedCapacityAndLengthArray(a, b) => write!(f, "[{a};{b}]"),
+            TypeKind::DynamicLengthMapView(key, value) => write!(f, "[{key}:{value}]"),
+            TypeKind::MapStorage(key, value, size) => {
+                write!(f, "MapStorage<{key}, {value}; {size}>")
+            }
         }
     }
 
     fn show_type_except_name(
         &self,
         f: &mut Formatter,
-        resolved_type: &Type,
+        resolved_type: &TypeRef,
         tabs: usize,
     ) -> std::fmt::Result {
-        match resolved_type {
-            Type::Int => write!(f, "{}", "Int".bright_blue()),
-            Type::Float => write!(f, "{}", "Float".bright_blue()),
-            Type::String => write!(f, "{}", "String".bright_blue()),
-            Type::Bool => write!(f, "{}", "Bool".bright_blue()),
-            Type::Unit => write!(f, "{}", "()".bright_blue()),
-            Type::Range(_) => write!(f, "Range"),
+        match &*resolved_type.kind {
+            TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
+            TypeKind::Float => write!(f, "{}", "Float".bright_blue()),
+            TypeKind::String => write!(f, "{}", "String".bright_blue()),
+            TypeKind::Bool => write!(f, "{}", "Bool".bright_blue()),
+            TypeKind::Unit => write!(f, "{}", "()".bright_blue()),
+            TypeKind::Range(_) => write!(f, "Range"),
 
-            Type::Tuple(tuple_type) => {
+            TypeKind::Tuple(tuple_type) => {
                 write!(f, "(")?;
                 for (index, item_type) in tuple_type.iter().enumerate() {
                     if index > 0 {
@@ -779,32 +795,34 @@ impl SourceMapDisplay<'_> {
                 write!(f, ")")
             }
 
-            Type::NamedStruct(struct_ref) => {
+            TypeKind::NamedStruct(struct_ref) => {
                 self.show_anon_struct_type(f, &struct_ref.anon_struct_type, tabs)
             }
-            Type::AnonymousStruct(struct_ref) => self.show_anon_struct_type(f, struct_ref, tabs),
+            TypeKind::AnonymousStruct(struct_ref) => {
+                self.show_anon_struct_type(f, struct_ref, tabs)
+            }
 
-            Type::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name),
-            Type::Function(signature) => write!(f, "function {signature}"),
-            Type::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
-            Type::MutableReference(base_type) => {
+            TypeKind::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name),
+            TypeKind::Function(signature) => write!(f, "function {signature}"),
+            TypeKind::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
+            TypeKind::MutableReference(base_type) => {
                 write!(f, "{}", "&".red());
                 self.show_type_short(f, base_type, tabs)
             }
-            Type::SliceView(_) => todo!(),
-            Type::DynamicLengthVecView(_) => todo!(),
-            Type::VecStorage(_, _) => todo!(),
-            Type::SparseView(_) => todo!(),
-            Type::SparseStorage(_, _) => todo!(),
-            Type::GridView(_) => todo!(),
-            Type::GridStorage(_, _, _) => todo!(),
-            Type::StackView(_) => todo!(),
-            Type::StackStorage(_, _) => todo!(),
-            Type::QueueView(_) => todo!(),
-            Type::QueueStorage(_, _) => todo!(),
-            Type::FixedCapacityAndLengthArray(_, _) => todo!(),
-            Type::DynamicLengthMapView(_, _) => todo!(),
-            Type::MapStorage(_, _, _) => todo!(),
+            TypeKind::SliceView(_) => todo!(),
+            TypeKind::DynamicLengthVecView(_) => todo!(),
+            TypeKind::VecStorage(_, _) => todo!(),
+            TypeKind::SparseView(_) => todo!(),
+            TypeKind::SparseStorage(_, _) => todo!(),
+            TypeKind::GridView(_) => todo!(),
+            TypeKind::GridStorage(_, _, _) => todo!(),
+            TypeKind::StackView(_) => todo!(),
+            TypeKind::StackStorage(_, _) => todo!(),
+            TypeKind::QueueView(_) => todo!(),
+            TypeKind::QueueStorage(_, _) => todo!(),
+            TypeKind::FixedCapacityAndLengthArray(_, _) => todo!(),
+            TypeKind::DynamicLengthMapView(_, _) => todo!(),
+            TypeKind::MapStorage(_, _, _) => todo!(),
         }
     }
 
