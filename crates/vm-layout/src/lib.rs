@@ -10,12 +10,15 @@ use std::rc::Rc;
 use swamp_types::prelude::{AnonymousStructType, EnumVariantType, NamedStructType};
 use swamp_types::{TypeId, TypeKind, TypeRef};
 use swamp_vm_types::aligner::align;
-use swamp_vm_types::types::{range_type, BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, OffsetMemoryItem, StructType, TaggedUnion, TaggedUnionVariant, TupleType};
+use swamp_vm_types::types::BasicTypeId;
+use swamp_vm_types::types::{
+    BasicType, BasicTypeKind, BasicTypeRef, OffsetMemoryItem, StructType, TaggedUnion,
+    TaggedUnionVariant, TupleType, range_type,
+};
 use swamp_vm_types::{
-    adjust_size_to_alignment, align_to, CountU16,
-    MemoryAlignment, MemoryOffset, MemorySize, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
-    MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT,
-    STRING_PTR_SIZE, VEC_HEADER_SIZE,
+    CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE,
+    MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT,
+    STRING_PTR_SIZE, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };
 
 #[derive(Copy, Clone)]
@@ -38,26 +41,42 @@ pub struct TaggedUnionLayout {
 
 pub struct LayoutCache {
     pub id_to_layout: SeqMap<TypeId, BasicTypeRef>,
+    pub kind_to_layout: SeqMap<TypeKind, BasicTypeRef>,
 }
 
 impl LayoutCache {
     pub fn new() -> Self {
         Self {
             id_to_layout: SeqMap::default(),
+            kind_to_layout: SeqMap::default(),
         }
     }
     pub fn layout(&mut self, analyzed_type: TypeRef) -> BasicTypeRef {
         if let Some(x) = self.id_to_layout.get(&analyzed_type.id) {
-            x.clone()
-        } else {
-            let basic_type = self.layout_type(&analyzed_type);
-
-            self.id_to_layout.insert(analyzed_type.id, basic_type.clone()).expect("should work");
-
-            basic_type
+            return x.clone();
         }
-    }
 
+        // Check if we already have a layout for this kind of type
+        if let Some(existing_layout) = self.kind_to_layout.get(&analyzed_type.kind) {
+            // Store the mapping from this type ID to the existing layout
+            self.id_to_layout
+                .insert(analyzed_type.id, existing_layout.clone())
+                .expect("should work");
+            return existing_layout.clone();
+        }
+
+        let basic_type = self.layout_type(&analyzed_type);
+
+        self.id_to_layout
+            .insert(analyzed_type.id, basic_type.clone())
+            .expect("should work");
+        // Also store in kind_to_layout for future deduplication
+        let _ = self
+            .kind_to_layout
+            .insert((*analyzed_type.kind).clone(), basic_type.clone());
+
+        basic_type
+    }
 
     fn layout_tagged_union(variants: &[VariantLayout]) -> TaggedUnionLayout {
         let num_variants = variants.len();
@@ -100,10 +119,27 @@ impl LayoutCache {
 
     #[allow(clippy::too_many_lines)]
     #[must_use]
-    pub fn layout_enum_into_tagged_union(&mut self, name: &str, variants: &[EnumVariantType]) -> TaggedUnion {
+    pub fn layout_enum_into_tagged_union(
+        &mut self,
+        name: &str,
+        variants: &[EnumVariantType],
+    ) -> TaggedUnion {
         let variant_infos = variants.iter().map(|variant| match variant {
             EnumVariantType::Struct(s) => {
                 let struct_type = self.layout_struct_type(&s.anon_struct, &s.common.assigned_name);
+                let struct_basic_type = Rc::new(BasicType {
+                    id: BasicTypeId(0), // Using 0 as a consistent ID for all intermediate types
+                    total_size: struct_type.total_size,
+                    max_alignment: struct_type.max_alignment,
+                    kind: BasicTypeKind::Struct(struct_type.clone()),
+                });
+
+                // Add to kind_to_layout cache for deduplication
+                let struct_kind = TypeKind::AnonymousStruct(s.anon_struct.clone());
+                let _ = self
+                    .kind_to_layout
+                    .insert(struct_kind, struct_basic_type.clone());
+
                 (
                     VariantLayout {
                         size: struct_type.total_size,
@@ -111,16 +147,25 @@ impl LayoutCache {
                     },
                     TaggedUnionVariant {
                         name: s.common.assigned_name.clone(),
-                        ty: BasicType {
-                            total_size: struct_type.total_size,
-                            max_alignment: struct_type.max_alignment,
-                            kind: BasicTypeKind::Struct(struct_type),
-                        },
+                        ty: struct_basic_type,
                     },
                 )
             }
             EnumVariantType::Tuple(t) => {
                 let tuple_type = self.layout_tuple_items(&t.fields_in_order);
+                let tuple_basic_type = Rc::new(BasicType {
+                    id: BasicTypeId(0), // Using 0 as a consistent ID for all intermediate types
+                    total_size: tuple_type.total_size,
+                    max_alignment: tuple_type.max_alignment,
+                    kind: BasicTypeKind::Tuple(tuple_type.clone()),
+                });
+
+                // Add to kind_to_layout cache for deduplication
+                let tuple_kind = TypeKind::Tuple(t.fields_in_order.clone());
+                let _ = self
+                    .kind_to_layout
+                    .insert(tuple_kind, tuple_basic_type.clone());
+
                 (
                     VariantLayout {
                         size: tuple_type.total_size,
@@ -128,29 +173,30 @@ impl LayoutCache {
                     },
                     TaggedUnionVariant {
                         name: t.common.assigned_name.clone(),
-                        ty: BasicType {
-                            total_size: tuple_type.total_size,
-                            max_alignment: tuple_type.max_alignment,
-                            kind: BasicTypeKind::Tuple(tuple_type),
-                        },
+                        ty: tuple_basic_type,
                     },
                 )
             }
 
-            EnumVariantType::Nothing(n) => (
-                VariantLayout {
-                    size: MemorySize(0),
-                    alignment: MemoryAlignment::U8,
-                },
-                TaggedUnionVariant {
-                    name: n.common.assigned_name.clone(),
-                    ty: BasicType {
-                        total_size: MemorySize(0),
-                        max_alignment: MemoryAlignment::U8,
-                        kind: BasicTypeKind::Empty,
+            EnumVariantType::Nothing(n) => {
+                let empty_type = Rc::new(BasicType {
+                    id: BasicTypeId(0), // Using 0 as a consistent ID for all intermediate types
+                    total_size: MemorySize(0),
+                    max_alignment: MemoryAlignment::U8,
+                    kind: BasicTypeKind::Empty,
+                });
+
+                (
+                    VariantLayout {
+                        size: MemorySize(0),
+                        alignment: MemoryAlignment::U8,
                     },
-                },
-            ),
+                    TaggedUnionVariant {
+                        name: n.common.assigned_name.clone(),
+                        ty: empty_type,
+                    },
+                )
+            }
         });
 
         let (variant_layouts, tagged_variants): (Vec<VariantLayout>, Vec<TaggedUnionVariant>) =
@@ -174,13 +220,12 @@ impl LayoutCache {
         let tagged_union = self.layout_enum_into_tagged_union(name, variants);
 
         Rc::new(BasicType {
-            id: TypeId::new(TypeId::EMPTY),
+            id: BasicTypeId(TypeId::EMPTY),
             total_size: tagged_union.total_size,
             max_alignment: tagged_union.max_alignment,
             kind: BasicTypeKind::TaggedUnion(tagged_union),
         })
     }
-
 
     fn layout_vec_like(
         &mut self,
@@ -198,7 +243,6 @@ impl LayoutCache {
             max_alignment,
         )
     }
-
 
     /// Computes the memory layout for a type in the target architecture.
     ///
@@ -228,17 +272,38 @@ impl LayoutCache {
     #[allow(clippy::too_many_lines)]
     #[must_use]
     fn layout_type(&mut self, ty: &TypeRef) -> BasicTypeRef {
-        match &*ty.kind {
-            TypeKind::Int => create_basic_type(ty.id, BasicTypeKind::S32, MemorySize(4), MemoryAlignment::U32),
-            TypeKind::Float => {
-                create_basic_type(ty.id, BasicTypeKind::Fixed32, MemorySize(4), MemoryAlignment::U32)
+        // First check if we already have a layout for this kind
+        if let Some(existing_layout) = self.kind_to_layout.get(&ty.kind) {
+            return existing_layout.clone();
+        }
+
+        let basic_type = match &*ty.kind {
+            TypeKind::Int => create_basic_type(
+                ty.id,
+                BasicTypeKind::S32,
+                MemorySize(4),
+                MemoryAlignment::U32,
+            ),
+            TypeKind::Float => create_basic_type(
+                ty.id,
+                BasicTypeKind::Fixed32,
+                MemorySize(4),
+                MemoryAlignment::U32,
+            ),
+            TypeKind::Bool => {
+                create_basic_type(ty.id, BasicTypeKind::B8, MemorySize(1), MemoryAlignment::U8)
             }
-            TypeKind::Bool => create_basic_type(ty.id, BasicTypeKind::B8, MemorySize(1), MemoryAlignment::U8),
-            TypeKind::Unit => create_basic_type(ty.id, BasicTypeKind::Empty, MemorySize(0), MemoryAlignment::U8),
-            TypeKind::String => create_basic_type(ty.id,
-                                                  BasicTypeKind::InternalStringPointer,
-                                                  STRING_PTR_SIZE,
-                                                  STRING_PTR_ALIGNMENT,
+            TypeKind::Unit => create_basic_type(
+                ty.id,
+                BasicTypeKind::Empty,
+                MemorySize(0),
+                MemoryAlignment::U8,
+            ),
+            TypeKind::String => create_basic_type(
+                ty.id,
+                BasicTypeKind::InternalStringPointer,
+                STRING_PTR_SIZE,
+                STRING_PTR_ALIGNMENT,
             ),
             TypeKind::Range(_) => range_type(),
             TypeKind::SliceView(element_type) => {
@@ -254,7 +319,8 @@ impl LayoutCache {
             // Fixed Capacity Array and Vec Storage are the same when it comes to layout
             TypeKind::FixedCapacityAndLengthArray(element_type, fixed_size_element_count) => {
                 let element_type_basic = self.layout_type(element_type);
-                let total_size = element_type_basic.total_size.0 as usize * fixed_size_element_count
+                let total_size = element_type_basic.total_size.0 as usize
+                    * fixed_size_element_count
                     + VEC_HEADER_SIZE.0 as usize;
                 let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
                 create_basic_type(
@@ -269,7 +335,8 @@ impl LayoutCache {
             }
 
             TypeKind::DynamicLengthMapView(key_type, element_type) => {
-                let tuple_gen_type = self.layout_tuple_items(&[*key_type.clone(), *element_type.clone()]);
+                let tuple_gen_type =
+                    self.layout_tuple_items(&[key_type.clone(), element_type.clone()]);
                 create_basic_type(
                     ty.id,
                     BasicTypeKind::DynamicLengthMapView(
@@ -296,7 +363,8 @@ impl LayoutCache {
             TypeKind::GridStorage(element_type, width, height) => {
                 let layout_element = self.layout_type(element_type);
 
-                let total_capacity_byte_count = width * height * (layout_element.total_size.0 as usize);
+                let total_capacity_byte_count =
+                    width * height * (layout_element.total_size.0 as usize);
 
                 let max_alignment = max(layout_element.max_alignment, GRID_HEADER_ALIGNMENT);
                 let total_size = MemorySize(GRID_HEADER_SIZE.0 + total_capacity_byte_count as u32);
@@ -319,7 +387,8 @@ impl LayoutCache {
                 let key_offset = align(current_offset as usize, key_layout.max_alignment.into());
                 current_offset = key_offset as u32 + key_layout.total_size.0;
 
-                let value_offset = align(current_offset as usize, value_layout.max_alignment.into());
+                let value_offset =
+                    align(current_offset as usize, value_layout.max_alignment.into());
                 current_offset = value_offset as u32 + value_layout.total_size.0;
                 let bucket_content_alignment =
                     max(key_layout.max_alignment, value_layout.max_alignment);
@@ -331,17 +400,28 @@ impl LayoutCache {
                 let capacity = (*logical_size).max(1).next_power_of_two() as u16;
                 let total_size = (bucket_size * capacity as usize) + MAP_HEADER_SIZE.0 as usize;
 
-                let tuple_gen_type = self.layout_tuple_items(&[*key_type.clone(), *value_type.clone()]);
+                let tuple_gen_type =
+                    self.layout_tuple_items(&[key_type.clone(), value_type.clone()]);
+
+                // Create a tuple type that can be shared
+                let tuple_basic_type = Rc::new(BasicType {
+                    id: BasicTypeId(0),
+                    kind: BasicTypeKind::Tuple(tuple_gen_type.clone()),
+                    total_size: tuple_gen_type.total_size,
+                    max_alignment: tuple_gen_type.max_alignment,
+                });
+
+                // Add the tuple type to the cache for deduplication
+                let tuple_kind = TypeKind::Tuple(vec![key_type.clone(), value_type.clone()]);
+                let _ = self
+                    .kind_to_layout
+                    .insert(tuple_kind, tuple_basic_type.clone());
 
                 create_basic_type(
                     ty.id,
                     BasicTypeKind::MapStorage {
-                        element_type: Rc::from(BasicType {
-                            kind: BasicTypeKind::Tuple(tuple_gen_type.clone()),
-                            total_size: tuple_gen_type.total_size,
-                            max_alignment: tuple_gen_type.max_alignment,
-                        }),
-                        tuple_type: Rc::from(tuple_gen_type),
+                        element_type: tuple_basic_type,
+                        tuple_type: Box::from(tuple_gen_type),
                         logical_limit: *logical_size,
                         capacity: CountU16(capacity),
                         tuple_alignment: bucket_content_alignment,
@@ -356,10 +436,8 @@ impl LayoutCache {
                 let (element_type_basic, total_size, max_alignment) =
                     self.layout_vec_like(element_type, *fixed_size_element_count);
                 create_basic_type(
-                    BasicTypeKind::QueueStorage(
-                        element_type_basic,
-                        *fixed_size_element_count,
-                    ),
+                    ty.id,
+                    BasicTypeKind::QueueStorage(element_type_basic, *fixed_size_element_count),
                     total_size,
                     max_alignment,
                 )
@@ -369,10 +447,8 @@ impl LayoutCache {
                 let (element_type_basic, total_size, max_alignment) =
                     self.layout_vec_like(element_type, *fixed_size_element_count);
                 create_basic_type(
-                    BasicTypeKind::StackStorage(
-                        element_type_basic,
-                        *fixed_size_element_count,
-                    ),
+                    ty.id,
+                    BasicTypeKind::StackStorage(element_type_basic, *fixed_size_element_count),
                     total_size,
                     max_alignment,
                 )
@@ -420,15 +496,6 @@ impl LayoutCache {
                 )
             }
 
-            TypeKind::StackView(inner_type) => {
-                let inner_gen_type = self.layout_type(inner_type);
-                create_basic_type(
-                    inner_type.id,
-                    BasicTypeKind::DynamicLengthVecView(inner_gen_type),
-                    PTR_SIZE,
-                    PTR_ALIGNMENT,
-                )
-            }
             TypeKind::Tuple(types) => self.layout_tuple(types),
             TypeKind::NamedStruct(named_struct_type) => {
                 self.layout_named_struct(named_struct_type) // NOTE: memory_offset removed
@@ -444,35 +511,39 @@ impl LayoutCache {
             TypeKind::MutableReference(inner_type) => self.layout_mutable_reference(inner_type),
             // ----------
             TypeKind::Function(_) => panic!("function types should not be a part of codegen"),
-        }
+        };
+
+        // Store the type in the kind_to_layout cache for future deduplication
+        let _ = self
+            .kind_to_layout
+            .insert((*ty.kind).clone(), basic_type.clone());
+
+        basic_type
     }
 
     fn layout_mutable_reference(&mut self, analyzed_type: &TypeRef) -> BasicTypeRef {
-        if analyzed_type.is_primitive() {
-            // For primitives, just use the primitive type directly
-            // The ABI passes primitives inside the register directly and
-            // have a copy back scheme that copies the register back afterward.
-            return self.layout_type(analyzed_type);
-        }
-
         let inner_type = self.layout_type(analyzed_type);
-        BasicType {
+        Rc::new(BasicType {
+            id: BasicTypeId(inner_type.id.0), // TODO: Id must be correct
             total_size: inner_type.total_size,
             max_alignment: inner_type.max_alignment,
             kind: BasicTypeKind::MutablePointer(inner_type),
-        }
+        })
     }
 
-    fn layout_named_struct(&mut self, named_struct_type: &NamedStructType) -> BasicType {
+    fn layout_named_struct(&mut self, named_struct_type: &NamedStructType) -> BasicTypeRef {
         self.layout_struct(
             &named_struct_type.anon_struct_type,
-            //memory_offset,
             &named_struct_type.assigned_name,
         )
     }
 
     #[must_use]
-    pub fn layout_struct_type(&mut self, struct_type: &AnonymousStructType, name: &str) -> StructType {
+    pub fn layout_struct_type(
+        &mut self,
+        struct_type: &AnonymousStructType,
+        name: &str,
+    ) -> StructType {
         let mut offset = MemoryOffset(0);
         let mut max_alignment = MemoryAlignment::U8;
         let mut items = Vec::with_capacity(struct_type.field_name_sorted_fields.len());
@@ -511,6 +582,7 @@ impl LayoutCache {
     pub fn layout_struct(&mut self, struct_type: &AnonymousStructType, name: &str) -> BasicTypeRef {
         let inner_struct = self.layout_struct_type(struct_type, name);
         Rc::new(BasicType {
+            id: BasicTypeId(0),
             total_size: inner_struct.total_size,
             max_alignment: inner_struct.max_alignment,
             kind: BasicTypeKind::Struct(inner_struct),
@@ -520,15 +592,13 @@ impl LayoutCache {
     #[must_use]
     pub fn layout_optional_type(&mut self, inner_type: &TypeRef) -> BasicTypeRef {
         let tagged_union_type = self.layout_optional_type_items(inner_type);
-        todo!();
-        /*
-        BasicType {
+
+        Rc::new(BasicType {
+            id: BasicTypeId(0),
             total_size: tagged_union_type.total_size,
             max_alignment: tagged_union_type.max_alignment,
             kind: BasicTypeKind::Optional(tagged_union_type),
-        }
-        
-         */
+        })
     }
 
     #[must_use]
@@ -542,20 +612,21 @@ impl LayoutCache {
             size: MemorySize(0),
             alignment: MemoryAlignment::U8,
         };
-        let tagged = self.layout_tagged_union(&[none_variant, payload_variant]);
+        let tagged = Self::layout_tagged_union(&[none_variant, payload_variant]);
 
         let payload_tagged_variant = TaggedUnionVariant {
             name: "Some".to_string(),
-            ty: self.layout_type(inner_type),
+            ty: gen_type,
         };
 
         let none_tagged_variant = TaggedUnionVariant {
             name: "None".to_string(),
-            ty: BasicType {
+            ty: Rc::new(BasicType {
+                id: BasicTypeId(0),
                 kind: BasicTypeKind::Empty,
                 total_size: MemorySize(0),
                 max_alignment: MemoryAlignment::U8,
-            }.into(),
+            }),
         };
 
         TaggedUnion {
@@ -611,15 +682,25 @@ impl LayoutCache {
     }
     #[must_use]
     pub fn layout_tuple(&mut self, types: &[TypeRef]) -> BasicTypeRef {
+        // First check if we already have a layout for this tuple kind
+        let tuple_kind = TypeKind::Tuple(types.to_vec());
+        if let Some(existing_layout) = self.kind_to_layout.get(&tuple_kind) {
+            return existing_layout.clone();
+        }
+
         let tuple_type = self.layout_tuple_items(types);
 
-        // TODO: Must insert into cache
-        Rc::new(BasicType {
+        let basic_type = Rc::new(BasicType {
             id: BasicTypeId(0),
             total_size: tuple_type.total_size,
             max_alignment: tuple_type.max_alignment,
             kind: BasicTypeKind::Tuple(tuple_type),
-        })
+        });
+
+        // Add to kind_to_layout cache for deduplication
+        let _ = self.kind_to_layout.insert(tuple_kind, basic_type.clone());
+
+        basic_type
     }
 }
 
@@ -638,7 +719,7 @@ fn create_basic_type(
     })
 }
 
-const fn check_type_size(ty: &BasicType, comment: &str) {
+const fn check_type_size(ty: &BasicType, _comment: &str) {
     if ty.total_size.0 > 128 * 1024 {
         //warn!(size=%ty.total_size,%ty, comment, "this is too much");
     }
