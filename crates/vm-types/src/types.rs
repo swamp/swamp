@@ -271,8 +271,6 @@ pub enum BasicTypeKind {
     InternalSparseIterator,
     InternalRangeIterator,
     //InternalGridIterator,
-    MutablePointer(BasicTypeRef),
-
     SliceView(BasicTypeRef),
 
     // Collections
@@ -353,7 +351,7 @@ impl BasicTypeKind {
 
     #[must_use]
     pub const fn is_mutable_reference(&self) -> bool {
-        matches!(self, Self::MutablePointer(..))
+        false // MutablePointer removed - mutability is handled at analyzer level
     }
 
     pub(crate) const fn is_immutable(&self) -> bool {
@@ -420,7 +418,6 @@ impl Display for BasicTypeKind {
             Self::Tuple(tuple_type) => write!(f, "({})", comma(&tuple_type.fields)),
             Self::SliceView(a) => write!(f, "slice<{}>", a.kind),
             Self::DynamicLengthMapView(a, b) => write!(f, "slice_pair<{a}, {b}>"),
-            Self::MutablePointer(inner) => write!(f, "&mut {inner}"),
         }
     }
 }
@@ -501,52 +498,56 @@ impl Display for BasicTypeKind {
  */
 
 #[must_use]
-pub fn pointer_type_again() -> BasicType {
-    BasicType {
+pub fn pointer_type_again() -> BasicTypeRef {
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
-        kind: BasicTypeKind::MutablePointer(BasicTypeRef::from(unknown_type())),
+        kind: BasicTypeKind::InternalStringPointer, // Generic pointer type
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
-    }
+    })
 }
 
+// HACK:
 #[must_use]
-pub const fn string_type() -> BasicType {
-    BasicType {
+pub fn string_type() -> BasicTypeRef {
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::InternalStringPointer,
         total_size: STRING_PTR_SIZE,
         max_alignment: STRING_PTR_ALIGNMENT,
-    }
+    })
 }
+// Hack:
 #[must_use]
-pub const fn int_type() -> BasicType {
-    BasicType {
+pub fn int_type() -> BasicTypeRef {
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::S32,
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
-    }
+    })
 }
 
+// Hack
 #[must_use]
-pub const fn float_type() -> BasicType {
-    BasicType {
+pub fn float_type() -> BasicTypeRef {
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::Fixed32,
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
-    }
+    })
 }
 
+// HACK
 #[must_use]
-pub const fn bytes_type() -> BasicType {
-    BasicType {
+pub fn bytes_type() -> BasicTypeRef {
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::Empty,
         total_size: MemorySize(0),
         max_alignment: MemoryAlignment::U32,
-    }
+    })
 }
 
 #[must_use]
@@ -587,14 +588,15 @@ pub fn slice_type() -> BasicType {
     }
 }
 
+// HACK: Used when we don't know the actual type. that should be a rare case.
 #[must_use]
-pub const fn unknown_type() -> BasicType {
-    BasicType {
+pub fn unknown_type() -> BasicTypeRef {
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::Empty,
         total_size: MemorySize(0),
         max_alignment: MemoryAlignment::U8,
-    }
+    })
 }
 
 #[must_use]
@@ -671,54 +673,60 @@ pub const fn map_iter_type() -> BasicType {
     }
 }
 
+// HACK: a way to go around the cache. must be fixed.
 #[must_use]
-pub const fn u32_type() -> BasicType {
-    BasicType {
+pub fn u32_type() -> BasicTypeRef {
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::U32,
         total_size: MemorySize(4),
         max_alignment: MemoryAlignment::U32,
-    }
+    })
 }
 
 #[must_use]
-pub const fn u16_type() -> BasicType {
-    BasicType {
+pub fn u16_type() -> BasicTypeRef {
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::U16,
         total_size: MemorySize(2),
         max_alignment: MemoryAlignment::U16,
-    }
+    })
 }
 
+// HACK:
 #[must_use]
-pub const fn u8_type() -> BasicType {
-    BasicType {
+pub fn u8_type() -> BasicTypeRef {
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::U8,
         total_size: MemorySize(1),
         max_alignment: MemoryAlignment::U8,
-    }
+    })
 }
 
+// HACK: should go through the cache
 #[must_use]
-pub const fn b8_type() -> BasicType {
-    BasicType {
+pub fn b8_type() -> BasicTypeRef {
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::B8,
         total_size: MemorySize(1),
         max_alignment: MemoryAlignment::U8,
-    }
+    })
 }
 
+// This is a hack, used when we don't know what
+// the actual type is
 #[must_use]
-pub fn pointer_type() -> BasicType {
-    BasicType {
+pub fn pointer_type() -> BasicTypeRef {
+    // This is a
+    Rc::new(BasicType {
         id: BasicTypeId::EMPTY,
-        kind: BasicTypeKind::MutablePointer(BasicTypeRef::from(unknown_type())),
+        kind: BasicTypeKind::InternalStringPointer, // Generic pointer type
         total_size: HEAP_PTR_ON_FRAME_SIZE,
         max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
-    }
+    })
 }
 
 /// Represents a type that has been allocated to a heap relative address
@@ -749,17 +757,17 @@ impl HeapPlacedArray {
 #[derive(Clone, Debug)]
 pub struct HeapPlacedType {
     addr: HeapMemoryAddress,
-    ty: BasicType,
+    ty: BasicTypeRef,
 }
 
 impl HeapPlacedType {
     #[must_use]
-    pub const fn new(addr: HeapMemoryAddress, ty: BasicType) -> Self {
+    pub const fn new(addr: HeapMemoryAddress, ty: BasicTypeRef) -> Self {
         Self { addr, ty }
     }
 
     #[must_use]
-    pub const fn region(&self) -> HeapMemoryRegion {
+    pub fn region(&self) -> HeapMemoryRegion {
         HeapMemoryRegion {
             addr: self.addr,
             size: self.ty.total_size,
@@ -772,12 +780,12 @@ impl HeapPlacedType {
     }
 
     #[must_use]
-    pub const fn size(&self) -> MemorySize {
+    pub fn size(&self) -> MemorySize {
         self.ty.total_size
     }
 
     #[must_use]
-    pub const fn ty(&self) -> &BasicType {
+    pub const fn ty(&self) -> &BasicTypeRef {
         &self.ty
     }
 }
@@ -792,6 +800,16 @@ pub enum Destination {
     Unit, // no output
     Register(TypedRegister),
     Memory(MemoryLocation),
+}
+
+impl Destination {
+    pub fn vm_type(&self) -> Option<&VmType> {
+        match self {
+            Destination::Unit => None,
+            Destination::Register(reg) => Some(&reg.ty),
+            Destination::Memory(mem) => Some(&mem.ty),
+        }
+    }
 }
 
 impl Display for Destination {
@@ -870,14 +888,9 @@ impl Destination {
         matches!(self, Self::Register(_))
     }
     #[must_use]
-    pub fn ty(&self) -> &BasicType {
+    pub fn ty(&self) -> &BasicTypeRef {
         match self {
-            Self::Unit => &BasicType {
-                id: BasicTypeId::EMPTY,
-                kind: BasicTypeKind::Empty,
-                total_size: MemorySize(0),
-                max_alignment: MemoryAlignment::U8,
-            },
+            Self::Unit => panic!("no type"),
             Self::Register(reg) => &reg.ty.basic_type,
             Self::Memory(location) => &location.ty.basic_type,
         }
@@ -1012,8 +1025,8 @@ impl TypedRegister {
 
 impl TypedRegister {
     #[must_use]
-    pub fn final_type(&self) -> BasicType {
-        self.ty.underlying()
+    pub fn final_type(&self) -> BasicTypeRef {
+        self.ty.basic_type.clone()
     }
 }
 
@@ -1058,7 +1071,7 @@ impl TypedRegister {
     }
 
     #[must_use]
-    pub fn ty(&self) -> &BasicType {
+    pub fn ty(&self) -> &BasicTypeRef {
         &self.ty.basic_type
     }
 
@@ -1087,8 +1100,8 @@ impl TypedRegister {
     }
 
     #[must_use]
-    pub fn underlying(&self) -> BasicType {
-        self.ty.underlying()
+    pub fn underlying(&self) -> BasicTypeRef {
+        self.ty.basic_type.clone()
     }
 }
 
@@ -1242,8 +1255,8 @@ impl VmType {
             || matches!(self.basic_type.kind, BasicTypeKind::InternalStringPointer)
     }
     #[must_use]
-    pub fn underlying(&self) -> BasicType {
-        self.basic_type.underlying().clone()
+    pub fn basic_type(&self) -> &BasicTypeRef {
+        &self.basic_type
     }
 }
 
@@ -1286,8 +1299,8 @@ impl FramePlacedType {
     }
 
     #[must_use]
-    pub fn final_type(&self) -> &BasicType {
-        self.ty.underlying()
+    pub fn final_type(&self) -> BasicTypeRef {
+        self.ty.clone()
     }
 
     #[must_use]
@@ -1461,19 +1474,18 @@ impl BasicType {
 impl BasicType {
     #[must_use]
     pub fn referenced_type(&self) -> &Self {
-        match &self.kind {
-            BasicTypeKind::MutablePointer(inner_type) => inner_type,
-            _ => panic!("can not take out referenced type {self:?}"),
-        }
+        // MutablePointer removed - mutability handled at analyzer level
+        panic!("referenced_type() is no longer supported - MutablePointer was removed")
     }
 }
 
 impl BasicType {
     #[must_use]
     pub fn make_pointer(&self) -> Self {
+        // MutablePointer removed - return a generic pointer type
         Self {
             id: BasicTypeId::EMPTY,
-            kind: BasicTypeKind::MutablePointer(BasicTypeRef::from(self.clone())),
+            kind: BasicTypeKind::InternalStringPointer,
             total_size: HEAP_PTR_ON_FRAME_SIZE,
             max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
         }
@@ -1529,21 +1541,14 @@ impl BasicType {
 
     #[must_use]
     pub fn create_mutable_pointer(&self) -> Self {
+        // MutablePointer removed - return a generic pointer type
         debug_assert!(!self.is_mutable_reference());
 
         Self {
             id: BasicTypeId::EMPTY,
-            kind: BasicTypeKind::MutablePointer(BasicTypeRef::from(self.clone())),
+            kind: BasicTypeKind::InternalStringPointer,
             total_size: HEAP_PTR_ON_FRAME_SIZE,
             max_alignment: HEAP_PTR_ON_FRAME_ALIGNMENT,
-        }
-    }
-
-    #[must_use]
-    pub fn underlying(&self) -> &Self {
-        match &self.kind {
-            BasicTypeKind::MutablePointer(inner) => inner,
-            _ => self,
         }
     }
 
@@ -1592,7 +1597,7 @@ impl BasicType {
     }
 
     #[must_use]
-    pub fn element(&self) -> Option<&Self> {
+    pub fn element(&self) -> Option<&BasicTypeRef> {
         match &self.kind {
             BasicTypeKind::StackStorage(inner, _)
             | BasicTypeKind::GridView(inner)
@@ -1645,34 +1650,29 @@ impl BasicType {
 
     #[must_use]
     pub fn is_int(&self) -> bool {
-        let deref = &self.underlying();
-
-        matches!(deref.kind, BasicTypeKind::S32)
-            && deref.total_size.0 == 4
-            && deref.max_alignment == MemoryAlignment::U32
+        matches!(self.kind, BasicTypeKind::S32)
+            && self.total_size.0 == 4
+            && self.max_alignment == MemoryAlignment::U32
     }
     #[must_use]
     pub fn is_float(&self) -> bool {
-        let deref = &self.underlying();
-        matches!(deref.kind, BasicTypeKind::Fixed32)
-            && deref.total_size.0 == 4
-            && deref.max_alignment == MemoryAlignment::U32
+        matches!(self.kind, BasicTypeKind::Fixed32)
+            && self.total_size.0 == 4
+            && self.max_alignment == MemoryAlignment::U32
     }
 
     #[must_use]
     pub fn is_str(&self) -> bool {
-        let deref = &self.underlying();
-        matches!(deref.kind, BasicTypeKind::InternalStringPointer)
-            && deref.total_size == STRING_PTR_SIZE
-            && deref.max_alignment == STRING_PTR_ALIGNMENT
+        matches!(self.kind, BasicTypeKind::InternalStringPointer)
+            && self.total_size == STRING_PTR_SIZE
+            && self.max_alignment == STRING_PTR_ALIGNMENT
     }
 
     #[must_use]
     pub fn is_bool(&self) -> bool {
-        let deref = &self.underlying();
-        matches!(deref.kind, BasicTypeKind::B8)
-            && deref.total_size.0 == 1
-            && deref.max_alignment == MemoryAlignment::U8
+        matches!(self.kind, BasicTypeKind::B8)
+            && self.total_size.0 == 1
+            && self.max_alignment == MemoryAlignment::U8
     }
 }
 
@@ -2066,9 +2066,7 @@ pub fn write_basic_type(
         BasicTypeKind::InternalRangeHeader => {
             write!(f, "range")
         }
-        BasicTypeKind::MutablePointer(inner) => {
-            write!(f, "&mut {inner}")
-        }
+
         BasicTypeKind::FixedCapacityArray(element_type, size) => {
             write!(f, "[{element_type}, {size}]")
         }

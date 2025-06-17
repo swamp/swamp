@@ -48,8 +48,8 @@ fn test_primitive_types_deduplication() {
 
     let mut layout_cache = LayoutCache::new();
 
-    let layout1 = layout_cache.layout(int1);
-    let layout2 = layout_cache.layout(int2);
+    let layout1 = layout_cache.layout(&int1);
+    let layout2 = layout_cache.layout(&int2);
 
     // The two ints should have the exact same pointer in memory
     assert!(Rc::ptr_eq(&layout1, &layout2));
@@ -95,7 +95,7 @@ fn test_struct_field_offsets() {
     let struct_type = type_cache.anonymous_struct(anon_struct);
 
     let mut layout_cache = LayoutCache::new();
-    let struct_layout = layout_cache.layout(struct_type);
+    let struct_layout = layout_cache.layout(&struct_type);
 
     // Verify it's a struct type
     match &struct_layout.kind {
@@ -170,7 +170,7 @@ fn test_nested_struct_deduplication() {
 
     // Layout the outer struct
     let mut layout_cache = LayoutCache::new();
-    let outer_layout = layout_cache.layout(outer_struct_type);
+    let outer_layout = layout_cache.layout(&outer_struct_type);
 
     match &outer_layout.kind {
         BasicTypeKind::Struct(outer_struct) => {
@@ -236,8 +236,8 @@ fn test_tuple_deduplication() {
     let tuple2 = type_cache.tuple(vec![int_type, bool_type]);
 
     let mut layout_cache = LayoutCache::new();
-    let layout1 = layout_cache.layout(tuple1);
-    let layout2 = layout_cache.layout(tuple2);
+    let layout1 = layout_cache.layout(&tuple1);
+    let layout2 = layout_cache.layout(&tuple2);
 
     // Verify that they point to the same memory location
     assert!(Rc::ptr_eq(&layout1, &layout2));
@@ -286,8 +286,8 @@ fn test_optional_type_deduplication() {
 
     // Layout both optional types
     let mut layout_cache = LayoutCache::new();
-    let layout1 = layout_cache.layout(optional1);
-    let layout2 = layout_cache.layout(optional2);
+    let layout1 = layout_cache.layout(&optional1);
+    let layout2 = layout_cache.layout(&optional2);
 
     // Verify they point to same memory
     assert!(Rc::ptr_eq(&layout1, &layout2));
@@ -339,8 +339,8 @@ fn test_collection_type_deduplication() {
     let vec2 = type_cache.vec_storage(&int_type, 20);
 
     let mut layout_cache = LayoutCache::new();
-    let layout1 = layout_cache.layout(vec1);
-    let layout2 = layout_cache.layout(vec2);
+    let layout1 = layout_cache.layout(&vec1);
+    let layout2 = layout_cache.layout(&vec2);
 
     // These should be in different memory locations, since the capacities are not the same
     assert!(!Rc::ptr_eq(&layout1, &layout2));
@@ -386,8 +386,8 @@ fn test_map_storage_deduplication() {
 
     // Layout both map types
     let mut layout_cache = LayoutCache::new();
-    let layout1 = layout_cache.layout(map1);
-    let layout2 = layout_cache.layout(map2);
+    let layout1 = layout_cache.layout(&map1);
+    let layout2 = layout_cache.layout(&map2);
 
     // Verify they are pointing to the same memory
     assert!(Rc::ptr_eq(&layout1, &layout2));
@@ -474,7 +474,7 @@ fn test_enum_variant_deduplication() {
 
     let enum_type = create_test_enum(&mut type_cache);
 
-    let enum_layout = layout_cache.layout(enum_type);
+    let enum_layout = layout_cache.layout(&enum_type);
 
     match &enum_layout.kind {
         BasicTypeKind::TaggedUnion(tagged_union) => {
@@ -634,8 +634,8 @@ fn test_structural_type_equality() {
 
     // Layout both structs
     let mut layout_cache = LayoutCache::new();
-    let layout1 = layout_cache.layout(struct_type1);
-    let layout2 = layout_cache.layout(struct_type2);
+    let layout1 = layout_cache.layout(&struct_type1);
+    let layout2 = layout_cache.layout(&struct_type2);
 
     // They should be different layout objects because they have different field names
     // even though they're structurally similar

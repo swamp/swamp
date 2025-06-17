@@ -56,7 +56,7 @@ impl LayoutCache {
             kind_to_layout: SeqMap::default(),
         }
     }
-    pub fn layout(&mut self, analyzed_type: TypeRef) -> BasicTypeRef {
+    pub fn layout(&mut self, analyzed_type: &TypeRef) -> BasicTypeRef {
         // First check if we already have a layout for this type ID
         if let Some(x) = self.id_to_layout.get(&analyzed_type.id) {
             return x.clone();
@@ -330,7 +330,7 @@ impl LayoutCache {
                     // Process each field type
                     for field in struct_type.field_name_sorted_fields.values() {
                         let field_type = &field.field_type;
-                        let field_layout = self.layout(field_type.clone());
+                        let field_layout = self.layout(&field_type);
                         let _ = self.id_to_layout.insert(field_type.id, field_layout);
                     }
                 }
@@ -341,7 +341,7 @@ impl LayoutCache {
                     {
                         for field in anon_struct.field_name_sorted_fields.values() {
                             let field_type = &field.field_type;
-                            let field_layout = self.layout(field_type.clone());
+                            let field_layout = self.layout(&field_type);
                             let _ = self.id_to_layout.insert(field_type.id, field_layout);
                         }
                     }
@@ -349,7 +349,7 @@ impl LayoutCache {
                 TypeKind::Tuple(tuple_types) => {
                     // Process each tuple element type
                     for elem_type in tuple_types {
-                        let elem_layout = self.layout(elem_type.clone());
+                        let elem_layout = self.layout(&elem_type);
                         let _ = self.id_to_layout.insert(elem_type.id, elem_layout);
                     }
                 }
@@ -439,11 +439,11 @@ impl LayoutCache {
             }
             TypeKind::DynamicLengthMapView(key_type, value_type) => {
                 // Layout key type
-                let key_layout = self.layout(key_type.clone());
+                let key_layout = self.layout(&key_type);
                 let _ = self.id_to_layout.insert(key_type.id, key_layout.clone());
 
                 // Layout value type
-                let value_layout = self.layout(value_type.clone());
+                let value_layout = self.layout(&value_type);
                 let _ = self
                     .id_to_layout
                     .insert(value_type.id, value_layout.clone());
@@ -479,11 +479,11 @@ impl LayoutCache {
             }
             TypeKind::MapStorage(key_type, value_type, logical_limit) => {
                 // Layout key type
-                let key_layout = self.layout(key_type.clone());
+                let key_layout = self.layout(&key_type);
                 let _ = self.id_to_layout.insert(key_type.id, key_layout.clone());
 
                 // Layout value type
-                let value_layout = self.layout(value_type.clone());
+                let value_layout = self.layout(&value_type);
                 let _ = self
                     .id_to_layout
                     .insert(value_type.id, value_layout.clone());
@@ -560,7 +560,7 @@ impl LayoutCache {
             ),
             TypeKind::MutableReference(inner_type) => self.layout_mutable_reference(inner_type),
             TypeKind::GridView(element_type) => {
-                let element_layout = self.layout(element_type.clone());
+                let element_layout = self.layout(&element_type);
                 let _ = self
                     .id_to_layout
                     .insert(element_type.id, element_layout.clone());
@@ -573,7 +573,7 @@ impl LayoutCache {
                 })
             }
             TypeKind::GridStorage(element_type, width, height) => {
-                let element_layout = self.layout(element_type.clone());
+                let element_layout = self.layout(&element_type);
                 let _ = self
                     .id_to_layout
                     .insert(element_type.id, element_layout.clone());
@@ -592,7 +592,7 @@ impl LayoutCache {
             }
 
             TypeKind::SliceView(element_type) => {
-                let element_layout = self.layout(element_type.clone());
+                let element_layout = self.layout(&element_type);
                 let _ = self
                     .id_to_layout
                     .insert(element_type.id, element_layout.clone());
@@ -605,7 +605,7 @@ impl LayoutCache {
                 })
             }
             TypeKind::SparseStorage(element_type, capacity) => {
-                let element_layout = self.layout(element_type.clone());
+                let element_layout = self.layout(&element_type);
                 let _ = self
                     .id_to_layout
                     .insert(element_type.id, element_layout.clone());
@@ -619,7 +619,7 @@ impl LayoutCache {
             }
 
             TypeKind::SparseView(element_type) => {
-                let element_layout = self.layout(element_type.clone());
+                let element_layout = self.layout(&element_type);
                 let _ = self
                     .id_to_layout
                     .insert(element_type.id, element_layout.clone());
@@ -632,7 +632,7 @@ impl LayoutCache {
                 })
             }
             TypeKind::StackStorage(element_type, capacity) => {
-                let element_layout = self.layout(element_type.clone());
+                let element_layout = self.layout(&element_type);
                 let _ = self
                     .id_to_layout
                     .insert(element_type.id, element_layout.clone());
@@ -645,7 +645,7 @@ impl LayoutCache {
                 })
             }
             TypeKind::StackView(element_type) => {
-                let element_layout = self.layout(element_type.clone());
+                let element_layout = self.layout(&element_type);
                 let _ = self
                     .id_to_layout
                     .insert(element_type.id, element_layout.clone());
@@ -658,7 +658,7 @@ impl LayoutCache {
                 })
             }
             TypeKind::QueueStorage(element_type, capacity) => {
-                let element_layout = self.layout(element_type.clone());
+                let element_layout = self.layout(&element_type);
                 let _ = self
                     .id_to_layout
                     .insert(element_type.id, element_layout.clone());
@@ -671,7 +671,7 @@ impl LayoutCache {
                 })
             }
             TypeKind::QueueView(element_type) => {
-                let element_layout = self.layout(element_type.clone());
+                let element_layout = self.layout(&element_type);
                 let _ = self
                     .id_to_layout
                     .insert(element_type.id, element_layout.clone());
@@ -704,13 +704,8 @@ impl LayoutCache {
     }
 
     fn layout_mutable_reference(&mut self, analyzed_type: &TypeRef) -> BasicTypeRef {
-        let inner_type = self.layout_type(analyzed_type);
-        Rc::new(BasicType {
-            id: BasicTypeId(inner_type.id.0), // TODO: Id must be correct
-            total_size: inner_type.total_size,
-            max_alignment: inner_type.max_alignment,
-            kind: BasicTypeKind::MutablePointer(inner_type),
-        })
+        // MutablePointer removed - just return the inner type since mutability is handled at analyzer level
+        self.layout_type(analyzed_type)
     }
 
     fn layout_named_struct(
@@ -758,7 +753,7 @@ impl LayoutCache {
 
         for (field_name, field_type) in &struct_type.field_name_sorted_fields {
             // Use layout instead of layout_type to ensure proper caching
-            let field_layout = self.layout(field_type.field_type.clone());
+            let field_layout = self.layout(&field_type.field_type);
             check_type_size(&field_layout, &format!("field {name}::{field_name}"));
 
             // Make sure the field type is in the id_to_layout map
@@ -801,7 +796,7 @@ impl LayoutCache {
         // Always process each field's type to ensure it's in the cache
         for (_field_name, struct_field) in &struct_type.field_name_sorted_fields {
             let field_type = &struct_field.field_type;
-            let _field_layout = self.layout(field_type.clone());
+            let _field_layout = self.layout(&field_type);
 
             // The layout method already handles storing in both caches
         }
@@ -842,7 +837,7 @@ impl LayoutCache {
         }
 
         // Layout the inner type first
-        let inner_layout = self.layout(inner_type.clone());
+        let inner_layout = self.layout(&inner_type);
 
         // Store the inner type in both caches
         let _ = self
@@ -920,7 +915,7 @@ impl LayoutCache {
         let mut max_alignment = MemoryAlignment::U8;
         for ty in types {
             // Use layout instead of layout_type to ensure proper caching
-            let elem_layout = self.layout(ty.clone());
+            let elem_layout = self.layout(&ty);
 
             // Make sure the element type is in the id_to_layout map
             let _ = self.id_to_layout.insert(ty.id, elem_layout.clone());
@@ -936,7 +931,7 @@ impl LayoutCache {
 
         for (i, ty) in types.iter().enumerate() {
             // Reuse the layout from the cache
-            let elem_layout = self.layout(ty.clone());
+            let elem_layout = self.layout(&ty);
 
             offset = align_to(offset, elem_layout.max_alignment);
 
@@ -963,7 +958,7 @@ impl LayoutCache {
     pub fn layout_tuple(&mut self, types: &[TypeRef], tuple_id: TypeId) -> BasicTypeRef {
         // Always process each inner type to ensure it's in the cache
         for ty in types {
-            let inner_layout = self.layout(ty.clone());
+            let inner_layout = self.layout(&ty);
             let _ = self.id_to_layout.insert(ty.id, inner_layout.clone());
             let _ = self
                 .kind_to_layout
@@ -1011,7 +1006,7 @@ fn create_basic_type(
     })
 }
 
-const fn check_type_size(ty: &BasicType, _comment: &str) {
+pub const fn check_type_size(ty: &BasicType, _comment: &str) {
     if ty.total_size.0 > 128 * 1024 {
         //warn!(size=%ty.total_size,%ty, comment, "this is too much");
     }

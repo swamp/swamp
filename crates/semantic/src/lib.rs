@@ -573,7 +573,7 @@ pub struct MapType {
 
 #[derive(Debug, Clone)]
 pub enum PostfixKind {
-    StructField(AnonymousStructType, usize),
+    StructField(TypeRef, usize),
     MemberCall(FunctionRef, Vec<ArgumentExpression>),
     OptionalChainingOperator,           // ? operator
     NoneCoalescingOperator(Expression), // ?? operator
@@ -800,7 +800,7 @@ pub enum ExpressionKind {
     If(BooleanExpression, Box<Expression>, Option<Box<Expression>>),
     When(Vec<WhenBinding>, Box<Expression>, Option<Box<Expression>>),
 
-    TupleDestructuring(Vec<VariableRef>, Vec<TypeRef>, Box<Expression>),
+    TupleDestructuring(Vec<VariableRef>, TypeRef, Box<Expression>),
 
     Lambda(Vec<VariableRef>, Box<Expression>),
     BorrowMutRef(Box<SingleLocationExpression>),
@@ -817,8 +817,8 @@ pub enum Literal {
     StringLiteral(String),
     BoolLiteral(bool),
 
-    EnumVariantLiteral(EnumType, EnumVariantType, EnumLiteralData),
-    TupleLiteral(Vec<TypeRef>, Vec<Expression>),
+    EnumVariantLiteral(TypeRef, EnumVariantType, EnumLiteralData),
+    TupleLiteral(TypeRef, Vec<Expression>),
 
     InitializerList(TypeRef, Vec<Expression>),
     InitializerPairList(TypeRef, Vec<(Expression, Expression)>),
@@ -1178,16 +1178,16 @@ impl ProgramState {
 #[derive(Clone)]
 pub enum EnumLiteralData {
     Nothing,
-    Tuple(Vec<Expression>),
-    Struct(Vec<(usize, Option<Node>, Expression)>),
+    Tuple(TypeRef, Vec<Expression>),
+    Struct(TypeRef, Vec<(usize, Option<Node>, Expression)>),
 }
 
 impl Debug for EnumLiteralData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::Nothing => Ok(()),
-            Self::Tuple(x) => write!(f, "{x:?}"),
-            Self::Struct(s) => write!(f, "{s:?}"),
+            Self::Tuple(_, x) => write!(f, "{x:?}"),
+            Self::Struct(_, s) => write!(f, "{s:?}"),
         }
     }
 }

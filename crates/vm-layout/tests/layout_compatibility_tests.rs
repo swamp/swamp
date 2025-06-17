@@ -138,7 +138,7 @@ pub fn test_struct_with_mixed_alignments() {
     let struct_ref = TypeRef::from(type_cache.anonymous_struct(struct_type));
 
     let mut layout_cache = LayoutCache::new();
-    let struct_layout = layout_cache.layout(struct_ref);
+    let struct_layout = layout_cache.layout(&struct_ref);
 
     // In C ABI, this would be laid out as:
     // int_field:   offset 0, size 4
@@ -199,7 +199,7 @@ pub fn test_struct_with_trailing_padding() {
     let struct_ref = TypeRef::from(type_cache.anonymous_struct(struct_type));
 
     let mut layout_cache = LayoutCache::new();
-    let struct_layout = layout_cache.layout(struct_ref);
+    let struct_layout = layout_cache.layout(&struct_ref);
 
     // In C ABI, this would be laid out as:
     // int_field:  offset 0, size 4
@@ -280,7 +280,7 @@ pub fn test_nested_struct_alignment() {
     let outer_struct_ref = TypeRef::from(type_cache.anonymous_struct(outer_struct));
 
     let mut layout_cache = LayoutCache::new();
-    let outer_layout = layout_cache.layout(outer_struct_ref);
+    let outer_layout = layout_cache.layout(&outer_struct_ref);
 
     // In C ABI, this would be laid out as:
     // c:                offset 0, size 1
@@ -336,7 +336,7 @@ pub fn test_tuple_alignment() {
     let tuple_ref = type_cache.tuple(types);
 
     let mut layout_cache = LayoutCache::new();
-    let tuple_layout = layout_cache.layout(tuple_ref);
+    let tuple_layout = layout_cache.layout(&tuple_ref);
 
     // In C ABI, this would be:
     // field 0 (int):   offset 0, size 4
@@ -371,7 +371,7 @@ pub fn test_tagged_union_layout() {
     let enum_ref = create_mixed_alignment_enum(&mut type_cache);
 
     let mut layout_cache = LayoutCache::new();
-    let enum_layout = layout_cache.layout(enum_ref);
+    let enum_layout = layout_cache.layout(&enum_ref);
 
     // In C ABI, a tagged union should be:
     // tag:     offset 0, size 1 (for 3 variants)
@@ -461,7 +461,7 @@ pub fn test_complex_nested_structure() {
     let struct_ref = TypeRef::from(type_cache.anonymous_struct(struct_type));
 
     let mut layout_cache = LayoutCache::new();
-    let layout = layout_cache.layout(struct_ref);
+    let layout = layout_cache.layout(&struct_ref);
 
     // C ABI:
     // f:          offset 0, size 4
@@ -514,7 +514,7 @@ pub fn test_optional_type_layout() {
     let optional_int = type_cache.optional(&int_type);
 
     let mut layout_cache = LayoutCache::new();
-    let optional_layout = layout_cache.layout(optional_int);
+    let optional_layout = layout_cache.layout(&optional_int);
 
     // C ABI layout:
     // tag:     offset 0, size 1 (for 2 variants)
@@ -554,7 +554,7 @@ pub fn test_empty_struct_layout() {
     let empty_struct_ref = TypeRef::from(type_cache.anonymous_struct(empty_struct));
 
     let mut layout_cache = LayoutCache::new();
-    let layout = layout_cache.layout(empty_struct_ref);
+    let layout = layout_cache.layout(&empty_struct_ref);
 
     // Note, here is a difference towards C ABI
     // In C ABI an empty struct typically has size 1
@@ -608,7 +608,7 @@ pub fn test_struct_with_max_alignment_field_at_end() {
     let struct_ref = TypeRef::from(type_cache.anonymous_struct(struct_type));
 
     let mut layout_cache = LayoutCache::new();
-    let layout = layout_cache.layout(struct_ref);
+    let layout = layout_cache.layout(&struct_ref);
 
     // C ABI:
     // b1:      offset 0, size 1

@@ -1275,6 +1275,6 @@ const fn to_absolute_branch_pc(ip: u32) -> DecoratedOperandAccessKind {
 }
 
 fn to_register(val: u8, ty: &BasicType) -> TypedRegister {
-    let frame_placed = FramePlacedType::new(FrameMemoryAddress(0), ty.clone());
+    let frame_placed = FramePlacedType::new(FrameMemoryAddress(0), ty.clone().into());
     TypedRegister::new_frame_placed(val, frame_placed)
 }
