@@ -3,6 +3,8 @@ use crate::supporting_types::{AnonymousStructType, EnumType, NamedStructType, Si
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
+pub type TypeRef = Rc<Type>;
+
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum TypeKind {
     // Primitives
@@ -16,7 +18,7 @@ pub enum TypeKind {
     Tuple(Vec<Rc<Type>>),
     NamedStruct(NamedStructType),
     AnonymousStruct(AnonymousStructType),
-    Range(AnonymousStructType),
+    Range(TypeRef),
 
     Enum(EnumType),
 
@@ -63,7 +65,19 @@ impl Display for TypeKind {
             Self::Tuple(types) => write!(f, "({})", seq_fmt::comma(types)),
             Self::NamedStruct(named_struct) => write!(f, "{named_struct}"),
             Self::AnonymousStruct(anon_struct) => write!(f, "{anon_struct}"),
-            Self::Range(range) => write!(f, "range{range}"),
+            Self::Range(range) => {
+                if let TypeKind::NamedStruct(named_struct) = &*range.kind {
+                    if let TypeKind::AnonymousStruct(anon_struct) =
+                        &*named_struct.anon_struct_type.kind
+                    {
+                        write!(f, "range{anon_struct}")
+                    } else {
+                        write!(f, "range<invalid>")
+                    }
+                } else {
+                    write!(f, "range<invalid>")
+                }
+            }
             Self::Enum(enum_type) => write!(f, "{enum_type}"),
             Self::Function(signature) => write!(f, "{signature}"),
             Self::Optional(inner) => write!(f, "{inner}?"),

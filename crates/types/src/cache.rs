@@ -1,6 +1,6 @@
 use crate::flags::TypeFlags;
 use crate::supporting_types::{AnonymousStructType, EnumType, NamedStructType, Signature};
-use crate::type_kind::TypeKind;
+use crate::type_kind::{TypeKind, TypeRef};
 use crate::{Type, TypeId};
 use seq_map::SeqMap;
 use std::rc::Rc;
@@ -204,13 +204,32 @@ impl TypeCache {
             }
 
             (TypeKind::Range(range_a), TypeKind::Range(range_b)) => {
+                // Extract NamedStructType from TypeRef, then AnonymousStructType from that
+                let named_a = match &*range_a.kind {
+                    TypeKind::NamedStruct(named_struct) => named_struct,
+                    _ => return false,
+                };
+                let named_b = match &*range_b.kind {
+                    TypeKind::NamedStruct(named_struct) => named_struct,
+                    _ => return false,
+                };
+
+                let anon_a = match &*named_a.anon_struct_type.kind {
+                    TypeKind::AnonymousStruct(anon_struct) => anon_struct,
+                    _ => return false,
+                };
+                let anon_b = match &*named_b.anon_struct_type.kind {
+                    TypeKind::AnonymousStruct(anon_struct) => anon_struct,
+                    _ => return false,
+                };
+
                 // Compare range types
-                range_a.field_name_sorted_fields.len() == range_b.field_name_sorted_fields.len()
-                    && range_a.field_name_sorted_fields.keys().all(|key| {
-                        range_b.field_name_sorted_fields.contains_key(key)
+                anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
+                    && anon_a.field_name_sorted_fields.keys().all(|key| {
+                        anon_b.field_name_sorted_fields.contains_key(key)
                             && self.compatible_with(
-                                &range_a.field_name_sorted_fields[key].field_type,
-                                &range_b.field_name_sorted_fields[key].field_type,
+                                &anon_a.field_name_sorted_fields[key].field_type,
+                                &anon_b.field_name_sorted_fields[key].field_type,
                             )
                     })
             }
@@ -575,8 +594,8 @@ impl TypeCache {
         struct_type
     }
 
-    pub fn range(&mut self, range_struct: AnonymousStructType) -> Rc<Type> {
-        let range_kind = TypeKind::Range(range_struct);
+    pub fn range(&mut self, range_struct_ref: TypeRef) -> Rc<Type> {
+        let range_kind = TypeKind::Range(range_struct_ref);
 
         if let Some(existing) = self.find_type(&range_kind) {
             return existing;

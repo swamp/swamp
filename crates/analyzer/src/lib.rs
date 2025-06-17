@@ -37,6 +37,7 @@ use swamp_semantic::{
     WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
+use swamp_types::TypeKind;
 use swamp_types::prelude::*;
 use tracing::{error, info};
 
@@ -1039,7 +1040,20 @@ impl<'a> Analyzer<'a> {
         let anon_struct_ref = match &tv.underlying() {
             Type::NamedStruct(struct_type) => struct_type.anon_struct_type.clone(),
             Type::AnonymousStruct(anon_struct) => anon_struct.clone(),
-            Type::Range(anon_struct) => anon_struct.clone(),
+            Type::Range(range_struct_ref) => {
+                // Extract NamedStructType from TypeRef, then AnonymousStructType from that
+                if let TypeKind::NamedStruct(named_struct) = &*range_struct_ref.kind {
+                    if let TypeKind::AnonymousStruct(anon_struct) =
+                        &*named_struct.anon_struct_type.kind
+                    {
+                        anon_struct.clone()
+                    } else {
+                        return Err(self.create_err(ErrorKind::UnknownStructField, field_name));
+                    }
+                } else {
+                    return Err(self.create_err(ErrorKind::UnknownStructField, field_name));
+                }
+            }
             _ => return Err(self.create_err(ErrorKind::UnknownStructField, field_name)),
         };
 

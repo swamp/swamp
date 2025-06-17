@@ -39,7 +39,7 @@ impl CodeBuilder<'_> {
         let collection_ptr_reg = self.emit_scalar_rvalue(&iterable.resolved_expression, ctx);
         let underlying_collection = collection_type.underlying();
         match underlying_collection {
-            Type::Range(anon_struct_type) => {
+            Type::Range(_range_struct_ref) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,

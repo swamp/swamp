@@ -82,7 +82,7 @@ impl Display for StructTypeField {
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Signature {
     pub parameters: Vec<TypeForParameter>,
-    pub return_type: Box<Type>,
+    pub return_type: TypeRef,
 }
 
 impl Signature {
@@ -122,12 +122,25 @@ impl Signature {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, Clone)]
 pub struct TypeForParameter {
     pub name: String,
-    pub resolved_type: Type,
+    pub resolved_type: TypeRef,
     pub is_mutable: bool,
     pub node: Option<ParameterNode>,
+}
+
+impl PartialEq for TypeForParameter {
+    fn eq(&self, other: &Self) -> bool {
+        self.resolved_type == other.resolved_type && self.is_mutable == other.is_mutable
+    }
+}
+
+impl std::hash::Hash for TypeForParameter {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.resolved_type.hash(state);
+        self.is_mutable.hash(state);
+    }
 }
 
 impl Display for TypeForParameter {

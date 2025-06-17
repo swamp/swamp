@@ -56,7 +56,15 @@ impl Analyzer<'_> {
             .unwrap()
             .clone();
 
-        let range_type = Type::Range(range_anonymous_struct_type.anon_struct_type);
+        // Create a TypeRef for the named struct (which contains the anonymous struct)
+        let named_struct_type_ref = self
+            .shared
+            .state
+            .type_cache
+            .named_struct(range_anonymous_struct_type);
+
+        let range_type = self.shared.state.type_cache.range(named_struct_type_ref);
+
         let is_inclusive = matches!(mode, swamp_ast::RangeMode::Inclusive);
 
         let bool_expr_kind = ExpressionKind::Literal(BoolLiteral(is_inclusive));
