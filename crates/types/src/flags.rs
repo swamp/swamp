@@ -77,9 +77,6 @@ impl TypeFlags {
             TypeKind::Function(_) => {
                 flags = flags.union(Self::IS_FUNCTION_TYPE);
             }
-            TypeKind::MutableReference(_) => {
-                flags = flags.union(Self::IS_BLITTABLE).union(Self::IS_DIRECT);
-            }
             TypeKind::Enum(enum_type) => {
                 if enum_type.are_all_variants_without_payload() {
                     flags = flags.union(Self::IS_BLITTABLE);

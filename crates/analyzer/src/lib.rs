@@ -96,28 +96,28 @@ pub const fn convert_span(without: &swamp_ast::SpanWithoutFileId, file_id: FileI
     }
 }
 
-/// Type checking context
+/// TypeRef checking context
 #[derive(Debug, Clone)]
 pub struct TypeContext<'a> {
     /// Expected type for the current expression
-    pub expected_type: Option<&'a Type>,
+    pub expected_type: Option<&'a TypeRef>,
 }
 
 impl<'a> TypeContext<'a> {
     #[must_use]
-    pub const fn new(expected_type: Option<&'a Type>) -> Self {
+    pub const fn new(expected_type: Option<&'a TypeRef>) -> Self {
         Self { expected_type }
     }
 
     #[must_use]
-    pub const fn new_argument(required_type: &'a Type) -> Self {
+    pub const fn new_argument(required_type: &'a TypeRef) -> Self {
         Self {
             expected_type: Some(required_type),
         }
     }
 
     #[must_use]
-    pub const fn new_unsure_argument(expected_type: Option<&'a Type>) -> Self {
+    pub const fn new_unsure_argument(expected_type: Option<&'a TypeRef>) -> Self {
         Self { expected_type }
     }
 
@@ -129,18 +129,18 @@ impl<'a> TypeContext<'a> {
     }
 
     #[must_use]
-    pub const fn new_function(required_type: &'a Type) -> Self {
+    pub const fn new_function(required_type: &'a TypeRef) -> Self {
         Self {
             expected_type: Some(required_type),
         }
     }
 
     #[must_use]
-    pub const fn with_expected_type(&self, expected_type: Option<&'a Type>) -> Self {
+    pub const fn with_expected_type(&self, expected_type: Option<&'a TypeRef>) -> Self {
         Self { expected_type }
     }
 
-    pub(crate) const fn we_know_expected_type(&self, found_type: &'a Type) -> Self {
+    pub(crate) const fn we_know_expected_type(&self, found_type: &'a TypeRef) -> Self {
         self.with_expected_type(Some(found_type))
     }
 }
@@ -329,14 +329,14 @@ impl<'a> Analyzer<'a> {
         (path, self.get_text(&ident.name.0).to_string())
     }
 
-    fn analyze_return_type(&mut self, function: &swamp_ast::Function) -> Result<Type, Error> {
+    fn analyze_return_type(&mut self, function: &swamp_ast::Function) -> Result<TypeRef, Error> {
         let ast_return_type = match function {
             swamp_ast::Function::Internal(x) => &x.declaration.return_type,
             swamp_ast::Function::External(_, x) => &x.return_type,
         };
 
         let resolved_return_type = match ast_return_type {
-            None => Type::Unit,
+            None => TypeKind::Unit,
             Some(x) => self.analyze_type(x)?,
         };
 
@@ -353,7 +353,7 @@ impl<'a> Analyzer<'a> {
     fn analyze_function_body_expression(
         &mut self,
         expression: &swamp_ast::Expression,
-        return_type: &Type,
+        return_type: &TypeRef,
     ) -> Result<Expression, Error> {
         let context = TypeContext::new_function(return_type);
         let resolved_statement = self.analyze_expression(expression, &context)?;
@@ -361,9 +361,12 @@ impl<'a> Analyzer<'a> {
         Ok(resolved_statement)
     }
 
-    fn analyze_maybe_type(&mut self, maybe_type: Option<&swamp_ast::Type>) -> Result<Type, Error> {
+    fn analyze_maybe_type(
+        &mut self,
+        maybe_type: Option<&swamp_ast::Type>,
+    ) -> Result<TypeRef, Error> {
         let found_type = match maybe_type {
-            None => Type::Unit,
+            None => TypeKind::Unit,
             Some(ast_type) => self.analyze_type(ast_type)?,
         };
         Ok(found_type)
@@ -372,8 +375,8 @@ impl<'a> Analyzer<'a> {
     fn analyze_for_pattern(
         &mut self,
         pattern: &swamp_ast::ForPattern,
-        key_type: Option<&Type>,
-        value_type: &Type,
+        key_type: Option<&TypeRef>,
+        value_type: &TypeRef,
     ) -> Result<ForPattern, Error> {
         match pattern {
             swamp_ast::ForPattern::Single(var) => {
@@ -590,9 +593,9 @@ impl<'a> Analyzer<'a> {
         let encountered_type = expr.ty.clone();
 
         let expr = if let Some(found_expected_type) = context.expected_type {
-            let reduced_expected = found_expected_type.underlying();
+            let reduced_expected = found_expected_type;
 
-            let reduced_encountered_type = encountered_type.underlying();
+            let reduced_encountered_type = encountered_type;
             if reduced_expected.compatible_with(reduced_encountered_type) {
                 return Ok(expr);
             }
@@ -613,7 +616,7 @@ impl<'a> Analyzer<'a> {
         Ok(expr)
     }
 
-    fn new_from_slice(&mut self, analyzed_element_type: &Type) -> Result<Expression, Error> {
+    fn new_from_slice(&mut self, analyzed_element_type: &TypeRef) -> Result<Expression, Error> {
         todo!()
     }
 
@@ -701,7 +704,7 @@ impl<'a> Analyzer<'a> {
                     let ty = inner_expr.ty.clone();
                     self.create_expr(
                         ExpressionKind::BorrowMutRef(Box::from(inner_expr)),
-                        Type::MutableReference(Box::from(ty)),
+                        TypeKind::MutableReference(Box::from(ty)),
                         &ast_expression.node,
                     )
                 } else {
@@ -843,9 +846,9 @@ impl<'a> Analyzer<'a> {
     ) -> Result<NamedStructType, Error> {
         let maybe_struct_type = self.analyze_named_type(qualified_type_identifier)?;
         match maybe_struct_type {
-            Type::NamedStruct(struct_type) => Ok(struct_type),
+            TypeKind::NamedStruct(struct_type) => Ok(struct_type),
             _ => Err(self.create_err(
-                // For other Type variants that are not Struct
+                // For other TypeRef variants that are not Struct
                 ErrorKind::UnknownStructTypeReference,
                 &qualified_type_identifier.name.0,
             )),
@@ -855,7 +858,7 @@ impl<'a> Analyzer<'a> {
     pub(crate) fn analyze_named_type(
         &mut self,
         type_name_to_find: &swamp_ast::QualifiedTypeIdentifier,
-    ) -> Result<Type, Error> {
+    ) -> Result<TypeRef, Error> {
         let (path, name) = self.get_path(type_name_to_find);
         let mut analyzed_type_parameters = Vec::new();
 
@@ -904,14 +907,14 @@ impl<'a> Analyzer<'a> {
     fn create_default_value_for_type(
         &mut self,
         node: &swamp_ast::Node,
-        field_type: &Type,
+        field_type: &TypeRef,
     ) -> Result<Expression, Error> {
-        let kind = match field_type {
-            Type::Bool => ExpressionKind::Literal(Literal::BoolLiteral(false)),
-            Type::Int => ExpressionKind::Literal(Literal::IntLiteral(0)),
-            Type::Float => ExpressionKind::Literal(Literal::FloatLiteral(Fp::zero())),
-            Type::String => ExpressionKind::Literal(Literal::StringLiteral(String::new())),
-            Type::Tuple(tuple_type_ref) => {
+        let kind = match &*field_type.kind {
+            TypeKind::Bool => ExpressionKind::Literal(Literal::BoolLiteral(false)),
+            TypeKind::Int => ExpressionKind::Literal(Literal::IntLiteral(0)),
+            TypeKind::Float => ExpressionKind::Literal(Literal::FloatLiteral(Fp::zero())),
+            TypeKind::String => ExpressionKind::Literal(Literal::StringLiteral(String::new())),
+            TypeKind::Tuple(tuple_type_ref) => {
                 let mut expressions = Vec::new();
                 for resolved_type in tuple_type_ref {
                     let expr = self.create_default_value_for_type(node, resolved_type)?;
@@ -919,10 +922,10 @@ impl<'a> Analyzer<'a> {
                 }
                 ExpressionKind::Literal(Literal::TupleLiteral(tuple_type_ref.clone(), expressions))
             }
-            Type::Optional(_optional_type) => ExpressionKind::Literal(Literal::NoneLiteral),
+            TypeKind::Optional(_optional_type) => ExpressionKind::Literal(Literal::NoneLiteral),
 
-            Type::NamedStruct(struct_ref) => {
-                self.create_default_static_call(node, &Type::NamedStruct(struct_ref.clone()))?
+            TypeKind::NamedStruct(struct_ref) => {
+                self.create_default_static_call(node, &TypeKind::NamedStruct(struct_ref.clone()))?
             }
             _ => {
                 return Err(
@@ -940,7 +943,7 @@ impl<'a> Analyzer<'a> {
         function_name: &str,
         arguments: &[ArgumentExpression],
         node: &swamp_ast::Node,
-        ty: &Type,
+        ty: &TypeRef,
     ) -> Result<ExpressionKind, Error> {
         self.lookup_associated_function(ty, function_name)
             .map_or_else(
@@ -967,7 +970,7 @@ impl<'a> Analyzer<'a> {
         function_name: &str,
         arguments: &[ArgumentExpression],
         node: &swamp_ast::Node,
-        ty: &Type,
+        ty: &TypeRef,
     ) -> Result<ExpressionKind, Error> {
         self.lookup_associated_function(ty, function_name)
             .map_or_else(
@@ -1004,7 +1007,7 @@ impl<'a> Analyzer<'a> {
     fn create_default_static_call(
         &mut self,
         node: &swamp_ast::Node,
-        ty: &Type,
+        ty: &TypeRef,
     ) -> Result<ExpressionKind, Error> {
         self.create_static_member_call("default", &[], node, ty)
     }
@@ -1013,7 +1016,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         vec: &mut Vec<Postfix>,
         kind: PostfixKind,
-        ty: Type,
+        ty: TypeRef,
         node: &swamp_ast::Node,
     ) {
         let resolved_node = self.to_node(node);
@@ -1033,14 +1036,14 @@ impl<'a> Analyzer<'a> {
     pub fn analyze_struct_field(
         &mut self,
         field_name: &swamp_ast::Node,
-        tv: &Type,
-    ) -> Result<(AnonymousStructType, usize, Type), Error> {
+        tv: &TypeRef,
+    ) -> Result<(AnonymousStructType, usize, TypeRef), Error> {
         let field_name_str = self.get_text(field_name).to_string();
 
         let anon_struct_ref = match &tv.underlying() {
-            Type::NamedStruct(struct_type) => struct_type.anon_struct_type.clone(),
-            Type::AnonymousStruct(anon_struct) => anon_struct.clone(),
-            Type::Range(range_struct_ref) => {
+            TypeKind::NamedStruct(struct_type) => struct_type.anon_struct_type.clone(),
+            TypeKind::AnonymousStruct(anon_struct) => anon_struct.clone(),
+            TypeKind::Range(range_struct_ref) => {
                 // Extract NamedStructType from TypeRef, then AnonymousStructType from that
                 if let TypeKind::NamedStruct(named_struct) = &*range_struct_ref.kind {
                     if let TypeKind::AnonymousStruct(anon_struct) =
@@ -1079,7 +1082,7 @@ impl<'a> Analyzer<'a> {
     pub fn analyze_static_call(
         &mut self,
         ast_node: &swamp_ast::Node,
-        maybe_associated_to_type: Option<Type>,
+        maybe_associated_to_type: Option<TypeRef>,
         func_def: Function,
         maybe_generic_arguments: &Option<Vec<swamp_ast::GenericParameter>>,
         arguments: &[swamp_ast::Expression],
@@ -1191,13 +1194,13 @@ impl<'a> Analyzer<'a> {
 
                 swamp_ast::Postfix::SubscriptTuple(col_expr, row_expr) => {
                     let collection_type = tv.resolved_type.clone();
-                    match &collection_type.underlying() {
-                        Type::GridStorage(element_type, x, _) => {
-                            let unsigned_int_x_context = TypeContext::new_argument(&Type::Int);
+                    match &collection_type.kind {
+                        TypeKind::GridStorage(element_type, x, _) => {
+                            let unsigned_int_x_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_x_expression =
                                 self.analyze_expression(col_expr, &unsigned_int_x_context)?;
 
-                            let unsigned_int_y_context = TypeContext::new_argument(&Type::Int);
+                            let unsigned_int_y_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_y_expression =
                                 self.analyze_expression(row_expr, &unsigned_int_y_context)?;
 
@@ -1226,8 +1229,8 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::Subscript(lookup_expr) => {
                     let collection_type = tv.resolved_type.clone();
                     match &collection_type.underlying() {
-                        Type::FixedCapacityAndLengthArray(element_type_in_slice, _) => {
-                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                        TypeKind::FixedCapacityAndLengthArray(element_type_in_slice, _) => {
+                            let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_expression =
                                 self.analyze_expression(lookup_expr, &unsigned_int_context)?;
 
@@ -1248,13 +1251,13 @@ impl<'a> Analyzer<'a> {
                             // Keep previous mutable
                             tv.resolved_type = *element_type_in_slice.clone();
                         }
-                        Type::QueueStorage(element_type, _)
-                        | Type::StackStorage(element_type, _)
-                        | Type::StackView(element_type)
-                        | Type::VecStorage(element_type, _)
-                        | Type::DynamicLengthVecView(element_type)
-                        | Type::SliceView(element_type) => {
-                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                        TypeKind::QueueStorage(element_type, _)
+                        | TypeKind::StackStorage(element_type, _)
+                        | TypeKind::StackView(element_type)
+                        | TypeKind::VecStorage(element_type, _)
+                        | TypeKind::DynamicLengthVecView(element_type)
+                        | TypeKind::SliceView(element_type) => {
+                            let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_expression =
                                 self.analyze_expression(lookup_expr, &unsigned_int_context)?;
 
@@ -1272,8 +1275,9 @@ impl<'a> Analyzer<'a> {
                             // Keep previous mutable
                             tv.resolved_type = *element_type.clone();
                         }
-                        Type::SparseStorage(element_type, _) | Type::SparseView(element_type) => {
-                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                        TypeKind::SparseStorage(element_type, _)
+                        | TypeKind::SparseView(element_type) => {
+                            let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_expression =
                                 self.analyze_expression(lookup_expr, &unsigned_int_context)?;
 
@@ -1284,15 +1288,15 @@ impl<'a> Analyzer<'a> {
                             self.add_postfix(
                                 &mut suffixes,
                                 PostfixKind::SparseSubscript(vec_type, unsigned_int_expression),
-                                *element_type.clone(),
+                                element_type.clone(),
                                 &lookup_expr.node,
                             );
 
                             // Keep previous mutable
-                            tv.resolved_type = *element_type.clone();
+                            tv.resolved_type = element_type.clone();
                         }
-                        Type::MapStorage(key_type, value_type, _)
-                        | Type::DynamicLengthMapView(key_type, value_type) => {
+                        TypeKind::MapStorage(key_type, value_type, _)
+                        | TypeKind::DynamicLengthMapView(key_type, value_type) => {
                             let key_context = TypeContext::new_argument(key_type);
                             let key_expression =
                                 self.analyze_expression(lookup_expr, &key_context)?;
@@ -1326,7 +1330,7 @@ impl<'a> Analyzer<'a> {
 
                     let mut subscript_function_name = "subscript";
 
-                    if let Type::NamedStruct(named_struct) = temp_analyzed_expr.ty {
+                    if let TypeKind::NamedStruct(named_struct) = temp_analyzed_expr.ty {
                         if named_struct.assigned_name == "Range"
                             && named_struct.module_path == vec!["core-0.0.0".to_string()]
                         {
@@ -1414,7 +1418,7 @@ impl<'a> Analyzer<'a> {
                 }
                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, arguments) => {
                     /*
-                    if let Type::Function(signature) = &tv.resolved_type {
+                    if let TypeKind::Function(signature) = &tv.resolved_type {
                         let resolved_node = self.to_node(node);
                         let resolved_arguments = self.analyze_and_verify_parameters(
                             &resolved_node,
@@ -1443,15 +1447,16 @@ impl<'a> Analyzer<'a> {
                 }
 
                 swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
-                    let unwrapped_type = if let Type::Optional(unwrapped_type) = &tv.resolved_type {
-                        unwrapped_type
-                    } else if uncertain {
-                        &tv.resolved_type
-                    } else {
-                        return Err(
-                            self.create_err(ErrorKind::CanNotNoneCoalesce, &default_expr.node)
-                        );
-                    };
+                    let unwrapped_type =
+                        if let TypeKind::Optional(unwrapped_type) = &tv.resolved_type {
+                            unwrapped_type
+                        } else if uncertain {
+                            &tv.resolved_type
+                        } else {
+                            return Err(
+                                self.create_err(ErrorKind::CanNotNoneCoalesce, &default_expr.node)
+                            );
+                        };
 
                     let unwrapped_type_context = TypeContext::new_argument(unwrapped_type);
                     let resolved_default_expr =
@@ -1467,7 +1472,7 @@ impl<'a> Analyzer<'a> {
                 }
 
                 swamp_ast::Postfix::OptionalChainingOperator(option_node) => {
-                    if let Type::Optional(unwrapped_type) = &tv.resolved_type {
+                    if let TypeKind::Optional(unwrapped_type) = &tv.resolved_type {
                         uncertain = true;
                         self.add_postfix(
                             &mut suffixes,
@@ -1484,9 +1489,9 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let Type::Optional(_) = tv.resolved_type {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
             } else {
-                tv.resolved_type = Type::Optional(Box::from(tv.resolved_type.clone()));
+                tv.resolved_type = TypeKind::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
 
@@ -1501,15 +1506,15 @@ impl<'a> Analyzer<'a> {
         &mut self,
         expression: &swamp_ast::Expression,
     ) -> Result<BooleanExpression, Error> {
-        let bool_context = TypeContext::new_argument(&Type::Bool);
+        let bool_context = TypeContext::new_argument(&TypeKind::Bool);
         let resolved_expression = self.analyze_expression(expression, &bool_context)?;
         let expr_type = resolved_expression.ty.clone();
 
         let bool_expression = match expr_type {
-            Type::Bool => resolved_expression,
-            Type::Optional(_) => self.create_expr(
+            TypeKind::Bool => resolved_expression,
+            TypeKind::Optional(_) => self.create_expr(
                 ExpressionKind::CoerceOptionToBool(Box::new(resolved_expression)),
-                Type::Bool,
+                TypeKind::Bool,
                 &expression.node,
             ),
             _ => {
@@ -1533,7 +1538,7 @@ impl<'a> Analyzer<'a> {
             named.assigned_name.clone()
         )));
         let struct_name_string_expr =
-            self.create_expr_resolved(struct_name_string_kind, Type::String, &node);
+            self.create_expr_resolved(struct_name_string_kind, TypeKind::String, &node);
         let anon_struct_string_expr =
             self.generate_to_string_for_anon_struct(&named.anon_struct_type, self_expression);
 
@@ -1544,7 +1549,11 @@ impl<'a> Analyzer<'a> {
             node: node.clone(),
         };
 
-        self.create_expr_resolved(ExpressionKind::BinaryOp(concat_kind), Type::String, &node)
+        self.create_expr_resolved(
+            ExpressionKind::BinaryOp(concat_kind),
+            TypeKind::String,
+            &node,
+        )
     }
 
     fn generate_to_string_for_anon_struct(
@@ -1556,7 +1565,7 @@ impl<'a> Analyzer<'a> {
 
         // Create opening brace string
         let opening_kind = ExpressionKind::Literal(Literal::StringLiteral("{ ".to_string()));
-        let mut result_expr = self.create_expr_resolved(opening_kind, Type::String, &node);
+        let mut result_expr = self.create_expr_resolved(opening_kind, TypeKind::String, &node);
 
         // Process each field
         for (field_index, (field_name, field_type)) in anonymous_struct_type
@@ -1568,7 +1577,8 @@ impl<'a> Analyzer<'a> {
             if field_index > 0 {
                 let separator_kind =
                     ExpressionKind::Literal(Literal::StringLiteral(", ".to_string()));
-                let separator_expr = self.create_expr_resolved(separator_kind, Type::String, &node);
+                let separator_expr =
+                    self.create_expr_resolved(separator_kind, TypeKind::String, &node);
 
                 // Concatenate using + operator
                 let concat_kind = BinaryOperator {
@@ -1579,7 +1589,7 @@ impl<'a> Analyzer<'a> {
                 };
                 result_expr = self.create_expr_resolved(
                     ExpressionKind::BinaryOp(concat_kind),
-                    Type::String,
+                    TypeKind::String,
                     &node,
                 );
             }
@@ -1587,7 +1597,8 @@ impl<'a> Analyzer<'a> {
             // Add field name
             let field_name_kind =
                 ExpressionKind::Literal(Literal::StringLiteral(format!("{field_name}: ")));
-            let field_name_expr = self.create_expr_resolved(field_name_kind, Type::String, &node);
+            let field_name_expr =
+                self.create_expr_resolved(field_name_kind, TypeKind::String, &node);
 
             // Concatenate field name to result
             let concat_name_kind = BinaryOperator {
@@ -1599,7 +1610,7 @@ impl<'a> Analyzer<'a> {
 
             result_expr = self.create_expr_resolved(
                 ExpressionKind::BinaryOp(concat_name_kind),
-                Type::String,
+                TypeKind::String,
                 &node,
             );
 
@@ -1623,7 +1634,7 @@ impl<'a> Analyzer<'a> {
                 // Create call to to_string for the field
                 let postfix_call_to_string = Postfix {
                     node: node.clone(),
-                    ty: Type::String,
+                    ty: TypeKind::String,
                     kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
                 };
 
@@ -1638,7 +1649,8 @@ impl<'a> Analyzer<'a> {
                     vec![postfix_lookup_field_in_self, postfix_call_to_string],
                 );
 
-                let field_value_expr = self.create_expr_resolved(lookup_kind, Type::String, &node);
+                let field_value_expr =
+                    self.create_expr_resolved(lookup_kind, TypeKind::String, &node);
 
                 // Concatenate field value to result
                 let concat_value_kind = BinaryOperator {
@@ -1649,7 +1661,7 @@ impl<'a> Analyzer<'a> {
                 };
                 result_expr = self.create_expr_resolved(
                     ExpressionKind::BinaryOp(concat_value_kind),
-                    Type::String,
+                    TypeKind::String,
                     &node,
                 );
             }
@@ -1657,7 +1669,7 @@ impl<'a> Analyzer<'a> {
 
         // Create closing brace string
         let closing_kind = ExpressionKind::Literal(Literal::StringLiteral(" }".to_string()));
-        let closing_expr = self.create_expr_resolved(closing_kind, Type::String, &node);
+        let closing_expr = self.create_expr_resolved(closing_kind, TypeKind::String, &node);
 
         // Concatenate closing brace to result
         let final_concat_kind = BinaryOperator {
@@ -1669,7 +1681,7 @@ impl<'a> Analyzer<'a> {
 
         self.create_expr_resolved(
             ExpressionKind::BinaryOp(final_concat_kind),
-            Type::String,
+            TypeKind::String,
             &node,
         )
     }
@@ -1683,7 +1695,7 @@ impl<'a> Analyzer<'a> {
         let mut arms = Vec::new();
         for (variant_name, variant_type) in &enum_type.variants {
             let kind = ExpressionKind::Literal(Literal::StringLiteral(variant_name.clone()));
-            let string_expr = self.create_expr_resolved(kind.clone(), Type::String, &node);
+            let string_expr = self.create_expr_resolved(kind.clone(), TypeKind::String, &node);
 
             let arm_kind = MatchArm {
                 pattern: Pattern::Normal(
@@ -1691,7 +1703,7 @@ impl<'a> Analyzer<'a> {
                     None,
                 ),
                 expression: Box::new(string_expr.clone()),
-                expression_type: Type::Int,
+                expression_type: TypeKind::Int,
             };
             arms.push(arm_kind);
         }
@@ -1701,14 +1713,14 @@ impl<'a> Analyzer<'a> {
                 arms,
                 expression: Box::new(argument_expression),
             }),
-            Type::Enum(enum_type.clone()),
+            TypeKind::Enum(enum_type.clone()),
             &node,
         )
     }
 
     pub fn generate_to_string_function_for_type(
         &mut self,
-        ty: &Type,
+        ty: &TypeRef,
         node: &swamp_ast::Node,
     ) -> InternalFunctionDefinition {
         let resolved_node = self.to_node(node);
@@ -1731,44 +1743,43 @@ impl<'a> Analyzer<'a> {
 
         let first_self_param = self.create_expr_resolved(
             ExpressionKind::VariableAccess(variable_ref.clone()),
-            Type::String,
+            TypeKind::String,
             &resolved_node,
         );
 
-        let body_expr = match &ty {
-            Type::Int => todo!(),
-            Type::Float => todo!(),
-            Type::String => todo!(),
-            Type::Bool => todo!(),
-            Type::Unit => todo!(),
-            Type::Tuple(_) => todo!(),
-            Type::NamedStruct(named) => {
+        let body_expr = match &*ty.kind {
+            TypeKind::Int => todo!(),
+            TypeKind::Float => todo!(),
+            TypeKind::String => todo!(),
+            TypeKind::Bool => todo!(),
+            TypeKind::Unit => todo!(),
+            TypeKind::Tuple(_) => todo!(),
+            TypeKind::NamedStruct(named) => {
                 self.generate_to_string_for_named_struct(&named, first_self_param)
             }
-            Type::AnonymousStruct(anon_struct) => {
+            TypeKind::AnonymousStruct(anon_struct) => {
                 self.generate_to_string_for_anon_struct(&anon_struct, first_self_param)
             }
-            Type::Range(_) => todo!(),
-            Type::Enum(enum_type) => {
+            TypeKind::Range(_) => todo!(),
+            TypeKind::Enum(enum_type) => {
                 self.generate_to_string_for_enum(&enum_type.clone(), first_self_param)
             }
-            Type::Function(_) => todo!(),
-            Type::Optional(_) => todo!(),
-            Type::MutableReference(_) => todo!(),
-            Type::FixedCapacityAndLengthArray(_, _) => todo!(),
-            Type::SliceView(_) => todo!(),
-            Type::DynamicLengthVecView(_) => todo!(),
-            Type::VecStorage(_, _) => todo!(),
-            Type::SparseStorage(_, _) => todo!(),
-            Type::GridStorage(_, _, _) => todo!(),
-            Type::StackView(_) => todo!(),
-            Type::QueueView(_) => todo!(),
-            Type::GridView(_) => todo!(),
-            Type::SparseView(_) => todo!(),
-            Type::StackStorage(_, _) => todo!(),
-            Type::QueueStorage(_, _) => todo!(),
-            Type::MapStorage(_, _, _) => todo!(),
-            Type::DynamicLengthMapView(_, _) => todo!(),
+            TypeKind::Function(_) => todo!(),
+            TypeKind::Optional(_) => todo!(),
+            TypeKind::FixedCapacityAndLengthArray(_, _) => todo!(),
+            TypeKind::SliceView(_) => todo!(),
+            TypeKind::DynamicLengthVecView(_) => todo!(),
+            TypeKind::VecStorage(_, _) => todo!(),
+            TypeKind::SparseStorage(_, _) => todo!(),
+            TypeKind::GridStorage(_, _, _) => todo!(),
+            TypeKind::StackView(_) => todo!(),
+            TypeKind::QueueView(_) => todo!(),
+            TypeKind::GridView(_) => todo!(),
+            TypeKind::SparseView(_) => todo!(),
+            TypeKind::StackStorage(_, _) => todo!(),
+            TypeKind::QueueStorage(_, _) => todo!(),
+            TypeKind::MapStorage(_, _, _) => todo!(),
+            TypeKind::DynamicLengthMapView(_, _) => todo!(),
         };
 
         let unique_function_id = self.shared.state.allocate_internal_function_id();
@@ -1786,7 +1797,7 @@ impl<'a> Analyzer<'a> {
                     is_mutable: false,
                     node: None,
                 }],
-                return_type: Box::new(Type::String),
+                return_type: Box::new(TypeKind::String),
             },
             parameters: vec![variable_ref],
             function_variables: vec![],
@@ -1805,39 +1816,44 @@ impl<'a> Analyzer<'a> {
         let resolved_expression = self.analyze_expression(expression, &any_context)?;
 
         let resolved_type = &resolved_expression.ty.clone();
-        let (key_type, mut value_type): (Option<Type>, Type) = match resolved_type.underlying() {
-            Type::String => (Some(Type::Int), Type::String),
-            Type::SliceView(element_type) => (Some(Type::Int), *element_type.clone()),
-            Type::VecStorage(element_type, _fixed_size) => (Some(Type::Int), *element_type.clone()),
-            Type::SparseStorage(element_type, _fixed_size) => {
-                (Some(Type::Int), *element_type.clone())
-            }
-            Type::StackStorage(element_type, _fixed_size) => {
-                (Some(Type::Int), *element_type.clone())
-            }
-            Type::StackView(element_type) => (Some(Type::Int), *element_type.clone()),
-            Type::QueueStorage(element_type, _fixed_size) => {
-                (Some(Type::Int), *element_type.clone())
-            }
-            Type::QueueView(element_type) => (Some(Type::Int), *element_type.clone()),
-            Type::DynamicLengthVecView(element_type) => (Some(Type::Int), *element_type.clone()),
-            Type::SparseView(element_type) => (Some(Type::Int), *element_type.clone()),
-            Type::DynamicLengthMapView(key_type, value_type)
-            | Type::MapStorage(key_type, value_type, _) => {
-                (Some(*key_type.clone()), *value_type.clone())
-            }
-            Type::Range(_) => (None, Type::Int),
-            _ => {
-                error!(?resolved_type, "not an iterator");
-                return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node));
-            }
-        };
+        let (key_type, mut value_type): (Option<TypeRef>, TypeRef) =
+            match resolved_type.underlying() {
+                TypeKind::String => (Some(TypeKind::Int), TypeKind::String),
+                TypeKind::SliceView(element_type) => (Some(TypeKind::Int), *element_type.clone()),
+                TypeKind::VecStorage(element_type, _fixed_size) => {
+                    (Some(TypeKind::Int), *element_type.clone())
+                }
+                TypeKind::SparseStorage(element_type, _fixed_size) => {
+                    (Some(TypeKind::Int), *element_type.clone())
+                }
+                TypeKind::StackStorage(element_type, _fixed_size) => {
+                    (Some(TypeKind::Int), *element_type.clone())
+                }
+                TypeKind::StackView(element_type) => (Some(TypeKind::Int), *element_type.clone()),
+                TypeKind::QueueStorage(element_type, _fixed_size) => {
+                    (Some(TypeKind::Int), *element_type.clone())
+                }
+                TypeKind::QueueView(element_type) => (Some(TypeKind::Int), *element_type.clone()),
+                TypeKind::DynamicLengthVecView(element_type) => {
+                    (Some(TypeKind::Int), *element_type.clone())
+                }
+                TypeKind::SparseView(element_type) => (Some(TypeKind::Int), *element_type.clone()),
+                TypeKind::DynamicLengthMapView(key_type, value_type)
+                | TypeKind::MapStorage(key_type, value_type, _) => {
+                    (Some(*key_type.clone()), *value_type.clone())
+                }
+                TypeKind::Range(_) => (None, TypeKind::Int),
+                _ => {
+                    error!(?resolved_type, "not an iterator");
+                    return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node));
+                }
+            };
 
         if mut_requested_for_value_variable.is_some() {
             // we check if we can get to a lvalue, otherwise it is not mutable:
             let _resulting_location =
                 self.analyze_to_location(expression, &any_context, LocationSide::Mutable)?;
-            value_type = Type::MutableReference(Box::from(value_type.clone()));
+            value_type = TypeKind::MutableReference(Box::from(value_type.clone()));
         }
 
         Ok(Iterable {
@@ -1849,7 +1865,7 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_argument_expressions(
         &mut self,
-        expected_type: Option<&Type>,
+        expected_type: Option<&TypeRef>,
         ast_expressions: &[swamp_ast::Expression],
     ) -> Result<Vec<Expression>, Error> {
         let mut resolved_expressions = Vec::new();
@@ -1866,9 +1882,9 @@ impl<'a> Analyzer<'a> {
         _node: &swamp_ast::Node,
         context: &TypeContext,
         ast_expressions: &[swamp_ast::Expression],
-    ) -> Result<(Vec<Expression>, Type), Error> {
+    ) -> Result<(Vec<Expression>, TypeRef), Error> {
         if ast_expressions.is_empty() {
-            return Ok((vec![], Type::Unit));
+            return Ok((vec![], TypeKind::Unit));
         }
 
         self.push_block_scope("block");
@@ -1876,7 +1892,7 @@ impl<'a> Analyzer<'a> {
         let mut resolved_expressions = Vec::with_capacity(ast_expressions.len());
 
         for expression in &ast_expressions[..ast_expressions.len() - 1] {
-            let stmt_context = context.with_expected_type(Some(&Type::Unit));
+            let stmt_context = context.with_expected_type(Some(&TypeKind::Unit));
             let expr = self.analyze_expression(expression, &stmt_context)?;
 
             resolved_expressions.push(expr);
@@ -1904,7 +1920,7 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::StringPart::Literal(string_node, processed_string) => {
                     let string_literal = Literal::StringLiteral(processed_string.to_string());
                     let basic_literal = ExpressionKind::Literal(string_literal);
-                    self.create_expr(basic_literal, Type::String, string_node)
+                    self.create_expr(basic_literal, TypeKind::String, string_node)
                 }
                 swamp_ast::StringPart::Interpolation(expression, format_specifier) => {
                     let any_context = TypeContext::new_anything_argument();
@@ -1919,10 +1935,10 @@ impl<'a> Analyzer<'a> {
                         .associated_impls
                         .get_internal_member_function(&ty, "to_string");
 
-                    if matches!(ty, Type::String) {
+                    if matches!(ty, TypeKind::String) {
                         expr
                     } else {
-                        let underlying = if let Type::Optional(inner_type) = ty {
+                        let underlying = if let TypeKind::Optional(inner_type) = ty {
                             *inner_type.clone()
                         } else {
                             ty.underlying().clone()
@@ -1932,7 +1948,7 @@ impl<'a> Analyzer<'a> {
                                 ExpressionKind::Literal(Literal::StringLiteral(
                                     "hello".to_string(),
                                 )),
-                                Type::String,
+                                TypeKind::String,
                                 &expression.node,
                             ));
                             /* todo:
@@ -1959,7 +1975,7 @@ impl<'a> Analyzer<'a> {
 
                          */
 
-                        self.create_expr(call_expr_kind, Type::String, &expression.node)
+                        self.create_expr(call_expr_kind, TypeKind::String, &expression.node)
                     }
                 }
             };
@@ -1974,7 +1990,7 @@ impl<'a> Analyzer<'a> {
                     node: node.clone(),
                 };
 
-                self.create_expr_resolved(ExpressionKind::BinaryOp(op), Type::String, &node)
+                self.create_expr_resolved(ExpressionKind::BinaryOp(op), TypeKind::String, &node)
             } else {
                 created_expression
             };
@@ -1985,7 +2001,7 @@ impl<'a> Analyzer<'a> {
         if last_expression.is_none() {
             return Ok(self.create_expr(
                 ExpressionKind::Literal(Literal::StringLiteral("hello".to_string())),
-                Type::String,
+                TypeKind::String,
                 &node,
             ));
         }
@@ -2036,9 +2052,9 @@ impl<'a> Analyzer<'a> {
         &mut self,
         node: &swamp_ast::Node,
         entries: &[(swamp_ast::Expression, swamp_ast::Expression)],
-    ) -> Result<(Vec<(Expression, Expression)>, Type, Type), Error> {
+    ) -> Result<(Vec<(Expression, Expression)>, TypeRef, TypeRef), Error> {
         if entries.is_empty() {
-            return Ok((vec![], Type::Unit, Type::Unit));
+            return Ok((vec![], TypeKind::Unit, TypeKind::Unit));
         }
 
         // Resolve first entry to determine map types
@@ -2091,12 +2107,12 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
         items: &[(swamp_ast::Expression, swamp_ast::Expression)],
         context: &TypeContext,
-    ) -> Result<(Type, Type, Type, Vec<(Expression, Expression)>), Error> {
+    ) -> Result<(Type, TypeRef, TypeRef, Vec<(Expression, Expression)>), Error> {
         let (collection_type, key_type, value_type) =
             if let Some(expected_type) = context.expected_type {
                 let expected_underlying_type = expected_type.underlying();
                 match expected_underlying_type {
-                    Type::MapStorage(key, value, capacity) => {
+                    TypeKind::MapStorage(key, value, capacity) => {
                         if items.len() > *capacity {
                             return Err(self.create_err(
                                 ErrorKind::TooManyInitializerListElementsForStorage {
@@ -2107,7 +2123,7 @@ impl<'a> Analyzer<'a> {
                         }
                         (expected_type.clone(), *key.clone(), *value.clone())
                     }
-                    Type::DynamicLengthMapView(key, value) => {
+                    TypeKind::DynamicLengthMapView(key, value) => {
                         (expected_type.clone(), *key.clone(), *value.clone())
                     }
                     _ => return Err(self.create_err(ErrorKind::ExpectedSlice, node)),
@@ -2129,7 +2145,7 @@ impl<'a> Analyzer<'a> {
                     let required_key_type = first_key_expression.ty.clone();
                     let required_value_type = first_value_expression.ty.clone();
                     (
-                        Type::MapStorage(
+                        TypeKind::MapStorage(
                             Box::from(required_key_type.clone()),
                             Box::from(required_value_type.clone()),
                             items.len(),
@@ -2159,11 +2175,11 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
         items: &[swamp_ast::Expression],
         context: &TypeContext,
-    ) -> Result<(Type, Type, Vec<Expression>), Error> {
+    ) -> Result<(Type, TypeRef, Vec<Expression>), Error> {
         let (collection_type, element_type) = if let Some(expected_type) = context.expected_type {
             let destination_type = expected_type.underlying();
             match destination_type {
-                Type::GridStorage(element_type, width, height) => {
+                TypeKind::GridStorage(element_type, width, height) => {
                     let capacity = width * height;
                     if items.len() > capacity {
                         return Err(self.create_err(
@@ -2173,10 +2189,10 @@ impl<'a> Analyzer<'a> {
                     }
                     (destination_type, *element_type.clone())
                 }
-                Type::StackStorage(element_type, capacity)
-                | Type::QueueStorage(element_type, capacity)
-                | Type::SparseStorage(element_type, capacity)
-                | Type::VecStorage(element_type, capacity) => {
+                TypeKind::StackStorage(element_type, capacity)
+                | TypeKind::QueueStorage(element_type, capacity)
+                | TypeKind::SparseStorage(element_type, capacity)
+                | TypeKind::VecStorage(element_type, capacity) => {
                     if items.len() > *capacity {
                         return Err(self.create_err(
                             ErrorKind::TooManyInitializerListElementsForStorage {
@@ -2187,17 +2203,17 @@ impl<'a> Analyzer<'a> {
                     }
                     (destination_type, *element_type.clone())
                 }
-                Type::QueueView(element_type)
-                | Type::SparseView(element_type)
-                | Type::StackView(element_type)
-                | Type::GridView(element_type)
-                | Type::DynamicLengthVecView(element_type) => {
+                TypeKind::QueueView(element_type)
+                | TypeKind::SparseView(element_type)
+                | TypeKind::StackView(element_type)
+                | TypeKind::GridView(element_type)
+                | TypeKind::DynamicLengthVecView(element_type) => {
                     (destination_type, *element_type.clone())
                 }
-                Type::FixedCapacityAndLengthArray(element_type, _size) => {
+                TypeKind::FixedCapacityAndLengthArray(element_type, _size) => {
                     (destination_type, *element_type.clone())
                 }
-                Type::SliceView(element_type) => (destination_type, *element_type.clone()),
+                TypeKind::SliceView(element_type) => (destination_type, *element_type.clone()),
                 _ => {
                     return Err(self.create_err(
                         ErrorKind::ExpectedInitializerTarget {
@@ -2215,7 +2231,7 @@ impl<'a> Analyzer<'a> {
             let first = self.analyze_expression(&items[0], &maybe_context)?;
             let required_type = first.ty.clone();
             (
-                &Type::VecStorage(Box::new(required_type.clone()), items.len()),
+                &TypeKind::VecStorage(Box::new(required_type.clone()), items.len()),
                 required_type.clone(),
             )
         };
@@ -2265,7 +2281,7 @@ impl<'a> Analyzer<'a> {
         scrutinee: &swamp_ast::Expression,
         default_context: &TypeContext,
         arms: &Vec<swamp_ast::MatchArm>,
-    ) -> Result<(Match, Type), Error> {
+    ) -> Result<(Match, TypeRef), Error> {
         let mut known_type = default_context.expected_type.cloned();
         let own_context = default_context.clone();
         // Analyze the scrutinee with no specific expected type
@@ -2315,7 +2331,7 @@ impl<'a> Analyzer<'a> {
         arm: &swamp_ast::MatchArm,
         _expression: &Expression,
         type_context: &TypeContext,
-        expected_condition_type: &Type,
+        expected_condition_type: &TypeRef,
     ) -> Result<(MatchArm, bool), Error> {
         let (resolved_pattern, scope_was_pushed, anyone_wants_mutable) =
             self.analyze_pattern(&arm.pattern, expected_condition_type)?;
@@ -2368,7 +2384,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         node: &swamp_ast::Node,
         ast_literal: &swamp_ast::LiteralKind,
-        expected_condition_type: &Type,
+        expected_condition_type: &TypeRef,
     ) -> Result<NormalPattern, Error> {
         let required_condition_type_context = TypeContext::new_argument(expected_condition_type);
         let (literal, ty) =
@@ -2587,7 +2603,7 @@ impl<'a> Analyzer<'a> {
                     let loc = SingleLocationExpression {
                         kind: MutableReferenceKind::MutVariableRef,
                         node: self.to_node(&variable_binding.variable.name),
-                        ty: Type::MutableReference(Box::from(same_var.resolved_type.clone())),
+                        ty: TypeKind::MutableReference(Box::from(same_var.resolved_type.clone())),
                         starting_variable: same_var,
                         access_chain: vec![],
                     };
@@ -2605,7 +2621,7 @@ impl<'a> Analyzer<'a> {
 
             let ty = mut_expr.ty();
 
-            if let Type::Optional(found_ty) = ty {
+            if let TypeKind::Optional(found_ty) = ty {
                 let variable_ref = self.create_variable(&variable_binding.variable, &found_ty)?;
 
                 let binding = WhenBinding {
@@ -2706,7 +2722,7 @@ impl<'a> Analyzer<'a> {
         ast_expr: &swamp_ast::Expression,
         context: &TypeContext,
     ) -> Result<Expression, Error> {
-        let Type::Function(signature) = &context.expected_type.unwrap() else {
+        let TypeKind::Function(signature) = &context.expected_type.unwrap() else {
             return Err(self.create_err(ErrorKind::ExpectedLambda, node));
         };
 
@@ -2740,7 +2756,7 @@ impl<'a> Analyzer<'a> {
 
         Ok(self.create_expr(
             ExpressionKind::Lambda(resolved_variables, Box::new(analyzed_expression)),
-            Type::Function(signature.clone()),
+            TypeKind::Function(signature.clone()),
             node,
         ))
     }
@@ -2791,7 +2807,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         lhs_is_mutable: bool,
         source_expression: &Expression,
-        ty: &Type,
+        ty: &TypeRef,
     ) -> AssignmentMode {
         if matches!(
             &source_expression.kind,
@@ -2837,7 +2853,7 @@ impl<'a> Analyzer<'a> {
     pub fn check_mutable_variable_assignment(
         &mut self,
         source_expression: &swamp_ast::Expression,
-        ty: &Type,
+        ty: &TypeRef,
         variable: &swamp_ast::Variable,
     ) -> Result<(), Error> {
         //let is_allowed_to_assign = Self::check_mutable_assignment_is_valid(ty);
@@ -2912,7 +2928,7 @@ impl<'a> Analyzer<'a> {
             ExpressionKind::VariableDefinition(new_var, Box::from(source_expr))
         };
 
-        Ok(self.create_expr(kind, Type::Unit, &variable.name))
+        Ok(self.create_expr(kind, TypeKind::Unit, &variable.name))
     }
 
     fn analyze_create_variable(
@@ -2960,10 +2976,10 @@ impl<'a> Analyzer<'a> {
             true,
         )?;
 
-        assert_ne!(resulting_type, Type::Unit);
+        assert_ne!(resulting_type, TypeKind::Unit);
         let kind = ExpressionKind::VariableDefinition(var_ref, Box::from(resolved_source));
 
-        let resolved_expr = self.create_expr(kind, Type::Unit, &var.name);
+        let resolved_expr = self.create_expr(kind, TypeKind::Unit, &var.name);
 
         Ok(resolved_expr)
     }
@@ -2972,7 +2988,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         vec: &mut Vec<LocationAccess>,
         kind: LocationAccessKind,
-        ty: Type,
+        ty: TypeRef,
         ast_node: &swamp_ast::Node,
     ) {
         let resolved_node = self.to_node(ast_node);
@@ -3035,8 +3051,9 @@ impl<'a> Analyzer<'a> {
                     ty = return_type.clone();
                 }
                 swamp_ast::Postfix::SubscriptTuple(x_expr, y_expr) => match &ty.underlying() {
-                    Type::GridView(element_type) | Type::GridStorage(element_type, _, _) => {
-                        let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                    TypeKind::GridView(element_type)
+                    | TypeKind::GridStorage(element_type, _, _) => {
+                        let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                         let unsigned_int_x_expr =
                             self.analyze_expression(x_expr, &unsigned_int_context)?;
 
@@ -3065,13 +3082,13 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::Subscript(ast_key_expression) => {
                     let underlying = ty.underlying();
                     match underlying {
-                        Type::SliceView(element_type)
-                        | Type::StackStorage(element_type, _)
-                        | Type::StackView(element_type)
-                        | Type::VecStorage(element_type, _)
-                        | Type::DynamicLengthVecView(element_type)
-                        | Type::FixedCapacityAndLengthArray(element_type, _) => {
-                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                        TypeKind::SliceView(element_type)
+                        | TypeKind::StackStorage(element_type, _)
+                        | TypeKind::StackView(element_type)
+                        | TypeKind::VecStorage(element_type, _)
+                        | TypeKind::DynamicLengthVecView(element_type)
+                        | TypeKind::FixedCapacityAndLengthArray(element_type, _) => {
+                            let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_expr =
                                 self.analyze_expression(ast_key_expression, &unsigned_int_context)?;
 
@@ -3091,8 +3108,9 @@ impl<'a> Analyzer<'a> {
 
                             ty = *element_type.clone();
                         }
-                        Type::SparseView(element_type) | Type::SparseStorage(element_type, _) => {
-                            let unsigned_int_context = TypeContext::new_argument(&Type::Int);
+                        TypeKind::SparseView(element_type)
+                        | TypeKind::SparseStorage(element_type, _) => {
+                            let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_expr =
                                 self.analyze_expression(ast_key_expression, &unsigned_int_context)?;
 
@@ -3109,8 +3127,8 @@ impl<'a> Analyzer<'a> {
 
                             ty = *element_type.clone();
                         }
-                        Type::MapStorage(key_type, value_type, ..)
-                        | Type::DynamicLengthMapView(key_type, value_type) => {
+                        TypeKind::MapStorage(key_type, value_type, ..)
+                        | TypeKind::DynamicLengthMapView(key_type, value_type) => {
                             let key_index_context = TypeContext::new_argument(key_type);
                             let key_expr =
                                 self.analyze_expression(ast_key_expression, &key_index_context)?;
@@ -3220,7 +3238,7 @@ impl<'a> Analyzer<'a> {
                     Ok(SingleLocationExpression {
                         kind: MutableReferenceKind::MutVariableRef,
                         node: self.to_node(&variable.name),
-                        ty: Type::MutableReference(Box::from(var.resolved_type.clone())),
+                        ty: TypeKind::MutableReference(Box::from(var.resolved_type.clone())),
                         starting_variable: var,
                         access_chain: vec![],
                     })
@@ -3238,7 +3256,7 @@ impl<'a> Analyzer<'a> {
                     Ok(SingleLocationExpression {
                         kind: MutableReferenceKind::MutVariableRef,
                         node: self.to_node(&generated_var.name),
-                        ty: Type::MutableReference(Box::from(var.resolved_type.clone())),
+                        ty: TypeKind::MutableReference(Box::from(var.resolved_type.clone())),
                         starting_variable: var,
                         access_chain: vec![],
                     })
@@ -3272,17 +3290,17 @@ impl<'a> Analyzer<'a> {
     fn try_convert_for_assignment(
         &mut self,
         expr: &Expression,
-        target_type: &Type,
+        target_type: &TypeRef,
         ast_node: &swamp_ast::Expression,
     ) -> Result<Option<Expression>, Error> {
         match (target_type, &expr.ty) {
             // Conversion cases that require transformation
-            (Type::VecStorage(target_elem, capacity), Type::FixedSlice(source_elem, _)) => {
+            (TypeKind::VecStorage(target_elem, capacity), TypeKind::FixedSlice(source_elem, _)) => {
                 // Create conversion with checks
                 // ...
             }
 
-            (Type::String, Type::Int) => {
+            (TypeKind::String, TypeKind::Int) => {
                 // Create int-to-string conversion
                 // ...
             }
@@ -3294,13 +3312,13 @@ impl<'a> Analyzer<'a> {
 
      */
 
-    fn is_type_assignment_compatible(target: &Type, source: &Type) -> bool {
+    fn is_type_assignment_compatible(target: &TypeRef, source: &TypeRef) -> bool {
         target.compatible_with(source)
     }
 
     fn analyze_expression_for_assignment_with_target_type(
         &mut self,
-        target_type: &Type,
+        target_type: &TypeRef,
         ast_source_expression: &swamp_ast::Expression,
     ) -> Result<Expression, Error> {
         let base_context = TypeContext::new_argument(target_type);
@@ -3356,7 +3374,7 @@ impl<'a> Analyzer<'a> {
         )?;
 
         let target_type = resolved_location.ty.clone();
-        let mut_type = Type::MutableReference(Box::from(target_type));
+        let mut_type = TypeKind::MutableReference(Box::from(target_type));
         let mut_location = TargetAssignmentLocation(resolved_location);
 
         let final_expr = self
@@ -3382,7 +3400,7 @@ impl<'a> Analyzer<'a> {
             Box::from(source_expr),
         );
 
-        let expr = self.create_expr(kind, Type::Unit, &target_expression.node);
+        let expr = self.create_expr(kind, TypeKind::Unit, &target_expression.node);
 
         Ok(expr)
     }
@@ -3398,7 +3416,7 @@ impl<'a> Analyzer<'a> {
             self.analyze_expression_for_assignment(target_location, ast_source_expression)?;
         let kind = ExpressionKind::Assignment(Box::from(mut_location), Box::from(source_expr));
 
-        let expr = self.create_expr(kind, Type::Unit, &target_location.node); // Assignments are always of type Unit
+        let expr = self.create_expr(kind, TypeKind::Unit, &target_location.node); // Assignments are always of type Unit
 
         Ok(expr)
     }
@@ -3407,7 +3425,7 @@ impl<'a> Analyzer<'a> {
     pub const fn create_expr(
         &self,
         kind: ExpressionKind,
-        ty: Type,
+        ty: TypeRef,
         ast_node: &swamp_ast::Node,
     ) -> Expression {
         //info!(%ty, ?kind, "create_expr()");
@@ -3422,7 +3440,7 @@ impl<'a> Analyzer<'a> {
     pub fn create_expr_resolved(
         &self,
         kind: ExpressionKind,
-        ty: Type,
+        ty: TypeRef,
         ast_node: &Node,
     ) -> Expression {
         Expression {
@@ -3443,7 +3461,7 @@ impl<'a> Analyzer<'a> {
         let tuple_expr_type = &tuple_resolved.ty;
 
         let mut variable_refs = Vec::new();
-        if let Type::Tuple(tuple) = tuple_expr_type.clone() {
+        if let TypeKind::Tuple(tuple) = tuple_expr_type.clone() {
             if target_ast_variables.len() > tuple.len() {
                 return Err(self.create_err(ErrorKind::TooManyDestructureVariables, node));
             }
@@ -3459,7 +3477,7 @@ impl<'a> Analyzer<'a> {
             let expr_kind =
                 ExpressionKind::TupleDestructuring(variable_refs, tuple, Box::from(tuple_resolved));
 
-            Ok(self.create_expr(expr_kind, Type::Unit, node))
+            Ok(self.create_expr(expr_kind, TypeKind::Unit, node))
         } else {
             Err(self.create_err(ErrorKind::CanNotDestructure, node))
         }
@@ -3467,9 +3485,9 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_normal_member_call(
         &mut self,
-        type_that_member_is_on: &Type,
+        type_that_member_is_on: &TypeRef,
         found_function: &FunctionRef,
-        generic_arguments: Vec<Type>,
+        generic_arguments: Vec<TypeRef>,
         ast_arguments: &[swamp_ast::Expression],
         is_mutable: bool,
         node: &swamp_ast::Node,
@@ -3482,9 +3500,9 @@ impl<'a> Analyzer<'a> {
 
     fn queue_member_signature(
         &mut self,
-        self_type: &Type,
-        key_type: Option<&Type>,
-        element_type: &Type,
+        self_type: &TypeRef,
+        key_type: Option<&TypeRef>,
+        element_type: &TypeRef,
         field_name_str: &str,
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
@@ -3514,7 +3532,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(Type::Unit),
+                    return_type: Box::new(TypeKind::Unit),
                 },
             ),
             "dequeue" => (
@@ -3541,13 +3559,13 @@ impl<'a> Analyzer<'a> {
 
     fn sparse_member_signature(
         &mut self,
-        self_type: &Type,
-        element_type: &Type,
+        self_type: &TypeRef,
+        element_type: &TypeRef,
         field_name_str: &str,
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
-        let key_type = &Type::Int; // SparseID
+        let key_type = &TypeKind::Int; // SparseID
 
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
@@ -3574,7 +3592,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(Type::Int),
+                    return_type: Box::new(TypeKind::Int),
                 },
             ),
             "remove" => (
@@ -3589,7 +3607,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(Type::Unit),
+                    return_type: Box::new(TypeKind::Unit),
                 },
             ),
             "is_alive" => (
@@ -3604,7 +3622,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(Type::Bool),
+                    return_type: Box::new(TypeKind::Bool),
                 },
             ),
 
@@ -3624,13 +3642,13 @@ impl<'a> Analyzer<'a> {
 
     fn vec_member_signature(
         &mut self,
-        self_type: &Type,
-        element_type: &Type,
+        self_type: &TypeRef,
+        element_type: &TypeRef,
         field_name_str: &str,
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
-        let key_type = &Type::Int;
+        let key_type = &TypeKind::Int;
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
@@ -3656,7 +3674,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(Type::Unit),
+                    return_type: Box::new(TypeKind::Unit),
                 },
             ),
             "push" => (
@@ -3671,7 +3689,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(Type::Unit),
+                    return_type: Box::new(TypeKind::Unit),
                 },
             ),
             "pop" => (
@@ -3699,8 +3717,8 @@ impl<'a> Analyzer<'a> {
     #[allow(clippy::unnecessary_wraps)]
     fn grid_member_signature(
         &mut self,
-        self_type: &Type,
-        element_type: &Type,
+        self_type: &TypeRef,
+        element_type: &TypeRef,
         field_name_str: &str,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
@@ -3725,7 +3743,7 @@ impl<'a> Analyzer<'a> {
 
         let int_param = TypeForParameter {
             name: "x_or_y".to_string(),
-            resolved_type: Type::Int,
+            resolved_type: TypeKind::Int,
             is_mutable: false,
             node: None,
         };
@@ -3739,7 +3757,7 @@ impl<'a> Analyzer<'a> {
                         int_param.clone(),
                         element_param.clone(),
                     ],
-                    return_type: Box::new(Type::Unit),
+                    return_type: Box::new(TypeKind::Unit),
                 },
             ),
 
@@ -3758,7 +3776,7 @@ impl<'a> Analyzer<'a> {
 
     fn basic_collection_member_signature(
         &mut self,
-        self_type: &Type,
+        self_type: &TypeRef,
         field_name_str: &str,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
@@ -3778,7 +3796,7 @@ impl<'a> Analyzer<'a> {
             "len" => {
                 let signature = Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Int),
+                    return_type: Box::new(TypeKind::Int),
                 };
                 (IntrinsicFunction::VecLen, signature)
             }
@@ -3786,13 +3804,13 @@ impl<'a> Analyzer<'a> {
                 IntrinsicFunction::VecIsEmpty,
                 Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Bool),
+                    return_type: Box::new(TypeKind::Bool),
                 },
             ),
             "capacity" => {
                 let signature = Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Int),
+                    return_type: Box::new(TypeKind::Int),
                 };
                 (IntrinsicFunction::VecCapacity, signature)
             }
@@ -3808,22 +3826,22 @@ impl<'a> Analyzer<'a> {
     #[allow(clippy::too_many_lines)]
     fn slice_member_signature(
         &mut self,
-        self_type: &Type,
-        key_type: Option<&Type>,
-        element_type: &Type,
+        self_type: &TypeRef,
+        key_type: Option<&TypeRef>,
+        element_type: &TypeRef,
         field_name_str: &str,
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::SliceView(Box::from(element_type.clone())),
+            resolved_type: TypeKind::SliceView(Box::from(element_type.clone())),
             is_mutable: false,
             node: None,
         };
         let self_mut_type_param = TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::SliceView(Box::from(element_type.clone())),
+            resolved_type: TypeKind::SliceView(Box::from(element_type.clone())),
             is_mutable: true,
             node: None,
         };
@@ -3854,9 +3872,9 @@ impl<'a> Analyzer<'a> {
                 };
                 let lambda_signature = Signature {
                     parameters,
-                    return_type: Box::new(Type::Unit),
+                    return_type: Box::new(TypeKind::Unit),
                 };
-                let lambda_function_type = Type::Function(lambda_signature);
+                let lambda_function_type = TypeKind::Function(lambda_signature);
                 (
                     IntrinsicFunction::TransformerFor,
                     Signature {
@@ -3869,7 +3887,7 @@ impl<'a> Analyzer<'a> {
                                 node: None,
                             },
                         ],
-                        return_type: Box::new(Type::Unit), // VecFor is only used for side effects
+                        return_type: Box::new(TypeKind::Unit), // VecFor is only used for side effects
                     },
                 )
             }
@@ -3899,9 +3917,9 @@ impl<'a> Analyzer<'a> {
                 };
                 let lambda_signature = Signature {
                     parameters,
-                    return_type: Box::new(Type::Bool), // it returns if the while loop should continue
+                    return_type: Box::new(TypeKind::Bool), // it returns if the while loop should continue
                 };
-                let lambda_function_type = Type::Function(lambda_signature);
+                let lambda_function_type = TypeKind::Function(lambda_signature);
                 (
                     IntrinsicFunction::TransformerWhile,
                     Signature {
@@ -3914,7 +3932,7 @@ impl<'a> Analyzer<'a> {
                                 node: None,
                             },
                         ],
-                        return_type: Box::new(Type::Unit), // VecFor is only used for side effects
+                        return_type: Box::new(TypeKind::Unit), // VecFor is only used for side effects
                     },
                 )
             }
@@ -3926,9 +3944,9 @@ impl<'a> Analyzer<'a> {
                         is_mutable: false,
                         node: None,
                     }],
-                    return_type: Box::new(Type::Bool),
+                    return_type: Box::new(TypeKind::Bool),
                 };
-                let lambda_function_type = Type::Function(lambda_signature);
+                let lambda_function_type = TypeKind::Function(lambda_signature);
                 (
                     IntrinsicFunction::TransformerFilter,
                     Signature {
@@ -3941,7 +3959,7 @@ impl<'a> Analyzer<'a> {
                                 node: None,
                             },
                         ],
-                        return_type: Box::new(Type::SliceView(Box::from(element_type.clone()))),
+                        return_type: Box::new(TypeKind::SliceView(Box::from(element_type.clone()))),
                     },
                 )
             }
@@ -3953,9 +3971,9 @@ impl<'a> Analyzer<'a> {
                         is_mutable: false,
                         node: None,
                     }],
-                    return_type: Box::new(Type::Bool),
+                    return_type: Box::new(TypeKind::Bool),
                 };
-                let lambda_function_type = Type::Function(lambda_signature);
+                let lambda_function_type = TypeKind::Function(lambda_signature);
                 (
                     IntrinsicFunction::TransformerFind,
                     Signature {
@@ -3968,7 +3986,7 @@ impl<'a> Analyzer<'a> {
                                 node: None,
                             },
                         ],
-                        return_type: Box::new(Type::Optional(Box::from(element_type.clone()))),
+                        return_type: Box::new(TypeKind::Optional(Box::from(element_type.clone()))),
                     },
                 )
             }
@@ -3979,12 +3997,12 @@ impl<'a> Analyzer<'a> {
                         self_mut_type_param,
                         TypeForParameter {
                             name: "index".to_string(),
-                            resolved_type: Type::Int,
+                            resolved_type: TypeKind::Int,
                             is_mutable: false,
                             node: None,
                         },
                     ],
-                    return_type: Box::new(Type::Unit),
+                    return_type: Box::new(TypeKind::Unit),
                 };
                 (IntrinsicFunction::VecRemoveIndex, signature)
             }
@@ -3996,9 +4014,9 @@ impl<'a> Analyzer<'a> {
     #[allow(clippy::unnecessary_wraps, clippy::result_large_err)]
     fn map_member_signature(
         &self,
-        self_type: &Type,
-        key_type: &Type,
-        value_type: &Type,
+        self_type: &TypeRef,
+        key_type: &TypeRef,
+        value_type: &TypeRef,
         field_name_str: &str,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
@@ -4011,7 +4029,7 @@ impl<'a> Analyzer<'a> {
 
         let mutable_self_type_param = TypeForParameter {
             name: "self".to_string(),
-            resolved_type: Type::MutableReference(Box::from(self_type.clone())),
+            resolved_type: TypeKind::MutableReference(Box::from(self_type.clone())),
             is_mutable: true,
             node: None,
         };
@@ -4029,7 +4047,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(Type::Bool),
+                    return_type: Box::new(TypeKind::Bool),
                 },
             ),
             "remove" => (
@@ -4044,28 +4062,28 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(Type::Unit),
+                    return_type: Box::new(TypeKind::Unit),
                 },
             ),
             "len" => (
                 IntrinsicFunction::MapLen,
                 Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Int),
+                    return_type: Box::new(TypeKind::Int),
                 },
             ),
             "capacity" => (
                 IntrinsicFunction::MapCapacity,
                 Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Int),
+                    return_type: Box::new(TypeKind::Int),
                 },
             ),
             "is_empty" => (
                 IntrinsicFunction::MapIsEmpty,
                 Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(Type::Bool),
+                    return_type: Box::new(TypeKind::Bool),
                 },
             ),
             _ => todo!("unknown map member"),
@@ -4076,16 +4094,16 @@ impl<'a> Analyzer<'a> {
 
     fn check_intrinsic_member_signature(
         &mut self,
-        type_that_member_is_on: &Type,
+        type_that_member_is_on: &TypeRef,
         field_name_str: &str,
         lambda_variables_count: usize,
         node: &swamp_ast::Node,
     ) -> Result<(IntrinsicFunction, Signature), Error> {
         let ty = type_that_member_is_on.underlying();
         match ty {
-            Type::GridStorage(element_type, ..) | Type::GridView(element_type) => self
+            TypeKind::GridStorage(element_type, ..) | TypeKind::GridView(element_type) => self
                 .grid_member_signature(type_that_member_is_on, element_type, field_name_str, node),
-            Type::SparseStorage(element_type, ..) | Type::SparseView(element_type) => self
+            TypeKind::SparseStorage(element_type, ..) | TypeKind::SparseView(element_type) => self
                 .sparse_member_signature(
                     type_that_member_is_on,
                     element_type,
@@ -4093,7 +4111,7 @@ impl<'a> Analyzer<'a> {
                     lambda_variables_count,
                     node,
                 ),
-            Type::QueueStorage(element_type, ..) => self.queue_member_signature(
+            TypeKind::QueueStorage(element_type, ..) => self.queue_member_signature(
                 type_that_member_is_on,
                 None,
                 element_type,
@@ -4101,30 +4119,30 @@ impl<'a> Analyzer<'a> {
                 lambda_variables_count,
                 node,
             ),
-            Type::StackStorage(element_type, ..)
-            | Type::QueueStorage(element_type, ..)
-            | Type::VecStorage(element_type, ..)
-            | Type::DynamicLengthVecView(element_type) => self.vec_member_signature(
+            TypeKind::StackStorage(element_type, ..)
+            | TypeKind::QueueStorage(element_type, ..)
+            | TypeKind::VecStorage(element_type, ..)
+            | TypeKind::DynamicLengthVecView(element_type) => self.vec_member_signature(
                 type_that_member_is_on,
                 element_type,
                 field_name_str,
                 lambda_variables_count,
                 node,
             ),
-            Type::SliceView(element_type) => self.slice_member_signature(
+            TypeKind::SliceView(element_type) => self.slice_member_signature(
                 type_that_member_is_on,
-                Some(&Type::Int),
+                Some(&TypeKind::Int),
                 element_type,
                 field_name_str,
                 lambda_variables_count,
                 node,
             ),
-            Type::DynamicLengthMapView(key, value) | Type::MapStorage(key, value, _) => {
+            TypeKind::DynamicLengthMapView(key, value) | TypeKind::MapStorage(key, value, _) => {
                 self.map_member_signature(type_that_member_is_on, key, value, field_name_str, node)
             }
-            Type::FixedCapacityAndLengthArray(element_type, _) => self.slice_member_signature(
+            TypeKind::FixedCapacityAndLengthArray(element_type, _) => self.slice_member_signature(
                 type_that_member_is_on,
-                Some(&Type::Int),
+                Some(&TypeKind::Int),
                 element_type,
                 field_name_str,
                 lambda_variables_count,
@@ -4139,13 +4157,13 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_member_call(
         &mut self,
-        type_that_member_is_on: &Type,
+        type_that_member_is_on: &TypeRef,
         field_name_str: &str,
         ast_maybe_generic_arguments: Option<Vec<swamp_ast::GenericParameter>>,
         ast_arguments: &[swamp_ast::Expression],
         chain_self_is_mutable: bool,
         node: &swamp_ast::Node,
-    ) -> Result<(PostfixKind, Type), Error> {
+    ) -> Result<(PostfixKind, TypeRef), Error> {
         let generic_arguments = if let Some(ast_generic_arguments) = ast_maybe_generic_arguments {
             let mut resolved_types = Vec::new();
             for ast_type in ast_generic_arguments {
@@ -4235,13 +4253,13 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_postfix_member_call(
         &mut self,
-        type_that_member_is_on: &Type,
+        type_that_member_is_on: &TypeRef,
         is_mutable: bool,
         member_name: &swamp_ast::Node,
         ast_maybe_generic_arguments: Option<Vec<swamp_ast::GenericParameter>>,
         ast_arguments: &[swamp_ast::Expression],
         suffixes: &mut Vec<Postfix>,
-    ) -> Result<Type, Error> {
+    ) -> Result<TypeRef, Error> {
         let field_name_str = self.get_text(member_name).to_string();
 
         let resolved_node = self.to_node(member_name);
@@ -4267,14 +4285,14 @@ impl<'a> Analyzer<'a> {
     }
 
     fn is_compatible_initializer_list_target(
-        target_type: &Type,
-        initializer_element_type: &Type,
+        target_type: &TypeRef,
+        initializer_element_type: &TypeRef,
     ) -> bool {
         match target_type {
-            Type::VecStorage(vec_element_type, _vec_capacity) => {
+            TypeKind::VecStorage(vec_element_type, _vec_capacity) => {
                 vec_element_type.compatible_with(initializer_element_type)
             }
-            Type::FixedCapacityAndLengthArray(array_element_type, _array_capacity) => {
+            TypeKind::FixedCapacityAndLengthArray(array_element_type, _array_capacity) => {
                 array_element_type.compatible_with(initializer_element_type)
             }
             _ => false,
@@ -4282,12 +4300,12 @@ impl<'a> Analyzer<'a> {
     }
 
     fn is_compatible_initializer_pair_list_target(
-        target_type: &Type,
-        initializer_key_type: &Type,
-        initializer_value_type: &Type,
+        target_type: &TypeRef,
+        initializer_key_type: &TypeRef,
+        initializer_value_type: &TypeRef,
     ) -> bool {
         match target_type {
-            Type::MapStorage(storage_key, storage_value, _) => {
+            TypeKind::MapStorage(storage_key, storage_value, _) => {
                 initializer_key_type.compatible_with(storage_key)
                     && initializer_value_type.compatible_with(storage_value)
             }
@@ -4298,13 +4316,13 @@ impl<'a> Analyzer<'a> {
     fn types_did_not_match_try_late_coerce_expression(
         &mut self,
         expr: Expression,
-        special_expected_type: &Type,
-        special_encountered_type: &Type,
+        special_expected_type: &TypeRef,
+        special_encountered_type: &TypeRef,
         node: &swamp_ast::Node,
     ) -> Result<Expression, Error> {
         let expected_type = special_expected_type.underlying();
         let encountered_type = special_encountered_type.underlying();
-        if let Type::Optional(expected_inner_type) = expected_type {
+        if let TypeKind::Optional(expected_inner_type) = expected_type {
             // If an optional is expected, we can wrap it if this type has the exact same
             // inner type
             assert!(
@@ -4328,7 +4346,7 @@ impl<'a> Analyzer<'a> {
             }
         }
         /*
-        if let Type::InternalInitializerPairList(slice_key, slice_value) = &encountered_type {
+        if let TypeKind::InternalInitializerPairList(slice_key, slice_value) = &encountered_type {
             if Self::is_compatible_initializer_pair_list_target(
                 expected_type,
                 slice_key,
@@ -4336,17 +4354,17 @@ impl<'a> Analyzer<'a> {
             ) {
                 return Ok(expr);
             }
-        } else if let Type::InternalInitializerList(element_type) = &encountered_type {
+        } else if let TypeKind::InternalInitializerList(element_type) = &encountered_type {
             if Self::is_compatible_initializer_list_target(expected_type, element_type) {
                 return Ok(expr);
             }
         } else*/
-        if matches!(expected_type, &Type::Bool) {
+        if matches!(expected_type, &TypeKind::Bool) {
             // if it has a mut or immutable optional, then it works well to wrap it
             if encountered_type.inner_optional_mut_or_immutable().is_some() {
                 let wrapped = self.create_expr(
                     ExpressionKind::CoerceOptionToBool(Box::from(expr)),
-                    Type::Bool,
+                    TypeKind::Bool,
                     node,
                 );
                 return Ok(wrapped);
@@ -4389,21 +4407,21 @@ impl<'a> Analyzer<'a> {
         path: &[String],
         name: &str,
         ast_generic_parameters: &[GenericParameter],
-    ) -> Option<Type> {
+    ) -> Option<TypeRef> {
         let converted_type = match name {
             "Vec" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self
                         .analyze_type(ast_generic_parameters[0].get_type())
                         .unwrap();
-                    Type::DynamicLengthVecView(Box::from(element_type))
+                    TypeKind::DynamicLengthVecView(Box::from(element_type))
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self
                         .analyze_type(ast_generic_parameters[0].get_type())
                         .unwrap();
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    Type::VecStorage(Box::from(element_type), fixed_size)
+                    TypeKind::VecStorage(Box::from(element_type), fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4413,14 +4431,14 @@ impl<'a> Analyzer<'a> {
                     let element_type = self
                         .analyze_type(ast_generic_parameters[0].get_type())
                         .unwrap();
-                    Type::StackView(Box::from(element_type))
+                    TypeKind::StackView(Box::from(element_type))
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self
                         .analyze_type(ast_generic_parameters[0].get_type())
                         .unwrap();
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    Type::StackStorage(Box::from(element_type), fixed_size)
+                    TypeKind::StackStorage(Box::from(element_type), fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4430,14 +4448,14 @@ impl<'a> Analyzer<'a> {
                     let element_type = self
                         .analyze_type(ast_generic_parameters[0].get_type())
                         .unwrap();
-                    Type::QueueView(Box::from(element_type))
+                    TypeKind::QueueView(Box::from(element_type))
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self
                         .analyze_type(ast_generic_parameters[0].get_type())
                         .unwrap();
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    Type::QueueStorage(Box::from(element_type), fixed_size)
+                    TypeKind::QueueStorage(Box::from(element_type), fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4447,14 +4465,14 @@ impl<'a> Analyzer<'a> {
                     let element_type = self
                         .analyze_type(ast_generic_parameters[0].get_type())
                         .unwrap();
-                    Type::SparseView(Box::from(element_type))
+                    TypeKind::SparseView(Box::from(element_type))
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self
                         .analyze_type(ast_generic_parameters[0].get_type())
                         .unwrap();
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    Type::SparseStorage(Box::from(element_type), fixed_size)
+                    TypeKind::SparseStorage(Box::from(element_type), fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4465,14 +4483,14 @@ impl<'a> Analyzer<'a> {
                     let element_type = self
                         .analyze_type(ast_generic_parameters[0].get_type())
                         .unwrap();
-                    Type::GridView(Box::from(element_type))
+                    TypeKind::GridView(Box::from(element_type))
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self
                         .analyze_type(ast_generic_parameters[0].get_type())
                         .unwrap();
                     let (width, height) =
                         self.analyze_generic_parameter_usize_tuple(&ast_generic_parameters[1]);
-                    Type::GridStorage(Box::from(element_type), width, height)
+                    TypeKind::GridStorage(Box::from(element_type), width, height)
                 } else {
                     panic!("todo: make this into an error")
                 }

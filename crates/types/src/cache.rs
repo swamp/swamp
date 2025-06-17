@@ -57,6 +57,25 @@ impl TypeCache {
         let type_instance = Type {
             id,
             flags,
+            is_mutable: false,
+            kind: Rc::new(kind),
+        };
+
+        let rc_type = Rc::new(type_instance);
+        self.type_id_to_type.insert(id, Rc::clone(&rc_type));
+
+        rc_type
+    }
+
+    fn create_type_mutable(&mut self, kind: TypeKind, is_mutable: bool) -> Rc<Type> {
+        let id = self.next_type_id();
+
+        let flags = TypeFlags::compute_for_type_kind(&kind);
+
+        let type_instance = Type {
+            id,
+            flags,
+            is_mutable,
             kind: Rc::new(kind),
         };
 
@@ -186,10 +205,6 @@ impl TypeCache {
                 TypeKind::FixedCapacityAndLengthArray(elem_a, size_a),
                 TypeKind::FixedCapacityAndLengthArray(elem_b, size_b),
             ) => size_a == size_b && self.compatible_with(elem_a, elem_b),
-
-            (TypeKind::MutableReference(inner_a), TypeKind::MutableReference(inner_b)) => {
-                self.compatible_with(inner_a, inner_b)
-            }
 
             (TypeKind::AnonymousStruct(anon_a), TypeKind::AnonymousStruct(anon_b)) => {
                 // Check if fields match
@@ -563,18 +578,6 @@ impl TypeCache {
         let grid_view_type = self.create_type(grid_view_kind);
         self.add_type_to_cache(&grid_view_type);
         grid_view_type
-    }
-
-    pub fn mutable_reference(&mut self, inner_type: &Rc<Type>) -> Rc<Type> {
-        let ref_kind = TypeKind::MutableReference(Rc::clone(inner_type));
-
-        if let Some(existing) = self.find_type(&ref_kind) {
-            return existing;
-        }
-
-        let ref_type = self.create_type(ref_kind);
-        self.add_type_to_cache(&ref_type);
-        ref_type
     }
 
     //

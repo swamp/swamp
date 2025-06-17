@@ -6,6 +6,8 @@ use crate::Analyzer;
 use crate::err::{Error, ErrorKind};
 use seq_map::SeqMap;
 use std::rc::Rc;
+use swamp_attributes::Attributes;
+use swamp_modules::symtbl::AliasType;
 use swamp_semantic::{
     ExternalFunctionDefinition, ExternalFunctionId, Function, InternalFunctionDefinition,
     LocalIdentifier, UseItem,
@@ -237,7 +239,7 @@ impl Analyzer<'_> {
             .add_enum_type_link(new_enum_type.clone())
             .map_err(|err| self.create_err(ErrorKind::SemanticError(err), &enum_type_name.name))?;
 
-        self.add_default_functions(&Type::Enum(new_enum_type), &enum_type_name.name);
+        self.add_default_functions(&TypeKind::Enum(new_enum_type), &enum_type_name.name);
         Ok(())
     }
 
@@ -366,7 +368,7 @@ impl Analyzer<'_> {
             })?;
 
         self.add_default_functions(
-            &Type::NamedStruct(named_struct_type),
+            &TypeKind::NamedStruct(named_struct_type),
             &ast_struct_def.identifier.name,
         );
         Ok(())
@@ -384,14 +386,14 @@ impl Analyzer<'_> {
                 let return_type = if let Some(found) = &function_data.declaration.return_type {
                     self.analyze_type(found)?
                 } else {
-                    Type::Unit
+                    TypeKind::Unit
                 };
 
                 // Set up scope for function body
                 for param in &parameters {
                     let param_type = &param.resolved_type;
                     let actual_type = if param.node.as_ref().unwrap().is_mutable() {
-                        Type::MutableReference(Box::new(param_type.clone()))
+                        TypeKind::MutableReference(Box::new(param_type.clone()))
                     } else {
                         param_type.clone()
                     };
@@ -452,7 +454,7 @@ impl Analyzer<'_> {
                 let external_return_type = if let Some(found) = &ast_signature.return_type {
                     self.analyze_type(found)?
                 } else {
-                    Type::Unit
+                    TypeKind::Unit
                 };
 
                 let return_type = external_return_type;
@@ -590,7 +592,7 @@ impl Analyzer<'_> {
     ///
     pub fn analyze_impl_functions(
         &mut self,
-        attach_to_type: &Type, // Needed for self
+        attach_to_type: &TypeRef, // Needed for self
         functions: &[&swamp_ast::Function],
     ) -> Result<(), Error> {
         if !self
@@ -645,7 +647,7 @@ impl Analyzer<'_> {
     fn analyze_impl_func(
         &mut self,
         function: &swamp_ast::Function,
-        self_type: &Type,
+        self_type: &TypeRef,
     ) -> Result<Function, Error> {
         let resolved_fn = match function {
             swamp_ast::Function::Internal(function_data) => {
@@ -653,7 +655,7 @@ impl Analyzer<'_> {
 
                 if let Some(found_self) = &function_data.declaration.self_parameter {
                     let actual_self_type = if found_self.is_mutable.is_some() {
-                        Type::MutableReference(Box::from(self_type.clone()))
+                        TypeKind::MutableReference(Box::from(self_type.clone()))
                     } else {
                         self_type.clone()
                     };
@@ -671,7 +673,7 @@ impl Analyzer<'_> {
                 for param in &function_data.declaration.params {
                     let mut resolved_type = self.analyze_type(&param.param_type)?;
                     if param.variable.is_mutable.is_some() {
-                        resolved_type = Type::MutableReference(Box::from(resolved_type));
+                        resolved_type = TypeKind::MutableReference(Box::from(resolved_type));
                     }
 
                     let resolved_param = TypeForParameter {
@@ -708,7 +710,7 @@ impl Analyzer<'_> {
                             ));
                         }
                     } else {
-                        Type::Unit
+                        TypeKind::Unit
                     };
 
                 for param in &parameters {
@@ -804,8 +806,8 @@ impl Analyzer<'_> {
         Ok(resolved_fn)
     }
 
-    fn add_default_functions(&mut self, type_to_attach_to: &Type, node: &swamp_ast::Node) {
-        let underlying = type_to_attach_to.underlying();
+    fn add_default_functions(&mut self, type_to_attach_to: &TypeRef, node: &swamp_ast::Node) {
+        let underlying = type_to_attach_to;
         if self
             .shared
             .state
@@ -814,8 +816,8 @@ impl Analyzer<'_> {
             .is_none()
         {
             if matches!(
-                &underlying,
-                Type::Enum(_) | Type::NamedStruct(_) | Type::AnonymousStruct(_)
+                &*underlying.kind,
+                TypeKind::Enum(_) | TypeKind::NamedStruct(_) | TypeKind::AnonymousStruct(_)
             ) {
                 let new_internal_function =
                     self.generate_to_string_function_for_type(&type_to_attach_to, node);

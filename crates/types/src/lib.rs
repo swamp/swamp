@@ -38,6 +38,7 @@ impl Display for TypeId {
 pub struct Type {
     pub id: TypeId,
     pub flags: TypeFlags,
+    pub is_mutable: bool,
     pub kind: Rc<TypeKind>,
 }
 

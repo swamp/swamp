@@ -55,8 +55,6 @@ impl Type {
                 size_a == size_b // Fixed arrays must have the same size
             }
 
-            (TypeKind::MutableReference(_), TypeKind::MutableReference(_)) => true,
-
             (TypeKind::Tuple(elems_a), TypeKind::Tuple(elems_b)) => {
                 elems_a.len() == elems_b.len() // Tuples must have same length
             }

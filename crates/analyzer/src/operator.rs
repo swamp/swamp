@@ -13,7 +13,7 @@ impl Analyzer<'_> {
         ast_left: &swamp_ast::Expression,
         ast_op: &swamp_ast::BinaryOperator,
         ast_right: &swamp_ast::Expression,
-    ) -> Result<(BinaryOperator, Type), Error> {
+    ) -> Result<(BinaryOperator, TypeRef), Error> {
         let anything_context = TypeContext::new_anything_argument();
         let left = self.analyze_expression(ast_left, &anything_context)?;
         let left_type = left.ty.underlying().clone();
@@ -26,14 +26,14 @@ impl Analyzer<'_> {
 
         match (&kind, &left_type, &right_type) {
             // String concatenation - allow any type on the right
-            (&BinaryOperatorKind::Add, Type::String, _) => Ok((
+            (&BinaryOperatorKind::Add, TypeKind::String, _) => Ok((
                 BinaryOperator {
                     left: Box::new(left),
                     right: Box::new(right),
                     kind,
                     node,
                 },
-                Type::String,
+                TypeKind::String,
             )),
 
             // Comparison operators
@@ -63,7 +63,7 @@ impl Analyzer<'_> {
                         kind,
                         node,
                     },
-                    Type::Bool,
+                    TypeKind::Bool,
                 ))
             }
 
@@ -95,10 +95,10 @@ impl Analyzer<'_> {
         &mut self,
         ast_op: &swamp_ast::UnaryOperator,
         ast_left: &swamp_ast::Expression,
-    ) -> Result<(UnaryOperator, Type), Error> {
+    ) -> Result<(UnaryOperator, TypeRef), Error> {
         let (node, kind, require_type) = match ast_op {
             swamp_ast::UnaryOperator::Not(node) => {
-                (node, UnaryOperatorKind::Not, Some(&Type::Bool))
+                (node, UnaryOperatorKind::Not, Some(&TypeKind::Bool))
             }
             swamp_ast::UnaryOperator::Negate(node) => (node, UnaryOperatorKind::Negate, None),
             swamp_ast::UnaryOperator::BorrowMutRef(_) => {

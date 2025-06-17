@@ -11,14 +11,13 @@ use swamp_semantic::{
     AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef, LocationAccess,
     LocationAccessKind, MutableReferenceKind, SingleLocationExpression, TargetAssignmentLocation,
 };
-use swamp_types::StructLikeType;
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
     fn analyze_struct_init_calling_default(
         &mut self,
         function: &FunctionRef,
-        super_type: &Type,
+        super_type: &TypeRef,
         anon_struct_type: &AnonymousStructType,
         source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
         node: &swamp_ast::Node,
@@ -38,7 +37,7 @@ impl Analyzer<'_> {
 
         let expr = self.create_expr(
             ExpressionKind::VariableDefinition(temp_var.clone(), Box::new(static_call)),
-            Type::Unit,
+            TypeKind::Unit,
             node,
         );
         expressions.push(expr);
@@ -59,7 +58,7 @@ impl Analyzer<'_> {
                 kind,
             }];
 
-            let actual_type = Type::MutableReference(Box::new(field_expression_type));
+            let actual_type = TypeKind::MutableReference(Box::new(field_expression_type));
             let created_location = SingleLocationExpression {
                 kind: MutableReferenceKind::MutStructFieldRef(
                     anon_struct_type.clone(),
@@ -78,7 +77,7 @@ impl Analyzer<'_> {
                     Box::from(created_mut_location),
                     Box::new(field_source_expression),
                 ),
-                Type::Unit,
+                TypeKind::Unit,
                 &node,
             );
 
@@ -97,13 +96,13 @@ impl Analyzer<'_> {
         Ok(block)
     }
 
-    fn get_struct_like_type(ty: &Type) -> StructLikeType {
+    fn get_struct_like_type(ty: &TypeRef) -> StructLikeType {
         match ty {
-            Type::NamedStruct(named_struct) => StructLikeType {
+            TypeKind::NamedStruct(named_struct) => StructLikeType {
                 assigned_name: named_struct.assigned_name.clone(),
                 anonymous_struct_type: named_struct.anon_struct_type.clone(),
             },
-            Type::AnonymousStruct(anon_struct_type) => StructLikeType {
+            TypeKind::AnonymousStruct(anon_struct_type) => StructLikeType {
                 assigned_name: "".to_string(),
                 anonymous_struct_type: anon_struct_type.clone(),
             },
@@ -116,7 +115,7 @@ impl Analyzer<'_> {
         borrowed_anon_type: &AnonymousStructType,
         mut source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
         missing_fields: SeqSet<String>,
-        result_type: &Type,
+        result_type: &TypeRef,
         node: &swamp_ast::Node,
     ) -> Result<Expression, Error> {
         {
@@ -194,11 +193,11 @@ impl Analyzer<'_> {
         // compare it against itself or otherwise a type that the context require (a named or an anonymous struct type).
         let (super_type, anon_struct_type) = if let Some(expected_type) = context.expected_type {
             match expected_type {
-                Type::NamedStruct(named_struct_type) => {
+                TypeKind::NamedStruct(named_struct_type) => {
                     //maybe_named_struct = Some(named_struct.clone());
                     (expected_type, &named_struct_type.anon_struct_type)
                 }
-                Type::AnonymousStruct(anonymous_struct_type) => {
+                TypeKind::AnonymousStruct(anonymous_struct_type) => {
                     (expected_type, anonymous_struct_type)
                 }
                 _ => {
@@ -210,7 +209,7 @@ impl Analyzer<'_> {
         } else {
             let deduced_anon_struct_type = self.deduce_the_anon_struct_type(ast_fields)?;
             (
-                &Type::AnonymousStruct(deduced_anon_struct_type.clone()),
+                &TypeKind::AnonymousStruct(deduced_anon_struct_type.clone()),
                 &deduced_anon_struct_type.clone(),
             )
         };
@@ -232,7 +231,7 @@ impl Analyzer<'_> {
     ) -> Result<Expression, Error> {
         let named_struct_type = self.get_struct_type(qualified_type_identifier)?;
 
-        let super_type = Type::NamedStruct(named_struct_type.clone());
+        let super_type = TypeKind::NamedStruct(named_struct_type.clone());
 
         self.analyze_struct_init(
             &qualified_type_identifier.name.0,
@@ -246,7 +245,7 @@ impl Analyzer<'_> {
     fn analyze_struct_init(
         &mut self,
         node: &swamp_ast::Node,
-        super_type: &Type,
+        super_type: &TypeRef,
         anon_struct_type: &AnonymousStructType,
         ast_fields: &Vec<swamp_ast::FieldExpression>,
         rest_was_specified: bool,
@@ -311,7 +310,7 @@ impl Analyzer<'_> {
                     source_order_expressions: mapped,
                     struct_type_ref: named_struct.clone(),
                 }),
-                Type::NamedStruct(named_struct),
+                TypeKind::NamedStruct(named_struct),
             )
         } else {
             (
@@ -319,7 +318,7 @@ impl Analyzer<'_> {
                     source_order_expressions: mapped,
                     anonymous_struct_type: struct_to_instantiate.clone(),
                 }),
-                Type::AnonymousStruct(struct_to_instantiate),
+                TypeKind::AnonymousStruct(struct_to_instantiate),
             )
         };
 
@@ -331,7 +330,7 @@ impl Analyzer<'_> {
     fn make_solution_for_missing_fields(
         &mut self,
         node: &swamp_ast::Node,
-        super_type: &Type,
+        super_type: &TypeRef,
         anon_struct_type: &AnonymousStructType,
         source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
         missing_fields: SeqSet<String>,
@@ -376,7 +375,7 @@ impl Analyzer<'_> {
         /*
         else if missing_fields.is_empty() {
 
-            let ty = Type::NamedStruct(struct_to_instantiate.clone());
+            let ty = TypeKind::NamedStruct(struct_to_instantiate.clone());
             let node = qualified_type_identifier.name.0.clone();
             let mapped: Vec<(usize, Expression)> = source_order_expressions
                 .into_iter()

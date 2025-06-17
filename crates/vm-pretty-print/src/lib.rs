@@ -11,7 +11,7 @@ use std::fmt::{Display, Formatter, Write};
 use std::ops::Add;
 use swamp_vm::Vm;
 use swamp_vm::memory::Memory;
-use swamp_vm_types::types::{BasicType, BasicTypeKind, OffsetMemoryItem};
+use swamp_vm_types::types::{BasicType, BasicTypeKind, BasicTypeRef, OffsetMemoryItem};
 use swamp_vm_types::{HeapMemoryAddress, MemoryOffset, StackMemoryAddress};
 
 pub fn new_line_and_tab(f: &mut dyn Write, tabs: usize) -> std::fmt::Result {
@@ -26,7 +26,7 @@ pub fn print_value(
     frame: &[u8],
     heap: &Memory,
     origin: StackMemoryAddress,
-    ty: &BasicType,
+    ty: &BasicTypeRef,
     name: &str,
 ) -> fmt::Result {
     let item = OffsetMemoryItem {
@@ -340,7 +340,6 @@ fn print(
             }
         }
 
-        BasicTypeKind::MutablePointer(_) => todo!(),
         BasicTypeKind::SliceView(_) => panic!("slices should not be stored"),
         BasicTypeKind::DynamicLengthMapView(_, _) => panic!("slice pairs should not be stored"),
         BasicTypeKind::InternalVecIterator => panic!("vec iterators should not be stored"),

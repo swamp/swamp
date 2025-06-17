@@ -2,9 +2,8 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use crate::Analyzer;
-use swamp_types::{Attribute, AttributeArg, AttributeIdentifier, AttributeValue, Attributes};
+use swamp_attributes::{Attribute, AttributeArg, AttributeIdentifier, AttributeValue, Attributes};
 
 impl Analyzer<'_> {
     #[must_use]

@@ -8,8 +8,8 @@ pub use crate::{
     flags::TypeFlags,
     supporting_types::{
         AnonymousStructType, EnumType, EnumVariantCommon, EnumVariantSimpleType,
-        EnumVariantStructType, EnumVariantTupleType, EnumVariantType, NamedStructType, Signature,
-        StructTypeField, TypeForParameter,
+        EnumVariantStructType, EnumVariantTupleType, EnumVariantType, NamedStructType,
+        ParameterNode, Signature, StructTypeField, TypeForParameter,
     },
     type_kind::TypeKind,
 };

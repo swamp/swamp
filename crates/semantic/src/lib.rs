@@ -547,28 +547,28 @@ pub struct Postfix {
 
 #[derive(Debug, Clone)]
 pub struct SliceViewType {
-    pub element: Box<TypeRef>,
+    pub element: TypeRef,
 }
 
 #[derive(Debug, Clone)]
 pub struct VecType {
-    pub element: Box<TypeRef>,
+    pub element: TypeRef,
 }
 
 #[derive(Debug, Clone)]
 pub struct GridType {
-    pub element: Box<TypeRef>,
+    pub element: TypeRef,
 }
 
 #[derive(Debug, Clone)]
 pub struct SparseType {
-    pub element: Box<TypeRef>,
+    pub element: TypeRef,
 }
 
 #[derive(Debug, Clone)]
 pub struct MapType {
-    pub key: Box<TypeRef>,
-    pub value: Box<TypeRef>,
+    pub key: TypeRef,
+    pub value: TypeRef,
 }
 
 #[derive(Debug, Clone)]

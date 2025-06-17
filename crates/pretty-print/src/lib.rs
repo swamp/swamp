@@ -13,11 +13,10 @@ use swamp_semantic::{
     ArgumentExpression, AssociatedImpls, MutableReferenceKind, Postfix, PostfixKind,
     SingleLocationExpression, StartOfChain, StartOfChainKind, TargetAssignmentLocation,
 };
-use swamp_types::prelude::{EnumType, NamedStructType, Signature, TypeForParameter};
-use swamp_types::{
-    AnonymousStructType, EnumType, NamedStructType, Signature, StructLikeType, Type,
-    TypeForParameter, TypeKind, TypeRef,
+use swamp_types::prelude::{
+    AnonymousStructType, EnumType, NamedStructType, Signature, TypeForParameter,
 };
+use swamp_types::{TypeKind, TypeRef};
 use yansi::{Color, Paint};
 
 pub struct SourceMapDisplay<'a> {
@@ -213,7 +212,11 @@ impl SourceMapDisplay<'_> {
     ) -> std::fmt::Result {
         write!(f, "{} ", struct_type.assigned_name.bright_magenta())?;
 
-        self.show_anon_struct_type(f, &struct_type.anon_struct_type, tabs)?;
+        let TypeKind::AnonymousStruct(anon) = &*struct_type.anon_struct_type.kind else {
+            panic!("")
+        };
+
+        self.show_anon_struct_type(f, &anon, tabs)?;
 
         Ok(())
     }
@@ -308,7 +311,7 @@ impl SourceMapDisplay<'_> {
     pub fn show_alias(&self, f: &mut Formatter<'_>, alias: &AliasType) -> std::fmt::Result {
         write!(f, "{} ==> ", alias.assigned_name.blue(),)?;
 
-        self.show_type_short(f, &alias.referenced_type, 0)?;
+        self.show_type_short(f, &alias.ty, 0)?;
 
         Ok(())
     }
@@ -522,7 +525,10 @@ impl SourceMapDisplay<'_> {
             Literal::BoolLiteral(b) => {
                 write!(f, "{}", b.bright_white())
             }
-            Literal::EnumVariantLiteral(enum_type, variant, data) => {
+            Literal::EnumVariantLiteral(enum_type_ref, variant, data) => {
+                let TypeKind::Enum(enum_type) = &*enum_type_ref.kind else {
+                    panic!("should always be enum type")
+                };
                 if matches!(data, EnumLiteralData::Nothing) {
                     write!(
                         f,
@@ -582,11 +588,18 @@ impl SourceMapDisplay<'_> {
     fn show_postfix(&self, f: &mut Formatter, postfix: &Postfix, tabs: usize) -> std::fmt::Result {
         match &postfix.kind {
             PostfixKind::StructField(struct_type, field) => {
-                let name = struct_type
-                    .field_name_sorted_fields
-                    .keys()
-                    .collect::<Vec<_>>()[*field]
-                    .clone();
+                let field_name_sorted_fields = match &*struct_type.kind {
+                    TypeKind::NamedStruct(named) => {
+                        let TypeKind::AnonymousStruct(anon) = &*named.anon_struct_type.kind else {
+                            panic!("must be anon")
+                        };
+                        &anon.field_name_sorted_fields
+                    }
+                    TypeKind::AnonymousStruct(anon) => &anon.field_name_sorted_fields,
+                    _ => panic!("not plausible"),
+                };
+
+                let name = field_name_sorted_fields.keys().collect::<Vec<_>>()[*field].clone();
                 write!(f, ".{}", name.bright_blue())
             }
             PostfixKind::SliceViewSubscript(slice_type, index_expr) => {
@@ -629,7 +642,7 @@ impl SourceMapDisplay<'_> {
         &self,
         f: &mut Formatter,
         name: &str,
-        types: &[Type],
+        types: &[TypeRef],
         tabs: usize,
     ) -> std::fmt::Result {
         write!(f, "{}<", name.bright_magenta())?;
@@ -640,7 +653,7 @@ impl SourceMapDisplay<'_> {
         Ok(())
     }
 
-    fn show_types(&self, f: &mut Formatter, types: &[Type], tabs: usize) -> std::fmt::Result {
+    fn show_types(&self, f: &mut Formatter, types: &[TypeRef], tabs: usize) -> std::fmt::Result {
         for (index, ty) in types.iter().enumerate() {
             if index > 0 {
                 write!(f, ", ")?;
@@ -686,10 +699,6 @@ impl SourceMapDisplay<'_> {
             TypeKind::Optional(base_type) => {
                 self.show_type_short(f, base_type, tabs)?;
                 write!(f, "{}", "?".yellow())
-            }
-            TypeKind::MutableReference(base_type) => {
-                write!(f, "{}", "&".red())?;
-                self.show_type_short(f, base_type, tabs)
             }
             TypeKind::SliceView(a) => write!(f, "[{a}]"),
             TypeKind::DynamicLengthVecView(a) => write!(f, "Vec<{a}>"),
@@ -745,10 +754,6 @@ impl SourceMapDisplay<'_> {
             TypeKind::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name),
             TypeKind::Function(signature) => write!(f, "function {signature}"),
             TypeKind::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
-            TypeKind::MutableReference(base_type) => {
-                write!(f, "{}", "mut ref".red())?;
-                self.show_type_short(f, base_type, tabs)
-            }
             TypeKind::SliceView(a) => write!(f, "[{a}]"),
             TypeKind::DynamicLengthVecView(a) => write!(f, "Vec<{a}>"),
             TypeKind::VecStorage(a, b) => write!(f, "Vec<{a};{b}>"),
@@ -796,7 +801,10 @@ impl SourceMapDisplay<'_> {
             }
 
             TypeKind::NamedStruct(struct_ref) => {
-                self.show_anon_struct_type(f, &struct_ref.anon_struct_type, tabs)
+                let TypeKind::AnonymousStruct(anon) = &*struct_ref.anon_struct_type.kind else {
+                    panic!("")
+                };
+                self.show_anon_struct_type(f, &anon, tabs)
             }
             TypeKind::AnonymousStruct(struct_ref) => {
                 self.show_anon_struct_type(f, struct_ref, tabs)
@@ -805,10 +813,6 @@ impl SourceMapDisplay<'_> {
             TypeKind::Enum(enum_type) => write!(f, "{}", enum_type.assigned_name),
             TypeKind::Function(signature) => write!(f, "function {signature}"),
             TypeKind::Optional(base_type) => write!(f, "{}?", base_type.yellow()),
-            TypeKind::MutableReference(base_type) => {
-                write!(f, "{}", "&".red());
-                self.show_type_short(f, base_type, tabs)
-            }
             TypeKind::SliceView(_) => todo!(),
             TypeKind::DynamicLengthVecView(_) => todo!(),
             TypeKind::VecStorage(_, _) => todo!(),
@@ -1035,17 +1039,26 @@ impl SourceMapDisplay<'_> {
     fn show_struct_literal(
         &self,
         f: &mut Formatter,
-        struct_like_type: &StructLikeType,
+        struct_like_type: &TypeRef,
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         tabs: usize,
     ) -> std::fmt::Result {
         write!(f, "{{",)?;
-        for (index, some_node, expression) in source_order_expressions {
-            let (name, _struct_field) = struct_like_type
-                .anonymous_struct_type
-                .field_name_sorted_fields
-                .iter()
-                .collect::<Vec<_>>()[*index];
+
+        // Extract the anonymous struct fields from the TypeRef
+        let field_name_sorted_fields = match &*struct_like_type.kind {
+            TypeKind::NamedStruct(named) => {
+                let TypeKind::AnonymousStruct(anon) = &*named.anon_struct_type.kind else {
+                    panic!("must be anon")
+                };
+                &anon.field_name_sorted_fields
+            }
+            TypeKind::AnonymousStruct(anon) => &anon.field_name_sorted_fields,
+            _ => panic!("not plausible"),
+        };
+
+        for (index, _some_node, expression) in source_order_expressions {
+            let (name, _struct_field) = field_name_sorted_fields.iter().collect::<Vec<_>>()[*index];
             Self::new_line_and_tab(f, tabs + 1)?;
             write!(f, "{}: ", name.yellow())?;
             self.show_expression(f, expression, tabs + 1)?;
@@ -1061,11 +1074,18 @@ impl SourceMapDisplay<'_> {
     fn show_named_struct_literal(
         &self,
         f: &mut Formatter,
-        struct_like_type: &StructLikeType,
+        struct_like_type: &TypeRef,
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         tabs: usize,
     ) -> std::fmt::Result {
-        write!(f, "{} ", struct_like_type.assigned_name.green())?;
+        // Extract the struct name from the TypeRef
+        let struct_name = match &*struct_like_type.kind {
+            TypeKind::NamedStruct(named_struct) => &named_struct.assigned_name,
+            TypeKind::AnonymousStruct(_) => "AnonymousStruct",
+            _ => "UnknownStruct",
+        };
+
+        write!(f, "{} ", struct_name.green())?;
 
         self.show_struct_literal(f, struct_like_type, source_order_expressions, tabs)
     }
@@ -1073,7 +1093,7 @@ impl SourceMapDisplay<'_> {
     fn show_named_struct_literal_content(
         &self,
         f: &mut Formatter,
-        struct_like_type: &StructLikeType,
+        struct_like_type: &TypeRef,
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         tabs: usize,
     ) -> std::fmt::Result {

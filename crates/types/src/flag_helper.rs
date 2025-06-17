@@ -23,7 +23,6 @@ impl TypeKind {
         match self {
             Self::Int | Self::Float | Self::Bool | Self::Unit => true,
             Self::Enum(enum_type) => enum_type.are_all_variants_without_payload(),
-            Self::MutableReference(inner) => inner.is_blittable(),
             Self::Tuple(types) => types.iter().all(|t| t.kind.is_blittable()),
             Self::Optional(inner) => inner.kind.is_blittable(),
             _ => false,
@@ -45,7 +44,6 @@ impl TypeKind {
             | Self::DynamicLengthVecView(element)
             | Self::QueueView(element)
             | Self::StackView(element)
-            | Self::MutableReference(element)
             | Self::FixedCapacityAndLengthArray(element, _)
             | Self::Optional(element) => element.kind.is_concrete_helper(),
 
@@ -86,10 +84,7 @@ impl TypeKind {
     /// Check if this is a direct type (can be stored directly in a variable)
     #[must_use]
     pub(crate) const fn is_direct(&self) -> bool {
-        matches!(
-            self,
-            Self::Int | Self::Float | Self::Bool | Self::Unit | Self::MutableReference(_)
-        )
+        matches!(self, Self::Int | Self::Float | Self::Bool | Self::Unit)
     }
 
     /// Check if this is a function type

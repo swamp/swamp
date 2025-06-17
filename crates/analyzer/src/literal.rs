@@ -37,8 +37,8 @@ impl Analyzer<'_> {
                 let (collection_type, encountered_key_type, encountered_value_type, resolved_items) =
                     self.analyze_internal_initializer_pair_list(ast_node, entries, context)?;
 
-                assert!(!matches!(encountered_key_type, Type::Unit));
-                assert!(!matches!(encountered_value_type, Type::Unit));
+                assert!(!matches!(encountered_key_type.kind, TypeKind::Unit));
+                assert!(!matches!(encountered_value_type.kind, TypeKind::Unit));
 
                 (
                     Literal::InitializerPairList(collection_type.clone(), resolved_items),
@@ -61,14 +61,14 @@ impl Analyzer<'_> {
         ast_node: &swamp_ast::Node,
         ast_literal_kind: &swamp_ast::LiteralKind,
         context: &TypeContext,
-    ) -> Result<(Literal, Type), Error> {
+    ) -> Result<(Literal, TypeRef), Error> {
         let node_text = self.get_text(ast_node);
         let resolved_literal = match &ast_literal_kind {
             swamp_ast::LiteralKind::Int => (
                 Literal::IntLiteral(Self::str_to_int(node_text).map_err(|int_conversion_err| {
                     self.create_err(ErrorKind::IntConversionError(int_conversion_err), ast_node)
                 })?),
-                Type::Int,
+                TypeKind::Int,
             ),
             swamp_ast::LiteralKind::Float => {
                 let float = Self::str_to_float(node_text).map_err(|float_conversion_err| {
@@ -77,17 +77,17 @@ impl Analyzer<'_> {
                         ast_node,
                     )
                 })?;
-                (Literal::FloatLiteral(Fp::from(float)), Type::Float)
+                (Literal::FloatLiteral(Fp::from(float)), TypeKind::Float)
             }
             swamp_ast::LiteralKind::String(processed_string) => (
                 Literal::StringLiteral(processed_string.to_string()),
-                Type::String,
+                TypeKind::String,
             ),
             swamp_ast::LiteralKind::Bool => {
                 let bool_val = Self::str_to_bool(node_text).map_err(|float_conversion_err| {
                     self.create_err(ErrorKind::BoolConversionError, ast_node)
                 })?;
-                (Literal::BoolLiteral(bool_val), Type::Bool)
+                (Literal::BoolLiteral(bool_val), TypeKind::Bool)
             }
             swamp_ast::LiteralKind::EnumVariant(enum_literal) => {
                 let (enum_name, variant_name) = match enum_literal {
@@ -105,7 +105,7 @@ impl Analyzer<'_> {
                 let (symbol_table, name) = self.get_symbol_table_and_name(enum_name)?;
                 if let Some(enum_type_ref) = symbol_table.get_enum(&name) {
                     let enum_type_clone = enum_type_ref.clone();
-                    let enum_type = Type::Enum(enum_type_ref.clone());
+                    let enum_type = TypeKind::Enum(enum_type_ref.clone());
 
                     // Handle enum variant literals in patterns
                     let variant_ref = self.analyze_enum_variant_ref(enum_name, variant_name)?;
@@ -125,7 +125,7 @@ impl Analyzer<'_> {
                                 &tuple_data.fields_in_order,
                                 ast_expressions,
                             )?;
-                            EnumLiteralData::Tuple(resolved)
+                            EnumLiteralData::Tuple(x, resolved)
                         }
                         swamp_ast::EnumVariantLiteral::Struct(
                             _qualified_type_identifier,
@@ -183,13 +183,13 @@ impl Analyzer<'_> {
                 let (tuple_type_ref, resolved_items) = self.analyze_tuple_literal(expressions)?;
                 (
                     Literal::TupleLiteral(tuple_type_ref.clone(), resolved_items),
-                    Type::Tuple(tuple_type_ref),
+                    TypeKind::Tuple(tuple_type_ref),
                 )
             }
             swamp_ast::LiteralKind::None => {
                 if let Some(found_expected_type) = context.expected_type {
-                    let underlying = found_expected_type.underlying();
-                    if let Type::Optional(_some_type) = underlying {
+                    let underlying = found_expected_type;
+                    if let TypeKind::Optional(_some_type) = &*underlying.kind {
                         return Ok((Literal::NoneLiteral, underlying.clone()));
                     }
                 }
@@ -205,7 +205,7 @@ impl Analyzer<'_> {
     fn analyze_tuple_literal(
         &mut self,
         items: &[swamp_ast::Expression],
-    ) -> Result<(Vec<Type>, Vec<Expression>), Error> {
+    ) -> Result<(Vec<TypeRef>, Vec<Expression>), Error> {
         let expressions = self.analyze_argument_expressions(None, items)?;
         let mut tuple_types = Vec::new();
         for expr in &expressions {
@@ -219,7 +219,7 @@ impl Analyzer<'_> {
     fn analyze_tuple_type(
         &mut self,
         node: &swamp_ast::Node,
-        expected_types: &[Type],
+        expected_types: &[TypeRef],
         ast_expressions: &Vec<swamp_ast::Expression>,
     ) -> Result<Vec<Expression>, Error> {
         if ast_expressions.len() != expected_types.len() {

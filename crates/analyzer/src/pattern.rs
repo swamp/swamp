@@ -10,11 +10,11 @@ use swamp_types::prelude::*;
 impl Analyzer<'_> {
     fn find_variant_in_pattern(
         &self,
-        expression_type: &Type,
+        expression_type: &TypeRef,
         ast_name: &swamp_ast::Node,
     ) -> Result<EnumVariantType, Error> {
         let enum_type_ref = match expression_type.underlying() {
-            Type::Enum(enum_type_ref) => enum_type_ref,
+            TypeKind::Enum(enum_type_ref) => enum_type_ref,
             _ => Err(self.create_err(ErrorKind::ExpectedEnumInPattern, ast_name))?,
         };
 
@@ -29,7 +29,7 @@ impl Analyzer<'_> {
     pub(crate) fn analyze_pattern(
         &mut self,
         ast_pattern: &swamp_ast::Pattern,
-        expected_condition_type: &Type,
+        expected_condition_type: &TypeRef,
     ) -> Result<(Pattern, bool, bool), Error> {
         match ast_pattern {
             swamp_ast::Pattern::Wildcard(node) => {
@@ -63,7 +63,7 @@ impl Analyzer<'_> {
         &mut self,
         node: &swamp_ast::Node,
         ast_normal_pattern: &swamp_ast::NormalPattern,
-        expected_condition_type: &Type,
+        expected_condition_type: &TypeRef,
     ) -> Result<(NormalPattern, bool, bool), Error> {
         let mut anyone_wants_mutable = false;
         match ast_normal_pattern {

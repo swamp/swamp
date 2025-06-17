@@ -14,10 +14,10 @@ pub struct Error {
 }
 #[derive(Debug)]
 pub enum ErrorKind {
-    NoAssociatedFunction(Type, String),
+    NoAssociatedFunction(TypeRef, String),
     MissingSubscriptMember,
     UnusedVariablesCanNotBeMut,
-    VariableTypeMustBeConcrete(Type),
+    VariableTypeMustBeConcrete(TypeRef),
     GuardCanNotHaveMultipleWildcards,
     WildcardMustBeLastInGuard,
     GuardMustHaveWildcard,
@@ -28,7 +28,7 @@ pub enum ErrorKind {
     DuplicateFieldName,
     MissingFieldInStructInstantiation(Vec<String>, AnonymousStructType),
     UnknownVariable,
-    ArrayIndexMustBeInt(Type),
+    ArrayIndexMustBeInt(TypeRef),
     OverwriteVariableWithAnotherType,
     NoneNeedsExpectedTypeHint,
     ExpectedMutableLocation,
@@ -46,18 +46,18 @@ pub enum ErrorKind {
     SemanticError(SemanticError),
     ExpectedOptional,
     MapKeyTypeMismatch {
-        expected: Type,
-        found: Type,
+        expected: TypeRef,
+        found: TypeRef,
     },
     MapValueTypeMismatch {
-        expected: Type,
-        found: Type,
+        expected: TypeRef,
+        found: TypeRef,
     },
     IncompatibleTypes {
-        expected: Type,
-        found: Type,
+        expected: TypeRef,
+        found: TypeRef,
     },
-    UnknownMemberFunction(Type),
+    UnknownMemberFunction(TypeRef),
     ExpressionsNotAllowedInLetPattern,
     UnknownField,
     EnumVariantHasNoFields,
@@ -72,7 +72,7 @@ pub enum ErrorKind {
     BoolConversionError,
     DuplicateFieldInStructInstantiation(String),
     UnknownIdentifier(String),
-    NoDefaultImplemented(Type),
+    NoDefaultImplemented(TypeRef),
     UnknownConstant,
     NotValidLocationStartingPoint,
     CallsCanNotBePartOfChain,
@@ -89,23 +89,23 @@ pub enum ErrorKind {
     MatchArmsMustHaveTypes,
     ContinueOutsideLoop,
     ParameterIsNotMutable,
-    CouldNotCoerceTo(Type),
+    CouldNotCoerceTo(TypeRef),
     UnexpectedType,
     CanNotAttachFunctionsToType,
-    MissingMemberFunction(String, Type),
+    MissingMemberFunction(String, TypeRef),
     ExpectedLambda,
     ExpectedSlice,
-    MissingToString(Type),
+    MissingToString(TypeRef),
     IncompatibleTypesForAssignment {
-        expected: Type,
-        found: Type,
+        expected: TypeRef,
+        found: TypeRef,
     },
     CapacityNotEnough {
         size_requested: usize,
         capacity: usize,
     },
     ExpectedInitializerTarget {
-        destination_type: Type,
+        destination_type: TypeRef,
     },
     NoInferredTypeForEmptyInitializer,
     TooManyInitializerListElementsForStorage {
@@ -113,8 +113,8 @@ pub enum ErrorKind {
     },
     KeyVariableNotAllowedToBeMutable,
     SelfNotCorrectMutableState,
-    NotAllowedAsReturnType(Type),
-    ParameterTypeCanNotBeStorage(Type),
+    NotAllowedAsReturnType(TypeRef),
+    ParameterTypeCanNotBeStorage(TypeRef),
 }
 
 impl From<SemanticError> for Error {

@@ -56,7 +56,7 @@ impl Analyzer<'_> {
         &mut self,
         variable: &Node,
         is_mutable: Option<&Node>,
-        variable_type_ref: &Type,
+        variable_type_ref: &TypeRef,
     ) -> Result<(), Error> {
         let (variable_ref, _name_str, _should_be_inserted) = self.create_variable_like_resolved(
             variable,
@@ -74,7 +74,7 @@ impl Analyzer<'_> {
         &mut self,
         variable: &swamp_ast::Node,
         is_mutable: Option<&swamp_ast::Node>,
-        variable_type_ref: &Type,
+        variable_type_ref: &TypeRef,
         concrete_check: bool,
     ) -> Result<VariableRef, Error> {
         let debug_text = self.get_text(variable);
@@ -96,7 +96,7 @@ impl Analyzer<'_> {
     pub(crate) fn create_variable(
         &mut self,
         variable: &swamp_ast::Variable,
-        variable_type_ref: &Type,
+        variable_type_ref: &TypeRef,
     ) -> Result<VariableRef, Error> {
         self.create_local_variable(
             &variable.name,
@@ -110,7 +110,7 @@ impl Analyzer<'_> {
         &mut self,
         variable: &Node,
         is_mutable: Option<&Node>,
-        variable_type_ref: &Type,
+        variable_type_ref: &TypeRef,
     ) -> Result<VariableRef, Error> {
         let (variable_ref, variable_str, should_insert_in_scope) = self
             .create_variable_like_resolved(
@@ -130,7 +130,7 @@ impl Analyzer<'_> {
         &mut self,
         variable: &Node,
         is_mutable: Option<&Node>,
-        variable_type_ref: &Type,
+        variable_type_ref: &TypeRef,
         variable_type: VariableType,
     ) -> Result<(VariableRef, String, bool), Error> {
         if let Some(_existing_variable) = self.try_find_local_variable(variable) {
@@ -184,7 +184,7 @@ impl Analyzer<'_> {
         &mut self,
         variable_str: &str,
         is_mutable: bool,
-        variable_type_ref: &Type,
+        variable_type_ref: &TypeRef,
     ) -> Result<VariableRef, Error> {
         let scope_index = self.scope.block_scope_stack.len() - 1;
 
@@ -315,7 +315,7 @@ impl Analyzer<'_> {
         };
 
         let expr_kind = ExpressionKind::VariableDefinition(variable_ref, Box::new(source_expr));
-        let expr = self.create_expr(expr_kind, Type::Unit, &ast_variable.name);
+        let expr = self.create_expr(expr_kind, TypeKind::Unit, &ast_variable.name);
 
         Ok(expr)
     }
