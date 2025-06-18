@@ -186,10 +186,13 @@ impl Analyzer<'_> {
             match &*expected_type.kind {
                 TypeKind::NamedStruct(named_struct_type) => {
                     //maybe_named_struct = Some(named_struct.clone());
-                    if let TypeKind::AnonymousStruct(anon_struct) = &*named_struct_type.anon_struct_type.kind {
+                    if let TypeKind::AnonymousStruct(anon_struct) =
+                        &*named_struct_type.anon_struct_type.kind
+                    {
                         (expected_type, anon_struct)
                     } else {
-                        return Err(self.create_err(ErrorKind::CouldNotCoerceTo(expected_type.clone()), node));
+                        return Err(self
+                            .create_err(ErrorKind::CouldNotCoerceTo(expected_type.clone()), node));
                     }
                 }
                 TypeKind::AnonymousStruct(anonymous_struct_type) => {
@@ -203,16 +206,21 @@ impl Analyzer<'_> {
             }
         } else {
             let deduced_anon_struct_type = self.deduce_the_anon_struct_type(ast_fields)?;
-            let anon_struct_type_ref = self.shared.state.types.anonymous_struct(deduced_anon_struct_type);
-            let anon_struct_type = if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_type_ref.kind {
-                anon_struct
-            } else {
-                return Err(self.create_err(ErrorKind::CouldNotCoerceTo(anon_struct_type_ref.clone()), node));
-            };
-            (
-                &anon_struct_type_ref,
-                anon_struct_type,
-            )
+            let anon_struct_type_ref = self
+                .shared
+                .state
+                .types
+                .anonymous_struct(deduced_anon_struct_type);
+            let anon_struct_type =
+                if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_type_ref.kind {
+                    anon_struct
+                } else {
+                    return Err(self.create_err(
+                        ErrorKind::CouldNotCoerceTo(anon_struct_type_ref.clone()),
+                        node,
+                    ));
+                };
+            (&anon_struct_type_ref, anon_struct_type)
         };
 
         self.analyze_struct_init(
@@ -232,7 +240,11 @@ impl Analyzer<'_> {
     ) -> Result<Expression, Error> {
         let named_struct_type = self.get_struct_type(qualified_type_identifier)?;
 
-        let super_type = self.shared.state.types.named_struct(named_struct_type.clone());
+        let super_type = self
+            .shared
+            .state
+            .types
+            .named_struct(named_struct_type.clone());
 
         if let TypeKind::AnonymousStruct(anon_struct) = &*named_struct_type.anon_struct_type.kind {
             self.analyze_struct_init(

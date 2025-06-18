@@ -817,8 +817,8 @@ pub enum Literal {
     StringLiteral(String),
     BoolLiteral(bool),
 
-    EnumVariantLiteral(TypeRef, EnumVariantType, EnumLiteralData),
-    TupleLiteral(TypeRef, Vec<Expression>),
+    EnumVariantLiteral(EnumVariantType, EnumLiteralData), // TypeRef: EnumType
+    TupleLiteral(Vec<Expression>),
 
     InitializerList(TypeRef, Vec<Expression>),
     InitializerPairList(TypeRef, Vec<(Expression, Expression)>),

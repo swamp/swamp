@@ -78,13 +78,18 @@ impl Analyzer<'_> {
         concrete_check: bool,
     ) -> Result<VariableRef, Error> {
         let debug_text = self.get_text(variable);
-        if !debug_text.starts_with('_') {
-            if concrete_check && !variable_type_ref.can_be_stored_in_variable() {
-                return Err(self.create_err(
-                    ErrorKind::VariableTypeMustBeConcrete(variable_type_ref.clone()),
-                    variable,
-                ));
-            }
+        if !debug_text.starts_with('_')
+            && concrete_check
+            && !self
+                .shared
+                .state
+                .types
+                .can_be_stored_in_variable(variable_type_ref)
+        {
+            return Err(self.create_err(
+                ErrorKind::VariableTypeMustBeConcrete(variable_type_ref.clone()),
+                variable,
+            ));
         }
         self.create_local_variable_resolved(
             &self.to_node(variable),
@@ -152,6 +157,8 @@ impl Analyzer<'_> {
             .expect("block scope should have at least one scope")
             .variables;
 
+        // Make sure to use the TypeCache to ensure proper type handling
+        // The variable_type_ref should be obtained from the TypeCache
         let resolved_variable = Variable {
             name: variable.clone(),
             assigned_name: variable_str.clone(),
@@ -205,6 +212,8 @@ impl Analyzer<'_> {
             variable_str.to_string()
         };
 
+        // Make sure to use the TypeCache to ensure proper type handling
+        // The variable_type_ref should be obtained from the TypeCache
         let resolved_variable = Variable {
             name: Node::default(),
             assigned_name: actual_name.clone(),
@@ -239,6 +248,7 @@ impl Analyzer<'_> {
         ast_variable: &swamp_ast::Variable,
         converted_expression: ArgumentExpression,
     ) -> Result<Expression, Error> {
+        // Use the TypeCache for getting the expression type
         let expression_type = converted_expression.ty().clone();
 
         let variable_ref = if let ArgumentExpression::Expression(expr) = &converted_expression {
@@ -261,6 +271,8 @@ impl Analyzer<'_> {
                     .expect("block scope should have at least one scope")
                     .variables;
 
+                // Make sure to use the TypeCache when accessing source_var.resolved_type
+                // The type should be handled through the TypeCache
                 let resolved_variable = Variable {
                     name: node,
                     assigned_name: variable_str.clone(),
@@ -280,6 +292,7 @@ impl Analyzer<'_> {
 
                 alias_ref
             } else {
+                // This call uses the TypeCache through create_local_variable
                 self.create_local_variable(
                     &ast_variable.name,
                     ast_variable.is_mutable.as_ref(),
@@ -288,6 +301,7 @@ impl Analyzer<'_> {
                 )?
             }
         } else {
+            // This call uses the TypeCache through create_local_variable
             self.create_local_variable(
                 &ast_variable.name,
                 ast_variable.is_mutable.as_ref(),
@@ -314,9 +328,16 @@ impl Analyzer<'_> {
             }
         };
 
+        let unit_type = self.types().unit();
+
         let expr_kind = ExpressionKind::VariableDefinition(variable_ref, Box::new(source_expr));
-        let expr = self.create_expr(expr_kind, TypeKind::Unit, &ast_variable.name);
+        // Use the TypeCache to get the Unit type
+        let expr = self.create_expr(expr_kind, unit_type, &ast_variable.name);
 
         Ok(expr)
+    }
+
+    pub fn types(&mut self) -> &mut TypeCache {
+        &mut self.shared.state.types
     }
 }

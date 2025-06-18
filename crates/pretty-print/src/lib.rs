@@ -525,28 +525,10 @@ impl SourceMapDisplay<'_> {
             Literal::BoolLiteral(b) => {
                 write!(f, "{}", b.bright_white())
             }
-            Literal::EnumVariantLiteral(enum_type_ref, variant, data) => {
-                let TypeKind::Enum(enum_type) = &*enum_type_ref.kind else {
-                    panic!("should always be enum type")
-                };
-                if matches!(data, EnumLiteralData::Nothing) {
-                    write!(
-                        f,
-                        "{}::{}",
-                        enum_type.assigned_name.yellow(),
-                        variant.common().assigned_name.blue()
-                    )
-                } else {
-                    write!(
-                        f,
-                        "{}::{} {:?}",
-                        enum_type.assigned_name.yellow(),
-                        variant.common().assigned_name.blue(),
-                        data.green()
-                    )
-                }
+            Literal::EnumVariantLiteral(variant_payload, data) => {
+                todo!()
             }
-            Literal::TupleLiteral(_tuple_type, expressions) => {
+            Literal::TupleLiteral(expressions) => {
                 write!(f, "(")?;
                 self.show_expressions(f, expressions, tabs + 1)?;
                 write!(f, ")")

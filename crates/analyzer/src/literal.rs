@@ -77,17 +77,23 @@ impl Analyzer<'_> {
                         ast_node,
                     )
                 })?;
-                (Literal::FloatLiteral(Fp::from(float)), self.shared.state.types.float())
+                (
+                    Literal::FloatLiteral(Fp::from(float)),
+                    self.shared.state.types.float(),
+                )
             }
-            swamp_ast::LiteralKind::String(processed_string) =>                 (
-                    Literal::StringLiteral(processed_string.to_string()),
-                    self.shared.state.types.string(),
-                ),
+            swamp_ast::LiteralKind::String(processed_string) => (
+                Literal::StringLiteral(processed_string.to_string()),
+                self.shared.state.types.string(),
+            ),
             swamp_ast::LiteralKind::Bool => {
                 let bool_val = Self::str_to_bool(node_text).map_err(|float_conversion_err| {
                     self.create_err(ErrorKind::BoolConversionError, ast_node)
                 })?;
-                (Literal::BoolLiteral(bool_val), self.shared.state.types.bool())
+                (
+                    Literal::BoolLiteral(bool_val),
+                    self.shared.state.types.bool(),
+                )
             }
             swamp_ast::LiteralKind::EnumVariant(enum_literal) => {
                 let (enum_name, variant_name) = match enum_literal {
@@ -104,9 +110,6 @@ impl Analyzer<'_> {
 
                 let (symbol_table, name) = self.get_symbol_table_and_name(enum_name)?;
                 if let Some(enum_type_ref) = symbol_table.get_enum(&name) {
-                    let enum_type_clone = enum_type_ref.clone();
-                    let enum_type = self.shared.state.types.enum_type(enum_type_ref.clone());
-
                     // Handle enum variant literals in patterns
                     let variant_ref = self.analyze_enum_variant_ref(enum_name, variant_name)?;
 
@@ -126,7 +129,10 @@ impl Analyzer<'_> {
                                 ast_expressions,
                             )?;
                             EnumLiteralData::Tuple(
-                                self.shared.state.types.tuple(tuple_data.fields_in_order.clone()),
+                                self.shared
+                                    .state
+                                    .types
+                                    .tuple(tuple_data.fields_in_order.clone()),
                                 resolved,
                             )
                         }
@@ -139,32 +145,34 @@ impl Analyzer<'_> {
                             if let EnumVariantType::Struct(ref resolved_variant_struct_ref) =
                                 variant_ref
                             {
+                                let TypeKind::AnonymousStruct(anon_struct) =
+                                    &*resolved_variant_struct_ref.struct_type.kind
+                                else {
+                                    panic!("do not do it")
+                                };
                                 if anonym_struct_field_and_expressions.len()
-                                    != resolved_variant_struct_ref
-                                        .anon_struct
-                                        .field_name_sorted_fields
-                                        .len()
+                                    != anon_struct.field_name_sorted_fields.len()
                                 {
                                     return Err(self.create_err(
                                         ErrorKind::WrongNumberOfArguments(
                                             anonym_struct_field_and_expressions.len(),
-                                            resolved_variant_struct_ref
-                                                .anon_struct
-                                                .field_name_sorted_fields
-                                                .len(),
+                                            anon_struct.field_name_sorted_fields.len(),
                                         ),
                                         &variant.0,
                                     ));
                                 }
 
-                                let resolved = self.analyze_anon_struct_instantiation(
+                                let resolved_fields = self.analyze_anon_struct_instantiation(
                                     &variant.0.clone(),
-                                    &resolved_variant_struct_ref.anon_struct,
+                                    &anon_struct,
                                     anonym_struct_field_and_expressions,
                                     *detected_rest,
                                 )?;
 
-                                EnumLiteralData::Struct(resolved)
+                                EnumLiteralData::Struct(
+                                    resolved_variant_struct_ref.struct_type.clone(),
+                                    resolved_fields,
+                                )
                             } else {
                                 return Err(self.create_err(
                                     ErrorKind::WrongEnumVariantContainer(variant_ref.clone()),
@@ -175,8 +183,8 @@ impl Analyzer<'_> {
                     };
 
                     return Ok((
-                        Literal::EnumVariantLiteral(enum_type_clone, variant_ref, resolved_data),
-                        enum_type,
+                        Literal::EnumVariantLiteral(variant_ref, resolved_data),
+                        enum_type_ref.clone(),
                     ));
                 }
                 return Err(self.create_err(ErrorKind::UnknownEnumType, ast_node));

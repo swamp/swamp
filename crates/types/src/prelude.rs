@@ -7,8 +7,7 @@ pub use crate::{
     cache::TypeCache,
     flags::TypeFlags,
     supporting_types::{
-        AnonymousStructType, EnumType, EnumVariantCommon, EnumVariantSimpleType,
-        EnumVariantStructType, EnumVariantTupleType, EnumVariantType, NamedStructType,
+        AnonymousStructType, EnumType, EnumVariantCommon, EnumVariantType, NamedStructType,
         ParameterNode, Signature, StructTypeField, TypeForParameter,
     },
     type_kind::TypeKind,

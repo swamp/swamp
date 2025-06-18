@@ -590,7 +590,12 @@ impl<'a> Analyzer<'a> {
             let reduced_expected = found_expected_type;
 
             let reduced_encountered_type = encountered_type;
-            if self.shared.state.types.compatible_with(&reduced_expected, &reduced_encountered_type) {
+            if self
+                .shared
+                .state
+                .types
+                .compatible_with(&reduced_expected, &reduced_encountered_type)
+            {
                 return Ok(expr);
             }
 
@@ -740,11 +745,11 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                    &ast_expression.node,
-                    fields,
-                    *rest_was_specified,
-                    context,
-                )?,
+                &ast_expression.node,
+                fields,
+                *rest_was_specified,
+                context,
+            )?,
 
             swamp_ast::ExpressionKind::ContextAccess => {
                 todo!("lone dot not implemented yet")
@@ -1038,8 +1043,11 @@ impl<'a> Analyzer<'a> {
             TypeKind::NamedStruct(struct_type) => struct_type.anon_struct_type.clone(),
             TypeKind::AnonymousStruct(anon_struct) => {
                 // Create a TypeRef from the AnonymousStructType
-                self.shared.state.types.anonymous_struct(anon_struct.clone())
-            },
+                self.shared
+                    .state
+                    .types
+                    .anonymous_struct(anon_struct.clone())
+            }
             TypeKind::Range(range_struct_ref) => {
                 // Extract NamedStructType from TypeRef, then AnonymousStructType from that
                 if let TypeKind::NamedStruct(named_struct) = &*range_struct_ref.kind {
@@ -1053,20 +1061,13 @@ impl<'a> Analyzer<'a> {
 
         // Extract the AnonymousStructType from the TypeRef
         if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_ref.kind {
-            if let Some(found_field) = anon_struct
-                .field_name_sorted_fields
-                .get(&field_name_str)
-            {
+            if let Some(found_field) = anon_struct.field_name_sorted_fields.get(&field_name_str) {
                 let index = anon_struct
                     .field_name_sorted_fields
                     .get_index(&field_name_str)
                     .expect("checked earlier");
 
-                return Ok((
-                    anon_struct.clone(),
-                    index,
-                    found_field.field_type.clone(),
-                ));
+                return Ok((anon_struct.clone(), index, found_field.field_type.clone()));
             }
         }
 
@@ -1191,7 +1192,7 @@ impl<'a> Analyzer<'a> {
                     match &collection_type.kind {
                         TypeKind::GridStorage(element_type, x, _) => {
                             let int_type = self.shared.state.types.int();
-                let unsigned_int_x_context = TypeContext::new_argument(&int_type);
+                            let unsigned_int_x_context = TypeContext::new_argument(&int_type);
                             let unsigned_int_x_expression =
                                 self.analyze_expression(col_expr, &unsigned_int_x_context)?;
 
@@ -1484,7 +1485,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
+            } else {
                 tv.resolved_type = TypeKind::Optional(Box::from(tv.resolved_type.clone()));
             }
         }
@@ -1500,8 +1502,8 @@ impl<'a> Analyzer<'a> {
         &mut self,
         expression: &swamp_ast::Expression,
     ) -> Result<BooleanExpression, Error> {
-                        let bool_type = self.shared.state.types.bool();
-                let bool_context = TypeContext::new_argument(&bool_type);
+        let bool_type = self.shared.state.types.bool();
+        let bool_context = TypeContext::new_argument(&bool_type);
         let resolved_expression = self.analyze_expression(expression, &bool_context)?;
         let expr_type = resolved_expression.ty.clone();
 
@@ -1792,7 +1794,7 @@ impl<'a> Analyzer<'a> {
                     is_mutable: false,
                     node: None,
                 }],
-                                        return_type: self.shared.state.types.string(),
+                return_type: self.shared.state.types.string(),
             },
             parameters: vec![variable_ref],
             function_variables: vec![],
@@ -1848,8 +1850,8 @@ impl<'a> Analyzer<'a> {
             // we check if we can get to a lvalue, otherwise it is not mutable:
             let _resulting_location =
                 self.analyze_to_location(expression, &any_context, LocationSide::Mutable)?;
-                                // Note: mutable references are now handled through SingleLocationExpression
-                    // The value_type stays the same, mutability is tracked separately
+            // Note: mutable references are now handled through SingleLocationExpression
+            // The value_type stays the same, mutability is tracked separately
         }
 
         Ok(Iterable {
@@ -1971,7 +1973,11 @@ impl<'a> Analyzer<'a> {
 
                          */
 
-                        self.create_expr(call_expr_kind, self.shared.state.types.string(), &expression.node)
+                        self.create_expr(
+                            call_expr_kind,
+                            self.shared.state.types.string(),
+                            &expression.node,
+                        )
                     }
                 }
             };
@@ -1986,7 +1992,11 @@ impl<'a> Analyzer<'a> {
                     node: node.clone(),
                 };
 
-                self.create_expr_resolved(ExpressionKind::BinaryOp(op), self.shared.state.types.string(), &node)
+                self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(op),
+                    self.shared.state.types.string(),
+                    &node,
+                )
             } else {
                 created_expression
             };
@@ -2050,7 +2060,11 @@ impl<'a> Analyzer<'a> {
         entries: &[(swamp_ast::Expression, swamp_ast::Expression)],
     ) -> Result<(Vec<(Expression, Expression)>, TypeRef, TypeRef), Error> {
         if entries.is_empty() {
-            return Ok((vec![], self.shared.state.types.unit(), self.shared.state.types.unit()));
+            return Ok((
+                vec![],
+                self.shared.state.types.unit(),
+                self.shared.state.types.unit(),
+            ));
         }
 
         // Resolve first entry to determine map types
@@ -3396,7 +3410,11 @@ impl<'a> Analyzer<'a> {
             Box::from(source_expr),
         );
 
-        let expr = self.create_expr(kind, self.shared.state.types.unit(), &target_expression.node);
+        let expr = self.create_expr(
+            kind,
+            self.shared.state.types.unit(),
+            &target_expression.node,
+        );
 
         Ok(expr)
     }
@@ -4025,7 +4043,7 @@ impl<'a> Analyzer<'a> {
 
         let mutable_self_type_param = TypeForParameter {
             name: "self".to_string(),
-                                    resolved_type: self_type.clone(),
+            resolved_type: self_type.clone(),
             is_mutable: true,
             node: None,
         };

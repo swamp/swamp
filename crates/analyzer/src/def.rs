@@ -12,6 +12,7 @@ use swamp_semantic::{
     ExternalFunctionDefinition, ExternalFunctionId, Function, InternalFunctionDefinition,
     LocalIdentifier, UseItem,
 };
+use swamp_types::TypeKind::AnonymousStruct;
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
@@ -166,11 +167,8 @@ impl Analyzer<'_> {
                 container_index: container_index_usize as u8,
             };
 
-            let variant_type = match ast_variant_type {
-                swamp_ast::EnumVariantType::Simple(_variant_name_node) => {
-                    let simple_ref = EnumVariantSimpleType { common };
-                    EnumVariantType::Nothing(simple_ref)
-                }
+            let payload_type = match ast_variant_type {
+                swamp_ast::EnumVariantType::Simple(_variant_name_node) => self.types().unit(),
                 swamp_ast::EnumVariantType::Tuple(_variant_name_node, types) => {
                     let mut vec = Vec::new();
                     for tuple_type in types {
@@ -178,12 +176,7 @@ impl Analyzer<'_> {
                         vec.push(resolved_type);
                     }
 
-                    let resolved_tuple_type = EnumVariantTupleType {
-                        common,
-                        fields_in_order: vec,
-                    };
-
-                    EnumVariantType::Tuple(resolved_tuple_type)
+                    self.types().tuple(vec)
                 }
                 swamp_ast::EnumVariantType::Struct(_variant_name_node, ast_struct_fields) => {
                     let mut fields = SeqMap::new();
@@ -207,23 +200,23 @@ impl Analyzer<'_> {
                         })?;
                     }
 
-                    let enum_variant_struct_type = EnumVariantStructType {
-                        common,
-                        struct_type: self
-                            .shared
-                            .state
-                            .types
-                            .anonymous_struct(AnonymousStructType::new(fields)),
+                    let anonymous_struct_type = AnonymousStructType {
+                        field_name_sorted_fields: fields,
                     };
 
-                    EnumVariantType::Struct(enum_variant_struct_type)
+                    self.types().anonymous_struct(anonymous_struct_type)
                 }
+            };
+
+            let enum_variant_type = EnumVariantType {
+                common,
+                payload_type,
             };
 
             let variant_name_str = self.get_text(variant_name_node).to_string();
 
             resolved_variants
-                .insert(variant_name_str, variant_type)
+                .insert(variant_name_str, enum_variant_type)
                 .map_err(|_| self.create_err(ErrorKind::DuplicateFieldName, variant_name_node))?;
         }
 
@@ -367,11 +360,12 @@ impl Analyzer<'_> {
                 )
             })?;
 
-        let named_struct_type_ref = self.shared.state.types.named_struct(named_struct_type.clone());
-        self.add_default_functions(
-            &named_struct_type_ref,
-            &ast_struct_def.identifier.name,
-        );
+        let named_struct_type_ref = self
+            .shared
+            .state
+            .types
+            .named_struct(named_struct_type.clone());
+        self.add_default_functions(&named_struct_type_ref, &ast_struct_def.identifier.name);
         Ok(())
     }
 

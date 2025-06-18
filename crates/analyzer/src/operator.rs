@@ -99,9 +99,7 @@ impl Analyzer<'_> {
     ) -> Result<(UnaryOperator, TypeRef), Error> {
         let bool_type = self.shared.state.types.bool();
         let (node, kind, require_type) = match ast_op {
-            swamp_ast::UnaryOperator::Not(node) => {
-                (node, UnaryOperatorKind::Not, Some(&bool_type))
-            }
+            swamp_ast::UnaryOperator::Not(node) => (node, UnaryOperatorKind::Not, Some(&bool_type)),
             swamp_ast::UnaryOperator::Negate(node) => (node, UnaryOperatorKind::Negate, None),
             swamp_ast::UnaryOperator::BorrowMutRef(_) => {
                 panic!("unary borrow should have been handled")

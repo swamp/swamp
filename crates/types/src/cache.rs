@@ -307,6 +307,11 @@ impl TypeCache {
         result
     }
 
+    #[must_use]
+    pub fn can_be_stored_in_variable(&self, ty: &TypeRef) -> bool {
+        todo!()
+    }
+
     /// Clear the compatibility cache
     pub fn clear_compatibility_cache(&mut self) {
         self.compatible_cache.clear();

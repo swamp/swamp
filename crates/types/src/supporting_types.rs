@@ -210,7 +210,7 @@ impl EnumType {
     pub fn are_all_variants_without_payload(&self) -> bool {
         self.variants
             .iter()
-            .all(|(_name, variant)| matches!(variant, EnumVariantType::Nothing(_)))
+            .all(|(_name, variant)| variant.payload_type.is_unit())
     }
 
     #[must_use]
@@ -220,54 +220,16 @@ impl EnumType {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum EnumVariantType {
-    Struct(EnumVariantStructType),
-    Tuple(EnumVariantTupleType),
-    Nothing(EnumVariantSimpleType),
+pub struct EnumVariantType {
+    pub common: EnumVariantCommon,
+    pub payload_type: TypeRef, // AnonymousStruct, Unit, or Tuple
 }
 
 impl EnumVariantType {
     #[must_use]
     pub const fn common(&self) -> &EnumVariantCommon {
-        match self {
-            Self::Tuple(tuple) => &tuple.common,
-            Self::Struct(c) => &c.common,
-            Self::Nothing(c) => &c.common,
-        }
+        &self.common
     }
-
-    #[must_use]
-    pub fn types(&self) -> Vec<TypeRef> {
-        match self {
-            Self::Tuple(tuple) => tuple.fields_in_order.clone(),
-            Self::Struct(c) => vec![c.struct_type.clone()],
-            Self::Nothing(_c) => vec![],
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct EnumVariantStructType {
-    pub common: EnumVariantCommon,
-    pub struct_type: TypeRef,
-}
-
-impl EnumVariantStructType {
-    #[must_use]
-    pub const fn struct_type(&self) -> &TypeRef {
-        &self.struct_type
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EnumVariantTupleType {
-    pub common: EnumVariantCommon,
-    pub fields_in_order: Vec<TypeRef>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct EnumVariantSimpleType {
-    pub common: EnumVariantCommon,
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -356,33 +318,6 @@ impl Display for EnumType {
 
 impl Display for EnumVariantType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Struct(variant) => write!(f, "{variant}"),
-            Self::Tuple(variant) => write!(f, "{variant}"),
-            Self::Nothing(variant) => write!(f, "{variant}"),
-        }
-    }
-}
-
-impl Display for EnumVariantStructType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:?}", self.common.assigned_name, self.struct_type)
-    }
-}
-
-impl Display for EnumVariantTupleType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}({})",
-            self.common.assigned_name,
-            seq_fmt::comma(&self.fields_in_order)
-        )
-    }
-}
-
-impl Display for EnumVariantSimpleType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.common.assigned_name)
+        write!(f, "{}", self.payload_type)
     }
 }

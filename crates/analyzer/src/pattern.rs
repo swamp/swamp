@@ -184,17 +184,27 @@ impl Analyzer<'_> {
                                     swamp_ast::PatternElement::Variable(var) => {
                                         let var_name_str = self.get_text(&var.name).to_string();
                                         // Check if the field exists
-                                        if let TypeKind::AnonymousStruct(anon_struct) = &*struct_type.struct_type.kind {
-                                            let field_index = anon_struct.field_name_sorted_fields
+                                        if let TypeKind::AnonymousStruct(anon_struct) =
+                                            &*struct_type.struct_type.kind
+                                        {
+                                            let field_index = anon_struct
+                                                .field_name_sorted_fields
                                                 .get_index(&var_name_str)
                                                 .ok_or_else(|| {
-                                                    self.create_err(ErrorKind::UnknownField, &var.name)
+                                                    self.create_err(
+                                                        ErrorKind::UnknownField,
+                                                        &var.name,
+                                                    )
                                                 })?;
 
-                                            let field_type = anon_struct.field_name_sorted_fields
+                                            let field_type = anon_struct
+                                                .field_name_sorted_fields
                                                 .get(&var_name_str)
                                                 .ok_or_else(|| {
-                                                    self.create_err(ErrorKind::UnknownField, &var.name)
+                                                    self.create_err(
+                                                        ErrorKind::UnknownField,
+                                                        &var.name,
+                                                    )
                                                 })?;
 
                                             if var.is_mutable.is_some() {
@@ -215,7 +225,9 @@ impl Analyzer<'_> {
                                                 ),
                                             );
                                         } else {
-                                            return Err(self.create_err(ErrorKind::UnknownField, &var.name));
+                                            return Err(
+                                                self.create_err(ErrorKind::UnknownField, &var.name)
+                                            );
                                         }
                                     }
                                     swamp_ast::PatternElement::Wildcard(node) => {

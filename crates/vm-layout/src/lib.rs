@@ -703,8 +703,6 @@ impl LayoutCache {
         basic_type
     }
 
-
-
     fn layout_named_struct(
         &mut self,
         named_struct_type: &NamedStructType,
