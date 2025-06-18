@@ -280,12 +280,10 @@ pub enum BasicTypeKind {
     StackStorage(BasicTypeRef, usize),
     QueueStorage(BasicTypeRef, usize),
     MapStorage {
-        element_type: BasicTypeRef,
-        tuple_type: Box<TupleType>,
+        key_type: BasicTypeRef,
+        value_type: BasicTypeRef,
         logical_limit: usize,
         capacity: CountU16,
-        tuple_alignment: MemoryAlignment,
-        bucket_size: MemorySize,
     },
     SparseView(BasicTypeRef),
     SparseStorage(BasicTypeRef, usize),
@@ -397,14 +395,15 @@ impl Display for BasicTypeKind {
             }
             Self::QueueStorage(item_type, size) => write!(f, "QueueStorage<{item_type}, {size}>"),
             Self::MapStorage {
-                tuple_type,
                 logical_limit: logical_size,
                 capacity,
+                key_type,
+                value_type,
                 ..
             } => write!(
                 f,
                 "MapStorage<{}, {}, {logical_size} ({capacity})>",
-                tuple_type.fields[0], tuple_type.fields[1],
+                key_type, value_type,
             ),
             Self::DynamicLengthMapView(key, value) => write!(f, "Map<{key}, {value}>"),
             Self::InternalGridPointer => write!(f, "Grid"),
@@ -1401,7 +1400,7 @@ impl BasicType {
             | BasicTypeKind::VecStorage(..)
             | BasicTypeKind::DynamicLengthVecView(..)
             // Map
-            | BasicTypeKind::MapStorage { element_type: _, tuple_type: _, logical_limit: _, capacity: _, tuple_alignment: _, bucket_size: _ }
+            | BasicTypeKind::MapStorage {  ..}
             | BasicTypeKind::DynamicLengthMapView(..)
         )
     }
@@ -1413,7 +1412,7 @@ impl BasicType {
             // Vec
             | BasicTypeKind::VecStorage(..)
             // Map
-            | BasicTypeKind::MapStorage { element_type: _, tuple_type: _, logical_limit: _, capacity: _, tuple_alignment: _, bucket_size: _ }
+            | BasicTypeKind::MapStorage { ..}
         )
     }
 
@@ -1433,14 +1432,7 @@ impl BasicType {
             BasicTypeKind::SparseStorage(_element_type, capacity) => {
                 Some(CountU16(*capacity as u16))
             }
-            BasicTypeKind::MapStorage {
-                element_type: _,
-                tuple_type: _,
-                logical_limit: _,
-                capacity,
-                tuple_alignment: _,
-                bucket_size: _,
-            } => Some(*capacity),
+            BasicTypeKind::MapStorage { capacity, .. } => Some(*capacity),
             _ => None,
         }
     }

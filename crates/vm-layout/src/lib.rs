@@ -14,9 +14,9 @@ use swamp_vm_types::types::{
     TaggedUnionVariant, TupleType,
 };
 use swamp_vm_types::{
-    CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE,
-    MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT,
-    STRING_PTR_SIZE, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
+    CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, MemoryAlignment,
+    MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
+    VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };
 
 #[derive(Copy, Clone)]
@@ -488,67 +488,26 @@ impl LayoutCache {
                     .id_to_layout
                     .insert(value_type.id, value_layout.clone());
 
-                let key_item = OffsetMemoryItem {
-                    offset: MemoryOffset(0),
-                    size: key_layout.total_size,
-                    name: "key".to_string(),
-                    ty: key_layout.clone(),
-                };
-
-                let value_offset = align_to(
-                    MemoryOffset(key_layout.total_size.0),
-                    value_layout.max_alignment,
-                );
-
-                let value_item = OffsetMemoryItem {
-                    offset: value_offset,
-                    size: value_layout.total_size,
-                    name: "value".to_string(),
-                    ty: value_layout.clone(),
-                };
-
-                let tuple_fields = vec![key_item, value_item];
-
-                let tuple_size = value_offset.0 + value_layout.total_size.0;
-                let tuple_alignment = max(key_layout.max_alignment, value_layout.max_alignment);
-                let aligned_tuple_size =
-                    adjust_size_to_alignment(MemorySize(tuple_size), tuple_alignment);
-
-                // Create a tuple type for the key-value pair
-                let tuple_type = TupleType {
-                    fields: tuple_fields,
-                    total_size: aligned_tuple_size,
-                    max_alignment: tuple_alignment,
-                };
-
-                // Create the tuple type using the layout_tuple method
-                // This will handle proper deduplication and caching
-                let tuple_types = vec![key_type.clone(), value_type.clone()];
-                let tuple_type_id =
-                    TypeId::new(key_type.id.inner().wrapping_add(value_type.id.inner()));
-
-                // Use layout_tuple to ensure consistent handling of tuple types
-                let tuple_basic_type = self.layout_tuple(&tuple_types, tuple_type_id);
-
-                // Make sure we're also storing the tuple type in the id_to_layout map
-                let _ = self.id_to_layout.insert(tuple_type_id, tuple_basic_type);
-
                 let logical_limit = *logical_limit;
-                let actual_capacity = (logical_limit as u16).next_power_of_two();
+
+                let (_bucket_layout, map_init) = hashmap_mem::layout(
+                    key_layout.total_size.0,
+                    key_layout.max_alignment.into(),
+                    value_layout.total_size.0,
+                    value_layout.max_alignment.into(),
+                    *logical_limit,
+                );
+                let total_size = MemorySize(map_init.total_size);
 
                 Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
                     kind: BasicTypeKind::MapStorage {
-                        element_type: value_layout,
-                        tuple_type: Box::new(tuple_type),
+                        key_type: key_layout,
                         logical_limit,
-                        capacity: CountU16(actual_capacity),
-                        tuple_alignment,
-                        bucket_size: aligned_tuple_size,
+                        capacity: CountU16(map_init.capacity),
+                        value_type: value_layout,
                     },
-                    total_size: MemorySize(
-                        MAP_HEADER_SIZE.0 + aligned_tuple_size.0 * u32::from(actual_capacity),
-                    ),
+                    total_size,
                     max_alignment: max(MAP_HEADER_ALIGNMENT, tuple_alignment),
                 })
             }

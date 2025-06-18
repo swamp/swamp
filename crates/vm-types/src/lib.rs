@@ -806,7 +806,7 @@ pub const GRID_HEADER_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(12);
 // NOTE: Must align to U32, therefor the padding at the end
 
 pub const MAP_HEADER_SIZE: MemorySize = MemorySize(size_of::<MapHeader>() as u32);
-pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U16;
+pub const MAP_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 pub const MAP_HEADER_KEY_SIZE_OFFSET: MemoryOffset = MemoryOffset(4);
 pub const MAP_HEADER_TUPLE_SIZE_OFFSET: MemoryOffset = MemoryOffset(6);
 pub const MAP_HEADER_LOGICAL_LIMIT_OFFSET: MemoryOffset = MemoryOffset(8);
