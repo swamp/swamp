@@ -14,17 +14,10 @@ use swamp_vm_types::types::{
     TaggedUnionVariant, TupleType,
 };
 use swamp_vm_types::{
-    adjust_size_to_alignment, align_to, CountU16, MemoryAlignment, MemoryOffset,
-    MemorySize, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, PTR_ALIGNMENT, PTR_SIZE,
-    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
+    CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, MemoryAlignment,
+    MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
+    VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };
-
-#[derive(Copy, Clone)]
-struct VariantLayout {
-    pub size: MemorySize,
-    pub alignment: MemoryAlignment,
-}
-
 
 pub struct LayoutCache {
     pub id_to_layout: SeqMap<TypeId, BasicTypeRef>,
@@ -74,7 +67,7 @@ impl LayoutCache {
         basic_type
     }
 
-    fn layout_tagged_union(variants: &[VariantLayout], name: &str) -> TaggedUnion {
+    fn layout_tagged_union(variants: &[TaggedUnionVariant], name: &str) -> TaggedUnion {
         let num_variants = variants.len();
         let (tag_size, tag_alignment) = if num_variants <= 0xFF {
             (MemorySize(1), MemoryAlignment::U8)
@@ -86,12 +79,12 @@ impl LayoutCache {
 
         let max_payload_size = variants
             .iter()
-            .map(|v| v.size)
+            .map(|v| v.ty.total_size)
             .max()
             .unwrap_or(MemorySize(0));
         let max_payload_alignment = variants
             .iter()
-            .map(|v| v.alignment)
+            .map(|v| v.ty.max_alignment)
             .max()
             .unwrap_or(MemoryAlignment::U8);
 
@@ -111,7 +104,7 @@ impl LayoutCache {
             max_payload_alignment,
             total_size,
             max_alignment,
-            variants: vec![],
+            variants: variants.to_vec(),
         }
     }
 
@@ -122,17 +115,19 @@ impl LayoutCache {
         name: &str,
         v: &[EnumVariantType],
     ) -> TaggedUnion {
-        let variant_layouts: Vec<_> = v.iter().map(|variant| {
-            let gen_payload_type = self.layout_type(&variant.payload_type);
+        let variant_layouts: Vec<_> = v
+            .iter()
+            .map(|variant| {
+                let gen_payload_type = self.layout_type(&variant.payload_type);
 
-            let x = VariantLayout {
-                size: gen_payload_type.total_size,
-                alignment: gen_payload_type.max_alignment,
-            };
+                let x = TaggedUnionVariant {
+                    name: variant.common.assigned_name.clone(),
+                    ty: gen_payload_type,
+                };
 
-            x
-        }).collect();
-
+                x
+            })
+            .collect();
 
         let tagged_union_layout = Self::layout_tagged_union(&variant_layouts, name);
 
@@ -739,15 +734,6 @@ impl LayoutCache {
     #[must_use]
     pub fn layout_optional_type_items(&mut self, inner_type: &TypeRef) -> TaggedUnion {
         let gen_type = self.layout_type(inner_type);
-        let payload_variant = VariantLayout {
-            size: gen_type.total_size,
-            alignment: gen_type.max_alignment,
-        };
-        let none_variant = VariantLayout {
-            size: MemorySize(0),
-            alignment: MemoryAlignment::U8,
-        };
-        let tagged = Self::layout_tagged_union(&[none_variant, payload_variant], "Maybe");
 
         let payload_tagged_variant = TaggedUnionVariant {
             name: "Some".to_string(),
@@ -764,18 +750,7 @@ impl LayoutCache {
             }),
         };
 
-        TaggedUnion {
-            name: "option".to_string(),
-            tag_offset: tagged.tag_offset,
-            tag_alignment: MemoryAlignment::U8,
-            tag_size: tagged.tag_size,
-            payload_max_size: tagged.payload_max_size,
-            max_payload_alignment: gen_type.max_alignment,
-            payload_offset: tagged.payload_offset,
-            variants: vec![none_tagged_variant, payload_tagged_variant],
-            total_size: tagged.total_size,
-            max_alignment: tagged.max_alignment,
-        }
+        Self::layout_tagged_union(&[none_tagged_variant, payload_tagged_variant], "Maybe")
     }
 
     #[must_use]

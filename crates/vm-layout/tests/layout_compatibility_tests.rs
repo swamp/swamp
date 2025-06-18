@@ -3,28 +3,25 @@ use source_map_node::Node;
 use swamp_types::prelude::{
     AnonymousStructType, EnumVariantType, StructTypeField, TypeCache, TypeRef,
 };
-use swamp_types::prelude::{
-    EnumType, EnumVariantCommon,
-};
+use swamp_types::prelude::{EnumType, EnumVariantCommon};
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::{MemoryAlignment, MemoryOffset, MemorySize};
-
-// Helper function to create a test enum with variants of different sizes and alignments
 fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
     let mut enum_type = EnumType::new(Node::default(), "TestEnum", vec!["test".to_string()]);
 
     // Add a simple variant (no payload)
-    let none_variant = EnumVariantSimpleType {
+    let empty_variant = EnumVariantType {
         common: EnumVariantCommon {
             name: Node::default(),
             assigned_name: "Empty".to_string(),
             container_index: 0,
         },
+        payload_type: type_cache.unit(), // Use unit type for empty variant
     };
     let _ = enum_type
         .variants
-        .insert("Empty".to_string(), EnumVariantType::Nothing(none_variant));
+        .insert("Empty".to_string(), empty_variant);
 
     // Add a variant with a single int field (4 bytes, aligned to 4)
     let int_type = type_cache.int();
@@ -41,17 +38,15 @@ fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
     let anon_struct = AnonymousStructType::new(int_fields);
     let anon_struct_type = type_cache.anonymous_struct(anon_struct);
 
-    let int_variant = EnumVariantStructType {
+    let int_variant = EnumVariantType {
         common: EnumVariantCommon {
             name: Node::default(),
             assigned_name: "Int".to_string(),
             container_index: 1,
         },
-        struct_type: anon_struct_type,
+        payload_type: anon_struct_type,
     };
-    let _ = enum_type
-        .variants
-        .insert("Int".to_string(), EnumVariantType::Struct(int_variant));
+    let _ = enum_type.variants.insert("Int".to_string(), int_variant);
 
     // Add a variant with a struct containing mixed alignments
     let mut mixed_fields = SeqMap::new();
@@ -86,17 +81,17 @@ fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
     let anon_struct = AnonymousStructType::new(mixed_fields);
     let anon_struct_type = type_cache.anonymous_struct(anon_struct);
 
-    let mixed_variant = EnumVariantStructType {
+    let mixed_variant = EnumVariantType {
         common: EnumVariantCommon {
             name: Node::default(),
             assigned_name: "Mixed".to_string(),
             container_index: 2,
         },
-        struct_type: anon_struct_type,
+        payload_type: anon_struct_type,
     };
     let _ = enum_type
         .variants
-        .insert("Mixed".to_string(), EnumVariantType::Struct(mixed_variant));
+        .insert("Mixed".to_string(), mixed_variant);
 
     TypeRef::from(type_cache.enum_type(enum_type))
 }

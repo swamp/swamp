@@ -26,7 +26,8 @@
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_types::prelude::{
-    AnonymousStructType, EnumVariantType, StructTypeField, TypeCache, TypeRef,
+    AnonymousStructType, EnumType, EnumVariantCommon, EnumVariantType, StructTypeField, TypeCache,
+    TypeRef,
 };
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::MemoryOffset;
@@ -394,24 +395,22 @@ fn test_map_storage_deduplication() {
 
     match &layout1.kind {
         BasicTypeKind::MapStorage {
-            tuple_type,
             logical_limit,
             capacity,
+            key_type,
+            value_type,
             ..
         } => {
             // Verify capacity and logical limit
             assert_eq!(*logical_limit, 10); // logical_limit should be preserved as input
             assert_eq!(capacity.0, 16); // Next power of 2 after 10
 
-            // Verify the tuple type has string and int fields
-            assert_eq!(tuple_type.fields.len(), 2);
-
-            match &tuple_type.fields[0].ty.kind {
+            match key_type.kind {
                 BasicTypeKind::InternalStringPointer => {}
                 _ => panic!("Expected string type for key"),
             }
 
-            match &tuple_type.fields[1].ty.kind {
+            match value_type.kind {
                 BasicTypeKind::S32 => {}
                 _ => panic!("Expected S32 type for value"),
             }
@@ -454,16 +453,16 @@ fn test_map_storage_deduplication() {
     //
     // So we have:
     // - id_to_layout: 3 entries (string TypeId, int TypeId, map TypeId)
-    // - kind_to_layout: 4 entries (string kind, int kind, tuple kind, map kind)
+    // - kind_to_layout: 3  entries (string kind, int kind, map kind)
     //
     // The tuple kind exists for layout purposes but has no corresponding user-visible TypeId.
     // This demonstrates how the layout cache can share layouts between structurally identical
     // types even when those types don't have explicit TypeIds in the swamp-types system.
     assert_eq!(
         layout_cache.kind_to_layout.len(),
-        4,
+        3,
         "kind_to_layout should contain exactly 4 entries: string kind, int kind, \
-        tuple kind (for internal key-value pairs), and map storage kind"
+         and map storage kind"
     );
 }
 
@@ -503,10 +502,11 @@ fn test_enum_variant_deduplication() {
     }
 
     // Test for enum variant deduplication
-    // id_to_layout contains: enum type, int type, and struct type for Some variant
+    // id_to_layout now contains: enum type, int type, struct type for Some variant, and unit type for None variant
+
     assert_eq!(
         layout_cache.id_to_layout.len(),
-        3,
+        4,
         "id_to_layout should contain exactly 3 entries: enum type, int type, and struct type for Some variant"
     );
 
@@ -521,30 +521,30 @@ fn test_enum_variant_deduplication() {
     //
     // So we have:
     // - id_to_layout: 3 entries (int TypeId, struct TypeId for Some, enum TypeId)
-    // - kind_to_layout: 4 entries (int kind, struct kind, enum kind, Empty kind for None)
+    // - kind_to_layout: 5 entries (int kind, unit, struct kind, enum kind, Empty kind for None)
     //
     // This demonstrates internal type creation for layout optimization.
     assert_eq!(
         layout_cache.kind_to_layout.len(),
-        4,
-        "kind_to_layout should contain exactly 4 entries: int, struct for Some variant, enum, and Empty type for None variant"
+        5,
+        "kind_to_layout should contain exactly 5 entries: int, unit, struct for Some variant, enum, and Empty type for None variant"
     );
 }
-
 fn create_test_enum(type_cache: &mut TypeCache) -> TypeRef {
+    use source_map_node::Node;
+
     // Create a simple enum with `None` and `Some(Int)` variants
     let mut enum_type = EnumType::new(Node::default(), "Option", vec!["test".to_string()]);
 
-    let none_variant = EnumVariantSimpleType {
+    let none_variant = EnumVariantType {
         common: EnumVariantCommon {
             name: Node::default(),
             assigned_name: "None".to_string(),
             container_index: 0,
         },
+        payload_type: type_cache.unit(), // Use unit type for empty variant
     };
-    let _ = enum_type
-        .variants
-        .insert("None".to_string(), EnumVariantType::Nothing(none_variant));
+    let _ = enum_type.variants.insert("None".to_string(), none_variant);
 
     let int_type = type_cache.int();
 
@@ -561,17 +561,15 @@ fn create_test_enum(type_cache: &mut TypeCache) -> TypeRef {
     let anon_struct = AnonymousStructType::new(some_fields);
     let anon_struct_type = type_cache.anonymous_struct(anon_struct);
 
-    let some_variant = EnumVariantStructType {
+    let some_variant = EnumVariantType {
         common: EnumVariantCommon {
             name: Node::default(),
             assigned_name: "Some".to_string(),
             container_index: 1,
         },
-        struct_type: anon_struct_type,
+        payload_type: anon_struct_type,
     };
-    let _ = enum_type
-        .variants
-        .insert("Some".to_string(), EnumVariantType::Struct(some_variant));
+    let _ = enum_type.variants.insert("Some".to_string(), some_variant);
 
     TypeRef::from(type_cache.enum_type(enum_type))
 }
