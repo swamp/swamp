@@ -79,7 +79,12 @@ impl Analyzer<'_> {
     ) -> Result<VariableRef, Error> {
         let debug_text = self.get_text(variable);
         if !debug_text.starts_with('_') {
-            // TODO: Add back concrete type checking when public method is available
+            if concrete_check && !variable_type_ref.can_be_stored_in_variable() {
+                return Err(self.create_err(
+                    ErrorKind::VariableTypeMustBeConcrete(variable_type_ref.clone()),
+                    variable,
+                ));
+            }
         }
         self.create_local_variable_resolved(
             &self.to_node(variable),
@@ -310,8 +315,7 @@ impl Analyzer<'_> {
         };
 
         let expr_kind = ExpressionKind::VariableDefinition(variable_ref, Box::new(source_expr));
-        let unit_type = self.shared.state.types.unit();
-        let expr = self.create_expr(expr_kind, unit_type, &ast_variable.name);
+        let expr = self.create_expr(expr_kind, TypeKind::Unit, &ast_variable.name);
 
         Ok(expr)
     }
