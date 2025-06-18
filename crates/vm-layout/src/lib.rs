@@ -14,9 +14,9 @@ use swamp_vm_types::types::{
     TaggedUnionVariant, TupleType,
 };
 use swamp_vm_types::{
-    CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, MemoryAlignment,
-    MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
+    adjust_size_to_alignment, align_to, CountU16, MemoryAlignment, MemoryOffset,
+    MemorySize, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, PTR_ALIGNMENT, PTR_SIZE,
+    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE,
 };
 
 #[derive(Copy, Clone)]
@@ -25,17 +25,6 @@ struct VariantLayout {
     pub alignment: MemoryAlignment,
 }
 
-#[derive(Copy, Clone)]
-pub struct TaggedUnionLayout {
-    pub tag_offset: MemoryOffset,
-    pub tag_size: MemorySize,
-    pub tag_alignment: MemoryAlignment,
-    pub payload_offset: MemoryOffset,
-    pub payload_size: MemorySize,
-    pub payload_alignment: MemoryAlignment,
-    pub total_size: MemorySize,
-    pub max_alignment: MemoryAlignment,
-}
 
 pub struct LayoutCache {
     pub id_to_layout: SeqMap<TypeId, BasicTypeRef>,
@@ -85,7 +74,7 @@ impl LayoutCache {
         basic_type
     }
 
-    fn layout_tagged_union(variants: &[VariantLayout]) -> TaggedUnionLayout {
+    fn layout_tagged_union(variants: &[VariantLayout], name: &str) -> TaggedUnion {
         let num_variants = variants.len();
         let (tag_size, tag_alignment) = if num_variants <= 0xFF {
             (MemorySize(1), MemoryAlignment::U8)
@@ -112,15 +101,17 @@ impl LayoutCache {
         let complete_size_before_alignment = MemorySize(payload_offset.0 + max_payload_size.0);
         let total_size = adjust_size_to_alignment(complete_size_before_alignment, max_alignment);
 
-        TaggedUnionLayout {
+        TaggedUnion {
+            name: name.to_string(),
             tag_offset: MemoryOffset(0),
             tag_size,
             tag_alignment,
             payload_offset,
-            payload_size: max_payload_size,
-            payload_alignment: max_payload_alignment,
+            payload_max_size: max_payload_size,
+            max_payload_alignment,
             total_size,
             max_alignment,
+            variants: vec![],
         }
     }
 
@@ -129,101 +120,23 @@ impl LayoutCache {
     pub fn layout_enum_into_tagged_union(
         &mut self,
         name: &str,
-        variants: &[EnumVariantType],
+        v: &[EnumVariantType],
     ) -> TaggedUnion {
-        let variant_infos = variants.iter().map(|variant| match variant {
-            EnumVariantType::Struct(s) => {
-                // Get the struct type from the TypeRef
-                let struct_type_ref = s.struct_type.clone();
+        let variant_layouts: Vec<_> = v.iter().map(|variant| {
+            let gen_payload_type = self.layout_type(&variant.payload_type);
 
-                // Check if we already have a layout for this type
-                let struct_basic_type = self.layout_type(&struct_type_ref);
+            let x = VariantLayout {
+                size: gen_payload_type.total_size,
+                alignment: gen_payload_type.max_alignment,
+            };
 
-                // No need to add to kind_to_layout cache as layout_type already does this
+            x
+        }).collect();
 
-                (
-                    VariantLayout {
-                        size: struct_basic_type.total_size,
-                        alignment: struct_basic_type.max_alignment,
-                    },
-                    TaggedUnionVariant {
-                        name: s.common.assigned_name.clone(),
-                        ty: struct_basic_type,
-                    },
-                )
-            }
-            EnumVariantType::Tuple(t) => {
-                // Check if we already have a layout for this tuple type
-                let tuple_kind = TypeKind::Tuple(t.fields_in_order.clone());
 
-                let tuple_basic_type =
-                    if let Some(existing_layout) = self.kind_to_layout.get(&tuple_kind) {
-                        // Use the existing layout if we have one
-                        existing_layout.clone()
-                    } else {
-                        // Otherwise create a new layout
-                        let tuple_layout = self.layout_tuple_items(&t.fields_in_order);
-                        let new_tuple_basic_type = Rc::new(BasicType {
-                            id: BasicTypeId(0), // Using 0 as a consistent ID for all intermediate types
-                            total_size: tuple_layout.total_size,
-                            max_alignment: tuple_layout.max_alignment,
-                            kind: BasicTypeKind::Tuple(tuple_layout),
-                        });
+        let tagged_union_layout = Self::layout_tagged_union(&variant_layouts, name);
 
-                        // Add to kind_to_layout cache for deduplication
-                        let _ = self
-                            .kind_to_layout
-                            .insert(tuple_kind, new_tuple_basic_type.clone());
-                        new_tuple_basic_type
-                    };
-
-                (
-                    VariantLayout {
-                        size: tuple_basic_type.total_size,
-                        alignment: tuple_basic_type.max_alignment,
-                    },
-                    TaggedUnionVariant {
-                        name: t.common.assigned_name.clone(),
-                        ty: tuple_basic_type,
-                    },
-                )
-            }
-
-            EnumVariantType::Nothing(n) => {
-                let empty_type = Rc::new(BasicType {
-                    id: BasicTypeId(0), // Using 0 as a consistent ID for all intermediate types
-                    total_size: MemorySize(0),
-                    max_alignment: MemoryAlignment::U8,
-                    kind: BasicTypeKind::Empty,
-                });
-
-                (
-                    VariantLayout {
-                        size: MemorySize(0),
-                        alignment: MemoryAlignment::U8,
-                    },
-                    TaggedUnionVariant {
-                        name: n.common.assigned_name.clone(),
-                        ty: empty_type,
-                    },
-                )
-            }
-        });
-
-        let (variant_layouts, tagged_variants): (Vec<VariantLayout>, Vec<TaggedUnionVariant>) =
-            variant_infos.into_iter().unzip();
-        let tagged_union_layout = Self::layout_tagged_union(&variant_layouts);
-
-        TaggedUnion {
-            name: name.to_string(),
-            tag_offset: tagged_union_layout.tag_offset,
-            tag_size: tagged_union_layout.tag_size,
-            payload_max_size: tagged_union_layout.payload_size,
-            payload_offset: tagged_union_layout.payload_offset,
-            variants: tagged_variants,
-            total_size: tagged_union_layout.total_size,
-            max_alignment: tagged_union_layout.max_alignment,
-        }
+        tagged_union_layout
     }
 
     #[must_use]
@@ -495,7 +408,7 @@ impl LayoutCache {
                     key_layout.max_alignment.into(),
                     value_layout.total_size.0,
                     value_layout.max_alignment.into(),
-                    *logical_limit,
+                    logical_limit as u16,
                 );
                 let total_size = MemorySize(map_init.total_size);
 
@@ -508,10 +421,10 @@ impl LayoutCache {
                         value_type: value_layout,
                     },
                     total_size,
-                    max_alignment: max(MAP_HEADER_ALIGNMENT, tuple_alignment),
+                    max_alignment: MAP_HEADER_ALIGNMENT,
                 })
             }
-            TypeKind::Range(range_struct) => create_basic_type(
+            TypeKind::Range(_range_struct) => create_basic_type(
                 ty.id,
                 BasicTypeKind::InternalRangeHeader,
                 MemorySize(12),
@@ -834,11 +747,11 @@ impl LayoutCache {
             size: MemorySize(0),
             alignment: MemoryAlignment::U8,
         };
-        let tagged = Self::layout_tagged_union(&[none_variant, payload_variant]);
+        let tagged = Self::layout_tagged_union(&[none_variant, payload_variant], "Maybe");
 
         let payload_tagged_variant = TaggedUnionVariant {
             name: "Some".to_string(),
-            ty: gen_type,
+            ty: gen_type.clone(),
         };
 
         let none_tagged_variant = TaggedUnionVariant {
@@ -854,8 +767,10 @@ impl LayoutCache {
         TaggedUnion {
             name: "option".to_string(),
             tag_offset: tagged.tag_offset,
+            tag_alignment: MemoryAlignment::U8,
             tag_size: tagged.tag_size,
-            payload_max_size: tagged.payload_size,
+            payload_max_size: tagged.payload_max_size,
+            max_payload_alignment: gen_type.max_alignment,
             payload_offset: tagged.payload_offset,
             variants: vec![none_tagged_variant, payload_tagged_variant],
             total_size: tagged.total_size,

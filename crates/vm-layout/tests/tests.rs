@@ -532,11 +532,6 @@ fn test_enum_variant_deduplication() {
 }
 
 fn create_test_enum(type_cache: &mut TypeCache) -> TypeRef {
-    use source_map_node::Node;
-    use swamp_types::prelude::{
-        EnumType, EnumVariantCommon, EnumVariantSimpleType, EnumVariantStructType,
-    };
-
     // Create a simple enum with `None` and `Some(Int)` variants
     let mut enum_type = EnumType::new(Node::default(), "Option", vec!["test".to_string()]);
 

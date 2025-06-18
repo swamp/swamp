@@ -3,16 +3,16 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::{
-    AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryRegion,
-    InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
-    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryLocation,
-    MemoryOffset, MemorySize, ProgramCounterDelta, RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
-    align_to,
+    align_to, AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion,
+    FrameMemorySize, HeapMemoryAddress, HeapMemoryRegion, InstructionPosition,
+    InstructionPositionOffset, InstructionRange, MemoryAlignment, MemoryLocation,
+    MemoryOffset, MemorySize, ProgramCounterDelta, RegIndex, HEAP_PTR_ON_FRAME_ALIGNMENT,
+    HEAP_PTR_ON_FRAME_SIZE, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, STRING_PTR_ALIGNMENT,
+    STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT,
+    VEC_PTR_SIZE,
 };
 use seq_fmt::comma;
-use std::cmp::{Ordering, max};
+use std::cmp::{max, Ordering};
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::rc::Rc;
 use tracing::error;
@@ -96,17 +96,20 @@ impl Display for TaggedUnionVariant {
 pub struct TaggedUnion {
     pub name: String,
     pub tag_offset: MemoryOffset, // should always be 0
+    pub tag_alignment: MemoryAlignment,
     pub tag_size: MemorySize,
     pub payload_max_size: MemorySize,
+    pub max_payload_alignment: MemoryAlignment,
     pub payload_offset: MemoryOffset,
     pub variants: Vec<TaggedUnionVariant>,
     pub total_size: MemorySize,
     pub max_alignment: MemoryAlignment,
 }
 
+
 impl Display for TaggedUnion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "union {}:", self.name,)?;
+        write!(f, "union {}:", self.name, )?;
         for (offset, variant) in self.variants.iter().enumerate() {
             writeln!(f, "  {offset}: {variant}")?;
         }
@@ -1144,8 +1147,8 @@ impl VmType {
     pub fn is_mutable_primitive(&self) -> bool {
         self.basic_type.is_mutable_reference()
             && self
-                .basic_type
-                .should_be_copied_back_when_mutable_arg_or_return()
+            .basic_type
+            .should_be_copied_back_when_mutable_arg_or_return()
     }
 
     #[must_use]
@@ -1571,20 +1574,12 @@ impl BasicType {
     }
 
     #[must_use]
-    pub fn bucket_size(&self) -> Option<MemorySize> {
+    pub fn bucket_size_for_vec_like(&self) -> Option<MemorySize> {
         match &self.kind {
             BasicTypeKind::FixedCapacityArray(inner, capacity) => Some(inner.total_size),
             BasicTypeKind::SliceView(inner) => Some(inner.total_size),
             BasicTypeKind::VecStorage(inner, _) => Some(inner.total_size),
             BasicTypeKind::DynamicLengthVecView(inner) => Some(inner.total_size),
-            BasicTypeKind::MapStorage {
-                element_type,
-                tuple_type,
-                logical_limit,
-                capacity,
-                tuple_alignment,
-                bucket_size,
-            } => Some(*bucket_size),
             _ => None,
         }
     }
@@ -1602,32 +1597,16 @@ impl BasicType {
             | BasicTypeKind::FixedCapacityArray(inner, _)
             | BasicTypeKind::VecStorage(inner, _)
             | BasicTypeKind::SliceView(inner) => Some(inner),
-            BasicTypeKind::MapStorage {
-                element_type,
-                tuple_type,
-                logical_limit,
-                capacity,
-                tuple_alignment,
-                bucket_size,
-            } => Some(element_type),
             _ => None,
         }
     }
 
     #[must_use]
-    pub const fn header_size(&self) -> Option<MemorySize> {
+    pub const fn header_size_for_vec_like(&self) -> Option<MemorySize> {
         match &self.kind {
             BasicTypeKind::SliceView(_)
             | BasicTypeKind::DynamicLengthVecView(_)
             | BasicTypeKind::VecStorage(_, _) => Some(VEC_HEADER_SIZE),
-            BasicTypeKind::MapStorage {
-                element_type: _,
-                tuple_type: _,
-                logical_limit: _,
-                capacity: _,
-                tuple_alignment: _,
-                bucket_size: _,
-            }
             | BasicTypeKind::DynamicLengthMapView(..) => Some(MAP_HEADER_SIZE),
             _ => None,
         }
@@ -2091,14 +2070,15 @@ pub fn write_basic_type(
             write!(f, "Map<{key}, {value}>")
         }
         BasicTypeKind::MapStorage {
-            tuple_type,
             logical_limit: logical_size,
+            key_type,
+            value_type,
             ..
         } => {
             write!(
                 f,
                 "MapStorage<{}, {}, {logical_size}>",
-                tuple_type.fields[0].ty, tuple_type.fields[1].ty,
+                key_type, value_type,
             )
         }
         BasicTypeKind::InternalGridPointer => {

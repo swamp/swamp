@@ -4,7 +4,7 @@ use swamp_types::prelude::{
     AnonymousStructType, EnumVariantType, StructTypeField, TypeCache, TypeRef,
 };
 use swamp_types::prelude::{
-    EnumType, EnumVariantCommon, EnumVariantSimpleType, EnumVariantStructType,
+    EnumType, EnumVariantCommon,
 };
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::BasicTypeKind;

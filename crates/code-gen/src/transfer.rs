@@ -3,13 +3,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
+use crate::DetailedLocationResolved;
 use source_map_node::Node;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, u16_type};
+use swamp_vm_types::types::{u16_type, Destination, TypedRegister, VmType};
 use swamp_vm_types::{
-    COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
-    MemorySize,
+    MemoryLocation, MemoryOffset, MemorySize, COLLECTION_CAPACITY_OFFSET,
+    COLLECTION_ELEMENT_COUNT_OFFSET,
 };
 
 impl CodeBuilder<'_> {
@@ -380,9 +380,11 @@ impl CodeBuilder<'_> {
     ) {
         let ty = &source_memory_location.ty;
         if ty.is_collection_like() {
-            let element_size = source_memory_location.ty.basic_type.bucket_size().unwrap();
-            let header_size = source_memory_location.ty.basic_type.header_size().unwrap();
+            // TODO: Must handle HashMap specially?
+
             if ty.basic_type.is_vec_like() {
+                let element_size = source_memory_location.ty.basic_type.bucket_size_for_vec_like().unwrap();
+                let header_size = source_memory_location.ty.basic_type.header_size_for_vec_like().unwrap();
                 self.emit_copy_vec_like_value_helper(
                     destination_memory_location,
                     source_memory_location,
