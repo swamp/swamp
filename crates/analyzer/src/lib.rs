@@ -2108,7 +2108,7 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
         items: &[(swamp_ast::Expression, swamp_ast::Expression)],
         context: &TypeContext,
-    ) -> Result<(Type, TypeRef, TypeRef, Vec<(Expression, Expression)>), Error> {
+    ) -> Result<(TypeRef, TypeRef, TypeRef, Vec<(Expression, Expression)>), Error> {
         let (collection_type, key_type, value_type) =
             if let Some(expected_type) = context.expected_type {
                 match &*expected_type.kind {
@@ -3537,7 +3537,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(TypeKind::Unit),
+                    return_type: self.types().unit(),
                 },
             ),
             "dequeue" => (
@@ -3597,7 +3597,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(TypeKind::Int),
+                    return_type: self.types().int(),
                 },
             ),
             "remove" => (
@@ -3612,7 +3612,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(TypeKind::Unit),
+                    return_type: self.types().unit(),
                 },
             ),
             "is_alive" => (
@@ -3627,7 +3627,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(TypeKind::Bool),
+                    return_type: self.types().bool(),
                 },
             ),
 
@@ -3679,7 +3679,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(TypeKind::Unit),
+                    return_type: self.types().unit(),
                 },
             ),
             "push" => (
@@ -3694,7 +3694,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(TypeKind::Unit),
+                    return_type: self.types().unit(),
                 },
             ),
             "pop" => (
@@ -3762,7 +3762,7 @@ impl<'a> Analyzer<'a> {
                         int_param.clone(),
                         element_param.clone(),
                     ],
-                    return_type: Box::new(TypeKind::Unit),
+                    return_type: self.types().unit(),
                 },
             ),
 
@@ -3801,7 +3801,7 @@ impl<'a> Analyzer<'a> {
             "len" => {
                 let signature = Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(TypeKind::Int),
+                    return_type: self.types().int(),
                 };
                 (IntrinsicFunction::VecLen, signature)
             }
@@ -3809,13 +3809,13 @@ impl<'a> Analyzer<'a> {
                 IntrinsicFunction::VecIsEmpty,
                 Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(TypeKind::Bool),
+                    return_type: self.types().bool(),
                 },
             ),
             "capacity" => {
                 let signature = Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(TypeKind::Int),
+                    return_type: self.types().int(),
                 };
                 (IntrinsicFunction::VecCapacity, signature)
             }
@@ -3877,7 +3877,7 @@ impl<'a> Analyzer<'a> {
                 };
                 let lambda_signature = Signature {
                     parameters,
-                    return_type: Box::new(TypeKind::Unit),
+                    return_type: self.types().unit(),
                 };
                 let lambda_function_type = TypeKind::Function(lambda_signature);
                 (
@@ -3892,7 +3892,7 @@ impl<'a> Analyzer<'a> {
                                 node: None,
                             },
                         ],
-                        return_type: Box::new(TypeKind::Unit), // VecFor is only used for side effects
+                        return_type: self.types().unit(), // VecFor is only used for side effects
                     },
                 )
             }
@@ -3922,7 +3922,7 @@ impl<'a> Analyzer<'a> {
                 };
                 let lambda_signature = Signature {
                     parameters,
-                    return_type: Box::new(TypeKind::Bool), // it returns if the while loop should continue
+                    return_type: self.types().bool(), // it returns if the while loop should continue
                 };
                 let lambda_function_type = TypeKind::Function(lambda_signature);
                 (
@@ -3937,7 +3937,7 @@ impl<'a> Analyzer<'a> {
                                 node: None,
                             },
                         ],
-                        return_type: Box::new(TypeKind::Unit), // VecFor is only used for side effects
+                        return_type: self.types().unit(), // VecFor is only used for side effects
                     },
                 )
             }
@@ -3949,7 +3949,7 @@ impl<'a> Analyzer<'a> {
                         is_mutable: false,
                         node: None,
                     }],
-                    return_type: Box::new(TypeKind::Bool),
+                    return_type: self.types().bool(),
                 };
                 let lambda_function_type = TypeKind::Function(lambda_signature);
                 (
@@ -3976,7 +3976,7 @@ impl<'a> Analyzer<'a> {
                         is_mutable: false,
                         node: None,
                     }],
-                    return_type: Box::new(TypeKind::Bool),
+                    return_type: self.types().bool(),
                 };
                 let lambda_function_type = TypeKind::Function(lambda_signature);
                 (
@@ -4007,7 +4007,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(TypeKind::Unit),
+                    return_type: self.types().unit(),
                 };
                 (IntrinsicFunction::VecRemoveIndex, signature)
             }
@@ -4052,7 +4052,7 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(TypeKind::Bool),
+                    return_type: self.types().bool(),
                 },
             ),
             "remove" => (
@@ -4067,28 +4067,28 @@ impl<'a> Analyzer<'a> {
                             node: None,
                         },
                     ],
-                    return_type: Box::new(TypeKind::Unit),
+                    return_type: self.types().unit(),
                 },
             ),
             "len" => (
                 IntrinsicFunction::MapLen,
                 Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(TypeKind::Int),
+                    return_type: self.types().int(),
                 },
             ),
             "capacity" => (
                 IntrinsicFunction::MapCapacity,
                 Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(TypeKind::Int),
+                    return_type: self.types().int(),
                 },
             ),
             "is_empty" => (
                 IntrinsicFunction::MapIsEmpty,
                 Signature {
                     parameters: vec![self_type_param],
-                    return_type: Box::new(TypeKind::Bool),
+                    return_type: self.types().bool(),
                 },
             ),
             _ => todo!("unknown map member"),

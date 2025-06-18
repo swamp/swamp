@@ -113,13 +113,13 @@ impl Analyzer<'_> {
 
                 if let Some(elements) = maybe_elements {
                     let mut resolved_elements = Vec::new();
-                    match enum_variant_type_ref {
-                        EnumVariantType::Tuple(ref tuple_type) => {
+                    match &*enum_variant_type_ref.payload_type.kind {
+                        TypeKind::Tuple(ref fields_in_order) => {
                             // For tuples, elements must be in order but can be partial
-                            if elements.len() > tuple_type.fields_in_order.len() {
+                            if elements.len() > fields_in_order.len() {
                                 return Err(self.create_err(
                                     ErrorKind::TooManyTupleFields {
-                                        max: tuple_type.fields_in_order.len(),
+                                        max: fields_in_order.len(),
                                         got: elements.len(),
                                     },
                                     variant_name,
@@ -133,7 +133,7 @@ impl Analyzer<'_> {
 
                             // Only zip with as many fields as we have elements
                             for (tuple_element_index, (element, field_type)) in
-                                elements.iter().zip(&tuple_type.fields_in_order).enumerate()
+                                elements.iter().zip(&fields_in_order).enumerate()
                             {
                                 match element {
                                     swamp_ast::PatternElement::Variable(var) => {
@@ -162,7 +162,7 @@ impl Analyzer<'_> {
                                     }
                                     swamp_ast::PatternElement::Wildcard(node) => {
                                         resolved_elements
-                                            .push(PatternElement::Wildcard(self.to_node(node)));
+                                            .push(PatternElement::Wildcard(self.to_node(&node)));
                                     }
                                     swamp_ast::PatternElement::Expression(expr) => {
                                         return Err(self.create_err(
@@ -173,7 +173,7 @@ impl Analyzer<'_> {
                                 }
                             }
                         }
-                        EnumVariantType::Struct(ref struct_type) => {
+                        TypeKind::AnonymousStruct(ref anon_struct_type) => {
                             if !scope_was_pushed {
                                 self.push_block_scope("enum struct");
                                 scope_was_pushed = true;
@@ -184,51 +184,37 @@ impl Analyzer<'_> {
                                     swamp_ast::PatternElement::Variable(var) => {
                                         let var_name_str = self.get_text(&var.name).to_string();
                                         // Check if the field exists
-                                        if let TypeKind::AnonymousStruct(anon_struct) =
-                                            &*struct_type.struct_type.kind
-                                        {
-                                            let field_index = anon_struct
-                                                .field_name_sorted_fields
-                                                .get_index(&var_name_str)
-                                                .ok_or_else(|| {
-                                                    self.create_err(
-                                                        ErrorKind::UnknownField,
-                                                        &var.name,
-                                                    )
-                                                })?;
-
-                                            let field_type = anon_struct
-                                                .field_name_sorted_fields
-                                                .get(&var_name_str)
-                                                .ok_or_else(|| {
-                                                    self.create_err(
-                                                        ErrorKind::UnknownField,
-                                                        &var.name,
-                                                    )
-                                                })?;
-
-                                            if var.is_mutable.is_some() {
-                                                anyone_wants_mutable = true;
-                                            }
-
-                                            let variable_ref = self.create_local_variable(
-                                                &var.name,
-                                                Option::from(&var.is_mutable),
-                                                &field_type.field_type,
-                                                false,
-                                            )?;
-
-                                            resolved_elements.push(
-                                                PatternElement::VariableWithFieldIndex(
-                                                    variable_ref,
-                                                    field_index,
-                                                ),
-                                            );
-                                        } else {
-                                            return Err(
+                                        let field_index = anon_struct_type
+                                            .field_name_sorted_fields
+                                            .get_index(&var_name_str)
+                                            .ok_or_else(|| {
                                                 self.create_err(ErrorKind::UnknownField, &var.name)
-                                            );
+                                            })?;
+
+                                        let field_type = anon_struct_type
+                                            .field_name_sorted_fields
+                                            .get(&var_name_str)
+                                            .ok_or_else(|| {
+                                                self.create_err(ErrorKind::UnknownField, &var.name)
+                                            })?;
+
+                                        if var.is_mutable.is_some() {
+                                            anyone_wants_mutable = true;
                                         }
+
+                                        let variable_ref = self.create_local_variable(
+                                            &var.name,
+                                            Option::from(&var.is_mutable),
+                                            &field_type.field_type,
+                                            false,
+                                        )?;
+
+                                        resolved_elements.push(
+                                            PatternElement::VariableWithFieldIndex(
+                                                variable_ref,
+                                                field_index,
+                                            ),
+                                        );
                                     }
                                     swamp_ast::PatternElement::Wildcard(node) => {
                                         resolved_elements
@@ -243,7 +229,7 @@ impl Analyzer<'_> {
                                 }
                             }
                         }
-                        EnumVariantType::Nothing(_) => {
+                        TypeKind::Unit => {
                             if !elements.is_empty() {
                                 return Err(self
                                     .create_err(ErrorKind::EnumVariantHasNoFields, variant_name));

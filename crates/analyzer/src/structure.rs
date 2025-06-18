@@ -211,6 +211,7 @@ impl Analyzer<'_> {
                 .state
                 .types
                 .anonymous_struct(deduced_anon_struct_type);
+
             let anon_struct_type =
                 if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_type_ref.kind {
                     anon_struct
@@ -220,6 +221,7 @@ impl Analyzer<'_> {
                         node,
                     ));
                 };
+
             (&anon_struct_type_ref, anon_struct_type)
         };
 
