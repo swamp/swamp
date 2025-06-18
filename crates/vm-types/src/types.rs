@@ -3,16 +3,16 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::{
-    align_to, AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion,
-    FrameMemorySize, HeapMemoryAddress, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, InstructionRange, MemoryAlignment, MemoryLocation,
-    MemoryOffset, MemorySize, ProgramCounterDelta, RegIndex, HEAP_PTR_ON_FRAME_ALIGNMENT,
-    HEAP_PTR_ON_FRAME_SIZE, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, STRING_PTR_ALIGNMENT,
-    STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT,
-    VEC_PTR_SIZE,
+    AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
+    HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryRegion,
+    InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
+    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryLocation,
+    MemoryOffset, MemorySize, ProgramCounterDelta, RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
+    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
+    align_to,
 };
 use seq_fmt::comma;
-use std::cmp::{max, Ordering};
+use std::cmp::{Ordering, max};
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::rc::Rc;
 use tracing::error;
@@ -106,10 +106,9 @@ pub struct TaggedUnion {
     pub max_alignment: MemoryAlignment,
 }
 
-
 impl Display for TaggedUnion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "union {}:", self.name, )?;
+        write!(f, "union {}:", self.name,)?;
         for (offset, variant) in self.variants.iter().enumerate() {
             writeln!(f, "  {offset}: {variant}")?;
         }
@@ -1147,8 +1146,8 @@ impl VmType {
     pub fn is_mutable_primitive(&self) -> bool {
         self.basic_type.is_mutable_reference()
             && self
-            .basic_type
-            .should_be_copied_back_when_mutable_arg_or_return()
+                .basic_type
+                .should_be_copied_back_when_mutable_arg_or_return()
     }
 
     #[must_use]
@@ -1607,7 +1606,7 @@ impl BasicType {
             BasicTypeKind::SliceView(_)
             | BasicTypeKind::DynamicLengthVecView(_)
             | BasicTypeKind::VecStorage(_, _) => Some(VEC_HEADER_SIZE),
-            | BasicTypeKind::DynamicLengthMapView(..) => Some(MAP_HEADER_SIZE),
+            BasicTypeKind::DynamicLengthMapView(..) => Some(MAP_HEADER_SIZE),
             _ => None,
         }
     }

@@ -1369,7 +1369,7 @@ impl<'a> Analyzer<'a> {
 
                 swamp_ast::Postfix::MemberCall(member_name, generic_arguments, ast_arguments) => {
                     let member_name_str = self.get_text(member_name).to_string();
-                    let underlying_type = tv.resolved_type.underlying();
+                    let underlying_type = tv.resolved_type;
 
                     let (kind, return_type) = self.analyze_member_call(
                         &underlying_type,
@@ -1511,7 +1511,7 @@ impl<'a> Analyzer<'a> {
             TypeKind::Bool => resolved_expression,
             TypeKind::Optional(_) => self.create_expr(
                 ExpressionKind::CoerceOptionToBool(Box::new(resolved_expression)),
-                TypeKind::Bool,
+                self.types().bool(),
                 &expression.node,
             ),
             _ => {
@@ -1525,7 +1525,7 @@ impl<'a> Analyzer<'a> {
     }
 
     fn generate_to_string_for_named_struct(
-        &self,
+        &mut self,
         named: &NamedStructType,
         self_expression: Expression,
     ) -> Expression {
@@ -1548,13 +1548,13 @@ impl<'a> Analyzer<'a> {
 
         self.create_expr_resolved(
             ExpressionKind::BinaryOp(concat_kind),
-            TypeKind::String,
+            self.types().string(),
             &node,
         )
     }
 
     fn generate_to_string_for_anon_struct(
-        &self,
+        &mut self,
         anonymous_struct_type: &AnonymousStructType,
         self_expression: Expression,
     ) -> Expression {
@@ -1562,7 +1562,7 @@ impl<'a> Analyzer<'a> {
 
         // Create opening brace string
         let opening_kind = ExpressionKind::Literal(Literal::StringLiteral("{ ".to_string()));
-        let mut result_expr = self.create_expr_resolved(opening_kind, TypeKind::String, &node);
+        let mut result_expr = self.create_expr_resolved(opening_kind, self.types().string(), &node);
 
         // Process each field
         for (field_index, (field_name, field_type)) in anonymous_struct_type
@@ -1575,7 +1575,7 @@ impl<'a> Analyzer<'a> {
                 let separator_kind =
                     ExpressionKind::Literal(Literal::StringLiteral(", ".to_string()));
                 let separator_expr =
-                    self.create_expr_resolved(separator_kind, TypeKind::String, &node);
+                    self.create_expr_resolved(separator_kind, self.types().string(), &node);
 
                 // Concatenate using + operator
                 let concat_kind = BinaryOperator {
@@ -1586,7 +1586,7 @@ impl<'a> Analyzer<'a> {
                 };
                 result_expr = self.create_expr_resolved(
                     ExpressionKind::BinaryOp(concat_kind),
-                    TypeKind::String,
+                    self.types().string(),
                     &node,
                 );
             }
@@ -1595,7 +1595,7 @@ impl<'a> Analyzer<'a> {
             let field_name_kind =
                 ExpressionKind::Literal(Literal::StringLiteral(format!("{field_name}: ")));
             let field_name_expr =
-                self.create_expr_resolved(field_name_kind, TypeKind::String, &node);
+                self.create_expr_resolved(field_name_kind, self.types().string(), &node);
 
             // Concatenate field name to result
             let concat_name_kind = BinaryOperator {
@@ -1607,7 +1607,7 @@ impl<'a> Analyzer<'a> {
 
             result_expr = self.create_expr_resolved(
                 ExpressionKind::BinaryOp(concat_name_kind),
-                TypeKind::String,
+                self.types().string(),
                 &node,
             );
 
@@ -1631,7 +1631,7 @@ impl<'a> Analyzer<'a> {
                 // Create call to to_string for the field
                 let postfix_call_to_string = Postfix {
                     node: node.clone(),
-                    ty: TypeKind::String,
+                    ty: self.types().string(),
                     kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
                 };
 
@@ -1647,7 +1647,7 @@ impl<'a> Analyzer<'a> {
                 );
 
                 let field_value_expr =
-                    self.create_expr_resolved(lookup_kind, TypeKind::String, &node);
+                    self.create_expr_resolved(lookup_kind, self.types().string(), &node);
 
                 // Concatenate field value to result
                 let concat_value_kind = BinaryOperator {
@@ -1658,7 +1658,7 @@ impl<'a> Analyzer<'a> {
                 };
                 result_expr = self.create_expr_resolved(
                     ExpressionKind::BinaryOp(concat_value_kind),
-                    TypeKind::String,
+                    self.types().string(),
                     &node,
                 );
             }
@@ -1666,7 +1666,7 @@ impl<'a> Analyzer<'a> {
 
         // Create closing brace string
         let closing_kind = ExpressionKind::Literal(Literal::StringLiteral(" }".to_string()));
-        let closing_expr = self.create_expr_resolved(closing_kind, TypeKind::String, &node);
+        let closing_expr = self.create_expr_resolved(closing_kind, self.types().string(), &node);
 
         // Concatenate closing brace to result
         let final_concat_kind = BinaryOperator {
@@ -1678,7 +1678,7 @@ impl<'a> Analyzer<'a> {
 
         self.create_expr_resolved(
             ExpressionKind::BinaryOp(final_concat_kind),
-            TypeKind::String,
+            self.types().string(),
             &node,
         )
     }
@@ -1690,9 +1690,10 @@ impl<'a> Analyzer<'a> {
     ) -> Expression {
         let node = argument_expression.node.clone();
         let mut arms = Vec::new();
+        let string_type = self.types().string();
         for (variant_name, variant_type) in &enum_type.variants {
             let kind = ExpressionKind::Literal(Literal::StringLiteral(variant_name.clone()));
-            let string_expr = self.create_expr_resolved(kind.clone(), TypeKind::String, &node);
+            let string_expr = self.create_expr_resolved(kind.clone(), string_type.clone(), &node);
 
             let arm_kind = MatchArm {
                 pattern: Pattern::Normal(
@@ -1700,7 +1701,7 @@ impl<'a> Analyzer<'a> {
                     None,
                 ),
                 expression: Box::new(string_expr.clone()),
-                expression_type: TypeKind::Int,
+                expression_type: self.types().int(),
             };
             arms.push(arm_kind);
         }
@@ -1710,7 +1711,7 @@ impl<'a> Analyzer<'a> {
                 arms,
                 expression: Box::new(argument_expression),
             }),
-            TypeKind::Enum(enum_type.clone()),
+            string_type.clone(),
             &node,
         )
     }
@@ -1721,7 +1722,7 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
     ) -> InternalFunctionDefinition {
         let resolved_node = self.to_node(node);
-
+        let string_type = self.types().string();
         let variable = Variable {
             name: resolved_node.clone(),
             assigned_name: "self".to_string(),
@@ -1740,7 +1741,7 @@ impl<'a> Analyzer<'a> {
 
         let first_self_param = self.create_expr_resolved(
             ExpressionKind::VariableAccess(variable_ref.clone()),
-            TypeKind::String,
+            string_type.clone(),
             &resolved_node,
         );
 
@@ -1813,38 +1814,28 @@ impl<'a> Analyzer<'a> {
         let resolved_expression = self.analyze_expression(expression, &any_context)?;
 
         let resolved_type = &resolved_expression.ty.clone();
-        let (key_type, mut value_type): (Option<TypeRef>, TypeRef) =
-            match resolved_type.underlying() {
-                TypeKind::String => (Some(TypeKind::Int), TypeKind::String),
-                TypeKind::SliceView(element_type) => (Some(TypeKind::Int), *element_type.clone()),
-                TypeKind::VecStorage(element_type, _fixed_size) => {
-                    (Some(TypeKind::Int), *element_type.clone())
-                }
-                TypeKind::SparseStorage(element_type, _fixed_size) => {
-                    (Some(TypeKind::Int), *element_type.clone())
-                }
-                TypeKind::StackStorage(element_type, _fixed_size) => {
-                    (Some(TypeKind::Int), *element_type.clone())
-                }
-                TypeKind::StackView(element_type) => (Some(TypeKind::Int), *element_type.clone()),
-                TypeKind::QueueStorage(element_type, _fixed_size) => {
-                    (Some(TypeKind::Int), *element_type.clone())
-                }
-                TypeKind::QueueView(element_type) => (Some(TypeKind::Int), *element_type.clone()),
-                TypeKind::DynamicLengthVecView(element_type) => {
-                    (Some(TypeKind::Int), *element_type.clone())
-                }
-                TypeKind::SparseView(element_type) => (Some(TypeKind::Int), *element_type.clone()),
-                TypeKind::DynamicLengthMapView(key_type, value_type)
-                | TypeKind::MapStorage(key_type, value_type, _) => {
-                    (Some(*key_type.clone()), *value_type.clone())
-                }
-                TypeKind::Range(_) => (None, TypeKind::Int),
-                _ => {
-                    error!(?resolved_type, "not an iterator");
-                    return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node));
-                }
-            };
+        let int_type = Some(self.types().int());
+        let (key_type, mut value_type): (Option<TypeRef>, TypeRef) = match &*resolved_type.kind {
+            TypeKind::String => (int_type, self.types().string()),
+            TypeKind::SliceView(element_type) => (int_type, element_type.clone()),
+            TypeKind::VecStorage(element_type, _fixed_size) => (int_type, element_type.clone()),
+            TypeKind::SparseStorage(element_type, _fixed_size) => (int_type, element_type.clone()),
+            TypeKind::StackStorage(element_type, _fixed_size) => (int_type, element_type.clone()),
+            TypeKind::StackView(element_type) => (int_type, element_type.clone()),
+            TypeKind::QueueStorage(element_type, _fixed_size) => (int_type, element_type.clone()),
+            TypeKind::QueueView(element_type) => (int_type, element_type.clone()),
+            TypeKind::DynamicLengthVecView(element_type) => (int_type, element_type.clone()),
+            TypeKind::SparseView(element_type) => (int_type, element_type.clone()),
+            TypeKind::DynamicLengthMapView(key_type, value_type)
+            | TypeKind::MapStorage(key_type, value_type, _) => {
+                (Some(key_type.clone()), value_type.clone())
+            }
+            TypeKind::Range(_) => (None, self.types().int()),
+            _ => {
+                error!(?resolved_type, "not an iterator");
+                return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node));
+            }
+        };
 
         if mut_requested_for_value_variable.is_some() {
             // we check if we can get to a lvalue, otherwise it is not mutable:
@@ -2120,8 +2111,7 @@ impl<'a> Analyzer<'a> {
     ) -> Result<(Type, TypeRef, TypeRef, Vec<(Expression, Expression)>), Error> {
         let (collection_type, key_type, value_type) =
             if let Some(expected_type) = context.expected_type {
-                let expected_underlying_type = expected_type.underlying();
-                match expected_underlying_type {
+                match &*expected_type.kind {
                     TypeKind::MapStorage(key, value, capacity) => {
                         if items.len() > *capacity {
                             return Err(self.create_err(
@@ -2131,10 +2121,10 @@ impl<'a> Analyzer<'a> {
                                 node,
                             ));
                         }
-                        (expected_type.clone(), *key.clone(), *value.clone())
+                        (expected_type.clone(), key.clone(), value.clone())
                     }
                     TypeKind::DynamicLengthMapView(key, value) => {
-                        (expected_type.clone(), *key.clone(), *value.clone())
+                        (expected_type.clone(), key.clone(), value.clone())
                     }
                     _ => return Err(self.create_err(ErrorKind::ExpectedSlice, node)),
                 }
@@ -2156,8 +2146,8 @@ impl<'a> Analyzer<'a> {
                     let required_value_type = first_value_expression.ty.clone();
                     (
                         TypeKind::MapStorage(
-                            Box::from(required_key_type.clone()),
-                            Box::from(required_value_type.clone()),
+                            required_key_type.clone(),
+                            required_value_type.clone(),
                             items.len(),
                         ),
                         required_key_type,
@@ -2185,10 +2175,9 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
         items: &[swamp_ast::Expression],
         context: &TypeContext,
-    ) -> Result<(Type, TypeRef, Vec<Expression>), Error> {
+    ) -> Result<(TypeRef, TypeRef, Vec<Expression>), Error> {
         let (collection_type, element_type) = if let Some(expected_type) = context.expected_type {
-            let destination_type = expected_type.underlying();
-            match destination_type {
+            match &*expected_type.kind {
                 TypeKind::GridStorage(element_type, width, height) => {
                     let capacity = width * height;
                     if items.len() > capacity {
@@ -2197,7 +2186,7 @@ impl<'a> Analyzer<'a> {
                             node,
                         ));
                     }
-                    (destination_type, *element_type.clone())
+                    (expected_type, element_type.clone())
                 }
                 TypeKind::StackStorage(element_type, capacity)
                 | TypeKind::QueueStorage(element_type, capacity)
@@ -2211,23 +2200,23 @@ impl<'a> Analyzer<'a> {
                             node,
                         ));
                     }
-                    (destination_type, *element_type.clone())
+                    (expected_type, element_type.clone())
                 }
                 TypeKind::QueueView(element_type)
                 | TypeKind::SparseView(element_type)
                 | TypeKind::StackView(element_type)
                 | TypeKind::GridView(element_type)
                 | TypeKind::DynamicLengthVecView(element_type) => {
-                    (destination_type, *element_type.clone())
+                    (expected_type, element_type.clone())
                 }
                 TypeKind::FixedCapacityAndLengthArray(element_type, _size) => {
-                    (destination_type, *element_type.clone())
+                    (expected_type, element_type.clone())
                 }
-                TypeKind::SliceView(element_type) => (destination_type, *element_type.clone()),
+                TypeKind::SliceView(element_type) => (expected_type, element_type.clone()),
                 _ => {
                     return Err(self.create_err(
                         ErrorKind::ExpectedInitializerTarget {
-                            destination_type: destination_type.clone(),
+                            destination_type: expected_type.clone(),
                         },
                         node,
                     ));
@@ -2241,7 +2230,9 @@ impl<'a> Analyzer<'a> {
             let first = self.analyze_expression(&items[0], &maybe_context)?;
             let required_type = first.ty.clone();
             (
-                &TypeKind::VecStorage(Box::new(required_type.clone()), items.len()),
+                &self
+                    .types()
+                    .vec_storage(&required_type.clone(), items.len()),
                 required_type.clone(),
             )
         };
@@ -2766,7 +2757,7 @@ impl<'a> Analyzer<'a> {
 
         Ok(self.create_expr(
             ExpressionKind::Lambda(resolved_variables, Box::new(analyzed_expression)),
-            TypeKind::Function(signature.clone()),
+            self.types().function(signature.clone()),
             node,
         ))
     }
