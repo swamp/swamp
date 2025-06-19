@@ -21,7 +21,7 @@ impl Analyzer<'_> {
         anon_struct_type: &AnonymousStructType,
         source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
         node: &swamp_ast::Node,
-    ) -> Result<Expression, Error> {
+    ) -> Expression {
         let mut expressions = Vec::new();
 
         self.push_block_scope("struct_instantiation");
@@ -108,7 +108,7 @@ impl Analyzer<'_> {
         missing_fields: SeqSet<String>,
         result_type: &TypeRef,
         node: &swamp_ast::Node,
-    ) -> Result<Expression, Error> {
+    ) -> Expression {
         {
             for missing_field_name in missing_fields {
                 let field = borrowed_anon_type
@@ -179,7 +179,7 @@ impl Analyzer<'_> {
         ast_fields: &Vec<swamp_ast::FieldExpression>,
         rest_was_specified: bool,
         context: &TypeContext,
-    ) -> Result<Expression, Error> {
+    ) -> Expression {
         // First check what we should compare the anonymous struct literal to. Either it is "pure" and then we
         // compare it against itself or otherwise a type that the context require (a named or an anonymous struct type).
         let (super_type, anon_struct_type) = if let Some(expected_type) = context.expected_type {
@@ -239,7 +239,7 @@ impl Analyzer<'_> {
         qualified_type_identifier: &swamp_ast::QualifiedTypeIdentifier,
         ast_fields: &Vec<swamp_ast::FieldExpression>,
         rest_was_specified: bool,
-    ) -> Result<Expression, Error> {
+    ) -> Expression {
         let named_struct_type = self.get_struct_type(qualified_type_identifier)?;
 
         let super_type = self
@@ -271,7 +271,7 @@ impl Analyzer<'_> {
         anon_struct_type: &AnonymousStructType,
         ast_fields: &Vec<swamp_ast::FieldExpression>,
         rest_was_specified: bool,
-    ) -> Result<Expression, Error> {
+    ) -> Expression {
         let (source_order_expressions, missing_fields) = self
             .place_anon_struct_fields_that_exist_and_return_missing(anon_struct_type, ast_fields)?;
 
@@ -314,7 +314,7 @@ impl Analyzer<'_> {
         ast_fields: &Vec<swamp_ast::FieldExpression>,
         rest_was_specified: bool,
         context: &TypeContext,
-    ) -> Result<Expression, Error> {
+    ) -> Expression {
         let mut maybe_named_struct: Option<NamedStructType> = None;
 
 
@@ -356,7 +356,7 @@ impl Analyzer<'_> {
         anon_struct_type: &AnonymousStructType,
         source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
         missing_fields: SeqSet<String>,
-    ) -> Result<Expression, Error> {
+    ) -> Expression {
         // First check if the super type has a default function (trait)
         let maybe_default = {
             self.shared
@@ -420,7 +420,7 @@ impl Analyzer<'_> {
         &mut self,
         target_anon_struct_type: &AnonymousStructType,
         ast_fields: &Vec<swamp_ast::FieldExpression>,
-    ) -> Result<(Vec<(usize, Option<Node>, Expression)>, SeqSet<String>), Error> {
+    ) -> (Vec<(usize, Option<Node>, Expression)>, SeqSet<String>) {
         let mut missing_fields: SeqSet<String> = target_anon_struct_type
             .field_name_sorted_fields
             .keys()
@@ -439,12 +439,14 @@ impl Analyzer<'_> {
                     .field_name_sorted_fields
                     .contains_key(&field_name)
                 {
-                    Err(self.create_err(
+                    self.add_err(
                         ErrorKind::DuplicateFieldInStructInstantiation(field_name),
                         &field.field_name.0,
-                    ))
+                    );
+                    (vec![], SeqSet::new())
                 } else {
-                    Err(self.create_err(ErrorKind::UnknownStructField, &field.field_name.0))
+                    self.add_err(ErrorKind::UnknownStructField, &field.field_name.0);
+                    (vec![], SeqSet::new())
                 };
             }
 
@@ -460,7 +462,7 @@ impl Analyzer<'_> {
 
             let field_type_context = TypeContext::new_argument(&looked_up_field.field_type);
             let resolved_expression =
-                self.analyze_expression(&field.expression, &field_type_context)?;
+                self.analyze_expression(&field.expression, &field_type_context);
 
             source_order_expressions.push((
                 field_index_in_definition,
@@ -469,7 +471,7 @@ impl Analyzer<'_> {
             ));
         }
 
-        Ok((source_order_expressions, missing_fields))
+        (source_order_expressions, missing_fields)
     }
 
     pub(crate) fn analyze_anon_struct_instantiation(
@@ -478,12 +480,12 @@ impl Analyzer<'_> {
         struct_to_instantiate: &AnonymousStructType,
         ast_fields: &Vec<swamp_ast::FieldExpression>,
         allow_rest: bool,
-    ) -> Result<Vec<(usize, Option<Node>, Expression)>, Error> {
+    ) -> Vec<(usize, Option<Node>, Expression)> {
         let (source_order_expressions, missing_fields) = self
             .place_anon_struct_fields_that_exist_and_return_missing(
                 struct_to_instantiate,
                 ast_fields,
-            )?;
+            );
 
         let mut mapped: Vec<(usize, Option<Node>, Expression)> = source_order_expressions;
 
@@ -502,20 +504,21 @@ impl Analyzer<'_> {
 
                 // Here you would create the default value for the field
                 let default_expression =
-                    self.create_default_value_for_type(node, &field.field_type)?;
+                    self.create_default_value_for_type(node, &field.field_type);
 
                 mapped.push((field_index, None, default_expression));
             }
         } else if !missing_fields.is_empty() {
-            return Err(self.create_err(
+            self.add_err(
                 ErrorKind::MissingFieldInStructInstantiation(
                     missing_fields.to_vec(),
                     struct_to_instantiate.clone(),
                 ),
                 node,
-            ));
+            );
+            return vec![];
         }
 
-        Ok(mapped)
+        mapped
     }
 }

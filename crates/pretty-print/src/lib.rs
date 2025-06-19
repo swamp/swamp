@@ -419,9 +419,48 @@ impl SourceMapDisplay<'_> {
             ExpressionKind::VariableReassignment(_, _) => {
                 write!(f, "VariableReassignment()")
             }
-            ExpressionKind::Literal(basic_literal) => {
-                self.show_basic_literal(f, basic_literal, tabs)
+            ExpressionKind::FloatLiteral(fp) => {
+                write!(f, "{}f", fp.bright_magenta())
             }
+            ExpressionKind::NoneLiteral => {
+                write!(f, "{}", "none".green())
+            }
+            ExpressionKind::IntLiteral(i) => {
+                write!(f, "{}i", i.bright_cyan())
+            }
+            ExpressionKind::StringLiteral(s) => {
+                write!(f, "'{}'", s.bright_red())
+            }
+            ExpressionKind::BoolLiteral(b) => {
+                write!(f, "{}", b.bright_white())
+            }
+            ExpressionKind::EnumVariantLiteral(variant_payload, data) => {
+                todo!()
+            }
+            ExpressionKind::TupleLiteral(expressions) => {
+                write!(f, "(")?;
+                self.show_expressions(f, expressions, tabs + 1)?;
+                write!(f, ")")
+            }
+            ExpressionKind::InitializerList(_slice_type, expressions) => {
+                write!(f, "{}[", "Initializer".green())?;
+                self.show_expressions(f, expressions, tabs + 1)?;
+                Self::new_line_and_tab(f, tabs)?;
+                write!(f, "]")
+            }
+            ExpressionKind::InitializerPairList(_slice_pair_type, pairs) => {
+                write!(f, "{}[", "InitializerPairs".green())?;
+                for (index, (key, value)) in pairs.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+                    self.show_expression(f, key, tabs + 1)?;
+                    write!(f, " {} ", ":".bright_blue())?;
+                    self.show_expression(f, value, tabs + 1)?;
+                }
+                write!(f, "]")
+            }
+
             ExpressionKind::AnonymousStructLiteral(struct_literal) => self
                 .show_named_struct_literal(
                     f,
@@ -493,6 +532,7 @@ impl SourceMapDisplay<'_> {
                 write!(f, "&")?;
                 self.show_location(f, x, tabs)
             }
+            &swamp_semantic::ExpressionKind::Error => todo!(),
         }
     }
 
@@ -501,57 +541,6 @@ impl SourceMapDisplay<'_> {
             return Ok(());
         }
         write!(f, "{}", self.source_map.get_text(&var.name))
-    }
-
-    fn show_basic_literal(
-        &self,
-        f: &mut Formatter,
-        basic_literal: &Literal,
-        tabs: usize,
-    ) -> std::fmt::Result {
-        match basic_literal {
-            Literal::FloatLiteral(fp) => {
-                write!(f, "{}f", fp.bright_magenta())
-            }
-            Literal::NoneLiteral => {
-                write!(f, "{}", "none".green())
-            }
-            Literal::IntLiteral(i) => {
-                write!(f, "{}i", i.bright_cyan())
-            }
-            Literal::StringLiteral(s) => {
-                write!(f, "'{}'", s.bright_red())
-            }
-            Literal::BoolLiteral(b) => {
-                write!(f, "{}", b.bright_white())
-            }
-            Literal::EnumVariantLiteral(variant_payload, data) => {
-                todo!()
-            }
-            Literal::TupleLiteral(expressions) => {
-                write!(f, "(")?;
-                self.show_expressions(f, expressions, tabs + 1)?;
-                write!(f, ")")
-            }
-            Literal::InitializerList(_slice_type, expressions) => {
-                write!(f, "{}[", "Initializer".green())?;
-                self.show_expressions(f, expressions, tabs + 1)?;
-                Self::new_line_and_tab(f, tabs)?;
-                write!(f, "]")
-            }
-            Literal::InitializerPairList(_slice_pair_type, pairs) => {
-                write!(f, "{}[", "InitializerPairs".green())?;
-                for (index, (key, value)) in pairs.iter().enumerate() {
-                    if index > 0 {
-                        write!(f, ", ")?;
-                    }
-                    self.show_expression(f, key, tabs + 1)?;
-                    write!(f, " {} ", ":".bright_blue())?;
-                    self.show_expression(f, value, tabs + 1)?;
-                }
-                write!(f, "]")
-            }
-        }
     }
 
     fn show_expressions(

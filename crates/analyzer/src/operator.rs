@@ -13,12 +13,12 @@ impl Analyzer<'_> {
         ast_left: &swamp_ast::Expression,
         ast_op: &swamp_ast::BinaryOperator,
         ast_right: &swamp_ast::Expression,
-    ) -> Result<(BinaryOperator, TypeRef), Error> {
+    ) -> Option<(BinaryOperator, TypeRef)> {
         let anything_context = TypeContext::new_anything_argument();
-        let left = self.analyze_expression(ast_left, &anything_context)?;
+        let left = self.analyze_expression(ast_left, &anything_context);
         let left_type = &*left.ty.kind;
 
-        let right = self.analyze_expression(ast_right, &anything_context)?;
+        let right = self.analyze_expression(ast_right, &anything_context);
         let right_type = &*right.ty.kind;
 
         let kind = Self::convert_binary_operator_kind(ast_op);
@@ -26,15 +26,17 @@ impl Analyzer<'_> {
 
         match (&kind, &left_type, &right_type) {
             // String concatenation - allow any type on the right
-            (&BinaryOperatorKind::Add, TypeKind::String, _) => Ok((
-                BinaryOperator {
-                    left: Box::new(left),
-                    right: Box::new(right),
-                    kind,
-                    node,
-                },
-                self.shared.state.types.string(),
-            )),
+            (&BinaryOperatorKind::Add, TypeKind::String, _) => {
+                (Some((
+                    BinaryOperator {
+                        left: Box::new(left),
+                        right: Box::new(right),
+                        kind,
+                        node,
+                    },
+                    self.shared.state.types.string(),
+                )))
+            }
 
             // Comparison operators
             (
@@ -48,15 +50,16 @@ impl Analyzer<'_> {
                 _,
             ) => {
                 if !self.shared.state.types.compatible_with(&left.ty, &right.ty) {
-                    return Err(self.create_err(
+                    self.add_err(
                         ErrorKind::IncompatibleTypes {
                             expected: left.ty.clone(),
                             found: right.ty.clone(),
                         },
                         &ast_op.node,
-                    ));
+                    );
+                    return None;
                 }
-                Ok((
+                Some((
                     BinaryOperator {
                         left: Box::new(left),
                         right: Box::new(right),
@@ -70,16 +73,18 @@ impl Analyzer<'_> {
             // All other operators require exact type matches
             _ => {
                 if !self.shared.state.types.compatible_with(&left.ty, &right.ty) {
-                    return Err(self.create_err_resolved(
+                    self.add_err_resolved(
                         ErrorKind::IncompatibleTypes {
                             expected: left.ty.clone(),
                             found: right.ty.clone(),
                         },
                         &node,
-                    ));
+                    );
+
+                    return None;
                 }
                 let result_type = left.ty.clone();
-                Ok((
+                Some((
                     BinaryOperator {
                         left: Box::new(left),
                         right: Box::new(right),
@@ -106,7 +111,7 @@ impl Analyzer<'_> {
             }
         };
         let context = TypeContext::new_unsure_argument(require_type);
-        let left = self.analyze_expression(ast_left, &context)?;
+        let left = self.analyze_expression(ast_left, &context);
         let resolved_type = left.ty.clone();
         Ok((
             UnaryOperator {

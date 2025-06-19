@@ -4,8 +4,6 @@
  */
 use crate::Analyzer;
 use crate::TypeContext;
-use crate::err::Error;
-use swamp_semantic::Literal::BoolLiteral;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, Function};
 use swamp_types::prelude::*;
@@ -31,14 +29,14 @@ impl Analyzer<'_> {
         &mut self,
         min_expr: &swamp_ast::Expression,
         max_expr: &swamp_ast::Expression,
-    ) -> Result<(Expression, Expression), Error> {
+    ) -> (Expression, Expression) {
         let int_type = self.shared.state.types.int();
         let context = TypeContext::new_argument(&int_type);
 
-        let resolved_min = self.analyze_expression(min_expr, &context)?;
-        let resolved_max = self.analyze_expression(max_expr, &context)?;
+        let resolved_min = self.analyze_expression(min_expr, &context);
+        let resolved_max = self.analyze_expression(max_expr, &context);
 
-        Ok((resolved_min, resolved_max))
+        (resolved_min, resolved_max)
     }
 
     /// # Errors
@@ -51,8 +49,8 @@ impl Analyzer<'_> {
         max_expr: &swamp_ast::Expression,
         mode: &swamp_ast::RangeMode,
         ast_node: &swamp_ast::Node,
-    ) -> Result<Expression, Error> {
-        let (min, max) = self.analyze_min_max_expr(min_expr, max_expr)?;
+    ) -> Expression {
+        let (min, max) = self.analyze_min_max_expr(min_expr, max_expr);
 
         let range_type_ref = self
             .shared
@@ -65,7 +63,7 @@ impl Analyzer<'_> {
 
         let is_inclusive = matches!(mode, swamp_ast::RangeMode::Inclusive);
 
-        let bool_expr_kind = ExpressionKind::Literal(BoolLiteral(is_inclusive));
+        let bool_expr_kind = ExpressionKind::BoolLiteral(is_inclusive);
         let bool_type = self.shared.state.types.bool();
         let bool_expr = self.create_expr(bool_expr_kind, bool_type, ast_node);
 
@@ -79,6 +77,6 @@ impl Analyzer<'_> {
                 //&range_type,
         );
 
-        Ok(self.create_expr(call_kind, range_type, ast_node))
+        self.create_expr(call_kind, range_type, ast_node)
     }
 }

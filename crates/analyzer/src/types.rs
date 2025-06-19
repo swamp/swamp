@@ -28,18 +28,18 @@ impl Analyzer<'_> {
         &mut self,
         ast_key_type: &swamp_ast::Type,
         ast_value_type: &swamp_ast::Type,
-    ) -> Result<(TypeRef, TypeRef), Error> {
-        let key_type = self.analyze_type(ast_key_type)?;
-        let value_type = self.analyze_type(ast_value_type)?;
+    ) -> (TypeRef, TypeRef) {
+        let key_type = self.analyze_type(ast_key_type);
+        let value_type = self.analyze_type(ast_value_type);
 
         // Using TypeCache to ensure proper type comparison and creation
-        Ok((key_type, value_type))
+        (key_type, value_type)
     }
 
     /// # Errors
     ///
     /// # Panics
-    pub fn analyze_type(&mut self, ast_type: &swamp_ast::Type) -> Result<TypeRef, Error> {
+    pub fn analyze_type(&mut self, ast_type: &swamp_ast::Type) -> TypeRef {
         let resolved = match ast_type {
             swamp_ast::Type::AnonymousStruct(ast_struct) => {
                 let struct_ref = self.analyze_anonymous_struct_type(ast_struct)?;
@@ -47,7 +47,7 @@ impl Analyzer<'_> {
                 self.shared.state.types.anonymous_struct(struct_ref)
             }
             swamp_ast::Type::FixedCapacityArray(ast_type, fixed_size) => {
-                let element_type = self.analyze_type(ast_type)?;
+                let element_type = self.analyze_type(ast_type);
                 let int_str = self.get_text(fixed_size);
                 let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
@@ -58,14 +58,14 @@ impl Analyzer<'_> {
                     .fixed_array(&element_type, int_value)
             }
             swamp_ast::Type::Slice(ast_type) => {
-                let element_type = self.analyze_type(ast_type)?;
+                let element_type = self.analyze_type(ast_type);
                 // Use TypeCache for slice view creation
                 self.shared.state.types.slice_view(&element_type)
             }
 
             swamp_ast::Type::FixedCapacityMap(ast_key_type, ast_value_type, fixed_size) => {
                 let (key_type, value_type) =
-                    self.analyze_key_and_value_type(ast_key_type, ast_value_type)?;
+                    self.analyze_key_and_value_type(ast_key_type, ast_value_type);
 
                 let int_str = self.get_text(fixed_size);
                 let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;

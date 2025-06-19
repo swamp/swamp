@@ -2,41 +2,40 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::err::{Error, ErrorKind};
+use crate::err::ErrorKind;
 use crate::{Analyzer, TypeContext};
 use swamp_semantic::{Constant, ConstantId, ConstantRef, Expression, ExpressionKind};
 
 impl Analyzer<'_> {
-    fn analyze_constant(&mut self, constant: &swamp_ast::ConstantInfo) -> Result<(), Error> {
+    fn analyze_constant(&mut self, constant: &swamp_ast::ConstantInfo) {
         let maybe_annotation_type = if let Some(found_ast_type) = &constant.annotation {
-            Some(self.analyze_type(found_ast_type)?)
+            Some(self.analyze_type(found_ast_type))
         } else {
             None
         };
 
         let context = TypeContext::new_unsure_argument(maybe_annotation_type.as_ref());
 
-        let resolved_expr = self.analyze_expression(&constant.expression, &context)?;
+        let resolved_expr = self.analyze_expression(&constant.expression, &context);
 
         let actual_constant_type = if let Some(annotation_type) = maybe_annotation_type {
             let extra_verification = false;
             if extra_verification {
                 let debug_context = TypeContext::new_anything_argument();
-                let result = self.analyze_expression(&constant.expression, &debug_context);
-                if let Ok(worked_without_annotation) = result {
-                    if self
-                        .shared
-                        .state
-                        .types
-                        .compatible_with(&annotation_type, &worked_without_annotation.ty)
-                    {
-                        let identifier_name =
-                            { self.get_text(&constant.constant_identifier.0).clone() };
-                        eprintln!(
-                            "annotation was not needed for constant: {identifier_name} in {:?}",
-                            self.module_path
-                        );
-                    }
+                let worked_without_annotation =
+                    self.analyze_expression(&constant.expression, &debug_context);
+                if self
+                    .shared
+                    .state
+                    .types
+                    .compatible_with(&annotation_type, &worked_without_annotation.ty)
+                {
+                    let identifier_name =
+                        { self.get_text(&constant.constant_identifier.0).clone() };
+                    eprintln!(
+                        "annotation was not needed for constant: {identifier_name} in {:?}",
+                        self.module_path
+                    );
                 }
             }
             annotation_type
@@ -61,54 +60,55 @@ impl Analyzer<'_> {
             function_scope_state: self.function_variables.clone(),
         };
 
-        let const_ref = self
-            .shared
-            .definition_table
-            .add_constant(constant)
-            .map_err(|s| self.create_err_resolved(ErrorKind::SemanticError(s), &name_node))?;
+        let const_ref = match self.shared.definition_table.add_constant(constant) {
+            Ok(c) => c,
+            Err(sem_err) => {
+                self.add_err_resolved(ErrorKind::SemanticError(sem_err), &name_node);
+                return;
+            }
+        };
 
-        self.shared
+        match self
+            .shared
             .lookup_table
             .add_constant_link(const_ref.clone())
-            .map_err(|s| self.create_err_resolved(ErrorKind::SemanticError(s), &name_node))?;
+        {
+            Ok(c) => c,
+            Err(sem_err) => {
+                self.add_err_resolved(ErrorKind::SemanticError(sem_err), &name_node);
+                return;
+            }
+        }
 
         // This extra storage of the constants in modules is to have them in analyze / dependency order
         self.shared
             .state
             .constants_in_dependency_order
             .push(const_ref);
-
-        Ok(())
     }
 
-    pub(crate) fn analyze_constant_definition(
-        &mut self,
-        constant: &swamp_ast::ConstantInfo,
-    ) -> Result<(), Error> {
+    pub(crate) fn analyze_constant_definition(&mut self, constant: &swamp_ast::ConstantInfo) {
         self.analyze_constant(constant)
     }
 
     pub(crate) fn analyze_constant_access(
-        &self,
+        &mut self,
         qualified_constant_identifier: &swamp_ast::QualifiedConstantIdentifier,
-    ) -> Result<Expression, Error> {
-        self.try_find_constant(qualified_constant_identifier)
-            .map_or_else(
-                || {
-                    Err(self.create_err(
-                        ErrorKind::UnknownConstant,
-                        &qualified_constant_identifier.name,
-                    ))
-                },
-                |constant_ref| {
-                    let ty = constant_ref.resolved_type.clone();
-                    Ok(self.create_expr(
-                        ExpressionKind::ConstantAccess(constant_ref.clone()),
-                        ty,
-                        &qualified_constant_identifier.name,
-                    ))
-                },
-            )
+    ) -> Expression {
+        match self.try_find_constant(qualified_constant_identifier) {
+            None => self.create_err(
+                ErrorKind::UnknownConstant,
+                &qualified_constant_identifier.name,
+            ),
+            Some(constant_ref) => {
+                let ty = constant_ref.resolved_type.clone();
+                self.create_expr(
+                    ExpressionKind::ConstantAccess(constant_ref.clone()),
+                    ty,
+                    &qualified_constant_identifier.name,
+                )
+            }
+        }
     }
 
     #[must_use]

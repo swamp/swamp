@@ -4,12 +4,12 @@
  */
 pub use crate::{
     ArrayItem, ArrayItemRef, AssociatedImpls, BinaryOperator, BooleanExpression, CompoundOperator,
-    CompoundOperatorKind, Constant, ConstantRef, EnumLiteralData, Expression, ExpressionKind,
-    ExternalFunctionCall, ExternalFunctionDefinition, ExternalFunctionDefinitionRef,
-    ExternalFunctionId, ForPattern, FormatSpecifier, FormatSpecifierKind, Fp, Function,
-    FunctionRef, FunctionScopeState, Guard, InternalFunctionCall, InternalFunctionDefinition,
-    InternalFunctionDefinitionRef, Iterable, Literal, LocalIdentifier, LocalTypeIdentifier, Match,
-    MatchArm, MemberCall, MutVariable, Pattern, PrecisionType, ProgramState, SemanticError,
-    UnaryOperator, Variable, VariableRef,
+    CompoundOperatorKind, Constant, ConstantRef, EnumLiteralExpressions, Expression,
+    ExpressionKind, ExternalFunctionCall, ExternalFunctionDefinition,
+    ExternalFunctionDefinitionRef, ExternalFunctionId, ForPattern, FormatSpecifier,
+    FormatSpecifierKind, Fp, Function, FunctionRef, FunctionScopeState, Guard,
+    InternalFunctionCall, InternalFunctionDefinition, InternalFunctionDefinitionRef, Iterable,
+    LocalIdentifier, LocalTypeIdentifier, Match, MatchArm, MemberCall, MutVariable, Pattern,
+    PrecisionType, ProgramState, SemanticError, UnaryOperator, Variable, VariableRef,
     intr::{IntrinsicFunction, IntrinsicFunctionDefinition, IntrinsicFunctionDefinitionRef},
 };

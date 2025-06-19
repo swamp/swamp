@@ -9,21 +9,42 @@ use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
     fn find_variant_in_pattern(
-        &self,
+        &mut self,
         expression_type: &TypeRef,
         ast_name: &swamp_ast::Node,
-    ) -> Result<EnumVariantType, Error> {
+    ) -> EnumVariantType {
         let enum_type_ref = match &*expression_type.kind {
             TypeKind::Enum(enum_type_ref) => enum_type_ref,
-            _ => Err(self.create_err(ErrorKind::ExpectedEnumInPattern, ast_name))?,
+            _ => {
+                self.add_err(ErrorKind::ExpectedEnumInPattern, ast_name);
+
+                return EnumVariantType {
+                    common: EnumVariantCommon {
+                        name: Default::default(),
+                        assigned_name: "".to_string(),
+                        container_index: 0,
+                    },
+                    payload_type: self.types().unit(),
+                };
+            }
         };
 
         let variant_name = self.get_text(ast_name).to_string();
 
-        enum_type_ref.get_variant(&variant_name).map_or_else(
-            || Err(self.create_err(ErrorKind::UnknownEnumVariantTypeInPattern, ast_name)),
-            |found_variant| Ok(found_variant.clone()),
-        )
+        match enum_type_ref.get_variant(&variant_name) {
+            Some(variant) => variant.clone(),
+            None => {
+                self.add_err(ErrorKind::UnknownEnumVariantTypeInPattern, ast_name);
+                EnumVariantType {
+                    common: EnumVariantCommon {
+                        name: Default::default(),
+                        assigned_name: "".to_string(),
+                        container_index: 0,
+                    },
+                    payload_type: self.types().unit(),
+                }
+            }
+        }
     }
 
     pub(crate) fn analyze_pattern(
@@ -43,7 +64,7 @@ impl Analyzer<'_> {
                     match guard_clause {
                         swamp_ast::GuardClause::Wildcard(_) => None,
                         swamp_ast::GuardClause::Expression(clause_expr) => {
-                            Some(self.analyze_bool_argument_expression(clause_expr)?)
+                            Some(self.analyze_bool_argument_expression(clause_expr))
                         }
                     }
                 } else {
@@ -64,7 +85,7 @@ impl Analyzer<'_> {
         node: &swamp_ast::Node,
         ast_normal_pattern: &swamp_ast::NormalPattern,
         expected_condition_type: &TypeRef,
-    ) -> Result<(NormalPattern, bool, bool), Error> {
+    ) -> (NormalPattern, bool, bool) {
         let mut anyone_wants_mutable = false;
         match ast_normal_pattern {
             swamp_ast::NormalPattern::PatternList(elements) => {

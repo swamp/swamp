@@ -57,17 +57,15 @@ impl Analyzer<'_> {
         variable: &Node,
         is_mutable: Option<&Node>,
         variable_type_ref: &TypeRef,
-    ) -> Result<(), Error> {
+    ) {
         let (variable_ref, _name_str, _should_be_inserted) = self.create_variable_like_resolved(
             variable,
             is_mutable,
             variable_type_ref,
             VariableType::Parameter,
-        )?;
+        );
 
         self.function_parameters.push(variable_ref);
-
-        Ok(())
     }
 
     pub(crate) fn create_local_variable(
@@ -137,11 +135,22 @@ impl Analyzer<'_> {
         is_mutable: Option<&Node>,
         variable_type_ref: &TypeRef,
         variable_type: VariableType,
-    ) -> Result<(VariableRef, String, bool), Error> {
+    ) -> (VariableRef, String, bool) {
         if let Some(_existing_variable) = self.try_find_local_variable(variable) {
-            return Err(
-                self.create_err_resolved(ErrorKind::OverwriteVariableNotAllowedHere, variable)
-            );
+            self.add_err_resolved(ErrorKind::OverwriteVariableNotAllowedHere, variable);
+            let error_var_ref = VariableRef::new(Variable {
+                name: Default::default(),
+                assigned_name: "err".to_string(),
+                resolved_type: self.types().unit(),
+                mutable_node: None,
+                variable_type,
+                scope_index: 0,
+                variable_index: 0,
+                unique_id_within_function: 0,
+                is_unused: false,
+            });
+
+            return (error_var_ref, "err".to_string(), false);
         }
         let variable_str = self.get_text_resolved(variable).to_string();
 
@@ -162,7 +171,7 @@ impl Analyzer<'_> {
         let resolved_variable = Variable {
             name: variable.clone(),
             assigned_name: variable_str.clone(),
-            variable_type,
+            variable_type: variable_type.clone(),
             resolved_type: variable_type_ref.clone(),
             mutable_node: is_mutable.cloned(),
             scope_index,
@@ -174,7 +183,21 @@ impl Analyzer<'_> {
         let variable_ref = Rc::new(resolved_variable);
 
         if !should_insert_in_scope && is_mutable.is_some() {
-            return Err(self.create_err_resolved(ErrorKind::UnusedVariablesCanNotBeMut, variable));
+            self.add_err_resolved(ErrorKind::UnusedVariablesCanNotBeMut, variable);
+
+            let error_var_ref = VariableRef::new(Variable {
+                name: Default::default(),
+                assigned_name: "err".to_string(),
+                resolved_type: self.types().unit(),
+                mutable_node: None,
+                variable_type,
+                scope_index: 0,
+                variable_index: 0,
+                unique_id_within_function: 0,
+                is_unused: false,
+            });
+
+            return (error_var_ref, "err".to_string(), false);
         }
 
         if should_insert_in_scope {
@@ -183,7 +206,7 @@ impl Analyzer<'_> {
                 .expect("should have checked earlier for variable");
         }
 
-        Ok((variable_ref, variable_str, should_insert_in_scope))
+        (variable_ref, variable_str, should_insert_in_scope)
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -247,7 +270,7 @@ impl Analyzer<'_> {
         &mut self,
         ast_variable: &swamp_ast::Variable,
         converted_expression: ArgumentExpression,
-    ) -> Result<Expression, Error> {
+    ) -> Expression {
         // Use the TypeCache for getting the expression type
         let expression_type = converted_expression.ty().clone();
 

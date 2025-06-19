@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Analyzer;
-use crate::err::{Error, ErrorKind};
+use crate::err::ErrorKind;
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_attributes::Attributes;
@@ -12,7 +12,6 @@ use swamp_semantic::{
     ExternalFunctionDefinition, ExternalFunctionId, Function, InternalFunctionDefinition,
     LocalIdentifier, UseItem,
 };
-use swamp_types::TypeKind::AnonymousStruct;
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
@@ -21,12 +20,11 @@ impl Analyzer<'_> {
         path: &[String],
         import_items: &swamp_ast::ImportItems,
         node: &swamp_ast::Node,
-    ) -> Result<(), Error> {
-        let found_module = self
-            .shared
-            .get_module(path)
-            .ok_or_else(|| self.create_err(ErrorKind::UnknownModule, node))?
-            .clone();
+    ) {
+        let Some(found_module) = self.shared.get_module(path) else {
+            self.add_err(ErrorKind::UnknownModule, node);
+            return;
+        };
 
         match import_items {
             swamp_ast::ImportItems::Nothing => {
@@ -37,10 +35,17 @@ impl Analyzer<'_> {
                     .get_module_link(last_name)
                     .is_none()
                 {
-                    self.shared
+                    match self
+                        .shared
                         .lookup_table
                         .add_module_link(last_name, found_module.clone())
-                        .map_err(|err| self.create_err(ErrorKind::SemanticError(err), node))?;
+                    {
+                        Ok(_x) => {}
+                        Err(err) => {
+                            self.add_err(ErrorKind::SemanticError(err), node);
+                            return;
+                        }
+                    }
                 }
             }
             swamp_ast::ImportItems::Items(items) => {
@@ -54,17 +59,19 @@ impl Analyzer<'_> {
                             if let Some(found_symbol) =
                                 found_module.symbol_table.get_symbol(&ident_text)
                             {
-                                self.shared
+                                if let Err(sem_err) = self
+                                    .shared
                                     .lookup_table
                                     .add_symbol(&ident_text, found_symbol.clone())
-                                    .map_err(|err| {
-                                        self.create_err(ErrorKind::SemanticError(err), &node.0)
-                                    })?;
+                                {
+                                    self.add_err(ErrorKind::SemanticError(sem_err), &node.0);
+                                    return;
+                                }
                             } else {
-                                return Err(self.create_err_resolved(
+                                return self.add_err_resolved(
                                     ErrorKind::UnknownTypeReference,
                                     &ident_resolved_node,
-                                ));
+                                );
                             }
                             ident
                         }
@@ -75,17 +82,19 @@ impl Analyzer<'_> {
                             if let Some(found_symbol) =
                                 found_module.symbol_table.get_symbol(&ident_text)
                             {
-                                self.shared
+                                if let Err(sem_err) = self
+                                    .shared
                                     .lookup_table
                                     .add_symbol(&ident_text, found_symbol.clone())
-                                    .map_err(|err| {
-                                        self.create_err(ErrorKind::SemanticError(err), &node.0)
-                                    })?;
+                                {
+                                    self.add_err(ErrorKind::SemanticError(sem_err), &node.0);
+                                    return;
+                                }
                             } else {
-                                return Err(self.create_err_resolved(
+                                return self.add_err_resolved(
                                     ErrorKind::UnknownTypeReference,
                                     &ident_resolved_node,
-                                ));
+                                );
                             }
                             UseItem::TypeIdentifier(self.to_node(&node.0))
                         }
@@ -93,16 +102,18 @@ impl Analyzer<'_> {
                 }
             }
             swamp_ast::ImportItems::All => {
-                self.shared
+                if let Err(sem_err) = self
+                    .shared
                     .lookup_table
-                    .extend_from(&found_module.symbol_table)?;
+                    .extend_from(&found_module.symbol_table)
+                {
+                    return self.add_err(ErrorKind::SemanticError(sem_err), &node);
+                }
             }
         }
-
-        Ok(())
     }
 
-    fn analyze_mod_definition(&mut self, mod_definition: &swamp_ast::Mod) -> Result<(), Error> {
+    fn analyze_mod_definition(&mut self, mod_definition: &swamp_ast::Mod) {
         let mut path = Vec::new();
         for ast_node in &mod_definition.module_path.0 {
             path.push(self.get_text(ast_node).to_string());
@@ -118,7 +129,7 @@ impl Analyzer<'_> {
         )
     }
 
-    fn analyze_use_definition(&mut self, use_definition: &swamp_ast::Use) -> Result<(), Error> {
+    fn analyze_use_definition(&mut self, use_definition: &swamp_ast::Use) {
         let mut nodes = Vec::new();
         for ast_node in &use_definition.module_path.0 {
             nodes.push(self.to_node(ast_node));
@@ -143,7 +154,7 @@ impl Analyzer<'_> {
         &mut self,
         enum_type_name: &swamp_ast::LocalTypeIdentifierWithOptionalTypeVariables,
         ast_variants: &[swamp_ast::EnumVariantType],
-    ) -> Result<(), Error> {
+    ) {
         let mut resolved_variants = SeqMap::new();
 
         let mut new_enum_type = EnumType {
@@ -172,7 +183,7 @@ impl Analyzer<'_> {
                 swamp_ast::EnumVariantType::Tuple(_variant_name_node, types) => {
                     let mut vec = Vec::new();
                     for tuple_type in types {
-                        let resolved_type = self.analyze_type(tuple_type)?;
+                        let resolved_type = self.analyze_type(tuple_type);
                         vec.push(resolved_type);
                     }
 
@@ -183,7 +194,7 @@ impl Analyzer<'_> {
 
                     for field_with_type in &ast_struct_fields.fields {
                         // TODO: Check the index
-                        let resolved_type = self.analyze_type(&field_with_type.field_type)?;
+                        let resolved_type = self.analyze_type(&field_with_type.field_type);
                         let field_name_str =
                             self.get_text(&field_with_type.field_name.0).to_string();
 
@@ -192,12 +203,12 @@ impl Analyzer<'_> {
                             field_type: resolved_type,
                         };
 
-                        fields.insert(field_name_str, resolved_field).map_err(|_| {
-                            self.create_err(
+                        if let Err(seq_map_err) = fields.insert(field_name_str, resolved_field) {
+                            return self.add_err(
                                 ErrorKind::DuplicateFieldName,
                                 &field_with_type.field_name.0,
-                            )
-                        })?;
+                            );
+                        };
                     }
 
                     let anonymous_struct_type = AnonymousStructType {
@@ -215,35 +226,39 @@ impl Analyzer<'_> {
 
             let variant_name_str = self.get_text(variant_name_node).to_string();
 
-            resolved_variants
-                .insert(variant_name_str, enum_variant_type)
-                .map_err(|_| self.create_err(ErrorKind::DuplicateFieldName, variant_name_node))?;
+            if let Err(_seq_map_err) = resolved_variants.insert(variant_name_str, enum_variant_type)
+            {
+                return self.add_err(ErrorKind::DuplicateFieldName, variant_name_node);
+            }
         }
 
         new_enum_type.variants = resolved_variants;
 
-        self.shared
-            .definition_table
-            .add_enum_type(new_enum_type.clone())
-            .map_err(|err| self.create_err(ErrorKind::SemanticError(err), &enum_type_name.name))?;
-
-        self.shared
-            .lookup_table
-            .add_enum_type_link(new_enum_type.clone())
-            .map_err(|err| self.create_err(ErrorKind::SemanticError(err), &enum_type_name.name))?;
-
         let enum_type_ref = self.shared.state.types.enum_type(new_enum_type);
+
+        if let Err(sem_err) = self
+            .shared
+            .definition_table
+            .add_named_type(enum_type_ref.clone())
+        {
+            return self.add_err(ErrorKind::SemanticError(sem_err), &enum_type_name.name);
+        }
+
+        if let Err(sem_err) = self
+            .shared
+            .lookup_table
+            .add_named_type(enum_type_ref.clone())
+        {
+            return self.add_err(ErrorKind::SemanticError(sem_err), &enum_type_name.name);
+        }
+
         self.add_default_functions(&enum_type_ref, &enum_type_name.name);
-        Ok(())
     }
 
     /// # Errors
     ///
-    pub fn analyze_alias_type_definition(
-        &mut self,
-        ast_alias: &swamp_ast::AliasType,
-    ) -> Result<AliasType, Error> {
-        let resolved_type = self.analyze_type(&ast_alias.referenced_type)?;
+    pub fn analyze_alias_type_definition(&mut self, ast_alias: &swamp_ast::AliasType) -> AliasType {
+        let resolved_type = self.analyze_type(&ast_alias.referenced_type);
 
         let alias_name_str = self.get_text(&ast_alias.identifier.0).to_string();
         let resolved_alias = AliasType {
@@ -251,21 +266,31 @@ impl Analyzer<'_> {
             assigned_name: alias_name_str,
         };
 
-        let resolved_alias_ref = self
+        let resolved_alias_ref = match self.shared.definition_table.add_alias(resolved_alias) {
+            Ok(re) => re,
+
+            Err(err) => {
+                self.add_err(ErrorKind::SemanticError(err), &ast_alias.identifier.0);
+                AliasType {
+                    assigned_name: "err".to_string(),
+                    ty: self.types().unit(),
+                }
+            }
+        };
+
+        if let Err(sem_err) = self
             .shared
-            .definition_table
-            .add_alias(resolved_alias)
-            .map_err(|err| {
-                self.create_err(ErrorKind::SemanticError(err), &ast_alias.identifier.0)
-            })?;
-        self.shared
             .lookup_table
             .add_alias_link(resolved_alias_ref.clone())
-            .map_err(|err| {
-                self.create_err(ErrorKind::SemanticError(err), &ast_alias.identifier.0)
-            })?;
-
-        Ok(resolved_alias_ref)
+        {
+            self.add_err(ErrorKind::SemanticError(sem_err), &ast_alias.identifier.0);
+            AliasType {
+                assigned_name: "err".to_string(),
+                ty: self.types().unit(),
+            }
+        } else {
+            resolved_alias_ref
+        }
     }
 
     /// # Errors
@@ -273,12 +298,12 @@ impl Analyzer<'_> {
     pub fn analyze_anonymous_struct_type(
         &mut self,
         ast_struct: &swamp_ast::AnonymousStructType,
-    ) -> Result<AnonymousStructType, Error> {
-        let resolved_fields = self.analyze_anonymous_struct_type_fields(&ast_struct.fields)?;
+    ) -> AnonymousStructType {
+        let resolved_fields = self.analyze_anonymous_struct_type_fields(&ast_struct.fields);
 
         let resolved_anon_struct = AnonymousStructType::new_and_sort_fields(&resolved_fields);
 
-        Ok(resolved_anon_struct)
+        resolved_anon_struct
     }
 
     /// # Errors
@@ -286,11 +311,11 @@ impl Analyzer<'_> {
     pub fn analyze_anonymous_struct_type_fields(
         &mut self,
         ast_struct_fields: &[swamp_ast::StructTypeField],
-    ) -> Result<SeqMap<String, StructTypeField>, Error> {
+    ) -> SeqMap<String, StructTypeField> {
         let mut resolved_fields = SeqMap::new();
 
         for field_name_and_type in ast_struct_fields {
-            let resolved_type = self.analyze_type(&field_name_and_type.field_type)?;
+            let resolved_type = self.analyze_type(&field_name_and_type.field_type);
             let name_string = self.get_text(&field_name_and_type.field_name.0).to_string();
 
             let field_type = StructTypeField {
@@ -298,17 +323,15 @@ impl Analyzer<'_> {
                 field_type: resolved_type,
             };
 
-            resolved_fields
-                .insert(name_string, field_type)
-                .map_err(|_| {
-                    self.create_err(
-                        ErrorKind::DuplicateFieldName,
-                        &field_name_and_type.field_name.0,
-                    )
-                })?;
+            if let Err(_seq_map_err) = resolved_fields.insert(name_string, field_type) {
+                self.add_err(
+                    ErrorKind::DuplicateFieldName,
+                    &field_name_and_type.field_name.0,
+                )
+            }
         }
 
-        Ok(resolved_fields)
+        resolved_fields
     }
 
     /// # Errors
@@ -316,11 +339,10 @@ impl Analyzer<'_> {
     pub fn analyze_named_struct_type_definition(
         &mut self,
         ast_struct_def: &swamp_ast::NamedStructDef,
-    ) -> Result<(), Error> {
+    ) {
         let struct_name_str = self.get_text(&ast_struct_def.identifier.name).to_string();
 
-        let fields =
-            self.analyze_anonymous_struct_type_fields(&ast_struct_def.struct_type.fields)?;
+        let fields = self.analyze_anonymous_struct_type_fields(&ast_struct_def.struct_type.fields);
 
         let analyzed_anonymous_struct = AnonymousStructType::new(fields); // the order encountered in source should be kept
 
@@ -339,34 +361,41 @@ impl Analyzer<'_> {
             instantiated_type_parameters: Vec::default(),
         };
 
-        let struct_ref = self
-            .shared
-            .definition_table
-            .add_struct(named_struct_type.clone())
-            .map_err(|err| {
-                self.create_err(
-                    ErrorKind::SemanticError(err),
-                    &ast_struct_def.identifier.name,
-                )
-            })?;
-
-        self.shared
-            .lookup_table
-            .add_struct_link(struct_ref)
-            .map_err(|err| {
-                self.create_err(
-                    ErrorKind::SemanticError(err),
-                    &ast_struct_def.identifier.name,
-                )
-            })?;
-
         let named_struct_type_ref = self
             .shared
             .state
             .types
             .named_struct(named_struct_type.clone());
+
+        match self
+            .shared
+            .definition_table
+            .add_named_type(named_struct_type_ref.clone())
+        {
+            Ok(_) => {}
+            Err(sem_err) => {
+                return self.add_err(
+                    ErrorKind::SemanticError(sem_err),
+                    &ast_struct_def.identifier.name,
+                );
+            }
+        };
+
+        match self
+            .shared
+            .lookup_table
+            .add_named_type(named_struct_type_ref.clone())
+        {
+            Ok(_) => {}
+            Err(sem_err) => {
+                return self.add_err(
+                    ErrorKind::SemanticError(sem_err),
+                    &ast_struct_def.identifier.name,
+                );
+            }
+        };
+
         self.add_default_functions(&named_struct_type_ref, &ast_struct_def.identifier.name);
-        Ok(())
     }
 
     #[allow(clippy::too_many_lines)]
@@ -374,12 +403,12 @@ impl Analyzer<'_> {
         &mut self,
         function: &swamp_ast::Function,
         attributes: &Attributes,
-    ) -> Result<Function, Error> {
+    ) -> Option<Function> {
         let func = match &function {
             swamp_ast::Function::Internal(function_data) => {
-                let parameters = self.analyze_parameters(&function_data.declaration.params)?;
+                let parameters = self.analyze_parameters(&function_data.declaration.params);
                 let return_type = if let Some(found) = &function_data.declaration.return_type {
-                    self.analyze_type(found)?
+                    self.analyze_type(found)
                 } else {
                     self.shared.state.types.unit()
                 };
@@ -392,14 +421,14 @@ impl Analyzer<'_> {
                         &param.node.as_ref().unwrap().name,
                         param.node.as_ref().unwrap().is_mutable.as_ref(),
                         &actual_type,
-                    )?;
+                    );
                 }
                 let function_name = self
                     .get_text(&function_data.declaration.name)
                     .trim()
                     .to_string();
                 let statements =
-                    self.analyze_function_body_expression(&function_data.body, &return_type)?;
+                    self.analyze_function_body_expression(&function_data.body, &return_type);
 
                 let internal = InternalFunctionDefinition {
                     signature: Signature {
@@ -417,33 +446,42 @@ impl Analyzer<'_> {
                     attributes: attributes.clone(),
                 };
 
-                let function_ref = self
+                let function_ref = match self
                     .shared
                     .definition_table
                     .add_internal_function(&function_name, internal)
-                    .map_err(|err| {
-                        self.create_err(
-                            ErrorKind::SemanticError(err),
+                {
+                    Ok(func_def) => func_def,
+                    Err(sem_err) => {
+                        self.add_err(
+                            ErrorKind::SemanticError(sem_err),
                             &function_data.declaration.name,
-                        )
-                    })?;
+                        );
+                        return None;
+                    }
+                };
 
-                self.shared
+                match self
+                    .shared
                     .lookup_table
                     .add_internal_function_link(&function_name, function_ref.clone())
-                    .map_err(|err| {
-                        self.create_err(
-                            ErrorKind::SemanticError(err),
+                {
+                    Ok(_) => {}
+                    Err(sem_err) => {
+                        self.add_err(
+                            ErrorKind::SemanticError(sem_err),
                             &function_data.declaration.name,
-                        )
-                    })?;
+                        );
+                        return None;
+                    }
+                };
 
                 Function::Internal(function_ref)
             }
             swamp_ast::Function::External(int_node, ast_signature) => {
-                let parameters = self.analyze_parameters(&ast_signature.params)?;
+                let parameters = self.analyze_parameters(&ast_signature.params);
                 let external_return_type = if let Some(found) = &ast_signature.return_type {
-                    self.analyze_type(found)?
+                    self.analyze_type(found)
                 } else {
                     self.shared.state.types.unit()
                 };
@@ -465,26 +503,32 @@ impl Analyzer<'_> {
                     id: external_function_id,
                 };
 
-                let function_ref = self
+                let function_ref = match self
                     .shared
                     .definition_table
                     .add_external_function_declaration(external)
-                    .map_err(|err| {
-                        self.create_err(ErrorKind::SemanticError(err), &ast_signature.name)
-                    })?;
+                {
+                    Ok(func_ref) => func_ref,
+                    Err(sem_err) => {
+                        self.add_err(ErrorKind::SemanticError(sem_err), &ast_signature.name);
+                        return None;
+                    }
+                };
 
-                self.shared
+                if let Err(sem_err) = self
+                    .shared
                     .lookup_table
                     .add_external_function_declaration_link(function_ref.clone())
-                    .map_err(|err| {
-                        self.create_err(ErrorKind::SemanticError(err), &ast_signature.name)
-                    })?;
+                {
+                    self.add_err(ErrorKind::SemanticError(sem_err), &ast_signature.name);
+                    return None;
+                }
 
                 Function::External(function_ref)
             }
         };
 
-        Ok(func)
+        Some(func)
     }
 
     pub fn debug_definition(&self, _definition: &swamp_ast::Definition) {
@@ -503,45 +547,43 @@ impl Analyzer<'_> {
 
     /// # Errors
     ///
-    pub fn analyze_definition(&mut self, ast_def: &swamp_ast::Definition) -> Result<(), Error> {
+    pub fn analyze_definition(&mut self, ast_def: &swamp_ast::Definition) {
         //self.debug_definition(ast_def);
 
         let analyzed_attributes = self.analyze_attributes(&ast_def.attributes);
 
         match &ast_def.kind {
             swamp_ast::DefinitionKind::NamedStructDef(ast_struct) => {
-                self.analyze_named_struct_type_definition(ast_struct)?;
+                self.analyze_named_struct_type_definition(ast_struct);
             }
             swamp_ast::DefinitionKind::AliasDef(alias_def) => {
-                self.analyze_alias_type_definition(alias_def)?;
+                self.analyze_alias_type_definition(alias_def);
             }
             swamp_ast::DefinitionKind::EnumDef(identifier, variants) => {
-                self.analyze_enum_type_definition(identifier, variants)?;
+                self.analyze_enum_type_definition(identifier, variants);
             }
             swamp_ast::DefinitionKind::FunctionDef(function) => {
-                let _resolved_return_type = self.analyze_return_type(function)?;
+                let _resolved_return_type = self.analyze_return_type(function);
                 self.start_function();
-                self.analyze_function_definition(function, &analyzed_attributes)?;
+                self.analyze_function_definition(function, &analyzed_attributes);
                 self.stop_function();
             }
             swamp_ast::DefinitionKind::ImplDef(type_identifier, functions) => {
-                self.analyze_impl_definition(type_identifier, functions)?;
+                self.analyze_impl_definition(type_identifier, functions);
             }
-            swamp_ast::DefinitionKind::Mod(mod_info) => self.analyze_mod_definition(mod_info)?,
-            swamp_ast::DefinitionKind::Use(use_info) => self.analyze_use_definition(use_info)?,
+            swamp_ast::DefinitionKind::Mod(mod_info) => self.analyze_mod_definition(mod_info),
+            swamp_ast::DefinitionKind::Use(use_info) => self.analyze_use_definition(use_info),
             swamp_ast::DefinitionKind::Constant(const_info) => {
-                self.analyze_constant_definition(const_info)?;
+                self.analyze_constant_definition(const_info);
             }
         };
-
-        Ok(())
     }
 
     fn analyze_impl_definition(
         &mut self,
         attached_to_type: &swamp_ast::LocalTypeIdentifierWithOptionalTypeVariables,
         functions: &[swamp_ast::Function],
-    ) -> Result<(), Error> {
+    ) {
         let type_name_text = self.get_text(&attached_to_type.name).to_string();
 
         let converted_type_variables_to_ast_types = attached_to_type
@@ -564,18 +606,15 @@ impl Analyzer<'_> {
             generic_params: converted_type_variables_to_ast_types,
         };
 
-        let maybe_type_to_attach_to = Some(self.analyze_named_type(&qualified)?);
+        let maybe_type_to_attach_to = Some(self.analyze_named_type(&qualified));
         if let Some(type_to_attach_to) = maybe_type_to_attach_to {
             let function_refs: Vec<&swamp_ast::Function> = functions.iter().collect();
-
-            self.analyze_impl_functions(&type_to_attach_to, &function_refs)?;
-
-            Ok(())
+            self.analyze_impl_functions(&type_to_attach_to, &function_refs);
         } else {
-            Err(self.create_err(
+            self.add_err(
                 ErrorKind::CanNotAttachFunctionsToType,
                 &attached_to_type.name,
-            ))
+            )
         }
     }
 
@@ -585,7 +624,7 @@ impl Analyzer<'_> {
         &mut self,
         attach_to_type: &TypeRef, // Needed for self
         functions: &[&swamp_ast::Function],
-    ) -> Result<(), Error> {
+    ) {
         if !self
             .shared
             .state
@@ -608,7 +647,7 @@ impl Analyzer<'_> {
             let function_name_str = self.get_text(&function_name.name).to_string();
             //            info!(function_name_str, "impl function");
 
-            let resolved_function = self.analyze_impl_func(function, attach_to_type)?;
+            let resolved_function = self.analyze_impl_func(function, attach_to_type);
 
             let resolved_function_ref = Rc::new(resolved_function);
 
@@ -622,16 +661,14 @@ impl Analyzer<'_> {
                     .remove_internal_function_if_exists(attach_to_type, &function_name_str);
             }
 
-            self.shared
-                .state
-                .associated_impls
-                .add_member_function(attach_to_type, &function_name_str, resolved_function_ref)
-                .map_err(|err| {
-                    self.create_err(ErrorKind::SemanticError(err), &function_name.name)
-                })?;
+            if let Err(sem_err) = self.shared.state.associated_impls.add_member_function(
+                attach_to_type,
+                &function_name_str,
+                resolved_function_ref,
+            ) {
+                return self.add_err(ErrorKind::SemanticError(sem_err), &function_name.name);
+            };
         }
-
-        Ok(())
     }
 
     #[allow(clippy::too_many_lines)]
@@ -639,7 +676,7 @@ impl Analyzer<'_> {
         &mut self,
         function: &swamp_ast::Function,
         self_type: &TypeRef,
-    ) -> Result<Function, Error> {
+    ) -> Function {
         let resolved_fn = match function {
             swamp_ast::Function::Internal(function_data) => {
                 let mut parameters = Vec::new();
@@ -658,7 +695,7 @@ impl Analyzer<'_> {
                 }
 
                 for param in &function_data.declaration.params {
-                    let resolved_type = self.analyze_type(&param.param_type)?;
+                    let resolved_type = self.analyze_type(&param.param_type);
 
                     let resolved_param = TypeForParameter {
                         name: self.get_text(&param.variable.name).to_string(),
@@ -677,7 +714,7 @@ impl Analyzer<'_> {
 
                 let return_type =
                     if let Some(ast_return_type) = &function_data.declaration.return_type {
-                        let resolved_return_type = self.analyze_type(ast_return_type)?;
+                        let resolved_return_type = self.analyze_type(ast_return_type);
                         resolved_return_type
                     } else {
                         self.shared.state.types.unit()
@@ -688,11 +725,11 @@ impl Analyzer<'_> {
                         &param.node.as_ref().unwrap().name,
                         param.node.as_ref().unwrap().is_mutable.as_ref(),
                         &param.resolved_type.clone(),
-                    )?;
+                    );
                 }
 
                 let statements =
-                    self.analyze_function_body_expression(&function_data.body, &return_type)?;
+                    self.analyze_function_body_expression(&function_data.body, &return_type);
 
                 let attributes = self.analyze_attributes(&function_data.attributes);
 
@@ -737,7 +774,7 @@ impl Analyzer<'_> {
 
                 // Handle parameters, including self if present
                 for param in &signature.params {
-                    let resolved_type = self.analyze_type(&param.param_type)?;
+                    let resolved_type = self.analyze_type(&param.param_type);
 
                     parameters.push(TypeForParameter {
                         name: self.get_text(&param.variable.name).to_string(),
@@ -751,7 +788,7 @@ impl Analyzer<'_> {
                     });
                 }
 
-                let return_type = self.analyze_maybe_type(Option::from(&signature.return_type))?;
+                let return_type = self.analyze_maybe_type(Option::from(&signature.return_type));
 
                 let int_string = self.get_text(int_node);
                 let external_function_id_int = Self::str_to_int(int_string).unwrap() as u32;
@@ -773,7 +810,8 @@ impl Analyzer<'_> {
                 Function::External(external_ref)
             }
         };
-        Ok(resolved_fn)
+
+        resolved_fn
     }
 
     fn add_default_functions(&mut self, type_to_attach_to: &TypeRef, node: &swamp_ast::Node) {
@@ -784,23 +822,22 @@ impl Analyzer<'_> {
             .associated_impls
             .get_internal_member_function(&underlying, "to_string")
             .is_none()
-        {
-            if matches!(
+            && matches!(
                 &*underlying.kind,
                 TypeKind::Enum(_) | TypeKind::NamedStruct(_) | TypeKind::AnonymousStruct(_)
-            ) {
-                let new_internal_function =
-                    self.generate_to_string_function_for_type(&type_to_attach_to, node);
-                self.shared
-                    .state
-                    .associated_impls
-                    .prepare(&type_to_attach_to);
-                self.shared
-                    .state
-                    .associated_impls
-                    .add_internal_function(&type_to_attach_to, new_internal_function)
-                    .unwrap()
-            }
+            )
+        {
+            let new_internal_function =
+                self.generate_to_string_function_for_type(&type_to_attach_to, node);
+            self.shared
+                .state
+                .associated_impls
+                .prepare(&type_to_attach_to);
+            self.shared
+                .state
+                .associated_impls
+                .add_internal_function(&type_to_attach_to, new_internal_function)
+                .unwrap()
         }
     }
 }

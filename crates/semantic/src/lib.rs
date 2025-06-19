@@ -486,7 +486,7 @@ pub enum Pattern {
 pub enum NormalPattern {
     PatternList(Vec<PatternElement>),
     EnumPattern(EnumVariantType, Option<Vec<PatternElement>>),
-    Literal(Literal),
+    Literal(Expression),
 }
 
 #[derive(Debug, Clone)]
@@ -785,7 +785,18 @@ pub enum ExpressionKind {
     ),
 
     AnonymousStructLiteral(AnonymousStructLiteral),
-    Literal(Literal),
+
+    FloatLiteral(Fp),
+    NoneLiteral,
+    IntLiteral(i32),
+    StringLiteral(String),
+    BoolLiteral(bool),
+    EnumVariantLiteral(EnumVariantType, EnumLiteralExpressions), // TypeRef: EnumType
+    TupleLiteral(Vec<Expression>),
+
+    InitializerList(TypeRef, Vec<Expression>),
+    InitializerPairList(TypeRef, Vec<(Expression, Expression)>),
+
     Option(Option<Box<Expression>>), // Wrapping an expression in `Some()`
 
     // Loops
@@ -804,25 +815,11 @@ pub enum ExpressionKind {
 
     Lambda(Vec<VariableRef>, Box<Expression>),
     BorrowMutRef(Box<SingleLocationExpression>),
+    Error,
 }
 
 #[derive(Debug, Clone)]
 pub struct StringConst(pub Node);
-
-#[derive(Debug, Clone)]
-pub enum Literal {
-    FloatLiteral(Fp),
-    NoneLiteral,
-    IntLiteral(i32),
-    StringLiteral(String),
-    BoolLiteral(bool),
-
-    EnumVariantLiteral(EnumVariantType, EnumLiteralData), // TypeRef: EnumType
-    TupleLiteral(Vec<Expression>),
-
-    InitializerList(TypeRef, Vec<Expression>),
-    InitializerPairList(TypeRef, Vec<(Expression, Expression)>),
-}
 
 #[derive(Debug, Clone)]
 pub struct ArrayInstantiation {
@@ -1176,18 +1173,18 @@ impl ProgramState {
 }
 
 #[derive(Clone)]
-pub enum EnumLiteralData {
+pub enum EnumLiteralExpressions {
     Nothing,
-    Tuple(TypeRef, Vec<Expression>),
-    Struct(TypeRef, Vec<(usize, Option<Node>, Expression)>),
+    Tuple(Vec<Expression>),
+    Struct(Vec<(usize, Option<Node>, Expression)>),
 }
 
-impl Debug for EnumLiteralData {
+impl Debug for EnumLiteralExpressions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::Nothing => Ok(()),
-            Self::Tuple(_, x) => write!(f, "{x:?}"),
-            Self::Struct(_, s) => write!(f, "{s:?}"),
+            Self::Tuple(x) => write!(f, "{x:?}"),
+            Self::Struct(s) => write!(f, "{s:?}"),
         }
     }
 }

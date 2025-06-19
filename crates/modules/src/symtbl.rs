@@ -248,45 +248,6 @@ impl SymbolTable {
         Ok(())
     }
 
-    /// # Errors
-    ///
-    pub fn add_struct(&mut self, struct_type: TypeRef) -> Result<NamedStructType, SemanticError> {
-        self.add_struct_link(struct_type.clone())?;
-
-        // Extract NamedStructType from TypeRef
-        if let TypeKind::NamedStruct(named_struct) = &*struct_type.kind {
-            Ok(named_struct.clone())
-        } else {
-            panic!("Expected NamedStruct in TypeRef")
-        }
-    }
-
-    /// # Errors
-    ///
-    pub fn add_struct_link(&mut self, struct_type_ref: TypeRef) -> Result<(), SemanticError> {
-        if let TypeKind::NamedStruct(named) = &*struct_type_ref.kind {
-            self.symbols
-                .insert(
-                    named.assigned_name.clone(),
-                    Symbol::Type(struct_type_ref.clone()),
-                )
-                .map_err(|_| SemanticError::DuplicateStructName(named.assigned_name.clone()))
-        } else {
-            panic!("internal error")
-        }
-    }
-
-    pub fn add_enum_type(&mut self, enum_type: EnumType) -> Result<(), SemanticError> {
-        self.add_enum_type_link(enum_type)?;
-        Ok(())
-    }
-
-    pub fn add_enum_type_link(&mut self, enum_type_ref: EnumType) -> Result<(), SemanticError> {
-        // TODO: This function needs to be redesigned to work with TypeCache
-        // For now, we'll panic to indicate this needs proper implementation
-        todo!("add_enum_type_link needs to be redesigned to work with TypeCache and TypeRef")
-    }
-
     pub fn add_internal_function(
         &mut self,
         name: &str,
@@ -332,13 +293,11 @@ impl SymbolTable {
 
     #[must_use]
     pub fn get_type(&self, name: &str) -> Option<&TypeRef> {
-        if let Some(found_symbol) = self.get_symbol(name) {
-            if let Symbol::Type(type_ref) = found_symbol {
-                return Some(type_ref);
-            }
+        if let Some(Symbol::Type(type_ref)) = self.get_symbol(name) {
+            Some(type_ref)
+        } else {
+            None
         }
-
-        None
     }
 
     #[must_use]
@@ -421,6 +380,15 @@ impl SymbolTable {
             .map_err(|_| SemanticError::DuplicateSymbolName(name.to_string()))
     }
 
+    pub fn add_named_type(&mut self, ty: TypeRef) -> Result<(), SemanticError> {
+        let name = match &*ty.kind {
+            TypeKind::NamedStruct(named) => named.assigned_name.clone(),
+            TypeKind::Enum(enum_type) => enum_type.assigned_name.clone(),
+            _ => panic!("not a named type"),
+        };
+        self.insert_symbol(&name, Symbol::Type(ty))
+    }
+
     pub fn add_external_function_declaration(
         &mut self,
         decl: ExternalFunctionDefinition,
@@ -481,6 +449,7 @@ impl SymbolTable {
                 Symbol::FunctionDefinition(FuncDef::Intrinsic(function_ref.clone())),
             )
             .expect("todo: add seqmap error handling");
+
         Ok(function_ref)
     }
 }
