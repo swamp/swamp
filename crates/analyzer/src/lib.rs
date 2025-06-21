@@ -1567,9 +1567,10 @@ impl<'a> Analyzer<'a> {
     ) -> Expression {
         let node = self_expression.node.clone();
         let struct_name_string_kind =
-            (ExpressionKind::StringLiteral(format!("{} ", named.assigned_name.clone())));
+            ExpressionKind::StringLiteral(format!("{} ", named.assigned_name.clone()));
+        let string_type = self.types().string();
         let struct_name_string_expr =
-            self.create_expr_resolved(struct_name_string_kind, self.types().string(), &node);
+            self.create_expr_resolved(struct_name_string_kind, string_type, &node);
         let anon_struct_string_expr =
             self.generate_to_string_for_anon_struct(&named.anon_struct_type, self_expression);
 
@@ -1580,11 +1581,8 @@ impl<'a> Analyzer<'a> {
             node: node.clone(),
         };
 
-        self.create_expr_resolved(
-            ExpressionKind::BinaryOp(concat_kind),
-            self.types().string(),
-            &node,
-        )
+        let string_type = self.types().string();
+        self.create_expr_resolved(ExpressionKind::BinaryOp(concat_kind), string_type, &node)
     }
 
     fn generate_to_string_for_anon_struct(
@@ -1593,10 +1591,11 @@ impl<'a> Analyzer<'a> {
         self_expression: Expression,
     ) -> Expression {
         let node = self_expression.node.clone();
+        let string_type = self.types().string();
 
         // Create opening brace string
-        let opening_kind = (ExpressionKind::StringLiteral("{ ".to_string()));
-        let mut result_expr = self.create_expr_resolved(opening_kind, self.types().string(), &node);
+        let opening_kind = ExpressionKind::StringLiteral("{ ".to_string());
+        let mut result_expr = self.create_expr_resolved(opening_kind, string_type.clone(), &node);
 
         let TypeKind::AnonymousStruct(anonymous_struct_type) = &*anonymous_struct_type_ref.kind
         else {
@@ -1612,9 +1611,9 @@ impl<'a> Analyzer<'a> {
         {
             // If not the first field, add a comma separator
             if field_index > 0 {
-                let separator_kind = (ExpressionKind::StringLiteral(", ".to_string()));
+                let separator_kind = ExpressionKind::StringLiteral(", ".to_string());
                 let separator_expr =
-                    self.create_expr_resolved(separator_kind, self.types().string(), &node);
+                    self.create_expr_resolved(separator_kind, string_type.clone(), &node);
 
                 // Concatenate using + operator
                 let concat_kind = BinaryOperator {
@@ -1625,15 +1624,15 @@ impl<'a> Analyzer<'a> {
                 };
                 result_expr = self.create_expr_resolved(
                     ExpressionKind::BinaryOp(concat_kind),
-                    self.types().string(),
+                    string_type.clone(),
                     &node,
                 );
             }
 
             // Add field name
-            let field_name_kind = (ExpressionKind::StringLiteral(format!("{field_name}: ")));
+            let field_name_kind = ExpressionKind::StringLiteral(format!("{field_name}: "));
             let field_name_expr =
-                self.create_expr_resolved(field_name_kind, self.types().string(), &node);
+                self.create_expr_resolved(field_name_kind, string_type.clone(), &node);
 
             // Concatenate field name to result
             let concat_name_kind = BinaryOperator {
@@ -1645,7 +1644,7 @@ impl<'a> Analyzer<'a> {
 
             result_expr = self.create_expr_resolved(
                 ExpressionKind::BinaryOp(concat_name_kind),
-                self.types().string(),
+                string_type.clone(),
                 &node,
             );
 
@@ -1686,7 +1685,7 @@ impl<'a> Analyzer<'a> {
                 );
 
                 let field_value_expr =
-                    self.create_expr_resolved(lookup_kind, self.types().string(), &node);
+                    self.create_expr_resolved(lookup_kind, string_type.clone(), &node);
 
                 // Concatenate field value to result
                 let concat_value_kind = BinaryOperator {
@@ -1697,15 +1696,15 @@ impl<'a> Analyzer<'a> {
                 };
                 result_expr = self.create_expr_resolved(
                     ExpressionKind::BinaryOp(concat_value_kind),
-                    self.types().string(),
+                    string_type.clone(),
                     &node,
                 );
             }
         }
 
         // Create closing brace string
-        let closing_kind = (ExpressionKind::StringLiteral(" }".to_string()));
-        let closing_expr = self.create_expr_resolved(closing_kind, self.types().string(), &node);
+        let closing_kind = ExpressionKind::StringLiteral(" }".to_string());
+        let closing_expr = self.create_expr_resolved(closing_kind, string_type.clone(), &node);
 
         // Concatenate closing brace to result
         let final_concat_kind = BinaryOperator {
@@ -1717,7 +1716,7 @@ impl<'a> Analyzer<'a> {
 
         self.create_expr_resolved(
             ExpressionKind::BinaryOp(final_concat_kind),
-            self.types().string(),
+            string_type,
             &node,
         )
     }
@@ -1955,8 +1954,9 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::StringPart::Literal(string_node, processed_string) => {
                     let string_literal =
                         ExpressionKind::StringLiteral(processed_string.to_string());
-                    let basic_literal = (string_literal);
-                    self.create_expr(basic_literal, self.shared.state.types.string(), string_node)
+                    let basic_literal = string_literal;
+                    let string_type = self.shared.state.types.string();
+                    self.create_expr(basic_literal, string_type, string_node)
                 }
                 swamp_ast::StringPart::Interpolation(expression, format_specifier) => {
                     let any_context = TypeContext::new_anything_argument();
@@ -1980,9 +1980,10 @@ impl<'a> Analyzer<'a> {
                             expr.ty.clone()
                         };
                         if maybe_to_string.is_none() {
+                            let string_type = self.types().string();
                             return self.create_expr(
-                                (ExpressionKind::StringLiteral("hello".to_string())),
-                                self.types().string(),
+                                ExpressionKind::StringLiteral("hello".to_string()),
+                                string_type,
                                 &expression.node,
                             );
                             /* todo:
@@ -2009,11 +2010,8 @@ impl<'a> Analyzer<'a> {
 
                          */
 
-                        self.create_expr(
-                            call_expr_kind,
-                            self.shared.state.types.string(),
-                            &expression.node,
-                        )
+                        let string_type = self.shared.state.types.string();
+                        self.create_expr(call_expr_kind, string_type, &expression.node)
                     }
                 }
             };
@@ -2028,11 +2026,8 @@ impl<'a> Analyzer<'a> {
                     node: node.clone(),
                 };
 
-                self.create_expr_resolved(
-                    ExpressionKind::BinaryOp(op),
-                    self.shared.state.types.string(),
-                    &node,
-                )
+                let string_type = self.shared.state.types.string();
+                self.create_expr_resolved(ExpressionKind::BinaryOp(op), string_type, &node)
             } else {
                 created_expression
             };
@@ -2041,9 +2036,10 @@ impl<'a> Analyzer<'a> {
         }
 
         if last_expression.is_none() {
+            let string_type = self.shared.state.types.string();
             return self.create_expr(
-                (ExpressionKind::StringLiteral("hello".to_string())),
-                self.shared.state.types.string(),
+                ExpressionKind::StringLiteral("hello".to_string()),
+                string_type,
                 &node,
             );
         }
@@ -4170,7 +4166,7 @@ impl<'a> Analyzer<'a> {
 
     #[allow(clippy::unnecessary_wraps, clippy::result_large_err)]
     fn map_member_signature(
-        &self,
+        &mut self,
         self_type: &TypeRef,
         key_type: &TypeRef,
         value_type: &TypeRef,
