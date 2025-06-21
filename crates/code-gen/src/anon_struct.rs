@@ -8,9 +8,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{AnonymousStructLiteral, Expression};
-use swamp_types::prelude::AnonymousStructType;
-use swamp_types::{Type, TypeKind, TypeRef};
-use swamp_vm_types::types::{BasicType, BasicTypeKind, Destination, VmType, u16_type, u32_type};
+use swamp_types::{TypeKind, TypeRef};
+use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, u16_type, u32_type};
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, CountU16,
     MemoryLocation,
@@ -184,7 +183,8 @@ impl CodeBuilder<'_> {
             BasicTypeKind::MapStorage {
                 capacity,
                 logical_limit,
-                tuple_type,
+                key_type,
+                value_type,
                 ..
             } => {
                 let hwm = self.temp_registers.save_mark();
@@ -207,10 +207,10 @@ impl CodeBuilder<'_> {
                     &format!("{comment} - store capacity"),
                 );
 
-                let unaligned_key_size = tuple_type.fields[0].ty.total_size;
-                let key_alignment = tuple_type.fields[0].ty.max_alignment;
-                let unaligned_value_size = tuple_type.fields[1].ty.total_size;
-                let value_alignment = tuple_type.fields[1].ty.max_alignment;
+                let unaligned_key_size = key_type.total_size;
+                let key_alignment = key_type.max_alignment;
+                let unaligned_value_size = value_type.total_size;
+                let value_alignment = value_type.max_alignment;
 
                 let init_key_size = self.temp_registers.allocate(
                     VmType::new_contained_in_register(u32_type()),

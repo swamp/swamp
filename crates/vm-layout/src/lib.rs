@@ -120,18 +120,14 @@ impl LayoutCache {
             .map(|variant| {
                 let gen_payload_type = self.layout_type(&variant.payload_type);
 
-                let x = TaggedUnionVariant {
+                TaggedUnionVariant {
                     name: variant.common.assigned_name.clone(),
                     ty: gen_payload_type,
-                };
-
-                x
+                }
             })
             .collect();
 
-        let tagged_union_layout = Self::layout_tagged_union(&variant_layouts, name);
-
-        tagged_union_layout
+        Self::layout_tagged_union(&variant_layouts, name)
     }
 
     #[must_use]
@@ -737,7 +733,7 @@ impl LayoutCache {
 
         let payload_tagged_variant = TaggedUnionVariant {
             name: "Some".to_string(),
-            ty: gen_type.clone(),
+            ty: gen_type,
         };
 
         let none_tagged_variant = TaggedUnionVariant {

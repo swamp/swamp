@@ -7,9 +7,8 @@ mod err_wrt;
 pub mod prelude;
 mod trace;
 
-use source_map_cache::KeepTrackOfSourceLine;
-use source_map_cache::SourceFileLineInfo;
-use source_map_cache::{FileId, SourceMap, SourceMapWrapper};
+use source_map_cache::{FileId, KeepTrackOfSourceLine, SourceFileLineInfo};
+use source_map_cache::{SourceMap, SourceMapWrapper};
 use std::fmt::Write as FmtWrite;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -20,7 +19,7 @@ pub use swamp_compile::CompileOptions;
 use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
-use swamp_types::Type;
+use swamp_types::TypeRef;
 use swamp_vm::host::HostFunctionCallback;
 use swamp_vm::{TrapCode, Vm, VmSetup, VmState};
 use swamp_vm_debug_info::DebugInfo;
@@ -84,8 +83,7 @@ pub fn run_constants_in_order(
             }
         }
 
-        let return_layout =
-            swamp_code_gen::layout::layout_type(&constant.constant_ref.resolved_type);
+        let return_layout = constant.target_constant_memory.ty();
 
         assert_eq!(
             constant.target_constant_memory.size(),
@@ -441,7 +439,7 @@ impl CompileCodeGenVmResult {
     #[must_use]
     pub fn get_internal_member_function(
         &self,
-        ty: &Type,
+        ty: &TypeRef,
         member_function_str: &str,
     ) -> Option<&InternalFunctionDefinitionRef> {
         self.compile
@@ -453,7 +451,7 @@ impl CompileCodeGenVmResult {
     #[must_use]
     pub fn get_gen_internal_member_function(
         &self,
-        ty: &Type,
+        ty: &TypeRef,
         member_function_str: &str,
     ) -> Option<&GenFunctionInfo> {
         let x = self

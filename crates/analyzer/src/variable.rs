@@ -353,7 +353,6 @@ impl Analyzer<'_> {
 
         let expr_kind = ExpressionKind::VariableDefinition(variable_ref, Box::new(source_expr));
         // Use the TypeCache to get the Unit type
-        
 
         self.create_expr(expr_kind, unit_type, &ast_variable.name)
     }

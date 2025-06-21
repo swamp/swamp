@@ -38,7 +38,7 @@ pub fn analyze_ast_module_skip_expression(
     parsed_ast_module: &ParsedAstModule,
 ) -> Result<(), Error> {
     for definition in &parsed_ast_module.ast_module.definitions {
-        analyzer.analyze_definition(definition)?;
+        analyzer.analyze_definition(definition);
     }
     Ok(())
 }
@@ -453,6 +453,7 @@ fn step() {
 pub fn bootstrap_modules(
     source_map: &mut SourceMap,
 ) -> Result<BootstrapResult, ScriptResolveError> {
+    /*
     let compiler_version = TinyVersion::from_str(COMPILER_VERSION).unwrap();
     trace!(%compiler_version, "booting up compiler");
 
@@ -571,6 +572,10 @@ pub fn bootstrap_modules(
         core_module_path: core_module_ref.symbol_table.module_path().clone(),
     };
     Ok(result)
+
+    Ok()
+     */
+    todo!()
 }
 
 pub fn compile_and_analyze_all_modules(
@@ -676,21 +681,27 @@ pub fn bootstrap_and_compile(
     root_path: &[String],
     options: &CompileOptions,
 ) -> Result<Program, ScriptResolveError> {
-    let bootstrap_timer = ScopedTimer::new("bootstrap");
-    let bootstrap_result = bootstrap_modules(source_map).inspect_err(|err| {
-        show_script_resolve_error(err, source_map, &current_path());
-    })?;
-    drop(bootstrap_timer);
+    /*
+        let bootstrap_timer = ScopedTimer::new("bootstrap");
+        let bootstrap_result = bootstrap_modules(source_map).inspect_err(|err| {
+            show_script_resolve_error(err, source_map, &current_path());
+        })?;
+        drop(bootstrap_timer);
+        let mut program = bootstrap_result.program;
 
-    let mut program = bootstrap_result.program;
+        let core_symbol_table = program
+            .modules
+            .get(&bootstrap_result.core_module_path)
+            .unwrap()
+            .symbol_table
+            .clone();
 
-    let core_symbol_table = program
-        .modules
-        .get(&bootstrap_result.core_module_path)
-        .unwrap()
-        .symbol_table
-        .clone();
-
+    */
+    let mut modules = Modules::new();
+    let program_state = ProgramState::new();
+    let default_symbol_table = SymbolTable::new(&[]);
+    let core_symbol_table = SymbolTable::new(&[]);
+    let mut program = Program::new(program_state, modules, default_symbol_table);
     let compile_all_modules_timer = ScopedTimer::new("compile all modules");
     compile_and_analyze_all_modules(
         root_path,

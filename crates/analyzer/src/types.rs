@@ -39,8 +39,6 @@ impl Analyzer<'_> {
     ///
     /// # Panics
     pub fn analyze_type(&mut self, ast_type: &swamp_ast::Type) -> TypeRef {
-        
-
         match ast_type {
             swamp_ast::Type::AnonymousStruct(ast_struct) => {
                 let struct_ref = self.analyze_anonymous_struct_type(ast_struct);

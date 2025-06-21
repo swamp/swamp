@@ -193,7 +193,6 @@ fn print(
             todo!()
         }
         BasicTypeKind::MapStorage {
-            tuple_type,
             logical_limit: logical_size,
             ..
         } => {

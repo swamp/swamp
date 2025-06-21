@@ -7,7 +7,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, MapType};
-use swamp_vm_types::types::{Destination, TupleType, VmType, u32_type};
+use swamp_vm_types::types::{BasicTypeRef, Destination, TupleType, VmType, u32_type};
 use swamp_vm_types::{CountU16, MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
@@ -66,7 +66,8 @@ impl CodeBuilder<'_> {
         &mut self,
         target_map_header_ptr_reg: &PointerLocation, // Points to MapStorage
         initializer_pair_list_expressions: &[(Expression, Expression)],
-        key_value_tuple_type: &TupleType,
+        key_type: &BasicTypeRef,
+        value_type: &BasicTypeRef,
         logical_limit: usize,
         node: &Node,
         ctx: &Context,
@@ -77,10 +78,10 @@ impl CodeBuilder<'_> {
         let len = initializer_pair_list_expressions.len();
         //        let aligned_key_size = key_value_tuple_type.aligned_size_of_field(0);
         //      let aligned_value_size = key_value_tuple_type.aligned_size_of_field(1);
-        let unaligned_key_size = key_value_tuple_type.fields[0].ty.total_size;
-        let key_alignment = key_value_tuple_type.fields[0].ty.max_alignment;
-        let unaligned_value_size = key_value_tuple_type.fields[1].ty.total_size;
-        let value_alignment = key_value_tuple_type.fields[1].ty.max_alignment;
+        let unaligned_key_size = key_type.total_size;
+        let key_alignment = key_type.max_alignment;
+        let unaligned_value_size = value_type.total_size;
+        let value_alignment = value_type.max_alignment;
 
         let comment = "";
         let init_key_size = self.temp_registers.allocate(
@@ -134,7 +135,7 @@ impl CodeBuilder<'_> {
             .unwrap();
 
         let value_target_register = self.temp_registers.allocate(
-            VmType::new_unknown_placement(key_value_tuple_type.fields[1].ty.clone()),
+            VmType::new_unknown_placement(value_type.clone()),
             "key temp",
         );
 

@@ -49,8 +49,9 @@ impl CodeBuilder<'_> {
     ) {
         match &output_destination.ty().kind {
             BasicTypeKind::MapStorage {
-                tuple_type,
                 logical_limit,
+                key_type,
+                value_type,
                 ..
             } => {
                 assert!(
@@ -70,7 +71,8 @@ impl CodeBuilder<'_> {
                 self.emit_map_storage_init_from_initializer_pair_list(
                     &pointer_target,
                     elements,
-                    &tuple_type,
+                    &key_type,
+                    value_type,
                     *logical_limit,
                     node,
                     ctx,

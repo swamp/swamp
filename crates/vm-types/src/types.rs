@@ -404,8 +404,7 @@ impl Display for BasicTypeKind {
                 ..
             } => write!(
                 f,
-                "MapStorage<{}, {}, {logical_size} ({capacity})>",
-                key_type, value_type,
+                "MapStorage<{key_type}, {value_type}, {logical_size} ({capacity})>",
             ),
             Self::DynamicLengthMapView(key, value) => write!(f, "Map<{key}, {value}>"),
             Self::InternalGridPointer => write!(f, "Grid"),
@@ -2074,11 +2073,7 @@ pub fn write_basic_type(
             value_type,
             ..
         } => {
-            write!(
-                f,
-                "MapStorage<{}, {}, {logical_size}>",
-                key_type, value_type,
-            )
+            write!(f, "MapStorage<{key_type}, {value_type}, {logical_size}>",)
         }
         BasicTypeKind::InternalGridPointer => {
             write!(f, "Grid<>")

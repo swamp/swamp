@@ -14,7 +14,9 @@ impl Analyzer<'_> {
         expression_type: &TypeRef,
         ast_name: &swamp_ast::Node,
     ) -> TypesEnumVariantType {
-        let enum_type_ref = if let TypeKind::Enum(enum_type_ref) = &*expression_type.kind { enum_type_ref } else {
+        let enum_type_ref = if let TypeKind::Enum(enum_type_ref) = &*expression_type.kind {
+            enum_type_ref
+        } else {
             self.add_err(ErrorKind::ExpectedEnumInPattern, ast_name);
 
             return TypesEnumVariantType {
@@ -29,7 +31,9 @@ impl Analyzer<'_> {
 
         let variant_name = self.get_text(ast_name).to_string();
 
-        if let Some(variant) = enum_type_ref.get_variant(&variant_name) { variant.clone() } else {
+        if let Some(variant) = enum_type_ref.get_variant(&variant_name) {
+            variant.clone()
+        } else {
             self.add_err(ErrorKind::UnknownEnumVariantTypeInPattern, ast_name);
             TypesEnumVariantType {
                 common: EnumVariantCommon {

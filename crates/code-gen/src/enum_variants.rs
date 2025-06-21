@@ -6,9 +6,9 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
-use swamp_semantic::EnumLiteralData;
-use swamp_types::TypeRef;
+use swamp_semantic::EnumLiteralExpressions;
 use swamp_types::prelude::EnumVariantType;
+use swamp_types::{TypeKind, TypeRef};
 use swamp_vm_types::AggregateMemoryLocation;
 use swamp_vm_types::types::{BasicTypeKind, VmType, u8_type};
 
@@ -17,12 +17,12 @@ impl CodeBuilder<'_> {
         &mut self,
         target_memory_location: &AggregateMemoryLocation,
         enum_type: &TypeRef,
-        a: &EnumVariantType,
-        b: &EnumLiteralData,
+        variant_type: &EnumVariantType,
+        sorted_expressions: &EnumLiteralExpressions,
         node: &Node,
         ctx: &Context,
     ) {
-        let variant_index = a.common().container_index as usize;
+        let variant_index = variant_type.common().container_index as usize;
         let layout_gen_enum = self.state.layout_cache.layout(&enum_type);
         let BasicTypeKind::TaggedUnion(layout_enum) = &layout_gen_enum.kind else {
             panic!("wrong")
@@ -40,7 +40,7 @@ impl CodeBuilder<'_> {
             temp_payload_reg.register(),
             variant_index as u8,
             node,
-            &format!("enum variant `{}` tag", a.common().assigned_name),
+            &format!("enum variant `{}` tag", variant_type.common().assigned_name),
         );
 
         let tag_memory_location = target_memory_location.offset(layout_enum.tag_offset, u8_type());
@@ -53,30 +53,35 @@ impl CodeBuilder<'_> {
 
         let payload_memory_location =
             target_memory_location.offset(layout_enum.payload_offset, u8_type());
-        match b {
-            EnumLiteralData::Nothing => {}
-            EnumLiteralData::Tuple(tuple_type, expressions) => {
+        match &*variant_type.payload_type.kind {
+            TypeKind::Unit => {}
+            TypeKind::Tuple(expressions) => {
+                let EnumLiteralExpressions::Tuple(tuple_expressions) = sorted_expressions else {
+                    panic!("internal error");
+                };
                 self.emit_tuple_literal_into_memory(
                     &payload_memory_location,
-                    tuple_type,
-                    expressions,
+                    &variant_type.payload_type,
+                    &*tuple_expressions,
                     ctx,
                     node,
                 );
             }
-            EnumLiteralData::Struct(struct_type_ref, sorted_expressions) => {
-                let EnumVariantType::Struct(variant_struct_type) = a else {
-                    panic!()
+            TypeKind::AnonymousStruct(anon_struct_type) => {
+                let EnumLiteralExpressions::Struct(sorted_field_expressions) = sorted_expressions
+                else {
+                    panic!("internal error");
                 };
 
                 self.emit_anonymous_struct_into_memory(
                     &payload_memory_location,
-                    &variant_struct_type.struct_type,
-                    sorted_expressions,
+                    &variant_type.payload_type,
+                    &sorted_field_expressions,
                     node,
                     ctx,
                 );
             }
+            _ => panic!("illegal enum variant payload"),
         }
 
         self.temp_registers.restore_to_mark(hwm);

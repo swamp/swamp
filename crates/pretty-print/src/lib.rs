@@ -216,7 +216,7 @@ impl SourceMapDisplay<'_> {
             panic!("")
         };
 
-        self.show_anon_struct_type(f, &anon, tabs)?;
+        self.show_anon_struct_type(f, anon, tabs)?;
 
         Ok(())
     }
@@ -775,7 +775,7 @@ impl SourceMapDisplay<'_> {
                 let TypeKind::AnonymousStruct(anon) = &*struct_ref.anon_struct_type.kind else {
                     panic!("")
                 };
-                self.show_anon_struct_type(f, &anon, tabs)
+                self.show_anon_struct_type(f, anon, tabs)
             }
             TypeKind::AnonymousStruct(struct_ref) => {
                 self.show_anon_struct_type(f, struct_ref, tabs)

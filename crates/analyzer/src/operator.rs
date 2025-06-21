@@ -26,17 +26,15 @@ impl Analyzer<'_> {
 
         match (&kind, &left_type, &right_type) {
             // String concatenation - allow any type on the right
-            (&BinaryOperatorKind::Add, TypeKind::String, _) => {
-                Some((
-                    BinaryOperator {
-                        left: Box::new(left),
-                        right: Box::new(right),
-                        kind,
-                        node,
-                    },
-                    self.shared.state.types.string(),
-                ))
-            }
+            (&BinaryOperatorKind::Add, TypeKind::String, _) => Some((
+                BinaryOperator {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    kind,
+                    node,
+                },
+                self.shared.state.types.string(),
+            )),
 
             // Comparison operators
             (

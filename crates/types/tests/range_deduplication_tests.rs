@@ -22,14 +22,14 @@ fn test_range_deduplication_with_named_struct() {
         "max".to_string(),
         StructTypeField {
             identifier: None,
-            field_type: int_type.clone(),
+            field_type: int_type,
         },
     );
     let _ = range_fields.insert(
         "inclusive".to_string(),
         StructTypeField {
             identifier: None,
-            field_type: bool_type.clone(),
+            field_type: bool_type,
         },
     );
 
@@ -40,19 +40,19 @@ fn test_range_deduplication_with_named_struct() {
     let range_named_struct = NamedStructType::new(
         Node::default(),
         "Range",
-        anon_struct_ref.clone(),
+        anon_struct_ref,
         &["core".to_string()],
     );
 
     let named_struct_ref1 = type_cache.named_struct(range_named_struct.clone());
-    let named_struct_ref2 = type_cache.named_struct(range_named_struct.clone());
+    let named_struct_ref2 = type_cache.named_struct(range_named_struct);
 
     // The named struct TypeRefs should be the same due to deduplication
     assert!(std::rc::Rc::ptr_eq(&named_struct_ref1, &named_struct_ref2));
 
     // Create Range types using the named struct
-    let range_type1 = type_cache.range(named_struct_ref1.clone());
-    let range_type2 = type_cache.range(named_struct_ref2.clone());
+    let range_type1 = type_cache.range(named_struct_ref1);
+    let range_type2 = type_cache.range(named_struct_ref2);
 
     // The Range TypeRefs should be the same due to deduplication
     assert!(std::rc::Rc::ptr_eq(&range_type1, &range_type2));
@@ -78,14 +78,14 @@ fn test_range_field_access() {
         "max".to_string(),
         StructTypeField {
             identifier: None,
-            field_type: int_type.clone(),
+            field_type: int_type,
         },
     );
     let _ = range_fields.insert(
         "inclusive".to_string(),
         StructTypeField {
             identifier: None,
-            field_type: bool_type.clone(),
+            field_type: bool_type,
         },
     );
 

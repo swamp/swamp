@@ -246,6 +246,8 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
             span,
         ),
         ErrorKind::ExpectedSlice => Report::build(Kind::Error, 59, "expected slice", span),
+        &swamp_analyzer::err::ErrorKind::OperatorProblem
+        | &swamp_analyzer::err::ErrorKind::MatchMustHaveAtLeastOneArm => todo!(),
     };
     b.error_module = "A".to_string();
     b

@@ -93,7 +93,6 @@ impl Analyzer<'_> {
 
         self.pop_block_scope("struct instantiation");
 
-        
         self.create_expr(ExpressionKind::Block(expressions), ty, node)
     }
 
@@ -362,7 +361,6 @@ impl Analyzer<'_> {
         };
 
         // if it has a `default` function, call that to get a starting value
-        
 
         if let Some(function) = maybe_default {
             self.analyze_struct_init_calling_default(

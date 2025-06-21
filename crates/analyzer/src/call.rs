@@ -35,8 +35,6 @@ impl Analyzer<'_> {
         let context = TypeContext::new_argument(&fn_parameter.resolved_type);
         let ref_checked_argument = self.analyze_maybe_ref_expression(argument_expr);
 
-        
-
         if fn_parameter.is_mutable {
             if ref_checked_argument.has_borrow_mutable_reference.is_none() {
                 // if the parameter is mutable you must pass in mutable reference to it
@@ -98,8 +96,6 @@ impl Analyzer<'_> {
         location_side: LocationSide,
     ) -> ArgumentExpression {
         let maybe_borrow_or_normal_expression = self.analyze_maybe_ref_expression(expr);
-
-        
 
         if maybe_borrow_or_normal_expression
             .has_borrow_mutable_reference

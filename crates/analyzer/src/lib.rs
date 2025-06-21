@@ -37,8 +37,8 @@ use swamp_semantic::{
     WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
-use swamp_types::prelude::*;
 use swamp_types::TypeKind;
+use swamp_types::prelude::*;
 use tracing::{error, info};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -337,8 +337,6 @@ impl<'a> Analyzer<'a> {
             swamp_ast::Function::External(_, x) => &x.return_type,
         };
 
-        
-
         match ast_return_type {
             None => self.shared.state.types.unit(),
             Some(x) => self.analyze_type(x),
@@ -351,13 +349,11 @@ impl<'a> Analyzer<'a> {
         return_type: &TypeRef,
     ) -> Expression {
         let context = TypeContext::new_function(return_type);
-        
 
         self.analyze_expression(expression, &context)
     }
 
     fn analyze_maybe_type(&mut self, maybe_type: Option<&swamp_ast::Type>) -> TypeRef {
-        
         match maybe_type {
             None => self.shared.state.types.unit(),
             Some(ast_type) => self.analyze_type(ast_type),
@@ -584,8 +580,6 @@ impl<'a> Analyzer<'a> {
 
         let encountered_type = expr.ty.clone();
 
-        
-
         //        info!(?expr, "analyze expression");
         if let Some(found_expected_type) = context.expected_type {
             let reduced_expected = found_expected_type;
@@ -625,8 +619,6 @@ impl<'a> Analyzer<'a> {
         ast_expression: &swamp_ast::Expression,
         context: &TypeContext,
     ) -> Expression {
-        
-
         //info!(ty=%expression.ty, kind=?expression.kind,  "resolved expression");
 
         match &ast_expression.kind {
@@ -848,7 +840,9 @@ impl<'a> Analyzer<'a> {
         qualified_type_identifier: &swamp_ast::QualifiedTypeIdentifier,
     ) -> NamedStructType {
         let maybe_struct_type = self.analyze_named_type(qualified_type_identifier);
-        if let TypeKind::NamedStruct(struct_type) = &*maybe_struct_type.kind { struct_type.clone() } else {
+        if let TypeKind::NamedStruct(struct_type) = &*maybe_struct_type.kind {
+            struct_type.clone()
+        } else {
             self.add_err(
                 // For other TypeRef variants that are not Struct
                 ErrorKind::UnknownStructTypeReference,
@@ -898,8 +892,6 @@ impl<'a> Analyzer<'a> {
             }
         };
 
-        
-
         if analyzed_type_parameters.is_empty() {
             match &symbol {
                 Symbol::Type(base_type) => base_type.clone(),
@@ -940,7 +932,6 @@ impl<'a> Analyzer<'a> {
             }
         };
 
-        
         self.create_expr(kind, field_type.clone(), node)
     }
 
@@ -964,7 +955,6 @@ impl<'a> Analyzer<'a> {
                     let Function::Internal(internal_function) = &function else {
                         panic!("only allowed for internal functions");
                     };
-                    
 
                     ExpressionKind::InternalCall(internal_function.clone(), arguments.to_vec())
                 },
@@ -2031,8 +2021,6 @@ impl<'a> Analyzer<'a> {
             );
         }
 
-        
-
         last_expression.unwrap()
     }
 
@@ -2186,11 +2174,7 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .map_storage(&required_key_type, &required_value_type, items.len());
 
-            (
-                inferred_type,
-                required_key_type,
-                required_value_type,
-            )
+            (inferred_type, required_key_type, required_value_type)
         };
 
         assert!(!matches!(*key_type.kind, TypeKind::Unit));
@@ -2282,9 +2266,7 @@ impl<'a> Analyzer<'a> {
             let first = self.analyze_expression(&items[0], &maybe_context);
             let required_type = first.ty;
             (
-                &self
-                    .types()
-                    .vec_storage(&required_type, items.len()),
+                &self.types().vec_storage(&required_type, items.len()),
                 required_type,
             )
         };
@@ -2652,7 +2634,6 @@ impl<'a> Analyzer<'a> {
         let block_expression_kind = ExpressionKind::Block(expressions);
         self.pop_closed_block_scope();
 
-        
         self.create_expr(block_expression_kind, block_type, &expression.node)
     }
 
@@ -2730,7 +2711,6 @@ impl<'a> Analyzer<'a> {
         let when_kind =
             ExpressionKind::When(bindings, Box::from(resolved_true), maybe_resolved_else);
 
-        
         self.create_expr(when_kind, block_type, &true_expr.node)
     }
 
@@ -2920,7 +2900,8 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
+    }
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -3012,7 +2993,8 @@ impl<'a> Analyzer<'a> {
         annotation_type: Option<&swamp_ast::Type>,
         source_expression: &swamp_ast::Expression,
     ) -> Expression {
-        let maybe_annotated_type = annotation_type.map(|found_ast_type| self.analyze_type(found_ast_type));
+        let maybe_annotated_type =
+            annotation_type.map(|found_ast_type| self.analyze_type(found_ast_type));
 
         let unsure_arg_context = TypeContext::new_unsure_argument(maybe_annotated_type.as_ref());
 
@@ -3034,7 +3016,6 @@ impl<'a> Analyzer<'a> {
         let kind = ExpressionKind::VariableDefinition(var_ref, Box::from(resolved_source));
 
         let unit_type = self.shared.state.types.unit();
-        
 
         self.create_expr(kind, unit_type, &var.name)
     }
@@ -3328,7 +3309,6 @@ impl<'a> Analyzer<'a> {
             }
         }
 
-        
         SingleLocationExpression {
             kind: MutableReferenceKind::MutVariableRef,
             node: self.to_node(&chain.base.node),
@@ -3527,7 +3507,6 @@ impl<'a> Analyzer<'a> {
         );
 
         let unit_type = self.shared.state.types.unit();
-        
 
         self.create_expr(kind, unit_type, &target_expression.node)
     }
@@ -3544,7 +3523,7 @@ impl<'a> Analyzer<'a> {
         let kind = ExpressionKind::Assignment(Box::from(mut_location), Box::from(source_expr));
         let unit_type = self.shared.state.types.unit();
 
-         // Assignments are always of type Unit
+        // Assignments are always of type Unit
 
         self.create_expr(kind, unit_type, &target_location.node)
     }
@@ -3884,12 +3863,7 @@ impl<'a> Analyzer<'a> {
             "set" => (
                 IntrinsicFunction::GridSet,
                 Signature {
-                    parameters: vec![
-                        self_type_param,
-                        int_param.clone(),
-                        int_param,
-                        element_param,
-                    ],
+                    parameters: vec![self_type_param, int_param.clone(), int_param, element_param],
                     return_type: self.types().unit(),
                 },
             ),

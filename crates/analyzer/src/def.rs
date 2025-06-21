@@ -303,8 +303,6 @@ impl Analyzer<'_> {
     ) -> AnonymousStructType {
         let resolved_fields = self.analyze_anonymous_struct_type_fields(&ast_struct.fields);
 
-        
-
         AnonymousStructType::new_and_sort_fields(&resolved_fields)
     }
 
@@ -363,11 +361,7 @@ impl Analyzer<'_> {
             instantiated_type_parameters: Vec::default(),
         };
 
-        let named_struct_type_ref = self
-            .shared
-            .state
-            .types
-            .named_struct(named_struct_type);
+        let named_struct_type_ref = self.shared.state.types.named_struct(named_struct_type);
 
         match self
             .shared
@@ -679,8 +673,6 @@ impl Analyzer<'_> {
         function: &swamp_ast::Function,
         self_type: &TypeRef,
     ) -> Function {
-        
-
         match function {
             swamp_ast::Function::Internal(function_data) => {
                 let mut parameters = Vec::new();
@@ -718,7 +710,6 @@ impl Analyzer<'_> {
 
                 let return_type =
                     if let Some(ast_return_type) = &function_data.declaration.return_type {
-                        
                         self.analyze_type(ast_return_type)
                     } else {
                         self.shared.state.types.unit()

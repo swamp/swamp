@@ -14,8 +14,8 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 use swamp_attributes::Attributes;
+use swamp_types::TypeRef;
 use swamp_types::prelude::*;
-use swamp_types::{Type, TypeRef};
 use tracing::error;
 
 #[derive(Debug, Clone)]

@@ -5,9 +5,10 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
-use swamp_semantic::{Expression, ExpressionKind, Literal};
+use swamp_semantic::{Expression, ExpressionKind};
+use swamp_types::TypeKind;
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister};
+use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, int_type};
 use swamp_vm_types::{MemoryLocation, MemorySize};
 
 impl CodeBuilder<'_> {
@@ -37,24 +38,40 @@ impl CodeBuilder<'_> {
         }
 
         match &expr.kind {
-            ExpressionKind::Literal(Literal::InitializerList(element_type, expressions)) => {
-                self.emit_collection_init_from_initialization_list(
-                    output,
+            ExpressionKind::InitializerList(slice_type, expressions) => {
+                // A tuple literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
+                let element_type = match &*slice_type.kind {
+                    TypeKind::VecStorage(element_type, _)
+                    | TypeKind::DynamicLengthVecView(element_type)
+                    | TypeKind::SliceView(element_type)
+                    | TypeKind::StackStorage(element_type, _)
+                    | TypeKind::StackView(element_type)
+                    | TypeKind::QueueStorage(element_type, _)
+                    | TypeKind::QueueView(element_type)
+                    | TypeKind::SparseStorage(element_type, _)
+                    | TypeKind::SparseView(element_type)
+                    | TypeKind::GridStorage(element_type, _, _)
+                    | TypeKind::GridView(element_type)
+                    | TypeKind::FixedCapacityAndLengthArray(element_type, _) => {
+                        element_type.clone()
+                    }
+                    _ => panic!(
+                        "InitializerList requires a collection type, got: {:?}",
+                        slice_type.kind
+                    ),
+                };
+                let element_gen_type = self.state.layout_cache.layout(&element_type);
+                self.emit_initializer_list_into_target_lvalue_memory_location(
+                    &output.grab_aggregate_memory_location(),
+                    &element_gen_type,
                     expressions,
-                    &expr.node,
                     ctx,
                 );
-                return;
             }
-            ExpressionKind::Literal(Literal::InitializerPairList(element_type, expressions)) => {
-                self.emit_container_init_from_initialization_pair_list(
-                    output,
-                    expressions,
-                    &expr.node,
-                    ctx,
-                );
-                return;
+            ExpressionKind::InitializerPairList(slice_pair_type, pairs) => {
+                todo!() //self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
             }
+
             _ => {}
         }
 
@@ -90,9 +107,179 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
 
         match &expr.kind {
-            ExpressionKind::Literal(basic_literal) => {
-                self.emit_literal(output, basic_literal, node, ctx);
+            ExpressionKind::Error => {
+                return;
             }
+            ExpressionKind::InitializerList(element_type, expressions) => {
+                self.emit_collection_init_from_initialization_list(
+                    output,
+                    expressions,
+                    &expr.node,
+                    ctx,
+                );
+                return;
+            }
+            ExpressionKind::InitializerPairList(element_type, expressions) => {
+                self.emit_container_init_from_initialization_pair_list(
+                    output,
+                    expressions,
+                    &expr.node,
+                    ctx,
+                );
+                return;
+            }
+            ExpressionKind::StringLiteral(str) => {
+                self.emit_string_literal(output, node, str, ctx);
+            }
+            ExpressionKind::IntLiteral(int) => match output {
+                Destination::Register(target_reg) => {
+                    self.builder.add_mov_32_immediate_value(
+                        target_reg,
+                        *int as u32,
+                        node,
+                        "int literal",
+                    );
+                }
+                Destination::Memory(location) => {
+                    let temp_int_literal_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(int_type()),
+                        "temporary for int literal",
+                    );
+                    self.builder.add_mov_32_immediate_value(
+                        temp_int_literal_reg.register(),
+                        *int as u32,
+                        node,
+                        "int literal",
+                    );
+                    self.builder.add_st32_using_ptr_with_offset(
+                        location,
+                        temp_int_literal_reg.register(),
+                        node,
+                        &format!("copy int literal into destination memory {location} <- {temp_int_literal_reg}"),
+                    );
+                }
+                Destination::Unit => {
+                    panic!("int can not materialize into nothing")
+                }
+            },
+            ExpressionKind::FloatLiteral(fixed_point) => match output {
+                Destination::Register(target_reg) => {
+                    self.builder.add_mov_32_immediate_value(
+                        target_reg,
+                        fixed_point.inner() as u32,
+                        node,
+                        "float literal",
+                    );
+                }
+                Destination::Memory(location) => {
+                    let temp_fixed_point_temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(int_type()),
+                        "temporary for float literal",
+                    );
+                    self.builder.add_mov_32_immediate_value(
+                        temp_fixed_point_temp_reg.register(),
+                        fixed_point.inner() as u32,
+                        node,
+                        "float literal",
+                    );
+                    self.builder.add_st32_using_ptr_with_offset(
+                        location,
+                        temp_fixed_point_temp_reg.register(),
+                        node,
+                        "copy float literal into destination memory",
+                    );
+                }
+                Destination::Unit => {
+                    panic!("int can not materialize into nothing")
+                }
+            },
+            ExpressionKind::NoneLiteral => {
+                let union_info = output.ty().unwrap_info().unwrap();
+
+                match output {
+                    Destination::Register(target_reg) => {
+                        self.builder
+                            .add_mov8_immediate(target_reg, 0, node, "none literal");
+                    }
+                    Destination::Memory(location) => {
+                        let temp_none_literal_reg = self.temp_registers.allocate(
+                            VmType::new_contained_in_register(int_type()),
+                            "temporary for none literal",
+                        );
+                        self.builder.add_mov8_immediate(
+                            temp_none_literal_reg.register(),
+                            0,
+                            node,
+                            "none literal",
+                        );
+
+                        self.builder.add_st8_using_ptr_with_offset(
+                            location,
+                            temp_none_literal_reg.register(),
+                            node,
+                            "copy none literal into destination memory",
+                        );
+                    }
+                    Destination::Unit => {
+                        panic!("none can not materialize into nothing")
+                    }
+                }
+            }
+            ExpressionKind::BoolLiteral(truthy) => match output {
+                Destination::Register(target_reg) => {
+                    self.builder.add_mov8_immediate(
+                        target_reg,
+                        u8::from(*truthy),
+                        node,
+                        "bool literal",
+                    );
+                }
+                Destination::Memory(location) => {
+                    let temp_bool_literal_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(int_type()),
+                        "temporary for bool literal",
+                    );
+                    self.builder.add_mov8_immediate(
+                        temp_bool_literal_reg.register(),
+                        u8::from(*truthy),
+                        node,
+                        "bool literal",
+                    );
+
+                    self.builder.add_st8_using_ptr_with_offset(
+                        location,
+                        temp_bool_literal_reg.register(),
+                        node,
+                        "copy bool literal into destination memory",
+                    );
+                }
+                Destination::Unit => {
+                    panic!("int can not materialize into nothing")
+                }
+            },
+
+            ExpressionKind::EnumVariantLiteral(enum_variant, expressions) => {
+                // A enum variant literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
+                self.emit_enum_variant_to_memory_location(
+                    &output.grab_aggregate_memory_location(),
+                    &expr.ty,
+                    enum_variant,
+                    expressions,
+                    node,
+                    ctx,
+                );
+            }
+            ExpressionKind::TupleLiteral(expressions) => {
+                // A tuple literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
+                self.emit_tuple_literal_into_memory(
+                    &output.grab_aggregate_memory_location(),
+                    &expr.ty,
+                    expressions,
+                    ctx,
+                    node,
+                );
+            }
+
             ExpressionKind::If(condition, true_expression, maybe_false_expression) => {
                 self.emit_if(
                     output,
@@ -302,13 +489,11 @@ impl CodeBuilder<'_> {
         expr: &Expression,
     ) -> bool {
         let specific_kind_of_expression_needs_memory_target = match &expr.kind {
-            ExpressionKind::Literal(literal) => matches!(
-                literal,
-                Literal::EnumVariantLiteral(_, _, _)
-                    | Literal::TupleLiteral(_, _)
-                    | Literal::InitializerList(_, _)
-                    | Literal::InitializerPairList(_, _)
-            ),
+            // TODO: Should have more robust check here. maybe check primitives instead and invert?
+            ExpressionKind::EnumVariantLiteral(_, _)
+            | ExpressionKind::TupleLiteral(_)
+            | ExpressionKind::InitializerList(_, _)
+            | ExpressionKind::InitializerPairList(_, _) => true,
             ExpressionKind::Option(_) | ExpressionKind::AnonymousStructLiteral(_) => true,
             _ => false,
         };

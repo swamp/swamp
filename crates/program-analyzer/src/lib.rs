@@ -36,6 +36,7 @@ pub fn analyze_module(
     module_path: &[String],
     ast_module: &ParsedAstModule,
 ) -> Result<(SymbolTable, Option<InternalMainExpression>), LoaderErr> {
+    debug!(?module_path, "analyze module");
     let debug_string = format!("analyze module {module_path:?}");
     let _analyze_timer = ScopedTimer::new(&debug_string);
 
@@ -52,11 +53,12 @@ pub fn analyze_module(
 
     let statements = {
         for ast_def in ast_module.ast_module.definitions() {
-            analyzer.analyze_definition(ast_def)?;
+            debug!(?ast_def, "analyze definition");
+            analyzer.analyze_definition(ast_def);
         }
 
         if let Some(expr) = ast_module.ast_module.expression() {
-            let internal_main = analyzer.analyze_main_expression(expr)?;
+            let internal_main = analyzer.analyze_main_expression(expr);
             Some(internal_main)
         } else {
             None
