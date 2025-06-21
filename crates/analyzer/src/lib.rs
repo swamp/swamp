@@ -4476,17 +4476,17 @@ impl<'a> Analyzer<'a> {
     ) -> Expression {
         let expected_type = special_expected_type;
         let encountered_type = special_encountered_type;
+        let encountered_is_optional = matches!(&*encountered_type.kind, TypeKind::Optional(_));
         if let TypeKind::Optional(expected_inner_type) = &*expected_type.kind {
+            let inner_is_also_optional =
+                matches!(&*expected_inner_type.kind, TypeKind::Optional(_));
             // If an optional is expected, we can wrap it if this type has the exact same
             // inner type
-            assert!(
-                expected_inner_type
-                    .inner_optional_mut_or_immutable()
-                    .is_none()
-            );
+            assert!(!inner_is_also_optional);
 
             // First make sure it is not already an optional type. we can not wrap an option with an option
-            if encountered_type.inner_optional_mut_or_immutable().is_none() {
+            // TODO: Improve error handling
+            if !encountered_is_optional {
                 // good it isn't, lets see if they share inner types
                 if self
                     .types()
@@ -4518,7 +4518,7 @@ impl<'a> Analyzer<'a> {
         } else*/
         if matches!(&*expected_type.kind, &TypeKind::Bool) {
             // if it has a mut or immutable optional, then it works well to wrap it
-            if encountered_type.inner_optional_mut_or_immutable().is_some() {
+            if encountered_is_optional {
                 let bool_type = self.types().bool();
                 let wrapped = self.create_expr(
                     ExpressionKind::CoerceOptionToBool(Box::from(expr)),
