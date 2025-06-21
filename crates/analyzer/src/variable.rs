@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Analyzer;
-use crate::err::{Error, ErrorKind};
+use crate::err::ErrorKind;
 use source_map_node::Node;
 use std::rc::Rc;
 use swamp_semantic::{
@@ -27,14 +27,13 @@ impl Analyzer<'_> {
     }
 
     #[allow(unused)]
-    pub(crate) fn find_variable(
-        &self,
-        variable: &swamp_ast::Variable,
-    ) -> Result<VariableRef, Error> {
-        self.try_find_variable(&variable.name).map_or_else(
-            || Err(self.create_err(ErrorKind::UnknownVariable, &variable.name)),
-            Ok,
-        )
+    pub(crate) fn find_variable(&mut self, variable: &swamp_ast::Variable) -> VariableRef {
+        if let Some(x) = self.try_find_variable(&variable.name) {
+            x
+        } else {
+            self.add_err(ErrorKind::UnknownVariable, &variable.name);
+            VariableRef::from(Variable::create_err(self.types().unit()))
+        }
     }
 
     pub(crate) fn try_find_variable(&self, node: &swamp_ast::Node) -> Option<VariableRef> {
@@ -74,7 +73,7 @@ impl Analyzer<'_> {
         is_mutable: Option<&swamp_ast::Node>,
         variable_type_ref: &TypeRef,
         concrete_check: bool,
-    ) -> Result<VariableRef, Error> {
+    ) -> VariableRef {
         let debug_text = self.get_text(variable);
         if !debug_text.starts_with('_')
             && concrete_check
@@ -84,10 +83,11 @@ impl Analyzer<'_> {
                 .types
                 .can_be_stored_in_variable(variable_type_ref)
         {
-            return Err(self.create_err(
+            self.add_err(
                 ErrorKind::VariableTypeMustBeConcrete(variable_type_ref.clone()),
                 variable,
-            ));
+            );
+            return Rc::new(Variable::create_err(self.types().unit()));
         }
         self.create_local_variable_resolved(
             &self.to_node(variable),
@@ -100,7 +100,7 @@ impl Analyzer<'_> {
         &mut self,
         variable: &swamp_ast::Variable,
         variable_type_ref: &TypeRef,
-    ) -> Result<VariableRef, Error> {
+    ) -> VariableRef {
         self.create_local_variable(
             &variable.name,
             Option::from(&variable.is_mutable),
@@ -114,19 +114,19 @@ impl Analyzer<'_> {
         variable: &Node,
         is_mutable: Option<&Node>,
         variable_type_ref: &TypeRef,
-    ) -> Result<VariableRef, Error> {
+    ) -> VariableRef {
         let (variable_ref, variable_str, should_insert_in_scope) = self
             .create_variable_like_resolved(
                 variable,
                 is_mutable,
                 variable_type_ref,
                 VariableType::Local,
-            )?;
+            );
         if should_insert_in_scope {
             self.function_variables.push(variable_ref.clone());
         }
 
-        Ok(variable_ref)
+        variable_ref
     }
 
     pub(crate) fn create_variable_like_resolved(
@@ -215,7 +215,7 @@ impl Analyzer<'_> {
         variable_str: &str,
         is_mutable: bool,
         variable_type_ref: &TypeRef,
-    ) -> Result<VariableRef, Error> {
+    ) -> VariableRef {
         let scope_index = self.scope.block_scope_stack.len() - 1;
 
         let index_within_function = self.scope.emit_variable_index();
@@ -263,7 +263,7 @@ impl Analyzer<'_> {
 
         self.function_variables.push(variable_ref.clone());
 
-        Ok(variable_ref)
+        variable_ref
     }
 
     pub(crate) fn create_variable_binding_for_with(
@@ -277,9 +277,7 @@ impl Analyzer<'_> {
         let variable_ref = if let ArgumentExpression::Expression(expr) = &converted_expression {
             if let ExpressionKind::VariableAccess(source_var) = &expr.kind {
                 if ast_variable.is_mutable.is_some() && !source_var.is_mutable() {
-                    return Err(
-                        self.create_err(ErrorKind::VariableIsNotMutable, &ast_variable.name)
-                    );
+                    return self.create_err(ErrorKind::VariableIsNotMutable, &ast_variable.name);
                 }
 
                 let scope_index = self.scope.block_scope_stack.len() - 1;
@@ -321,7 +319,7 @@ impl Analyzer<'_> {
                     ast_variable.is_mutable.as_ref(),
                     &expression_type,
                     false,
-                )?
+                )
             }
         } else {
             // This call uses the TypeCache through create_local_variable
@@ -330,7 +328,7 @@ impl Analyzer<'_> {
                 ast_variable.is_mutable.as_ref(),
                 &expression_type,
                 false,
-            )?
+            )
         };
 
         // Create a variable definition expression
@@ -357,7 +355,7 @@ impl Analyzer<'_> {
         // Use the TypeCache to get the Unit type
         let expr = self.create_expr(expr_kind, unit_type, &ast_variable.name);
 
-        Ok(expr)
+        expr
     }
 
     pub fn types(&mut self) -> &mut TypeCache {

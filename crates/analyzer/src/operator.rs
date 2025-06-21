@@ -101,7 +101,7 @@ impl Analyzer<'_> {
         &mut self,
         ast_op: &swamp_ast::UnaryOperator,
         ast_left: &swamp_ast::Expression,
-    ) -> Result<(UnaryOperator, TypeRef), Error> {
+    ) -> Option<(UnaryOperator, TypeRef)> {
         let bool_type = self.shared.state.types.bool();
         let (node, kind, require_type) = match ast_op {
             swamp_ast::UnaryOperator::Not(node) => (node, UnaryOperatorKind::Not, Some(&bool_type)),
@@ -113,7 +113,7 @@ impl Analyzer<'_> {
         let context = TypeContext::new_unsure_argument(require_type);
         let left = self.analyze_expression(ast_left, &context);
         let resolved_type = left.ty.clone();
-        Ok((
+        Some((
             UnaryOperator {
                 left: Box::new(left),
                 kind,

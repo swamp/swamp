@@ -14,8 +14,8 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 use swamp_attributes::Attributes;
-use swamp_types::TypeRef;
 use swamp_types::prelude::*;
+use swamp_types::{Type, TypeRef};
 use tracing::error;
 
 #[derive(Debug, Clone)]
@@ -263,6 +263,23 @@ pub struct Variable {
 
     pub unique_id_within_function: usize,
     pub is_unused: bool,
+}
+
+impl Variable {
+    #[must_use]
+    pub fn create_err(unit_type: TypeRef) -> Self {
+        Self {
+            name: Node::default(),
+            assigned_name: "err".to_string(),
+            resolved_type: unit_type,
+            mutable_node: None,
+            variable_type: VariableType::Local,
+            scope_index: 0,
+            variable_index: 0,
+            unique_id_within_function: 0,
+            is_unused: false,
+        }
+    }
 }
 
 impl Variable {

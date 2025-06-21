@@ -236,6 +236,7 @@ impl<'a> Analyzer<'a> {
             module_path: module_path.to_vec(),
             function_variables: Vec::new(),
             function_parameters: Vec::new(),
+            errors: vec![],
         }
     }
 
@@ -263,7 +264,7 @@ impl<'a> Analyzer<'a> {
 
         let branch_context = context;
 
-        let true_expr = self.analyze_expression(true_expression, branch_context)?;
+        let true_expr = self.analyze_expression(true_expression, branch_context);
         let resolved_true = Box::new(true_expr);
 
         let mut detected = context.expected_type.cloned();
@@ -274,7 +275,7 @@ impl<'a> Analyzer<'a> {
         // Analyze the false branch if it exists
         let else_statements = if let Some(false_expression) = maybe_false_expression {
             let else_context = branch_context.with_expected_type(detected.as_ref());
-            let else_expr = self.analyze_expression(false_expression, &else_context)?;
+            let else_expr = self.analyze_expression(false_expression, &else_context);
             if detected.is_none() {
                 detected = Some(else_expr.ty.clone());
             }
@@ -284,11 +285,11 @@ impl<'a> Analyzer<'a> {
             None
         };
 
-        Ok(self.create_expr(
+        self.create_expr(
             ExpressionKind::If(resolved_condition, resolved_true, else_statements),
             detected.unwrap(),
             &condition.node,
-        ))
+        )
     }
 
     fn get_text(&self, ast_node: &swamp_ast::Node) -> &str {
@@ -331,7 +332,7 @@ impl<'a> Analyzer<'a> {
         (path, self.get_text(&ident.name.0).to_string())
     }
 
-    fn analyze_return_type(&mut self, function: &swamp_ast::Function) -> Result<TypeRef, Error> {
+    fn analyze_return_type(&mut self, function: &swamp_ast::Function) -> TypeRef {
         let ast_return_type = match function {
             swamp_ast::Function::Internal(x) => &x.declaration.return_type,
             swamp_ast::Function::External(_, x) => &x.return_type,
@@ -339,10 +340,10 @@ impl<'a> Analyzer<'a> {
 
         let resolved_return_type = match ast_return_type {
             None => self.shared.state.types.unit(),
-            Some(x) => self.analyze_type(x)?,
+            Some(x) => self.analyze_type(x),
         };
 
-        Ok(resolved_return_type)
+        resolved_return_type
     }
 
     fn analyze_function_body_expression(
@@ -351,9 +352,9 @@ impl<'a> Analyzer<'a> {
         return_type: &TypeRef,
     ) -> Expression {
         let context = TypeContext::new_function(return_type);
-        let resolved_statement = self.analyze_expression(expression, &context)?;
+        let resolved_statement = self.analyze_expression(expression, &context);
 
-        Ok(resolved_statement)
+        resolved_statement
     }
 
     fn analyze_maybe_type(&mut self, maybe_type: Option<&swamp_ast::Type>) -> TypeRef {
@@ -369,7 +370,7 @@ impl<'a> Analyzer<'a> {
         pattern: &swamp_ast::ForPattern,
         key_type: Option<&TypeRef>,
         value_type: &TypeRef,
-    ) -> Result<ForPattern, Error> {
+    ) -> ForPattern {
         match pattern {
             swamp_ast::ForPattern::Single(var) => {
                 let variable_ref = self.create_local_variable(
@@ -377,8 +378,8 @@ impl<'a> Analyzer<'a> {
                     Option::from(&var.is_mut),
                     value_type,
                     false,
-                )?;
-                Ok(ForPattern::Single(variable_ref))
+                );
+                ForPattern::Single(variable_ref)
             }
             swamp_ast::ForPattern::Pair(first, second) => {
                 let found_key = key_type.unwrap();
@@ -387,14 +388,14 @@ impl<'a> Analyzer<'a> {
                     Option::from(&first.is_mut),
                     found_key,
                     false,
-                )?;
+                );
                 let second_var_ref = self.create_local_variable(
                     &second.identifier,
                     Option::from(&second.is_mut),
                     value_type,
                     false,
-                )?;
-                Ok(ForPattern::Pair(first_var_ref, second_var_ref))
+                );
+                ForPattern::Pair(first_var_ref, second_var_ref)
             }
         }
     }
@@ -427,7 +428,7 @@ impl<'a> Analyzer<'a> {
         if let Some(found_function) = self.special_static_member(named_type, member_name_node) {
             Some(found_function)
         } else {
-            let some_type = self.analyze_named_type(named_type).ok()?;
+            let some_type = self.analyze_named_type(named_type);
 
             let member_name = self.get_text(member_name_node);
             self.lookup_associated_function(&some_type, member_name)
@@ -530,11 +531,11 @@ impl<'a> Analyzer<'a> {
     pub fn analyze_main_expression(
         &mut self,
         ast_expression: &swamp_ast::Expression,
-    ) -> Result<InternalMainExpression, Error> {
+    ) -> InternalMainExpression {
         self.start_function();
 
         let context = TypeContext::new_anything_argument();
-        let analyzed_expr = self.analyze_expression(ast_expression, &context)?;
+        let analyzed_expr = self.analyze_expression(ast_expression, &context);
         let main_expr = InternalMainExpression {
             expression: analyzed_expr,
             function_variables: self.function_variables.clone(),
@@ -544,7 +545,7 @@ impl<'a> Analyzer<'a> {
 
         self.stop_function();
 
-        Ok(main_expr)
+        main_expr
     }
 
     fn analyze_maybe_ref_expression(
@@ -580,7 +581,7 @@ impl<'a> Analyzer<'a> {
     ) -> Expression {
         // info!(?ast_expression, "analyze expression");
         //self.debug_expression(ast_expression, "analyze");
-        let expr = self.analyze_expression_internal(ast_expression, context)?;
+        let expr = self.analyze_expression_internal(ast_expression, context);
 
         let encountered_type = expr.ty.clone();
 
@@ -594,7 +595,7 @@ impl<'a> Analyzer<'a> {
                 .types
                 .compatible_with(&reduced_expected, &reduced_encountered_type)
             {
-                return Ok(expr);
+                return expr;
             }
 
             self.types_did_not_match_try_late_coerce_expression(
@@ -602,7 +603,7 @@ impl<'a> Analyzer<'a> {
                 &reduced_expected,
                 &reduced_encountered_type,
                 &ast_expression.node,
-            )?
+            )
         } else {
             expr
             //todo!()
@@ -610,7 +611,7 @@ impl<'a> Analyzer<'a> {
         };
 
         //        info!(?expr, "analyze expression");
-        Ok(expr)
+        expr
     }
 
     fn new_from_slice(&mut self, analyzed_element_type: &TypeRef) -> Expression {
@@ -628,7 +629,7 @@ impl<'a> Analyzer<'a> {
         let expression = match &ast_expression.kind {
             // Lookups
             swamp_ast::ExpressionKind::PostfixChain(postfix_chain) => {
-                self.analyze_postfix_chain(postfix_chain)?
+                self.analyze_postfix_chain(postfix_chain)
             }
 
             swamp_ast::ExpressionKind::VariableDefinition(
@@ -639,22 +640,22 @@ impl<'a> Analyzer<'a> {
                 variable,
                 Option::from(maybe_annotation),
                 source_expression,
-            )?,
+            ),
 
             swamp_ast::ExpressionKind::VariableAssignment(variable, source_expression) => {
-                self.analyze_variable_assignment(variable, source_expression)?
+                self.analyze_variable_assignment(variable, source_expression)
             }
 
             swamp_ast::ExpressionKind::DestructuringAssignment(variables, expression) => {
-                self.analyze_destructuring(&ast_expression.node, variables, expression)?
+                self.analyze_destructuring(&ast_expression.node, variables, expression)
             }
 
             swamp_ast::ExpressionKind::IdentifierReference(qualified_identifier) => {
-                self.analyze_identifier(qualified_identifier)?
+                self.analyze_identifier(qualified_identifier)
             }
 
             swamp_ast::ExpressionKind::VariableReference(variable) => {
-                self.analyze_variable_reference(&variable.name)?
+                self.analyze_variable_reference(&variable.name)
             }
 
             swamp_ast::ExpressionKind::ContextAccess => {
@@ -671,21 +672,24 @@ impl<'a> Analyzer<'a> {
             }
 
             swamp_ast::ExpressionKind::ConstantReference(constant_identifier) => {
-                self.analyze_constant_access(constant_identifier)?
+                self.analyze_constant_access(constant_identifier)
             }
 
             swamp_ast::ExpressionKind::Assignment(location, source) => {
-                self.analyze_assignment(location, source)?
+                self.analyze_assignment(location, source)
             }
 
             swamp_ast::ExpressionKind::CompoundAssignment(target, op, source) => {
-                self.analyze_assignment_compound(target, op, source)?
+                self.analyze_assignment_compound(target, op, source)
             }
 
             // Operator
             swamp_ast::ExpressionKind::BinaryOp(resolved_a, operator, resolved_b) => {
-                let (resolved_op, result_type) =
-                    self.analyze_binary_op(resolved_a, operator, resolved_b)?;
+                let Some((resolved_op, result_type)) =
+                    self.analyze_binary_op(resolved_a, operator, resolved_b)
+                else {
+                    return self.create_err(ErrorKind::OperatorProblem, &operator.node);
+                };
 
                 self.create_expr(
                     ExpressionKind::BinaryOp(resolved_op),
@@ -697,7 +701,7 @@ impl<'a> Analyzer<'a> {
             swamp_ast::ExpressionKind::UnaryOp(operator, expression) => {
                 if let swamp_ast::UnaryOperator::BorrowMutRef(_node) = operator {
                     let inner_expr =
-                        self.analyze_to_location(expression, context, LocationSide::Rhs)?;
+                        self.analyze_to_location(expression, context, LocationSide::Rhs);
                     let ty = inner_expr.ty.clone();
                     self.create_expr(
                         ExpressionKind::BorrowMutRef(Box::from(inner_expr)),
@@ -705,7 +709,11 @@ impl<'a> Analyzer<'a> {
                         &ast_expression.node,
                     )
                 } else {
-                    let (resolved_op, result_type) = self.analyze_unary_op(operator, expression)?;
+                    let Some((resolved_op, result_type)) =
+                        self.analyze_unary_op(operator, expression)
+                    else {
+                        return self.create_err(ErrorKind::OperatorProblem, &ast_expression.node);
+                    };
                     self.create_expr(
                         ExpressionKind::UnaryOp(resolved_op),
                         result_type,
@@ -716,7 +724,7 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::Block(expressions) => {
                 let (block, resulting_type) =
-                    self.analyze_block(&ast_expression.node, context, expressions)?;
+                    self.analyze_block(&ast_expression.node, context, expressions);
                 self.create_expr(
                     ExpressionKind::Block(block),
                     resulting_type,
@@ -725,55 +733,55 @@ impl<'a> Analyzer<'a> {
             }
 
             swamp_ast::ExpressionKind::With(variable_bindings, expression) => {
-                self.analyze_with_expr(context, variable_bindings, expression)?
+                self.analyze_with_expr(context, variable_bindings, expression)
             }
 
             swamp_ast::ExpressionKind::When(variable_bindings, true_expr, else_expr) => {
-                self.analyze_when_expr(context, variable_bindings, true_expr, else_expr.as_deref())?
+                self.analyze_when_expr(context, variable_bindings, true_expr, else_expr.as_deref())
             }
 
             swamp_ast::ExpressionKind::InterpolatedString(string_parts) => {
-                self.analyze_interpolated_string_lowering(&ast_expression.node, string_parts)?
+                self.analyze_interpolated_string_lowering(&ast_expression.node, string_parts)
             }
 
             // Creation
             swamp_ast::ExpressionKind::NamedStructLiteral(struct_identifier, fields, has_rest) => {
-                self.analyze_named_struct_literal(struct_identifier, fields, *has_rest)?
+                self.analyze_named_struct_literal(struct_identifier, fields, *has_rest)
             }
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
                 .analyze_anonymous_struct_literal(
-                &ast_expression.node,
-                fields,
-                *rest_was_specified,
-                context,
-            )?,
+                    &ast_expression.node,
+                    fields,
+                    *rest_was_specified,
+                    context,
+                ),
 
             swamp_ast::ExpressionKind::ContextAccess => {
                 todo!("lone dot not implemented yet")
             }
 
             swamp_ast::ExpressionKind::Range(min_value, max_value, range_mode) => {
-                self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)?
+                self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)
             }
 
             swamp_ast::ExpressionKind::ForLoop(pattern, iterable_expression, statements) => {
                 if pattern.is_key_variable_mut() {
-                    return Err(self.create_err(
+                    return self.create_err(
                         ErrorKind::KeyVariableNotAllowedToBeMutable,
                         &ast_expression.node,
-                    ));
+                    );
                 }
                 let resolved_iterator =
-                    self.analyze_iterable(pattern.is_value_mut(), &iterable_expression.expression)?;
+                    self.analyze_iterable(pattern.is_value_mut(), &iterable_expression.expression);
 
                 self.push_block_scope("for_loop");
                 let pattern = self.analyze_for_pattern(
                     pattern,
                     resolved_iterator.key_type.as_ref(),
                     &resolved_iterator.value_type,
-                )?;
-                let resolved_statements = self.analyze_expression(statements, context)?;
+                );
+                let resolved_statements = self.analyze_expression(statements, context);
                 self.pop_block_scope("for_loop");
                 let resolved_type = resolved_statements.ty.clone();
                 self.create_expr(
@@ -788,9 +796,9 @@ impl<'a> Analyzer<'a> {
             }
 
             swamp_ast::ExpressionKind::WhileLoop(expression, statements) => {
-                let condition = self.analyze_bool_argument_expression(expression)?;
+                let condition = self.analyze_bool_argument_expression(expression);
                 //self.push_block_scope("while_loop");
-                let resolved_statements = self.analyze_expression(statements, context)?;
+                let resolved_statements = self.analyze_expression(statements, context);
                 let resolved_type = resolved_statements.ty.clone();
                 //self.pop_block_scope("while_loop");
 
@@ -807,11 +815,11 @@ impl<'a> Analyzer<'a> {
                     true_expression,
                     maybe_false_expression.as_deref(),
                     context,
-                )?
+                )
             }
 
             swamp_ast::ExpressionKind::Match(expression, arms) => {
-                let (match_expr, return_type) = self.analyze_match(expression, context, arms)?;
+                let (match_expr, return_type) = self.analyze_match(expression, context, arms);
                 self.create_expr(
                     ExpressionKind::Match(match_expr),
                     return_type,
@@ -819,32 +827,43 @@ impl<'a> Analyzer<'a> {
                 )
             }
             swamp_ast::ExpressionKind::Guard(guard_expressions) => {
-                self.analyze_guard(&ast_expression.node, context, guard_expressions)?
+                self.analyze_guard(&ast_expression.node, context, guard_expressions)
             }
 
             swamp_ast::ExpressionKind::Lambda(variables, expression) => {
-                self.analyze_lambda(&ast_expression.node, variables, expression, context)?
+                self.analyze_lambda(&ast_expression.node, variables, expression, context)
             }
             swamp_ast::ExpressionKind::Error => todo!(),
+            _ => {}
         };
 
         //info!(ty=%expression.ty, kind=?expression.kind,  "resolved expression");
 
-        Ok(expression)
+        expression
     }
 
     fn get_struct_type(
         &mut self,
         qualified_type_identifier: &swamp_ast::QualifiedTypeIdentifier,
-    ) -> Result<NamedStructType, Error> {
-        let maybe_struct_type = self.analyze_named_type(qualified_type_identifier)?;
+    ) -> NamedStructType {
+        let maybe_struct_type = self.analyze_named_type(qualified_type_identifier);
         match &*maybe_struct_type.kind {
-            TypeKind::NamedStruct(struct_type) => Ok(struct_type.clone()),
-            _ => Err(self.create_err(
-                // For other TypeRef variants that are not Struct
-                ErrorKind::UnknownStructTypeReference,
-                &qualified_type_identifier.name.0,
-            )),
+            TypeKind::NamedStruct(struct_type) => struct_type.clone(),
+            _ => {
+                self.add_err(
+                    // For other TypeRef variants that are not Struct
+                    ErrorKind::UnknownStructTypeReference,
+                    &qualified_type_identifier.name.0,
+                );
+
+                NamedStructType {
+                    name: Default::default(),
+                    module_path: vec![],
+                    assigned_name: "".to_string(),
+                    anon_struct_type: self.types().unit(),
+                    instantiated_type_parameters: vec![],
+                }
+            }
         }
     }
 
@@ -910,25 +929,21 @@ impl<'a> Analyzer<'a> {
             TypeKind::Tuple(tuple_type_ref) => {
                 let mut expressions = Vec::new();
                 for resolved_type in tuple_type_ref {
-                    let expr = self.create_default_value_for_type(node, resolved_type)?;
+                    let expr = self.create_default_value_for_type(node, resolved_type);
                     expressions.push(expr);
                 }
-                (ExpressionKind::TupleLiteral(tuple_type_ref.clone(), expressions))
+                ExpressionKind::TupleLiteral(expressions)
             }
             TypeKind::Optional(_optional_type) => (ExpressionKind::NoneLiteral),
 
-            TypeKind::NamedStruct(struct_ref) => {
-                self.create_default_static_call(node, &TypeKind::NamedStruct(struct_ref.clone()))?
-            }
+            TypeKind::NamedStruct(struct_ref) => self.create_default_static_call(node, field_type),
             _ => {
-                return Err(
-                    self.create_err(ErrorKind::NoDefaultImplemented(field_type.clone()), node)
-                );
+                return self.create_err(ErrorKind::NoDefaultImplemented(field_type.clone()), node);
             }
         };
 
         let expr = self.create_expr(kind, field_type.clone(), node);
-        Ok(expr)
+        expr
     }
 
     fn create_static_member_call(
@@ -937,14 +952,15 @@ impl<'a> Analyzer<'a> {
         arguments: &[ArgumentExpression],
         node: &swamp_ast::Node,
         ty: &TypeRef,
-    ) -> Result<ExpressionKind, Error> {
+    ) -> ExpressionKind {
         self.lookup_associated_function(ty, function_name)
             .map_or_else(
                 || {
-                    Err(self.create_err(
+                    self.create_err(
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
-                    ))
+                    )
+                    .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -953,7 +969,7 @@ impl<'a> Analyzer<'a> {
                     let expr_kind =
                         ExpressionKind::InternalCall(internal_function.clone(), arguments.to_vec());
 
-                    Ok(expr_kind)
+                    expr_kind
                 },
             )
     }
@@ -964,7 +980,7 @@ impl<'a> Analyzer<'a> {
         arguments: &[ArgumentExpression],
         node: &swamp_ast::Node,
         ty: &TypeRef,
-    ) -> Result<ExpressionKind, Error> {
+    ) -> ExpressionKind {
         self.lookup_associated_function(ty, function_name)
             .map_or_else(
                 || {
@@ -1001,7 +1017,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         node: &swamp_ast::Node,
         ty: &TypeRef,
-    ) -> Result<ExpressionKind, Error> {
+    ) -> ExpressionKind {
         self.create_static_member_call("default", &[], node, ty)
     }
 
@@ -1030,7 +1046,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         field_name: &swamp_ast::Node,
         tv: &TypeRef,
-    ) -> Result<(AnonymousStructType, usize, TypeRef), Error> {
+    ) -> (AnonymousStructType, usize, TypeRef) {
         let field_name_str = self.get_text(field_name).to_string();
 
         let anon_struct_ref = match &*tv.kind {
@@ -1084,7 +1100,7 @@ impl<'a> Analyzer<'a> {
         };
 
         let analyzed_arguments =
-            self.analyze_and_verify_parameters(ast_node, &signature.parameters, arguments)?;
+            self.analyze_and_verify_parameters(ast_node, &signature.parameters, arguments);
 
         let expr_kind = match &func_def {
             Function::Internal(internal) => {
@@ -1124,9 +1140,9 @@ impl<'a> Analyzer<'a> {
                             func_def,
                             maybe_generic_arguments,
                             arguments,
-                        )?;
+                        );
                         if chain.postfixes.len() == 1 {
-                            return Ok(call_expr);
+                            return call_expr;
                         }
                         StartOfChainKind::Expression(Box::from(call_expr))
                     } else {
@@ -1137,7 +1153,7 @@ impl<'a> Analyzer<'a> {
             }
         } else {
             let ctx = TypeContext::new_anything_argument();
-            StartOfChainKind::Expression(Box::from(self.analyze_expression(&chain.base, &ctx)?))
+            StartOfChainKind::Expression(Box::from(self.analyze_expression(&chain.base, &ctx)))
         };
 
         let start_of_chain_node = self.to_node(&chain.base.node);
@@ -1166,7 +1182,7 @@ impl<'a> Analyzer<'a> {
                  */
                 swamp_ast::Postfix::FieldAccess(field_name) => {
                     let (struct_type_ref, index, return_type) =
-                        self.analyze_struct_field(&field_name.clone(), &tv.resolved_type)?;
+                        self.analyze_struct_field(&field_name.clone(), &tv.resolved_type);
                     self.add_postfix(
                         &mut suffixes,
                         PostfixKind::StructField(struct_type_ref.clone(), index),
@@ -1185,11 +1201,11 @@ impl<'a> Analyzer<'a> {
                             let int_type = self.shared.state.types.int();
                             let unsigned_int_x_context = TypeContext::new_argument(&int_type);
                             let unsigned_int_x_expression =
-                                self.analyze_expression(col_expr, &unsigned_int_x_context)?;
+                                self.analyze_expression(col_expr, &unsigned_int_x_context);
 
                             let unsigned_int_y_context = TypeContext::new_argument(&int_type);
                             let unsigned_int_y_expression =
-                                self.analyze_expression(row_expr, &unsigned_int_y_context)?;
+                                self.analyze_expression(row_expr, &unsigned_int_y_context);
 
                             let vec_type = GridType {
                                 element: element_type.clone(),
@@ -1219,7 +1235,7 @@ impl<'a> Analyzer<'a> {
                         TypeKind::FixedCapacityAndLengthArray(element_type_in_slice, _) => {
                             let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_expression =
-                                self.analyze_expression(lookup_expr, &unsigned_int_context)?;
+                                self.analyze_expression(lookup_expr, &unsigned_int_context);
 
                             let slice_type = SliceViewType {
                                 element: Box::new(*element_type_in_slice.clone()),
@@ -1246,7 +1262,7 @@ impl<'a> Analyzer<'a> {
                         | TypeKind::SliceView(element_type) => {
                             let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_expression =
-                                self.analyze_expression(lookup_expr, &unsigned_int_context)?;
+                                self.analyze_expression(lookup_expr, &unsigned_int_context);
 
                             let vec_type = VecType {
                                 element: element_type.clone(),
@@ -1266,7 +1282,7 @@ impl<'a> Analyzer<'a> {
                         | TypeKind::SparseView(element_type) => {
                             let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_expression =
-                                self.analyze_expression(lookup_expr, &unsigned_int_context)?;
+                                self.analyze_expression(lookup_expr, &unsigned_int_context);
 
                             let vec_type = SparseType {
                                 element: element_type.clone(),
@@ -1285,8 +1301,7 @@ impl<'a> Analyzer<'a> {
                         TypeKind::MapStorage(key_type, value_type, _)
                         | TypeKind::DynamicLengthMapView(key_type, value_type) => {
                             let key_context = TypeContext::new_argument(key_type);
-                            let key_expression =
-                                self.analyze_expression(lookup_expr, &key_context)?;
+                            let key_expression = self.analyze_expression(lookup_expr, &key_context);
 
                             let map_type = MapType {
                                 key: Box::from(*key_type.clone()),
@@ -1369,7 +1384,7 @@ impl<'a> Analyzer<'a> {
                         ast_arguments,
                         tv.is_mutable,
                         member_name,
-                    )?;
+                    );
 
                     self.add_postfix(&mut suffixes, kind, return_type.clone(), member_name);
                     tv.resolved_type = return_type.clone();
@@ -1447,7 +1462,7 @@ impl<'a> Analyzer<'a> {
 
                     let unwrapped_type_context = TypeContext::new_argument(unwrapped_type);
                     let resolved_default_expr =
-                        self.analyze_expression(default_expr, &unwrapped_type_context)?;
+                        self.analyze_expression(default_expr, &unwrapped_type_context);
                     self.add_postfix(
                         &mut suffixes,
                         PostfixKind::NoneCoalescingOperator(resolved_default_expr),
@@ -1796,10 +1811,10 @@ impl<'a> Analyzer<'a> {
         &mut self,
         mut_requested_for_value_variable: Option<swamp_ast::Node>,
         expression: &swamp_ast::Expression,
-    ) -> Result<Iterable, Error> {
+    ) -> Iterable {
         let any_context = TypeContext::new_anything_argument();
 
-        let resolved_expression = self.analyze_expression(expression, &any_context)?;
+        let resolved_expression = self.analyze_expression(expression, &any_context);
 
         let resolved_type = &resolved_expression.ty.clone();
         let int_type = Some(self.types().int());
@@ -1828,7 +1843,7 @@ impl<'a> Analyzer<'a> {
         if mut_requested_for_value_variable.is_some() {
             // we check if we can get to a lvalue, otherwise it is not mutable:
             let _resulting_location =
-                self.analyze_to_location(expression, &any_context, LocationSide::Mutable)?;
+                self.analyze_to_location(expression, &any_context, LocationSide::Mutable);
             // Note: mutable references are now handled through SingleLocationExpression
             // The value_type stays the same, mutability is tracked separately
         }
@@ -1859,7 +1874,7 @@ impl<'a> Analyzer<'a> {
         _node: &swamp_ast::Node,
         context: &TypeContext,
         ast_expressions: &[swamp_ast::Expression],
-    ) -> Result<(Vec<Expression>, TypeRef), Error> {
+    ) -> (Vec<Expression>, TypeRef) {
         if ast_expressions.is_empty() {
             return Ok((vec![], self.shared.state.types.unit()));
         }
@@ -1870,20 +1885,20 @@ impl<'a> Analyzer<'a> {
 
         for expression in &ast_expressions[..ast_expressions.len() - 1] {
             let stmt_context = context.with_expected_type(Some(&TypeKind::Unit));
-            let expr = self.analyze_expression(expression, &stmt_context)?;
+            let expr = self.analyze_expression(expression, &stmt_context);
 
             resolved_expressions.push(expr);
         }
 
         // Process the last expression - it determines the block's type
         let last_expr =
-            self.analyze_expression(&ast_expressions[ast_expressions.len() - 1], context)?;
+            self.analyze_expression(&ast_expressions[ast_expressions.len() - 1], context);
         let last_type = last_expr.ty.clone();
         resolved_expressions.push(last_expr);
 
         self.pop_block_scope("block");
 
-        Ok((resolved_expressions, last_type))
+        (resolved_expressions, last_type)
     }
 
     fn analyze_interpolated_string_lowering(
@@ -1903,7 +1918,7 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::StringPart::Interpolation(expression, format_specifier) => {
                     let any_context = TypeContext::new_anything_argument();
 
-                    let expr = self.analyze_expression(expression, &any_context)?;
+                    let expr = self.analyze_expression(expression, &any_context);
 
                     let ty = expr.ty.underlying().clone();
 
@@ -1942,7 +1957,7 @@ impl<'a> Analyzer<'a> {
                             &[expr_as_param.clone()],
                             &expression.node,
                             &underlying,
-                        )?;
+                        );
 
                         /*
                         TODO: SUPPORT FORMAT SPEC
@@ -1983,20 +1998,20 @@ impl<'a> Analyzer<'a> {
         }
 
         if last_expression.is_none() {
-            return Ok(self.create_expr(
+            return self.create_expr(
                 (ExpressionKind::StringLiteral("hello".to_string())),
                 self.shared.state.types.string(),
                 &node,
-            ));
+            );
         }
 
         let last = last_expression.unwrap();
 
-        Ok(last)
+        last
     }
 
     pub(crate) fn analyze_identifier(
-        &self,
+        &mut self,
         qualified_func_name: &swamp_ast::QualifiedIdentifier,
     ) -> Expression {
         // Must check variable first, since that is more intuitive for the user.
@@ -2005,38 +2020,38 @@ impl<'a> Analyzer<'a> {
             && qualified_func_name.generic_params.is_empty()
         {
             if let Some(found_variable) = self.try_find_variable(&qualified_func_name.name) {
-                return Ok(self.create_expr(
+                return self.create_expr(
                     ExpressionKind::VariableAccess(found_variable.clone()),
                     found_variable.resolved_type.clone(),
                     &qualified_func_name.name,
-                ));
+                );
             }
         }
 
         let text = self.get_text(&qualified_func_name.name);
-        Err(self.create_err(
+        self.create_err(
             ErrorKind::UnknownIdentifier(text.to_string()),
             &qualified_func_name.name,
-        ))
+        )
     }
 
     // The ast assumes it is something similar to a variable, but it can be a function reference as well.
-    fn analyze_variable_reference(&self, var_node: &swamp_ast::Node) -> Expression {
+    fn analyze_variable_reference(&mut self, var_node: &swamp_ast::Node) -> Expression {
         if let Some(found_variable) = self.try_find_variable(var_node) {
-            return Ok(self.create_expr(
+            return self.create_expr(
                 ExpressionKind::VariableAccess(found_variable.clone()),
                 found_variable.resolved_type.clone(),
                 var_node,
-            ));
+            );
         }
         let text = self.get_text(var_node);
-        Err(self.create_err(ErrorKind::UnknownIdentifier(text.to_string()), var_node))
+        self.create_err(ErrorKind::UnknownIdentifier(text.to_string()), var_node)
     }
     fn analyze_slice_pair_literal(
         &mut self,
         node: &swamp_ast::Node,
         entries: &[(swamp_ast::Expression, swamp_ast::Expression)],
-    ) -> Result<(Vec<(Expression, Expression)>, TypeRef, TypeRef), Error> {
+    ) -> (Vec<(Expression, Expression)>, TypeRef, TypeRef) {
         if entries.is_empty() {
             return Ok((
                 vec![],
@@ -2048,8 +2063,8 @@ impl<'a> Analyzer<'a> {
         // Resolve first entry to determine map types
         let (first_key, first_value) = &entries[0];
         let anything_context = TypeContext::new_anything_argument();
-        let resolved_first_key = self.analyze_expression(first_key, &anything_context)?;
-        let resolved_first_value = self.analyze_expression(first_value, &anything_context)?;
+        let resolved_first_key = self.analyze_expression(first_key, &anything_context);
+        let resolved_first_value = self.analyze_expression(first_value, &anything_context);
         let key_type = resolved_first_key.ty.clone();
         let value_type = resolved_first_value.ty.clone();
 
@@ -2061,8 +2076,8 @@ impl<'a> Analyzer<'a> {
         resolved_entries.push((resolved_first_key, resolved_first_value));
 
         for (key, value) in entries.iter().skip(1) {
-            let resolved_key = self.analyze_expression(key, &key_context)?;
-            let resolved_value = self.analyze_expression(value, &value_context)?;
+            let resolved_key = self.analyze_expression(key, &key_context);
+            let resolved_value = self.analyze_expression(value, &value_context);
 
             if !resolved_key.ty.compatible_with(&key_type) {
                 return Err(self.create_err(
@@ -2087,7 +2102,7 @@ impl<'a> Analyzer<'a> {
             resolved_entries.push((resolved_key, resolved_value));
         }
 
-        Ok((resolved_entries, key_type, value_type))
+        (resolved_entries, key_type, value_type)
     }
 
     fn analyze_internal_initializer_pair_list(
@@ -2278,17 +2293,17 @@ impl<'a> Analyzer<'a> {
         scrutinee: &swamp_ast::Expression,
         default_context: &TypeContext,
         arms: &Vec<swamp_ast::MatchArm>,
-    ) -> Result<(Match, TypeRef), Error> {
+    ) -> (Match, TypeRef) {
         let mut known_type = default_context.expected_type.cloned();
         let own_context = default_context.clone();
         // Analyze the scrutinee with no specific expected type
         let scrutinee_context = TypeContext::new_anything_argument();
-        let resolved_scrutinee = self.analyze_expression(scrutinee, &scrutinee_context)?;
+        let resolved_scrutinee = self.analyze_expression(scrutinee, &scrutinee_context);
         let scrutinee_type = resolved_scrutinee.ty.clone();
 
         // Ensure we have at least one arm
         if arms.is_empty() {
-            return Err(self.create_err(ErrorKind::EmptyMatch, &scrutinee.node));
+            return self.create_err(ErrorKind::EmptyMatch, &scrutinee.node);
         }
 
         let mut resolved_arms = Vec::with_capacity(arms.len());
@@ -2299,7 +2314,7 @@ impl<'a> Analyzer<'a> {
                 &resolved_scrutinee,
                 &own_context.with_expected_type(known_type.as_ref()),
                 &scrutinee_type,
-            )?;
+            );
 
             if known_type.is_none() {
                 known_type = Some(resolved_arm.expression.ty.clone());
@@ -2329,25 +2344,25 @@ impl<'a> Analyzer<'a> {
         _expression: &Expression,
         type_context: &TypeContext,
         expected_condition_type: &TypeRef,
-    ) -> Result<(MatchArm, bool), Error> {
+    ) -> (MatchArm, bool) {
         let (resolved_pattern, scope_was_pushed, anyone_wants_mutable) =
-            self.analyze_pattern(&arm.pattern, expected_condition_type)?;
+            self.analyze_pattern(&arm.pattern, expected_condition_type);
 
-        let resolved_expression = self.analyze_expression(&arm.expression, type_context)?;
+        let resolved_expression = self.analyze_expression(&arm.expression, type_context);
         if scope_was_pushed {
             self.pop_block_scope("analyze_arm");
         }
 
         let resolved_type = resolved_expression.ty.clone();
 
-        Ok((
+        (
             MatchArm {
                 pattern: resolved_pattern,
                 expression: Box::from(resolved_expression),
                 expression_type: resolved_type,
             },
             anyone_wants_mutable,
-        ))
+        )
     }
 
     fn str_to_int(text: &str) -> Result<i32, ParseIntError> {
@@ -2382,22 +2397,24 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
         ast_literal: &swamp_ast::LiteralKind,
         expected_condition_type: &TypeRef,
-    ) -> Result<NormalPattern, Error> {
+    ) -> NormalPattern {
         let required_condition_type_context = TypeContext::new_argument(expected_condition_type);
-        let (literal, ty) =
-            self.analyze_literal(node, ast_literal, &required_condition_type_context)?;
+        let literal = self.analyze_literal(node, ast_literal, &required_condition_type_context);
 
-        if !ty.compatible_with(expected_condition_type) {
-            return Err(self.create_err(
+        if !self
+            .types()
+            .compatible_with(&literal.ty, expected_condition_type)
+        {
+            return NormalPattern::Literal(self.create_err(
                 ErrorKind::IncompatibleTypes {
                     expected: expected_condition_type.clone(),
-                    found: ty,
+                    found: literal.ty,
                 },
                 node,
             ));
         }
 
-        Ok(NormalPattern::Literal(literal))
+        NormalPattern::Literal(literal)
     }
 
     const fn to_node(&self, node: &swamp_ast::Node) -> Node {
@@ -2424,9 +2441,8 @@ impl<'a> Analyzer<'a> {
         &self,
         qualified_type_identifier: &swamp_ast::QualifiedTypeIdentifier,
         variant_name: &str,
-    ) -> Result<EnumVariantType, Error> {
-        let (symbol_table, enum_name) =
-            self.get_symbol_table_and_name(qualified_type_identifier)?;
+    ) -> EnumVariantType {
+        let (symbol_table, enum_name) = self.get_symbol_table_and_name(qualified_type_identifier);
         symbol_table
             .get_enum_variant_type(&enum_name, variant_name)
             .ok_or_else(|| {
@@ -2440,7 +2456,7 @@ impl<'a> Analyzer<'a> {
     pub(crate) fn get_symbol_table_and_name(
         &self,
         type_identifier: &swamp_ast::QualifiedTypeIdentifier,
-    ) -> Result<(&SymbolTable, String), Error> {
+    ) -> Option<(&SymbolTable, String)> {
         let path = self.get_module_path(type_identifier.module_path.as_ref());
         let name = self.get_text(&type_identifier.name.0).to_string();
 
@@ -2549,7 +2565,7 @@ impl<'a> Analyzer<'a> {
                 must_have_expression,
                 &any_context,
                 LocationSide::Rhs,
-            )?;
+            );
 
             variable_expressions.push(var);
         }
@@ -2557,14 +2573,12 @@ impl<'a> Analyzer<'a> {
         self.push_closed_block_scope();
         let mut expressions = Vec::new();
         for (variable_binding, resolved_expression) in variables.iter().zip(variable_expressions) {
-            let initialize_variable_expression = self.create_variable_binding_for_with(
-                &variable_binding.variable,
-                resolved_expression,
-            )?;
+            let initialize_variable_expression = self
+                .create_variable_binding_for_with(&variable_binding.variable, resolved_expression);
             expressions.push(initialize_variable_expression);
         }
 
-        let resolved_expression = self.analyze_expression(expression, context)?;
+        let resolved_expression = self.analyze_expression(expression, context);
         let block_type = resolved_expression.ty.clone();
         expressions.push(resolved_expression);
 
@@ -2572,7 +2586,7 @@ impl<'a> Analyzer<'a> {
         self.pop_closed_block_scope();
 
         let block_expr = self.create_expr(block_expression_kind, block_type, &expression.node);
-        Ok(block_expr)
+        block_expr
     }
 
     fn analyze_when_expr(
@@ -2592,9 +2606,9 @@ impl<'a> Analyzer<'a> {
                     found_expr,
                     &any_context,
                     LocationSide::Rhs,
-                )?
+                )
             } else {
-                let same_var = self.find_variable(&variable_binding.variable)?;
+                let same_var = self.find_variable(&variable_binding.variable);
 
                 if same_var.is_mutable() {
                     let loc = SingleLocationExpression {
@@ -2619,7 +2633,7 @@ impl<'a> Analyzer<'a> {
             let ty = mut_expr.ty();
 
             if let TypeKind::Optional(found_ty) = ty {
-                let variable_ref = self.create_variable(&variable_binding.variable, &found_ty)?;
+                let variable_ref = self.create_variable(&variable_binding.variable, &found_ty);
 
                 let binding = WhenBinding {
                     variable: variable_ref,
@@ -2627,11 +2641,11 @@ impl<'a> Analyzer<'a> {
                 };
                 bindings.push(binding);
             } else {
-                return Err(self.create_err(ErrorKind::ExpectedOptional, &true_expr.node));
+                return self.create_err(ErrorKind::ExpectedOptional, &true_expr.node);
             }
         }
 
-        let resolved_true = self.analyze_expression(true_expr, context)?;
+        let resolved_true = self.analyze_expression(true_expr, context);
         let block_type = resolved_true.ty.clone();
 
         self.pop_block_scope("when");
@@ -2641,7 +2655,7 @@ impl<'a> Analyzer<'a> {
             Some(Box::new(self.analyze_expression(
                 found_else,
                 &block_type_for_true_context,
-            )?))
+            )))
         } else {
             None
         };
@@ -2676,16 +2690,16 @@ impl<'a> Analyzer<'a> {
                 }
                 swamp_ast::GuardClause::Expression(clause_expr) => {
                     if found_wildcard.is_some() {
-                        return Err(self.create_err(ErrorKind::WildcardMustBeLastInGuard, node));
+                        return self.create_err(ErrorKind::WildcardMustBeLastInGuard, node);
                     }
-                    Some(self.analyze_bool_argument_expression(clause_expr)?)
+                    Some(self.analyze_bool_argument_expression(clause_expr))
                 }
             };
 
             let resolved_result = self.analyze_expression(
                 &guard.result,
                 &context.with_expected_type(detected_type.as_ref()),
-            )?;
+            );
             let ty = resolved_result.ty.clone();
             if detected_type.is_none() {
                 detected_type = Some(ty.clone());
@@ -2733,7 +2747,7 @@ impl<'a> Analyzer<'a> {
         } else if variables.len() + 1 == arity_required {
             &signature.parameters[1..].to_vec()
         } else {
-            return Err(self.create_err(ErrorKind::WrongNumberOfArguments(0, 0), node));
+            return self.create_err(ErrorKind::WrongNumberOfArguments(0, 0), node);
         };
 
         let mut resolved_variables = Vec::new();
@@ -2743,19 +2757,19 @@ impl<'a> Analyzer<'a> {
                 Some(node),
                 &variable_type.resolved_type,
                 false,
-            )?;
+            );
             resolved_variables.push(variable_ref);
         }
 
-        let analyzed_expression = self.analyze_expression(ast_expr, &return_block_type)?;
+        let analyzed_expression = self.analyze_expression(ast_expr, &return_block_type);
 
         self.pop_block_scope("lambda");
 
-        Ok(self.create_expr(
+        self.create_expr(
             ExpressionKind::Lambda(resolved_variables, Box::new(analyzed_expression)),
             self.types().function(signature.clone()),
             node,
-        ))
+        )
     }
 
     #[must_use]
@@ -2839,27 +2853,19 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub fn check_mutable_assignment(
-        &mut self,
-        assignment_mode: AssignmentMode,
-        node: &Node,
-    ) -> Result<(), Error> {
-        Ok(())
-    }
+    pub fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
 
     pub fn check_mutable_variable_assignment(
         &mut self,
         source_expression: &swamp_ast::Expression,
         ty: &TypeRef,
         variable: &swamp_ast::Variable,
-    ) -> Result<(), Error> {
+    ) {
         //let is_allowed_to_assign = Self::check_mutable_assignment_is_valid(ty);
         //if !is_allowed_to_assign {
         //  error!(?ty, "variable is wrong");
         //return Err(self.create_err(ErrorKind::ArgumentIsNotMutable, &variable.name));
         //}
-
-        Ok(())
     }
 
     /// # Errors
@@ -2876,39 +2882,37 @@ impl<'a> Analyzer<'a> {
             .map(|found_variable| found_variable.resolved_type.clone());
 
         let source_expr = if let Some(target_type) = &required_type {
-            self.analyze_expression_for_assignment_with_target_type(target_type, source_expression)?
+            self.analyze_expression_for_assignment_with_target_type(target_type, source_expression)
         } else {
             let any_type_context = TypeContext::new_anything_argument();
-            self.analyze_expression(source_expression, &any_type_context)?
+            self.analyze_expression(source_expression, &any_type_context)
         };
         let ty = source_expr.ty.clone().underlying().clone();
         if !ty.can_be_stored_in_variable() {
             let debug_text = self.get_text(&variable.name);
             if !debug_text.starts_with('_') {
-                return Err(
-                    self.create_err(ErrorKind::VariableTypeMustBeConcrete(ty), &variable.name)
-                );
+                return self.create_err(ErrorKind::VariableTypeMustBeConcrete(ty), &variable.name);
             }
         }
 
         let kind: ExpressionKind = if let Some(found_var) = maybe_found_variable {
             if !found_var.is_mutable() {
-                return Err(self.create_err(ErrorKind::VariableIsNotMutable, &variable.name));
+                return self.create_err(ErrorKind::VariableIsNotMutable, &variable.name);
             }
             if !found_var
                 .resolved_type
                 .underlying()
                 .assignable_type(&ty.underlying())
             {
-                return Err(self.create_err(
+                return self.create_err(
                     ErrorKind::IncompatibleTypes {
                         expected: ty,
                         found: found_var.resolved_type.clone(),
                     },
                     &variable.name,
-                ));
+                );
             }
-            self.check_mutable_variable_assignment(source_expression, &ty, variable)?;
+            self.check_mutable_variable_assignment(source_expression, &ty, variable);
             ExpressionKind::VariableReassignment(found_var, Box::from(source_expr))
         } else {
             if !ty.can_be_stored_in_variable() {
@@ -2919,13 +2923,13 @@ impl<'a> Analyzer<'a> {
             // If it is mutable, we might need to clone the source
             // so make some extra verification
             if variable.is_mutable.is_some() {
-                self.check_mutable_variable_assignment(source_expression, &ty, variable)?;
+                self.check_mutable_variable_assignment(source_expression, &ty, variable);
             }
-            let new_var = self.create_variable(variable, &ty)?;
+            let new_var = self.create_variable(variable, &ty);
             ExpressionKind::VariableDefinition(new_var, Box::from(source_expr))
         };
 
-        Ok(self.create_expr(kind, self.shared.state.types.unit(), &variable.name))
+        self.create_expr(kind, self.shared.state.types.unit(), &variable.name)
     }
 
     fn analyze_create_variable(
@@ -2935,14 +2939,14 @@ impl<'a> Analyzer<'a> {
         source_expression: &swamp_ast::Expression,
     ) -> Expression {
         let maybe_annotated_type = if let Some(found_ast_type) = annotation_type {
-            Some(self.analyze_type(found_ast_type)?)
+            Some(self.analyze_type(found_ast_type))
         } else {
             None
         };
 
         let unsure_arg_context = TypeContext::new_unsure_argument(maybe_annotated_type.as_ref());
 
-        let resolved_source = self.analyze_expression(source_expression, &unsure_arg_context)?;
+        let resolved_source = self.analyze_expression(source_expression, &unsure_arg_context);
 
         let resulting_type = if let Some(annotated_type) = maybe_annotated_type {
             let extra_verification = false;
@@ -2971,14 +2975,14 @@ impl<'a> Analyzer<'a> {
             Option::from(&var.is_mutable),
             &resulting_type,
             true,
-        )?;
+        );
 
         assert_ne!(&*resulting_type.kind, &TypeKind::Unit);
         let kind = ExpressionKind::VariableDefinition(var_ref, Box::from(resolved_source));
 
         let resolved_expr = self.create_expr(kind, self.shared.state.types.unit(), &var.name);
 
-        Ok(resolved_expr)
+        resolved_expr
     }
 
     fn add_location_item(
@@ -3021,13 +3025,13 @@ impl<'a> Analyzer<'a> {
 
         let nothing_context = TypeContext::new(None);
 
-        let base_expr = self.analyze_expression(&chain.base, &nothing_context)?;
+        let base_expr = self.analyze_expression(&chain.base, &nothing_context);
         let ExpressionKind::VariableAccess(start_variable) = base_expr.kind else {
-            return Err(self.create_err(ErrorKind::NotValidLocationStartingPoint, &chain.base.node));
+            return self.create_err(ErrorKind::NotValidLocationStartingPoint, &chain.base.node);
         };
 
         if !start_variable.is_mutable() {
-            return Err(self.create_err(ErrorKind::VariableIsNotMutable, &chain.base.node));
+            return self.create_err(ErrorKind::VariableIsNotMutable, &chain.base.node);
         }
 
         let mut ty = start_variable.resolved_type.clone();
@@ -3036,7 +3040,7 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::FieldAccess(field_name_node) => {
                     //let field_name_resolved = self.to_node(field_name_node)
                     let (struct_type_ref, index, return_type) =
-                        self.analyze_struct_field(field_name_node, &ty)?;
+                        self.analyze_struct_field(field_name_node, &ty);
 
                     self.add_location_item(
                         &mut items,
@@ -3052,10 +3056,10 @@ impl<'a> Analyzer<'a> {
                     | TypeKind::GridStorage(element_type, _, _) => {
                         let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                         let unsigned_int_x_expr =
-                            self.analyze_expression(x_expr, &unsigned_int_context)?;
+                            self.analyze_expression(x_expr, &unsigned_int_context);
 
                         let unsigned_int_y_expr =
-                            self.analyze_expression(y_expr, &unsigned_int_context)?;
+                            self.analyze_expression(y_expr, &unsigned_int_context);
 
                         let grid_type = GridType {
                             element: Box::new(*element_type.clone()),
@@ -3087,7 +3091,7 @@ impl<'a> Analyzer<'a> {
                         | TypeKind::FixedCapacityAndLengthArray(element_type, _) => {
                             let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_expr =
-                                self.analyze_expression(ast_key_expression, &unsigned_int_context)?;
+                                self.analyze_expression(ast_key_expression, &unsigned_int_context);
 
                             let slice_type = SliceViewType {
                                 element: Box::new(*element_type.clone()),
@@ -3109,7 +3113,7 @@ impl<'a> Analyzer<'a> {
                         | TypeKind::SparseStorage(element_type, _) => {
                             let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
                             let unsigned_int_expr =
-                                self.analyze_expression(ast_key_expression, &unsigned_int_context)?;
+                                self.analyze_expression(ast_key_expression, &unsigned_int_context);
 
                             let slice_type = SparseType {
                                 element: Box::new(*element_type.clone()),
@@ -3128,7 +3132,7 @@ impl<'a> Analyzer<'a> {
                         | TypeKind::DynamicLengthMapView(key_type, value_type) => {
                             let key_index_context = TypeContext::new_argument(key_type);
                             let key_expr =
-                                self.analyze_expression(ast_key_expression, &key_index_context)?;
+                                self.analyze_expression(ast_key_expression, &key_index_context);
 
                             let map_like_type = MapType {
                                 key: key_type.clone(),
@@ -3230,7 +3234,7 @@ impl<'a> Analyzer<'a> {
                 self.analyze_chain_to_location(chain, context, location_type)
             }
             swamp_ast::ExpressionKind::VariableReference(variable) => {
-                let var = self.find_variable(variable)?;
+                let var = self.find_variable(variable);
                 if var.is_mutable() {
                     SingleLocationExpression {
                         kind: MutableReferenceKind::MutVariableRef,
@@ -3240,7 +3244,7 @@ impl<'a> Analyzer<'a> {
                         access_chain: vec![],
                     }
                 } else {
-                    Err(self.create_err(ErrorKind::VariableIsNotMutable, &expr.node))
+                    self.create_err(ErrorKind::VariableIsNotMutable, &expr.node)
                 }
             }
             swamp_ast::ExpressionKind::IdentifierReference(qualified_identifier) => {
@@ -3248,15 +3252,15 @@ impl<'a> Analyzer<'a> {
                     name: qualified_identifier.name.clone(),
                     is_mutable: None,
                 };
-                let var = self.find_variable(&generated_var)?;
+                let var = self.find_variable(&generated_var);
                 if var.is_mutable() {
-                    Ok(SingleLocationExpression {
+                    SingleLocationExpression {
                         kind: MutableReferenceKind::MutVariableRef,
                         node: self.to_node(&generated_var.name),
                         ty: var.resolved_type.clone(),
                         starting_variable: var,
                         access_chain: vec![],
-                    })
+                    }
                 } else {
                     Err(self.create_err(ErrorKind::VariableIsNotMutable, &expr.node))
                 }
@@ -3269,18 +3273,18 @@ impl<'a> Analyzer<'a> {
         &mut self,
         target_expression: &swamp_ast::Expression,
         ast_source_expression: &swamp_ast::Expression,
-    ) -> Result<(TargetAssignmentLocation, Expression), Error> {
+    ) -> (TargetAssignmentLocation, Expression) {
         let any_argument_context = TypeContext::new_anything_argument();
-        let source_expr = self.analyze_expression(ast_source_expression, &any_argument_context)?;
+        let source_expr = self.analyze_expression(ast_source_expression, &any_argument_context);
         let source_expr_type_context = TypeContext::new_argument(&source_expr.ty);
 
         let resolved_location = TargetAssignmentLocation(self.analyze_to_location(
             target_expression,
             &source_expr_type_context,
             LocationSide::Rhs,
-        )?);
+        ));
 
-        Ok((resolved_location, source_expr))
+        (resolved_location, source_expr)
     }
 
     /*
@@ -3319,7 +3323,7 @@ impl<'a> Analyzer<'a> {
         ast_source_expression: &swamp_ast::Expression,
     ) -> Expression {
         let base_context = TypeContext::new_argument(target_type);
-        let source_expr = self.analyze_expression(ast_source_expression, &base_context)?;
+        let source_expr = self.analyze_expression(ast_source_expression, &base_context);
 
         /*
         // previously checked for exact type
@@ -3353,31 +3357,31 @@ impl<'a> Analyzer<'a> {
 
         let assignment_mode = self.check_assignment_mode(true, &final_expr, target_type); // TODO: Fill in correct lhs_is_mutable
 
-        self.check_mutable_assignment(assignment_mode, &final_expr.node)?;
+        self.check_mutable_assignment(assignment_mode, &final_expr.node);
 
-        Ok(final_expr)
+        final_expr
     }
 
     fn analyze_expression_for_assignment(
         &mut self,
         ast_target_location_expression: &swamp_ast::Expression,
         ast_source_expression: &swamp_ast::Expression,
-    ) -> Result<(TargetAssignmentLocation, Expression), Error> {
+    ) -> (TargetAssignmentLocation, Expression) {
         let any_argument_context = TypeContext::new_anything_argument();
         let resolved_location = self.analyze_to_location(
             ast_target_location_expression,
             &any_argument_context,
             LocationSide::Lhs,
-        )?;
+        );
 
         let target_type = resolved_location.ty.clone();
         let mut_type = target_type.clone(); // Mutable references now use the same type
         let mut_location = TargetAssignmentLocation(resolved_location);
 
         let final_expr = self
-            .analyze_expression_for_assignment_with_target_type(&mut_type, ast_source_expression)?;
+            .analyze_expression_for_assignment_with_target_type(&mut_type, ast_source_expression);
 
-        Ok((mut_location, final_expr))
+        (mut_location, final_expr)
     }
 
     fn analyze_assignment_compound(
@@ -3389,7 +3393,7 @@ impl<'a> Analyzer<'a> {
         let resolved_op = self.analyze_compound_operator(ast_op);
 
         let (resolved_location, source_expr) = self
-            .analyze_expression_for_assignment_compound(target_expression, ast_source_expression)?;
+            .analyze_expression_for_assignment_compound(target_expression, ast_source_expression);
 
         let kind = ExpressionKind::CompoundAssignment(
             resolved_location,
@@ -3397,13 +3401,10 @@ impl<'a> Analyzer<'a> {
             Box::from(source_expr),
         );
 
-        let expr = self.create_expr(
-            kind,
-            self.shared.state.types.unit(),
-            &target_expression.node,
-        );
+        let unit_type = self.shared.state.types.unit();
+        let expr = self.create_expr(kind, unit_type, &target_expression.node);
 
-        Ok(expr)
+        expr
     }
 
     fn analyze_assignment_mode(lhs: SingleLocationExpression) {}
@@ -3414,12 +3415,13 @@ impl<'a> Analyzer<'a> {
         ast_source_expression: &swamp_ast::Expression,
     ) -> Expression {
         let (mut_location, source_expr) =
-            self.analyze_expression_for_assignment(target_location, ast_source_expression)?;
+            self.analyze_expression_for_assignment(target_location, ast_source_expression);
         let kind = ExpressionKind::Assignment(Box::from(mut_location), Box::from(source_expr));
+        let unit_type = self.shared.state.types.unit();
 
-        let expr = self.create_expr(kind, self.shared.state.types.unit(), &target_location.node); // Assignments are always of type Unit
+        let expr = self.create_expr(kind, unit_type, &target_location.node); // Assignments are always of type Unit
 
-        Ok(expr)
+        expr
     }
 
     #[must_use]
@@ -3458,14 +3460,14 @@ impl<'a> Analyzer<'a> {
         tuple_expression: &swamp_ast::Expression,
     ) -> Expression {
         let any_context = TypeContext::new_anything_argument();
-        let tuple_resolved = self.analyze_expression(tuple_expression, &any_context)?;
+        let tuple_resolved = self.analyze_expression(tuple_expression, &any_context);
         let tuple_expr_type = &tuple_resolved.ty;
         let unit = self.types().unit();
 
         let mut variable_refs = Vec::new();
         if let TypeKind::Tuple(tuple) = &*tuple_expr_type.kind {
             if target_ast_variables.len() > tuple.len() {
-                return Err(self.create_err(ErrorKind::TooManyDestructureVariables, node));
+                return self.create_err(ErrorKind::TooManyDestructureVariables, node);
             }
             for (ast_variable, tuple_type) in target_ast_variables.iter().zip(tuple.clone()) {
                 let variable_ref = self.create_local_variable(
@@ -3473,7 +3475,7 @@ impl<'a> Analyzer<'a> {
                     ast_variable.is_mutable.as_ref(),
                     &tuple_type,
                     true,
-                )?;
+                );
                 variable_refs.push(variable_ref);
             }
             let expr_kind = ExpressionKind::TupleDestructuring(
@@ -3482,9 +3484,9 @@ impl<'a> Analyzer<'a> {
                 Box::from(tuple_resolved),
             );
 
-            Ok(self.create_expr(expr_kind, unit, node))
+            self.create_expr(expr_kind, unit, node)
         } else {
-            Err(self.create_err(ErrorKind::CanNotDestructure, node))
+            self.create_err(ErrorKind::CanNotDestructure, node)
         }
     }
 
@@ -3496,7 +3498,7 @@ impl<'a> Analyzer<'a> {
         ast_arguments: &[swamp_ast::Expression],
         is_mutable: bool,
         node: &swamp_ast::Node,
-    ) -> Result<Signature, Error> {
+    ) -> Signature {
         let resolved_node = self.to_node(node);
         // TODO:
 
@@ -3511,7 +3513,7 @@ impl<'a> Analyzer<'a> {
         field_name_str: &str,
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
-    ) -> Result<(IntrinsicFunction, Signature), Error> {
+    ) -> Option<(IntrinsicFunction, Signature)> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
@@ -3559,7 +3561,7 @@ impl<'a> Analyzer<'a> {
             }?,
         };
 
-        Ok(intrinsic_and_signature)
+        intrinsic_and_signature
     }
 
     fn sparse_member_signature(
@@ -3569,7 +3571,7 @@ impl<'a> Analyzer<'a> {
         field_name_str: &str,
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
-    ) -> Result<(IntrinsicFunction, Signature), Error> {
+    ) -> Option<(IntrinsicFunction, Signature)> {
         let key_type = self.types().int(); // TODO: SparseID
 
         let self_type_param = TypeForParameter {
@@ -3652,7 +3654,7 @@ impl<'a> Analyzer<'a> {
         field_name_str: &str,
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
-    ) -> Result<(IntrinsicFunction, Signature), Error> {
+    ) -> Option<(IntrinsicFunction, Signature)> {
         let key_type = &TypeKind::Int;
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
@@ -3726,7 +3728,7 @@ impl<'a> Analyzer<'a> {
         element_type: &TypeRef,
         field_name_str: &str,
         node: &swamp_ast::Node,
-    ) -> Result<(IntrinsicFunction, Signature), Error> {
+    ) -> Option<(IntrinsicFunction, Signature)> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
@@ -3784,7 +3786,7 @@ impl<'a> Analyzer<'a> {
         self_type: &TypeRef,
         field_name_str: &str,
         node: &swamp_ast::Node,
-    ) -> Result<(IntrinsicFunction, Signature), Error> {
+    ) -> Option<(IntrinsicFunction, Signature)> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
@@ -3837,7 +3839,7 @@ impl<'a> Analyzer<'a> {
         field_name_str: &str,
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
-    ) -> Result<(IntrinsicFunction, Signature), Error> {
+    ) -> Option<(IntrinsicFunction, Signature)> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: TypeKind::SliceView(element_type.clone()),
@@ -4013,7 +4015,7 @@ impl<'a> Analyzer<'a> {
             }
             _ => return self.basic_collection_member_signature(self_type, field_name_str, node),
         };
-        Ok(intrinsic_and_signature)
+        Some(intrinsic_and_signature)
     }
 
     #[allow(clippy::unnecessary_wraps, clippy::result_large_err)]
@@ -4024,7 +4026,7 @@ impl<'a> Analyzer<'a> {
         value_type: &TypeRef,
         field_name_str: &str,
         node: &swamp_ast::Node,
-    ) -> Result<(IntrinsicFunction, Signature), Error> {
+    ) -> Option<(IntrinsicFunction, Signature)> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
@@ -4103,7 +4105,7 @@ impl<'a> Analyzer<'a> {
         field_name_str: &str,
         lambda_variables_count: usize,
         node: &swamp_ast::Node,
-    ) -> Result<(IntrinsicFunction, Signature), Error> {
+    ) -> Option<(IntrinsicFunction, Signature)> {
         let ty = type_that_member_is_on.underlying();
         match ty {
             TypeKind::GridStorage(element_type, ..) | TypeKind::GridView(element_type) => self
@@ -4168,11 +4170,11 @@ impl<'a> Analyzer<'a> {
         ast_arguments: &[swamp_ast::Expression],
         chain_self_is_mutable: bool,
         node: &swamp_ast::Node,
-    ) -> Result<(PostfixKind, TypeRef), Error> {
+    ) -> (PostfixKind, TypeRef) {
         let generic_arguments = if let Some(ast_generic_arguments) = ast_maybe_generic_arguments {
             let mut resolved_types = Vec::new();
             for ast_type in ast_generic_arguments {
-                resolved_types.push(self.analyze_type(ast_type.get_type())?);
+                resolved_types.push(self.analyze_type(ast_type.get_type()));
             }
             resolved_types
         } else {
@@ -4194,7 +4196,7 @@ impl<'a> Analyzer<'a> {
                 ast_arguments,
                 chain_self_is_mutable,
                 node,
-            )?;
+            );
             (found_function, signature)
         } else {
             let lambda_variables_count = if ast_arguments.is_empty() {
@@ -4210,7 +4212,7 @@ impl<'a> Analyzer<'a> {
                 field_name_str,
                 lambda_variables_count,
                 node,
-            )?;
+            );
             let def = IntrinsicFunctionDefinition {
                 name: field_name_str.to_string(),
                 signature,
@@ -4248,12 +4250,12 @@ impl<'a> Analyzer<'a> {
             node,
             &instantiated_signature.parameters[1..],
             ast_arguments,
-        )?;
+        );
 
-        Ok((
+        (
             PostfixKind::MemberCall(function_ref, resolved_arguments),
             *instantiated_signature.return_type.clone(),
-        ))
+        )
     }
 
     fn analyze_postfix_member_call(
@@ -4264,7 +4266,7 @@ impl<'a> Analyzer<'a> {
         ast_maybe_generic_arguments: Option<Vec<swamp_ast::GenericParameter>>,
         ast_arguments: &[swamp_ast::Expression],
         suffixes: &mut Vec<Postfix>,
-    ) -> Result<TypeRef, Error> {
+    ) -> TypeRef {
         let field_name_str = self.get_text(member_name).to_string();
 
         let resolved_node = self.to_node(member_name);
@@ -4276,7 +4278,7 @@ impl<'a> Analyzer<'a> {
             ast_arguments,
             is_mutable,
             member_name,
-        )?;
+        );
         let postfix = Postfix {
             node: resolved_node.clone(),
             ty: return_type.clone(),
@@ -4286,7 +4288,7 @@ impl<'a> Analyzer<'a> {
         let last_type = postfix.ty.clone();
         suffixes.push(postfix);
 
-        Ok(last_type)
+        last_type
     }
 
     fn is_compatible_initializer_list_target(
@@ -4346,7 +4348,7 @@ impl<'a> Analyzer<'a> {
                         expected_type.clone(),
                         node,
                     );
-                    return Ok(wrapped);
+                    return wrapped;
                 }
             }
         }
@@ -4377,13 +4379,13 @@ impl<'a> Analyzer<'a> {
         }
 
         error!(?expected_type, ?encountered_type, "incompatible");
-        Err(self.create_err(
+        self.create_err(
             ErrorKind::IncompatibleTypes {
                 expected: expected_type.clone(),
                 found: encountered_type.clone(),
             },
             node,
-        ))
+        )
     }
 
     #[must_use]
@@ -4416,14 +4418,10 @@ impl<'a> Analyzer<'a> {
         let converted_type = match name {
             "Vec" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self
-                        .analyze_type(ast_generic_parameters[0].get_type())
-                        .unwrap();
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     TypeKind::DynamicLengthVecView(Box::from(element_type))
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self
-                        .analyze_type(ast_generic_parameters[0].get_type())
-                        .unwrap();
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     TypeKind::VecStorage(Box::from(element_type), fixed_size)
@@ -4433,14 +4431,10 @@ impl<'a> Analyzer<'a> {
             }
             "Stack" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self
-                        .analyze_type(ast_generic_parameters[0].get_type())
-                        .unwrap();
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     TypeKind::StackView(Box::from(element_type))
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self
-                        .analyze_type(ast_generic_parameters[0].get_type())
-                        .unwrap();
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     TypeKind::StackStorage(Box::from(element_type), fixed_size)
@@ -4450,14 +4444,10 @@ impl<'a> Analyzer<'a> {
             }
             "Queue" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self
-                        .analyze_type(ast_generic_parameters[0].get_type())
-                        .unwrap();
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     TypeKind::QueueView(Box::from(element_type))
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self
-                        .analyze_type(ast_generic_parameters[0].get_type())
-                        .unwrap();
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     TypeKind::QueueStorage(Box::from(element_type), fixed_size)
@@ -4467,14 +4457,10 @@ impl<'a> Analyzer<'a> {
             }
             "Sparse" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self
-                        .analyze_type(ast_generic_parameters[0].get_type())
-                        .unwrap();
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     TypeKind::SparseView(Box::from(element_type))
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self
-                        .analyze_type(ast_generic_parameters[0].get_type())
-                        .unwrap();
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     TypeKind::SparseStorage(Box::from(element_type), fixed_size)
@@ -4485,14 +4471,10 @@ impl<'a> Analyzer<'a> {
 
             "Grid" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self
-                        .analyze_type(ast_generic_parameters[0].get_type())
-                        .unwrap();
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     TypeKind::GridView(Box::from(element_type))
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self
-                        .analyze_type(ast_generic_parameters[0].get_type())
-                        .unwrap();
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let (width, height) =
                         self.analyze_generic_parameter_usize_tuple(&ast_generic_parameters[1]);
                     TypeKind::GridStorage(Box::from(element_type), width, height)

@@ -100,7 +100,7 @@ impl Analyzer<'_> {
                     }
                 };
 
-                let Ok((symbol_table, name)) = self.get_symbol_table_and_name(enum_name) else {
+                let Some((symbol_table, name)) = self.get_symbol_table_and_name(enum_name) else {
                     return self.create_err(ErrorKind::UnknownEnumVariantType, ast_node);
                 };
                 if let Some(found_enum_type) = symbol_table.get_type(&name) {

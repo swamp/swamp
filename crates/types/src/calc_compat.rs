@@ -89,7 +89,7 @@ impl Type {
     }
 
     // Helper method for lowest_common_denominator_view
-    fn lowest_common_denominator_view(&self) -> Option<TypeKind> {
+    pub fn lowest_common_denominator_view(&self) -> Option<TypeKind> {
         match &*self.kind {
             TypeKind::FixedCapacityAndLengthArray(inner, _size)
             | TypeKind::QueueStorage(inner, _size)

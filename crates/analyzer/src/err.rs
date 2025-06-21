@@ -115,6 +115,7 @@ pub enum ErrorKind {
     SelfNotCorrectMutableState,
     NotAllowedAsReturnType(TypeRef),
     ParameterTypeCanNotBeStorage(TypeRef),
+    OperatorProblem,
 }
 
 impl From<SemanticError> for Error {

@@ -58,7 +58,7 @@ impl Analyzer<'_> {
             }
             swamp_ast::Pattern::NormalPattern(node, normal_pattern, maybe_guard) => {
                 let (normal_pattern, was_pushed, wanted_mutable) =
-                    self.analyze_normal_pattern(node, normal_pattern, expected_condition_type)?;
+                    self.analyze_normal_pattern(node, normal_pattern, expected_condition_type);
 
                 let resolved_guard = if let Some(guard_clause) = maybe_guard {
                     match guard_clause {
@@ -106,31 +106,35 @@ impl Analyzer<'_> {
                                 Option::from(&var.is_mutable),
                                 expected_condition_type,
                                 false,
-                            )?;
+                            );
                             resolved_elements.push(PatternElement::Variable(variable_ref));
                         }
                         swamp_ast::PatternElement::Expression(expr) => {
-                            return Err(self.create_err(
-                                ErrorKind::ExpressionsNotAllowedInLetPattern,
-                                &expr.node,
-                            ));
+                            return (
+                                NormalPattern::Literal(self.create_err(
+                                    ErrorKind::ExpressionsNotAllowedInLetPattern,
+                                    &expr.node,
+                                )),
+                                false,
+                                false,
+                            );
                         }
                         swamp_ast::PatternElement::Wildcard(node) => {
                             resolved_elements.push(PatternElement::Wildcard(self.to_node(node)));
                         }
                     }
                 }
-                Ok((
+                (
                     NormalPattern::PatternList(resolved_elements),
                     scope_is_pushed,
                     anyone_wants_mutable,
-                ))
+                )
             }
 
             swamp_ast::NormalPattern::EnumPattern(variant_name, maybe_elements) => {
                 let mut scope_was_pushed = false;
                 let enum_variant_type_ref =
-                    self.find_variant_in_pattern(expected_condition_type, variant_name)?;
+                    self.find_variant_in_pattern(expected_condition_type, variant_name);
 
                 if let Some(elements) = maybe_elements {
                     let mut resolved_elements = Vec::new();
@@ -138,13 +142,17 @@ impl Analyzer<'_> {
                         TypeKind::Tuple(ref fields_in_order) => {
                             // For tuples, elements must be in order but can be partial
                             if elements.len() > fields_in_order.len() {
-                                return Err(self.create_err(
-                                    ErrorKind::TooManyTupleFields {
-                                        max: fields_in_order.len(),
-                                        got: elements.len(),
-                                    },
-                                    variant_name,
-                                ));
+                                return (
+                                    NormalPattern::Literal(self.create_err(
+                                        ErrorKind::TooManyTupleFields {
+                                            max: fields_in_order.len(),
+                                            got: elements.len(),
+                                        },
+                                        variant_name,
+                                    )),
+                                    false,
+                                    false,
+                                );
                             }
 
                             if !scope_was_pushed {
@@ -154,7 +162,7 @@ impl Analyzer<'_> {
 
                             // Only zip with as many fields as we have elements
                             for (tuple_element_index, (element, field_type)) in
-                                elements.iter().zip(&fields_in_order).enumerate()
+                                elements.iter().zip(fields_in_order).enumerate()
                             {
                                 match element {
                                     swamp_ast::PatternElement::Variable(var) => {
@@ -167,7 +175,7 @@ impl Analyzer<'_> {
                                             var.is_mutable.as_ref(),
                                             field_type,
                                             false,
-                                        )?;
+                                        );
                                         /*
                                         resolved_elements
                                             .push(PatternElement::Variable(variable_ref));
@@ -186,10 +194,14 @@ impl Analyzer<'_> {
                                             .push(PatternElement::Wildcard(self.to_node(&node)));
                                     }
                                     swamp_ast::PatternElement::Expression(expr) => {
-                                        return Err(self.create_err(
-                                            ErrorKind::ExpressionsNotAllowedInLetPattern,
-                                            &expr.node,
-                                        ));
+                                        return (
+                                            NormalPattern::Literal(self.create_err(
+                                                ErrorKind::ExpressionsNotAllowedInLetPattern,
+                                                &expr.node,
+                                            )),
+                                            false,
+                                            false,
+                                        );
                                     }
                                 }
                             }
@@ -205,19 +217,33 @@ impl Analyzer<'_> {
                                     swamp_ast::PatternElement::Variable(var) => {
                                         let var_name_str = self.get_text(&var.name).to_string();
                                         // Check if the field exists
-                                        let field_index = anon_struct_type
+                                        let Some(field_index) = anon_struct_type
                                             .field_name_sorted_fields
                                             .get_index(&var_name_str)
-                                            .ok_or_else(|| {
-                                                self.create_err(ErrorKind::UnknownField, &var.name)
-                                            })?;
+                                        else {
+                                            return (
+                                                NormalPattern::Literal(self.create_err(
+                                                    ErrorKind::UnknownField,
+                                                    &var.name,
+                                                )),
+                                                false,
+                                                false,
+                                            );
+                                        };
 
-                                        let field_type = anon_struct_type
+                                        let Some(field_type) = anon_struct_type
                                             .field_name_sorted_fields
                                             .get(&var_name_str)
-                                            .ok_or_else(|| {
-                                                self.create_err(ErrorKind::UnknownField, &var.name)
-                                            })?;
+                                        else {
+                                            return (
+                                                NormalPattern::Literal(self.create_err(
+                                                    ErrorKind::UnknownField,
+                                                    &var.name,
+                                                )),
+                                                false,
+                                                false,
+                                            );
+                                        };
 
                                         if var.is_mutable.is_some() {
                                             anyone_wants_mutable = true;
@@ -228,7 +254,7 @@ impl Analyzer<'_> {
                                             Option::from(&var.is_mutable),
                                             &field_type.field_type,
                                             false,
-                                        )?;
+                                        );
 
                                         resolved_elements.push(
                                             PatternElement::VariableWithFieldIndex(
@@ -242,41 +268,52 @@ impl Analyzer<'_> {
                                             .push(PatternElement::Wildcard(self.to_node(node)));
                                     }
                                     swamp_ast::PatternElement::Expression(expr) => {
-                                        return Err(self.create_err(
-                                            ErrorKind::ExpressionsNotAllowedInLetPattern,
-                                            &expr.node,
-                                        ));
+                                        return (
+                                            NormalPattern::Literal(self.create_err(
+                                                ErrorKind::ExpressionsNotAllowedInLetPattern,
+                                                &expr.node,
+                                            )),
+                                            false,
+                                            false,
+                                        );
                                     }
                                 }
                             }
                         }
                         TypeKind::Unit => {
                             if !elements.is_empty() {
-                                return Err(self
-                                    .create_err(ErrorKind::EnumVariantHasNoFields, variant_name));
+                                return (
+                                    NormalPattern::Literal(self.create_err(
+                                        ErrorKind::EnumVariantHasNoFields,
+                                        variant_name,
+                                    )),
+                                    false,
+                                    false,
+                                );
                             }
                         }
+                        _ => {}
                     }
 
-                    Ok((
+                    (
                         NormalPattern::EnumPattern(enum_variant_type_ref, Some(resolved_elements)),
                         scope_was_pushed,
                         anyone_wants_mutable,
-                    ))
+                    )
                 } else {
-                    Ok((
+                    (
                         NormalPattern::EnumPattern(enum_variant_type_ref, None),
                         false,
                         anyone_wants_mutable,
-                    ))
+                    )
                 }
             }
 
-            swamp_ast::NormalPattern::Literal(ast_literal) => Ok((
-                self.analyze_pattern_literal(node, ast_literal, expected_condition_type)?,
+            swamp_ast::NormalPattern::Literal(ast_literal) => (
+                self.analyze_pattern_literal(node, ast_literal, expected_condition_type),
                 false,
                 anyone_wants_mutable,
-            )),
+            ),
         }
     }
 }

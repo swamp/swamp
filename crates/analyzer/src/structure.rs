@@ -2,7 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::err::{Error, ErrorKind};
+use crate::err::ErrorKind;
 use crate::{Analyzer, TypeContext};
 use seq_map::SeqMap;
 use seq_set::SeqSet;
@@ -26,12 +26,12 @@ impl Analyzer<'_> {
 
         self.push_block_scope("struct_instantiation");
 
-        let temp_var = self.create_local_variable_generated("__generated", true, super_type)?;
+        let temp_var = self.create_local_variable_generated("__generated", true, super_type);
 
         // temp_var = StructType::default()
         let return_type = function.signature().return_type.clone();
 
-        let default_call_kind = self.create_default_static_call(node, super_type)?;
+        let default_call_kind = self.create_default_static_call(node, super_type);
 
         let static_call = self.create_expr(default_call_kind, return_type, node);
 
@@ -94,7 +94,7 @@ impl Analyzer<'_> {
         self.pop_block_scope("struct instantiation");
 
         let block = self.create_expr(ExpressionKind::Block(expressions), ty, node);
-        Ok(block)
+        block
     }
 
     fn get_struct_like_type(ty: &TypeRef) -> TypeRef {
@@ -120,26 +120,26 @@ impl Analyzer<'_> {
                     .get_index(&missing_field_name)
                     .expect("should have been verified earlier");
 
-                let expression = self.create_default_value_for_type(node, &field.field_type)?;
+                let expression = self.create_default_value_for_type(node, &field.field_type);
 
                 source_order_expressions.push((field_index, field.identifier.clone(), expression));
             }
         }
 
-        Ok(self.create_expr(
+        self.create_expr(
             ExpressionKind::AnonymousStructLiteral(AnonymousStructLiteral {
                 struct_like_type: Self::get_struct_like_type(result_type),
                 source_order_expressions: source_order_expressions.to_vec(),
             }),
             result_type.clone(),
             node,
-        ))
+        )
     }
 
     pub fn deduce_the_anon_struct_type(
         &mut self,
         ast_fields: &Vec<swamp_ast::FieldExpression>,
-    ) -> Result<AnonymousStructType, Error> {
+    ) -> AnonymousStructType {
         let mut map_for_creating_type = SeqMap::new();
 
         for field in ast_fields {
@@ -148,7 +148,7 @@ impl Analyzer<'_> {
 
             let field_type_context = TypeContext::new_anything_argument();
             let resolved_expression =
-                self.analyze_expression(&field.expression, &field_type_context)?;
+                self.analyze_expression(&field.expression, &field_type_context);
 
             let expression_type = resolved_expression.ty.clone();
 
@@ -164,9 +164,7 @@ impl Analyzer<'_> {
 
         // For a pure anonymous struct type, the types of the sorted
         // fields by field name is the actual type
-        Ok(AnonymousStructType::new_and_sort_fields(
-            &map_for_creating_type,
-        ))
+        AnonymousStructType::new_and_sort_fields(&map_for_creating_type)
     }
 
     /// # Errors
@@ -191,21 +189,20 @@ impl Analyzer<'_> {
                     {
                         (expected_type, anon_struct)
                     } else {
-                        return Err(self
-                            .create_err(ErrorKind::CouldNotCoerceTo(expected_type.clone()), node));
+                        return self
+                            .create_err(ErrorKind::CouldNotCoerceTo(expected_type.clone()), node);
                     }
                 }
                 TypeKind::AnonymousStruct(anonymous_struct_type) => {
                     (expected_type, anonymous_struct_type)
                 }
                 _ => {
-                    return Err(
-                        self.create_err(ErrorKind::CouldNotCoerceTo(expected_type.clone()), node)
-                    );
+                    return self
+                        .create_err(ErrorKind::CouldNotCoerceTo(expected_type.clone()), node);
                 }
             }
         } else {
-            let deduced_anon_struct_type = self.deduce_the_anon_struct_type(ast_fields)?;
+            let deduced_anon_struct_type = self.deduce_the_anon_struct_type(ast_fields);
             let anon_struct_type_ref = self
                 .shared
                 .state
@@ -216,10 +213,10 @@ impl Analyzer<'_> {
                 if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_type_ref.kind {
                     anon_struct
                 } else {
-                    return Err(self.create_err(
+                    return self.create_err(
                         ErrorKind::CouldNotCoerceTo(anon_struct_type_ref.clone()),
                         node,
-                    ));
+                    );
                 };
 
             (&anon_struct_type_ref, anon_struct_type)
@@ -240,7 +237,7 @@ impl Analyzer<'_> {
         ast_fields: &Vec<swamp_ast::FieldExpression>,
         rest_was_specified: bool,
     ) -> Expression {
-        let named_struct_type = self.get_struct_type(qualified_type_identifier)?;
+        let named_struct_type = self.get_struct_type(qualified_type_identifier);
 
         let super_type = self
             .shared
@@ -257,10 +254,10 @@ impl Analyzer<'_> {
                 rest_was_specified,
             )
         } else {
-            Err(self.create_err(
+            self.create_err(
                 ErrorKind::UnknownStructTypeReference,
                 &qualified_type_identifier.name.0,
-            ))
+            )
         }
     }
 
@@ -273,18 +270,18 @@ impl Analyzer<'_> {
         rest_was_specified: bool,
     ) -> Expression {
         let (source_order_expressions, missing_fields) = self
-            .place_anon_struct_fields_that_exist_and_return_missing(anon_struct_type, ast_fields)?;
+            .place_anon_struct_fields_that_exist_and_return_missing(anon_struct_type, ast_fields);
 
         if missing_fields.is_empty() {
             // No missing fields, we are done!
-            Ok(self.create_expr(
+            self.create_expr(
                 ExpressionKind::AnonymousStructLiteral(AnonymousStructLiteral {
                     struct_like_type: Self::get_struct_like_type(super_type),
                     source_order_expressions,
                 }),
                 super_type.clone(),
                 node,
-            ))
+            )
         } else {
             // Missing fields detected!
             if rest_was_specified {
@@ -296,13 +293,13 @@ impl Analyzer<'_> {
                     missing_fields,
                 )
             } else {
-                Err(self.create_err(
+                self.create_err(
                     ErrorKind::MissingFieldInStructInstantiation(
                         missing_fields.to_vec(),
                         anon_struct_type.clone(),
                     ),
                     node,
-                ))
+                )
             }
         }
     }
@@ -374,7 +371,7 @@ impl Analyzer<'_> {
                 anon_struct_type,
                 source_order_expressions,
                 node,
-            )?
+            )
         } else {
             /*
             let mapped: Vec<(usize, Expression)> = &source_order_expressions
@@ -389,10 +386,10 @@ impl Analyzer<'_> {
                 missing_fields,
                 super_type,
                 node,
-            )?
+            )
         };
 
-        Ok(expr)
+        expr
 
         /*
         else if missing_fields.is_empty() {
