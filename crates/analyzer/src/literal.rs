@@ -28,8 +28,8 @@ impl Analyzer<'_> {
                     self.analyze_internal_initializer_list(ast_node, items, context);
 
                 (
-                    ExpressionKind::InitializerList(collection_type.clone().into(), resolved_items),
-                    collection_type.clone().into(),
+                    ExpressionKind::InitializerList(collection_type.clone(), resolved_items),
+                    collection_type,
                 )
             }
 
@@ -187,7 +187,7 @@ impl Analyzer<'_> {
 
                         let resolved_fields = self.analyze_anon_struct_instantiation(
                             &variant.0.clone(),
-                            &anon_payload,
+                            anon_payload,
                             anonym_struct_field_and_expressions,
                             *detected_rest,
                         );
@@ -204,7 +204,7 @@ impl Analyzer<'_> {
 
             swamp_ast::LiteralKind::Tuple(expressions) => {
                 let (tuple_type_ref, resolved_items) = self.analyze_tuple_literal(expressions);
-                let tuple_type = self.shared.state.types.tuple(tuple_type_ref.clone());
+                let tuple_type = self.shared.state.types.tuple(tuple_type_ref);
                 (ExpressionKind::TupleLiteral(resolved_items), tuple_type)
             }
             swamp_ast::LiteralKind::None => {

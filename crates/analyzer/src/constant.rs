@@ -8,11 +8,7 @@ use swamp_semantic::{Constant, ConstantId, ConstantRef, Expression, ExpressionKi
 
 impl Analyzer<'_> {
     fn analyze_constant(&mut self, constant: &swamp_ast::ConstantInfo) {
-        let maybe_annotation_type = if let Some(found_ast_type) = &constant.annotation {
-            Some(self.analyze_type(found_ast_type))
-        } else {
-            None
-        };
+        let maybe_annotation_type = constant.annotation.as_ref().map(|found_ast_type| self.analyze_type(found_ast_type));
 
         let context = TypeContext::new_unsure_argument(maybe_annotation_type.as_ref());
 
@@ -31,7 +27,7 @@ impl Analyzer<'_> {
                     .compatible_with(&annotation_type, &worked_without_annotation.ty)
                 {
                     let identifier_name =
-                        { self.get_text(&constant.constant_identifier.0).clone() };
+                        { self.get_text(&constant.constant_identifier.0) };
                     eprintln!(
                         "annotation was not needed for constant: {identifier_name} in {:?}",
                         self.module_path
@@ -43,7 +39,7 @@ impl Analyzer<'_> {
             resolved_expr.ty.clone()
         };
 
-        let identifier_name = { self.get_text(&constant.constant_identifier.0).clone() };
+        let identifier_name = { self.get_text(&constant.constant_identifier.0) };
         assert!(
             actual_constant_type.can_be_stored_in_field(),
             "this field is not blittable {identifier_name:?}"
@@ -54,7 +50,7 @@ impl Analyzer<'_> {
         let constant = Constant {
             name: name_node.clone(),
             assigned_name: name_text,
-            id: self.shared.state.internal_function_id_allocator.alloc() as ConstantId,
+            id: ConstantId::from(self.shared.state.internal_function_id_allocator.alloc()),
             expr: resolved_expr,
             resolved_type: actual_constant_type,
             function_scope_state: self.function_variables.clone(),
@@ -88,7 +84,7 @@ impl Analyzer<'_> {
     }
 
     pub(crate) fn analyze_constant_definition(&mut self, constant: &swamp_ast::ConstantInfo) {
-        self.analyze_constant(constant)
+        self.analyze_constant(constant);
     }
 
     pub(crate) fn analyze_constant_access(

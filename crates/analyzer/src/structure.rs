@@ -93,8 +93,8 @@ impl Analyzer<'_> {
 
         self.pop_block_scope("struct instantiation");
 
-        let block = self.create_expr(ExpressionKind::Block(expressions), ty, node);
-        block
+        
+        self.create_expr(ExpressionKind::Block(expressions), ty, node)
     }
 
     fn get_struct_like_type(ty: &TypeRef) -> TypeRef {
@@ -129,7 +129,7 @@ impl Analyzer<'_> {
         self.create_expr(
             ExpressionKind::AnonymousStructLiteral(AnonymousStructLiteral {
                 struct_like_type: Self::get_struct_like_type(result_type),
-                source_order_expressions: source_order_expressions.to_vec(),
+                source_order_expressions: source_order_expressions.clone(),
             }),
             result_type.clone(),
             node,
@@ -362,7 +362,9 @@ impl Analyzer<'_> {
         };
 
         // if it has a `default` function, call that to get a starting value
-        let expr = if let Some(function) = maybe_default {
+        
+
+        if let Some(function) = maybe_default {
             self.analyze_struct_init_calling_default(
                 &function,
                 super_type,
@@ -385,9 +387,7 @@ impl Analyzer<'_> {
                 super_type,
                 node,
             )
-        };
-
-        expr
+        }
 
         /*
         else if missing_fields.is_empty() {

@@ -35,7 +35,9 @@ impl Analyzer<'_> {
         let context = TypeContext::new_argument(&fn_parameter.resolved_type);
         let ref_checked_argument = self.analyze_maybe_ref_expression(argument_expr);
 
-        let mut_or_immutable = if fn_parameter.is_mutable {
+        
+
+        if fn_parameter.is_mutable {
             if ref_checked_argument.has_borrow_mutable_reference.is_none() {
                 // if the parameter is mutable you must pass in mutable reference to it
                 let expr = self.create_err(ErrorKind::ArgumentIsNotMutable, &argument_expr.node);
@@ -59,9 +61,7 @@ impl Analyzer<'_> {
             }
             let resolved_expr = self.analyze_expression(argument_expr, &context);
             ArgumentExpression::Expression(resolved_expr)
-        };
-
-        mut_or_immutable
+        }
     }
 
     /// # Errors
@@ -99,7 +99,9 @@ impl Analyzer<'_> {
     ) -> ArgumentExpression {
         let maybe_borrow_or_normal_expression = self.analyze_maybe_ref_expression(expr);
 
-        let expression_or_location = if maybe_borrow_or_normal_expression
+        
+
+        if maybe_borrow_or_normal_expression
             .has_borrow_mutable_reference
             .is_some()
         {
@@ -112,8 +114,6 @@ impl Analyzer<'_> {
             ArgumentExpression::Expression(
                 self.analyze_expression(&maybe_borrow_or_normal_expression.ast_expression, context),
             )
-        };
-
-        expression_or_location
+        }
     }
 }

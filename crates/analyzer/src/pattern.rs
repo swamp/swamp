@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Analyzer;
-use crate::err::{Error, ErrorKind};
+use crate::err::ErrorKind;
 use swamp_semantic::{NormalPattern, Pattern, PatternElement};
 use swamp_types::prelude::EnumVariantType as TypesEnumVariantType;
 use swamp_types::prelude::{EnumVariantCommon, TypeKind, TypeRef};
@@ -14,36 +14,30 @@ impl Analyzer<'_> {
         expression_type: &TypeRef,
         ast_name: &swamp_ast::Node,
     ) -> TypesEnumVariantType {
-        let enum_type_ref = match &*expression_type.kind {
-            TypeKind::Enum(enum_type_ref) => enum_type_ref,
-            _ => {
-                self.add_err(ErrorKind::ExpectedEnumInPattern, ast_name);
+        let enum_type_ref = if let TypeKind::Enum(enum_type_ref) = &*expression_type.kind { enum_type_ref } else {
+            self.add_err(ErrorKind::ExpectedEnumInPattern, ast_name);
 
-                return TypesEnumVariantType {
-                    common: EnumVariantCommon {
-                        name: Default::default(),
-                        assigned_name: "".to_string(),
-                        container_index: 0,
-                    },
-                    payload_type: self.types().unit(),
-                };
-            }
+            return TypesEnumVariantType {
+                common: EnumVariantCommon {
+                    name: Default::default(),
+                    assigned_name: String::new(),
+                    container_index: 0,
+                },
+                payload_type: self.types().unit(),
+            };
         };
 
         let variant_name = self.get_text(ast_name).to_string();
 
-        match enum_type_ref.get_variant(&variant_name) {
-            Some(variant) => variant.clone(),
-            None => {
-                self.add_err(ErrorKind::UnknownEnumVariantTypeInPattern, ast_name);
-                TypesEnumVariantType {
-                    common: EnumVariantCommon {
-                        name: Default::default(),
-                        assigned_name: "".to_string(),
-                        container_index: 0,
-                    },
-                    payload_type: self.types().unit(),
-                }
+        if let Some(variant) = enum_type_ref.get_variant(&variant_name) { variant.clone() } else {
+            self.add_err(ErrorKind::UnknownEnumVariantTypeInPattern, ast_name);
+            TypesEnumVariantType {
+                common: EnumVariantCommon {
+                    name: Default::default(),
+                    assigned_name: String::new(),
+                    container_index: 0,
+                },
+                payload_type: self.types().unit(),
             }
         }
     }
@@ -192,7 +186,7 @@ impl Analyzer<'_> {
                                     }
                                     swamp_ast::PatternElement::Wildcard(node) => {
                                         resolved_elements
-                                            .push(PatternElement::Wildcard(self.to_node(&node)));
+                                            .push(PatternElement::Wildcard(self.to_node(node)));
                                     }
                                     swamp_ast::PatternElement::Expression(expr) => {
                                         return (

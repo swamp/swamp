@@ -3,7 +3,6 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Analyzer;
-use crate::err::Error;
 use swamp_types::TypeRef;
 use swamp_types::prelude::{Signature, TypeForParameter};
 
@@ -40,7 +39,9 @@ impl Analyzer<'_> {
     ///
     /// # Panics
     pub fn analyze_type(&mut self, ast_type: &swamp_ast::Type) -> TypeRef {
-        let resolved = match ast_type {
+        
+
+        match ast_type {
             swamp_ast::Type::AnonymousStruct(ast_struct) => {
                 let struct_ref = self.analyze_anonymous_struct_type(ast_struct);
                 // Use TypeCache to create the anonymous struct type
@@ -113,9 +114,7 @@ impl Analyzer<'_> {
                 // Use TypeCache for function type creation
                 self.shared.state.types.function(signature)
             }
-        };
-
-        resolved
+        }
     }
 
     pub(crate) fn analyze_types(&mut self, types: &[swamp_ast::Type]) -> Vec<TypeRef> {

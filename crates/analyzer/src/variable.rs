@@ -272,7 +272,7 @@ impl Analyzer<'_> {
         converted_expression: ArgumentExpression,
     ) -> Expression {
         // Use the TypeCache for getting the expression type
-        let expression_type = converted_expression.ty().clone();
+        let expression_type = converted_expression.ty();
 
         let variable_ref = if let ArgumentExpression::Expression(expr) = &converted_expression {
             if let ExpressionKind::VariableAccess(source_var) = &expr.kind {
@@ -353,12 +353,12 @@ impl Analyzer<'_> {
 
         let expr_kind = ExpressionKind::VariableDefinition(variable_ref, Box::new(source_expr));
         // Use the TypeCache to get the Unit type
-        let expr = self.create_expr(expr_kind, unit_type, &ast_variable.name);
+        
 
-        expr
+        self.create_expr(expr_kind, unit_type, &ast_variable.name)
     }
 
-    pub fn types(&mut self) -> &mut TypeCache {
+    pub const fn types(&mut self) -> &mut TypeCache {
         &mut self.shared.state.types
     }
 }

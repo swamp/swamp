@@ -2,7 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::err::{Error, ErrorKind};
+use crate::err::ErrorKind;
 use crate::{Analyzer, TypeContext};
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind, UnaryOperator, UnaryOperatorKind};
 use swamp_types::prelude::*;
@@ -27,7 +27,7 @@ impl Analyzer<'_> {
         match (&kind, &left_type, &right_type) {
             // String concatenation - allow any type on the right
             (&BinaryOperatorKind::Add, TypeKind::String, _) => {
-                (Some((
+                Some((
                     BinaryOperator {
                         left: Box::new(left),
                         right: Box::new(right),
@@ -35,7 +35,7 @@ impl Analyzer<'_> {
                         node,
                     },
                     self.shared.state.types.string(),
-                )))
+                ))
             }
 
             // Comparison operators

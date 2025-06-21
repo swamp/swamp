@@ -46,7 +46,6 @@ impl Analyzer<'_> {
                         Ok(_x) => {}
                         Err(err) => {
                             self.add_err(ErrorKind::SemanticError(err), node);
-                            return;
                         }
                     }
                 }
@@ -110,7 +109,7 @@ impl Analyzer<'_> {
                     .lookup_table
                     .extend_from(&found_module.symbol_table)
                 {
-                    return self.add_err(ErrorKind::SemanticError(sem_err), &node);
+                    self.add_err(ErrorKind::SemanticError(sem_err), node)
                 }
             }
         }
@@ -129,7 +128,7 @@ impl Analyzer<'_> {
             &nodes_copy,
             &mod_definition.items,
             &mod_definition.module_path.0[0],
-        )
+        );
     }
 
     fn analyze_use_definition(&mut self, use_definition: &swamp_ast::Use) {
@@ -150,7 +149,7 @@ impl Analyzer<'_> {
             &path,
             &use_definition.items,
             &use_definition.module_path.0[0],
-        )
+        );
     }
 
     fn analyze_enum_type_definition(
@@ -211,7 +210,7 @@ impl Analyzer<'_> {
                                 ErrorKind::DuplicateFieldName,
                                 &field_with_type.field_name.0,
                             );
-                        };
+                        }
                     }
 
                     let anonymous_struct_type = AnonymousStructType {
@@ -304,9 +303,9 @@ impl Analyzer<'_> {
     ) -> AnonymousStructType {
         let resolved_fields = self.analyze_anonymous_struct_type_fields(&ast_struct.fields);
 
-        let resolved_anon_struct = AnonymousStructType::new_and_sort_fields(&resolved_fields);
+        
 
-        resolved_anon_struct
+        AnonymousStructType::new_and_sort_fields(&resolved_fields)
     }
 
     /// # Errors
@@ -330,7 +329,7 @@ impl Analyzer<'_> {
                 self.add_err(
                     ErrorKind::DuplicateFieldName,
                     &field_name_and_type.field_name.0,
-                )
+                );
             }
         }
 
@@ -368,35 +367,35 @@ impl Analyzer<'_> {
             .shared
             .state
             .types
-            .named_struct(named_struct_type.clone());
+            .named_struct(named_struct_type);
 
         match self
             .shared
             .definition_table
             .add_named_type(named_struct_type_ref.clone())
         {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(sem_err) => {
                 return self.add_err(
                     ErrorKind::SemanticError(sem_err),
                     &ast_struct_def.identifier.name,
                 );
             }
-        };
+        }
 
         match self
             .shared
             .lookup_table
             .add_named_type(named_struct_type_ref.clone())
         {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(sem_err) => {
                 return self.add_err(
                     ErrorKind::SemanticError(sem_err),
                     &ast_struct_def.identifier.name,
                 );
             }
-        };
+        }
 
         self.add_default_functions(&named_struct_type_ref, &ast_struct_def.identifier.name);
     }
@@ -469,7 +468,7 @@ impl Analyzer<'_> {
                     .lookup_table
                     .add_internal_function_link(&function_name, function_ref.clone())
                 {
-                    Ok(_) => {}
+                    Ok(()) => {}
                     Err(sem_err) => {
                         self.add_err(
                             ErrorKind::SemanticError(sem_err),
@@ -477,7 +476,7 @@ impl Analyzer<'_> {
                         );
                         return None;
                     }
-                };
+                }
 
                 Function::Internal(function_ref)
             }
@@ -534,7 +533,7 @@ impl Analyzer<'_> {
         Some(func)
     }
 
-    pub fn debug_definition(&self, _definition: &swamp_ast::Definition) {
+    pub const fn debug_definition(&self, _definition: &swamp_ast::Definition) {
         /*
         let (line, col) = self
             .shared
@@ -579,7 +578,7 @@ impl Analyzer<'_> {
             swamp_ast::DefinitionKind::Constant(const_info) => {
                 self.analyze_constant_definition(const_info);
             }
-        };
+        }
     }
 
     fn analyze_impl_definition(
@@ -617,7 +616,7 @@ impl Analyzer<'_> {
             self.add_err(
                 ErrorKind::CanNotAttachFunctionsToType,
                 &attached_to_type.name,
-            )
+            );
         }
     }
 
@@ -670,7 +669,7 @@ impl Analyzer<'_> {
                 resolved_function_ref,
             ) {
                 return self.add_err(ErrorKind::SemanticError(sem_err), &function_name.name);
-            };
+            }
         }
     }
 
@@ -680,7 +679,9 @@ impl Analyzer<'_> {
         function: &swamp_ast::Function,
         self_type: &TypeRef,
     ) -> Function {
-        let resolved_fn = match function {
+        
+
+        match function {
             swamp_ast::Function::Internal(function_data) => {
                 let mut parameters = Vec::new();
 
@@ -717,8 +718,8 @@ impl Analyzer<'_> {
 
                 let return_type =
                     if let Some(ast_return_type) = &function_data.declaration.return_type {
-                        let resolved_return_type = self.analyze_type(ast_return_type);
-                        resolved_return_type
+                        
+                        self.analyze_type(ast_return_type)
                     } else {
                         self.shared.state.types.unit()
                     };
@@ -812,9 +813,7 @@ impl Analyzer<'_> {
 
                 Function::External(external_ref)
             }
-        };
-
-        resolved_fn
+        }
     }
 
     fn add_default_functions(&mut self, type_to_attach_to: &TypeRef, node: &swamp_ast::Node) {
@@ -823,7 +822,7 @@ impl Analyzer<'_> {
             .shared
             .state
             .associated_impls
-            .get_internal_member_function(&underlying, "to_string")
+            .get_internal_member_function(underlying, "to_string")
             .is_none()
             && matches!(
                 &*underlying.kind,
@@ -831,16 +830,16 @@ impl Analyzer<'_> {
             )
         {
             let new_internal_function =
-                self.generate_to_string_function_for_type(&type_to_attach_to, node);
+                self.generate_to_string_function_for_type(type_to_attach_to, node);
             self.shared
                 .state
                 .associated_impls
-                .prepare(&type_to_attach_to);
+                .prepare(type_to_attach_to);
             self.shared
                 .state
                 .associated_impls
-                .add_internal_function(&type_to_attach_to, new_internal_function)
-                .unwrap()
+                .add_internal_function(type_to_attach_to, new_internal_function)
+                .unwrap();
         }
     }
 }
