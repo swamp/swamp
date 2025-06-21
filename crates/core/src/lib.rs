@@ -2,65 +2,73 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-/*
+use swamp_modules::prelude::{Module, SymbolTable};
+use swamp_modules::symtbl::AliasType;
+use swamp_semantic::prelude::{IntrinsicFunction, IntrinsicFunctionDefinition};
+use swamp_types::Type;
+use swamp_types::prelude::{Signature, TypeCache, TypeForParameter};
+use tiny_ver::TinyVersion;
 
 pub const PACKAGE_NAME: &str = "core";
-fn add_intrinsic_types(core_ns: &mut SymbolTable) {
-let int_alias = AliasType {
-    name: Node::default(),
-    assigned_name: "Int".to_string(),
-    ty: Type::Int,
-};
-core_ns.add_alias(int_alias).unwrap();
+fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
+    let int_alias = AliasType {
+        name: None,
+        assigned_name: "Int".to_string(),
+        ty: cache.int(),
+    };
+    core_ns.add_alias(int_alias).unwrap();
 
-let float_alias = AliasType {
-    name: Node::default(),
-    assigned_name: "Float".to_string(),
-    referenced_type: Type::Float,
-};
-core_ns.add_alias(float_alias).unwrap();
+    let float_alias = AliasType {
+        name: None,
+        assigned_name: "Float".to_string(),
+        ty: cache.float(),
+    };
+    core_ns.add_alias(float_alias).unwrap();
 
-let string_alias = AliasType {
-    name: Node::default(),
-    assigned_name: "String".to_string(),
-    referenced_type: Type::String,
-};
-core_ns.add_alias(string_alias).unwrap();
+    let string_alias = AliasType {
+        name: None,
+        assigned_name: "String".to_string(),
+        ty: cache.string(),
+    };
+    core_ns.add_alias(string_alias).unwrap();
 
-let bool_alias = AliasType {
-    name: Node::default(),
-    assigned_name: "Bool".to_string(),
-    referenced_type: Type::Bool,
-};
-core_ns.add_alias(bool_alias).unwrap();
-
-
+    let bool_alias = AliasType {
+        name: None,
+        assigned_name: "Bool".to_string(),
+        ty: cache.bool(),
+    };
+    core_ns.add_alias(bool_alias).unwrap();
 }
 
 #[allow(clippy::too_many_lines)]
-fn add_intrinsic_functions(core_ns: &mut SymbolTable) {
-    add_intrinsic_bool_functions(core_ns);
-    add_intrinsic_float_functions(core_ns);
-    add_intrinsic_int_functions(core_ns);
-    add_intrinsic_string_functions(core_ns);
-    add_intrinsic_grid_functions(core_ns);
-    add_intrinsic_vec_functions(core_ns);
-    add_intrinsic_map_functions(core_ns);
+fn add_intrinsic_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+    add_intrinsic_bool_functions(core_ns, type_cache);
+    add_intrinsic_float_functions(core_ns, type_cache);
+    add_intrinsic_int_functions(core_ns, type_cache);
+    add_intrinsic_string_functions(core_ns, type_cache);
+    //add_intrinsic_grid_functions(core_ns);
+    //add_intrinsic_vec_functions(core_ns);
+    //add_intrinsic_map_functions(core_ns);
     //add_intrinsic_map2_functions(core_ns);
     //add_intrinsic_sparse_functions(core_ns);
-    add_intrinsic_debug_functions(core_ns);
+    add_intrinsic_debug_functions(core_ns, type_cache);
 }
 
-fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable) {
+fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+    let string_type = type_cache.string();
+    let int_type = type_cache.string();
+    let float_type = type_cache.float();
+    let unit_type = type_cache.unit();
+
     let string_unit = Signature {
         parameters: [TypeForParameter {
             name: "v".to_string(),
-            resolved_type: Type::String,
+            resolved_type: string_type.clone(),
             is_mutable: false,
             node: None,
         }]
-            .into(),
-        return_type: Box::new(Type::Unit),
+        .into(),
+        return_type: unit_type.clone(),
     };
     let string_unit_functions = [IntrinsicFunction::RuntimePanic];
     for intrinsic_fn in string_unit_functions {
@@ -76,7 +84,7 @@ fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable) {
 
     let nothing_unit = Signature {
         parameters: [].into(),
-        return_type: Box::new(Type::Unit),
+        return_type: unit_type.clone(),
     };
     let nothing_unit_functions = [
         IntrinsicFunction::RuntimeHalt,
@@ -530,7 +538,7 @@ fn add_intrinsic_map2_functions(core_ns: &mut SymbolTable) {
             .unwrap();
     }
 }
-*/
+
 
 #[allow(clippy::too_many_lines)]
 fn add_intrinsic_map_functions(core_ns: &mut SymbolTable) {
@@ -1197,18 +1205,22 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
             .unwrap();
     }
 }
+*/
 
 #[allow(clippy::too_many_lines)]
-fn add_intrinsic_string_functions(core_ns: &mut SymbolTable) {
+fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+    let string_type = type_cache.string();
+    let int_type = type_cache.string();
+
     let string_to_int = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: Type::String,
+            resolved_type: string_type,
             is_mutable: false,
             node: None,
         }]
-            .into(),
-        return_type: Box::new(Type::Int),
+        .into(),
+        return_type: int_type,
     };
 
     let string_to_int_functions = [IntrinsicFunction::StringLen];
@@ -1225,16 +1237,20 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable) {
     }
 }
 
-fn add_intrinsic_bool_functions(core_ns: &mut SymbolTable) {
+fn add_intrinsic_bool_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+    let string_type = type_cache.string();
+    let int_type = type_cache.string();
+    let bool_type = type_cache.bool();
+
     let self_to_string = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: Type::Bool,
+            resolved_type: bool_type,
             is_mutable: false,
             node: None,
         }]
-            .into(),
-        return_type: Box::new(Type::String),
+        .into(),
+        return_type: string_type,
     };
     let self_to_string_functions = [IntrinsicFunction::BoolToString];
     for intrinsic_fn in self_to_string_functions {
@@ -1250,16 +1266,19 @@ fn add_intrinsic_bool_functions(core_ns: &mut SymbolTable) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
+fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+    let string_type = type_cache.string();
+    let int_type = type_cache.string();
+    let float_type = type_cache.float();
     let int_to_int = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: Type::Int,
+            resolved_type: int_type.clone(),
             is_mutable: false,
             node: None,
         }]
-            .into(),
-        return_type: Box::new(Type::Int),
+        .into(),
+        return_type: int_type.clone(),
     };
     let int_to_int_functions = [IntrinsicFunction::IntAbs, IntrinsicFunction::IntRnd];
     for intrinsic_fn in int_to_int_functions {
@@ -1276,12 +1295,12 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
     let self_to_string = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: Type::Int,
+            resolved_type: int_type.clone(),
             is_mutable: false,
             node: None,
         }]
-            .into(),
-        return_type: Box::new(Type::String),
+        .into(),
+        return_type: string_type,
     };
     let self_to_string_functions = [IntrinsicFunction::IntToString];
     for intrinsic_fn in self_to_string_functions {
@@ -1299,19 +1318,19 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".into(),
-                resolved_type: Type::Int,
+                resolved_type: int_type.clone(),
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "b".into(),
-                resolved_type: Type::Int,
+                resolved_type: int_type.clone(),
                 is_mutable: false,
                 node: None,
             },
         ]
-            .into(),
-        return_type: Box::new(Type::Int),
+        .into(),
+        return_type: int_type.clone(),
     };
     let int_int_to_int_functions = [IntrinsicFunction::IntMax, IntrinsicFunction::IntMin];
 
@@ -1330,25 +1349,25 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".into(),
-                resolved_type: Type::Int,
+                resolved_type: int_type.clone(),
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "a".into(),
-                resolved_type: Type::Int,
+                resolved_type: int_type.clone(),
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "b".into(),
-                resolved_type: Type::Int,
+                resolved_type: int_type.clone(),
                 is_mutable: false,
                 node: None,
             },
         ]
-            .into(),
-        return_type: Box::new(Type::Int),
+        .into(),
+        return_type: int_type.clone(),
     };
     let int_int_int_to_int_functions = [IntrinsicFunction::IntClamp];
     for intrinsic_fn in int_int_int_to_int_functions {
@@ -1365,12 +1384,12 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
     let int_to_float = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: Type::Int,
+            resolved_type: int_type.clone(),
             is_mutable: false,
             node: None,
         }]
-            .into(),
-        return_type: Box::new(Type::Float),
+        .into(),
+        return_type: float_type.clone(),
     };
 
     core_ns
@@ -1383,16 +1402,20 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
+fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+    let string_type = type_cache.string();
+    let int_type = type_cache.string();
+    let float_type = type_cache.float();
+
     let float_to_float = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: Type::Float,
+            resolved_type: float_type.clone(),
             is_mutable: false,
             node: None,
         }]
-            .into(),
-        return_type: Box::new(Type::Float),
+        .into(),
+        return_type: float_type.clone(),
     };
 
     let float_to_float_functions = [
@@ -1419,12 +1442,12 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
     let float_to_int = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: Type::Float,
+            resolved_type: float_type.clone(),
             is_mutable: false,
             node: None,
         }]
-            .into(),
-        return_type: Box::new(Type::Int),
+        .into(),
+        return_type: int_type.clone(),
     };
     let float_to_int_functions = [IntrinsicFunction::FloatRound, IntrinsicFunction::FloatFloor];
     for intrinsic_fn in float_to_int_functions {
@@ -1441,12 +1464,12 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
     let self_to_string = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: Type::Float,
+            resolved_type: float_type.clone(),
             is_mutable: false,
             node: None,
         }]
-            .into(),
-        return_type: Box::new(Type::String),
+        .into(),
+        return_type: string_type.clone(),
     };
     let self_to_string_functions = [IntrinsicFunction::FloatToString];
     for intrinsic_fn in self_to_string_functions {
@@ -1464,19 +1487,19 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".into(),
-                resolved_type: Type::Float,
+                resolved_type: float_type.clone(),
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "other".into(),
-                resolved_type: Type::Float,
+                resolved_type: float_type.clone(),
                 is_mutable: false,
                 node: None,
             },
         ]
-            .into(),
-        return_type: Box::new(Type::Float),
+        .into(),
+        return_type: float_type.clone(),
     };
 
     let float_float_to_float_functions = [
@@ -1500,25 +1523,25 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
         parameters: [
             TypeForParameter {
                 name: "self".into(),
-                resolved_type: Type::Float,
+                resolved_type: float_type.clone(),
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "a".into(),
-                resolved_type: Type::Float,
+                resolved_type: float_type.clone(),
                 is_mutable: false,
                 node: None,
             },
             TypeForParameter {
                 name: "b".into(),
-                resolved_type: Type::Float,
+                resolved_type: float_type.clone(),
                 is_mutable: false,
                 node: None,
             },
         ]
-            .into(),
-        return_type: Box::new(Type::Float),
+        .into(),
+        return_type: float_type.clone(),
     };
 
     core_ns
@@ -1533,11 +1556,11 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable) {
 /// # Panics
 /// if `versioned_name` is wrong
 #[must_use]
-pub fn create_module(tiny_version: &TinyVersion) -> Module {
+pub fn create_module(tiny_version: &TinyVersion, type_cache: &mut TypeCache) -> Module {
     let canonical_core_path = [tiny_version.versioned_name(PACKAGE_NAME).unwrap()];
     let mut intrinsic_types_symbol_table = SymbolTable::new(&canonical_core_path);
-    add_intrinsic_types(&mut intrinsic_types_symbol_table);
-    add_intrinsic_functions(&mut intrinsic_types_symbol_table);
+    add_intrinsic_types(&mut intrinsic_types_symbol_table, type_cache);
+    add_intrinsic_functions(&mut intrinsic_types_symbol_table, type_cache);
 
     Module::new(intrinsic_types_symbol_table, None)
 }
@@ -1550,4 +1573,3 @@ pub fn create_module_with_name(path: &[String]) -> Module {
 
     Module::new(intrinsic_types_symbol_table, None)
 }
-*/

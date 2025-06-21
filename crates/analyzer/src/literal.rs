@@ -84,7 +84,7 @@ impl Analyzer<'_> {
                 Err(_bool_err) => return self.create_err(ErrorKind::BoolConversionError, ast_node),
                 Ok(bool_value) => (
                     ExpressionKind::BoolLiteral(bool_value),
-                    self.shared.state.types.int(),
+                    self.shared.state.types.bool(),
                 ),
             },
             swamp_ast::LiteralKind::EnumVariant(enum_literal) => {

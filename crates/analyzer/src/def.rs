@@ -264,6 +264,7 @@ impl Analyzer<'_> {
 
         let alias_name_str = self.get_text(&ast_alias.identifier.0).to_string();
         let resolved_alias = AliasType {
+            name: None,
             ty: resolved_type,
             assigned_name: alias_name_str,
         };
@@ -274,6 +275,7 @@ impl Analyzer<'_> {
             Err(err) => {
                 self.add_err(ErrorKind::SemanticError(err), &ast_alias.identifier.0);
                 AliasType {
+                    name: None,
                     assigned_name: "err".to_string(),
                     ty: self.types().unit(),
                 }
@@ -287,6 +289,7 @@ impl Analyzer<'_> {
         {
             self.add_err(ErrorKind::SemanticError(sem_err), &ast_alias.identifier.0);
             AliasType {
+                name: None,
                 assigned_name: "err".to_string(),
                 ty: self.types().unit(),
             }

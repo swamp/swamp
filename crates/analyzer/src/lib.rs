@@ -39,6 +39,7 @@ use swamp_semantic::{
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::TypeKind;
 use swamp_types::prelude::*;
+use tracing::trace;
 use tracing::{error, info};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -55,6 +56,7 @@ pub enum LocationSide {
     Rhs,
 }
 
+#[derive(Debug)]
 pub enum StartOfChainBase {
     FunctionReference(Function),
     Variable(VariableRef),
@@ -510,15 +512,20 @@ impl<'a> Analyzer<'a> {
             .shared
             .source_map
             .get_span_location_utf8(self.shared.file_id, offset);
-        /*
+
         let source_line = self
             .shared
             .source_map
             .get_source_line(self.shared.file_id, line);
-        info!(?line, ?source_line, description);
 
-        */
-        info!(?line, ?col, "yeahoo");
+        let source_path = self
+            .shared
+            .source_map
+            .fetch_relative_filename(self.shared.file_id);
+        let debug_line = format!("{source_path}:{line}:{col}> {}", source_line.unwrap());
+        info!(%debug_line, "source");
+
+        //        info!(?line, ?col, "source reference");
     }
 
     /// # Errors
@@ -574,13 +581,13 @@ impl<'a> Analyzer<'a> {
         ast_expression: &swamp_ast::Expression,
         context: &TypeContext,
     ) -> Expression {
-        // info!(?ast_expression, "analyze expression");
-        //self.debug_expression(ast_expression, "analyze");
+        info!(?ast_expression, "analyze expression");
+        self.debug_expression(ast_expression, "analyze");
         let expr = self.analyze_expression_internal(ast_expression, context);
 
         let encountered_type = expr.ty.clone();
 
-        //        info!(?expr, "analyze expression");
+        info!(?expr, "analyze expression");
         if let Some(found_expected_type) = context.expected_type {
             let reduced_expected = found_expected_type;
 
@@ -831,7 +838,9 @@ impl<'a> Analyzer<'a> {
             swamp_ast::ExpressionKind::Error => {
                 self.create_err(ErrorKind::UnexpectedType, &ast_expression.node)
             }
-            _ => self.create_err(ErrorKind::UnexpectedType, &ast_expression.node),
+            swamp_ast::ExpressionKind::Literal(literal) => {
+                self.analyze_literal(&ast_expression.node, literal, context)
+            } //self.create_err(ErrorKind::UnexpectedType, &ast_expression.node),
         }
     }
 
@@ -1124,6 +1133,7 @@ impl<'a> Analyzer<'a> {
         let mut start_index = 0;
 
         let start_of_chain_kind = if let Some(start_of_chain_base) = maybe_start_of_chain_base {
+            trace!(?start_of_chain_base, "start of postfix chain");
             match start_of_chain_base {
                 StartOfChainBase::FunctionReference(func_def) => {
                     // In this language version, it is not allowed to provide references to functions
@@ -1174,6 +1184,7 @@ impl<'a> Analyzer<'a> {
         let mut suffixes = Vec::new();
 
         for item in &chain.postfixes[start_index..] {
+            trace!(?item, "postfix");
             match item {
                 /*
                 swamp_ast::Postfix::AdvancedFunctionCall(..) => {

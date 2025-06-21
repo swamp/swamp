@@ -1,6 +1,3 @@
-use core::{assert}
-use std::{print}
-
 #[test]
 fn round() {
     assert(100.9.round() == 101, "round is wrong")

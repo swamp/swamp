@@ -369,7 +369,7 @@ impl String {
     fn default() -> String {
         ""
     }
-    
+
     fn to_string(self) -> String {
         "\"todo\""
     }
@@ -453,26 +453,60 @@ fn step() {
 pub fn bootstrap_modules(
     source_map: &mut SourceMap,
 ) -> Result<BootstrapResult, ScriptResolveError> {
-    /*
     let compiler_version = TinyVersion::from_str(COMPILER_VERSION).unwrap();
     trace!(%compiler_version, "booting up compiler");
+    let mut state = ProgramState::new();
 
     let mut modules = Modules::new();
 
-    let mut core_module_with_intrinsics = swamp_core::create_module(&compiler_version);
-
+    let core_module_with_intrinsics =
+        swamp_core::create_module(&compiler_version, &mut state.types);
     let core_ast_module = parse_single_module_from_text(
         source_map,
         &core_module_with_intrinsics.symbol_table.module_path(),
         &core_text(),
     )?;
 
+    let half_completed_core_symbol_table = core_module_with_intrinsics.symbol_table.clone();
+    let default_symbol_table_for_core_with_intrinsics = half_completed_core_symbol_table.clone();
+
+    analyze_single_module(
+        &mut state,
+        default_symbol_table_for_core_with_intrinsics.clone(),
+        &modules,
+        half_completed_core_symbol_table.clone().into(),
+        &core_ast_module,
+        source_map,
+        &core_module_with_intrinsics.symbol_table.module_path(),
+    )?;
+    let core_path = core_module_with_intrinsics.symbol_table.module_path();
+    let mut default_module = swamp_core::create_module_with_name(&[]);
+
+    default_module
+        .symbol_table
+        .extend_basic_from(&half_completed_core_symbol_table)
+        .expect("extend basics from core");
+
+    info!(?default_module, "default module ready");
+
+    modules.add(ModuleRef::from(core_module_with_intrinsics));
+
     //    let std_path = &["std".to_string(), "lib".to_string()];
     let std_path = &["std".to_string()];
-    let mut std_module_with_intrinsics = swamp_core::create_module_with_name(std_path);
+    let std_module_with_intrinsics = swamp_core::create_module_with_name(std_path);
     let std_ast_module = parse_single_module_from_text(source_map, std_path, &std_text())?;
+    modules.add(ModuleRef::from(std_module_with_intrinsics));
 
-    let mut state = ProgramState::new();
+    let bootstrap_program = Program::new(state, modules, default_module.symbol_table);
+
+    let result = BootstrapResult {
+        program: bootstrap_program,
+        core_module_path: core_path,
+    };
+
+    Ok(result)
+
+    /*
 
     let half_completed_core_symbol_table = core_module_with_intrinsics.symbol_table.clone();
     let default_symbol_table_for_core_with_intrinsics = half_completed_core_symbol_table.clone();
@@ -575,7 +609,6 @@ pub fn bootstrap_modules(
 
     Ok()
      */
-    todo!()
 }
 
 pub fn compile_and_analyze_all_modules(
@@ -681,27 +714,28 @@ pub fn bootstrap_and_compile(
     root_path: &[String],
     options: &CompileOptions,
 ) -> Result<Program, ScriptResolveError> {
-    /*
-        let bootstrap_timer = ScopedTimer::new("bootstrap");
-        let bootstrap_result = bootstrap_modules(source_map).inspect_err(|err| {
-            show_script_resolve_error(err, source_map, &current_path());
-        })?;
-        drop(bootstrap_timer);
-        let mut program = bootstrap_result.program;
+    let bootstrap_timer = ScopedTimer::new("bootstrap");
+    let bootstrap_result = bootstrap_modules(source_map).inspect_err(|err| {
+        show_script_resolve_error(err, source_map, &current_path());
+    })?;
+    drop(bootstrap_timer);
+    let mut program = bootstrap_result.program;
 
-        let core_symbol_table = program
-            .modules
-            .get(&bootstrap_result.core_module_path)
-            .unwrap()
-            .symbol_table
-            .clone();
+    let core_symbol_table = program
+        .modules
+        .get(&bootstrap_result.core_module_path)
+        .unwrap()
+        .symbol_table
+        .clone();
+
+    /*
+       let mut modules = Modules::new();
+       let program_state = ProgramState::new();
+       let default_symbol_table = SymbolTable::new(&[]);
+       let core_symbol_table = SymbolTable::new(&[]);
+       let mut program = Program::new(program_state, modules, default_symbol_table);
 
     */
-    let mut modules = Modules::new();
-    let program_state = ProgramState::new();
-    let default_symbol_table = SymbolTable::new(&[]);
-    let core_symbol_table = SymbolTable::new(&[]);
-    let mut program = Program::new(program_state, modules, default_symbol_table);
     let compile_all_modules_timer = ScopedTimer::new("compile all modules");
     compile_and_analyze_all_modules(
         root_path,

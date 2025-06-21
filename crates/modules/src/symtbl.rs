@@ -44,6 +44,7 @@ pub struct TypeParameter {
 
 #[derive(Clone, Debug)]
 pub struct AliasType {
+    pub name: Option<Node>,
     pub assigned_name: String,
     pub ty: TypeRef,
 }
@@ -61,7 +62,10 @@ pub enum Symbol {
 impl Symbol {
     #[must_use]
     pub const fn is_basic_type(&self) -> bool {
-        matches!(self, Self::Type(..) | Self::Alias(..))
+        matches!(
+            self,
+            Self::Type(..) | Self::Alias(..) | Self::FunctionDefinition(..)
+        )
     }
 
     #[must_use]
