@@ -207,21 +207,19 @@ impl Analyzer<'_> {
                 .shared
                 .state
                 .types
-                .anonymous_struct(deduced_anon_struct_type);
+                .anonymous_struct(deduced_anon_struct_type.clone());
 
-            let anon_struct_type =
-                if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_type_ref.kind {
-                    anon_struct
-                } else {
-                    return self.create_err(
-                        ErrorKind::CouldNotCoerceTo(anon_struct_type_ref.clone()),
-                        node,
-                    );
-                };
-
-            (&anon_struct_type_ref, anon_struct_type)
+            // Move the anon_struct_type_ref to avoid lifetime issues
+            return self.analyze_struct_init(
+                node,
+                &anon_struct_type_ref,
+                &deduced_anon_struct_type,
+                ast_fields,
+                rest_was_specified,
+            );
         };
 
+        // This path is for the first branch (when we have a specific expected type)
         self.analyze_struct_init(
             node,
             super_type,

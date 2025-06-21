@@ -100,100 +100,106 @@ impl Analyzer<'_> {
                     }
                 };
 
-                let Some((symbol_table, name)) = self.get_symbol_table_and_name(enum_name) else {
-                    return self.create_err(ErrorKind::UnknownEnumVariantType, ast_node);
-                };
-                if let Some(found_enum_type) = symbol_table.get_type(&name) {
-                    let TypeKind::Enum(enum_type) = &*found_enum_type.kind else {
+                // Get the text first to avoid borrowing conflicts
+                let variant_name_text = self.get_text(&variant_name_node.0).to_string();
+
+                // Get the enum type, then release the borrow
+                let found_enum_type = {
+                    let Some((symbol_table, name)) = self.get_symbol_table_and_name(enum_name)
+                    else {
+                        self.add_err(ErrorKind::UnknownModule, &enum_name.name.0);
+                        return self.create_err(ErrorKind::UnknownEnumVariantType, ast_node);
+                    };
+                    let Some(found_enum_type) = symbol_table.get_type(&name) else {
                         return self.create_err(ErrorKind::UnknownEnumType, ast_node);
                     };
-                    let variant_name = self.get_text(&variant_name_node.0);
-                    // Handle enum variant literals in patterns
-                    let Some(variant_ref) = enum_type.get_variant(variant_name) else {
-                        return self
-                            .create_err(ErrorKind::UnknownEnumVariantType, &variant_name_node.0);
-                    };
+                    found_enum_type.clone()
+                };
 
-                    let resolved_data = match enum_literal {
-                        swamp_ast::EnumVariantLiteral::Simple(_, _) => {
-                            EnumLiteralExpressions::Nothing
-                        }
-                        swamp_ast::EnumVariantLiteral::Tuple(_node, _variant, ast_expressions) => {
-                            let TypeKind::Tuple(tuple_field_types) =
-                                &*variant_ref.payload_type.kind
-                            else {
-                                return self.create_err(
-                                    ErrorKind::WrongEnumVariantContainer(variant_ref.clone()),
-                                    ast_node,
-                                );
-                            };
-
-                            if tuple_field_types.len() != ast_expressions.len() {
-                                return self.create_err(
-                                    ErrorKind::WrongNumberOfArguments(
-                                        tuple_field_types.len(),
-                                        ast_expressions.len(),
-                                    ),
-                                    ast_node,
-                                );
-                            }
-
-                            let resolved_expression = tuple_field_types
-                                .iter()
-                                .zip(ast_expressions)
-                                .map(|(expected_type, ast_expression)| {
-                                    let ctx = TypeContext::new_argument(expected_type);
-                                    self.analyze_expression(ast_expression, &ctx)
-                                })
-                                .collect();
-
-                            EnumLiteralExpressions::Tuple(resolved_expression)
-                        }
-                        swamp_ast::EnumVariantLiteral::Struct(
-                            _qualified_type_identifier,
-                            variant,
-                            anonym_struct_field_and_expressions,
-                            detected_rest,
-                        ) => {
-                            let TypeKind::AnonymousStruct(anon_payload) =
-                                &*variant_ref.payload_type.kind
-                            else {
-                                return self.create_err(
-                                    ErrorKind::WrongEnumVariantContainer(variant_ref.clone()),
-                                    ast_node,
-                                );
-                            };
-
-                            if anonym_struct_field_and_expressions.len()
-                                != anon_payload.field_name_sorted_fields.len()
-                            {
-                                return self.create_err(
-                                    ErrorKind::WrongNumberOfArguments(
-                                        anonym_struct_field_and_expressions.len(),
-                                        anon_payload.field_name_sorted_fields.len(),
-                                    ),
-                                    &variant.0,
-                                );
-                            }
-
-                            let resolved_fields = self.analyze_anon_struct_instantiation(
-                                &variant.0.clone(),
-                                &anon_payload,
-                                anonym_struct_field_and_expressions,
-                                *detected_rest,
-                            );
-
-                            EnumLiteralExpressions::Struct(resolved_fields)
-                        }
-                    };
-
-                    (
-                        ExpressionKind::EnumVariantLiteral(variant_ref.clone(), resolved_data),
-                        found_enum_type.clone(),
-                    )
-                } else {
+                let TypeKind::Enum(enum_type) = &*found_enum_type.kind else {
                     return self.create_err(ErrorKind::UnknownEnumType, ast_node);
-                }
+                };
+                let variant_name = &variant_name_text;
+                // Handle enum variant literals in patterns
+                let Some(variant_ref) = enum_type.get_variant(variant_name) else {
+                    return self
+                        .create_err(ErrorKind::UnknownEnumVariantType, &variant_name_node.0);
+                };
+
+                let resolved_data = match enum_literal {
+                    swamp_ast::EnumVariantLiteral::Simple(_, _) => EnumLiteralExpressions::Nothing,
+                    swamp_ast::EnumVariantLiteral::Tuple(_node, _variant, ast_expressions) => {
+                        let TypeKind::Tuple(tuple_field_types) = &*variant_ref.payload_type.kind
+                        else {
+                            return self.create_err(
+                                ErrorKind::WrongEnumVariantContainer(variant_ref.clone()),
+                                ast_node,
+                            );
+                        };
+
+                        if tuple_field_types.len() != ast_expressions.len() {
+                            return self.create_err(
+                                ErrorKind::WrongNumberOfArguments(
+                                    tuple_field_types.len(),
+                                    ast_expressions.len(),
+                                ),
+                                ast_node,
+                            );
+                        }
+
+                        let resolved_expression = tuple_field_types
+                            .iter()
+                            .zip(ast_expressions)
+                            .map(|(expected_type, ast_expression)| {
+                                let ctx = TypeContext::new_argument(expected_type);
+                                self.analyze_expression(ast_expression, &ctx)
+                            })
+                            .collect();
+
+                        EnumLiteralExpressions::Tuple(resolved_expression)
+                    }
+                    swamp_ast::EnumVariantLiteral::Struct(
+                        _qualified_type_identifier,
+                        variant,
+                        anonym_struct_field_and_expressions,
+                        detected_rest,
+                    ) => {
+                        let TypeKind::AnonymousStruct(anon_payload) =
+                            &*variant_ref.payload_type.kind
+                        else {
+                            return self.create_err(
+                                ErrorKind::WrongEnumVariantContainer(variant_ref.clone()),
+                                ast_node,
+                            );
+                        };
+
+                        if anonym_struct_field_and_expressions.len()
+                            != anon_payload.field_name_sorted_fields.len()
+                        {
+                            return self.create_err(
+                                ErrorKind::WrongNumberOfArguments(
+                                    anonym_struct_field_and_expressions.len(),
+                                    anon_payload.field_name_sorted_fields.len(),
+                                ),
+                                &variant.0,
+                            );
+                        }
+
+                        let resolved_fields = self.analyze_anon_struct_instantiation(
+                            &variant.0.clone(),
+                            &anon_payload,
+                            anonym_struct_field_and_expressions,
+                            *detected_rest,
+                        );
+
+                        EnumLiteralExpressions::Struct(resolved_fields)
+                    }
+                };
+
+                (
+                    ExpressionKind::EnumVariantLiteral(variant_ref.clone(), resolved_data),
+                    found_enum_type.clone(),
+                )
             }
 
             swamp_ast::LiteralKind::Tuple(expressions) => {

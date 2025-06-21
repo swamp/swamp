@@ -983,38 +983,30 @@ impl<'a> Analyzer<'a> {
         node: &swamp_ast::Node,
         ty: &TypeRef,
     ) -> ExpressionKind {
-        self.lookup_associated_function(ty, function_name)
-            .map_or_else(
-                || {
-                    self.create_err(
-                        ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
-                        node,
-                    )
-                    .kind
-                },
-                |function| {
-                    let Function::Internal(internal_function) = &function else {
-                        panic!("only allowed for internal functions");
-                    };
+        // Look up the function first to avoid closure borrowing issues
+        if let Some(function) = self.lookup_associated_function(ty, function_name) {
+            let Function::Internal(internal_function) = &function else {
+                panic!("only allowed for internal functions");
+            };
 
-                    if let Some((intrinsic_fn, _)) =
-                        Self::extract_single_intrinsic_call(&internal_function.body)
-                    {
-                        let expr_kind = ExpressionKind::IntrinsicCallEx(
-                            intrinsic_fn.clone(),
-                            arguments.to_vec(),
-                        );
-
-                        expr_kind
-                    } else {
-                        self.create_err(
-                            ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
-                            node,
-                        )
-                        .kind
-                    }
-                },
+            if let Some((intrinsic_fn, _)) =
+                Self::extract_single_intrinsic_call(&internal_function.body)
+            {
+                ExpressionKind::IntrinsicCallEx(intrinsic_fn.clone(), arguments.to_vec())
+            } else {
+                self.create_err(
+                    ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
+                    node,
+                )
+                .kind
+            }
+        } else {
+            self.create_err(
+                ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
+                node,
             )
+            .kind
+        }
     }
 
     fn create_default_static_call(
@@ -2534,17 +2526,15 @@ impl<'a> Analyzer<'a> {
     }
 
     pub(crate) fn get_symbol_table_and_name(
-        &mut self,
+        &self,
         type_identifier: &swamp_ast::QualifiedTypeIdentifier,
     ) -> Option<(&SymbolTable, String)> {
         let path = self.get_module_path(type_identifier.module_path.as_ref());
         let name = self.get_text(&type_identifier.name.0).to_string();
 
-        let maybe_symbol_table = self.shared.get_symbol_table(&path);
-        if let Some(found) = &maybe_symbol_table {
+        if let Some(found) = self.shared.get_symbol_table(&path) {
             Some((found, name))
         } else {
-            self.add_err(ErrorKind::UnknownModule, &type_identifier.name.0);
             None
         }
     }
@@ -2843,9 +2833,10 @@ impl<'a> Analyzer<'a> {
 
         self.pop_block_scope("lambda");
 
+        let function_type = self.types().function(signature.clone());
         self.create_expr(
             ExpressionKind::Lambda(resolved_variables, Box::new(analyzed_expression)),
-            self.types().function(signature.clone()),
+            function_type,
             node,
         )
     }
@@ -3051,7 +3042,8 @@ impl<'a> Analyzer<'a> {
         assert_ne!(&*resulting_type.kind, &TypeKind::Unit);
         let kind = ExpressionKind::VariableDefinition(var_ref, Box::from(resolved_source));
 
-        let resolved_expr = self.create_expr(kind, self.shared.state.types.unit(), &var.name);
+        let unit_type = self.shared.state.types.unit();
+        let resolved_expr = self.create_expr(kind, unit_type, &var.name);
 
         resolved_expr
     }

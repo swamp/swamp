@@ -21,7 +21,10 @@ impl Analyzer<'_> {
         import_items: &swamp_ast::ImportItems,
         node: &swamp_ast::Node,
     ) {
-        let Some(found_module) = self.shared.get_module(path) else {
+        // Clone the module reference to avoid borrowing conflicts
+        let found_module = if let Some(module) = self.shared.get_module(path) {
+            module.clone()
+        } else {
             self.add_err(ErrorKind::UnknownModule, node);
             return;
         };
