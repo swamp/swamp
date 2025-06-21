@@ -116,6 +116,7 @@ pub enum ErrorKind {
     NotAllowedAsReturnType(TypeRef),
     ParameterTypeCanNotBeStorage(TypeRef),
     OperatorProblem,
+    MatchMustHaveAtLeastOneArm,
 }
 
 impl From<SemanticError> for Error {

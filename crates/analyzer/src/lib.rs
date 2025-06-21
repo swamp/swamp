@@ -1225,7 +1225,7 @@ impl<'a> Analyzer<'a> {
 
                 swamp_ast::Postfix::SubscriptTuple(col_expr, row_expr) => {
                     let collection_type = tv.resolved_type.clone();
-                    match &collection_type.kind {
+                    match &*collection_type.kind {
                         TypeKind::GridStorage(element_type, x, _) => {
                             let int_type = self.shared.state.types.int();
                             let unsigned_int_x_context = TypeContext::new_argument(&int_type);
@@ -1268,7 +1268,7 @@ impl<'a> Analyzer<'a> {
                                 self.analyze_expression(lookup_expr, &unsigned_int_context);
 
                             let slice_type = SliceViewType {
-                                element: Box::new(element_type_in_slice.as_ref().clone()),
+                                element: element_type_in_slice.clone(),
                             };
 
                             self.add_postfix(
@@ -1282,7 +1282,7 @@ impl<'a> Analyzer<'a> {
                             );
 
                             // Keep previous mutable
-                            tv.resolved_type = *element_type_in_slice.clone();
+                            tv.resolved_type = element_type_in_slice.clone();
                         }
                         TypeKind::QueueStorage(element_type, _)
                         | TypeKind::StackStorage(element_type, _)
@@ -1336,8 +1336,8 @@ impl<'a> Analyzer<'a> {
                             let key_expression = self.analyze_expression(lookup_expr, &key_context);
 
                             let map_type = MapType {
-                                key: Box::from(key_type.as_ref().clone()),
-                                value: Box::from(value_type.as_ref().clone()),
+                                key: key_type.clone(),
+                                value: value_type.clone(),
                             };
 
                             self.add_postfix(
@@ -1397,9 +1397,7 @@ impl<'a> Analyzer<'a> {
                         );
                         tv.resolved_type = return_type.clone();
                     } else {
-                        return Err(
-                            self.create_err(ErrorKind::MissingSubscriptMember, &index_expr.node)
-                        );
+                        return self.create_err(ErrorKind::MissingSubscriptMember, &index_expr.node);
                     }
 
                      */
@@ -1442,17 +1440,17 @@ impl<'a> Analyzer<'a> {
                         tv.resolved_type = return_type.clone();
                         tv.is_mutable = false;
                     } else {
-                        return Err(self.create_err(
+                        return self.create_err(
                             ErrorKind::UnknownMemberFunction(underlying_type.clone()),
                             member_name,
-                        ));
+                        );
                     }
 
                      */
                 }
                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, arguments) => {
                     /*
-                    if let TypeKind::Function(signature) = &tv.resolved_type {
+                    if let TypeKind::Function(signature) = &*tv.resolved_type.kind {
                         let resolved_node = self.to_node(node);
                         let resolved_arguments = self.analyze_and_verify_parameters(
                             &resolved_node,
@@ -1482,7 +1480,7 @@ impl<'a> Analyzer<'a> {
 
                 swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
                     let unwrapped_type = if let TypeKind::Optional(unwrapped_type) =
-                        &tv.resolved_type
+                        &*tv.resolved_type.kind
                     {
                         unwrapped_type
                     } else if uncertain {
@@ -1497,23 +1495,23 @@ impl<'a> Analyzer<'a> {
                     self.add_postfix(
                         &mut suffixes,
                         PostfixKind::NoneCoalescingOperator(resolved_default_expr),
-                        unwrapped_type.clone(),
+                        (*unwrapped_type).clone(),
                         &default_expr.node,
                     );
-                    tv.resolved_type = unwrapped_type.clone();
+                    tv.resolved_type = (*unwrapped_type).clone();
                     uncertain = false; // the chain is safe, because this will always solve None
                 }
 
                 swamp_ast::Postfix::OptionalChainingOperator(option_node) => {
-                    if let TypeKind::Optional(unwrapped_type) = &tv.resolved_type {
+                    if let TypeKind::Optional(unwrapped_type) = &*tv.resolved_type.kind {
                         uncertain = true;
                         self.add_postfix(
                             &mut suffixes,
                             PostfixKind::OptionalChainingOperator,
-                            *unwrapped_type.clone(),
+                            (*unwrapped_type).clone(),
                             option_node,
                         );
-                        tv.resolved_type = *unwrapped_type.clone();
+                        tv.resolved_type = (*unwrapped_type).clone();
                     } else {
                         return self.create_err(ErrorKind::ExpectedOptional, option_node);
                     }
@@ -1524,7 +1522,7 @@ impl<'a> Analyzer<'a> {
         if uncertain {
             if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
             } else {
-                tv.resolved_type = TypeKind::Optional(Box::from(tv.resolved_type.clone()));
+                tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
 
@@ -1573,7 +1571,7 @@ impl<'a> Analyzer<'a> {
         let struct_name_string_expr =
             self.create_expr_resolved(struct_name_string_kind, self.types().string(), &node);
         let anon_struct_string_expr =
-            self.generate_to_string_for_anon_struct(named, self_expression);
+            self.generate_to_string_for_anon_struct(&named.anon_struct_type, self_expression);
 
         let concat_kind = BinaryOperator {
             kind: BinaryOperatorKind::Add,
@@ -1591,7 +1589,7 @@ impl<'a> Analyzer<'a> {
 
     fn generate_to_string_for_anon_struct(
         &mut self,
-        anonymous_struct_type: &AnonymousStructType,
+        anonymous_struct_type_ref: &TypeRef,
         self_expression: Expression,
     ) -> Expression {
         let node = self_expression.node.clone();
@@ -1599,6 +1597,12 @@ impl<'a> Analyzer<'a> {
         // Create opening brace string
         let opening_kind = (ExpressionKind::StringLiteral("{ ".to_string()));
         let mut result_expr = self.create_expr_resolved(opening_kind, self.types().string(), &node);
+
+        let TypeKind::AnonymousStruct(anonymous_struct_type) = &*anonymous_struct_type_ref.kind
+        else {
+            return self
+                .create_err_resolved(ErrorKind::UnknownStructTypeReference, &self_expression.node);
+        };
 
         // Process each field
         for (field_index, (field_name, field_type)) in anonymous_struct_type
@@ -1646,7 +1650,8 @@ impl<'a> Analyzer<'a> {
             );
 
             // Get field value from the struct
-            let postfix_kind = PostfixKind::StructField(anonymous_struct_type.clone(), field_index);
+            let postfix_kind =
+                PostfixKind::StructField(anonymous_struct_type_ref.clone(), field_index);
             let postfix_lookup_field_in_self = Postfix {
                 node: node.clone(),
                 ty: field_type.field_type.clone(),
@@ -1789,8 +1794,8 @@ impl<'a> Analyzer<'a> {
             TypeKind::NamedStruct(named) => {
                 self.generate_to_string_for_named_struct(&named, first_self_param)
             }
-            TypeKind::AnonymousStruct(anon_struct) => {
-                self.generate_to_string_for_anon_struct(&anon_struct, first_self_param)
+            TypeKind::AnonymousStruct(_anon_struct) => {
+                self.generate_to_string_for_anon_struct(&ty, first_self_param)
             }
             TypeKind::Range(_) => todo!(),
             TypeKind::Enum(enum_type) => {
@@ -1958,21 +1963,21 @@ impl<'a> Analyzer<'a> {
 
                     let expr = self.analyze_expression(expression, &any_context);
 
-                    let ty = (*expr.ty.kind).clone();
+                    let tk = (*expr.ty.kind).clone();
 
                     let maybe_to_string = self
                         .shared
                         .state
                         .associated_impls
-                        .get_internal_member_function(&ty, "to_string");
+                        .get_internal_member_function(&expr.ty, "to_string");
 
-                    if matches!(ty, TypeKind::String) {
+                    if matches!(tk, TypeKind::String) {
                         expr
                     } else {
-                        let underlying = if let TypeKind::Optional(inner_type) = ty {
-                            *inner_type.clone()
+                        let underlying = if let TypeKind::Optional(inner_type) = tk {
+                            inner_type.clone()
                         } else {
-                            (*ty.kind).clone()
+                            expr.ty.clone()
                         };
                         if maybe_to_string.is_none() {
                             return self.create_expr(
@@ -2345,12 +2350,18 @@ impl<'a> Analyzer<'a> {
         let resolved_scrutinee = self.analyze_expression(scrutinee, &scrutinee_context);
         let scrutinee_type = resolved_scrutinee.ty.clone();
 
+        let mut resolved_arms = Vec::with_capacity(arms.len());
+
         // Ensure we have at least one arm
         if arms.is_empty() {
-            return self.create_err(ErrorKind::EmptyMatch, &scrutinee.node);
+            let err_match = Match {
+                expression: Box::new(
+                    self.create_err(ErrorKind::MatchMustHaveAtLeastOneArm, &scrutinee.node),
+                ),
+                arms: resolved_arms,
+            };
+            return (err_match, self.types().unit());
         }
-
-        let mut resolved_arms = Vec::with_capacity(arms.len());
 
         for arm in arms {
             let (resolved_arm, _anyone_wants_mutable) = self.analyze_arm(
@@ -2366,20 +2377,25 @@ impl<'a> Analyzer<'a> {
             resolved_arms.push(resolved_arm);
         }
 
-        known_type.map_or_else(
-            || Err(self.create_err(ErrorKind::MatchArmsMustHaveTypes, &scrutinee.node)),
-            |encountered_type| {
-                {
-                    Ok((
-                        Match {
-                            expression: Box::new(resolved_scrutinee),
-                            arms: resolved_arms,
-                        },
-                        encountered_type,
-                    ))
-                }
-            },
-        )
+        if let Some(encountered_type) = known_type {
+            (
+                Match {
+                    expression: Box::new(resolved_scrutinee),
+                    arms: resolved_arms,
+                },
+                encountered_type,
+            )
+        } else {
+            let err_expr = self.create_err(ErrorKind::MatchArmsMustHaveTypes, &scrutinee.node);
+
+            (
+                Match {
+                    expression: Box::new(err_expr),
+                    arms: resolved_arms.clone(),
+                },
+                self.types().unit(),
+            )
+        }
     }
 
     fn analyze_arm(
@@ -2482,33 +2498,59 @@ impl<'a> Analyzer<'a> {
     }
 
     fn get_enum_variant_type(
-        &self,
+        &mut self,
         qualified_type_identifier: &swamp_ast::QualifiedTypeIdentifier,
         variant_name: &str,
     ) -> EnumVariantType {
-        let (symbol_table, enum_name) = self.get_symbol_table_and_name(qualified_type_identifier);
-        symbol_table
-            .get_enum_variant_type(&enum_name, variant_name)
-            .ok_or_else(|| {
-                self.create_err(
-                    ErrorKind::UnknownEnumVariantType,
-                    &qualified_type_identifier.name.0,
-                )
-            })
+        let Some((symbol_table, enum_name)) =
+            self.get_symbol_table_and_name(qualified_type_identifier)
+        else {
+            self.add_err(
+                ErrorKind::UnknownEnumVariantType,
+                &qualified_type_identifier.name.0,
+            );
+            return EnumVariantType {
+                common: EnumVariantCommon {
+                    name: Default::default(),
+                    assigned_name: "".to_string(),
+                    container_index: 0,
+                },
+                payload_type: self.types().unit(),
+            };
+        };
+
+        if let Some(enum_name) = symbol_table.get_enum_variant_type(&enum_name, variant_name) {
+            enum_name
+        } else {
+            self.add_err(
+                ErrorKind::UnknownEnumVariantType,
+                &qualified_type_identifier.name.0,
+            );
+            return EnumVariantType {
+                common: EnumVariantCommon {
+                    name: Default::default(),
+                    assigned_name: "".to_string(),
+                    container_index: 0,
+                },
+                payload_type: self.types().unit(),
+            };
+        }
     }
 
     pub(crate) fn get_symbol_table_and_name(
-        &self,
+        &mut self,
         type_identifier: &swamp_ast::QualifiedTypeIdentifier,
     ) -> Option<(&SymbolTable, String)> {
         let path = self.get_module_path(type_identifier.module_path.as_ref());
         let name = self.get_text(&type_identifier.name.0).to_string();
 
         let maybe_symbol_table = self.shared.get_symbol_table(&path);
-        maybe_symbol_table.map_or_else(
-            || Err(self.create_err(ErrorKind::UnknownModule, &type_identifier.name.0)),
-            |symbol_table| Ok((symbol_table, name)),
-        )
+        if let Some(found) = &maybe_symbol_table {
+            Some((found, name))
+        } else {
+            self.add_err(ErrorKind::UnknownModule, &type_identifier.name.0);
+            None
+        }
     }
 
     const fn analyze_compound_operator(
@@ -2674,9 +2716,9 @@ impl<'a> Analyzer<'a> {
                 }
             };
 
-            let ty = mut_expr.ty();
+            let tk = &mut_expr.ty().kind;
 
-            if let TypeKind::Optional(found_ty) = ty {
+            if let TypeKind::Optional(found_ty) = &**tk {
                 let variable_ref = self.create_variable(&variable_binding.variable, &found_ty);
 
                 let binding = WhenBinding {
@@ -2708,7 +2750,7 @@ impl<'a> Analyzer<'a> {
             ExpressionKind::When(bindings, Box::from(resolved_true), maybe_resolved_else);
 
         let block_expr = self.create_expr(when_kind, block_type, &true_expr.node);
-        Ok(block_expr)
+        block_expr
     }
 
     fn analyze_guard(
@@ -2725,9 +2767,7 @@ impl<'a> Analyzer<'a> {
             let resolved_condition = match &guard.clause {
                 swamp_ast::GuardClause::Wildcard(x) => {
                     if found_wildcard.is_some() {
-                        return Err(
-                            self.create_err(ErrorKind::GuardCanNotHaveMultipleWildcards, node)
-                        );
+                        return self.create_err(ErrorKind::GuardCanNotHaveMultipleWildcards, node);
                     }
                     found_wildcard = Some(x);
                     None
@@ -2761,13 +2801,11 @@ impl<'a> Analyzer<'a> {
 
         let kind = ExpressionKind::Guard(guards);
 
-        detected_type.map_or_else(
-            || Err(self.create_err(ErrorKind::GuardHasNoType, node)),
-            |found_expecting_type| {
-                let expr = self.create_expr(kind, found_expecting_type, node);
-                Ok(expr)
-            },
-        )
+        if let Some(found_expecting_type) = detected_type {
+            self.create_expr(kind, found_expecting_type, node)
+        } else {
+            self.create_err(ErrorKind::GuardHasNoType, node)
+        }
     }
 
     fn analyze_lambda(
@@ -2777,7 +2815,7 @@ impl<'a> Analyzer<'a> {
         ast_expr: &swamp_ast::Expression,
         context: &TypeContext,
     ) -> Expression {
-        let TypeKind::Function(signature) = &context.expected_type.unwrap() else {
+        let TypeKind::Function(signature) = &*context.expected_type.unwrap().kind else {
             return self.create_err(ErrorKind::ExpectedLambda, node);
         };
 
@@ -2871,9 +2909,12 @@ impl<'a> Analyzer<'a> {
             return AssignmentMode::OwnedValue;
         }
 
+        /* TODO:
         if ty.is_direct() {
             return AssignmentMode::OwnedValue;
         }
+
+         */
 
         if let ExpressionKind::PostfixChain(start_chain, postfix) = &source_expression.kind {
             let (chain_is_owned, chain_is_mutable) =
@@ -2931,11 +2972,14 @@ impl<'a> Analyzer<'a> {
             let any_type_context = TypeContext::new_anything_argument();
             self.analyze_expression(source_expression, &any_type_context)
         };
-        let ty = (*source_expr.ty.kind).clone();
-        if !ty.can_be_stored_in_variable() {
+        let tk = (*source_expr.ty.kind).clone();
+        if !source_expr.ty.is_blittable() {
             let debug_text = self.get_text(&variable.name);
             if !debug_text.starts_with('_') {
-                return self.create_err(ErrorKind::VariableTypeMustBeConcrete(ty), &variable.name);
+                return self.create_err(
+                    ErrorKind::VariableTypeMustBeConcrete(source_expr.ty),
+                    &variable.name,
+                );
             }
         }
 
@@ -2943,19 +2987,22 @@ impl<'a> Analyzer<'a> {
             if !found_var.is_mutable() {
                 return self.create_err(ErrorKind::VariableIsNotMutable, &variable.name);
             }
-            if !found_var.resolved_type.kind.assignable_type(&*ty.kind) {
+            if !self
+                .types()
+                .compatible_with(&*found_var.resolved_type, &*source_expr.ty)
+            {
                 return self.create_err(
                     ErrorKind::IncompatibleTypes {
-                        expected: ty,
+                        expected: source_expr.ty,
                         found: found_var.resolved_type.clone(),
                     },
                     &variable.name,
                 );
             }
-            self.check_mutable_variable_assignment(source_expression, &ty, variable);
+            self.check_mutable_variable_assignment(source_expression, &source_expr.ty, variable);
             ExpressionKind::VariableReassignment(found_var, Box::from(source_expr))
         } else {
-            if !ty.can_be_stored_in_variable() {
+            if !source_expr.ty.is_blittable() {
                 let text = self.get_text(&variable.name);
                 error!(?text, ?required_type, ?source_expr, "variable is wrong");
             }
@@ -2963,13 +3010,18 @@ impl<'a> Analyzer<'a> {
             // If it is mutable, we might need to clone the source
             // so make some extra verification
             if variable.is_mutable.is_some() {
-                self.check_mutable_variable_assignment(source_expression, &ty, variable);
+                self.check_mutable_variable_assignment(
+                    source_expression,
+                    &source_expr.ty,
+                    variable,
+                );
             }
-            let new_var = self.create_variable(variable, &ty);
+            let new_var = self.create_variable(variable, &source_expr.ty);
             ExpressionKind::VariableDefinition(new_var, Box::from(source_expr))
         };
 
-        self.create_expr(kind, self.shared.state.types.unit(), &variable.name)
+        let unit_type = self.shared.state.types.unit();
+        self.create_expr(kind, unit_type, &variable.name)
     }
 
     fn analyze_create_variable(
@@ -2989,23 +3041,6 @@ impl<'a> Analyzer<'a> {
         let resolved_source = self.analyze_expression(source_expression, &unsure_arg_context);
 
         let resulting_type = if let Some(annotated_type) = maybe_annotated_type {
-            let extra_verification = false;
-            if extra_verification {
-                let debug_context = TypeContext::new_anything_argument();
-                let result = self.analyze_expression(&source_expression, &debug_context);
-                if let Ok(worked_without_annotation) = result {
-                    if annotated_type
-                        .kind
-                        .same_as(&*worked_without_annotation.ty.kind)
-                    {
-                        let identifier_name = self.get_text(&var.name);
-                        eprintln!(
-                            "annotation was not needed for variable: {identifier_name} in {:?}",
-                            self.module_path
-                        );
-                    }
-                }
-            }
             annotated_type
         } else {
             resolved_source.ty.clone()
@@ -3067,11 +3102,50 @@ impl<'a> Analyzer<'a> {
 
         let base_expr = self.analyze_expression(&chain.base, &nothing_context);
         let ExpressionKind::VariableAccess(start_variable) = base_expr.kind else {
-            return self.create_err(ErrorKind::NotValidLocationStartingPoint, &chain.base.node);
+            self.add_err(ErrorKind::NotValidLocationStartingPoint, &chain.base.node);
+            let unit_type = self.types().unit();
+            let variable = Variable {
+                name: Default::default(),
+                assigned_name: "".to_string(),
+                resolved_type: unit_type,
+                mutable_node: None,
+                variable_type: VariableType::Local,
+                scope_index: 0,
+                variable_index: 0,
+                unique_id_within_function: 0,
+                is_unused: false,
+            };
+            return SingleLocationExpression {
+                kind: MutableReferenceKind::MutVariableRef,
+                node: self.to_node(&chain.base.node),
+                ty: self.shared.state.types.unit(),
+                starting_variable: VariableRef::from(variable),
+                access_chain: vec![],
+            };
         };
 
         if !start_variable.is_mutable() {
-            return self.create_err(ErrorKind::VariableIsNotMutable, &chain.base.node);
+            self.add_err(ErrorKind::VariableIsNotMutable, &chain.base.node);
+
+            let unit_type = self.types().unit();
+            let variable = Variable {
+                name: Default::default(),
+                assigned_name: "".to_string(),
+                resolved_type: unit_type,
+                mutable_node: None,
+                variable_type: VariableType::Local,
+                scope_index: 0,
+                variable_index: 0,
+                unique_id_within_function: 0,
+                is_unused: false,
+            };
+            return SingleLocationExpression {
+                kind: MutableReferenceKind::MutVariableRef,
+                node: self.to_node(&chain.base.node),
+                ty: self.shared.state.types.unit(),
+                starting_variable: VariableRef::from(variable),
+                access_chain: vec![],
+            };
         }
 
         let mut ty = start_variable.resolved_type.clone();
@@ -3094,7 +3168,8 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::SubscriptTuple(x_expr, y_expr) => match &*ty.kind {
                     TypeKind::GridView(element_type)
                     | TypeKind::GridStorage(element_type, _, _) => {
-                        let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
+                        let int_type = self.types().int();
+                        let unsigned_int_context = TypeContext::new_argument(&int_type);
                         let unsigned_int_x_expr =
                             self.analyze_expression(x_expr, &unsigned_int_context);
 
@@ -3102,7 +3177,7 @@ impl<'a> Analyzer<'a> {
                             self.analyze_expression(y_expr, &unsigned_int_context);
 
                         let grid_type = GridType {
-                            element: Box::new(*element_type.clone()),
+                            element: element_type.clone(),
                         };
 
                         self.add_location_item(
@@ -3112,29 +3187,30 @@ impl<'a> Analyzer<'a> {
                                 unsigned_int_x_expr,
                                 unsigned_int_y_expr,
                             ),
-                            *element_type.clone(),
+                            element_type.clone(),
                             &x_expr.node,
                         );
 
-                        ty = *element_type.clone();
+                        ty = element_type.clone();
                     }
                     _ => panic!("not allowed"),
                 },
                 swamp_ast::Postfix::Subscript(ast_key_expression) => {
-                    let underlying = ty.underlying();
-                    match underlying {
+                    let underlying = &ty.kind;
+                    match &**underlying {
                         TypeKind::SliceView(element_type)
                         | TypeKind::StackStorage(element_type, _)
                         | TypeKind::StackView(element_type)
                         | TypeKind::VecStorage(element_type, _)
                         | TypeKind::DynamicLengthVecView(element_type)
                         | TypeKind::FixedCapacityAndLengthArray(element_type, _) => {
-                            let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
+                            let int_type = self.types().int();
+                            let unsigned_int_context = TypeContext::new_argument(&int_type);
                             let unsigned_int_expr =
                                 self.analyze_expression(ast_key_expression, &unsigned_int_context);
 
                             let slice_type = SliceViewType {
-                                element: Box::new(*element_type.clone()),
+                                element: element_type.clone(),
                             };
 
                             self.add_location_item(
@@ -3143,34 +3219,35 @@ impl<'a> Analyzer<'a> {
                                     slice_type,
                                     unsigned_int_expr,
                                 ),
-                                *element_type.clone(),
+                                element_type.clone(),
                                 &ast_key_expression.node,
                             );
 
-                            ty = *element_type.clone();
+                            ty = element_type.clone();
                         }
                         TypeKind::SparseView(element_type)
                         | TypeKind::SparseStorage(element_type, _) => {
-                            let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
+                            let int_type = self.types().int();
+                            let unsigned_int_context = TypeContext::new_argument(&int_type);
                             let unsigned_int_expr =
                                 self.analyze_expression(ast_key_expression, &unsigned_int_context);
 
                             let slice_type = SparseType {
-                                element: Box::new(*element_type.clone()),
+                                element: element_type.clone(),
                             };
 
                             self.add_location_item(
                                 &mut items,
                                 LocationAccessKind::SparseSubscript(slice_type, unsigned_int_expr),
-                                *element_type.clone(),
+                                element_type.clone(),
                                 &ast_key_expression.node,
                             );
 
-                            ty = *element_type.clone();
+                            ty = element_type.clone();
                         }
                         TypeKind::MapStorage(key_type, value_type, ..)
                         | TypeKind::DynamicLengthMapView(key_type, value_type) => {
-                            let key_index_context = TypeContext::new_argument(key_type);
+                            let key_index_context = TypeContext::new_argument(&key_type);
                             let key_expr =
                                 self.analyze_expression(ast_key_expression, &key_index_context);
 
@@ -3189,7 +3266,7 @@ impl<'a> Analyzer<'a> {
                                             map_like_type,
                                             key_expr,
                                         ),
-                                        *value_type.clone(),
+                                        value_type.clone(),
                                         &ast_key_expression.node,
                                     );
                                 }
@@ -3200,12 +3277,12 @@ impl<'a> Analyzer<'a> {
                                             map_like_type,
                                             key_expr,
                                         ),
-                                        *value_type.clone(),
+                                        value_type.clone(),
                                         &ast_key_expression.node,
                                     );
                                 }
                             }
-                            ty = *value_type.clone();
+                            ty = value_type.clone();
                         }
 
                         _ => {
@@ -3261,17 +3338,14 @@ impl<'a> Analyzer<'a> {
         }
 
         if let Some(found_expected_type) = context.expected_type {
-            if !found_expected_type
-                .underlying()
-                .compatible_with(ty.underlying())
-            {
-                return Err(self.create_err(
+            if !self.types().compatible_with(found_expected_type, &ty) {
+                self.add_err(
                     ErrorKind::IncompatibleTypes {
                         expected: found_expected_type.clone(),
-                        found: ty,
+                        found: ty.clone(),
                     },
                     &chain.base.node,
-                ));
+                );
             }
         }
 
@@ -3282,7 +3356,7 @@ impl<'a> Analyzer<'a> {
             starting_variable: start_variable,
             access_chain: items,
         };
-        Ok(location)
+        location
     }
 
     fn analyze_to_location(
@@ -3297,16 +3371,16 @@ impl<'a> Analyzer<'a> {
             }
             swamp_ast::ExpressionKind::VariableReference(variable) => {
                 let var = self.find_variable(variable);
-                if var.is_mutable() {
-                    SingleLocationExpression {
-                        kind: MutableReferenceKind::MutVariableRef,
-                        node: self.to_node(&variable.name),
-                        ty: var.resolved_type.clone(),
-                        starting_variable: var,
-                        access_chain: vec![],
-                    }
-                } else {
-                    self.create_err(ErrorKind::VariableIsNotMutable, &expr.node)
+                if !var.is_mutable() {
+                    self.add_err(ErrorKind::VariableIsNotMutable, &expr.node);
+                }
+
+                SingleLocationExpression {
+                    kind: MutableReferenceKind::MutVariableRef,
+                    node: self.to_node(&variable.name),
+                    ty: var.resolved_type.clone(),
+                    starting_variable: var,
+                    access_chain: vec![],
                 }
             }
             swamp_ast::ExpressionKind::IdentifierReference(qualified_identifier) => {
@@ -3315,19 +3389,38 @@ impl<'a> Analyzer<'a> {
                     is_mutable: None,
                 };
                 let var = self.find_variable(&generated_var);
-                if var.is_mutable() {
-                    SingleLocationExpression {
-                        kind: MutableReferenceKind::MutVariableRef,
-                        node: self.to_node(&generated_var.name),
-                        ty: var.resolved_type.clone(),
-                        starting_variable: var,
-                        access_chain: vec![],
-                    }
-                } else {
-                    Err(self.create_err(ErrorKind::VariableIsNotMutable, &expr.node))
+                if !var.is_mutable() {
+                    self.add_err(ErrorKind::VariableIsNotMutable, &expr.node);
+                }
+                SingleLocationExpression {
+                    kind: MutableReferenceKind::MutVariableRef,
+                    node: self.to_node(&generated_var.name),
+                    ty: var.resolved_type.clone(),
+                    starting_variable: var,
+                    access_chain: vec![],
                 }
             }
-            _ => Err(self.create_err(ErrorKind::NotValidLocationStartingPoint, &expr.node)),
+            _ => {
+                self.add_err(ErrorKind::NotValidLocationStartingPoint, &expr.node);
+                let unit_type = self.types().unit();
+                SingleLocationExpression {
+                    kind: MutableReferenceKind::MutVariableRef,
+                    node: self.to_node(&expr.node),
+                    ty: unit_type.clone(),
+                    starting_variable: Rc::new(Variable {
+                        name: Default::default(),
+                        assigned_name: "".to_string(),
+                        resolved_type: unit_type,
+                        mutable_node: None,
+                        variable_type: VariableType::Local,
+                        scope_index: 0,
+                        variable_index: 0,
+                        unique_id_within_function: 0,
+                        is_unused: false,
+                    }),
+                    access_chain: vec![],
+                }
+            }
         }
     }
 
@@ -3375,10 +3468,6 @@ impl<'a> Analyzer<'a> {
 
      */
 
-    fn is_type_assignment_compatible(target: &TypeRef, source: &TypeRef) -> bool {
-        target.compatible_with(source)
-    }
-
     fn analyze_expression_for_assignment_with_target_type(
         &mut self,
         target_type: &TypeRef,
@@ -3393,12 +3482,7 @@ impl<'a> Analyzer<'a> {
         let source_expr = self.analyze_expression(ast_source_expression, &lhs_argument_context)?;
          */
 
-        let target_type_underlying = target_type.underlying();
-        let source_type_underlying = source_expr.ty.underlying();
-        let final_expr = if Self::is_type_assignment_compatible(
-            target_type_underlying,
-            source_type_underlying,
-        ) {
+        let final_expr = if self.types().compatible_with(target_type, &source_expr.ty) {
             source_expr
         }
         /*else if let Some(converted) =
@@ -3408,13 +3492,13 @@ impl<'a> Analyzer<'a> {
             converted
         }         */
         else {
-            return Err(self.create_err(
+            return self.create_err(
                 ErrorKind::IncompatibleTypesForAssignment {
-                    expected: target_type_underlying.clone(),
-                    found: source_type_underlying.clone(),
+                    expected: target_type.clone(),
+                    found: source_expr.ty.clone(),
                 },
                 &ast_source_expression.node,
-            ));
+            );
         };
 
         let assignment_mode = self.check_assignment_mode(true, &final_expr, target_type); // TODO: Fill in correct lhs_is_mutable
@@ -3564,7 +3648,7 @@ impl<'a> Analyzer<'a> {
         let resolved_node = self.to_node(node);
         // TODO:
 
-        Ok(found_function.signature().clone())
+        found_function.signature().clone()
     }
 
     fn queue_member_signature(
@@ -3623,7 +3707,7 @@ impl<'a> Analyzer<'a> {
             }?,
         };
 
-        intrinsic_and_signature
+        Some(intrinsic_and_signature)
     }
 
     fn sparse_member_signature(
@@ -3698,7 +3782,7 @@ impl<'a> Analyzer<'a> {
             _ => {
                 self.slice_member_signature(
                     self_type,
-                    Option::from(key_type),
+                    Option::from(key_type).as_ref(),
                     element_type,
                     field_name_str,
                     lambda_variable_count,
@@ -3706,7 +3790,7 @@ impl<'a> Analyzer<'a> {
                 )
             }?,
         };
-        Ok(intrinsic_and_signature)
+        Some(intrinsic_and_signature)
     }
 
     fn vec_member_signature(
@@ -3717,7 +3801,7 @@ impl<'a> Analyzer<'a> {
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
     ) -> Option<(IntrinsicFunction, Signature)> {
-        let key_type = &TypeKind::Int;
+        let key_type = self.types().int();
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
@@ -3765,14 +3849,14 @@ impl<'a> Analyzer<'a> {
                 IntrinsicFunction::VecPop,
                 Signature {
                     parameters: vec![self_mutable_type_param],
-                    return_type: Box::new(element_type.clone()),
+                    return_type: element_type.clone(),
                 },
             ),
 
             _ => {
                 self.slice_member_signature(
                     self_type,
-                    Option::from(key_type),
+                    Option::from(key_type).as_ref(),
                     element_type,
                     field_name_str,
                     lambda_variable_count,
@@ -3780,7 +3864,7 @@ impl<'a> Analyzer<'a> {
                 )
             }?,
         };
-        Ok(intrinsic_and_signature)
+        Some(intrinsic_and_signature)
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -3809,10 +3893,11 @@ impl<'a> Analyzer<'a> {
             is_mutable: false,
             node: None,
         };
+        let int_type = self.types().int();
 
         let int_param = TypeForParameter {
             name: "x_or_y".to_string(),
-            resolved_type: TypeKind::Int,
+            resolved_type: int_type,
             is_mutable: false,
             node: None,
         };
@@ -3834,13 +3919,14 @@ impl<'a> Analyzer<'a> {
                 IntrinsicFunction::GridGet,
                 Signature {
                     parameters: vec![self_type_param, int_param.clone(), int_param.clone()],
-                    return_type: Box::new(element_type.clone()),
+                    return_type: element_type.clone(),
                 },
             ),
 
             _ => panic!("unknown grid method {field_name_str}"),
         };
-        Ok(intrinsic_and_signature)
+
+        Some(intrinsic_and_signature)
     }
 
     fn basic_collection_member_signature(
@@ -3884,12 +3970,12 @@ impl<'a> Analyzer<'a> {
                 (IntrinsicFunction::VecCapacity, signature)
             }
             _ => {
-                return Err(
-                    self.create_err(ErrorKind::UnknownMemberFunction(self_type.clone()), node)
-                );
+                self.add_err(ErrorKind::UnknownMemberFunction(self_type.clone()), node);
+
+                return None;
             }
         };
-        Ok(intrinsic_and_signature)
+        Some(intrinsic_and_signature)
     }
 
     #[allow(clippy::too_many_lines)]
@@ -3902,15 +3988,17 @@ impl<'a> Analyzer<'a> {
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
     ) -> Option<(IntrinsicFunction, Signature)> {
+        let slice_view_type = self.types().slice_view(&element_type.clone());
+        let int_type = self.types().int();
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
-            resolved_type: TypeKind::SliceView(element_type.clone()),
+            resolved_type: slice_view_type.clone(),
             is_mutable: false,
             node: None,
         };
         let self_mut_type_param = TypeForParameter {
             name: "self".to_string(),
-            resolved_type: TypeKind::SliceView(Box::from(element_type.clone())),
+            resolved_type: slice_view_type.clone(),
             is_mutable: true,
             node: None,
         };
@@ -3943,7 +4031,7 @@ impl<'a> Analyzer<'a> {
                     parameters,
                     return_type: self.types().unit(),
                 };
-                let lambda_function_type = TypeKind::Function(lambda_signature);
+                let lambda_function_type = self.types().function(lambda_signature);
                 (
                     IntrinsicFunction::TransformerFor,
                     Signature {
@@ -3988,7 +4076,7 @@ impl<'a> Analyzer<'a> {
                     parameters,
                     return_type: self.types().bool(), // it returns if the while loop should continue
                 };
-                let lambda_function_type = TypeKind::Function(lambda_signature);
+                let lambda_function_type = self.types().function(lambda_signature);
                 (
                     IntrinsicFunction::TransformerWhile,
                     Signature {
@@ -4015,7 +4103,7 @@ impl<'a> Analyzer<'a> {
                     }],
                     return_type: self.types().bool(),
                 };
-                let lambda_function_type = TypeKind::Function(lambda_signature);
+                let lambda_function_type = self.types().function(lambda_signature);
                 (
                     IntrinsicFunction::TransformerFilter,
                     Signature {
@@ -4028,7 +4116,7 @@ impl<'a> Analyzer<'a> {
                                 node: None,
                             },
                         ],
-                        return_type: Box::new(TypeKind::SliceView(Box::from(element_type.clone()))),
+                        return_type: self.shared.state.types.slice_view(&element_type.clone()),
                     },
                 )
             }
@@ -4042,7 +4130,7 @@ impl<'a> Analyzer<'a> {
                     }],
                     return_type: self.types().bool(),
                 };
-                let lambda_function_type = TypeKind::Function(lambda_signature);
+                let lambda_function_type = self.types().function(lambda_signature);
                 (
                     IntrinsicFunction::TransformerFind,
                     Signature {
@@ -4055,7 +4143,7 @@ impl<'a> Analyzer<'a> {
                                 node: None,
                             },
                         ],
-                        return_type: Box::new(TypeKind::Optional(Box::from(element_type.clone()))),
+                        return_type: self.shared.state.types.optional(&element_type.clone()),
                     },
                 )
             }
@@ -4066,7 +4154,7 @@ impl<'a> Analyzer<'a> {
                         self_mut_type_param,
                         TypeForParameter {
                             name: "index".to_string(),
-                            resolved_type: TypeKind::Int,
+                            resolved_type: int_type,
                             is_mutable: false,
                             node: None,
                         },
@@ -4158,7 +4246,7 @@ impl<'a> Analyzer<'a> {
             _ => todo!("unknown map member"),
         };
 
-        Ok(intrinsic_and_signature)
+        Some(intrinsic_and_signature)
     }
 
     fn check_intrinsic_member_signature(
@@ -4168,14 +4256,15 @@ impl<'a> Analyzer<'a> {
         lambda_variables_count: usize,
         node: &swamp_ast::Node,
     ) -> Option<(IntrinsicFunction, Signature)> {
-        let ty = type_that_member_is_on.underlying();
-        match ty {
+        let ty = type_that_member_is_on;
+        let int_type = self.types().int();
+        match &*ty.kind {
             TypeKind::GridStorage(element_type, ..) | TypeKind::GridView(element_type) => self
-                .grid_member_signature(type_that_member_is_on, element_type, field_name_str, node),
+                .grid_member_signature(type_that_member_is_on, &element_type, field_name_str, node),
             TypeKind::SparseStorage(element_type, ..) | TypeKind::SparseView(element_type) => self
                 .sparse_member_signature(
                     type_that_member_is_on,
-                    element_type,
+                    &element_type,
                     field_name_str,
                     lambda_variables_count,
                     node,
@@ -4183,7 +4272,7 @@ impl<'a> Analyzer<'a> {
             TypeKind::QueueStorage(element_type, ..) => self.queue_member_signature(
                 type_that_member_is_on,
                 None,
-                element_type,
+                &element_type,
                 field_name_str,
                 lambda_variables_count,
                 node,
@@ -4200,7 +4289,7 @@ impl<'a> Analyzer<'a> {
             ),
             TypeKind::SliceView(element_type) => self.slice_member_signature(
                 type_that_member_is_on,
-                Some(&TypeKind::Int),
+                Some(&int_type),
                 element_type,
                 field_name_str,
                 lambda_variables_count,
@@ -4211,16 +4300,20 @@ impl<'a> Analyzer<'a> {
             }
             TypeKind::FixedCapacityAndLengthArray(element_type, _) => self.slice_member_signature(
                 type_that_member_is_on,
-                Some(&TypeKind::Int),
+                Some(&int_type),
                 element_type,
                 field_name_str,
                 lambda_variables_count,
                 node,
             ),
-            _ => Err(self.create_err(
-                ErrorKind::UnknownMemberFunction(type_that_member_is_on.clone()),
-                node,
-            )),
+            _ => {
+                self.add_err(
+                    ErrorKind::UnknownMemberFunction(type_that_member_is_on.clone()),
+                    node,
+                );
+
+                None
+            }
         }
     }
 
@@ -4269,12 +4362,14 @@ impl<'a> Analyzer<'a> {
             } else {
                 0
             };
-            let (intrinsic_fn, signature) = self.check_intrinsic_member_signature(
+            let Some((intrinsic_fn, signature)) = self.check_intrinsic_member_signature(
                 type_that_member_is_on,
                 field_name_str,
                 lambda_variables_count,
                 node,
-            );
+            ) else {
+                return (PostfixKind::OptionalChainingOperator, self.types().unit());
+            };
             let def = IntrinsicFunctionDefinition {
                 name: field_name_str.to_string(),
                 signature,
@@ -4289,23 +4384,8 @@ impl<'a> Analyzer<'a> {
         let self_type_in_signature = &instantiated_signature.parameters[0];
         let binding = type_that_member_is_on.lowest_common_denominator_view();
 
-        let lowest_denominator_type_that_it_is_on = if let Some(found) = &binding {
-            found
-        } else {
-            type_that_member_is_on
-        };
-
-        if !self_type_in_signature
-            .resolved_type
-            .underlying()
-            .compatible_with(lowest_denominator_type_that_it_is_on)
-        {
-            error!(?self_type_in_signature.resolved_type, ?type_that_member_is_on, self_type_in_signature.is_mutable, ?chain_self_is_mutable, "self problem");
-            return Err(self.create_err(ErrorKind::SelfNotCorrectType, node));
-        }
-
         if self_type_in_signature.is_mutable && !chain_self_is_mutable {
-            return Err(self.create_err(ErrorKind::SelfNotCorrectMutableState, node));
+            self.add_err(ErrorKind::SelfNotCorrectMutableState, node);
         }
 
         let resolved_arguments = self.analyze_and_verify_parameters(
@@ -4316,7 +4396,7 @@ impl<'a> Analyzer<'a> {
 
         (
             PostfixKind::MemberCall(function_ref, resolved_arguments),
-            *instantiated_signature.return_type.clone(),
+            TypeRef::from(instantiated_signature.return_type.clone()),
         )
     }
 
@@ -4354,29 +4434,34 @@ impl<'a> Analyzer<'a> {
     }
 
     fn is_compatible_initializer_list_target(
+        &mut self,
         target_type: &TypeRef,
         initializer_element_type: &TypeRef,
     ) -> bool {
-        match target_type {
-            TypeKind::VecStorage(vec_element_type, _vec_capacity) => {
-                vec_element_type.compatible_with(initializer_element_type)
-            }
-            TypeKind::FixedCapacityAndLengthArray(array_element_type, _array_capacity) => {
-                array_element_type.compatible_with(initializer_element_type)
-            }
+        match &*target_type.kind {
+            TypeKind::VecStorage(vec_element_type, _vec_capacity) => self
+                .types()
+                .compatible_with(vec_element_type, initializer_element_type),
+            TypeKind::FixedCapacityAndLengthArray(array_element_type, _array_capacity) => self
+                .types()
+                .compatible_with(array_element_type, initializer_element_type),
             _ => false,
         }
     }
 
     fn is_compatible_initializer_pair_list_target(
+        &mut self,
         target_type: &TypeRef,
         initializer_key_type: &TypeRef,
         initializer_value_type: &TypeRef,
     ) -> bool {
-        match target_type {
+        match &*target_type.kind {
             TypeKind::MapStorage(storage_key, storage_value, _) => {
-                initializer_key_type.compatible_with(storage_key)
-                    && initializer_value_type.compatible_with(storage_value)
+                self.types()
+                    .compatible_with(initializer_key_type, storage_key)
+                    && self
+                        .types()
+                        .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }
@@ -4389,9 +4474,9 @@ impl<'a> Analyzer<'a> {
         special_encountered_type: &TypeRef,
         node: &swamp_ast::Node,
     ) -> Expression {
-        let expected_type = special_expected_type.underlying();
-        let encountered_type = special_encountered_type.underlying();
-        if let TypeKind::Optional(expected_inner_type) = expected_type {
+        let expected_type = special_expected_type;
+        let encountered_type = special_encountered_type;
+        if let TypeKind::Optional(expected_inner_type) = &*expected_type.kind {
             // If an optional is expected, we can wrap it if this type has the exact same
             // inner type
             assert!(
@@ -4403,7 +4488,10 @@ impl<'a> Analyzer<'a> {
             // First make sure it is not already an optional type. we can not wrap an option with an option
             if encountered_type.inner_optional_mut_or_immutable().is_none() {
                 // good it isn't, lets see if they share inner types
-                if expected_inner_type.compatible_ignore_mutability_of(encountered_type) {
+                if self
+                    .types()
+                    .compatible_with(expected_inner_type, encountered_type)
+                {
                     // they share inner types as well, lets wrap it up
                     let wrapped = self.create_expr(
                         ExpressionKind::Option(Option::from(Box::new(expr))),
@@ -4415,7 +4503,7 @@ impl<'a> Analyzer<'a> {
             }
         }
         /*
-        if let TypeKind::InternalInitializerPairList(slice_key, slice_value) = &encountered_type {
+        if let TypeKind::InternalInitializerPairList(slice_key, slice_value) = &*encountered_type.kind {
             if Self::is_compatible_initializer_pair_list_target(
                 expected_type,
                 slice_key,
@@ -4423,20 +4511,21 @@ impl<'a> Analyzer<'a> {
             ) {
                 return Ok(expr);
             }
-        } else if let TypeKind::InternalInitializerList(element_type) = &encountered_type {
+        } else if let TypeKind::InternalInitializerList(element_type) = &*encountered_type.kind {
             if Self::is_compatible_initializer_list_target(expected_type, element_type) {
                 return Ok(expr);
             }
         } else*/
-        if matches!(expected_type, &TypeKind::Bool) {
+        if matches!(&*expected_type.kind, &TypeKind::Bool) {
             // if it has a mut or immutable optional, then it works well to wrap it
             if encountered_type.inner_optional_mut_or_immutable().is_some() {
+                let bool_type = self.types().bool();
                 let wrapped = self.create_expr(
                     ExpressionKind::CoerceOptionToBool(Box::from(expr)),
-                    TypeKind::Bool,
+                    bool_type,
                     node,
                 );
-                return Ok(wrapped);
+                return wrapped;
             }
         }
 
@@ -4481,12 +4570,15 @@ impl<'a> Analyzer<'a> {
             "Vec" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
-                    TypeKind::DynamicLengthVecView(Box::from(element_type))
+                    self.shared.state.types.dynamic_vec_view(&element_type)
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    TypeKind::VecStorage(Box::from(element_type), fixed_size)
+                    self.shared
+                        .state
+                        .types
+                        .vec_storage(&element_type, fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4494,12 +4586,15 @@ impl<'a> Analyzer<'a> {
             "Stack" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
-                    TypeKind::StackView(Box::from(element_type))
+                    self.shared.state.types.stack_view(&element_type)
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    TypeKind::StackStorage(Box::from(element_type), fixed_size)
+                    self.shared
+                        .state
+                        .types
+                        .stack_storage(&element_type, fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4507,12 +4602,15 @@ impl<'a> Analyzer<'a> {
             "Queue" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
-                    TypeKind::QueueView(Box::from(element_type))
+                    self.shared.state.types.queue_view(&element_type)
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    TypeKind::QueueStorage(Box::from(element_type), fixed_size)
+                    self.shared
+                        .state
+                        .types
+                        .queue_storage(&element_type, fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4520,12 +4618,15 @@ impl<'a> Analyzer<'a> {
             "Sparse" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
-                    TypeKind::SparseView(Box::from(element_type))
+                    self.shared.state.types.sparse_view(&element_type)
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    TypeKind::SparseStorage(Box::from(element_type), fixed_size)
+                    self.shared
+                        .state
+                        .types
+                        .sparse_storage(&element_type, fixed_size)
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4534,12 +4635,15 @@ impl<'a> Analyzer<'a> {
             "Grid" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
-                    TypeKind::GridView(Box::from(element_type))
+                    self.shared.state.types.grid_view(&element_type)
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let (width, height) =
                         self.analyze_generic_parameter_usize_tuple(&ast_generic_parameters[1]);
-                    TypeKind::GridStorage(Box::from(element_type), width, height)
+                    self.shared
+                        .state
+                        .types
+                        .grid_storage(&element_type, width, height)
                 } else {
                     panic!("todo: make this into an error")
                 }
