@@ -140,7 +140,7 @@ impl Analyzer<'_> {
                 if let Some(elements) = maybe_elements {
                     let mut resolved_elements = Vec::new();
                     match &*enum_variant_type_ref.payload_type.kind {
-                        TypeKind::Tuple(ref fields_in_order) => {
+                        TypeKind::Tuple(fields_in_order) => {
                             // For tuples, elements must be in order but can be partial
                             if elements.len() > fields_in_order.len() {
                                 return (
@@ -207,7 +207,7 @@ impl Analyzer<'_> {
                                 }
                             }
                         }
-                        TypeKind::AnonymousStruct(ref anon_struct_type) => {
+                        TypeKind::AnonymousStruct(anon_struct_type) => {
                             if !scope_was_pushed {
                                 self.push_block_scope("enum struct");
                                 scope_was_pushed = true;

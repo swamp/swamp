@@ -1207,9 +1207,14 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::FieldAccess(field_name) => {
                     let (struct_type_ref, index, return_type) =
                         self.analyze_struct_field(&field_name.clone(), &tv.resolved_type);
+                    let struct_type_type_ref = self
+                        .shared
+                        .state
+                        .types
+                        .anonymous_struct(struct_type_ref.clone());
                     self.add_postfix(
                         &mut suffixes,
-                        PostfixKind::StructField(struct_type_ref.clone(), index),
+                        PostfixKind::StructField(struct_type_type_ref, index),
                         return_type.clone(),
                         field_name,
                     );
@@ -1242,12 +1247,12 @@ impl<'a> Analyzer<'a> {
                                     unsigned_int_x_expression,
                                     unsigned_int_y_expression,
                                 ),
-                                *element_type.clone(),
+                                element_type.clone(),
                                 &col_expr.node,
                             );
 
                             // Keep previous mutable
-                            tv.resolved_type = *element_type.clone();
+                            tv.resolved_type = element_type.clone();
                         }
                         _ => panic!("not a subscript tuple"),
                     }
@@ -1263,7 +1268,7 @@ impl<'a> Analyzer<'a> {
                                 self.analyze_expression(lookup_expr, &unsigned_int_context);
 
                             let slice_type = SliceViewType {
-                                element: Box::new(*element_type_in_slice.clone()),
+                                element: Box::new(element_type_in_slice.as_ref().clone()),
                             };
 
                             self.add_postfix(
@@ -1285,7 +1290,8 @@ impl<'a> Analyzer<'a> {
                         | TypeKind::VecStorage(element_type, _)
                         | TypeKind::DynamicLengthVecView(element_type)
                         | TypeKind::SliceView(element_type) => {
-                            let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
+                            let int_type = self.shared.state.types.int();
+                            let unsigned_int_context = TypeContext::new_argument(&int_type);
                             let unsigned_int_expression =
                                 self.analyze_expression(lookup_expr, &unsigned_int_context);
 
@@ -1296,16 +1302,17 @@ impl<'a> Analyzer<'a> {
                             self.add_postfix(
                                 &mut suffixes,
                                 PostfixKind::VecSubscript(vec_type, unsigned_int_expression),
-                                *element_type.clone(),
+                                element_type.clone(),
                                 &lookup_expr.node,
                             );
 
                             // Keep previous mutable
-                            tv.resolved_type = *element_type.clone();
+                            tv.resolved_type = element_type.clone();
                         }
                         TypeKind::SparseStorage(element_type, _)
                         | TypeKind::SparseView(element_type) => {
-                            let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
+                            let int_type = self.shared.state.types.int();
+                            let unsigned_int_context = TypeContext::new_argument(&int_type);
                             let unsigned_int_expression =
                                 self.analyze_expression(lookup_expr, &unsigned_int_context);
 
@@ -1329,19 +1336,19 @@ impl<'a> Analyzer<'a> {
                             let key_expression = self.analyze_expression(lookup_expr, &key_context);
 
                             let map_type = MapType {
-                                key: Box::from(*key_type.clone()),
-                                value: Box::from(*value_type.clone()),
+                                key: Box::from(key_type.as_ref().clone()),
+                                value: Box::from(value_type.as_ref().clone()),
                             };
 
                             self.add_postfix(
                                 &mut suffixes,
                                 PostfixKind::MapSubscript(map_type, key_expression),
-                                *value_type.clone(),
+                                value_type.clone(),
                                 &lookup_expr.node,
                             );
 
                             // Keep previous mutable
-                            tv.resolved_type = *value_type.clone();
+                            tv.resolved_type = value_type.clone();
                         }
                         _ => {
                             eprintln!("xwhat is this: {collection_type:?}");
@@ -1508,7 +1515,7 @@ impl<'a> Analyzer<'a> {
                         );
                         tv.resolved_type = *unwrapped_type.clone();
                     } else {
-                        return Err(self.create_err(ErrorKind::ExpectedOptional, option_node));
+                        return self.create_err(ErrorKind::ExpectedOptional, option_node);
                     }
                 }
             }
@@ -1860,7 +1867,13 @@ impl<'a> Analyzer<'a> {
             TypeKind::Range(_) => (None, self.types().int()),
             _ => {
                 error!(?resolved_type, "not an iterator");
-                return Err(self.create_err(ErrorKind::NotAnIterator, &expression.node));
+                return Iterable {
+                    key_type: None,
+                    value_type: self.shared.state.types.unit(),
+                    resolved_expression: Box::new(
+                        self.create_err(ErrorKind::NotAnIterator, &expression.node),
+                    ),
+                };
             }
         };
 
@@ -1872,11 +1885,11 @@ impl<'a> Analyzer<'a> {
             // The value_type stays the same, mutability is tracked separately
         }
 
-        Ok(Iterable {
+        Iterable {
             key_type,
             value_type,
             resolved_expression: Box::new(resolved_expression),
-        })
+        }
     }
 
     fn analyze_argument_expressions(
@@ -1900,7 +1913,7 @@ impl<'a> Analyzer<'a> {
         ast_expressions: &[swamp_ast::Expression],
     ) -> (Vec<Expression>, TypeRef) {
         if ast_expressions.is_empty() {
-            return Ok((vec![], self.shared.state.types.unit()));
+            return (vec![], self.shared.state.types.unit());
         }
 
         self.push_block_scope("block");
@@ -1908,7 +1921,8 @@ impl<'a> Analyzer<'a> {
         let mut resolved_expressions = Vec::with_capacity(ast_expressions.len());
 
         for expression in &ast_expressions[..ast_expressions.len() - 1] {
-            let stmt_context = context.with_expected_type(Some(&TypeKind::Unit));
+            let unit_type = self.shared.state.types.unit();
+            let stmt_context = context.with_expected_type(Some(&unit_type));
             let expr = self.analyze_expression(expression, &stmt_context);
 
             resolved_expressions.push(expr);
@@ -2077,11 +2091,11 @@ impl<'a> Analyzer<'a> {
         entries: &[(swamp_ast::Expression, swamp_ast::Expression)],
     ) -> (Vec<(Expression, Expression)>, TypeRef, TypeRef) {
         if entries.is_empty() {
-            return Ok((
+            return (
                 vec![],
                 self.shared.state.types.unit(),
                 self.shared.state.types.unit(),
-            ));
+            );
         }
 
         // Resolve first entry to determine map types
@@ -2109,13 +2123,11 @@ impl<'a> Analyzer<'a> {
                 .types
                 .compatible_with(&resolved_key.ty, &key_type)
             {
-                return Err(self.create_err(
-                    ErrorKind::MapKeyTypeMismatch {
-                        expected: key_type,
-                        found: resolved_key.ty,
-                    },
-                    node,
-                ));
+                return (
+                    vec![],
+                    self.shared.state.types.unit(),
+                    self.shared.state.types.unit(),
+                );
             }
 
             if !self
@@ -2124,13 +2136,11 @@ impl<'a> Analyzer<'a> {
                 .types
                 .compatible_with(&resolved_value.ty, &value_type)
             {
-                return Err(self.create_err(
-                    ErrorKind::MapValueTypeMismatch {
-                        expected: value_type,
-                        found: resolved_value.ty,
-                    },
-                    node,
-                ));
+                return (
+                    vec![],
+                    self.shared.state.types.unit(),
+                    self.shared.state.types.unit(),
+                );
             }
 
             resolved_entries.push((resolved_key, resolved_value));
@@ -2746,7 +2756,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if found_wildcard.is_none() {
-            return Err(self.create_err(ErrorKind::GuardMustHaveWildcard, node));
+            return self.create_err(ErrorKind::GuardMustHaveWildcard, node);
         }
 
         let kind = ExpressionKind::Guard(guards);
@@ -2768,7 +2778,7 @@ impl<'a> Analyzer<'a> {
         context: &TypeContext,
     ) -> Expression {
         let TypeKind::Function(signature) = &context.expected_type.unwrap() else {
-            return Err(self.create_err(ErrorKind::ExpectedLambda, node));
+            return self.create_err(ErrorKind::ExpectedLambda, node);
         };
 
         let return_block_type = TypeContext::new_argument(&signature.return_type);
@@ -2933,11 +2943,7 @@ impl<'a> Analyzer<'a> {
             if !found_var.is_mutable() {
                 return self.create_err(ErrorKind::VariableIsNotMutable, &variable.name);
             }
-            if !found_var
-                .resolved_type
-                .underlying()
-                .assignable_type(&ty.underlying())
-            {
+            if !found_var.resolved_type.kind.assignable_type(&*ty.kind) {
                 return self.create_err(
                     ErrorKind::IncompatibleTypes {
                         expected: ty,
@@ -2989,8 +2995,8 @@ impl<'a> Analyzer<'a> {
                 let result = self.analyze_expression(&source_expression, &debug_context);
                 if let Ok(worked_without_annotation) = result {
                     if annotated_type
-                        .underlying()
-                        .same_as(&worked_without_annotation.ty.underlying())
+                        .kind
+                        .same_as(&*worked_without_annotation.ty.kind)
                     {
                         let identifier_name = self.get_text(&var.name);
                         eprintln!(
@@ -3085,7 +3091,7 @@ impl<'a> Analyzer<'a> {
 
                     ty = return_type.clone();
                 }
-                swamp_ast::Postfix::SubscriptTuple(x_expr, y_expr) => match &ty.underlying() {
+                swamp_ast::Postfix::SubscriptTuple(x_expr, y_expr) => match &*ty.kind {
                     TypeKind::GridView(element_type)
                     | TypeKind::GridStorage(element_type, _, _) => {
                         let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
@@ -3210,7 +3216,13 @@ impl<'a> Analyzer<'a> {
                 }
 
                 swamp_ast::Postfix::MemberCall(node, _generic_arguments, _regular_args) => {
-                    return Err(self.create_err(ErrorKind::CallsCanNotBePartOfChain, node));
+                    return SingleLocationExpression {
+                        kind: MutableReferenceKind::MutVariableRef,
+                        node: self.to_node(node),
+                        ty: self.shared.state.types.unit(),
+                        starting_variable: start_variable,
+                        access_chain: vec![],
+                    };
                 }
                 /*
                 swamp_ast::Postfix::AdvancedFunctionCall(_, node, ..) => {
@@ -3219,15 +3231,31 @@ impl<'a> Analyzer<'a> {
 
                  */
                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, _regular_args) => {
-                    return Err(self.create_err(ErrorKind::CallsCanNotBePartOfChain, node));
+                    return SingleLocationExpression {
+                        kind: MutableReferenceKind::MutVariableRef,
+                        node: self.to_node(node),
+                        ty: self.shared.state.types.unit(),
+                        starting_variable: start_variable,
+                        access_chain: vec![],
+                    };
                 }
                 swamp_ast::Postfix::OptionalChainingOperator(node) => {
-                    return Err(self.create_err(ErrorKind::UnwrapCanNotBePartOfChain, node));
+                    return SingleLocationExpression {
+                        kind: MutableReferenceKind::MutVariableRef,
+                        node: self.to_node(node),
+                        ty: self.shared.state.types.unit(),
+                        starting_variable: start_variable,
+                        access_chain: vec![],
+                    };
                 }
                 swamp_ast::Postfix::NoneCoalescingOperator(expr) => {
-                    return Err(
-                        self.create_err(ErrorKind::NoneCoalesceCanNotBePartOfChain, &expr.node)
-                    );
+                    return SingleLocationExpression {
+                        kind: MutableReferenceKind::MutVariableRef,
+                        node: self.to_node(&expr.node),
+                        ty: self.shared.state.types.unit(),
+                        starting_variable: start_variable,
+                        access_chain: vec![],
+                    };
                 }
             }
         }
