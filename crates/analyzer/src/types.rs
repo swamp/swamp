@@ -14,12 +14,12 @@ impl Analyzer<'_> {
         &mut self,
         ast_key_type: &swamp_ast::Type,
         ast_value_type: &swamp_ast::Type,
-    ) -> Result<(TypeRef, TypeRef), Error> {
+    ) -> (TypeRef, TypeRef) {
         let key_type = self.analyze_type(ast_key_type);
         let value_type = self.analyze_type(ast_value_type);
 
         // Using TypeCache to ensure proper type comparison and creation
-        Ok((key_type, value_type))
+        (key_type, value_type)
     }
 
     /// # Errors

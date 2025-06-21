@@ -219,7 +219,7 @@ impl Analyzer<'_> {
                 }
             };
 
-            let enum_variant_type = EnumVariantType {
+            let enum_variant_type = swamp_types::prelude::EnumVariantType {
                 common,
                 payload_type,
             };

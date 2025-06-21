@@ -833,8 +833,10 @@ impl<'a> Analyzer<'a> {
             swamp_ast::ExpressionKind::Lambda(variables, expression) => {
                 self.analyze_lambda(&ast_expression.node, variables, expression, context)
             }
-            swamp_ast::ExpressionKind::Error => todo!(),
-            _ => {}
+            swamp_ast::ExpressionKind::Error => {
+                self.create_err(ErrorKind::UnexpectedType, &ast_expression.node)
+            }
+            _ => self.create_err(ErrorKind::UnexpectedType, &ast_expression.node),
         };
 
         //info!(ty=%expression.ty, kind=?expression.kind,  "resolved expression");
@@ -984,10 +986,11 @@ impl<'a> Analyzer<'a> {
         self.lookup_associated_function(ty, function_name)
             .map_or_else(
                 || {
-                    Err(self.create_err(
+                    self.create_err(
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
-                    ))
+                    )
+                    .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -1002,12 +1005,13 @@ impl<'a> Analyzer<'a> {
                             arguments.to_vec(),
                         );
 
-                        Ok(expr_kind)
+                        expr_kind
                     } else {
-                        Err(self.create_err(
+                        self.create_err(
                             ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                             node,
-                        ))
+                        )
+                        .kind
                     }
                 },
             )
@@ -1063,10 +1067,24 @@ impl<'a> Analyzer<'a> {
                 if let TypeKind::NamedStruct(named_struct) = &*range_struct_ref.kind {
                     named_struct.anon_struct_type.clone()
                 } else {
-                    return Err(self.create_err(ErrorKind::UnknownStructField, field_name));
+                    self.add_err(ErrorKind::UnknownStructField, field_name);
+                    // Return fallback values
+                    return (
+                        AnonymousStructType::new(SeqMap::new()),
+                        0,
+                        self.shared.state.types.unit(),
+                    );
                 }
             }
-            _ => return Err(self.create_err(ErrorKind::UnknownStructField, field_name)),
+            _ => {
+                self.add_err(ErrorKind::UnknownStructField, field_name);
+                // Return fallback values
+                return (
+                    AnonymousStructType::new(SeqMap::new()),
+                    0,
+                    self.shared.state.types.unit(),
+                );
+            }
         };
 
         // Extract the AnonymousStructType from the TypeRef
@@ -1077,11 +1095,17 @@ impl<'a> Analyzer<'a> {
                     .get_index(&field_name_str)
                     .expect("checked earlier");
 
-                return Ok((anon_struct.clone(), index, found_field.field_type.clone()));
+                return (anon_struct.clone(), index, found_field.field_type.clone());
             }
         }
 
-        Err(self.create_err(ErrorKind::UnknownStructField, field_name))
+        self.add_err(ErrorKind::UnknownStructField, field_name);
+        // Return fallback values
+        (
+            AnonymousStructType::new(SeqMap::new()),
+            0,
+            self.shared.state.types.unit(),
+        )
     }
 
     pub fn analyze_static_call(
@@ -1112,7 +1136,7 @@ impl<'a> Analyzer<'a> {
             }
         };
 
-        Ok(self.create_expr(expr_kind, *signature.return_type.clone(), ast_node))
+        self.create_expr(expr_kind, signature.return_type.clone(), ast_node)
     }
 
     #[allow(clippy::too_many_lines)]
@@ -1231,9 +1255,10 @@ impl<'a> Analyzer<'a> {
 
                 swamp_ast::Postfix::Subscript(lookup_expr) => {
                     let collection_type = tv.resolved_type.clone();
-                    match &collection_type.underlying() {
+                    match &*collection_type.kind {
                         TypeKind::FixedCapacityAndLengthArray(element_type_in_slice, _) => {
-                            let unsigned_int_context = TypeContext::new_argument(&TypeKind::Int);
+                            let int_type = self.shared.state.types.int();
+                            let unsigned_int_context = TypeContext::new_argument(&int_type);
                             let unsigned_int_expression =
                                 self.analyze_expression(lookup_expr, &unsigned_int_context);
 
@@ -1449,16 +1474,15 @@ impl<'a> Analyzer<'a> {
                 }
 
                 swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
-                    let unwrapped_type =
-                        if let TypeKind::Optional(unwrapped_type) = &tv.resolved_type {
-                            unwrapped_type
-                        } else if uncertain {
-                            &tv.resolved_type
-                        } else {
-                            return Err(
-                                self.create_err(ErrorKind::CanNotNoneCoalesce, &default_expr.node)
-                            );
-                        };
+                    let unwrapped_type = if let TypeKind::Optional(unwrapped_type) =
+                        &tv.resolved_type
+                    {
+                        unwrapped_type
+                    } else if uncertain {
+                        &tv.resolved_type
+                    } else {
+                        return self.create_err(ErrorKind::CanNotNoneCoalesce, &default_expr.node);
+                    };
 
                     let unwrapped_type_context = TypeContext::new_argument(unwrapped_type);
                     let resolved_default_expr =
@@ -1497,11 +1521,11 @@ impl<'a> Analyzer<'a> {
             }
         }
 
-        Ok(self.create_expr(
+        self.create_expr(
             ExpressionKind::PostfixChain(start_of_chain, suffixes),
             tv.resolved_type,
             &chain.base.node,
-        ))
+        )
     }
 
     fn analyze_bool_argument_expression(
@@ -1920,7 +1944,7 @@ impl<'a> Analyzer<'a> {
 
                     let expr = self.analyze_expression(expression, &any_context);
 
-                    let ty = expr.ty.underlying().clone();
+                    let ty = (*expr.ty.kind).clone();
 
                     let maybe_to_string = self
                         .shared
@@ -1934,7 +1958,7 @@ impl<'a> Analyzer<'a> {
                         let underlying = if let TypeKind::Optional(inner_type) = ty {
                             *inner_type.clone()
                         } else {
-                            ty.underlying().clone()
+                            (*ty.kind).clone()
                         };
                         if maybe_to_string.is_none() {
                             return self.create_expr(
@@ -2079,7 +2103,12 @@ impl<'a> Analyzer<'a> {
             let resolved_key = self.analyze_expression(key, &key_context);
             let resolved_value = self.analyze_expression(value, &value_context);
 
-            if !resolved_key.ty.compatible_with(&key_type) {
+            if !self
+                .shared
+                .state
+                .types
+                .compatible_with(&resolved_key.ty, &key_type)
+            {
                 return Err(self.create_err(
                     ErrorKind::MapKeyTypeMismatch {
                         expected: key_type,
@@ -2089,7 +2118,12 @@ impl<'a> Analyzer<'a> {
                 ));
             }
 
-            if !resolved_value.ty.compatible_with(&value_type) {
+            if !self
+                .shared
+                .state
+                .types
+                .compatible_with(&resolved_value.ty, &value_type)
+            {
                 return Err(self.create_err(
                     ErrorKind::MapValueTypeMismatch {
                         expected: value_type,
@@ -2887,7 +2921,7 @@ impl<'a> Analyzer<'a> {
             let any_type_context = TypeContext::new_anything_argument();
             self.analyze_expression(source_expression, &any_type_context)
         };
-        let ty = source_expr.ty.clone().underlying().clone();
+        let ty = (*source_expr.ty.kind).clone();
         if !ty.can_be_stored_in_variable() {
             let debug_text = self.get_text(&variable.name);
             if !debug_text.starts_with('_') {

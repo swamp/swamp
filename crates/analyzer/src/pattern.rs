@@ -5,20 +5,21 @@
 use crate::Analyzer;
 use crate::err::{Error, ErrorKind};
 use swamp_semantic::{NormalPattern, Pattern, PatternElement};
-use swamp_types::prelude::*;
+use swamp_types::prelude::EnumVariantType as TypesEnumVariantType;
+use swamp_types::prelude::{EnumVariantCommon, TypeKind, TypeRef};
 
 impl Analyzer<'_> {
     fn find_variant_in_pattern(
         &mut self,
         expression_type: &TypeRef,
         ast_name: &swamp_ast::Node,
-    ) -> EnumVariantType {
+    ) -> TypesEnumVariantType {
         let enum_type_ref = match &*expression_type.kind {
             TypeKind::Enum(enum_type_ref) => enum_type_ref,
             _ => {
                 self.add_err(ErrorKind::ExpectedEnumInPattern, ast_name);
 
-                return EnumVariantType {
+                return TypesEnumVariantType {
                     common: EnumVariantCommon {
                         name: Default::default(),
                         assigned_name: "".to_string(),
@@ -35,7 +36,7 @@ impl Analyzer<'_> {
             Some(variant) => variant.clone(),
             None => {
                 self.add_err(ErrorKind::UnknownEnumVariantTypeInPattern, ast_name);
-                EnumVariantType {
+                TypesEnumVariantType {
                     common: EnumVariantCommon {
                         name: Default::default(),
                         assigned_name: "".to_string(),
@@ -51,10 +52,10 @@ impl Analyzer<'_> {
         &mut self,
         ast_pattern: &swamp_ast::Pattern,
         expected_condition_type: &TypeRef,
-    ) -> Result<(Pattern, bool, bool), Error> {
+    ) -> (Pattern, bool, bool) {
         match ast_pattern {
             swamp_ast::Pattern::Wildcard(node) => {
-                Ok((Pattern::Wildcard(self.to_node(node)), false, false))
+                (Pattern::Wildcard(self.to_node(node)), false, false)
             }
             swamp_ast::Pattern::NormalPattern(node, normal_pattern, maybe_guard) => {
                 let (normal_pattern, was_pushed, wanted_mutable) =
@@ -70,11 +71,11 @@ impl Analyzer<'_> {
                 } else {
                     None
                 };
-                Ok((
+                (
                     Pattern::Normal(normal_pattern, resolved_guard),
                     was_pushed,
                     wanted_mutable,
-                ))
+                )
             }
         }
     }
