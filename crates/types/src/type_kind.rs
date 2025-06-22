@@ -61,11 +61,11 @@ impl Display for TypeKind {
             Self::Int => write!(f, "int"),
             Self::Float => write!(f, "float"),
             Self::String => write!(f, "string"),
-            Self::StringStorage(typeref, capacity) => write!(f, "String<{capacity}>"),
+            Self::StringStorage(_typeref, capacity) => write!(f, "String<{capacity}>"),
             Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "()"),
             Self::Tuple(types) => write!(f, "({})", seq_fmt::comma(types)),
-            Self::NamedStruct(named_struct) => write!(f, "{named_struct}"),
+            Self::NamedStruct(named_struct) => write!(f, "{named_struct}",),
             Self::AnonymousStruct(anon_struct) => write!(f, "{anon_struct}"),
             Self::Range(range) => {
                 if let Self::NamedStruct(named_struct) = &*range.kind {

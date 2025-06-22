@@ -66,6 +66,7 @@ fn main() -> ExitCode {
     };
 
     let show_semantic = args.contains(["-s", "--show-semantic"]);
+    let show_types = args.contains(["-t", "--show-types"]);
     let show_modules = args.contains(["-m", "--show-modules"]);
     let show_assembly = args.contains(["-a", "--show-assembly"]);
     let debug_codegen = args.contains("--debug-codegen");
@@ -88,6 +89,7 @@ fn main() -> ExitCode {
             show_semantic,
             show_modules,
             show_errors: true,
+            show_types,
         },
         code_gen_options: CodeGenOptions {
             show_disasm: show_assembly,

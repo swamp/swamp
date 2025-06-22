@@ -2,14 +2,23 @@ use crate::{Type, TypeRef};
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::{Debug, Display};
+use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamedStructType {
     pub name: Node,
     pub module_path: Vec<String>,
     pub assigned_name: String,
     pub anon_struct_type: TypeRef,
     pub instantiated_type_parameters: Vec<Type>,
+}
+
+impl Hash for NamedStructType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.module_path.hash(state);
+        state.write(self.assigned_name.as_ref());
+        self.instantiated_type_parameters.hash(state);
+    }
 }
 
 impl NamedStructType {
@@ -46,9 +55,17 @@ impl NamedStructType {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AnonymousStructType {
     pub field_name_sorted_fields: SeqMap<String, StructTypeField>,
+}
+impl Hash for AnonymousStructType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for (name, field) in &self.field_name_sorted_fields {
+            name.hash(state);
+            field.field_type.id.0.hash(state);
+        }
+    }
 }
 
 impl AnonymousStructType {

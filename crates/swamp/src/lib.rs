@@ -49,6 +49,7 @@ pub fn compile_and_analyze(
     let options = CompileOptions {
         show_semantic: false,
         show_modules: false,
+        show_types: false,
         show_errors: true,
     };
     swamp_compile::bootstrap_and_compile(source_map, module_path, &options)

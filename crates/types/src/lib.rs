@@ -3,6 +3,7 @@ mod calc_compat;
 mod flag_helper;
 mod flags;
 pub mod prelude;
+mod pretty_print;
 mod supporting_types;
 mod type_kind;
 
@@ -45,7 +46,7 @@ pub type TypeRef = Rc<Type>;
 
 impl Display for Type {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}>{}", self.id, self.kind)
+        write!(f, "{}|{}", self.id, self.kind)
     }
 }
 

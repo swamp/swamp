@@ -164,6 +164,7 @@ pub struct TestRunOptions {
     pub show_semantic: bool,
     pub show_assembly: bool,
     pub show_modules: bool,
+    pub show_types: bool,
     pub step_behaviour: StepBehavior,
 }
 
@@ -219,6 +220,7 @@ pub fn run_tests(
         compile_options: CompileOptions {
             show_semantic: options.show_semantic,
             show_modules: options.show_modules,
+            show_types: options.show_types,
             show_errors: true,
         },
         code_gen_options: CodeGenOptions {

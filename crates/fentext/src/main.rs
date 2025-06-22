@@ -26,6 +26,7 @@ pub fn compile() -> Option<CompileCodeGenVmResult> {
         compile_options: CompileOptions {
             show_semantic: false,
             show_modules: false,
+            show_types: false,
             show_errors: true,
         },
         code_gen_options: CodeGenOptions {

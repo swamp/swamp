@@ -6,6 +6,7 @@ pub use crate::{
     TypeId, TypeRef,
     cache::TypeCache,
     flags::TypeFlags,
+    pretty_print::print_types,
     supporting_types::{
         AnonymousStructType, EnumType, EnumVariantCommon, EnumVariantType, NamedStructType,
         ParameterNode, Signature, StructTypeField, TypeForParameter,

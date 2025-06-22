@@ -1335,7 +1335,8 @@ impl<'a> Analyzer<'a> {
                         }
                         _ => {
                             eprintln!("xwhat is this: {collection_type:?}");
-                            todo!()
+                            return self
+                                .create_err(ErrorKind::MissingSubscriptMember, &lookup_expr.node);
                         }
                     }
 

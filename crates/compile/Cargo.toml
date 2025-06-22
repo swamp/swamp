@@ -18,6 +18,7 @@ swamp-error-report = { path = "../err", version = "0.1.16" }
 swamp-modules = { path = "../modules", version = "0.1.16" }
 swamp-dep-loader = { path = "../dep-loader", version = "0.1.16" }
 swamp-program-analyzer = { path = "../program-analyzer", version = "0.1.16" }
+swamp-types = { path = "../types", version = "0.1.16" }
 
 # Core
 swamp-core = { path = "../core", version = "0.1.16" }

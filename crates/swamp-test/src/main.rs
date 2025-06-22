@@ -90,6 +90,7 @@ fn main() -> ExitCode {
     let show_debug = args.contains(["-d", "--debug"]);
     let show_assembly = args.contains(["-a", "--show-assembly"]);
     let show_semantic = args.contains(["-s", "--show-semantic"]);
+    let show_types = args.contains(["-t", "--show-types"]);
     let show_modules = args.contains(["-m", "--show-modules"]);
     let show_instructions = args.contains(["-i", "--show-instructions"]);
     let show_operations = args.contains(["-o", "--show-operations"]);
@@ -125,6 +126,7 @@ fn main() -> ExitCode {
             show_semantic,
             show_assembly: show_debug | show_assembly,
             show_modules,
+            show_types,
             step_behaviour: step_behavior,
         },
         &filter_pattern.unwrap_or_default(),

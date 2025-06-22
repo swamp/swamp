@@ -8,6 +8,7 @@ use source_map_cache::SourceMap;
 use source_map_cache::SourceMapWrapper;
 use std::env::current_dir;
 use std::io;
+use std::io::stdout;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -27,6 +28,7 @@ use swamp_pretty_print::{ImplsDisplay, SourceMapDisplay, SymbolTableDisplay};
 use swamp_program_analyzer::analyze_modules_in_order;
 use swamp_semantic::err::Error;
 use swamp_semantic::{AssociatedImpls, ProgramState, formal_module_name, pretty_module_name};
+use swamp_types::prelude::print_types;
 use time_dilation::ScopedTimer;
 use tiny_ver::TinyVersion;
 use tracing::{info, trace};
@@ -741,6 +743,7 @@ pub struct CompileOptions {
     pub show_semantic: bool,
     pub show_modules: bool,
     pub show_errors: bool,
+    pub show_types: bool,
 }
 
 /// # Errors
@@ -793,6 +796,13 @@ pub fn bootstrap_and_compile(
 
     if options.show_semantic {
         debug_all_impl_functions(&program.state.associated_impls, source_map);
+    }
+
+    if options.show_types {
+        let mut str = String::new();
+        print_types(&mut str, &program.state.types).expect("should work");
+        eprintln!("{}", str);
+        //info!(str, "types");
     }
 
     if options.show_errors && !program.state.errors.is_empty() {
@@ -875,6 +885,7 @@ pub fn compile_string(script: &str) -> Result<(Program, ModuleRef, SourceMap), S
         show_semantic: false,
         show_modules: false,
         show_errors: true,
+        show_types: false,
     };
     let program = bootstrap_and_compile(&mut source_map, &resolved_path_str, &compile_options)?;
     let main_module = program.modules.get(&resolved_path_str).unwrap().clone();
