@@ -219,6 +219,7 @@ pub fn run_tests(
         compile_options: CompileOptions {
             show_semantic: options.show_semantic,
             show_modules: options.show_modules,
+            show_errors: true,
         },
         code_gen_options: CodeGenOptions {
             show_disasm: options.show_assembly,

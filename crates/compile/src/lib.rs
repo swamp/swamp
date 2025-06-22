@@ -18,12 +18,14 @@ use swamp_dep_loader::{
     DependencyParser, ParsedAstModule, parse_local_modules_and_get_order, parse_single_module,
     parse_single_module_from_text, swamp_registry_path,
 };
+use swamp_error_report::analyze::show_analyzer_error;
 use swamp_error_report::{ScriptResolveError, prelude::show_script_resolve_error};
 use swamp_modules::modules::{ModuleRef, Modules, pretty_print};
 use swamp_modules::prelude::Module;
 use swamp_modules::symtbl::{SymbolTable, SymbolTableRef};
 use swamp_pretty_print::{ImplsDisplay, SourceMapDisplay, SymbolTableDisplay};
 use swamp_program_analyzer::analyze_modules_in_order;
+use swamp_semantic::err::Error;
 use swamp_semantic::{AssociatedImpls, ProgramState, formal_module_name, pretty_module_name};
 use time_dilation::ScopedTimer;
 use tiny_ver::TinyVersion;
@@ -508,7 +510,7 @@ pub fn bootstrap_modules(
         source_map_display: &source_map_display,
     };
 
-    info!(%symbol_table_display, "default module ready");
+    //info!(%symbol_table_display, "default module ready");
 
     //    let std_path = &["std".to_string(), "lib".to_string()];
     let std_path = &["std".to_string()];
@@ -738,6 +740,7 @@ pub fn current_path() -> PathBuf {
 pub struct CompileOptions {
     pub show_semantic: bool,
     pub show_modules: bool,
+    pub show_errors: bool,
 }
 
 /// # Errors
@@ -792,7 +795,25 @@ pub fn bootstrap_and_compile(
         debug_all_impl_functions(&program.state.associated_impls, source_map);
     }
 
+    if options.show_errors && !program.state.errors.is_empty() {
+        let source_map_wrapper = SourceMapWrapper {
+            source_map,
+            current_dir: current_dir().unwrap(),
+        };
+        show_errors(&program.state.errors, &source_map_wrapper);
+    }
+
     Ok(program)
+}
+
+fn show_errors(errors: &[Error], source_map_wrapper: &SourceMapWrapper) {
+    for err in errors {
+        show_analyzer_error(
+            err,
+            source_map_wrapper.source_map,
+            &source_map_wrapper.current_dir,
+        );
+    }
 }
 
 pub fn debug_all_modules(modules: &Modules, source_map: &SourceMap) {
@@ -853,6 +874,7 @@ pub fn compile_string(script: &str) -> Result<(Program, ModuleRef, SourceMap), S
     let compile_options = CompileOptions {
         show_semantic: false,
         show_modules: false,
+        show_errors: true,
     };
     let program = bootstrap_and_compile(&mut source_map, &resolved_path_str, &compile_options)?;
     let main_module = program.modules.get(&resolved_path_str).unwrap().clone();

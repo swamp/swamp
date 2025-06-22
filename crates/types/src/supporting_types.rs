@@ -184,6 +184,8 @@ pub struct EnumType {
     pub instantiated_type_parameters: Vec<Type>,
 }
 
+impl EnumType {}
+
 impl EnumType {
     #[must_use]
     pub fn new(name: Node, assigned_name: &str, module_path: Vec<String>) -> Self {
@@ -207,10 +209,22 @@ impl EnumType {
     }
 
     #[must_use]
-    pub fn are_all_variants_without_payload(&self) -> bool {
-        self.variants
-            .iter()
-            .all(|(_name, variant)| variant.payload_type.is_unit())
+    pub fn are_all_variants_with_blittable_payload(&self) -> bool {
+        self.variants.iter().all(|(_name, variant)| {
+            if !variant.payload_type.is_blittable() {
+                panic!("what is wrong with this variant {variant}");
+            }
+            variant.payload_type.is_blittable()
+        })
+    }
+
+    pub(crate) fn are_all_variants_with_storage_payload(&self) -> bool {
+        self.variants.iter().all(|(_name, variant)| {
+            if !variant.payload_type.is_storage() {
+                eprintln!("this variant can not be stored, please verify why {self}::{variant}");
+            }
+            variant.payload_type.is_storage()
+        })
     }
 
     #[must_use]

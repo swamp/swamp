@@ -7,7 +7,8 @@ use crate::{
     HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryRegion,
     InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
     MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryLocation,
-    MemoryOffset, MemorySize, ProgramCounterDelta, RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
+    MemoryOffset, MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
     VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
     align_to,
 };
@@ -551,31 +552,23 @@ pub fn bytes_type() -> BasicTypeRef {
 }
 
 #[must_use]
-pub const fn range_type() -> BasicTypeRef {
-    todo!();
-    /*
+pub const fn range_type() -> BasicType {
     BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::InternalRangeHeader,
         total_size: RANGE_HEADER_SIZE,
         max_alignment: RANGE_HEADER_ALIGNMENT,
     }
-
-     */
 }
 
 #[must_use]
-pub const fn range_iter_type() -> BasicTypeRef {
-    todo!();
-    /*
+pub const fn range_iter_type() -> BasicType {
     BasicType {
         id: BasicTypeId::EMPTY,
         kind: BasicTypeKind::InternalRangeIterator,
         total_size: RANGE_ITERATOR_SIZE,
         max_alignment: RANGE_ITERATOR_ALIGNMENT,
     }
-
-     */
 }
 
 #[must_use]
@@ -597,16 +590,6 @@ pub fn unknown_type() -> BasicTypeRef {
         total_size: MemorySize(0),
         max_alignment: MemoryAlignment::U8,
     })
-}
-
-#[must_use]
-pub const fn unit_type() -> BasicType {
-    BasicType {
-        id: BasicTypeId::EMPTY,
-        kind: BasicTypeKind::Empty,
-        total_size: MemorySize(0),
-        max_alignment: MemoryAlignment::U8,
-    }
 }
 
 #[must_use]

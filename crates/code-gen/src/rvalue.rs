@@ -6,6 +6,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, ExpressionKind};
+use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
@@ -44,12 +45,18 @@ impl CodeBuilder<'_> {
         expr: &Expression,
         ctx: &Context,
     ) {
-        debug_assert!(expr.ty.is_bool(), "must have scalar type");
+        debug_assert!(
+            matches!(&*expr.ty.kind, TypeKind::Bool),
+            "must have scalar type"
+        );
         self.emit_expression(target_reg, expr, ctx);
     }
 
     pub fn emit_bool_value(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
-        debug_assert!(expr.ty.is_bool(), "must have scalar type");
+        debug_assert!(
+            matches!(&*expr.ty.kind, TypeKind::Bool),
+            "must have scalar type"
+        );
         self.emit_scalar_rvalue(expr, ctx)
     }
 

@@ -68,10 +68,9 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            ExpressionKind::InitializerPairList(slice_pair_type, pairs) => {
-                todo!() //self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
-            }
-
+            // ExpressionKind::InitializerPairList(slice_pair_type, pairs) => {
+            //   self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
+            //}
             _ => {}
         }
 

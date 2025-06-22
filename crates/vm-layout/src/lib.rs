@@ -168,15 +168,22 @@ impl LayoutCache {
         capacity: usize,
     ) -> (BasicTypeRef, MemorySize, MemoryAlignment) {
         let element_type_basic = self.layout_type(element_type);
+        let (mem_size, mem_alignment) =
+            self.layout_vec_like_from_basic(&element_type_basic, capacity);
+
+        (element_type_basic, mem_size, mem_alignment)
+    }
+
+    fn layout_vec_like_from_basic(
+        &mut self,
+        element_type_basic: &BasicTypeRef,
+        capacity: usize,
+    ) -> (MemorySize, MemoryAlignment) {
         let total_size =
             element_type_basic.total_size.0 as usize * capacity + VEC_HEADER_SIZE.0 as usize;
         let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
 
-        (
-            element_type_basic,
-            MemorySize(total_size as u32),
-            max_alignment,
-        )
+        (MemorySize(total_size as u32), max_alignment)
     }
 
     /// Computes the memory layout for a type in the target architecture.
@@ -264,6 +271,9 @@ impl LayoutCache {
         }
 
         let basic_type = match &*ty.kind {
+            TypeKind::Byte => {
+                create_basic_type(ty.id, BasicTypeKind::U8, MemorySize(1), MemoryAlignment::U8)
+            }
             TypeKind::Int => create_basic_type(
                 ty.id,
                 BasicTypeKind::S32,
@@ -285,6 +295,7 @@ impl LayoutCache {
                 STRING_PTR_SIZE,
                 STRING_PTR_ALIGNMENT,
             ),
+
             TypeKind::AnonymousStruct(struct_type) => {
                 self.layout_struct(struct_type, "anonymous", ty.id)
             }
@@ -309,6 +320,22 @@ impl LayoutCache {
 
                 // Also store the element type in id_to_layout
                 let _ = self.id_to_layout.insert(element_type.id, element_layout);
+
+                array_type
+            }
+            TypeKind::StringStorage(byte_type, capacity) => {
+                let (element_layout, element_size, element_alignment) =
+                    self.layout_vec_like(byte_type, *capacity);
+
+                let array_type = Rc::new(BasicType {
+                    id: BasicTypeId(ty.id.inner()),
+                    kind: BasicTypeKind::FixedCapacityArray(element_layout.clone(), *capacity),
+                    total_size: MemorySize(element_size.0 * (*capacity as u32)),
+                    max_alignment: element_alignment,
+                });
+
+                // Also store the element type in id_to_layout
+                let _ = self.id_to_layout.insert(byte_type.id, element_layout);
 
                 array_type
             }

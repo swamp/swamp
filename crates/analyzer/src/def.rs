@@ -541,7 +541,7 @@ impl Analyzer<'_> {
             .source_map
             .get_source_line(self.shared.file_id, line)
             .unwrap();
-        debug!(?line, ?col, ?source_line);
+        //debug!(?line, ?col, ?source_line);
     }
 
     /// # Errors

@@ -38,7 +38,6 @@ impl Display for TypeId {
 pub struct Type {
     pub id: TypeId,
     pub flags: TypeFlags,
-    pub is_mutable: bool,
     pub kind: Rc<TypeKind>,
 }
 
@@ -53,38 +52,8 @@ impl Display for Type {
 impl Type {
     #[inline]
     #[must_use]
-    pub const fn is_bool(&self) -> bool {
-        self.flags.contains(TypeFlags::IS_BOOL)
-    }
-
-    #[inline]
-    #[must_use]
-    pub const fn is_unit(&self) -> bool {
-        self.flags.contains(TypeFlags::IS_UNIT)
-    }
-
-    #[inline]
-    #[must_use]
-    pub const fn is_primitive(&self) -> bool {
-        self.flags.contains(TypeFlags::IS_PRIMITIVE)
-    }
-
-    #[inline]
-    #[must_use]
-    pub const fn is_concrete(&self) -> bool {
-        self.flags.contains(TypeFlags::IS_BLITTABLE)
-    }
-
-    #[inline]
-    #[must_use]
-    pub const fn is_concrete_or_unit(&self) -> bool {
-        self.flags.contains(TypeFlags::IS_BLITTABLE)
-    }
-
-    #[inline]
-    #[must_use]
-    pub const fn is_function_type(&self) -> bool {
-        self.flags.contains(TypeFlags::IS_FUNCTION_TYPE)
+    pub const fn is_scalar(&self) -> bool {
+        self.flags.contains(TypeFlags::IS_SCALAR)
     }
 
     #[inline]
@@ -97,6 +66,12 @@ impl Type {
     #[must_use]
     pub const fn can_be_stored_in_variable(&self) -> bool {
         self.flags.contains(TypeFlags::IS_BLITTABLE)
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn is_storage(&self) -> bool {
+        self.flags.contains(TypeFlags::IS_STORAGE)
     }
 
     #[inline]

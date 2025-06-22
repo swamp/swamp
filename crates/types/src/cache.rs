@@ -57,7 +57,6 @@ impl TypeCache {
         let type_instance = Type {
             id,
             flags,
-            is_mutable: false,
             kind: Rc::new(kind),
         };
 
@@ -75,7 +74,6 @@ impl TypeCache {
         let type_instance = Type {
             id,
             flags,
-            is_mutable,
             kind: Rc::new(kind),
         };
 
@@ -308,8 +306,7 @@ impl TypeCache {
         };
 
         self.compatible_cache.remove(&key);
-        self
-            .compatible_cache
+        self.compatible_cache
             .insert(key, result)
             .unwrap_or_else(|_| panic!("should be able to insert into cache {key:?}"));
 

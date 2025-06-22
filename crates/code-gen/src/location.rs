@@ -29,7 +29,7 @@ impl CodeBuilder<'_> {
     ) {
         match &argument_expression {
             ArgumentExpression::Expression(found_expression) => {
-                if found_expression.ty.is_primitive() {
+                if found_expression.ty.is_scalar() {
                     self.emit_expression_into_register(
                         target_reg,
                         found_expression,

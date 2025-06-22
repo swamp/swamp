@@ -21,13 +21,11 @@ impl Type {
             (TypeKind::Optional(_), TypeKind::Optional(_)) => true,
 
             (TypeKind::VecStorage(_, cap_a), TypeKind::VecStorage(_, cap_b)) => {
-                cap_a >= cap_b // Vec with larger capacity is compatible with smaller requirement
+                true // cap_a >= cap_b // Vec with larger capacity is compatible with smaller requirement
             }
-
             (TypeKind::SparseStorage(_, cap_a), TypeKind::SparseStorage(_, cap_b)) => {
-                cap_a >= cap_b
+                true // cap_a >= cap_b
             }
-
             (TypeKind::QueueStorage(_, cap_a), TypeKind::QueueStorage(_, cap_b)) => cap_a >= cap_b,
 
             (TypeKind::StackStorage(_, cap_a), TypeKind::StackStorage(_, cap_b)) => cap_a >= cap_b,
@@ -84,13 +82,33 @@ impl Type {
             }
 
             // Default case
+            _ => self.compatible_with_storage_and_view(other),
+        }
+    }
+
+    #[must_use]
+    pub fn compatible_with_storage_and_view(&self, other_view: &Self) -> bool {
+        let left_kind = self.lowest_common_denominator_vec_like_view();
+        let right_kind = self.lowest_common_denominator_vec_like_view();
+        if left_kind.is_some() && right_kind.is_some() {
+            let left = left_kind.unwrap();
+            let right = right_kind.unwrap();
+
+            return left == right;
+        }
+
+        match (&*self.kind, &*other_view.kind) {
+            (
+                TypeKind::MapStorage(key_a, value_a, _),
+                TypeKind::DynamicLengthMapView(key_b, value_b),
+            ) => key_a.do_compatible_with(key_b) && value_a.do_compatible_with(value_b),
             _ => false,
         }
     }
 
     // Helper method for lowest_common_denominator_view
     #[must_use]
-    pub fn lowest_common_denominator_view(&self) -> Option<TypeKind> {
+    pub fn lowest_common_denominator_vec_like_view(&self) -> Option<TypeKind> {
         match &*self.kind {
             TypeKind::FixedCapacityAndLengthArray(inner, _size)
             | TypeKind::QueueStorage(inner, _size)

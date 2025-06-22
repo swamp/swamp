@@ -1002,7 +1002,7 @@ pub fn disasm(
                 DecoratedOperandAccessKind::CountU16(logical_limit),
                 to_read_reg(operands[3], &bytes_type(), frame_memory_info),
                 DecoratedOperandAccessKind::CountU8(operands[4]), // Alignment byte
-                to_read_reg(operands[5], &range_type(), frame_memory_info),
+                to_read_reg(operands[5], &bytes_type(), frame_memory_info),
                 DecoratedOperandAccessKind::CountU8(operands[6]), // Alignment byte
             ]
         }

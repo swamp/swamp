@@ -87,6 +87,7 @@ fn main() -> ExitCode {
         compile_options: CompileOptions {
             show_semantic,
             show_modules,
+            show_errors: true,
         },
         code_gen_options: CodeGenOptions {
             show_disasm: show_assembly,

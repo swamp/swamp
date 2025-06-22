@@ -98,19 +98,9 @@ pub struct InternalFunctionDefinition {
 impl InternalFunctionDefinition {
     #[must_use]
     pub fn all_parameters_and_variables_are_concrete(&self) -> bool {
-        for var in &self.parameters {
-            if !var.resolved_type.is_concrete() || var.resolved_type.is_function_type() {
-                //warn!(?var.assigned_name, ?var.resolved_type, "skipping function due to not concrete parameters or variables");
-                return false;
-            }
-        }
+        for var in &self.parameters {}
 
-        for var in &self.function_variables {
-            if !var.resolved_type.is_concrete() || var.resolved_type.is_function_type() {
-                //warn!(?var.assigned_name, ?var.resolved_type, "skipping function due to not concrete parameters or variables");
-                return false;
-            }
-        }
+        for var in &self.function_variables {}
         true
     }
 }

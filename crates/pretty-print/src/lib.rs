@@ -642,9 +642,13 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         match &*resolved_type.kind {
+            TypeKind::Byte => write!(f, "{}", "Byte".bright_blue()),
             TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
             TypeKind::Float => write!(f, "{}", "Float".bright_blue()),
             TypeKind::String => write!(f, "{}", "String".bright_blue()),
+            TypeKind::StringStorage(ty, capacity) => {
+                write!(f, "{} {ty:?} {capacity}", "String".bright_blue())
+            }
             TypeKind::Bool => write!(f, "{}", "Bool".bright_blue()),
             TypeKind::Unit => write!(f, "{}", "()".bright_blue()),
             TypeKind::Range(_) => write!(f, "Range"),
@@ -699,9 +703,13 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         match &*resolved_type.kind {
+            TypeKind::Byte => write!(f, "{}", "Byte".bright_blue()),
             TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
             TypeKind::Float => write!(f, "{}", "Float".bright_blue()),
             TypeKind::String => write!(f, "{}", "String".bright_blue()),
+            TypeKind::StringStorage(ty, capacity) => {
+                write!(f, "{} {ty:?} {capacity}", "String".bright_blue())
+            }
             TypeKind::Bool => write!(f, "{}", "Bool".bright_blue()),
             TypeKind::Unit => write!(f, "{}", "()".bright_blue()),
             TypeKind::Range(_) => write!(f, "Range"),
@@ -753,9 +761,13 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         match &*resolved_type.kind {
+            TypeKind::Byte => write!(f, "{}", "Byte".bright_blue()),
             TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
             TypeKind::Float => write!(f, "{}", "Float".bright_blue()),
             TypeKind::String => write!(f, "{}", "String".bright_blue()),
+            TypeKind::StringStorage(ty, capacity) => {
+                write!(f, "{} {ty:?} {capacity}", "String".bright_blue())
+            }
             TypeKind::Bool => write!(f, "{}", "Bool".bright_blue()),
             TypeKind::Unit => write!(f, "{}", "()".bright_blue()),
             TypeKind::Range(_) => write!(f, "Range"),

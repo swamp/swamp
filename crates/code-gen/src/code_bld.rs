@@ -341,7 +341,7 @@ impl CodeBuilder<'_> {
                 // info!("this is others in block");
                 self.emit_statement(expr, ctx);
             }
-            if last.ty.is_unit() {
+            if matches!(&*last.ty.kind, TypeKind::Unit) {
                 self.emit_statement(last, ctx);
             } else {
                 //            info!(?last.ty, ?target_reg.ty, "this is the last in the block!");

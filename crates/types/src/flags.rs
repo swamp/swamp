@@ -12,15 +12,12 @@ impl Default for TypeFlags {
 
 impl TypeFlags {
     pub const NONE: Self = Self(0);
-    pub const IS_PRIMITIVE: Self = Self(1 << 0);
-    pub const IS_INT: Self = Self(1 << 1);
-    pub const IS_FLOAT: Self = Self(1 << 2);
-    pub const IS_STRING: Self = Self(1 << 3);
-    pub const IS_BOOL: Self = Self(1 << 4);
-    pub const IS_UNIT: Self = Self(1 << 5);
-    pub const IS_FUNCTION_TYPE: Self = Self(1 << 6);
-    pub const IS_BLITTABLE: Self = Self(1 << 7);
-    pub const IS_DIRECT: Self = Self(1 << 8);
+    /// Can it be copied without any extra logic
+    pub const IS_BLITTABLE: Self = Self(1 << 0);
+    /// Is the type self-contained in a register
+    pub const IS_SCALAR: Self = Self(1 << 1);
+    /// Can it be stored in a sum or product type
+    pub const IS_STORAGE: Self = Self(1 << 2);
 
     #[must_use]
     pub const fn new() -> Self {
@@ -29,7 +26,7 @@ impl TypeFlags {
 
     #[must_use]
     pub const fn contains(self, flag: Self) -> bool {
-        (self.0 & flag.0) == flag.0
+        (self.0 & flag.0) != 0
     }
 
     #[must_use]
@@ -38,6 +35,7 @@ impl TypeFlags {
     }
 
     /// Compute type flags based on the `TypeKind`
+    #[allow(clippy::too_many_lines)]
     #[must_use]
     pub fn compute_for_type_kind(kind: &TypeKind) -> Self {
         let mut flags = Self::NONE;
@@ -45,40 +43,39 @@ impl TypeFlags {
         match kind {
             TypeKind::Int => {
                 flags = flags
-                    .union(Self::IS_PRIMITIVE)
-                    .union(Self::IS_INT)
                     .union(Self::IS_BLITTABLE)
-                    .union(Self::IS_DIRECT);
+                    .union(Self::IS_STORAGE)
+                    .union(Self::IS_SCALAR);
             }
             TypeKind::Float => {
                 flags = flags
-                    .union(Self::IS_PRIMITIVE)
-                    .union(Self::IS_FLOAT)
                     .union(Self::IS_BLITTABLE)
-                    .union(Self::IS_DIRECT);
+                    .union(Self::IS_STORAGE)
+                    .union(Self::IS_SCALAR);
             }
             TypeKind::String => {
-                flags = flags.union(Self::IS_PRIMITIVE).union(Self::IS_STRING);
+                flags = flags.union(Self::IS_BLITTABLE).union(Self::IS_SCALAR); // Strings are "sort of" self-contained in a register
             }
             TypeKind::Bool => {
                 flags = flags
-                    .union(Self::IS_PRIMITIVE)
-                    .union(Self::IS_BOOL)
                     .union(Self::IS_BLITTABLE)
-                    .union(Self::IS_DIRECT);
+                    .union(Self::IS_STORAGE)
+                    .union(Self::IS_SCALAR);
             }
             TypeKind::Unit => {
                 flags = flags
-                    .union(Self::IS_PRIMITIVE)
-                    .union(Self::IS_UNIT)
                     .union(Self::IS_BLITTABLE)
-                    .union(Self::IS_DIRECT);
+                    .union(Self::IS_STORAGE)
+                    .union(Self::IS_SCALAR);
             }
-            TypeKind::Function(_) => {
-                flags = flags.union(Self::IS_FUNCTION_TYPE);
-            }
+            TypeKind::Function(_) => {}
             TypeKind::Enum(enum_type) => {
-                if enum_type.are_all_variants_without_payload() {
+                if enum_type.are_all_variants_with_blittable_payload() {
+                    flags = flags.union(Self::IS_BLITTABLE);
+                } else {
+                    panic!("enums should be blittable")
+                }
+                if enum_type.are_all_variants_with_storage_payload() {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
             }
@@ -100,11 +97,12 @@ impl TypeFlags {
                 }
             }
             TypeKind::AnonymousStruct(anon) => {
-                if anon
-                    .field_name_sorted_fields
-                    .iter()
-                    .all(|(_name, field)| field.field_type.flags.contains(Self::IS_BLITTABLE))
-                {
+                if anon.field_name_sorted_fields.iter().all(|(_name, field)| {
+                    if !field.field_type.is_blittable() {
+                        panic!("what is wrong with field: {field}");
+                    }
+                    field.field_type.flags.contains(Self::IS_BLITTABLE)
+                }) {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
             }
@@ -142,6 +140,9 @@ impl TypeFlags {
                 if inner.is_blittable() {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
+            }
+            TypeKind::Range(inner) => {
+                flags = flags.union(Self::IS_BLITTABLE);
             }
 
             _ => {}

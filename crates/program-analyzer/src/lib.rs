@@ -37,7 +37,7 @@ pub fn analyze_module(
     module_path: &[String],
     ast_module: &ParsedAstModule,
 ) -> Result<(SymbolTable, Vec<Error>, Option<InternalMainExpression>), LoaderErr> {
-    debug!(?module_path, "analyze module");
+    //debug!(?module_path, "analyze module");
     let debug_string = format!("analyze module {module_path:?}");
     let _analyze_timer = ScopedTimer::new(&debug_string);
 
@@ -54,7 +54,7 @@ pub fn analyze_module(
 
     let statements = {
         for ast_def in ast_module.ast_module.definitions() {
-            debug!(?ast_def, "analyze definition");
+            //debug!(?ast_def, "analyze definition");
             analyzer.analyze_definition(ast_def);
         }
 
@@ -92,8 +92,8 @@ pub fn analyze_modules_in_order(
             continue;
         }
         if let Some(parse_module) = parsed_modules.get_parsed_module(module_path) {
-            let process_span = span!(Level::TRACE, "analyze mod", path = ?module_path);
-            let _enter = process_span.enter();
+            //let process_span = span!(Level::TRACE, "analyze mod", path = ?module_path);
+            //let _enter = process_span.enter();
 
             let (analyzed_symbol_table, errors, maybe_expression) = analyze_module(
                 state,

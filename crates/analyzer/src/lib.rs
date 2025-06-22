@@ -519,7 +519,7 @@ impl<'a> Analyzer<'a> {
             .source_map
             .fetch_relative_filename(self.shared.file_id);
         let debug_line = format!("{source_path}:{line}:{col}> {}", source_line.unwrap());
-        info!(%debug_line, "source");
+        //info!(%debug_line, "source");
 
         //        info!(?line, ?col, "source reference");
     }
@@ -577,13 +577,13 @@ impl<'a> Analyzer<'a> {
         ast_expression: &swamp_ast::Expression,
         context: &TypeContext,
     ) -> Expression {
-        info!(?ast_expression, "analyze expression");
-        self.debug_expression(ast_expression, "analyze");
+        //info!(?ast_expression, "analyze expression");
+        //self.debug_expression(ast_expression, "analyze");
         let expr = self.analyze_expression_internal(ast_expression, context);
 
         let encountered_type = expr.ty.clone();
 
-        info!(?expr, "analyze expression");
+        //info!(?expr, "analyze expression");
         if let Some(found_expected_type) = context.expected_type {
             let reduced_expected = found_expected_type;
 
@@ -1129,7 +1129,7 @@ impl<'a> Analyzer<'a> {
         let mut start_index = 0;
 
         let start_of_chain_kind = if let Some(start_of_chain_base) = maybe_start_of_chain_base {
-            trace!(?start_of_chain_base, "start of postfix chain");
+            //trace!(?start_of_chain_base, "start of postfix chain");
             match start_of_chain_base {
                 StartOfChainBase::FunctionReference(func_def) => {
                     // In this language version, it is not allowed to provide references to functions
@@ -1180,7 +1180,7 @@ impl<'a> Analyzer<'a> {
         let mut suffixes = Vec::new();
 
         for item in &chain.postfixes[start_index..] {
-            trace!(?item, "postfix");
+            //            trace!(?item, "postfix");
             match item {
                 /*
                 swamp_ast::Postfix::AdvancedFunctionCall(..) => {
@@ -1768,9 +1768,11 @@ impl<'a> Analyzer<'a> {
         );
 
         let body_expr = match &*ty.kind {
+            TypeKind::Byte => todo!(),
             TypeKind::Int => todo!(),
             TypeKind::Float => todo!(),
             TypeKind::String => todo!(),
+            TypeKind::StringStorage(_, _) => todo!(),
             TypeKind::Bool => todo!(),
             TypeKind::Unit => todo!(),
             TypeKind::Tuple(_) => todo!(),
@@ -4342,7 +4344,7 @@ impl<'a> Analyzer<'a> {
         };
 
         let self_type_in_signature = &instantiated_signature.parameters[0];
-        let binding = type_that_member_is_on.lowest_common_denominator_view();
+        let binding = type_that_member_is_on.lowest_common_denominator_vec_like_view();
 
         if self_type_in_signature.is_mutable && !chain_self_is_mutable {
             self.add_err(ErrorKind::SelfNotCorrectMutableState, node);

@@ -14,6 +14,7 @@ use seq_map::SeqMap;
 use source_map_node::Node;
 use std::collections::HashSet;
 use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
+use swamp_types::TypeKind;
 use swamp_types::prelude::Signature;
 use swamp_vm_types::types::{
     BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType, u32_type,
@@ -240,7 +241,7 @@ impl CodeBuilder<'_> {
         let base_reg_replacement_lookup =
             self.find_replacements_for_mutable_primitive_arguments(arguments, node, ctx);
 
-        let r0_is_used_as_return = !signature.return_type.is_unit();
+        let r0_is_used_as_return = !matches!(&*signature.return_type.kind, TypeKind::Unit);
 
         let scope =
             self.spill_required_registers(false, is_host_call, node, "spill before emit arguments"); // TODO: when to use r0_is_used_as_return

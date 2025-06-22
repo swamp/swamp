@@ -22,7 +22,7 @@ impl TypeKind {
     pub(crate) fn is_blittable(&self) -> bool {
         match self {
             Self::Int | Self::Float | Self::Bool | Self::Unit => true,
-            Self::Enum(enum_type) => enum_type.are_all_variants_without_payload(),
+            Self::Enum(enum_type) => enum_type.are_all_variants_with_blittable_payload(),
             Self::Tuple(types) => types.iter().all(|t| t.kind.is_blittable()),
             Self::Optional(inner) => inner.kind.is_blittable(),
             _ => false,

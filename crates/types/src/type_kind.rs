@@ -8,9 +8,11 @@ pub type TypeRef = Rc<Type>;
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum TypeKind {
     // Primitives
+    Byte,
     Int,
     Float,
     String,
+    StringStorage(Rc<Type>, usize),
     Bool,
     Unit, // Empty or nothing
 
@@ -55,9 +57,11 @@ pub enum TypeKind {
 impl Display for TypeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Byte => write!(f, "byte"),
             Self::Int => write!(f, "int"),
             Self::Float => write!(f, "float"),
             Self::String => write!(f, "string"),
+            Self::StringStorage(typeref, capacity) => write!(f, "String<{capacity}>"),
             Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "()"),
             Self::Tuple(types) => write!(f, "({})", seq_fmt::comma(types)),
