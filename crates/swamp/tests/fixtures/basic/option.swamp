@@ -1,6 +1,3 @@
-use core::{assert, panic}
-use std::{print}
-
 #[test]
 fn option_some() {
     a: Int? = 10

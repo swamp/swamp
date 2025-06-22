@@ -1,4 +1,4 @@
-/*mod anonymous_struct
+mod anonymous_struct
 mod arithmetic
 mod array
 mod bool
@@ -26,5 +26,3 @@ mod unwrap
 mod vec
 mod while
 mod with
-*/
-mod float

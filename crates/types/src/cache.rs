@@ -120,14 +120,19 @@ impl TypeCache {
         }
 
         // HACK: Mark as being processed (optimistically), this is to avoid recursion
-        self.compatible_cache.insert(key, true);
+        self.compatible_cache
+            .insert(key, true)
+            .expect("should work");
 
         // Make the slow compatible check
         let base_compatible = a.do_compatible_with(b);
 
         // If not base compatible, we can return early
         if !base_compatible {
-            self.compatible_cache.insert(key, false);
+            self.compatible_cache.remove(&key);
+            self.compatible_cache
+                .insert(key, false)
+                .expect("should work to insert again");
             return false;
         }
 
@@ -302,9 +307,11 @@ impl TypeCache {
             _ => true,
         };
 
-        self.compatible_cache
+        self.compatible_cache.remove(&key);
+        let _x = self
+            .compatible_cache
             .insert(key, result)
-            .expect("should be able to insert into cache");
+            .expect(&format!("should be able to insert into cache {key:?}"));
 
         result
     }

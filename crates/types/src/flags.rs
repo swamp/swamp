@@ -94,6 +94,56 @@ impl TypeFlags {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
             }
+            TypeKind::NamedStruct(named) => {
+                if named.anon_struct_type.flags.contains(Self::IS_BLITTABLE) {
+                    flags = flags.union(Self::IS_BLITTABLE);
+                }
+            }
+            TypeKind::AnonymousStruct(anon) => {
+                if anon
+                    .field_name_sorted_fields
+                    .iter()
+                    .all(|(_name, field)| field.field_type.flags.contains(Self::IS_BLITTABLE))
+                {
+                    flags = flags.union(Self::IS_BLITTABLE);
+                }
+            }
+            TypeKind::MapStorage(key, value, _) => {
+                if key.is_blittable() && value.is_blittable() {
+                    flags = flags.union(Self::IS_BLITTABLE);
+                }
+            }
+            TypeKind::FixedCapacityAndLengthArray(inner, _) => {
+                if inner.is_blittable() {
+                    flags = flags.union(Self::IS_BLITTABLE);
+                }
+            }
+            TypeKind::VecStorage(inner, _) => {
+                if inner.is_blittable() {
+                    flags = flags.union(Self::IS_BLITTABLE);
+                }
+            }
+            TypeKind::StackStorage(inner, _) => {
+                if inner.is_blittable() {
+                    flags = flags.union(Self::IS_BLITTABLE);
+                }
+            }
+            TypeKind::QueueStorage(inner, _) => {
+                if inner.is_blittable() {
+                    flags = flags.union(Self::IS_BLITTABLE);
+                }
+            }
+            TypeKind::GridStorage(inner, _, _) => {
+                if inner.is_blittable() {
+                    flags = flags.union(Self::IS_BLITTABLE);
+                }
+            }
+            TypeKind::SparseStorage(inner, _) => {
+                if inner.is_blittable() {
+                    flags = flags.union(Self::IS_BLITTABLE);
+                }
+            }
+
             _ => {}
         }
 

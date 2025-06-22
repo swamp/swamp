@@ -839,7 +839,7 @@ impl<'a> Analyzer<'a> {
                 self.create_err(ErrorKind::UnexpectedType, &ast_expression.node)
             }
             swamp_ast::ExpressionKind::Literal(literal) => {
-                self.analyze_literal(&ast_expression.node, literal, context)
+                self.analyze_complex_literal_to_expression(ast_expression, literal, context)
             } //self.create_err(ErrorKind::UnexpectedType, &ast_expression.node),
         }
     }

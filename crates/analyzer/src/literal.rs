@@ -221,7 +221,9 @@ impl Analyzer<'_> {
                 }
             }
             &&swamp_ast::LiteralKind::InternalInitializerList(_)
-            | &swamp_ast::LiteralKind::InternalInitializerPairList(_) => todo!(),
+            | &swamp_ast::LiteralKind::InternalInitializerPairList(_) => {
+                panic!("initializer lists are not basic literals")
+            }
         };
 
         self.create_expr(expression_kind, ty, ast_node)

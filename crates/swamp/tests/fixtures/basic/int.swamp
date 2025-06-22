@@ -1,6 +1,3 @@
-use core::{assert}
-use std::{print}
-
 #[test]
 fn to_float() {
     assert(23.to_float() == 23.0, "to_float(23) is wrong")

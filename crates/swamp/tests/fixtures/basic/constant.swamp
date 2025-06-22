@@ -1,6 +1,3 @@
-use core::{assert}
-use std::{print}
-
 const TEST_TRUTH = true
 const TEST_VALUE = 100
 

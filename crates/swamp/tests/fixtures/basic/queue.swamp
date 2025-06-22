@@ -1,5 +1,3 @@
-use core::{assert}
-
 #[test]
 fn create() {
     queue: Queue<Int; 42> = []

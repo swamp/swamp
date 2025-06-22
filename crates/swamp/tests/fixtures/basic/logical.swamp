@@ -1,6 +1,3 @@
-use core::{assert}
-use std::{print}
-
 #[test]
 fn boolean_logic_and() {
     assert((true && true) == true, "true && true failed")

@@ -1,6 +1,3 @@
-use core::{step}
-use std::{print}
-
 #[test]
 fn stepping() {
     for i in 0..3 {
