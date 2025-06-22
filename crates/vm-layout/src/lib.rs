@@ -19,6 +19,7 @@ use swamp_vm_types::{
     VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };
 
+#[derive(Clone)]
 pub struct LayoutCache {
     pub id_to_layout: SeqMap<TypeId, BasicTypeRef>,
     pub kind_to_layout: SeqMap<TypeKind, BasicTypeRef>,

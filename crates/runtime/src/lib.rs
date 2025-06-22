@@ -24,6 +24,7 @@ use swamp_vm::host::HostFunctionCallback;
 use swamp_vm::{TrapCode, Vm, VmSetup, VmState};
 use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_disasm::{disasm_color, display_lines};
+use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::{BinaryInstruction, InstructionPosition, StackMemoryAddress};
 
@@ -136,6 +137,7 @@ pub struct CodeGenResult {
     pub constants_in_order: SeqMap<ConstantId, ConstantInfo>,
     pub functions: SeqMap<InternalFunctionId, GenFunctionInfo>,
     pub prepared_constant_memory: Vec<u8>,
+    pub layout_cache: LayoutCache,
     pub debug_info: DebugInfo,
 }
 
@@ -167,6 +169,7 @@ pub fn code_gen(
 ) -> CodeGenResult {
     let top_gen_state = code_gen_program(program, source_map_wrapper, code_gen_options);
 
+    let all_types = top_gen_state.codegen_state.layout_cache.clone();
     let (instructions, constants_in_order, emit_function_infos, constant_memory, debug_info) =
         top_gen_state.take_instructions_and_constants();
 
@@ -176,6 +179,7 @@ pub fn code_gen(
         constants_in_order,
         functions: emit_function_infos,
         prepared_constant_memory: constant_memory,
+        layout_cache: all_types,
     }
 }
 

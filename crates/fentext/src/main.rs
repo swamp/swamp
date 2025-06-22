@@ -14,8 +14,7 @@ use swamp::prelude::{
     CodeGenAndVmResult, CodeGenOptions, CompileAndCodeGenOptions, CompileAndVmResult,
     CompileCodeGenVmResult, CompileOptions, GenFunctionInfo, HostArgs, HostFunctionCallback,
     RunConstantsOptions, RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align,
-    compile_codegen_and_create_vm, layout_type, run_first_time, run_function,
-    run_function_with_debug,
+    compile_codegen_and_create_vm, run_first_time, run_function, run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 use tracing::{error, info, warn};
@@ -27,6 +26,7 @@ pub fn compile() -> Option<CompileCodeGenVmResult> {
         compile_options: CompileOptions {
             show_semantic: false,
             show_modules: false,
+            show_errors: true,
         },
         code_gen_options: CodeGenOptions {
             show_disasm: false,
@@ -276,6 +276,8 @@ impl FenTextSwamp {
             },
         };
 
+        let mut layout_cache = runtime_result.codegen.code_gen_result.layout_cache.clone();
+
         let main_fn = runtime_result
             .codegen
             .code_gen_result
@@ -283,7 +285,8 @@ impl FenTextSwamp {
             .unwrap();
 
         let simulation_type = main_fn.return_type();
-        let gen_simulation_type = layout_type(simulation_type);
+
+        let gen_simulation_type = layout_cache.layout(simulation_type);
 
         let s = String::new();
         let constant_memory_size = runtime_result.codegen.vm.memory().constant_memory_size as u32;

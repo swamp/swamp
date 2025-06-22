@@ -3,7 +3,6 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use source_map_cache::SourceMap;
-use swamp_analyzer::prelude::Error;
 use swamp_dep_loader::DepLoaderError;
 pub mod prelude;
 
@@ -11,6 +10,7 @@ use swamp_analyzer::Program;
 use swamp_compile::CompileOptions;
 use swamp_error_report::ScriptResolveError;
 use swamp_semantic::SemanticError;
+use swamp_semantic::prelude::Error;
 
 #[derive(Debug)]
 pub enum ScriptError {
@@ -49,6 +49,7 @@ pub fn compile_and_analyze(
     let options = CompileOptions {
         show_semantic: false,
         show_modules: false,
+        show_errors: true,
     };
     swamp_compile::bootstrap_and_compile(source_map, module_path, &options)
 }

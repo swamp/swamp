@@ -98,7 +98,10 @@ impl TypeFlags {
             }
             TypeKind::AnonymousStruct(anon) => {
                 if anon.field_name_sorted_fields.iter().all(|(_name, field)| {
-                    assert!(field.field_type.is_blittable(), "what is wrong with field: {field}");
+                    assert!(
+                        field.field_type.is_blittable(),
+                        "what is wrong with field: {field}"
+                    );
                     field.field_type.flags.contains(Self::IS_BLITTABLE)
                 }) {
                     flags = flags.union(Self::IS_BLITTABLE);
