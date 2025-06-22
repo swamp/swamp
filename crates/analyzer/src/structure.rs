@@ -2,11 +2,11 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::err::ErrorKind;
 use crate::{Analyzer, TypeContext};
 use seq_map::SeqMap;
 use seq_set::SeqSet;
 use source_map_node::Node;
+use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef, LocationAccess,
     LocationAccessKind, MutableReferenceKind, SingleLocationExpression, TargetAssignmentLocation,

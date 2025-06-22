@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::str::FromStr;
 use swamp_analyzer::Analyzer;
-pub use swamp_analyzer::prelude::{Error, Program};
+pub use swamp_analyzer::prelude::Program;
 use swamp_dep_loader::{
     DependencyParser, ParsedAstModule, parse_local_modules_and_get_order, parse_single_module,
     parse_single_module_from_text, swamp_registry_path,

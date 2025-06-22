@@ -2,9 +2,10 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::err::{Error, ErrorKind};
 use crate::{Analyzer, TypeContext};
 use source_map_node::Node;
+use swamp_semantic::err::ErrorKind;
+use swamp_semantic::prelude::Error;
 use swamp_semantic::{EnumLiteralExpressions, ExpressionKind};
 use swamp_semantic::{Expression, Fp};
 use swamp_types::prelude::*;
@@ -290,22 +291,22 @@ impl Analyzer<'_> {
 
     #[must_use]
     pub fn create_err(&mut self, kind: ErrorKind, ast_node: &swamp_ast::Node) -> Expression {
-        self.add_err(kind, ast_node);
+        self.add_err(kind.clone(), ast_node);
 
         Expression {
             ty: self.types().unit(),
             node: self.to_node(ast_node),
-            kind: ExpressionKind::Error,
+            kind: ExpressionKind::Error(kind),
         }
     }
     #[must_use]
     pub fn create_err_resolved(&mut self, kind: ErrorKind, resolved_node: &Node) -> Expression {
-        self.add_err_resolved(kind, resolved_node);
+        self.add_err_resolved(kind.clone(), resolved_node);
 
         Expression {
             ty: self.types().unit(),
             node: resolved_node.clone(),
-            kind: ExpressionKind::Error,
+            kind: ExpressionKind::Error(kind),
         }
     }
 }

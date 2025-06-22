@@ -4,11 +4,12 @@
  */
 use source_map_cache::SourceMap;
 use swamp_analyzer::Analyzer;
-use swamp_analyzer::prelude::{Error, Program};
+use swamp_analyzer::prelude::Program;
 use swamp_dep_loader::{DependencyParser, ParsedAstModule, parse_local_modules_and_get_order};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
-use swamp_semantic::{InternalMainExpression, ProgramState, SemanticError};
+use swamp_semantic::prelude::Error;
+use swamp_semantic::{InternalMainExpression, ProgramState, SemanticError, err};
 use time_dilation::ScopedTimer;
 use tracing::{Level, debug, span};
 

@@ -3,11 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Analyzer;
-use crate::err::ErrorKind;
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_attributes::Attributes;
 use swamp_modules::symtbl::AliasType;
+use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     ExternalFunctionDefinition, ExternalFunctionId, Function, InternalFunctionDefinition,
     LocalIdentifier, UseItem,

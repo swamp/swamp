@@ -107,7 +107,7 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
 
         match &expr.kind {
-            ExpressionKind::Error => {
+            ExpressionKind::Error(_) => {
                 return;
             }
             ExpressionKind::InitializerList(element_type, expressions) => {

@@ -10,21 +10,22 @@ pub mod prelude;
 pub mod script_resolve;
 pub mod semantic;
 
+use crate::Kind::Error;
 use eira::{Color, Kind, Pos, PosSpan, SourceLines};
 use std::fmt::Display;
 use std::io;
 use std::io::{Write, stderr};
 use std::path::Path;
-use swamp_analyzer::prelude::Error;
 use swamp_dep_loader::{DepLoaderError, DependencyError};
 use swamp_program_analyzer::LoaderErr;
 
 use source_map_cache::{FileId, SourceMap};
 use source_map_node::Span;
+use swamp_semantic::err;
 
 #[derive(Debug)]
 pub enum ScriptResolveError {
-    AnalyzerError(Error),
+    AnalyzerError(err::Error),
     DepLoaderError(DepLoaderError),
     DependencyError(DependencyError),
     LoaderError(LoaderErr),
@@ -36,8 +37,8 @@ impl From<DependencyError> for ScriptResolveError {
     }
 }
 
-impl From<Error> for ScriptResolveError {
-    fn from(err: Error) -> Self {
+impl From<err::Error> for ScriptResolveError {
+    fn from(err: err::Error) -> Self {
         Self::AnalyzerError(err)
     }
 }

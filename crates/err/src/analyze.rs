@@ -7,7 +7,7 @@ use crate::{Builder, Report, build_and_print};
 use eira::Kind;
 use source_map_cache::SourceMap;
 use std::path::Path;
-use swamp_analyzer::err::{Error, ErrorKind};
+use swamp_semantic::prelude::{Error, ErrorKind};
 
 #[must_use]
 #[allow(clippy::too_many_lines)]
@@ -246,8 +246,7 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
             span,
         ),
         ErrorKind::ExpectedSlice => Report::build(Kind::Error, 59, "expected slice", span),
-        &swamp_analyzer::err::ErrorKind::OperatorProblem
-        | &swamp_analyzer::err::ErrorKind::MatchMustHaveAtLeastOneArm => todo!(),
+        ErrorKind::OperatorProblem | ErrorKind::MatchMustHaveAtLeastOneArm => todo!(),
     };
     b.error_module = "A".to_string();
     b

@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Analyzer;
-use crate::err::ErrorKind;
+use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{NormalPattern, Pattern, PatternElement};
 use swamp_types::prelude::EnumVariantType as TypesEnumVariantType;
 use swamp_types::prelude::{EnumVariantCommon, TypeKind, TypeRef};

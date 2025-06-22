@@ -434,8 +434,8 @@ impl SourceMapDisplay<'_> {
             ExpressionKind::BoolLiteral(b) => {
                 write!(f, "{}", b.bright_white())
             }
-            ExpressionKind::EnumVariantLiteral(variant_payload, data) => {
-                todo!()
+            ExpressionKind::EnumVariantLiteral(enum_variant_type, data) => {
+                write!(f, "enum: {}::{enum_variant_type} {data:?}", expr.ty)
             }
             ExpressionKind::TupleLiteral(expressions) => {
                 write!(f, "(")?;
@@ -532,7 +532,7 @@ impl SourceMapDisplay<'_> {
                 write!(f, "&")?;
                 self.show_location(f, x, tabs)
             }
-            &swamp_semantic::ExpressionKind::Error => todo!(),
+            ExpressionKind::Error(err_kind) => write!(f, "err: {err_kind:?}"),
         }
     }
 

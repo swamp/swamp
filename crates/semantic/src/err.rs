@@ -2,9 +2,9 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::SemanticError;
 use source_map_node::Node;
 use std::num::{ParseFloatError, ParseIntError};
-use swamp_semantic::SemanticError;
 use swamp_types::prelude::*;
 
 #[derive(Debug)]
@@ -12,7 +12,7 @@ pub struct Error {
     pub node: Node,
     pub kind: ErrorKind,
 }
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ErrorKind {
     NoAssociatedFunction(TypeRef, String),
     MissingSubscriptMember,

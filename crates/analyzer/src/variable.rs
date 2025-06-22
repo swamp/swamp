@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Analyzer;
-use crate::err::ErrorKind;
 use source_map_node::Node;
 use std::rc::Rc;
+use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,

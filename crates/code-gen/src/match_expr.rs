@@ -48,7 +48,8 @@ impl CodeBuilder<'_> {
 
         let underlying_enum = enum_ptr_reg.ty.basic_type.clone();
         let BasicTypeKind::TaggedUnion(enum_type) = &underlying_enum.kind else {
-            panic!("internal error enum {underlying_enum}");
+            //panic!("internal error enum {underlying_enum}");
+            return;
         };
 
         for (index, arm) in match_expr.arms.iter().enumerate() {

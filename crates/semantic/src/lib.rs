@@ -2,8 +2,10 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+pub mod err;
 pub mod intr;
 pub mod prelude;
+use crate::err::ErrorKind;
 use crate::intr::IntrinsicFunction;
 use crate::prelude::IntrinsicFunctionDefinitionRef;
 pub use fixed32::Fp;
@@ -832,7 +834,7 @@ pub enum ExpressionKind {
 
     Lambda(Vec<VariableRef>, Box<Expression>),
     BorrowMutRef(Box<SingleLocationExpression>),
-    Error,
+    Error(ErrorKind),
 }
 
 #[derive(Debug, Clone)]

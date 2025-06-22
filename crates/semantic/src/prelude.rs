@@ -11,5 +11,6 @@ pub use crate::{
     InternalFunctionCall, InternalFunctionDefinition, InternalFunctionDefinitionRef, Iterable,
     LocalIdentifier, LocalTypeIdentifier, Match, MatchArm, MemberCall, MutVariable, Pattern,
     PrecisionType, ProgramState, SemanticError, UnaryOperator, Variable, VariableRef,
+    err::{Error, ErrorKind},
     intr::{IntrinsicFunction, IntrinsicFunctionDefinition, IntrinsicFunctionDefinitionRef},
 };

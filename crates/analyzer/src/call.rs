@@ -3,10 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::TypeContext;
-use crate::err::ErrorKind;
 use crate::{Analyzer, LocationSide};
 use source_map_node::Node;
 use swamp_semantic::ArgumentExpression;
+use swamp_semantic::err::ErrorKind;
 use swamp_types::prelude::*;
 
 pub struct MaybeBorrowMutRefExpression {
