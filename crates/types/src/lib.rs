@@ -95,6 +95,12 @@ impl Type {
 
     #[inline]
     #[must_use]
+    pub const fn can_be_stored_in_variable(&self) -> bool {
+        self.flags.contains(TypeFlags::IS_BLITTABLE)
+    }
+
+    #[inline]
+    #[must_use]
     pub const fn is_blittable(&self) -> bool {
         self.flags.contains(TypeFlags::IS_BLITTABLE)
     }

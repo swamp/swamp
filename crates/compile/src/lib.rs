@@ -19,7 +19,8 @@ use swamp_dep_loader::{
     parse_single_module_from_text, swamp_registry_path,
 };
 use swamp_error_report::{ScriptResolveError, prelude::show_script_resolve_error};
-use swamp_modules::modules::{ModuleRef, Modules};
+use swamp_modules::modules::{ModuleRef, Modules, pretty_print};
+use swamp_modules::prelude::Module;
 use swamp_modules::symtbl::{SymbolTable, SymbolTableRef};
 use swamp_pretty_print::{ImplsDisplay, SourceMapDisplay, SymbolTableDisplay};
 use swamp_program_analyzer::analyze_modules_in_order;
@@ -36,13 +37,13 @@ pub const CORE_VERSION: &str = "core-0.0.0";
 pub fn analyze_ast_module_skip_expression(
     analyzer: &mut Analyzer,
     parsed_ast_module: &ParsedAstModule,
-) -> Result<(), Error> {
+) {
     for definition in &parsed_ast_module.ast_module.definitions {
         analyzer.analyze_definition(definition);
     }
-    Ok(())
 }
 
+#[must_use]
 pub fn analyze_single_module(
     state: &mut ProgramState,
     default_symbol_table: SymbolTable,
@@ -51,7 +52,7 @@ pub fn analyze_single_module(
     parsed_ast_module: &ParsedAstModule,
     source_map: &SourceMap,
     versioned_module_path: &[String],
-) -> Result<SymbolTable, Error> {
+) -> SymbolTable {
     let mut analyzer = Analyzer::new(
         state,
         modules,
@@ -65,9 +66,9 @@ pub fn analyze_single_module(
 
     //    trace!(lookup_table=?analyzer.shared.lookup_table, "analyzer lookup_table");
 
-    analyze_ast_module_skip_expression(&mut analyzer, parsed_ast_module)?;
+    analyze_ast_module_skip_expression(&mut analyzer, parsed_ast_module);
 
-    Ok(analyzer.shared.definition_table)
+    analyzer.shared.definition_table
 }
 
 pub fn create_source_map(registry_path: &Path, local_path: &Path) -> io::Result<SourceMap> {
@@ -106,6 +107,7 @@ fn std_text() -> String {
     "external 1 fn print(output: String)".to_string()
 }
 
+#[allow(clippy::too_many_lines)]
 fn core_text() -> String {
     let text = r#"
   /// DO NOT EDIT!
@@ -461,41 +463,74 @@ pub fn bootstrap_modules(
 
     let core_module_with_intrinsics =
         swamp_core::create_module(&compiler_version, &mut state.types);
-    let core_ast_module = parse_single_module_from_text(
-        source_map,
-        &core_module_with_intrinsics.symbol_table.module_path(),
-        &core_text(),
-    )?;
+
+    let core_path = core_module_with_intrinsics.symbol_table.module_path();
+    let core_parsed_ast_module =
+        parse_single_module_from_text(source_map, &core_path, &core_text())?;
 
     let half_completed_core_symbol_table = core_module_with_intrinsics.symbol_table.clone();
     let default_symbol_table_for_core_with_intrinsics = half_completed_core_symbol_table.clone();
 
-    analyze_single_module(
+    let mut analyzed_core_symbol_table = analyze_single_module(
         &mut state,
         default_symbol_table_for_core_with_intrinsics.clone(),
         &modules,
         half_completed_core_symbol_table.clone().into(),
-        &core_ast_module,
+        &core_parsed_ast_module,
         source_map,
         &core_module_with_intrinsics.symbol_table.module_path(),
-    )?;
-    let core_path = core_module_with_intrinsics.symbol_table.module_path();
-    let mut default_module = swamp_core::create_module_with_name(&[]);
+    );
 
+    // After this the core symbol table is done
+    analyzed_core_symbol_table
+        .extend_basic_from(&core_module_with_intrinsics.symbol_table)
+        .expect("couldn't extend core");
+    let mut default_module = swamp_core::create_module_with_name(&[]);
     default_module
         .symbol_table
-        .extend_basic_from(&half_completed_core_symbol_table)
-        .expect("extend basics from core");
+        .extend_alias_from(&analyzed_core_symbol_table)
+        .expect("extend basic alias and functions from core");
 
-    info!(?default_module, "default module ready");
+    let core_module = Module::new(analyzed_core_symbol_table, None);
+    modules.add(ModuleRef::from(core_module));
 
-    modules.add(ModuleRef::from(core_module_with_intrinsics));
+    // ---------
+
+    let source_map_display = SourceMapDisplay {
+        source_map: &SourceMapWrapper {
+            source_map,
+            current_dir: PathBuf::default(),
+        },
+    };
+
+    let symbol_table_display = SymbolTableDisplay {
+        symbol_table: &default_module.symbol_table,
+        source_map_display: &source_map_display,
+    };
+
+    info!(%symbol_table_display, "default module ready");
 
     //    let std_path = &["std".to_string(), "lib".to_string()];
     let std_path = &["std".to_string()];
     let std_module_with_intrinsics = swamp_core::create_module_with_name(std_path);
     let std_ast_module = parse_single_module_from_text(source_map, std_path, &std_text())?;
-    modules.add(ModuleRef::from(std_module_with_intrinsics));
+    let analyzed_std_symbol_table = analyze_single_module(
+        &mut state,
+        default_symbol_table_for_core_with_intrinsics.clone(),
+        &modules,
+        half_completed_core_symbol_table.clone().into(),
+        &std_ast_module,
+        source_map,
+        &std_module_with_intrinsics.symbol_table.module_path(),
+    );
+    default_module
+        .symbol_table
+        .extend_basic_from(&analyzed_std_symbol_table)
+        .expect("extend basics from core");
+
+    let analyzed_std_module = Module::new(analyzed_std_symbol_table, None);
+
+    modules.add(ModuleRef::from(analyzed_std_module));
 
     let bootstrap_program = Program::new(state, modules, default_module.symbol_table);
 

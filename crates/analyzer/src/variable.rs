@@ -77,11 +77,7 @@ impl Analyzer<'_> {
         let debug_text = self.get_text(variable);
         if !debug_text.starts_with('_')
             && concrete_check
-            && !self
-                .shared
-                .state
-                .types
-                .can_be_stored_in_variable(variable_type_ref)
+            && !variable_type_ref.can_be_stored_in_variable()
         {
             self.add_err(
                 ErrorKind::VariableTypeMustBeConcrete(variable_type_ref.clone()),

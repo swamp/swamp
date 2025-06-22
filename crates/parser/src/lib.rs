@@ -317,6 +317,7 @@ impl AstParser {
         if let Some(def_pair) = inner.next() {
             let definition_kind = self.parse_definition(&def_pair, &attributes)?;
             let definition = Definition {
+                node: self.to_node(&def_pair),
                 kind: definition_kind,
                 attributes,
             };

@@ -33,6 +33,7 @@ impl ParsedAstModule {
     // TODO: HACK: declare_external_function() should be removed
     pub fn declare_external_function(
         &mut self,
+        node: &Node,
         parameters: Vec<Parameter>,
         return_type: Option<Type>,
     ) {
@@ -47,6 +48,7 @@ impl ParsedAstModule {
         let external_signature = Function::External(Node::default(), signature);
 
         let fake_def = Definition {
+            node: node.clone(),
             kind: DefinitionKind::FunctionDef(external_signature),
             attributes: vec![],
         };

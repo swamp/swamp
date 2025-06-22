@@ -258,6 +258,7 @@ pub enum DefinitionKind {
 
 #[derive(Debug, Clone)]
 pub struct Definition {
+    pub node: Node,
     pub kind: DefinitionKind,
     pub attributes: Vec<Attribute>,
 }

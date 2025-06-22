@@ -302,14 +302,11 @@ impl TypeCache {
             _ => true,
         };
 
-        self.compatible_cache.insert(key, result);
+        self.compatible_cache
+            .insert(key, result)
+            .expect("should be able to insert into cache");
 
         result
-    }
-
-    #[must_use]
-    pub fn can_be_stored_in_variable(&self, ty: &TypeRef) -> bool {
-        todo!()
     }
 
     /// Clear the compatibility cache

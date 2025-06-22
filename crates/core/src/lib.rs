@@ -5,7 +5,6 @@
 use swamp_modules::prelude::{Module, SymbolTable};
 use swamp_modules::symtbl::AliasType;
 use swamp_semantic::prelude::{IntrinsicFunction, IntrinsicFunctionDefinition};
-use swamp_types::Type;
 use swamp_types::prelude::{Signature, TypeCache, TypeForParameter};
 use tiny_ver::TinyVersion;
 
@@ -46,18 +45,17 @@ fn add_intrinsic_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache
     add_intrinsic_float_functions(core_ns, type_cache);
     add_intrinsic_int_functions(core_ns, type_cache);
     add_intrinsic_string_functions(core_ns, type_cache);
+    add_intrinsic_debug_functions(core_ns, type_cache);
+    // These are generated (generic)
     //add_intrinsic_grid_functions(core_ns);
     //add_intrinsic_vec_functions(core_ns);
     //add_intrinsic_map_functions(core_ns);
     //add_intrinsic_map2_functions(core_ns);
     //add_intrinsic_sparse_functions(core_ns);
-    add_intrinsic_debug_functions(core_ns, type_cache);
 }
 
 fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
-    let int_type = type_cache.string();
-    let float_type = type_cache.float();
     let unit_type = type_cache.unit();
 
     let string_unit = Signature {
@@ -1210,7 +1208,7 @@ fn add_intrinsic_vec_functions(core_ns: &mut SymbolTable) {
 #[allow(clippy::too_many_lines)]
 fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
-    let int_type = type_cache.string();
+    let int_type = type_cache.int();
 
     let string_to_int = Signature {
         parameters: [TypeForParameter {
@@ -1239,7 +1237,6 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
 
 fn add_intrinsic_bool_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
-    let int_type = type_cache.string();
     let bool_type = type_cache.bool();
 
     let self_to_string = Signature {
@@ -1268,7 +1265,7 @@ fn add_intrinsic_bool_functions(core_ns: &mut SymbolTable, type_cache: &mut Type
 #[allow(clippy::too_many_lines)]
 fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
-    let int_type = type_cache.string();
+    let int_type = type_cache.int();
     let float_type = type_cache.float();
     let int_to_int = Signature {
         parameters: [TypeForParameter {
@@ -1404,7 +1401,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeC
 #[allow(clippy::too_many_lines)]
 fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
-    let int_type = type_cache.string();
+    let int_type = type_cache.int();
     let float_type = type_cache.float();
 
     let float_to_float = Signature {

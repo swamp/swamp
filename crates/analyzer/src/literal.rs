@@ -8,6 +8,7 @@ use source_map_node::Node;
 use swamp_semantic::{EnumLiteralExpressions, ExpressionKind};
 use swamp_semantic::{Expression, Fp};
 use swamp_types::prelude::*;
+use tracing::error;
 
 impl Analyzer<'_> {
     /// # Errors
@@ -268,6 +269,7 @@ impl Analyzer<'_> {
     }
 
     pub(crate) fn add_err_resolved(&mut self, kind: ErrorKind, node: &Node) {
+        error!(?kind, "add error");
         let err = Error {
             node: node.clone(),
             kind,

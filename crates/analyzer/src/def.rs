@@ -13,6 +13,7 @@ use swamp_semantic::{
     LocalIdentifier, UseItem,
 };
 use swamp_types::prelude::*;
+use tracing::debug;
 
 impl Analyzer<'_> {
     fn general_import(
@@ -530,8 +531,7 @@ impl Analyzer<'_> {
         Some(func)
     }
 
-    pub const fn debug_definition(&self, _definition: &swamp_ast::Definition) {
-        /*
+    pub fn debug_definition(&self, definition: &swamp_ast::Definition) {
         let (line, col) = self
             .shared
             .source_map
@@ -539,15 +539,15 @@ impl Analyzer<'_> {
         let source_line = self
             .shared
             .source_map
-            .get_source_line(self.shared.file_id, line);
-
-         */
+            .get_source_line(self.shared.file_id, line)
+            .unwrap();
+        debug!(?line, ?col, ?source_line);
     }
 
     /// # Errors
     ///
     pub fn analyze_definition(&mut self, ast_def: &swamp_ast::Definition) {
-        //self.debug_definition(ast_def);
+        self.debug_definition(ast_def);
 
         let analyzed_attributes = self.analyze_attributes(&ast_def.attributes);
 

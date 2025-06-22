@@ -59,6 +59,8 @@ pub enum Symbol {
     Alias(AliasType),
 }
 
+impl Symbol {}
+
 impl Symbol {
     #[must_use]
     pub const fn is_basic_type(&self) -> bool {
@@ -71,6 +73,10 @@ impl Symbol {
     #[must_use]
     pub const fn is_alias_type(&self) -> bool {
         matches!(self, Self::Alias(..))
+    }
+
+    pub(crate) fn is_function(&self) -> bool {
+        matches!(self, Self::FunctionDefinition(..))
     }
 }
 
@@ -183,7 +189,7 @@ impl SymbolTable {
     ///
     pub fn extend_alias_from(&mut self, symbol_table: &Self) -> Result<(), SemanticError> {
         for (name, symbol) in symbol_table.symbols() {
-            if symbol.is_alias_type() {
+            if symbol.is_alias_type() || symbol.is_function() {
                 self.add_symbol(name, symbol.clone())?;
             }
         }
