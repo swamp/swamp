@@ -37,8 +37,7 @@ use swamp_semantic::{
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::TypeKind;
 use swamp_types::prelude::*;
-use tracing::trace;
-use tracing::{error, info};
+use tracing::error;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum AssignmentMode {

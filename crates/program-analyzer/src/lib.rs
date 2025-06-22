@@ -11,7 +11,7 @@ use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::Error;
 use swamp_semantic::{InternalMainExpression, ProgramState, SemanticError};
 use time_dilation::ScopedTimer;
-use tracing::{Level, debug, span};
+use tracing::debug;
 
 #[derive(Debug)]
 pub enum LoaderErr {

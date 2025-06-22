@@ -13,7 +13,6 @@ use swamp_semantic::{
     LocalIdentifier, UseItem,
 };
 use swamp_types::prelude::*;
-use tracing::debug;
 
 impl Analyzer<'_> {
     fn general_import(
