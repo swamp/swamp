@@ -491,7 +491,7 @@ pub fn bootstrap_modules(
         .extend_alias_from(&analyzed_core_symbol_table)
         .expect("extend basic alias and functions from core");
 
-    let core_module = Module::new(analyzed_core_symbol_table, None);
+    let core_module = Module::new(analyzed_core_symbol_table, vec![], None);
     modules.add(ModuleRef::from(core_module));
 
     // ---------
@@ -528,7 +528,7 @@ pub fn bootstrap_modules(
         .extend_basic_from(&analyzed_std_symbol_table)
         .expect("extend basics from core");
 
-    let analyzed_std_module = Module::new(analyzed_std_symbol_table, None);
+    let analyzed_std_module = Module::new(analyzed_std_symbol_table, vec![], None);
 
     modules.add(ModuleRef::from(analyzed_std_module));
 

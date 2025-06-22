@@ -200,7 +200,6 @@ pub struct Analyzer<'a> {
     function_parameters: Vec<VariableRef>,
     global: FunctionScopeState,
     module_path: Vec<String>,
-    errors: Vec<Error>,
 }
 
 impl Analyzer<'_> {
@@ -235,7 +234,6 @@ impl<'a> Analyzer<'a> {
             module_path: module_path.to_vec(),
             function_variables: Vec::new(),
             function_parameters: Vec::new(),
-            errors: vec![],
         }
     }
 

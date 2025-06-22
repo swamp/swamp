@@ -36,7 +36,7 @@ pub fn analyze_module(
     source_map: &SourceMap,
     module_path: &[String],
     ast_module: &ParsedAstModule,
-) -> Result<(SymbolTable, Option<InternalMainExpression>), LoaderErr> {
+) -> Result<(SymbolTable, Vec<Error>, Option<InternalMainExpression>), LoaderErr> {
     debug!(?module_path, "analyze module");
     let debug_string = format!("analyze module {module_path:?}");
     let _analyze_timer = ScopedTimer::new(&debug_string);
@@ -66,7 +66,11 @@ pub fn analyze_module(
         }
     };
 
-    Ok((analyzer.shared.definition_table, statements))
+    Ok((
+        analyzer.shared.definition_table,
+        analyzer.shared.state.errors().to_vec(),
+        statements,
+    ))
 }
 
 /// # Errors
@@ -91,7 +95,7 @@ pub fn analyze_modules_in_order(
             let process_span = span!(Level::TRACE, "analyze mod", path = ?module_path);
             let _enter = process_span.enter();
 
-            let (analyzed_symbol_table, maybe_expression) = analyze_module(
+            let (analyzed_symbol_table, errors, maybe_expression) = analyze_module(
                 state,
                 default_lookup_symbol_table,
                 modules,
@@ -100,7 +104,7 @@ pub fn analyze_modules_in_order(
                 module_path,
                 parse_module,
             )?;
-            let analyzed_module = Module::new(analyzed_symbol_table, maybe_expression);
+            let analyzed_module = Module::new(analyzed_symbol_table, errors, maybe_expression);
             modules.add(analyzed_module.into());
         } else {
             panic!("could not load")

@@ -5,7 +5,7 @@
 pub mod err;
 pub mod intr;
 pub mod prelude;
-use crate::err::ErrorKind;
+use crate::err::{Error, ErrorKind};
 use crate::intr::IntrinsicFunction;
 use crate::prelude::IntrinsicFunctionDefinitionRef;
 pub use fixed32::Fp;
@@ -1144,6 +1144,14 @@ pub struct ProgramState {
     pub constants_in_dependency_order: Vec<ConstantRef>,
     pub associated_impls: AssociatedImpls,
     pub types: TypeCache,
+    pub errors: Vec<Error>,
+}
+
+impl ProgramState {
+    #[must_use]
+    pub const fn errors(&self) -> &Vec<Error> {
+        &self.errors
+    }
 }
 
 impl Default for ProgramState {
@@ -1184,6 +1192,7 @@ impl ProgramState {
             constants_in_dependency_order: Vec::new(),
             associated_impls: AssociatedImpls::new(),
             types: TypeCache::new(),
+            errors: vec![],
         }
     }
     pub const fn allocate_internal_function_id(&mut self) -> InternalFunctionId {

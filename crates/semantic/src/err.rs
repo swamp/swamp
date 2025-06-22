@@ -7,7 +7,7 @@ use source_map_node::Node;
 use std::num::{ParseFloatError, ParseIntError};
 use swamp_types::prelude::*;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Error {
     pub node: Node,
     pub kind: ErrorKind,

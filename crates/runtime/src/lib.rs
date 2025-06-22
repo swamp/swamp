@@ -399,16 +399,17 @@ pub fn compile_and_code_gen(
         current_dir,
     };
 
-    let maybe_code_gen_result = if options.skip_codegen {
-        None
-    } else {
-        let code_gen_result = code_gen(
-            &compile_result.program,
-            &source_map_wrapper,
-            &options.code_gen_options,
-        );
-        Some(code_gen_result)
-    };
+    let maybe_code_gen_result =
+        if options.skip_codegen || !compile_result.program.state.errors().is_empty() {
+            None
+        } else {
+            let code_gen_result = code_gen(
+                &compile_result.program,
+                &source_map_wrapper,
+                &options.code_gen_options,
+            );
+            Some(code_gen_result)
+        };
 
     Some((
         CompileAndMaybeCodeGenResult {

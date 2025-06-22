@@ -1559,7 +1559,7 @@ pub fn create_module(tiny_version: &TinyVersion, type_cache: &mut TypeCache) -> 
     add_intrinsic_types(&mut intrinsic_types_symbol_table, type_cache);
     add_intrinsic_functions(&mut intrinsic_types_symbol_table, type_cache);
 
-    Module::new(intrinsic_types_symbol_table, None)
+    Module::new(intrinsic_types_symbol_table, Vec::new(), None)
 }
 
 /// # Panics
@@ -1568,5 +1568,5 @@ pub fn create_module(tiny_version: &TinyVersion, type_cache: &mut TypeCache) -> 
 pub fn create_module_with_name(path: &[String]) -> Module {
     let intrinsic_types_symbol_table = SymbolTable::new(path);
 
-    Module::new(intrinsic_types_symbol_table, None)
+    Module::new(intrinsic_types_symbol_table, Vec::new(), None)
 }

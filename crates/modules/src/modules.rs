@@ -6,6 +6,7 @@ use crate::symtbl::SymbolTable;
 use seq_map::SeqMap;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
+use swamp_semantic::prelude::Error;
 use swamp_semantic::{Expression, ExpressionKind, InternalMainExpression};
 
 #[derive(Debug)]
@@ -22,6 +23,7 @@ impl Default for Modules {
 pub struct Module {
     pub main_expression: Option<InternalMainExpression>,
     pub symbol_table: SymbolTable,
+    pub errors: Vec<Error>,
 }
 
 impl Debug for Module {
@@ -64,11 +66,13 @@ impl Module {
     #[must_use]
     pub const fn new(
         symbol_table: SymbolTable,
+        errors: Vec<Error>,
         expression: Option<InternalMainExpression>,
     ) -> Self {
         Self {
             symbol_table,
             main_expression: expression,
+            errors,
         }
     }
 }

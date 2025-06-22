@@ -277,7 +277,7 @@ impl Analyzer<'_> {
             node: node.clone(),
             kind,
         };
-        self.errors.push(err);
+        self.shared.state.errors.push(err);
     }
 
     #[must_use]
