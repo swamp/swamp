@@ -110,7 +110,7 @@ impl Analyzer<'_> {
                     .lookup_table
                     .extend_from(&found_module.symbol_table)
                 {
-                    self.add_err(ErrorKind::SemanticError(sem_err), node)
+                    self.add_err(ErrorKind::SemanticError(sem_err), node);
                 }
             }
         }

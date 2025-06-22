@@ -61,7 +61,7 @@ fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
     let string_unit = Signature {
         parameters: [TypeForParameter {
             name: "v".to_string(),
-            resolved_type: string_type.clone(),
+            resolved_type: string_type,
             is_mutable: false,
             node: None,
         }]
@@ -82,7 +82,7 @@ fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
 
     let nothing_unit = Signature {
         parameters: [].into(),
-        return_type: unit_type.clone(),
+        return_type: unit_type,
     };
     let nothing_unit_functions = [
         IntrinsicFunction::RuntimeHalt,
@@ -1381,12 +1381,12 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeC
     let int_to_float = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: int_type.clone(),
+            resolved_type: int_type,
             is_mutable: false,
             node: None,
         }]
         .into(),
-        return_type: float_type.clone(),
+        return_type: float_type,
     };
 
     core_ns
@@ -1444,7 +1444,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
             node: None,
         }]
         .into(),
-        return_type: int_type.clone(),
+        return_type: int_type,
     };
     let float_to_int_functions = [IntrinsicFunction::FloatRound, IntrinsicFunction::FloatFloor];
     for intrinsic_fn in float_to_int_functions {
@@ -1466,7 +1466,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
             node: None,
         }]
         .into(),
-        return_type: string_type.clone(),
+        return_type: string_type,
     };
     let self_to_string_functions = [IntrinsicFunction::FloatToString];
     for intrinsic_fn in self_to_string_functions {
@@ -1538,7 +1538,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
             },
         ]
         .into(),
-        return_type: float_type.clone(),
+        return_type: float_type,
     };
 
     core_ns

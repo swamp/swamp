@@ -96,7 +96,7 @@ pub fn run_constants_in_order(
                 vm.frame_memory(),
                 vm.memory(),
                 StackMemoryAddress(0),
-                &return_layout,
+                return_layout,
                 &constant.constant_ref.assigned_name,
             )
             .unwrap();

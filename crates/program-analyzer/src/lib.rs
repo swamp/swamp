@@ -9,7 +9,7 @@ use swamp_dep_loader::{DependencyParser, ParsedAstModule, parse_local_modules_an
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::Error;
-use swamp_semantic::{InternalMainExpression, ProgramState, SemanticError, err};
+use swamp_semantic::{InternalMainExpression, ProgramState, SemanticError};
 use time_dilation::ScopedTimer;
 use tracing::{Level, debug, span};
 
@@ -68,7 +68,7 @@ pub fn analyze_module(
 
     Ok((
         analyzer.shared.definition_table,
-        analyzer.shared.state.errors().to_vec(),
+        analyzer.shared.state.errors().clone(),
         statements,
     ))
 }

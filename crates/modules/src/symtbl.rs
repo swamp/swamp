@@ -75,7 +75,7 @@ impl Symbol {
         matches!(self, Self::Alias(..))
     }
 
-    pub(crate) fn is_function(&self) -> bool {
+    pub(crate) const fn is_function(&self) -> bool {
         matches!(self, Self::FunctionDefinition(..))
     }
 }

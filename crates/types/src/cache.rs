@@ -308,10 +308,10 @@ impl TypeCache {
         };
 
         self.compatible_cache.remove(&key);
-        let _x = self
+        self
             .compatible_cache
             .insert(key, result)
-            .expect(&format!("should be able to insert into cache {key:?}"));
+            .unwrap_or_else(|_| panic!("should be able to insert into cache {key:?}"));
 
         result
     }

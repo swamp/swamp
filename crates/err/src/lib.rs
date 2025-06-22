@@ -10,7 +10,6 @@ pub mod prelude;
 pub mod script_resolve;
 pub mod semantic;
 
-use crate::Kind::Error;
 use eira::{Color, Kind, Pos, PosSpan, SourceLines};
 use std::fmt::Display;
 use std::io;
