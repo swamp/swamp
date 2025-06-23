@@ -7,7 +7,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, WhenBinding};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
+use swamp_vm_types::types::{u8_type, Destination, RValueOrLValue, VmType};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
@@ -79,7 +79,6 @@ impl CodeBuilder<'_> {
             };
 
             // Get the source memory location
-            // TODO: This should also have a proper help function
             let source_memory_location = match self.emit_for_access_or_location(&binding.expr, ctx)
             {
                 RValueOrLValue::Scalar(base_reg) => MemoryLocation {
@@ -97,29 +96,24 @@ impl CodeBuilder<'_> {
                 }
             };
 
-            // Load the payload into the binding variable
-            // TODO: Use a proper help function
-            if target_binding_variable_reg.ty.is_aggregate() {
+            // Create a destination for the binding variable
+            let target_destination = if target_binding_variable_reg.ty.is_aggregate() {
                 let target_memory_location = MemoryLocation {
                     ty: target_binding_variable_reg.ty.clone(),
                     base_ptr_reg: target_binding_variable_reg,
                     offset: MemoryOffset(0),
                 };
-
-                self.emit_block_copy_with_size_from_location(
-                    &target_memory_location,
-                    &source_memory_location,
-                    binding.expr.node(),
-                    "copy payload into binding variable",
-                );
+                Destination::Memory(target_memory_location)
             } else {
-                self.emit_load_value_from_memory_source(
-                    &target_binding_variable_reg,
-                    &source_memory_location,
-                    binding.expr.node(),
-                    "load payload into binding variable",
-                );
-            }
+                Destination::Register(target_binding_variable_reg)
+            };
+            
+            self.emit_copy_value_from_memory_location (
+                &target_destination,
+                &source_memory_location,
+                binding.expr.node(),
+                "load payload into binding variable",
+            );
         }
 
         self.emit_expression(target_reg, true_expr, ctx);
