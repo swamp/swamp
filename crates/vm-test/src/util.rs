@@ -22,6 +22,7 @@ fn emit_internal(code: &str) -> (TopLevelGenState, Program) {
         &CodeGenOptions {
             show_disasm: false,
             show_debug: false,
+            show_types: false,
         },
     );
 
