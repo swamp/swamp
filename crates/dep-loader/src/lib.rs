@@ -387,7 +387,7 @@ impl DependencyParser {
                 return Ok(());
             }
 
-            trace!(?path, depth, "visit path");
+            //trace!(?path, depth, "visit path");
             temp_visited.insert(Vec::from(path));
 
             if let Some(module) = graph.import_scanned_modules.get(&path.to_vec()) {

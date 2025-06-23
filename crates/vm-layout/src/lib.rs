@@ -722,6 +722,7 @@ impl LayoutCache {
         // Check if we already have a layout for this kind
         let optional_kind = TypeKind::Optional(inner_type.clone());
         if let Some(existing_layout) = self.kind_to_layout.get(&optional_kind) {
+            assert!(matches!(&existing_layout.kind, BasicTypeKind::Optional(_)));
             return existing_layout.clone();
         }
 

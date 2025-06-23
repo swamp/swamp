@@ -2,7 +2,6 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::single_intrinsic_fn;
@@ -10,6 +9,7 @@ use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainK
 use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
+use tracing::{error, info};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -27,8 +27,9 @@ impl CodeBuilder<'_> {
         //info!(t=?current_location.vm_type(), "start r value chain");
 
         for (index, element) in chain.iter().enumerate() {
-            //info!(t=?element.ty, index,t=?current_location.vm_type(), ?element.kind, "chain element");
+            //info!(t=?element.ty, index, t=?current_location.vm_type(), ?element.kind, "chain element");
             let is_last = index == chain.len() - 1;
+
             match &element.kind {
                 PostfixKind::StructField(anonymous_struct, field_index) => {
                     let struct_layout = self.state.layout_cache.layout(&anonymous_struct);
@@ -267,9 +268,13 @@ impl CodeBuilder<'_> {
                             .add_jump_placeholder(&element.node, "jump past final load");
 
                         self.builder.patch_jump_here(skip_fallback_patch);
-
-                        let optional_layout = self.state.layout_cache.layout(&element.ty);
-                        let (_, _, payload_offset, _) = optional_layout.unwrap_info().unwrap();
+                        let optional_layout = &current_location.vm_type().unwrap().basic_type;
+                        //let optional_layout = self.state.layout_cache.layout(&element.ty);
+                        let unwrap_info_result = optional_layout.unwrap_info();
+                        if unwrap_info_result.is_none() {
+                            error!(?optional_layout, "problem with type");
+                        }
+                        let (_, _, payload_offset, _) = unwrap_info_result.unwrap();
 
                         // `Some`: just update current_location to point to payload
                         current_location = current_location.add_offset(
