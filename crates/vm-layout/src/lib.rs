@@ -5,6 +5,7 @@
 
 //! Layouts analyzed into Vm Types (`BasicType`)
 use seq_map::SeqMap;
+use sparse_mem::element_size;
 use std::cmp::max;
 use std::rc::Rc;
 use swamp_types::prelude::{AnonymousStructType, EnumType, EnumVariantType, NamedStructType};
@@ -497,15 +498,13 @@ impl LayoutCache {
             }
             TypeKind::SparseStorage(element_type, capacity) => {
                 let element_layout = self.layout(element_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                let size = sparse_mem::layout_size(*capacity as u16, element_layout.total_size.0);
 
                 Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
                     kind: BasicTypeKind::SparseStorage(element_layout, *capacity),
-                    total_size: PTR_SIZE,
-                    max_alignment: PTR_ALIGNMENT,
+                    total_size: MemorySize(size as u32),
+                    max_alignment: MemoryAlignment::U64,
                 })
             }
 
@@ -523,17 +522,19 @@ impl LayoutCache {
                 })
             }
             TypeKind::StackStorage(element_type, capacity) => {
-                let element_layout = self.layout(element_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                let (element_layout, element_size, element_alignment) =
+                    self.layout_vec_like(element_type, *capacity);
 
-                Rc::new(BasicType {
+                let storage_type = Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
-                    kind: BasicTypeKind::StackStorage(element_layout, *capacity),
-                    total_size: PTR_SIZE,
-                    max_alignment: PTR_ALIGNMENT,
-                })
+                    kind: BasicTypeKind::StackStorage(element_layout.clone(), *capacity),
+                    total_size: MemorySize(VEC_HEADER_SIZE.0 + element_size.0 * (*capacity as u32)),
+                    max_alignment: max(MemoryAlignment::U16, element_alignment),
+                });
+
+                let _ = self.id_to_layout.insert(element_type.id, element_layout);
+
+                storage_type
             }
             TypeKind::StackView(element_type) => {
                 let element_layout = self.layout(element_type);
@@ -549,17 +550,19 @@ impl LayoutCache {
                 })
             }
             TypeKind::QueueStorage(element_type, capacity) => {
-                let element_layout = self.layout(element_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                let (element_layout, element_size, element_alignment) =
+                    self.layout_vec_like(element_type, *capacity);
 
-                Rc::new(BasicType {
+                let storage_type = Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
-                    kind: BasicTypeKind::QueueStorage(element_layout, *capacity),
-                    total_size: PTR_SIZE,
-                    max_alignment: PTR_ALIGNMENT,
-                })
+                    kind: BasicTypeKind::QueueStorage(element_layout.clone(), *capacity),
+                    total_size: MemorySize(VEC_HEADER_SIZE.0 + element_size.0 * (*capacity as u32)),
+                    max_alignment: max(MemoryAlignment::U16, element_alignment),
+                });
+
+                let _ = self.id_to_layout.insert(element_type.id, element_layout);
+
+                storage_type
             }
             TypeKind::QueueView(element_type) => {
                 let element_layout = self.layout(element_type);

@@ -37,40 +37,27 @@ impl CodeBuilder<'_> {
             self.debug_expression(expr, "emitting expression");
         }
 
+        // Must check for initializer first, since they do not require temporary memory
+        // or similar, should be handled first and then return.
         match &expr.kind {
-            ExpressionKind::InitializerList(slice_type, expressions) => {
-                // A tuple literal can not be represented as a register, not even a pointer to it, it needs materialization into memory
-                let element_type = match &*slice_type.kind {
-                    TypeKind::VecStorage(element_type, _)
-                    | TypeKind::DynamicLengthVecView(element_type)
-                    | TypeKind::SliceView(element_type)
-                    | TypeKind::StackStorage(element_type, _)
-                    | TypeKind::StackView(element_type)
-                    | TypeKind::QueueStorage(element_type, _)
-                    | TypeKind::QueueView(element_type)
-                    | TypeKind::SparseStorage(element_type, _)
-                    | TypeKind::SparseView(element_type)
-                    | TypeKind::GridStorage(element_type, _, _)
-                    | TypeKind::GridView(element_type)
-                    | TypeKind::FixedCapacityAndLengthArray(element_type, _) => {
-                        element_type.clone()
-                    }
-                    _ => panic!(
-                        "InitializerList requires a collection type, got: {:?}",
-                        slice_type.kind
-                    ),
-                };
-                let element_gen_type = self.state.layout_cache.layout(&element_type);
-                self.emit_initializer_list_into_target_lvalue_memory_location(
-                    &output.grab_aggregate_memory_location(),
-                    &element_gen_type,
+            ExpressionKind::InitializerList(element_type, expressions) => {
+                self.emit_collection_init_from_initialization_list(
+                    output,
                     expressions,
+                    &expr.node,
                     ctx,
                 );
+                return;
             }
-            // ExpressionKind::InitializerPairList(slice_pair_type, pairs) => {
-            //   self.emit_slice_pair_literal(slice_pair_type, pairs, node, ctx);
-            //}
+            ExpressionKind::InitializerPairList(element_type, expressions) => {
+                self.emit_container_init_from_initialization_pair_list(
+                    output,
+                    expressions,
+                    &expr.node,
+                    ctx,
+                );
+                return;
+            }
             _ => {}
         }
 
@@ -106,27 +93,13 @@ impl CodeBuilder<'_> {
         let hwm = self.temp_registers.save_mark();
 
         match &expr.kind {
+            &ExpressionKind::InitializerList(_, _) | &ExpressionKind::InitializerPairList(_, _) => {
+                panic!("should have been handled earlier")
+            }
             ExpressionKind::Error(_) => {
                 return;
             }
-            ExpressionKind::InitializerList(element_type, expressions) => {
-                self.emit_collection_init_from_initialization_list(
-                    output,
-                    expressions,
-                    &expr.node,
-                    ctx,
-                );
-                return;
-            }
-            ExpressionKind::InitializerPairList(element_type, expressions) => {
-                self.emit_container_init_from_initialization_pair_list(
-                    output,
-                    expressions,
-                    &expr.node,
-                    ctx,
-                );
-                return;
-            }
+
             ExpressionKind::StringLiteral(str) => {
                 self.emit_string_literal(output, node, str, ctx);
             }

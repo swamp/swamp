@@ -139,6 +139,7 @@ impl CodeBuilder<'_> {
         )
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_initialize_target_memory_first_time(
         &mut self,
         lvalue_location: &MemoryLocation,
