@@ -66,11 +66,15 @@ impl CodeBuilder<'_> {
         match intrinsic_fn {
             IntrinsicFunction::MapHas => {
                 let key_argument = &arguments[0];
-                let key = self.emit_scalar_rvalue(key_argument, ctx);
+                // We have to get the key materialized in a temporary storage, so the map can calculate the hash for it.
+                let key_temp_storage_reg =
+                    self.emit_aggregate_pointer_or_pointer_to_scalar_memory(key_argument, ctx);
+
+                //let key = self.emit_scalar_rvalue(key_argument, ctx);
                 self.builder.add_map_has(
                     output_destination.register().unwrap(),
                     self_ptr_reg,
-                    &key,
+                    &key_temp_storage_reg,
                     node,
                     "map_has",
                 );

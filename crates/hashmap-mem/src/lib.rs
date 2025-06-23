@@ -187,10 +187,13 @@ unsafe fn matches_key(a: *const u8, b: *const u8, len: usize) -> bool {
         if len <= 16 {
             match len {
                 0 => true,
+                /*
                 1 => *a == *b,
                 2 => *a.cast::<u16>() == *b.cast::<u16>(),
                 4 => *a.cast::<u32>() == *b.cast::<u32>(),
                 8 => *a.cast::<u64>() == *b.cast::<u64>(),
+
+                 */
                 _ => {
                     for i in 0..len {
                         if *a.add(i) != *b.add(i) {

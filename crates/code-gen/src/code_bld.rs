@@ -471,8 +471,8 @@ impl CodeBuilder<'_> {
 
             let output_reg = output.memory_location_or_pointer_reg();
 
-            self.emit_copy_aggregate_value_helper(
-                &output_reg,
+            self.emit_copy_value_from_memory_location(
+                &output,
                 &source_memory_location,
                 node,
                 &format!("copy to target memory {output_reg} from constant memory area {source_memory_location}"),

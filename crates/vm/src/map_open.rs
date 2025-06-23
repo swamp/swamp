@@ -59,7 +59,15 @@ impl Vm {
         let map_header_addr = get_reg!(self, self_map_header_reg);
         let map_header_ptr = self.get_map_header_mut(map_header_addr);
         let key_source_address = get_reg!(self, key_source) as usize;
-        //let key_source_ptr = self.memory.get_heap_const_ptr(key_source_address);
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            unsafe {
+                eprintln!(
+                    "-- map_get_or_reserve_entry start {map_header_addr:X}, key_source: {key_source_address:X} {:?}",
+                    *map_header_ptr
+                );
+            }
+        }
 
         let address_to_entry: u32;
 
@@ -136,7 +144,7 @@ impl Vm {
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             eprintln!(
-                "-- map_get_or_reserve_entry start {map_header_addr:X}, key_source: {key_source_address:X}"
+                "-- map_get_or_reserve_entry start {map_header_addr:X}, key_source: {key_source_address:X} {map_header:?}",
             );
         }
 
@@ -171,6 +179,17 @@ impl Vm {
 
         unsafe {
             let found = Self::has_open_addressing(&self.memory, map_header_ptr, key_source_address);
+
+            #[cfg(feature = "debug_vm")]
+            if self.debug_operations_enabled {
+                unsafe {
+                    eprintln!(
+                        "map.has returned: {found} for key pointer:{:X} map:{:?}",
+                        key_source_address, *map_header_ptr
+                    );
+                }
+            }
+
             set_reg!(self, dest_reg, found);
         }
     }
