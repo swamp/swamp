@@ -5,7 +5,7 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use swamp_semantic::{Expression, WhenBinding};
+use swamp_semantic::{ArgumentExpression, Expression, WhenBinding};
 use swamp_types::TypeKind;
 use swamp_vm_types::MemoryLocation;
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
@@ -96,14 +96,38 @@ impl CodeBuilder<'_> {
                 }
             };
 
-            let target_destination = Destination::Register(target_binding_variable_reg);
+            // Check if this is a mutable reference that should be treated as an alias
+            let is_mutable_reference = match &binding.expr {
+                ArgumentExpression::BorrowMutableReference(_) => true,
+                _ => false,
+            };
 
-            self.emit_copy_value_from_memory_location(
-                &target_destination,
-                &source_memory_location,
-                binding.expr.node(),
-                "load payload into binding variable",
-            );
+            if is_mutable_reference {
+                // For mutable references, just store the pointer to the payload
+                // This creates an alias instead of copying the data
+                let ptr_loc = self.emit_compute_effective_address_from_location_to_register(
+                    &source_memory_location,
+                    binding.expr.node(),
+                    "get address of payload for mutable reference",
+                );
+
+                // Copy the computed address to the target register
+                self.builder.add_mov_reg(
+                    &target_binding_variable_reg,
+                    &ptr_loc.ptr_reg,
+                    binding.expr.node(),
+                    "store payload address in binding variable (alias)",
+                );
+            } else {
+                // For normal expressions, copy the payload into the binding variable
+                let target_destination = Destination::Register(target_binding_variable_reg);
+                self.emit_copy_value_from_memory_location(
+                    &target_destination,
+                    &source_memory_location,
+                    binding.expr.node(),
+                    "load payload into binding variable",
+                );
+            }
         }
 
         self.emit_expression(target_reg, true_expr, ctx);
