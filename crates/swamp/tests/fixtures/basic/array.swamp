@@ -201,8 +201,17 @@ fn update_settings(mut cooldown: Int, value: Int) {
     cooldown = value
 }
 
-/// Test for a bug where updating a mutable scalar in an array did not work as expected.
-/// `could not find base reg 133`, Something with copy back was not working correctly.
+/// Test for a bug where updating a mutable scalar in an lvalue memory location did not work as expected.
+////
+/// The issue was related to the copy-back mechanism for mutable scalar values in arrays:
+/// - Scalar types (like Int, Float, String) are fully contained in registers, and do not
+///   require a base register.
+///
+/// - When passing a scalar value from a data structure (like an array element) as a mutable argument,
+///   the original register needed to be handled differently from aggregate types.
+///
+/// - The error "could not find base reg" occurred because the code was trying to look up
+///   the base register in a map, but for scalar values we need to use the original register directly
 #[test]
 fn update_cooldown() {
     mut settings = Settings {

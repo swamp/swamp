@@ -69,6 +69,19 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) -> SeqMap<u8, TypedRegister> {
+        // This function creates a lookup map for base registers that need to be saved
+        // when passing mutable primitive arguments to functions.
+        //
+        // For mutable arguments, we need to:
+        // 1. Save the base register into a temporary register before the call
+        // 2. Use that saved register after the call to copy back any changes
+        //
+        // Special handling is needed for scalar types (e.g. Int, Float, String) vs. aggregate types:
+        // - Scalar types are fully contained in a register (no separate base register needed)
+        // - Aggregate (pointer) types require a base register to reference the memory location
+        //
+        // This function builds a lookup map from original base register index to temporary
+        // saved register, which is used during the copy-back phase after the function call.
         let mut stable_base_ptr_cache = SeqMap::new();
         for argument in arguments {
             if let ArgumentExpression::BorrowMutableReference(lvalue) = argument {
@@ -76,28 +89,37 @@ impl CodeBuilder<'_> {
                 if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
                     // first we need to save the base register into a temporary register
                     // so it won't be clobbered
-                    // TODO: We should keep track if we have done this for an earlier base reg with the same index
                     let original_destination = self.emit_lvalue_address(lvalue, ctx);
-                    let original_base_reg = original_destination
-                        .register_involved_in_destination()
-                        .unwrap();
-                    if !stable_base_ptr_cache.contains_key(&original_base_reg.index) {
-                        let replacement_base_reg = self.temp_registers.allocate(
-                            VmType::new_contained_in_register(u32_type()),
-                            "temporary sav reg",
-                        );
-                        self.builder.add_mov_reg(
-                            replacement_base_reg.register(),
-                            original_base_reg,
-                            node,
-                            "copy the base reg in a temporary register",
-                        );
-                        stable_base_ptr_cache
-                            .insert(
-                                original_base_reg.index,
-                                replacement_base_reg.register.clone(),
-                            )
-                            .unwrap();
+
+                    // If we're dealing with a lvalue memory destination (which requires a register
+                    // to hold the memory address) we need to save that register before the function call
+                    if let Some(original_base_reg) =
+                        original_destination.register_involved_in_destination()
+                    {
+                        if !stable_base_ptr_cache.contains_key(&original_base_reg.index) {
+                            let replacement_base_reg = self.temp_registers.allocate(
+                                VmType::new_contained_in_register(u32_type()),
+                                &format!(
+                                    "temporary save reg for {}",
+                                    lvalue.starting_variable.assigned_name
+                                ),
+                            );
+                            self.builder.add_mov_reg(
+                                replacement_base_reg.register(),
+                                original_base_reg,
+                                node,
+                                &format!(
+                                    "copy the base reg {} in a temporary register",
+                                    original_base_reg.index
+                                ),
+                            );
+                            stable_base_ptr_cache
+                                .insert(
+                                    original_base_reg.index,
+                                    replacement_base_reg.register.clone(),
+                                )
+                                .unwrap();
+                        }
                     }
                 }
             }
@@ -326,17 +348,32 @@ impl CodeBuilder<'_> {
                         if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
                             // first we need to save the base register into a temporary register
                             // so it won't be clobbered
-                            // TODO: We should keep track if we have done this for an earlier base reg with the same index
                             let original_base_reg = original_destination
                                 .register_involved_in_destination()
                                 .unwrap();
 
-                            let base_reg_to_use = base_reg_replacement_lookup
-                                .get(&original_base_reg.index)
-                                .expect(&format!(
-                                    "could not find base reg {}",
-                                    original_base_reg.index
-                                ));
+                            // Handle scalar types differently from aggregate (pointer) types:
+                            // - Scalar types (like Int, Float, String) are fully contained in the register itself
+                            // - Aggregate types require a base register lookup to find the saved register
+                            //
+                            // When dealing with lvalue memory destinations:
+                            // - For scalar values, when they're accessed through a memory destination,
+                            //   we need to use the original register directly
+                            // - For aggregate types, we need to look up the saved base register
+                            //   from the base_reg_replacement_lookup
+                            let base_reg_to_use = if original_destination.is_register() {
+                                // For scalar types, they are directly in the register, not a pointer
+                                // So we use the original register directly
+                                original_base_reg.clone()
+                            } else {
+                                // For lvalue memory destinations, try to get the saved base register
+                                // If it's not found (which can happen for scalar types in arrays),
+                                // fall back to using the original register directly
+                                base_reg_replacement_lookup
+                                    .get(&original_base_reg.index)
+                                    .cloned()
+                                    .unwrap_or_else(|| original_base_reg.clone())
+                            };
 
                             // Construct a replacement location with the new temporary register (replacement_base_reg)
                             let replacement_memory_location = MemoryLocation {
