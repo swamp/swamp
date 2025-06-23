@@ -17,7 +17,7 @@ pub enum ErrorKind {
     NoAssociatedFunction(TypeRef, String),
     MissingSubscriptMember,
     UnusedVariablesCanNotBeMut,
-    VariableTypeMustBeConcrete(TypeRef),
+    VariableTypeMustBeBlittable(TypeRef),
     GuardCanNotHaveMultipleWildcards,
     WildcardMustBeLastInGuard,
     GuardMustHaveWildcard,

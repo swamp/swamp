@@ -70,7 +70,6 @@ impl CodeBuilder<'_> {
                 let key_temp_storage_reg =
                     self.emit_aggregate_pointer_or_pointer_to_scalar_memory(key_argument, ctx);
 
-                //let key = self.emit_scalar_rvalue(key_argument, ctx);
                 self.builder.add_map_has(
                     output_destination.register().unwrap(),
                     self_ptr_reg,

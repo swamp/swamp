@@ -205,8 +205,8 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
             Report::build(Kind::Error, 45, "unknown identifier", span)
                 .with_note(&format!("identifier: {x}"))
         }
-        ErrorKind::VariableTypeMustBeConcrete(encountered_type) => {
-            Report::build(Kind::Error, 46, "variable type must be concrete", span)
+        ErrorKind::VariableTypeMustBeBlittable(encountered_type) => {
+            Report::build(Kind::Error, 46, "variable type must be blittable", span)
                 .with_note(&format!("encountered_type: {encountered_type}"))
         }
         ErrorKind::ArrayIndexMustBeInt(_) => {

@@ -80,7 +80,7 @@ impl Analyzer<'_> {
             && !variable_type_ref.can_be_stored_in_variable()
         {
             self.add_err(
-                ErrorKind::VariableTypeMustBeConcrete(variable_type_ref.clone()),
+                ErrorKind::VariableTypeMustBeBlittable(variable_type_ref.clone()),
                 variable,
             );
             return Rc::new(Variable::create_err(self.types().unit()));

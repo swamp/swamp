@@ -399,6 +399,13 @@ impl<'a> Analyzer<'a> {
         let mut resolved_parameters = Vec::new();
         for parameter in parameters {
             let param_type = self.analyze_type(&parameter.param_type);
+            if !param_type.allowed_as_parameter_type() {
+                self.add_err(
+                    ErrorKind::ParameterTypeCanNotBeStorage(param_type),
+                    &parameter.variable.name,
+                );
+                continue;
+            }
             resolved_parameters.push(TypeForParameter {
                 name: self.get_text(&parameter.variable.name).to_string(),
                 resolved_type: param_type,
@@ -2944,12 +2951,12 @@ impl<'a> Analyzer<'a> {
             let any_type_context = TypeContext::new_anything_argument();
             self.analyze_expression(source_expression, &any_type_context)
         };
-        let tk = (*source_expr.ty.kind).clone();
+
         if !source_expr.ty.is_blittable() {
             let debug_text = self.get_text(&variable.name);
             if !debug_text.starts_with('_') {
                 return self.create_err(
-                    ErrorKind::VariableTypeMustBeConcrete(source_expr.ty),
+                    ErrorKind::VariableTypeMustBeBlittable(source_expr.ty),
                     &variable.name,
                 );
             }

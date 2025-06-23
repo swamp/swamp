@@ -15,6 +15,11 @@ struct Game {
     card_templates: [CardId: CardTemplate; 3],
 }
 
+struct ScalarTemplates {
+    card_templates: [Int: CardTemplate; 3],
+}
+
+
 const CARD_LIB = [
     CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
     CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
@@ -103,11 +108,36 @@ fn remove_card() {
         ],
     }
 
-    assert(game.card_templates.has(CardId::MysticSpring), "should have MysticSpring")
+    // intentionally add to variable first before has() call since we had a bug where
+    // not a pointer was produced for the map lookup for scalar keys.
+    card_id = CardId::MysticSpring
+    assert(game.card_templates.has(card_id), "should have MysticSpring")
 
     game.card_templates.remove(CardId::MysticSpring)
 
     assert(!game.card_templates.has(CardId::MysticSpring), "should not have MysticSpring")
+}
+
+#[test]
+fn remove_card_scalar_key() {
+    mut game = ScalarTemplates {
+        card_templates: [
+            1:  CardTemplate { mana: -2, healing_per_second: 42.13 },
+            2:   CardTemplate { mana: 99, healing_per_second: 0.3 },
+            909: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ],
+    }
+
+    // Intentionally add to variable first before the `has()` call since we had a bug where
+    // a pointer was not produced for the map lookup value for scalar keys.
+    card_id = 909
+    assert(game.card_templates.has(card_id), "should have MysticSpring")
+
+    game.card_templates.remove(909)
+
+    // Intentionally check with the literal, since we had a bug where the map lookup
+    // for scalar keys did not produce a pointer.
+    assert(!game.card_templates.has(909), "should not have MysticSpring")
 }
 
 #[test]
