@@ -81,7 +81,7 @@ impl Display for TypeKind {
             }
             Self::Enum(enum_type) => write!(f, "{enum_type}"),
             Self::Function(signature) => write!(f, "{signature}"),
-            Self::Optional(inner) => write!(f, "{inner}?"),
+            Self::Optional(inner) => write!(f, "option<{inner}>"),
             Self::FixedCapacityAndLengthArray(inner, size) => {
                 write!(f, "[{inner}; {size}]")
             }

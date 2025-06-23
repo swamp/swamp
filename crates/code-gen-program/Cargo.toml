@@ -19,6 +19,7 @@ swamp-compile = { path = "../compile", version = "0.1.16" } # TODO: Only needed 
 # Code Generation
 swamp-code-gen = { path = "../code-gen", version = "0.1.16" }
 swamp-vm-disasm = { path = "../vm-disasm", version = "0.1.16" }
+swamp-vm-types = { path = "../vm-types", version = "0.1.16" }
 
 # Source Map
 source-map-cache = "0.0.3"

@@ -230,6 +230,7 @@ const ALIGNMENT_MASK: usize = !ALIGNMENT_REST;
 
 pub struct VmSetup {
     pub stack_memory_size: usize,
+    pub heap_memory_size: usize,
     pub constant_memory: Vec<u8>,
     pub debug_stats_enabled: bool,
     pub debug_opcodes_enabled: bool,
@@ -239,7 +240,11 @@ pub struct VmSetup {
 impl Vm {
     #[allow(clippy::too_many_lines)]
     pub fn new(instructions: Vec<BinaryInstruction>, setup: VmSetup) -> Self {
-        let memory = Memory::new(setup.stack_memory_size, &setup.constant_memory);
+        let memory = Memory::new(
+            &setup.constant_memory,
+            setup.stack_memory_size,
+            setup.heap_memory_size,
+        );
 
         assert!(
             setup.constant_memory.len() < setup.stack_memory_size / 2,

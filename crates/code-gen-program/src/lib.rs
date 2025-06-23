@@ -8,11 +8,14 @@ use swamp_code_gen::disasm::disasm_whole_program;
 use swamp_code_gen::top_state::TopLevelGenState;
 use swamp_compile::Program;
 use swamp_semantic::Function;
+use swamp_vm_types::FrameMemoryAddress;
+use swamp_vm_types::types::write_basic_type;
 use time_dilation::ScopedTimer;
 
 pub struct CodeGenOptions {
     pub show_disasm: bool,
     pub show_debug: bool,
+    pub show_types: bool,
 }
 
 /// # Errors
@@ -70,6 +73,14 @@ pub fn code_gen_program(
     );
 
     code_gen.finalize();
+
+    if options.show_types {
+        for (id, basic_type) in &code_gen.codegen_state.layout_cache.id_to_layout {
+            let mut str = String::new();
+            write_basic_type(basic_type, FrameMemoryAddress(0), &mut str, 0).expect("output error");
+            eprintln!("{id}>{str}");
+        }
+    }
 
     if options.show_disasm {
         disasm_whole_program(

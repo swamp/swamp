@@ -402,7 +402,7 @@ pub fn disasm_no_color(
                 format!("{}{}", "%$", format!("{:08X}", addr.0))
             }
             DecoratedOperandAccessKind::ReadIndirectPointer(addr) => {
-                format!("({}{})", "$", format!("{:04X}", addr.0))
+                format!("({}{})", "$", format!("{:08X}", addr.0))
             }
             DecoratedOperandAccessKind::MemorySize(data) => format!("{:X}", data.0).to_string(),
 

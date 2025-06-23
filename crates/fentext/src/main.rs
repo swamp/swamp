@@ -31,6 +31,7 @@ pub fn compile() -> Option<CompileCodeGenVmResult> {
         },
         code_gen_options: CodeGenOptions {
             show_disasm: false,
+            show_types: true,
             show_debug: false,
         },
     };

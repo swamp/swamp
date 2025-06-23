@@ -77,6 +77,12 @@ impl Type {
 
     #[inline]
     #[must_use]
+    pub const fn allowed_as_return_type(&self) -> bool {
+        self.flags.contains(TypeFlags::IS_SCALAR) || !self.flags.contains(TypeFlags::IS_STORAGE)
+    }
+
+    #[inline]
+    #[must_use]
     pub const fn is_blittable(&self) -> bool {
         self.flags.contains(TypeFlags::IS_BLITTABLE)
     }

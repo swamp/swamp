@@ -35,18 +35,19 @@ impl Drop for Memory {
 }
 
 impl Memory {
-    pub fn new(memory_size: usize, constant_memory: &[u8]) -> Self {
+    pub fn new(constant_memory: &[u8], stack_memory_size: usize, heap_memory_size: usize) -> Self {
+        let total_memory_size = constant_memory.len() + stack_memory_size + heap_memory_size;
         let memory = unsafe {
-            alloc::alloc(alloc::Layout::from_size_align(memory_size, ALIGNMENT).unwrap())
+            alloc::alloc(alloc::Layout::from_size_align(total_memory_size, ALIGNMENT).unwrap())
         };
         unsafe {
-            ptr::write_bytes(memory, 0, memory_size);
+            ptr::write_bytes(memory, 0, total_memory_size);
             ptr::copy_nonoverlapping(constant_memory.as_ptr(), memory, constant_memory.len());
         }
 
         let aligned_start_of_stack = align(constant_memory.len(), ALIGNMENT);
 
-        let aligned_start_of_heap = align(memory_size * 2 / 4, ALIGNMENT);
+        let aligned_start_of_heap = align(aligned_start_of_stack + stack_memory_size, ALIGNMENT);
 
         eprintln!(
             "START: stack_start: {aligned_start_of_stack:X}, heap_start: {aligned_start_of_heap:X} "
@@ -55,7 +56,7 @@ impl Memory {
 
         Self {
             memory,
-            memory_size,
+            memory_size: total_memory_size,
             stack_offset: aligned_start_of_stack,
             heap_start: aligned_start_of_heap,
             frame_offset: aligned_start_of_stack,

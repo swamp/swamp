@@ -94,6 +94,7 @@ fn main() -> ExitCode {
         code_gen_options: CodeGenOptions {
             show_disasm: show_assembly,
             show_debug: debug_codegen,
+            show_types,
         },
     };
 

@@ -226,6 +226,7 @@ pub fn run_tests(
         code_gen_options: CodeGenOptions {
             show_disasm: options.show_assembly,
             show_debug: options.debug_output,
+            show_types: options.show_types,
         },
         skip_codegen: false,
     };

@@ -1905,7 +1905,7 @@ pub fn show_memory_offset(
     write!(f, "{}+{:04X}", result, offset.0.yellow())
 }
 fn show_memory_size(size: MemorySize, f: &mut dyn Write, _tabs: usize) -> std::fmt::Result {
-    write!(f, "{:X}", size.0.green())
+    write!(f, "{} ({})", size.green(), size.0)
 }
 
 pub fn show_offset_item(

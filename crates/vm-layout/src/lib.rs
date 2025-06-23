@@ -4,20 +4,22 @@
  */
 
 //! Layouts analyzed into Vm Types (`BasicType`)
+
+mod pretty_print;
+
 use seq_map::SeqMap;
-use sparse_mem::element_size;
 use std::cmp::max;
 use std::rc::Rc;
 use swamp_types::prelude::{AnonymousStructType, EnumType, EnumVariantType, NamedStructType};
 use swamp_types::{TypeId, TypeKind, TypeRef};
 use swamp_vm_types::types::{
     BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, OffsetMemoryItem, StructType, TaggedUnion,
-    TaggedUnionVariant, TupleType,
+    TaggedUnionVariant, TupleType, write_basic_type,
 };
 use swamp_vm_types::{
-    CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, MemoryAlignment,
-    MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
+    CountU16, FrameMemoryAddress, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT,
+    MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT,
+    STRING_PTR_SIZE, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };
 
 #[derive(Clone)]
@@ -594,6 +596,12 @@ impl LayoutCache {
             .kind_to_layout
             .insert((*ty.kind).clone(), basic_type.clone());
 
+        if basic_type.total_size.0 > 200 * 1024 {
+            let mut str = String::new();
+            write_basic_type(&basic_type, FrameMemoryAddress(0), &mut str, 0);
+            eprintln!("{:?}:{}>\n{str}", basic_type.id, basic_type.total_size);
+        }
+
         basic_type
     }
 
@@ -639,6 +647,8 @@ impl LayoutCache {
         let mut offset = MemoryOffset(0);
         let mut max_alignment = MemoryAlignment::U8;
         let mut items = Vec::with_capacity(struct_type.field_name_sorted_fields.len());
+
+        eprintln!("laying out named struct:{name}");
 
         for (field_name, field_type) in &struct_type.field_name_sorted_fields {
             // Use layout instead of layout_type to ensure proper caching
@@ -878,8 +888,8 @@ fn create_basic_type(
     })
 }
 
-pub const fn check_type_size(ty: &BasicType, _comment: &str) {
-    if ty.total_size.0 > 128 * 1024 {
-        //warn!(size=%ty.total_size,%ty, comment, "this is too much");
+pub fn check_type_size(ty: &BasicType, _comment: &str) {
+    if ty.total_size.0 > 512 * 1024 * 1024 {
+        eprintln!("suspicious allocation: {} for {ty}", ty.total_size);
     }
 }

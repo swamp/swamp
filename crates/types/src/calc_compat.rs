@@ -26,13 +26,11 @@ impl Type {
             (TypeKind::SparseStorage(_, cap_a), TypeKind::SparseStorage(_, cap_b)) => {
                 true // cap_a >= cap_b
             }
-            (TypeKind::QueueStorage(_, cap_a), TypeKind::QueueStorage(_, cap_b)) => cap_a >= cap_b,
+            (TypeKind::QueueStorage(_, cap_a), TypeKind::QueueStorage(_, cap_b)) => true,
 
-            (TypeKind::StackStorage(_, cap_a), TypeKind::StackStorage(_, cap_b)) => cap_a >= cap_b,
+            (TypeKind::StackStorage(_, cap_a), TypeKind::StackStorage(_, cap_b)) => true,
 
-            (TypeKind::MapStorage(_, _, cap_a), TypeKind::MapStorage(_, _, cap_b)) => {
-                cap_a >= cap_b
-            }
+            (TypeKind::MapStorage(_, _, cap_a), TypeKind::MapStorage(_, _, cap_b)) => true,
 
             (
                 TypeKind::GridStorage(_, rows_a, cols_a),
@@ -101,6 +99,10 @@ impl Type {
             (
                 TypeKind::MapStorage(key_a, value_a, _),
                 TypeKind::DynamicLengthMapView(key_b, value_b),
+            )
+            | (
+                TypeKind::DynamicLengthMapView(key_a, value_a),
+                TypeKind::MapStorage(key_b, value_b, _),
             ) => key_a.do_compatible_with(key_b) && value_a.do_compatible_with(value_b),
             _ => false,
         }

@@ -25,7 +25,7 @@ pub fn layout_variables(
 ) -> FrameAndVariableInfo {
     let mut local_frame_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
-        MemorySize(128 * 1024 * 1024),
+        MemorySize(3 * 1024 * 1024 * 1024),
     ));
 
     //    let return_placed_type_pointer = layout_type(exp_return_type).create_mutable_pointer();
@@ -69,6 +69,7 @@ pub fn layout_variables(
     let mut variable_registers = Vec::new();
     for var_ref in variables {
         let basic_type = layout_cache.layout(&var_ref.resolved_type);
+
         //info!(var_ref.assigned_name, ?frame_register_allocator, "allocating local variable");
         let register = if basic_type.is_aggregate() {
             // TODO: Should have a check if the variable needs the storage (if it is in an assignment in a copy)

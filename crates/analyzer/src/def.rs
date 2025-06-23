@@ -407,7 +407,15 @@ impl Analyzer<'_> {
             swamp_ast::Function::Internal(function_data) => {
                 let parameters = self.analyze_parameters(&function_data.declaration.params);
                 let return_type = if let Some(found) = &function_data.declaration.return_type {
-                    self.analyze_type(found)
+                    let analyzed_return_type = self.analyze_type(found);
+                    if !analyzed_return_type.allowed_as_return_type() {
+                        self.add_err(
+                            ErrorKind::NotAllowedAsReturnType(analyzed_return_type),
+                            function.node(),
+                        );
+                        return None;
+                    }
+                    analyzed_return_type
                 } else {
                     self.shared.state.types.unit()
                 };
