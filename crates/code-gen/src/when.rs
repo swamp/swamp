@@ -7,8 +7,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, WhenBinding};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{u8_type, Destination, RValueOrLValue, VmType};
-use swamp_vm_types::{MemoryLocation, MemoryOffset};
+use swamp_vm_types::MemoryLocation;
+use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_when(
@@ -96,19 +96,9 @@ impl CodeBuilder<'_> {
                 }
             };
 
-            // Create a destination for the binding variable
-            let target_destination = if target_binding_variable_reg.ty.is_aggregate() {
-                let target_memory_location = MemoryLocation {
-                    ty: target_binding_variable_reg.ty.clone(),
-                    base_ptr_reg: target_binding_variable_reg,
-                    offset: MemoryOffset(0),
-                };
-                Destination::Memory(target_memory_location)
-            } else {
-                Destination::Register(target_binding_variable_reg)
-            };
-            
-            self.emit_copy_value_from_memory_location (
+            let target_destination = Destination::Register(target_binding_variable_reg);
+
+            self.emit_copy_value_from_memory_location(
                 &target_destination,
                 &source_memory_location,
                 binding.expr.node(),
