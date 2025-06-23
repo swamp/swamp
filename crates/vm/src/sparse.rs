@@ -42,7 +42,8 @@ impl Vm {
         memory_size_2: u8,
         memory_size_3: u8,
     ) {
-        let element_size = u32_from_u8s!(memory_size_0, memory_size_1, memory_size_2, memory_size_3);
+        let element_size =
+            u32_from_u8s!(memory_size_0, memory_size_1, memory_size_2, memory_size_3);
 
         unsafe {
             let sparse_addr = get_reg!(self, sparse_ptr_reg);

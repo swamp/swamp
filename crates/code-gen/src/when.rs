@@ -5,7 +5,8 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use swamp_semantic::{ArgumentExpression, Expression, WhenBinding};
+use swamp_semantic::{Expression, WhenBinding};
+use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
@@ -61,63 +62,63 @@ impl CodeBuilder<'_> {
             all_false_jumps.push(patch);
         }
 
+        // Here we are sure that all optional types are `Some`, so we load the payloads into the binding variables.
         for binding in bindings {
             let target_binding_variable_reg = self.get_variable_register(&binding.variable).clone();
 
-            if binding.has_expression() {
-                self.emit_argument_expression_binding(
-                    &target_binding_variable_reg,
-                    &binding.expr,
-                    ctx,
+            // Get the optional type information to find the payload offset
+            let optional_type = binding.expr.ty();
+            let tagged_union = match &*optional_type.kind {
+                TypeKind::Optional(inner_type) => {
+                    // We have an Optional type, get the layout info
+                    let binding_gen_type = self.state.layout_cache.layout(&optional_type);
+                    let (_, _, payload_offset, _) = binding_gen_type.unwrap_info().unwrap();
+                    payload_offset
+                }
+                _ => panic!("Expected Optional type in when binding"),
+            };
+
+            // Get the source memory location
+            // TODO: This should also have a proper help function
+            let source_memory_location = match self.emit_for_access_or_location(&binding.expr, ctx)
+            {
+                RValueOrLValue::Scalar(base_reg) => MemoryLocation {
+                    base_ptr_reg: base_reg,
+                    offset: tagged_union,
+                    ty: target_binding_variable_reg.ty.clone(),
+                },
+                RValueOrLValue::Memory(destination) => {
+                    let memory_location = destination.grab_memory_location();
+                    MemoryLocation {
+                        base_ptr_reg: memory_location.base_ptr_reg.clone(),
+                        offset: memory_location.offset + tagged_union,
+                        ty: target_binding_variable_reg.ty.clone(),
+                    }
+                }
+            };
+
+            // Load the payload into the binding variable
+            // TODO: Use a proper help function
+            if target_binding_variable_reg.ty.is_aggregate() {
+                let target_memory_location = MemoryLocation {
+                    ty: target_binding_variable_reg.ty.clone(),
+                    base_ptr_reg: target_binding_variable_reg,
+                    offset: MemoryOffset(0),
+                };
+
+                self.emit_block_copy_with_size_from_location(
+                    &target_memory_location,
+                    &source_memory_location,
+                    binding.expr.node(),
+                    "copy payload into binding variable",
                 );
             } else {
-                let ArgumentExpression::Expression(variable_access_expression) = &binding.expr
-                else {
-                    panic!("must be expression");
-                };
-                let optional_tagged_union_reg =
-                    self.emit_scalar_rvalue(variable_access_expression, ctx);
-
-                let tagged_union_binding = optional_tagged_union_reg.ty.basic_type();
-                let tagged_union = tagged_union_binding.optional_info().unwrap();
-
-                // Optional Tagged Union Payload is grabbed.
-                // if it is aggregate type, we block copy it,
-                // if it is a primitive we load it into a register
-                if target_binding_variable_reg.ty.is_aggregate() {
-                    // get the location of the variable
-                    let target_memory_location = MemoryLocation {
-                        ty: target_binding_variable_reg.ty.clone(),
-                        base_ptr_reg: target_binding_variable_reg,
-                        offset: MemoryOffset(0),
-                    };
-
-                    let source_memory_location = MemoryLocation {
-                        base_ptr_reg: optional_tagged_union_reg.clone(),
-                        offset: tagged_union.payload_offset,
-                        ty: target_memory_location.ty.clone(),
-                    };
-
-                    self.emit_block_copy_with_size_from_location(
-                        &target_memory_location,
-                        &source_memory_location,
-                        binding.expr.node(),
-                        "load payload into binding variable",
-                    );
-                } else {
-                    let source_memory_location = MemoryLocation {
-                        base_ptr_reg: optional_tagged_union_reg.clone(),
-                        offset: tagged_union.payload_offset,
-                        ty: target_binding_variable_reg.ty.clone(),
-                    };
-
-                    self.emit_load_value_from_memory_source(
-                        &target_binding_variable_reg,
-                        &source_memory_location,
-                        binding.expr.node(),
-                        "load payload into binding variable",
-                    );
-                }
+                self.emit_load_value_from_memory_source(
+                    &target_binding_variable_reg,
+                    &source_memory_location,
+                    binding.expr.node(),
+                    "load payload into binding variable",
+                );
             }
         }
 
@@ -140,16 +141,4 @@ impl CodeBuilder<'_> {
             self.builder.patch_jump_here(maybe_jump_over_false.unwrap());
         }
     }
-
-    /*
-    fn get_complex_pointer_into(&mut self, target_reg: TypedRegister, rvalue_or_lvalue: RValueOrLValue, node: &Node, ) {
-        match rvalue_or_lvalue {
-            RValueOrLValue::Scalar(reg) => reg.clone(),
-            RValueOrLValue::Memory(destination) => {
-                self.emit_absolute_pointer_if_needed(&destination, node, "complex absolute pointer")
-            }
-        }
-    }
-
-     */
 }
