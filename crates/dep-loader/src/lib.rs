@@ -14,7 +14,6 @@ use swamp_ast::prelude::*;
 use swamp_parser::{AstParser, SpecificError};
 use time_dilation::ScopedTimer;
 use tracing::error;
-use tracing::trace;
 
 pub struct ParseRoot;
 
