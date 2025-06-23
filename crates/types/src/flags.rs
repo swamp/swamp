@@ -18,6 +18,7 @@ impl TypeFlags {
     pub const IS_SCALAR: Self = Self(1 << 1);
     /// Can it be stored in a sum or product type
     pub const IS_STORAGE: Self = Self(1 << 2);
+    pub const IS_ALLOWED_RETURN: Self = Self(1 << 3);
 
     #[must_use]
     pub const fn new() -> Self {
@@ -45,55 +46,79 @@ impl TypeFlags {
                 flags = flags
                     .union(Self::IS_BLITTABLE)
                     .union(Self::IS_STORAGE)
+                    .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Float => {
                 flags = flags
                     .union(Self::IS_BLITTABLE)
                     .union(Self::IS_STORAGE)
+                    .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::String => {
-                flags = flags.union(Self::IS_BLITTABLE).union(Self::IS_SCALAR); // Strings are "sort of" self-contained in a register
+                flags = flags
+                    .union(Self::IS_BLITTABLE)
+                    .union(Self::IS_SCALAR)
+                    .union(Self::IS_ALLOWED_RETURN); // Strings are "sort of" self-contained in a register
             }
             TypeKind::Bool => {
                 flags = flags
                     .union(Self::IS_BLITTABLE)
                     .union(Self::IS_STORAGE)
+                    .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Unit => {
                 flags = flags
                     .union(Self::IS_BLITTABLE)
                     .union(Self::IS_STORAGE)
+                    .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Function(_) => {}
             TypeKind::Enum(enum_type) => {
                 if enum_type.are_all_variants_with_blittable_payload() {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags
+                        .union(Self::IS_BLITTABLE)
+                        .union(Self::IS_ALLOWED_RETURN);
                 } else {
                     panic!("enums should be blittable")
                 }
                 if enum_type.are_all_variants_with_storage_payload() {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags.union(Self::IS_STORAGE);
                 }
             }
             TypeKind::Tuple(types) => {
                 // A tuple is blittable if all its component types are blittable
                 if types.iter().all(|t| t.flags.contains(Self::IS_BLITTABLE)) {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags
+                        .union(Self::IS_BLITTABLE)
+                        .union(Self::IS_ALLOWED_RETURN);
+                }
+                if types.iter().all(|t| t.flags.contains(Self::IS_STORAGE)) {
+                    flags = flags.union(Self::IS_STORAGE);
                 }
             }
             TypeKind::Optional(inner) => {
                 // An optional is blittable if its inner type is blittable
                 if inner.flags.contains(Self::IS_BLITTABLE) {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags
+                        .union(Self::IS_BLITTABLE)
+                        .union(Self::IS_ALLOWED_RETURN);
+                }
+                if inner.flags.contains(Self::IS_STORAGE) {
+                    flags = flags.union(Self::IS_STORAGE);
                 }
             }
             TypeKind::NamedStruct(named) => {
                 if named.anon_struct_type.flags.contains(Self::IS_BLITTABLE) {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags
+                        .union(Self::IS_BLITTABLE)
+                        .union(Self::IS_ALLOWED_RETURN);
+                }
+                if named.anon_struct_type.flags.contains(Self::IS_STORAGE) {
+                    flags = flags.union(Self::IS_STORAGE);
                 }
             }
             TypeKind::AnonymousStruct(anon) => {
@@ -104,46 +129,104 @@ impl TypeFlags {
                     );
                     field.field_type.flags.contains(Self::IS_BLITTABLE)
                 }) {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags
+                        .union(Self::IS_BLITTABLE)
+                        .union(Self::IS_ALLOWED_RETURN);
+                }
+
+                if anon
+                    .field_name_sorted_fields
+                    .iter()
+                    .all(|(name, field)| field.field_type.flags.contains(Self::IS_STORAGE))
+                {
+                    flags = flags.union(Self::IS_STORAGE);
                 }
             }
             TypeKind::MapStorage(key, value, _) => {
                 if key.is_blittable() && value.is_blittable() {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
+
+                if key.is_storage() && value.is_storage() {
+                    flags = flags.union(Self::IS_STORAGE);
+                }
+            }
+            TypeKind::DynamicLengthMapView(_, _) => {
+                flags = flags.union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::FixedCapacityAndLengthArray(inner, _) => {
                 if inner.is_blittable() {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
+                if inner.is_storage() {
+                    flags = flags.union(Self::IS_STORAGE);
+                }
+            }
+            TypeKind::SliceView(_) => {
+                flags = flags.union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::VecStorage(inner, _) => {
                 if inner.is_blittable() {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
+                if inner.is_storage() {
+                    flags = flags.union(Self::IS_STORAGE);
+                }
             }
+            TypeKind::DynamicLengthVecView(_) => {
+                flags = flags.union(Self::IS_ALLOWED_RETURN);
+            }
+
             TypeKind::StackStorage(inner, _) => {
                 if inner.is_blittable() {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
+                if inner.is_storage() {
+                    flags = flags.union(Self::IS_STORAGE);
+                }
             }
+            TypeKind::StackView(_) => {
+                flags = flags.union(Self::IS_ALLOWED_RETURN);
+            }
+
             TypeKind::QueueStorage(inner, _) => {
                 if inner.is_blittable() {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
+                if inner.is_storage() {
+                    flags = flags.union(Self::IS_STORAGE);
+                }
+            }
+            TypeKind::QueueView(_) => {
+                flags = flags.union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::GridStorage(inner, _, _) => {
                 if inner.is_blittable() {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
+                if inner.is_storage() {
+                    flags = flags.union(Self::IS_STORAGE);
+                }
+            }
+            TypeKind::GridView(_) => {
+                flags = flags.union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::SparseStorage(inner, _) => {
                 if inner.is_blittable() {
                     flags = flags.union(Self::IS_BLITTABLE);
                 }
+                if inner.is_storage() {
+                    flags = flags.union(Self::IS_STORAGE);
+                }
+            }
+            TypeKind::SparseView(_) => {
+                flags = flags.union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::Range(inner) => {
-                flags = flags.union(Self::IS_BLITTABLE);
+                flags = flags
+                    .union(Self::IS_BLITTABLE)
+                    .union(Self::IS_ALLOWED_RETURN);
+                flags = flags.union(Self::IS_STORAGE);
             }
 
             _ => {}

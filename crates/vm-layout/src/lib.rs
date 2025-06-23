@@ -185,7 +185,7 @@ impl LayoutCache {
     ) -> (MemorySize, MemoryAlignment) {
         let total_size =
             element_type_basic.total_size.0 as usize * capacity + VEC_HEADER_SIZE.0 as usize;
-        let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U16);
+        let max_alignment = max(element_type_basic.max_alignment, MemoryAlignment::U32);
 
         (MemorySize(total_size as u32), max_alignment)
     }
@@ -312,14 +312,14 @@ impl LayoutCache {
                 self.layout_enum(&enum_type.assigned_name, &variants, ty.id)
             }
             TypeKind::FixedCapacityAndLengthArray(element_type, capacity) => {
-                let (element_layout, element_size, element_alignment) =
+                let (element_layout, total_size, max_alignment) =
                     self.layout_vec_like(element_type, *capacity);
 
                 let array_type = Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
                     kind: BasicTypeKind::FixedCapacityArray(element_layout.clone(), *capacity),
-                    total_size: MemorySize(element_size.0 * (*capacity as u32)),
-                    max_alignment: element_alignment,
+                    total_size,
+                    max_alignment,
                 });
 
                 // Also store the element type in id_to_layout
@@ -328,14 +328,14 @@ impl LayoutCache {
                 array_type
             }
             TypeKind::StringStorage(byte_type, capacity) => {
-                let (element_layout, element_size, element_alignment) =
+                let (element_layout, total_size, max_alignment) =
                     self.layout_vec_like(byte_type, *capacity);
 
                 let array_type = Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
                     kind: BasicTypeKind::FixedCapacityArray(element_layout.clone(), *capacity),
-                    total_size: MemorySize(element_size.0 * (*capacity as u32)),
-                    max_alignment: element_alignment,
+                    total_size,
+                    max_alignment,
                 });
 
                 // Also store the element type in id_to_layout
@@ -358,13 +358,13 @@ impl LayoutCache {
                 vec_type
             }
             TypeKind::VecStorage(element_type, capacity) => {
-                let (element_layout, element_size, element_alignment) =
+                let (element_layout, total_size, element_alignment) =
                     self.layout_vec_like(element_type, *capacity);
 
                 let storage_type = Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
                     kind: BasicTypeKind::VecStorage(element_layout.clone(), *capacity),
-                    total_size: MemorySize(VEC_HEADER_SIZE.0 + element_size.0 * (*capacity as u32)),
+                    total_size,
                     max_alignment: max(MemoryAlignment::U16, element_alignment),
                 });
 
@@ -524,14 +524,14 @@ impl LayoutCache {
                 })
             }
             TypeKind::StackStorage(element_type, capacity) => {
-                let (element_layout, element_size, element_alignment) =
+                let (element_layout, total_size, max_alignment) =
                     self.layout_vec_like(element_type, *capacity);
 
                 let storage_type = Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
                     kind: BasicTypeKind::StackStorage(element_layout.clone(), *capacity),
-                    total_size: MemorySize(VEC_HEADER_SIZE.0 + element_size.0 * (*capacity as u32)),
-                    max_alignment: max(MemoryAlignment::U16, element_alignment),
+                    total_size,
+                    max_alignment,
                 });
 
                 let _ = self.id_to_layout.insert(element_type.id, element_layout);
@@ -552,14 +552,14 @@ impl LayoutCache {
                 })
             }
             TypeKind::QueueStorage(element_type, capacity) => {
-                let (element_layout, element_size, element_alignment) =
+                let (element_layout, total_size, max_alignment) =
                     self.layout_vec_like(element_type, *capacity);
 
                 let storage_type = Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
                     kind: BasicTypeKind::QueueStorage(element_layout.clone(), *capacity),
-                    total_size: MemorySize(VEC_HEADER_SIZE.0 + element_size.0 * (*capacity as u32)),
-                    max_alignment: max(MemoryAlignment::U16, element_alignment),
+                    total_size,
+                    max_alignment,
                 });
 
                 let _ = self.id_to_layout.insert(element_type.id, element_layout);
@@ -596,10 +596,13 @@ impl LayoutCache {
             .kind_to_layout
             .insert((*ty.kind).clone(), basic_type.clone());
 
-        if basic_type.total_size.0 > 200 * 1024 {
+        if false && basic_type.total_size.0 > 2 * 1024 * 1024 {
             let mut str = String::new();
             write_basic_type(&basic_type, FrameMemoryAddress(0), &mut str, 0);
-            eprintln!("{:?}:{}>\n{str}", basic_type.id, basic_type.total_size);
+            eprintln!(
+                "{:?}:{} ({})>\n{str}",
+                basic_type.id, basic_type.total_size, basic_type.kind,
+            );
         }
 
         basic_type
@@ -647,8 +650,6 @@ impl LayoutCache {
         let mut offset = MemoryOffset(0);
         let mut max_alignment = MemoryAlignment::U8;
         let mut items = Vec::with_capacity(struct_type.field_name_sorted_fields.len());
-
-        eprintln!("laying out named struct:{name}");
 
         for (field_name, field_type) in &struct_type.field_name_sorted_fields {
             // Use layout instead of layout_type to ensure proper caching
@@ -889,7 +890,7 @@ fn create_basic_type(
 }
 
 pub fn check_type_size(ty: &BasicType, _comment: &str) {
-    if ty.total_size.0 > 512 * 1024 * 1024 {
+    if ty.total_size.0 > 2 * 1024 * 1024 {
         eprintln!("suspicious allocation: {} for {ty}", ty.total_size);
     }
 }

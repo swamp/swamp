@@ -78,7 +78,7 @@ impl Type {
     #[inline]
     #[must_use]
     pub const fn allowed_as_return_type(&self) -> bool {
-        self.flags.contains(TypeFlags::IS_SCALAR) || !self.flags.contains(TypeFlags::IS_STORAGE)
+        self.flags.contains(TypeFlags::IS_ALLOWED_RETURN)
     }
 
     #[inline]
