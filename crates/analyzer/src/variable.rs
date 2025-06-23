@@ -352,15 +352,14 @@ impl Analyzer<'_> {
                     expression_type,
                     &ast_variable.name,
                 );
-            } else {
-                // This call uses the TypeCache through create_local_variable
-                self.create_local_variable(
-                    &ast_variable.name,
-                    ast_variable.is_mutable.as_ref(),
-                    &expression_type,
-                    false,
-                )
             }
+            // This call uses the TypeCache through create_local_variable
+            self.create_local_variable(
+                &ast_variable.name,
+                ast_variable.is_mutable.as_ref(),
+                &expression_type,
+                false,
+            )
         } else {
             // This call uses the TypeCache through create_local_variable
             self.create_local_variable(
