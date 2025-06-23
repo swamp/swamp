@@ -345,12 +345,12 @@ impl Analyzer<'_> {
                 lookups
                     .insert(variable_str, alias_ref.clone())
                     .expect("should have checked earlier for variable");
-                
+
                 // For variable aliases, return the alias directly without creating a variable definition
                 return self.create_expr(
                     ExpressionKind::VariableAccess(alias_ref),
                     expression_type,
-                    &ast_variable.name
+                    &ast_variable.name,
                 );
             } else {
                 // This call uses the TypeCache through create_local_variable
