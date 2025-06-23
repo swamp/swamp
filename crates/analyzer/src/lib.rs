@@ -2642,7 +2642,12 @@ impl<'a> Analyzer<'a> {
         for (variable_binding, resolved_expression) in variables.iter().zip(variable_expressions) {
             let initialize_variable_expression = self
                 .create_variable_binding_for_with(&variable_binding.variable, resolved_expression);
-            expressions.push(initialize_variable_expression);
+            
+            // Only add to expressions if it's a variable definition (not a variable access)
+            // Variable access means it's an alias and doesn't need initialization
+            if !matches!(initialize_variable_expression.kind, ExpressionKind::VariableAccess(_)) {
+                expressions.push(initialize_variable_expression);
+            }
         }
 
         let resolved_expression = self.analyze_expression(expression, context);
