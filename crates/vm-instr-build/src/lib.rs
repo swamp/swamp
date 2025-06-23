@@ -1497,7 +1497,7 @@ impl InstructionBuilder<'_> {
                 offset_bytes.1,
                 offset_bytes.2,
                 offset_bytes.3,
-                u8_reg.index,
+                u8_reg.addressing(),
             ],
             node,
             comment,

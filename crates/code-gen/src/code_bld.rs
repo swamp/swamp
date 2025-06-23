@@ -324,7 +324,7 @@ impl CodeBuilder<'_> {
                 &memory_lvalue_location.location,
                 tag_reg.register(),
                 node,
-                "store optional Some tag",
+                "store optional None tag",
             );
         }
         self.temp_registers.restore_to_mark(hwm);

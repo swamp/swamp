@@ -4,9 +4,9 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::Memory;
+use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -483,7 +483,7 @@ impl Vm {
         // Sparse
         vm.handlers[OpCode::SparseInit as usize] = HandlerType::Args7(Self::execute_sparse_init);
         vm.handlers[OpCode::SparseAddGiveEntryAddress as usize] =
-            HandlerType::Args5(Self::execute_sparse_add_get_entry_addr);
+            HandlerType::Args7(Self::execute_sparse_add_get_entry_addr);
         vm.handlers[OpCode::SparseRemove as usize] =
             HandlerType::Args2(Self::execute_sparse_remove);
         vm.handlers[OpCode::SparseGetEntryAddr as usize] =

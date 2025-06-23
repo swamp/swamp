@@ -37,10 +37,12 @@ impl Vm {
         dest_entry_addr_reg: u8,
         dest_handle_reg: u8,
         sparse_ptr_reg: u8,
-        memory_size_lower: u8,
-        memory_size_upper: u8,
+        memory_size_0: u8,
+        memory_size_1: u8,
+        memory_size_2: u8,
+        memory_size_3: u8,
     ) {
-        let element_size = u16_from_u8s!(memory_size_lower, memory_size_upper);
+        let element_size = u32_from_u8s!(memory_size_0, memory_size_1, memory_size_2, memory_size_3);
 
         unsafe {
             let sparse_addr = get_reg!(self, sparse_ptr_reg);
@@ -51,8 +53,11 @@ impl Vm {
                 let element_addr = addr_for_values_start + index as usize * element_size as usize;
 
                 let handle = (index as u32) << 16 | (generation as u32);
+                if self.debug_operations_enabled {
+                    eprintln!("sparse_add: handle: {handle} 0x{handle:X} ({index}:{generation})");
+                }
                 set_reg!(self, dest_handle_reg, handle);
-                set_reg!(self, dest_entry_addr_reg, element_addr);
+                set_reg!(self, dest_entry_addr_reg, element_addr as u32);
             } else {
                 self.internal_trap(TrapCode::SparseOutOfSpace)
             }
