@@ -79,6 +79,7 @@ pub enum Transformer {
     Any,
     All,
     FilterMap,
+    While,
 }
 
 pub enum TransformerLambdaResultConversion {
@@ -156,6 +157,7 @@ impl Transformer {
             Self::All | Self::Any => TransformerResult::Bool,
             Self::Find => TransformerResult::WrappedValueFromSourceCollection,
             Self::For => TransformerResult::Unit,
+            Self::While => TransformerResult::Unit,
         }
     }
 

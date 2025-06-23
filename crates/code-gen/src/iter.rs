@@ -429,6 +429,7 @@ impl CodeBuilder<'_> {
     ) -> FlagStateKind {
         match transformer {
             Transformer::For => FlagStateKind::TFlagIsIndeterminate,
+            Transformer::While => FlagStateKind::TFlagIsTrueWhenSet,
             Transformer::Filter => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 FlagStateKind::TFlagIsTrueWhenSet
@@ -551,6 +552,7 @@ impl CodeBuilder<'_> {
             Transformer::For => false,
             Transformer::Filter => false,
             Transformer::Find => true,
+            Transformer::While => true,
             Transformer::Map => false,
             Transformer::Any => true,
             Transformer::All => true,

@@ -166,7 +166,8 @@ pub enum BlockScopeMode {
 #[derive(Debug, Clone)]
 pub struct BlockScope {
     pub mode: BlockScopeMode,
-    pub variables: SeqMap<String, VariableRef>,
+    pub lookup: SeqMap<String, VariableRef>,
+    pub variables: SeqMap<usize, VariableRef>,
 }
 
 impl Display for BlockScope {
@@ -192,6 +193,7 @@ impl BlockScope {
         Self {
             mode: BlockScopeMode::Open,
             variables: SeqMap::new(),
+            lookup: SeqMap::new(),
         }
     }
 }

@@ -148,8 +148,14 @@ impl CodeBuilder<'_> {
     ) {
         match &lvalue_location.ty.basic_type().kind {
             BasicTypeKind::SparseStorage(element_type, capacity) => {
+                let absolute_pointer = self
+                    .emit_compute_effective_address_from_location_to_register(
+                        lvalue_location,
+                        node,
+                        "load effective address for sparse",
+                    );
                 self.builder.add_sparse_init(
-                    &lvalue_location.pointer_location().unwrap().ptr_reg,
+                    &absolute_pointer.ptr_reg,
                     element_type.total_size,
                     *capacity as u16,
                     node,

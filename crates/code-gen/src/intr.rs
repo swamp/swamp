@@ -10,7 +10,8 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_types::types::{
-    Destination, RValueOrLValue, TypedRegister, VmType, pointer_type, u8_type, u16_type, u32_type,
+    Destination, RValueOrLValue, TypedRegister, VmType, float_type, pointer_type, u8_type,
+    u16_type, u32_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
@@ -619,7 +620,18 @@ impl CodeBuilder<'_> {
                     lambda,
                     ctx,
                 );
-            } // Low prio      IntrinsicFunction::VecFor => {
+            }
+            IntrinsicFunction::TransformerWhile => {
+                self.emit_iterate_over_collection_with_lambda(
+                    target_destination,
+                    node,
+                    Collection::Vec,
+                    Transformer::While,
+                    &self_addr.ptr_reg,
+                    lambda,
+                    ctx,
+                );
+            }
 
             IntrinsicFunction::TransformerFind => {
                 self.emit_iterate_over_collection_with_lambda(
@@ -632,7 +644,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            _ => todo!(),
+            _ => todo!("{intrinsic_fn}"),
         }
     }
 
@@ -673,7 +685,7 @@ impl CodeBuilder<'_> {
                     (None, target_destination.register().unwrap().clone())
                 } else {
                     let temp_reg = self.temp_registers.allocate(
-                        VmType::new_contained_in_register(u32_type()),
+                        VmType::new_contained_in_register(float_type()),
                         "temporary destination for low level intrinsic",
                     );
 

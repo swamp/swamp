@@ -23,7 +23,7 @@ impl Analyzer<'_> {
 
         let variable_text = self.get_text_resolved(node).to_string();
 
-        current_scope.variables.get(&variable_text)
+        current_scope.lookup.get(&variable_text)
     }
 
     #[allow(unused)]
@@ -40,7 +40,7 @@ impl Analyzer<'_> {
         let variable_text = self.get_text(node);
 
         for scope in self.scope.block_scope_stack.iter().rev() {
-            if let Some(value) = scope.variables.get(&variable_text.to_string()) {
+            if let Some(value) = scope.lookup.get(&variable_text.to_string()) {
                 return Some(value.clone());
             }
             if scope.mode == BlockScopeMode::Closed {
@@ -57,7 +57,7 @@ impl Analyzer<'_> {
         is_mutable: Option<&Node>,
         variable_type_ref: &TypeRef,
     ) {
-        let (variable_ref, _name_str, _should_be_inserted) = self.create_variable_like_resolved(
+        let (variable_ref, _name_str) = self.create_variable_like_resolved(
             variable,
             is_mutable,
             variable_type_ref,
@@ -111,16 +111,13 @@ impl Analyzer<'_> {
         is_mutable: Option<&Node>,
         variable_type_ref: &TypeRef,
     ) -> VariableRef {
-        let (variable_ref, variable_str, should_insert_in_scope) = self
-            .create_variable_like_resolved(
-                variable,
-                is_mutable,
-                variable_type_ref,
-                VariableType::Local,
-            );
-        if should_insert_in_scope {
-            self.function_variables.push(variable_ref.clone());
-        }
+        let (variable_ref, variable_str) = self.create_variable_like_resolved(
+            variable,
+            is_mutable,
+            variable_type_ref,
+            VariableType::Local,
+        );
+        self.function_variables.push(variable_ref.clone());
 
         variable_ref
     }
@@ -131,7 +128,7 @@ impl Analyzer<'_> {
         is_mutable: Option<&Node>,
         variable_type_ref: &TypeRef,
         variable_type: VariableType,
-    ) -> (VariableRef, String, bool) {
+    ) -> (VariableRef, String) {
         if let Some(_existing_variable) = self.try_find_local_variable(variable) {
             self.add_err_resolved(ErrorKind::OverwriteVariableNotAllowedHere, variable);
             let error_var_ref = VariableRef::new(Variable {
@@ -146,7 +143,7 @@ impl Analyzer<'_> {
                 is_unused: false,
             });
 
-            return (error_var_ref, "err".to_string(), false);
+            return (error_var_ref, "err".to_string());
         }
         let variable_str = self.get_text_resolved(variable).to_string();
 
@@ -155,12 +152,14 @@ impl Analyzer<'_> {
         let index = { self.scope.emit_variable_index() };
 
         let should_insert_in_scope = !variable_str.starts_with('_');
-        let variables = &mut self
+
+        let variables_len = &mut self
             .scope
             .block_scope_stack
             .last_mut()
             .expect("block scope should have at least one scope")
-            .variables;
+            .variables
+            .len();
 
         // Make sure to use the TypeCache to ensure proper type handling
         // The variable_type_ref should be obtained from the TypeCache
@@ -171,7 +170,7 @@ impl Analyzer<'_> {
             resolved_type: variable_type_ref.clone(),
             mutable_node: is_mutable.cloned(),
             scope_index,
-            variable_index: variables.len(),
+            variable_index: *variables_len,
             unique_id_within_function: index,
             is_unused: !should_insert_in_scope,
         };
@@ -193,16 +192,32 @@ impl Analyzer<'_> {
                 is_unused: false,
             });
 
-            return (error_var_ref, "err".to_string(), false);
+            return (error_var_ref, "err".to_string());
         }
 
         if should_insert_in_scope {
-            variables
+            let lookups = &mut self
+                .scope
+                .block_scope_stack
+                .last_mut()
+                .expect("block scope should have at least one scope")
+                .lookup;
+            lookups
                 .insert(variable_str.clone(), variable_ref.clone())
                 .expect("should have checked earlier for variable");
         }
 
-        (variable_ref, variable_str, should_insert_in_scope)
+        let variables = &mut self
+            .scope
+            .block_scope_stack
+            .last_mut()
+            .expect("block scope should have at least one scope")
+            .variables;
+        variables
+            .insert(variable_ref.unique_id_within_function, variable_ref.clone())
+            .expect("should have checked earlier for variable");
+
+        (variable_ref, variable_str)
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -216,12 +231,13 @@ impl Analyzer<'_> {
 
         let index_within_function = self.scope.emit_variable_index();
 
-        let variables = &mut self
+        let variables_len = self
             .scope
             .block_scope_stack
             .last_mut()
             .expect("block scope should have at least one scope")
-            .variables;
+            .variables
+            .len();
 
         let is_marked_as_unused = variable_str.starts_with('_');
 
@@ -244,7 +260,7 @@ impl Analyzer<'_> {
                 None
             },
             scope_index,
-            variable_index: variables.len(),
+            variable_index: variables_len,
             unique_id_within_function: index_within_function,
             is_unused: is_marked_as_unused,
         };
@@ -252,10 +268,26 @@ impl Analyzer<'_> {
         let variable_ref = Rc::new(resolved_variable);
 
         if !is_marked_as_unused {
-            variables
+            let lookups = &mut self
+                .scope
+                .block_scope_stack
+                .last_mut()
+                .expect("block scope should have at least one scope")
+                .lookup;
+            lookups
                 .insert(actual_name, variable_ref.clone())
                 .expect("should have checked earlier for variable");
         }
+
+        let variables = &mut self
+            .scope
+            .block_scope_stack
+            .last_mut()
+            .expect("block scope should have at least one scope")
+            .variables;
+        variables
+            .insert(variable_ref.unique_id_within_function, variable_ref.clone())
+            .expect("should have checked earlier for variable");
 
         self.function_variables.push(variable_ref.clone());
 
@@ -281,12 +313,13 @@ impl Analyzer<'_> {
                 let node = self.to_node(&ast_variable.name);
                 let mut_node = ast_variable.is_mutable.as_ref().map(|n| self.to_node(n));
 
-                let variables = &mut self
+                let variables_len = self
                     .scope
                     .block_scope_stack
-                    .last_mut()
+                    .last()
                     .expect("block scope should have at least one scope")
-                    .variables;
+                    .variables
+                    .len();
 
                 // Make sure to use the TypeCache when accessing source_var.resolved_type
                 // The type should be handled through the TypeCache
@@ -297,16 +330,21 @@ impl Analyzer<'_> {
                     resolved_type: source_var.resolved_type.clone(),
                     mutable_node: mut_node.or_else(|| source_var.mutable_node.clone()),
                     scope_index,
-                    variable_index: variables.len(),
+                    variable_index: variables_len,
                     unique_id_within_function: source_var.unique_id_within_function, // Reuse the same ID
                     is_unused: false,
                 };
 
+                let lookups = &mut self
+                    .scope
+                    .block_scope_stack
+                    .last_mut()
+                    .expect("block scope should have at least one scope")
+                    .lookup;
                 let alias_ref = Rc::new(resolved_variable);
-                variables
+                lookups
                     .insert(variable_str, alias_ref.clone())
                     .expect("should have checked earlier for variable");
-
                 alias_ref
             } else {
                 // This call uses the TypeCache through create_local_variable

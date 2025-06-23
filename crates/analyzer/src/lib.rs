@@ -2299,6 +2299,7 @@ impl<'a> Analyzer<'a> {
     fn push_block_scope(&mut self, _debug_str: &str) {
         self.scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Open,
+            lookup: Default::default(),
             variables: SeqMap::default(),
         });
     }
@@ -2310,6 +2311,7 @@ impl<'a> Analyzer<'a> {
     fn push_closed_block_scope(&mut self) {
         self.scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Closed,
+            lookup: Default::default(),
             variables: SeqMap::default(),
         });
     }

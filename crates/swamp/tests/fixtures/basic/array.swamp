@@ -7,6 +7,10 @@ struct Another {
     things: [Thing; 3],
 }
 
+struct Settings {
+    cooldown_settings: [Int; 3],
+}
+
 fn reading_things(things: [Thing]) {
     thing = things[0]
     assert(thing.a == 42, 'thing.a is wrong')
@@ -190,4 +194,27 @@ fn push() {
     assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
     assert(another.things[2].a == 100, 'another.things[2].a is wrong')
     assert(another.things[2].b == 200, 'another.things[2].b is wrong')
+}
+
+// Tests for mutable scalars (primitives)
+fn update_settings(mut cooldown: Int, value: Int) {
+    cooldown = value
+}
+
+/// Test for a bug where updating a mutable scalar in an array did not work as expected.
+/// `could not find base reg 133`, Something with copy back was not working correctly.
+#[test]
+fn update_cooldown() {
+    mut settings = Settings {
+        cooldown_settings: [98, -2, -8923]
+    }
+    assert(settings.cooldown_settings[0] == 98, 'settings.cooldown_settings[0] is wrong')
+    assert(settings.cooldown_settings[1] == -2, 'settings.cooldown_settings[1] is wrong')
+    assert(settings.cooldown_settings[2] == -8923, 'settings.cooldown_settings[2] is wrong')
+
+    update_settings(&settings.cooldown_settings[1], 100)
+
+    assert(settings.cooldown_settings[0] == 98, 'settings.cooldown_settings[0] should not have changed')
+    assert(settings.cooldown_settings[1] == 100, 'settings.cooldown_settings[1] should have been updated')
+    assert(settings.cooldown_settings[2] == -8923, 'settings.cooldown_settings[2] should not have changed')
 }
