@@ -986,9 +986,11 @@ impl AstParser {
                 let inner_item = self.next_inner_pair(&item_pair)?;
                 match inner_item.as_rule() {
                     Rule::external_member_function => {
-                        let inner_inner_item = self.next_inner_pair(&inner_item)?;
-                        let signature = self.parse_member_signature(&inner_inner_item)?;
-                        functions.push(Function::External(Node::default(), signature));
+                        let mut inner_inner_item = inner_item.into_inner();
+                        let id = inner_inner_item.next().unwrap();
+                        let signature =
+                            self.parse_member_signature(&inner_inner_item.next().unwrap())?;
+                        functions.push(Function::External(self.to_node(&id), signature));
                     }
                     Rule::normal_member_function => {
                         let function_data = self.parse_member_data(&inner_item)?;

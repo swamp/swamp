@@ -309,7 +309,7 @@ function_signature ~ block
 }
 
 external_member_function = {
-"external"  ~ member_signature
+"external" ~ int_lit ~ member_signature
 }
 
 normal_member_function = {
