@@ -4,7 +4,7 @@
  */
 
 use std::path::PathBuf;
-use swamp_test_runner::{run_tests, StepBehavior, TestRunOptions};
+use swamp_test_runner::{StepBehavior, TestRunOptions, run_tests};
 
 #[must_use]
 pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
@@ -22,7 +22,7 @@ pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
 /// Helper function to run Swamp tests with minimal boilerplate
 ///
 /// # Arguments
-/// * `test_filter` - The test filter (e.g., "with::", "stack::init_and_push", "intrinsic::")
+/// * `test_filter` - The test filter (e.g., "`with::`", "`stack::init_and_push`", "`intrinsic::`")
 /// * `print_output` - Whether to print test output (useful for debugging)
 ///
 /// # Examples
@@ -52,7 +52,10 @@ fn run_swamp_test(test_filter: &str, print_output: bool) {
         test_filter,
         "lib",
     );
-    assert!(result.failed_tests.is_empty(), "Swamp test '{}' failed", test_filter);
+    assert!(
+        result.failed_tests.is_empty(),
+        "Swamp test '{test_filter}' failed"
+    );
 }
 
 fn run_swamp_test_quiet(test_filter: &str) {

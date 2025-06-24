@@ -332,7 +332,7 @@ impl Analyzer<'_> {
                 if is_scalar {
                     // For scalars, treat mutable references as copies for now
                     // TODO: Implement copy-back mechanism later
-                    let original_expr = ExpressionKind::VariableAccess(loc.starting_variable.clone());
+                    let original_expr = ExpressionKind::VariableAccess(loc.starting_variable);
                     let original_expr_wrapped = self.create_expr(
                         original_expr,
                         expression_type.clone(),
@@ -347,7 +347,10 @@ impl Analyzer<'_> {
                         false,
                     );
 
-                    let var_def_kind = ExpressionKind::VariableDefinition(variable_ref, Box::new(original_expr_wrapped));
+                    let var_def_kind = ExpressionKind::VariableDefinition(
+                        variable_ref,
+                        Box::new(original_expr_wrapped),
+                    );
                     let unit_type = self.types().unit();
                     self.create_expr(var_def_kind, unit_type, &ast_variable.name)
                 } else {
