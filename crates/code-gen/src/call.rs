@@ -13,11 +13,11 @@ use crate::{ArgumentAndTempScope, RepresentationOfRegisters, SpilledRegisterRegi
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
-use swamp_types::TypeKind;
+use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
 use swamp_types::prelude::Signature;
+use swamp_types::TypeKind;
 use swamp_vm_types::types::{
-    BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType, u32_type,
+    u32_type, BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType,
 };
 use swamp_vm_types::{FrameMemoryRegion, MemoryLocation, REG_ON_FRAME_SIZE};
 
@@ -84,7 +84,7 @@ impl CodeBuilder<'_> {
         // This function builds a lookup map from original base register index to temporary
         // saved register, which is used during the copy-back phase after the function call.
         let mut stable_base_ptr_cache = SeqMap::new();
-        
+
         // First, handle the output destination's base register if it exists
         if let Some(output_base_reg) = output_destination.register_involved_in_destination() {
             if !stable_base_ptr_cache.contains_key(&output_base_reg.index) {
@@ -103,7 +103,7 @@ impl CodeBuilder<'_> {
                     .unwrap();
             }
         }
-        
+
         // Then handle argument base registers
         for argument in arguments {
             if let ArgumentExpression::BorrowMutableReference(lvalue) = argument {
@@ -479,50 +479,71 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub fn copy_backs(&mut self, copy_backs: Vec<MutableReturnReg>, node: &Node) -> HashSet<u8> {
-        let mut all_registers_in_copy_back = HashSet::new();
-        for copy_back in copy_backs {
-            if let Some(some_reg) = copy_back
-                .target_location_after_call
-                .register_involved_in_destination()
-            {
-                all_registers_in_copy_back.insert(some_reg.index);
-            }
 
-            // TODO: add a helper function, maybe called `copy_back_to_memory_or_reg` or similar.
+    pub(crate) fn emit_post_call(
+        &mut self,
+        spilled_arguments: EmitArgumentInfo,
+        node: &Node,
+        comment: &str,
+    ) {
+        // Phase 1: Save current mutable parameter values to temporary safe space before registers get clobbered
+        let mut temp_saved_values = Vec::new();
+        for copy_back in &spilled_arguments.copy_back_of_registers_mutated_by_callee {
+            let temp_reg = self.temp_registers.allocate(
+                copy_back.parameter_reg.ty.clone(),
+                &format!("temp save for copy-back of {}", copy_back.parameter_reg.comment),
+            );
+
+            self.builder.add_mov_reg(
+                temp_reg.register(),
+                &copy_back.parameter_reg,
+                node,
+                &format!("save {} to temp before register restoration", copy_back.parameter_reg),
+            );
+
+            temp_saved_values.push((temp_reg, copy_back));
+        }
+
+        // Phase 2: Restore all spilled registers (scratch registers first, then argument registers)
+        if let Some(scratch_region) = spilled_arguments.argument_and_temp_scope.scratch_registers {
+            self.emit_restore_region(scratch_region, &HashSet::new(), node, comment);
+        }
+
+        // Restore argument registers - cool thing with this approach is that we don't have to bother with restoring some of them
+        self.emit_restore_region(
+            spilled_arguments.argument_and_temp_scope.argument_registers,
+            &HashSet::new(),
+            node,
+            comment,
+        );
+
+        // Phase 3: Copy from temporary safe registers that was saved from the mutable parameters, to the final destinations
+        // TODO: maybe use a utility function
+        for (temp_reg, copy_back) in temp_saved_values {
             match &copy_back.target_location_after_call {
                 Destination::Register(reg) => {
                     self.builder.add_mov_reg(
                         reg,
-                        &copy_back.parameter_reg,
+                        temp_reg.register(),
                         node,
-                        &format!(
-                            "copy return value to {reg} frp, {}",
-                            copy_back.parameter_reg
-                        ),
+                        &format!("copy-back from temp to {reg}"),
                     );
                 }
                 Destination::Memory(memory_location) => match memory_location.ty.basic_type.kind {
                     BasicTypeKind::U8 | BasicTypeKind::B8 => {
                         self.builder.add_st8_using_ptr_with_offset(
                             memory_location,
-                            &copy_back.parameter_reg,
+                            temp_reg.register(),
                             node,
-                            &format!(
-                                "copy byte return value from {} to memory destination",
-                                copy_back.parameter_reg
-                            ),
+                            &format!("copy-back byte value from temp to memory destination"),
                         );
                     }
                     _ => {
                         self.builder.add_st32_using_ptr_with_offset(
                             memory_location,
-                            &copy_back.parameter_reg,
+                            temp_reg.register(),
                             node,
-                            &format!(
-                                "copy return value from {} to memory destination",
-                                copy_back.parameter_reg
-                            ),
+                            &format!("copy-back value from temp to memory destination"),
                         );
                     }
                 },
@@ -531,42 +552,13 @@ impl CodeBuilder<'_> {
                 }
             }
         }
-        all_registers_in_copy_back
-    }
-
-    pub(crate) fn emit_post_call(
-        &mut self,
-        spilled_arguments: EmitArgumentInfo,
-        node: &Node,
-        comment: &str,
-    ) {
-        if let Some(scratch_region) = spilled_arguments.argument_and_temp_scope.scratch_registers {
-            self.emit_restore_region(scratch_region, &HashSet::new(), node, comment);
-        }
-
-        let all_registers_in_copy_back = self.copy_backs(
-            spilled_arguments.copy_back_of_registers_mutated_by_callee,
-            node,
-        );
-
-        self.emit_restore_region(
-            spilled_arguments.argument_and_temp_scope.argument_registers,
-            &all_registers_in_copy_back,
-            node,
-            comment,
-        );
     }
 
     #[allow(clippy::too_many_lines)]
-    // TODO:@investigate:
-    // Instead of filtering out individual registers that should not be restored
-    // It seems to be better to make those decision and store the proper regions in the first place
-    // Not sure what is the fastest approach. Maybe there is a slight advantage to spilling "too much"
-    // as it is written now. Since you have unbroken ranges in the spilling, it takes less instructions.
     pub fn emit_restore_region(
         &mut self,
         region: SpilledRegisterRegion,
-        output_destination_registers: &HashSet<u8>,
+        output_destination_registers: &HashSet<u8>, // TODO: Remove this
         node: &Node,
         comment: &str,
     ) {
@@ -718,7 +710,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling `{function_name}` ({comment})",);
+        let call_comment = &format!("calling `{function_name}` ({comment})", );
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {
