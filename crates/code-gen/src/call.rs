@@ -84,19 +84,12 @@ impl CodeBuilder<'_> {
     // - copy back of r0 for immutable primitives to target register,  unless the target was r0 itself, in that case it was left out of store abi register mask
     pub fn spill_required_registers(
         &mut self,
-        r0_used_as_return: bool,
         is_host_call: bool,
         node: &Node,
         comment: &str,
     ) -> ArgumentAndTempScope {
         const ABI_ARGUMENT_RETURN_AND_ARGUMENT_REGISTERS: usize = 6; // r0-r5
         const ABI_ARGUMENT_MASK: u8 = 0x3f;
-
-        let mask_to_use = if r0_used_as_return {
-            ABI_ARGUMENT_MASK & 0x7E
-        } else {
-            ABI_ARGUMENT_MASK
-        };
 
         let abi_parameter_frame_memory_region = self.temp_frame_space_for_register(
             ABI_ARGUMENT_RETURN_AND_ARGUMENT_REGISTERS as u8,
@@ -110,7 +103,7 @@ impl CodeBuilder<'_> {
         );
 
         let abi_parameter_region = SpilledRegisterRegion {
-            registers: RepresentationOfRegisters::Mask(mask_to_use),
+            registers: RepresentationOfRegisters::Mask(ABI_ARGUMENT_MASK),
             frame_memory_region: abi_parameter_frame_memory_region,
         };
 
@@ -146,20 +139,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub fn prepare_copy_back_for_primitive_return_value(
-        &mut self,
-        output_destination: &Destination,
-        copy_back_mutable_reg_pairs: &mut Vec<MutableReturnReg>,
-        return_basic_type: BasicTypeRef,
-    ) {
-        // For simple types, we need to copy from r0 to destination after the call
-        let r0 = TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
-        copy_back_mutable_reg_pairs.push(MutableReturnReg {
-            target_location_after_call: output_destination.clone(),
-            parameter_reg: r0,
-        });
-    }
     pub fn setup_return_pointer_reg(
         &mut self,
         output_destination: &Destination,
@@ -201,20 +181,22 @@ impl CodeBuilder<'_> {
         let r0_is_used_as_return = !matches!(&*signature.return_type.kind, TypeKind::Unit);
 
         let scope =
-            self.spill_required_registers(false, is_host_call, node, "spill before emit arguments"); // TODO: when to use r0_is_used_as_return
+            self.spill_required_registers(is_host_call, node, "spill before emit arguments");
 
-        // Handle return primitive or aggregate types
+        // Handle return types
         if r0_is_used_as_return {
             let return_basic_type = self.state.layout_cache.layout(&signature.return_type);
 
             if return_basic_type.is_aggregate() {
+                // For aggregates: set up r0 as pointer to destination (no copy-back needed)
                 self.setup_return_pointer_reg(output_destination, return_basic_type, node);
             } else {
-                self.prepare_copy_back_for_primitive_return_value(
-                    output_destination,
-                    &mut copy_back_phase_one,
-                    return_basic_type,
-                );
+                // For primitives: add r0 to copy-back list (function writes to r0, we copy to destination)
+                let r0 = TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
+                copy_back_phase_one.push(MutableReturnReg {
+                    target_location_after_call: output_destination.clone(),
+                    parameter_reg: r0,
+                });
             }
         }
 
