@@ -431,15 +431,21 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        if output_destination.is_memory_location() {
-            self.emit_store_value_to_memory_destination(
-                output_destination,
-                value_source,
-                node,
-                comment,
-            );
-        } else {
-            todo!()
+        match output_destination {
+            Destination::Register(reg) => {
+                self.emit_transfer_value_to_register(reg, value_source, node, comment);
+            }
+            Destination::Memory(_) => {
+                self.emit_store_value_to_memory_destination(
+                    output_destination,
+                    value_source,
+                    node,
+                    comment,
+                );
+            }
+            Destination::Unit => {
+                panic!("Cannot copy to Unit destination")
+            }
         }
     }
 

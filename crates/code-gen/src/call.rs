@@ -12,11 +12,11 @@ use crate::state::FunctionFixup;
 use crate::{ArgumentAndTempScope, RepresentationOfRegisters, SpilledRegisterRegion};
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
-use swamp_types::prelude::Signature;
+use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
 use swamp_types::TypeKind;
+use swamp_types::prelude::Signature;
 use swamp_vm_types::types::{
-    u32_type, BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType,
+    BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType, u32_type,
 };
 use swamp_vm_types::{FrameMemoryRegion, MemoryLocation, REG_ON_FRAME_SIZE};
 
@@ -61,8 +61,6 @@ impl CodeBuilder<'_> {
             false
         }
     }
-
-
 
     // TODO: for mutable arguments we want to leave output part of the spilling
     // We want to scan through the arguments,
@@ -138,7 +136,6 @@ impl CodeBuilder<'_> {
             scratch_registers: temp_register_region,
         }
     }
-
 
     pub fn setup_return_pointer_reg(
         &mut self,
@@ -243,7 +240,8 @@ impl CodeBuilder<'_> {
                 self.setup_return_pointer_reg(output_destination, return_basic_type, node);
             } else {
                 // For primitives: add r0 to copy-back list (function writes to r0, we copy to destination)
-                let r0 = TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
+                let r0 =
+                    TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
                 copy_back_operations.push(MutableReturnReg {
                     target_location_after_call: output_destination.clone(),
                     parameter_reg: r0,
@@ -340,7 +338,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-
     pub(crate) fn emit_post_call(
         &mut self,
         spilled_arguments: EmitArgumentInfo,
@@ -352,14 +349,20 @@ impl CodeBuilder<'_> {
         for copy_back in &spilled_arguments.copy_back_of_registers_mutated_by_callee {
             let temp_reg = self.temp_registers.allocate(
                 copy_back.parameter_reg.ty.clone(),
-                &format!("temp save for copy-back of {}", copy_back.parameter_reg.comment),
+                &format!(
+                    "temp save for copy-back of {}",
+                    copy_back.parameter_reg.comment
+                ),
             );
 
             self.builder.add_mov_reg(
                 temp_reg.register(),
                 &copy_back.parameter_reg,
                 node,
-                &format!("save {} to temp before register restoration", copy_back.parameter_reg),
+                &format!(
+                    "save {} to temp before register restoration",
+                    copy_back.parameter_reg
+                ),
             );
 
             temp_saved_values.push((temp_reg, copy_back));
@@ -378,40 +381,15 @@ impl CodeBuilder<'_> {
             comment,
         );
 
-        // Phase 3: Copy from temporary safe registers that was saved from the mutable parameters, to the final destinations
-        // TODO: maybe use a utility function
+        // Phase 3: Copy from temporary safe registers to the final destinations
         for (temp_reg, copy_back) in temp_saved_values {
-            match &copy_back.target_location_after_call {
-                Destination::Register(reg) => {
-                    self.builder.add_mov_reg(
-                        reg,
-                        temp_reg.register(),
-                        node,
-                        &format!("copy-back from temp to {reg}"),
-                    );
-                }
-                Destination::Memory(memory_location) => match memory_location.ty.basic_type.kind {
-                    BasicTypeKind::U8 | BasicTypeKind::B8 => {
-                        self.builder.add_st8_using_ptr_with_offset(
-                            memory_location,
-                            temp_reg.register(),
-                            node,
-                            &format!("copy-back byte value from temp to memory destination"),
-                        );
-                    }
-                    _ => {
-                        self.builder.add_st32_using_ptr_with_offset(
-                            memory_location,
-                            temp_reg.register(),
-                            node,
-                            &format!("copy-back value from temp to memory destination"),
-                        );
-                    }
-                },
-                Destination::Unit => {
-                    panic!("should not happen")
-                }
-            }
+            let temp_source = Destination::Register(temp_reg.register().clone());
+            self.emit_copy_value_between_destinations(
+                &copy_back.target_location_after_call,
+                &temp_source,
+                node,
+                "copy-back from temp to final destination",
+            );
         }
     }
 
@@ -571,7 +549,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling `{function_name}` ({comment})", );
+        let call_comment = &format!("calling `{function_name}` ({comment})",);
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {
