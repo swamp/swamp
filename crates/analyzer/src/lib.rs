@@ -2624,14 +2624,32 @@ impl<'a> Analyzer<'a> {
                     kind: swamp_ast::ExpressionKind::VariableReference(variable.variable.clone()),
                     node: variable.variable.name.clone(),
                 }
+            };
 
-                // self.create_expr(ExpressionKind::VariableAccess())
+            // Determine the correct LocationSide based on the variable binding type
+            let location_side = if variable.variable.is_mutable.is_some() {
+                // For mutable variables in with statements, we need to check if this is an lvalue binding
+                if let Some(expr) = &variable.expression {
+                    match &expr.kind {
+                        // If it's a borrow mutable reference (&something), we need lvalue analysis
+                        swamp_ast::ExpressionKind::UnaryOp(swamp_ast::UnaryOperator::BorrowMutRef(_), _) => {
+                            LocationSide::Mutable
+                        }
+                        _ => LocationSide::Rhs,
+                    }
+                } else {
+                    // For cases like `with mut x` (no expression), it's an alias
+                    LocationSide::Rhs
+                }
+            } else {
+                // For immutable variables, always use Rhs
+                LocationSide::Rhs
             };
 
             let var = self.analyze_mut_or_immutable_expression(
                 must_have_expression,
                 &any_context,
-                LocationSide::Rhs,
+                location_side,
             );
 
             variable_expressions.push(var);
