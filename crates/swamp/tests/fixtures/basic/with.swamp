@@ -2,10 +2,10 @@
 // WITH STATEMENT TESTS
 // =============================================================================
 // Current Implementation:
-// - Scalars (Int, Float, Bool, String) without & → Copy semantics
-// - Scalars with & → Copy semantics (same as without & for now). TODO: Should
+// - Scalars (Int, Float, Bool, String) without & -> Copy semantics
+// - Scalars with & -> Copy semantics (same as without & for now). TODO: Should
 //   use copy-back mechanism in the future
-// - Aggregates (structs, collections) with & → Reference/alias semantics
+// - Aggregates (structs, collections) with & -> Reference/alias semantics
 //
 // Future Enhancement:
 // - Scalars with & should use copy-back mechanism (like after function calls)
