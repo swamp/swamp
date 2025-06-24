@@ -121,7 +121,7 @@ pub fn layout(
     )
 }
 
-const SECRET_CODE: u8 = 0x3d;
+pub const SECRET_CODE: u8 = 0x3d;
 
 /// Initialize a new hash map in pre-allocated memory
 ///

@@ -95,6 +95,10 @@ impl Memory {
         let end = start + size.0 as usize;
         let new_start = align(end, SAFE_ALIGNMENT);
 
+        unsafe {
+            ptr::write_bytes(self.get_heap_ptr(start), 0, size.0 as usize);
+        }
+
         self.stack_start = new_start;
 
         HeapMemoryRegion {

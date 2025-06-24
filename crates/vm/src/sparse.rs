@@ -60,7 +60,7 @@ impl Vm {
                 set_reg!(self, dest_handle_reg, handle);
                 set_reg!(self, dest_entry_addr_reg, element_addr as u32);
             } else {
-                self.internal_trap(TrapCode::SparseOutOfSpace)
+                self.internal_trap(TrapCode::SparseOutOfSpace);
             }
         }
     }
@@ -87,6 +87,10 @@ impl Vm {
                 let addr_for_values_start = sparse_addr as usize + relative_sparse_addr_offset;
                 let element_addr = addr_for_values_start + index as usize * element_size as usize;
                 set_reg!(self, dest_entry_addr_reg, element_addr);
+
+                if self.debug_operations_enabled {
+                    eprintln!("sparse_get: handle: {handle} 0x{handle:X} ({index}:{generation})");
+                }
             } else {
                 self.internal_trap(TrapCode::SparseGetFailed)
             }
@@ -103,6 +107,9 @@ impl Vm {
             let could_be_removed = sparse_mem::remove(sparse_ptr, index as u16, generation as u16);
             if !could_be_removed {
                 self.internal_trap(TrapCode::SparseRemoveFailed)
+            }
+            if self.debug_operations_enabled {
+                eprintln!("sparse_remove: handle: {handle} 0x{handle:X} ({index}:{generation})");
             }
         }
     }
@@ -121,6 +128,9 @@ impl Vm {
             let generation = handle & 0xffff;
             let is_alive = sparse_mem::is_alive(sparse_ptr, index as u16, generation as u16);
             set_reg!(self, dest_reg_bool, is_alive);
+            if self.debug_operations_enabled {
+                eprintln!("sparse_is_alive: handle: {handle} 0x{handle:X} ({index}:{generation})");
+            }
         }
     }
 

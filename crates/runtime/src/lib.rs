@@ -266,6 +266,13 @@ pub fn run_function_with_debug(
 
     let mut last_line_info = KeepTrackOfSourceLine::new();
 
+    let saved_fp = vm.memory().constant_memory_size;
+    let hash_before: u64 = if run_options.debug_operations_enabled {
+        calculate_memory_checksum(vm.all_memory_up_to(saved_fp))
+    } else {
+        0
+    };
+
     while !vm.is_execution_complete() {
         debug_count += 1;
 
@@ -355,13 +362,6 @@ pub fn run_function_with_debug(
             eprintln!("{pc:04X}> {string}");
         }
 
-        let saved_fp = vm.memory().frame_offset();
-        let hash_before: u64 = if run_options.debug_operations_enabled {
-            calculate_memory_checksum(vm.all_memory_up_to(saved_fp))
-        } else {
-            0
-        };
-
         //        eprintln!("constant (from address 0x34): {:?}", &vm.heap_memory()[0x34..0x34+32]);
 
         vm.step(host_function_callback);
@@ -369,7 +369,8 @@ pub fn run_function_with_debug(
         if run_options.debug_operations_enabled {
             let hash_after = calculate_memory_checksum(vm.all_memory_up_to(saved_fp));
             if hash_after != hash_before {
-                eprintln!("WARN: below FP has been written to");
+                panic!("INTERNAL ERROR: constant memory has been written to");
+                vm.state = VmState::Trap(TrapCode::VecBoundsFail)
             }
             /*
             assert_eq!(

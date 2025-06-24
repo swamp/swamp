@@ -284,6 +284,11 @@ impl Vm {
         if self.debug_operations_enabled {
             let iter_addr = get_reg!(self, target_map_iterator_header_reg);
             let map_header = Self::read_map_header_from_heap(map_header_addr, &self.memory);
+            debug_assert_eq!(
+                map_header.padding_and_secret_code,
+                hashmap_mem::SECRET_CODE,
+                "secret code is not the same"
+            );
             eprintln!(
                 "map_iter_init: iter_addr: {iter_addr:04X} map_header_addr:{map_header_addr:04X} key_size:{}, value_offset:{}, value_size:{} bucket_size: {}",
                 map_header.key_size,
@@ -324,6 +329,7 @@ impl Vm {
             let map_header_ptr =
                 self.memory.get_heap_const_ptr(map_header_addr as usize) as *const MapHeader;
             let map_header = &*map_header_ptr;
+            debug_assert_eq!(map_header.padding_and_secret_code, hashmap_mem::SECRET_CODE);
 
             #[cfg(feature = "debug_vm")]
             if self.debug_operations_enabled {
