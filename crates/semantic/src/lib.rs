@@ -16,8 +16,8 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 use swamp_attributes::Attributes;
-use swamp_types::TypeRef;
 use swamp_types::prelude::*;
+use swamp_types::{Type, TypeRef};
 use tracing::error;
 
 #[derive(Debug, Clone)]
@@ -93,6 +93,38 @@ pub struct InternalFunctionDefinition {
     pub function_variables: Vec<VariableRef>,
     pub program_unique_id: InternalFunctionId,
     pub attributes: Attributes,
+}
+
+impl Default for InternalFunctionDefinition {
+    fn default() -> Self {
+        Self {
+            body: Expression {
+                ty: Rc::new(Type {
+                    id: TypeId::new(0),
+                    flags: TypeFlags::default(),
+                    kind: Rc::new(TypeKind::Byte),
+                }),
+                node: Node::default(),
+                kind: ExpressionKind::NoneLiteral,
+            },
+            name: LocalIdentifier(Node::default()),
+            assigned_name: String::new(),
+            associated_with_type: None,
+            defined_in_module_path: vec![],
+            signature: Signature {
+                parameters: vec![],
+                return_type: Rc::new(Type {
+                    id: TypeId::new(0),
+                    flags: TypeFlags::default(),
+                    kind: Rc::new(TypeKind::Byte),
+                }),
+            },
+            parameters: vec![],
+            function_variables: vec![],
+            program_unique_id: 0,
+            attributes: Attributes::default(),
+        }
+    }
 }
 
 impl InternalFunctionDefinition {
@@ -1007,17 +1039,6 @@ impl AssociatedImpls {
             }
         }
         None
-    }
-
-    #[must_use]
-    pub fn api_fetch_external_function_id(
-        &self,
-        ty: &TypeRef,
-        function_name: &str,
-    ) -> ExternalFunctionId {
-        self.api_get_external_function(ty, function_name)
-            .unwrap()
-            .id
     }
 
     #[must_use]

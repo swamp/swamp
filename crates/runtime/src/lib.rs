@@ -19,8 +19,9 @@ pub use swamp_compile::CompileOptions;
 use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
+use swamp_std::print::print_fn;
 use swamp_types::TypeRef;
-use swamp_vm::host::HostFunctionCallback;
+use swamp_vm::host::{HostArgs, HostFunctionCallback};
 use swamp_vm::{TrapCode, Vm, VmSetup, VmState};
 use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_disasm::{disasm_color, display_lines};
@@ -391,7 +392,7 @@ pub struct CompileAndCodeGenOptions {
 pub fn compile_and_code_gen(
     path_to_root_of_swamp_files: &Path,
     main_module_path: &[String],
-    options: CompileAndCodeGenOptions,
+    options: &CompileAndCodeGenOptions,
 ) -> Option<(CompileAndMaybeCodeGenResult, SourceMap)> {
     let mut source_map = crate_and_registry(path_to_root_of_swamp_files);
     let current_dir = PathBuf::from(Path::new(""));
@@ -441,6 +442,18 @@ pub struct CodeGenAndVmResult {
     pub source_map: SourceMap,
 }
 
+pub struct StandardOnlyHostCallbacks {}
+
+impl HostFunctionCallback for StandardOnlyHostCallbacks {
+    fn dispatch_host_call(&mut self, args: HostArgs) {
+        match args.function_id {
+            1 => print_fn(args),
+
+            _ => panic!("unknown external"),
+        }
+    }
+}
+
 impl CompileCodeGenVmResult {
     #[must_use]
     pub fn get_internal_member_function(
@@ -471,12 +484,41 @@ impl CompileCodeGenVmResult {
     }
 }
 
+#[must_use]
+pub fn compile_codegen_and_create_vm_and_run_first_time(
+    root_directory: &Path,
+    root_module: &[String],
+    compile_and_code_gen_options: CompileAndCodeGenOptions,
+) -> Option<CompileAndVmResult> {
+    let mut result =
+        compile_codegen_and_create_vm(root_directory, root_module, &compile_and_code_gen_options);
+    if let Some(mut first_result) = result {
+        if let CompileAndVmResult::CompileAndVm(found_result) = &mut first_result {
+            let mut callbacks = StandardOnlyHostCallbacks {};
+            let run_constants_options = RunConstantsOptions {
+                stderr_adapter: None,
+            };
+            run_first_time(
+                &mut found_result.codegen.vm,
+                &found_result.codegen.code_gen_result.constants_in_order,
+                &mut callbacks,
+                run_constants_options,
+            );
+            Some(first_result)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
 /// The root module is needed so it knows which mod that should be considered.
 #[must_use]
 pub fn compile_codegen_and_create_vm(
     root_directory: &Path,
     root_module: &[String],
-    compile_and_code_gen_options: CompileAndCodeGenOptions,
+    compile_and_code_gen_options: &CompileAndCodeGenOptions,
 ) -> Option<CompileAndVmResult> {
     let (compile_and_maybe_code_gen, source_map) =
         compile_and_code_gen(root_directory, root_module, compile_and_code_gen_options)?;

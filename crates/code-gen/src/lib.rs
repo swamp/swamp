@@ -308,9 +308,10 @@ pub struct SlicePairInfo {
     pub element_size: MemorySize,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GenFunctionInfo {
     pub ip_range: InstructionRange,
+    pub return_type: BasicTypeRef,
     pub internal_function_definition: InternalFunctionDefinitionRef,
 }
 

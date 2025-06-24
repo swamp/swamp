@@ -28,6 +28,8 @@ pub struct LayoutCache {
     pub kind_to_layout: SeqMap<TypeKind, BasicTypeRef>,
 }
 
+impl LayoutCache {}
+
 impl Default for LayoutCache {
     fn default() -> Self {
         Self::new()

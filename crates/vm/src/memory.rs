@@ -5,7 +5,8 @@
 
 use crate::{ALIGNMENT, ALIGNMENT_MASK, ALIGNMENT_REST};
 use std::{alloc, mem, ptr, slice};
-use swamp_vm_types::aligner::align;
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::{HeapMemoryAddress, HeapMemoryRegion, MemoryAlignment, MemorySize};
 
 pub struct Memory {
     pub(crate) memory: *mut u8,
@@ -83,6 +84,23 @@ impl Memory {
     pub fn reset_stack_and_fp(&mut self) {
         self.stack_offset = self.stack_start;
         self.frame_offset = self.stack_offset;
+    }
+
+    pub fn alloc_before_stack(
+        &mut self,
+        size: &MemorySize,
+        alignment: &MemoryAlignment,
+    ) -> HeapMemoryRegion {
+        let start = align(self.stack_start, SAFE_ALIGNMENT);
+        let end = start + size.0 as usize;
+        let new_start = align(end, SAFE_ALIGNMENT);
+
+        self.stack_start = new_start;
+
+        HeapMemoryRegion {
+            addr: HeapMemoryAddress(start as u32),
+            size: *size,
+        }
     }
 
     #[inline(always)]

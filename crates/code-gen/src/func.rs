@@ -69,6 +69,7 @@ impl TopLevelGenState {
                 internal_fn_def.program_unique_id,
                 GenFunctionInfo {
                     ip_range: range.clone(),
+                    return_type: self.codegen_state.layout_cache.layout(&in_data.return_type),
                     internal_function_definition: internal_fn_def.clone(),
                 },
             )

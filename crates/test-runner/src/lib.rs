@@ -231,7 +231,7 @@ pub fn run_tests(
         skip_codegen: false,
     };
     let internal_result =
-        compile_codegen_and_create_vm(test_dir, crate_main_path, compile_and_code_gen_options)
+        compile_codegen_and_create_vm(test_dir, crate_main_path, &compile_and_code_gen_options)
             .unwrap();
 
     let CompileAndVmResult::CompileAndVm(mut result) = internal_result else {

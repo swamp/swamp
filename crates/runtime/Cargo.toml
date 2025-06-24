@@ -22,6 +22,7 @@ swamp-vm-layout = { path = "../vm-layout", version = "0.1.16" }
 # Core
 swamp-core = { path = "../core", version = "0.1.16" }
 swamp-core-extra = { path = "../core-extra", version = "0.1.16" }
+swamp-std = { path = "../std", version = "0.1.10" }
 
 # Compile orchestrator
 swamp-compile = { path = "../compile", version = "0.1.16" }

@@ -34,6 +34,7 @@ swamp-vm-types = { path = "../vm-types", version = "0.1.16" }
 swamp-vm-pretty-print = { path = "../vm-pretty-print", version = "0.1.16" }
 swamp-runtime = { path = "../runtime", version = "0.1.16" }
 swamp-test-runner = { path = "../test-runner", version = "0.1.16" }
+swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.1.16" }
 
 
 # Source Map
