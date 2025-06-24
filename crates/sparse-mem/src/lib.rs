@@ -111,11 +111,40 @@ pub const fn values_offset(base: *const u8) -> usize {
 /// # Safety
 ///
 #[inline]
-pub unsafe fn insert(base: *mut u8, id: u16, src: *const u8) {
+pub unsafe fn insert(base: *mut u8, id: u16, src: *const u8) -> bool {
     unsafe {
+        let capacity = *base.cast::<u16>() as usize;
+
+        // TODO: These should panic!()
+        #[cfg(debug_assertions)]
+        {
+            // BOUNDS CHECK: Ensure id is within capacity
+            if id as usize >= capacity {
+                return false;
+            }
+
+            // LIVENESS CHECK: Ensure the slot is actually allocated
+            // We need to check if this id has a valid slot assignment
+            let id_offset = SLOT_OFFSET + capacity * size_of::<u16>();
+            let slot = *base.add(id_offset).cast::<u16>().add(id as usize);
+            let count = *base.add(2).cast::<u16>() as usize;
+
+            // If slot is u16::MAX or >= count, the slot is not alive
+            if slot == u16::MAX || slot as usize >= count {
+                return false;
+            }
+
+            // Double-check: verify the slot_to_id mapping is consistent
+            let slot_to_id_ptr = base.add(SLOT_OFFSET).cast::<u16>();
+            if *slot_to_id_ptr.add(slot as usize) != id {
+                return false;
+            }
+        }
+
         let element_size = *base.add(4).cast::<u32>() as usize;
         let off = values_offset(base) + id as usize * element_size;
         ptr::copy_nonoverlapping(src, base.add(off), element_size);
+        true
     }
 }
 
@@ -124,11 +153,21 @@ pub unsafe fn insert(base: *mut u8, id: u16, src: *const u8) {
 ///
 pub unsafe fn remove(base: *mut u8, id: u16, generation: u16) -> bool {
     unsafe {
-        if !is_alive(base, id, generation) {
-            return false;
+        let capacity = *base.cast::<u16>() as usize;
+
+        // TODO: These should panic!()
+        #[cfg(debug_assertions)]
+        {
+            // BOUNDS CHECK: Ensure id is within capacity
+            if id as usize >= capacity {
+                return false;
+            }
+
+            if !is_alive(base, id, generation) {
+                return false;
+            }
         }
 
-        let capacity = *base.cast::<u16>() as usize;
         let id_offset = SLOT_OFFSET + capacity * size_of::<u16>();
         let generation_offset = id_offset + capacity * size_of::<u16>();
         let count_ptr = base.add(2).cast::<u16>();
@@ -159,6 +198,16 @@ pub unsafe fn remove(base: *mut u8, id: u16, generation: u16) -> bool {
 pub unsafe fn is_alive(base: *mut u8, id: u16, generation: u16) -> bool {
     unsafe {
         let capacity = *base.cast::<u16>() as usize;
+
+        // TODO: These should panic!()
+        #[cfg(debug_assertions)]
+        {
+            // BOUNDS CHECK: Ensure id is within capacity
+            if id as usize >= capacity {
+                return false;
+            }
+        }
+
         let count = *base.add(2).cast::<u16>() as usize;
         let id_offset = SLOT_OFFSET + capacity * size_of::<u16>();
         let generation_offset = id_offset + capacity * size_of::<u16>();
@@ -231,4 +280,38 @@ pub const unsafe fn element_count(base: *const u8) -> u16 {
 #[must_use]
 pub const unsafe fn element_size(base: *const u8) -> u32 {
     unsafe { *base.add(4).cast::<u32>() }
+}
+
+/// Safe wrapper for insert that validates the handle
+/// Insert raw bytes at handle id, but only if the handle is valid
+/// Returns true if successful, false if the handle is invalid
+/// # Safety
+pub unsafe fn insert_if_alive(base: *mut u8, id: u16, generation: u16, src: *const u8) -> bool {
+    unsafe {
+        if is_alive(base, id, generation) {
+            insert(base, id, src)
+        } else {
+            false
+        }
+    }
+}
+
+/// Get value pointer for a valid handle
+/// Returns None if the handle is invalid
+/// # Safety
+pub unsafe fn get_value_ptr(base: *mut u8, id: u16, generation: u16) -> Option<*mut u8> {
+    unsafe {
+        if !is_alive(base, id, generation) {
+            return None;
+        }
+
+        let capacity = *base.cast::<u16>() as usize;
+        if id as usize >= capacity {
+            return None;
+        }
+
+        let element_size = *base.add(4).cast::<u32>() as usize;
+        let off = values_offset(base) + id as usize * element_size;
+        Some(base.add(off))
+    }
 }
