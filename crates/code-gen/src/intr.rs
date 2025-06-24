@@ -10,8 +10,7 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_types::types::{
-    Destination, TypedRegister, VmType, float_type, pointer_type, u8_type,
-    u16_type, u32_type,
+    Destination, TypedRegister, VmType, float_type, pointer_type, u8_type, u16_type, u32_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
@@ -19,8 +18,6 @@ use swamp_vm_types::{
 };
 
 impl CodeBuilder<'_> {
-
-
     #[allow(clippy::too_many_lines)]
     #[allow(clippy::single_match_else)]
     pub fn emit_single_intrinsic_call(
@@ -664,63 +661,9 @@ impl CodeBuilder<'_> {
         ctx: &Context,
         comment: &str,
     ) {
-        // Convert Destination to TypedRegister for scalar intrinsics, handling materialization properly
+        // Use the helper function to properly materialize the self argument
         let self_reg = if let Some(self_dest) = self_destination {
-            match self_dest {
-                Destination::Register(reg) => {
-                    // If it's already a register, check if it needs materialization
-                    if reg.ty.is_aggregate() && reg.ty.basic_type.is_scalar() {
-                        // This is a pointer to a scalar, load the actual value
-                        let scalar_temp = self.temp_registers.allocate(
-                            VmType::new_contained_in_register(reg.ty.basic_type.clone()),
-                            "load scalar from pointer for intrinsic",
-                        );
-                        
-                        let memory_location = MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                            reg.clone(),
-                        );
-                        
-                        self.emit_load_scalar_from_memory_offset_instruction(
-                            scalar_temp.register(),
-                            &memory_location,
-                            node,
-                            "load scalar value from pointer register for intrinsic",
-                        );
-                        
-                        Some(scalar_temp.register)
-                    } else {
-                        // Already a scalar value or aggregate pointer, use as-is
-                        Some(reg.clone())
-                    }
-                }
-                Destination::Memory(memory_location) => {
-                    if memory_location.ty.is_scalar() {
-                        // Load the scalar value from memory
-                        let scalar_temp = self.temp_registers.allocate(
-                            memory_location.ty.clone(),
-                            "load scalar from memory for intrinsic",
-                        );
-                        
-                        self.emit_load_scalar_from_memory_offset_instruction(
-                            scalar_temp.register(),
-                            memory_location,
-                            node,
-                            "load scalar value from memory for intrinsic",
-                        );
-                        
-                        Some(scalar_temp.register)
-                    } else {
-                        // For aggregate types, compute the effective address
-                        let ptr_reg = self.emit_compute_effective_address_to_register(
-                            self_dest,
-                            node,
-                            "compute address for aggregate intrinsic",
-                        );
-                        Some(ptr_reg)
-                    }
-                }
-                Destination::Unit => None,
-            }
+            self.emit_load_scalar_or_absolute_aggregate_pointer(self_dest, node, comment)
         } else {
             None
         };

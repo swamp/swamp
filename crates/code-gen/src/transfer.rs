@@ -6,7 +6,7 @@
 use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, u16_type};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType, pointer_type, u16_type};
 use swamp_vm_types::{
     COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
     MemorySize,
@@ -112,6 +112,73 @@ impl CodeBuilder<'_> {
         }
     }
 
+    /// Loads a scalar value or computes the absolute pointer for an aggregate type.
+    ///
+    /// This function handles the two main cases for intrinsic function arguments:
+    ///
+    /// - **Scalar values**: Ensures the actual primitive value is loaded into a register
+    /// - **Aggregate types**: Computes and returns the absolute memory address pointer
+    ///
+    /// This is specifically designed for intrinsic calls where:
+    /// - Scalar intrinsics need the actual value (not a pointer to the value)
+    /// - Aggregate intrinsics need a flattened absolute pointer for operations
+    ///
+    /// # Arguments
+    /// * `destination` - The source location (register, memory, or unit)
+    /// * `node` - Source location for debugging
+    /// * `comment` - Description for generated assembly comments
+    ///
+    /// # Returns
+    /// * `Some(TypedRegister)` - Register containing the scalar value or aggregate pointer
+    /// * `None` - If the destination is Unit
+    pub(crate) fn emit_load_scalar_or_absolute_aggregate_pointer(
+        &mut self,
+        destination: &Destination,
+        node: &Node,
+        comment: &str,
+    ) -> Option<TypedRegister> {
+        match destination {
+            Destination::Unit => None,
+            _ => {
+                let vm_type = destination.vm_type().unwrap();
+
+                if vm_type.is_scalar() {
+                    // Scalar case
+                    match destination {
+                        Destination::Register(reg) => {
+                            // a) if it is a register, we are done: use that register
+                            Some(reg.clone())
+                        }
+                        Destination::Memory(memory_location) => {
+                            // b) if it is a memory location: load_scalar_from_memory_location
+                            let scalar_temp = self.temp_registers.allocate(
+                                memory_location.ty.clone(),
+                                &format!("load scalar from memory for intrinsic: {comment}"),
+                            );
+
+                            self.emit_load_scalar_from_memory_offset_instruction(
+                                scalar_temp.register(),
+                                memory_location,
+                                node,
+                                &format!("load scalar value from memory for intrinsic: {comment}"),
+                            );
+
+                            Some(scalar_temp.register)
+                        }
+                        Destination::Unit => unreachable!(), // Already handled above
+                    }
+                } else {
+                    // Aggregate case: we only need to flatten it if needed
+                    Some(self.emit_compute_effective_address_to_register(
+                        destination,
+                        node,
+                        &format!("flatten aggregate for intrinsic: {comment}"),
+                    ))
+                }
+            }
+        }
+    }
+
     /// Loads a scalar value or calculates the effective address for an aggregate type.
     ///
     /// It is basically a "bind" of a register to a location, and is used (exclusively?)
@@ -183,6 +250,23 @@ impl CodeBuilder<'_> {
     }
 
     // Store -------------------------------------------------------
+
+    /// Ensures that a scalar value from a `Destination` is available in a register for intrinsic calls.
+    ///
+    /// This function is specifically designed for intrinsic function calls that require scalar values
+    /// to be materialized in registers. It handles the distinction between:
+    ///
+    /// - **Scalar values**: Loads the actual primitive value into a register
+    /// - **Aggregate pointers**: Returns the pointer register for aggregate operations
+    /// - **Pointer-to-scalar**: Dereferences pointer registers that point to scalar values
+    ///
+    /// The key difference from `emit_materialize_value_to_register` is that this function
+    /// specifically handles the case where a register contains a pointer to a scalar value
+    /// (common in postfix chains like `struct.field.intrinsic()`), and ensures the actual
+    /// scalar value is loaded rather than passing the pointer address to the intrinsic.
+    ///
+    /// # Arguments
+    /// * `destination` - The source location (register, memory, or unit)
 
     pub fn emit_check_that_element_count_is_less_or_equal_to_capacity(
         &mut self,
