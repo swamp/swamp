@@ -106,7 +106,7 @@ impl Vm {
             let generation = handle & 0xffff;
             let could_be_removed = sparse_mem::remove(sparse_ptr, index as u16, generation as u16);
             if !could_be_removed {
-                self.internal_trap(TrapCode::SparseRemoveFailed)
+                self.internal_trap(TrapCode::SparseRemoveFailed);
             }
             if self.debug_operations_enabled {
                 eprintln!("sparse_remove: handle: {handle} 0x{handle:X} ({index}:{generation})");
@@ -196,7 +196,7 @@ impl Vm {
                 let entry_addr = values_start + values_index * element_size;
 
                 let generation =
-                    *sparse_mem::generation_ptr_const(sparse_header_ptr).add(current_index);
+                    *sparse_mem::generation_ptr_const(sparse_header_ptr).add(values_index);
                 let handle = (values_index as u32) << 16 | (generation as u32);
                 set_reg!(self, target_key_reg, handle);
                 set_reg!(self, target_value_reg, entry_addr);
