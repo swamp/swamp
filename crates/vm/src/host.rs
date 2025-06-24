@@ -28,7 +28,7 @@ impl HostArgs {
     ) -> Self {
         // Ensure alignment
         debug_assert_eq!(
-            all_memory.addr() % mem::align_of::<u64>(),
+            all_memory.addr() % align_of::<u64>(),
             0,
             "Unaligned frame pointer",
         );
@@ -75,6 +75,74 @@ impl HostArgs {
         let src_ptr = self.get_ptr(register_id) as *const T;
 
         src_ptr
+    }
+
+    /// Safe and performant way to get a reference to T from a register
+    /// Panics on bounds violations or alignment issues - no defensive programming
+    pub fn read_ref_from_register<T>(&self, register_id: u8) -> &T {
+        assert!(
+            (register_id as usize) < self.registers.len(),
+            "Host call register out of bounds: register {} requested, but only {} registers available",
+            register_id,
+            self.registers.len()
+        );
+
+        let addr = self.registers[register_id as usize] as usize;
+        let size_of_t = size_of::<T>();
+
+        // Bounds check: ensure the entire T fits within memory
+        assert!(
+            addr + size_of_t <= self.all_memory_len,
+            "Host call bounds violation: trying to read {} bytes at address {:#x}, but memory size is {:#x}",
+            size_of_t,
+            addr,
+            self.all_memory_len
+        );
+
+        assert_eq!(addr % align_of::<T>(), 0, "Host call alignment violation: address {:#x} is not aligned for type {} (requires {}-byte alignment)", addr, std::any::type_name::<T>(), align_of::<T>());
+
+        unsafe { &*(self.all_memory.add(addr) as *const T) }
+    }
+
+    /// Unchecked version for a bit extra performance
+    pub unsafe fn read_ref_from_register_unchecked<T>(&mut self, register_id: u8) -> &T {
+        let addr = self.registers[register_id as usize] as usize;
+        unsafe {
+            &*(self.all_memory.add(addr) as *const T)
+        }
+    }
+
+    pub fn read_mut_ref_from_register<T>(&mut self, register_id: u8) -> &mut T {
+        assert!(
+            (register_id as usize) < self.registers.len(),
+            "Host call register out of bounds: register {} requested, but only {} registers available",
+            register_id,
+            self.registers.len()
+        );
+
+        let addr = self.registers[register_id as usize] as usize;
+        let size_of_t = size_of::<T>();
+
+        // Bounds check: ensure the entire T fits within memory
+        assert!(
+            addr + size_of_t <= self.all_memory_len,
+            "Host call bounds violation: trying to read {} bytes at address {:#x}, but memory size is {:#x}",
+            size_of_t,
+            addr,
+            self.all_memory_len
+        );
+
+        // Alignment check: ensure T is properly aligned
+        assert_eq!(addr % align_of::<T>(), 0, "Host call alignment violation: address {:#x} is not aligned for type {} (requires {}-byte alignment)", addr, std::any::type_name::<T>(), align_of::<T>());
+
+        // Safe to create mutable reference - all checks passed
+        unsafe { &mut *self.all_memory.add(addr).cast::<T>() }
+    }
+
+    /// Unchecked mutable version for extra performance
+    pub unsafe fn read_mut_ref_from_register_unchecked<T>(&mut self, register_id: u8) -> &mut T {
+        let addr = self.registers[register_id as usize] as usize;
+        &mut *(self.all_memory.add(addr) as *mut T)
     }
 
     pub fn write_to_register<T>(&mut self, register_id: u8, data: &T) {
