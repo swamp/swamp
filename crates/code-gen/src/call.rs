@@ -162,6 +162,60 @@ impl CodeBuilder<'_> {
         );
     }
 
+    fn emit_single_argument(
+        &mut self,
+        argument_expr: &ArgumentExpression,
+        argument_to_use: &TypedRegister,
+        target_canonical_argument_register: &TypedRegister,
+        parameter_basic_type: &BasicTypeRef,
+        copy_back_phase_one: &mut Vec<MutableReturnReg>,
+        node: &Node,
+        ctx: &Context,
+    ) {
+        match argument_expr {
+            ArgumentExpression::BorrowMutableReference(lvalue) => {
+                let original_destination = self.emit_lvalue_address(lvalue, ctx);
+
+                if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
+                    // Load the primitive from memory
+                    self.emit_transfer_value_to_register(
+                        argument_to_use,
+                        &original_destination,
+                        node,
+                        "must get primitive from lvalue and pass as copy back (by value)",
+                    );
+
+                    // Add a copy back to the original location (base register will be restored by spill/restore)
+                    copy_back_phase_one.push(MutableReturnReg {
+                        target_location_after_call: original_destination,
+                        parameter_reg: target_canonical_argument_register.clone(),
+                    });
+                } else {
+                    let flattened_source_pointer_reg = self
+                        .emit_compute_effective_address_to_register(
+                            &original_destination,
+                            node,
+                            "flattened into absolute pointer",
+                        );
+                    self.builder.add_mov_reg(
+                        argument_to_use,
+                        &flattened_source_pointer_reg,
+                        node,
+                        "copy absolute address",
+                    );
+                }
+            }
+            ArgumentExpression::Expression(expr) => {
+                self.emit_expression_into_register(
+                    argument_to_use,
+                    expr,
+                    "argument expression into specific argument register",
+                    ctx,
+                );
+            }
+        }
+    }
+
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_arguments(
         &mut self,
@@ -173,18 +227,15 @@ impl CodeBuilder<'_> {
         is_host_call: bool,
         ctx: &Context,
     ) -> EmitArgumentInfo {
-        let mut copy_back_phase_one: Vec<MutableReturnReg> = Vec::new();
-        //let mut copy_back_phase_two: Vec<MutableReturnReg> = Vec::new();
+        let mut copy_back_operations: Vec<MutableReturnReg> = Vec::new();
+        let has_return_value = !matches!(&*signature.return_type.kind, TypeKind::Unit);
 
-
-
-        let r0_is_used_as_return = !matches!(&*signature.return_type.kind, TypeKind::Unit);
-
-        let scope =
+        // Step 1: Spill live registers before we start using ABI registers
+        let spill_scope =
             self.spill_required_registers(is_host_call, node, "spill before emit arguments");
 
-        // Handle return types
-        if r0_is_used_as_return {
+        // Step 2: Handle return value setup
+        if has_return_value {
             let return_basic_type = self.state.layout_cache.layout(&signature.return_type);
 
             if return_basic_type.is_aggregate() {
@@ -193,16 +244,16 @@ impl CodeBuilder<'_> {
             } else {
                 // For primitives: add r0 to copy-back list (function writes to r0, we copy to destination)
                 let r0 = TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
-                copy_back_phase_one.push(MutableReturnReg {
+                copy_back_operations.push(MutableReturnReg {
                     target_location_after_call: output_destination.clone(),
                     parameter_reg: r0,
                 });
             }
         }
 
-        let mut copy_arguments_in_place = Vec::new();
-
-        let mut argument_registers = RegisterPool::new(1, 10);
+        // Step 3: Prepare argument registers and handle temporary register conflicts
+        let mut temp_to_abi_copies = Vec::new();
+        let mut argument_registers = RegisterPool::new(1, 10); // r1-r10 for arguments
 
         for (index_in_signature, type_for_parameter) in signature.parameters.iter().enumerate() {
             let parameter_basic_type = self
@@ -228,22 +279,15 @@ impl CodeBuilder<'_> {
                     canonical_target: target_canonical_argument_register.clone(),
                     source_temporary: temp_reg.register.clone(),
                 };
-                copy_arguments_in_place.push(copy_argument);
+                temp_to_abi_copies.push(copy_argument);
                 temp_reg.register
             } else {
                 target_canonical_argument_register.clone()
             };
 
-            // Determine if we need to spill this register
-            let argument_vector_index = if self_variable.is_some() {
-                index_in_signature.saturating_sub(1)
-            } else {
-                index_in_signature
-            };
-
+            // Handle self variable (first parameter) vs regular arguments
             if index_in_signature == 0 && self_variable.is_some() {
                 let self_reg = self_variable.as_ref().unwrap();
-
                 if self_reg.index != argument_to_use.index {
                     self.builder.add_mov_reg(
                         &argument_to_use,
@@ -256,54 +300,28 @@ impl CodeBuilder<'_> {
                     );
                 }
             } else {
+                // Regular argument - get from arguments array
+                let argument_vector_index = if self_variable.is_some() {
+                    index_in_signature - 1
+                } else {
+                    index_in_signature
+                };
                 let argument_expr_or_location = &arguments[argument_vector_index];
 
-                match argument_expr_or_location {
-                    ArgumentExpression::BorrowMutableReference(lvalue) => {
-                        let original_destination = self.emit_lvalue_address(lvalue, ctx);
-
-                        if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
-                            // Load the primitive from memory
-                            self.emit_transfer_value_to_register(
-                                &argument_to_use,
-                                &original_destination,
-                                node,
-                                "must get primitive from lvalue and pass as copy back (by value)",
-                            );
-
-                            // Add a copy back to the original location (base register will be restored by spill/restore)
-                            copy_back_phase_one.push(MutableReturnReg {
-                                target_location_after_call: original_destination,
-                                parameter_reg: target_canonical_argument_register.clone(),
-                            });
-                        } else {
-                            let flattened_source_pointer_reg = self
-                                .emit_compute_effective_address_to_register(
-                                    &original_destination,
-                                    node,
-                                    "flattened into absolute pointer",
-                                );
-                            self.builder.add_mov_reg(
-                                &argument_to_use,
-                                &flattened_source_pointer_reg,
-                                node,
-                                "copy absolute address",
-                            );
-                        }
-                    }
-                    ArgumentExpression::Expression(expr) => {
-                        self.emit_expression_into_register(
-                            &argument_to_use,
-                            expr,
-                            "argument expression into specific argument register",
-                            ctx,
-                        );
-                    }
-                }
+                self.emit_single_argument(
+                    argument_expr_or_location,
+                    &argument_to_use,
+                    &target_canonical_argument_register,
+                    &parameter_basic_type,
+                    &mut copy_back_operations,
+                    node,
+                    ctx,
+                );
             }
         }
 
-        for (index, copy_argument) in copy_arguments_in_place.iter().enumerate() {
+        // Step 4: Copy from temporary registers to final ABI argument registers
+        for (index, copy_argument) in temp_to_abi_copies.iter().enumerate() {
             let parameter_in_signature = &signature.parameters[index];
             self.builder.add_mov_reg(
                 &copy_argument.canonical_target,
@@ -317,8 +335,8 @@ impl CodeBuilder<'_> {
         }
 
         EmitArgumentInfo {
-            argument_and_temp_scope: scope,
-            copy_back_of_registers_mutated_by_callee: copy_back_phase_one,
+            argument_and_temp_scope: spill_scope,
+            copy_back_of_registers_mutated_by_callee: copy_back_operations,
         }
     }
 
