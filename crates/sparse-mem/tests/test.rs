@@ -435,9 +435,10 @@ fn test_iteration_consistency() {
                 .iter()
                 .any(|(h_id, h_gen, _)| *h_id == id && is_alive(base, *h_id, *h_gen));
 
-            assert!(found, 
-                    "Iteration found ID {id} that's not in our active handles!"
-                );
+            assert!(
+                found,
+                "Iteration found ID {id} that's not in our active handles!"
+            );
 
             // Read the value to ensure it's consistent
             let value_ptr = base.add(values_start + id as usize * element_size as usize);

@@ -416,6 +416,14 @@ impl SourceMapDisplay<'_> {
                 )?;
                 self.show_expression(f, b, tabs)
             }
+            ExpressionKind::VariableDefinitionLValue(variable, location_expr) => {
+                write!(
+                    f,
+                    "let {} = &",
+                    self.source_map.get_text(&variable.name).bright_blue()
+                )?;
+                self.show_location(f, location_expr, tabs)
+            }
             ExpressionKind::VariableReassignment(_, _) => {
                 write!(f, "VariableReassignment()")
             }

@@ -302,149 +302,70 @@ impl Analyzer<'_> {
     ) -> Expression {
         let expression_type = converted_expression.ty();
 
-        // TODO: This is too much code and a bit inelegant lowering. Maybe there is a cleaner way?
-        let variable_ref = if let ArgumentExpression::Expression(expr) = &converted_expression {
-            if let ExpressionKind::VariableAccess(source_var) = &expr.kind {
-                if ast_variable.is_mutable.is_some() && !source_var.is_mutable() {
+        match converted_expression {
+            ArgumentExpression::Expression(expr) => {
+                // For immutable bindings or expressions that can't be aliased,
+                // create a regular variable definition
+                let variable_ref = self.create_local_variable(
+                    &ast_variable.name,
+                    ast_variable.is_mutable.as_ref(),
+                    &expression_type,
+                    false,
+                );
+
+                let var_def_kind = ExpressionKind::VariableDefinition(variable_ref, Box::new(expr));
+                let unit_type = self.types().unit();
+                self.create_expr(var_def_kind, unit_type, &ast_variable.name)
+            }
+            ArgumentExpression::BorrowMutableReference(loc) => {
+                // For mutable reference bindings, check if it's a scalar or aggregate type
+                if ast_variable.is_mutable.is_none() {
                     return self.create_err(ErrorKind::VariableIsNotMutable, &ast_variable.name);
                 }
 
-                let scope_index = self.scope.block_scope_stack.len() - 1;
-                let variable_str = self.get_text(&ast_variable.name).to_string();
-                let node = self.to_node(&ast_variable.name);
-                let mut_node = ast_variable.is_mutable.as_ref().map(|n| self.to_node(n));
-
-                let variables_len = self
-                    .scope
-                    .block_scope_stack
-                    .last()
-                    .expect("block scope should have at least one scope")
-                    .variables
-                    .len();
-
-                let resolved_variable = Variable {
-                    name: node,
-                    assigned_name: variable_str.clone(),
-                    variable_type: VariableType::Local,
-                    resolved_type: source_var.resolved_type.clone(),
-                    mutable_node: mut_node.or_else(|| source_var.mutable_node.clone()),
-                    scope_index,
-                    variable_index: variables_len,
-                    unique_id_within_function: source_var.unique_id_within_function, // Reuse the same ID to make it a proper alias
-                    is_unused: false,
+                // Check if the type is a scalar/primitive type
+                let is_scalar = match &*expression_type.kind {
+                    TypeKind::Int | TypeKind::Float | TypeKind::Bool | TypeKind::String => true,
+                    _ => false,
                 };
 
-                let lookups = &mut self
-                    .scope
-                    .block_scope_stack
-                    .last_mut()
-                    .expect("block scope should have at least one scope")
-                    .lookup;
-                let alias_ref = Rc::new(resolved_variable);
-                lookups
-                    .insert(variable_str, alias_ref.clone())
-                    .expect("should have checked earlier for variable");
+                if is_scalar {
+                    // For scalars, treat mutable references as copies for now
+                    // TODO: Implement copy-back mechanism later
+                    let original_expr = ExpressionKind::VariableAccess(loc.starting_variable.clone());
+                    let original_expr_wrapped = self.create_expr(
+                        original_expr,
+                        expression_type.clone(),
+                        &ast_variable.name,
+                    );
 
-                return self.create_expr(
-                    ExpressionKind::VariableAccess(alias_ref),
-                    expression_type,
-                    &ast_variable.name,
-                );
+                    // Create a regular variable definition (copy)
+                    let variable_ref = self.create_local_variable(
+                        &ast_variable.name,
+                        ast_variable.is_mutable.as_ref(),
+                        &expression_type,
+                        false,
+                    );
+
+                    let var_def_kind = ExpressionKind::VariableDefinition(variable_ref, Box::new(original_expr_wrapped));
+                    let unit_type = self.types().unit();
+                    self.create_expr(var_def_kind, unit_type, &ast_variable.name)
+                } else {
+                    // For aggregate types, create a proper alias using VariableDefinitionLValue
+                    let variable_ref = self.create_local_variable(
+                        &ast_variable.name,
+                        ast_variable.is_mutable.as_ref(),
+                        &expression_type,
+                        false,
+                    );
+
+                    // Use the VariableDefinitionLValue expression to bind the variable to the lvalue
+                    let expr_kind = ExpressionKind::VariableDefinitionLValue(variable_ref, loc);
+                    let unit_type = self.types().unit();
+                    self.create_expr(expr_kind, unit_type, &ast_variable.name)
+                }
             }
-
-            self.create_local_variable(
-                &ast_variable.name,
-                ast_variable.is_mutable.as_ref(),
-                &expression_type,
-                false,
-            )
-        } else if let ArgumentExpression::BorrowMutableReference(loc) = &converted_expression {
-            // Handle mutable reference case
-            // TODO: It doesn't handle mutable scalars
-            if ast_variable.is_mutable.is_none() {
-                return self.create_err(ErrorKind::VariableIsNotMutable, &ast_variable.name);
-            }
-
-            let scope_index = self.scope.block_scope_stack.len() - 1;
-            let variable_str = self.get_text(&ast_variable.name).to_string();
-            let node = self.to_node(&ast_variable.name);
-            let mut_node = ast_variable.is_mutable.as_ref().map(|n| self.to_node(n));
-
-            let variables_len = self
-                .scope
-                .block_scope_stack
-                .last()
-                .expect("block scope should have at least one scope")
-                .variables
-                .len();
-
-            let resolved_variable = Variable {
-                name: node,
-                assigned_name: variable_str.clone(),
-                variable_type: VariableType::Local,
-                resolved_type: loc.ty.clone(),
-                mutable_node: mut_node,
-                scope_index,
-                variable_index: variables_len,
-                unique_id_within_function: loc.starting_variable.unique_id_within_function, // Reuse the same ID, to make it a proper alias
-                is_unused: false,
-            };
-
-            let lookups = &mut self
-                .scope
-                .block_scope_stack
-                .last_mut()
-                .expect("block scope should have at least one scope")
-                .lookup;
-            let alias_ref = Rc::new(resolved_variable);
-            lookups
-                .insert(variable_str, alias_ref.clone())
-                .expect("should have checked earlier for variable");
-
-            return self.create_expr(
-                ExpressionKind::VariableAccess(alias_ref),
-                expression_type,
-                &ast_variable.name,
-            );
-        } else {
-            self.create_local_variable(
-                &ast_variable.name,
-                ast_variable.is_mutable.as_ref(),
-                &expression_type,
-                false,
-            )
-        };
-
-        let source_expr = match converted_expression {
-            ArgumentExpression::Expression(expr) => expr,
-            ArgumentExpression::BorrowMutableReference(loc) => {
-                let ast_node = swamp_ast::Node {
-                    span: swamp_ast::SpanWithoutFileId {
-                        offset: loc.node.span.offset,
-                        length: loc.node.span.length,
-                    },
-                };
-
-                // Create a borrow mutable reference expression
-                // We need to create a SingleLocationExpression first
-                let single_loc_expr = swamp_semantic::SingleLocationExpression {
-                    kind: swamp_semantic::MutableReferenceKind::MutVariableRef,
-                    node: loc.node.clone(),
-                    ty: loc.ty.clone(),
-                    starting_variable: loc.starting_variable.clone(),
-                    access_chain: loc.access_chain.clone(),
-                };
-
-                let borrow_mut_expr = ExpressionKind::BorrowMutRef(Box::new(single_loc_expr));
-                self.create_expr(borrow_mut_expr, loc.ty, &ast_node)
-            }
-        };
-
-        let unit_type = self.types().unit();
-
-        let expr_kind = ExpressionKind::VariableDefinition(variable_ref, Box::new(source_expr));
-
-        self.create_expr(expr_kind, unit_type, &ast_variable.name)
+        }
     }
 
     pub const fn types(&mut self) -> &mut TypeCache {

@@ -2630,12 +2630,12 @@ impl<'a> Analyzer<'a> {
             let location_side = if variable.variable.is_mutable.is_some() {
                 // For mutable variables in with statements, we need to check if this is an lvalue binding
                 if let Some(expr) = &variable.expression {
-                    match &expr.kind {
-                        // If it's a borrow mutable reference (&something), we need lvalue analysis
-                        swamp_ast::ExpressionKind::UnaryOp(swamp_ast::UnaryOperator::BorrowMutRef(_), _) => {
-                            LocationSide::Mutable
-                        }
-                        _ => LocationSide::Rhs,
+                    // Use analyze_maybe_ref_expression to properly detect mutable references
+                    let maybe_ref = self.analyze_maybe_ref_expression(expr);
+                    if maybe_ref.has_borrow_mutable_reference.is_some() {
+                        LocationSide::Mutable
+                    } else {
+                        LocationSide::Rhs
                     }
                 } else {
                     // For cases like `with mut x` (no expression), it's an alias
@@ -2661,18 +2661,15 @@ impl<'a> Analyzer<'a> {
             let initialize_variable_expression = self
                 .create_variable_binding_for_with(&variable_binding.variable, resolved_expression);
 
-            // Only add to expressions if it's a variable definition (not a variable access)
-            // Variable access means it's an alias and doesn't need initialization
-            if !matches!(
-                initialize_variable_expression.kind,
-                ExpressionKind::VariableAccess(_)
-            ) {
-                expressions.push(initialize_variable_expression);
-            }
+            // Always add the expression to ensure proper initialization/binding
+            // Even for aliases (VariableAccess), we need the expression in the block
+            // to establish the proper scope and binding
+            expressions.push(initialize_variable_expression);
         }
 
         let resolved_expression = self.analyze_expression(expression, context);
-        let block_type = resolved_expression.ty.clone();
+        // with statements are for side effects only, so they always return Unit type
+        let block_type = self.types().unit();
         expressions.push(resolved_expression);
 
         let block_expression_kind = ExpressionKind::Block(expressions);

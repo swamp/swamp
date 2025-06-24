@@ -147,3 +147,13 @@ fn test_when_expressions() {
 fn test_while_loops() {
     run_swamp_test_quiet("while::");
 }
+
+#[test_log::test]
+fn test_struct_tests() {
+    run_swamp_test_quiet("struct::");
+}
+
+#[test_log::test]
+fn test_constant_tests() {
+    run_swamp_test_quiet("constant::");
+}

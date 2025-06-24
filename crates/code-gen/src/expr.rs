@@ -6,9 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, ExpressionKind};
-use swamp_types::TypeKind;
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, int_type};
+use swamp_vm_types::types::{int_type, BasicTypeKind, Destination, TypedRegister, VmType};
 use swamp_vm_types::{MemoryLocation, MemorySize};
 
 impl CodeBuilder<'_> {
@@ -65,9 +64,9 @@ impl CodeBuilder<'_> {
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, Destination::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(
-                &mut self.state.layout_cache,
-                expr,
-            )
+            &mut self.state.layout_cache,
+            expr,
+        )
         {
             let temp_materialization_target = self
                 .allocate_frame_space_and_return_destination_to_it(
@@ -422,6 +421,25 @@ impl CodeBuilder<'_> {
             ExpressionKind::VariableDefinition(variable, expression) => {
                 debug_assert!(output.is_unit());
                 self.emit_variable_definition(variable, expression, ctx);
+            }
+            ExpressionKind::VariableDefinitionLValue(variable, location_expr) => {
+                // For lvalue definitions, the variable should be initialized with the memory address
+                // This is used in `with` statements, e.g. `mut var = &some.field`
+                match output {
+                    Destination::Unit => {
+                        let lvalue_destination = self.emit_lvalue_address(location_expr, ctx);
+
+                        let alias_register = self.get_variable_register(variable).clone();
+
+                        self.emit_compute_effective_address_to_target_register(
+                            &alias_register,
+                            &lvalue_destination,
+                            &variable.name,
+                            "initialize alias variable with lvalue address",
+                        );
+                    }
+                    _ => panic!("VariableDefinitionLValue should only be used with Unit destination"),
+                }
             }
             ExpressionKind::VariableReassignment(variable, expression) => {
                 debug_assert!(output.is_unit());
