@@ -432,7 +432,6 @@ impl From<DependencyError> for DepLoaderError {
 fn os_home_relative_path(project_name: &str) -> Option<PathBuf> {
     home_dir().map(|home_path| home_path.join(format!(".{project_name}")))
 }
-
 #[must_use]
 pub fn path_from_environment_variable() -> Option<PathBuf> {
     env::var("SWAMP_HOME")
@@ -463,10 +462,10 @@ pub fn swamp_registry_path() -> Option<PathBuf> {
     let swamp_home = swamp_home()?;
 
     if verify_if_swamp_home_seems_correct(&swamp_home) {
-        let mut packages_path = swamp_home.clone();
+        let mut packages_path = swamp_home;
         packages_path.push("packages");
 
-        Some(swamp_home)
+        Some(packages_path)
     } else {
         None
     }
