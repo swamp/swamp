@@ -9,6 +9,8 @@ mod for
 mod grid
 mod guard
 mod int
+mod intrinsic_materialization
+mod intrinsic_materialization_simple
 mod logical
 mod map
 mod operator
