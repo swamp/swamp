@@ -23,6 +23,7 @@ fn emit_internal(code: &str) -> (TopLevelGenState, Program) {
             show_disasm: false,
             show_debug: false,
             show_types: false,
+            ignore_host_call: false,
         },
     );
 

@@ -227,6 +227,7 @@ pub fn run_tests(
             show_disasm: options.show_assembly,
             show_debug: options.debug_output,
             show_types: options.show_types,
+            ignore_host_call: true,
         },
         skip_codegen: false,
     };

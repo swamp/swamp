@@ -95,6 +95,7 @@ fn main() -> ExitCode {
             show_disasm: show_assembly,
             show_debug: debug_codegen,
             show_types,
+            ignore_host_call: false,
         },
     };
 

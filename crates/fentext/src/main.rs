@@ -33,6 +33,7 @@ pub fn compile() -> Option<CompileCodeGenVmResult> {
             show_disasm: false,
             show_types: true,
             show_debug: false,
+            ignore_host_call: false,
         },
     };
     compile_codegen_and_create_vm(

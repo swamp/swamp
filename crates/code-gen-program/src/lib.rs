@@ -16,6 +16,7 @@ pub struct CodeGenOptions {
     pub show_disasm: bool,
     pub show_debug: bool,
     pub show_types: bool,
+    pub ignore_host_call: bool,
 }
 
 /// # Errors
@@ -45,7 +46,11 @@ pub fn code_gen_program(
 
     for (_path, module) in program.modules.modules() {
         for internal_function_def in &module.symbol_table.internal_functions() {
-            code_gen.emit_function_def(internal_function_def, source_map_lookup);
+            code_gen.emit_function_def(
+                internal_function_def,
+                source_map_lookup,
+                options.ignore_host_call,
+            );
         }
     }
 
@@ -53,7 +58,7 @@ pub fn code_gen_program(
         for (_name, func) in &impl_functions.functions {
             match &**func {
                 Function::Internal(int_fn) => {
-                    code_gen.emit_function_def(int_fn, source_map_lookup);
+                    code_gen.emit_function_def(int_fn, source_map_lookup, options.ignore_host_call);
                 }
 
                 Function::External(_ext_fn) => {

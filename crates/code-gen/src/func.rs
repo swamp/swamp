@@ -35,6 +35,7 @@ impl TopLevelGenState {
         &mut self,
         internal_fn_def: &InternalFunctionDefinitionRef,
         source_map_wrapper: &SourceMapWrapper,
+        should_ignore_host_call: bool,
     ) {
         assert_ne!(internal_fn_def.program_unique_id, 0);
 
@@ -51,10 +52,13 @@ impl TopLevelGenState {
             expression: internal_fn_def.body.clone(),
         };
 
-        let is_host_call = Self::is_host_call(&internal_fn_def.attributes);
+        let attrs = &internal_fn_def.attributes;
+
+        let should_insert_halt =
+            Self::is_test_call(attrs) || (!should_ignore_host_call && Self::is_host_call(attrs));
 
         let (start_ip, end_ip, function_info) =
-            self.emit_function_preamble(&in_data, source_map_wrapper, is_host_call);
+            self.emit_function_preamble(&in_data, source_map_wrapper, should_insert_halt);
 
         let count_ip = end_ip.0 - start_ip.0;
 
