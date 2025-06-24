@@ -98,7 +98,7 @@ fn test_frequent_add_remove_index_reuse() {
         //  Fill to capacity
         for i in 0..capacity {
             let (id, generation) = allocate(base).expect("should allocate");
-            let value = (i + 100) as u32; // Use distinctive values
+            let value = u32::from(i + 100); // Use distinctive values
             insert(base, id, (&raw const value).cast::<u8>());
             handles.push((id, generation, value));
             assert_eq!(element_count(base), i + 1);
@@ -423,29 +423,26 @@ fn test_iteration_consistency() {
         let slot_to_id = slot_to_id_ptr(base);
         let values_start = values_offset(base);
 
-        println!("Current count: {}", count);
+        println!("Current count: {count}");
 
         // Iterate through active slots
         for slot_idx in 0..count {
             let id = *slot_to_id.add(slot_idx);
-            println!("Slot {}: ID {}", slot_idx, id);
+            println!("Slot {slot_idx}: ID {id}");
 
             // Verify this id is actually in our remaining handles
             let found = handles
                 .iter()
                 .any(|(h_id, h_gen, _)| *h_id == id && is_alive(base, *h_id, *h_gen));
 
-            if !found {
-                panic!(
-                    "Iteration found ID {} that's not in our active handles!",
-                    id
+            assert!(found, 
+                    "Iteration found ID {id} that's not in our active handles!"
                 );
-            }
 
             // Read the value to ensure it's consistent
             let value_ptr = base.add(values_start + id as usize * element_size as usize);
             let stored_value = *(value_ptr as *const u32);
-            println!("  Value at ID {}: {}", id, stored_value);
+            println!("  Value at ID {id}: {stored_value}");
         }
     }
 }
@@ -465,7 +462,7 @@ fn test_memory_corruption_detection() {
         let mut handles = Vec::new();
         for i in 0..capacity {
             let (id, generation) = allocate(base).unwrap();
-            let value = (0xDEADBEEF_u32).wrapping_add(i as u32);
+            let value = (0xDEADBEEF_u32).wrapping_add(u32::from(i));
             insert(base, id, (&raw const value).cast::<u8>());
             handles.push((id, generation, value));
         }

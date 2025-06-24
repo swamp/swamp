@@ -39,7 +39,7 @@ pub fn compile() -> Option<CompileCodeGenVmResult> {
     compile_codegen_and_create_vm(
         Path::new("assets/crawler"),
         &["crate".to_string(), "main".to_string()],
-        options,
+        &options,
     )
     .map(|x| {
         let CompileAndVmResult::CompileAndVm(both) = x else {
