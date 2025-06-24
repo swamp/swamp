@@ -66,6 +66,7 @@ impl CodeBuilder<'_> {
     pub fn find_replacements_for_mutable_primitive_arguments(
         &mut self,
         arguments: &[ArgumentExpression],
+        output_destination: &Destination,
         node: &Node,
         ctx: &Context,
     ) -> SeqMap<u8, TypedRegister> {
@@ -83,6 +84,27 @@ impl CodeBuilder<'_> {
         // This function builds a lookup map from original base register index to temporary
         // saved register, which is used during the copy-back phase after the function call.
         let mut stable_base_ptr_cache = SeqMap::new();
+        
+        // First, handle the output destination's base register if it exists
+        if let Some(output_base_reg) = output_destination.register_involved_in_destination() {
+            if !stable_base_ptr_cache.contains_key(&output_base_reg.index) {
+                let replacement_base_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u32_type()),
+                    &format!("temporary save reg for output destination base reg {}", output_base_reg.index),
+                );
+                self.builder.add_mov_reg(
+                    replacement_base_reg.register(),
+                    output_base_reg,
+                    node,
+                    &format!("copy the output destination base reg {} in a temporary register", output_base_reg.index),
+                );
+                stable_base_ptr_cache
+                    .insert(output_base_reg.index, replacement_base_reg.register.clone())
+                    .unwrap();
+            }
+        }
+        
+        // Then handle argument base registers
         for argument in arguments {
             if let ArgumentExpression::BorrowMutableReference(lvalue) = argument {
                 let parameter_basic_type = self.state.layout_cache.layout(&argument.ty());
@@ -215,12 +237,36 @@ impl CodeBuilder<'_> {
         output_destination: &Destination,
         copy_back_mutable_reg_pairs: &mut Vec<MutableReturnReg>,
         return_basic_type: BasicTypeRef,
+        base_reg_replacement_lookup: &SeqMap<u8, TypedRegister>,
+        node: &Node,
     ) {
         // For simple types, we need to copy from r0 to destination after the call
         let r0 = TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
+        // Check if the output destination uses a base register that might have been saved
+        let target_destination = if let Some(base_reg) = output_destination.register_involved_in_destination() {
+            if let Some(saved_base_reg) = base_reg_replacement_lookup.get(&base_reg.index) {
+                // Use the saved base register instead of the original one
+                match output_destination {
+                    Destination::Memory(memory_location) => {
+                        let replacement_memory_location = MemoryLocation {
+                            base_ptr_reg: saved_base_reg.clone(),
+                            offset: memory_location.offset,
+                            ty: memory_location.ty.clone(),
+                        };
+                        Destination::Memory(replacement_memory_location)
+                    }
+                    _ => output_destination.clone(),
+                }
+            } else {
+                output_destination.clone()
+            }
+        } else {
+            output_destination.clone()
+        };
+
         copy_back_mutable_reg_pairs.push(MutableReturnReg {
-            target_location_after_call: output_destination.clone(),
+            target_location_after_call: target_destination,
             parameter_reg: r0,
         });
     }
@@ -261,7 +307,7 @@ impl CodeBuilder<'_> {
         //let mut copy_back_phase_two: Vec<MutableReturnReg> = Vec::new();
 
         let base_reg_replacement_lookup =
-            self.find_replacements_for_mutable_primitive_arguments(arguments, node, ctx);
+            self.find_replacements_for_mutable_primitive_arguments(arguments, output_destination, node, ctx);
 
         let r0_is_used_as_return = !matches!(&*signature.return_type.kind, TypeKind::Unit);
 
@@ -279,6 +325,8 @@ impl CodeBuilder<'_> {
                     output_destination,
                     &mut copy_back_phase_one,
                     return_basic_type,
+                    &base_reg_replacement_lookup,
+                    node,
                 );
             }
         }
@@ -352,28 +400,16 @@ impl CodeBuilder<'_> {
                                 .register_involved_in_destination()
                                 .unwrap();
 
-                            // Handle scalar types differently from aggregate (pointer) types:
-                            // - Scalar types (like Int, Float, String) are fully contained in the register itself
-                            // - Aggregate types require a base register lookup to find the saved register
-                            //
-                            // When dealing with lvalue memory destinations:
-                            // - For scalar values, when they're accessed through a memory destination,
-                            //   we need to use the original register directly
-                            // - For aggregate types, we need to look up the saved base register
-                            //   from the base_reg_replacement_lookup
-                            let base_reg_to_use = if original_destination.is_register() {
-                                // For scalar types, they are directly in the register, not a pointer
-                                // So we use the original register directly
-                                original_base_reg.clone()
-                            } else {
-                                // For lvalue memory destinations, try to get the saved base register
-                                // If it's not found (which can happen for scalar types in arrays),
-                                // fall back to using the original register directly
-                                base_reg_replacement_lookup
-                                    .get(&original_base_reg.index)
-                                    .cloned()
-                                    .unwrap_or_else(|| original_base_reg.clone())
-                            };
+                            // Handle base register replacement for copy-back operations:
+                            // Always try to use the saved base register from the lookup first.
+                            // This ensures that if we saved a base register to protect it from being
+                            // clobbered during the function call, we use that saved version for the
+                            // copy-back operation. Only fall back to the original register if no
+                            // saved version exists in the base_reg_replacement_lookup.
+                            let base_reg_to_use = base_reg_replacement_lookup
+                                .get(&original_base_reg.index)
+                                .cloned()
+                                .unwrap_or_else(|| original_base_reg.clone());
 
                             // Construct a replacement location with the new temporary register (replacement_base_reg)
                             let replacement_memory_location = MemoryLocation {
