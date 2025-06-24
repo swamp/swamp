@@ -10,7 +10,6 @@ use crate::ctx::Context;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
 use crate::{ArgumentAndTempScope, RepresentationOfRegisters, SpilledRegisterRegion};
-use seq_map::SeqMap;
 use source_map_node::Node;
 use std::collections::HashSet;
 use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
@@ -63,92 +62,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub fn find_replacements_for_mutable_primitive_arguments(
-        &mut self,
-        arguments: &[ArgumentExpression],
-        output_destination: &Destination,
-        node: &Node,
-        ctx: &Context,
-    ) -> SeqMap<u8, TypedRegister> {
-        // This function creates a lookup map for base registers that need to be saved
-        // when passing mutable primitive arguments to functions.
-        //
-        // For mutable arguments, we need to:
-        // 1. Save the base register into a temporary register before the call
-        // 2. Use that saved register after the call to copy back any changes
-        //
-        // Special handling is needed for scalar types (e.g. Int, Float, String) vs. aggregate types:
-        // - Scalar types are fully contained in a register (no separate base register needed)
-        // - Aggregate (pointer) types require a base register to reference the memory location
-        //
-        // This function builds a lookup map from original base register index to temporary
-        // saved register, which is used during the copy-back phase after the function call.
-        let mut stable_base_ptr_cache = SeqMap::new();
 
-        // First, handle the output destination's base register if it exists
-        if let Some(output_base_reg) = output_destination.register_involved_in_destination() {
-            if !stable_base_ptr_cache.contains_key(&output_base_reg.index) {
-                let replacement_base_reg = self.temp_registers.allocate(
-                    VmType::new_contained_in_register(u32_type()),
-                    &format!("temporary save reg for output destination base reg {}", output_base_reg.index),
-                );
-                self.builder.add_mov_reg(
-                    replacement_base_reg.register(),
-                    output_base_reg,
-                    node,
-                    &format!("copy the output destination base reg {} in a temporary register", output_base_reg.index),
-                );
-                stable_base_ptr_cache
-                    .insert(output_base_reg.index, replacement_base_reg.register.clone())
-                    .unwrap();
-            }
-        }
-
-        // Then handle argument base registers
-        for argument in arguments {
-            if let ArgumentExpression::BorrowMutableReference(lvalue) = argument {
-                let parameter_basic_type = self.state.layout_cache.layout(&argument.ty());
-                if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
-                    // first we need to save the base register into a temporary register
-                    // so it won't be clobbered
-                    let original_destination = self.emit_lvalue_address(lvalue, ctx);
-
-                    // If we're dealing with a lvalue memory destination (which requires a register
-                    // to hold the memory address) we need to save that register before the function call
-                    if let Some(original_base_reg) =
-                        original_destination.register_involved_in_destination()
-                    {
-                        if !stable_base_ptr_cache.contains_key(&original_base_reg.index) {
-                            let replacement_base_reg = self.temp_registers.allocate(
-                                VmType::new_contained_in_register(u32_type()),
-                                &format!(
-                                    "temporary save reg for {}",
-                                    lvalue.starting_variable.assigned_name
-                                ),
-                            );
-                            self.builder.add_mov_reg(
-                                replacement_base_reg.register(),
-                                original_base_reg,
-                                node,
-                                &format!(
-                                    "copy the base reg {} in a temporary register",
-                                    original_base_reg.index
-                                ),
-                            );
-                            stable_base_ptr_cache
-                                .insert(
-                                    original_base_reg.index,
-                                    replacement_base_reg.register.clone(),
-                                )
-                                .unwrap();
-                        }
-                    }
-                }
-            }
-        }
-
-        stable_base_ptr_cache
-    }
 
     // TODO: for mutable arguments we want to leave output part of the spilling
     // We want to scan through the arguments,
@@ -237,36 +151,12 @@ impl CodeBuilder<'_> {
         output_destination: &Destination,
         copy_back_mutable_reg_pairs: &mut Vec<MutableReturnReg>,
         return_basic_type: BasicTypeRef,
-        base_reg_replacement_lookup: &SeqMap<u8, TypedRegister>,
-        node: &Node,
     ) {
         // For simple types, we need to copy from r0 to destination after the call
         let r0 = TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
-        // Check if the output destination uses a base register that might have been saved
-        let target_destination = if let Some(base_reg) = output_destination.register_involved_in_destination() {
-            if let Some(saved_base_reg) = base_reg_replacement_lookup.get(&base_reg.index) {
-                // Use the saved base register instead of the original one
-                match output_destination {
-                    Destination::Memory(memory_location) => {
-                        let replacement_memory_location = MemoryLocation {
-                            base_ptr_reg: saved_base_reg.clone(),
-                            offset: memory_location.offset,
-                            ty: memory_location.ty.clone(),
-                        };
-                        Destination::Memory(replacement_memory_location)
-                    }
-                    _ => output_destination.clone(),
-                }
-            } else {
-                output_destination.clone()
-            }
-        } else {
-            output_destination.clone()
-        };
-
         copy_back_mutable_reg_pairs.push(MutableReturnReg {
-            target_location_after_call: target_destination,
+            target_location_after_call: output_destination.clone(),
             parameter_reg: r0,
         });
     }
@@ -306,8 +196,7 @@ impl CodeBuilder<'_> {
         let mut copy_back_phase_one: Vec<MutableReturnReg> = Vec::new();
         //let mut copy_back_phase_two: Vec<MutableReturnReg> = Vec::new();
 
-        let base_reg_replacement_lookup =
-            self.find_replacements_for_mutable_primitive_arguments(arguments, output_destination, node, ctx);
+
 
         let r0_is_used_as_return = !matches!(&*signature.return_type.kind, TypeKind::Unit);
 
@@ -325,8 +214,6 @@ impl CodeBuilder<'_> {
                     output_destination,
                     &mut copy_back_phase_one,
                     return_basic_type,
-                    &base_reg_replacement_lookup,
-                    node,
                 );
             }
         }
@@ -394,43 +281,17 @@ impl CodeBuilder<'_> {
                         let original_destination = self.emit_lvalue_address(lvalue, ctx);
 
                         if parameter_basic_type.should_be_copied_back_when_mutable_arg_or_return() {
-                            // first we need to save the base register into a temporary register
-                            // so it won't be clobbered
-                            let original_base_reg = original_destination
-                                .register_involved_in_destination()
-                                .unwrap();
-
-                            // Handle base register replacement for copy-back operations:
-                            // Always try to use the saved base register from the lookup first.
-                            // This ensures that if we saved a base register to protect it from being
-                            // clobbered during the function call, we use that saved version for the
-                            // copy-back operation. Only fall back to the original register if no
-                            // saved version exists in the base_reg_replacement_lookup.
-                            let base_reg_to_use = base_reg_replacement_lookup
-                                .get(&original_base_reg.index)
-                                .cloned()
-                                .unwrap_or_else(|| original_base_reg.clone());
-
-                            // Construct a replacement location with the new temporary register (replacement_base_reg)
-                            let replacement_memory_location = MemoryLocation {
-                                base_ptr_reg: base_reg_to_use.clone(),
-                                offset: original_destination.grab_memory_location().offset,
-                                ty: original_destination.vm_type().unwrap().clone(),
-                            };
-                            let replacement_location =
-                                Destination::Memory(replacement_memory_location);
-
                             // Load the primitive from memory
                             self.emit_transfer_value_to_register(
                                 &argument_to_use,
-                                &replacement_location,
+                                &original_destination,
                                 node,
                                 "must get primitive from lvalue and pass as copy back (by value)",
                             );
 
-                            // Add a copy back with the replacement_location back to the primitive location
+                            // Add a copy back to the original location (base register will be restored by spill/restore)
                             copy_back_phase_one.push(MutableReturnReg {
-                                target_location_after_call: replacement_location,
+                                target_location_after_call: original_destination,
                                 parameter_reg: target_canonical_argument_register.clone(),
                             });
                         } else {
