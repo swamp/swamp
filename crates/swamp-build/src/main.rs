@@ -101,7 +101,7 @@ fn main() -> ExitCode {
     let test_result = compile_and_code_gen(
         &test_path,
         &["crate".to_string(), module.unwrap_or_default()],
-        compile_and_code_gen_options,
+        &compile_and_code_gen_options,
     );
 
     if test_result.is_none() {

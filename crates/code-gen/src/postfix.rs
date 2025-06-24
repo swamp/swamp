@@ -7,7 +7,7 @@ use crate::ctx::Context;
 use crate::single_intrinsic_fn;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
+use swamp_vm_types::types::{Destination, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::{error, info};
 
@@ -91,13 +91,6 @@ impl CodeBuilder<'_> {
                 PostfixKind::MemberCall(function_to_call, arguments) => {
                     let hwm = self.temp_registers.save_mark();
 
-                    let absolute_self_pointer_register = self
-                        .emit_compute_effective_address_to_register(
-                            &current_location,
-                            &element.node,
-                            "resolve to absolute pointer before member call",
-                        );
-
                     let call_return_destination = if is_last {
                         output_destination.clone()
                     } else {
@@ -108,7 +101,7 @@ impl CodeBuilder<'_> {
                         self.allocate_frame_space_and_return_destination_to_it(&return_basic_type, &element.node, "create temporary return destination for when not in the end of the chain")
                     };
 
-                    match &**function_to_call {
+                    match function_to_call.as_ref() {
                         Function::Internal(internal_fn) => {
                             if let Some((intrinsic_fn, intrinsic_arguments)) =
                                 single_intrinsic_fn(&internal_fn.body)
@@ -118,18 +111,22 @@ impl CodeBuilder<'_> {
                                     intrinsic_arguments,
                                 );
 
-                                self.emit_single_intrinsic_call_with_self(
+                                self.emit_single_intrinsic_call_with_self_destination(
                                     &call_return_destination,
                                     &start_expression.node,
                                     intrinsic_fn,
-                                    Some(&RValueOrLValue::Scalar(
-                                        absolute_self_pointer_register.clone(),
-                                    )),
+                                    Some(&current_location),
                                     &merged_arguments,
                                     ctx,
                                     "rvalue intrinsic call ",
                                 );
                             } else {
+                                let absolute_self_pointer_register = self
+                                    .emit_compute_effective_address_to_register(
+                                        &current_location,
+                                        &element.node,
+                                        "resolve to absolute pointer before member call",
+                                    );
                                 let argument_infos = self.emit_arguments(
                                     &call_return_destination,
                                     &start_expression.node,
@@ -149,6 +146,12 @@ impl CodeBuilder<'_> {
                             }
                         }
                         Function::External(external_function_def) => {
+                            let absolute_self_pointer_register = self
+                                .emit_compute_effective_address_to_register(
+                                    &current_location,
+                                    &element.node,
+                                    "resolve to absolute pointer before member call",
+                                );
                             self.emit_host_self_call(
                                 &call_return_destination,
                                 &start_expression.node,
@@ -159,11 +162,11 @@ impl CodeBuilder<'_> {
                             );
                         }
                         Function::Intrinsic(intrinsic_def) => {
-                            self.emit_single_intrinsic_call_with_self(
+                            self.emit_single_intrinsic_call_with_self_destination(
                                 &call_return_destination,
                                 &start_expression.node,
                                 &intrinsic_def.intrinsic,
-                                Some(&RValueOrLValue::Scalar(absolute_self_pointer_register)),
+                                Some(&current_location),
                                 arguments,
                                 ctx,
                                 "rvalue intrinsic call ",

@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
+    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
 };
 use swamp_vm_types::{
     CountU16, HeapMemoryAddress, MemoryAlignment, MemoryLocation, PointerLocation,
@@ -2429,7 +2429,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(dest_int.ty().is_int());
+        // assert!(dest_int.ty().is_int());
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatRound,

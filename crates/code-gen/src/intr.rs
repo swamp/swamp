@@ -10,7 +10,7 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_types::types::{
-    Destination, RValueOrLValue, TypedRegister, VmType, float_type, pointer_type, u8_type,
+    Destination, TypedRegister, VmType, float_type, pointer_type, u8_type,
     u16_type, u32_type,
 };
 use swamp_vm_types::{
@@ -19,6 +19,8 @@ use swamp_vm_types::{
 };
 
 impl CodeBuilder<'_> {
+
+
     #[allow(clippy::too_many_lines)]
     #[allow(clippy::single_match_else)]
     pub fn emit_single_intrinsic_call(
@@ -30,11 +32,14 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         {
-            let (self_arg, maybe_self_type) = if arguments.is_empty() {
-                (None, None)
+            // For primitive intrinsics, materialize the self argument to a register early
+            let self_reg = if arguments.is_empty() {
+                None
             } else {
-                let self_region = self.emit_argument_expression(&arguments[0], ctx);
-                (Some(self_region), Some(arguments[0].ty()))
+                let ArgumentExpression::Expression(self_expr) = &arguments[0] else {
+                    panic!("Expected expression for self argument");
+                };
+                Some(self.emit_scalar_rvalue(self_expr, ctx))
             };
 
             let rest_args = if arguments.len() > 1 {
@@ -46,7 +51,7 @@ impl CodeBuilder<'_> {
                 target_reg,
                 node,
                 intrinsic_fn,
-                self_arg.as_ref(),
+                self_reg.as_ref(),
                 rest_args,
                 ctx,
                 "single intrinsic call",
@@ -649,18 +654,102 @@ impl CodeBuilder<'_> {
 
     #[allow(clippy::too_many_lines)]
     #[allow(clippy::too_many_arguments)]
+    pub fn emit_single_intrinsic_call_with_self_destination(
+        &mut self,
+        target_destination: &Destination,
+        node: &Node,
+        intrinsic_fn: &IntrinsicFunction,
+        self_destination: Option<&Destination>,
+        arguments: &[ArgumentExpression],
+        ctx: &Context,
+        comment: &str,
+    ) {
+        // Convert Destination to TypedRegister for scalar intrinsics, handling materialization properly
+        let self_reg = if let Some(self_dest) = self_destination {
+            match self_dest {
+                Destination::Register(reg) => {
+                    // If it's already a register, check if it needs materialization
+                    if reg.ty.is_aggregate() && reg.ty.basic_type.is_scalar() {
+                        // This is a pointer to a scalar, load the actual value
+                        let scalar_temp = self.temp_registers.allocate(
+                            VmType::new_contained_in_register(reg.ty.basic_type.clone()),
+                            "load scalar from pointer for intrinsic",
+                        );
+                        
+                        let memory_location = MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                            reg.clone(),
+                        );
+                        
+                        self.emit_load_scalar_from_memory_offset_instruction(
+                            scalar_temp.register(),
+                            &memory_location,
+                            node,
+                            "load scalar value from pointer register for intrinsic",
+                        );
+                        
+                        Some(scalar_temp.register)
+                    } else {
+                        // Already a scalar value or aggregate pointer, use as-is
+                        Some(reg.clone())
+                    }
+                }
+                Destination::Memory(memory_location) => {
+                    if memory_location.ty.is_scalar() {
+                        // Load the scalar value from memory
+                        let scalar_temp = self.temp_registers.allocate(
+                            memory_location.ty.clone(),
+                            "load scalar from memory for intrinsic",
+                        );
+                        
+                        self.emit_load_scalar_from_memory_offset_instruction(
+                            scalar_temp.register(),
+                            memory_location,
+                            node,
+                            "load scalar value from memory for intrinsic",
+                        );
+                        
+                        Some(scalar_temp.register)
+                    } else {
+                        // For aggregate types, compute the effective address
+                        let ptr_reg = self.emit_compute_effective_address_to_register(
+                            self_dest,
+                            node,
+                            "compute address for aggregate intrinsic",
+                        );
+                        Some(ptr_reg)
+                    }
+                }
+                Destination::Unit => None,
+            }
+        } else {
+            None
+        };
+
+        // Delegate to the existing function
+        self.emit_single_intrinsic_call_with_self(
+            target_destination,
+            node,
+            intrinsic_fn,
+            self_reg.as_ref(),
+            arguments,
+            ctx,
+            comment,
+        );
+    }
+
+    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_arguments)]
     pub fn emit_single_intrinsic_call_with_self(
         &mut self,
         target_destination: &Destination,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
-        self_addr_l_or_rvalue: Option<&RValueOrLValue>,
+        self_reg: Option<&TypedRegister>,
         arguments: &[ArgumentExpression],
         ctx: &Context,
         comment: &str,
     ) {
         let maybe_target = target_destination.register();
-        let self_addr: Option<&TypedRegister> = self_addr_l_or_rvalue.and_then(|s| s.rvalue());
 
         match intrinsic_fn {
             IntrinsicFunction::Float2Magnitude
@@ -691,22 +780,15 @@ impl CodeBuilder<'_> {
                     (Some(temp_reg.register.clone()), temp_reg.register)
                 };
 
-                let converted: Vec<_> = arguments
-                    .iter()
-                    .map(|arg| {
-                        let ArgumentExpression::Expression(found_expression) = arg else {
-                            panic!("must be expression");
-                        };
-                        found_expression
-                    })
-                    .collect();
-
-                let mut converted_regs: Vec<_> = converted
-                    .iter()
-                    .map(|expr| self.emit_scalar_rvalue(expr, ctx))
-                    .collect();
-
-                converted_regs.insert(0, self_addr.unwrap().clone());
+                // Materialize self to ensure we have the actual scalar value
+                let mut converted_regs = vec![self_reg.unwrap().clone()];
+                for arg in arguments {
+                    let ArgumentExpression::Expression(found_expression) = arg else {
+                        panic!("must be expression");
+                    };
+                    let materialized_arg = self.emit_scalar_rvalue(found_expression, ctx);
+                    converted_regs.push(materialized_arg);
+                }
 
                 self.emit_intrinsic_call_fixed(&dest_reg, intrinsic_fn, &converted_regs, node);
 
@@ -720,12 +802,45 @@ impl CodeBuilder<'_> {
                 }
             }
 
+            IntrinsicFunction::IntToFloat => {
+                // IntToFloat - special case because it returns a float, not an int
+                let (temp_reg, dest_reg) = if target_destination.is_register() {
+                    (None, target_destination.register().unwrap().clone())
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(float_type()),
+                        "temporary destination for int to float intrinsic",
+                    );
+
+                    (Some(temp_reg.register.clone()), temp_reg.register)
+                };
+
+                // Self is already materialized as a register
+                let int_value_reg = self_reg.unwrap();
+
+                // Now convert the materialized integer value to float
+                self.builder.add_int_to_float(
+                    &dest_reg,
+                    int_value_reg,
+                    node,
+                    &format!("int to float {}", int_value_reg.comment()),
+                );
+
+                if let Some(temp_reg) = temp_reg {
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg,
+                        node,
+                        "store the float result from int to float conversion",
+                    );
+                }
+            }
+
             IntrinsicFunction::IntAbs
             | IntrinsicFunction::IntRnd
             | IntrinsicFunction::IntMax
             | IntrinsicFunction::IntMin
             | IntrinsicFunction::IntClamp
-            | IntrinsicFunction::IntToFloat
             | IntrinsicFunction::IntToString => {
                 // Int
                 let (temp_reg, dest_reg) = if target_destination.is_register() {
@@ -739,21 +854,15 @@ impl CodeBuilder<'_> {
                     (Some(temp_reg.register.clone()), temp_reg.register)
                 };
 
-                let converted: Vec<_> = arguments
-                    .iter()
-                    .map(|arg| {
-                        let ArgumentExpression::Expression(found_expression) = arg else {
-                            panic!("must be expression");
-                        };
-                        found_expression
-                    })
-                    .collect();
-
-                let mut converted_regs: Vec<_> = converted
-                    .iter()
-                    .map(|expr| self.emit_scalar_rvalue(expr, ctx))
-                    .collect();
-                converted_regs.insert(0, self_addr.unwrap().clone());
+                // Materialize additional arguments (self is already materialized)
+                let mut converted_regs = vec![self_reg.unwrap().clone()];
+                for arg in arguments {
+                    let ArgumentExpression::Expression(found_expression) = arg else {
+                        panic!("must be expression");
+                    };
+                    let materialized_arg = self.emit_scalar_rvalue(found_expression, ctx);
+                    converted_regs.push(materialized_arg);
+                }
 
                 self.emit_intrinsic_call_int(&dest_reg, intrinsic_fn, &converted_regs, node);
 
@@ -781,7 +890,7 @@ impl CodeBuilder<'_> {
                 // Vec
                 // Self is assumed to be a flattened pointer:
                 let vec_self_ptr_reg = PointerLocation {
-                    ptr_reg: self_addr.unwrap().clone(),
+                    ptr_reg: self_reg.unwrap().clone(),
                 };
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
@@ -807,7 +916,7 @@ impl CodeBuilder<'_> {
                 // Grid
                 // Self is assumed to be a flattened pointer:
                 let grid_self_ptr_reg = PointerLocation {
-                    ptr_reg: self_addr.unwrap().clone(),
+                    ptr_reg: self_reg.unwrap().clone(),
                 };
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
@@ -835,7 +944,7 @@ impl CodeBuilder<'_> {
                 // Sparse
                 // Self is assumed to be a flattened pointer:
                 let grid_self_ptr_reg = PointerLocation {
-                    ptr_reg: self_addr.unwrap().clone(),
+                    ptr_reg: self_reg.unwrap().clone(),
                 };
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
@@ -869,7 +978,7 @@ impl CodeBuilder<'_> {
             | IntrinsicFunction::TransformerFold => {
                 // Self is assumed to be a flattened pointer:
                 let collection_self_ptr_reg = PointerLocation {
-                    ptr_reg: self_addr.unwrap().clone(),
+                    ptr_reg: self_reg.unwrap().clone(),
                 };
 
                 let lambda_expression = &arguments[0];
@@ -895,7 +1004,7 @@ impl CodeBuilder<'_> {
 
             IntrinsicFunction::RuntimePanic => {
                 self.builder
-                    .add_panic(self_addr.unwrap(), node, "intrinsic panic");
+                    .add_panic(self_reg.unwrap(), node, "intrinsic panic");
             }
 
             IntrinsicFunction::RuntimeHalt => {
@@ -907,7 +1016,7 @@ impl CodeBuilder<'_> {
             }
 
             IntrinsicFunction::RangeInit => {
-                let start_reg = self_addr.unwrap();
+                let start_reg = self_reg.unwrap();
                 // let MutRefOrImmutableExpression::Expression(start_arg_expr) = start_arg else {
                 //    panic!();
                 //};
@@ -946,7 +1055,7 @@ impl CodeBuilder<'_> {
                 }
                 self.builder.bool_to_string(
                     maybe_target.unwrap(),
-                    self_addr.unwrap(),
+                    self_reg.unwrap(),
                     node,
                     "bool_to_string",
                 );
@@ -956,7 +1065,7 @@ impl CodeBuilder<'_> {
             IntrinsicFunction::StringLen => {
                 self.builder.add_ld32_from_pointer_with_offset_u16(
                     maybe_target.unwrap(),
-                    self_addr.unwrap(),
+                    self_reg.unwrap(),
                     STRING_HEADER_COUNT_OFFSET,
                     node,
                     "get the length",
@@ -966,7 +1075,7 @@ impl CodeBuilder<'_> {
             // Common Collection
             IntrinsicFunction::MapIsEmpty | IntrinsicFunction::VecIsEmpty => {
                 let collection_pointer = PointerLocation {
-                    ptr_reg: self_addr.unwrap().clone(),
+                    ptr_reg: self_reg.unwrap().clone(),
                 };
                 self.emit_collection_is_empty(
                     maybe_target.unwrap().clone(),
@@ -978,7 +1087,7 @@ impl CodeBuilder<'_> {
 
             IntrinsicFunction::MapLen | IntrinsicFunction::VecLen => {
                 let collection_pointer = PointerLocation {
-                    ptr_reg: self_addr.unwrap().clone(),
+                    ptr_reg: self_reg.unwrap().clone(),
                 };
                 self.emit_collection_len(
                     maybe_target.unwrap(),
@@ -989,7 +1098,7 @@ impl CodeBuilder<'_> {
             }
             IntrinsicFunction::MapCapacity | IntrinsicFunction::VecCapacity => {
                 let collection_pointer = PointerLocation {
-                    ptr_reg: self_addr.unwrap().clone(),
+                    ptr_reg: self_reg.unwrap().clone(),
                 };
                 self.emit_collection_capacity(
                     maybe_target.unwrap(),
@@ -1003,7 +1112,7 @@ impl CodeBuilder<'_> {
                 // Map
                 // Self is assumed to be a flattened pointer:
                 let grid_self_ptr_reg = PointerLocation {
-                    ptr_reg: self_addr.unwrap().clone(),
+                    ptr_reg: self_reg.unwrap().clone(),
                 };
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
