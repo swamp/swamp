@@ -115,11 +115,13 @@ impl Type {
             TypeKind::FixedCapacityAndLengthArray(inner, _size)
             | TypeKind::QueueStorage(inner, _size)
             | TypeKind::StackStorage(inner, _size)
+            | TypeKind::SparseStorage(inner, _size)
             | TypeKind::VecStorage(inner, _size) => Some(TypeKind::SliceView(inner.clone())),
 
             TypeKind::SliceView(inner)
             | TypeKind::QueueView(inner)
             | TypeKind::StackView(inner)
+            | TypeKind::SparseView(inner)
             | TypeKind::DynamicLengthVecView(inner) => Some(TypeKind::SliceView(inner.clone())),
 
             _ => None,
