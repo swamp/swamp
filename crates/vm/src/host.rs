@@ -3,7 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::RegContents;
-use std::{ptr, slice, mem::{align_of, size_of}};
+use std::{
+    mem::{align_of, size_of},
+    ptr, slice,
+};
 use swamp_vm_types::StringHeader;
 
 pub struct HostArgs {
@@ -161,7 +164,9 @@ impl HostArgs {
     }
 
     pub fn set_register(&mut self, register_id: u8, data: u32) {
-        unsafe { *self.registers.add(register_id as usize) = data; }
+        unsafe {
+            *self.registers.add(register_id as usize) = data;
+        }
     }
 
     pub fn write_to_register<T>(&mut self, register_id: u8, data: &T) {

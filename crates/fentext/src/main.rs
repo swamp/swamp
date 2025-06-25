@@ -11,10 +11,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{process, thread};
 use swamp::prelude::{
-    align, compile_codegen_and_create_vm, run_first_time, run_function,
-    run_function_with_debug, CodeGenAndVmResult, CodeGenOptions, CompileAndCodeGenOptions, CompileAndVmResult,
-    CompileCodeGenVmResult, CompileOptions, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
-    RunOptions, SourceMapWrapper, VmState, SAFE_ALIGNMENT,
+    CodeGenAndVmResult, CodeGenOptions, CompileAndCodeGenOptions, CompileAndVmResult,
+    CompileCodeGenVmResult, CompileOptions, GenFunctionInfo, HostArgs, HostFunctionCallback,
+    RunConstantsOptions, RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align,
+    compile_codegen_and_create_vm, run_first_time, run_function, run_function_with_debug,
 };
 use swamp_std::print::print_fn;
 use tracing::{error, info, warn};
@@ -41,13 +41,13 @@ pub fn compile() -> Option<CompileCodeGenVmResult> {
         &["crate".to_string(), "main".to_string()],
         &options,
     )
-        .map(|x| {
-            let CompileAndVmResult::CompileAndVm(both) = x else {
-                panic!("sjid")
-            };
+    .map(|x| {
+        let CompileAndVmResult::CompileAndVm(both) = x else {
+            panic!("sjid")
+        };
 
-            both
-        })
+        both
+    })
 }
 
 pub struct BootInfo {
@@ -257,7 +257,7 @@ impl FenTextSwamp {
         } else {
             run_function_with_debug(vm, &self.tick_fn, application, run_options);
         }
-        
+
         eprintln!("vm state {:?}", vm.state);
 
         vm.state == VmState::Normal
