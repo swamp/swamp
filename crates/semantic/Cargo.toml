@@ -16,4 +16,3 @@ tracing = "0.1.40"
 swamp-attributes = { path = "../attributes", version = "0.1.16" }
 
 [dev-dependencies]
-test-log = { version = "0.2.16", features = ["trace", "log", "color"] }

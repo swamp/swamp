@@ -6,9 +6,12 @@ members = [
     # Compile orchestrator
     "crates/compile",
     # Parser, AST
+    "crates/lexer",
+    "crates/parser-next",
     "crates/ast",
     "crates/parser",
     # Analyzer, Semantic, ASG
+    "crates/attributes",
     "crates/semantic",
     "crates/types",
     "crates/analyzer",
@@ -39,10 +42,16 @@ members = [
     "crates/vm-instr-build",
     "crates/vm-pretty-print",
     "crates/vm-debug-info",
+    "crates/vm-layout",
     # Example Text Engine
     "crates/fentext",
     "crates/fentext-ui",
+    # CLI
+    "crates/swamp-test",
+    "crates/swamp-build",
+    "crates/lsp",
+    # Should be moved to own repo in far future
+    "crates/sparse-mem",
+    "crates/hashmap-mem",
     "crates/fs-change-detector",
-    "crates/lsp", "crates/swamp-test",
-    "crates/swamp-build", "crates/lexer", "crates/parser-next", "crates/sparse-mem", "crates/hashmap-mem", "crates/attributes", "crates/vm-layout",
 ]

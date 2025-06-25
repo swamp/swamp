@@ -9,8 +9,8 @@ use lsp_types::{
     HoverContents, HoverParams, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams,
     Range, Uri,
 };
+use seq_map::SeqMap;
 use source_map_cache::SourceMap;
-use swamp::prelude::SeqMap;
 
 pub struct Server {
     pub source_map: SourceMap,

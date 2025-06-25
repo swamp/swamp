@@ -10,4 +10,3 @@ repository = "https://github.com/swamp/swamp"
 swamp-vm-types = { path = "../vm-types", version = "0.1.16" }
 
 source-map-node = "0.0.1"
-tracing = "0.1.40"

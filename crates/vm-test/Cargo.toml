@@ -9,19 +9,14 @@ repository = "https://github.com/swamp/swamp"
 [dependencies]
 swamp-vm = { path = "../vm", version = "0.1.16", features = [] }
 swamp-vm-types = { path = "../vm-types", version = "0.1.16", features = [] }
-swamp-vm-disasm = { path = "../vm-disasm", version = "0.1.16" }
 swamp-code-gen-program = { path = "../code-gen-program", version = "0.1.16" }
 swamp-code-gen = { path = "../code-gen", version = "0.1.16" }
 
 swamp-compile = { path = "../compile", version = "0.1.16" }
-swamp-types = { path = "../types", version = "0.1.16" }
-swamp-semantic = { path = "../semantic", version = "0.1.16" }
 
 source-map-cache = "0.0.3"
 
 hexify = "0.0.3"
-tracing = "0.1.40"
-seq-map = "0.0.13"
 
 [dev-dependencies]
 test-log = { version = "0.2.16", features = ["trace", "log", "color"] }

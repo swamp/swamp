@@ -11,8 +11,6 @@ swamp-semantic = { path = "../semantic", version = "0.1.16" }
 swamp-types = { path = "../types", version = "0.1.16" }
 swamp-modules = { path = "../modules", version = "0.1.16" }
 
-source-map-node = "0.0.1"
-
 tiny-ver = "0.1.2"
 
 [dev-dependencies]

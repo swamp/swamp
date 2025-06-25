@@ -15,4 +15,3 @@ pest_derive = "2.7.15"
 tracing = "0.1.40"
 
 [dev-dependencies]
-test-log = { version = "0.2.16", features = ["trace", "log", "color"] }

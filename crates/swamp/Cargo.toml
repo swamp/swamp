@@ -41,4 +41,3 @@ source-map-cache = "0.0.3"
 source-map-node = "0.0.1"
 
 [dev-dependencies]
-test-log = { version = "0.2.16", features = ["trace", "log", "color"] }

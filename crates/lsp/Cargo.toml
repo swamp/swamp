@@ -14,3 +14,4 @@ walkdir = "2.5.0"
 swamp = { path = "../swamp", version = "0.1.16" }
 source-map-cache = "0.0.3"
 url = "2.5.4"
+seq-map = "0.0.13"

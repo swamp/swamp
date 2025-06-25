@@ -11,7 +11,6 @@ swamp-runtime = { path = "../runtime", version = "0.1.16" }
 pico-args = "0.5.0"
 
 
-tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.1", features = [
     "registry",
     "env-filter",
