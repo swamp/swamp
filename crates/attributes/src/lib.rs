@@ -55,7 +55,7 @@ impl Attributes {
                 if let AttributeArg::Function(_, sub_args) = arg {
                     Some(sub_args)
                 } else {
-                    None // This should ideally not happen if get_fn_arg_by_name already filtered for Function
+                    None // This should ideally not happen if `get_fn_arg_by_name` already filtered for Function
                 }
             })
     }
