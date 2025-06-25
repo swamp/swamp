@@ -14,10 +14,10 @@ use swamp_types::prelude::{AnonymousStructType, EnumType, EnumVariantType, Named
 use swamp_types::{TypeId, TypeKind, TypeRef};
 use swamp_vm_types::types::{
     BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, OffsetMemoryItem, StructType, TaggedUnion,
-    TaggedUnionVariant, TupleType, write_basic_type,
+    TaggedUnionVariant, TupleType,
 };
 use swamp_vm_types::{
-    CountU16, FrameMemoryAddress, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT,
+    CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT,
     MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT,
     STRING_PTR_SIZE, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };

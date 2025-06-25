@@ -28,7 +28,7 @@ with x = 3 {
 
     ",
         "print",
-        |mut args| {
+        |args| {
             let i = args.register_i32(1);
             eprintln!("print({i})");
         },

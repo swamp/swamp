@@ -70,7 +70,7 @@ for i in a {
 
     ",
         "print",
-        |mut args| {
+        |args| {
             let output = args.register_i32(1);
             eprintln!("print({output})");
         },

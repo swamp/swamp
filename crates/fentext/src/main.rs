@@ -109,7 +109,7 @@ impl Application {
         // self.canvas.write(&format!("tick: {}", self.tick_count));
     }
 
-    pub fn external_move_cursor(&mut self, mut host_args: HostArgs) {
+    pub fn external_move_cursor(&mut self, host_args: HostArgs) {
         let x = host_args.register_i32(1);
         let y = host_args.register_i32(2);
         self.canvas.move_to(x as u16, y as u16);

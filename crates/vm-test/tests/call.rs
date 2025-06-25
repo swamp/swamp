@@ -35,7 +35,7 @@ result = some_func(10)
 
     ",
         "print",
-        |mut args| {
+        |args| {
             let i = args.register_i32(1);
             let b = args.register_i32(2);
             eprintln!("you called me i:{i} b:{b}");
