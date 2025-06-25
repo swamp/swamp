@@ -10,7 +10,6 @@ use std::{
 use swamp_vm_types::StringHeader;
 
 pub struct HostArgs {
-    register_index: usize, // Current register being processed
     // references into the Vm
     all_memory: *mut u8,
     all_memory_len: usize,
@@ -43,15 +42,13 @@ impl HostArgs {
             registers,
             stack_offset,
             register_count,
-            register_index: 1, // skip return for now
             function_id,
         }
     }
 
-    pub fn get_ptr(&mut self, register: u8) -> *mut u8 {
-        // Get the address stored in the register
+    /// Get a raw pointer from a register value
+    pub fn ptr(&mut self, register: u8) -> *mut u8 {
         let addr = unsafe { *self.registers.add(register as usize) };
-        // Convert the address to a pointer into all_memory
         unsafe { self.all_memory.add(addr as usize) }
     }
 
@@ -74,14 +71,13 @@ impl HostArgs {
         unsafe { std::slice::from_raw_parts_mut(ptr, len) }
     }
 
-    pub fn read_from_register<T>(&mut self, register_id: u8) -> *const T {
-        let src_ptr = self.get_ptr(register_id) as *const T;
-        src_ptr
+    /// Get a typed pointer from a register
+    pub fn ptr_as<T>(&mut self, register_id: u8) -> *const T {
+        self.ptr(register_id) as *const T
     }
 
-    /// Safe and performant way to get a reference to T from a register
-    /// Panics on bounds violations or alignment issues - no defensive programming
-    pub fn read_ref_from_register<T>(&self, register_id: u8) -> &T {
+    /// Get a safe reference to T from a register with bounds and alignment checks
+    pub fn get<T>(&self, register_id: u8) -> &T {
         assert!(
             (register_id as usize) < self.register_count,
             "Host call register out of bounds: register {} requested, but only {} registers available",
@@ -113,13 +109,14 @@ impl HostArgs {
         unsafe { &*(self.all_memory.add(addr) as *const T) }
     }
 
-    /// Unchecked version for a bit extra performance
-    pub unsafe fn read_ref_from_register_unchecked<T>(&mut self, register_id: u8) -> &T {
+    /// Get a reference to T from a register without safety checks (for performance)
+    pub unsafe fn get_unchecked<T>(&mut self, register_id: u8) -> &T {
         let addr = unsafe { *self.registers.add(register_id as usize) } as usize;
         unsafe { &*(self.all_memory.add(addr) as *const T) }
     }
 
-    pub fn read_mut_ref_from_register<T>(&mut self, register_id: u8) -> &mut T {
+    /// Get a mutable reference to T from a register with bounds and alignment checks
+    pub fn get_mut<T>(&mut self, register_id: u8) -> &mut T {
         assert!(
             (register_id as usize) < self.register_count,
             "Host call register out of bounds: register {} requested, but only {} registers available",
@@ -153,24 +150,32 @@ impl HostArgs {
         unsafe { &mut *self.all_memory.add(addr).cast::<T>() }
     }
 
-    /// Unchecked mutable version for extra performance
-    pub unsafe fn read_mut_ref_from_register_unchecked<T>(&mut self, register_id: u8) -> &mut T {
+    /// Get a mutable reference to T from a register without safety checks (for performance)
+    pub unsafe fn get_mut_unchecked<T>(&mut self, register_id: u8) -> &mut T {
         let addr = unsafe { *self.registers.add(register_id as usize) } as usize;
         unsafe { &mut *(self.all_memory.add(addr) as *mut T) }
     }
 
-    pub fn get_register(&self, register_id: u8) -> u32 {
+    /// Get the raw register value as u32
+    pub fn register(&self, register_id: u8) -> u32 {
         unsafe { *self.registers.add(register_id as usize) }
     }
 
+    /// Get the register value as i32
+    pub fn register_i32(&self, register_id: u8) -> i32 {
+        unsafe { *self.registers.add(register_id as usize) as i32 }
+    }
+
+    /// Set a register to a u32 value
     pub fn set_register(&mut self, register_id: u8, data: u32) {
         unsafe {
             *self.registers.add(register_id as usize) = data;
         }
     }
 
-    pub fn write_to_register<T>(&mut self, register_id: u8, data: &T) {
-        let dest_ptr = self.get_ptr(register_id) as *mut T;
+    /// Write data to the memory location pointed to by a register
+    pub fn write<T>(&mut self, register_id: u8, data: &T) {
+        let dest_ptr = self.ptr(register_id) as *mut T;
         let src_ptr = data as *const T;
 
         unsafe {
@@ -178,13 +183,8 @@ impl HostArgs {
         }
     }
 
-    pub fn get_i32(&mut self) -> i32 {
-        let val = unsafe { *self.registers.add(self.register_index) } as i32;
-        self.register_index += 1;
-        val
-    }
-
-    pub fn read_string(&self, register_id: u8) -> &str {
+    /// Get a string from a register
+    pub fn string(&self, register_id: u8) -> &str {
         let string_header_addr = unsafe { *self.registers.add(register_id as usize) };
         unsafe {
             let string_header =
@@ -204,11 +204,6 @@ impl HostArgs {
 
             std::str::from_utf8_unchecked(bytes)
         }
-    }
-
-    pub fn next_str(&mut self) -> &str {
-        self.register_index += 1;
-        self.read_string((self.register_index - 1) as u8)
     }
 }
 

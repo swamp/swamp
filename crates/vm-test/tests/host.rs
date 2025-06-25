@@ -28,8 +28,8 @@ some_test(-42, 23)
     ",
         "some_test",
         |mut args| {
-            let i = args.get_i32();
-            let b = args.get_i32();
+            let i = args.register_i32(1);
+            let b = args.register_i32(2);
             eprintln!("you called me i:{i} b:{b}");
         },
     );

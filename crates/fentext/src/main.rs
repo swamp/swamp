@@ -110,14 +110,14 @@ impl Application {
     }
 
     pub fn external_move_cursor(&mut self, mut host_args: HostArgs) {
-        let x = host_args.get_i32();
-        let y = host_args.get_i32();
+        let x = host_args.register_i32(1);
+        let y = host_args.register_i32(2);
         self.canvas.move_to(x as u16, y as u16);
     }
 
     pub fn external_write(&mut self, mut host_args: HostArgs) {
-        let str = { host_args.read_string(1).to_string() };
-        let enum_without_payload = host_args.read_from_register::<SwampEnumWithoutPayload>(2);
+        let str = { host_args.string(1).to_string() };
+        let enum_without_payload = host_args.ptr_as::<SwampEnumWithoutPayload>(2);
         let discriminant = unsafe { (*enum_without_payload).discriminant };
 
         let colors: Vec<crossterm::style::Color> = vec![
@@ -144,7 +144,7 @@ impl Application {
     }
 
     pub(crate) fn external_last_keypress(&self, mut host_args: HostArgs) {
-        host_args.write_to_register(0, &self.last_keypress);
+        host_args.write(0, &self.last_keypress);
     }
 }
 

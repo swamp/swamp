@@ -47,7 +47,7 @@ print("hello, world!")
     ",
         "print",
         |mut args| {
-            let output = args.get_str();
+            let output = args.string(1);
             eprintln!("print({output})");
         },
     );
@@ -78,9 +78,9 @@ print(23, "\u(1F431)if this works it is \u(1F525)\u(1F60E)!")
     ",
         "print",
         |mut args| {
-            let extra_arg = args.get_i32();
+            let extra_arg = args.register_i32(1);
             assert_eq!(extra_arg, 23);
-            let output = args.get_str();
+            let output = args.string(1);
             assert_eq!("\u{1F431}if this works it is \u{1F525}\u{1F60E}!", output);
             eprintln!("print({output})");
         },
@@ -114,9 +114,9 @@ print(23, "\u(1F431)if this works it is \u(1F525)\u(1F60E)!" + "extra")
     ",
         "print",
         |mut args| {
-            let extra_arg = args.get_i32();
+            let extra_arg = args.register_i32(1);
             assert_eq!(extra_arg, 23);
-            let output = args.get_str();
+            let output = args.string(1);
             assert_eq!(
                 "\u{1F431}if this works it is \u{1F525}\u{1F60E}!extra",
                 output

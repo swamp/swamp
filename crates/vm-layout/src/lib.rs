@@ -598,15 +598,6 @@ impl LayoutCache {
             .kind_to_layout
             .insert((*ty.kind).clone(), basic_type.clone());
 
-        if false && basic_type.total_size.0 > 2 * 1024 * 1024 {
-            let mut str = String::new();
-            write_basic_type(&basic_type, FrameMemoryAddress(0), &mut str, 0);
-            eprintln!(
-                "{:?}:{} ({})>\n{str}",
-                basic_type.id, basic_type.total_size, basic_type.kind,
-            );
-        }
-
         basic_type
     }
 

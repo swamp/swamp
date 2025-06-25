@@ -71,7 +71,7 @@ for i in a {
     ",
         "print",
         |mut args| {
-            let output = args.get_i32();
+            let output = args.register_i32(1);
             eprintln!("print({output})");
         },
     );

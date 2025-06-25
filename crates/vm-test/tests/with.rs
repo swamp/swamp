@@ -29,7 +29,7 @@ with x = 3 {
     ",
         "print",
         |mut args| {
-            let i = args.get_i32();
+            let i = args.register_i32(1);
             eprintln!("print({i})");
         },
     );

@@ -6,6 +6,6 @@
 use swamp_vm::host::HostArgs;
 
 pub fn print_fn(mut args: HostArgs) {
-    let output = args.next_str();
+    let output = args.string(1);
     eprintln!("print: {output}");
 }
