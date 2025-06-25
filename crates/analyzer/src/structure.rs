@@ -113,11 +113,11 @@ impl Analyzer<'_> {
                 let field = borrowed_anon_type
                     .field_name_sorted_fields
                     .get(&missing_field_name)
-                    .expect("should have been verified by helper function");
+                    .expect("verified");
                 let field_index = borrowed_anon_type
                     .field_name_sorted_fields
                     .get_index(&missing_field_name)
-                    .expect("should have been verified earlier");
+                    .expect("verified");
 
                 let expression = self.create_default_value_for_type(node, &field.field_type);
 
@@ -158,7 +158,7 @@ impl Analyzer<'_> {
 
             map_for_creating_type
                 .insert(field_name.clone(), field)
-                .expect("TODO: panic message");
+                .expect("insert");
         }
 
         // For a pure anonymous struct type, the types of the sorted

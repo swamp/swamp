@@ -47,7 +47,7 @@ pub fn display_lines(
             tinter::green("|"),
             convert_tabs_to_spaces(line),
         )
-        .expect("TODO: panic message");
+        .expect("insert");
     }
 }
 
@@ -69,7 +69,7 @@ pub fn display_meta_information_about_instruction(
             &InstructionPosition(absolute_pc)
         )
     )
-    .expect("TODO: panic message");
+    .expect("insert");
 }
 
 #[must_use]

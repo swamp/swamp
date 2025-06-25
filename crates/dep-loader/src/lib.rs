@@ -141,7 +141,7 @@ impl DependencyParser {
     pub fn add_ast_module(&mut self, module_path: Vec<String>, parsed_module: ParsedAstModule) {
         self.already_parsed_modules
             .insert(module_path, parsed_module)
-            .expect("can not add parsed module");
+            .expect("insert");
     }
 }
 
@@ -317,7 +317,7 @@ impl DependencyParser {
 
                     self.already_parsed_modules
                         .insert(path.clone(), parsed_ast_module)
-                        .expect("TODO: panic message");
+                        .expect("insert");
 
                     self.already_parsed_modules
                         .get(&path.clone())
@@ -346,7 +346,7 @@ impl DependencyParser {
                         analyzed: false,
                     },
                 )
-                .expect("TODO: panic message");
+                .expect("insert");
 
             to_parse.extend(filtered_imports.clone());
 

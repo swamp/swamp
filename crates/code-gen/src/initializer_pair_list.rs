@@ -56,7 +56,7 @@ impl CodeBuilder<'_> {
             } => {
                 assert!(
                     elements.len() <= *logical_limit,
-                    "too many initializers. should have been caught by analyzer"
+                    "too many initializers"
                 );
                 let target_map_header_ptr_reg = self.emit_compute_effective_address_to_register(
                     output_destination,

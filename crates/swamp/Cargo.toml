@@ -28,7 +28,7 @@ swamp-error-report = { path = "../err", version = "0.1.16" }
 
 # Upcoming Runtime
 swamp-code-gen = { path = "../code-gen", version = "0.1.16" }
-swamp-vm = { path = "../vm", version = "0.1.16", features = ["debug_vm"] }
+swamp-vm = { path = "../vm", version = "0.1.16" }
 swamp-vm-types = { path = "../vm-types", version = "0.1.16" }
 swamp-vm-pretty-print = { path = "../vm-pretty-print", version = "0.1.16" }
 swamp-runtime = { path = "../runtime", version = "0.1.16" }
@@ -41,3 +41,8 @@ source-map-cache = "0.0.3"
 source-map-node = "0.0.1"
 
 [dev-dependencies]
+
+# Optional features for debugging and development
+[features]
+default = []
+debug_vm = ["swamp-vm/debug_vm", "swamp-runtime/debug_vm"]

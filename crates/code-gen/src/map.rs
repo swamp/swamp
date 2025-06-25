@@ -108,7 +108,7 @@ impl CodeBuilder<'_> {
 
         debug_assert!(
             logical_limit >= len,
-            "this should have been checked with analyzer"
+            "checked"
         );
         if logical_limit > 0 || len > 0 {
             self.builder.add_map_init_set_capacity(

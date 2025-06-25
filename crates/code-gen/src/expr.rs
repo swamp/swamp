@@ -93,7 +93,7 @@ impl CodeBuilder<'_> {
 
         match &expr.kind {
             &ExpressionKind::InitializerList(_, _) | &ExpressionKind::InitializerPairList(_, _) => {
-                panic!("should have been handled earlier")
+                panic!("handled earlier")
             }
             ExpressionKind::Error(_) => {
                 return;

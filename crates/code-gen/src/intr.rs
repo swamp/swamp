@@ -928,7 +928,7 @@ impl CodeBuilder<'_> {
 
                 // Take out lambda and other lookups before generating the code
                 let ArgumentExpression::Expression(expr) = lambda_expression else {
-                    panic!("internal error");
+                    panic!("err");
                 };
 
                 let ExpressionKind::Lambda(lambda_variables, lambda_expr) = &expr.kind else {

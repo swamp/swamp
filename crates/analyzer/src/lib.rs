@@ -913,7 +913,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
         } else {
-            panic!("what is this {type_name_to_find:?}")
+            panic!("unknown type")
         }
     }
 
