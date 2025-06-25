@@ -20,7 +20,6 @@ swamp-modules = { path = "../modules", version = "0.1.16" }
 
 # Core
 swamp-core = { path = "../core", version = "0.1.16" }
-swamp-core-extra = { path = "../core-extra", version = "0.1.16" }
 
 # Compile orchestrator
 swamp-compile = { path = "../compile", version = "0.1.16" }

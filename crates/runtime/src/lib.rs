@@ -7,6 +7,7 @@ mod err_wrt;
 pub mod prelude;
 mod trace;
 
+use seq_map::SeqMap;
 use source_map_cache::{FileId, KeepTrackOfSourceLine, SourceFileLineInfo};
 use source_map_cache::{SourceMap, SourceMapWrapper};
 use std::fmt::Write as FmtWrite;
@@ -16,7 +17,6 @@ use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
 use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 pub use swamp_compile::CompileOptions;
-use swamp_core_extra::prelude::SeqMap;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
 use swamp_std::print::print_fn;

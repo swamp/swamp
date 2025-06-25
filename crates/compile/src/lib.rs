@@ -682,59 +682,6 @@ pub fn remove_version_from_package_name_regex(package_name_with_version: &str) -
     re.replace(package_name_with_version, "").to_string()
 }
 
-/// # Errors
-///
-/// # Panics
-///
-pub fn compile_analyze_and_link_without_version(
-    root_module_path: &[String],
-    resolved_program: &mut Program,
-    source_map: &mut SourceMap,
-    core_symbol_table: SymbolTableRef,
-) -> Result<(), ScriptResolveError> {
-    let mangrove_render_result = compile_and_analyze(
-        root_module_path,
-        resolved_program,
-        source_map,
-        core_symbol_table,
-    );
-
-    match mangrove_render_result {
-        Ok(..) => {}
-        Err(err) => {
-            show_script_resolve_error(&err, source_map, Path::new(""));
-            Err(err)?;
-        }
-    }
-    let mangrove_render_module = resolved_program.modules.get(root_module_path).unwrap();
-
-    let first_part = remove_version_from_package_name_regex(&root_module_path[0]);
-    let mut without_version_path: Vec<String> = root_module_path.to_vec();
-    without_version_path[0] = first_part;
-
-    resolved_program
-        .modules
-        .link_module(&without_version_path, mangrove_render_module.clone());
-
-    Ok(())
-}
-
-/// # Errors
-///
-pub fn compile_and_analyze(
-    root_module_path: &[String],
-    resolved_program: &mut Program,
-    source_map: &mut SourceMap,
-    core_symbol_table: SymbolTableRef,
-) -> Result<(), ScriptResolveError> {
-    compile_and_analyze_all_modules(
-        root_module_path,
-        resolved_program,
-        source_map,
-        core_symbol_table,
-    )
-}
-
 pub fn current_path() -> PathBuf {
     current_dir().unwrap()
 }
