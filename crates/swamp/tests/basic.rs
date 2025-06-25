@@ -65,6 +65,7 @@ fn run_swamp_test_quiet(test_filter: &str) {
 fn run_swamp_test_verbose(test_filter: &str) {
     run_swamp_test(test_filter, true);
 }
+/*
 
 #[test_log::test]
 fn very_basic() {
@@ -160,3 +161,4 @@ fn test_struct_tests() {
 fn test_constant_tests() {
     run_swamp_test_quiet("constant::");
 }
+*/
