@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::RegContents;
-use std::{ptr, slice};
+use std::{ptr, slice, mem::{align_of, size_of}};
 use swamp_vm_types::StringHeader;
 
 pub struct HostArgs {
@@ -34,24 +34,22 @@ impl HostArgs {
             "Unaligned frame pointer",
         );
 
-        unsafe {
-            Self {
-                all_memory,
-                all_memory_len,
-                registers,
-                stack_offset,
-                register_count,
-                register_index: 1, // skip return for now
-                function_id,
-            }
+        Self {
+            all_memory,
+            all_memory_len,
+            registers,
+            stack_offset,
+            register_count,
+            register_index: 1, // skip return for now
+            function_id,
         }
     }
 
     pub fn get_ptr(&mut self, register: u8) -> *mut u8 {
-        let addr = self.registers.wrapping_add(register as usize);
-
-        let p: *mut u8 = unsafe { self.all_memory.add(addr as usize) };
-        p
+        // Get the address stored in the register
+        let addr = unsafe { *self.registers.add(register as usize) };
+        // Convert the address to a pointer into all_memory
+        unsafe { self.all_memory.add(addr as usize) }
     }
 
     pub fn print_bytes(label: &str, bytes: &[u8]) {
@@ -66,16 +64,15 @@ impl HostArgs {
     }
 
     pub unsafe fn ptr_to_slice<'a>(ptr: *const u8, len: usize) -> &'a [u8] {
-        std::slice::from_raw_parts(ptr, len)
+        unsafe { std::slice::from_raw_parts(ptr, len) }
     }
 
     pub unsafe fn ptr_to_slice_mut<'a>(ptr: *mut u8, len: usize) -> &'a mut [u8] {
-        std::slice::from_raw_parts_mut(ptr, len)
+        unsafe { std::slice::from_raw_parts_mut(ptr, len) }
     }
 
     pub fn read_from_register<T>(&mut self, register_id: u8) -> *const T {
         let src_ptr = self.get_ptr(register_id) as *const T;
-
         src_ptr
     }
 
@@ -89,7 +86,7 @@ impl HostArgs {
             self.register_count
         );
 
-        let addr = self.registers.wrapping_add(register_id as usize) as usize;
+        let addr = unsafe { *self.registers.add(register_id as usize) } as usize;
         let size_of_t = size_of::<T>();
 
         // Bounds check: ensure the entire T fits within memory
@@ -115,7 +112,7 @@ impl HostArgs {
 
     /// Unchecked version for a bit extra performance
     pub unsafe fn read_ref_from_register_unchecked<T>(&mut self, register_id: u8) -> &T {
-        let addr = self.registers.wrapping_add(register_id as usize) as usize;
+        let addr = unsafe { *self.registers.add(register_id as usize) } as usize;
         unsafe { &*(self.all_memory.add(addr) as *const T) }
     }
 
@@ -127,7 +124,7 @@ impl HostArgs {
             self.register_count
         );
 
-        let addr = self.registers.wrapping_add(register_id as usize) as usize;
+        let addr = unsafe { *self.registers.add(register_id as usize) } as usize;
         let size_of_t = size_of::<T>();
 
         // Bounds check: ensure the entire T fits within memory
@@ -155,21 +152,20 @@ impl HostArgs {
 
     /// Unchecked mutable version for extra performance
     pub unsafe fn read_mut_ref_from_register_unchecked<T>(&mut self, register_id: u8) -> &mut T {
-        let addr = self.registers.wrapping_add(register_id as usize) as usize;
-        &mut *(self.all_memory.add(addr) as *mut T)
+        let addr = unsafe { *self.registers.add(register_id as usize) } as usize;
+        unsafe { &mut *(self.all_memory.add(addr) as *mut T) }
     }
 
     pub fn get_register(&self, register_id: u8) -> u32 {
-        *self.registers.wrapping_add(register_id as usize)
+        unsafe { *self.registers.add(register_id as usize) }
     }
 
     pub fn set_register(&mut self, register_id: u8, data: u32) {
-        *self.registers.wrapping_add(register_id as usize) = data;
+        unsafe { *self.registers.add(register_id as usize) = data; }
     }
 
     pub fn write_to_register<T>(&mut self, register_id: u8, data: &T) {
         let dest_ptr = self.get_ptr(register_id) as *mut T;
-
         let src_ptr = data as *const T;
 
         unsafe {
@@ -178,13 +174,13 @@ impl HostArgs {
     }
 
     pub fn get_i32(&mut self) -> i32 {
-        let val = *self.registers.wrapping_add(self.register_index) as i32;
+        let val = unsafe { *self.registers.add(self.register_index) } as i32;
         self.register_index += 1;
         val
     }
 
     pub fn read_string(&self, register_id: u8) -> &str {
-        let string_header_addr = *self.registers.wrapping_add(register_id as usize);
+        let string_header_addr = unsafe { *self.registers.add(register_id as usize) };
         unsafe {
             let string_header =
                 *(self.all_memory.add(string_header_addr as usize) as *const StringHeader);

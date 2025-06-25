@@ -1823,7 +1823,7 @@ impl Vm {
                 heap.memory,
                 heap.memory_size,
                 heap.stack_offset,
-                &mut self.registers,
+                self.registers.as_mut_ptr(),
                 register_count as usize + 1,
             );
 
