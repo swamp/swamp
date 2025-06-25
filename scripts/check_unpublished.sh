@@ -18,15 +18,11 @@ cargo metadata --format-version 1 | jq -r '.workspace_members[]' | while read -r
         crate_name=$(basename "$path_part")
     fi
 
-    echo "Checking: $crate_name"
-
     http_status=$(curl -s -o /dev/null -w "%{http_code}" "https://crates.io/api/v1/crates/$crate_name")
 
     if [ "$http_status" = "404" ]; then
         echo "❌ $crate_name - Never published"
-    elif [ "$http_status" = "200" ]; then
-        # echo "✅ $crate_name - Published"
-    else
+    elif [ "$http_status" != "200" ]; then
         echo "⚠️  $crate_name - API error (HTTP $http_status)"
     fi
 done
