@@ -1,7 +1,3 @@
-use std::{print}
-use core::{assert}
-
-
 // ------------------------ FenText engine code ------------------------
 // Should be placed in a FenText engine package, but this is just for demonstration purposes.
 

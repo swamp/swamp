@@ -11,10 +11,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{process, thread};
 use swamp::prelude::{
-    CodeGenAndVmResult, CodeGenOptions, CompileAndCodeGenOptions, CompileAndVmResult,
-    CompileCodeGenVmResult, CompileOptions, GenFunctionInfo, HostArgs, HostFunctionCallback,
-    RunConstantsOptions, RunOptions, SAFE_ALIGNMENT, SourceMapWrapper, VmState, align,
-    compile_codegen_and_create_vm, run_first_time, run_function, run_function_with_debug,
+    align, compile_codegen_and_create_vm, run_first_time, run_function,
+    run_function_with_debug, CodeGenAndVmResult, CodeGenOptions, CompileAndCodeGenOptions, CompileAndVmResult,
+    CompileCodeGenVmResult, CompileOptions, GenFunctionInfo, HostArgs, HostFunctionCallback, RunConstantsOptions,
+    RunOptions, SourceMapWrapper, VmState, SAFE_ALIGNMENT,
 };
 use swamp_std::print::print_fn;
 use tracing::{error, info, warn};
@@ -41,13 +41,13 @@ pub fn compile() -> Option<CompileCodeGenVmResult> {
         &["crate".to_string(), "main".to_string()],
         &options,
     )
-    .map(|x| {
-        let CompileAndVmResult::CompileAndVm(both) = x else {
-            panic!("sjid")
-        };
+        .map(|x| {
+            let CompileAndVmResult::CompileAndVm(both) = x else {
+                panic!("sjid")
+            };
 
-        both
-    })
+            both
+        })
 }
 
 pub struct BootInfo {
@@ -116,7 +116,7 @@ impl Application {
     }
 
     pub fn external_write(&mut self, mut host_args: HostArgs) {
-        let str = { host_args.get_str().to_string() };
+        let str = { host_args.read_string(1).to_string() };
         let enum_without_payload = host_args.read_from_register::<SwampEnumWithoutPayload>(2);
         let discriminant = unsafe { (*enum_without_payload).discriminant };
 
@@ -231,7 +231,7 @@ impl FenTextSwamp {
     pub fn tick(&mut self, application: &mut dyn HostFunctionCallback) -> bool {
         let run_options = RunOptions {
             debug_stats_enabled: false,
-            debug_opcodes_enabled: false,
+            debug_opcodes_enabled: true,
             debug_operations_enabled: false,
             use_color: true,
             max_count: 0,
@@ -250,13 +250,15 @@ impl FenTextSwamp {
         vm.set_register_pointer_addr_for_parameter(1, self.simulation_value_addr);
         vm.set_stack_start(self.safe_stack_start_addr as usize);
 
-        let run_fast = true;
+        let run_fast = false;
 
         if run_fast {
             run_function(vm, &self.tick_fn, application, run_options);
         } else {
             run_function_with_debug(vm, &self.tick_fn, application, run_options);
         }
+        
+        eprintln!("vm state {:?}", vm.state);
 
         vm.state == VmState::Normal
     }
@@ -268,7 +270,7 @@ impl FenTextSwamp {
     ) -> BootInfo {
         let run_options = RunOptions {
             debug_stats_enabled: false,
-            debug_opcodes_enabled: false,
+            debug_opcodes_enabled: true,
             debug_operations_enabled: false,
             use_color: true,
             max_count: 0,
@@ -291,7 +293,6 @@ impl FenTextSwamp {
 
         let gen_simulation_type = layout_cache.layout(simulation_type);
 
-        let s = String::new();
         let constant_memory_size = runtime_result.codegen.vm.memory().constant_memory_size as u32;
 
         let root_struct_start = align(constant_memory_size as usize, SAFE_ALIGNMENT);
