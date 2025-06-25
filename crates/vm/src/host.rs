@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::RegContents;
-use std::{mem, ptr, slice};
+use std::{ptr, slice};
 use swamp_vm_types::StringHeader;
 
 pub struct HostArgs {
@@ -11,7 +11,8 @@ pub struct HostArgs {
     // references into the Vm
     all_memory: *mut u8,
     all_memory_len: usize,
-    registers: Vec<u32>,
+    registers: *mut RegContents,
+    register_count: usize,
     stack_offset: usize,
     pub function_id: u16,
 }
@@ -23,7 +24,7 @@ impl HostArgs {
         all_memory: *mut u8,
         all_memory_len: usize,
         stack_offset: usize,
-        registers: *const RegContents,
+        registers: *mut RegContents,
         register_count: usize,
     ) -> Self {
         // Ensure alignment
@@ -37,8 +38,9 @@ impl HostArgs {
             Self {
                 all_memory,
                 all_memory_len,
-                registers: slice::from_raw_parts(registers, register_count).to_vec(),
+                registers,
                 stack_offset,
+                register_count,
                 register_index: 1, // skip return for now
                 function_id,
             }
@@ -46,7 +48,7 @@ impl HostArgs {
     }
 
     pub fn get_ptr(&mut self, register: u8) -> *mut u8 {
-        let addr = self.registers[register as usize];
+        let addr = self.registers.wrapping_add(register as usize);
 
         let p: *mut u8 = unsafe { self.all_memory.add(addr as usize) };
         p
@@ -81,13 +83,13 @@ impl HostArgs {
     /// Panics on bounds violations or alignment issues - no defensive programming
     pub fn read_ref_from_register<T>(&self, register_id: u8) -> &T {
         assert!(
-            (register_id as usize) < self.registers.len(),
+            (register_id as usize) < self.register_count,
             "Host call register out of bounds: register {} requested, but only {} registers available",
             register_id,
-            self.registers.len()
+            self.register_count
         );
 
-        let addr = self.registers[register_id as usize] as usize;
+        let addr = self.registers.wrapping_add(register_id as usize) as usize;
         let size_of_t = size_of::<T>();
 
         // Bounds check: ensure the entire T fits within memory
@@ -99,28 +101,33 @@ impl HostArgs {
             self.all_memory_len
         );
 
-        assert_eq!(addr % align_of::<T>(), 0, "Host call alignment violation: address {:#x} is not aligned for type {} (requires {}-byte alignment)", addr, std::any::type_name::<T>(), align_of::<T>());
+        assert_eq!(
+            addr % align_of::<T>(),
+            0,
+            "Host call alignment violation: address {:#x} is not aligned for type {} (requires {}-byte alignment)",
+            addr,
+            std::any::type_name::<T>(),
+            align_of::<T>()
+        );
 
         unsafe { &*(self.all_memory.add(addr) as *const T) }
     }
 
     /// Unchecked version for a bit extra performance
     pub unsafe fn read_ref_from_register_unchecked<T>(&mut self, register_id: u8) -> &T {
-        let addr = self.registers[register_id as usize] as usize;
-        unsafe {
-            &*(self.all_memory.add(addr) as *const T)
-        }
+        let addr = self.registers.wrapping_add(register_id as usize) as usize;
+        unsafe { &*(self.all_memory.add(addr) as *const T) }
     }
 
     pub fn read_mut_ref_from_register<T>(&mut self, register_id: u8) -> &mut T {
         assert!(
-            (register_id as usize) < self.registers.len(),
+            (register_id as usize) < self.register_count,
             "Host call register out of bounds: register {} requested, but only {} registers available",
             register_id,
-            self.registers.len()
+            self.register_count
         );
 
-        let addr = self.registers[register_id as usize] as usize;
+        let addr = self.registers.wrapping_add(register_id as usize) as usize;
         let size_of_t = size_of::<T>();
 
         // Bounds check: ensure the entire T fits within memory
@@ -133,7 +140,14 @@ impl HostArgs {
         );
 
         // Alignment check: ensure T is properly aligned
-        assert_eq!(addr % align_of::<T>(), 0, "Host call alignment violation: address {:#x} is not aligned for type {} (requires {}-byte alignment)", addr, std::any::type_name::<T>(), align_of::<T>());
+        assert_eq!(
+            addr % align_of::<T>(),
+            0,
+            "Host call alignment violation: address {:#x} is not aligned for type {} (requires {}-byte alignment)",
+            addr,
+            std::any::type_name::<T>(),
+            align_of::<T>()
+        );
 
         // Safe to create mutable reference - all checks passed
         unsafe { &mut *self.all_memory.add(addr).cast::<T>() }
@@ -141,8 +155,16 @@ impl HostArgs {
 
     /// Unchecked mutable version for extra performance
     pub unsafe fn read_mut_ref_from_register_unchecked<T>(&mut self, register_id: u8) -> &mut T {
-        let addr = self.registers[register_id as usize] as usize;
+        let addr = self.registers.wrapping_add(register_id as usize) as usize;
         &mut *(self.all_memory.add(addr) as *mut T)
+    }
+
+    pub fn get_register(&self, register_id: u8) -> u32 {
+        *self.registers.wrapping_add(register_id as usize)
+    }
+
+    pub fn set_register(&mut self, register_id: u8, data: u32) {
+        *self.registers.wrapping_add(register_id as usize) = data;
     }
 
     pub fn write_to_register<T>(&mut self, register_id: u8, data: &T) {
@@ -156,14 +178,13 @@ impl HostArgs {
     }
 
     pub fn get_i32(&mut self) -> i32 {
-        let val = self.registers[self.register_index] as i32;
+        let val = *self.registers.wrapping_add(self.register_index) as i32;
         self.register_index += 1;
         val
     }
 
-    pub fn get_str(&mut self) -> &str {
-        let string_header_addr = self.registers[self.register_index];
-        self.register_index += 1;
+    pub fn read_string(&self, register_id: u8) -> &str {
+        let string_header_addr = *self.registers.wrapping_add(register_id as usize);
         unsafe {
             let string_header =
                 *(self.all_memory.add(string_header_addr as usize) as *const StringHeader);
@@ -182,6 +203,11 @@ impl HostArgs {
 
             std::str::from_utf8_unchecked(bytes)
         }
+    }
+
+    pub fn next_str(&mut self) -> &str {
+        self.register_index += 1;
+        self.read_string((self.register_index - 1) as u8)
     }
 }
 

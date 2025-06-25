@@ -450,7 +450,7 @@ impl HostFunctionCallback for StandardOnlyHostCallbacks {
         match args.function_id {
             1 => print_fn(args),
 
-            _ => panic!("unknown external"),
+            _ => panic!("unknown external {}", args.function_id),
         }
     }
 }
