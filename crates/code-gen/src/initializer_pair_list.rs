@@ -54,10 +54,7 @@ impl CodeBuilder<'_> {
                 value_type,
                 ..
             } => {
-                assert!(
-                    elements.len() <= *logical_limit,
-                    "too many initializers"
-                );
+                assert!(elements.len() <= *logical_limit, "too many initializers");
                 let target_map_header_ptr_reg = self.emit_compute_effective_address_to_register(
                     output_destination,
                     node,

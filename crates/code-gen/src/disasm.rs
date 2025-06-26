@@ -92,10 +92,10 @@ pub fn disasm_whole_program(
 ) {
     let mut current_ip: u32 = 0;
 
-    let instruction_count = instructions.len();
     while current_ip < (instructions.len() - 1) as u32 {
         if let Some(debug_info_for_pc) = debug_info.fetch(current_ip as usize) {
-            eprintln!(
+            // log to stdout since this is a feature "asked" by the user
+            println!(
                 "{} ==========================================================================",
                 debug_info_for_pc.function_debug_info.name
             );
@@ -110,7 +110,7 @@ pub fn disasm_whole_program(
                 debug_info,
                 source_map_wrapper,
             );
-            eprintln!("{output_string}");
+            println!("{output_string}"); // log to stdout since this is a feature "asked" by the user
             current_ip = end_ip;
         } else {
             panic!("instruction pointer that is not covered")

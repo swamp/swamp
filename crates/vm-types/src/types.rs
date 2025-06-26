@@ -775,7 +775,7 @@ impl HeapPlacedType {
 
 #[must_use]
 pub const fn is_callee_save(reg_index: u8) -> bool {
-    reg_index >= 7
+    reg_index >= 6
 }
 
 #[derive(Clone, Debug)]

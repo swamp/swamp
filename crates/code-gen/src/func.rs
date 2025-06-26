@@ -141,84 +141,54 @@ impl TopLevelGenState {
             },
         };
     }
-
     pub fn spill_callee_save_registers_except_mutable_parameters(
         code_builder: &mut CodeBuilder,
         function_info: &FunctionInfo,
         node: &Node,
     ) -> Option<SpilledRegisterRegion> {
-        let mut count: u8 = 0;
+        // Collect the actual register indices that need to be saved
+        let mut registers_to_save: Vec<u8> = Vec::new();
 
-        for (index, variable_register) in function_info
-            .frame_memory
-            .variable_registers
-            .iter()
-            .enumerate()
-        {
+        for variable_register in &function_info.frame_memory.variable_registers {
             if is_callee_save(variable_register.register.index)
                 && !variable_register.register.ty.is_mutable_primitive()
             {
-                count += 1;
+                registers_to_save.push(variable_register.register.index);
             }
         }
 
-        if count == 0 {
+        if registers_to_save.is_empty() {
             return None;
         }
+
+        // Remove duplicates and sort
+        registers_to_save.sort();
+        registers_to_save.dedup();
+
+        let count = registers_to_save.len() as u8;
 
         let abi_parameter_frame_memory_region = code_builder.temp_frame_space_for_register(
             count,
             "temporary space for callee_save (and not mutable primitives)",
         );
 
-        if count <= 7 {
-            let mut mask: u8 = 0;
-            let mut count_in_mask = 0;
+        // Always use contiguous range approach since callee-save registers are typically >= r6
+        // and the mask approach only works for registers 0-7
+        let start_reg = registers_to_save[0];
 
-            for (index, variable_register) in function_info
-                .frame_memory
-                .variable_registers
-                .iter()
-                .enumerate()
-            {
-                if is_callee_save(variable_register.register.index)
-                    && !variable_register.register.ty.is_mutable_primitive()
-                {
-                    mask |= 1 << count_in_mask;
-                    count_in_mask += 1;
-                }
-            }
+        code_builder.builder.add_st_contiguous_regs_to_frame(
+            abi_parameter_frame_memory_region,
+            start_reg,
+            count,
+            node,
+            "prologue, spill contiguous range of callee-save registers to stack frame memory",
+        );
 
-            code_builder.builder.add_st_masked_regs_to_frame(
-                abi_parameter_frame_memory_region.addr,
-                mask,
-                node,
-                "prologue, spill masked registers to stack frame memory",
-            );
-
-            Some(SpilledRegisterRegion {
-                registers: RepresentationOfRegisters::Mask(mask),
-                frame_memory_region: abi_parameter_frame_memory_region,
-            })
-        } else {
-            code_builder.builder.add_st_contiguous_regs_to_frame(
-                abi_parameter_frame_memory_region,
-                0,
-                count,
-                node,
-                "prologue, spill contiguous range of registers to stack frame memory",
-            );
-
-            Some(SpilledRegisterRegion {
-                registers: RepresentationOfRegisters::Range {
-                    start_reg: 0,
-                    count,
-                },
-                frame_memory_region: abi_parameter_frame_memory_region,
-            })
-        }
+        Some(SpilledRegisterRegion {
+            registers: RepresentationOfRegisters::Range { start_reg, count },
+            frame_memory_region: abi_parameter_frame_memory_region,
+        })
     }
-
     pub fn initialize_and_clear_variables_that_are_on_the_frame(
         instruction_builder: &mut InstructionBuilder,
         variable_registers: &[VariableRegister],

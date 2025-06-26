@@ -106,10 +106,7 @@ impl CodeBuilder<'_> {
             &format!("{comment} -set init value_size value to "),
         );
 
-        debug_assert!(
-            logical_limit >= len,
-            "checked"
-        );
+        debug_assert!(logical_limit >= len, "checked");
         if logical_limit > 0 || len > 0 {
             self.builder.add_map_init_set_capacity(
                 target_map_header_ptr_reg,

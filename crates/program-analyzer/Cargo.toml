@@ -14,7 +14,7 @@ swamp-modules = { path = "../modules", version = "0.1.16" }
 
 source-map-cache = "0.0.3"
 
-time-dilation = "0.1.10"
+time-dilation = "0.1.11"
 
 tracing = "0.1.40"
 

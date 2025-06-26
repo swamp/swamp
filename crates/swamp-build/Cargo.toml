@@ -11,6 +11,6 @@ swamp-runtime = { path = "../runtime", version = "0.1.16" }
 pico-args = "0.5.0"
 
 # Minimal tracing for production builds
-tracing-subscriber = { version = "0.3.1", features = ["env-filter"], default-features = false }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt", "ansi"], default-features = false }
 
 [dev-dependencies]

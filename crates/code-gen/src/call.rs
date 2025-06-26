@@ -476,7 +476,7 @@ impl CodeBuilder<'_> {
                         mask_to_actually_restore,
                         region.frame_memory_region,
                         node,
-                        &format!("restore (filtered by output dest) using mask {comment}"),
+                        &format!("restore registers using mask {comment}"),
                     );
                 }
             }

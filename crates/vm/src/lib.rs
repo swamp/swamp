@@ -606,15 +606,15 @@ impl Vm {
                 let regs = [0, 1, 2, 3, 4, 128, 129, 130];
 
                 for reg in regs {
-                    eprint!(
+                    print!(
                         "{}",
                         tinter::bright_black(&format!("{reg:02X}: {:08X}, ", self.registers[reg]))
                     );
                 }
-                eprintln!();
+                println!();
 
                 let operands = instruction.operands;
-                eprint!("> {:04X}: ", self.pc);
+                print!("> {:04X}: ", self.pc);
                 self.debug_opcode(opcode, &operands);
             }
 
@@ -1568,9 +1568,13 @@ impl Vm {
 
     #[inline]
     fn execute_lea(&mut self, dst_reg: u8, offset_0: u8, offset_1: u8, offset_2: u8, offset_3: u8) {
-        let ptr_addr = self.memory.frame_offset as u32;
+        let current_fp_addr = self.memory.frame_offset as u32;
         let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
-        set_reg!(self, dst_reg, ptr_addr + offset);
+        println!(
+            "lea: current_fp: {current_fp_addr:X} requested offset: {offset:X}, result: {:X}",
+            current_fp_addr + offset
+        );
+        set_reg!(self, dst_reg, current_fp_addr + offset);
     }
 
     #[inline]

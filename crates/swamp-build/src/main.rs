@@ -10,10 +10,17 @@ use std::process::ExitCode;
 use std::{env, io};
 use swamp_runtime::prelude::CodeGenOptions;
 use swamp_runtime::{CompileAndCodeGenOptions, CompileOptions, compile_and_code_gen};
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::{EnvFilter, fmt};
 
 pub fn init_logger() {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+    let filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::OFF.into())
+        .from_env_lossy();
+
+    fmt()
+        .with_env_filter(filter)
+        .with_ansi(true)
         .with_writer(std::io::stderr)
         .init();
 }

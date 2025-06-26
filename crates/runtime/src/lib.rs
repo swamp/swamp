@@ -287,39 +287,29 @@ pub fn run_function_with_debug(
         #[cfg(feature = "debug_vm")]
         if run_options.debug_opcodes_enabled {
             let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 128, 129, 130, 131, 132];
-            let special_reg: u32 = unsafe {
-                let ptr = vm.memory().get_heap_const_ptr(0x1E00).cast::<u32>();
-                *ptr
-            };
-
             if use_color {
-                eprint!(
+                print!(
                     "{}",
-                    tinter::bright_black(&format!(
-                        "fp:{:08X}, sp:{:08X}, 1E00:{:04X}",
-                        vm.fp(),
-                        vm.sp(),
-                        special_reg
-                    ))
+                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X} ", vm.fp(), vm.sp(),))
                 );
 
                 for reg in regs {
                     let reg_name = &format!("r{reg}");
-                    eprint!(
+                    print!(
                         "{}",
                         tinter::bright_black(&format!("{reg_name:>3}:{:08X}, ", vm.registers[reg]))
                     );
                 }
-                eprintln!();
+                println!();
             } else {
                 // TODO!: Use style instead
-                eprint!("{}", &format!("fp:{:08X}, sp:{:08X}, ", vm.fp(), vm.sp()));
+                print!("{}", &format!("fp:{:08X}, sp:{:08X}, ", vm.fp(), vm.sp()));
 
                 for reg in regs {
                     let reg_name = &format!("r{reg}");
-                    eprint!("{}", &format!("{reg_name:>3}:{:08X}, ", vm.registers[reg]));
+                    print!("{}", &format!("{reg_name:>3}:{:08X}, ", vm.registers[reg]));
                 }
-                eprintln!();
+                println!();
             }
 
             let info = run_options.debug_info.fetch(pc).unwrap();
@@ -348,7 +338,7 @@ pub fn run_function_with_debug(
                         end_row,
                         &run_options.source_map_wrapper,
                     );
-                    eprint!("{string}");
+                    print!("{string}");
                 }
             }
 
@@ -359,7 +349,7 @@ pub fn run_function_with_debug(
                 &info.meta,
                 &InstructionPosition(pc as u32),
             );
-            eprintln!("{pc:04X}> {string}");
+            println!("{pc:04X}> {string}");
         }
 
         //        eprintln!("constant (from address 0x34): {:?}", &vm.heap_memory()[0x34..0x34+32]);
