@@ -144,6 +144,7 @@ impl TopLevelGenState {
     pub fn spill_callee_save_registers_except_mutable_parameters(
         code_builder: &mut CodeBuilder,
         function_info: &FunctionInfo,
+        spill_patch_position: PatchPosition,
         node: &Node,
     ) -> Option<SpilledRegisterRegion> {
         // Collect the actual register indices that need to be saved
@@ -216,16 +217,13 @@ impl TopLevelGenState {
         code_builder: &mut CodeBuilder,
         function_info: &FunctionInfo,
         node: &Node,
-    ) -> (Option<SpilledRegisterRegion>, PatchPosition) {
+    ) -> (PatchPosition, PatchPosition) {
         let enter_patch_position = code_builder
             .builder
             .add_enter_placeholder(&Node::default(), "prologue");
 
-        let maybe_spilled = Self::spill_callee_save_registers_except_mutable_parameters(
-            code_builder,
-            function_info,
-            node,
-        );
+        let spill_patch_position = code_builder.builder.add_st_contiguous_regs_to_frame_placeholder(&Node::default(), "spill placeholder");
+
 
         Self::initialize_and_clear_variables_that_are_on_the_frame(
             code_builder.builder,
@@ -233,15 +231,21 @@ impl TopLevelGenState {
             node,
         );
 
-        (maybe_spilled, enter_patch_position)
+        (enter_patch_position, spill_patch_position)
     }
 
     fn function_epilogue(
         instruction_builder: &mut CodeBuilder,
-        maybe_spilled_registers: Option<SpilledRegisterRegion>,
+        //maybe_spilled_registers: Option<SpilledRegisterRegion>,
         node: &Node,
         comment: &str,
     ) {
+
+        Self::spill_and_restore_callee_save_registers_except_mutable_parameters(
+            function_code_builder,
+            spill_patch_position,
+        );
+        
         if let Some(spilled_register_region) = maybe_spilled_registers {
             instruction_builder.emit_restore_region(
                 spilled_register_region,
@@ -310,7 +314,7 @@ impl TopLevelGenState {
             source_map_wrapper,
         );
 
-        let (maybe_spilled_registers, enter_patch_position) = Self::function_prologue(
+        let ( enter_patch_position, spill_patch_position) = Self::function_prologue(
             &mut function_code_builder,
             &function_info,
             &in_data.function_name_node,
@@ -333,9 +337,11 @@ impl TopLevelGenState {
 
         function_code_builder.patch_enter(enter_patch_position);
 
+
+
+
         Self::function_epilogue(
             &mut function_code_builder,
-            maybe_spilled_registers,
             &in_data.expression.node,
             "epilogue",
         );

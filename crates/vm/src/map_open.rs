@@ -63,7 +63,7 @@ impl Vm {
         if self.debug_operations_enabled {
             unsafe {
                 eprintln!(
-                    "-- map_get_or_reserve_entry start {map_header_addr:X}, key_source: {key_source_address:X} {:?}",
+                    "-- map_get_or_reserve_entry map header is at {map_header_addr:X}, key_source: {key_source_address:X} {:?}",
                     *map_header_ptr
                 );
             }
@@ -144,7 +144,7 @@ impl Vm {
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             eprintln!(
-                "-- map_get_or_reserve_entry start {map_header_addr:X}, key_source: {key_source_address:X} {map_header:?}",
+                "-- map_get_or_reserve_entry map is at {map_header_addr:X}, key_source: {key_source_address:X} {map_header:?}",
             );
         }
 

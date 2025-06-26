@@ -67,6 +67,8 @@ pub fn layout_variables(
     //info!(len = variables.len(), "variables");
 
     let mut variable_registers = Vec::new();
+    let mut log_this_function = false;
+    
     for var_ref in variables {
         let basic_type = layout_cache.layout(&var_ref.resolved_type);
 
@@ -79,7 +81,14 @@ pub fn layout_variables(
             );
 
             let var_frame_placed_type = local_frame_allocator.allocate_type(&basic_type);
-            //trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
+            if log_this_function {
+                eprintln!("parameter {var_ref:?} {var_frame_placed_type:?}");
+            }
+            if var_ref.assigned_name == "id_gen" {
+                eprintln!("you got memory {var_frame_placed_type:?}");
+                log_this_function = true;
+                
+            }
             writeln!(
                 &mut enter_comment,
                 "  {}:{} {}",

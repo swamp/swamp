@@ -129,6 +129,10 @@ pub struct InstructionBuilder<'a> {
 }
 
 impl<'a> InstructionBuilder<'a> {
+
+}
+
+impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
         Self {
@@ -163,6 +167,14 @@ impl InstructionBuilder<'_> {
         let patch_position = PatchPosition(self.position());
         self.state
             .add_instruction(OpCode::Enter, &[0, 0, 0, 0], node, comment);
+
+        patch_position
+    }
+
+    pub fn add_st_contiguous_regs_to_frame_placeholder(&mut self, node: &Node, comment: &str) -> PatchPosition {
+        let patch_position = PatchPosition(self.position());
+        self.state
+            .add_instruction(OpCode::StRegToFrame, &[0, 0, 0, 0], node, comment);
 
         patch_position
     }
