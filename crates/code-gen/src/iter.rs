@@ -8,7 +8,7 @@ use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType, u8_type, u32_type,
+    u32_type, u8_type, BasicType, BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType,
 };
 use swamp_vm_types::{InstructionPosition, MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::error;
@@ -263,6 +263,111 @@ impl CodeBuilder<'_> {
 
             // Low  prio
             Collection::String => todo!(),
+            Collection::Map => {
+                // For maps, we need to handle both key and value potentially being scalars
+                // Map iteration returns pointers to both key and value, so we need to load scalar values
+                // TODO: Clean this up a bit to be more easy to read
+                // TODO: Also, scalar values that are mutated should be stored back to the value register
+                // Keys are by design not allowed to be mutated in iteration.
+                let (temp_registers, target_variables_to_use) = if target_variables.len() == 2 {
+                    // Map iteration with key-value pairs
+                    let key_register = &target_variables[0];
+                    let value_register = &target_variables[1];
+
+                    let (key_is_scalar, value_is_scalar) =
+                        match &collection_self_addr.ty.basic_type.kind {
+                            BasicTypeKind::MapStorage {
+                                key_type,
+                                value_type,
+                                ..
+                            } => (key_type.is_scalar(), value_type.is_scalar()),
+                            BasicTypeKind::DynamicLengthMapView(key_item, value_item) => {
+                                (key_item.ty.is_scalar(), value_item.ty.is_scalar())
+                            }
+                            _ => (false, false),
+                        };
+
+                    let mut temp_regs = Vec::new();
+                    let mut target_vars = Vec::new();
+
+                    // Handle key
+                    if key_is_scalar {
+                        let temp_key_addr = self
+                            .temp_registers
+                            .allocate(key_register.ty.clone(), "temp address for key");
+                        temp_regs.push((temp_key_addr.register().clone(), key_register.clone()));
+                        target_vars.push(temp_key_addr.register);
+                    } else {
+                        target_vars.push(key_register.clone());
+                    }
+
+                    // Handle value
+                    if value_is_scalar {
+                        let temp_value_addr = self
+                            .temp_registers
+                            .allocate(value_register.ty.clone(), "temp address for value");
+                        temp_regs
+                            .push((temp_value_addr.register().clone(), value_register.clone()));
+                        target_vars.push(temp_value_addr.register);
+                    } else {
+                        target_vars.push(value_register.clone());
+                    }
+
+                    (Some(temp_regs), target_vars)
+                } else {
+                    // Single value iteration (values only)
+                    let value_register = &target_variables[0];
+                    let value_is_scalar = match &collection_self_addr.ty.basic_type.kind {
+                        BasicTypeKind::MapStorage { value_type, .. } => value_type.is_scalar(),
+                        BasicTypeKind::DynamicLengthMapView(_, value_item) => {
+                            value_item.ty.is_scalar()
+                        }
+                        _ => false,
+                    };
+
+                    if value_is_scalar {
+                        let temp_value_addr = self
+                            .temp_registers
+                            .allocate(value_register.ty.clone(), "temp address for value");
+                        (
+                            Some(vec![(
+                                temp_value_addr.register().clone(),
+                                value_register.clone(),
+                            )]),
+                            vec![temp_value_addr.register.clone()],
+                        )
+                    } else {
+                        (None, target_variables.to_vec())
+                    }
+                };
+
+                let patch_position = self.emit_iter_init_and_next_to_memory(
+                    &target_iterator_header_reg,
+                    node,
+                    collection_type,
+                    maybe_element_type,
+                    collection_self_addr,
+                    &target_variables_to_use,
+                );
+
+                // Load scalar values from the addresses returned by the map iterator
+                if let Some(temp_regs) = temp_registers {
+                    for (temp_addr_reg, target_scalar_reg) in temp_regs {
+                        let source_memory_location =
+                            MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                                temp_addr_reg,
+                            );
+                        self.emit_load_value_from_memory_source(
+                            &target_scalar_reg,
+                            &source_memory_location,
+                            node,
+                            "load scalar value from map iterator address",
+                        );
+                    }
+                }
+
+                patch_position
+            }
             _ => {
                 let (temp_registers, target_variables_to_use) =
                     if primary_register.ty.basic_type.is_scalar() {

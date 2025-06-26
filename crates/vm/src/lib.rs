@@ -133,6 +133,7 @@ pub enum TrapCode {
     SparseRemoveFailed,
     SparseGetFailed,
     MapCouldNotBeCopied,
+    OverlappingMemoryCopy,
 }
 impl TryFrom<u8> for TrapCode {
     type Error = ();
@@ -145,6 +146,12 @@ impl TryFrom<u8> for TrapCode {
             3 => Self::MapEntryNotFound,
             4 => Self::MapEntryNotFoundAndCouldNotBeCreated,
             5 => Self::MapEntryNotFoundForRemoval,
+            6 => Self::LessThanTrap,
+            7 => Self::SparseOutOfSpace,
+            8 => Self::SparseRemoveFailed,
+            9 => Self::SparseGetFailed,
+            10 => Self::MapCouldNotBeCopied,
+            11 => Self::OverlappingMemoryCopy,
             _ => return Err(()),
         };
         Ok(code)
@@ -171,6 +178,12 @@ impl FromStr for TrapCode {
             "map_entry_not_found" => Self::MapEntryNotFound,
             "map_entry_or_create_failed" => Self::MapEntryNotFoundAndCouldNotBeCreated,
             "map_entry_remove_failed" => Self::MapEntryNotFoundForRemoval,
+            "less_than_trap" => Self::LessThanTrap,
+            "sparse_out_of_space" => Self::SparseOutOfSpace,
+            "sparse_remove_failed" => Self::SparseRemoveFailed,
+            "sparse_get_failed" => Self::SparseGetFailed,
+            "map_could_not_be_copied" => Self::MapCouldNotBeCopied,
+            "overlapping_memory_copy" => Self::OverlappingMemoryCopy,
             _ => return Err(ParseTrapCodeError),
         };
 
@@ -1611,6 +1624,14 @@ impl Vm {
         let src_addr = get_reg!(self, src_pointer_reg);
         let memory_size = get_reg!(self, memory_size_reg);
 
+        // Check for overlapping memory regions
+        let dest_end = dest_addr + memory_size;
+        let src_end = src_addr + memory_size;
+
+        if (dest_addr < src_end && src_addr < dest_end) {
+            return self.internal_trap(TrapCode::OverlappingMemoryCopy);
+        }
+
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             eprintln!(
@@ -1642,6 +1663,14 @@ impl Vm {
         let dest_addr = get_reg!(self, dst_pointer_reg);
         let src_addr = get_reg!(self, src_pointer_reg);
         let memory_size = get_reg!(self, memory_size_reg);
+
+        // Check for overlapping memory regions
+        let dest_end = dest_addr + memory_size;
+        let src_end = src_addr + memory_size;
+
+        if (dest_addr < src_end && src_addr < dest_end) {
+            return self.internal_trap(TrapCode::OverlappingMemoryCopy);
+        }
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
@@ -1681,6 +1710,14 @@ impl Vm {
             src_addr + memory_size < self.memory.memory_size as u32,
             "trying to overwrite memory"
         );
+
+        // Check for overlapping memory regions
+        let dest_end = dest_addr + memory_size;
+        let src_end = src_addr + memory_size;
+
+        if (dest_addr < src_end && src_addr < dest_end) {
+            return self.internal_trap(TrapCode::OverlappingMemoryCopy);
+        }
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {

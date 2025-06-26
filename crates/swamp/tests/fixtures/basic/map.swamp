@@ -276,6 +276,24 @@ fn scalar_key() {
     assert(game.card_templates.is_empty(), "should be empty after removing")
 }
 
+
+#[test]
+fn scalar_key_for() {
+    mut game = ScalarGame {
+        card_templates: [ -909: CardTemplate { mana: 3, healing_per_second: 0.3 }, 1342: CardTemplate { mana: 5, healing_per_second: 0.3 } ],
+    }
+
+    mut index = 0
+    for id, card in game.card_templates {
+        if index == 0 {
+            assert(id == 1342, 'must be proper id {id}')
+        } else {
+            assert(id == -909, 'second key wrong {id}')
+        }
+        index += 1
+    }
+}
+
 struct Deck {
     card_id_to_mana: [Int: Float; 2],
 }
