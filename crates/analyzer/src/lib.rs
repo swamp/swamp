@@ -1736,35 +1736,17 @@ impl<'a> Analyzer<'a> {
     ) -> InternalFunctionDefinition {
         let resolved_node = self.to_node(node);
         let string_type = self.types().string();
-        self.scope.total_scopes.current_register += 1;
-        if self.scope.total_scopes.current_register
-            > self.scope.total_scopes.highest_virtual_register
-        {
-            self.scope.total_scopes.highest_virtual_register =
-                self.scope.total_scopes.current_register;
-        }
-
-        // TODO: Should use helper function to create variable
-        let variable = Variable {
-            name: resolved_node.clone(),
-            assigned_name: "self".to_string(),
-            resolved_type: ty.clone(),
-            mutable_node: None,
-            variable_type: VariableType::Parameter,
-
-            scope_index: 0,
-            variable_index: 0,
-
-            unique_id_within_function: self.scope.active_scope.emit_variable_index(),
-            virtual_register: 0,
-            is_unused: false,
-        };
-
-        let variable_ref = Rc::new(variable);
-        self.scope
-            .total_scopes
-            .all_variables
-            .push(variable_ref.clone());
+        
+        // Follow the same pattern as normal function analysis
+        self.start_function();
+        
+        // Create the "self" parameter using the same method as normal functions
+        let (variable_ref, _variable_name) = self.create_variable_like_resolved(
+            &resolved_node,
+            None, // not mutable
+            ty,
+            VariableType::Parameter,
+        );
 
         let first_self_param = self.create_expr_resolved(
             ExpressionKind::VariableAccess(variable_ref.clone()),
@@ -1811,7 +1793,7 @@ impl<'a> Analyzer<'a> {
 
         let unique_function_id = self.shared.state.allocate_internal_function_id();
 
-        InternalFunctionDefinition {
+        let function_definition = InternalFunctionDefinition {
             body: body_expr,
             name: LocalIdentifier(resolved_node),
             assigned_name: "to_string".to_string(),
@@ -1826,10 +1808,14 @@ impl<'a> Analyzer<'a> {
                 }],
                 return_type: self.shared.state.types.string(),
             },
-            function_variables: VariableScopes::default(),
+            function_variables: self.scope.total_scopes.clone(),
             program_unique_id: unique_function_id,
             attributes: Attributes::default(),
-        }
+        };
+
+        self.stop_function();
+
+        function_definition
     }
 
     fn analyze_iterable(
