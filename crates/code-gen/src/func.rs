@@ -224,11 +224,8 @@ impl TopLevelGenState {
             node,
         );
 
-        Self::initialize_and_clear_variables_that_are_on_the_frame(
-            code_builder.builder,
-            &function_info.frame_memory.variable_registers,
-            node,
-        );
+        // Note: Variable initialization (LEA instructions) are now generated
+        // at the point of variable definition, not in the function prologue
 
         (maybe_spilled, enter_patch_position)
     }

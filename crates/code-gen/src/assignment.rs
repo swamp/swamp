@@ -10,7 +10,7 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{CompoundOperatorKind, Expression, TargetAssignmentLocation, VariableRef};
 use swamp_types::{Type, TypeKind};
-use swamp_vm_types::types::{Destination, TypedRegister};
+use swamp_vm_types::types::{Destination, TypedRegister, VmTypeOrigin};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
@@ -233,7 +233,39 @@ impl CodeBuilder<'_> {
         expression: &Expression,
         ctx: &Context,
     ) {
-        //        assert!(variable.mutable_node.is_some());
+        let target_register = self
+            .variable_registers
+            .get(&variable.unique_id_within_function)
+            .unwrap_or_else(|| {
+                panic!(
+                    "could not find variable id {} {}",
+                    variable.unique_id_within_function, variable.assigned_name
+                )
+            })
+            .clone();
+
+        // For frame-placed variables, we need to emit a LEA instruction first
+        // to initialize the register to point to the frame-allocated space
+        if let VmTypeOrigin::Frame(frame_region) = target_register.ty.origin {
+            self.builder.add_lea_from_frame_region(
+                &target_register,
+                frame_region,
+                &variable.name,
+                &format!(
+                    "initialize frame-placed variable {}",
+                    variable.assigned_name
+                ),
+            );
+
+            // Clear the memory region for aggregate types
+            self.builder.add_frame_memory_clear(
+                frame_region,
+                &variable.name,
+                &format!("clear memory for variable {}", variable.assigned_name),
+            );
+        }
+
+        // Now proceed with the normal variable assignment
         self.emit_variable_assignment(variable, expression, ctx);
     }
 }

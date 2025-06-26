@@ -91,6 +91,20 @@ impl CodeBuilder<'_> {
                 PostfixKind::MemberCall(function_to_call, arguments) => {
                     let hwm = self.temp_registers.save_mark();
 
+                    // For chained intrinsic calls, materialize the input value into a register first
+                    // to prevent it from being overwritten when we allocate the output destination
+                    let materialized_input = if !is_last
+                        && matches!(function_to_call.as_ref(), Function::Internal(internal_fn) if single_intrinsic_fn(&internal_fn.body).is_some())
+                    {
+                        Some(self.emit_load_scalar_or_absolute_aggregate_pointer(
+                            &current_location,
+                            &element.node,
+                            "materialize input for chained intrinsic to prevent register conflicts",
+                        ))
+                    } else {
+                        None
+                    };
+
                     let call_return_destination = if is_last {
                         output_destination.clone()
                     } else {
@@ -111,15 +125,40 @@ impl CodeBuilder<'_> {
                                     intrinsic_arguments,
                                 );
 
-                                self.emit_single_intrinsic_call_with_self_destination(
-                                    &call_return_destination,
-                                    &start_expression.node,
-                                    intrinsic_fn,
-                                    Some(&current_location),
-                                    &merged_arguments,
-                                    ctx,
-                                    "rvalue intrinsic call ",
-                                );
+                                // Use the materialized input if available, otherwise use the current location
+                                if let Some(materialized) = materialized_input {
+                                    if let Some(reg) = materialized {
+                                        self.emit_single_intrinsic_call_with_self(
+                                            &call_return_destination,
+                                            &start_expression.node,
+                                            intrinsic_fn,
+                                            Some(&reg),
+                                            &merged_arguments,
+                                            ctx,
+                                            "rvalue intrinsic call ",
+                                        );
+                                    } else {
+                                        self.emit_single_intrinsic_call_with_self_destination(
+                                            &call_return_destination,
+                                            &start_expression.node,
+                                            intrinsic_fn,
+                                            Some(&current_location),
+                                            &merged_arguments,
+                                            ctx,
+                                            "rvalue intrinsic call ",
+                                        );
+                                    }
+                                } else {
+                                    self.emit_single_intrinsic_call_with_self_destination(
+                                        &call_return_destination,
+                                        &start_expression.node,
+                                        intrinsic_fn,
+                                        Some(&current_location),
+                                        &merged_arguments,
+                                        ctx,
+                                        "rvalue intrinsic call ",
+                                    );
+                                }
                             } else {
                                 let absolute_self_pointer_register = self
                                     .emit_compute_effective_address_to_register(
@@ -232,13 +271,25 @@ impl CodeBuilder<'_> {
                 PostfixKind::NoneCoalescingOperator(expression) => {
                     assert!(is_last, "None coalescing operator must be last in chain");
 
-                    // Load and test the tag byte directly from memory
-                    let temp_reg = self
-                        .temp_registers
-                        .allocate(VmType::new_unknown_placement(u8_type()), "temp for tag");
                     if let Destination::Memory(mem_loc) = &current_location {
+                        // Load and test the tag byte directly from memory
+                        // Ensure we don't reuse the base_ptr_reg for the tag load
+                        let temp_reg = self
+                            .temp_registers
+                            .allocate(VmType::new_unknown_placement(u8_type()), "temp for tag");
+
+                        // If temp_reg is the same as base_ptr_reg, allocate another one
+                        let tag_reg = if temp_reg.register().index == mem_loc.base_ptr_reg.index {
+                            self.temp_registers.allocate(
+                                VmType::new_unknown_placement(u8_type()),
+                                "temp for tag (avoiding conflict)",
+                            )
+                        } else {
+                            temp_reg
+                        };
+
                         self.builder.add_ld8_from_pointer_with_offset_u16(
-                            temp_reg.register(),
+                            tag_reg.register(),
                             &mem_loc.base_ptr_reg,
                             MemoryOffset(0),
                             &element.node,
@@ -257,7 +308,7 @@ impl CodeBuilder<'_> {
 
                         // If P=1 (Some), skip fallback
                         let skip_fallback_patch = self.builder.add_jmp_if_true_placeholder(
-                            temp_reg.register(),
+                            tag_reg.register(),
                             &element.node,
                             "jump if 1 (Some)",
                         );
