@@ -183,6 +183,7 @@ pub type ExternalFunctionDefinitionRef = Rc<crate::ExternalFunctionDefinition>;
 pub enum BlockScopeMode {
     Open,
     Closed,
+    Lambda,
 }
 
 #[derive(Debug, Clone)]

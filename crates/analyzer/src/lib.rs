@@ -1736,10 +1736,10 @@ impl<'a> Analyzer<'a> {
     ) -> InternalFunctionDefinition {
         let resolved_node = self.to_node(node);
         let string_type = self.types().string();
-        
+
         // Follow the same pattern as normal function analysis
         self.start_function();
-        
+
         // Create the "self" parameter using the same method as normal functions
         let (variable_ref, _variable_name) = self.create_variable_like_resolved(
             &resolved_node,
@@ -2287,6 +2287,14 @@ impl<'a> Analyzer<'a> {
         });
     }
 
+    fn push_lambda_scope(&mut self, _debug_str: &str) {
+        self.scope.active_scope.block_scope_stack.push(BlockScope {
+            mode: BlockScopeMode::Lambda,
+            lookup: Default::default(),
+            variables: SeqMap::default(),
+        });
+    }
+
     fn pop_block_scope(&mut self, _debug_str: &str) {
         self.pop_any_block_scope();
     }
@@ -2313,8 +2321,12 @@ impl<'a> Analyzer<'a> {
             self.scope.total_scopes.highest_virtual_register =
                 self.scope.total_scopes.highest_virtual_register;
         }
-        // We can reuse the registers that was popped
-        self.scope.total_scopes.current_register -= scope.variables.len();
+        // Only decrement register counter for non-lambda scopes
+        // Lambda scopes should have their register allocation "continue" from parent scope
+        // This ensures lambda variables remain live during transformer operations
+        if !matches!(scope.mode, BlockScopeMode::Lambda) {
+            self.scope.total_scopes.current_register -= scope.variables.len();
+        }
     }
 
     fn analyze_match(
@@ -2820,7 +2832,9 @@ impl<'a> Analyzer<'a> {
 
         let return_block_type = TypeContext::new_argument(&signature.return_type);
 
-        self.push_block_scope("lambda");
+        // Create a lambda scope for proper variable scoping and shadowing
+        // But the register allocation will "continue" from parent scope (no decrement on pop)
+        self.push_lambda_scope("lambda");
 
         let arity_required = signature.parameters.len();
         let variable_types_to_create = if variables.len() == arity_required {
