@@ -1570,10 +1570,6 @@ impl Vm {
     fn execute_lea(&mut self, dst_reg: u8, offset_0: u8, offset_1: u8, offset_2: u8, offset_3: u8) {
         let current_fp_addr = self.memory.frame_offset as u32;
         let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
-        println!(
-            "lea: current_fp: {current_fp_addr:X} requested offset: {offset:X}, result: {:X}",
-            current_fp_addr + offset
-        );
         set_reg!(self, dst_reg, current_fp_addr + offset);
     }
 
