@@ -44,14 +44,14 @@ mod vec;
 mod when;
 
 use crate::alloc::ScopeAllocator;
-use crate::reg_pool::{RegisterPool, TempRegister};
+use crate::reg_pool::TempRegister;
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::rc::Rc;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     ArgumentExpression, ConstantId, ConstantRef, Expression, ExpressionKind,
-    InternalFunctionDefinitionRef, InternalFunctionId, VariableRef, VariableScopes,
+    InternalFunctionDefinitionRef, InternalFunctionId, VariableScopes,
 };
 use swamp_types::TypeRef;
 use swamp_vm_layout::LayoutCache;
@@ -365,7 +365,7 @@ pub struct FrameAndVariableInfo {
     pub return_type: VmType,
     parameter_and_variable_offsets: SeqMap<usize, TypedRegister>,
     local_frame_allocator: ScopeAllocator,
-    frame_registers: RegisterPool,
+    //frame_registers: RegisterPool,
     highest_register_used: u8,
 }
 
@@ -374,7 +374,6 @@ pub struct FunctionInData {
     pub function_name_node: Node,
     pub kind: FunctionInfoKind,
     pub assigned_name: String,
-    pub parameter_variables: Vec<VariableRef>,
     pub function_variables: VariableScopes,
     pub return_type: TypeRef,
     pub expression: Expression,

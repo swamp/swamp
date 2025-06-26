@@ -64,8 +64,6 @@ impl Analyzer<'_> {
             variable_type_ref,
             VariableType::Parameter,
         );
-
-        self.function_parameters.push(variable_ref);
     }
 
     pub(crate) fn create_local_variable(
@@ -231,6 +229,7 @@ impl Analyzer<'_> {
         variables
             .insert(variable_ref.unique_id_within_function, variable_ref.clone())
             .expect("should have checked earlier for variable");
+
         self.scope
             .total_scopes
             .all_variables
@@ -319,6 +318,7 @@ impl Analyzer<'_> {
         variables
             .insert(variable_ref.unique_id_within_function, variable_ref.clone())
             .expect("should have checked earlier for variable");
+
         self.scope
             .total_scopes
             .all_variables

@@ -27,6 +27,7 @@ use swamp_vm_types::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,
     PatchPosition,
 };
+use tracing::info;
 
 impl TopLevelGenState {
     /// # Panics
@@ -47,7 +48,6 @@ impl TopLevelGenState {
             kind: FunctionInfoKind::Normal(internal_fn_def.program_unique_id as usize),
             assigned_name: complete_function_name,
             function_variables: internal_fn_def.function_variables.clone(),
-            parameter_variables: internal_fn_def.parameters.clone(),
             return_type: internal_fn_def.signature.return_type.clone(),
             expression: internal_fn_def.body.clone(),
         };
@@ -111,7 +111,6 @@ impl TopLevelGenState {
         let variable_and_frame_memory = layout_variables(
             &mut self.codegen_state.layout_cache,
             &main.expression.node,
-            &main.function_parameters,
             &main.scopes,
             &main.expression.ty,
         );
@@ -121,7 +120,6 @@ impl TopLevelGenState {
             kind: FunctionInfoKind::Normal(main.program_unique_id as usize),
             assigned_name: "main_expr".to_string(),
             function_variables: main.scopes.clone(),
-            parameter_variables: main.function_parameters.clone(),
             return_type: main.expression.ty.clone(),
             expression: main.expression.clone(),
         };
@@ -259,12 +257,11 @@ impl TopLevelGenState {
     ) -> (InstructionPosition, InstructionPosition, FunctionInfo) {
         let start_ip = self.ip();
 
-        //info!(in_data.assigned_name, "emit_function");
+        info!(in_data.assigned_name, "emit_function");
 
         let frame_and_variable_info = layout_variables(
             &mut self.codegen_state.layout_cache,
             &in_data.function_name_node,
-            &in_data.parameter_variables,
             &in_data.function_variables,
             &in_data.return_type,
         );
@@ -301,7 +298,7 @@ impl TopLevelGenState {
             &mut self.codegen_state,
             &mut instruction_builder,
             frame_and_variable_info.parameter_and_variable_offsets,
-            frame_and_variable_info.frame_registers,
+            //frame_and_variable_info.frame_registers,
             temp_pool,
             frame_and_variable_info.local_frame_allocator,
             self.code_builder_options,

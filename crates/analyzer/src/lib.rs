@@ -195,7 +195,6 @@ impl<'a> SharedState<'a> {
 pub struct Analyzer<'a> {
     pub shared: SharedState<'a>,
     scope: ScopeInfo,
-    function_parameters: Vec<VariableRef>,
     global: FunctionScopeState,
     module_path: Vec<String>,
 }
@@ -223,19 +222,16 @@ impl<'a> Analyzer<'a> {
             global: FunctionScopeState::new(),
             shared,
             module_path: module_path.to_vec(),
-            function_parameters: Vec::new(),
         }
     }
 
     fn start_function(&mut self) {
         self.global.block_scope_stack = take(&mut self.scope.active_scope.block_scope_stack);
         self.scope = ScopeInfo::default();
-        self.function_parameters.clear();
     }
 
     fn stop_function(&mut self) {
         self.scope.active_scope.block_scope_stack = take(&mut self.global.block_scope_stack);
-        self.function_parameters.clear();
     }
 
     fn analyze_if_expression(
@@ -532,7 +528,6 @@ impl<'a> Analyzer<'a> {
         let main_expr = InternalMainExpression {
             expression: analyzed_expr,
             scopes: self.scope.total_scopes.clone(),
-            function_parameters: self.function_parameters.clone(),
             program_unique_id: self.shared.state.allocate_internal_function_id(),
         };
 
@@ -1749,6 +1744,7 @@ impl<'a> Analyzer<'a> {
                 self.scope.total_scopes.current_register;
         }
 
+        // TODO: Should use helper function to create variable
         let variable = Variable {
             name: resolved_node.clone(),
             assigned_name: "self".to_string(),
@@ -1759,12 +1755,16 @@ impl<'a> Analyzer<'a> {
             scope_index: 0,
             variable_index: 0,
 
-            unique_id_within_function: 0,
+            unique_id_within_function: self.scope.active_scope.emit_variable_index(),
             virtual_register: 0,
             is_unused: false,
         };
 
         let variable_ref = Rc::new(variable);
+        self.scope
+            .total_scopes
+            .all_variables
+            .push(variable_ref.clone());
 
         let first_self_param = self.create_expr_resolved(
             ExpressionKind::VariableAccess(variable_ref.clone()),
@@ -1826,7 +1826,6 @@ impl<'a> Analyzer<'a> {
                 }],
                 return_type: self.shared.state.types.string(),
             },
-            parameters: vec![variable_ref],
             function_variables: VariableScopes::default(),
             program_unique_id: unique_function_id,
             attributes: Attributes::default(),

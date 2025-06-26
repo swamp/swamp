@@ -48,7 +48,6 @@ pub(crate) struct CodeBuilder<'a> {
     pub state: &'a mut CodeGenState,
     pub(crate) builder: &'a mut InstructionBuilder<'a>,
     pub(crate) variable_registers: SeqMap<usize, TypedRegister>,
-    frame_memory_registers: RegisterPool,
     pub(crate) temp_registers: HwmTempRegisterPool,
     pub(crate) frame_allocator: ScopeAllocator,
     pub debug_line_tracker: KeepTrackOfSourceLine,
@@ -62,7 +61,6 @@ impl<'a> CodeBuilder<'a> {
         state: &'a mut CodeGenState,
         builder: &'a mut InstructionBuilder<'a>,
         variable_registers: SeqMap<usize, TypedRegister>,
-        frame_memory_registers: RegisterPool,
         temp_registers: HwmTempRegisterPool,
         temp_allocator: ScopeAllocator,
         options: CodeBuilderOptions,
@@ -72,7 +70,7 @@ impl<'a> CodeBuilder<'a> {
             state,
             builder,
             variable_registers,
-            frame_memory_registers,
+            //frame_memory_registers,
             temp_registers,
             frame_allocator: temp_allocator,
             debug_line_tracker: KeepTrackOfSourceLine::default(),
@@ -353,6 +351,7 @@ impl CodeBuilder<'_> {
     }
 
     pub(crate) fn get_variable_register(&self, variable: &VariableRef) -> &TypedRegister {
+        info!(unique_id=?variable.unique_id_within_function, name=?variable.assigned_name, "trying to fetch");
         self.variable_registers
             .get(&variable.unique_id_within_function)
             .unwrap()

@@ -96,7 +96,6 @@ impl TopLevelGenState {
                 kind: FunctionInfoKind::Constant(constant.id as usize),
                 assigned_name: constant.assigned_name.clone(),
                 function_variables: constant.function_scope_state.clone(),
-                parameter_variables: vec![],
                 return_type: constant.resolved_type.clone(),
                 expression: constant.expr.clone(),
             };

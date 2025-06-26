@@ -1,6 +1,5 @@
 use crate::FrameAndVariableInfo;
 use crate::alloc::ScopeAllocator;
-use crate::reg_pool::RegisterPool;
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::Write;
@@ -12,6 +11,7 @@ use swamp_vm_types::types::{
     VariableRegister, VmType,
 };
 use swamp_vm_types::{FrameMemoryAddress, FrameMemoryRegion, MemorySize};
+use tracing::info;
 
 /// # Errors
 ///
@@ -20,7 +20,6 @@ use swamp_vm_types::{FrameMemoryAddress, FrameMemoryRegion, MemorySize};
 pub fn layout_variables(
     layout_cache: &mut LayoutCache,
     _node: &Node,
-    parameters: &Vec<VariableRef>,
     scopes: &VariableScopes,
     exp_return_type: &TypeRef,
 ) -> FrameAndVariableInfo {
@@ -29,6 +28,7 @@ pub fn layout_variables(
         MemorySize(3 * 1024 * 1024 * 1024),
     ));
 
+    info!("layout variables");
     //    let return_placed_type_pointer = layout_type(exp_return_type).create_mutable_pointer();
     //let return_placed_type = allocator.allocate_type(return_placed_type_pointer); //reserve(return_placed_type_pointer, &mut allocator);
 
@@ -36,21 +36,7 @@ pub fn layout_variables(
     let mut frame_memory_infos = Vec::new();
 
     let mut all_variable_unique_to_register = SeqMap::new();
-    let mut frame_register_allocator = RegisterPool::new(1, 127);
-
-    /*
-    for var_ref in parameters {
-        let parameter_basic_type = layout_cache.layout(&var_ref.resolved_type);
-        swamp_vm_layout::check_type_size(
-            &parameter_basic_type,
-            &format!("parameter '{}'", var_ref.assigned_name),
-        );
-
-
-        all_variable_unique_to_register.insert(var_ref.unique_id_within_function, register).unwrap()
-    }
-
-     */
+    //let mut frame_register_allocator = RegisterPool::new(1, 127);
 
     //info!(len = variables.len(), "variables");
 
@@ -109,6 +95,7 @@ pub fn layout_variables(
             comment: "".to_string(),
         };
 
+        info!(unique_id=?var_ref.unique_id_within_function, name=?var_ref.assigned_name, "insert variable");
         all_variable_unique_to_register
             .insert(var_ref.unique_id_within_function, typed_register.clone())
             .unwrap();
@@ -128,8 +115,6 @@ pub fn layout_variables(
 
     let frame_size = local_frame_allocator.addr().as_size();
 
-    let highest_register_used = frame_register_allocator.current_index;
-
     let return_type_ref = TypeRef::from(exp_return_type.clone());
     let return_type = VmType::new_contained_in_register(layout_cache.layout(&return_type_ref));
 
@@ -144,7 +129,6 @@ pub fn layout_variables(
         local_frame_allocator,
         return_type,
         parameter_and_variable_offsets: all_variable_unique_to_register,
-        frame_registers: frame_register_allocator,
-        highest_register_used,
+        highest_register_used: scopes.highest_virtual_register as u8,
     }
 }

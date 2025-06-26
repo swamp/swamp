@@ -62,7 +62,6 @@ pub struct LocalIdentifier(pub Node);
 #[derive(Debug)]
 pub struct InternalMainExpression {
     pub expression: Expression,
-    pub function_parameters: Vec<VariableRef>,
     pub scopes: VariableScopes,
     pub program_unique_id: InternalFunctionId,
 }
@@ -90,7 +89,6 @@ pub struct InternalFunctionDefinition {
     pub associated_with_type: Option<TypeRef>,
     pub defined_in_module_path: Vec<String>,
     pub signature: Signature,
-    pub parameters: Vec<VariableRef>,
     pub function_variables: VariableScopes,
     pub program_unique_id: InternalFunctionId,
     pub attributes: Attributes,
@@ -120,7 +118,6 @@ impl Default for InternalFunctionDefinition {
                     kind: Rc::new(TypeKind::Byte),
                 }),
             },
-            parameters: vec![],
             function_variables: VariableScopes::default(),
             program_unique_id: 0,
             attributes: Attributes::default(),
@@ -292,8 +289,8 @@ impl Display for FunctionScopeState {
 
 impl FunctionScopeState {
     pub const fn emit_variable_index(&mut self) -> usize {
-        let index = self.variable_index;
         self.variable_index += 1;
+        let index = self.variable_index;
         index
     }
 }

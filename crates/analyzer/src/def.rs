@@ -449,7 +449,6 @@ impl Analyzer<'_> {
                     associated_with_type: None,
                     defined_in_module_path: self.module_path.clone(),
                     function_variables: self.scope.total_scopes.clone(),
-                    parameters: self.function_parameters.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
                     attributes: attributes.clone(),
                 };
@@ -751,7 +750,6 @@ impl Analyzer<'_> {
                     associated_with_type: Some(self_type.clone()),
                     //variable_scopes: self.scope.clone(),
                     function_variables: self.scope.total_scopes.clone(),
-                    parameters: self.function_parameters.clone(),
                     program_unique_id: self.shared.state.allocate_internal_function_id(),
                     attributes,
                 };
