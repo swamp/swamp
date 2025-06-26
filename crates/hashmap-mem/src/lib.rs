@@ -349,7 +349,6 @@ pub unsafe fn lookup(base_ptr: *mut u8, key_ptr: *const u8) -> *mut u8 {
         let key_offset = header.key_offset as usize;
         let value_offset = header.value_offset as usize;
 
-        println!("lookup: {header:?}");
         debug_assert_eq!(
             header.padding_and_secret_code, SECRET_CODE,
             "hashmap, secret code failed"
@@ -358,7 +357,7 @@ pub unsafe fn lookup(base_ptr: *mut u8, key_ptr: *const u8) -> *mut u8 {
         debug_assert_ne!(capacity, 0, "Capacity cannot be zero");
         debug_assert!(
             capacity.is_power_of_two(),
-            "Capacity must be a power of two, but was {capacity}"
+            "Capacity must be a power of two {capacity}"
         );
 
         let buckets_ptr = base_ptr.add(MAP_BUCKETS_OFFSET);
