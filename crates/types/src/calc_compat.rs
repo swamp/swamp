@@ -1,5 +1,4 @@
 use crate::Type;
-use crate::supporting_types::{AnonymousStructType, NamedStructType};
 use crate::type_kind::TypeKind;
 
 impl Type {

@@ -15,7 +15,6 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
-use std::thread::Scope;
 use swamp_attributes::Attributes;
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeRef};
@@ -236,7 +235,7 @@ pub struct VariableScopes {
 }
 
 impl VariableScopes {
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self {
             //block_scope_stack: vec![],
             current_register: 0,
@@ -265,7 +264,7 @@ pub struct ScopeInfo {
 }
 
 impl ScopeInfo {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             active_scope: FunctionScopeState::default(),
             total_scopes: VariableScopes::default(),
@@ -291,8 +290,8 @@ impl Display for FunctionScopeState {
 impl FunctionScopeState {
     pub const fn emit_variable_index(&mut self) -> usize {
         self.variable_index += 1;
-        let index = self.variable_index;
-        index
+        
+        self.variable_index
     }
 }
 

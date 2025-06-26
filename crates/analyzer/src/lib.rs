@@ -31,7 +31,7 @@ use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
     GridType, InternalMainExpression, LocationAccess, LocationAccessKind, MapType,
     MutableReferenceKind, NormalPattern, Postfix, PostfixKind, ScopeInfo, SingleLocationExpression,
-    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, VariableScopes, VariableType,
+    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, VariableType,
     VecType, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
@@ -1749,7 +1749,7 @@ impl<'a> Analyzer<'a> {
         );
 
         let first_self_param = self.create_expr_resolved(
-            ExpressionKind::VariableAccess(variable_ref.clone()),
+            ExpressionKind::VariableAccess(variable_ref),
             string_type,
             &resolved_node,
         );
@@ -2309,7 +2309,7 @@ impl<'a> Analyzer<'a> {
 
     fn pop_closed_block_scope(&mut self) {
         //self.scope.active_scope.block_scope_stack.pop();
-        self.pop_any_block_scope()
+        self.pop_any_block_scope();
     }
 
     fn pop_any_block_scope(&mut self) {
