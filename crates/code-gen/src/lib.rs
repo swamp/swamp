@@ -51,13 +51,13 @@ use std::rc::Rc;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     ArgumentExpression, ConstantId, ConstantRef, Expression, ExpressionKind,
-    InternalFunctionDefinitionRef, InternalFunctionId, VariableRef,
+    InternalFunctionDefinitionRef, InternalFunctionId, VariableRef, VariableScopes,
 };
 use swamp_types::TypeRef;
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{
     BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, FrameMemoryInfo, FramePlacedType,
-    FunctionInfoKind, HeapPlacedType, TypedRegister, VariableRegister, VmType,
+    FunctionInfoKind, HeapPlacedType, TypedRegister, VmType,
 };
 use swamp_vm_types::{
     CountU16, FrameMemoryRegion, InstructionPosition, InstructionRange, MAP_ITERATOR_ALIGNMENT,
@@ -363,7 +363,6 @@ pub fn reserve(
 pub struct FrameAndVariableInfo {
     pub frame_memory: FrameMemoryInfo,
     pub return_type: VmType,
-    parameters: Vec<VariableRegister>,
     parameter_and_variable_offsets: SeqMap<usize, TypedRegister>,
     local_frame_allocator: ScopeAllocator,
     frame_registers: RegisterPool,
@@ -376,7 +375,7 @@ pub struct FunctionInData {
     pub kind: FunctionInfoKind,
     pub assigned_name: String,
     pub parameter_variables: Vec<VariableRef>,
-    pub function_variables: Vec<VariableRef>,
+    pub function_variables: VariableScopes,
     pub return_type: TypeRef,
     pub expression: Expression,
 }

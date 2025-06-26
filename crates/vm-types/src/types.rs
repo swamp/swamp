@@ -1877,7 +1877,6 @@ pub struct FunctionInfo {
     pub kind: FunctionInfoKind,
     pub frame_memory: FrameMemoryInfo,
     pub return_type: VmType,
-    pub parameters: Vec<VariableRegister>,
     pub name: String,
     pub ip_range: InstructionRange,
 }

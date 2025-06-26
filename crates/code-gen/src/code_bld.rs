@@ -353,10 +353,9 @@ impl CodeBuilder<'_> {
     }
 
     pub(crate) fn get_variable_register(&self, variable: &VariableRef) -> &TypedRegister {
-        (self
-            .variable_registers
+        self.variable_registers
             .get(&variable.unique_id_within_function)
-            .unwrap()) as _
+            .unwrap()
     }
 
     fn get_variable_frame_placed(&self, variable: &VariableRef) -> FramePlacedType {
@@ -376,19 +375,19 @@ impl CodeBuilder<'_> {
     ) -> TypedRegister {
         let frame_placed_type = self.frame_allocator.allocate_type(&ty);
 
-        let reg = self.frame_memory_registers.alloc_register(
+        let temp = self.temp_registers.allocate(
             VmType::new_frame_placed(frame_placed_type),
             &format!("{comment}: allocate frame space"),
         );
 
         self.builder.add_lea_from_frame_region(
-            &reg,
-            reg.region(),
+            &temp.register,
+            temp.register.region(),
             node,
             &format!("{comment}: set the allocated memory to pointer reg"),
         );
 
-        reg
+        temp.register
     }
 
     pub fn allocate_frame_space_and_return_pointer_location(

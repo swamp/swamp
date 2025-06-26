@@ -55,7 +55,7 @@ impl Analyzer<'_> {
             id: ConstantId::from(self.shared.state.internal_function_id_allocator.alloc()),
             expr: resolved_expr,
             resolved_type: actual_constant_type,
-            function_scope_state: self.function_variables.clone(),
+            function_scope_state: self.scope.total_scopes.clone(),
         };
 
         let const_ref = match self.shared.definition_table.add_constant(constant) {

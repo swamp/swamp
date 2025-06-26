@@ -112,7 +112,7 @@ impl TopLevelGenState {
             &mut self.codegen_state.layout_cache,
             &main.expression.node,
             &main.function_parameters,
-            &main.function_variables,
+            &main.scopes,
             &main.expression.ty,
         );
 
@@ -120,7 +120,7 @@ impl TopLevelGenState {
             function_name_node: main.expression.node.clone(),
             kind: FunctionInfoKind::Normal(main.program_unique_id as usize),
             assigned_name: "main_expr".to_string(),
-            function_variables: main.function_variables.clone(),
+            function_variables: main.scopes.clone(),
             parameter_variables: main.function_parameters.clone(),
             return_type: main.expression.ty.clone(),
             expression: main.expression.clone(),
@@ -133,7 +133,6 @@ impl TopLevelGenState {
             kind: FunctionInfoKind::Normal(main.program_unique_id as usize),
             frame_memory: variable_and_frame_memory.frame_memory,
             return_type: variable_and_frame_memory.return_type,
-            parameters: variable_and_frame_memory.parameters,
             name: "main".to_string(),
             ip_range: InstructionRange {
                 start: start_ip,
@@ -277,7 +276,6 @@ impl TopLevelGenState {
             kind: in_data.kind.clone(),
             frame_memory: frame_and_variable_info.frame_memory,
             return_type: frame_and_variable_info.return_type,
-            parameters: frame_and_variable_info.parameters,
             name: in_data.assigned_name.clone(),
             ip_range: InstructionRange {
                 start: start_ip,

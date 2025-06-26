@@ -30,9 +30,9 @@ use swamp_semantic::prelude::*;
 use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
     GridType, InternalMainExpression, LocationAccess, LocationAccessKind, MapType,
-    MutableReferenceKind, NormalPattern, Postfix, PostfixKind, SingleLocationExpression,
-    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, VariableType, VecType,
-    WhenBinding,
+    MutableReferenceKind, NormalPattern, Postfix, PostfixKind, ScopeInfo, SingleLocationExpression,
+    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, VariableScopes, VariableType,
+    VecType, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::TypeKind;
@@ -194,18 +194,10 @@ impl<'a> SharedState<'a> {
 
 pub struct Analyzer<'a> {
     pub shared: SharedState<'a>,
-    scope: FunctionScopeState,
-    function_variables: Vec<VariableRef>,
+    scope: ScopeInfo,
     function_parameters: Vec<VariableRef>,
     global: FunctionScopeState,
     module_path: Vec<String>,
-}
-
-impl Analyzer<'_> {
-    #[must_use]
-    pub const fn scopes(&self) -> &FunctionScopeState {
-        &self.scope
-    }
 }
 
 impl<'a> Analyzer<'a> {
@@ -227,25 +219,22 @@ impl<'a> Analyzer<'a> {
             file_id,
         };
         Self {
-            scope: FunctionScopeState::new(),
+            scope: ScopeInfo::default(),
             global: FunctionScopeState::new(),
             shared,
             module_path: module_path.to_vec(),
-            function_variables: Vec::new(),
             function_parameters: Vec::new(),
         }
     }
 
     fn start_function(&mut self) {
-        self.global.block_scope_stack = take(&mut self.scope.block_scope_stack);
-        self.scope = FunctionScopeState::new();
-        self.function_variables.clear();
+        self.global.block_scope_stack = take(&mut self.scope.active_scope.block_scope_stack);
+        self.scope = ScopeInfo::default();
         self.function_parameters.clear();
     }
 
     fn stop_function(&mut self) {
-        self.scope.block_scope_stack = take(&mut self.global.block_scope_stack);
-        self.function_variables.clear();
+        self.scope.active_scope.block_scope_stack = take(&mut self.global.block_scope_stack);
         self.function_parameters.clear();
     }
 
@@ -542,7 +531,7 @@ impl<'a> Analyzer<'a> {
         let analyzed_expr = self.analyze_expression(ast_expression, &context);
         let main_expr = InternalMainExpression {
             expression: analyzed_expr,
-            function_variables: self.function_variables.clone(),
+            scopes: self.scope.total_scopes.clone(),
             function_parameters: self.function_parameters.clone(),
             program_unique_id: self.shared.state.allocate_internal_function_id(),
         };
@@ -1752,6 +1741,14 @@ impl<'a> Analyzer<'a> {
     ) -> InternalFunctionDefinition {
         let resolved_node = self.to_node(node);
         let string_type = self.types().string();
+        self.scope.total_scopes.current_register += 1;
+        if self.scope.total_scopes.current_register
+            > self.scope.total_scopes.highest_virtual_register
+        {
+            self.scope.total_scopes.highest_virtual_register =
+                self.scope.total_scopes.current_register;
+        }
+
         let variable = Variable {
             name: resolved_node.clone(),
             assigned_name: "self".to_string(),
@@ -1763,6 +1760,7 @@ impl<'a> Analyzer<'a> {
             variable_index: 0,
 
             unique_id_within_function: 0,
+            virtual_register: 0,
             is_unused: false,
         };
 
@@ -1829,7 +1827,7 @@ impl<'a> Analyzer<'a> {
                 return_type: self.shared.state.types.string(),
             },
             parameters: vec![variable_ref],
-            function_variables: vec![],
+            function_variables: VariableScopes::default(),
             program_unique_id: unique_function_id,
             attributes: Attributes::default(),
         }
@@ -2297,7 +2295,7 @@ impl<'a> Analyzer<'a> {
     }
 
     fn push_block_scope(&mut self, _debug_str: &str) {
-        self.scope.block_scope_stack.push(BlockScope {
+        self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Open,
             lookup: Default::default(),
             variables: SeqMap::default(),
@@ -2305,11 +2303,11 @@ impl<'a> Analyzer<'a> {
     }
 
     fn pop_block_scope(&mut self, _debug_str: &str) {
-        self.scope.block_scope_stack.pop();
+        self.pop_any_block_scope();
     }
 
     fn push_closed_block_scope(&mut self) {
-        self.scope.block_scope_stack.push(BlockScope {
+        self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Closed,
             lookup: Default::default(),
             variables: SeqMap::default(),
@@ -2317,7 +2315,21 @@ impl<'a> Analyzer<'a> {
     }
 
     fn pop_closed_block_scope(&mut self) {
-        self.scope.block_scope_stack.pop();
+        //self.scope.active_scope.block_scope_stack.pop();
+        self.pop_any_block_scope()
+    }
+
+    fn pop_any_block_scope(&mut self) {
+        let scope = self.scope.active_scope.block_scope_stack.pop().unwrap();
+        // Record the highest watermark (greatest depth of virtual registers)
+        if self.scope.total_scopes.current_register
+            >= self.scope.total_scopes.highest_virtual_register
+        {
+            self.scope.total_scopes.highest_virtual_register =
+                self.scope.total_scopes.highest_virtual_register;
+        }
+        // We can reuse the registers that was popped
+        self.scope.total_scopes.current_register -= scope.variables.len();
     }
 
     fn analyze_match(
@@ -3105,7 +3117,7 @@ impl<'a> Analyzer<'a> {
         let ExpressionKind::VariableAccess(start_variable) = base_expr.kind else {
             self.add_err(ErrorKind::NotValidLocationStartingPoint, &chain.base.node);
             let unit_type = self.types().unit();
-            let variable = Variable {
+            let err_variable = Variable {
                 name: Default::default(),
                 assigned_name: String::new(),
                 resolved_type: unit_type,
@@ -3114,13 +3126,14 @@ impl<'a> Analyzer<'a> {
                 scope_index: 0,
                 variable_index: 0,
                 unique_id_within_function: 0,
+                virtual_register: 0,
                 is_unused: false,
             };
             return SingleLocationExpression {
                 kind: MutableReferenceKind::MutVariableRef,
                 node: self.to_node(&chain.base.node),
                 ty: self.shared.state.types.unit(),
-                starting_variable: VariableRef::from(variable),
+                starting_variable: VariableRef::from(err_variable),
                 access_chain: vec![],
             };
         };
@@ -3129,7 +3142,7 @@ impl<'a> Analyzer<'a> {
             self.add_err(ErrorKind::VariableIsNotMutable, &chain.base.node);
 
             let unit_type = self.types().unit();
-            let variable = Variable {
+            let err_variable = Variable {
                 name: Default::default(),
                 assigned_name: String::new(),
                 resolved_type: unit_type,
@@ -3138,13 +3151,14 @@ impl<'a> Analyzer<'a> {
                 scope_index: 0,
                 variable_index: 0,
                 unique_id_within_function: 0,
+                virtual_register: 0,
                 is_unused: false,
             };
             return SingleLocationExpression {
                 kind: MutableReferenceKind::MutVariableRef,
                 node: self.to_node(&chain.base.node),
                 ty: self.shared.state.types.unit(),
-                starting_variable: VariableRef::from(variable),
+                starting_variable: VariableRef::from(err_variable),
                 access_chain: vec![],
             };
         }
@@ -3416,6 +3430,7 @@ impl<'a> Analyzer<'a> {
                         scope_index: 0,
                         variable_index: 0,
                         unique_id_within_function: 0,
+                        virtual_register: 0,
                         is_unused: false,
                     }),
                     access_chain: vec![],

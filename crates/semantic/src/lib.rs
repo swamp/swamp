@@ -15,6 +15,7 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
+use std::thread::Scope;
 use swamp_attributes::Attributes;
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeRef};
@@ -62,7 +63,7 @@ pub struct LocalIdentifier(pub Node);
 pub struct InternalMainExpression {
     pub expression: Expression,
     pub function_parameters: Vec<VariableRef>,
-    pub function_variables: Vec<VariableRef>,
+    pub scopes: VariableScopes,
     pub program_unique_id: InternalFunctionId,
 }
 
@@ -90,7 +91,7 @@ pub struct InternalFunctionDefinition {
     pub defined_in_module_path: Vec<String>,
     pub signature: Signature,
     pub parameters: Vec<VariableRef>,
-    pub function_variables: Vec<VariableRef>,
+    pub function_variables: VariableScopes,
     pub program_unique_id: InternalFunctionId,
     pub attributes: Attributes,
 }
@@ -120,22 +121,14 @@ impl Default for InternalFunctionDefinition {
                 }),
             },
             parameters: vec![],
-            function_variables: vec![],
+            function_variables: VariableScopes::default(),
             program_unique_id: 0,
             attributes: Attributes::default(),
         }
     }
 }
 
-impl InternalFunctionDefinition {
-    #[must_use]
-    pub fn all_parameters_and_variables_are_concrete(&self) -> bool {
-        for var in &self.parameters {}
-
-        for var in &self.function_variables {}
-        true
-    }
-}
+impl InternalFunctionDefinition {}
 
 impl Debug for InternalFunctionDefinition {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -230,10 +223,62 @@ impl BlockScope {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
+pub struct VariableScope {
+    pub mode: BlockScopeMode,
+    pub variables: SeqMap<usize, VariableRef>,
+}
+
+#[derive(Clone, Debug)]
+pub struct VariableScopes {
+    //pub block_scope_stack: Vec<VariableScope>,
+    pub current_register: usize,
+    pub highest_virtual_register: usize,
+    pub all_variables: Vec<VariableRef>,
+}
+
+impl VariableScopes {
+    pub fn new() -> Self {
+        Self {
+            //block_scope_stack: vec![],
+            current_register: 0,
+
+            all_variables: vec![],
+            highest_virtual_register: 0,
+        }
+    }
+}
+impl Default for VariableScopes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct FunctionScopeState {
     pub block_scope_stack: Vec<BlockScope>,
     pub variable_index: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct ScopeInfo {
+    pub active_scope: FunctionScopeState,
+    pub total_scopes: VariableScopes,
+}
+
+impl ScopeInfo {
+    pub fn new() -> Self {
+        Self {
+            active_scope: FunctionScopeState::default(),
+            total_scopes: VariableScopes::default(),
+        }
+    }
+}
+
+impl Default for ScopeInfo {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Display for FunctionScopeState {
@@ -286,8 +331,9 @@ pub struct Variable {
 
     pub scope_index: usize,
     pub variable_index: usize,
-
     pub unique_id_within_function: usize,
+    pub virtual_register: u8,
+
     pub is_unused: bool,
 }
 
@@ -302,6 +348,7 @@ impl Variable {
             variable_type: VariableType::Local,
             scope_index: 0,
             variable_index: 0,
+            virtual_register: 0,
             unique_id_within_function: 0,
             is_unused: false,
         }
@@ -908,7 +955,7 @@ pub struct Constant {
     pub id: ConstantId,
     pub expr: Expression,
     pub resolved_type: TypeRef,
-    pub function_scope_state: Vec<VariableRef>,
+    pub function_scope_state: VariableScopes,
 }
 pub type ConstantRef = Rc<Constant>;
 

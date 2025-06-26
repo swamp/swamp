@@ -16,6 +16,7 @@ impl Analyzer<'_> {
     fn try_find_local_variable(&self, node: &Node) -> Option<&VariableRef> {
         let current_scope = self
             .scope
+            .active_scope
             .block_scope_stack
             .iter()
             .last()
@@ -39,7 +40,7 @@ impl Analyzer<'_> {
     pub(crate) fn try_find_variable(&self, node: &swamp_ast::Node) -> Option<VariableRef> {
         let variable_text = self.get_text(node);
 
-        for scope in self.scope.block_scope_stack.iter().rev() {
+        for scope in self.scope.active_scope.block_scope_stack.iter().rev() {
             if let Some(value) = scope.lookup.get(&variable_text.to_string()) {
                 return Some(value.clone());
             }
@@ -117,7 +118,6 @@ impl Analyzer<'_> {
             variable_type_ref,
             VariableType::Local,
         );
-        self.function_variables.push(variable_ref.clone());
 
         variable_ref
     }
@@ -131,6 +131,7 @@ impl Analyzer<'_> {
     ) -> (VariableRef, String) {
         if let Some(_existing_variable) = self.try_find_local_variable(variable) {
             self.add_err_resolved(ErrorKind::OverwriteVariableNotAllowedHere, variable);
+
             let error_var_ref = VariableRef::new(Variable {
                 name: Default::default(),
                 assigned_name: "err".to_string(),
@@ -140,6 +141,7 @@ impl Analyzer<'_> {
                 scope_index: 0,
                 variable_index: 0,
                 unique_id_within_function: 0,
+                virtual_register: 0,
                 is_unused: false,
             });
 
@@ -147,14 +149,15 @@ impl Analyzer<'_> {
         }
         let variable_str = self.get_text_resolved(variable).to_string();
 
-        let scope_index = self.scope.block_scope_stack.len() - 1;
+        let scope_index = self.scope.active_scope.block_scope_stack.len() - 1;
 
-        let index = { self.scope.emit_variable_index() };
+        let index = { self.scope.active_scope.emit_variable_index() };
 
         let should_insert_in_scope = !variable_str.starts_with('_');
 
         let variables_len = &mut self
             .scope
+            .active_scope
             .block_scope_stack
             .last_mut()
             .expect("block scope should have at least one scope")
@@ -163,6 +166,14 @@ impl Analyzer<'_> {
 
         // Make sure to use the TypeCache to ensure proper type handling
         // The variable_type_ref should be obtained from the TypeCache
+
+        self.scope.total_scopes.current_register += 1;
+        if self.scope.total_scopes.current_register
+            > self.scope.total_scopes.highest_virtual_register
+        {
+            self.scope.total_scopes.highest_virtual_register =
+                self.scope.total_scopes.current_register;
+        }
         let resolved_variable = Variable {
             name: variable.clone(),
             assigned_name: variable_str.clone(),
@@ -172,6 +183,7 @@ impl Analyzer<'_> {
             scope_index,
             variable_index: *variables_len,
             unique_id_within_function: index,
+            virtual_register: self.scope.total_scopes.current_register as u8,
             is_unused: !should_insert_in_scope,
         };
 
@@ -189,6 +201,7 @@ impl Analyzer<'_> {
                 scope_index: 0,
                 variable_index: 0,
                 unique_id_within_function: 0,
+                virtual_register: 0,
                 is_unused: false,
             });
 
@@ -198,6 +211,7 @@ impl Analyzer<'_> {
         if should_insert_in_scope {
             let lookups = &mut self
                 .scope
+                .active_scope
                 .block_scope_stack
                 .last_mut()
                 .expect("block scope should have at least one scope")
@@ -209,6 +223,7 @@ impl Analyzer<'_> {
 
         let variables = &mut self
             .scope
+            .active_scope
             .block_scope_stack
             .last_mut()
             .expect("block scope should have at least one scope")
@@ -216,6 +231,10 @@ impl Analyzer<'_> {
         variables
             .insert(variable_ref.unique_id_within_function, variable_ref.clone())
             .expect("should have checked earlier for variable");
+        self.scope
+            .total_scopes
+            .all_variables
+            .push(variable_ref.clone());
 
         (variable_ref, variable_str)
     }
@@ -227,12 +246,13 @@ impl Analyzer<'_> {
         is_mutable: bool,
         variable_type_ref: &TypeRef,
     ) -> VariableRef {
-        let scope_index = self.scope.block_scope_stack.len() - 1;
+        let scope_index = self.scope.active_scope.block_scope_stack.len() - 1;
 
-        let index_within_function = self.scope.emit_variable_index();
+        let index_within_function = self.scope.active_scope.emit_variable_index();
 
         let variables_len = self
             .scope
+            .active_scope
             .block_scope_stack
             .last_mut()
             .expect("block scope should have at least one scope")
@@ -249,6 +269,14 @@ impl Analyzer<'_> {
 
         // Make sure to use the TypeCache to ensure proper type handling
         // The variable_type_ref should be obtained from the TypeCache
+        self.scope.total_scopes.current_register += 1;
+        if self.scope.total_scopes.current_register
+            > self.scope.total_scopes.highest_virtual_register
+        {
+            self.scope.total_scopes.highest_virtual_register =
+                self.scope.total_scopes.current_register;
+        }
+
         let resolved_variable = Variable {
             name: Node::default(),
             assigned_name: actual_name.clone(),
@@ -262,6 +290,7 @@ impl Analyzer<'_> {
             scope_index,
             variable_index: variables_len,
             unique_id_within_function: index_within_function,
+            virtual_register: self.scope.total_scopes.current_register as u8,
             is_unused: is_marked_as_unused,
         };
 
@@ -270,6 +299,7 @@ impl Analyzer<'_> {
         if !is_marked_as_unused {
             let lookups = &mut self
                 .scope
+                .active_scope
                 .block_scope_stack
                 .last_mut()
                 .expect("block scope should have at least one scope")
@@ -281,6 +311,7 @@ impl Analyzer<'_> {
 
         let variables = &mut self
             .scope
+            .active_scope
             .block_scope_stack
             .last_mut()
             .expect("block scope should have at least one scope")
@@ -288,8 +319,10 @@ impl Analyzer<'_> {
         variables
             .insert(variable_ref.unique_id_within_function, variable_ref.clone())
             .expect("should have checked earlier for variable");
-
-        self.function_variables.push(variable_ref.clone());
+        self.scope
+            .total_scopes
+            .all_variables
+            .push(variable_ref.clone());
 
         variable_ref
     }

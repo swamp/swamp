@@ -104,7 +104,10 @@ pub fn disasm_whole_program(
 
             let output_string = disasm_function(
                 &debug_info_for_pc.function_debug_info.return_type,
-                &debug_info_for_pc.function_debug_info.parameters,
+                &debug_info_for_pc
+                    .function_debug_info
+                    .frame_memory
+                    .variable_registers,
                 instructions_slice,
                 &InstructionPositionOffset(current_ip),
                 debug_info,

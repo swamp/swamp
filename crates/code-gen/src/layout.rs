@@ -4,11 +4,12 @@ use crate::reg_pool::RegisterPool;
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::Write;
-use swamp_semantic::{VariableRef, VariableType};
+use swamp_semantic::{VariableRef, VariableScopes, VariableType};
 use swamp_types::TypeRef;
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{
-    FrameAddressInfo, FrameMemoryInfo, VariableInfo, VariableInfoKind, VariableRegister, VmType,
+    FrameAddressInfo, FrameMemoryInfo, TypedRegister, VariableInfo, VariableInfoKind,
+    VariableRegister, VmType,
 };
 use swamp_vm_types::{FrameMemoryAddress, FrameMemoryRegion, MemorySize};
 
@@ -20,7 +21,7 @@ pub fn layout_variables(
     layout_cache: &mut LayoutCache,
     _node: &Node,
     parameters: &Vec<VariableRef>,
-    variables: &Vec<VariableRef>,
+    scopes: &VariableScopes,
     exp_return_type: &TypeRef,
 ) -> FrameAndVariableInfo {
     let mut local_frame_allocator = ScopeAllocator::new(FrameMemoryRegion::new(
@@ -34,10 +35,10 @@ pub fn layout_variables(
     let mut enter_comment = "variables:\n".to_string();
     let mut frame_memory_infos = Vec::new();
 
-    let mut parameter_and_variable_registers = SeqMap::new();
+    let mut all_variable_unique_to_register = SeqMap::new();
     let mut frame_register_allocator = RegisterPool::new(1, 127);
 
-    let mut parameter_registers = Vec::new();
+    /*
     for var_ref in parameters {
         let parameter_basic_type = layout_cache.layout(&var_ref.resolved_type);
         swamp_vm_layout::check_type_size(
@@ -45,49 +46,25 @@ pub fn layout_variables(
             &format!("parameter '{}'", var_ref.assigned_name),
         );
 
-        let register = frame_register_allocator.alloc_register(
-            VmType::new_contained_in_register(parameter_basic_type),
-            &format!("param {}", var_ref.assigned_name),
-        );
 
-        parameter_registers.push(VariableRegister {
-            unique_id_in_function: var_ref.unique_id_within_function,
-            variable: VariableInfo {
-                is_mutable: var_ref.is_mutable(),
-                name: var_ref.assigned_name.clone(),
-            },
-            register: register.clone(),
-        });
-
-        parameter_and_variable_registers
-            .insert(var_ref.unique_id_within_function, register)
-            .unwrap();
+        all_variable_unique_to_register.insert(var_ref.unique_id_within_function, register).unwrap()
     }
+
+     */
 
     //info!(len = variables.len(), "variables");
 
-    let mut variable_registers = Vec::new();
-    for var_ref in variables {
+    let mut variable_registers_for_debug_info = Vec::new();
+    for var_ref in &scopes.all_variables {
         let basic_type = layout_cache.layout(&var_ref.resolved_type);
 
         //info!(var_ref.assigned_name, ?frame_register_allocator, "allocating local variable");
-        let register = if basic_type.is_aggregate() {
+        let vm_type = if basic_type.is_aggregate() {
             // TODO: Should have a check if the variable needs the storage (if it is in an assignment in a copy)
             swamp_vm_layout::check_type_size(
                 &basic_type,
                 &format!("variable '{}'", var_ref.assigned_name),
             );
-
-            let var_frame_placed_type = local_frame_allocator.allocate_type(&basic_type);
-            //trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
-            writeln!(
-                &mut enter_comment,
-                "  {}:{} {}",
-                var_frame_placed_type.addr(),
-                var_frame_placed_type.size().0,
-                var_ref.assigned_name
-            )
-            .unwrap();
 
             let kind = match var_ref.variable_type {
                 VariableType::Local => VariableInfoKind::Variable(VariableInfo {
@@ -100,34 +77,51 @@ pub fn layout_variables(
                 }),
             };
 
-            frame_memory_infos.push(FrameAddressInfo {
-                kind,
-                frame_placed_type: var_frame_placed_type.clone(),
-            });
+            if matches!(var_ref.variable_type, VariableType::Local) {
+                let var_frame_placed_type = local_frame_allocator.allocate_type(&basic_type);
+                //trace!(?var_ref.assigned_name, ?var_frame_placed_type, "laying out");
+                writeln!(
+                    &mut enter_comment,
+                    "  {}:{} {}",
+                    var_frame_placed_type.addr(),
+                    var_frame_placed_type.size().0,
+                    var_ref.assigned_name
+                )
+                .unwrap();
 
-            frame_register_allocator.alloc_register(
-                VmType::new_frame_placed(var_frame_placed_type),
-                &format!("var mut {}", var_ref.assigned_name),
-            )
+                frame_memory_infos.push(FrameAddressInfo {
+                    kind,
+                    frame_placed_type: var_frame_placed_type.clone(),
+                });
+                VmType::new_frame_placed(var_frame_placed_type)
+            } else {
+                // even if it is an aggregate, parameters do not need any frame memory, they are allocated elsewhere
+                VmType::new_contained_in_register(basic_type)
+            }
         } else {
-            frame_register_allocator.alloc_register(
-                VmType::new_contained_in_register(basic_type),
-                &format!("var immute {}", var_ref.assigned_name),
-            )
+            // If it is a scalar, then it is in a register no matter if it is a parameter or local
+            VmType::new_contained_in_register(basic_type)
         };
 
-        variable_registers.push(VariableRegister {
+        let typed_register = TypedRegister {
+            index: var_ref.virtual_register,
+            ty: vm_type,
+            comment: "".to_string(),
+        };
+
+        all_variable_unique_to_register
+            .insert(var_ref.unique_id_within_function, typed_register.clone())
+            .unwrap();
+
+        let var_register = VariableRegister {
             unique_id_in_function: var_ref.unique_id_within_function,
             variable: VariableInfo {
                 is_mutable: var_ref.is_mutable(),
                 name: var_ref.assigned_name.clone(),
             },
-            register: register.clone(),
-        });
-
-        parameter_and_variable_registers
-            .insert(var_ref.unique_id_within_function, register)
-            .unwrap();
+            register: typed_register.clone(),
+        };
+        variable_registers_for_debug_info.push(var_register);
     }
 
     let variable_space = local_frame_allocator.addr().as_size();
@@ -145,12 +139,11 @@ pub fn layout_variables(
             total_frame_size: frame_size,
             variable_frame_size: frame_size,
             frame_size_for_variables_except_temp: variable_space,
-            variable_registers,
+            variable_registers: variable_registers_for_debug_info,
         },
         local_frame_allocator,
         return_type,
-        parameters: parameter_registers.clone(),
-        parameter_and_variable_offsets: parameter_and_variable_registers,
+        parameter_and_variable_offsets: all_variable_unique_to_register,
         frame_registers: frame_register_allocator,
         highest_register_used,
     }
