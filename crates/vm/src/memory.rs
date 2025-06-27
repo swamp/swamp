@@ -8,6 +8,20 @@ use std::{alloc, mem, ptr, slice};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::{HeapMemoryAddress, HeapMemoryRegion, MemoryAlignment, MemorySize};
 
+/// VM Memory Layout (from lower to higher addresses):
+/// 
+/// 1. **Constant Memory**: Pre-compiled constant data (read-only)
+/// 2. **Constant Heap Allocations**: Strings and other heap data allocated during constant evaluation
+///    - These allocations must be preserved between function calls as they contain constant string data
+///    - String pointers in constant memory reference this area
+/// 3. **Preserved Structs**: Data structures that need to persist between engine ticks
+///    - Currently unused but reserved for future use
+/// 4. **Stack Space**: Frame-placed variables and function call frames
+///    - Grows upward with each function call
+///    - Reset on function entry/exit
+/// 5. **Heap**: Dynamic allocations during program execution
+///    - Reset after each tick to prevent memory leaks
+///    - Starts after the preserved area to avoid corrupting constant data
 pub struct Memory {
     pub(crate) memory: *mut u8,
     pub(crate) memory_size: usize,
