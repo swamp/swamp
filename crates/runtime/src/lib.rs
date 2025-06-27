@@ -104,6 +104,10 @@ pub fn run_constants_in_order(
             .unwrap();
         }
     }
+    
+    // After all constants have been processed, update the memory layout to preserve
+    // heap-allocated strings and properly set up the stack and heap boundaries
+    vm.memory_mut().finalize_constant_heap_allocations();
 }
 
 // "/Users/peter/external/swamp_autobattler/scripts"

@@ -31,6 +31,7 @@ pub struct Memory {
     pub heap_start: usize,
     pub heap_alloc_offset: usize,
     pub constant_memory_size: usize,
+    pub constant_heap_allocations_end: usize, // End of heap allocations made during constant evaluation
 }
 
 impl Memory {}
@@ -78,6 +79,7 @@ impl Memory {
             heap_alloc_offset: aligned_start_of_heap,
             constant_memory_size: aligned_start_of_stack,
             stack_start: aligned_start_of_stack,
+            constant_heap_allocations_end: aligned_start_of_stack, // Initially, no constant heap allocations
         }
     }
 
@@ -98,6 +100,29 @@ impl Memory {
     pub fn reset_stack_and_fp(&mut self) {
         self.stack_offset = self.stack_start;
         self.frame_offset = self.stack_offset;
+    }
+
+    /// Update memory layout after constant evaluation to preserve heap-allocated strings
+    /// and properly set up the stack to start after constant heap allocations
+    pub fn finalize_constant_heap_allocations(&mut self) {
+        // Record where constant heap allocations end
+        self.constant_heap_allocations_end = self.heap_alloc_offset;
+        
+        // Calculate new stack start after the constant heap allocations (with proper alignment)
+        let new_stack_start = align(self.constant_heap_allocations_end, ALIGNMENT);
+        
+        // Update stack-related offsets to start after constant heap allocations
+        self.stack_start = new_stack_start;
+        self.stack_offset = new_stack_start;
+        self.frame_offset = new_stack_start;
+        
+        // Calculate new heap start after the stack space
+        let stack_size = self.heap_start - self.constant_memory_size;
+        let new_heap_start = align(new_stack_start + stack_size, ALIGNMENT);
+        
+        // Update heap start and reset allocator to new position
+        self.heap_start = new_heap_start;
+        self.heap_alloc_offset = new_heap_start;
     }
 
     pub fn alloc_before_stack(
@@ -455,5 +480,112 @@ impl Memory {
     ) -> *mut u8 {
         let heap_offset = self.read_heap_offset_via_frame(frame_offset);
         self.get_heap_ptr(heap_offset as usize + heap_ptr_offset as usize)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ALIGNMENT;
+
+    #[test]
+    fn test_finalize_constant_heap_allocations() {
+        // Create a simple memory layout to test with (needs to be large enough to pass the assertion)
+        let constant_memory = vec![0u8; 1024]; // 1KB constant memory
+        let stack_size = 256 * 1024; // 256KB stack (larger than the 128KB minimum)
+        let heap_size = 512 * 1024; // 512KB heap
+        
+        let mut memory = Memory::new(&constant_memory, stack_size, heap_size);
+        
+        // Record initial state
+        let _initial_stack_start = memory.stack_start;
+        let _initial_heap_start = memory.heap_start;
+        let initial_heap_alloc_offset = memory.heap_alloc_offset;
+        let initial_constant_heap_end = memory.constant_heap_allocations_end;
+        
+        // Verify initial state
+        assert_eq!(initial_constant_heap_end, memory.constant_memory_size);
+        
+        // Simulate constant heap allocations (like string allocations during constant evaluation)
+        let test_allocation_size = 256;
+        let allocated_offset = memory.heap_allocate_secret(test_allocation_size);
+        
+        // Verify the allocation was made
+        assert!(allocated_offset > 0);
+        assert!(memory.heap_alloc_offset > initial_heap_alloc_offset);
+        
+        let post_allocation_heap_offset = memory.heap_alloc_offset;
+        
+        // Now finalize the constant heap allocations
+        memory.finalize_constant_heap_allocations();
+        
+        // Verify the memory layout has been updated correctly
+        
+        // 1. constant_heap_allocations_end should be set to where allocations ended
+        assert_eq!(memory.constant_heap_allocations_end, post_allocation_heap_offset);
+        
+        // 2. stack_start should be moved to after the constant heap allocations
+        let expected_new_stack_start = align(post_allocation_heap_offset, ALIGNMENT);
+        assert_eq!(memory.stack_start, expected_new_stack_start);
+        
+        // 3. stack_offset and frame_offset should be reset to new stack start
+        assert_eq!(memory.stack_offset, expected_new_stack_start);
+        assert_eq!(memory.frame_offset, expected_new_stack_start);
+        
+        // 4. heap_start should be moved to after the stack space
+        let expected_new_heap_start = align(expected_new_stack_start + stack_size, ALIGNMENT);
+        assert_eq!(memory.heap_start, expected_new_heap_start);
+        
+        // 5. heap_alloc_offset should be reset to new heap start
+        assert_eq!(memory.heap_alloc_offset, expected_new_heap_start);
+        
+        // Verify the new layout preserves the constant heap allocations
+        assert!(memory.constant_heap_allocations_end > memory.constant_memory_size);
+        assert!(memory.stack_start >= memory.constant_heap_allocations_end);
+        assert!(memory.heap_start > memory.stack_start);
+    }
+
+    #[test]
+    fn test_constant_heap_allocations_preserved() {
+        let constant_memory = vec![0u8; 512];
+        let mut memory = Memory::new(&constant_memory, 256 * 1024, 512 * 1024); // Use larger sizes
+        
+        // Allocate some data during "constant evaluation"
+        let data1 = b"Hello, World!";
+        let data2 = b"Another string allocation";
+        
+        let offset1 = memory.heap_allocate_with_data(data1);
+        let offset2 = memory.heap_allocate_with_data(data2);
+        
+        // Verify data is correctly stored
+        unsafe {
+            let ptr1 = memory.get_heap_ptr(offset1 as usize);
+            let ptr2 = memory.get_heap_ptr(offset2 as usize);
+            
+            let stored1 = std::slice::from_raw_parts(ptr1, data1.len());
+            let stored2 = std::slice::from_raw_parts(ptr2, data2.len());
+            
+            assert_eq!(stored1, data1);
+            assert_eq!(stored2, data2);
+        }
+        
+        // Finalize constant heap allocations
+        memory.finalize_constant_heap_allocations();
+        
+        // Verify data is still correctly accessible after finalization
+        unsafe {
+            let ptr1 = memory.get_heap_ptr(offset1 as usize);
+            let ptr2 = memory.get_heap_ptr(offset2 as usize);
+            
+            let stored1 = std::slice::from_raw_parts(ptr1, data1.len());
+            let stored2 = std::slice::from_raw_parts(ptr2, data2.len());
+            
+            assert_eq!(stored1, data1);
+            assert_eq!(stored2, data2);
+        }
+        
+        // Verify that stack and heap are now positioned after constant heap allocations
+        assert!(memory.stack_start > offset2 as usize + data2.len());
+        assert!(memory.heap_start > memory.stack_start);
     }
 }
