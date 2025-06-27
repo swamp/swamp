@@ -659,7 +659,7 @@ impl Analyzer<'_> {
 
             self.stop_function();
 
-            let is_built_in = matches!(function_name_str.as_str(), "to_string" | "default");
+            let is_built_in = matches!(function_name_str.as_str(), "to_string" | "to_short_string" | "default");
             if is_built_in {
                 self.shared
                     .state
@@ -818,7 +818,8 @@ impl Analyzer<'_> {
 
     fn add_default_functions(&mut self, type_to_attach_to: &TypeRef, node: &swamp_ast::Node) {
         let underlying = type_to_attach_to;
-        if self
+        
+        let needs_to_string = self
             .shared
             .state
             .associated_impls
@@ -827,19 +828,51 @@ impl Analyzer<'_> {
             && matches!(
                 &*underlying.kind,
                 TypeKind::Enum(_) | TypeKind::NamedStruct(_) | TypeKind::AnonymousStruct(_)
-            )
-        {
-            let new_internal_function =
-                self.generate_to_string_function_for_type(type_to_attach_to, node);
-            self.shared
+            );
+
+        let needs_to_short_string = self
+            .shared
+            .state
+            .associated_impls
+            .get_internal_member_function(underlying, "to_short_string")
+            .is_none()
+            && matches!(
+                &*underlying.kind,
+                TypeKind::Enum(_) | TypeKind::NamedStruct(_) | TypeKind::AnonymousStruct(_)
+            );
+
+        if needs_to_string || needs_to_short_string {
+            if !self
+                .shared
                 .state
                 .associated_impls
-                .prepare(type_to_attach_to);
-            self.shared
-                .state
-                .associated_impls
-                .add_internal_function(type_to_attach_to, new_internal_function)
-                .unwrap();
+                .is_prepared(type_to_attach_to)
+            {
+                self.shared
+                    .state
+                    .associated_impls
+                    .prepare(type_to_attach_to);
+            }
+
+            if needs_to_string {
+                let new_internal_function =
+                    self.generate_to_string_function_for_type(type_to_attach_to, node);
+                self.shared
+                    .state
+                    .associated_impls
+                    .add_internal_function(type_to_attach_to, new_internal_function)
+                    .unwrap();
+            }
+
+            if needs_to_short_string {
+                let new_internal_function =
+                    self.generate_to_short_string_function_for_type(type_to_attach_to, node);
+                self.shared
+                    .state
+                    .associated_impls
+                    .add_internal_function(type_to_attach_to, new_internal_function)
+                    .unwrap();
+            }
         }
     }
 }
