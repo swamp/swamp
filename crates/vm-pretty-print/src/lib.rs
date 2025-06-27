@@ -158,7 +158,7 @@ fn print(
 
         BasicTypeKind::InternalStringPointer => {
             let heap_addr = slice_to_u32_le(frame);
-            let str = Vm::read_string(heap_addr, heap);
+            let str = "todo"; // read_string(heap_addr, heap);
             write!(f, "\"{str}\" (%{heap_addr:X})")
         }
         BasicTypeKind::DynamicLengthVecView(item_type)

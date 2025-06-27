@@ -27,7 +27,6 @@ use swamp_vm_types::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,
     PatchPosition,
 };
-use tracing::info;
 
 impl TopLevelGenState {
     /// # Panics
@@ -254,7 +253,7 @@ impl TopLevelGenState {
     ) -> (InstructionPosition, InstructionPosition, FunctionInfo) {
         let start_ip = self.ip();
 
-        info!(in_data.assigned_name, "emit_function");
+        //info!(in_data.assigned_name, "emit_function");
 
         let frame_and_variable_info = layout_variables(
             &mut self.codegen_state.layout_cache,

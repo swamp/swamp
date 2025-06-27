@@ -161,7 +161,7 @@ fn automatic_enum_to_string() {
     a = SimpleEnum::First
     print('SimpleEnum to_string: {a.to_string()}')
     assert(a.to_string() == "SimpleEnum::First", "enum to_string failed")
-    
+
     b = SimpleEnum::Second
     assert(b.to_string() == "SimpleEnum::Second", "enum to_string failed")
 }
@@ -171,8 +171,10 @@ fn automatic_enum_to_short_string() {
     // Test automatic to_short_string generation for enums (shows only variant name)
     a = SimpleEnum::First
     print('SimpleEnum to_short_string: {a.to_short_string()}')
-    assert(a.to_short_string() == "First", "enum to_short_string failed")
-    
+    a_result = a.to_short_string()
+    assert(a_result == "First", 'enum to_short_string failed "{a}"')
+
     b = SimpleEnum::Third
-    assert(b.to_short_string() == "Third", "enum to_short_string failed")
+    b_result = b.to_short_string()
+    assert(b_result == "Third", 'enum to_short_string failed {b_result}"')
 }

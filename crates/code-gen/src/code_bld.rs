@@ -351,7 +351,7 @@ impl CodeBuilder<'_> {
     }
 
     pub(crate) fn get_variable_register(&self, variable: &VariableRef) -> &TypedRegister {
-        info!(unique_id=?variable.unique_id_within_function, name=?variable.assigned_name, "trying to fetch");
+        //info!(unique_id=?variable.unique_id_within_function, name=?variable.assigned_name, "trying to fetch");
         self.variable_registers
             .get(&variable.unique_id_within_function)
             .unwrap()

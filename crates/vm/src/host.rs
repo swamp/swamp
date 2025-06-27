@@ -7,7 +7,7 @@ use std::{
     mem::{align_of, size_of},
     ptr, slice,
 };
-use swamp_vm_types::StringHeader;
+use swamp_vm_types::{STRING_PAYLOAD_OFFSET, StringHeader};
 
 pub struct HostArgs {
     // references into the Vm
@@ -190,17 +190,19 @@ impl HostArgs {
             let string_header =
                 *(self.all_memory.add(string_header_addr as usize) as *const StringHeader);
 
-            let static_rune_offset = string_header.heap_offset as usize;
+            // String data follows directly after the header
+            let string_data_ptr = self
+                .all_memory
+                .add(string_header_addr as usize + STRING_PAYLOAD_OFFSET.0 as usize);
             let string_byte_length = string_header.byte_count as usize;
 
             debug_assert!(
-                static_rune_offset + string_byte_length <= self.all_memory_len,
-                "String read out-of-bounds in heap memory"
+                string_header_addr as usize + size_of::<StringHeader>() + string_byte_length
+                    <= self.all_memory_len,
+                "String read out-of-bounds in memory"
             );
 
-            let ptr_to_utf8 = self.all_memory.add(static_rune_offset);
-
-            let bytes = slice::from_raw_parts(ptr_to_utf8, string_byte_length);
+            let bytes = slice::from_raw_parts(string_data_ptr, string_byte_length);
 
             std::str::from_utf8_unchecked(bytes)
         }

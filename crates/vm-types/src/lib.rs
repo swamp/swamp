@@ -821,19 +821,37 @@ pub struct MapIterator {
 pub const MAP_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<MapIterator>() as u32);
 pub const MAP_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
-
 pub const STRING_SECRET: u16 = 0x0BAD;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct StringHeader {
-    pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
-    pub byte_count: u16,  // Count should be second
+    /// Do not change the order of the fields!
+    ///
+    /// Keep the capacity field at the start of the header for consistency across all
+    /// container types. Placing it first simplifies copy operations: we can verify
+    /// and preserve capacity before copying the remainder of the header in one contiguous operation.
+    pub capacity: u16,
+
+    /// Number of bytes in the string.
+    ///
+    /// Always located at offset 2, enabling:
+    /// - **Logical size**: Represents the number of valid bytes in use.
+    /// - **Bounds checking**: Length checks can load this field in a single instruction.
+    /// - **ABI stability**: External tools, debuggers, and serializers can consistently locate
+    ///   `capacity` and `byte_count` across all container types.
+    pub byte_count: u16,
+
+    /// Padding with a magic value to detect corruption
     pub padding: u16,
+    // String data directly follows the header in memory
+    // This field doesn't actually exist in the struct, it's just a comment
+    // to indicate that the string bytes are stored immediately after this header
 }
 
 pub const STRING_HEADER_SIZE: MemorySize = MemorySize(size_of::<StringHeader>() as u32);
-pub const STRING_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(4);
+pub const STRING_HEADER_COUNT_OFFSET: MemoryOffset = MemoryOffset(2);
 pub const STRING_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+pub const STRING_PAYLOAD_OFFSET: MemoryOffset = MemoryOffset(STRING_HEADER_SIZE.0);
 
 pub const STRING_PTR_SIZE: MemorySize = HEAP_PTR_ON_FRAME_SIZE;
 pub const STRING_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;

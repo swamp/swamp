@@ -50,6 +50,7 @@ pub fn run_constants_in_order(
     host_function_callback: &mut dyn HostFunctionCallback,
     mut options: RunConstantsOptions,
 ) {
+    vm.memory_mut().set_heap_directly_after_constant_area();
     for (_key, constant) in constants_in_order {
         // do not reset heap, all allocations from heap should remain (for now)
         vm.reset_call_stack();
@@ -104,6 +105,9 @@ pub fn run_constants_in_order(
             .unwrap();
         }
     }
+
+    // We need to properly preserve string headers when incorporating heap into constant area
+    vm.memory_mut().incorporate_heap_into_constant_area();
 }
 
 // "/Users/peter/external/swamp_autobattler/scripts"
@@ -190,8 +194,8 @@ pub fn create_vm_with_standard_settings(
     prepared_constant_memory: &[u8],
 ) -> Vm {
     let vm_setup = VmSetup {
-        stack_memory_size: 5 * 1024 * 1024 * 1024,
-        heap_memory_size: 2 * 1024 * 1024,
+        stack_memory_size: 512 * 1024 * 1024, // 512 MiB
+        heap_memory_size: 2 * 1024 * 1024,    // 2 MiB for transient heap allocation
         constant_memory: prepared_constant_memory.to_vec(),
         debug_opcodes_enabled: false,
         debug_stats_enabled: false,

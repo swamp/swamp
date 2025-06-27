@@ -28,7 +28,7 @@ pub fn layout_variables(
         MemorySize(3 * 1024 * 1024 * 1024),
     ));
 
-    info!("layout variables");
+    //info!("layout variables");
     //    let return_placed_type_pointer = layout_type(exp_return_type).create_mutable_pointer();
     //let return_placed_type = allocator.allocate_type(return_placed_type_pointer); //reserve(return_placed_type_pointer, &mut allocator);
 
@@ -95,7 +95,7 @@ pub fn layout_variables(
             comment: "".to_string(),
         };
 
-        info!(unique_id=?var_ref.unique_id_within_function, name=?var_ref.assigned_name, "insert variable");
+        //info!(unique_id=?var_ref.unique_id_within_function, name=?var_ref.assigned_name, "insert variable");
         all_variable_unique_to_register
             .insert(var_ref.unique_id_within_function, typed_register.clone())
             .unwrap();

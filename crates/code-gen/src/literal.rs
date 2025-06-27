@@ -6,8 +6,9 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
+use std::mem::size_of;
 use swamp_vm_types::types::{Destination, VmType, string_type};
-use swamp_vm_types::{HeapMemoryAddress, StringHeader, STRING_SECRET};
+use swamp_vm_types::{HeapMemoryAddress, STRING_SECRET, StringHeader};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_string_literal(
@@ -20,27 +21,32 @@ impl CodeBuilder<'_> {
         let string_bytes = string.as_bytes();
         let string_byte_count = string_bytes.len();
 
-        let data_ptr = self
-            .state
-            .constants_manager
-            .allocate_byte_array(string_bytes);
+        // Create a combined buffer for the header and string data
+        let total_size = size_of::<StringHeader>() + string_byte_count;
+        let mut combined_buffer = Vec::with_capacity(total_size);
 
+        // Create the string header
         let string_header = StringHeader {
-            heap_offset: data_ptr.addr().0,
+            capacity: string_byte_count as u16,
             byte_count: string_byte_count as u16,
             padding: STRING_SECRET,
         };
 
         // Convert string header to bytes (little-endian)
-        let mut header_bytes = [0u8; 8];
-        header_bytes[0..4].copy_from_slice(&string_header.heap_offset.to_le_bytes());
-        header_bytes[4..6].copy_from_slice(&string_header.byte_count.to_le_bytes());
-        header_bytes[6..8].copy_from_slice(&string_header.padding.to_le_bytes());
+        let mut header_bytes = [0u8; size_of::<StringHeader>()];
+        header_bytes[0..2].copy_from_slice(&string_header.capacity.to_le_bytes());
+        header_bytes[2..4].copy_from_slice(&string_header.byte_count.to_le_bytes());
+        header_bytes[4..6].copy_from_slice(&string_header.padding.to_le_bytes());
 
+        // Add header and string data to the combined buffer
+        combined_buffer.extend_from_slice(&header_bytes);
+        combined_buffer.extend_from_slice(string_bytes);
+
+        // Allocate the combined buffer in constant memory
         let string_header_in_heap_ptr = HeapMemoryAddress(
             self.state
                 .constants_manager
-                .allocate_byte_array(&header_bytes)
+                .allocate_byte_array(&combined_buffer)
                 .addr()
                 .0,
         );

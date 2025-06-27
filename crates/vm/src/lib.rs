@@ -1310,7 +1310,7 @@ impl Vm {
         }
 
         let heap_addr = get_reg!(self, panic_reason_reg);
-        let str = Self::read_string(heap_addr, &self.memory);
+        let str = self.read_string(heap_addr, &self.memory);
 
         #[cfg(feature = "debug_vm")]
         if self.debug_stats_enabled {
