@@ -1,0 +1,63 @@
+#[test]
+fn test_string_to_string() {
+    s = "hello world!"
+    result = s.to_string()
+    assert(result == "\"hello world!\"", 'result is wrong {result}')
+}
+
+struct MinimalStruct {
+    field: String,
+}
+
+#[test]
+fn string_field_on_minimal_struct() {
+    m = MinimalStruct {
+        field: "hello",
+    }
+    result = m.to_string()
+    assert(result == "\"hello world!\"", 'field in minimal result is wrong {result}')
+}
+
+
+
+
+/*
+
+
+
+
+struct Mixed {
+    num: Int,
+    flag: Bool,
+    text: String,
+}
+
+
+/// This test is to ensure that the automatic conversion to string works correctly.
+// TODO: There is currently a string corruption, that probably relates the evaluation of constants
+// are not saving the heap
+#[test]
+fn automatic_to_string() {
+    mut mixed = Mixed { num: 42, flag: false, text: "hello" }
+    print('Mixed struct: {mixed}')
+    result = mixed.to_string()
+    assert(result == "Mixed { num: 42, flag: false, text: \"hello\" }", 'to_string failed "{result}"')
+}
+
+
+enum SimpleEnum {
+    First,
+    Second,
+    Third,
+}
+
+#[test]
+fn automatic_enum_to_string() {
+    a = SimpleEnum::First
+    print('SimpleEnum to_string: {a.to_string()}')
+    assert(a.to_string() == "SimpleEnum::First", "enum to_string failed")
+
+    b = SimpleEnum::Second
+    assert(b.to_string() == "SimpleEnum::Second", "enum to_string failed")
+}
+*/
