@@ -7,7 +7,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_vm_types::types::{Destination, VmType, string_type};
-use swamp_vm_types::{HeapMemoryAddress, StringHeader};
+use swamp_vm_types::{HeapMemoryAddress, StringHeader, STRING_SECRET};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_string_literal(
@@ -27,13 +27,15 @@ impl CodeBuilder<'_> {
 
         let string_header = StringHeader {
             heap_offset: data_ptr.addr().0,
-            byte_count: string_byte_count as u32,
+            byte_count: string_byte_count as u16,
+            padding: STRING_SECRET,
         };
 
         // Convert string header to bytes (little-endian)
         let mut header_bytes = [0u8; 8];
         header_bytes[0..4].copy_from_slice(&string_header.heap_offset.to_le_bytes());
-        header_bytes[4..8].copy_from_slice(&string_header.byte_count.to_le_bytes());
+        header_bytes[4..6].copy_from_slice(&string_header.byte_count.to_le_bytes());
+        header_bytes[6..8].copy_from_slice(&string_header.padding.to_le_bytes());
 
         let string_header_in_heap_ptr = HeapMemoryAddress(
             self.state

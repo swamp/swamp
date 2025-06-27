@@ -3,8 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::Memory;
-use crate::{Vm, set_reg};
-use swamp_vm_types::StringHeader;
+use crate::{get_reg, set_reg, Vm, ALIGNMENT};
+use swamp_vm_types::{StringHeader, STRING_SECRET};
+use std::{mem::size_of, ptr};
+use swamp_vm_types::aligner::align;
 
 impl Vm {
     /*
@@ -56,6 +58,12 @@ impl Vm {
     pub fn read_string_header_from_ptr_reg(&self, vec_header_ptr_reg: u8) -> StringHeader {
         let header_storage_ptr_value =
             self.get_const_ptr_from_reg(vec_header_ptr_reg) as *const StringHeader;
+        
+        unsafe {
+            if (*header_storage_ptr_value).byte_count != 0 {
+                debug_assert_eq!((*header_storage_ptr_value).padding, STRING_SECRET, "string is corrupt had length {}", (*header_storage_ptr_value).byte_count);
+            }
+        }
 
         let vec_header_const_ptr_typed = header_storage_ptr_value as *const StringHeader;
 
@@ -69,6 +77,9 @@ impl Vm {
     fn get_string(&self, reg: u8) -> &str {
         let header = self.read_string_header_from_ptr_reg(reg);
         let byte_count = header.byte_count;
+        if byte_count != 0 {
+            debug_assert_eq!(header.padding, STRING_SECRET, "string is corrupt had length {byte_count}");
+        }
         unsafe {
             let runes = self
                 .memory()
@@ -84,6 +95,8 @@ impl Vm {
         let str_a = self.get_string(string_a);
         let str_b = self.get_string(string_b);
         let result = str_a.to_string() + str_b;
+        
+        
 
         self.create_string(target_string_addr, &result);
     }
@@ -129,16 +142,15 @@ impl Vm {
 
         let string_header = StringHeader {
             heap_offset: runes_in_heap,
-            byte_count: rune_bytes.len() as u32,
+            byte_count: rune_bytes.len() as u16,
+            padding: STRING_SECRET,
         };
 
         let header_addr_in_heap = self.memory.heap_allocate_secret(size_of::<StringHeader>());
 
-        let header_ptr_in_heap =
-            self.memory.get_heap_ptr(header_addr_in_heap as usize) as *mut StringHeader;
-
         unsafe {
-            *header_ptr_in_heap = string_header;
+            let header_ptr = self.memory.get_heap_ptr(header_addr_in_heap as usize);
+            ptr::write_unaligned(header_ptr as *mut StringHeader, string_header);
         }
 
         set_reg!(self, dst_reg, header_addr_in_heap);

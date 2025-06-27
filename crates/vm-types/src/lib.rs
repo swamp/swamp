@@ -821,12 +821,14 @@ pub struct MapIterator {
 pub const MAP_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<MapIterator>() as u32);
 pub const MAP_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
+
+pub const STRING_SECRET: u16 = 0x0BAD;
 #[repr(C)]
-#[repr(packed)]
 #[derive(Copy, Clone, Debug)]
 pub struct StringHeader {
     pub heap_offset: u32, // "pointer" to the allocated slice (an offset into memory). Pointer should always be first
-    pub byte_count: u32,  // Count should be second
+    pub byte_count: u16,  // Count should be second
+    pub padding: u16,
 }
 
 pub const STRING_HEADER_SIZE: MemorySize = MemorySize(size_of::<StringHeader>() as u32);

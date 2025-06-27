@@ -233,7 +233,8 @@ fn toggle_flag(mut flag: Bool) {
 fn automatic_to_string() {
     mut mixed = Mixed { num: 42, flag: false, text: "hello" }
     print('Mixed struct: {mixed}')
-    assert(mixed.to_string() == "Mixed { num: 42, flag: false, text: \"hello\" }", "to_string failed")
+    result = mixed.to_string()
+    assert(result == "Mixed { num: 42, flag: false, text: \"hello\" }", 'to_string failed "{result}"')
 }
 
 /// This test is to ensure that the automatic conversion to short string works correctly.
