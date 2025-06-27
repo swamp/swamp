@@ -39,6 +39,12 @@ enum Different {
     More { name: String, color: Color}
 }
 
+enum SimpleEnum {
+    First,
+    Second,
+    Third,
+}
+
 #[test]
 fn matching_enum_with_container() {
     a = Different::FewThings(Color::Green, 42)
@@ -147,4 +153,26 @@ fn matching_mut_enum_tuple_one_field() {
     }
     print('result: {result}')
     assert(result == 255, "enum value is wrong")
+}
+
+#[test]
+fn automatic_enum_to_string() {
+    // Test automatic to_string generation for enums (shows full enum::variant)
+    a = SimpleEnum::First
+    print('SimpleEnum to_string: {a.to_string()}')
+    assert(a.to_string() == "SimpleEnum::First", "enum to_string failed")
+    
+    b = SimpleEnum::Second
+    assert(b.to_string() == "SimpleEnum::Second", "enum to_string failed")
+}
+
+#[test]
+fn automatic_enum_to_short_string() {
+    // Test automatic to_short_string generation for enums (shows only variant name)
+    a = SimpleEnum::First
+    print('SimpleEnum to_short_string: {a.to_short_string()}')
+    assert(a.to_short_string() == "First", "enum to_short_string failed")
+    
+    b = SimpleEnum::Third
+    assert(b.to_short_string() == "Third", "enum to_short_string failed")
 }
