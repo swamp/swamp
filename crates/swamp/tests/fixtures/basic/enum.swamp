@@ -155,9 +155,9 @@ fn matching_mut_enum_tuple_one_field() {
     assert(result == 255, "enum value is wrong")
 }
 
+// Test automatic to_string generation for enums (shows full enum::variant)
 #[test]
 fn automatic_enum_to_string() {
-    // Test automatic to_string generation for enums (shows full enum::variant)
     a = SimpleEnum::First
     print('SimpleEnum to_string: {a.to_string()}')
     assert(a.to_string() == "SimpleEnum::First", "enum to_string failed")
@@ -166,9 +166,9 @@ fn automatic_enum_to_string() {
     assert(b.to_string() == "SimpleEnum::Second", "enum to_string failed")
 }
 
+// Test automatic to_short_string generation for enums (shows only variant name)
 #[test]
 fn automatic_enum_to_short_string() {
-    // Test automatic to_short_string generation for enums (shows only variant name)
     a = SimpleEnum::First
     print('SimpleEnum to_short_string: {a.to_short_string()}')
     a_result = a.to_short_string()

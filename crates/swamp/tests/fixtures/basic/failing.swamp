@@ -12,10 +12,10 @@ struct MinimalStruct {
 #[test]
 fn string_field_on_minimal_struct() {
     m = MinimalStruct {
-        field: "hello",
+        field: "hello again!",
     }
     result = m.to_string()
-    assert(result == "\"hello world!\"", 'field in minimal result is wrong {result}')
+    assert(result == "MinimalStruct { field: \"hello again!\" }", 'field in minimal result is wrong {result}')
 }
 
 

@@ -1641,67 +1641,114 @@ impl<'a> Analyzer<'a> {
                 kind: postfix_kind,
             };
 
-            // Get to_short_string function for the field type first, fallback to to_string
-            let field_string_fn = self
-                .shared
-                .state
-                .associated_impls
-                .get_internal_member_function(&field_type.field_type, "to_short_string")
-                .or_else(|| {
-                    self.shared
-                        .state
-                        .associated_impls
-                        .get_internal_member_function(&field_type.field_type, "to_string")
-                });
-
-            if let Some(to_string_fn) = field_string_fn {
-                let function_ref = Function::Internal(to_string_fn.clone());
-                let function_name = if self
-                    .shared
-                    .state
-                    .associated_impls
-                    .get_internal_member_function(&field_type.field_type, "to_short_string")
-                    .is_some()
-                {
-                    "to_short_string"
-                } else {
-                    "to_string"
-                };
-
-                // Create call to to_short_string or to_string for the field
-                let postfix_call_to_string = Postfix {
-                    node: node.clone(),
-                    ty: self.types().string(),
-                    kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
-                };
-
-                // Create chain to access field and call to_short_string/to_string
+            let field_value_expr = if *field_type.field_type.kind == TypeKind::String {
                 let start_of_chain = StartOfChain {
                     kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
                     node: node.clone(),
                 };
-
-                let lookup_kind = ExpressionKind::PostfixChain(
-                    start_of_chain,
-                    vec![postfix_lookup_field_in_self, postfix_call_to_string],
-                );
-
-                let field_value_expr =
-                    self.create_expr_resolved(lookup_kind, string_type.clone(), &node);
-
-                // Concatenate field value to result
-                let concat_value_kind = BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_expr),
-                    right: Box::new(field_value_expr),
-                    node: node.clone(),
-                };
-                result_expr = self.create_expr_resolved(
-                    ExpressionKind::BinaryOp(concat_value_kind),
+                let field_access_expr = self.create_expr_resolved(
+                    ExpressionKind::PostfixChain(
+                        start_of_chain,
+                        vec![postfix_lookup_field_in_self],
+                    ),
                     string_type.clone(),
                     &node,
                 );
-            }
+
+                let quote_kind = ExpressionKind::StringLiteral("\"".to_string());
+                let quote_expr = self.create_expr_resolved(quote_kind, string_type.clone(), &node);
+
+                let concat_left_quote_kind = BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(quote_expr.clone()),
+                    right: Box::new(field_access_expr),
+                    node: node.clone(),
+                };
+
+                let with_left_quote_expr = self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(concat_left_quote_kind),
+                    string_type.clone(),
+                    &node,
+                );
+
+                let concat_right_quote_kind = BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(with_left_quote_expr),
+                    right: Box::new(quote_expr),
+                    node: node.clone(),
+                };
+                self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(concat_right_quote_kind),
+                    string_type.clone(),
+                    &node,
+                )
+            } else {
+                // Get to_short_string function for the field type first, fallback to to_string
+                let field_string_fn = self
+                    .shared
+                    .state
+                    .associated_impls
+                    .get_internal_member_function(&field_type.field_type, "to_short_string")
+                    .or_else(|| {
+                        self.shared
+                            .state
+                            .associated_impls
+                            .get_internal_member_function(&field_type.field_type, "to_string")
+                    });
+
+                if let Some(to_string_fn) = field_string_fn {
+                    let function_ref = Function::Internal(to_string_fn.clone());
+                    let _function_name = if self
+                        .shared
+                        .state
+                        .associated_impls
+                        .get_internal_member_function(&field_type.field_type, "to_short_string")
+                        .is_some()
+                    {
+                        "to_short_string"
+                    } else {
+                        "to_string"
+                    };
+
+                    // Create call to to_short_string or to_string for the field
+                    let postfix_call_to_string = Postfix {
+                        node: node.clone(),
+                        ty: self.types().string(),
+                        kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+                    };
+
+                    // Create chain to access field and call to_short_string/to_string
+                    let start_of_chain = StartOfChain {
+                        kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                        node: node.clone(),
+                    };
+
+                    let lookup_kind = ExpressionKind::PostfixChain(
+                        start_of_chain,
+                        vec![postfix_lookup_field_in_self, postfix_call_to_string],
+                    );
+
+                    self.create_expr_resolved(lookup_kind, string_type.clone(), &node)
+                } else {
+                    // This should not happen for any user-visible type, but as a fallback
+                    // we can insert an error message.
+                    let error_kind = ExpressionKind::StringLiteral("<unsupported>".to_string());
+                    self.create_expr_resolved(error_kind, string_type.clone(), &node)
+                }
+            };
+
+            // Concatenate field value to result
+            let concat_value_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_expr),
+                right: Box::new(field_value_expr),
+                node: node.clone(),
+            };
+            result_expr = self.create_expr_resolved(
+                ExpressionKind::BinaryOp(concat_value_kind),
+                string_type.clone(),
+                &node,
+            );
         }
 
         // Create closing brace string
@@ -1795,67 +1842,114 @@ impl<'a> Analyzer<'a> {
                 kind: postfix_kind,
             };
 
-            // Get to_short_string function for the field type first, fallback to to_string
-            let field_string_fn = self
-                .shared
-                .state
-                .associated_impls
-                .get_internal_member_function(&field_type.field_type, "to_short_string")
-                .or_else(|| {
-                    self.shared
-                        .state
-                        .associated_impls
-                        .get_internal_member_function(&field_type.field_type, "to_string")
-                });
-
-            if let Some(to_string_fn) = field_string_fn {
-                let function_ref = Function::Internal(to_string_fn.clone());
-                let function_name = if self
-                    .shared
-                    .state
-                    .associated_impls
-                    .get_internal_member_function(&field_type.field_type, "to_short_string")
-                    .is_some()
-                {
-                    "to_short_string"
-                } else {
-                    "to_string"
-                };
-
-                // Create call to to_short_string or to_string for the field
-                let postfix_call_to_string = Postfix {
-                    node: node.clone(),
-                    ty: self.types().string(),
-                    kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
-                };
-
-                // Create chain to access field and call to_short_string/to_string
+            let field_value_expr = if *field_type.field_type.kind == TypeKind::String {
                 let start_of_chain = StartOfChain {
                     kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
                     node: node.clone(),
                 };
-
-                let lookup_kind = ExpressionKind::PostfixChain(
-                    start_of_chain,
-                    vec![postfix_lookup_field_in_self, postfix_call_to_string],
-                );
-
-                let field_value_expr =
-                    self.create_expr_resolved(lookup_kind, string_type.clone(), &node);
-
-                // Concatenate field value to result
-                let concat_value_kind = BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_expr),
-                    right: Box::new(field_value_expr),
-                    node: node.clone(),
-                };
-                result_expr = self.create_expr_resolved(
-                    ExpressionKind::BinaryOp(concat_value_kind),
+                let field_access_expr = self.create_expr_resolved(
+                    ExpressionKind::PostfixChain(
+                        start_of_chain,
+                        vec![postfix_lookup_field_in_self],
+                    ),
                     string_type.clone(),
                     &node,
                 );
-            }
+
+                let quote_kind = ExpressionKind::StringLiteral("\"".to_string());
+                let quote_expr = self.create_expr_resolved(quote_kind, string_type.clone(), &node);
+
+                let concat_left_quote_kind = BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(quote_expr.clone()),
+                    right: Box::new(field_access_expr),
+                    node: node.clone(),
+                };
+
+                let with_left_quote_expr = self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(concat_left_quote_kind),
+                    string_type.clone(),
+                    &node,
+                );
+
+                let concat_right_quote_kind = BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(with_left_quote_expr),
+                    right: Box::new(quote_expr),
+                    node: node.clone(),
+                };
+                self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(concat_right_quote_kind),
+                    string_type.clone(),
+                    &node,
+                )
+            } else {
+                // Get to_short_string function for the field type first, fallback to to_string
+                let field_string_fn = self
+                    .shared
+                    .state
+                    .associated_impls
+                    .get_internal_member_function(&field_type.field_type, "to_short_string")
+                    .or_else(|| {
+                        self.shared
+                            .state
+                            .associated_impls
+                            .get_internal_member_function(&field_type.field_type, "to_string")
+                    });
+
+                if let Some(to_string_fn) = field_string_fn {
+                    let function_ref = Function::Internal(to_string_fn.clone());
+                    let _function_name = if self
+                        .shared
+                        .state
+                        .associated_impls
+                        .get_internal_member_function(&field_type.field_type, "to_short_string")
+                        .is_some()
+                    {
+                        "to_short_string"
+                    } else {
+                        "to_string"
+                    };
+
+                    // Create call to to_short_string or to_string for the field
+                    let postfix_call_to_string = Postfix {
+                        node: node.clone(),
+                        ty: self.types().string(),
+                        kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+                    };
+
+                    // Create chain to access field and call to_short_string/to_string
+                    let start_of_chain = StartOfChain {
+                        kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                        node: node.clone(),
+                    };
+
+                    let lookup_kind = ExpressionKind::PostfixChain(
+                        start_of_chain,
+                        vec![postfix_lookup_field_in_self, postfix_call_to_string],
+                    );
+
+                    self.create_expr_resolved(lookup_kind, string_type.clone(), &node)
+                } else {
+                    // This should not happen for any user-visible type, but as a fallback
+                    // we can insert an error message.
+                    let error_kind = ExpressionKind::StringLiteral("<unsupported>".to_string());
+                    self.create_expr_resolved(error_kind, string_type.clone(), &node)
+                }
+            };
+
+            // Concatenate field value to result
+            let concat_value_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_expr),
+                right: Box::new(field_value_expr),
+                node: node.clone(),
+            };
+            result_expr = self.create_expr_resolved(
+                ExpressionKind::BinaryOp(concat_value_kind),
+                string_type.clone(),
+                &node,
+            );
         }
 
         // Create closing brace string
