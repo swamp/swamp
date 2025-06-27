@@ -31,8 +31,8 @@ use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
     GridType, InternalMainExpression, LocationAccess, LocationAccessKind, MapType,
     MutableReferenceKind, NormalPattern, Postfix, PostfixKind, ScopeInfo, SingleLocationExpression,
-    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, VariableType, VecType,
-    WhenBinding,
+    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, UnaryOperatorKind,
+    VariableType, VecType, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::TypeKind;
@@ -2041,6 +2041,598 @@ impl<'a> Analyzer<'a> {
         )
     }
 
+    fn create_string_representation_of_expression(
+        &mut self,
+        expression_to_convert: Expression,
+        node: &Node,
+    ) -> Expression {
+        let string_type = self.types().string();
+        let ty = expression_to_convert.ty.clone();
+
+        if *ty.kind == TypeKind::String {
+            let quote_expr = self.create_expr_resolved(
+                ExpressionKind::StringLiteral("\"".to_string()),
+                string_type.clone(),
+                node,
+            );
+            let left_concat = self.create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(quote_expr.clone()),
+                    right: Box::new(expression_to_convert),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            self.create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(left_concat),
+                    right: Box::new(quote_expr),
+                    node: node.clone(),
+                }),
+                string_type,
+                node,
+            )
+        } else {
+            let field_string_fn = self
+                .shared
+                .state
+                .associated_impls
+                .get_internal_member_function(&ty, "to_short_string")
+                .or_else(|| {
+                    self.shared
+                        .state
+                        .associated_impls
+                        .get_internal_member_function(&ty, "to_string")
+                });
+
+            if let Some(to_string_fn) = field_string_fn {
+                let function_ref = Function::Internal(to_string_fn.clone());
+                let start_of_chain = StartOfChain {
+                    kind: StartOfChainKind::Expression(Box::from(expression_to_convert)),
+                    node: node.clone(),
+                };
+                let postfix_call_to_string = Postfix {
+                    node: node.clone(),
+                    ty: self.types().string(),
+                    kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+                };
+
+                let lookup_kind =
+                    ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_string]);
+
+                self.create_expr_resolved(lookup_kind, string_type.clone(), node)
+            } else {
+                let error_kind = ExpressionKind::StringLiteral("<unsupported>".to_string());
+                self.create_expr_resolved(error_kind, string_type.clone(), node)
+            }
+        }
+    }
+
+    fn generate_to_string_for_sequence_like(
+        &mut self,
+        self_expression: Expression,
+        _iterable_type: &TypeRef,
+        element_type: &TypeRef,
+        node: &Node,
+    ) -> Expression {
+        self.push_block_scope("to_string_for_sequence");
+        let node = node.clone(); // Create owned copy to avoid borrowing issues
+        let string_type = self.types().string();
+        let unit_type = self.types().unit();
+        let bool_type = self.types().bool();
+        let int_type = self.types().int();
+
+        // let mut result = "["
+        let (result_var, result_var_def) = {
+            let (var, _) = self.create_variable_like_resolved(
+                &node,
+                Some(&node),
+                &string_type,
+                VariableType::Local,
+            );
+            let opening_bracket = self.create_expr_resolved(
+                ExpressionKind::StringLiteral("[".to_string()),
+                string_type.clone(),
+                &node,
+            );
+            let def = self.create_expr_resolved(
+                ExpressionKind::VariableDefinition(var.clone(), Box::new(opening_bracket)),
+                unit_type.clone(),
+                &node,
+            );
+            (var, def)
+        };
+
+        // let mut is_first = true
+        let (is_first_var, is_first_var_def) = {
+            let (var, _) = self.create_variable_like_resolved(
+                &node,
+                Some(&node),
+                &bool_type,
+                VariableType::Local,
+            );
+            let true_expr = self.create_expr_resolved(
+                ExpressionKind::BoolLiteral(true),
+                bool_type.clone(),
+                &node,
+            );
+            let def = self.create_expr_resolved(
+                ExpressionKind::VariableDefinition(var.clone(), Box::new(true_expr)),
+                unit_type.clone(),
+                &node,
+            );
+            (var, def)
+        };
+
+        let for_loop = {
+            let (element_var, _) =
+                self.create_variable_like_resolved(&node, None, element_type, VariableType::Local);
+
+            // if !is_first { result = result + ", " }
+            let if_body = {
+                let result_access = self.create_expr_resolved(
+                    ExpressionKind::VariableAccess(result_var.clone()),
+                    string_type.clone(),
+                    &node,
+                );
+                let comma_expr = self.create_expr_resolved(
+                    ExpressionKind::StringLiteral(", ".to_string()),
+                    string_type.clone(),
+                    &node,
+                );
+                let concat_expr = self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(BinaryOperator {
+                        kind: BinaryOperatorKind::Add,
+                        left: Box::new(result_access),
+                        right: Box::new(comma_expr),
+                        node: node.clone(),
+                    }),
+                    string_type.clone(),
+                    &node,
+                );
+
+                self.create_expr_resolved(
+                    ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+                    unit_type.clone(),
+                    &node,
+                )
+            };
+
+            let if_expr = {
+                let is_first_access = self.create_expr_resolved(
+                    ExpressionKind::VariableAccess(is_first_var.clone()),
+                    bool_type.clone(),
+                    &node,
+                );
+                let condition = self.create_expr_resolved(
+                    ExpressionKind::UnaryOp(UnaryOperator {
+                        kind: UnaryOperatorKind::Not,
+                        left: Box::new(is_first_access),
+                        node: node.clone(),
+                    }),
+                    bool_type.clone(),
+                    &node,
+                );
+                self.create_expr_resolved(
+                    ExpressionKind::If(
+                        BooleanExpression {
+                            expression: Box::new(condition),
+                        },
+                        Box::new(if_body),
+                        None,
+                    ),
+                    unit_type.clone(),
+                    &node,
+                )
+            };
+
+            // result = result + element.to_string()
+            let append_element_expr = {
+                let element_access = self.create_expr_resolved(
+                    ExpressionKind::VariableAccess(element_var.clone()),
+                    element_type.clone(),
+                    &node,
+                );
+                let string_repr_expr =
+                    self.create_string_representation_of_expression(element_access, &node);
+                let result_access = self.create_expr_resolved(
+                    ExpressionKind::VariableAccess(result_var.clone()),
+                    string_type.clone(),
+                    &node,
+                );
+                let concat_expr = self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(BinaryOperator {
+                        kind: BinaryOperatorKind::Add,
+                        left: Box::new(result_access),
+                        right: Box::new(string_repr_expr),
+                        node: node.clone(),
+                    }),
+                    string_type.clone(),
+                    &node,
+                );
+                self.create_expr_resolved(
+                    ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+                    unit_type.clone(),
+                    &node,
+                )
+            };
+
+            // is_first = false
+            let set_is_first_to_false = {
+                let false_expr = self.create_expr_resolved(
+                    ExpressionKind::BoolLiteral(false),
+                    bool_type.clone(),
+                    &node,
+                );
+                self.create_expr_resolved(
+                    ExpressionKind::VariableReassignment(
+                        is_first_var.clone(),
+                        Box::new(false_expr),
+                    ),
+                    unit_type.clone(),
+                    &node,
+                )
+            };
+
+            let for_body = self.create_expr_resolved(
+                ExpressionKind::Block(vec![if_expr, append_element_expr, set_is_first_to_false]),
+                unit_type.clone(),
+                &node,
+            );
+
+            let iterable = Iterable {
+                key_type: Some(int_type.clone()),
+                value_type: element_type.clone(),
+                resolved_expression: Box::new(self_expression),
+            };
+
+            let for_pattern = ForPattern::Single(element_var);
+            self.create_expr_resolved(
+                ExpressionKind::ForLoop(for_pattern, iterable, Box::new(for_body)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        // result = result + "]"
+        let closing_bracket_def = {
+            let result_access = self.create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                &node,
+            );
+            let closing_bracket = self.create_expr_resolved(
+                ExpressionKind::StringLiteral("]".to_string()),
+                string_type.clone(),
+                &node,
+            );
+            let concat_expr = self.create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(closing_bracket),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                &node,
+            );
+            self.create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        let result_access_expr = self.create_expr_resolved(
+            ExpressionKind::VariableAccess(result_var),
+            string_type.clone(),
+            &node,
+        );
+
+        let block = self.create_expr_resolved(
+            ExpressionKind::Block(vec![
+                result_var_def,
+                is_first_var_def,
+                for_loop,
+                closing_bracket_def,
+                result_access_expr,
+            ]),
+            string_type,
+            &node,
+        );
+
+        self.pop_block_scope("to_string_for_sequence");
+
+        block
+    }
+
+    fn generate_to_string_for_map_like(
+        &mut self,
+        self_expression: Expression,
+        _map_type: &TypeRef,
+        key_type: &TypeRef,
+        value_type: &TypeRef,
+        node: &Node,
+    ) -> Expression {
+        self.push_block_scope("to_string_for_map");
+        let node = node.clone(); // Create owned copy to avoid borrowing issues
+        let string_type = self.types().string();
+        let unit_type = self.types().unit();
+        let bool_type = self.types().bool();
+
+        // let mut result = "{"
+        let (result_var, result_var_def) = {
+            let (var, _) = self.create_variable_like_resolved(
+                &node,
+                Some(&node),
+                &string_type,
+                VariableType::Local,
+            );
+            let opening_brace = self.create_expr_resolved(
+                ExpressionKind::StringLiteral("{".to_string()),
+                string_type.clone(),
+                &node,
+            );
+            let def = self.create_expr_resolved(
+                ExpressionKind::VariableDefinition(var.clone(), Box::new(opening_brace)),
+                unit_type.clone(),
+                &node,
+            );
+            (var, def)
+        };
+
+        // let mut is_first = true
+        let (is_first_var, is_first_var_def) = {
+            let (var, _) = self.create_variable_like_resolved(
+                &node,
+                Some(&node),
+                &bool_type,
+                VariableType::Local,
+            );
+            let true_expr = self.create_expr_resolved(
+                ExpressionKind::BoolLiteral(true),
+                bool_type.clone(),
+                &node,
+            );
+            let def = self.create_expr_resolved(
+                ExpressionKind::VariableDefinition(var.clone(), Box::new(true_expr)),
+                unit_type.clone(),
+                &node,
+            );
+            (var, def)
+        };
+
+        let for_loop = {
+            // For maps, we need two variables: key and value
+            let (key_var, _) =
+                self.create_variable_like_resolved(&node, None, key_type, VariableType::Local);
+            let (value_var, _) =
+                self.create_variable_like_resolved(&node, None, value_type, VariableType::Local);
+
+            // if !is_first { result = result + ", " }
+            let if_body = {
+                let result_access = self.create_expr_resolved(
+                    ExpressionKind::VariableAccess(result_var.clone()),
+                    string_type.clone(),
+                    &node,
+                );
+                let comma_expr = self.create_expr_resolved(
+                    ExpressionKind::StringLiteral(", ".to_string()),
+                    string_type.clone(),
+                    &node,
+                );
+                let concat_expr = self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(BinaryOperator {
+                        kind: BinaryOperatorKind::Add,
+                        left: Box::new(result_access),
+                        right: Box::new(comma_expr),
+                        node: node.clone(),
+                    }),
+                    string_type.clone(),
+                    &node,
+                );
+
+                self.create_expr_resolved(
+                    ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+                    unit_type.clone(),
+                    &node,
+                )
+            };
+
+            let if_expr = {
+                let is_first_access = self.create_expr_resolved(
+                    ExpressionKind::VariableAccess(is_first_var.clone()),
+                    bool_type.clone(),
+                    &node,
+                );
+                let condition = self.create_expr_resolved(
+                    ExpressionKind::UnaryOp(UnaryOperator {
+                        kind: UnaryOperatorKind::Not,
+                        left: Box::new(is_first_access),
+                        node: node.clone(),
+                    }),
+                    bool_type.clone(),
+                    &node,
+                );
+                self.create_expr_resolved(
+                    ExpressionKind::If(
+                        BooleanExpression {
+                            expression: Box::new(condition),
+                        },
+                        Box::new(if_body),
+                        None,
+                    ),
+                    unit_type.clone(),
+                    &node,
+                )
+            };
+
+            // result = result + key.to_string() + ": " + value.to_string()
+            let append_key_value_expr = {
+                let key_access = self.create_expr_resolved(
+                    ExpressionKind::VariableAccess(key_var.clone()),
+                    key_type.clone(),
+                    &node,
+                );
+                let key_string_repr =
+                    self.create_string_representation_of_expression(key_access, &node);
+
+                let value_access = self.create_expr_resolved(
+                    ExpressionKind::VariableAccess(value_var.clone()),
+                    value_type.clone(),
+                    &node,
+                );
+                let value_string_repr =
+                    self.create_string_representation_of_expression(value_access, &node);
+
+                let colon_expr = self.create_expr_resolved(
+                    ExpressionKind::StringLiteral(": ".to_string()),
+                    string_type.clone(),
+                    &node,
+                );
+
+                let result_access = self.create_expr_resolved(
+                    ExpressionKind::VariableAccess(result_var.clone()),
+                    string_type.clone(),
+                    &node,
+                );
+
+                // result + key_string + ": " + value_string
+                let temp1 = self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(BinaryOperator {
+                        kind: BinaryOperatorKind::Add,
+                        left: Box::new(result_access),
+                        right: Box::new(key_string_repr),
+                        node: node.clone(),
+                    }),
+                    string_type.clone(),
+                    &node,
+                );
+
+                let temp2 = self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(BinaryOperator {
+                        kind: BinaryOperatorKind::Add,
+                        left: Box::new(temp1),
+                        right: Box::new(colon_expr),
+                        node: node.clone(),
+                    }),
+                    string_type.clone(),
+                    &node,
+                );
+
+                let final_concat = self.create_expr_resolved(
+                    ExpressionKind::BinaryOp(BinaryOperator {
+                        kind: BinaryOperatorKind::Add,
+                        left: Box::new(temp2),
+                        right: Box::new(value_string_repr),
+                        node: node.clone(),
+                    }),
+                    string_type.clone(),
+                    &node,
+                );
+
+                self.create_expr_resolved(
+                    ExpressionKind::VariableReassignment(
+                        result_var.clone(),
+                        Box::new(final_concat),
+                    ),
+                    unit_type.clone(),
+                    &node,
+                )
+            };
+
+            // is_first = false
+            let set_is_first_to_false = {
+                let false_expr = self.create_expr_resolved(
+                    ExpressionKind::BoolLiteral(false),
+                    bool_type.clone(),
+                    &node,
+                );
+                self.create_expr_resolved(
+                    ExpressionKind::VariableReassignment(
+                        is_first_var.clone(),
+                        Box::new(false_expr),
+                    ),
+                    unit_type.clone(),
+                    &node,
+                )
+            };
+
+            let for_body = self.create_expr_resolved(
+                ExpressionKind::Block(vec![if_expr, append_key_value_expr, set_is_first_to_false]),
+                unit_type.clone(),
+                &node,
+            );
+
+            let iterable = Iterable {
+                key_type: Some(key_type.clone()),
+                value_type: value_type.clone(),
+                resolved_expression: Box::new(self_expression),
+            };
+
+            let for_pattern = ForPattern::Pair(key_var, value_var);
+            self.create_expr_resolved(
+                ExpressionKind::ForLoop(for_pattern, iterable, Box::new(for_body)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        // result = result + "}"
+        let closing_brace_def = {
+            let result_access = self.create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                &node,
+            );
+            let closing_brace = self.create_expr_resolved(
+                ExpressionKind::StringLiteral("}".to_string()),
+                string_type.clone(),
+                &node,
+            );
+            let concat_expr = self.create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(closing_brace),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                &node,
+            );
+            self.create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        let result_access_expr = self.create_expr_resolved(
+            ExpressionKind::VariableAccess(result_var),
+            string_type.clone(),
+            &node,
+        );
+
+        let block = self.create_expr_resolved(
+            ExpressionKind::Block(vec![
+                result_var_def,
+                is_first_var_def,
+                for_loop,
+                closing_brace_def,
+                result_access_expr,
+            ]),
+            string_type,
+            &node,
+        );
+
+        self.pop_block_scope("to_string_for_map");
+
+        block
+    }
+
     pub fn generate_to_string_function_for_type(
         &mut self,
         ty: &TypeRef,
@@ -2062,7 +2654,7 @@ impl<'a> Analyzer<'a> {
 
         let first_self_param = self.create_expr_resolved(
             ExpressionKind::VariableAccess(variable_ref),
-            string_type,
+            ty.clone(),
             &resolved_node,
         );
 
@@ -2090,20 +2682,33 @@ impl<'a> Analyzer<'a> {
             }
             TypeKind::Function(_) => todo!(),
             TypeKind::Optional(_) => todo!(),
-            TypeKind::FixedCapacityAndLengthArray(_, _) => todo!(),
-            TypeKind::SliceView(_) => todo!(),
-            TypeKind::DynamicLengthVecView(_) => todo!(),
-            TypeKind::VecStorage(_, _) => todo!(),
-            TypeKind::SparseStorage(_, _) => todo!(),
-            TypeKind::GridStorage(_, _, _) => todo!(),
-            TypeKind::StackView(_) => todo!(),
-            TypeKind::QueueView(_) => todo!(),
-            TypeKind::GridView(_) => todo!(),
-            TypeKind::SparseView(_) => todo!(),
-            TypeKind::StackStorage(_, _) => todo!(),
-            TypeKind::QueueStorage(_, _) => todo!(),
-            TypeKind::MapStorage(_, _, _) => todo!(),
-            TypeKind::DynamicLengthMapView(_, _) => todo!(),
+            TypeKind::FixedCapacityAndLengthArray(element_type, _)
+            | TypeKind::SliceView(element_type)
+            | TypeKind::DynamicLengthVecView(element_type)
+            | TypeKind::VecStorage(element_type, _)
+            | TypeKind::StackView(element_type)
+            | TypeKind::QueueView(element_type)
+            | TypeKind::StackStorage(element_type, _)
+            | TypeKind::QueueStorage(element_type, _)
+            | TypeKind::SparseView(element_type)
+            | TypeKind::SparseStorage(element_type, _)
+            | TypeKind::GridView(element_type)
+            | TypeKind::GridStorage(element_type, _, _) => self
+                .generate_to_string_for_sequence_like(
+                    first_self_param,
+                    ty,
+                    element_type,
+                    &resolved_node,
+                ),
+            TypeKind::MapStorage(key_type, value_type, _)
+            | TypeKind::DynamicLengthMapView(key_type, value_type) => self
+                .generate_to_string_for_map_like(
+                    first_self_param,
+                    ty,
+                    key_type,
+                    value_type,
+                    &resolved_node,
+                ),
         };
 
         let unique_function_id = self.shared.state.allocate_internal_function_id();
@@ -2154,7 +2759,7 @@ impl<'a> Analyzer<'a> {
 
         let first_self_param = self.create_expr_resolved(
             ExpressionKind::VariableAccess(variable_ref),
-            string_type,
+            ty.clone(),
             &resolved_node,
         );
 
@@ -2182,20 +2787,33 @@ impl<'a> Analyzer<'a> {
             }
             TypeKind::Function(_) => todo!(),
             TypeKind::Optional(_) => todo!(),
-            TypeKind::FixedCapacityAndLengthArray(_, _) => todo!(),
-            TypeKind::SliceView(_) => todo!(),
-            TypeKind::DynamicLengthVecView(_) => todo!(),
-            TypeKind::VecStorage(_, _) => todo!(),
-            TypeKind::SparseStorage(_, _) => todo!(),
-            TypeKind::GridStorage(_, _, _) => todo!(),
-            TypeKind::StackView(_) => todo!(),
-            TypeKind::QueueView(_) => todo!(),
-            TypeKind::GridView(_) => todo!(),
-            TypeKind::SparseView(_) => todo!(),
-            TypeKind::StackStorage(_, _) => todo!(),
-            TypeKind::QueueStorage(_, _) => todo!(),
-            TypeKind::MapStorage(_, _, _) => todo!(),
-            TypeKind::DynamicLengthMapView(_, _) => todo!(),
+            TypeKind::FixedCapacityAndLengthArray(element_type, _)
+            | TypeKind::SliceView(element_type)
+            | TypeKind::DynamicLengthVecView(element_type)
+            | TypeKind::VecStorage(element_type, _)
+            | TypeKind::StackView(element_type)
+            | TypeKind::QueueView(element_type)
+            | TypeKind::StackStorage(element_type, _)
+            | TypeKind::QueueStorage(element_type, _)
+            | TypeKind::SparseView(element_type)
+            | TypeKind::SparseStorage(element_type, _)
+            | TypeKind::GridView(element_type)
+            | TypeKind::GridStorage(element_type, _, _) => self
+                .generate_to_string_for_sequence_like(
+                    first_self_param,
+                    ty,
+                    element_type,
+                    &resolved_node,
+                ),
+            TypeKind::MapStorage(key_type, value_type, _)
+            | TypeKind::DynamicLengthMapView(key_type, value_type) => self
+                .generate_to_string_for_map_like(
+                    first_self_param,
+                    ty,
+                    key_type,
+                    value_type,
+                    &resolved_node,
+                ),
         };
 
         let unique_function_id = self.shared.state.allocate_internal_function_id();
