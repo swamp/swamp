@@ -125,20 +125,12 @@ fn core_text() -> String {
 type SparseId = Int
 
 impl Bool {
-  fn default() -> Bool {
-    false
-  }
-
   fn to_string(self) -> String {
       bool_to_string(self)
   }
 }
 
 impl Float {
-    fn default() -> Float {
-        0.0
-    }
-
     fn to_string(self) -> String {
         float_to_string(self)
     }
@@ -300,10 +292,6 @@ impl Float {
 }
 
 impl Int {
-    fn default() -> Int {
-        0
-    }
-
     fn to_string(self) -> String {
         int_to_string(self)
     }
@@ -372,10 +360,6 @@ impl Int {
 }
 
 impl String {
-    fn default() -> String {
-        ""
-    }
-
     fn to_string(self) -> String {
         string_to_string(self)
     }

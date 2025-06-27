@@ -10,23 +10,24 @@ use std::collections::HashSet;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef,
+    Postfix, PostfixKind, StartOfChain, StartOfChainKind,
 };
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
     fn analyze_struct_init_calling_default(
         &mut self,
-        _function: &FunctionRef,
+        function: &FunctionRef,
         super_type: &TypeRef,
         anon_struct_type: &AnonymousStructType,
         mut source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
         node: &swamp_ast::Node,
     ) -> Expression {
         // This function is called when the struct type has a default() function.
-        // We need to:
-        // 1. Call SomeStruct::default() to get default values for all fields
-        // 2. Add the provided field values to override specific fields
-        // 3. Create a struct literal with all fields (defaults + overrides)
+        // Algorithm: 
+        // 1. Call SomeStruct::default() to get a complete default struct
+        // 2. Create a struct literal where we override only the provided fields
+        // 3. For missing fields, extract them from the default struct
         
         // Find which fields are provided
         let mut provided_field_indices = HashSet::new();
@@ -34,23 +35,35 @@ impl Analyzer<'_> {
             provided_field_indices.insert(*field_index);
         }
 
-        // For missing fields, we call the struct's default() and extract those fields
-        // Since we can't easily extract individual fields from a default() call,
-        // we create a complete struct literal with default field values
+        // Create a call to the struct's default() method
+        let default_call = self.create_default_static_call(node, super_type);
+        let default_struct_expr = self.create_expr(default_call, super_type.clone(), node);
+
+        // For missing fields, create field access expressions from the default struct
         for (field_index, (_field_name, field_info)) in anon_struct_type.field_name_sorted_fields.iter().enumerate() {
             if !provided_field_indices.contains(&field_index) {
-                // Try to create a default value for this field.
-                // If the field type doesn't have a default implementation, skip it
-                if let Some(default_expression) = self.create_default_value_for_type(node, &field_info.field_type) {
-                    source_order_expressions.push((field_index, field_info.identifier.clone(), default_expression));
-                }
-                // If no default is available, we just skip this field
-                // This means the struct won't be completely initialized, but that's 
-                // acceptable if the user explicitly used the rest operator (..)
+                // Create field access: default_struct.field_name
+                let start_of_chain = StartOfChain {
+                    kind: StartOfChainKind::Expression(Box::new(default_struct_expr.clone())),
+                    node: self.to_node(node),
+                };
+                let postfixes = vec![Postfix {
+                    kind: PostfixKind::StructField(super_type.clone(), field_index),
+                    ty: field_info.field_type.clone(),
+                    node: self.to_node(node),
+                }];
+                
+                let field_access_expr = self.create_expr(
+                    ExpressionKind::PostfixChain(start_of_chain, postfixes),
+                    field_info.field_type.clone(),
+                    node,
+                );
+                
+                source_order_expressions.push((field_index, field_info.identifier.clone(), field_access_expr));
             }
         }
 
-        // Create a direct struct literal with all fields (both provided and defaulted)
+        // Create a struct literal with all fields (both provided and from struct default)
         self.create_expr(
             ExpressionKind::AnonymousStructLiteral(AnonymousStructLiteral {
                 struct_like_type: Self::get_struct_like_type(super_type),

@@ -907,10 +907,6 @@ impl<'a> Analyzer<'a> {
         field_type: &TypeRef,
     ) -> Option<Expression> {
         let kind = match &*field_type.kind {
-            TypeKind::Bool => ExpressionKind::BoolLiteral(false),
-            TypeKind::Int => ExpressionKind::IntLiteral(0),
-            TypeKind::Float => ExpressionKind::FloatLiteral(Fp::zero()),
-            TypeKind::String => ExpressionKind::StringLiteral(String::new()),
             TypeKind::Tuple(tuple_type_ref) => {
                 let mut expressions = Vec::new();
                 for resolved_type in tuple_type_ref {
@@ -936,7 +932,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
             _ => {
-                // For other types, we don't have defaults, so skip them
+                // For primitives and other types without default implementations, skip them
                 return None;
             }
         };

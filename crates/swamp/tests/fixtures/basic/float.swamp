@@ -9,10 +9,10 @@ fn floor() {
     assert(100.9.floor() == 100, "floor is wrong")
 }
 
-#[test]
-fn default_float() {
-    assert(Float::default() == 0.0, "default() is wrong")
-}
+//#[test]
+//fn default_float() {
+//    assert(Float::default() == 0.0, "default() is wrong")
+//}
 
 //#[test]
 // TODO: Probably works as intended, but precision of fixed point numbers were tricky to get right for the test.
