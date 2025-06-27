@@ -1015,6 +1015,15 @@ impl CodeBuilder<'_> {
                 );
             }
 
+            IntrinsicFunction::StringToString => {
+                self.builder.string_to_string(
+                    maybe_target.unwrap(),
+                    self_reg.unwrap(),
+                    node,
+                    "string_to_string",
+                );
+            }
+
             // Common Collection
             IntrinsicFunction::MapIsEmpty | IntrinsicFunction::VecIsEmpty => {
                 let collection_pointer = PointerLocation {

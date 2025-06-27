@@ -40,6 +40,7 @@ pub enum IntrinsicFunction {
 
     // String
     StringLen,
+    StringToString,
     // TODO: StringSubscript, StringConcat
 
     // Range
@@ -139,6 +140,7 @@ impl fmt::Display for IntrinsicFunction {
 
             // String
             Self::StringLen => "string_len",
+            Self::StringToString => "string_to_string",
 
             // Vec
             Self::VecPush => "vec_push",

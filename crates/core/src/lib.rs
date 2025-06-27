@@ -1213,7 +1213,7 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
     let string_to_int = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: string_type,
+            resolved_type: string_type.clone(),
             is_mutable: false,
             node: None,
         }]
@@ -1230,6 +1230,30 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
                 name,
                 intrinsic: intrinsic_fn,
                 signature: string_to_int.clone(),
+            })
+            .unwrap();
+    }
+
+    let string_to_string = Signature {
+        parameters: [TypeForParameter {
+            name: "self".into(),
+            resolved_type: string_type.clone(),
+            is_mutable: false,
+            node: None,
+        }]
+        .into(),
+        return_type: string_type,
+    };
+
+    let string_to_string_functions = [IntrinsicFunction::StringToString];
+
+    for intrinsic_fn in string_to_string_functions {
+        let name = intrinsic_fn.to_string();
+        core_ns
+            .add_intrinsic_function(IntrinsicFunctionDefinition {
+                name,
+                intrinsic: intrinsic_fn,
+                signature: string_to_string.clone(),
             })
             .unwrap();
     }

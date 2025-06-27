@@ -96,6 +96,17 @@ impl Vm {
         set_reg!(self, dest_reg, str_a == str_b);
     }
 
+    /// Return the same string but with quotes.
+    #[inline]
+    pub fn execute_string_to_string(&mut self, dest_reg: u8, source_string: u8) {
+        let source_str = self.get_string(source_string);
+        let mut formatted_string = String::with_capacity(source_str.len() + 2);
+        formatted_string.push('"');
+        formatted_string.push_str(source_str);
+        formatted_string.push('"');
+        self.create_string(dest_reg, &formatted_string);
+    }
+
     pub fn read_string(heap_addr: u32, heap: &Memory) -> &str {
         let string_header =
             unsafe { *(heap.get_heap_const_ptr(heap_addr as usize) as *const StringHeader) };

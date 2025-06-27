@@ -377,7 +377,11 @@ impl String {
     }
 
     fn to_string(self) -> String {
-        "\"todo\""
+        string_to_string(self)
+    }
+
+    fn to_short_string(self) -> String {
+        self
     }
 
     /// Computes the length of a String.

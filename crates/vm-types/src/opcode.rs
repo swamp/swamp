@@ -169,6 +169,7 @@ pub enum OpCode {
     // String
     StringAppend,
     StringCmp,
+    StringToString,
 
     // Other
     HostCall, // calls back into host
@@ -346,6 +347,7 @@ impl OpCode {
             // String
             Self::StringAppend => "str.app",
             Self::StringCmp => "str.cmp",
+            Self::StringToString => "str.tos",
         }
     }
 }

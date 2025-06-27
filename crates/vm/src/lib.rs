@@ -416,6 +416,7 @@ impl Vm {
             HandlerType::Args3(Self::execute_string_append);
 
         vm.handlers[OpCode::StringCmp as usize] = HandlerType::Args3(Self::execute_string_cmp);
+        vm.handlers[OpCode::StringToString as usize] = HandlerType::Args2(Self::execute_string_to_string);
 
         // Int
         vm.handlers[OpCode::IntToRnd as usize] =

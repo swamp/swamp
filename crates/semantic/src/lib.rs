@@ -235,7 +235,8 @@ pub struct VariableScopes {
 }
 
 impl VariableScopes {
-    #[must_use] pub const fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             //block_scope_stack: vec![],
             current_register: 0,
@@ -264,7 +265,8 @@ pub struct ScopeInfo {
 }
 
 impl ScopeInfo {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             active_scope: FunctionScopeState::default(),
             total_scopes: VariableScopes::default(),
@@ -290,7 +292,7 @@ impl Display for FunctionScopeState {
 impl FunctionScopeState {
     pub const fn emit_variable_index(&mut self) -> usize {
         self.variable_index += 1;
-        
+
         self.variable_index
     }
 }
@@ -1044,7 +1046,7 @@ impl AssociatedImpls {
     pub fn prepare(&mut self, ty: &TypeRef) {
         self.functions
             .insert(ty.clone(), ImplFunctions::new())
-            .expect("should work");
+            .expect(&format!("should work {ty:?}"));
     }
 
     #[must_use]

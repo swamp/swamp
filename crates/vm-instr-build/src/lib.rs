@@ -2405,6 +2405,23 @@ impl InstructionBuilder<'_> {
         );
     }
 
+    pub fn string_to_string(
+        &mut self,
+        dest_str: &TypedRegister,
+        self_str: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        assert!(dest_str.ty().is_str());
+        assert!(self_str.ty().is_str());
+        self.state.add_instruction(
+            OpCode::StringToString,
+            &[dest_str.addressing(), self_str.addressing()],
+            node,
+            comment,
+        );
+    }
+
     pub fn float_to_string(
         &mut self,
         dest_str: &TypedRegister,
