@@ -9,7 +9,7 @@ use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::{HeapMemoryAddress, HeapMemoryRegion, MemoryAlignment, MemorySize};
 
 /// VM Memory Layout (from lower to higher addresses):
-/// 
+///
 /// 1. **Constant Memory**: Pre-compiled constant data (read-only)
 /// 2. **Constant Heap Allocations**: Strings and other heap data allocated during constant evaluation
 ///    - These allocations must be preserved between function calls as they contain constant string data

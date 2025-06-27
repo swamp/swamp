@@ -31,8 +31,8 @@ use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
     GridType, InternalMainExpression, LocationAccess, LocationAccessKind, MapType,
     MutableReferenceKind, NormalPattern, Postfix, PostfixKind, ScopeInfo, SingleLocationExpression,
-    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, VariableType,
-    VecType, WhenBinding,
+    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, VariableType, VecType,
+    WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::TypeKind;
@@ -1886,7 +1886,10 @@ impl<'a> Analyzer<'a> {
         let mut arms = Vec::new();
         let string_type = self.types().string();
         for (variant_name, variant_type) in &enum_type.variants {
-            let kind = ExpressionKind::StringLiteral(format!("{}::{}", enum_type.assigned_name, variant_name));
+            let kind = ExpressionKind::StringLiteral(format!(
+                "{}::{}",
+                enum_type.assigned_name, variant_name
+            ));
             let string_expr = self.create_expr_resolved(kind.clone(), string_type.clone(), &node);
 
             let arm_kind = MatchArm {
@@ -1976,7 +1979,7 @@ impl<'a> Analyzer<'a> {
             TypeKind::String => {
                 // For String type, to_string() should just return self
                 first_self_param
-            },
+            }
             TypeKind::StringStorage(_, _) => todo!(),
             TypeKind::Bool => todo!(),
             TypeKind::Unit => todo!(),
@@ -2068,7 +2071,7 @@ impl<'a> Analyzer<'a> {
             TypeKind::String => {
                 // For String type, to_short_string() should also just return self
                 first_self_param
-            },
+            }
             TypeKind::StringStorage(_, _) => todo!(),
             TypeKind::Bool => todo!(),
             TypeKind::Unit => todo!(),

@@ -659,7 +659,10 @@ impl Analyzer<'_> {
 
             self.stop_function();
 
-            let is_built_in = matches!(function_name_str.as_str(), "to_string" | "to_short_string" | "default");
+            let is_built_in = matches!(
+                function_name_str.as_str(),
+                "to_string" | "to_short_string" | "default"
+            );
             if is_built_in {
                 self.shared
                     .state
@@ -818,7 +821,7 @@ impl Analyzer<'_> {
 
     fn add_default_functions(&mut self, type_to_attach_to: &TypeRef, node: &swamp_ast::Node) {
         let underlying = type_to_attach_to;
-        
+
         let needs_to_string = self
             .shared
             .state

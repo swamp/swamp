@@ -8,7 +8,7 @@ use crate::{Collection, FlagStateKind, Transformer, TransformerResult};
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
 use swamp_vm_types::types::{
-    u32_type, u8_type, BasicType, BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType,
+    BasicType, BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType, u8_type, u32_type,
 };
 use swamp_vm_types::{InstructionPosition, MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::error;
