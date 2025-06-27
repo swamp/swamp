@@ -73,6 +73,27 @@ fn vec_assign_and_subscript() {
 
 }
 
+// TODO: #[test]
+fn thing_to_string() {
+    thing = Thing { a: 42, b: 24 }
+    result = thing.to_string()
+    assert(result == "intentionally wrong", 'did not match "{result}"')
+}
+
+// TODO: #[test]
+fn to_string() {
+      another = Another {
+        things: [
+            Thing { a: 11, b:  1 },
+            Thing { b:  2, a: 12 }, // Intentionally swapped
+            Thing { a: 13, b:  3 },
+        ]
+    }
+    result = another.to_string()
+
+    assert("intentionally wrong" == result, 'mismatch! returned "{result}"')
+}
+
 #[test]
 fn parameter_passing() {
     another = Another {

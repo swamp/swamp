@@ -288,11 +288,15 @@ impl CodeBuilder<'_> {
                 .clone();
 
             {
+                let ty =  memory_lvalue_location
+                    .location
+                    .ty
+                    .basic_type();
                 self.builder.add_mov8_immediate(
                     tag_reg.register(),
                     1,
                     node,
-                    "set the tag Some (1) in register",
+                    &format!("set the tag Some (1) in register {ty}"),
                 );
                 self.builder.add_st8_using_ptr_with_offset(
                     &memory_lvalue_location

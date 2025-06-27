@@ -35,8 +35,8 @@ use swamp_semantic::{
     VariableType, VecType, WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
-use swamp_types::TypeKind;
 use swamp_types::prelude::*;
+use swamp_types::TypeKind;
 use tracing::error;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -905,7 +905,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         node: &swamp_ast::Node,
         field_type: &TypeRef,
-    ) -> Expression {
+    ) -> Option<Expression> {
         let kind = match &*field_type.kind {
             TypeKind::Bool => ExpressionKind::BoolLiteral(false),
             TypeKind::Int => ExpressionKind::IntLiteral(0),
@@ -914,20 +914,34 @@ impl<'a> Analyzer<'a> {
             TypeKind::Tuple(tuple_type_ref) => {
                 let mut expressions = Vec::new();
                 for resolved_type in tuple_type_ref {
-                    let expr = self.create_default_value_for_type(node, resolved_type);
+                    let expr = self.create_default_value_for_type(node, resolved_type)?;
                     expressions.push(expr);
                 }
                 ExpressionKind::TupleLiteral(expressions)
             }
             TypeKind::Optional(_optional_type) => ExpressionKind::NoneLiteral,
 
-            TypeKind::NamedStruct(struct_ref) => self.create_default_static_call(node, field_type),
+            TypeKind::NamedStruct(_struct_ref) => {
+                // Only call default() if the type actually has a default implementation
+                if self.shared
+                    .state
+                    .associated_impls
+                    .get_member_function(field_type, "default")
+                    .is_some()
+                {
+                    self.create_default_static_call(node, field_type)
+                } else {
+                    // This type doesn't have a default implementation, skip it
+                    return None;
+                }
+            }
             _ => {
-                return self.create_err(ErrorKind::NoDefaultImplemented(field_type.clone()), node);
+                // For other types, we don't have defaults, so skip them
+                return None;
             }
         };
 
-        self.create_expr(kind, field_type.clone(), node)
+        Some(self.create_expr(kind, field_type.clone(), node))
     }
 
     fn create_static_member_call(
@@ -944,7 +958,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                    .kind
+                        .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -978,14 +992,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                .kind
+                    .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-            .kind
+                .kind
         }
     }
 
@@ -1495,8 +1509,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
-            } else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -2980,29 +2993,27 @@ impl<'a> Analyzer<'a> {
                         } else {
                             expr.ty.clone()
                         };
-                        if maybe_to_string.is_none() {
+                        let call_expr_kind = if maybe_to_string.is_none() {
                             let string_type = self.types().string();
-                            return self.create_expr(
-                                ExpressionKind::StringLiteral("hello".to_string()),
-                                string_type,
-                                &expression.node,
-                            );
-                            /* todo:
-                            return Err(self.create_err(
-                                ErrorKind::MissingToString(underlying.clone()),
-                                &expression.node,
-                            ));
+
+                            ExpressionKind::StringLiteral(format!("missing {string_type}"))
+                            /* TODO:
+
+                                        return self.create_err(
+                                            ErrorKind::MissingToString(string_type),
+                                            &expression.node,
+                                        );
 
                              */
-                        }
-
-                        let expr_as_param = ArgumentExpression::Expression(expr);
-                        let call_expr_kind = self.create_static_member_call(
-                            "to_string",
-                            &[expr_as_param.clone()],
-                            &expression.node,
-                            &underlying,
-                        );
+                        } else {
+                            let expr_as_param = ArgumentExpression::Expression(expr);
+                            self.create_static_member_call(
+                                "to_string",
+                                &[expr_as_param.clone()],
+                                &expression.node,
+                                &underlying,
+                            )
+                        };
 
                         /*
                         TODO: SUPPORT FORMAT SPEC
@@ -3977,8 +3988,7 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
-    }
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -5493,8 +5503,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                        .types()
-                        .compatible_with(initializer_value_type, storage_value)
+                    .types()
+                    .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }

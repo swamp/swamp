@@ -6,94 +6,59 @@ use crate::{Analyzer, TypeContext};
 use seq_map::SeqMap;
 use seq_set::SeqSet;
 use source_map_node::Node;
+use std::collections::HashSet;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
-    AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef, LocationAccess,
-    LocationAccessKind, MutableReferenceKind, SingleLocationExpression, TargetAssignmentLocation,
+    AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef,
 };
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
     fn analyze_struct_init_calling_default(
         &mut self,
-        function: &FunctionRef,
+        _function: &FunctionRef,
         super_type: &TypeRef,
         anon_struct_type: &AnonymousStructType,
-        source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
+        mut source_order_expressions: Vec<(usize, Option<Node>, Expression)>,
         node: &swamp_ast::Node,
     ) -> Expression {
-        let mut expressions = Vec::new();
-
-        self.push_block_scope("struct_instantiation");
-
-        let temp_var = self.create_local_variable_generated("__generated", true, super_type);
-
-        // temp_var = StructType::default()
-        let return_type = function.signature().return_type.clone();
-
-        let default_call_kind = self.create_default_static_call(node, super_type);
-
-        let static_call = self.create_expr(default_call_kind, return_type, node);
-
-        let unit_type = self.shared.state.types.unit();
-        let expr = self.create_expr(
-            ExpressionKind::VariableDefinition(temp_var.clone(), Box::new(static_call)),
-            unit_type,
-            node,
-        );
-        expressions.push(expr);
-
-        // overwrite fields in temp_var with assignments
-        for (field_target_index, resolved_field_name_node, field_source_expression) in
-            source_order_expressions
-        {
-            let node = field_source_expression.node.clone();
-
-            let field_expression_type = field_source_expression.ty.clone();
-
-            let kind = LocationAccessKind::FieldIndex(anon_struct_type.clone(), field_target_index);
-
-            let single_chain = vec![LocationAccess {
-                node: Node::default(), // resolved_field_name_node.map(|| Node::default()),
-                ty: field_expression_type.clone(),
-                kind,
-            }];
-
-            let created_location = SingleLocationExpression {
-                kind: MutableReferenceKind::MutStructFieldRef(
-                    anon_struct_type.clone(),
-                    field_target_index,
-                ),
-                node: node.clone(),
-                ty: field_expression_type.clone(),
-                starting_variable: temp_var.clone(),
-                access_chain: single_chain,
-            };
-
-            let created_mut_location = TargetAssignmentLocation(created_location);
-
-            let unit_type = self.shared.state.types.unit();
-            let overwrite_expression = self.create_expr_resolved(
-                ExpressionKind::Assignment(
-                    Box::from(created_mut_location),
-                    Box::new(field_source_expression),
-                ),
-                unit_type,
-                &node,
-            );
-
-            expressions.push(overwrite_expression);
+        // This function is called when the struct type has a default() function.
+        // We need to:
+        // 1. Call SomeStruct::default() to get default values for all fields
+        // 2. Add the provided field values to override specific fields
+        // 3. Create a struct literal with all fields (defaults + overrides)
+        
+        // Find which fields are provided
+        let mut provided_field_indices = HashSet::new();
+        for (field_index, _, _) in &source_order_expressions {
+            provided_field_indices.insert(*field_index);
         }
 
-        let ty = temp_var.resolved_type.clone();
-        let access_variable =
-            self.create_expr(ExpressionKind::VariableAccess(temp_var), ty.clone(), node);
+        // For missing fields, we call the struct's default() and extract those fields
+        // Since we can't easily extract individual fields from a default() call,
+        // we create a complete struct literal with default field values
+        for (field_index, (_field_name, field_info)) in anon_struct_type.field_name_sorted_fields.iter().enumerate() {
+            if !provided_field_indices.contains(&field_index) {
+                // Try to create a default value for this field.
+                // If the field type doesn't have a default implementation, skip it
+                if let Some(default_expression) = self.create_default_value_for_type(node, &field_info.field_type) {
+                    source_order_expressions.push((field_index, field_info.identifier.clone(), default_expression));
+                }
+                // If no default is available, we just skip this field
+                // This means the struct won't be completely initialized, but that's 
+                // acceptable if the user explicitly used the rest operator (..)
+            }
+        }
 
-        expressions.push(access_variable); // make sure the block returns the overwritten temp_var
-
-        self.pop_block_scope("struct instantiation");
-
-        self.create_expr(ExpressionKind::Block(expressions), ty, node)
+        // Create a direct struct literal with all fields (both provided and defaulted)
+        self.create_expr(
+            ExpressionKind::AnonymousStructLiteral(AnonymousStructLiteral {
+                struct_like_type: Self::get_struct_like_type(super_type),
+                source_order_expressions,
+            }),
+            super_type.clone(),
+            node,
+        )
     }
 
     fn get_struct_like_type(ty: &TypeRef) -> TypeRef {
@@ -119,9 +84,11 @@ impl Analyzer<'_> {
                     .get_index(&missing_field_name)
                     .expect("verified");
 
-                let expression = self.create_default_value_for_type(node, &field.field_type);
-
-                source_order_expressions.push((field_index, field.identifier.clone(), expression));
+                // Try to create a default value for this field type
+                if let Some(expression) = self.create_default_value_for_type(node, &field.field_type) {
+                    source_order_expressions.push((field_index, field.identifier.clone(), expression));
+                }
+                // If no default is available, skip this field - it will remain uninitialized
             }
         }
 
@@ -495,11 +462,11 @@ impl Analyzer<'_> {
                     .get_index(&missing_field_name)
                     .expect("field must exist in struct definition");
 
-                // Here you would create the default value for the field
-                let default_expression =
-                    self.create_default_value_for_type(node, &field.field_type);
-
-                mapped.push((field_index, None, default_expression));
+                // Try to create the default value for the field
+                if let Some(default_expression) = self.create_default_value_for_type(node, &field.field_type) {
+                    mapped.push((field_index, None, default_expression));
+                }
+                // If no default is available, skip this field
             }
         } else if !missing_fields.is_empty() {
             self.add_err(

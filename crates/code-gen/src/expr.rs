@@ -7,7 +7,7 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, ExpressionKind};
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, int_type};
+use swamp_vm_types::types::{int_type, BasicTypeKind, Destination, TypedRegister, VmType};
 use swamp_vm_types::{MemoryLocation, MemorySize};
 
 impl CodeBuilder<'_> {
@@ -64,9 +64,9 @@ impl CodeBuilder<'_> {
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, Destination::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(
-                &mut self.state.layout_cache,
-                expr,
-            )
+            &mut self.state.layout_cache,
+            expr,
+        )
         {
             let temp_materialization_target = self
                 .allocate_frame_space_and_return_destination_to_it(
@@ -331,7 +331,7 @@ impl CodeBuilder<'_> {
                                 location,
                                 &source_memory_location,
                                 node,
-                                "copy var access block",
+                                &format!("emit_expression: var_access: it is a aggregate type. copy var access block name:{} ty: {}", variable_ref.assigned_name, variable_ref.resolved_type),
                             );
                         }
                     }

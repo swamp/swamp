@@ -9,7 +9,7 @@ use std::fmt;
 use std::fmt::Write;
 use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_disasm::disasm_instructions_color;
-use swamp_vm_types::types::{VariableRegister, VmType, show_frame_memory, write_basic_type};
+use swamp_vm_types::types::{show_frame_memory, write_basic_type, VariableRegister, VmType};
 use swamp_vm_types::{BinaryInstruction, FrameMemoryAddress, InstructionPositionOffset};
 
 #[must_use]
@@ -18,24 +18,13 @@ pub const fn is_valid_file_id(file_id: FileId) -> bool {
 }
 pub fn show_parameters_and_variables(
     return_type: &VmType,
-    parameters: &[VariableRegister],
     variables: &[VariableRegister],
     f: &mut dyn Write,
 ) -> Result<(), fmt::Error> {
     if !return_type.is_scalar() {
-        writeln!(f, "{}: {}", tinter::blue("r0"), &return_type,)?;
+        writeln!(f, "{}: {}", tinter::blue("r0"), &return_type, )?;
         write_basic_type(&return_type.basic_type, FrameMemoryAddress(0), f, 0)?;
         writeln!(f)?;
-    }
-
-    for reg in parameters {
-        writeln!(
-            f,
-            "{}: {}: {} ",
-            tinter::yellow(format!("r{}", reg.register.index)),
-            tinter::bright_cyan(&reg.variable.name),
-            &reg.register.ty,
-        )?;
     }
 
     for variable_register in variables {
@@ -58,7 +47,6 @@ pub fn show_parameters_and_variables(
 #[must_use]
 pub fn disasm_function(
     return_type: &VmType,
-    parameters: &[VariableRegister],
     instructions: &[BinaryInstruction],
     ip_offset: &InstructionPositionOffset,
     debug_info: &DebugInfo,
@@ -72,16 +60,15 @@ pub fn disasm_function(
 
     show_parameters_and_variables(
         return_type,
-        parameters,
         &info.function_debug_info.frame_memory.variable_registers,
         &mut header_output,
     )
-    .expect("should work");
+        .expect("should work");
 
     format!(
         "{}\n{}",
         header_output,
-        disasm_instructions_color(instructions, ip_offset, debug_info, source_map_wrapper,)
+        disasm_instructions_color(instructions, ip_offset, debug_info, source_map_wrapper, )
     )
 }
 
@@ -104,10 +91,6 @@ pub fn disasm_whole_program(
 
             let output_string = disasm_function(
                 &debug_info_for_pc.function_debug_info.return_type,
-                &debug_info_for_pc
-                    .function_debug_info
-                    .frame_memory
-                    .variable_registers,
                 instructions_slice,
                 &InstructionPositionOffset(current_ip),
                 debug_info,

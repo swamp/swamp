@@ -17,6 +17,7 @@ mod map
 mod operator
 mod option
 mod queue
+mod rest_operator
 mod slice
 mod sparse
 mod stack

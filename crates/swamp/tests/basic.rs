@@ -161,4 +161,9 @@ fn test_struct_tests() {
 fn test_constant_tests() {
     run_swamp_test_quiet("constant::");
 }
+
+#[test_log::test]
+fn test_rest_operator() {
+    run_swamp_test_quiet("rest_operator::");
+}
 */

@@ -76,9 +76,6 @@ pub fn display_meta_information_about_instruction(
 pub fn disasm_instructions_color(
     binary_instructions: &[BinaryInstruction],
     instruction_position_base: &InstructionPositionOffset,
-    //    meta: &[Meta],
-    //    memory_infos: &FrameMemoryInfo,
-    //    ip_infos: &SeqMap<InstructionPosition, SourceFileLineInfo>,
     debug_info: &DebugInfo,
     source_file_wrapper: &SourceMapWrapper,
 ) -> String {
