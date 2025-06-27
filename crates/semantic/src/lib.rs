@@ -1046,7 +1046,7 @@ impl AssociatedImpls {
     pub fn prepare(&mut self, ty: &TypeRef) {
         self.functions
             .insert(ty.clone(), ImplFunctions::new())
-            .expect(&format!("should work {ty:?}"));
+            .unwrap_or_else(|_| panic!("should work {ty:?}"));
     }
 
     #[must_use]
