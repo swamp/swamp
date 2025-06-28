@@ -1465,30 +1465,35 @@ pub fn internal_generate_to_string_function_for_type(
     );
 
     let body_expr = match &*ty.kind {
-        TypeKind::Byte => todo!(),
-        TypeKind::Int => todo!(),
-        TypeKind::Float => todo!(),
+        // Primitive types have their own to_string() implementations in core_text()
+        TypeKind::Byte => panic!("Byte to_string() is handled in core_text(), not generated here"),
+        TypeKind::Int => panic!("Int to_string() is handled in core_text(), not generated here"),
+        TypeKind::Float => panic!("Float to_string() is handled in core_text(), not generated here"),
+        TypeKind::Bool => panic!("Bool to_string() is handled in core_text(), not generated here"),
         TypeKind::String => {
             // For String type, to_string() should just return self
             first_self_param
         }
-        TypeKind::StringStorage(_, _) => todo!(),
-        TypeKind::Bool => todo!(),
-        TypeKind::Unit => todo!(),
-        TypeKind::Tuple(tuple_types) => {
-            generate_to_string_for_tuple(generator, first_self_param, tuple_types, resolved_node)
-        }
+        TypeKind::StringStorage(_, _) => panic!("StringStorage to_string() should be handled elsewhere"),
+        // Unit and Function types cannot be stored in fields/collections in Swamp, so no to_string() needed
+        TypeKind::Unit => panic!("Unit type cannot be stored in fields, no to_string() needed"),
+        TypeKind::Tuple(tuple_types) => generate_to_string_for_tuple(
+            generator,
+            first_self_param,
+            tuple_types,
+            resolved_node,
+        ),
         TypeKind::NamedStruct(named) => {
             generate_to_string_for_named_struct(generator, named, first_self_param)
         }
         TypeKind::AnonymousStruct(_anon_struct) => {
             generate_to_string_for_anon_struct(generator, ty, first_self_param)
         }
-        TypeKind::Range(_) => todo!(),
+        TypeKind::Range(_) => panic!("Range to_string() is handled in core_text(), not generated here"),
         TypeKind::Enum(enum_type) => {
             generate_to_string_for_enum(generator.types, &enum_type.clone(), first_self_param)
         }
-        TypeKind::Function(_) => todo!(),
+        TypeKind::Function(_) => panic!("Function types cannot be stored in fields, no to_string() needed"),
         TypeKind::Optional(inner_type) => generate_to_string_for_optional(
             generator,
             &mut block_scope_to_use,
@@ -1575,16 +1580,18 @@ pub fn internal_generate_to_short_string_function_for_type(
     );
 
     let body_expr = match &*ty.kind {
-        TypeKind::Byte => todo!(),
-        TypeKind::Int => todo!(),
-        TypeKind::Float => todo!(),
+        // Primitive types have their own to_string() implementations in core_text()
+        TypeKind::Byte => panic!("Byte to_string() is handled in core_text(), not generated here"),
+        TypeKind::Int => panic!("Int to_string() is handled in core_text(), not generated here"),
+        TypeKind::Float => panic!("Float to_string() is handled in core_text(), not generated here"),
+        TypeKind::Bool => panic!("Bool to_string() is handled in core_text(), not generated here"),
         TypeKind::String => {
             // For String type, to_string() should just return self
             first_self_param
         }
-        TypeKind::StringStorage(_, _) => todo!(),
-        TypeKind::Bool => todo!(),
-        TypeKind::Unit => todo!(),
+        TypeKind::StringStorage(_, _) => panic!("StringStorage to_string() should be handled elsewhere"),
+        // Unit and Function types cannot be stored in fields/collections in Swamp, so no to_string() needed
+        TypeKind::Unit => panic!("Unit type cannot be stored in fields, no to_string() needed"),
         TypeKind::Tuple(tuple_types) => generate_to_short_string_for_tuple(
             generator,
             first_self_param,
@@ -1597,11 +1604,11 @@ pub fn internal_generate_to_short_string_function_for_type(
         TypeKind::AnonymousStruct(_anon_struct) => {
             generate_to_short_string_for_anon_struct(generator, ty, first_self_param)
         }
-        TypeKind::Range(_) => todo!(),
+        TypeKind::Range(_) => panic!("Range to_string() is handled in core_text(), not generated here"),
         TypeKind::Enum(enum_type) => {
             generate_to_short_string_for_enum(generator.types, &enum_type.clone(), first_self_param)
         }
-        TypeKind::Function(_) => todo!(),
+        TypeKind::Function(_) => panic!("Function types cannot be stored in fields, no to_string() needed"),
         TypeKind::Optional(inner_type) => generate_to_short_string_for_optional(
             generator,
             &mut block_scope_to_use,
