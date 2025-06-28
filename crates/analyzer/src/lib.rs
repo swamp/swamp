@@ -1941,7 +1941,7 @@ impl<'a> Analyzer<'a> {
                             ),
                         );
                     }
-                    (expected_type, element_type.clone())
+                    (expected_type.clone(), element_type.clone())
                 }
                 TypeKind::StackStorage(element_type, capacity)
                 | TypeKind::QueueStorage(element_type, capacity)
@@ -1958,19 +1958,19 @@ impl<'a> Analyzer<'a> {
                             ),
                         );
                     }
-                    (expected_type, element_type.clone())
+                    (expected_type.clone(), element_type.clone())
                 }
                 TypeKind::QueueView(element_type)
                 | TypeKind::SparseView(element_type)
                 | TypeKind::StackView(element_type)
                 | TypeKind::GridView(element_type)
                 | TypeKind::DynamicLengthVecView(element_type) => {
-                    (expected_type, element_type.clone())
+                    (expected_type.clone(), element_type.clone())
                 }
                 TypeKind::FixedCapacityAndLengthArray(element_type, _size) => {
-                    (expected_type, element_type.clone())
+                    (expected_type.clone(), element_type.clone())
                 }
-                TypeKind::SliceView(element_type) => (expected_type, element_type.clone()),
+                TypeKind::SliceView(element_type) => (expected_type.clone(), element_type.clone()),
                 _ => {
                     return (
                         self.types().unit(),
@@ -1993,10 +1993,11 @@ impl<'a> Analyzer<'a> {
             let maybe_context = TypeContext::new_anything_argument();
             let first = self.analyze_expression(&items[0], &maybe_context);
             let required_type = first.ty;
-            (
-                &self.types().vec_storage(&required_type, items.len()),
-                required_type,
-            )
+            let inferred_vec_storage_type = self.types().vec_storage(&required_type, items.len());
+            // Generate default functions for the inferred vec storage type
+            let default_node = swamp_ast::Node::default();
+            self.add_default_functions(&inferred_vec_storage_type, &default_node);
+            (inferred_vec_storage_type, required_type)
         };
 
         let required_context = TypeContext::new_argument(&element_type);
@@ -4290,15 +4291,24 @@ impl<'a> Analyzer<'a> {
             "Vec" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
-                    self.shared.state.types.dynamic_vec_view(&element_type)
+                    let vec_type = self.shared.state.types.dynamic_vec_view(&element_type);
+                    // Generate default functions for the new dynamic vec view type
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&vec_type, &default_node);
+                    vec_type
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    self.shared
+                    let vec_storage_type = self
+                        .shared
                         .state
                         .types
-                        .vec_storage(&element_type, fixed_size)
+                        .vec_storage(&element_type, fixed_size);
+                    // Generate default functions for the new vec storage type
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&vec_storage_type, &default_node);
+                    vec_storage_type
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4306,15 +4316,24 @@ impl<'a> Analyzer<'a> {
             "Stack" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
-                    self.shared.state.types.stack_view(&element_type)
+                    let stack_view_type = self.shared.state.types.stack_view(&element_type);
+                    // Generate default functions for the new stack view type
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&stack_view_type, &default_node);
+                    stack_view_type
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    self.shared
+                    let stack_storage_type = self
+                        .shared
                         .state
                         .types
-                        .stack_storage(&element_type, fixed_size)
+                        .stack_storage(&element_type, fixed_size);
+                    // Generate default functions for the new stack storage type
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&stack_storage_type, &default_node);
+                    stack_storage_type
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4322,15 +4341,24 @@ impl<'a> Analyzer<'a> {
             "Queue" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
-                    self.shared.state.types.queue_view(&element_type)
+                    let queue_view_type = self.shared.state.types.queue_view(&element_type);
+                    // Generate default functions for the new queue view type
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&queue_view_type, &default_node);
+                    queue_view_type
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    self.shared
+                    let queue_storage_type = self
+                        .shared
                         .state
                         .types
-                        .queue_storage(&element_type, fixed_size)
+                        .queue_storage(&element_type, fixed_size);
+                    // Generate default functions for the new queue storage type
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&queue_storage_type, &default_node);
+                    queue_storage_type
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4338,15 +4366,24 @@ impl<'a> Analyzer<'a> {
             "Sparse" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
-                    self.shared.state.types.sparse_view(&element_type)
+                    let sparse_view_type = self.shared.state.types.sparse_view(&element_type);
+                    // Generate default functions for the new sparse view type
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&sparse_view_type, &default_node);
+                    sparse_view_type
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
-                    self.shared
+                    let sparse_storage_type = self
+                        .shared
                         .state
                         .types
-                        .sparse_storage(&element_type, fixed_size)
+                        .sparse_storage(&element_type, fixed_size);
+                    // Generate default functions for the new sparse storage type
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&sparse_storage_type, &default_node);
+                    sparse_storage_type
                 } else {
                     panic!("todo: make this into an error")
                 }
@@ -4355,15 +4392,24 @@ impl<'a> Analyzer<'a> {
             "Grid" => {
                 if ast_generic_parameters.len() == 1 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
-                    self.shared.state.types.grid_view(&element_type)
+                    let grid_view_type = self.shared.state.types.grid_view(&element_type);
+                    // Generate default functions for the new grid view type
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&grid_view_type, &default_node);
+                    grid_view_type
                 } else if ast_generic_parameters.len() == 2 {
                     let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
                     let (width, height) =
                         self.analyze_generic_parameter_usize_tuple(&ast_generic_parameters[1]);
-                    self.shared
-                        .state
-                        .types
-                        .grid_storage(&element_type, width, height)
+                    let grid_storage_type =
+                        self.shared
+                            .state
+                            .types
+                            .grid_storage(&element_type, width, height);
+                    // Generate default functions for the new grid storage type
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&grid_storage_type, &default_node);
+                    grid_storage_type
                 } else {
                     panic!("todo: make this into an error")
                 }

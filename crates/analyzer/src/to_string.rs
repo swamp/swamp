@@ -3,11 +3,11 @@
 use source_map_node::Node;
 use swamp_attributes::Attributes;
 use swamp_semantic::{
-    AssociatedImpls, BinaryOperator, BinaryOperatorKind, BooleanExpression, Expression,
-    ExpressionKind, ForPattern, Function, FunctionRef, InternalFunctionDefinition,
+    ArgumentExpression, AssociatedImpls, BinaryOperator, BinaryOperatorKind, BooleanExpression,
+    Expression, ExpressionKind, ForPattern, Function, FunctionRef, InternalFunctionDefinition,
     InternalFunctionIdAllocator, Iterable, LocalIdentifier, Match, MatchArm, NormalPattern,
     Pattern, Postfix, PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator,
-    UnaryOperatorKind, Variable, VariableRef, VariableScopes, VariableType,
+    UnaryOperatorKind, Variable, VariableRef, VariableScopes, VariableType, WhenBinding,
 };
 use swamp_types::prelude::{EnumType, NamedStructType, Signature, TypeCache, TypeForParameter};
 use swamp_types::{TypeKind, TypeRef};
@@ -1139,6 +1139,141 @@ fn generate_to_string_for_map_like(
     block
 }
 
+fn generate_to_string_for_optional(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    inner_type: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+
+    // For optional types, we'll use a when expression instead of complex pattern matching
+    // This creates: when value_var = self_expression { "Some(" + value_var.to_string() + ")" } else { "None" }
+
+    // Create a variable to bind the unwrapped optional value
+    let value_var = scope.create_local_variable("value", inner_type, node);
+
+    // Create the Some case: "Some(" + value.to_string() + ")"
+    let some_prefix = create_expr_resolved(
+        ExpressionKind::StringLiteral("Some(".to_string()),
+        string_type.clone(),
+        node,
+    );
+    let some_suffix = create_expr_resolved(
+        ExpressionKind::StringLiteral(")".to_string()),
+        string_type.clone(),
+        node,
+    );
+
+    // Get the variable access for the unwrapped value
+    let value_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(value_var.clone()),
+        inner_type.clone(),
+        node,
+    );
+
+    // Get the to_string for the inner value
+    let value_string = create_string_representation_of_expression(generator, value_access, node);
+
+    // Concatenate: "Some(" + value.to_string() + ")"
+    let prefix_plus_value = create_expr_resolved(
+        ExpressionKind::BinaryOp(BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(some_prefix),
+            right: Box::new(value_string),
+            node: node.clone(),
+        }),
+        string_type.clone(),
+        node,
+    );
+
+    let some_result = create_expr_resolved(
+        ExpressionKind::BinaryOp(BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(prefix_plus_value),
+            right: Box::new(some_suffix),
+            node: node.clone(),
+        }),
+        string_type.clone(),
+        node,
+    );
+
+    // Create the None case: "None"
+    let none_result = create_expr_resolved(
+        ExpressionKind::StringLiteral("None".to_string()),
+        string_type.clone(),
+        node,
+    );
+
+    // Create the when binding
+    let binding = WhenBinding {
+        variable: value_var,
+        expr: ArgumentExpression::Expression(self_expression),
+    };
+
+    // Create the when expression
+    create_expr_resolved(
+        ExpressionKind::When(
+            vec![binding],
+            Box::new(some_result),
+            Some(Box::new(none_result)),
+        ),
+        string_type,
+        node,
+    )
+}
+
+fn generate_to_short_string_for_optional(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    inner_type: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+
+    // For to_short_string on optional, we return the inner value's string for Some, "None" for None
+    // This creates: when value_var = self_expression { value_var.to_short_string() } else { "None" }
+
+    // Create a variable to bind the unwrapped optional value
+    let value_var = scope.create_local_variable("value", inner_type, node);
+
+    // Get the variable access for the unwrapped value
+    let value_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(value_var.clone()),
+        inner_type.clone(),
+        node,
+    );
+
+    // Get the to_short_string for the inner value (just return the inner value's representation)
+    let value_string = create_string_representation_of_expression(generator, value_access, node);
+
+    // Create the None case: "None"
+    let none_result = create_expr_resolved(
+        ExpressionKind::StringLiteral("None".to_string()),
+        string_type.clone(),
+        node,
+    );
+
+    // Create the when binding
+    let binding = WhenBinding {
+        variable: value_var,
+        expr: ArgumentExpression::Expression(self_expression),
+    };
+
+    // Create the when expression
+    create_expr_resolved(
+        ExpressionKind::When(
+            vec![binding],
+            Box::new(value_string),
+            Some(Box::new(none_result)),
+        ),
+        string_type,
+        node,
+    )
+}
+
 pub fn internal_generate_to_string_function_for_type(
     generator: &mut ExpressionGenerator,
     id_gen: &mut InternalFunctionIdAllocator,
@@ -1183,7 +1318,13 @@ pub fn internal_generate_to_string_function_for_type(
             generate_to_string_for_enum(generator.types, &enum_type.clone(), first_self_param)
         }
         TypeKind::Function(_) => todo!(),
-        TypeKind::Optional(_) => todo!(),
+        TypeKind::Optional(inner_type) => generate_to_string_for_optional(
+            generator,
+            &mut block_scope_to_use,
+            first_self_param,
+            inner_type,
+            &resolved_node,
+        ),
         TypeKind::FixedCapacityAndLengthArray(element_type, _)
         | TypeKind::SliceView(element_type)
         | TypeKind::DynamicLengthVecView(element_type)
@@ -1281,7 +1422,13 @@ pub fn internal_generate_to_short_string_function_for_type(
             generate_to_short_string_for_enum(generator.types, &enum_type.clone(), first_self_param)
         }
         TypeKind::Function(_) => todo!(),
-        TypeKind::Optional(_) => todo!(),
+        TypeKind::Optional(inner_type) => generate_to_short_string_for_optional(
+            generator,
+            &mut block_scope_to_use,
+            first_self_param,
+            inner_type,
+            &resolved_node,
+        ),
         TypeKind::FixedCapacityAndLengthArray(element_type, _)
         | TypeKind::SliceView(element_type)
         | TypeKind::DynamicLengthVecView(element_type)
@@ -1314,6 +1461,8 @@ pub fn internal_generate_to_short_string_function_for_type(
     };
 
     let unique_function_id = id_gen.alloc();
+
+    block_scope_to_use.scope.finalize();
 
     let function_definition = InternalFunctionDefinition {
         body: body_expr,

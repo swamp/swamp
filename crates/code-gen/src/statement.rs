@@ -59,6 +59,7 @@ impl CodeBuilder<'_> {
             | TypeKind::QueueView(element_type)
             | TypeKind::DynamicLengthVecView(element_type)
             | TypeKind::VecStorage(element_type, ..)
+            | TypeKind::FixedCapacityAndLengthArray(element_type, _)
             | TypeKind::SliceView(element_type) => {
                 self.emit_for_loop_lambda(
                     destination,

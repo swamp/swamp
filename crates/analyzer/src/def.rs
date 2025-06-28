@@ -824,7 +824,7 @@ impl Analyzer<'_> {
         }
     }
 
-    fn add_default_functions(&mut self, type_to_attach_to: &TypeRef, node: &swamp_ast::Node) {
+    pub fn add_default_functions(&mut self, type_to_attach_to: &TypeRef, node: &swamp_ast::Node) {
         let underlying = type_to_attach_to;
 
         let needs_to_string = self
@@ -835,7 +835,24 @@ impl Analyzer<'_> {
             .is_none()
             && matches!(
                 &*underlying.kind,
-                TypeKind::Enum(_) | TypeKind::NamedStruct(_) | TypeKind::AnonymousStruct(_)
+                TypeKind::Enum(_)
+                    | TypeKind::NamedStruct(_)
+                    | TypeKind::AnonymousStruct(_)
+                    | TypeKind::FixedCapacityAndLengthArray(_, _)
+                    | TypeKind::SliceView(_)
+                    | TypeKind::DynamicLengthVecView(_)
+                    | TypeKind::VecStorage(_, _)
+                    | TypeKind::StackView(_)
+                    | TypeKind::QueueView(_)
+                    | TypeKind::StackStorage(_, _)
+                    | TypeKind::QueueStorage(_, _)
+                    | TypeKind::SparseView(_)
+                    | TypeKind::SparseStorage(_, _)
+                    | TypeKind::GridView(_)
+                    | TypeKind::GridStorage(_, _, _)
+                    | TypeKind::MapStorage(_, _, _)
+                    | TypeKind::DynamicLengthMapView(_, _)
+                    | TypeKind::Optional(_)
             );
 
         let needs_to_short_string = self
@@ -846,7 +863,24 @@ impl Analyzer<'_> {
             .is_none()
             && matches!(
                 &*underlying.kind,
-                TypeKind::Enum(_) | TypeKind::NamedStruct(_) | TypeKind::AnonymousStruct(_)
+                TypeKind::Enum(_)
+                    | TypeKind::NamedStruct(_)
+                    | TypeKind::AnonymousStruct(_)
+                    | TypeKind::FixedCapacityAndLengthArray(_, _)
+                    | TypeKind::SliceView(_)
+                    | TypeKind::DynamicLengthVecView(_)
+                    | TypeKind::VecStorage(_, _)
+                    | TypeKind::StackView(_)
+                    | TypeKind::QueueView(_)
+                    | TypeKind::StackStorage(_, _)
+                    | TypeKind::QueueStorage(_, _)
+                    | TypeKind::SparseView(_)
+                    | TypeKind::SparseStorage(_, _)
+                    | TypeKind::GridView(_)
+                    | TypeKind::GridStorage(_, _, _)
+                    | TypeKind::MapStorage(_, _, _)
+                    | TypeKind::DynamicLengthMapView(_, _)
+                    | TypeKind::Optional(_)
             );
 
         if needs_to_string || needs_to_short_string {

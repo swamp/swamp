@@ -51,15 +51,27 @@ impl Analyzer<'_> {
                 let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
                 // Use TypeCache for fixed array creation
-                self.shared
+                let array_type = self
+                    .shared
                     .state
                     .types
-                    .fixed_array(&element_type, int_value)
+                    .fixed_array(&element_type, int_value);
+
+                // Generate default functions for the new array type
+                self.add_default_functions(&array_type, fixed_size);
+
+                array_type
             }
             swamp_ast::Type::Slice(ast_type) => {
                 let element_type = self.analyze_type(ast_type);
                 // Use TypeCache for slice view creation
-                self.shared.state.types.slice_view(&element_type)
+                let slice_type = self.shared.state.types.slice_view(&element_type);
+
+                // Generate default functions for the new slice type
+                let default_node = swamp_ast::Node::default();
+                self.add_default_functions(&slice_type, &default_node);
+
+                slice_type
             }
 
             swamp_ast::Type::FixedCapacityMap(ast_key_type, ast_value_type, fixed_size) => {
@@ -70,20 +82,33 @@ impl Analyzer<'_> {
                 let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
                 // Use TypeCache for map storage creation
-                self.shared
-                    .state
-                    .types
-                    .map_storage(&key_type, &value_type, int_value)
+                let map_type =
+                    self.shared
+                        .state
+                        .types
+                        .map_storage(&key_type, &value_type, int_value);
+
+                // Generate default functions for the new map type
+                self.add_default_functions(&map_type, fixed_size);
+
+                map_type
             }
             swamp_ast::Type::DynamicLengthMap(ast_key_type, ast_value_type) => {
                 let (key_type, value_type) =
                     self.analyze_key_and_value_type(ast_key_type, ast_value_type);
 
                 // Use TypeCache for dynamic map view creation
-                self.shared
+                let map_view_type = self
+                    .shared
                     .state
                     .types
-                    .dynamic_map_view(&key_type, &value_type)
+                    .dynamic_map_view(&key_type, &value_type);
+
+                // Generate default functions for the new map view type
+                let default_node = swamp_ast::Node::default();
+                self.add_default_functions(&map_view_type, &default_node);
+
+                map_view_type
             }
 
             swamp_ast::Type::Tuple(types) => {
@@ -99,7 +124,13 @@ impl Analyzer<'_> {
             swamp_ast::Type::Optional(inner_type_ast, _node) => {
                 let inner_resolved_type = self.analyze_type(inner_type_ast);
                 // Use TypeCache for optional type creation
-                self.shared.state.types.optional(&inner_resolved_type)
+                let optional_type = self.shared.state.types.optional(&inner_resolved_type);
+
+                // Generate default functions for the new optional type
+                let default_node = swamp_ast::Node::default();
+                self.add_default_functions(&optional_type, &default_node);
+
+                optional_type
             }
             swamp_ast::Type::Function(parameters, return_type) => {
                 let parameter_types = self.analyze_param_types(parameters);

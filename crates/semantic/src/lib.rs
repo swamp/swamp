@@ -245,6 +245,10 @@ impl VariableScopes {
             highest_virtual_register: 0,
         }
     }
+
+    pub fn finalize(&mut self) {
+        self.highest_virtual_register = self.current_register;
+    }
 }
 impl Default for VariableScopes {
     fn default() -> Self {
