@@ -107,3 +107,26 @@ fn call_option_param() {
 
     option_param(unit)
 }
+
+type UnitID = Int
+
+struct TestUnit {
+	id: UnitID,
+}
+
+#[test]
+fn optional_set_from_field() {
+    mut unit_id: UnitID? = none
+
+		unit = TestUnit {
+			id: 1590,
+		}
+
+		unit_id = unit.id // this should set unit_id to Some(1590)
+		print('unit_id is now:{unit_id}')
+		when unit_id {
+			assert(unit_id == 1590, 'optional failed {unit_id}')
+		} else {
+			panic('should not be None {unit_id}')
+		}
+}
