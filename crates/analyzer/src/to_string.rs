@@ -163,7 +163,12 @@ fn generate_to_string_for_anon_struct(
             let to_string_fn = generator
                 .associated_impls
                 .get_internal_member_function(&field_type.field_type, "to_string")
-                .unwrap_or_else(|| panic!("to_string() function must exist for type: {}", field_type.field_type));
+                .unwrap_or_else(|| {
+                    panic!(
+                        "to_string() function must exist for type: {}",
+                        field_type.field_type
+                    )
+                });
 
             let function_ref = Function::Internal(to_string_fn.clone());
 
@@ -330,7 +335,12 @@ fn generate_to_short_string_for_anon_struct(
             let to_short_string_fn = generator
                 .associated_impls
                 .get_internal_member_function(&field_type.field_type, "to_short_string")
-                .unwrap_or_else(|| panic!("to_short_string() function must exist for type: {}", field_type.field_type));
+                .unwrap_or_else(|| {
+                    panic!(
+                        "to_short_string() function must exist for type: {}",
+                        field_type.field_type
+                    )
+                });
 
             let function_ref = Function::Internal(to_short_string_fn.clone());
 
@@ -493,7 +503,9 @@ fn create_string_representation_of_expression(
                     .associated_impls
                     .get_internal_member_function(&ty, "to_string")
             })
-            .unwrap_or_else(|| panic!("to_short_string() or to_string() function must exist for type: {}", ty));
+            .unwrap_or_else(|| {
+                panic!("to_short_string() or to_string() function must exist for type: {ty}")
+            });
 
         let function_ref = Function::Internal(to_string_fn.clone());
         let start_of_chain = StartOfChain {
@@ -1896,7 +1908,7 @@ fn call_to_string_method(
     let to_string_fn = generator
         .associated_impls
         .get_internal_member_function(&ty, "to_string")
-        .unwrap_or_else(|| panic!("to_string() function must exist for type: {}", ty));
+        .unwrap_or_else(|| panic!("to_string() function must exist for type: {ty}"));
 
     let function_ref = Function::Internal(to_string_fn.clone());
     let start_of_chain = StartOfChain {
@@ -1909,8 +1921,7 @@ fn call_to_string_method(
         kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
     };
 
-    let lookup_kind =
-        ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_string]);
+    let lookup_kind = ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_string]);
     create_expr_resolved(lookup_kind, string_type, node)
 }
 
@@ -1926,7 +1937,7 @@ fn call_to_pretty_string_method(
     let to_pretty_string_fn = generator
         .associated_impls
         .get_internal_member_function(&ty, "to_pretty_string")
-        .unwrap_or_else(|| panic!("to_pretty_string() function must exist for type: {}", ty));
+        .unwrap_or_else(|| panic!("to_pretty_string() function must exist for type: {ty}"));
 
     let function_ref = Function::Internal(to_pretty_string_fn.clone());
     let start_of_chain = StartOfChain {

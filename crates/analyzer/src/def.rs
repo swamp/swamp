@@ -5,7 +5,8 @@
 use crate::Analyzer;
 use crate::to_string::{
     ExpressionGenerator, internal_generate_to_pretty_string_function_for_type,
-    internal_generate_to_short_string_function_for_type, internal_generate_to_string_function_for_type,
+    internal_generate_to_short_string_function_for_type,
+    internal_generate_to_string_function_for_type,
 };
 use seq_map::SeqMap;
 use std::rc::Rc;
@@ -672,7 +673,8 @@ impl Analyzer<'_> {
                 None
             };
 
-            let resolved_function = self.analyze_impl_func(function, attach_to_type, existing_function_id);
+            let resolved_function =
+                self.analyze_impl_func(function, attach_to_type, existing_function_id);
 
             let resolved_function_ref = Rc::new(resolved_function);
 
@@ -775,7 +777,8 @@ impl Analyzer<'_> {
                     associated_with_type: Some(self_type.clone()),
                     //variable_scopes: self.scope.clone(),
                     function_variables: self.scope.total_scopes.clone(),
-                    program_unique_id: existing_function_id.unwrap_or_else(|| self.shared.state.allocate_internal_function_id()),
+                    program_unique_id: existing_function_id
+                        .unwrap_or_else(|| self.shared.state.allocate_internal_function_id()),
                     attributes,
                 };
 
@@ -888,14 +891,14 @@ impl Analyzer<'_> {
                 .associated_impls
                 .get_internal_member_function(underlying, "to_string")
                 .is_none();
-            
+
             let needs_to_short_string = self
                 .shared
                 .state
                 .associated_impls
                 .get_internal_member_function(underlying, "to_short_string")
                 .is_none();
-            
+
             let needs_to_pretty_string = self
                 .shared
                 .state
@@ -940,7 +943,7 @@ impl Analyzer<'_> {
         ty: &TypeRef,
         ast_node: &Node,
     ) -> InternalFunctionDefinition {
-        let node = self.to_node(ast_node).clone();
+        let node = self.to_node(ast_node);
         let mut generator = ExpressionGenerator::new(
             &mut self.shared.state.types,
             &self.shared.state.associated_impls,
@@ -959,7 +962,7 @@ impl Analyzer<'_> {
         ty: &TypeRef,
         ast_node: &Node,
     ) -> InternalFunctionDefinition {
-        let node = self.to_node(ast_node).clone();
+        let node = self.to_node(ast_node);
         let mut generator = ExpressionGenerator::new(
             &mut self.shared.state.types,
             &self.shared.state.associated_impls,
@@ -978,7 +981,7 @@ impl Analyzer<'_> {
         ty: &TypeRef,
         ast_node: &Node,
     ) -> InternalFunctionDefinition {
-        let node = self.to_node(ast_node).clone();
+        let node = self.to_node(ast_node);
         let mut generator = ExpressionGenerator::new(
             &mut self.shared.state.types,
             &self.shared.state.associated_impls,
