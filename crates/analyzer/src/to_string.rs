@@ -894,11 +894,11 @@ fn generate_to_string_for_map_like(
     let unit_type = generator.types.unit();
     let bool_type = generator.types.bool();
 
-    // let mut result = "{"
+    // let mut result = "[|"
     let (result_var, result_var_def) = {
         let var = scope.create_local_mut_variable("result", &string_type, &node);
         let opening_brace = create_expr_resolved(
-            ExpressionKind::StringLiteral("{".to_string()),
+            ExpressionKind::StringLiteral("[|".to_string()),
             string_type.clone(),
             &node,
         );
@@ -1088,30 +1088,69 @@ fn generate_to_string_for_map_like(
         )
     };
 
-    // result = result + "}"
+    // Check if map is empty and handle special case for empty map syntax "[:]"
     let closing_brace_def = {
-        let result_access = create_expr_resolved(
-            ExpressionKind::VariableAccess(result_var.clone()),
-            string_type.clone(),
+        // if is_first { result = "[:]" } else { result = result + "|]" }
+        let is_first_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(is_first_var.clone()),
+            bool_type.clone(),
             &node,
         );
-        let closing_brace = create_expr_resolved(
-            ExpressionKind::StringLiteral("}".to_string()),
-            string_type.clone(),
-            &node,
-        );
-        let concat_expr = create_expr_resolved(
-            ExpressionKind::BinaryOp(BinaryOperator {
-                kind: BinaryOperatorKind::Add,
-                left: Box::new(result_access),
-                right: Box::new(closing_brace),
-                node: node.clone(),
-            }),
-            string_type.clone(),
-            &node,
-        );
+
+        // Empty map case: result = "[:]"
+        let empty_map_case = {
+            let empty_map_literal = create_expr_resolved(
+                ExpressionKind::StringLiteral("[:]".to_string()),
+                string_type.clone(),
+                &node,
+            );
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(
+                    result_var.clone(),
+                    Box::new(empty_map_literal),
+                ),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        // Non-empty map case: result = result + "|]"
+        let non_empty_map_case = {
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                &node,
+            );
+            let closing_brace = create_expr_resolved(
+                ExpressionKind::StringLiteral("|]".to_string()),
+                string_type.clone(),
+                &node,
+            );
+            let concat_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(closing_brace),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                &node,
+            );
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
         create_expr_resolved(
-            ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+            ExpressionKind::If(
+                BooleanExpression {
+                    expression: Box::new(is_first_access),
+                },
+                Box::new(empty_map_case),
+                Some(Box::new(non_empty_map_case)),
+            ),
             unit_type.clone(),
             &node,
         )
@@ -1468,32 +1507,37 @@ pub fn internal_generate_to_string_function_for_type(
         // Primitive types have their own to_string() implementations in core_text()
         TypeKind::Byte => panic!("Byte to_string() is handled in core_text(), not generated here"),
         TypeKind::Int => panic!("Int to_string() is handled in core_text(), not generated here"),
-        TypeKind::Float => panic!("Float to_string() is handled in core_text(), not generated here"),
+        TypeKind::Float => {
+            panic!("Float to_string() is handled in core_text(), not generated here")
+        }
         TypeKind::Bool => panic!("Bool to_string() is handled in core_text(), not generated here"),
         TypeKind::String => {
             // For String type, to_string() should just return self
             first_self_param
         }
-        TypeKind::StringStorage(_, _) => panic!("StringStorage to_string() should be handled elsewhere"),
+        TypeKind::StringStorage(_, _) => {
+            panic!("StringStorage to_string() should be handled elsewhere")
+        }
         // Unit and Function types cannot be stored in fields/collections in Swamp, so no to_string() needed
         TypeKind::Unit => panic!("Unit type cannot be stored in fields, no to_string() needed"),
-        TypeKind::Tuple(tuple_types) => generate_to_string_for_tuple(
-            generator,
-            first_self_param,
-            tuple_types,
-            resolved_node,
-        ),
+        TypeKind::Tuple(tuple_types) => {
+            generate_to_string_for_tuple(generator, first_self_param, tuple_types, resolved_node)
+        }
         TypeKind::NamedStruct(named) => {
             generate_to_string_for_named_struct(generator, named, first_self_param)
         }
         TypeKind::AnonymousStruct(_anon_struct) => {
             generate_to_string_for_anon_struct(generator, ty, first_self_param)
         }
-        TypeKind::Range(_) => panic!("Range to_string() is handled in core_text(), not generated here"),
+        TypeKind::Range(_) => {
+            panic!("Range to_string() is handled in core_text(), not generated here")
+        }
         TypeKind::Enum(enum_type) => {
             generate_to_string_for_enum(generator.types, &enum_type.clone(), first_self_param)
         }
-        TypeKind::Function(_) => panic!("Function types cannot be stored in fields, no to_string() needed"),
+        TypeKind::Function(_) => {
+            panic!("Function types cannot be stored in fields, no to_string() needed")
+        }
         TypeKind::Optional(inner_type) => generate_to_string_for_optional(
             generator,
             &mut block_scope_to_use,
@@ -1583,13 +1627,17 @@ pub fn internal_generate_to_short_string_function_for_type(
         // Primitive types have their own to_string() implementations in core_text()
         TypeKind::Byte => panic!("Byte to_string() is handled in core_text(), not generated here"),
         TypeKind::Int => panic!("Int to_string() is handled in core_text(), not generated here"),
-        TypeKind::Float => panic!("Float to_string() is handled in core_text(), not generated here"),
+        TypeKind::Float => {
+            panic!("Float to_string() is handled in core_text(), not generated here")
+        }
         TypeKind::Bool => panic!("Bool to_string() is handled in core_text(), not generated here"),
         TypeKind::String => {
             // For String type, to_string() should just return self
             first_self_param
         }
-        TypeKind::StringStorage(_, _) => panic!("StringStorage to_string() should be handled elsewhere"),
+        TypeKind::StringStorage(_, _) => {
+            panic!("StringStorage to_string() should be handled elsewhere")
+        }
         // Unit and Function types cannot be stored in fields/collections in Swamp, so no to_string() needed
         TypeKind::Unit => panic!("Unit type cannot be stored in fields, no to_string() needed"),
         TypeKind::Tuple(tuple_types) => generate_to_short_string_for_tuple(
@@ -1604,11 +1652,15 @@ pub fn internal_generate_to_short_string_function_for_type(
         TypeKind::AnonymousStruct(_anon_struct) => {
             generate_to_short_string_for_anon_struct(generator, ty, first_self_param)
         }
-        TypeKind::Range(_) => panic!("Range to_string() is handled in core_text(), not generated here"),
+        TypeKind::Range(_) => {
+            panic!("Range to_string() is handled in core_text(), not generated here")
+        }
         TypeKind::Enum(enum_type) => {
             generate_to_short_string_for_enum(generator.types, &enum_type.clone(), first_self_param)
         }
-        TypeKind::Function(_) => panic!("Function types cannot be stored in fields, no to_string() needed"),
+        TypeKind::Function(_) => {
+            panic!("Function types cannot be stored in fields, no to_string() needed")
+        }
         TypeKind::Optional(inner_type) => generate_to_short_string_for_optional(
             generator,
             &mut block_scope_to_use,
