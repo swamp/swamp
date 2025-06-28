@@ -59,12 +59,6 @@ impl Type {
 
     #[inline]
     #[must_use]
-    pub fn is_aggregate(&self) -> bool {
-        !self.flags.contains(TypeFlags::IS_SCALAR)
-    }
-
-    #[inline]
-    #[must_use]
     pub const fn can_be_stored_in_field(&self) -> bool {
         self.flags.contains(TypeFlags::IS_BLITTABLE)
     }
@@ -97,5 +91,40 @@ impl Type {
     #[must_use]
     pub const fn is_blittable(&self) -> bool {
         self.flags.contains(TypeFlags::IS_BLITTABLE)
+    }
+
+    /// Check if this type requires explicit storage allocation from caller
+    /// Only dynamically-sized collections need this, not fixed-size aggregates
+    #[must_use]
+    pub fn needs_explicit_storage(&self) -> bool {
+        match &*self.kind {
+            // Dynamic collections that need explicit storage
+            TypeKind::DynamicLengthVecView(_) 
+            | TypeKind::DynamicLengthMapView(_, _)
+            | TypeKind::StackView(_)
+            | TypeKind::QueueView(_)
+            | TypeKind::SparseView(_)
+            | TypeKind::GridView(_)
+            | TypeKind::SliceView(_) => true,
+
+            // Fixed-size aggregates can be allocated automatically  
+            TypeKind::Optional(_)
+            | TypeKind::Tuple(_)
+            | TypeKind::NamedStruct(_)
+            | TypeKind::AnonymousStruct(_)
+            | TypeKind::Enum(_)
+            | TypeKind::Range(_)
+            | TypeKind::VecStorage(_, _)
+            | TypeKind::StackStorage(_, _) 
+            | TypeKind::QueueStorage(_, _)
+            | TypeKind::MapStorage(_, _, _)
+            | TypeKind::SparseStorage(_, _)
+            | TypeKind::GridStorage(_, _, _) 
+            | TypeKind::FixedCapacityAndLengthArray(_, _)
+            | TypeKind::StringStorage(_, _) => false,
+
+            // Primitives don't need storage
+            _ => false,
+        }
     }
 }

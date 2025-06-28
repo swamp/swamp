@@ -449,7 +449,7 @@ impl Analyzer<'_> {
 
             let field_type_context = TypeContext::new_argument(
                 &looked_up_field.field_type,
-                looked_up_field.field_type.is_aggregate(),
+                looked_up_field.field_type.needs_explicit_storage(),
             );
             let resolved_expression =
                 self.analyze_expression(&field.expression, &field_type_context);

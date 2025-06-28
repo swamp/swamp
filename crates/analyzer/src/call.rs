@@ -34,8 +34,9 @@ impl Analyzer<'_> {
     ) -> ArgumentExpression {
         let context = TypeContext::new_argument(
             &fn_parameter.resolved_type,
-            fn_parameter.resolved_type.is_aggregate(),
+            false, // Function arguments cannot provide storage for aggregate return values
         );
+
         let ref_checked_argument = self.analyze_maybe_ref_expression(argument_expr);
 
         if fn_parameter.is_mutable {
@@ -60,7 +61,7 @@ impl Analyzer<'_> {
                     return ArgumentExpression::Expression(expr);
                 }
             }
-            let resolved_expr = self.analyze_expression(argument_expr, &context.with_lvalue());
+            let resolved_expr = self.analyze_expression(argument_expr, &context);
             ArgumentExpression::Expression(resolved_expr)
         }
     }

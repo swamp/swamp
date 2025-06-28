@@ -21,7 +21,7 @@ impl Analyzer<'_> {
             let extra_verification = false;
             if extra_verification {
                 let debug_context =
-                    TypeContext::new_anything_argument(annotation_type.is_aggregate());
+                    TypeContext::new_anything_argument(annotation_type.needs_explicit_storage());
                 let worked_without_annotation =
                     self.analyze_expression(&constant.expression, &debug_context);
                 if self

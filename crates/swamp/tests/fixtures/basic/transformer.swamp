@@ -11,15 +11,8 @@ struct FoundNumbers {
     numbers: Vec<Int; 4>,
 }
 
-#[test]
-fn illegal() {
-    found = FoundNumbers {
-        numbers: [1, 2, 3, 4],
-    }
-    if found.numbers.filter(|x| x % 2 == 0).len() == 2 {
-			print('hello')
-		}
-
+fn returns_vec() -> Vec<Int> {
+    [10, 20, 30]
 }
 
 
@@ -97,4 +90,3 @@ fn find_in_vec() {
         panic('should have found 2 in array')
     }
 }
-

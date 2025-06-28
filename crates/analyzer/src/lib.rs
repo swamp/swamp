@@ -159,7 +159,7 @@ impl<'a> TypeContext<'a> {
     pub fn new_function(required_type: &'a TypeRef) -> Self {
         Self {
             expected_type: Some(required_type),
-            has_lvalue_target: required_type.is_aggregate(),
+            has_lvalue_target: required_type.needs_explicit_storage(),
         }
     }
 
@@ -640,7 +640,13 @@ impl<'a> Analyzer<'a> {
             // TODO: self.coerce_unrestricted_type(&ast_expression.node, expr)?
         };
 
-        if !context.has_lvalue_target && expr.ty.is_aggregate() {
+        // Only apply storage rule to function calls that return types needing explicit storage
+        // Exclude literals, constants, and variables which already have storage or are constructed directly
+        let is_function_call = Self::is_aggregate_function_call(ast_expression);
+        let is_constant = matches!(expr.kind, ExpressionKind::ConstantAccess(_));
+        let is_variable = matches!(expr.kind, ExpressionKind::VariableAccess(_));
+
+        if !context.has_lvalue_target && expr.ty.needs_explicit_storage() && is_function_call && !is_constant && !is_variable {
             // We have no way to store it
             self.create_err(ErrorKind::NeedStorage, &ast_expression.node)
         } else {
@@ -648,9 +654,6 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn new_from_slice(&mut self, analyzed_element_type: &TypeRef) -> Expression {
-        todo!()
-    }
 
     /// # Errors
     ///
@@ -665,7 +668,7 @@ impl<'a> Analyzer<'a> {
         match &ast_expression.kind {
             // Lookups
             swamp_ast::ExpressionKind::PostfixChain(postfix_chain) => {
-                self.analyze_postfix_chain(postfix_chain)
+                self.analyze_postfix_chain(postfix_chain, context)
             }
 
             swamp_ast::ExpressionKind::VariableDefinition(
@@ -1003,7 +1006,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                    .kind
+                        .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -1037,14 +1040,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                .kind
+                    .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-            .kind
+                .kind
         }
     }
 
@@ -1146,13 +1149,14 @@ impl<'a> Analyzer<'a> {
         func_def: Function,
         maybe_generic_arguments: &Option<Vec<swamp_ast::GenericParameter>>,
         arguments: &[swamp_ast::Expression],
+        context: &TypeContext,
     ) -> Expression {
-        let signature = if let Some(found_generic_arguments) = maybe_generic_arguments {
-            // TODO:
-            func_def.signature().clone()
-        } else {
-            func_def.signature().clone()
-        };
+        let signature = func_def.signature().clone();
+
+        // Check if function returns a type that needs explicit storage and we don't have an lvalue target
+        if signature.return_type.needs_explicit_storage() && !context.has_lvalue_target {
+            return self.create_err(ErrorKind::NeedStorage, ast_node);
+        }
 
         let analyzed_arguments =
             self.analyze_and_verify_parameters(ast_node, &signature.parameters, arguments);
@@ -1171,7 +1175,7 @@ impl<'a> Analyzer<'a> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn analyze_postfix_chain(&mut self, chain: &swamp_ast::PostfixChain) -> Expression {
+    fn analyze_postfix_chain(&mut self, chain: &swamp_ast::PostfixChain, context: &TypeContext) -> Expression {
         let maybe_start_of_chain_base =
             self.analyze_start_chain_expression_get_mutability(&chain.base);
 
@@ -1196,6 +1200,7 @@ impl<'a> Analyzer<'a> {
                             func_def,
                             maybe_generic_arguments,
                             arguments,
+                            context,
                         );
                         if chain.postfixes.len() == 1 {
                             return call_expr;
@@ -1556,8 +1561,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
-            } else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -1596,12 +1600,35 @@ impl<'a> Analyzer<'a> {
         }
     }
 
+    /// Check if an expression is a function call that returns an aggregate type
+    fn is_aggregate_function_call(expression: &swamp_ast::Expression) -> bool {
+        match &expression.kind {
+            swamp_ast::ExpressionKind::PostfixChain(chain) => {
+                if chain.postfixes.is_empty() {
+                    return false;
+                }
+
+                for postfix in &chain.postfixes {
+                    if let swamp_ast::Postfix::FunctionCall(_, _, _) = postfix {
+                        return true;
+                    }
+                }
+                false
+            }
+            _ => false, // Other expressions (variables, literals, etc.) are not function calls
+        }
+    }
+
+
     fn analyze_iterable(
         &mut self,
         mut_requested_for_value_variable: Option<swamp_ast::Node>,
         expression: &swamp_ast::Expression,
     ) -> Iterable {
-        let any_context = TypeContext::new_anything_argument(true); // we are not fetching the actual data of the type, just using it as an iterator
+        // Only set has_lvalue_target=false for function calls that return aggregates
+        // Variables/parameters already have storage, so they should have has_lvalue_target=true
+        let has_lvalue_target = !Self::is_aggregate_function_call(expression);
+        let any_context = TypeContext::new_anything_argument(has_lvalue_target);
 
         let resolved_expression = self.analyze_expression(expression, &any_context);
 
@@ -1657,8 +1684,10 @@ impl<'a> Analyzer<'a> {
         ast_expressions: &[swamp_ast::Expression],
     ) -> Vec<Expression> {
         let mut resolved_expressions = Vec::new();
+        // Function arguments should not have lvalue targets by default - they need proper storage allocation
         let argument_expressions_context =
-            TypeContext::new_unsure_argument(expected_type, context.has_lvalue_target);
+            TypeContext::new_unsure_argument(expected_type, false);
+
         for expression in ast_expressions {
             resolved_expressions
                 .push(self.analyze_expression(expression, &argument_expressions_context));
@@ -2730,8 +2759,7 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
-    }
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -2766,11 +2794,26 @@ impl<'a> Analyzer<'a> {
             self.analyze_expression(source_expression, &any_type_context)
         };
 
-        if !source_expr.ty.is_blittable() {
+        // Check if the variable type (target type) can be stored in a variable
+        // Skip this check for parameters since they already have allocated storage
+        let target_type = if let Some(found_var) = &maybe_found_variable {
+            &found_var.resolved_type
+        } else {
+            &source_expr.ty
+        };
+
+        // Only check blittable for local variables, not parameters
+        let should_check_blittable = if let Some(found_var) = &maybe_found_variable {
+            !matches!(found_var.variable_type, VariableType::Parameter)
+        } else {
+            true // New variable definitions need to be blittable
+        };
+
+        if should_check_blittable && !target_type.is_blittable() {
             let debug_text = self.get_text(&variable.name);
             if !debug_text.starts_with('_') {
                 return self.create_err(
-                    ErrorKind::VariableTypeMustBeBlittable(source_expr.ty),
+                    ErrorKind::VariableTypeMustBeBlittable(target_type.clone()),
                     &variable.name,
                 );
             }
@@ -4233,8 +4276,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                        .types()
-                        .compatible_with(initializer_value_type, storage_value)
+                    .types()
+                    .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }
