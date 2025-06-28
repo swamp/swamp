@@ -43,7 +43,13 @@ impl Analyzer<'_> {
             swamp_ast::Type::AnonymousStruct(ast_struct) => {
                 let struct_ref = self.analyze_anonymous_struct_type(ast_struct);
                 // Use TypeCache to create the anonymous struct type
-                self.shared.state.types.anonymous_struct(struct_ref)
+                let anon_struct_type = self.shared.state.types.anonymous_struct(struct_ref);
+
+                // Generate default functions for the new anonymous struct type
+                let default_node = swamp_ast::Node::default();
+                self.add_default_functions(&anon_struct_type, &default_node);
+
+                anon_struct_type
             }
             swamp_ast::Type::FixedCapacityArray(ast_type, fixed_size) => {
                 let element_type = self.analyze_type(ast_type);
@@ -114,7 +120,13 @@ impl Analyzer<'_> {
             swamp_ast::Type::Tuple(types) => {
                 let analyzed_types = self.analyze_types(types);
                 // Use TypeCache for tuple creation
-                self.shared.state.types.tuple(analyzed_types)
+                let tuple_type = self.shared.state.types.tuple(analyzed_types);
+
+                // Generate default functions for the new tuple type
+                let default_node = swamp_ast::Node::default();
+                self.add_default_functions(&tuple_type, &default_node);
+
+                tuple_type
             }
             swamp_ast::Type::Named(ast_type_reference) => {
                 // Named types need to be analyzed through the TypeCache as well

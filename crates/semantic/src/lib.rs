@@ -1146,7 +1146,7 @@ impl AssociatedImpls {
         ty: &TypeRef,
         func: InternalFunctionDefinition,
     ) -> Result<(), SemanticError> {
-        info!(name=?func.assigned_name, ?ty, "adding member function");
+        //info!(name=?func.assigned_name, ?ty, "adding member function");
         self.add_member_function(
             ty,
             &func.assigned_name.clone(),

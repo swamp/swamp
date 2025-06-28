@@ -13,8 +13,7 @@ use swamp_types::prelude::{EnumType, NamedStructType, Signature, TypeCache, Type
 use swamp_types::{TypeKind, TypeRef};
 
 fn generate_to_string_for_named_struct(
-    mut generator: &mut ExpressionGenerator,
-    scope: &mut GeneratedScope,
+    generator: &mut ExpressionGenerator,
     named: &NamedStructType,
     self_expression: Expression,
 ) -> Expression {
@@ -1274,6 +1273,179 @@ fn generate_to_short_string_for_optional(
     )
 }
 
+fn generate_to_string_for_tuple(
+    generator: &mut ExpressionGenerator,
+    self_expression: Expression,
+    tuple_types: &[TypeRef],
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+
+    // Create opening parenthesis
+    let mut result_expr = create_expr_resolved(
+        ExpressionKind::StringLiteral("(".to_string()),
+        string_type.clone(),
+        node,
+    );
+
+    // Generate string for each tuple element
+    for (index, element_type) in tuple_types.iter().enumerate() {
+        let start_of_chain = StartOfChain {
+            kind: StartOfChainKind::Expression(Box::new(self_expression.clone())),
+            node: node.clone(),
+        };
+        let postfix = Postfix {
+            node: node.clone(),
+            ty: element_type.clone(),
+            kind: PostfixKind::StructField(self_expression.ty.clone(), index),
+        };
+        let element_access = create_expr_resolved(
+            ExpressionKind::PostfixChain(start_of_chain, vec![postfix]),
+            element_type.clone(),
+            node,
+        );
+
+        let element_string =
+            create_string_representation_of_expression(generator, element_access, node);
+
+        let concat_kind = BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(result_expr),
+            right: Box::new(element_string),
+            node: node.clone(),
+        };
+        result_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(concat_kind),
+            string_type.clone(),
+            node,
+        );
+
+        if index < tuple_types.len() - 1 {
+            let comma_expr = create_expr_resolved(
+                ExpressionKind::StringLiteral(", ".to_string()),
+                string_type.clone(),
+                node,
+            );
+            let comma_concat_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_expr),
+                right: Box::new(comma_expr),
+                node: node.clone(),
+            };
+            result_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(comma_concat_kind),
+                string_type.clone(),
+                node,
+            );
+        }
+    }
+
+    let closing_expr = create_expr_resolved(
+        ExpressionKind::StringLiteral(")".to_string()),
+        string_type.clone(),
+        node,
+    );
+
+    let final_concat_kind = BinaryOperator {
+        kind: BinaryOperatorKind::Add,
+        left: Box::new(result_expr),
+        right: Box::new(closing_expr),
+        node: node.clone(),
+    };
+
+    create_expr_resolved(
+        ExpressionKind::BinaryOp(final_concat_kind),
+        string_type,
+        node,
+    )
+}
+
+fn generate_to_short_string_for_tuple(
+    generator: &mut ExpressionGenerator,
+    self_expression: Expression,
+    tuple_types: &[TypeRef],
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+
+    let mut result_expr = create_expr_resolved(
+        ExpressionKind::StringLiteral("(".to_string()),
+        string_type.clone(),
+        node,
+    );
+
+    for (index, element_type) in tuple_types.iter().enumerate() {
+        // Access the tuple element at this index using PostfixChain
+        let start_of_chain = StartOfChain {
+            kind: StartOfChainKind::Expression(Box::new(self_expression.clone())),
+            node: node.clone(),
+        };
+        let postfix = Postfix {
+            node: node.clone(),
+            ty: element_type.clone(),
+            kind: PostfixKind::StructField(self_expression.ty.clone(), index),
+        };
+        let element_access = create_expr_resolved(
+            ExpressionKind::PostfixChain(start_of_chain, vec![postfix]),
+            element_type.clone(),
+            node,
+        );
+
+        let element_string =
+            create_string_representation_of_expression(generator, element_access, node);
+
+        let concat_kind = BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(result_expr),
+            right: Box::new(element_string),
+            node: node.clone(),
+        };
+        result_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(concat_kind),
+            string_type.clone(),
+            node,
+        );
+
+        if index < tuple_types.len() - 1 {
+            let comma_expr = create_expr_resolved(
+                ExpressionKind::StringLiteral(", ".to_string()),
+                string_type.clone(),
+                node,
+            );
+            let comma_concat_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_expr),
+                right: Box::new(comma_expr),
+                node: node.clone(),
+            };
+            result_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(comma_concat_kind),
+                string_type.clone(),
+                node,
+            );
+        }
+    }
+
+    let closing_expr = create_expr_resolved(
+        ExpressionKind::StringLiteral(")".to_string()),
+        string_type.clone(),
+        node,
+    );
+
+    let final_concat_kind = BinaryOperator {
+        kind: BinaryOperatorKind::Add,
+        left: Box::new(result_expr),
+        right: Box::new(closing_expr),
+        node: node.clone(),
+    };
+
+    create_expr_resolved(
+        ExpressionKind::BinaryOp(final_concat_kind),
+        string_type,
+        node,
+    )
+}
+
 pub fn internal_generate_to_string_function_for_type(
     generator: &mut ExpressionGenerator,
     id_gen: &mut InternalFunctionIdAllocator,
@@ -1289,7 +1461,7 @@ pub fn internal_generate_to_string_function_for_type(
     let first_self_param = create_expr_resolved(
         ExpressionKind::VariableAccess(variable_ref),
         ty.clone(),
-        &resolved_node,
+        resolved_node,
     );
 
     let body_expr = match &*ty.kind {
@@ -1303,13 +1475,12 @@ pub fn internal_generate_to_string_function_for_type(
         TypeKind::StringStorage(_, _) => todo!(),
         TypeKind::Bool => todo!(),
         TypeKind::Unit => todo!(),
-        TypeKind::Tuple(_) => todo!(),
-        TypeKind::NamedStruct(named) => generate_to_string_for_named_struct(
-            generator,
-            &mut block_scope_to_use,
-            named,
-            first_self_param,
-        ),
+        TypeKind::Tuple(tuple_types) => {
+            generate_to_string_for_tuple(generator, first_self_param, tuple_types, resolved_node)
+        }
+        TypeKind::NamedStruct(named) => {
+            generate_to_string_for_named_struct(generator, named, first_self_param)
+        }
         TypeKind::AnonymousStruct(_anon_struct) => {
             generate_to_string_for_anon_struct(generator, ty, first_self_param)
         }
@@ -1323,7 +1494,7 @@ pub fn internal_generate_to_string_function_for_type(
             &mut block_scope_to_use,
             first_self_param,
             inner_type,
-            &resolved_node,
+            resolved_node,
         ),
         TypeKind::FixedCapacityAndLengthArray(element_type, _)
         | TypeKind::SliceView(element_type)
@@ -1334,16 +1505,22 @@ pub fn internal_generate_to_string_function_for_type(
         | TypeKind::StackStorage(element_type, _)
         | TypeKind::QueueStorage(element_type, _)
         | TypeKind::SparseView(element_type)
-        | TypeKind::SparseStorage(element_type, _)
-        | TypeKind::GridView(element_type)
-        | TypeKind::GridStorage(element_type, _, _) => generate_to_string_for_sequence_like(
+        | TypeKind::SparseStorage(element_type, _) => generate_to_string_for_sequence_like(
             generator,
             &mut block_scope_to_use,
             first_self_param,
             ty,
             element_type,
-            &resolved_node,
+            resolved_node,
         ),
+        TypeKind::GridView(_) | TypeKind::GridStorage(_, _, _) => {
+            // Grids don't support iteration yet, so return a placeholder string
+            create_expr_resolved(
+                ExpressionKind::StringLiteral("<Grid: iteration not yet supported>".to_string()),
+                generator.types.string(),
+                resolved_node,
+            )
+        }
         TypeKind::MapStorage(key_type, value_type, _)
         | TypeKind::DynamicLengthMapView(key_type, value_type) => generate_to_string_for_map_like(
             generator,
@@ -1352,13 +1529,13 @@ pub fn internal_generate_to_string_function_for_type(
             ty,
             key_type,
             value_type,
-            &resolved_node,
+            resolved_node,
         ),
     };
 
     let unique_function_id = id_gen.alloc();
 
-    let function_definition = InternalFunctionDefinition {
+    InternalFunctionDefinition {
         body: body_expr,
         name: LocalIdentifier(resolved_node.clone()),
         assigned_name: "to_string".to_string(),
@@ -1376,9 +1553,7 @@ pub fn internal_generate_to_string_function_for_type(
         function_variables: block_scope_to_use.scope.clone(),
         program_unique_id: unique_function_id,
         attributes: Attributes::default(),
-    };
-
-    function_definition
+    }
 }
 
 pub fn internal_generate_to_short_string_function_for_type(
@@ -1391,12 +1566,12 @@ pub fn internal_generate_to_short_string_function_for_type(
     let mut block_scope_to_use = GeneratedScope::new();
 
     // Create the "self" parameter using the same method as normal functions
-    let variable_ref = block_scope_to_use.create_parameter("self", ty, &resolved_node);
+    let variable_ref = block_scope_to_use.create_parameter("self", ty, resolved_node);
 
     let first_self_param = create_expr_resolved(
         ExpressionKind::VariableAccess(variable_ref),
         ty.clone(),
-        &resolved_node,
+        resolved_node,
     );
 
     let body_expr = match &*ty.kind {
@@ -1410,7 +1585,12 @@ pub fn internal_generate_to_short_string_function_for_type(
         TypeKind::StringStorage(_, _) => todo!(),
         TypeKind::Bool => todo!(),
         TypeKind::Unit => todo!(),
-        TypeKind::Tuple(_) => todo!(),
+        TypeKind::Tuple(tuple_types) => generate_to_short_string_for_tuple(
+            generator,
+            first_self_param,
+            tuple_types,
+            resolved_node,
+        ),
         TypeKind::NamedStruct(named) => {
             generate_to_short_string_for_named_struct(generator, named, first_self_param)
         }
@@ -1427,7 +1607,7 @@ pub fn internal_generate_to_short_string_function_for_type(
             &mut block_scope_to_use,
             first_self_param,
             inner_type,
-            &resolved_node,
+            resolved_node,
         ),
         TypeKind::FixedCapacityAndLengthArray(element_type, _)
         | TypeKind::SliceView(element_type)
@@ -1438,16 +1618,22 @@ pub fn internal_generate_to_short_string_function_for_type(
         | TypeKind::StackStorage(element_type, _)
         | TypeKind::QueueStorage(element_type, _)
         | TypeKind::SparseView(element_type)
-        | TypeKind::SparseStorage(element_type, _)
-        | TypeKind::GridView(element_type)
-        | TypeKind::GridStorage(element_type, _, _) => generate_to_string_for_sequence_like(
+        | TypeKind::SparseStorage(element_type, _) => generate_to_string_for_sequence_like(
             generator,
             &mut block_scope_to_use,
             first_self_param,
             ty,
             element_type,
-            &resolved_node,
+            resolved_node,
         ),
+        TypeKind::GridView(_) | TypeKind::GridStorage(_, _, _) => {
+            // Grids don't support iteration yet, so return a placeholder string
+            create_expr_resolved(
+                ExpressionKind::StringLiteral("<Grid: iteration not yet supported>".to_string()),
+                generator.types.string(),
+                resolved_node,
+            )
+        }
         TypeKind::MapStorage(key_type, value_type, _)
         | TypeKind::DynamicLengthMapView(key_type, value_type) => generate_to_string_for_map_like(
             generator,
@@ -1456,7 +1642,7 @@ pub fn internal_generate_to_short_string_function_for_type(
             ty,
             key_type,
             value_type,
-            &resolved_node,
+            resolved_node,
         ),
     };
 
@@ -1464,7 +1650,7 @@ pub fn internal_generate_to_short_string_function_for_type(
 
     block_scope_to_use.scope.finalize();
 
-    let function_definition = InternalFunctionDefinition {
+    InternalFunctionDefinition {
         body: body_expr,
         name: LocalIdentifier(resolved_node.clone()),
         assigned_name: "to_short_string".to_string(),
@@ -1482,7 +1668,5 @@ pub fn internal_generate_to_short_string_function_for_type(
         function_variables: block_scope_to_use.scope.clone(),
         program_unique_id: unique_function_id,
         attributes: Attributes::default(),
-    };
-
-    function_definition
+    }
 }
