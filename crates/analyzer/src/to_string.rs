@@ -9,6 +9,7 @@ use swamp_semantic::{
     Pattern, Postfix, PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator,
     UnaryOperatorKind, Variable, VariableRef, VariableScopes, VariableType, WhenBinding,
 };
+use swamp_semantic::intr::IntrinsicFunction;
 use swamp_types::prelude::{EnumType, NamedStructType, Signature, TypeCache, TypeForParameter};
 use swamp_types::{TypeKind, TypeRef};
 
@@ -1830,10 +1831,34 @@ fn generate_to_pretty_string_for_type(
     );
 
     // Step 2: if compact.len() < 80 { return compact } else { ... }
-    // For now, assume all strings are "long" to test multi-line formatting
-    // TODO: Implement proper string.len() checking later
-    let threshold_check =
-        create_expr_resolved(ExpressionKind::BoolLiteral(false), bool_type.clone(), node);
+    // Call StringLen intrinsic directly - much safer and faster!
+    let compact_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(compact_var.clone()),
+        string_type.clone(),
+        node,
+    );
+
+    let length_expr = create_expr_resolved(
+        ExpressionKind::IntrinsicCallEx(
+            IntrinsicFunction::StringLen,
+            vec![ArgumentExpression::Expression(compact_access)],
+        ),
+        int_type.clone(),
+        node,
+    );
+
+    // Check if length < 80
+    let threshold = create_expr_resolved(ExpressionKind::IntLiteral(80), int_type.clone(), node);
+    let threshold_check = create_expr_resolved(
+        ExpressionKind::BinaryOp(BinaryOperator {
+            kind: BinaryOperatorKind::LessThan,
+            left: Box::new(length_expr),
+            right: Box::new(threshold),
+            node: node.clone(),
+        }),
+        bool_type.clone(),
+        node,
+    );
 
     let compact_access = create_expr_resolved(
         ExpressionKind::VariableAccess(compact_var.clone()),
@@ -1886,13 +1911,20 @@ fn generate_to_pretty_string_for_type(
         }
     };
 
+    // Create another access to compact for the if expression
+    let compact_access_for_if = create_expr_resolved(
+        ExpressionKind::VariableAccess(compact_var.clone()),
+        string_type.clone(),
+        node,
+    );
+
     // if threshold_check { compact } else { multi_line_result }
     let if_expr = create_expr_resolved(
         ExpressionKind::If(
             BooleanExpression {
                 expression: Box::new(threshold_check),
             },
-            Box::new(compact_access),
+            Box::new(compact_access_for_if),
             Some(Box::new(multi_line_result)),
         ),
         string_type.clone(),

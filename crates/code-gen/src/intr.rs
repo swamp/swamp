@@ -10,11 +10,11 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_types::types::{
-    Destination, TypedRegister, VmType, float_type, pointer_type, u8_type, u16_type, u32_type,
+    float_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister, VmType,
 };
 use swamp_vm_types::{
-    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
-    MemoryLocation, MemoryOffset, MemorySize, PointerLocation, STRING_HEADER_COUNT_OFFSET,
+    AggregateMemoryLocation, MemoryLocation, MemoryOffset,
+    MemorySize, PointerLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
 };
 
 impl CodeBuilder<'_> {
@@ -1004,17 +1004,6 @@ impl CodeBuilder<'_> {
                 );
             }
 
-            // String
-            IntrinsicFunction::StringLen => {
-                self.builder.add_ld32_from_pointer_with_offset_u16(
-                    maybe_target.unwrap(),
-                    self_reg.unwrap(),
-                    STRING_HEADER_COUNT_OFFSET,
-                    node,
-                    "get the length",
-                );
-            }
-
             IntrinsicFunction::StringToString => {
                 self.builder.string_to_string(
                     maybe_target.unwrap(),
@@ -1037,7 +1026,7 @@ impl CodeBuilder<'_> {
                 );
             }
 
-            IntrinsicFunction::MapLen | IntrinsicFunction::VecLen => {
+            IntrinsicFunction::StringLen | IntrinsicFunction::MapLen | IntrinsicFunction::VecLen => {
                 let collection_pointer = PointerLocation {
                     ptr_reg: self_reg.unwrap().clone(),
                 };

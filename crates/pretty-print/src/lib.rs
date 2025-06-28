@@ -567,18 +567,19 @@ impl SourceMapDisplay<'_> {
     fn show_postfix(&self, f: &mut Formatter, postfix: &Postfix, tabs: usize) -> std::fmt::Result {
         match &postfix.kind {
             PostfixKind::StructField(struct_type, field) => {
-                let field_name_sorted_fields = match &*struct_type.kind {
+                let name = match &*struct_type.kind {
                     TypeKind::NamedStruct(named) => {
                         let TypeKind::AnonymousStruct(anon) = &*named.anon_struct_type.kind else {
                             panic!("must be anon")
                         };
-                        &anon.field_name_sorted_fields
+                        &anon.field_name_sorted_fields.keys().collect::<Vec<_>>()[*field].clone()
                     }
-                    TypeKind::AnonymousStruct(anon) => &anon.field_name_sorted_fields,
-                    _ => panic!("not plausible"),
+                    TypeKind::AnonymousStruct(anon) => &anon.field_name_sorted_fields.keys().collect::<Vec<_>>()[*field].clone(),
+                    TypeKind::Tuple(tuple) => &format!("{}", field),
+                    _ => panic!("not plausible {struct_type}"),
                 };
 
-                let name = field_name_sorted_fields.keys().collect::<Vec<_>>()[*field].clone();
+                
                 write!(f, ".{}", name.bright_blue())
             }
             PostfixKind::SliceViewSubscript(slice_type, index_expr) => {
