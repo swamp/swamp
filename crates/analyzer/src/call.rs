@@ -32,7 +32,10 @@ impl Analyzer<'_> {
         fn_parameter: &TypeForParameter,
         argument_expr: &swamp_ast::Expression,
     ) -> ArgumentExpression {
-        let context = TypeContext::new_argument(&fn_parameter.resolved_type);
+        let context = TypeContext::new_argument(
+            &fn_parameter.resolved_type,
+            fn_parameter.resolved_type.is_aggregate(),
+        );
         let ref_checked_argument = self.analyze_maybe_ref_expression(argument_expr);
 
         if fn_parameter.is_mutable {

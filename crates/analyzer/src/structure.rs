@@ -7,6 +7,7 @@ use seq_map::SeqMap;
 use seq_set::SeqSet;
 use source_map_node::Node;
 use std::collections::HashSet;
+use std::task::Context;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef, Postfix, PostfixKind,
@@ -130,6 +131,7 @@ impl Analyzer<'_> {
     pub fn deduce_the_anon_struct_type(
         &mut self,
         ast_fields: &Vec<swamp_ast::FieldExpression>,
+        context: &TypeContext,
     ) -> AnonymousStructType {
         let mut map_for_creating_type = SeqMap::new();
 
@@ -137,7 +139,7 @@ impl Analyzer<'_> {
             let field_name = self.get_text(&field.field_name.0).to_string();
             let resolved_node = self.to_node(&field.field_name.0);
 
-            let field_type_context = TypeContext::new_anything_argument();
+            let field_type_context = TypeContext::new_anything_argument(true);
             let resolved_expression =
                 self.analyze_expression(&field.expression, &field_type_context);
 
@@ -193,7 +195,7 @@ impl Analyzer<'_> {
                 }
             }
         } else {
-            let deduced_anon_struct_type = self.deduce_the_anon_struct_type(ast_fields);
+            let deduced_anon_struct_type = self.deduce_the_anon_struct_type(ast_fields, context);
             let anon_struct_type_ref = self
                 .shared
                 .state
@@ -445,7 +447,10 @@ impl Analyzer<'_> {
                 .get_index(&field_name)
                 .expect("field_name is checked earlier");
 
-            let field_type_context = TypeContext::new_argument(&looked_up_field.field_type);
+            let field_type_context = TypeContext::new_argument(
+                &looked_up_field.field_type,
+                looked_up_field.field_type.is_aggregate(),
+            );
             let resolved_expression =
                 self.analyze_expression(&field.expression, &field_type_context);
 

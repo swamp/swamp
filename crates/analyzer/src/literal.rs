@@ -153,7 +153,7 @@ impl Analyzer<'_> {
                             .iter()
                             .zip(ast_expressions)
                             .map(|(expected_type, ast_expression)| {
-                                let ctx = TypeContext::new_argument(expected_type);
+                                let ctx = context.argument(expected_type);
                                 self.analyze_expression(ast_expression, &ctx)
                             })
                             .collect();
@@ -205,7 +205,8 @@ impl Analyzer<'_> {
             }
 
             swamp_ast::LiteralKind::Tuple(expressions) => {
-                let (tuple_type_ref, resolved_items) = self.analyze_tuple_literal(expressions);
+                let (tuple_type_ref, resolved_items) =
+                    self.analyze_tuple_literal(expressions, context);
                 let tuple_type = self.shared.state.types.tuple(tuple_type_ref);
                 (ExpressionKind::TupleLiteral(resolved_items), tuple_type)
             }
@@ -233,8 +234,9 @@ impl Analyzer<'_> {
     fn analyze_tuple_literal(
         &mut self,
         items: &[swamp_ast::Expression],
+        context: &TypeContext,
     ) -> (Vec<TypeRef>, Vec<Expression>) {
-        let expressions = self.analyze_argument_expressions(None, items);
+        let expressions = self.analyze_argument_expressions(None, context, items);
         let mut tuple_types = Vec::new();
         for expr in &expressions {
             let item_type = expr.ty.clone();
@@ -259,7 +261,7 @@ impl Analyzer<'_> {
 
         let mut expressions = Vec::new();
         for (expected_type, expr) in expected_types.iter().zip(ast_expressions) {
-            let context = TypeContext::new_argument(expected_type);
+            let context = TypeContext::new_argument(expected_type, expected_type.is_aggregate());
             let resolved_expr = self.analyze_expression(expr, &context);
             expressions.push(resolved_expr);
         }

@@ -13,14 +13,15 @@ impl Analyzer<'_> {
             .as_ref()
             .map(|found_ast_type| self.analyze_type(found_ast_type));
 
-        let context = TypeContext::new_unsure_argument(maybe_annotation_type.as_ref());
+        let context = TypeContext::new_unsure_argument(maybe_annotation_type.as_ref(), true);
 
         let resolved_expr = self.analyze_expression(&constant.expression, &context);
 
         let actual_constant_type = if let Some(annotation_type) = maybe_annotation_type {
             let extra_verification = false;
             if extra_verification {
-                let debug_context = TypeContext::new_anything_argument();
+                let debug_context =
+                    TypeContext::new_anything_argument(annotation_type.is_aggregate());
                 let worked_without_annotation =
                     self.analyze_expression(&constant.expression, &debug_context);
                 if self
@@ -41,8 +42,9 @@ impl Analyzer<'_> {
             resolved_expr.ty.clone()
         };
 
+        #[cfg(debug_assertions)]
         let identifier_name = { self.get_text(&constant.constant_identifier.0) };
-        assert!(
+        debug_assert!(
             actual_constant_type.can_be_stored_in_field(),
             "this field is not blittable {identifier_name:?}"
         ); // TODO: investigate why FixedSizeArray gets converted to InitializerList

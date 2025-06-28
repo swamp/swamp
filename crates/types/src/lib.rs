@@ -59,6 +59,12 @@ impl Type {
 
     #[inline]
     #[must_use]
+    pub fn is_aggregate(&self) -> bool {
+        !self.flags.contains(TypeFlags::IS_SCALAR)
+    }
+
+    #[inline]
+    #[must_use]
     pub const fn can_be_stored_in_field(&self) -> bool {
         self.flags.contains(TypeFlags::IS_BLITTABLE)
     }

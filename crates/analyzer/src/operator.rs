@@ -14,7 +14,7 @@ impl Analyzer<'_> {
         ast_op: &swamp_ast::BinaryOperator,
         ast_right: &swamp_ast::Expression,
     ) -> Option<(BinaryOperator, TypeRef)> {
-        let anything_context = TypeContext::new_anything_argument();
+        let anything_context = TypeContext::new_anything_argument(false);
         let left = self.analyze_expression(ast_left, &anything_context);
         let left_type = &*left.ty.kind;
 
@@ -108,7 +108,7 @@ impl Analyzer<'_> {
                 panic!("unary borrow should have been handled")
             }
         };
-        let context = TypeContext::new_unsure_argument(require_type);
+        let context = TypeContext::new_unsure_argument(require_type, false);
         let left = self.analyze_expression(ast_left, &context);
         let resolved_type = left.ty.clone();
         Some((

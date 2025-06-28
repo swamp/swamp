@@ -31,7 +31,7 @@ impl Analyzer<'_> {
         max_expr: &swamp_ast::Expression,
     ) -> (Expression, Expression) {
         let int_type = self.shared.state.types.int();
-        let context = TypeContext::new_argument(&int_type);
+        let context = TypeContext::new_argument(&int_type, false);
 
         let resolved_min = self.analyze_expression(min_expr, &context);
         let resolved_max = self.analyze_expression(max_expr, &context);
