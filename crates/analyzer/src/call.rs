@@ -60,7 +60,7 @@ impl Analyzer<'_> {
                     return ArgumentExpression::Expression(expr);
                 }
             }
-            let resolved_expr = self.analyze_expression(argument_expr, &context);
+            let resolved_expr = self.analyze_expression(argument_expr, &context.with_lvalue());
             ArgumentExpression::Expression(resolved_expr)
         }
     }

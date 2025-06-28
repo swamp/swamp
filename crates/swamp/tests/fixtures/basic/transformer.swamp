@@ -11,6 +11,17 @@ struct FoundNumbers {
     numbers: Vec<Int; 4>,
 }
 
+#[test]
+fn illegal() {
+    found = FoundNumbers {
+        numbers: [1, 2, 3, 4],
+    }
+    if found.numbers.filter(|x| x % 2 == 0).len() == 2 {
+			print('hello')
+		}
+
+}
+
 
 #[test]
 fn filter() {

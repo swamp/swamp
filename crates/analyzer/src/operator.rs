@@ -14,7 +14,7 @@ impl Analyzer<'_> {
         ast_op: &swamp_ast::BinaryOperator,
         ast_right: &swamp_ast::Expression,
     ) -> Option<(BinaryOperator, TypeRef)> {
-        let anything_context = TypeContext::new_anything_argument(false);
+        let anything_context = TypeContext::new_anything_argument(true); // we assume that equal operator allocates temp memory
         let left = self.analyze_expression(ast_left, &anything_context);
         let left_type = &*left.ty.kind;
 

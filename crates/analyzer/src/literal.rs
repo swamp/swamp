@@ -4,6 +4,7 @@
  */
 use crate::{Analyzer, TypeContext};
 use source_map_node::Node;
+use std::env::current_dir;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::prelude::Error;
 use swamp_semantic::{EnumLiteralExpressions, ExpressionKind};
@@ -279,6 +280,12 @@ impl Analyzer<'_> {
             node: node.clone(),
             kind,
         };
+        let line_info = self
+            .shared
+            .source_map
+            .get_line(&node.span, &current_dir().unwrap());
+
+        eprintln!("{}:{} {}", line_info.row, line_info.col, line_info.line);
         self.shared.state.errors.push(err);
     }
 

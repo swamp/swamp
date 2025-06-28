@@ -117,6 +117,7 @@ pub enum ErrorKind {
     ParameterTypeCanNotBeStorage(TypeRef),
     OperatorProblem,
     MatchMustHaveAtLeastOneArm,
+    NeedStorage,
 }
 
 impl From<SemanticError> for Error {

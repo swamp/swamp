@@ -105,14 +105,19 @@ pub struct TypeContext<'a> {
     pub has_lvalue_target: bool,
 }
 
-impl<'a> TypeContext<'a> {}
-
 impl<'a> TypeContext<'a> {
     #[must_use]
     pub const fn new(expected_type: Option<&'a TypeRef>, has_lvalue_target: bool) -> Self {
         Self {
             expected_type,
             has_lvalue_target,
+        }
+    }
+
+    pub(crate) fn with_lvalue(&self) -> Self {
+        Self {
+            expected_type: self.expected_type,
+            has_lvalue_target: true,
         }
     }
 
@@ -610,7 +615,7 @@ impl<'a> Analyzer<'a> {
         let encountered_type = expr.ty.clone();
 
         //info!(?expr, "analyze expression");
-        if let Some(found_expected_type) = context.expected_type {
+        let expr = if let Some(found_expected_type) = context.expected_type {
             let reduced_expected = found_expected_type;
 
             let reduced_encountered_type = encountered_type;
@@ -633,6 +638,13 @@ impl<'a> Analyzer<'a> {
             expr
             //todo!()
             // TODO: self.coerce_unrestricted_type(&ast_expression.node, expr)?
+        };
+
+        if !context.has_lvalue_target && expr.ty.is_aggregate() {
+            // We have no way to store it
+            self.create_err(ErrorKind::NeedStorage, &ast_expression.node)
+        } else {
+            expr
         }
     }
 
@@ -1196,7 +1208,7 @@ impl<'a> Analyzer<'a> {
                 StartOfChainBase::Variable(var) => StartOfChainKind::Variable(var),
             }
         } else {
-            let ctx = TypeContext::new_anything_argument(false);
+            let ctx = TypeContext::new_anything_argument(true); // we will allocate space for the starting point
             StartOfChainKind::Expression(Box::from(self.analyze_expression(&chain.base, &ctx)))
         };
 
@@ -1589,7 +1601,7 @@ impl<'a> Analyzer<'a> {
         mut_requested_for_value_variable: Option<swamp_ast::Node>,
         expression: &swamp_ast::Expression,
     ) -> Iterable {
-        let any_context = TypeContext::new_anything_argument(false);
+        let any_context = TypeContext::new_anything_argument(true); // we are not fetching the actual data of the type, just using it as an iterator
 
         let resolved_expression = self.analyze_expression(expression, &any_context);
 
@@ -1670,7 +1682,8 @@ impl<'a> Analyzer<'a> {
 
         for expression in &ast_expressions[..ast_expressions.len() - 1] {
             let unit_type = self.shared.state.types.unit();
-            let stmt_context = context.with_expected_type(Some(&unit_type), false);
+            let stmt_context =
+                context.with_expected_type(Some(&unit_type), context.has_lvalue_target);
             let expr = self.analyze_expression(expression, &stmt_context);
 
             resolved_expressions.push(expr);
@@ -1703,7 +1716,7 @@ impl<'a> Analyzer<'a> {
                     self.create_expr(basic_literal, string_type, string_node)
                 }
                 swamp_ast::StringPart::Interpolation(expression, format_specifier) => {
-                    let any_context = TypeContext::new_anything_argument(false);
+                    let any_context = TypeContext::new_anything_argument(true); // we are just using the pointer to call the member function `to_string()`, so we pretend to have a target
 
                     let expr = self.analyze_expression(expression, &any_context);
 
@@ -2102,7 +2115,7 @@ impl<'a> Analyzer<'a> {
         let mut known_type = default_context.expected_type.cloned();
         let own_context = default_context.clone();
         // Analyze the scrutinee with no specific expected type
-        let scrutinee_context = TypeContext::new_anything_argument(false);
+        let scrutinee_context = TypeContext::new_anything_argument(true); // we just using the pointer, so pretend that it is a target
         let resolved_scrutinee = self.analyze_expression(scrutinee, &scrutinee_context);
         let scrutinee_type = resolved_scrutinee.ty.clone();
 
@@ -2464,7 +2477,7 @@ impl<'a> Analyzer<'a> {
         let mut bindings = Vec::new();
         for variable_binding in variables {
             let mut_expr = if let Some(found_expr) = &variable_binding.expression {
-                let any_context = TypeContext::new_anything_argument(false);
+                let any_context = TypeContext::new_anything_argument(true); // we are not just having an alias binding to another value, so we can think of it having a target
                 self.analyze_mut_or_immutable_expression(
                     found_expr,
                     &any_context,
