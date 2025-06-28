@@ -2,6 +2,7 @@
 /// Should not use the normal analyzer helpers, since that can interfere with the normal analyze.
 use source_map_node::Node;
 use swamp_attributes::Attributes;
+use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
     ArgumentExpression, AssociatedImpls, BinaryOperator, BinaryOperatorKind, BooleanExpression,
     Expression, ExpressionKind, ForPattern, Function, FunctionRef, InternalFunctionDefinition,
@@ -9,14 +10,14 @@ use swamp_semantic::{
     Pattern, Postfix, PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator,
     UnaryOperatorKind, Variable, VariableRef, VariableScopes, VariableType, WhenBinding,
 };
-use swamp_semantic::intr::IntrinsicFunction;
 use swamp_types::prelude::{EnumType, NamedStructType, Signature, TypeCache, TypeForParameter};
 use swamp_types::{TypeKind, TypeRef};
+
 
 fn generate_to_string_for_named_struct(
     generator: &mut ExpressionGenerator,
     named: &NamedStructType,
-    self_expression: Expression,
+    self_expression: &Expression,
 ) -> Expression {
     let node = self_expression.node.clone();
     let struct_name_string_kind =
@@ -24,7 +25,7 @@ fn generate_to_string_for_named_struct(
     let string_type = generator.types.string();
     let struct_name_string_expr = create_expr_resolved(struct_name_string_kind, string_type, &node);
     let anon_struct_string_expr =
-        generate_to_string_for_anon_struct(generator, &named.anon_struct_type, self_expression);
+        generate_to_string_for_anon_struct(generator, &named.anon_struct_type, &self_expression);
 
     let concat_kind = BinaryOperator {
         kind: BinaryOperatorKind::Add,
@@ -40,7 +41,7 @@ fn generate_to_string_for_named_struct(
 fn generate_to_short_string_for_named_struct(
     type_cache: &mut ExpressionGenerator,
     named: &NamedStructType,
-    self_expression: Expression,
+    self_expression: &Expression,
 ) -> Expression {
     // For to_short_string, we skip the struct name and just show it as an anonymous struct
     generate_to_short_string_for_anon_struct(type_cache, &named.anon_struct_type, self_expression)
@@ -55,17 +56,18 @@ pub fn create_expr_resolved(kind: ExpressionKind, ty: TypeRef, ast_node: &Node) 
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn generate_to_string_for_anon_struct(
     generator: &mut ExpressionGenerator,
     anonymous_struct_type_ref: &TypeRef,
-    self_expression: Expression,
+    self_expression: &Expression,
 ) -> Expression {
-    let node = self_expression.node.clone();
+    let node = &self_expression.node;
     let string_type = generator.types.string();
 
     // Create opening brace string
     let opening_kind = ExpressionKind::StringLiteral("{ ".to_string());
-    let mut result_expr = create_expr_resolved(opening_kind, string_type.clone(), &node);
+    let mut result_expr = create_expr_resolved(opening_kind, string_type.clone(), node);
 
     let TypeKind::AnonymousStruct(anonymous_struct_type) = &*anonymous_struct_type_ref.kind else {
         panic!("internal error")
@@ -80,9 +82,8 @@ fn generate_to_string_for_anon_struct(
         // If not the first field, add a comma separator
         if field_index > 0 {
             let separator_kind = ExpressionKind::StringLiteral(", ".to_string());
-            let separator_expr = create_expr_resolved(separator_kind, string_type.clone(), &node);
+            let separator_expr = create_expr_resolved(separator_kind, string_type.clone(), node);
 
-            // Concatenate using + operator
             let concat_kind = BinaryOperator {
                 kind: BinaryOperatorKind::Add,
                 left: Box::new(result_expr),
@@ -92,15 +93,13 @@ fn generate_to_string_for_anon_struct(
             result_expr = create_expr_resolved(
                 ExpressionKind::BinaryOp(concat_kind),
                 string_type.clone(),
-                &node,
+                node,
             );
         }
 
-        // Add field name
         let field_name_kind = ExpressionKind::StringLiteral(format!("{field_name}: "));
-        let field_name_expr = create_expr_resolved(field_name_kind, string_type.clone(), &node);
+        let field_name_expr = create_expr_resolved(field_name_kind, string_type.clone(), node);
 
-        // Concatenate field name to result
         let concat_name_kind = BinaryOperator {
             kind: BinaryOperatorKind::Add,
             left: Box::new(result_expr),
@@ -111,7 +110,7 @@ fn generate_to_string_for_anon_struct(
         result_expr = create_expr_resolved(
             ExpressionKind::BinaryOp(concat_name_kind),
             string_type.clone(),
-            &node,
+            node,
         );
 
         // Get field value from the struct
@@ -130,11 +129,11 @@ fn generate_to_string_for_anon_struct(
             let field_access_expr = create_expr_resolved(
                 ExpressionKind::PostfixChain(start_of_chain, vec![postfix_lookup_field_in_self]),
                 string_type.clone(),
-                &node,
+                node,
             );
 
             let quote_kind = ExpressionKind::StringLiteral("\"".to_string());
-            let quote_expr = create_expr_resolved(quote_kind, string_type.clone(), &node);
+            let quote_expr = create_expr_resolved(quote_kind, string_type.clone(), node);
 
             let concat_left_quote_kind = BinaryOperator {
                 kind: BinaryOperatorKind::Add,
@@ -146,7 +145,7 @@ fn generate_to_string_for_anon_struct(
             let with_left_quote_expr = create_expr_resolved(
                 ExpressionKind::BinaryOp(concat_left_quote_kind),
                 string_type.clone(),
-                &node,
+                node,
             );
 
             let concat_right_quote_kind = BinaryOperator {
@@ -158,7 +157,7 @@ fn generate_to_string_for_anon_struct(
             create_expr_resolved(
                 ExpressionKind::BinaryOp(concat_right_quote_kind),
                 string_type.clone(),
-                &node,
+                node,
             )
         } else {
             // Get to_short_string function for the field type first, fallback to to_string
@@ -201,12 +200,12 @@ fn generate_to_string_for_anon_struct(
                     vec![postfix_lookup_field_in_self, postfix_call_to_string],
                 );
 
-                create_expr_resolved(lookup_kind, string_type.clone(), &node)
+                create_expr_resolved(lookup_kind, string_type.clone(), node)
             } else {
                 // This should not happen for any user-visible type, but as a fallback
                 // we can insert an error message.
                 let error_kind = ExpressionKind::StringLiteral("<unsupported>".to_string());
-                create_expr_resolved(error_kind, string_type.clone(), &node)
+                create_expr_resolved(error_kind, string_type.clone(), node)
             }
         };
 
@@ -220,13 +219,13 @@ fn generate_to_string_for_anon_struct(
         result_expr = create_expr_resolved(
             ExpressionKind::BinaryOp(concat_value_kind),
             string_type.clone(),
-            &node,
+            node,
         );
     }
 
     // Create closing brace string
     let closing_kind = ExpressionKind::StringLiteral(" }".to_string());
-    let closing_expr = create_expr_resolved(closing_kind, string_type.clone(), &node);
+    let closing_expr = create_expr_resolved(closing_kind, string_type.clone(), node);
 
     // Concatenate closing brace to result
     let final_concat_kind = BinaryOperator {
@@ -239,16 +238,17 @@ fn generate_to_string_for_anon_struct(
     create_expr_resolved(
         ExpressionKind::BinaryOp(final_concat_kind),
         string_type,
-        &node,
+        node,
     )
 }
 
+#[allow(clippy::too_many_lines)]
 fn generate_to_short_string_for_anon_struct(
     generator: &mut ExpressionGenerator,
     anonymous_struct_type_ref: &TypeRef,
-    self_expression: Expression,
+    self_expression: &Expression,
 ) -> Expression {
-    let node = self_expression.node.clone();
+    let node = &self_expression.node;
     let string_type = generator.types.string();
 
     // Create opening brace string
@@ -284,11 +284,9 @@ fn generate_to_short_string_for_anon_struct(
             );
         }
 
-        // Add field name
         let field_name_kind = ExpressionKind::StringLiteral(format!("{field_name}: "));
         let field_name_expr = create_expr_resolved(field_name_kind, string_type.clone(), &node);
 
-        // Concatenate field name to result
         let concat_name_kind = BinaryOperator {
             kind: BinaryOperatorKind::Add,
             left: Box::new(result_expr),
@@ -416,7 +414,6 @@ fn generate_to_short_string_for_anon_struct(
     let closing_kind = ExpressionKind::StringLiteral(" }".to_string());
     let closing_expr = create_expr_resolved(closing_kind, string_type.clone(), &node);
 
-    // Concatenate closing brace to result
     let final_concat_kind = BinaryOperator {
         kind: BinaryOperatorKind::Add,
         left: Box::new(result_expr),
@@ -433,7 +430,6 @@ fn generate_to_short_string_for_anon_struct(
 
 fn generate_to_string_for_enum(
     type_cache: &mut TypeCache,
-
     enum_type: &EnumType,
     argument_expression: Expression,
 ) -> Expression {
@@ -867,7 +863,7 @@ fn generate_to_string_for_sequence_like(
         &node,
     );
 
-    let block = create_expr_resolved(
+     create_expr_resolved(
         ExpressionKind::Block(vec![
             result_var_def,
             is_first_var_def,
@@ -877,9 +873,7 @@ fn generate_to_string_for_sequence_like(
         ]),
         string_type,
         &node,
-    );
-
-    block
+    )
 }
 
 fn generate_to_string_for_map_like(
@@ -1163,7 +1157,7 @@ fn generate_to_string_for_map_like(
         &node,
     );
 
-    let block = create_expr_resolved(
+    create_expr_resolved(
         ExpressionKind::Block(vec![
             result_var_def,
             is_first_var_def,
@@ -1173,9 +1167,7 @@ fn generate_to_string_for_map_like(
         ]),
         string_type,
         &node,
-    );
-
-    block
+    )
 }
 
 fn generate_to_string_for_optional(
@@ -1315,7 +1307,7 @@ fn generate_to_short_string_for_optional(
 
 fn generate_to_string_for_tuple(
     generator: &mut ExpressionGenerator,
-    self_expression: Expression,
+    self_expression: &Expression,
     tuple_types: &[TypeRef],
     node: &Node,
 ) -> Expression {
@@ -1522,13 +1514,13 @@ pub fn internal_generate_to_string_function_for_type(
         // Unit and Function types cannot be stored in fields/collections in Swamp, so no to_string() needed
         TypeKind::Unit => panic!("Unit type cannot be stored in fields, no to_string() needed"),
         TypeKind::Tuple(tuple_types) => {
-            generate_to_string_for_tuple(generator, first_self_param, tuple_types, resolved_node)
+            generate_to_string_for_tuple(generator, &first_self_param, tuple_types, resolved_node)
         }
         TypeKind::NamedStruct(named) => {
-            generate_to_string_for_named_struct(generator, named, first_self_param)
+            generate_to_string_for_named_struct(generator, named, &first_self_param)
         }
         TypeKind::AnonymousStruct(_anon_struct) => {
-            generate_to_string_for_anon_struct(generator, ty, first_self_param)
+            generate_to_string_for_anon_struct(generator, ty, &first_self_param)
         }
         TypeKind::Range(_) => {
             panic!("Range to_string() is handled in core_text(), not generated here")
@@ -1648,10 +1640,10 @@ pub fn internal_generate_to_short_string_function_for_type(
             resolved_node,
         ),
         TypeKind::NamedStruct(named) => {
-            generate_to_short_string_for_named_struct(generator, named, first_self_param)
+            generate_to_short_string_for_named_struct(generator, named, &first_self_param)
         }
         TypeKind::AnonymousStruct(_anon_struct) => {
-            generate_to_short_string_for_anon_struct(generator, ty, first_self_param)
+            generate_to_short_string_for_anon_struct(generator, ty, &first_self_param)
         }
         TypeKind::Range(_) => {
             panic!("Range to_string() is handled in core_text(), not generated here")
@@ -1764,7 +1756,7 @@ pub fn internal_generate_to_pretty_string_function_for_type(
         generator,
         &mut block_scope_to_use,
         ty,
-        self_param,
+        &self_param,
         indentation_param,
         resolved_node,
     );
@@ -1806,7 +1798,7 @@ fn generate_to_pretty_string_for_type(
     generator: &mut ExpressionGenerator,
     scope: &mut GeneratedScope,
     ty: &TypeRef,
-    self_expression: Expression,
+    self_expression: &Expression,
     indentation_expression: Expression,
     node: &Node,
 ) -> Expression {
@@ -1872,7 +1864,7 @@ fn generate_to_pretty_string_for_type(
             generate_map_pretty_string(
                 generator,
                 scope,
-                self_expression,
+                self_expression.clone(),
                 indentation_expression,
                 ty,
                 node,
@@ -1890,7 +1882,7 @@ fn generate_to_pretty_string_for_type(
         | TypeKind::SparseStorage(_, _) => generate_sequence_pretty_string(
             generator,
             scope,
-            self_expression,
+            self_expression.clone(),
             indentation_expression,
             ty,
             node,
@@ -2012,6 +2004,7 @@ fn call_to_pretty_string_method(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn generate_indentation_string(
     generator: &mut ExpressionGenerator,
     scope: &mut GeneratedScope,
@@ -2027,7 +2020,7 @@ fn generate_indentation_string(
     let (result_var, result_var_def) = {
         let var = scope.create_local_mut_variable("indentation_str", &string_type, node);
         let empty_string = create_expr_resolved(
-            ExpressionKind::StringLiteral("".to_string()),
+            ExpressionKind::StringLiteral(String::new()),
             string_type.clone(),
             node,
         );
@@ -2142,7 +2135,7 @@ fn generate_indentation_string(
                 },
                 Box::new(while_body),
             ),
-            unit_type.clone(),
+            unit_type,
             node,
         )
     };
@@ -2165,439 +2158,7 @@ fn generate_indentation_string(
     )
 }
 
-fn generate_pretty_string_with_compact_check(
-    generator: &mut ExpressionGenerator,
-    scope: &mut GeneratedScope,
-    self_expression: Expression,
-    indentation_expression: Expression,
-    ty: &TypeRef,
-    node: &Node,
-    multi_line_generator: fn(
-        &mut ExpressionGenerator,
-        &mut GeneratedScope,
-        Expression,
-        Expression,
-        &TypeRef,
-        &Node,
-    ) -> Expression,
-) -> Expression {
-    let string_type = generator.types.string();
-    let int_type = generator.types.int();
-    let unit_type = generator.types.unit();
-    let bool_type = generator.types.bool();
-
-    // Get the compact string representation
-    let compact_string = call_to_string_method(generator, self_expression.clone(), node);
-
-    // Create a variable to store the compact string
-    let compact_var = scope.create_local_variable("compact", &string_type, node);
-    let compact_def = create_expr_resolved(
-        ExpressionKind::VariableDefinition(compact_var.clone(), Box::new(compact_string)),
-        unit_type.clone(),
-        node,
-    );
-
-    // Get the length of the compact string
-    let compact_access = create_expr_resolved(
-        ExpressionKind::VariableAccess(compact_var.clone()),
-        string_type.clone(),
-        node,
-    );
-
-    // Call len() method on the string
-    let len_method = generator
-        .associated_impls
-        .get_internal_member_function(&string_type, "len");
-
-    let length_expr = if let Some(len_fn) = len_method {
-        let function_ref = Function::Internal(len_fn.clone());
-        let start_of_chain = StartOfChain {
-            kind: StartOfChainKind::Expression(Box::from(compact_access)),
-            node: node.clone(),
-        };
-        let postfix_call_len = Postfix {
-            node: node.clone(),
-            ty: int_type.clone(),
-            kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
-        };
-        create_expr_resolved(
-            ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_len]),
-            int_type.clone(),
-            node,
-        )
-    } else {
-        // Fallback - assume it's short
-        create_expr_resolved(ExpressionKind::IntLiteral(10), int_type.clone(), node)
-    };
-
-    // Check if length < 80
-    let threshold = create_expr_resolved(ExpressionKind::IntLiteral(80), int_type.clone(), node);
-    let length_check = create_expr_resolved(
-        ExpressionKind::BinaryOp(BinaryOperator {
-            kind: BinaryOperatorKind::LessThan,
-            left: Box::new(length_expr),
-            right: Box::new(threshold),
-            node: node.clone(),
-        }),
-        bool_type.clone(),
-        node,
-    );
-
-    // If compact, return the compact string
-    let return_compact = create_expr_resolved(
-        ExpressionKind::VariableAccess(compact_var),
-        string_type.clone(),
-        node,
-    );
-
-    // Otherwise, generate multi-line version
-    let multi_line_result = multi_line_generator(
-        generator,
-        scope,
-        self_expression,
-        indentation_expression,
-        ty,
-        node,
-    );
-
-    // Create the if expression
-    let if_expr = create_expr_resolved(
-        ExpressionKind::If(
-            BooleanExpression {
-                expression: Box::new(length_check),
-            },
-            Box::new(return_compact),
-            Some(Box::new(multi_line_result)),
-        ),
-        string_type.clone(),
-        node,
-    );
-
-    // Return a block with the compact definition and the if expression
-    create_expr_resolved(
-        ExpressionKind::Block(vec![compact_def, if_expr]),
-        string_type,
-        node,
-    )
-}
-
-fn generate_multi_line_struct_or_tuple(
-    _generator: &mut ExpressionGenerator,
-    _scope: &mut GeneratedScope,
-    _self_expression: Expression,
-    _indentation_expression: Expression,
-    _ty: &TypeRef,
-    node: &Node,
-) -> Expression {
-    let string_type = _generator.types.string();
-    // TODO: Implement multi-line struct/tuple formatting
-    create_expr_resolved(
-        ExpressionKind::StringLiteral("<multi-line struct/tuple not yet implemented>".to_string()),
-        string_type,
-        node,
-    )
-}
-
-fn generate_multi_line_sequence(
-    _generator: &mut ExpressionGenerator,
-    _scope: &mut GeneratedScope,
-    _self_expression: Expression,
-    _indentation_expression: Expression,
-    _ty: &TypeRef,
-    node: &Node,
-) -> Expression {
-    let string_type = _generator.types.string();
-    // TODO: Implement multi-line sequence formatting
-    create_expr_resolved(
-        ExpressionKind::StringLiteral("<multi-line sequence not yet implemented>".to_string()),
-        string_type,
-        node,
-    )
-}
-
-fn generate_multi_line_map(
-    generator: &mut ExpressionGenerator,
-    scope: &mut GeneratedScope,
-    self_expression: Expression,
-    indentation_expression: Expression,
-    ty: &TypeRef,
-    node: &Node,
-) -> Expression {
-    let string_type = generator.types.string();
-    let int_type = generator.types.int();
-    let unit_type = generator.types.unit();
-
-    let (key_type, value_type) = match &*ty.kind {
-        TypeKind::MapStorage(k, v, _) | TypeKind::DynamicLengthMapView(k, v) => (k, v),
-        _ => panic!("Expected map type"),
-    };
-
-    // let mut result = "[|\n"
-    let (result_var, result_var_def) = {
-        let var = scope.create_local_mut_variable("result", &string_type, node);
-        let opening_brace = create_expr_resolved(
-            ExpressionKind::StringLiteral("[|\n".to_string()),
-            string_type.clone(),
-            node,
-        );
-        let def = create_expr_resolved(
-            ExpressionKind::VariableDefinition(var.clone(), Box::new(opening_brace)),
-            unit_type.clone(),
-            node,
-        );
-        (var, def)
-    };
-
-    // let next_indentation = indentation + 1
-    let (next_indentation_var, next_indentation_def) = {
-        let var = scope.create_local_variable("next_indentation", &int_type, node);
-        let one = create_expr_resolved(ExpressionKind::IntLiteral(1), int_type.clone(), node);
-        let add_expr = create_expr_resolved(
-            ExpressionKind::BinaryOp(BinaryOperator {
-                kind: BinaryOperatorKind::Add,
-                left: Box::new(indentation_expression),
-                right: Box::new(one),
-                node: node.clone(),
-            }),
-            int_type.clone(),
-            node,
-        );
-        let def = create_expr_resolved(
-            ExpressionKind::VariableDefinition(var.clone(), Box::new(add_expr)),
-            unit_type.clone(),
-            node,
-        );
-        (var, def)
-    };
-
-    let for_loop = {
-        let key_var = scope.create_local_variable("key", key_type, node);
-        let value_var = scope.create_local_variable("val", value_type, node);
-
-        // Add indentation spaces
-        let add_indentation_expr = {
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
-
-            // Generate indentation string based on indentation level
-            let indentation_spaces =
-                generate_indentation_string(generator, scope, &next_indentation_var, node);
-
-            let concat_expr = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(indentation_spaces),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
-                unit_type.clone(),
-                node,
-            )
-        };
-
-        // Add key.to_pretty_string(next_indentation) + " : " + value.to_pretty_string(next_indentation)
-        let add_key_value_expr = {
-            let key_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(key_var.clone()),
-                key_type.clone(),
-                node,
-            );
-            let value_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(value_var.clone()),
-                value_type.clone(),
-                node,
-            );
-
-            let next_indentation_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(next_indentation_var.clone()),
-                int_type.clone(),
-                node,
-            );
-
-            let key_pretty_string = call_to_pretty_string_method(
-                generator,
-                key_access,
-                next_indentation_access.clone(),
-                node,
-            );
-            let value_pretty_string = call_to_pretty_string_method(
-                generator,
-                value_access,
-                next_indentation_access,
-                node,
-            );
-
-            let colon_expr = create_expr_resolved(
-                ExpressionKind::StringLiteral(" : ".to_string()),
-                string_type.clone(),
-                node,
-            );
-            let newline_expr = create_expr_resolved(
-                ExpressionKind::StringLiteral("\n".to_string()),
-                string_type.clone(),
-                node,
-            );
-
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
-
-            // result + key_pretty + " : " + value_pretty + "\n"
-            let temp1 = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(key_pretty_string),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            let temp2 = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(temp1),
-                    right: Box::new(colon_expr),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            let temp3 = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(temp2),
-                    right: Box::new(value_pretty_string),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            let final_concat = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(temp3),
-                    right: Box::new(newline_expr),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_concat)),
-                unit_type.clone(),
-                node,
-            )
-        };
-
-        let for_body = create_expr_resolved(
-            ExpressionKind::Block(vec![add_indentation_expr, add_key_value_expr]),
-            unit_type.clone(),
-            node,
-        );
-
-        let iterable = Iterable {
-            key_type: Some(key_type.clone()),
-            value_type: value_type.clone(),
-            resolved_expression: Box::new(self_expression),
-        };
-
-        let for_pattern = ForPattern::Pair(key_var, value_var);
-        create_expr_resolved(
-            ExpressionKind::ForLoop(for_pattern, iterable, Box::new(for_body)),
-            unit_type.clone(),
-            node,
-        )
-    };
-
-    // Add final indentation and closing brace
-    let closing_brace_def = {
-        let result_access = create_expr_resolved(
-            ExpressionKind::VariableAccess(result_var.clone()),
-            string_type.clone(),
-            node,
-        );
-
-        // Get the original indentation for closing brace
-        let indentation_var_access = create_expr_resolved(
-            ExpressionKind::VariableAccess(result_var.clone()),
-            string_type.clone(),
-            node,
-        );
-
-        let closing_brace = create_expr_resolved(
-            ExpressionKind::StringLiteral("|]".to_string()),
-            string_type.clone(),
-            node,
-        );
-
-        let concat_expr = create_expr_resolved(
-            ExpressionKind::BinaryOp(BinaryOperator {
-                kind: BinaryOperatorKind::Add,
-                left: Box::new(result_access),
-                right: Box::new(closing_brace),
-                node: node.clone(),
-            }),
-            string_type.clone(),
-            node,
-        );
-        create_expr_resolved(
-            ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
-            unit_type.clone(),
-            node,
-        )
-    };
-
-    let result_access_expr = create_expr_resolved(
-        ExpressionKind::VariableAccess(result_var),
-        string_type.clone(),
-        node,
-    );
-
-    create_expr_resolved(
-        ExpressionKind::Block(vec![
-            result_var_def,
-            next_indentation_def,
-            for_loop,
-            closing_brace_def,
-            result_access_expr,
-        ]),
-        string_type,
-        node,
-    )
-}
-
-fn generate_multi_line_optional(
-    _generator: &mut ExpressionGenerator,
-    _scope: &mut GeneratedScope,
-    _self_expression: Expression,
-    _indentation_expression: Expression,
-    _ty: &TypeRef,
-    node: &Node,
-) -> Expression {
-    let string_type = _generator.types.string();
-    // TODO: Implement multi-line optional formatting
-    create_expr_resolved(
-        ExpressionKind::StringLiteral("<multi-line optional not yet implemented>".to_string()),
-        string_type,
-        node,
-    )
-}
-
+#[allow(clippy::too_many_lines)]
 fn generate_map_pretty_string(
     generator: &mut ExpressionGenerator,
     scope: &mut GeneratedScope,
@@ -2610,10 +2171,7 @@ fn generate_map_pretty_string(
     let int_type = generator.types.int();
     let unit_type = generator.types.unit();
 
-    let (key_type, value_type) = match &*ty.kind {
-        TypeKind::MapStorage(k, v, _) | TypeKind::DynamicLengthMapView(k, v) => (k, v),
-        _ => panic!("Expected map type"),
-    };
+    let (TypeKind::MapStorage(key_type, value_type, _) | TypeKind::DynamicLengthMapView(key_type, value_type)) = &*ty.kind else { panic!("Expected map type") };
 
     // Start with just the opening bracket (no newline yet)
     let (result_var, result_def) = {
@@ -2925,7 +2483,7 @@ fn generate_map_pretty_string(
                 Box::new(empty_case),
                 Some(Box::new(non_empty_case)),
             ),
-            unit_type.clone(),
+            unit_type,
             node,
         )
     };
@@ -3016,7 +2574,7 @@ fn generate_sequence_pretty_string(
 
     // Step 4: Return compact if short, multi-line if long
     let compact_access_for_if = create_expr_resolved(
-        ExpressionKind::VariableAccess(compact_var.clone()),
+        ExpressionKind::VariableAccess(compact_var),
         string_type.clone(),
         node,
     );
@@ -3040,6 +2598,7 @@ fn generate_sequence_pretty_string(
     )
 }
 
+#[allow(clippy::too_many_lines)]
 fn generate_multi_line_sequence_format(
     generator: &mut ExpressionGenerator,
     scope: &mut GeneratedScope,
@@ -3053,19 +2612,7 @@ fn generate_multi_line_sequence_format(
     let unit_type = generator.types.unit();
 
     // Get element type from the sequence type
-    let element_type = match &*ty.kind {
-        TypeKind::FixedCapacityAndLengthArray(el, _)
-        | TypeKind::SliceView(el)
-        | TypeKind::DynamicLengthVecView(el)
-        | TypeKind::VecStorage(el, _)
-        | TypeKind::StackView(el)
-        | TypeKind::QueueView(el)
-        | TypeKind::StackStorage(el, _)
-        | TypeKind::QueueStorage(el, _)
-        | TypeKind::SparseView(el)
-        | TypeKind::SparseStorage(el, _) => el,
-        _ => panic!("Expected sequence type"),
-    };
+    let (TypeKind::FixedCapacityAndLengthArray(element_type, _) | TypeKind::SliceView(element_type) | TypeKind::DynamicLengthVecView(element_type) | TypeKind::VecStorage(element_type, _) | TypeKind::StackView(element_type) | TypeKind::QueueView(element_type) | TypeKind::StackStorage(element_type, _) | TypeKind::QueueStorage(element_type, _) | TypeKind::SparseView(element_type) | TypeKind::SparseStorage(element_type, _)) = &*ty.kind else { panic!("Expected sequence type") };
 
     // Start with "[\n"
     let (result_var, result_def) = {
@@ -3248,7 +2795,7 @@ fn generate_multi_line_sequence_format(
 
         create_expr_resolved(
             ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_result)),
-            unit_type.clone(),
+            unit_type,
             node,
         )
     };
@@ -3276,28 +2823,24 @@ fn generate_multi_line_sequence_format(
 fn generate_struct_pretty_string(
     generator: &mut ExpressionGenerator,
     scope: &mut GeneratedScope,
-    self_expression: Expression,
+    self_expression: &Expression,
     indentation_expression: Expression,
     ty: &TypeRef,
     node: &Node,
 ) -> Expression {
-    let string_type = generator.types.string();
-    let int_type = generator.types.int();
-    let unit_type = generator.types.unit();
-
     match &*ty.kind {
         TypeKind::NamedStruct(named_struct) => generate_named_struct_pretty_string(
             generator,
             scope,
             self_expression,
-            indentation_expression,
+            &indentation_expression,
             named_struct,
             node,
         ),
         TypeKind::AnonymousStruct(_) => generate_anon_struct_pretty_string(
             generator,
             scope,
-            self_expression,
+            &self_expression,
             indentation_expression,
             ty,
             node,
@@ -3305,14 +2848,14 @@ fn generate_struct_pretty_string(
         TypeKind::Tuple(tuple_types) => generate_tuple_pretty_string(
             generator,
             scope,
-            self_expression,
+            &self_expression,
             indentation_expression,
             tuple_types,
             node,
         ),
         _ => {
             // Fallback to compact format
-            call_to_string_method(generator, self_expression, node)
+            call_to_string_method(generator, self_expression.clone(), node)
         }
     }
 }
@@ -3363,11 +2906,12 @@ fn generate_add_indentation_to_result(
     )
 }
 
+#[allow(clippy::too_many_lines)]
 fn generate_named_struct_pretty_string(
     generator: &mut ExpressionGenerator,
     scope: &mut GeneratedScope,
-    self_expression: Expression,
-    indentation_expression: Expression,
+    self_expression: &Expression,
+    indentation_expression: &Expression,
     named_struct: &NamedStructType,
     node: &Node,
 ) -> Expression {
@@ -3445,7 +2989,7 @@ fn generate_named_struct_pretty_string(
                 node,
             );
             let field_name_str = create_expr_resolved(
-                ExpressionKind::StringLiteral(format!("{}: ", field_name)),
+                ExpressionKind::StringLiteral(format!("{field_name}: ")),
                 string_type.clone(),
                 node,
             );
@@ -3601,10 +3145,11 @@ fn generate_named_struct_pretty_string(
     create_expr_resolved(ExpressionKind::Block(block_statements), string_type, node)
 }
 
+#[allow(clippy::too_many_lines)]
 fn generate_anon_struct_pretty_string(
     generator: &mut ExpressionGenerator,
     scope: &mut GeneratedScope,
-    self_expression: Expression,
+    self_expression: &Expression,
     indentation_expression: Expression,
     ty: &TypeRef,
     node: &Node,
@@ -3837,10 +3382,12 @@ fn generate_anon_struct_pretty_string(
     create_expr_resolved(ExpressionKind::Block(block_statements), string_type, node)
 }
 
+
+#[allow(clippy::too_many_lines)]
 fn generate_tuple_pretty_string(
     generator: &mut ExpressionGenerator,
     scope: &mut GeneratedScope,
-    self_expression: Expression,
+    self_expression: &Expression,
     indentation_expression: Expression,
     tuple_types: &[TypeRef],
     node: &Node,
