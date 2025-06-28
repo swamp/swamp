@@ -99,7 +99,7 @@ impl Type {
     pub fn needs_explicit_storage(&self) -> bool {
         match &*self.kind {
             // Dynamic collections that need explicit storage
-            TypeKind::DynamicLengthVecView(_) 
+            TypeKind::DynamicLengthVecView(_)
             | TypeKind::DynamicLengthMapView(_, _)
             | TypeKind::StackView(_)
             | TypeKind::QueueView(_)
@@ -107,7 +107,7 @@ impl Type {
             | TypeKind::GridView(_)
             | TypeKind::SliceView(_) => true,
 
-            // Fixed-size aggregates can be allocated automatically  
+            // Fixed-size aggregates can be allocated automatically
             TypeKind::Optional(_)
             | TypeKind::Tuple(_)
             | TypeKind::NamedStruct(_)
@@ -115,11 +115,11 @@ impl Type {
             | TypeKind::Enum(_)
             | TypeKind::Range(_)
             | TypeKind::VecStorage(_, _)
-            | TypeKind::StackStorage(_, _) 
+            | TypeKind::StackStorage(_, _)
             | TypeKind::QueueStorage(_, _)
             | TypeKind::MapStorage(_, _, _)
             | TypeKind::SparseStorage(_, _)
-            | TypeKind::GridStorage(_, _, _) 
+            | TypeKind::GridStorage(_, _, _)
             | TypeKind::FixedCapacityAndLengthArray(_, _)
             | TypeKind::StringStorage(_, _) => false,
 

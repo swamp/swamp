@@ -600,9 +600,25 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    /// # Errors
-    ///
-    #[allow(clippy::too_many_lines)]
+    /// Check if an expression needs explicit storage and should return an error
+    fn needs_storage_error(
+        &self,
+        expr: &Expression,
+        is_function_call: bool,
+        context: &TypeContext,
+        ast_node: &swamp_ast::Node,
+    ) -> bool {
+        let is_constant = matches!(expr.kind, ExpressionKind::ConstantAccess(_));
+        let is_variable = matches!(expr.kind, ExpressionKind::VariableAccess(_));
+
+        // Return true if we need to create an error
+        !context.has_lvalue_target
+            && expr.ty.needs_explicit_storage()
+            && is_function_call
+            && !is_constant
+            && !is_variable
+    }
+
     pub fn analyze_expression(
         &mut self,
         ast_expression: &swamp_ast::Expression,
@@ -611,6 +627,10 @@ impl<'a> Analyzer<'a> {
         //info!(?ast_expression, "analyze expression");
         //self.debug_expression(ast_expression, "analyze");
         let expr = self.analyze_expression_internal(ast_expression, context);
+
+        if matches!(expr.kind, ExpressionKind::Error(_)) {
+            return expr;
+        }
 
         let encountered_type = expr.ty.clone();
 
@@ -625,15 +645,15 @@ impl<'a> Analyzer<'a> {
                 .types
                 .compatible_with(reduced_expected, &reduced_encountered_type)
             {
-                return expr;
+                expr
+            } else {
+                self.types_did_not_match_try_late_coerce_expression(
+                    expr,
+                    reduced_expected,
+                    &reduced_encountered_type,
+                    &ast_expression.node,
+                )
             }
-
-            self.types_did_not_match_try_late_coerce_expression(
-                expr,
-                reduced_expected,
-                &reduced_encountered_type,
-                &ast_expression.node,
-            )
         } else {
             expr
             //todo!()
@@ -643,17 +663,14 @@ impl<'a> Analyzer<'a> {
         // Only apply storage rule to function calls that return types needing explicit storage
         // Exclude literals, constants, and variables which already have storage or are constructed directly
         let is_function_call = Self::is_aggregate_function_call(ast_expression);
-        let is_constant = matches!(expr.kind, ExpressionKind::ConstantAccess(_));
-        let is_variable = matches!(expr.kind, ExpressionKind::VariableAccess(_));
 
-        if !context.has_lvalue_target && expr.ty.needs_explicit_storage() && is_function_call && !is_constant && !is_variable {
+        if self.needs_storage_error(&expr, is_function_call, context, &ast_expression.node) {
             // We have no way to store it
             self.create_err(ErrorKind::NeedStorage, &ast_expression.node)
         } else {
             expr
         }
     }
-
 
     /// # Errors
     ///
@@ -1006,7 +1023,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                        .kind
+                    .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -1040,14 +1057,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                    .kind
+                .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-                .kind
+            .kind
         }
     }
 
@@ -1153,11 +1170,6 @@ impl<'a> Analyzer<'a> {
     ) -> Expression {
         let signature = func_def.signature().clone();
 
-        // Check if function returns a type that needs explicit storage and we don't have an lvalue target
-        if signature.return_type.needs_explicit_storage() && !context.has_lvalue_target {
-            return self.create_err(ErrorKind::NeedStorage, ast_node);
-        }
-
         let analyzed_arguments =
             self.analyze_and_verify_parameters(ast_node, &signature.parameters, arguments);
 
@@ -1171,11 +1183,22 @@ impl<'a> Analyzer<'a> {
             }
         };
 
-        self.create_expr(expr_kind, signature.return_type.clone(), ast_node)
+        let expr = self.create_expr(expr_kind, signature.return_type.clone(), ast_node);
+
+        // Check if function returns a type that needs explicit storage and we don't have an lvalue target
+        if self.needs_storage_error(&expr, true, context, ast_node) {
+            return self.create_err(ErrorKind::NeedStorage, ast_node);
+        }
+
+        expr
     }
 
     #[allow(clippy::too_many_lines)]
-    fn analyze_postfix_chain(&mut self, chain: &swamp_ast::PostfixChain, context: &TypeContext) -> Expression {
+    fn analyze_postfix_chain(
+        &mut self,
+        chain: &swamp_ast::PostfixChain,
+        context: &TypeContext,
+    ) -> Expression {
         let maybe_start_of_chain_base =
             self.analyze_start_chain_expression_get_mutability(&chain.base);
 
@@ -1561,7 +1584,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
+            } else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -1618,7 +1642,6 @@ impl<'a> Analyzer<'a> {
             _ => false, // Other expressions (variables, literals, etc.) are not function calls
         }
     }
-
 
     fn analyze_iterable(
         &mut self,
@@ -1685,8 +1708,7 @@ impl<'a> Analyzer<'a> {
     ) -> Vec<Expression> {
         let mut resolved_expressions = Vec::new();
         // Function arguments should not have lvalue targets by default - they need proper storage allocation
-        let argument_expressions_context =
-            TypeContext::new_unsure_argument(expected_type, false);
+        let argument_expressions_context = TypeContext::new_unsure_argument(expected_type, false);
 
         for expression in ast_expressions {
             resolved_expressions
@@ -2759,7 +2781,8 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
+    }
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -4276,8 +4299,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                    .types()
-                    .compatible_with(initializer_value_type, storage_value)
+                        .types()
+                        .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }

@@ -262,7 +262,8 @@ impl Analyzer<'_> {
 
         let mut expressions = Vec::new();
         for (expected_type, expr) in expected_types.iter().zip(ast_expressions) {
-            let context = TypeContext::new_argument(expected_type, expected_type.needs_explicit_storage());
+            let context =
+                TypeContext::new_argument(expected_type, expected_type.needs_explicit_storage());
             let resolved_expr = self.analyze_expression(expr, &context);
             expressions.push(resolved_expr);
         }
