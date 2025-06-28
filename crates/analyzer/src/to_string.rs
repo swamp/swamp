@@ -159,53 +159,33 @@ fn generate_to_string_for_anon_struct(
                 node,
             )
         } else {
-            // Get to_short_string function for the field type first, fallback to to_string
-            let field_string_fn = generator
+            // Get to_string function for the field type - it must exist
+            let to_string_fn = generator
                 .associated_impls
-                .get_internal_member_function(&field_type.field_type, "to_short_string")
-                .or_else(|| {
-                    generator
-                        .associated_impls
-                        .get_internal_member_function(&field_type.field_type, "to_string")
-                });
+                .get_internal_member_function(&field_type.field_type, "to_string")
+                .unwrap_or_else(|| panic!("to_string() function must exist for type: {}", field_type.field_type));
 
-            if let Some(to_string_fn) = field_string_fn {
-                let function_ref = Function::Internal(to_string_fn.clone());
-                let _function_name = if generator
-                    .associated_impls
-                    .get_internal_member_function(&field_type.field_type, "to_short_string")
-                    .is_some()
-                {
-                    "to_short_string"
-                } else {
-                    "to_string"
-                };
+            let function_ref = Function::Internal(to_string_fn.clone());
 
-                // Create call to to_short_string or to_string for the field
-                let postfix_call_to_string = Postfix {
-                    node: node.clone(),
-                    ty: generator.types.string(),
-                    kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
-                };
+            // Create call to to_string for the field
+            let postfix_call_to_string = Postfix {
+                node: node.clone(),
+                ty: generator.types.string(),
+                kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+            };
 
-                // Create chain to access field and call to_short_string/to_string
-                let start_of_chain = StartOfChain {
-                    kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
-                    node: node.clone(),
-                };
+            // Create chain to access field and call to_string
+            let start_of_chain = StartOfChain {
+                kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                node: node.clone(),
+            };
 
-                let lookup_kind = ExpressionKind::PostfixChain(
-                    start_of_chain,
-                    vec![postfix_lookup_field_in_self, postfix_call_to_string],
-                );
+            let lookup_kind = ExpressionKind::PostfixChain(
+                start_of_chain,
+                vec![postfix_lookup_field_in_self, postfix_call_to_string],
+            );
 
-                create_expr_resolved(lookup_kind, string_type.clone(), node)
-            } else {
-                // This should not happen for any user-visible type, but as a fallback
-                // we can insert an error message.
-                let error_kind = ExpressionKind::StringLiteral("<unsupported>".to_string());
-                create_expr_resolved(error_kind, string_type.clone(), node)
-            }
+            create_expr_resolved(lookup_kind, string_type.clone(), node)
         };
 
         // Concatenate field value to result
@@ -346,53 +326,33 @@ fn generate_to_short_string_for_anon_struct(
                 node,
             )
         } else {
-            // Get to_short_string function for the field type first, fallback to to_string
-            let field_string_fn = generator
+            // Get to_short_string function for the field type - it must exist
+            let to_short_string_fn = generator
                 .associated_impls
                 .get_internal_member_function(&field_type.field_type, "to_short_string")
-                .or_else(|| {
-                    generator
-                        .associated_impls
-                        .get_internal_member_function(&field_type.field_type, "to_string")
-                });
+                .unwrap_or_else(|| panic!("to_short_string() function must exist for type: {}", field_type.field_type));
 
-            if let Some(to_string_fn) = field_string_fn {
-                let function_ref = Function::Internal(to_string_fn.clone());
-                let _function_name = if generator
-                    .associated_impls
-                    .get_internal_member_function(&field_type.field_type, "to_short_string")
-                    .is_some()
-                {
-                    "to_short_string"
-                } else {
-                    "to_string"
-                };
+            let function_ref = Function::Internal(to_short_string_fn.clone());
 
-                // Create call to to_short_string or to_string for the field
-                let postfix_call_to_string = Postfix {
-                    node: node.clone(),
-                    ty: generator.types.string(),
-                    kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
-                };
+            // Create call to to_short_string for the field
+            let postfix_call_to_string = Postfix {
+                node: node.clone(),
+                ty: generator.types.string(),
+                kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+            };
 
-                // Create chain to access field and call to_short_string/to_string
-                let start_of_chain = StartOfChain {
-                    kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
-                    node: node.clone(),
-                };
+            // Create chain to access field and call to_short_string
+            let start_of_chain = StartOfChain {
+                kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                node: node.clone(),
+            };
 
-                let lookup_kind = ExpressionKind::PostfixChain(
-                    start_of_chain,
-                    vec![postfix_lookup_field_in_self, postfix_call_to_string],
-                );
+            let lookup_kind = ExpressionKind::PostfixChain(
+                start_of_chain,
+                vec![postfix_lookup_field_in_self, postfix_call_to_string],
+            );
 
-                create_expr_resolved(lookup_kind, string_type.clone(), node)
-            } else {
-                panic!(
-                    "missing to_string for {}. all types should have a to_string().",
-                    field_type.field_type
-                );
-            }
+            create_expr_resolved(lookup_kind, string_type.clone(), node)
         };
 
         // Concatenate field value to result
@@ -524,35 +484,32 @@ fn create_string_representation_of_expression(
             node,
         )
     } else {
-        let field_string_fn = generator
+        // Get to_short_string function first, fall back to to_string - both must exist
+        let to_string_fn = generator
             .associated_impls
             .get_internal_member_function(&ty, "to_short_string")
             .or_else(|| {
                 generator
                     .associated_impls
                     .get_internal_member_function(&ty, "to_string")
-            });
+            })
+            .unwrap_or_else(|| panic!("to_short_string() or to_string() function must exist for type: {}", ty));
 
-        if let Some(to_string_fn) = field_string_fn {
-            let function_ref = Function::Internal(to_string_fn.clone());
-            let start_of_chain = StartOfChain {
-                kind: StartOfChainKind::Expression(Box::from(expression_to_convert)),
-                node: node.clone(),
-            };
-            let postfix_call_to_string = Postfix {
-                node: node.clone(),
-                ty: generator.types.string(),
-                kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
-            };
+        let function_ref = Function::Internal(to_string_fn.clone());
+        let start_of_chain = StartOfChain {
+            kind: StartOfChainKind::Expression(Box::from(expression_to_convert)),
+            node: node.clone(),
+        };
+        let postfix_call_to_string = Postfix {
+            node: node.clone(),
+            ty: generator.types.string(),
+            kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+        };
 
-            let lookup_kind =
-                ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_string]);
+        let lookup_kind =
+            ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_string]);
 
-            create_expr_resolved(lookup_kind, string_type, node)
-        } else {
-            let error_kind = ExpressionKind::StringLiteral("<unsupported>".to_string());
-            create_expr_resolved(error_kind, string_type, node)
-        }
+        create_expr_resolved(lookup_kind, string_type, node)
     }
 }
 
@@ -1938,31 +1895,23 @@ fn call_to_string_method(
 
     let to_string_fn = generator
         .associated_impls
-        .get_internal_member_function(&ty, "to_string");
+        .get_internal_member_function(&ty, "to_string")
+        .unwrap_or_else(|| panic!("to_string() function must exist for type: {}", ty));
 
-    if let Some(to_string_fn) = to_string_fn {
-        let function_ref = Function::Internal(to_string_fn.clone());
-        let start_of_chain = StartOfChain {
-            kind: StartOfChainKind::Expression(Box::from(self_expression)),
-            node: node.clone(),
-        };
-        let postfix_call_to_string = Postfix {
-            node: node.clone(),
-            ty: string_type.clone(),
-            kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
-        };
+    let function_ref = Function::Internal(to_string_fn.clone());
+    let start_of_chain = StartOfChain {
+        kind: StartOfChainKind::Expression(Box::from(self_expression)),
+        node: node.clone(),
+    };
+    let postfix_call_to_string = Postfix {
+        node: node.clone(),
+        ty: string_type.clone(),
+        kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+    };
 
-        let lookup_kind =
-            ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_string]);
-        create_expr_resolved(lookup_kind, string_type, node)
-    } else {
-        // Fallback for primitive types that should have to_string in core
-        create_expr_resolved(
-            ExpressionKind::StringLiteral("<missing to_string>".to_string()),
-            string_type,
-            node,
-        )
-    }
+    let lookup_kind =
+        ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_string]);
+    create_expr_resolved(lookup_kind, string_type, node)
 }
 
 fn call_to_pretty_string_method(
@@ -1976,30 +1925,26 @@ fn call_to_pretty_string_method(
 
     let to_pretty_string_fn = generator
         .associated_impls
-        .get_internal_member_function(&ty, "to_pretty_string");
+        .get_internal_member_function(&ty, "to_pretty_string")
+        .unwrap_or_else(|| panic!("to_pretty_string() function must exist for type: {}", ty));
 
-    if let Some(to_pretty_string_fn) = to_pretty_string_fn {
-        let function_ref = Function::Internal(to_pretty_string_fn.clone());
-        let start_of_chain = StartOfChain {
-            kind: StartOfChainKind::Expression(Box::from(self_expression)),
-            node: node.clone(),
-        };
-        let postfix_call_to_pretty_string = Postfix {
-            node: node.clone(),
-            ty: string_type.clone(),
-            kind: PostfixKind::MemberCall(
-                FunctionRef::from(function_ref),
-                vec![ArgumentExpression::Expression(indentation_expression)],
-            ),
-        };
+    let function_ref = Function::Internal(to_pretty_string_fn.clone());
+    let start_of_chain = StartOfChain {
+        kind: StartOfChainKind::Expression(Box::from(self_expression)),
+        node: node.clone(),
+    };
+    let postfix_call_to_pretty_string = Postfix {
+        node: node.clone(),
+        ty: string_type.clone(),
+        kind: PostfixKind::MemberCall(
+            FunctionRef::from(function_ref),
+            vec![ArgumentExpression::Expression(indentation_expression)],
+        ),
+    };
 
-        let lookup_kind =
-            ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_pretty_string]);
-        create_expr_resolved(lookup_kind, string_type, node)
-    } else {
-        // Fallback to regular to_string if to_pretty_string is not available
-        call_to_string_method(generator, self_expression, node)
-    }
+    let lookup_kind =
+        ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_pretty_string]);
+    create_expr_resolved(lookup_kind, string_type, node)
 }
 
 #[allow(clippy::too_many_lines)]

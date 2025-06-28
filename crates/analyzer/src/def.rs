@@ -5,8 +5,7 @@
 use crate::Analyzer;
 use crate::to_string::{
     ExpressionGenerator, internal_generate_to_pretty_string_function_for_type,
-    internal_generate_to_short_string_function_for_type,
-    internal_generate_to_string_function_for_type,
+    internal_generate_to_short_string_function_for_type, internal_generate_to_string_function_for_type,
 };
 use seq_map::SeqMap;
 use std::rc::Rc;
@@ -16,7 +15,7 @@ use swamp_modules::symtbl::AliasType;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     ExternalFunctionDefinition, ExternalFunctionId, Function, InternalFunctionDefinition,
-    LocalIdentifier, UseItem,
+    InternalFunctionId, LocalIdentifier, UseItem,
 };
 use swamp_types::prelude::*;
 use tracing::debug;
@@ -659,7 +658,21 @@ impl Analyzer<'_> {
             let function_name_str = self.get_text(&function_name.name).to_string();
             //            info!(function_name_str, "impl function");
 
-            let resolved_function = self.analyze_impl_func(function, attach_to_type);
+            // Check if this is a built-in function and if there's already an existing function to reuse its ID
+            let existing_function_id = if matches!(
+                function_name_str.as_str(),
+                "to_string" | "to_short_string" | "to_pretty_string" | "default"
+            ) {
+                self.shared
+                    .state
+                    .associated_impls
+                    .get_internal_member_function(attach_to_type, &function_name_str)
+                    .map(|existing_fn| existing_fn.program_unique_id)
+            } else {
+                None
+            };
+
+            let resolved_function = self.analyze_impl_func(function, attach_to_type, existing_function_id);
 
             let resolved_function_ref = Rc::new(resolved_function);
 
@@ -667,9 +680,11 @@ impl Analyzer<'_> {
 
             let is_built_in = matches!(
                 function_name_str.as_str(),
-                "to_string" | "to_short_string" | "default"
+                "to_string" | "to_short_string" | "to_pretty_string" | "default"
             );
             if is_built_in {
+                // For built-in functions, we reuse the existing function ID to preserve references
+                // The function replacement happens in add_member_function below
                 self.shared
                     .state
                     .associated_impls
@@ -691,6 +706,7 @@ impl Analyzer<'_> {
         &mut self,
         function: &swamp_ast::Function,
         self_type: &TypeRef,
+        existing_function_id: Option<InternalFunctionId>,
     ) -> Function {
         match function {
             swamp_ast::Function::Internal(function_data) => {
@@ -759,7 +775,7 @@ impl Analyzer<'_> {
                     associated_with_type: Some(self_type.clone()),
                     //variable_scopes: self.scope.clone(),
                     function_variables: self.scope.total_scopes.clone(),
-                    program_unique_id: self.shared.state.allocate_internal_function_id(),
+                    program_unique_id: existing_function_id.unwrap_or_else(|| self.shared.state.allocate_internal_function_id()),
                     attributes,
                 };
 
@@ -828,94 +844,30 @@ impl Analyzer<'_> {
     pub fn add_default_functions(&mut self, type_to_attach_to: &TypeRef, node: &swamp_ast::Node) {
         let underlying = type_to_attach_to;
 
-        let needs_to_string = self
-            .shared
-            .state
-            .associated_impls
-            .get_internal_member_function(underlying, "to_string")
-            .is_none()
-            && matches!(
-                &*underlying.kind,
-                TypeKind::Enum(_)
-                    | TypeKind::NamedStruct(_)
-                    | TypeKind::AnonymousStruct(_)
-                    | TypeKind::Tuple(_)
-                    | TypeKind::FixedCapacityAndLengthArray(_, _)
-                    | TypeKind::SliceView(_)
-                    | TypeKind::DynamicLengthVecView(_)
-                    | TypeKind::VecStorage(_, _)
-                    | TypeKind::StackView(_)
-                    | TypeKind::QueueView(_)
-                    | TypeKind::StackStorage(_, _)
-                    | TypeKind::QueueStorage(_, _)
-                    | TypeKind::SparseView(_)
-                    | TypeKind::SparseStorage(_, _)
-                    | TypeKind::GridView(_)
-                    | TypeKind::GridStorage(_, _, _)
-                    | TypeKind::MapStorage(_, _, _)
-                    | TypeKind::DynamicLengthMapView(_, _)
-                    | TypeKind::Optional(_)
-            );
+        let should_generate_string_functions = matches!(
+            &*underlying.kind,
+            TypeKind::Enum(_)
+                | TypeKind::NamedStruct(_)
+                | TypeKind::AnonymousStruct(_)
+                | TypeKind::Tuple(_)
+                | TypeKind::FixedCapacityAndLengthArray(_, _)
+                | TypeKind::SliceView(_)
+                | TypeKind::DynamicLengthVecView(_)
+                | TypeKind::VecStorage(_, _)
+                | TypeKind::StackView(_)
+                | TypeKind::QueueView(_)
+                | TypeKind::StackStorage(_, _)
+                | TypeKind::QueueStorage(_, _)
+                | TypeKind::SparseView(_)
+                | TypeKind::SparseStorage(_, _)
+                | TypeKind::GridView(_)
+                | TypeKind::GridStorage(_, _, _)
+                | TypeKind::MapStorage(_, _, _)
+                | TypeKind::DynamicLengthMapView(_, _)
+                | TypeKind::Optional(_)
+        );
 
-        let needs_to_short_string = self
-            .shared
-            .state
-            .associated_impls
-            .get_internal_member_function(underlying, "to_short_string")
-            .is_none()
-            && matches!(
-                &*underlying.kind,
-                TypeKind::Enum(_)
-                    | TypeKind::NamedStruct(_)
-                    | TypeKind::AnonymousStruct(_)
-                    | TypeKind::Tuple(_)
-                    | TypeKind::FixedCapacityAndLengthArray(_, _)
-                    | TypeKind::SliceView(_)
-                    | TypeKind::DynamicLengthVecView(_)
-                    | TypeKind::VecStorage(_, _)
-                    | TypeKind::StackView(_)
-                    | TypeKind::QueueView(_)
-                    | TypeKind::StackStorage(_, _)
-                    | TypeKind::QueueStorage(_, _)
-                    | TypeKind::SparseView(_)
-                    | TypeKind::SparseStorage(_, _)
-                    | TypeKind::GridView(_)
-                    | TypeKind::GridStorage(_, _, _)
-                    | TypeKind::MapStorage(_, _, _)
-                    | TypeKind::DynamicLengthMapView(_, _)
-                    | TypeKind::Optional(_)
-            );
-
-        let needs_to_pretty_string = self
-            .shared
-            .state
-            .associated_impls
-            .get_internal_member_function(underlying, "to_pretty_string")
-            .is_none()
-            && matches!(
-                &*underlying.kind,
-                TypeKind::Enum(_)
-                    | TypeKind::NamedStruct(_)
-                    | TypeKind::AnonymousStruct(_)
-                    | TypeKind::Tuple(_)
-                    | TypeKind::FixedCapacityAndLengthArray(_, _)
-                    | TypeKind::SliceView(_)
-                    | TypeKind::DynamicLengthVecView(_)
-                    | TypeKind::VecStorage(_, _)
-                    | TypeKind::StackView(_)
-                    | TypeKind::QueueView(_)
-                    | TypeKind::StackStorage(_, _)
-                    | TypeKind::QueueStorage(_, _)
-                    | TypeKind::SparseView(_)
-                    | TypeKind::SparseStorage(_, _)
-                    | TypeKind::GridView(_)
-                    | TypeKind::GridStorage(_, _, _)
-                    | TypeKind::MapStorage(_, _, _)
-                    | TypeKind::DynamicLengthMapView(_, _)
-                    | TypeKind::Optional(_)
-            );
-
-        if needs_to_string || needs_to_short_string || needs_to_pretty_string {
+        if should_generate_string_functions {
             if !self
                 .shared
                 .state
@@ -928,33 +880,56 @@ impl Analyzer<'_> {
                     .prepare(type_to_attach_to);
             }
 
+            // Check each function individually and only generate if not already present
+            // This prevents duplicate function errors while ensuring all types have these functions
+            let needs_to_string = self
+                .shared
+                .state
+                .associated_impls
+                .get_internal_member_function(underlying, "to_string")
+                .is_none();
+            
+            let needs_to_short_string = self
+                .shared
+                .state
+                .associated_impls
+                .get_internal_member_function(underlying, "to_short_string")
+                .is_none();
+            
+            let needs_to_pretty_string = self
+                .shared
+                .state
+                .associated_impls
+                .get_internal_member_function(underlying, "to_pretty_string")
+                .is_none();
+
             if needs_to_string {
-                let new_internal_function =
+                let to_string_function =
                     self.generate_to_string_function_for_type(type_to_attach_to, node);
                 self.shared
                     .state
                     .associated_impls
-                    .add_internal_function(type_to_attach_to, new_internal_function)
+                    .add_internal_function(type_to_attach_to, to_string_function)
                     .unwrap();
             }
 
             if needs_to_short_string {
-                let new_internal_function =
+                let to_short_string_function =
                     self.generate_to_short_string_function_for_type(type_to_attach_to, node);
                 self.shared
                     .state
                     .associated_impls
-                    .add_internal_function(type_to_attach_to, new_internal_function)
+                    .add_internal_function(type_to_attach_to, to_short_string_function)
                     .unwrap();
             }
 
             if needs_to_pretty_string {
-                let new_internal_function =
+                let to_pretty_string_function =
                     self.generate_to_pretty_string_function_for_type(type_to_attach_to, node);
                 self.shared
                     .state
                     .associated_impls
-                    .add_internal_function(type_to_attach_to, new_internal_function)
+                    .add_internal_function(type_to_attach_to, to_pretty_string_function)
                     .unwrap();
             }
         }
@@ -965,7 +940,7 @@ impl Analyzer<'_> {
         ty: &TypeRef,
         ast_node: &Node,
     ) -> InternalFunctionDefinition {
-        let node = self.to_node(ast_node);
+        let node = self.to_node(ast_node).clone();
         let mut generator = ExpressionGenerator::new(
             &mut self.shared.state.types,
             &self.shared.state.associated_impls,
@@ -984,7 +959,7 @@ impl Analyzer<'_> {
         ty: &TypeRef,
         ast_node: &Node,
     ) -> InternalFunctionDefinition {
-        let node = self.to_node(ast_node);
+        let node = self.to_node(ast_node).clone();
         let mut generator = ExpressionGenerator::new(
             &mut self.shared.state.types,
             &self.shared.state.associated_impls,
@@ -1003,7 +978,7 @@ impl Analyzer<'_> {
         ty: &TypeRef,
         ast_node: &Node,
     ) -> InternalFunctionDefinition {
-        let node = self.to_node(ast_node);
+        let node = self.to_node(ast_node).clone();
         let mut generator = ExpressionGenerator::new(
             &mut self.shared.state.types,
             &self.shared.state.associated_impls,
