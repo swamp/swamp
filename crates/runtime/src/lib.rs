@@ -195,7 +195,7 @@ pub fn create_vm_with_standard_settings(
 ) -> Vm {
     let vm_setup = VmSetup {
         stack_memory_size: 512 * 1024 * 1024, // 512 MiB
-        heap_memory_size: 2 * 1024 * 1024,    // 2 MiB for transient heap allocation
+        heap_memory_size: 64 * 1024 * 1024,   // 128 MiB for transient heap allocation
         constant_memory: prepared_constant_memory.to_vec(),
         debug_opcodes_enabled: false,
         debug_stats_enabled: false,
@@ -227,6 +227,9 @@ pub fn run_as_fast_as_possible(
     vm.debug_stats_enabled = run_options.debug_stats_enabled;
 
     vm.execute_from_ip(&function_to_run.ip_range.start, host_function_callback);
+    if matches!(vm.state, VmState::Trap(_) | VmState::Panic(_)) {
+        show_crash_info(vm, run_options.debug_info, &run_options.source_map_wrapper);
+    }
 }
 
 fn calculate_memory_checksum(memory: &[u8]) -> u64 {
@@ -248,6 +251,63 @@ pub fn run_function(
     //vm.debug_operations_enabled = run_options.debug_operations_enabled;
     //vm.debug_stats_enabled = run_options.debug_stats_enabled;
     vm.execute_from_ip(&function_to_run.ip_range.start, host_function_callback);
+
+    if matches!(vm.state, VmState::Trap(_) | VmState::Panic(_)) {
+        show_crash_info(vm, run_options.debug_info, &run_options.source_map_wrapper);
+    }
+}
+
+pub fn show_crash_info(vm: &Vm, debug_info: &DebugInfo, source_map_wrapper: &SourceMapWrapper) {
+    let pc = vm.pc();
+
+    // PC has advanced past the instruction that caused the trap/panic, so look at pc - 1
+
+    let trap_pc = if pc > 0 { pc - 1 } else { pc };
+
+    if let Some(info) = debug_info.fetch(trap_pc) {
+        match &vm.state {
+            VmState::Trap(trap_code) => {
+                eprintln!("\n🚫 VM TRAP: {trap_code}");
+            }
+            VmState::Panic(message) => {
+                eprintln!("\n💥 VM PANIC: {message}");
+            }
+            _ => unreachable!(),
+        }
+
+        if info.meta.node.span.file_id != 0 {
+            let (line, column) = source_map_wrapper.source_map.get_span_location_utf8(
+                info.meta.node.span.file_id,
+                info.meta.node.span.offset as usize,
+            );
+
+            eprintln!("📍 Source location:");
+            let mut string = String::new();
+            display_lines(
+                &mut string,
+                info.meta.node.span.file_id as FileId,
+                line.saturating_sub(2), // Show a couple lines before
+                line + 2,               // Show a couple lines after
+                source_map_wrapper,
+            );
+            eprint!("{string}");
+
+            let relative_path = source_map_wrapper
+                .source_map
+                .fetch_relative_filename(info.meta.node.span.file_id);
+            eprintln!("   at {relative_path}:{line}:{column}");
+        }
+
+        // Also show the instruction that caused the trap/panic
+        let instruction = &vm.instructions()[trap_pc];
+        let disassembler_string = disasm_color(
+            instruction,
+            &info.function_debug_info.frame_memory,
+            &info.meta,
+            &InstructionPosition(trap_pc as u32),
+        );
+        eprintln!("💻 Failing instruction: {trap_pc:04X}> {disassembler_string}");
+    }
 }
 
 pub fn run_function_with_debug(
@@ -359,6 +419,11 @@ pub fn run_function_with_debug(
         //        eprintln!("constant (from address 0x34): {:?}", &vm.heap_memory()[0x34..0x34+32]);
 
         vm.step(host_function_callback);
+
+        // Check if VM encountered a trap or panic and show source information
+        if matches!(vm.state, VmState::Trap(_) | VmState::Panic(_)) {
+            show_crash_info(vm, run_options.debug_info, &run_options.source_map_wrapper);
+        }
 
         if run_options.debug_operations_enabled {
             let hash_after = calculate_memory_checksum(vm.all_memory_up_to(saved_fp));

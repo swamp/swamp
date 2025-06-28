@@ -1289,7 +1289,7 @@ impl Vm {
         self.execution_complete = true;
 
         #[cfg(feature = "debug_vm")]
-        if self.debug_stats_enabled {
+        if self.debug_operations_enabled {
             eprintln!("vm trap: '{trap_code}'");
         }
         self.state = VmState::Trap(trap_code);
