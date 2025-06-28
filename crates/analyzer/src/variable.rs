@@ -166,12 +166,6 @@ impl Analyzer<'_> {
         // The variable_type_ref should be obtained from the TypeCache
 
         self.scope.total_scopes.current_register += 1;
-        if self.scope.total_scopes.current_register
-            > self.scope.total_scopes.highest_virtual_register
-        {
-            self.scope.total_scopes.highest_virtual_register =
-                self.scope.total_scopes.current_register;
-        }
         let resolved_variable = Variable {
             name: variable.clone(),
             assigned_name: variable_str.clone(),
@@ -269,12 +263,6 @@ impl Analyzer<'_> {
         // Make sure to use the TypeCache to ensure proper type handling
         // The variable_type_ref should be obtained from the TypeCache
         self.scope.total_scopes.current_register += 1;
-        if self.scope.total_scopes.current_register
-            > self.scope.total_scopes.highest_virtual_register
-        {
-            self.scope.total_scopes.highest_virtual_register =
-                self.scope.total_scopes.current_register;
-        }
 
         let resolved_variable = Variable {
             name: Node::default(),

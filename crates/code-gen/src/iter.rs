@@ -190,7 +190,7 @@ impl CodeBuilder<'_> {
                     "mark tag as Some",
                 );
 
-                let result_location = target_destination.grab_memory_location();
+                let result_location = target_destination.memory_location_or_pointer_reg();
 
                 self.builder.add_st8_using_ptr_with_offset(
                     &result_location.unsafe_add_offset(tagged_union.tag_offset),

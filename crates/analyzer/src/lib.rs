@@ -3346,13 +3346,11 @@ impl<'a> Analyzer<'a> {
 
     fn pop_any_block_scope(&mut self) {
         let scope = self.scope.active_scope.block_scope_stack.pop().unwrap();
+
         // Record the highest watermark (greatest depth of virtual registers)
-        if self.scope.total_scopes.current_register
-            >= self.scope.total_scopes.highest_virtual_register
-        {
-            self.scope.total_scopes.highest_virtual_register =
-                self.scope.total_scopes.highest_virtual_register;
-        }
+        self.scope.total_scopes.highest_virtual_register =
+            self.scope.total_scopes.current_register;
+
         // Only decrement register counter for non-lambda scopes
         // Lambda scopes should have their register allocation "continue" from parent scope
         // This ensures lambda variables remain live during transformer operations
