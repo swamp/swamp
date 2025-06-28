@@ -9,8 +9,8 @@ use source_map_node::Node;
 use std::collections::HashSet;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
-    AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef,
-    Postfix, PostfixKind, StartOfChain, StartOfChainKind,
+    AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef, Postfix, PostfixKind,
+    StartOfChain, StartOfChainKind,
 };
 use swamp_types::prelude::*;
 
@@ -24,11 +24,11 @@ impl Analyzer<'_> {
         node: &swamp_ast::Node,
     ) -> Expression {
         // This function is called when the struct type has a default() function.
-        // Algorithm: 
+        // Algorithm:
         // 1. Call SomeStruct::default() to get a complete default struct
         // 2. Create a struct literal where we override only the provided fields
         // 3. For missing fields, extract them from the default struct
-        
+
         // Find which fields are provided
         let mut provided_field_indices = HashSet::new();
         for (field_index, _, _) in &source_order_expressions {
@@ -40,7 +40,9 @@ impl Analyzer<'_> {
         let default_struct_expr = self.create_expr(default_call, super_type.clone(), node);
 
         // For missing fields, create field access expressions from the default struct
-        for (field_index, (_field_name, field_info)) in anon_struct_type.field_name_sorted_fields.iter().enumerate() {
+        for (field_index, (_field_name, field_info)) in
+            anon_struct_type.field_name_sorted_fields.iter().enumerate()
+        {
             if !provided_field_indices.contains(&field_index) {
                 // Create field access: default_struct.field_name
                 let start_of_chain = StartOfChain {
@@ -52,14 +54,18 @@ impl Analyzer<'_> {
                     ty: field_info.field_type.clone(),
                     node: self.to_node(node),
                 }];
-                
+
                 let field_access_expr = self.create_expr(
                     ExpressionKind::PostfixChain(start_of_chain, postfixes),
                     field_info.field_type.clone(),
                     node,
                 );
-                
-                source_order_expressions.push((field_index, field_info.identifier.clone(), field_access_expr));
+
+                source_order_expressions.push((
+                    field_index,
+                    field_info.identifier.clone(),
+                    field_access_expr,
+                ));
             }
         }
 
@@ -98,8 +104,14 @@ impl Analyzer<'_> {
                     .expect("verified");
 
                 // Try to create a default value for this field type
-                if let Some(expression) = self.create_default_value_for_type(node, &field.field_type) {
-                    source_order_expressions.push((field_index, field.identifier.clone(), expression));
+                if let Some(expression) =
+                    self.create_default_value_for_type(node, &field.field_type)
+                {
+                    source_order_expressions.push((
+                        field_index,
+                        field.identifier.clone(),
+                        expression,
+                    ));
                 }
                 // If no default is available, skip this field - it will remain uninitialized
             }
@@ -476,7 +488,9 @@ impl Analyzer<'_> {
                     .expect("field must exist in struct definition");
 
                 // Try to create the default value for the field
-                if let Some(default_expression) = self.create_default_value_for_type(node, &field.field_type) {
+                if let Some(default_expression) =
+                    self.create_default_value_for_type(node, &field.field_type)
+                {
                     mapped.push((field_index, None, default_expression));
                 }
                 // If no default is available, skip this field

@@ -9,7 +9,7 @@ use std::fmt;
 use std::fmt::Write;
 use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_disasm::disasm_instructions_color;
-use swamp_vm_types::types::{show_frame_memory, write_basic_type, VariableRegister, VmType};
+use swamp_vm_types::types::{VariableRegister, VmType, show_frame_memory, write_basic_type};
 use swamp_vm_types::{BinaryInstruction, FrameMemoryAddress, InstructionPositionOffset};
 
 #[must_use]
@@ -22,7 +22,7 @@ pub fn show_parameters_and_variables(
     f: &mut dyn Write,
 ) -> Result<(), fmt::Error> {
     if !return_type.is_scalar() {
-        writeln!(f, "{}: {}", tinter::blue("r0"), &return_type, )?;
+        writeln!(f, "{}: {}", tinter::blue("r0"), &return_type,)?;
         write_basic_type(&return_type.basic_type, FrameMemoryAddress(0), f, 0)?;
         writeln!(f)?;
     }
@@ -63,12 +63,12 @@ pub fn disasm_function(
         &info.function_debug_info.frame_memory.variable_registers,
         &mut header_output,
     )
-        .expect("should work");
+    .expect("should work");
 
     format!(
         "{}\n{}",
         header_output,
-        disasm_instructions_color(instructions, ip_offset, debug_info, source_map_wrapper, )
+        disasm_instructions_color(instructions, ip_offset, debug_info, source_map_wrapper,)
     )
 }
 

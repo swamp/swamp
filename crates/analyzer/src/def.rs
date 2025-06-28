@@ -3,8 +3,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Analyzer;
+use crate::to_string::{
+    ExpressionGenerator, internal_generate_to_short_string_function_for_type,
+    internal_generate_to_string_function_for_type,
+};
 use seq_map::SeqMap;
 use std::rc::Rc;
+use swamp_ast::Node;
 use swamp_attributes::Attributes;
 use swamp_modules::symtbl::AliasType;
 use swamp_semantic::err::ErrorKind;
@@ -877,5 +882,43 @@ impl Analyzer<'_> {
                     .unwrap();
             }
         }
+    }
+
+    fn generate_to_string_function_for_type(
+        &mut self,
+        ty: &TypeRef,
+        ast_node: &Node,
+    ) -> InternalFunctionDefinition {
+        let node = self.to_node(ast_node).clone();
+        let mut generator = ExpressionGenerator::new(
+            &mut self.shared.state.types,
+            &self.shared.state.associated_impls,
+        );
+        internal_generate_to_string_function_for_type(
+            &mut generator,
+            &mut self.shared.state.internal_function_id_allocator,
+            &self.module_path,
+            ty,
+            &node,
+        )
+    }
+
+    fn generate_to_short_string_function_for_type(
+        &mut self,
+        ty: &TypeRef,
+        ast_node: &Node,
+    ) -> InternalFunctionDefinition {
+        let node = self.to_node(ast_node).clone();
+        let mut generator = ExpressionGenerator::new(
+            &mut self.shared.state.types,
+            &self.shared.state.associated_impls,
+        );
+        internal_generate_to_short_string_function_for_type(
+            &mut generator,
+            &mut self.shared.state.internal_function_id_allocator,
+            &self.module_path,
+            ty,
+            &node,
+        )
     }
 }

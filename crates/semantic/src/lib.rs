@@ -18,7 +18,7 @@ use std::rc::Rc;
 use swamp_attributes::Attributes;
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeRef};
-use tracing::error;
+use tracing::{error, info};
 
 #[derive(Debug, Clone)]
 pub struct TypeWithMut {
@@ -1142,6 +1142,7 @@ impl AssociatedImpls {
         ty: &TypeRef,
         func: InternalFunctionDefinition,
     ) -> Result<(), SemanticError> {
+        info!(name=?func.assigned_name, ?ty, "adding member function");
         self.add_member_function(
             ty,
             &func.assigned_name.clone(),

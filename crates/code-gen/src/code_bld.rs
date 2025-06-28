@@ -288,10 +288,7 @@ impl CodeBuilder<'_> {
                 .clone();
 
             {
-                let ty =  memory_lvalue_location
-                    .location
-                    .ty
-                    .basic_type();
+                let ty = memory_lvalue_location.location.ty.basic_type();
                 self.builder.add_mov8_immediate(
                     tag_reg.register(),
                     1,

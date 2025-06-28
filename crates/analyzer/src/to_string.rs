@@ -1,0 +1,1339 @@
+///! For `to_string()` and `to_short_string()` lowering
+/// Should not use the normal analyzer helpers, since that can interfere with the normal analyze.
+use source_map_node::Node;
+use swamp_attributes::Attributes;
+use swamp_semantic::{
+    AssociatedImpls, BinaryOperator, BinaryOperatorKind, BooleanExpression, Expression,
+    ExpressionKind, ForPattern, Function, FunctionRef, InternalFunctionDefinition,
+    InternalFunctionIdAllocator, Iterable, LocalIdentifier, Match, MatchArm, NormalPattern,
+    Pattern, Postfix, PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator,
+    UnaryOperatorKind, Variable, VariableRef, VariableScopes, VariableType,
+};
+use swamp_types::prelude::{EnumType, NamedStructType, Signature, TypeCache, TypeForParameter};
+use swamp_types::{TypeKind, TypeRef};
+
+fn generate_to_string_for_named_struct(
+    mut generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    named: &NamedStructType,
+    self_expression: Expression,
+) -> Expression {
+    let node = self_expression.node.clone();
+    let struct_name_string_kind =
+        ExpressionKind::StringLiteral(format!("{} ", named.assigned_name.clone()));
+    let string_type = generator.types.string();
+    let struct_name_string_expr = create_expr_resolved(struct_name_string_kind, string_type, &node);
+    let anon_struct_string_expr =
+        generate_to_string_for_anon_struct(generator, &named.anon_struct_type, self_expression);
+
+    let concat_kind = BinaryOperator {
+        kind: BinaryOperatorKind::Add,
+        left: Box::new(struct_name_string_expr),
+        right: Box::new(anon_struct_string_expr),
+        node: node.clone(),
+    };
+
+    let string_type = generator.types.string();
+    create_expr_resolved(ExpressionKind::BinaryOp(concat_kind), string_type, &node)
+}
+
+fn generate_to_short_string_for_named_struct(
+    type_cache: &mut ExpressionGenerator,
+    named: &NamedStructType,
+    self_expression: Expression,
+) -> Expression {
+    // For to_short_string, we skip the struct name and just show it as an anonymous struct
+    generate_to_short_string_for_anon_struct(type_cache, &named.anon_struct_type, self_expression)
+}
+
+#[must_use]
+pub fn create_expr_resolved(kind: ExpressionKind, ty: TypeRef, ast_node: &Node) -> Expression {
+    Expression {
+        kind,
+        ty,
+        node: ast_node.clone(),
+    }
+}
+
+fn generate_to_string_for_anon_struct(
+    generator: &mut ExpressionGenerator,
+    anonymous_struct_type_ref: &TypeRef,
+    self_expression: Expression,
+) -> Expression {
+    let node = self_expression.node.clone();
+    let string_type = generator.types.string();
+
+    // Create opening brace string
+    let opening_kind = ExpressionKind::StringLiteral("{ ".to_string());
+    let mut result_expr = create_expr_resolved(opening_kind, string_type.clone(), &node);
+
+    let TypeKind::AnonymousStruct(anonymous_struct_type) = &*anonymous_struct_type_ref.kind else {
+        panic!("internal error")
+    };
+
+    // Process each field
+    for (field_index, (field_name, field_type)) in anonymous_struct_type
+        .field_name_sorted_fields
+        .iter()
+        .enumerate()
+    {
+        // If not the first field, add a comma separator
+        if field_index > 0 {
+            let separator_kind = ExpressionKind::StringLiteral(", ".to_string());
+            let separator_expr = create_expr_resolved(separator_kind, string_type.clone(), &node);
+
+            // Concatenate using + operator
+            let concat_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_expr),
+                right: Box::new(separator_expr),
+                node: node.clone(),
+            };
+            result_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(concat_kind),
+                string_type.clone(),
+                &node,
+            );
+        }
+
+        // Add field name
+        let field_name_kind = ExpressionKind::StringLiteral(format!("{field_name}: "));
+        let field_name_expr = create_expr_resolved(field_name_kind, string_type.clone(), &node);
+
+        // Concatenate field name to result
+        let concat_name_kind = BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(result_expr),
+            right: Box::new(field_name_expr),
+            node: node.clone(),
+        };
+
+        result_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(concat_name_kind),
+            string_type.clone(),
+            &node,
+        );
+
+        // Get field value from the struct
+        let postfix_kind = PostfixKind::StructField(anonymous_struct_type_ref.clone(), field_index);
+        let postfix_lookup_field_in_self = Postfix {
+            node: node.clone(),
+            ty: field_type.field_type.clone(),
+            kind: postfix_kind,
+        };
+
+        let field_value_expr = if *field_type.field_type.kind == TypeKind::String {
+            let start_of_chain = StartOfChain {
+                kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                node: node.clone(),
+            };
+            let field_access_expr = create_expr_resolved(
+                ExpressionKind::PostfixChain(start_of_chain, vec![postfix_lookup_field_in_self]),
+                string_type.clone(),
+                &node,
+            );
+
+            let quote_kind = ExpressionKind::StringLiteral("\"".to_string());
+            let quote_expr = create_expr_resolved(quote_kind, string_type.clone(), &node);
+
+            let concat_left_quote_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(quote_expr.clone()),
+                right: Box::new(field_access_expr),
+                node: node.clone(),
+            };
+
+            let with_left_quote_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(concat_left_quote_kind),
+                string_type.clone(),
+                &node,
+            );
+
+            let concat_right_quote_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(with_left_quote_expr),
+                right: Box::new(quote_expr),
+                node: node.clone(),
+            };
+            create_expr_resolved(
+                ExpressionKind::BinaryOp(concat_right_quote_kind),
+                string_type.clone(),
+                &node,
+            )
+        } else {
+            // Get to_short_string function for the field type first, fallback to to_string
+            let field_string_fn = generator
+                .associated_impls
+                .get_internal_member_function(&field_type.field_type, "to_short_string")
+                .or_else(|| {
+                    generator
+                        .associated_impls
+                        .get_internal_member_function(&field_type.field_type, "to_string")
+                });
+
+            if let Some(to_string_fn) = field_string_fn {
+                let function_ref = Function::Internal(to_string_fn.clone());
+                let _function_name = if generator
+                    .associated_impls
+                    .get_internal_member_function(&field_type.field_type, "to_short_string")
+                    .is_some()
+                {
+                    "to_short_string"
+                } else {
+                    "to_string"
+                };
+
+                // Create call to to_short_string or to_string for the field
+                let postfix_call_to_string = Postfix {
+                    node: node.clone(),
+                    ty: generator.types.string(),
+                    kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+                };
+
+                // Create chain to access field and call to_short_string/to_string
+                let start_of_chain = StartOfChain {
+                    kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                    node: node.clone(),
+                };
+
+                let lookup_kind = ExpressionKind::PostfixChain(
+                    start_of_chain,
+                    vec![postfix_lookup_field_in_self, postfix_call_to_string],
+                );
+
+                create_expr_resolved(lookup_kind, string_type.clone(), &node)
+            } else {
+                // This should not happen for any user-visible type, but as a fallback
+                // we can insert an error message.
+                let error_kind = ExpressionKind::StringLiteral("<unsupported>".to_string());
+                create_expr_resolved(error_kind, string_type.clone(), &node)
+            }
+        };
+
+        // Concatenate field value to result
+        let concat_value_kind = BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(result_expr),
+            right: Box::new(field_value_expr),
+            node: node.clone(),
+        };
+        result_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(concat_value_kind),
+            string_type.clone(),
+            &node,
+        );
+    }
+
+    // Create closing brace string
+    let closing_kind = ExpressionKind::StringLiteral(" }".to_string());
+    let closing_expr = create_expr_resolved(closing_kind, string_type.clone(), &node);
+
+    // Concatenate closing brace to result
+    let final_concat_kind = BinaryOperator {
+        kind: BinaryOperatorKind::Add,
+        left: Box::new(result_expr),
+        right: Box::new(closing_expr),
+        node: node.clone(),
+    };
+
+    create_expr_resolved(
+        ExpressionKind::BinaryOp(final_concat_kind),
+        string_type,
+        &node,
+    )
+}
+
+fn generate_to_short_string_for_anon_struct(
+    generator: &mut ExpressionGenerator,
+    anonymous_struct_type_ref: &TypeRef,
+    self_expression: Expression,
+) -> Expression {
+    let node = self_expression.node.clone();
+    let string_type = generator.types.string();
+
+    // Create opening brace string
+    let opening_kind = ExpressionKind::StringLiteral("{ ".to_string());
+    let mut result_expr = create_expr_resolved(opening_kind, string_type.clone(), &node);
+
+    let TypeKind::AnonymousStruct(anonymous_struct_type) = &*anonymous_struct_type_ref.kind else {
+        panic!("internal error")
+    };
+
+    // Process each field
+    for (field_index, (field_name, field_type)) in anonymous_struct_type
+        .field_name_sorted_fields
+        .iter()
+        .enumerate()
+    {
+        // If not the first field, add a comma separator
+        if field_index > 0 {
+            let separator_kind = ExpressionKind::StringLiteral(", ".to_string());
+            let separator_expr = create_expr_resolved(separator_kind, string_type.clone(), &node);
+
+            // Concatenate using + operator
+            let concat_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_expr),
+                right: Box::new(separator_expr),
+                node: node.clone(),
+            };
+            result_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(concat_kind),
+                string_type.clone(),
+                &node,
+            );
+        }
+
+        // Add field name
+        let field_name_kind = ExpressionKind::StringLiteral(format!("{field_name}: "));
+        let field_name_expr = create_expr_resolved(field_name_kind, string_type.clone(), &node);
+
+        // Concatenate field name to result
+        let concat_name_kind = BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(result_expr),
+            right: Box::new(field_name_expr),
+            node: node.clone(),
+        };
+
+        result_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(concat_name_kind),
+            string_type.clone(),
+            &node,
+        );
+
+        // Get field value from the struct
+        let postfix_kind = PostfixKind::StructField(anonymous_struct_type_ref.clone(), field_index);
+        let postfix_lookup_field_in_self = Postfix {
+            node: node.clone(),
+            ty: field_type.field_type.clone(),
+            kind: postfix_kind,
+        };
+
+        let field_value_expr = if *field_type.field_type.kind == TypeKind::String {
+            let start_of_chain = StartOfChain {
+                kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                node: node.clone(),
+            };
+            let field_access_expr = create_expr_resolved(
+                ExpressionKind::PostfixChain(start_of_chain, vec![postfix_lookup_field_in_self]),
+                string_type.clone(),
+                &node,
+            );
+
+            let quote_kind = ExpressionKind::StringLiteral("\"".to_string());
+            let quote_expr = create_expr_resolved(quote_kind, string_type.clone(), &node);
+
+            let concat_left_quote_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(quote_expr.clone()),
+                right: Box::new(field_access_expr),
+                node: node.clone(),
+            };
+
+            let with_left_quote_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(concat_left_quote_kind),
+                string_type.clone(),
+                &node,
+            );
+
+            let concat_right_quote_kind = BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(with_left_quote_expr),
+                right: Box::new(quote_expr),
+                node: node.clone(),
+            };
+            create_expr_resolved(
+                ExpressionKind::BinaryOp(concat_right_quote_kind),
+                string_type.clone(),
+                &node,
+            )
+        } else {
+            // Get to_short_string function for the field type first, fallback to to_string
+            let field_string_fn = generator
+                .associated_impls
+                .get_internal_member_function(&field_type.field_type, "to_short_string")
+                .or_else(|| {
+                    generator
+                        .associated_impls
+                        .get_internal_member_function(&field_type.field_type, "to_string")
+                });
+
+            if let Some(to_string_fn) = field_string_fn {
+                let function_ref = Function::Internal(to_string_fn.clone());
+                let _function_name = if generator
+                    .associated_impls
+                    .get_internal_member_function(&field_type.field_type, "to_short_string")
+                    .is_some()
+                {
+                    "to_short_string"
+                } else {
+                    "to_string"
+                };
+
+                // Create call to to_short_string or to_string for the field
+                let postfix_call_to_string = Postfix {
+                    node: node.clone(),
+                    ty: generator.types.string(),
+                    kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+                };
+
+                // Create chain to access field and call to_short_string/to_string
+                let start_of_chain = StartOfChain {
+                    kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                    node: node.clone(),
+                };
+
+                let lookup_kind = ExpressionKind::PostfixChain(
+                    start_of_chain,
+                    vec![postfix_lookup_field_in_self, postfix_call_to_string],
+                );
+
+                create_expr_resolved(lookup_kind, string_type.clone(), &node)
+            } else {
+                panic!(
+                    "missing to_string for {}. all types should have a to_string().",
+                    field_type.field_type
+                );
+            }
+        };
+
+        // Concatenate field value to result
+        let concat_value_kind = BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(result_expr),
+            right: Box::new(field_value_expr),
+            node: node.clone(),
+        };
+        result_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(concat_value_kind),
+            string_type.clone(),
+            &node,
+        );
+    }
+
+    // Create closing brace string
+    let closing_kind = ExpressionKind::StringLiteral(" }".to_string());
+    let closing_expr = create_expr_resolved(closing_kind, string_type.clone(), &node);
+
+    // Concatenate closing brace to result
+    let final_concat_kind = BinaryOperator {
+        kind: BinaryOperatorKind::Add,
+        left: Box::new(result_expr),
+        right: Box::new(closing_expr),
+        node: node.clone(),
+    };
+
+    create_expr_resolved(
+        ExpressionKind::BinaryOp(final_concat_kind),
+        string_type,
+        &node,
+    )
+}
+
+fn generate_to_string_for_enum(
+    type_cache: &mut TypeCache,
+
+    enum_type: &EnumType,
+    argument_expression: Expression,
+) -> Expression {
+    let node = argument_expression.node.clone();
+    let mut arms = Vec::new();
+    let string_type = type_cache.string();
+    for (variant_name, variant_type) in &enum_type.variants {
+        let kind =
+            ExpressionKind::StringLiteral(format!("{}::{}", enum_type.assigned_name, variant_name));
+        let string_expr = create_expr_resolved(kind.clone(), string_type.clone(), &node);
+
+        let arm_kind = MatchArm {
+            pattern: Pattern::Normal(NormalPattern::EnumPattern(variant_type.clone(), None), None),
+            expression: Box::new(string_expr.clone()),
+            expression_type: type_cache.int(),
+        };
+        arms.push(arm_kind);
+    }
+
+    create_expr_resolved(
+        ExpressionKind::Match(Match {
+            arms,
+            expression: Box::new(argument_expression),
+        }),
+        string_type,
+        &node,
+    )
+}
+
+fn generate_to_short_string_for_enum(
+    type_cache: &mut TypeCache,
+    enum_type: &EnumType,
+    argument_expression: Expression,
+) -> Expression {
+    let node = argument_expression.node.clone();
+    let mut arms = Vec::new();
+    let string_type = type_cache.string();
+    for (variant_name, variant_type) in &enum_type.variants {
+        // For to_short_string, we only show the variant name without the enum type prefix
+        let kind = ExpressionKind::StringLiteral(variant_name.clone());
+        let string_expr = create_expr_resolved(kind.clone(), string_type.clone(), &node);
+
+        let arm_kind = MatchArm {
+            pattern: Pattern::Normal(NormalPattern::EnumPattern(variant_type.clone(), None), None),
+            expression: Box::new(string_expr.clone()),
+            expression_type: type_cache.int(),
+        };
+        arms.push(arm_kind);
+    }
+
+    create_expr_resolved(
+        ExpressionKind::Match(Match {
+            arms,
+            expression: Box::new(argument_expression),
+        }),
+        string_type,
+        &node,
+    )
+}
+
+fn create_string_representation_of_expression(
+    generator: &mut ExpressionGenerator,
+    expression_to_convert: Expression,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let ty = expression_to_convert.ty.clone();
+
+    if *ty.kind == TypeKind::String {
+        let quote_expr = create_expr_resolved(
+            ExpressionKind::StringLiteral("\"".to_string()),
+            string_type.clone(),
+            node,
+        );
+        let left_concat = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(quote_expr.clone()),
+                right: Box::new(expression_to_convert),
+                node: node.clone(),
+            }),
+            string_type.clone(),
+            node,
+        );
+        create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(left_concat),
+                right: Box::new(quote_expr),
+                node: node.clone(),
+            }),
+            string_type,
+            node,
+        )
+    } else {
+        let field_string_fn = generator
+            .associated_impls
+            .get_internal_member_function(&ty, "to_short_string")
+            .or_else(|| {
+                generator
+                    .associated_impls
+                    .get_internal_member_function(&ty, "to_string")
+            });
+
+        if let Some(to_string_fn) = field_string_fn {
+            let function_ref = Function::Internal(to_string_fn.clone());
+            let start_of_chain = StartOfChain {
+                kind: StartOfChainKind::Expression(Box::from(expression_to_convert)),
+                node: node.clone(),
+            };
+            let postfix_call_to_string = Postfix {
+                node: node.clone(),
+                ty: generator.types.string(),
+                kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+            };
+
+            let lookup_kind =
+                ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_string]);
+
+            create_expr_resolved(lookup_kind, string_type.clone(), node)
+        } else {
+            let error_kind = ExpressionKind::StringLiteral("<unsupported>".to_string());
+            create_expr_resolved(error_kind, string_type.clone(), node)
+        }
+    }
+}
+
+pub struct GeneratedScope {
+    pub scope: VariableScopes,
+}
+impl GeneratedScope {
+    pub fn new() -> Self {
+        Self {
+            scope: VariableScopes::default(),
+        }
+    }
+
+    pub(crate) fn create_local_variable(
+        &mut self,
+        assigned_name: &str,
+        variable_type: &TypeRef,
+        node: &Node,
+    ) -> VariableRef {
+        self.scope.current_register += 1;
+        let virtual_register = self.scope.current_register;
+
+        let var_ref = VariableRef::new(Variable {
+            name: node.clone(), // Technically not correct, but at least we get a "valid" node
+            assigned_name: assigned_name.to_string(),
+            resolved_type: variable_type.clone(),
+            mutable_node: None,
+            variable_type: VariableType::Local,
+            scope_index: 0,
+            variable_index: 0,
+            unique_id_within_function: virtual_register,
+            virtual_register: virtual_register as u8,
+            is_unused: false,
+        });
+
+        self.scope.all_variables.push(var_ref.clone());
+
+        var_ref
+    }
+
+    pub(crate) fn create_parameter(
+        &mut self,
+        assigned_name: &str,
+        variable_type: &TypeRef,
+        node: &Node,
+    ) -> VariableRef {
+        self.scope.current_register += 1;
+        let virtual_register = self.scope.current_register;
+
+        let var_ref = VariableRef::new(Variable {
+            name: node.clone(), // Technically not correct, but at least we get a "valid" node
+            assigned_name: assigned_name.to_string(),
+            resolved_type: variable_type.clone(),
+            mutable_node: None,
+            variable_type: VariableType::Parameter,
+            scope_index: 0,
+            variable_index: 0,
+            unique_id_within_function: virtual_register,
+            virtual_register: virtual_register as u8,
+            is_unused: false,
+        });
+
+        self.scope.all_variables.push(var_ref.clone());
+
+        var_ref
+    }
+
+    pub(crate) fn create_local_mut_variable(
+        &mut self,
+        assigned_name: &str,
+        variable_type: &TypeRef,
+        node: &Node,
+    ) -> VariableRef {
+        self.scope.current_register += 1;
+        let virtual_register = self.scope.current_register;
+
+        let var_ref = VariableRef::new(Variable {
+            name: node.clone(), // Technically not correct, but at least we get a "valid" node
+            assigned_name: assigned_name.to_string(),
+            resolved_type: variable_type.clone(),
+            mutable_node: Some(node.clone()),
+            variable_type: VariableType::Local,
+            scope_index: 0,
+            variable_index: 0,
+            unique_id_within_function: virtual_register,
+            virtual_register: virtual_register as u8,
+            is_unused: false,
+        });
+
+        self.scope.all_variables.push(var_ref.clone());
+
+        var_ref
+    }
+}
+
+pub struct ExpressionGenerator<'a> {
+    pub types: &'a mut TypeCache,
+    pub associated_impls: &'a AssociatedImpls,
+}
+
+impl<'a> ExpressionGenerator<'a> {
+    pub fn new(types: &'a mut TypeCache, associated_impls: &'a AssociatedImpls) -> Self {
+        Self {
+            types,
+            associated_impls,
+        }
+    }
+}
+
+fn generate_to_string_for_sequence_like(
+    generator: &mut ExpressionGenerator,
+    block_scope: &mut GeneratedScope,
+    self_expression: Expression,
+    _iterable_type: &TypeRef,
+    element_type: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let unit_type = generator.types.unit();
+    let bool_type = generator.types.bool();
+    let int_type = generator.types.int();
+
+    // let mut result = "["
+    let (result_var, result_var_def) = {
+        let result_var_ref = block_scope.create_local_mut_variable("result", &string_type, &node);
+        let opening_bracket = create_expr_resolved(
+            ExpressionKind::StringLiteral("[".to_string()),
+            string_type.clone(),
+            &node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(result_var_ref.clone(), Box::new(opening_bracket)),
+            unit_type.clone(),
+            &node,
+        );
+        (result_var_ref, def)
+    };
+
+    // let mut is_first = true
+    let (is_first_var, is_first_var_def) = {
+        let var = block_scope.create_local_mut_variable("is_first", &bool_type, &node);
+        let true_expr =
+            create_expr_resolved(ExpressionKind::BoolLiteral(true), bool_type.clone(), &node);
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(true_expr)),
+            unit_type.clone(),
+            &node,
+        );
+        (var, def)
+    };
+
+    let for_loop = {
+        let element_var = block_scope.create_local_variable("element", element_type, &node);
+
+        // if !is_first { result = result + ", " }
+        let if_body = {
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                &node,
+            );
+            let comma_expr = create_expr_resolved(
+                ExpressionKind::StringLiteral(", ".to_string()),
+                string_type.clone(),
+                &node,
+            );
+            let concat_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(comma_expr),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                &node,
+            );
+
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        let if_expr = {
+            let is_first_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(is_first_var.clone()),
+                bool_type.clone(),
+                &node,
+            );
+            let condition = create_expr_resolved(
+                ExpressionKind::UnaryOp(UnaryOperator {
+                    kind: UnaryOperatorKind::Not,
+                    left: Box::new(is_first_access),
+                    node: node.clone(),
+                }),
+                bool_type.clone(),
+                &node,
+            );
+            create_expr_resolved(
+                ExpressionKind::If(
+                    BooleanExpression {
+                        expression: Box::new(condition),
+                    },
+                    Box::new(if_body),
+                    None,
+                ),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        // result = result + element.to_string()
+        let append_element_expr = {
+            let element_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(element_var.clone()),
+                element_type.clone(),
+                &node,
+            );
+            let string_repr_expr =
+                create_string_representation_of_expression(generator, element_access, &node);
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                &node,
+            );
+            let concat_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(string_repr_expr),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                &node,
+            );
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        // is_first = false
+        let set_is_first_to_false = {
+            let false_expr =
+                create_expr_resolved(ExpressionKind::BoolLiteral(false), bool_type.clone(), &node);
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(is_first_var.clone(), Box::new(false_expr)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        let for_body = create_expr_resolved(
+            ExpressionKind::Block(vec![if_expr, append_element_expr, set_is_first_to_false]),
+            unit_type.clone(),
+            &node,
+        );
+
+        let iterable = Iterable {
+            key_type: Some(int_type.clone()),
+            value_type: element_type.clone(),
+            resolved_expression: Box::new(self_expression),
+        };
+
+        let for_pattern = ForPattern::Single(element_var);
+        create_expr_resolved(
+            ExpressionKind::ForLoop(for_pattern, iterable, Box::new(for_body)),
+            unit_type.clone(),
+            &node,
+        )
+    };
+
+    // result = result + "]"
+    let closing_bracket_def = {
+        let result_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(result_var.clone()),
+            string_type.clone(),
+            &node,
+        );
+        let closing_bracket = create_expr_resolved(
+            ExpressionKind::StringLiteral("]".to_string()),
+            string_type.clone(),
+            &node,
+        );
+        let concat_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_access),
+                right: Box::new(closing_bracket),
+                node: node.clone(),
+            }),
+            string_type.clone(),
+            &node,
+        );
+        create_expr_resolved(
+            ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+            unit_type.clone(),
+            &node,
+        )
+    };
+
+    let result_access_expr = create_expr_resolved(
+        ExpressionKind::VariableAccess(result_var),
+        string_type.clone(),
+        &node,
+    );
+
+    let block = create_expr_resolved(
+        ExpressionKind::Block(vec![
+            result_var_def,
+            is_first_var_def,
+            for_loop,
+            closing_bracket_def,
+            result_access_expr,
+        ]),
+        string_type,
+        &node,
+    );
+
+    block
+}
+
+fn generate_to_string_for_map_like(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    _map_type: &TypeRef,
+    key_type: &TypeRef,
+    value_type: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let unit_type = generator.types.unit();
+    let bool_type = generator.types.bool();
+
+    // let mut result = "{"
+    let (result_var, result_var_def) = {
+        let var = scope.create_local_mut_variable("result", &string_type, &node);
+        let opening_brace = create_expr_resolved(
+            ExpressionKind::StringLiteral("{".to_string()),
+            string_type.clone(),
+            &node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(opening_brace)),
+            unit_type.clone(),
+            &node,
+        );
+        (var, def)
+    };
+
+    // let mut is_first = true
+    let (is_first_var, is_first_var_def) = {
+        let var = scope.create_local_mut_variable("is_first", &bool_type, node);
+        let true_expr =
+            create_expr_resolved(ExpressionKind::BoolLiteral(true), bool_type.clone(), &node);
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(true_expr)),
+            unit_type.clone(),
+            &node,
+        );
+        (var, def)
+    };
+
+    let for_loop = {
+        // For maps, we need two variables: key and value
+        let key_var = scope.create_local_variable("key", key_type, node);
+        let value_var = scope.create_local_variable("val", value_type, node);
+
+        // if !is_first { result = result + ", " }
+        let if_body = {
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                &node,
+            );
+            let comma_expr = create_expr_resolved(
+                ExpressionKind::StringLiteral(", ".to_string()),
+                string_type.clone(),
+                &node,
+            );
+            let concat_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(comma_expr),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                &node,
+            );
+
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        let if_expr = {
+            let is_first_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(is_first_var.clone()),
+                bool_type.clone(),
+                &node,
+            );
+            let condition = create_expr_resolved(
+                ExpressionKind::UnaryOp(UnaryOperator {
+                    kind: UnaryOperatorKind::Not,
+                    left: Box::new(is_first_access),
+                    node: node.clone(),
+                }),
+                bool_type.clone(),
+                &node,
+            );
+            create_expr_resolved(
+                ExpressionKind::If(
+                    BooleanExpression {
+                        expression: Box::new(condition),
+                    },
+                    Box::new(if_body),
+                    None,
+                ),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        // result = result + key.to_string() + ": " + value.to_string()
+        let append_key_value_expr = {
+            let key_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(key_var.clone()),
+                key_type.clone(),
+                &node,
+            );
+            let key_string_repr =
+                create_string_representation_of_expression(generator, key_access, &node);
+
+            let value_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(value_var.clone()),
+                value_type.clone(),
+                &node,
+            );
+            let value_string_repr =
+                create_string_representation_of_expression(generator, value_access, &node);
+
+            let colon_expr = create_expr_resolved(
+                ExpressionKind::StringLiteral(": ".to_string()),
+                string_type.clone(),
+                &node,
+            );
+
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                &node,
+            );
+
+            // result + key_string + ": " + value_string
+            let temp1 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(key_string_repr),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                &node,
+            );
+
+            let temp2 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp1),
+                    right: Box::new(colon_expr),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                &node,
+            );
+
+            let final_concat = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp2),
+                    right: Box::new(value_string_repr),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                &node,
+            );
+
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_concat)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        // is_first = false
+        let set_is_first_to_false = {
+            let false_expr =
+                create_expr_resolved(ExpressionKind::BoolLiteral(false), bool_type.clone(), &node);
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(is_first_var.clone(), Box::new(false_expr)),
+                unit_type.clone(),
+                &node,
+            )
+        };
+
+        let for_body = create_expr_resolved(
+            ExpressionKind::Block(vec![if_expr, append_key_value_expr, set_is_first_to_false]),
+            unit_type.clone(),
+            &node,
+        );
+
+        let iterable = Iterable {
+            key_type: Some(key_type.clone()),
+            value_type: value_type.clone(),
+            resolved_expression: Box::new(self_expression),
+        };
+
+        let for_pattern = ForPattern::Pair(key_var, value_var);
+        create_expr_resolved(
+            ExpressionKind::ForLoop(for_pattern, iterable, Box::new(for_body)),
+            unit_type.clone(),
+            &node,
+        )
+    };
+
+    // result = result + "}"
+    let closing_brace_def = {
+        let result_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(result_var.clone()),
+            string_type.clone(),
+            &node,
+        );
+        let closing_brace = create_expr_resolved(
+            ExpressionKind::StringLiteral("}".to_string()),
+            string_type.clone(),
+            &node,
+        );
+        let concat_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_access),
+                right: Box::new(closing_brace),
+                node: node.clone(),
+            }),
+            string_type.clone(),
+            &node,
+        );
+        create_expr_resolved(
+            ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+            unit_type.clone(),
+            &node,
+        )
+    };
+
+    let result_access_expr = create_expr_resolved(
+        ExpressionKind::VariableAccess(result_var),
+        string_type.clone(),
+        &node,
+    );
+
+    let block = create_expr_resolved(
+        ExpressionKind::Block(vec![
+            result_var_def,
+            is_first_var_def,
+            for_loop,
+            closing_brace_def,
+            result_access_expr,
+        ]),
+        string_type,
+        &node,
+    );
+
+    block
+}
+
+pub fn internal_generate_to_string_function_for_type(
+    generator: &mut ExpressionGenerator,
+    id_gen: &mut InternalFunctionIdAllocator,
+    module_path: &[String],
+    ty: &TypeRef,
+    resolved_node: &Node,
+) -> InternalFunctionDefinition {
+    let mut block_scope_to_use = GeneratedScope::new();
+
+    // Create the "self" parameter using the same method as normal functions
+    let variable_ref = block_scope_to_use.create_parameter("self", ty, &resolved_node);
+
+    let first_self_param = create_expr_resolved(
+        ExpressionKind::VariableAccess(variable_ref),
+        ty.clone(),
+        &resolved_node,
+    );
+
+    let body_expr = match &*ty.kind {
+        TypeKind::Byte => todo!(),
+        TypeKind::Int => todo!(),
+        TypeKind::Float => todo!(),
+        TypeKind::String => {
+            // For String type, to_string() should just return self
+            first_self_param
+        }
+        TypeKind::StringStorage(_, _) => todo!(),
+        TypeKind::Bool => todo!(),
+        TypeKind::Unit => todo!(),
+        TypeKind::Tuple(_) => todo!(),
+        TypeKind::NamedStruct(named) => generate_to_string_for_named_struct(
+            generator,
+            &mut block_scope_to_use,
+            named,
+            first_self_param,
+        ),
+        TypeKind::AnonymousStruct(_anon_struct) => {
+            generate_to_string_for_anon_struct(generator, ty, first_self_param)
+        }
+        TypeKind::Range(_) => todo!(),
+        TypeKind::Enum(enum_type) => {
+            generate_to_string_for_enum(generator.types, &enum_type.clone(), first_self_param)
+        }
+        TypeKind::Function(_) => todo!(),
+        TypeKind::Optional(_) => todo!(),
+        TypeKind::FixedCapacityAndLengthArray(element_type, _)
+        | TypeKind::SliceView(element_type)
+        | TypeKind::DynamicLengthVecView(element_type)
+        | TypeKind::VecStorage(element_type, _)
+        | TypeKind::StackView(element_type)
+        | TypeKind::QueueView(element_type)
+        | TypeKind::StackStorage(element_type, _)
+        | TypeKind::QueueStorage(element_type, _)
+        | TypeKind::SparseView(element_type)
+        | TypeKind::SparseStorage(element_type, _)
+        | TypeKind::GridView(element_type)
+        | TypeKind::GridStorage(element_type, _, _) => generate_to_string_for_sequence_like(
+            generator,
+            &mut block_scope_to_use,
+            first_self_param,
+            ty,
+            element_type,
+            &resolved_node,
+        ),
+        TypeKind::MapStorage(key_type, value_type, _)
+        | TypeKind::DynamicLengthMapView(key_type, value_type) => generate_to_string_for_map_like(
+            generator,
+            &mut block_scope_to_use,
+            first_self_param,
+            ty,
+            key_type,
+            value_type,
+            &resolved_node,
+        ),
+    };
+
+    let unique_function_id = id_gen.alloc();
+
+    let function_definition = InternalFunctionDefinition {
+        body: body_expr,
+        name: LocalIdentifier(resolved_node.clone()),
+        assigned_name: "to_string".to_string(),
+        associated_with_type: Option::from(ty.clone()),
+        defined_in_module_path: module_path.to_vec(),
+        signature: Signature {
+            parameters: vec![TypeForParameter {
+                name: "self".to_string(),
+                resolved_type: ty.clone(),
+                is_mutable: false,
+                node: None,
+            }],
+            return_type: generator.types.string(),
+        },
+        function_variables: block_scope_to_use.scope.clone(),
+        program_unique_id: unique_function_id,
+        attributes: Attributes::default(),
+    };
+
+    function_definition
+}
+
+pub fn internal_generate_to_short_string_function_for_type(
+    generator: &mut ExpressionGenerator,
+    id_gen: &mut InternalFunctionIdAllocator,
+    module_path: &[String],
+    ty: &TypeRef,
+    resolved_node: &Node,
+) -> InternalFunctionDefinition {
+    let mut block_scope_to_use = GeneratedScope::new();
+
+    // Create the "self" parameter using the same method as normal functions
+    let variable_ref = block_scope_to_use.create_parameter("self", ty, &resolved_node);
+
+    let first_self_param = create_expr_resolved(
+        ExpressionKind::VariableAccess(variable_ref),
+        ty.clone(),
+        &resolved_node,
+    );
+
+    let body_expr = match &*ty.kind {
+        TypeKind::Byte => todo!(),
+        TypeKind::Int => todo!(),
+        TypeKind::Float => todo!(),
+        TypeKind::String => {
+            // For String type, to_string() should just return self
+            first_self_param
+        }
+        TypeKind::StringStorage(_, _) => todo!(),
+        TypeKind::Bool => todo!(),
+        TypeKind::Unit => todo!(),
+        TypeKind::Tuple(_) => todo!(),
+        TypeKind::NamedStruct(named) => {
+            generate_to_short_string_for_named_struct(generator, named, first_self_param)
+        }
+        TypeKind::AnonymousStruct(_anon_struct) => {
+            generate_to_short_string_for_anon_struct(generator, ty, first_self_param)
+        }
+        TypeKind::Range(_) => todo!(),
+        TypeKind::Enum(enum_type) => {
+            generate_to_short_string_for_enum(generator.types, &enum_type.clone(), first_self_param)
+        }
+        TypeKind::Function(_) => todo!(),
+        TypeKind::Optional(_) => todo!(),
+        TypeKind::FixedCapacityAndLengthArray(element_type, _)
+        | TypeKind::SliceView(element_type)
+        | TypeKind::DynamicLengthVecView(element_type)
+        | TypeKind::VecStorage(element_type, _)
+        | TypeKind::StackView(element_type)
+        | TypeKind::QueueView(element_type)
+        | TypeKind::StackStorage(element_type, _)
+        | TypeKind::QueueStorage(element_type, _)
+        | TypeKind::SparseView(element_type)
+        | TypeKind::SparseStorage(element_type, _)
+        | TypeKind::GridView(element_type)
+        | TypeKind::GridStorage(element_type, _, _) => generate_to_string_for_sequence_like(
+            generator,
+            &mut block_scope_to_use,
+            first_self_param,
+            ty,
+            element_type,
+            &resolved_node,
+        ),
+        TypeKind::MapStorage(key_type, value_type, _)
+        | TypeKind::DynamicLengthMapView(key_type, value_type) => generate_to_string_for_map_like(
+            generator,
+            &mut block_scope_to_use,
+            first_self_param,
+            ty,
+            key_type,
+            value_type,
+            &resolved_node,
+        ),
+    };
+
+    let unique_function_id = id_gen.alloc();
+
+    let function_definition = InternalFunctionDefinition {
+        body: body_expr,
+        name: LocalIdentifier(resolved_node.clone()),
+        assigned_name: "to_short_string".to_string(),
+        associated_with_type: Option::from(ty.clone()),
+        defined_in_module_path: module_path.to_vec(),
+        signature: Signature {
+            parameters: vec![TypeForParameter {
+                name: "self".to_string(),
+                resolved_type: ty.clone(),
+                is_mutable: false,
+                node: None,
+            }],
+            return_type: generator.types.string(),
+        },
+        function_variables: block_scope_to_use.scope.clone(),
+        program_unique_id: unique_function_id,
+        attributes: Attributes::default(),
+    };
+
+    function_definition
+}
