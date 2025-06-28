@@ -26,7 +26,6 @@ use std::num::{ParseFloatError, ParseIntError};
 use std::rc::Rc;
 use std::str::{FromStr, ParseBoolError};
 use swamp_ast::{GenericParameter, QualifiedTypeIdentifier};
-use swamp_attributes::Attributes;
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::*;
@@ -34,8 +33,8 @@ use swamp_semantic::{
     ArgumentExpression, BinaryOperatorKind, BlockScope, BlockScopeMode, FunctionScopeState,
     GridType, InternalMainExpression, LocationAccess, LocationAccessKind, MapType,
     MutableReferenceKind, NormalPattern, Postfix, PostfixKind, ScopeInfo, SingleLocationExpression,
-    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, UnaryOperatorKind,
-    VariableType, VecType, WhenBinding,
+    SliceViewType, SparseType, TargetAssignmentLocation, TypeWithMut, VariableType, VecType,
+    WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::TypeKind;
@@ -2006,7 +2005,7 @@ impl<'a> Analyzer<'a> {
             let resolved_expr = self.analyze_expression(item, &required_context);
             resolved_items.push(resolved_expr);
         }
-        (collection_type.clone(), resolved_items)
+        (collection_type, resolved_items)
     }
 
     fn push_block_scope(&mut self, _debug_str: &str) {

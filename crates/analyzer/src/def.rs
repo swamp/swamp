@@ -965,7 +965,7 @@ impl Analyzer<'_> {
         ty: &TypeRef,
         ast_node: &Node,
     ) -> InternalFunctionDefinition {
-        let node = self.to_node(ast_node).clone();
+        let node = self.to_node(ast_node);
         let mut generator = ExpressionGenerator::new(
             &mut self.shared.state.types,
             &self.shared.state.associated_impls,
@@ -984,7 +984,7 @@ impl Analyzer<'_> {
         ty: &TypeRef,
         ast_node: &Node,
     ) -> InternalFunctionDefinition {
-        let node = self.to_node(ast_node).clone();
+        let node = self.to_node(ast_node);
         let mut generator = ExpressionGenerator::new(
             &mut self.shared.state.types,
             &self.shared.state.associated_impls,
@@ -1003,7 +1003,7 @@ impl Analyzer<'_> {
         ty: &TypeRef,
         ast_node: &Node,
     ) -> InternalFunctionDefinition {
-        let node = self.to_node(ast_node).clone();
+        let node = self.to_node(ast_node);
         let mut generator = ExpressionGenerator::new(
             &mut self.shared.state.types,
             &self.shared.state.associated_impls,

@@ -10,11 +10,11 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_types::types::{
-    float_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister, VmType,
+    Destination, TypedRegister, VmType, float_type, pointer_type, u8_type, u16_type, u32_type,
 };
 use swamp_vm_types::{
-    AggregateMemoryLocation, MemoryLocation, MemoryOffset,
-    MemorySize, PointerLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
+    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
+    MemoryLocation, MemoryOffset, MemorySize, PointerLocation,
 };
 
 impl CodeBuilder<'_> {
@@ -1026,7 +1026,9 @@ impl CodeBuilder<'_> {
                 );
             }
 
-            IntrinsicFunction::StringLen | IntrinsicFunction::MapLen | IntrinsicFunction::VecLen => {
+            IntrinsicFunction::StringLen
+            | IntrinsicFunction::MapLen
+            | IntrinsicFunction::VecLen => {
                 let collection_pointer = PointerLocation {
                     ptr_reg: self_reg.unwrap().clone(),
                 };

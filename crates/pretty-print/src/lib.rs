@@ -574,12 +574,13 @@ impl SourceMapDisplay<'_> {
                         };
                         &anon.field_name_sorted_fields.keys().collect::<Vec<_>>()[*field].clone()
                     }
-                    TypeKind::AnonymousStruct(anon) => &anon.field_name_sorted_fields.keys().collect::<Vec<_>>()[*field].clone(),
-                    TypeKind::Tuple(tuple) => &format!("{}", field),
+                    TypeKind::AnonymousStruct(anon) => {
+                        &anon.field_name_sorted_fields.keys().collect::<Vec<_>>()[*field].clone()
+                    }
+                    TypeKind::Tuple(tuple) => &format!("{field}"),
                     _ => panic!("not plausible {struct_type}"),
                 };
 
-                
                 write!(f, ".{}", name.bright_blue())
             }
             PostfixKind::SliceViewSubscript(slice_type, index_expr) => {
