@@ -515,7 +515,7 @@ fn create_string_representation_of_expression(
                 node: node.clone(),
             }),
             string_type.clone(),
-            node,
+            &node,
         );
         create_expr_resolved(
             ExpressionKind::BinaryOp(BinaryOperator {
@@ -1728,4 +1728,1827 @@ pub fn internal_generate_to_short_string_function_for_type(
         program_unique_id: unique_function_id,
         attributes: Attributes::default(),
     }
+}
+
+pub fn internal_generate_to_pretty_string_function_for_type(
+    generator: &mut ExpressionGenerator,
+    id_gen: &mut InternalFunctionIdAllocator,
+    module_path: &[String],
+    ty: &TypeRef,
+    resolved_node: &Node,
+) -> InternalFunctionDefinition {
+    let mut block_scope_to_use = GeneratedScope::new();
+
+    // Create the "self" parameter
+    let self_variable_ref = block_scope_to_use.create_parameter("self", ty, &resolved_node);
+
+    // Create the "indentation" parameter
+    let int_type = generator.types.int();
+    let indentation_variable_ref =
+        block_scope_to_use.create_parameter("indentation", &int_type, &resolved_node);
+
+    let self_param = create_expr_resolved(
+        ExpressionKind::VariableAccess(self_variable_ref),
+        ty.clone(),
+        resolved_node,
+    );
+
+    let indentation_param = create_expr_resolved(
+        ExpressionKind::VariableAccess(indentation_variable_ref),
+        int_type.clone(),
+        resolved_node,
+    );
+
+    let body_expr = generate_to_pretty_string_for_type(
+        generator,
+        &mut block_scope_to_use,
+        ty,
+        self_param,
+        indentation_param,
+        resolved_node,
+    );
+
+    let unique_function_id = id_gen.alloc();
+
+    block_scope_to_use.scope.finalize();
+
+    InternalFunctionDefinition {
+        body: body_expr,
+        name: LocalIdentifier(resolved_node.clone()),
+        assigned_name: "to_pretty_string".to_string(),
+        associated_with_type: Option::from(ty.clone()),
+        defined_in_module_path: module_path.to_vec(),
+        signature: Signature {
+            parameters: vec![
+                TypeForParameter {
+                    name: "self".to_string(),
+                    resolved_type: ty.clone(),
+                    is_mutable: false,
+                    node: None,
+                },
+                TypeForParameter {
+                    name: "indentation".to_string(),
+                    resolved_type: int_type,
+                    is_mutable: false,
+                    node: None,
+                },
+            ],
+            return_type: generator.types.string(),
+        },
+        function_variables: block_scope_to_use.scope.clone(),
+        program_unique_id: unique_function_id,
+        attributes: Attributes::default(),
+    }
+}
+
+fn generate_to_pretty_string_for_type(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    ty: &TypeRef,
+    self_expression: Expression,
+    indentation_expression: Expression,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let int_type = generator.types.int();
+    let unit_type = generator.types.unit();
+    let bool_type = generator.types.bool();
+
+    // Following the user's exact algorithm:
+    // 1. Get compact = self.to_string()
+    // 2. Check if compact.len() < 80
+    // 3. If yes, return compact
+    // 4. If no, generate multi-line format
+
+    // Step 1: compact = self.to_string()
+    let compact_var = scope.create_local_variable("compact", &string_type, node);
+    let compact_string = call_to_string_method(generator, self_expression.clone(), node);
+    let compact_def = create_expr_resolved(
+        ExpressionKind::VariableDefinition(compact_var.clone(), Box::new(compact_string)),
+        unit_type.clone(),
+        node,
+    );
+
+    // Step 2: if compact.len() < 80 { return compact } else { ... }
+    // For now, assume all strings are "long" to test multi-line formatting
+    // TODO: Implement proper string.len() checking later
+    let threshold_check =
+        create_expr_resolved(ExpressionKind::BoolLiteral(false), bool_type.clone(), node);
+
+    let compact_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(compact_var.clone()),
+        string_type.clone(),
+        node,
+    );
+
+    // Step 3: Generate multi-line format for specific types
+    let multi_line_result = match &*ty.kind {
+        TypeKind::MapStorage(_, _, _) | TypeKind::DynamicLengthMapView(_, _) => {
+            generate_map_pretty_string(
+                generator,
+                scope,
+                self_expression,
+                indentation_expression,
+                ty,
+                node,
+            )
+        }
+        TypeKind::FixedCapacityAndLengthArray(_, _)
+        | TypeKind::SliceView(_)
+        | TypeKind::DynamicLengthVecView(_)
+        | TypeKind::VecStorage(_, _)
+        | TypeKind::StackView(_)
+        | TypeKind::QueueView(_)
+        | TypeKind::StackStorage(_, _)
+        | TypeKind::QueueStorage(_, _)
+        | TypeKind::SparseView(_)
+        | TypeKind::SparseStorage(_, _) => generate_sequence_pretty_string(
+            generator,
+            scope,
+            self_expression,
+            indentation_expression,
+            ty,
+            node,
+        ),
+        TypeKind::NamedStruct(_) | TypeKind::AnonymousStruct(_) | TypeKind::Tuple(_) => {
+            generate_struct_pretty_string(
+                generator,
+                scope,
+                self_expression,
+                indentation_expression,
+                ty,
+                node,
+            )
+        }
+        _ => {
+            // For other types, just return compact
+            compact_access.clone()
+        }
+    };
+
+    // if threshold_check { compact } else { multi_line_result }
+    let if_expr = create_expr_resolved(
+        ExpressionKind::If(
+            BooleanExpression {
+                expression: Box::new(threshold_check),
+            },
+            Box::new(compact_access),
+            Some(Box::new(multi_line_result)),
+        ),
+        string_type.clone(),
+        node,
+    );
+
+    create_expr_resolved(
+        ExpressionKind::Block(vec![compact_def, if_expr]),
+        string_type,
+        node,
+    )
+}
+
+fn call_to_string_method(
+    generator: &mut ExpressionGenerator,
+    self_expression: Expression,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let ty = self_expression.ty.clone();
+
+    let to_string_fn = generator
+        .associated_impls
+        .get_internal_member_function(&ty, "to_string");
+
+    if let Some(to_string_fn) = to_string_fn {
+        let function_ref = Function::Internal(to_string_fn.clone());
+        let start_of_chain = StartOfChain {
+            kind: StartOfChainKind::Expression(Box::from(self_expression)),
+            node: node.clone(),
+        };
+        let postfix_call_to_string = Postfix {
+            node: node.clone(),
+            ty: string_type.clone(),
+            kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+        };
+
+        let lookup_kind =
+            ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_string]);
+        create_expr_resolved(lookup_kind, string_type, node)
+    } else {
+        // Fallback for primitive types that should have to_string in core
+        create_expr_resolved(
+            ExpressionKind::StringLiteral("<missing to_string>".to_string()),
+            string_type,
+            node,
+        )
+    }
+}
+
+fn call_to_pretty_string_method(
+    generator: &mut ExpressionGenerator,
+    self_expression: Expression,
+    indentation_expression: Expression,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let ty = self_expression.ty.clone();
+
+    let to_pretty_string_fn = generator
+        .associated_impls
+        .get_internal_member_function(&ty, "to_pretty_string");
+
+    if let Some(to_pretty_string_fn) = to_pretty_string_fn {
+        let function_ref = Function::Internal(to_pretty_string_fn.clone());
+        let start_of_chain = StartOfChain {
+            kind: StartOfChainKind::Expression(Box::from(self_expression)),
+            node: node.clone(),
+        };
+        let postfix_call_to_pretty_string = Postfix {
+            node: node.clone(),
+            ty: string_type.clone(),
+            kind: PostfixKind::MemberCall(
+                FunctionRef::from(function_ref),
+                vec![ArgumentExpression::Expression(indentation_expression)],
+            ),
+        };
+
+        let lookup_kind =
+            ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_pretty_string]);
+        create_expr_resolved(lookup_kind, string_type, node)
+    } else {
+        // Fallback to regular to_string if to_pretty_string is not available
+        call_to_string_method(generator, self_expression, node)
+    }
+}
+
+fn generate_indentation_string(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    indentation_var: &VariableRef,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let int_type = generator.types.int();
+    let unit_type = generator.types.unit();
+    let bool_type = generator.types.bool();
+
+    // let mut result = ""
+    let (result_var, result_var_def) = {
+        let var = scope.create_local_mut_variable("indentation_str", &string_type, node);
+        let empty_string = create_expr_resolved(
+            ExpressionKind::StringLiteral("".to_string()),
+            string_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(empty_string)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // let mut i = 0
+    let (counter_var, counter_var_def) = {
+        let var = scope.create_local_mut_variable("i", &int_type, node);
+        let zero = create_expr_resolved(ExpressionKind::IntLiteral(0), int_type.clone(), node);
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(zero)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // while i < indentation { result = result + "  "; i = i + 1 }
+    let while_loop = {
+        let counter_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(counter_var.clone()),
+            int_type.clone(),
+            node,
+        );
+        let indentation_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(indentation_var.clone()),
+            int_type.clone(),
+            node,
+        );
+
+        let condition = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::LessThan,
+                left: Box::new(counter_access),
+                right: Box::new(indentation_access),
+                node: node.clone(),
+            }),
+            bool_type.clone(),
+            node,
+        );
+
+        // result = result + "  "
+        let append_spaces = {
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                node,
+            );
+            let spaces = create_expr_resolved(
+                ExpressionKind::StringLiteral("  ".to_string()),
+                string_type.clone(),
+                node,
+            );
+            let concat = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(spaces),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat)),
+                unit_type.clone(),
+                node,
+            )
+        };
+
+        // i = i + 1
+        let increment_counter = {
+            let counter_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(counter_var.clone()),
+                int_type.clone(),
+                node,
+            );
+            let one = create_expr_resolved(ExpressionKind::IntLiteral(1), int_type.clone(), node);
+            let add = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(counter_access),
+                    right: Box::new(one),
+                    node: node.clone(),
+                }),
+                int_type.clone(),
+                node,
+            );
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(counter_var, Box::new(add)),
+                unit_type.clone(),
+                node,
+            )
+        };
+
+        let while_body = create_expr_resolved(
+            ExpressionKind::Block(vec![append_spaces, increment_counter]),
+            unit_type.clone(),
+            node,
+        );
+
+        create_expr_resolved(
+            ExpressionKind::WhileLoop(
+                BooleanExpression {
+                    expression: Box::new(condition),
+                },
+                Box::new(while_body),
+            ),
+            unit_type.clone(),
+            node,
+        )
+    };
+
+    let result_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(result_var),
+        string_type.clone(),
+        node,
+    );
+
+    create_expr_resolved(
+        ExpressionKind::Block(vec![
+            result_var_def,
+            counter_var_def,
+            while_loop,
+            result_access,
+        ]),
+        string_type,
+        node,
+    )
+}
+
+fn generate_pretty_string_with_compact_check(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    indentation_expression: Expression,
+    ty: &TypeRef,
+    node: &Node,
+    multi_line_generator: fn(
+        &mut ExpressionGenerator,
+        &mut GeneratedScope,
+        Expression,
+        Expression,
+        &TypeRef,
+        &Node,
+    ) -> Expression,
+) -> Expression {
+    let string_type = generator.types.string();
+    let int_type = generator.types.int();
+    let unit_type = generator.types.unit();
+    let bool_type = generator.types.bool();
+
+    // Get the compact string representation
+    let compact_string = call_to_string_method(generator, self_expression.clone(), node);
+
+    // Create a variable to store the compact string
+    let compact_var = scope.create_local_variable("compact", &string_type, node);
+    let compact_def = create_expr_resolved(
+        ExpressionKind::VariableDefinition(compact_var.clone(), Box::new(compact_string)),
+        unit_type.clone(),
+        node,
+    );
+
+    // Get the length of the compact string
+    let compact_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(compact_var.clone()),
+        string_type.clone(),
+        node,
+    );
+
+    // Call len() method on the string
+    let len_method = generator
+        .associated_impls
+        .get_internal_member_function(&string_type, "len");
+
+    let length_expr = if let Some(len_fn) = len_method {
+        let function_ref = Function::Internal(len_fn.clone());
+        let start_of_chain = StartOfChain {
+            kind: StartOfChainKind::Expression(Box::from(compact_access)),
+            node: node.clone(),
+        };
+        let postfix_call_len = Postfix {
+            node: node.clone(),
+            ty: int_type.clone(),
+            kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+        };
+        create_expr_resolved(
+            ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_len]),
+            int_type.clone(),
+            node,
+        )
+    } else {
+        // Fallback - assume it's short
+        create_expr_resolved(ExpressionKind::IntLiteral(10), int_type.clone(), node)
+    };
+
+    // Check if length < 80
+    let threshold = create_expr_resolved(ExpressionKind::IntLiteral(80), int_type.clone(), node);
+    let length_check = create_expr_resolved(
+        ExpressionKind::BinaryOp(BinaryOperator {
+            kind: BinaryOperatorKind::LessThan,
+            left: Box::new(length_expr),
+            right: Box::new(threshold),
+            node: node.clone(),
+        }),
+        bool_type.clone(),
+        node,
+    );
+
+    // If compact, return the compact string
+    let return_compact = create_expr_resolved(
+        ExpressionKind::VariableAccess(compact_var),
+        string_type.clone(),
+        node,
+    );
+
+    // Otherwise, generate multi-line version
+    let multi_line_result = multi_line_generator(
+        generator,
+        scope,
+        self_expression,
+        indentation_expression,
+        ty,
+        node,
+    );
+
+    // Create the if expression
+    let if_expr = create_expr_resolved(
+        ExpressionKind::If(
+            BooleanExpression {
+                expression: Box::new(length_check),
+            },
+            Box::new(return_compact),
+            Some(Box::new(multi_line_result)),
+        ),
+        string_type.clone(),
+        node,
+    );
+
+    // Return a block with the compact definition and the if expression
+    create_expr_resolved(
+        ExpressionKind::Block(vec![compact_def, if_expr]),
+        string_type,
+        node,
+    )
+}
+
+fn generate_multi_line_struct_or_tuple(
+    _generator: &mut ExpressionGenerator,
+    _scope: &mut GeneratedScope,
+    _self_expression: Expression,
+    _indentation_expression: Expression,
+    _ty: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = _generator.types.string();
+    // TODO: Implement multi-line struct/tuple formatting
+    create_expr_resolved(
+        ExpressionKind::StringLiteral("<multi-line struct/tuple not yet implemented>".to_string()),
+        string_type,
+        node,
+    )
+}
+
+fn generate_multi_line_sequence(
+    _generator: &mut ExpressionGenerator,
+    _scope: &mut GeneratedScope,
+    _self_expression: Expression,
+    _indentation_expression: Expression,
+    _ty: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = _generator.types.string();
+    // TODO: Implement multi-line sequence formatting
+    create_expr_resolved(
+        ExpressionKind::StringLiteral("<multi-line sequence not yet implemented>".to_string()),
+        string_type,
+        node,
+    )
+}
+
+fn generate_multi_line_map(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    indentation_expression: Expression,
+    ty: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let int_type = generator.types.int();
+    let unit_type = generator.types.unit();
+
+    let (key_type, value_type) = match &*ty.kind {
+        TypeKind::MapStorage(k, v, _) | TypeKind::DynamicLengthMapView(k, v) => (k, v),
+        _ => panic!("Expected map type"),
+    };
+
+    // let mut result = "[|\n"
+    let (result_var, result_var_def) = {
+        let var = scope.create_local_mut_variable("result", &string_type, node);
+        let opening_brace = create_expr_resolved(
+            ExpressionKind::StringLiteral("[|\n".to_string()),
+            string_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(opening_brace)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // let next_indentation = indentation + 1
+    let (next_indentation_var, next_indentation_def) = {
+        let var = scope.create_local_variable("next_indentation", &int_type, node);
+        let one = create_expr_resolved(ExpressionKind::IntLiteral(1), int_type.clone(), node);
+        let add_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(indentation_expression),
+                right: Box::new(one),
+                node: node.clone(),
+            }),
+            int_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(add_expr)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    let for_loop = {
+        let key_var = scope.create_local_variable("key", key_type, node);
+        let value_var = scope.create_local_variable("val", value_type, node);
+
+        // Add indentation spaces
+        let add_indentation_expr = {
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                node,
+            );
+
+            // Generate indentation string based on indentation level
+            let indentation_spaces =
+                generate_indentation_string(generator, scope, &next_indentation_var, node);
+
+            let concat_expr = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(indentation_spaces),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+                unit_type.clone(),
+                node,
+            )
+        };
+
+        // Add key.to_pretty_string(next_indentation) + " : " + value.to_pretty_string(next_indentation)
+        let add_key_value_expr = {
+            let key_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(key_var.clone()),
+                key_type.clone(),
+                node,
+            );
+            let value_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(value_var.clone()),
+                value_type.clone(),
+                node,
+            );
+
+            let next_indentation_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(next_indentation_var.clone()),
+                int_type.clone(),
+                node,
+            );
+
+            let key_pretty_string = call_to_pretty_string_method(
+                generator,
+                key_access,
+                next_indentation_access.clone(),
+                node,
+            );
+            let value_pretty_string = call_to_pretty_string_method(
+                generator,
+                value_access,
+                next_indentation_access,
+                node,
+            );
+
+            let colon_expr = create_expr_resolved(
+                ExpressionKind::StringLiteral(" : ".to_string()),
+                string_type.clone(),
+                node,
+            );
+            let newline_expr = create_expr_resolved(
+                ExpressionKind::StringLiteral("\n".to_string()),
+                string_type.clone(),
+                node,
+            );
+
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                node,
+            );
+
+            // result + key_pretty + " : " + value_pretty + "\n"
+            let temp1 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(key_pretty_string),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+
+            let temp2 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp1),
+                    right: Box::new(colon_expr),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+
+            let temp3 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp2),
+                    right: Box::new(value_pretty_string),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+
+            let final_concat = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp3),
+                    right: Box::new(newline_expr),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_concat)),
+                unit_type.clone(),
+                node,
+            )
+        };
+
+        let for_body = create_expr_resolved(
+            ExpressionKind::Block(vec![add_indentation_expr, add_key_value_expr]),
+            unit_type.clone(),
+            node,
+        );
+
+        let iterable = Iterable {
+            key_type: Some(key_type.clone()),
+            value_type: value_type.clone(),
+            resolved_expression: Box::new(self_expression),
+        };
+
+        let for_pattern = ForPattern::Pair(key_var, value_var);
+        create_expr_resolved(
+            ExpressionKind::ForLoop(for_pattern, iterable, Box::new(for_body)),
+            unit_type.clone(),
+            node,
+        )
+    };
+
+    // Add final indentation and closing brace
+    let closing_brace_def = {
+        let result_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(result_var.clone()),
+            string_type.clone(),
+            node,
+        );
+
+        // Get the original indentation for closing brace
+        let indentation_var_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(result_var.clone()),
+            string_type.clone(),
+            node,
+        );
+
+        let closing_brace = create_expr_resolved(
+            ExpressionKind::StringLiteral("|]".to_string()),
+            string_type.clone(),
+            node,
+        );
+
+        let concat_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_access),
+                right: Box::new(closing_brace),
+                node: node.clone(),
+            }),
+            string_type.clone(),
+            node,
+        );
+        create_expr_resolved(
+            ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
+            unit_type.clone(),
+            node,
+        )
+    };
+
+    let result_access_expr = create_expr_resolved(
+        ExpressionKind::VariableAccess(result_var),
+        string_type.clone(),
+        node,
+    );
+
+    create_expr_resolved(
+        ExpressionKind::Block(vec![
+            result_var_def,
+            next_indentation_def,
+            for_loop,
+            closing_brace_def,
+            result_access_expr,
+        ]),
+        string_type,
+        node,
+    )
+}
+
+fn generate_multi_line_optional(
+    _generator: &mut ExpressionGenerator,
+    _scope: &mut GeneratedScope,
+    _self_expression: Expression,
+    _indentation_expression: Expression,
+    _ty: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = _generator.types.string();
+    // TODO: Implement multi-line optional formatting
+    create_expr_resolved(
+        ExpressionKind::StringLiteral("<multi-line optional not yet implemented>".to_string()),
+        string_type,
+        node,
+    )
+}
+
+fn generate_map_pretty_string(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    indentation_expression: Expression,
+    ty: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let int_type = generator.types.int();
+    let unit_type = generator.types.unit();
+
+    let (key_type, value_type) = match &*ty.kind {
+        TypeKind::MapStorage(k, v, _) | TypeKind::DynamicLengthMapView(k, v) => (k, v),
+        _ => panic!("Expected map type"),
+    };
+
+    // Following exact pseudo-code:
+    // mut result = "[|\n"
+    let (result_var, result_def) = {
+        let var = scope.create_local_mut_variable("result", &string_type, node);
+        let initial = create_expr_resolved(
+            ExpressionKind::StringLiteral("[|\n".to_string()),
+            string_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(initial)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // next_indentation = indentation + 1
+    let indentation_expr_clone = indentation_expression.clone();
+    let (next_indent_var, next_indent_def) = {
+        let var = scope.create_local_variable("next_indentation", &int_type, node);
+        let one = create_expr_resolved(ExpressionKind::IntLiteral(1), int_type.clone(), node);
+        let add_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(indentation_expression),
+                right: Box::new(one),
+                node: node.clone(),
+            }),
+            int_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(add_expr)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // for key, value in self { ... }
+    let for_loop = {
+        let key_var = scope.create_local_variable("key", key_type, node);
+        let value_var = scope.create_local_variable("value", value_type, node);
+
+        // Add indentation spaces: for _ in indentation { result += "  " }
+        let add_indent_spaces = generate_add_indentation_to_result(
+            generator,
+            scope,
+            &result_var,
+            &indentation_expr_clone,
+            node,
+        );
+
+        // result += key.to_pretty_string(next_indentation) + " : " + value.to_pretty_string(next_indentation) + "\n"
+        let add_key_value = {
+            let key_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(key_var.clone()),
+                key_type.clone(),
+                node,
+            );
+            let value_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(value_var.clone()),
+                value_type.clone(),
+                node,
+            );
+            let next_indent_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(next_indent_var.clone()),
+                int_type.clone(),
+                node,
+            );
+
+            // For now, just use to_string to avoid recursive issues
+            let key_str = call_to_string_method(generator, key_access, node);
+            let value_str = call_to_string_method(generator, value_access, node);
+
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                node,
+            );
+
+            let colon_str = create_expr_resolved(
+                ExpressionKind::StringLiteral(" : ".to_string()),
+                string_type.clone(),
+                node,
+            );
+            let newline_str = create_expr_resolved(
+                ExpressionKind::StringLiteral("\n".to_string()),
+                string_type.clone(),
+                node,
+            );
+
+            // result + key_str + " : " + value_str + "\n"
+            let temp1 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(key_str),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            let temp2 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp1),
+                    right: Box::new(colon_str),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            let temp3 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp2),
+                    right: Box::new(value_str),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            let final_str = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp3),
+                    right: Box::new(newline_str),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_str)),
+                unit_type.clone(),
+                node,
+            )
+        };
+
+        let for_body = create_expr_resolved(
+            ExpressionKind::Block(vec![add_indent_spaces, add_key_value]),
+            unit_type.clone(),
+            node,
+        );
+
+        let iterable = Iterable {
+            key_type: Some(key_type.clone()),
+            value_type: value_type.clone(),
+            resolved_expression: Box::new(self_expression),
+        };
+
+        let for_pattern = ForPattern::Pair(key_var, value_var);
+        create_expr_resolved(
+            ExpressionKind::ForLoop(for_pattern, iterable, Box::new(for_body)),
+            unit_type.clone(),
+            node,
+        )
+    };
+
+    // Add final indentation and closing: result += "\n" + indentation_spaces + "|]"
+    let add_closing = {
+        let final_indent_spaces = generate_add_indentation_to_result(
+            generator,
+            scope,
+            &result_var,
+            &indentation_expr_clone,
+            node,
+        );
+
+        let result_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(result_var.clone()),
+            string_type.clone(),
+            node,
+        );
+        let closing = create_expr_resolved(
+            ExpressionKind::StringLiteral("|]".to_string()),
+            string_type.clone(),
+            node,
+        );
+        let final_result = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_access),
+                right: Box::new(closing),
+                node: node.clone(),
+            }),
+            string_type.clone(),
+            node,
+        );
+        create_expr_resolved(
+            ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_result)),
+            unit_type.clone(),
+            node,
+        )
+    };
+
+    let result_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(result_var),
+        string_type.clone(),
+        node,
+    );
+
+    create_expr_resolved(
+        ExpressionKind::Block(vec![
+            result_def,
+            next_indent_def,
+            for_loop,
+            add_closing,
+            result_access,
+        ]),
+        string_type,
+        node,
+    )
+}
+
+fn generate_sequence_pretty_string(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    indentation_expression: Expression,
+    ty: &TypeRef,
+    node: &Node,
+) -> Expression {
+    // For now, just return compact format for sequences
+    call_to_string_method(generator, self_expression, node)
+}
+
+fn generate_struct_pretty_string(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    indentation_expression: Expression,
+    ty: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let int_type = generator.types.int();
+    let unit_type = generator.types.unit();
+
+    match &*ty.kind {
+        TypeKind::NamedStruct(named_struct) => generate_named_struct_pretty_string(
+            generator,
+            scope,
+            self_expression,
+            indentation_expression,
+            named_struct,
+            node,
+        ),
+        TypeKind::AnonymousStruct(_) => generate_anon_struct_pretty_string(
+            generator,
+            scope,
+            self_expression,
+            indentation_expression,
+            ty,
+            node,
+        ),
+        TypeKind::Tuple(tuple_types) => generate_tuple_pretty_string(
+            generator,
+            scope,
+            self_expression,
+            indentation_expression,
+            tuple_types,
+            node,
+        ),
+        _ => {
+            // Fallback to compact format
+            call_to_string_method(generator, self_expression, node)
+        }
+    }
+}
+
+fn generate_add_indentation_to_result(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    result_var: &VariableRef,
+    indentation_expr: &Expression,
+    node: &Node,
+) -> Expression {
+    // For now, just add two spaces per indentation level
+    let string_type = generator.types.string();
+    let unit_type = generator.types.unit();
+
+    let result_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(result_var.clone()),
+        string_type.clone(),
+        node,
+    );
+    let spaces = create_expr_resolved(
+        ExpressionKind::StringLiteral("  ".to_string()),
+        string_type.clone(),
+        node,
+    );
+    let concat = create_expr_resolved(
+        ExpressionKind::BinaryOp(BinaryOperator {
+            kind: BinaryOperatorKind::Add,
+            left: Box::new(result_access),
+            right: Box::new(spaces),
+            node: node.clone(),
+        }),
+        string_type.clone(),
+        node,
+    );
+    create_expr_resolved(
+        ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat)),
+        unit_type,
+        node,
+    )
+}
+
+fn generate_named_struct_pretty_string(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    indentation_expression: Expression,
+    named_struct: &NamedStructType,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let int_type = generator.types.int();
+    let unit_type = generator.types.unit();
+
+    // Start with struct name + " {\n"
+    let (result_var, result_def) = {
+        let var = scope.create_local_mut_variable("result", &string_type, node);
+        let struct_prefix = format!("{} {{\n", named_struct.assigned_name);
+        let initial = create_expr_resolved(
+            ExpressionKind::StringLiteral(struct_prefix),
+            string_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(initial)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // next_indentation = indentation + 1
+    let (next_indent_var, next_indent_def) = {
+        let var = scope.create_local_variable("next_indentation", &int_type, node);
+        let one = create_expr_resolved(ExpressionKind::IntLiteral(1), int_type.clone(), node);
+        let add_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(indentation_expression.clone()),
+                right: Box::new(one),
+                node: node.clone(),
+            }),
+            int_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(add_expr)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // Generate field additions
+    let mut field_assignments = Vec::new();
+    let TypeKind::AnonymousStruct(anon_struct) = &*named_struct.anon_struct_type.kind else {
+        panic!("Named struct should contain anonymous struct");
+    };
+
+    for (field_index, (field_name, field_type)) in
+        anon_struct.field_name_sorted_fields.iter().enumerate()
+    {
+        // Add indentation
+        let add_indent = generate_add_indentation_to_result(
+            generator,
+            scope,
+            &result_var,
+            &indentation_expression,
+            node,
+        );
+
+        // Add field name: "field_name: "
+        let add_field_name = {
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                node,
+            );
+            let field_name_str = create_expr_resolved(
+                ExpressionKind::StringLiteral(format!("{}: ", field_name)),
+                string_type.clone(),
+                node,
+            );
+            let concat = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(field_name_str),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat)),
+                unit_type.clone(),
+                node,
+            )
+        };
+
+        // Get field value and call to_pretty_string on it
+        let add_field_value = {
+            let postfix_kind =
+                PostfixKind::StructField(named_struct.anon_struct_type.clone(), field_index);
+            let postfix_lookup_field = Postfix {
+                node: node.clone(),
+                ty: field_type.field_type.clone(),
+                kind: postfix_kind,
+            };
+
+            let start_of_chain = StartOfChain {
+                kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                node: node.clone(),
+            };
+            let field_access = create_expr_resolved(
+                ExpressionKind::PostfixChain(start_of_chain, vec![postfix_lookup_field]),
+                field_type.field_type.clone(),
+                node,
+            );
+
+            let next_indent_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(next_indent_var.clone()),
+                int_type.clone(),
+                node,
+            );
+
+            let field_pretty_string =
+                call_to_pretty_string_method(generator, field_access, next_indent_access, node);
+
+            let newline = create_expr_resolved(
+                ExpressionKind::StringLiteral("\n".to_string()),
+                string_type.clone(),
+                node,
+            );
+
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                node,
+            );
+
+            // result + field_pretty_string + "\n"
+            let temp1 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(field_pretty_string),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            let final_str = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp1),
+                    right: Box::new(newline),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_str)),
+                unit_type.clone(),
+                node,
+            )
+        };
+
+        let field_block = create_expr_resolved(
+            ExpressionKind::Block(vec![add_indent, add_field_name, add_field_value]),
+            unit_type.clone(),
+            node,
+        );
+        field_assignments.push(field_block);
+    }
+
+    // Add final indentation and closing brace
+    let add_closing = {
+        let add_indent_spaces = generate_add_indentation_to_result(
+            generator,
+            scope,
+            &result_var,
+            &indentation_expression,
+            node,
+        );
+
+        let result_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(result_var.clone()),
+            string_type.clone(),
+            node,
+        );
+        let closing = create_expr_resolved(
+            ExpressionKind::StringLiteral("}".to_string()),
+            string_type.clone(),
+            node,
+        );
+        let final_result = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_access),
+                right: Box::new(closing),
+                node: node.clone(),
+            }),
+            string_type.clone(),
+            node,
+        );
+        let close_assignment = create_expr_resolved(
+            ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_result)),
+            unit_type.clone(),
+            node,
+        );
+
+        create_expr_resolved(
+            ExpressionKind::Block(vec![add_indent_spaces, close_assignment]),
+            unit_type.clone(),
+            node,
+        )
+    };
+
+    let result_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(result_var),
+        string_type.clone(),
+        node,
+    );
+
+    let mut block_statements = vec![result_def, next_indent_def];
+    block_statements.extend(field_assignments);
+    block_statements.push(add_closing);
+    block_statements.push(result_access);
+
+    create_expr_resolved(ExpressionKind::Block(block_statements), string_type, node)
+}
+
+fn generate_anon_struct_pretty_string(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    indentation_expression: Expression,
+    ty: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let int_type = generator.types.int();
+    let unit_type = generator.types.unit();
+
+    // Start with "{\n"
+    let (result_var, result_def) = {
+        let var = scope.create_local_mut_variable("result", &string_type, node);
+        let initial = create_expr_resolved(
+            ExpressionKind::StringLiteral("{\n".to_string()),
+            string_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(initial)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // next_indentation = indentation + 1
+    let (next_indent_var, next_indent_def) = {
+        let var = scope.create_local_variable("next_indentation", &int_type, node);
+        let one = create_expr_resolved(ExpressionKind::IntLiteral(1), int_type.clone(), node);
+        let add_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(indentation_expression.clone()),
+                right: Box::new(one),
+                node: node.clone(),
+            }),
+            int_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(add_expr)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // Generate field additions
+    let mut field_assignments = Vec::new();
+    let TypeKind::AnonymousStruct(anon_struct) = &*ty.kind else {
+        panic!("Expected anonymous struct");
+    };
+
+    for (field_index, (field_name, field_type)) in
+        anon_struct.field_name_sorted_fields.iter().enumerate()
+    {
+        // Add indentation
+        let add_indent = generate_add_indentation_to_result(
+            generator,
+            scope,
+            &result_var,
+            &indentation_expression,
+            node,
+        );
+
+        // Add field name: "field_name: "
+        let add_field_name = {
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                node,
+            );
+            let field_name_str = create_expr_resolved(
+                ExpressionKind::StringLiteral(format!("{}: ", field_name)),
+                string_type.clone(),
+                node,
+            );
+            let concat = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(field_name_str),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat)),
+                unit_type.clone(),
+                node,
+            )
+        };
+
+        // Get field value and call to_pretty_string on it
+        let add_field_value = {
+            let postfix_kind = PostfixKind::StructField(ty.clone(), field_index);
+            let postfix_lookup_field = Postfix {
+                node: node.clone(),
+                ty: field_type.field_type.clone(),
+                kind: postfix_kind,
+            };
+
+            let start_of_chain = StartOfChain {
+                kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                node: node.clone(),
+            };
+            let field_access = create_expr_resolved(
+                ExpressionKind::PostfixChain(start_of_chain, vec![postfix_lookup_field]),
+                field_type.field_type.clone(),
+                node,
+            );
+
+            let next_indent_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(next_indent_var.clone()),
+                int_type.clone(),
+                node,
+            );
+
+            let field_pretty_string =
+                call_to_pretty_string_method(generator, field_access, next_indent_access, node);
+
+            let newline = create_expr_resolved(
+                ExpressionKind::StringLiteral("\n".to_string()),
+                string_type.clone(),
+                node,
+            );
+
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                node,
+            );
+
+            // result + field_pretty_string + "\n"
+            let temp1 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(field_pretty_string),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            let final_str = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp1),
+                    right: Box::new(newline),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_str)),
+                unit_type.clone(),
+                node,
+            )
+        };
+
+        let field_block = create_expr_resolved(
+            ExpressionKind::Block(vec![add_indent, add_field_name, add_field_value]),
+            unit_type.clone(),
+            node,
+        );
+        field_assignments.push(field_block);
+    }
+
+    // Add final indentation and closing brace
+    let add_closing = {
+        let add_indent_spaces = generate_add_indentation_to_result(
+            generator,
+            scope,
+            &result_var,
+            &indentation_expression,
+            node,
+        );
+
+        let result_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(result_var.clone()),
+            string_type.clone(),
+            node,
+        );
+        let closing = create_expr_resolved(
+            ExpressionKind::StringLiteral("}".to_string()),
+            string_type.clone(),
+            node,
+        );
+        let final_result = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_access),
+                right: Box::new(closing),
+                node: node.clone(),
+            }),
+            string_type.clone(),
+            node,
+        );
+        let close_assignment = create_expr_resolved(
+            ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_result)),
+            unit_type.clone(),
+            node,
+        );
+
+        create_expr_resolved(
+            ExpressionKind::Block(vec![add_indent_spaces, close_assignment]),
+            unit_type.clone(),
+            node,
+        )
+    };
+
+    let result_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(result_var),
+        string_type.clone(),
+        node,
+    );
+
+    let mut block_statements = vec![result_def, next_indent_def];
+    block_statements.extend(field_assignments);
+    block_statements.push(add_closing);
+    block_statements.push(result_access);
+
+    create_expr_resolved(ExpressionKind::Block(block_statements), string_type, node)
+}
+
+fn generate_tuple_pretty_string(
+    generator: &mut ExpressionGenerator,
+    scope: &mut GeneratedScope,
+    self_expression: Expression,
+    indentation_expression: Expression,
+    tuple_types: &[TypeRef],
+    node: &Node,
+) -> Expression {
+    let string_type = generator.types.string();
+    let int_type = generator.types.int();
+    let unit_type = generator.types.unit();
+
+    // Start with "(\n"
+    let (result_var, result_def) = {
+        let var = scope.create_local_mut_variable("result", &string_type, node);
+        let initial = create_expr_resolved(
+            ExpressionKind::StringLiteral("(\n".to_string()),
+            string_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(initial)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // next_indentation = indentation + 1
+    let (next_indent_var, next_indent_def) = {
+        let var = scope.create_local_variable("next_indentation", &int_type, node);
+        let one = create_expr_resolved(ExpressionKind::IntLiteral(1), int_type.clone(), node);
+        let add_expr = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(indentation_expression.clone()),
+                right: Box::new(one),
+                node: node.clone(),
+            }),
+            int_type.clone(),
+            node,
+        );
+        let def = create_expr_resolved(
+            ExpressionKind::VariableDefinition(var.clone(), Box::new(add_expr)),
+            unit_type.clone(),
+            node,
+        );
+        (var, def)
+    };
+
+    // Generate element additions
+    let mut element_assignments = Vec::new();
+    for (element_index, element_type) in tuple_types.iter().enumerate() {
+        // Add indentation
+        let add_indent = generate_add_indentation_to_result(
+            generator,
+            scope,
+            &result_var,
+            &indentation_expression,
+            node,
+        );
+
+        // Get tuple element and call to_pretty_string on it
+        let add_element_value = {
+            let start_of_chain = StartOfChain {
+                kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                node: node.clone(),
+            };
+            let postfix = Postfix {
+                node: node.clone(),
+                ty: element_type.clone(),
+                kind: PostfixKind::StructField(self_expression.ty.clone(), element_index),
+            };
+            let element_access = create_expr_resolved(
+                ExpressionKind::PostfixChain(start_of_chain, vec![postfix]),
+                element_type.clone(),
+                node,
+            );
+
+            let next_indent_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(next_indent_var.clone()),
+                int_type.clone(),
+                node,
+            );
+
+            let element_pretty_string =
+                call_to_pretty_string_method(generator, element_access, next_indent_access, node);
+
+            let newline = create_expr_resolved(
+                ExpressionKind::StringLiteral("\n".to_string()),
+                string_type.clone(),
+                node,
+            );
+
+            let result_access = create_expr_resolved(
+                ExpressionKind::VariableAccess(result_var.clone()),
+                string_type.clone(),
+                node,
+            );
+
+            // result + element_pretty_string + "\n"
+            let temp1 = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(result_access),
+                    right: Box::new(element_pretty_string),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+            let final_str = create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Add,
+                    left: Box::new(temp1),
+                    right: Box::new(newline),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            );
+
+            create_expr_resolved(
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_str)),
+                unit_type.clone(),
+                node,
+            )
+        };
+
+        let element_block = create_expr_resolved(
+            ExpressionKind::Block(vec![add_indent, add_element_value]),
+            unit_type.clone(),
+            node,
+        );
+        element_assignments.push(element_block);
+    }
+
+    // Add final indentation and closing paren
+    let add_closing = {
+        let add_indent_spaces = generate_add_indentation_to_result(
+            generator,
+            scope,
+            &result_var,
+            &indentation_expression,
+            node,
+        );
+
+        let result_access = create_expr_resolved(
+            ExpressionKind::VariableAccess(result_var.clone()),
+            string_type.clone(),
+            node,
+        );
+        let closing = create_expr_resolved(
+            ExpressionKind::StringLiteral(")".to_string()),
+            string_type.clone(),
+            node,
+        );
+        let final_result = create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Add,
+                left: Box::new(result_access),
+                right: Box::new(closing),
+                node: node.clone(),
+            }),
+            string_type.clone(),
+            node,
+        );
+        let close_assignment = create_expr_resolved(
+            ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_result)),
+            unit_type.clone(),
+            node,
+        );
+
+        create_expr_resolved(
+            ExpressionKind::Block(vec![add_indent_spaces, close_assignment]),
+            unit_type.clone(),
+            node,
+        )
+    };
+
+    let result_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(result_var),
+        string_type.clone(),
+        node,
+    );
+
+    let mut block_statements = vec![result_def, next_indent_def];
+    block_statements.extend(element_assignments);
+    block_statements.push(add_closing);
+    block_statements.push(result_access);
+
+    create_expr_resolved(ExpressionKind::Block(block_statements), string_type, node)
 }

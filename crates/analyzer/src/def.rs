@@ -4,7 +4,8 @@
  */
 use crate::Analyzer;
 use crate::to_string::{
-    ExpressionGenerator, internal_generate_to_short_string_function_for_type,
+    ExpressionGenerator, internal_generate_to_pretty_string_function_for_type,
+    internal_generate_to_short_string_function_for_type,
     internal_generate_to_string_function_for_type,
 };
 use seq_map::SeqMap;
@@ -885,7 +886,36 @@ impl Analyzer<'_> {
                     | TypeKind::Optional(_)
             );
 
-        if needs_to_string || needs_to_short_string {
+        let needs_to_pretty_string = self
+            .shared
+            .state
+            .associated_impls
+            .get_internal_member_function(underlying, "to_pretty_string")
+            .is_none()
+            && matches!(
+                &*underlying.kind,
+                TypeKind::Enum(_)
+                    | TypeKind::NamedStruct(_)
+                    | TypeKind::AnonymousStruct(_)
+                    | TypeKind::Tuple(_)
+                    | TypeKind::FixedCapacityAndLengthArray(_, _)
+                    | TypeKind::SliceView(_)
+                    | TypeKind::DynamicLengthVecView(_)
+                    | TypeKind::VecStorage(_, _)
+                    | TypeKind::StackView(_)
+                    | TypeKind::QueueView(_)
+                    | TypeKind::StackStorage(_, _)
+                    | TypeKind::QueueStorage(_, _)
+                    | TypeKind::SparseView(_)
+                    | TypeKind::SparseStorage(_, _)
+                    | TypeKind::GridView(_)
+                    | TypeKind::GridStorage(_, _, _)
+                    | TypeKind::MapStorage(_, _, _)
+                    | TypeKind::DynamicLengthMapView(_, _)
+                    | TypeKind::Optional(_)
+            );
+
+        if needs_to_string || needs_to_short_string || needs_to_pretty_string {
             if !self
                 .shared
                 .state
@@ -911,6 +941,16 @@ impl Analyzer<'_> {
             if needs_to_short_string {
                 let new_internal_function =
                     self.generate_to_short_string_function_for_type(type_to_attach_to, node);
+                self.shared
+                    .state
+                    .associated_impls
+                    .add_internal_function(type_to_attach_to, new_internal_function)
+                    .unwrap();
+            }
+
+            if needs_to_pretty_string {
+                let new_internal_function =
+                    self.generate_to_pretty_string_function_for_type(type_to_attach_to, node);
                 self.shared
                     .state
                     .associated_impls
@@ -950,6 +990,25 @@ impl Analyzer<'_> {
             &self.shared.state.associated_impls,
         );
         internal_generate_to_short_string_function_for_type(
+            &mut generator,
+            &mut self.shared.state.internal_function_id_allocator,
+            &self.module_path,
+            ty,
+            &node,
+        )
+    }
+
+    fn generate_to_pretty_string_function_for_type(
+        &mut self,
+        ty: &TypeRef,
+        ast_node: &Node,
+    ) -> InternalFunctionDefinition {
+        let node = self.to_node(ast_node).clone();
+        let mut generator = ExpressionGenerator::new(
+            &mut self.shared.state.types,
+            &self.shared.state.associated_impls,
+        );
+        internal_generate_to_pretty_string_function_for_type(
             &mut generator,
             &mut self.shared.state.internal_function_id_allocator,
             &self.module_path,
