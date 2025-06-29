@@ -21,8 +21,7 @@ use swamp_types::TypeKind;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType, b8_type, u8_type,
-    u32_type,
+    BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType, b8_type, u8_type, u32_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset,

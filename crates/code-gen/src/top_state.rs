@@ -53,7 +53,8 @@ impl TopLevelGenState {
     pub fn is_host_call(attributes: &Attributes) -> bool {
         !attributes.get_attributes("host_call").is_empty()
     }
-    #[must_use] pub fn is_test_call(attributes: &Attributes) -> bool {
+    #[must_use]
+    pub fn is_test_call(attributes: &Attributes) -> bool {
         !attributes.get_attributes("test").is_empty()
     }
 

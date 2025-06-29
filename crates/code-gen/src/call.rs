@@ -15,9 +15,7 @@ use std::collections::HashSet;
 use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
 use swamp_types::TypeKind;
 use swamp_types::prelude::Signature;
-use swamp_vm_types::types::{
-    BasicTypeRef, Destination, TypedRegister, VmType,
-};
+use swamp_vm_types::types::{BasicTypeRef, Destination, TypedRegister, VmType};
 use swamp_vm_types::{FrameMemoryRegion, REG_ON_FRAME_SIZE};
 
 pub struct CopyArgument {

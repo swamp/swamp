@@ -15,8 +15,7 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
     let span = &err.node.span;
     let mut b = match &err.kind {
         ErrorKind::NeedStorage => {
-            Report::build(Kind::Error, 23, "expression needs storage (lvalue)", span)
-                .with_note("")
+            Report::build(Kind::Error, 23, "expression needs storage (lvalue)", span).with_note("")
         }
         ErrorKind::ParameterTypeCanNotBeStorage(ty) => {
             Report::build(Kind::Error, 5, "parameter type can not be storage", span)

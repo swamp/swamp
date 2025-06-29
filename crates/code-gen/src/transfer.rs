@@ -137,7 +137,9 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) -> Option<TypedRegister> {
-        if matches!(destination, Destination::Unit) { None } else {
+        if matches!(destination, Destination::Unit) {
+            None
+        } else {
             let vm_type = destination.vm_type().unwrap();
 
             if vm_type.is_scalar() {

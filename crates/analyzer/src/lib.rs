@@ -37,8 +37,8 @@ use swamp_semantic::{
     WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
-use swamp_types::prelude::*;
 use swamp_types::TypeKind;
+use swamp_types::prelude::*;
 use tracing::error;
 
 #[derive(Copy, Clone, Eq, PartialEq)]

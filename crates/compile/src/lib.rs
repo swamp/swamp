@@ -683,7 +683,8 @@ pub fn compile_and_analyze_all_modules(
     Ok(())
 }
 
-#[must_use] pub fn remove_version_from_package_name_regex(package_name_with_version: &str) -> String {
+#[must_use]
+pub fn remove_version_from_package_name_regex(package_name_with_version: &str) -> String {
     let re = Regex::new(
         r"-(?P<version>[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)?(?:\+.*)?$",
     )
@@ -691,7 +692,8 @@ pub fn compile_and_analyze_all_modules(
     re.replace(package_name_with_version, "").to_string()
 }
 
-#[must_use] pub fn current_path() -> PathBuf {
+#[must_use]
+pub fn current_path() -> PathBuf {
     current_dir().unwrap()
 }
 
