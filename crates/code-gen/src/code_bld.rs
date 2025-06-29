@@ -3,11 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use crate::ArgumentAndTempScope;
 use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool};
 use crate::state::CodeGenState;
+use crate::ArgumentAndTempScope;
 use seq_map::SeqMap;
 use source_map_cache::{
     KeepTrackOfSourceLine, SourceFileLineInfo, SourceMapLookup, SourceMapWrapper,
@@ -19,10 +19,10 @@ use swamp_semantic::{
 };
 use swamp_types::{Type, TypeKind, TypeRef};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType, b8_type, u8_type,
-    u32_type,
+    b8_type, u32_type, u8_type, BasicType, BasicTypeRef, Destination, FramePlacedType, TypedRegister,
+    VmType,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset,
@@ -228,24 +228,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    fn emit_variable_binding(
-        &mut self,
-        variable: &VariableRef,
-        mut_or_immutable_expression: &ArgumentExpression,
-        ctx: &Context,
-    ) {
-        let target_relative_frame_pointer = self
-            .variable_registers
-            .get(&variable.unique_id_within_function)
-            .unwrap_or_else(|| panic!("{}", variable.assigned_name))
-            .clone();
-
-        self.emit_argument_expression_binding(
-            &target_relative_frame_pointer,
-            mut_or_immutable_expression,
-            ctx,
-        );
-    }
 
     pub(crate) fn temp_frame_space_for_register(
         &mut self,

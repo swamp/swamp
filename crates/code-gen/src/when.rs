@@ -7,8 +7,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, WhenBinding};
 use swamp_types::TypeKind;
+use swamp_vm_types::types::{u8_type, Destination, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -25,7 +25,7 @@ impl CodeBuilder<'_> {
         for binding in bindings {
             let binding_gen_type = self.state.layout_cache.layout(&binding.expr.ty);
             let (tag_offset, ..) = binding_gen_type.unwrap_info().unwrap();
-            let base_reg = self.emit_for_access_or_location_expression(&binding.expr, ctx);
+            let base_aggregate = self.emit_expression_as_aggregate_pointer(&binding.expr, ctx);
             let hwm = self.temp_registers.save_mark();
             let tag_reg = self
                 .temp_registers
@@ -33,7 +33,7 @@ impl CodeBuilder<'_> {
 
             self.builder.add_ld8_from_pointer_with_offset_u16(
                 tag_reg.register(),
-                &base_reg,
+                &base_aggregate.location.base_ptr_reg,
                 tag_offset,
                 &binding.expr.node,
                 "load tag value",
@@ -68,16 +68,15 @@ impl CodeBuilder<'_> {
             };
 
             // Get the source memory location
-            // Since we're dealing with expressions (not mutable references), we always get a scalar register
-            let base_reg = self.emit_for_access_or_location_expression(&binding.expr, ctx);
+            let base_aggregate = self.emit_expression_as_aggregate_pointer(&binding.expr, ctx);
 
             let source_memory_location = MemoryLocation {
-                base_ptr_reg: base_reg,
+                base_ptr_reg: base_aggregate.location.base_ptr_reg,
                 offset: payload_memory_offset,
                 ty: target_binding_variable_reg.ty.clone(),
             };
 
-            // For when expressions, we always extract the value, never create mutable references
+            // For when expressions, we always extract the value, never create references
             let target_destination = if target_binding_variable_reg.ty.is_scalar() {
                 Destination::Register(target_binding_variable_reg)
             } else {
