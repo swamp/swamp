@@ -66,7 +66,7 @@ use swamp_vm_types::{
     VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, ZFlagPolarity,
 };
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Transformer {
     For,
     Filter,
@@ -84,6 +84,7 @@ pub enum TransformerLambdaResultConversion {
     SkipOnNone,
 }
 
+#[derive(Debug)]
 pub enum TransformerResult {
     Unit,
     Bool,
@@ -171,7 +172,7 @@ impl Transformer {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Collection {
     Vec,
     Map,

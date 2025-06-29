@@ -234,7 +234,19 @@ impl CodeBuilder<'_> {
             let return_basic_type = self.state.layout_cache.layout(&signature.return_type);
 
             if return_basic_type.is_aggregate() {
-                // For aggregates: set up r0 as pointer to destination (no copy-back needed)
+                // For aggregates: initialize the destination space first, then set up r0 as pointer to destination
+                if let Some(memory_location) = output_destination.memory_location() {
+                    eprintln!(
+                        "EMIT_ARGUMENTS: Initializing aggregate return destination: {}",
+                        memory_location
+                    );
+                    self.emit_initialize_target_memory_first_time(
+                        memory_location,
+                        node,
+                        "initialize aggregate return destination before call",
+                    );
+                    eprintln!("EMIT_ARGUMENTS: Finished initializing aggregate return destination");
+                }
                 self.setup_return_pointer_reg(output_destination, return_basic_type, node);
             } else {
                 // For primitives: add r0 to copy-back list (function writes to r0, we copy to destination)
