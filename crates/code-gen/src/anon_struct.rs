@@ -272,11 +272,6 @@ impl CodeBuilder<'_> {
             }
             _ => {
                 if let Some(capacity) = lvalue_location.ty.basic_type().get_collection_capacity() {
-                    println!(
-                        "DEBUG: emit_initialize_target_memory_first_time - Found collection capacity {} for type {:?}",
-                        capacity.0,
-                        lvalue_location.ty.basic_type().kind
-                    );
                     let hwm = self.temp_registers.save_mark();
 
                     let init_capacity_reg = self.temp_registers.allocate(
@@ -310,10 +305,7 @@ impl CodeBuilder<'_> {
 
                     self.temp_registers.restore_to_mark(hwm);
                 } else {
-                    println!(
-                        "DEBUG: emit_initialize_target_memory_first_time - NO collection capacity found for type {:?}",
-                        lvalue_location.ty.basic_type().kind
-                    );
+
                     // if there is no collection capacity
                 }
             }

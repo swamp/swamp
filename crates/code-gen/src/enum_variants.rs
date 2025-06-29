@@ -57,10 +57,6 @@ impl CodeBuilder<'_> {
             target_memory_location.offset(layout_enum.payload_offset, payload_basic_type.clone());
 
         // Initialize payload memory
-        println!(
-            "DEBUG: enum variant - Initializing payload memory for type {:?}",
-            payload_basic_type.kind
-        );
         self.emit_initialize_target_memory_first_time(
             &payload_memory_location.location,
             node,
@@ -71,7 +67,6 @@ impl CodeBuilder<'_> {
         );
 
         // Removed special case for tuple with Vec inside
-        println!("DEBUG: enum variant - Finished initializing payload memory");
 
         match &*variant_type.payload_type.kind {
             TypeKind::Unit => {}

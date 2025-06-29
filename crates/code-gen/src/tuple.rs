@@ -34,10 +34,6 @@ impl CodeBuilder<'_> {
 
             // Initialize the field memory if it's an aggregate type (especially for collections)
             if offset_item.ty.is_aggregate() {
-                println!(
-                    "DEBUG: tuple - Initializing field memory for type {:?}",
-                    offset_item.ty.kind
-                );
                 self.emit_initialize_target_memory_first_time(
                     &target_memory_location_for_tuple_item.location,
                     node,

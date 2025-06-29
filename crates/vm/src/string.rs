@@ -93,6 +93,11 @@ impl Vm {
                 "string is corrupt. it is saying it has length {byte_count}, left: {}, right: {STRING_SECRET}",
                 header.padding
             );
+            debug_assert!(
+                header.byte_count < 512,
+                "string of strange length. it is saying it has length {byte_count}, left: {}, right: {STRING_SECRET}",
+                header.padding
+            );
         }
 
         let runes_ptr = self
