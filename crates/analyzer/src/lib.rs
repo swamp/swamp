@@ -2119,8 +2119,12 @@ impl<'a> Analyzer<'a> {
         (collection_type, resolved_items)
     }
 
-    fn push_block_scope(&mut self, _debug_str: &str) {
+    fn push_block_scope(&mut self, debug_str: &str) {
         let register_watermark = self.scope.total_scopes.current_register;
+        eprintln!(
+            "PUSH_SCOPE: Open scope '{}', register_watermark={}",
+            debug_str, register_watermark
+        );
         self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Open,
             lookup: Default::default(),
@@ -2129,9 +2133,13 @@ impl<'a> Analyzer<'a> {
         });
     }
 
-    fn push_lambda_scope(&mut self, _debug_str: &str) {
+    fn push_lambda_scope(&mut self, debug_str: &str) {
         // Lambda scopes are virtual and completely transparent to register allocation
         // They don't save any watermark and don't affect register allocation
+        eprintln!(
+            "PUSH_SCOPE: Lambda scope '{}', current_register={}",
+            debug_str, self.scope.total_scopes.current_register
+        );
         self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Lambda,
             lookup: Default::default(),
@@ -2140,7 +2148,8 @@ impl<'a> Analyzer<'a> {
         });
     }
 
-    fn pop_block_scope(&mut self, _debug_str: &str) {
+    fn pop_block_scope(&mut self, debug_str: &str) {
+        eprintln!("POP_BLOCK_SCOPE: '{}'", debug_str);
         self.pop_any_block_scope();
     }
 
@@ -2173,17 +2182,25 @@ impl<'a> Analyzer<'a> {
         // Record the highest watermark (greatest depth of virtual registers)
         self.scope.total_scopes.highest_virtual_register = self.scope.total_scopes.current_register;
 
-        // Lambda scopes are completely virtual and transparent to register allocation
-        // They do nothing when popped - no watermark restoration, no register changes
-        if !matches!(scope.mode, BlockScopeMode::Lambda) {
+        // Check if we're inside a lambda scope - if so, don't restore register counter
+        let is_inside_lambda = self
+            .scope
+            .active_scope
+            .block_scope_stack
+            .iter()
+            .any(|s| matches!(s.mode, BlockScopeMode::Lambda));
+
+        if matches!(scope.mode, BlockScopeMode::Lambda) {
+            eprintln!("POP_SCOPE: lambda scope - completely transparent, no register changes");
+        } else if is_inside_lambda {
+            eprintln!("POP_SCOPE: block scope inside lambda - virtual, no register restoration");
+        } else {
             // Regular scopes restore their watermark to free up registers
             self.scope.total_scopes.current_register = scope.register_watermark;
             eprintln!(
                 "POP_SCOPE: restored register counter to watermark {}",
                 self.scope.total_scopes.current_register
             );
-        } else {
-            eprintln!("POP_SCOPE: lambda scope - completely transparent, no register changes");
         }
     }
 
@@ -2707,6 +2724,8 @@ impl<'a> Analyzer<'a> {
             resolved_variables.push(variable_ref);
         }
 
+        // Analyze the lambda body expression directly without creating additional block scopes
+        // This ensures lambda variables are allocated in the lambda scope, not inner scopes
         let analyzed_expression = self.analyze_expression(ast_expr, &return_block_type);
 
         self.pop_block_scope("lambda");

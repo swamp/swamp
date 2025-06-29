@@ -541,8 +541,8 @@ impl GeneratedScope {
         variable_type: &TypeRef,
         node: &Node,
     ) -> VariableRef {
-        self.scope.current_register += 1;
-        let virtual_register = self.scope.current_register;
+        let virtual_register =
+            crate::variable::allocate_next_register_from_variable_scopes(&mut self.scope);
 
         let var_ref = VariableRef::new(Variable {
             name: node.clone(), // Technically not correct, but at least we get a "valid" node
@@ -568,8 +568,8 @@ impl GeneratedScope {
         variable_type: &TypeRef,
         node: &Node,
     ) -> VariableRef {
-        self.scope.current_register += 1;
-        let virtual_register = self.scope.current_register;
+        let virtual_register =
+            crate::variable::allocate_next_register_from_variable_scopes(&mut self.scope);
 
         let var_ref = VariableRef::new(Variable {
             name: node.clone(), // Technically not correct, but at least we get a "valid" node
@@ -595,8 +595,8 @@ impl GeneratedScope {
         variable_type: &TypeRef,
         node: &Node,
     ) -> VariableRef {
-        self.scope.current_register += 1;
-        let virtual_register = self.scope.current_register;
+        let virtual_register =
+            crate::variable::allocate_next_register_from_variable_scopes(&mut self.scope);
 
         let var_ref = VariableRef::new(Variable {
             name: node.clone(), // Technically not correct, but at least we get a "valid" node

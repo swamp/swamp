@@ -10,7 +10,30 @@ use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
 };
+use swamp_semantic::{ScopeInfo, VariableScopes};
 use swamp_types::prelude::*;
+
+/// Common helper function for allocating the next available register from ScopeInfo
+/// This ensures all variable creation functions use the same register allocation logic
+pub(crate) fn allocate_next_register(scope: &mut ScopeInfo) -> usize {
+    scope.total_scopes.current_register += 1;
+    eprintln!(
+        "REGISTER_ALLOCATION: allocated register {}",
+        scope.total_scopes.current_register
+    );
+    scope.total_scopes.current_register
+}
+
+/// Common helper function for allocating the next available register from VariableScopes
+/// This ensures all variable creation functions use the same register allocation logic
+pub(crate) fn allocate_next_register_from_variable_scopes(scope: &mut VariableScopes) -> usize {
+    scope.current_register += 1;
+    eprintln!(
+        "REGISTER_ALLOCATION: allocated register {}",
+        scope.current_register
+    );
+    scope.current_register
+}
 
 impl Analyzer<'_> {
     fn try_find_local_variable(&self, node: &Node) -> Option<&VariableRef> {
@@ -183,10 +206,10 @@ impl Analyzer<'_> {
         }
 
         // Only increment register counter when we're actually creating a valid variable
-        self.scope.total_scopes.current_register += 1;
+        let virtual_register = allocate_next_register(&mut self.scope);
         eprintln!(
-            "REGISTER ALLOCATION: {} gets register {}",
-            variable_str, self.scope.total_scopes.current_register
+            "REGISTER_ALLOCATION: {} gets register {}",
+            variable_str, virtual_register
         );
 
         let resolved_variable = Variable {
@@ -198,7 +221,7 @@ impl Analyzer<'_> {
             scope_index,
             variable_index: *variables_len,
             unique_id_within_function: index,
-            virtual_register: self.scope.total_scopes.current_register as u8,
+            virtual_register: virtual_register as u8,
             is_unused: !should_insert_in_scope,
         };
 
@@ -266,7 +289,7 @@ impl Analyzer<'_> {
 
         // Make sure to use the TypeCache to ensure proper type handling
         // The variable_type_ref should be obtained from the TypeCache
-        self.scope.total_scopes.current_register += 1;
+        let virtual_register = allocate_next_register(&mut self.scope);
 
         let resolved_variable = Variable {
             name: Node::default(),
@@ -281,7 +304,7 @@ impl Analyzer<'_> {
             scope_index,
             variable_index: variables_len,
             unique_id_within_function: index_within_function,
-            virtual_register: self.scope.total_scopes.current_register as u8,
+            virtual_register: virtual_register as u8,
             is_unused: is_marked_as_unused,
         };
 
