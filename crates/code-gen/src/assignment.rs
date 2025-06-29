@@ -8,7 +8,10 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
-use swamp_semantic::{CompoundOperatorKind, Expression, TargetAssignmentLocation, VariableRef};
+use swamp_semantic::{
+    CompoundOperatorKind, Expression, ExpressionKind, TargetAssignmentLocation, VariableRef,
+    VariableType,
+};
 use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, TypedRegister, VmTypeOrigin};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
@@ -72,7 +75,6 @@ impl CodeBuilder<'_> {
             .clone();
 
         // For primitives, always pass them using direct register assignment.
-        // TODO: clean this up into a helper function with this if-else
         if target_register.ty.basic_type.is_scalar() {
             self.emit_expression_into_register(
                 &target_register,
@@ -87,18 +89,46 @@ impl CodeBuilder<'_> {
                 ty: target_register.ty,
             };
 
-            self.emit_initialize_target_memory_first_time(
-                &memory_location,
-                &variable.name,
-                "initialize variable for the first time",
+            // Check if this is a function call that returns an aggregate
+            // If so, we can optimize by letting the function call use the variable's space directly
+            let is_function_call_returning_aggregate =
+                matches!(
+                    &expression.kind,
+                    ExpressionKind::InternalCall(_, _)
+                        | ExpressionKind::HostCall(_, _)
+                        | ExpressionKind::PostfixChain(_, _)
+                ) && !self.state.layout_cache.layout(&expression.ty).is_scalar();
+
+            // Parameters should never be initialized since they're already set up by the calling convention
+            let is_parameter = matches!(
+                variable.variable_type,
+                swamp_semantic::VariableType::Parameter
             );
 
-            self.emit_expression_into_target_memory(
-                &memory_location,
-                expression,
-                "variable assignment",
-                ctx,
-            );
+            if is_function_call_returning_aggregate || is_parameter {
+                // For function calls returning aggregates or parameters, don't initialize the memory first
+                // Let the function call write directly to the variable's allocated space
+                self.emit_expression_into_target_memory(
+                    &memory_location,
+                    expression,
+                    "variable assignment (direct function call or parameter)",
+                    ctx,
+                );
+            } else {
+                // For other expressions, initialize the memory first
+                self.emit_initialize_target_memory_first_time(
+                    &memory_location,
+                    &variable.name,
+                    "initialize variable for the first time",
+                );
+
+                self.emit_expression_into_target_memory(
+                    &memory_location,
+                    expression,
+                    "variable assignment",
+                    ctx,
+                );
+            }
         }
     }
 

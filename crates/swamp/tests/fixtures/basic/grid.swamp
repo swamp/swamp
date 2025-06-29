@@ -69,3 +69,32 @@ fn call_mut_func() {
     grid[2, 3] = -101
     assert(grid[2, 3] == -101, "should be -101 after setting")
 }
+
+
+#[test]
+fn test_grid_with_those_infuriating_optionals() {
+	mut grid: Grid<Int?; (3,4)> = []
+	x = grid[2, 3]
+	result = x.to_string()
+	assert(result == "None", 'should be none at start {result}')
+	assert(!x, "should be none at start")
+	when x {
+		panic('it should be none')
+	} else {
+		print('worked nicely')
+	}
+
+	grid[2,3] = 2
+	assert(!!grid[2,3], "should be Some after set")
+
+	when a=grid[2,3] {
+		assert(a == 2, "should be 2")
+	} else {
+		panic('should have been in when-expression')
+	}
+
+	a = 3
+	assert(!grid[1,1], "should be None first")
+	grid[1, 1] = a
+	assert(!!grid[1,1], "should be Some after set")
+}

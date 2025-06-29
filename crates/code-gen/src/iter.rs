@@ -74,6 +74,23 @@ impl CodeBuilder<'_> {
 
         let hwm = self.temp_registers.save_mark();
 
+        // 1. Initialize the target collection if needed
+        match transformer.return_type() {
+            TransformerResult::VecFromSourceCollection | TransformerResult::VecWithLambdaResult => {
+                // For transformers that create collections (filter, map, filterMap),
+                // we need to initialize the target vector before adding elements
+                let target_memory_location = target_destination.memory_location_or_pointer_reg();
+                self.emit_initialize_target_memory_first_time(
+                    &target_memory_location,
+                    node,
+                    "initialize target collection for transformer",
+                );
+            }
+            _ => {
+                // Other transformers don't need target initialization
+            }
+        }
+
         // 2. Initialize the iterator and generate code to fetch the next element.
         let (continue_iteration_label, iteration_complete_patch_position) = self
             .emit_iter_init_and_next(
