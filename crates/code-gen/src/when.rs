@@ -137,9 +137,9 @@ impl CodeBuilder<'_> {
                 };
 
                 let source_destination = Destination::Memory(source_memory_location);
-                self.emit_copy_value_between_destinations(
+                self.emit_copy_value_from_memory_location(
                     &target_destination,
-                    &source_destination,
+                    &source_destination.memory_location_or_pointer_reg(),
                     binding.expr.node(),
                     "load payload into binding variable",
                 );

@@ -2537,24 +2537,15 @@ impl<'a> Analyzer<'a> {
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
-                if same_var.is_mutable() {
-                    let loc = SingleLocationExpression {
-                        kind: MutableReferenceKind::MutVariableRef,
-                        node: self.to_node(&variable_binding.variable.name),
-                        ty: same_var.resolved_type.clone(),
-                        starting_variable: same_var,
-                        access_chain: vec![],
-                    };
-                    ArgumentExpression::BorrowMutableReference(loc)
-                } else {
-                    let generated_expr_kind = ExpressionKind::VariableAccess(same_var.clone());
-                    let generated_expression = self.create_expr(
-                        generated_expr_kind,
-                        same_var.resolved_type.clone(),
-                        &variable_binding.variable.name,
-                    );
-                    ArgumentExpression::Expression(generated_expression)
-                }
+                // For when expressions, we always want to extract the value from the optional,
+                // not create a mutable reference to the original variable
+                let generated_expr_kind = ExpressionKind::VariableAccess(same_var.clone());
+                let generated_expression = self.create_expr(
+                    generated_expr_kind,
+                    same_var.resolved_type.clone(),
+                    &variable_binding.variable.name,
+                );
+                ArgumentExpression::Expression(generated_expression)
             };
 
             let tk = &mut_expr.ty().kind;

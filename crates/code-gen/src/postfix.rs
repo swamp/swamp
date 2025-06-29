@@ -458,7 +458,7 @@ impl CodeBuilder<'_> {
                         );
                     } else {
                         let rhs_value_temp = self.temp_registers.allocate(
-                            mem_loc.vm_type().clone(),
+                            current_location.vm_type().unwrap().clone(),
                             "end of chain, load primitive to target",
                         );
 
