@@ -15,14 +15,14 @@ use swamp_types::prelude::*;
 
 /// Common helper function for allocating the next available register from `ScopeInfo`
 /// This ensures all variable creation functions use the same register allocation logic
-pub(crate) fn allocate_next_register(scope: &mut ScopeInfo) -> usize {
+pub(crate) const fn allocate_next_register(scope: &mut ScopeInfo) -> usize {
     scope.total_scopes.current_register += 1;
     scope.total_scopes.current_register
 }
 
 /// Common helper function for allocating the next available register from `VariableScopes`
 /// This ensures all variable creation functions use the same register allocation logic
-pub(crate) fn allocate_next_register_from_variable_scopes(scope: &mut VariableScopes) -> usize {
+pub(crate) const fn allocate_next_register_from_variable_scopes(scope: &mut VariableScopes) -> usize {
     scope.current_register += 1;
     scope.current_register
 }
@@ -203,7 +203,7 @@ impl Analyzer<'_> {
         let resolved_variable = Variable {
             name: variable.clone(),
             assigned_name: variable_str.clone(),
-            variable_type: variable_type.clone(),
+            variable_type,
             resolved_type: variable_type_ref.clone(),
             mutable_node: is_mutable.cloned(),
             scope_index,

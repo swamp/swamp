@@ -10,7 +10,6 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{
     CompoundOperatorKind, Expression, ExpressionKind, TargetAssignmentLocation, VariableRef,
-    VariableType,
 };
 use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, TypedRegister, VmTypeOrigin};
