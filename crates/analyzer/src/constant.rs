@@ -42,7 +42,7 @@ impl Analyzer<'_> {
             resolved_expr.ty.clone()
         };
 
-        #[cfg(debug_assertions)]
+        // TODO: do not use identifier_name except for asserts
         let identifier_name = { self.get_text(&constant.constant_identifier.0) };
         debug_assert!(
             actual_constant_type.can_be_stored_in_field(),
