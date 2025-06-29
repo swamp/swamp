@@ -283,7 +283,6 @@ impl CodeBuilder<'_> {
                         node,
                         "initialize vec.push allocated space",
                     );
-                } else {
                 }
 
                 self.emit_expression_into_target_memory(

@@ -51,21 +51,51 @@ impl CodeBuilder<'_> {
             &format!("put enum tag in place {tag_memory_location} <- {temp_payload_reg}"),
         );
 
-        // Initialize the payload memory location first for aggregates
+        // Get payload memory location
         let payload_basic_type = self.state.layout_cache.layout(&variant_type.payload_type);
         let payload_memory_location =
             target_memory_location.offset(layout_enum.payload_offset, payload_basic_type.clone());
 
-        if payload_basic_type.is_aggregate() {
-            self.emit_initialize_target_memory_first_time(
-                &payload_memory_location.location,
-                node,
-                &format!(
-                    "initialize enum variant payload for {}",
-                    variant_type.common().assigned_name
-                ),
-            );
+        // Initialize payload memory
+        println!(
+            "DEBUG: enum variant - Initializing payload memory for type {:?}",
+            payload_basic_type.kind
+        );
+        self.emit_initialize_target_memory_first_time(
+            &payload_memory_location.location,
+            node,
+            &format!(
+                "initialize enum variant payload for {}",
+                variant_type.common().assigned_name
+            ),
+        );
+
+        // If this is a tuple with a Vec inside it, we need to directly initialize the Vec's capacity
+        if let BasicTypeKind::Tuple(tuple_type) = &payload_basic_type.kind {
+            if !tuple_type.fields.is_empty() {
+                let first_field = &tuple_type.fields[0];
+                if let BasicTypeKind::VecStorage(_, capacity) = &first_field.ty.kind {
+                    println!(
+                        "DEBUG: enum variant - Found Vec in tuple field with capacity {}",
+                        capacity
+                    );
+                    // Calculate offset to the Vec field inside the tuple
+                    let vec_memory_location =
+                        payload_memory_location.offset(first_field.offset, first_field.ty.clone());
+
+                    // Initialize the Vec capacity directly
+                    self.emit_initialize_target_memory_first_time(
+                        &vec_memory_location.location,
+                        node,
+                        &format!(
+                            "initialize Vec inside tuple for enum variant {}",
+                            variant_type.common().assigned_name
+                        ),
+                    );
+                }
+            }
         }
+        println!("DEBUG: enum variant - Finished initializing payload memory");
 
         match &*variant_type.payload_type.kind {
             TypeKind::Unit => {}
@@ -95,7 +125,33 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            _ => panic!("illegal enum variant payload"),
+            _ => {
+                // Handle single expression payloads (like Vec, primitives, etc.)
+                // These come as Tuple with single element due to syntax RefreshUnits(expr)
+                let EnumLiteralExpressions::Tuple(expressions) = sorted_expressions else {
+                    panic!(
+                        "expected tuple expressions for payload type {:?}",
+                        variant_type.payload_type.kind
+                    );
+                };
+
+                if expressions.len() != 1 {
+                    panic!(
+                        "expected exactly one expression for single payload type, got {}",
+                        expressions.len()
+                    );
+                }
+
+                self.emit_expression_into_target_memory(
+                    &payload_memory_location.location,
+                    &expressions[0],
+                    &format!(
+                        "enum variant payload for {}",
+                        variant_type.common().assigned_name
+                    ),
+                    ctx,
+                );
+            }
         }
 
         self.temp_registers.restore_to_mark(hwm);
