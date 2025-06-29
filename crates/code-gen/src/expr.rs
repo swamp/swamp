@@ -513,8 +513,21 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        let output = Destination::new_location(memory_location.clone());
+        // We no longer always initialize the target memory here
+        // This is now handled by the specific literal handlers (tuple, struct, etc.)
+        // Only initialize if it's a direct collection type (not inside a tuple/struct)
+        if matches!(
+            expr.kind,
+            ExpressionKind::InitializerList(_, _) | ExpressionKind::InitializerPairList(_, _)
+        ) {
+            self.emit_initialize_target_memory_first_time(
+                memory_location,
+                &expr.node,
+                &format!("{comment} - initialize target memory for collection"),
+            );
+        }
 
+        let output = Destination::new_location(memory_location.clone());
         self.emit_expression(&output, expr, ctx);
     }
 

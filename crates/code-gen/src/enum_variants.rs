@@ -70,36 +70,12 @@ impl CodeBuilder<'_> {
             ),
         );
 
-        // If this is a tuple with a Vec inside it, we need to directly initialize the Vec's capacity
-        if let BasicTypeKind::Tuple(tuple_type) = &payload_basic_type.kind {
-            if !tuple_type.fields.is_empty() {
-                let first_field = &tuple_type.fields[0];
-                if let BasicTypeKind::VecStorage(_, capacity) = &first_field.ty.kind {
-                    println!(
-                        "DEBUG: enum variant - Found Vec in tuple field with capacity {}",
-                        capacity
-                    );
-                    // Calculate offset to the Vec field inside the tuple
-                    let vec_memory_location =
-                        payload_memory_location.offset(first_field.offset, first_field.ty.clone());
-
-                    // Initialize the Vec capacity directly
-                    self.emit_initialize_target_memory_first_time(
-                        &vec_memory_location.location,
-                        node,
-                        &format!(
-                            "initialize Vec inside tuple for enum variant {}",
-                            variant_type.common().assigned_name
-                        ),
-                    );
-                }
-            }
-        }
+        // Removed special case for tuple with Vec inside
         println!("DEBUG: enum variant - Finished initializing payload memory");
 
         match &*variant_type.payload_type.kind {
             TypeKind::Unit => {}
-            TypeKind::Tuple(expressions) => {
+            TypeKind::Tuple(_) => {
                 let EnumLiteralExpressions::Tuple(tuple_expressions) = sorted_expressions else {
                     panic!("internal error");
                 };
@@ -111,7 +87,7 @@ impl CodeBuilder<'_> {
                     node,
                 );
             }
-            TypeKind::AnonymousStruct(anon_struct_type) => {
+            TypeKind::AnonymousStruct(_) => {
                 let EnumLiteralExpressions::Struct(sorted_field_expressions) = sorted_expressions
                 else {
                     panic!("internal error");
@@ -126,30 +102,9 @@ impl CodeBuilder<'_> {
                 );
             }
             _ => {
-                // Handle single expression payloads (like Vec, primitives, etc.)
-                // These come as Tuple with single element due to syntax RefreshUnits(expr)
-                let EnumLiteralExpressions::Tuple(expressions) = sorted_expressions else {
-                    panic!(
-                        "expected tuple expressions for payload type {:?}",
-                        variant_type.payload_type.kind
-                    );
-                };
-
-                if expressions.len() != 1 {
-                    panic!(
-                        "expected exactly one expression for single payload type, got {}",
-                        expressions.len()
-                    );
-                }
-
-                self.emit_expression_into_target_memory(
-                    &payload_memory_location.location,
-                    &expressions[0],
-                    &format!(
-                        "enum variant payload for {}",
-                        variant_type.common().assigned_name
-                    ),
-                    ctx,
+                panic!(
+                    "Enum variant payload can only be Unit, Tuple, or AnonymousStruct, got {:?}",
+                    variant_type.payload_type.kind
                 );
             }
         }

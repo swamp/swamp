@@ -139,6 +139,15 @@ impl CodeBuilder<'_> {
         )
     }
 
+    /// Initialize memory for a given type at the specified location
+    ///
+    /// This function is responsible for initializing memory for various types:
+    /// - For collections (Vec, Map, etc.), it sets the capacity field based on the type definition
+    /// - For complex types like tuples and structs, it initializes the base structure
+    ///
+    /// Note: For nested collections (e.g., Vec inside tuple or struct), this function only
+    /// initializes the outer container. The caller must explicitly initialize nested collections
+    /// by calculating the appropriate offset and calling this function again for the inner type.
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_initialize_target_memory_first_time(
         &mut self,
@@ -263,6 +272,11 @@ impl CodeBuilder<'_> {
             }
             _ => {
                 if let Some(capacity) = lvalue_location.ty.basic_type().get_collection_capacity() {
+                    println!(
+                        "DEBUG: emit_initialize_target_memory_first_time - Found collection capacity {} for type {:?}",
+                        capacity.0,
+                        lvalue_location.ty.basic_type().kind
+                    );
                     let hwm = self.temp_registers.save_mark();
 
                     let init_capacity_reg = self.temp_registers.allocate(
@@ -296,6 +310,10 @@ impl CodeBuilder<'_> {
 
                     self.temp_registers.restore_to_mark(hwm);
                 } else {
+                    println!(
+                        "DEBUG: emit_initialize_target_memory_first_time - NO collection capacity found for type {:?}",
+                        lvalue_location.ty.basic_type().kind
+                    );
                     // if there is no collection capacity
                 }
             }

@@ -32,6 +32,19 @@ impl CodeBuilder<'_> {
             let target_memory_location_for_tuple_item =
                 aggregate_lvalue_location.offset(offset_item.offset, offset_item.ty.clone());
 
+            // Initialize the field memory if it's an aggregate type (especially for collections)
+            if offset_item.ty.is_aggregate() {
+                println!(
+                    "DEBUG: tuple - Initializing field memory for type {:?}",
+                    offset_item.ty.kind
+                );
+                self.emit_initialize_target_memory_first_time(
+                    &target_memory_location_for_tuple_item.location,
+                    node,
+                    &format!("initialize tuple field {}", offset_item.name),
+                );
+            }
+
             self.emit_expression_into_target_memory(
                 &target_memory_location_for_tuple_item.location,
                 expr,
