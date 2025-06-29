@@ -51,8 +51,19 @@ impl CodeBuilder<'_> {
             &format!("put enum tag in place {tag_memory_location} <- {temp_payload_reg}"),
         );
 
+        // Initialize the payload memory location first for aggregates
+        let payload_basic_type = self.state.layout_cache.layout(&variant_type.payload_type);
         let payload_memory_location =
-            target_memory_location.offset(layout_enum.payload_offset, u8_type());
+            target_memory_location.offset(layout_enum.payload_offset, payload_basic_type.clone());
+            
+        if payload_basic_type.is_aggregate() {
+            self.emit_initialize_target_memory_first_time(
+                &payload_memory_location.location,
+                node,
+                &format!("initialize enum variant payload for {}", variant_type.common().assigned_name),
+            );
+        }
+            
         match &*variant_type.payload_type.kind {
             TypeKind::Unit => {}
             TypeKind::Tuple(expressions) => {

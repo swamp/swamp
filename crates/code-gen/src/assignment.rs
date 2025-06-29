@@ -62,6 +62,16 @@ impl CodeBuilder<'_> {
         expression: &Expression,
         ctx: &Context,
     ) {
+        self.emit_variable_assignment_with_init_flag(variable, expression, ctx, false);
+    }
+
+    fn emit_variable_assignment_with_init_flag(
+        &mut self,
+        variable: &VariableRef,
+        expression: &Expression,
+        ctx: &Context,
+        already_initialized: bool,
+    ) {
         let target_register = self
             .variable_registers
             .get(&variable.unique_id_within_function)
@@ -114,12 +124,14 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             } else {
-                // For other expressions, initialize the memory first
-                self.emit_initialize_target_memory_first_time(
-                    &memory_location,
-                    &variable.name,
-                    "initialize variable for the first time",
-                );
+                // For other expressions, initialize the memory first (unless already initialized)
+                if !already_initialized {
+                    self.emit_initialize_target_memory_first_time(
+                        &memory_location,
+                        &variable.name,
+                        "initialize variable for the first time",
+                    );
+                }
 
                 self.emit_expression_into_target_memory(
                     &memory_location,
@@ -286,6 +298,16 @@ impl CodeBuilder<'_> {
                 &variable.name,
                 &format!("clear memory for variable {}", variable.assigned_name),
             );
+
+            // For aggregate types, we also need to initialize the collection metadata (capacity, etc.)
+            if target_register.ty.basic_type.is_aggregate() {
+                let memory_location = MemoryLocation::new_copy_over_whole_type_with_zero_offset(target_register.clone());
+                self.emit_initialize_target_memory_first_time(
+                    &memory_location,
+                    &variable.name,
+                    &format!("initialize collection metadata for variable {}", variable.assigned_name),
+                );
+            }
         }
     }
 
@@ -297,7 +319,7 @@ impl CodeBuilder<'_> {
     ) {
         self.initialize_variable_the_first_time(variable);
 
-        // Now proceed with the normal variable assignment
-        self.emit_variable_assignment(variable, expression, ctx);
+        // Now proceed with the variable assignment, but skip initialization since we already did it
+        self.emit_variable_assignment_with_init_flag(variable, expression, ctx, true);
     }
 }

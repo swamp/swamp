@@ -466,24 +466,27 @@ impl CodeBuilder<'_> {
             // TODO: Must handle HashMap specially?
 
             if ty.basic_type.is_vec_like() {
-                let element_size = source_memory_location
-                    .ty
-                    .basic_type
-                    .bucket_size_for_vec_like()
-                    .unwrap();
-                let header_size = source_memory_location
-                    .ty
-                    .basic_type
-                    .header_size_for_vec_like()
-                    .unwrap();
-                self.emit_copy_vec_like_value_helper(
-                    destination_memory_location,
-                    source_memory_location,
-                    element_size,
-                    header_size,
-                    node,
-                    comment,
-                );
+                if let (Some(element_size), Some(header_size)) = (
+                    source_memory_location.ty.basic_type.bucket_size_for_vec_like(),
+                    source_memory_location.ty.basic_type.header_size_for_vec_like(),
+                ) {
+                    self.emit_copy_vec_like_value_helper(
+                        destination_memory_location,
+                        source_memory_location,
+                        element_size,
+                        header_size,
+                        node,
+                        comment,
+                    );
+                } else {
+                    // Fallback to block copy for vec-like types that don't have proper size methods
+                    self.emit_block_copy_with_size_from_location(
+                        destination_memory_location,
+                        source_memory_location,
+                        node,
+                        &format!("block copy {comment} (vec-like fallback) to memory pointed by register {destination_memory_location} <- {source_memory_location}"),
+                    );
+                }
             } else {
                 self.emit_compute_effective_address_from_location_to_register(
                     destination_memory_location,

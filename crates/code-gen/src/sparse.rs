@@ -56,9 +56,18 @@ impl CodeBuilder<'_> {
             location: MemoryLocation {
                 base_ptr_reg: temp_element_ptr.register,
                 offset: MemoryOffset(0),
-                ty: VmType::new_unknown_placement(element_gen_type),
+                ty: VmType::new_unknown_placement(element_gen_type.clone()),
             },
         };
+
+        // Initialize the allocated space first (like variable definition)
+        if element_gen_type.is_aggregate() {
+            self.emit_initialize_target_memory_first_time(
+                &location.location,
+                node,
+                "initialize sparse add allocated space",
+            );
+        }
 
         self.emit_expression_into_target_memory(
             &location.location,

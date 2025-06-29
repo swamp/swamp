@@ -172,6 +172,15 @@ impl CodeBuilder<'_> {
                     },
                 };
 
+                // Initialize the allocated space first (like variable definition)
+                if element_gen_type.is_aggregate() {
+                    self.emit_initialize_target_memory_first_time(
+                        &location.location,
+                        node,
+                        "initialize grid set allocated space",
+                    );
+                }
+
                 self.emit_expression_into_target_memory(
                     &location.location,
                     value_expr,
@@ -263,9 +272,22 @@ impl CodeBuilder<'_> {
                     location: MemoryLocation {
                         base_ptr_reg: temp_element_ptr.register,
                         offset: MemoryOffset(0),
-                        ty: VmType::new_unknown_placement(element_gen_type),
+                        ty: VmType::new_unknown_placement(element_gen_type.clone()),
                     },
                 };
+
+                // Initialize the allocated space first (like variable definition)
+                eprintln!("DEBUG: vec.push element_gen_type: {:?}, is_aggregate: {}", element_gen_type, element_gen_type.is_aggregate());
+                if element_gen_type.is_aggregate() {
+                    eprintln!("DEBUG: Calling emit_initialize_target_memory_first_time for vec.push");
+                    self.emit_initialize_target_memory_first_time(
+                        &location.location,
+                        node,
+                        "initialize vec.push allocated space",
+                    );
+                } else {
+                    eprintln!("DEBUG: Skipping initialization because element_gen_type.is_aggregate() = false");
+                }
 
                 self.emit_expression_into_target_memory(
                     &location.location,

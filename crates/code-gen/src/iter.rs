@@ -614,6 +614,15 @@ impl CodeBuilder<'_> {
                         target_element_addr_reg.register().clone(),
                     ));
 
+                // Initialize the allocated space first (like variable definition)
+                if value.ty.basic_type.is_aggregate() {
+                    self.emit_initialize_target_memory_first_time(
+                        vec_entry_destination.grab_memory_location(),
+                        node,
+                        "initialize vec.push allocated space for transformer",
+                    );
+                }
+
                 let source_destination = if value.ty.is_scalar() {
                     Destination::Register(value.clone())
                 } else {

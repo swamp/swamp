@@ -350,7 +350,7 @@ pub fn run_function_with_debug(
         let pc = vm.pc();
         #[cfg(feature = "debug_vm")]
         if run_options.debug_opcodes_enabled {
-            let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 128, 129, 130, 131, 132];
+            let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 128, 129, 130, 131, 132, 133, 134, 135];
             if use_color {
                 print!(
                     "{}",

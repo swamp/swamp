@@ -162,10 +162,21 @@ impl CodeBuilder<'_> {
                 "find existing or create a map entry to write into",
             );
 
+            let value_memory_location = MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                value_target_register.register().clone(),
+            );
+
+            // Initialize the allocated space first (like variable definition)
+            if value_type.is_aggregate() {
+                self.emit_initialize_target_memory_first_time(
+                    &value_memory_location,
+                    initializer_pair_node,
+                    "initialize map entry allocated space",
+                );
+            }
+
             self.emit_expression_into_target_memory(
-                &MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                    value_target_register.register().clone(),
-                ),
+                &value_memory_location,
                 value_expr,
                 "put value into map entry value section",
                 ctx,

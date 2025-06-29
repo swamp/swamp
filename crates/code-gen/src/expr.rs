@@ -327,7 +327,7 @@ impl CodeBuilder<'_> {
                                 MemoryLocation::new_copy_over_whole_type_with_zero_offset(
                                     variable_register,
                                 );
-                            self.emit_block_copy_with_size_from_location(
+                            self.emit_copy_aggregate_value_helper(
                                 location,
                                 &source_memory_location,
                                 node,
