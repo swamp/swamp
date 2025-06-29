@@ -40,66 +40,15 @@ impl CodeBuilder<'_> {
             return;
         }
 
-        match output_destination {
-            Destination::Register(output_reg) => {
-                if output_destination.ty().is_aggregate() {
-                    // For aggregate types, we need the effective address (pointer)
-                    self.emit_compute_effective_address_to_target_register(
-                        output_reg,
-                        current_location,
-                        node,
-                        "postfix chain final load: compute effective address for aggregate",
-                    );
-                } else {
-                    // For primitive types, transfer the value
-                    self.emit_transfer_value_to_register(
-                        output_reg,
-                        current_location,
-                        node,
-                        "postfix chain final load: transfer primitive value",
-                    );
-                }
-            }
-            Destination::Memory(mem_loc) => {
-                let underlying = mem_loc.ty.basic_type();
-                if underlying.is_aggregate() {
-                    // For aggregate types, store the entire value to memory
-                    self.emit_store_value_to_memory_destination(
-                        output_destination,
-                        current_location,
-                        node,
-                        "postfix chain final load: store aggregate to memory",
-                    );
-                } else {
-                    // For primitive types, we need to handle potential type conversion
-                    // Load from source type, then store to destination type
-                    let source_type = current_location.vm_type().unwrap().clone();
-                    let temp_reg = self.temp_registers.allocate(
-                        source_type,
-                        "postfix chain final load: temp for primitive type conversion",
-                    );
-
-                    // Load from source location using source type
-                    self.emit_transfer_value_to_register(
-                        temp_reg.register(),
-                        current_location,
-                        node,
-                        "postfix chain final load: load primitive from source",
-                    );
-
-                    // Store to destination using destination type (handles type conversion)
-                    self.emit_store_scalar_to_memory_offset_instruction(
-                        mem_loc,
-                        temp_reg.register(),
-                        node,
-                        "postfix chain final load: store primitive to destination",
-                    );
-                }
-            }
-            Destination::Unit => {
-                // Nothing to do for Unit destination
-            }
-        }
+        // Use the existing helper function that handles all the complexity of transferring
+        // values between different destination types (register to register, memory to register,
+        // register to memory, memory to memory, etc.) including type conversions
+        self.emit_copy_value_between_destinations(
+            output_destination,
+            current_location,
+            node,
+            "postfix chain final load",
+        );
     }
 
     /// Handles writing None to the output destination for optional types
