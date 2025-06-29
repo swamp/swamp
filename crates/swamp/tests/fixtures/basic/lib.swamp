@@ -4,6 +4,7 @@ mod array
 mod bool
 mod callee_save
 mod constant
+mod enum_bugs
 mod enum
 mod filter_transformer_bugs
 mod float
