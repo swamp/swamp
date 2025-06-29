@@ -1256,8 +1256,10 @@ impl<'a> Analyzer<'a> {
 
         let mut suffixes = Vec::new();
 
-        for item in &chain.postfixes[start_index..] {
+        for (index, item) in chain.postfixes[start_index..].iter().enumerate() {
             //            trace!(?item, "postfix");
+            let is_last = index == chain.postfixes[start_index..].len() - 1;
+
             match item {
                 /*
                 swamp_ast::Postfix::AdvancedFunctionCall(..) => {
@@ -1567,6 +1569,13 @@ impl<'a> Analyzer<'a> {
                 }
 
                 swamp_ast::Postfix::OptionalChainingOperator(option_node) => {
+                    if is_last {
+                        return self.create_err(
+                            ErrorKind::OptionalChainingOperatorCanNotBePartOfChain,
+                            option_node,
+                        );
+                    }
+
                     if let TypeKind::Optional(unwrapped_type) = &*tv.resolved_type.kind {
                         uncertain = true;
                         self.add_postfix(

@@ -100,31 +100,36 @@ impl Analyzer<'_> {
         ast_op: &swamp_ast::UnaryOperator,
         ast_left: &swamp_ast::Expression,
     ) -> Option<(UnaryOperator, TypeRef)> {
-        let bool_type = self.shared.state.types.bool();
-        let int_type = self.shared.state.types.int();
-        let (node, kind, require_type, result_type) = match ast_op {
-            swamp_ast::UnaryOperator::Not(node) => (
-                node,
-                UnaryOperatorKind::Not,
-                Some(&bool_type),
-                bool_type.clone(),
-            ),
+        //let int_type = self.shared.state.types.int();
+        let (node, left, kind) = match ast_op {
+            swamp_ast::UnaryOperator::Not(node) => {
+                let bool_type = self.shared.state.types.bool();
+                let context = TypeContext::new_argument(&bool_type, false);
+                let left = self.analyze_expression(ast_left, &context);
+
+                assert!(
+                    matches!(&*left.ty.kind, &TypeKind::Bool),
+                    "not expects bool"
+                );
+                (node, left, UnaryOperatorKind::Not)
+            }
             swamp_ast::UnaryOperator::Negate(node) => {
-                (node, UnaryOperatorKind::Negate, None, int_type)
+                let context = TypeContext::new_unsure_argument(None, false);
+                let left = self.analyze_expression(ast_left, &context);
+
+                (node, left, UnaryOperatorKind::Negate)
             }
             swamp_ast::UnaryOperator::BorrowMutRef(_) => {
                 panic!("unary borrow should have been handled")
             }
         };
-        let context = TypeContext::new_unsure_argument(require_type, false);
-        let left = self.analyze_expression(ast_left, &context);
         Some((
             UnaryOperator {
-                left: Box::new(left),
+                left: Box::new(left.clone()),
                 kind,
                 node: self.to_node(node),
             },
-            result_type,
+            left.ty,
         ))
     }
 

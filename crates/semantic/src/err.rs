@@ -78,6 +78,7 @@ pub enum ErrorKind {
     CallsCanNotBePartOfChain,
     UnwrapCanNotBePartOfChain,
     NoneCoalesceCanNotBePartOfChain,
+    OptionalChainingOperatorCanNotBePartOfChain,
     SelfNotCorrectType,
     CanNotNoneCoalesce,
     UnknownSymbol,
