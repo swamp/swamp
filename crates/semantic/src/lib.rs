@@ -794,18 +794,13 @@ impl Debug for Expression {
 #[derive(Debug, Clone)]
 pub struct WhenBinding {
     pub variable: VariableRef,
-    pub expr: ArgumentExpression,
+    pub expr: Expression,
 }
 
 impl WhenBinding {
     #[must_use]
     pub const fn has_expression(&self) -> bool {
-        match &self.expr {
-            ArgumentExpression::Expression(expr) => {
-                !matches!(expr.kind, ExpressionKind::VariableAccess(_))
-            }
-            ArgumentExpression::BorrowMutableReference(_) => true,
-        }
+        !matches!(self.expr.kind, ExpressionKind::VariableAccess(_))
     }
 }
 

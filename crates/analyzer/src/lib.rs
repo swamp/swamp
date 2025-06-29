@@ -2534,21 +2534,22 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
+                .expect_immutable()
+                .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
                 // For when expressions, we always want to extract the value from the optional,
                 // not create a mutable reference to the original variable
                 let generated_expr_kind = ExpressionKind::VariableAccess(same_var.clone());
-                let generated_expression = self.create_expr(
+                self.create_expr(
                     generated_expr_kind,
                     same_var.resolved_type.clone(),
                     &variable_binding.variable.name,
-                );
-                ArgumentExpression::Expression(generated_expression)
+                )
             };
 
-            let tk = &mut_expr.ty().kind;
+            let tk = &mut_expr.ty.kind;
 
             if let TypeKind::Optional(found_ty) = &**tk {
                 let variable_ref = self.create_variable(&variable_binding.variable, found_ty);

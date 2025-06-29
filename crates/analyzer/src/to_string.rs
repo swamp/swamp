@@ -1210,7 +1210,7 @@ fn generate_to_string_for_optional(
     // Create the `when` binding
     let binding = WhenBinding {
         variable: value_var,
-        expr: ArgumentExpression::Expression(self_expression),
+        expr: self_expression,
     };
 
     // Create the `when` expression
@@ -1260,7 +1260,7 @@ fn generate_to_short_string_for_optional(
     // Create the `when` binding
     let binding = WhenBinding {
         variable: value_var,
-        expr: ArgumentExpression::Expression(self_expression),
+        expr: self_expression,
     };
 
     // Create the `when` expression

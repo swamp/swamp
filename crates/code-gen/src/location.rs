@@ -21,6 +21,14 @@ impl CodeBuilder<'_> {
         self.emit_argument_expression(mut_or_immutable_expression, context)
     }
 
+    pub(crate) fn emit_for_access_or_location_expression(
+        &mut self,
+        expression: &Expression,
+        context: &Context,
+    ) -> TypedRegister {
+        self.emit_scalar_rvalue(expression, context)
+    }
+
     pub(crate) fn emit_argument_expression_binding(
         &mut self,
         target_reg: &TypedRegister,
