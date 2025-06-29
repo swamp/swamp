@@ -162,25 +162,7 @@ impl Analyzer<'_> {
             .variables
             .len();
 
-        // Make sure to use the TypeCache to ensure proper type handling
-        // The variable_type_ref should be obtained from the TypeCache
-
-        self.scope.total_scopes.current_register += 1;
-        let resolved_variable = Variable {
-            name: variable.clone(),
-            assigned_name: variable_str.clone(),
-            variable_type: variable_type.clone(),
-            resolved_type: variable_type_ref.clone(),
-            mutable_node: is_mutable.cloned(),
-            scope_index,
-            variable_index: *variables_len,
-            unique_id_within_function: index,
-            virtual_register: self.scope.total_scopes.current_register as u8,
-            is_unused: !should_insert_in_scope,
-        };
-
-        let variable_ref = Rc::new(resolved_variable);
-
+        // Check for unused mutable variables before incrementing register counter
         if !should_insert_in_scope && is_mutable.is_some() {
             self.add_err_resolved(ErrorKind::UnusedVariablesCanNotBeMut, variable);
 
@@ -199,6 +181,28 @@ impl Analyzer<'_> {
 
             return (error_var_ref, "err".to_string());
         }
+
+        // Only increment register counter when we're actually creating a valid variable
+        self.scope.total_scopes.current_register += 1;
+        eprintln!(
+            "REGISTER ALLOCATION: {} gets register {}",
+            variable_str, self.scope.total_scopes.current_register
+        );
+
+        let resolved_variable = Variable {
+            name: variable.clone(),
+            assigned_name: variable_str.clone(),
+            variable_type: variable_type.clone(),
+            resolved_type: variable_type_ref.clone(),
+            mutable_node: is_mutable.cloned(),
+            scope_index,
+            variable_index: *variables_len,
+            unique_id_within_function: index,
+            virtual_register: self.scope.total_scopes.current_register as u8,
+            is_unused: !should_insert_in_scope,
+        };
+
+        let variable_ref = Rc::new(resolved_variable);
 
         if should_insert_in_scope {
             let lookups = &mut self

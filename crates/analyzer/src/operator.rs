@@ -6,6 +6,7 @@ use crate::{Analyzer, TypeContext};
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind, UnaryOperator, UnaryOperatorKind};
 use swamp_types::prelude::*;
+use tracing::error;
 
 impl Analyzer<'_> {
     pub(crate) fn analyze_binary_op(
@@ -107,10 +108,12 @@ impl Analyzer<'_> {
                 let context = TypeContext::new_argument(&bool_type, false);
                 let left = self.analyze_expression(ast_left, &context);
 
-                assert!(
-                    matches!(&*left.ty.kind, &TypeKind::Bool),
-                    "not expects bool"
-                );
+                if !matches!(&*left.ty.kind, &TypeKind::Bool) {
+                    error!(
+                       ty=?left.ty ,
+                        "not expects bool"
+                    );
+                }
                 (node, left, UnaryOperatorKind::Not)
             }
             swamp_ast::UnaryOperator::Negate(node) => {

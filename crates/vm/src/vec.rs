@@ -297,6 +297,14 @@ impl Vm {
         let address_of_new_element =
             vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32 + len as u32 * size_of_each_element;
 
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            eprintln!(
+                "vec_push_addr: vec_addr: {vec_addr:08X}, payload_offset: {}, len: {}, element_size: {}, calculated_addr: {address_of_new_element:08X}",
+                VEC_HEADER_PAYLOAD_OFFSET.0, len, size_of_each_element
+            );
+        }
+
         set_reg!(self, destination_entry_addr_reg, address_of_new_element);
     }
 

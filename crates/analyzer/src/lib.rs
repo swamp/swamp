@@ -2120,18 +2120,23 @@ impl<'a> Analyzer<'a> {
     }
 
     fn push_block_scope(&mut self, _debug_str: &str) {
+        let register_watermark = self.scope.total_scopes.current_register;
         self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Open,
             lookup: Default::default(),
             variables: SeqMap::default(),
+            register_watermark,
         });
     }
 
     fn push_lambda_scope(&mut self, _debug_str: &str) {
+        // Lambda scopes are virtual and completely transparent to register allocation
+        // They don't save any watermark and don't affect register allocation
         self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Lambda,
             lookup: Default::default(),
             variables: SeqMap::default(),
+            register_watermark: 0, // Not used for lambda scopes
         });
     }
 
@@ -2140,10 +2145,12 @@ impl<'a> Analyzer<'a> {
     }
 
     fn push_closed_block_scope(&mut self) {
+        let register_watermark = self.scope.total_scopes.current_register;
         self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Closed,
             lookup: Default::default(),
             variables: SeqMap::default(),
+            register_watermark,
         });
     }
 
@@ -2155,14 +2162,28 @@ impl<'a> Analyzer<'a> {
     fn pop_any_block_scope(&mut self) {
         let scope = self.scope.active_scope.block_scope_stack.pop().unwrap();
 
+        eprintln!(
+            "POP_SCOPE: mode={:?}, variables_count={}, current_register_before={}, watermark={}",
+            scope.mode,
+            scope.variables.len(),
+            self.scope.total_scopes.current_register,
+            scope.register_watermark
+        );
+
         // Record the highest watermark (greatest depth of virtual registers)
         self.scope.total_scopes.highest_virtual_register = self.scope.total_scopes.current_register;
 
-        // Only decrement register counter for non-lambda scopes
-        // Lambda scopes should have their register allocation "continue" from parent scope
-        // This ensures lambda variables remain live during transformer operations
+        // Lambda scopes are completely virtual and transparent to register allocation
+        // They do nothing when popped - no watermark restoration, no register changes
         if !matches!(scope.mode, BlockScopeMode::Lambda) {
-            self.scope.total_scopes.current_register -= scope.variables.len();
+            // Regular scopes restore their watermark to free up registers
+            self.scope.total_scopes.current_register = scope.register_watermark;
+            eprintln!(
+                "POP_SCOPE: restored register counter to watermark {}",
+                self.scope.total_scopes.current_register
+            );
+        } else {
+            eprintln!("POP_SCOPE: lambda scope - completely transparent, no register changes");
         }
     }
 
@@ -2679,7 +2700,7 @@ impl<'a> Analyzer<'a> {
         for (variable, variable_type) in variables.iter().zip(variable_types_to_create) {
             let variable_ref = self.create_local_variable(
                 &variable.name,
-                Some(node),
+                variable.is_mutable.as_ref(),
                 &variable_type.resolved_type,
                 false,
             );

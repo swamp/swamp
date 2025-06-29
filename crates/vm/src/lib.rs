@@ -129,7 +129,10 @@ pub enum TrapCode {
     MapEntryNotFound,
     MapEntryNotFoundAndCouldNotBeCreated,
     MapEntryNotFoundForRemoval,
-    LessThanTrap,
+    LessThanTrap {
+        a: u32,
+        b: u32,
+    },
     SparseOutOfSpace,
     SparseRemoveFailed,
     SparseGetFailed,
@@ -158,7 +161,7 @@ impl TryFrom<u8> for TrapCode {
             3 => Self::MapEntryNotFound,
             4 => Self::MapEntryNotFoundAndCouldNotBeCreated,
             5 => Self::MapEntryNotFoundForRemoval,
-            6 => Self::LessThanTrap,
+            6 => Self::LessThanTrap { a: 0, b: 0 },
             7 => Self::SparseOutOfSpace,
             8 => Self::SparseRemoveFailed,
             9 => Self::SparseGetFailed,
@@ -193,7 +196,7 @@ impl FromStr for TrapCode {
             "map_entry_not_found" => Self::MapEntryNotFound,
             "map_entry_or_create_failed" => Self::MapEntryNotFoundAndCouldNotBeCreated,
             "map_entry_remove_failed" => Self::MapEntryNotFoundForRemoval,
-            "less_than_trap" => Self::LessThanTrap,
+            "less_than_trap" => Self::LessThanTrap { a: 0, b: 0 },
             "sparse_out_of_space" => Self::SparseOutOfSpace,
             "sparse_remove_failed" => Self::SparseRemoveFailed,
             "sparse_get_failed" => Self::SparseGetFailed,
@@ -1225,7 +1228,7 @@ impl Vm {
         let a = get_reg!(self, a_reg);
         let b = get_reg!(self, b_reg);
         if a < b {
-            self.internal_trap(TrapCode::LessThanTrap)
+            self.internal_trap(TrapCode::LessThanTrap { a: a, b: b })
         }
     }
 

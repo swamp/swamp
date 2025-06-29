@@ -190,6 +190,7 @@ pub struct BlockScope {
     pub mode: BlockScopeMode,
     pub lookup: SeqMap<String, VariableRef>,
     pub variables: SeqMap<usize, VariableRef>,
+    pub register_watermark: usize,
 }
 
 impl Display for BlockScope {
@@ -216,6 +217,7 @@ impl BlockScope {
             mode: BlockScopeMode::Open,
             variables: SeqMap::new(),
             lookup: SeqMap::new(),
+            register_watermark: 0,
         }
     }
 }
