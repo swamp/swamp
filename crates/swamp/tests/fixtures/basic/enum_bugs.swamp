@@ -78,9 +78,9 @@ fn complex_payload_from_other_vec() {
 
     x = EnumCapacityPayload::RefreshUnits(unit_id_list)
     match x {
-        StructPayload units -> {
-            assert(units.capacity() == 40, 'struct payload capacity wrong {units.capacity()}')
-            assert(units.len() == 15, 'struct payload len wrong {units.len()}')
+        RefreshUnits units -> {
+            assert(units.capacity() == 30, 'struct payload capacity wrong {units.capacity()}')
+            assert(units.len() == 23, 'struct payload len wrong {units.len()}')
         }
         _ -> {
             panic("wrong variant matched")
