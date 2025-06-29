@@ -5,6 +5,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::single_intrinsic_fn;
+use source_map_node::Node;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, VmType, u8_type};
@@ -12,7 +13,143 @@ use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::{error, info};
 
 impl CodeBuilder<'_> {
-    #[allow(clippy::too_many_lines)]
+    /// Handles the final load/conversion from current_location to output_destination if needed.
+    /// This is where type conversions happen - we load from the source type and store to the destination type.
+    fn emit_final_load_if_needed(
+        &mut self,
+        output_destination: &Destination,
+        current_location: &Destination,
+        node: &Node,
+        chain: &[Postfix],
+    ) {
+        let needs_final_load = !(
+            // No load needed if the last element was a member call
+            (!chain.is_empty() && matches!(chain.last().unwrap().kind, PostfixKind::MemberCall(_, _)))
+
+                // No load needed if current location is already the right register
+                || matches!(
+        (output_destination, current_location),
+        (Destination::Register(out), Destination::Register(curr)) if out.index == curr.index
+    )
+
+                // No load needed for Unit destination
+                || matches!(output_destination, Destination::Unit)
+        );
+
+        if !needs_final_load {
+            return;
+        }
+
+        match output_destination {
+            Destination::Register(output_reg) => {
+                if output_destination.ty().is_aggregate() {
+                    // For aggregate types, we need the effective address (pointer)
+                    self.emit_compute_effective_address_to_target_register(
+                        output_reg,
+                        current_location,
+                        node,
+                        "postfix chain final load: compute effective address for aggregate",
+                    );
+                } else {
+                    // For primitive types, transfer the value
+                    self.emit_transfer_value_to_register(
+                        output_reg,
+                        current_location,
+                        node,
+                        "postfix chain final load: transfer primitive value",
+                    );
+                }
+            }
+            Destination::Memory(mem_loc) => {
+                let underlying = mem_loc.ty.basic_type();
+                if underlying.is_aggregate() {
+                    // For aggregate types, store the entire value to memory
+                    self.emit_store_value_to_memory_destination(
+                        output_destination,
+                        current_location,
+                        node,
+                        "postfix chain final load: store aggregate to memory",
+                    );
+                } else {
+                    // For primitive types, we need to handle potential type conversion
+                    // Load from source type, then store to destination type
+                    let source_type = current_location.vm_type().unwrap().clone();
+                    let temp_reg = self.temp_registers.allocate(
+                        source_type,
+                        "postfix chain final load: temp for primitive type conversion",
+                    );
+
+                    // Load from source location using source type
+                    self.emit_transfer_value_to_register(
+                        temp_reg.register(),
+                        current_location,
+                        node,
+                        "postfix chain final load: load primitive from source",
+                    );
+
+                    // Store to destination using destination type (handles type conversion)
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        mem_loc,
+                        temp_reg.register(),
+                        node,
+                        "postfix chain final load: store primitive to destination",
+                    );
+                }
+            }
+            Destination::Unit => {
+                // Nothing to do for Unit destination
+            }
+        }
+    }
+
+    /// Handles writing None to the output destination for optional types
+    fn emit_none_to_destination(&mut self, output_destination: &Destination, node: &Node) {
+        match output_destination {
+            Destination::Register(reg) => {
+                let temp_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(u8_type()),
+                    "temp for None tag",
+                );
+                self.builder.add_mov8_immediate(
+                    temp_reg.register(),
+                    0,
+                    node,
+                    "write None tag to temp",
+                );
+                let memory_location = MemoryLocation {
+                    base_ptr_reg: reg.clone(),
+                    offset: MemoryOffset(0),
+                    ty: VmType::new_unknown_placement(u8_type()),
+                };
+                self.builder.add_st8_using_ptr_with_offset(
+                    &memory_location,
+                    temp_reg.register(),
+                    node,
+                    "store None tag to memory",
+                );
+            }
+            Destination::Memory(mem_loc) => {
+                let temp_reg = self.temp_registers.allocate(
+                    VmType::new_unknown_placement(u8_type()),
+                    "temp for None tag",
+                );
+                self.builder.add_mov8_immediate(
+                    temp_reg.register(),
+                    0,
+                    node,
+                    "write None tag to temp",
+                );
+                self.builder.add_st8_using_ptr_with_offset(
+                    mem_loc,
+                    temp_reg.register(),
+                    node,
+                    "store None tag to memory",
+                );
+            }
+            Destination::Unit => {}
+        }
+    }
+
     pub(crate) fn emit_postfix_chain(
         &mut self,
         output_destination: &Destination,
@@ -359,127 +496,11 @@ impl CodeBuilder<'_> {
             }
 
             // Then write None to the output destination
-            match output_destination {
-                Destination::Register(reg) => {
-                    let temp_reg = self.temp_registers.allocate(
-                        VmType::new_unknown_placement(u8_type()),
-                        "temp for None tag",
-                    );
-                    self.builder.add_mov8_immediate(
-                        temp_reg.register(),
-                        0,
-                        node,
-                        "write None tag to temp",
-                    );
-                    let memory_location = MemoryLocation {
-                        base_ptr_reg: reg.clone(),
-                        offset: MemoryOffset(0),
-                        ty: VmType::new_unknown_placement(u8_type()),
-                    };
-                    self.builder.add_st8_using_ptr_with_offset(
-                        &memory_location,
-                        temp_reg.register(),
-                        node,
-                        "store None tag to memory",
-                    );
-                }
-                Destination::Memory(mem_loc) => {
-                    let temp_reg = self.temp_registers.allocate(
-                        VmType::new_unknown_placement(u8_type()),
-                        "temp for None tag",
-                    );
-                    self.builder.add_mov8_immediate(
-                        temp_reg.register(),
-                        0,
-                        node,
-                        "write None tag to temp",
-                    );
-                    self.builder.add_st8_using_ptr_with_offset(
-                        mem_loc,
-                        temp_reg.register(),
-                        node,
-                        "store None tag to memory",
-                    );
-                }
-                Destination::Unit => {}
-            }
+            self.emit_none_to_destination(output_destination, node);
         }
 
-        let needs_final_load = !(
-            // No load needed if the last element was a member call
-            (!chain.is_empty() && matches!(chain.last().unwrap().kind, PostfixKind::MemberCall(_, _)))
-
-                // No load needed if current location is already the right register
-                || matches!(
-        (output_destination, &current_location),
-        (Destination::Register(out), Destination::Register(curr)) if out.index == curr.index
-    )
-
-                // No load needed for Unit destination
-                || matches!(output_destination, Destination::Unit)
-        );
-
-        if needs_final_load {
-            match output_destination {
-                Destination::Register(output_reg) => {
-                    if output_destination.ty().is_aggregate() {
-                        self.emit_compute_effective_address_to_target_register(
-                            output_reg,
-                            &current_location,
-                            &start_expression.node,
-                            "after postfix we need absolute pointer",
-                        );
-                        /*
-                        self.builder.add_mov_reg(
-                            output_reg,
-                            &absolute_pointer_reg,
-                            &start_expression.node,
-                            &format!("{} move absolute pointer in place", ctx.comment()),
-                        );*/
-                    } else if !matches!(current_location, Destination::Register(ref reg) if reg == output_reg)
-                    {
-                        self.emit_transfer_value_to_register(
-                            output_reg,
-                            &current_location,
-                            &start_expression.node,
-                            "rvalue postfix chain",
-                        );
-                    }
-                }
-                Destination::Memory(mem_loc) => {
-                    let underlying = mem_loc.ty.basic_type();
-                    if underlying.is_aggregate() {
-                        // Complex type - we need to store to memory
-                        self.emit_store_value_to_memory_destination(
-                            output_destination,
-                            &current_location,
-                            &start_expression.node,
-                            "rvalue postfix chain to memory",
-                        );
-                    } else {
-                        let rhs_value_temp = self.temp_registers.allocate(
-                            current_location.vm_type().unwrap().clone(),
-                            "end of chain, load primitive to target",
-                        );
-
-                        self.emit_transfer_value_to_register(
-                            rhs_value_temp.register(),
-                            &current_location,
-                            &start_expression.node,
-                            "end of chain, load primitive into temp register",
-                        );
-
-                        self.emit_store_scalar_to_memory_offset_instruction(
-                            mem_loc,
-                            rhs_value_temp.register(),
-                            &start_expression.node,
-                            "store from temp primitive register to final memory destination",
-                        );
-                    }
-                }
-                Destination::Unit => {}
-            }
-        }
+        // Perform final load/conversion if needed
+        self.emit_final_load_if_needed(output_destination, &current_location, &start_expression.node, chain);
 
         // If we have a None coalescing jump to skip the final load, patch it here
         if let Some(skip_final_load) = none_coalesce_final_load_skip {
