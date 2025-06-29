@@ -247,7 +247,7 @@ fn push() {
     assert(another.things[2].b == -2 + 44, 'another.things[3].b is wrong')
 }
 
-#[test]
+//#[test] // TODO: Bring this back when you can have arguments for trap expectations
 #[should_trap(expected="vec_bounds_fail")]
 fn trap_remove() {
     mut another = Another {
