@@ -277,9 +277,7 @@ impl CodeBuilder<'_> {
                 };
 
                 // Initialize the allocated space first (like variable definition)
-                eprintln!("DEBUG: vec.push element_gen_type: {:?}, is_aggregate: {}", element_gen_type, element_gen_type.is_aggregate());
                 if element_gen_type.is_aggregate() {
-                    eprintln!("DEBUG: Calling emit_initialize_target_memory_first_time for vec.push");
                     self.emit_initialize_target_memory_first_time(
                         &location.location,
                         node,

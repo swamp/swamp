@@ -146,7 +146,6 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        eprintln!("DEBUG: emit_initialize_target_memory_first_time called for type: {:?}", lvalue_location.ty.basic_type());
         match &lvalue_location.ty.basic_type().kind {
             BasicTypeKind::SparseStorage(element_type, capacity) => {
                 let absolute_pointer = self
