@@ -429,7 +429,7 @@ pub fn run_function_with_debug(
             let hash_after = calculate_memory_checksum(vm.all_memory_up_to(saved_fp));
             if hash_after != hash_before {
                 panic!("INTERNAL ERROR: constant memory has been written to");
-                vm.state = VmState::Trap(TrapCode::VecBoundsFail);
+                //vm.state = VmState::Trap(TrapCode::VecBoundsFail);
             }
             /*
             assert_eq!(

@@ -241,7 +241,10 @@ impl Vm {
         }
 
         if index >= vec_header.element_count as u32 {
-            return self.internal_trap(TrapCode::VecBoundsFail);
+            return self.internal_trap(TrapCode::VecBoundsFail {
+                encountered: index as usize,
+                element_count: vec_header.element_count as usize,
+            });
         }
 
         let element_size = u16_from_u8s!(element_size_lower, element_size_upper);
@@ -278,9 +281,15 @@ impl Vm {
         let mut len = 0;
 
         unsafe {
+            if (*mut_vec_ptr).capacity == 0 {
+                return self.internal_trap(TrapCode::VecNeverInitialized);
+            }
             len = (*mut_vec_ptr).element_count;
             if len >= (*mut_vec_ptr).capacity {
-                return self.internal_trap(TrapCode::VecBoundsFail);
+                return self.internal_trap(TrapCode::VecOutOfCapacity {
+                    encountered: len,
+                    capacity: (*mut_vec_ptr).capacity,
+                });
             }
             (*mut_vec_ptr).element_count += 1;
         }
@@ -313,7 +322,7 @@ impl Vm {
 
             // Check if vector is empty
             if header.element_count == 0 {
-                return self.internal_trap(TrapCode::VecBoundsFail);
+                return self.internal_trap(TrapCode::VecEmpty);
             }
             // Get the last element index
             let last_index = u32::from(header.element_count) - 1;
@@ -350,7 +359,10 @@ impl Vm {
 
         unsafe {
             if index >= u32::from((*mut_vec_ptr).element_count) {
-                return self.internal_trap(TrapCode::VecBoundsFail);
+                return self.internal_trap(TrapCode::VecBoundsFail {
+                    encountered: index as usize,
+                    element_count: (*mut_vec_ptr).element_count as usize,
+                });
             }
         }
 

@@ -330,7 +330,7 @@ impl Vm {
                 self.memory.get_heap_const_ptr(map_header_addr as usize) as *const MapHeader;
             let map_header = &*map_header_ptr;
             if map_header.padding_and_secret_code != hashmap_mem::SECRET_CODE {
-                return self.internal_trap(TrapCode::VecBoundsFail);
+                return self.internal_trap(TrapCode::MemoryCorruption);
             }
             debug_assert_eq!(map_header.padding_and_secret_code, hashmap_mem::SECRET_CODE);
 

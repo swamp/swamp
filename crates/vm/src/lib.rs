@@ -118,12 +118,13 @@ pub struct CallFrame {
 
 type RegContents = u32;
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-#[repr(u8)]
-#[derive(Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum TrapCode {
     StoppedByTestHarness,
-    VecBoundsFail,
+    VecBoundsFail {
+        encountered: usize,
+        element_count: usize,
+    },
     MapOutOfSpace,
     MapEntryNotFound,
     MapEntryNotFoundAndCouldNotBeCreated,
@@ -134,14 +135,25 @@ pub enum TrapCode {
     SparseGetFailed,
     MapCouldNotBeCopied,
     OverlappingMemoryCopy,
+    MemoryCorruption,
+    VecOutOfCapacity {
+        encountered: u16,
+        capacity: u16,
+    },
+    VecEmpty,
+    VecNeverInitialized,
 }
+
 impl TryFrom<u8> for TrapCode {
     type Error = ();
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         let code = match value {
             0 => Self::StoppedByTestHarness,
-            1 => Self::VecBoundsFail,
+            1 => Self::VecBoundsFail {
+                encountered: 0,
+                element_count: 0,
+            }, // TODO: Fix this
             2 => Self::MapOutOfSpace,
             3 => Self::MapEntryNotFound,
             4 => Self::MapEntryNotFoundAndCouldNotBeCreated,
@@ -173,7 +185,10 @@ impl FromStr for TrapCode {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let code = match s {
             "stopped_by_test_harness" => Self::StoppedByTestHarness,
-            "vec_bounds_fail" => Self::VecBoundsFail,
+            "vec_bounds_fail" => Self::VecBoundsFail {
+                encountered: 0,
+                element_count: 0,
+            }, // TODO: FIX
             "map_out_of_space" => Self::MapOutOfSpace,
             "map_entry_not_found" => Self::MapEntryNotFound,
             "map_entry_or_create_failed" => Self::MapEntryNotFoundAndCouldNotBeCreated,
@@ -193,7 +208,7 @@ impl FromStr for TrapCode {
 
 impl Display for TrapCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "trap {:?} code: {}", self, *self as u8)
+        write!(f, "trap {:?}", self)
     }
 }
 
