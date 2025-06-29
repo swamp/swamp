@@ -40,15 +40,40 @@ impl CodeBuilder<'_> {
             return;
         }
 
-        // Use the existing helper function that handles all the complexity of transferring
-        // values between different destination types (register to register, memory to register,
-        // register to memory, memory to memory, etc.) including type conversions
-        self.emit_copy_value_between_destinations(
-            output_destination,
-            current_location,
-            node,
-            "postfix chain final load",
-        );
+        // Handle the final load/conversion with proper type handling
+        match output_destination {
+            Destination::Register(output_reg) => {
+                if output_destination.ty().is_aggregate() {
+                    // For aggregate types, we need the effective address (pointer)
+                    self.emit_compute_effective_address_to_target_register(
+                        output_reg,
+                        current_location,
+                        node,
+                        "postfix chain final load: compute effective address for aggregate",
+                    );
+                } else {
+                    // For primitive types, transfer the value
+                    self.emit_transfer_value_to_register(
+                        output_reg,
+                        current_location,
+                        node,
+                        "postfix chain final load: transfer primitive value",
+                    );
+                }
+            }
+            Destination::Memory(mem_loc) => {
+                // For memory destinations, use the existing helper that handles all cases properly
+                self.emit_store_value_to_memory_destination(
+                    output_destination,
+                    current_location,
+                    node,
+                    "postfix chain final load: store to memory",
+                );
+            }
+            Destination::Unit => {
+                // Nothing to do for Unit destination
+            }
+        }
     }
 
     /// Handles writing None to the output destination for optional types
