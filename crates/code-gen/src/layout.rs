@@ -3,7 +3,7 @@ use crate::alloc::ScopeAllocator;
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::Write;
-use swamp_semantic::{VariableRef, VariableScopes, VariableType};
+use swamp_semantic::{VariableScopes, VariableType};
 use swamp_types::TypeRef;
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{
@@ -11,7 +11,6 @@ use swamp_vm_types::types::{
     VariableRegister, VmType,
 };
 use swamp_vm_types::{FrameMemoryAddress, FrameMemoryRegion, MemorySize};
-use tracing::info;
 
 /// # Errors
 ///
@@ -92,7 +91,7 @@ pub fn layout_variables(
         let typed_register = TypedRegister {
             index: var_ref.virtual_register,
             ty: vm_type,
-            comment: "".to_string(),
+            comment: String::new(),
         };
 
         //info!(unique_id=?var_ref.unique_id_within_function, name=?var_ref.assigned_name, "insert variable");

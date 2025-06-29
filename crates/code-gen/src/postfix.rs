@@ -7,10 +7,9 @@ use crate::ctx::Context;
 use crate::single_intrinsic_fn;
 use source_map_node::Node;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
-use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
-use tracing::{error, info};
+use tracing::error;
 
 impl CodeBuilder<'_> {
     /// Handles the final load/conversion from `current_location` to `output_destination` if needed.
@@ -117,7 +116,7 @@ impl CodeBuilder<'_> {
 
             match &element.kind {
                 PostfixKind::StructField(anonymous_struct, field_index) => {
-                    let struct_layout = self.state.layout_cache.layout(&anonymous_struct);
+                    let struct_layout = self.state.layout_cache.layout(anonymous_struct);
 
                     let offset_item = struct_layout.get_field_offset(*field_index).unwrap();
 

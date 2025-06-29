@@ -60,7 +60,7 @@ impl CodeBuilder<'_> {
             let payload_memory_offset = match &*optional_type.kind {
                 TypeKind::Optional(inner_type) => {
                     // We have an Optional type, get the layout info
-                    let binding_gen_type = self.state.layout_cache.layout(&optional_type);
+                    let binding_gen_type = self.state.layout_cache.layout(optional_type);
                     let (_, _, payload_offset, _) = binding_gen_type.unwrap_info().unwrap();
                     payload_offset
                 }

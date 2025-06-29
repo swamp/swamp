@@ -7,7 +7,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
-use swamp_types::{Type, TypeRef};
+use swamp_types::TypeRef;
 use swamp_vm_types::types::{BasicTypeKind, VmType};
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset};
 
@@ -51,7 +51,7 @@ impl CodeBuilder<'_> {
         let node = &source_tuple_expression.node;
         let tuple_base_pointer_reg = self.emit_scalar_rvalue(source_tuple_expression, context);
 
-        let gen_tuple_type_ref = self.state.layout_cache.layout(&tuple_type_ref);
+        let gen_tuple_type_ref = self.state.layout_cache.layout(tuple_type_ref);
         let BasicTypeKind::Tuple(tuple_type) = &gen_tuple_type_ref.kind else {
             panic!("something is wrong");
         };

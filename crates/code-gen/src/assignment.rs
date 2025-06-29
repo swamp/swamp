@@ -9,7 +9,7 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{CompoundOperatorKind, Expression, TargetAssignmentLocation, VariableRef};
-use swamp_types::{Type, TypeKind};
+use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, TypedRegister, VmTypeOrigin};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 

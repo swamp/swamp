@@ -8,26 +8,24 @@ use source_map_cache::SourceMap;
 use source_map_cache::SourceMapWrapper;
 use std::env::current_dir;
 use std::io;
-use std::io::stdout;
 use std::path::Path;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::str::FromStr;
 use swamp_analyzer::Analyzer;
 pub use swamp_analyzer::prelude::Program;
 use swamp_dep_loader::{
-    DependencyParser, ParsedAstModule, parse_local_modules_and_get_order, parse_single_module,
+    DependencyParser, ParsedAstModule, parse_local_modules_and_get_order,
     parse_single_module_from_text, swamp_registry_path,
 };
 use swamp_error_report::analyze::show_analyzer_error;
 use swamp_error_report::{ScriptResolveError, prelude::show_script_resolve_error};
-use swamp_modules::modules::{ModuleRef, Modules, pretty_print};
+use swamp_modules::modules::{ModuleRef, Modules};
 use swamp_modules::prelude::Module;
 use swamp_modules::symtbl::{SymbolTable, SymbolTableRef};
 use swamp_pretty_print::{ImplsDisplay, SourceMapDisplay, SymbolTableDisplay};
 use swamp_program_analyzer::analyze_modules_in_order;
 use swamp_semantic::err::Error;
-use swamp_semantic::{AssociatedImpls, ProgramState, formal_module_name, pretty_module_name};
+use swamp_semantic::{AssociatedImpls, ProgramState, formal_module_name};
 use swamp_types::prelude::print_types;
 use time_dilation::ScopedTimer;
 use tiny_ver::TinyVersion;
@@ -113,7 +111,7 @@ fn std_text() -> String {
 
 #[allow(clippy::too_many_lines)]
 fn core_text() -> String {
-    let text = r#"
+    let text = r"
   /// DO NOT EDIT!
 
 /// # Swamp Core Module
@@ -456,7 +454,7 @@ fn step() {
     runtime_step()
 }
 
-    "#;
+    ";
 
     text.to_string()
 }
@@ -531,9 +529,9 @@ pub fn bootstrap_modules(
     let std_ast_module = parse_single_module_from_text(source_map, std_path, &std_text())?;
     let analyzed_std_symbol_table = analyze_single_module(
         &mut state,
-        default_symbol_table_for_core_with_intrinsics.clone(),
+        default_symbol_table_for_core_with_intrinsics,
         &modules,
-        half_completed_core_symbol_table.clone().into(),
+        half_completed_core_symbol_table.into(),
         &std_ast_module,
         source_map,
         &std_module_with_intrinsics.symbol_table.module_path(),
@@ -685,7 +683,7 @@ pub fn compile_and_analyze_all_modules(
     Ok(())
 }
 
-pub fn remove_version_from_package_name_regex(package_name_with_version: &str) -> String {
+#[must_use] pub fn remove_version_from_package_name_regex(package_name_with_version: &str) -> String {
     let re = Regex::new(
         r"-(?P<version>[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)?(?:\+.*)?$",
     )
@@ -693,7 +691,7 @@ pub fn remove_version_from_package_name_regex(package_name_with_version: &str) -
     re.replace(package_name_with_version, "").to_string()
 }
 
-pub fn current_path() -> PathBuf {
+#[must_use] pub fn current_path() -> PathBuf {
     current_dir().unwrap()
 }
 
@@ -759,7 +757,7 @@ pub fn bootstrap_and_compile(
     if options.show_types {
         let mut str = String::new();
         print_types(&mut str, &program.state.types).expect("should work");
-        eprintln!("{}", str);
+        eprintln!("{str}");
         //info!(str, "types");
     }
 

@@ -389,7 +389,7 @@ pub struct AggregateMemoryLocation {
 
 impl AggregateMemoryLocation {
     #[must_use]
-    pub fn new(location: MemoryLocation) -> Self {
+    pub const fn new(location: MemoryLocation) -> Self {
         Self { location }
     }
 }

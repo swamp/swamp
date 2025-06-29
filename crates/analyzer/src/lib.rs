@@ -38,7 +38,7 @@ use swamp_semantic::{
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::prelude::*;
-use swamp_types::{Type, TypeKind};
+use swamp_types::TypeKind;
 use tracing::error;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -114,14 +114,14 @@ impl<'a> TypeContext<'a> {
         }
     }
 
-    pub(crate) fn with_lvalue(&self) -> Self {
+    pub(crate) const fn with_lvalue(&self) -> Self {
         Self {
             expected_type: self.expected_type,
             has_lvalue_target: true,
         }
     }
 
-    pub(crate) fn argument(&self, expected_type: &'a TypeRef) -> Self {
+    pub(crate) const fn argument(&self, expected_type: &'a TypeRef) -> Self {
         Self {
             expected_type: Some(expected_type),
             has_lvalue_target: self.has_lvalue_target,

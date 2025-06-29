@@ -158,7 +158,7 @@ impl TopLevelGenState {
         }
 
         // Remove duplicates and sort
-        registers_to_save.sort();
+        registers_to_save.sort_unstable();
         registers_to_save.dedup();
 
         let count = registers_to_save.len() as u8;

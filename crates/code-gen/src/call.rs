@@ -16,9 +16,9 @@ use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_m
 use swamp_types::TypeKind;
 use swamp_types::prelude::Signature;
 use swamp_vm_types::types::{
-    BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType, u32_type,
+    BasicTypeRef, Destination, TypedRegister, VmType,
 };
-use swamp_vm_types::{FrameMemoryRegion, MemoryLocation, REG_ON_FRAME_SIZE};
+use swamp_vm_types::{FrameMemoryRegion, REG_ON_FRAME_SIZE};
 
 pub struct CopyArgument {
     pub canonical_target: TypedRegister,

@@ -23,7 +23,7 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         let variant_index = variant_type.common().container_index as usize;
-        let layout_gen_enum = self.state.layout_cache.layout(&enum_type);
+        let layout_gen_enum = self.state.layout_cache.layout(enum_type);
         let BasicTypeKind::TaggedUnion(layout_enum) = &layout_gen_enum.kind else {
             panic!("wrong")
         };
@@ -62,7 +62,7 @@ impl CodeBuilder<'_> {
                 self.emit_tuple_literal_into_memory(
                     &payload_memory_location,
                     &variant_type.payload_type,
-                    &*tuple_expressions,
+                    tuple_expressions,
                     ctx,
                     node,
                 );
@@ -76,7 +76,7 @@ impl CodeBuilder<'_> {
                 self.emit_anonymous_struct_into_memory(
                     &payload_memory_location,
                     &variant_type.payload_type,
-                    &sorted_field_expressions,
+                    sorted_field_expressions,
                     node,
                     ctx,
                 );

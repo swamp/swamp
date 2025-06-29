@@ -7,7 +7,6 @@ use seq_map::SeqMap;
 use seq_set::SeqSet;
 use source_map_node::Node;
 use std::collections::HashSet;
-use std::task::Context;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef, Postfix, PostfixKind,

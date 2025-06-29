@@ -4,7 +4,7 @@
  */
 use crate::Collection;
 use std::rc::Rc;
-use swamp_types::{Type, TypeRef};
+use swamp_types::TypeRef;
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{
     BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, FramePlacedType, unknown_type,

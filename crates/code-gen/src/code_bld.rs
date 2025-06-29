@@ -6,7 +6,7 @@
 use crate::ArgumentAndTempScope;
 use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
-use crate::reg_pool::{HwmTempRegisterPool, RegisterPool};
+use crate::reg_pool::HwmTempRegisterPool;
 use crate::state::CodeGenState;
 use seq_map::SeqMap;
 use source_map_cache::{
@@ -17,11 +17,11 @@ use swamp_semantic::{
     ArgumentExpression, BooleanExpression, ConstantRef, Expression, SingleLocationExpression,
     UnaryOperator, UnaryOperatorKind, VariableRef,
 };
-use swamp_types::{Type, TypeKind, TypeRef};
+use swamp_types::TypeKind;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    BasicType, BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType, b8_type, u8_type,
+    BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType, b8_type, u8_type,
     u32_type,
 };
 use swamp_vm_types::{
@@ -360,7 +360,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) -> TypedRegister {
-        let frame_placed_type = self.frame_allocator.allocate_type(&ty);
+        let frame_placed_type = self.frame_allocator.allocate_type(ty);
 
         let temp = self.temp_registers.allocate(
             VmType::new_frame_placed(frame_placed_type),
@@ -458,7 +458,7 @@ impl CodeBuilder<'_> {
             let output_reg = output.memory_location_or_pointer_reg();
 
             self.emit_copy_value_from_memory_location(
-                &output,
+                output,
                 &source_memory_location,
                 node,
                 &format!("copy to target memory {output_reg} from constant memory area {source_memory_location}"),
