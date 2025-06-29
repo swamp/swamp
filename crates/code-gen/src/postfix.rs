@@ -97,6 +97,7 @@ impl CodeBuilder<'_> {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_postfix_chain(
         &mut self,
         output_destination: &Destination,
@@ -380,16 +381,6 @@ impl CodeBuilder<'_> {
                             "load optional tag",
                         );
 
-                        /*
-                        self.builder.add_mov_reg(
-                            temp_reg.register(),
-                            temp_reg.register(),
-                            &element.node,
-                            "test tag - sets 0 if None(0), 1 if Some(1)",
-                        );
-
-                         */
-
                         // If P=1 (Some), skip fallback
                         let skip_fallback_patch = self.builder.add_jmp_if_true_placeholder(
                             tag_reg.register(),
@@ -429,8 +420,6 @@ impl CodeBuilder<'_> {
                     }
                 }
             }
-
-            //info!(t=?element.ty, index, t=?current_location.vm_type(), ?element.kind, "after element");
         }
 
         // After all chain processing is done, patch all None jumps to here
