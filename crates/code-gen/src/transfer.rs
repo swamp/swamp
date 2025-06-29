@@ -467,8 +467,14 @@ impl CodeBuilder<'_> {
 
             if ty.basic_type.is_vec_like() {
                 if let (Some(element_size), Some(header_size)) = (
-                    source_memory_location.ty.basic_type.bucket_size_for_vec_like(),
-                    source_memory_location.ty.basic_type.header_size_for_vec_like(),
+                    source_memory_location
+                        .ty
+                        .basic_type
+                        .bucket_size_for_vec_like(),
+                    source_memory_location
+                        .ty
+                        .basic_type
+                        .header_size_for_vec_like(),
                 ) {
                     self.emit_copy_vec_like_value_helper(
                         destination_memory_location,

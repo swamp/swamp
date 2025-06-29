@@ -284,7 +284,6 @@ impl CodeBuilder<'_> {
                         "initialize vec.push allocated space",
                     );
                 } else {
-                    eprintln!("DEBUG: Skipping initialization because element_gen_type.is_aggregate() = false");
                 }
 
                 self.emit_expression_into_target_memory(

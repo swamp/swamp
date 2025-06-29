@@ -22,7 +22,9 @@ pub(crate) const fn allocate_next_register(scope: &mut ScopeInfo) -> usize {
 
 /// Common helper function for allocating the next available register from `VariableScopes`
 /// This ensures all variable creation functions use the same register allocation logic
-pub(crate) const fn allocate_next_register_from_variable_scopes(scope: &mut VariableScopes) -> usize {
+pub(crate) const fn allocate_next_register_from_variable_scopes(
+    scope: &mut VariableScopes,
+) -> usize {
     scope.current_register += 1;
     scope.current_register
 }

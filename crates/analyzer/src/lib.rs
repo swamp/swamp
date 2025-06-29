@@ -1002,12 +1002,12 @@ impl<'a> Analyzer<'a> {
             }
 
             // Handle collection types by creating empty initializer lists
-            TypeKind::VecStorage(_, _) |
-            TypeKind::FixedCapacityAndLengthArray(_, _) |
-            TypeKind::GridStorage(_, _, _) |
-            TypeKind::SparseStorage(_, _) |
-            TypeKind::QueueStorage(_, _) |
-            TypeKind::StackStorage(_, _) => {
+            TypeKind::VecStorage(_, _)
+            | TypeKind::FixedCapacityAndLengthArray(_, _)
+            | TypeKind::GridStorage(_, _, _)
+            | TypeKind::SparseStorage(_, _)
+            | TypeKind::QueueStorage(_, _)
+            | TypeKind::StackStorage(_, _) => {
                 // Create an empty initializer list for collections
                 ExpressionKind::InitializerList(field_type.clone(), Vec::new())
             }

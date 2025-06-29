@@ -301,11 +301,16 @@ impl CodeBuilder<'_> {
 
             // For aggregate types, we also need to initialize the collection metadata (capacity, etc.)
             if target_register.ty.basic_type.is_aggregate() {
-                let memory_location = MemoryLocation::new_copy_over_whole_type_with_zero_offset(target_register.clone());
+                let memory_location = MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                    target_register.clone(),
+                );
                 self.emit_initialize_target_memory_first_time(
                     &memory_location,
                     &variable.name,
-                    &format!("initialize collection metadata for variable {}", variable.assigned_name),
+                    &format!(
+                        "initialize collection metadata for variable {}",
+                        variable.assigned_name
+                    ),
                 );
             }
         }
