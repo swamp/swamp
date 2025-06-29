@@ -76,9 +76,6 @@ impl Memory {
 
         let aligned_start_of_heap = align(aligned_start_of_stack + stack_memory_size, ALIGNMENT);
 
-        eprintln!(
-            "START: stack_start: {aligned_start_of_stack:X}, heap_start: {aligned_start_of_heap:X} "
-        );
         assert!(aligned_start_of_heap > aligned_start_of_stack + 128 * 1024);
 
         Self {
@@ -123,18 +120,6 @@ impl Memory {
 
         // When setting heap directly after constant area, we're in constant evaluation mode
         self.execution_mode = ExecutionMode::ConstantEvaluation;
-        eprintln!("Switched to ExecutionMode::ConstantEvaluation");
-    }
-
-    /// Set the execution mode
-    pub fn set_execution_mode(&mut self, mode: ExecutionMode) {
-        self.execution_mode = mode;
-        eprintln!("Execution mode set to: {:?}", mode);
-    }
-
-    /// Get the current execution mode
-    pub fn execution_mode(&self) -> ExecutionMode {
-        self.execution_mode
     }
 
     pub fn incorporate_heap_into_constant_area(&mut self) {
@@ -158,7 +143,6 @@ impl Memory {
 
         // After incorporating heap into constant area, we're switching to normal execution mode
         self.execution_mode = ExecutionMode::NormalExecution;
-        eprintln!("Switched to ExecutionMode::NormalExecution");
         //        eprintln!("After: constant_memory_size=0x{:X}, new_stack_start=0x{:X}, new_heap_start=0x{:X}",
         //                self.constant_memory_size, new_stack_start, new_heap_start);
     }

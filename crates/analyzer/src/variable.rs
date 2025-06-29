@@ -13,25 +13,17 @@ use swamp_semantic::{
 use swamp_semantic::{ScopeInfo, VariableScopes};
 use swamp_types::prelude::*;
 
-/// Common helper function for allocating the next available register from ScopeInfo
+/// Common helper function for allocating the next available register from `ScopeInfo`
 /// This ensures all variable creation functions use the same register allocation logic
 pub(crate) fn allocate_next_register(scope: &mut ScopeInfo) -> usize {
     scope.total_scopes.current_register += 1;
-    eprintln!(
-        "REGISTER_ALLOCATION: allocated register {}",
-        scope.total_scopes.current_register
-    );
     scope.total_scopes.current_register
 }
 
-/// Common helper function for allocating the next available register from VariableScopes
+/// Common helper function for allocating the next available register from `VariableScopes`
 /// This ensures all variable creation functions use the same register allocation logic
 pub(crate) fn allocate_next_register_from_variable_scopes(scope: &mut VariableScopes) -> usize {
     scope.current_register += 1;
-    eprintln!(
-        "REGISTER_ALLOCATION: allocated register {}",
-        scope.current_register
-    );
     scope.current_register
 }
 
@@ -207,10 +199,6 @@ impl Analyzer<'_> {
 
         // Only increment register counter when we're actually creating a valid variable
         let virtual_register = allocate_next_register(&mut self.scope);
-        eprintln!(
-            "REGISTER_ALLOCATION: {} gets register {}",
-            variable_str, virtual_register
-        );
 
         let resolved_variable = Variable {
             name: variable.clone(),

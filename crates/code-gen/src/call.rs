@@ -236,16 +236,11 @@ impl CodeBuilder<'_> {
             if return_basic_type.is_aggregate() {
                 // For aggregates: initialize the destination space first, then set up r0 as pointer to destination
                 if let Some(memory_location) = output_destination.memory_location() {
-                    eprintln!(
-                        "EMIT_ARGUMENTS: Initializing aggregate return destination: {}",
-                        memory_location
-                    );
                     self.emit_initialize_target_memory_first_time(
                         memory_location,
                         node,
                         "initialize aggregate return destination before call",
                     );
-                    eprintln!("EMIT_ARGUMENTS: Finished initializing aggregate return destination");
                 }
                 self.setup_return_pointer_reg(output_destination, return_basic_type, node);
             } else {

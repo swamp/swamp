@@ -56,19 +56,6 @@ impl CodeBuilder<'_> {
         lambda_tuple: (Vec<VariableRef>, &Expression),
         ctx: &Context,
     ) {
-        eprintln!(
-            "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: transformer={:?}, source_collection_type={:?}",
-            transformer, source_collection_type
-        );
-        eprintln!(
-            "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: source_collection_reg={}",
-            source_collection_reg
-        );
-        eprintln!(
-            "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: target_destination={:?}",
-            target_destination
-        );
-
         let (lambda_variables, lambda_expr) = lambda_tuple;
         let maybe_primary_element_gen_type = source_collection_reg.ty.basic_type.element().cloned();
 
@@ -82,23 +69,8 @@ impl CodeBuilder<'_> {
             })
             .collect();
 
-        eprintln!(
-            "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: lambda_variables count={}",
-            lambda_variables.len()
-        );
-        for (i, var) in target_variables.iter().enumerate() {
-            eprintln!(
-                "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: target_variable[{}]={}",
-                i, var
-            );
-        }
-
         // Primary is the right most variable
         let primary_variable = &target_variables[target_variables.len() - 1];
-        eprintln!(
-            "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: primary_variable={}",
-            primary_variable
-        );
 
         let hwm = self.temp_registers.save_mark();
 
@@ -108,20 +80,11 @@ impl CodeBuilder<'_> {
                 // For transformers that create collections (filter, map, filterMap),
                 // we need to initialize the target vector before adding elements
                 let target_memory_location = target_destination.memory_location_or_pointer_reg();
-                eprintln!(
-                    "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: target_memory_location={:?}",
-                    target_memory_location
-                );
-                eprintln!(
-                    "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: About to initialize target collection"
-                );
+
                 self.emit_initialize_target_memory_first_time(
                     &target_memory_location,
                     node,
                     "initialize target collection for transformer",
-                );
-                eprintln!(
-                    "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: Finished initializing target collection"
                 );
 
                 // For VecFromSourceCollection, compute the collection pointer now to avoid
@@ -135,10 +98,7 @@ impl CodeBuilder<'_> {
                         node,
                         "get pointer to collection (before lambda execution)",
                     );
-                    eprintln!(
-                        "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: computed collection pointer={}",
-                        computed_pointer
-                    );
+
                     Some(computed_pointer)
                 } else {
                     None
@@ -161,14 +121,7 @@ impl CodeBuilder<'_> {
             );
 
         // 3. Inline the lambda code for the current element(s).
-        eprintln!(
-            "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: About to execute lambda for current element"
-        );
         let lambda_result = self.emit_scalar_rvalue(lambda_expr, ctx);
-        eprintln!(
-            "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: Lambda result={}",
-            lambda_result
-        );
 
         // 4. If the transformer supports early exit, set the P flag based on the lambda result.
         let transformer_t_flag_state = self.check_if_transformer_sets_t_flag(transformer);
@@ -194,33 +147,19 @@ impl CodeBuilder<'_> {
         };
 
         // 6. If applicable, insert the (possibly unwrapped) result into the target vector.
-        eprintln!(
-            "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: Processing transformer return type: {:?}",
-            transformer.return_type()
-        );
+
         match transformer.return_type() {
             TransformerResult::Unit => {
-                eprintln!(
-                    "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: TransformerResult::Unit - no action needed"
-                );
+
                 // Only alternative is that it is a bool return, so no need to take any action here
             }
             TransformerResult::Bool => {
-                eprintln!(
-                    "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: TransformerResult::Bool - no action needed"
-                );
                 // Only alternative is that it is a bool return, so no need to take any action here
             }
             TransformerResult::WrappedValueFromSourceCollection => {
-                eprintln!(
-                    "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: TransformerResult::WrappedValueFromSourceCollection - handled elsewhere"
-                );
                 // Handled elsewhere
             }
             TransformerResult::VecWithLambdaResult => {
-                eprintln!(
-                    "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: TransformerResult::VecWithLambdaResult - adding lambda result to collection"
-                );
                 self.transformer_add_to_collection(
                     &lambda_result,
                     transformer.needs_tag_removed(),
@@ -230,9 +169,6 @@ impl CodeBuilder<'_> {
                 );
             }
             TransformerResult::VecFromSourceCollection => {
-                eprintln!(
-                    "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: TransformerResult::VecFromSourceCollection - conditionally adding source element to collection"
-                );
                 let skip_if_false_patch_position = self.builder.add_jmp_if_not_true_placeholder(
                     &lambda_result,
                     node,
@@ -242,10 +178,7 @@ impl CodeBuilder<'_> {
                 let absolute_pointer = maybe_target_collection_pointer
                     .as_ref()
                     .expect("collection pointer should have been computed before lambda execution");
-                eprintln!(
-                    "EMIT_ITERATE_OVER_COLLECTION_WITH_LAMBDA: Adding source element to collection: absolute_pointer={}, primary_variable={}",
-                    absolute_pointer, primary_variable
-                );
+
                 self.add_to_collection(
                     node,
                     source_collection_type,
@@ -661,21 +594,11 @@ impl CodeBuilder<'_> {
         mut_collection: &TypedRegister,
         value: &TypedRegister,
     ) {
-        eprintln!(
-            "ADD_TO_COLLECTION: collection={:?}, mut_collection={}, value={}",
-            collection, mut_collection, value
-        );
-
         match collection {
             Collection::Vec => {
                 let target_element_addr_reg = self.temp_registers.allocate(
                     VmType::new_contained_in_register(u32_type()),
                     "address for the element entry",
-                );
-
-                eprintln!(
-                    "ADD_TO_COLLECTION: allocated temporary register {} for element address",
-                    target_element_addr_reg.register()
                 );
 
                 self.builder.add_vec_push_addr(
@@ -684,13 +607,6 @@ impl CodeBuilder<'_> {
                     value.ty.basic_type.total_size,
                     node,
                     "add_to_collection for transformer",
-                );
-
-                eprintln!(
-                    "ADD_TO_COLLECTION: vec.push {} {} #{}",
-                    target_element_addr_reg.register(),
-                    mut_collection,
-                    value.ty.basic_type.total_size.0
                 );
 
                 let vec_entry_destination =
@@ -729,11 +645,6 @@ impl CodeBuilder<'_> {
         mut_collection: &TypedRegister,
         node: &Node,
     ) {
-        eprintln!(
-            "TRANSFORMER_ADD_TO_COLLECTION: in_value={}, should_unwrap_value={}, collection_type={:?}, mut_collection={}",
-            in_value, should_unwrap_value, collection_type, mut_collection
-        );
-
         let (register_to_be_inserted_in_collection, _maybe_temp) = if should_unwrap_value {
             let tagged_union = in_value.underlying().optional_info().unwrap().clone();
             let some_variant = tagged_union.get_variant_by_index(1);

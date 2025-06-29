@@ -249,7 +249,6 @@ pub fn run_tests(
 
     if options.should_run {
         let some_form_of_debug = options.debug_opcodes || options.debug_output;
-        eprintln!("running in debug: {some_form_of_debug}");
 
         let run_first_options = RunConstantsOptions {
             stderr_adapter: None,
