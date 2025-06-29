@@ -3,11 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+use crate::ArgumentAndTempScope;
 use crate::alloc::ScopeAllocator;
 use crate::ctx::Context;
 use crate::reg_pool::{HwmTempRegisterPool, RegisterPool};
 use crate::state::CodeGenState;
-use crate::ArgumentAndTempScope;
 use seq_map::SeqMap;
 use source_map_cache::{
     KeepTrackOfSourceLine, SourceFileLineInfo, SourceMapLookup, SourceMapWrapper,
@@ -19,10 +19,10 @@ use swamp_semantic::{
 };
 use swamp_types::{Type, TypeKind, TypeRef};
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::{
-    b8_type, u32_type, u8_type, BasicType, BasicTypeRef, Destination, FramePlacedType, TypedRegister,
-    VmType,
+    BasicType, BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType, b8_type, u8_type,
+    u32_type,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset,
@@ -227,7 +227,6 @@ impl CodeBuilder<'_> {
             self.builder.patch_jump_here(jump_on_false_condition);
         }
     }
-
 
     pub(crate) fn temp_frame_space_for_register(
         &mut self,

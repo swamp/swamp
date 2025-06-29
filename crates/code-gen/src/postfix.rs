@@ -13,8 +13,8 @@ use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::{error, info};
 
 impl CodeBuilder<'_> {
-    /// Handles the final load/conversion from current_location to output_destination if needed.
-    /// This is where type conversions happen - we load from the source type and store to the destination type.
+    /// Handles the final load/conversion from `current_location` to `output_destination` if needed.
+    ///
     fn emit_final_load_if_needed(
         &mut self,
         output_destination: &Destination,
@@ -24,56 +24,29 @@ impl CodeBuilder<'_> {
     ) {
         let needs_final_load = !(
             // No load needed if the last element was a member call
+            // Member calls themselves return the correct value in the return
             (!chain.is_empty() && matches!(chain.last().unwrap().kind, PostfixKind::MemberCall(_, _)))
 
-                // No load needed if current location is already the right register
-                || matches!(
-        (output_destination, current_location),
-        (Destination::Register(out), Destination::Register(curr)) if out.index == curr.index
-    )
+            // No load needed if current location is already the right register
+            || matches!(
+                    (output_destination, current_location),
+                    (Destination::Register(out), Destination::Register(curr)) if out.index == curr.index
+            )
 
-                // No load needed for Unit destination
-                || matches!(output_destination, Destination::Unit)
+            // No load needed for Unit destination
+            || matches!(output_destination, Destination::Unit)
         );
 
         if !needs_final_load {
             return;
         }
 
-        // Handle the final load/conversion with proper type handling
-        match output_destination {
-            Destination::Register(output_reg) => {
-                if output_destination.ty().is_aggregate() {
-                    // For aggregate types, we need the effective address (pointer)
-                    self.emit_compute_effective_address_to_target_register(
-                        output_reg,
-                        current_location,
-                        node,
-                        "postfix chain final load: compute effective address for aggregate",
-                    );
-                } else {
-                    // For primitive types, transfer the value
-                    self.emit_transfer_value_to_register(
-                        output_reg,
-                        current_location,
-                        node,
-                        "postfix chain final load: transfer primitive value",
-                    );
-                }
-            }
-            Destination::Memory(mem_loc) => {
-                // For memory destinations, use the existing helper that handles all cases properly
-                self.emit_store_value_to_memory_destination(
-                    output_destination,
-                    current_location,
-                    node,
-                    "postfix chain final load: store to memory",
-                );
-            }
-            Destination::Unit => {
-                // Nothing to do for Unit destination
-            }
-        }
+        self.emit_copy_value_between_destinations(
+            output_destination,
+            current_location,
+            node,
+            "postfix chain final load",
+        );
     }
 
     /// Handles writing None to the output destination for optional types
@@ -474,7 +447,12 @@ impl CodeBuilder<'_> {
         }
 
         // Perform final load/conversion if needed
-        self.emit_final_load_if_needed(output_destination, &current_location, &start_expression.node, chain);
+        self.emit_final_load_if_needed(
+            output_destination,
+            &current_location,
+            &start_expression.node,
+            chain,
+        );
 
         // If we have a None coalescing jump to skip the final load, patch it here
         if let Some(skip_final_load) = none_coalesce_final_load_skip {

@@ -3327,29 +3327,16 @@ impl<'a> Analyzer<'a> {
         let base_context = TypeContext::new_argument(target_type, true);
         let source_expr = self.analyze_expression(ast_source_expression, &base_context);
 
-        /*
-        // previously checked for exact type
-        let lhs_argument_context = TypeContext::new_argument(&ty);
-        let source_expr = self.analyze_expression(ast_source_expression, &lhs_argument_context)?;
-         */
-
         let final_expr = if self.types().compatible_with(target_type, &source_expr.ty) {
             source_expr
-        }
-        /*else if let Some(converted) =
-            self.try_convert_for_assignment(&source_expr, &target_type, ast_source_expression)?
-
-        {
-            converted
-        }         */
-        else {
-            return self.create_err(
-                ErrorKind::IncompatibleTypesForAssignment {
-                    expected: target_type.clone(),
-                    found: source_expr.ty,
-                },
+        } else {
+            let source_type = source_expr.ty.clone();
+            self.types_did_not_match_try_late_coerce_expression(
+                source_expr,
+                target_type,
+                &source_type,
                 &ast_source_expression.node,
-            );
+            )
         };
 
         let assignment_mode = self.check_assignment_mode(true, &final_expr, target_type); // TODO: Fill in correct lhs_is_mutable
