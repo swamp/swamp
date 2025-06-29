@@ -919,6 +919,8 @@ impl Destination {
         }
     }
 
+    /// Use if you know for a fact that the Destination is a memory location
+    /// Either a `base_reg` + `offset` or a normal reg (usually from a variable)
     #[must_use]
     pub fn memory_location_or_pointer_reg(&self) -> MemoryLocation {
         match self {
@@ -934,6 +936,12 @@ impl Destination {
         }
     }
 
+    #[must_use]
+    pub fn grab_aggregate_memory_location_or_pointer_reg(&self) -> AggregateMemoryLocation {
+        AggregateMemoryLocation {
+            location: self.memory_location_or_pointer_reg(),
+        }
+    }
     #[must_use]
     pub fn grab_aggregate_memory_location(&self) -> AggregateMemoryLocation {
         AggregateMemoryLocation {

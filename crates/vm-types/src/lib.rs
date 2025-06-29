@@ -387,6 +387,13 @@ pub struct AggregateMemoryLocation {
     pub location: MemoryLocation,
 }
 
+impl AggregateMemoryLocation {
+    #[must_use]
+    pub fn new(location: MemoryLocation) -> Self {
+        Self { location }
+    }
+}
+
 impl Display for AggregateMemoryLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.location)

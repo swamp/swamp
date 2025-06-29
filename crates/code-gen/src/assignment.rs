@@ -227,12 +227,7 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub(crate) fn emit_variable_definition(
-        &mut self,
-        variable: &VariableRef,
-        expression: &Expression,
-        ctx: &Context,
-    ) {
+    pub fn initialize_variable_the_first_time(&mut self, variable: &VariableRef) {
         let target_register = self
             .variable_registers
             .get(&variable.unique_id_within_function)
@@ -243,7 +238,6 @@ impl CodeBuilder<'_> {
                 )
             })
             .clone();
-
         // For frame-placed variables, we need to emit a LEA instruction first
         // to initialize the register to point to the frame-allocated space
         if let VmTypeOrigin::Frame(frame_region) = target_register.ty.origin {
@@ -264,6 +258,15 @@ impl CodeBuilder<'_> {
                 &format!("clear memory for variable {}", variable.assigned_name),
             );
         }
+    }
+
+    pub(crate) fn emit_variable_definition(
+        &mut self,
+        variable: &VariableRef,
+        expression: &Expression,
+        ctx: &Context,
+    ) {
+        self.initialize_variable_the_first_time(variable);
 
         // Now proceed with the normal variable assignment
         self.emit_variable_assignment(variable, expression, ctx);

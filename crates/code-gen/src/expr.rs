@@ -276,7 +276,7 @@ impl CodeBuilder<'_> {
             }
             ExpressionKind::Option(maybe_option) => self
                 .emit_option_expression_into_target_memory_location(
-                    &output.grab_aggregate_memory_location(),
+                    output,
                     node,
                     maybe_option.as_deref(),
                     ctx,

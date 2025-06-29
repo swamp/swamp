@@ -267,11 +267,14 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_option_expression_into_target_memory_location(
         &mut self,
-        memory_lvalue_location: &AggregateMemoryLocation,
+        output: &Destination,
         node: &Node,
         maybe_option: Option<&Expression>,
         ctx: &Context,
     ) {
+        let memory_target = output.memory_location_or_pointer_reg();
+        let memory_lvalue_location = AggregateMemoryLocation::new(memory_target);
+
         let hwm = self.temp_registers.save_mark();
 
         let tag_reg = self
@@ -288,6 +291,7 @@ impl CodeBuilder<'_> {
                 .clone();
 
             {
+                // Overwrite the tag with 1 (`Some`)
                 let ty = memory_lvalue_location.location.ty.basic_type();
                 self.builder.add_mov8_immediate(
                     tag_reg.register(),
@@ -295,6 +299,7 @@ impl CodeBuilder<'_> {
                     node,
                     &format!("set the tag Some (1) in register {ty}"),
                 );
+                // for options, we know that the tag size is one byte
                 self.builder.add_st8_using_ptr_with_offset(
                     &memory_lvalue_location
                         .offset(union_information.tag_offset, b8_type())
@@ -319,6 +324,7 @@ impl CodeBuilder<'_> {
             self.builder
                 .add_mov8_immediate(tag_reg.register(), 0, node, "option None tag"); // 0 signals `None`
 
+            // For `none` we simply overwrite the tag with zero
             self.builder.add_st8_using_ptr_with_offset(
                 &memory_lvalue_location.location,
                 tag_reg.register(),

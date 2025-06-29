@@ -11,6 +11,7 @@ use swamp_vm_types::MemoryLocation;
 use swamp_vm_types::types::{Destination, RValueOrLValue, VmType, u8_type};
 
 impl CodeBuilder<'_> {
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_when(
         &mut self,
         target_reg: &Destination,
@@ -40,18 +41,21 @@ impl CodeBuilder<'_> {
                     );
                 }
                 RValueOrLValue::Memory(destination) => {
-                    let memory_location = destination.grab_memory_location();
+                    let base_ptr_reg = self
+                        .emit_compute_effective_address_from_location_to_register(
+                            &destination.memory_location_or_pointer_reg(),
+                            &binding.variable.name,
+                            "load effective address",
+                        );
                     self.builder.add_ld8_from_pointer_with_offset_u16(
                         tag_reg.register(),
-                        &memory_location.base_ptr_reg,
-                        memory_location.offset + tag_offset,
+                        &base_ptr_reg.ptr_reg,
+                        tag_offset,
                         binding.expr.node(),
                         "load tag value",
                     );
                 }
             }
-
-            self.temp_registers.restore_to_mark(hwm);
 
             let patch = self.builder.add_jmp_if_not_equal_placeholder(
                 tag_reg.register(),
@@ -60,15 +64,18 @@ impl CodeBuilder<'_> {
             );
 
             all_false_jumps.push(patch);
+
+            self.temp_registers.restore_to_mark(hwm);
         }
 
         // Here we are sure that all optional types are `Some`, so we load the payloads into the binding variables.
         for binding in bindings {
             let target_binding_variable_reg = self.get_variable_register(&binding.variable).clone();
+            self.initialize_variable_the_first_time(&binding.variable); // make sure the target is initialized with correct pointer
 
             // Get the optional type information to find the payload offset
             let optional_type = binding.expr.ty();
-            let tagged_union = match &*optional_type.kind {
+            let payload_memory_offset = match &*optional_type.kind {
                 TypeKind::Optional(inner_type) => {
                     // We have an Optional type, get the layout info
                     let binding_gen_type = self.state.layout_cache.layout(&optional_type);
@@ -83,16 +90,17 @@ impl CodeBuilder<'_> {
             {
                 RValueOrLValue::Scalar(base_reg) => MemoryLocation {
                     base_ptr_reg: base_reg,
-                    offset: tagged_union,
+                    offset: payload_memory_offset,
                     ty: target_binding_variable_reg.ty.clone(),
                 },
-                RValueOrLValue::Memory(destination) => {
-                    let memory_location = destination.grab_memory_location();
-                    MemoryLocation {
-                        base_ptr_reg: memory_location.base_ptr_reg.clone(),
-                        offset: memory_location.offset + tagged_union,
-                        ty: target_binding_variable_reg.ty.clone(),
-                    }
+                RValueOrLValue::Memory(source_loc) => {
+                    let aggregate_mem_location =
+                        source_loc.grab_aggregate_memory_location_or_pointer_reg(); //self.emit_compute_effective_address_to_register(&destination, &binding.variable.name, "load effective address");
+                    let payload_mem_location = aggregate_mem_location.offset(
+                        payload_memory_offset,
+                        target_binding_variable_reg.ty.basic_type.clone(),
+                    );
+                    payload_mem_location.location
                 }
             };
 
@@ -119,11 +127,19 @@ impl CodeBuilder<'_> {
                     "store payload address in binding variable (alias)",
                 );
             } else {
-                // For normal expressions, copy the payload into the binding variable
-                let target_destination = Destination::Register(target_binding_variable_reg);
-                self.emit_copy_value_from_memory_location(
+                // For normal expressions, block copy the payload into the binding variable
+                let target_destination = if target_binding_variable_reg.ty.is_scalar() {
+                    Destination::Register(target_binding_variable_reg)
+                } else {
+                    Destination::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                        target_binding_variable_reg,
+                    ))
+                };
+
+                let source_destination = Destination::Memory(source_memory_location);
+                self.emit_copy_value_between_destinations(
                     &target_destination,
-                    &source_memory_location,
+                    &source_destination,
                     binding.expr.node(),
                     "load payload into binding variable",
                 );

@@ -51,15 +51,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub const fn emit_load_scalar_from_location(
-        &mut self,
-        target: &TypedRegister,
-        source_location: &Destination,
-        node: &Node,
-        comment: &str,
-    ) {
-    }
-
     /// Emits a Swamp VM instruction to load a **scalar** value directly from a fixed,
     /// **absolute memory address**.
     ///
