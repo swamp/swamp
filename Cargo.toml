@@ -1,0 +1,115 @@
+[workspace]
+resolver = "2"
+members = [
+    # Root orchestrator
+    "crates/swamp",
+    # Compile orchestrator
+    "crates/compile",
+    # Parser, AST
+    "crates/ast",
+    "crates/parser",
+    # Analyzer, Semantic, ASG
+    "crates/attributes",
+    "crates/semantic",
+    "crates/types",
+    "crates/analyzer",
+    # Dependency
+    "crates/modules",
+    "crates/dep-loader",
+    "crates/program-analyzer",
+    # Core
+    "crates/core",
+    # Std
+    "crates/std",
+    # Error report
+    "crates/err",
+    # Debug
+    "crates/pretty-print",
+    # Code generator. Outputs VM instructions.
+    "crates/code-gen",
+    "crates/code-gen-program",
+    # Runtime
+    "crates/runtime",
+    # Test runner
+    "crates/test-runner",
+    # VM, move to own repo in the far future
+    "crates/vm",
+    # Future // "crates/vm-test",
+    "crates/vm-disasm",
+    "crates/vm-types",
+    "crates/vm-instr-build",
+    # Not ready yet // "crates/vm-pretty-print",
+    "crates/vm-debug-info",
+    "crates/vm-layout",
+    # CLI
+    "crates/swamp-test",
+    "crates/swamp-build",
+    # Future projects
+    # "crates/lsp",
+    # "crates/lexer",
+    # "crates/parser-next",
+]
+
+# Aggressive size optimization profiles
+[profile.release]
+opt-level = "z"   # Optimize for size instead of speed
+lto = true        # Enable Link Time Optimization
+codegen-units = 1 # Reduce parallel code generation to increase optimizations
+panic = "abort"   # Abort on panic instead of unwinding
+strip = true      # Strip symbols from binary
+
+# Performance-optimized profiles for maximum speed
+[profile.fast]
+inherits = "release"
+opt-level = 3            # Maximum optimization for speed
+lto = "fat"              # Aggressive LTO for better inlining
+codegen-units = 1        # Single unit for better optimization
+panic = "abort"          # Abort on panic (faster)
+strip = true             # Remove symbols
+overflow-checks = false  # Disable overflow checks for speed
+debug = false            # No debug info
+debug-assertions = false # No debug assertions
+
+# Ultra-fast profile with all speed optimizations
+[profile.ultra-fast]
+inherits = "fast"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+overflow-checks = false
+debug = false
+debug-assertions = false
+incremental = false      # Disable incremental compilation for better optimization
+
+# Even more aggressive size optimization
+[profile.min-size]
+inherits = "release"
+opt-level = "z"
+lto = "fat"             # More aggressive LTO
+codegen-units = 1
+panic = "abort"
+strip = "symbols"       # Strip all symbols
+overflow-checks = false # Disable overflow checks for smaller size
+
+# Fast but small release profile
+[profile.release-small]
+inherits = "release"
+opt-level = "s"      # Optimize for size but faster compilation than "z"
+lto = "thin"         # Faster LTO
+codegen-units = 1
+strip = true
+
+# Ultra-minimal profile for maximum size reduction
+[profile.ultra-min]
+inherits = "min-size"
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+overflow-checks = false
+debug = false            # Remove all debug info
+debug-assertions = false # Remove debug assertions
+incremental = false      # Disable incremental compilation for better optimization

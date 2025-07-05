@@ -1,0 +1,136 @@
+#[test]
+fn create() {
+    stack: Stack<Int; 42> = []
+}
+
+fn modify_element_one(mut slice: [Int]) {
+    slice[1] = 3
+}
+
+fn modify_element(mut v: Int) {
+    v = 3
+}
+
+#[test]
+fn push() {
+    mut stack: Stack<Int; 42> = []
+
+    assert(stack.is_empty(), "should be empty")
+    assert(stack.capacity() == 42, "capacity failed")
+    stack.push(100)
+    assert(stack.len() == 1, "should be one")
+    stack.push(10)
+    assert(stack.len() == 2, "should be 2")
+    assert(stack[1] == 10, "element 1 should have been changed")
+    modify_element_one(&stack)
+    assert(stack.len() == 2, "should be 2")
+    assert(stack[1] == 3, "element 1 should have been changed")
+}
+
+#[test]
+fn init_and_push() {
+    mut stack: Stack<Int; 42> = [23, 44, -1]
+
+    assert(stack.capacity() == 42, "capacity failed")
+    assert(stack.len() == 3, "len")
+    assert(stack[0] == 23, "element 0 should be 23")
+    assert(stack[1] == 44, "element 1 should be 44")
+    assert(stack[2] == -1, "element 2 should be -1")
+    assert(stack.is_empty() == false, "should not be empty")
+    stack.push(100)
+    assert(stack.len() == 4, "len")
+    value = stack.pop()
+    assert(value == 100, 'popped value should be the last one pushed: 100 {value}')
+    assert(stack.len() == 3, "len after pop")
+    assert(stack[0] == 23, "element 0 should be 23")
+}
+
+#[test]
+fn for_loop() {
+    mut stack: Stack<Int; 42> = [1, 2, 3, 4, 5]
+
+    assert(stack.len() == 5, "len")
+    mut sum = 0
+    for val in stack {
+        sum += val
+    }
+    assert(sum == 15, "sum should be 15")
+}
+
+#[test]
+fn for_loop_index() {
+    mut stack: Stack<Int; 42> = [1, 2, 3, 4, 5]
+
+    assert(stack.capacity() == 42, "capacity failed")
+    assert(stack.len() == 5, "len")
+    mut sum = 0
+    mut index = 0
+    for i, val in stack {
+        assert(i == index, "index should match")
+        sum += val
+        index += 1
+    }
+    assert(sum == 15, "sum should be 15")
+}
+
+struct Thing {
+        f: Float,
+}
+
+#[test]
+fn for_mut_aggregate_type() {
+    mut stack: Stack<Thing; 23> = [
+        Thing { f: 1.0 },
+        Thing { f: 2.0 },
+        Thing { f: 3.0 },
+        Thing { f: 4.0 },
+        Thing { f: 5.0 },
+    ]
+
+    assert(stack.capacity() == 23, "capacity failed")
+    assert(stack.len() == 5, "len")
+
+    mut sum = 0.0
+    mut index = 0
+    for i, mut val in stack {
+        assert(i == index, "index should match")
+        sum += val.f
+        index += 1
+        if index == 1 {
+            val.f = 2.0
+        }
+    }
+    assert(sum == 15.0, "sum should be 15")
+
+    mut sum_after = 0.0
+    for i, val in stack {
+        sum_after += val.f
+    }
+    assert(sum_after == 16.0, "sum should be 16 after modification")
+}
+
+// #[test] // Can not use `mut` in for loop with scalar types, since they are only stored in registers
+fn for_mut_scalar() {
+    mut stack: Stack<Int; 42> = [1, 2, 3, 4, 5]
+
+    assert(stack.capacity() == 42, "capacity failed")
+    assert(stack.len() == 5, "len")
+    mut sum = 0
+    mut index = 0
+    for i, mut val in stack {
+        assert(i == index, "index should match")
+        sum += val
+        index += 1
+        if index == 1 {
+            val = 3
+        }
+    }
+    assert(sum == 15, "sum should be 15")
+
+
+    mut sum_after = 0
+    for i, val in stack {
+        sum_after += val
+    }
+    assert(sum_after == 16, "sum should be 16 after modification")
+}

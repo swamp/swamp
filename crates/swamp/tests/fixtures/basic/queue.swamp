@@ -1,0 +1,72 @@
+#[test]
+fn create() {
+    queue: Queue<Int; 42> = []
+}
+
+fn modify_element_one(mut slice: [Int]) {
+    slice[1] = 3
+}
+
+#[test]
+fn enqueue() {
+    mut queue: Queue<Int; 42> = []
+
+    assert(queue.is_empty(), "should be empty")
+    assert(queue.capacity() == 42, "capacity failed")
+    queue.enqueue(100)
+    assert(queue.len() == 1, "should be one")
+    queue.enqueue(10)
+    assert(queue.len() == 2, "should be 2")
+    assert(queue[1] == 10, "element 1 should have been changed")
+    modify_element_one(&queue)
+    assert(queue.len() == 2, "should be 2")
+    assert(queue[1] == 3, "element 1 should have been changed")
+}
+
+#[test]
+fn init_and_enqueue() {
+    mut queue: Queue<Int; 42> = [23, 44, -1]
+
+    assert(queue.capacity() == 42, "capacity failed")
+    assert(queue.len() == 3, "len")
+    assert(queue[0] == 23, "element 0 should be 23")
+    assert(queue[1] == 44, "element 1 should be 44")
+    assert(queue[2] == -1, "element 2 should be -1")
+    assert(queue.is_empty() == false, "should not be empty")
+
+    queue.enqueue(100)
+    assert(queue.len() == 4, "len")
+
+    value = queue.dequeue()
+    assert(value == 23, 'dequeued value should be 23 {value}')
+    assert(queue.len() == 3, "len after dequeue")
+    assert(queue[0] == 44, "element 0 should be 44")
+}
+
+#[test]
+fn for_loop() {
+    mut queue: Queue<Int; 42> = [1, 2, 3, 4, 5]
+
+    assert(queue.len() == 5, "len")
+    mut sum = 0
+    for val in queue {
+        sum += val
+    }
+    assert(sum == 15, "sum should be 15")
+}
+
+#[test]
+fn for_loop_index() {
+    mut queue: Queue<Int; 42> = [1, 2, 3, 4, 5]
+
+    assert(queue.capacity() == 42, "capacity failed")
+    assert(queue.len() == 5, "len")
+    mut sum = 0
+    mut index = 0
+    for i, val in queue {
+        assert(i == index, "index should match")
+        sum += val
+        index += 1
+    }
+    assert(sum == 15, "sum should be 15")
+}

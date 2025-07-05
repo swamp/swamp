@@ -1,0 +1,98 @@
+const ARENA_SIZE_W = 11
+const ARENA_SIZE_H = 32
+
+struct Point {
+    x: Int,
+    y: Int,
+}
+
+impl Point {
+    fn new(x: Int, y: Int) -> Point {
+        Point {
+            x: x,
+            y: y,
+        }
+    }
+}
+
+
+struct GamePoints {
+    grid: Grid<Int?; (25, 25)>,
+}
+
+impl GamePoints {
+    fn get(self, point: Point ) -> Int? {
+        self.grid.get(point.x,point.y)
+    }
+
+    fn get_neighbor_positions(self, point: Point) -> Vec<Point> {
+        points = [Point::new(point.x,point.y-1), Point::new(point.x-1,point.y), Point::new(point.x+1,point.y), Point::new(point.x,point.y+1)]
+        points.filter(|point| {
+                is_inside = point.y >= 0 && point.y < ARENA_SIZE_H && point.x >= 0 && point.x < ARENA_SIZE_W
+                print('point: {point} inside:{is_inside}')
+                is_inside
+            }
+        )
+    }
+
+    fn get_empty_neighbor_positions(self, point: Point) -> Vec<Point> {
+        self.get_neighbor_positions(point)
+            .filter(|point| !self.get(point))
+    }
+}
+
+/// Tests filter operations inside method calls that return aggregate types.
+///
+/// # Problem/Bug
+///
+/// The callee `get_neighbor_positions()` was trying to initialize the return destination
+/// memory, but return destinations should be initialized by the caller, not the callee.
+/// This violated the calling convention where the caller owns and manages return space.
+///
+/// # Solution/Fix
+///
+/// Moved aggregate return space initialization to the caller side in `emit_arguments()`,
+/// ensuring proper separation of memory ownership responsibilities.
+#[test]
+fn filter_with_function_calls_does_not_work() {
+    game = GamePoints {..}
+    result: Vec<Point; 25> = game.get_neighbor_positions(Point{x: 10, y: 20})
+
+    assert(result.len() == 3, 'len mismatch {result.len()}')
+}
+
+
+/// Tests filter-transformer operations on local variables.
+///
+/// # Problem
+///
+/// Lambda scopes and their nested block scopes were interfering with register allocation.
+/// When lambda body blocks were popped, they restored register counters to their watermarks,
+/// effectively "forgetting" registers allocated inside lambdas. This caused register conflicts
+/// where multiple variables got assigned the same physical register.
+///
+/// # Solution
+///
+/// Made lambda scopes completely transparent to register allocation by not saving/restoring
+/// register watermarks when entering/exiting lambda scopes and their nested blocks.
+#[test]
+fn filter_without_function_calls_only_one_lambda_call() {
+    point = Point{x: 10, y: 20}
+
+    points = [Point::new(point.x,point.y-1), Point::new(point.x-1,point.y), Point::new(point.x+1,point.y), Point::new(point.x,point.y+1)]
+    mut counter = 0
+
+    print('points before: {points}')
+
+    result: Vec<Point; 25> = points.filter(|point| {
+                is_inside = point.y >= 0 && point.y < ARENA_SIZE_H && point.x >= 0 && point.x < ARENA_SIZE_W
+              print('point: {point} inside:{is_inside}')
+                counter += 1
+                is_inside
+            }
+    )
+
+    assert(counter == points.len(), 'counter was wrong {counter} vs {points.len()}')
+
+    assert(result.len() == 3, 'len mismatch {result.len()}')
+}

@@ -1,0 +1,10 @@
+[package]
+name = "swamp-attributes"
+version = "0.2.4"
+edition = "2024"
+description = "small crate that handles attributes for the Swamp Language"
+repository = "https://github.com/swamp/swamp"
+license = "MIT"
+
+[dependencies]
+source-map-node = "0.0.1"

@@ -1,0 +1,238 @@
+struct Thing {
+    a: Int,
+    b: Int,
+}
+
+struct Another {
+    things: [Thing; 3],
+}
+
+struct Settings {
+    cooldown_settings: [Int; 3],
+}
+
+fn reading_things(things: [Thing]) {
+    thing = things[0]
+    assert(thing.a == 42, 'thing.a is wrong')
+    assert(thing.b == -1024, 'thing.b is wrong')
+    print('thing: a:{thing.a} b: {thing.b}')
+}
+
+fn writing_second_element_in_things(mut things: [Thing]) {
+    print('before things[1]: a:{things[1].a} b: {things[1].b}')
+    new_thing = Thing { a: 100, b: 200 }
+    print('new_thing: a:{new_thing.a} b: {new_thing.b}')
+    things[1] = new_thing
+    print('after things[1]: a:{things[1].a} b: {things[1].b}')
+}
+
+fn writing_second_element_in_things_directly(mut things: [Thing]) {
+    print('before things[1]: a:{things[1].a} b: {things[1].b}')
+    things[1] = Thing { a: 100, b: 200 }
+    print('after things[1]: a:{things[1].a} b: {things[1].b}')
+}
+
+fn writing_second_b_in_things(mut things: [Thing]) {
+    things[1].b = -999
+}
+
+#[test]
+fn vec_assign_and_subscript() {
+
+    another = Another {
+        things: [
+          Thing { a: 11, b:  1 },
+          Thing { b:  2, a: 12 }, // Intentionally swapped
+          Thing { a: 13, b:  3 },
+        ]
+    }
+
+    second_thing = another.things[1]
+    assert(second_thing.a == 12, 'second_thing.a is wrong')
+    assert(second_thing.b == 2, 'second_thing.b is wrong')
+    print('second_thing: a: {second_thing.a} b: {second_thing.b}')
+
+    assert(another.things[0].a == 11, 'another.things[0].a is wrong')
+    assert(another.things[0].b == 1, 'another.things[0].a is wrong')
+    assert(another.things[1].a == 12, 'another.things[1].b is wrong')
+    assert(another.things[1].b == 2, 'another.things[1].b is wrong')
+    assert(another.things[2].a == 13, 'another.things[2].a is wrong')
+    assert(another.things[2].b == 3, 'another.things[2].b is wrong')
+}
+
+#[test]
+fn parameter_passing() {
+    another = Another {
+        things: [
+          Thing { b:  -1024, a: 42 }, // Intentionally swapped
+        ]
+    }
+
+    reading_things(another.things)
+}
+
+#[test]
+fn mut_parameter_passing_one_field() {
+
+    mut another = Another {
+        things: [
+          Thing { b:  -1024, a: 42 }, // Intentionally swapped
+          Thing { a:  32, b: 8086 },
+        ]
+    }
+
+    // Check that the values has been set correctly
+    assert(another.things[0].a == 42, 'things[0].a is wrong')
+    assert(another.things[0].b == -1024, 'things[0].b is wrong')
+
+    assert(another.things[1].a == 32, 'initial values: things[1].a has been changed!')
+    assert(another.things[1].b == 8086, 'initial values: things[1].b has been changed!')
+
+    // Call the function that mutates the second element
+    writing_second_b_in_things(&another.things)
+
+
+    // Check that first element is unchanged
+    assert(another.things[0].a == 42, 'after mutation: things[0].a has been changed!')
+    assert(another.things[0].b == -1024, 'after mutation: things[0].b has been changed!')
+
+    // Check that second element.b is changed
+    assert(another.things[1].a == 32, 'after mutation: things[1].a has been changed!')
+    assert(another.things[1].b == -999, 'after mutation: things[1].b should have been changed')
+
+ }
+
+#[test]
+fn mut_parameter_passing_whole_element() {
+
+    mut another = Another {
+        things: [
+          Thing { b:  -1024, a: 42 }, // Intentionally swapped
+          Thing { a:  32, b: 8086 },
+        ]
+    }
+
+    // Check that the values has been set correctly
+    assert(another.things[0].a == 42, 'initial values: things[0].a is wrong')
+    assert(another.things[0].b == -1024, 'initial values: things[0].b is wrong')
+
+    assert(another.things[1].a == 32, 'initial values: things[1].a has been changed!')
+    assert(another.things[1].b == 8086, 'initial values: things[1].b has been changed!')
+
+    // Call the function that mutates the second element
+    writing_second_element_in_things(&another.things)
+
+    // Check that first element is unchanged after mutation of the second element
+    assert(another.things[0].a == 42, 'after mutation: things[0].a has been changed!')
+    assert(another.things[0].b == -1024, 'after mutation: things[0].b has been changed!')
+
+    // Check that second element.b is changed
+    assert(another.things[1].a == 100, 'after mutation: things[1].a should have been changed')
+    assert(another.things[1].b == 200, 'after mutation: things[1].b should have been changed')
+
+ }
+
+#[test]
+fn mut_parameter_passing_whole_element_directly() {
+
+    mut another = Another {
+        things: [
+          Thing { b:  -1024, a: 42 }, // Intentionally swapped
+          Thing { a:  32, b: 8086 },
+        ]
+    }
+
+    // Check that the values has been set correctly
+    assert(another.things[0].a == 42, 'initial values: things[0].a is wrong')
+    assert(another.things[0].b == -1024, 'initial values: things[0].b is wrong')
+
+    assert(another.things[1].a == 32, 'initial values: things[1].a has been changed!')
+    assert(another.things[1].b == 8086, 'initial values: things[1].b has been changed!')
+
+    // Call the function that mutates the second element
+    writing_second_element_in_things_directly(&another.things)
+
+    // Check that first element is unchanged after mutation of the second element
+    assert(another.things[0].a == 42, 'after mutation: things[0].a has been changed!')
+    assert(another.things[0].b == -1024, 'after mutation: things[0].b has been changed!')
+
+    // Check that second element.b is changed
+    assert(another.things[1].a == 100, 'after mutation: things[1].a should have been changed')
+    assert(another.things[1].b == 200, 'after mutation: things[1].b should have been changed')
+
+ }
+
+fn returning_a_thing(a: Bool) -> Thing {
+    if a {
+        Thing { a: 22, b: 44 }
+    } else {
+        Thing { a: 33, b: 55 }
+    }
+}
+
+#[test]
+fn fill_thing_from_returning() {
+    thing = returning_a_thing(true)
+    assert(thing.a == 22, 'thing.a is wrong')
+    assert(thing.b == 44, 'thing.b is wrong')
+}
+
+#[test]
+fn push() {
+    mut another = Another {
+        things: [
+          Thing { b:  -1024, a: 42 }, // Intentionally swapped
+          Thing { a:  32, b: 8086 },
+        ]
+    }
+    assert(another.things[1].a == 32, 'another.things[1].a is wrong')
+    assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
+
+    another.things[2] = Thing { a: 100, b: 200 }
+    print('another.things[2]: a:{another.things[2].a} b: {another.things[2].b}')
+    assert(another.things[1].a == 32, 'another.things[1].a is wrong')
+    assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
+    assert(another.things[2].a == 100, 'another.things[2].a is wrong')
+    assert(another.things[2].b == 200, 'another.things[2].b is wrong')
+}
+
+// Tests for mutable scalars (primitives)
+fn update_settings(mut cooldown: Int, value: Int) {
+    cooldown = value
+}
+
+#[test]
+fn simple_initialization() {
+    another = Another {
+        ..
+    }
+
+    assert(another.things.capacity() == 3, "capacity is not set?")
+}
+
+/// Test for a bug where updating a mutable scalar in an lvalue memory location did not work as expected.
+////
+/// The issue was related to the copy-back mechanism for mutable scalar values in arrays:
+/// - Scalar types (like Int, Float, String) are fully contained in registers, and do not
+///   require a base register.
+///
+/// - When passing a scalar value from a data structure (like an array element) as a mutable argument,
+///   the original register needed to be handled differently from aggregate types.
+///
+/// - The error "could not find base reg" occurred because the code was trying to look up
+///   the base register in a map, but for scalar values we need to use the original register directly
+#[test]
+fn update_cooldown() {
+    mut settings = Settings {
+        cooldown_settings: [98, -2, -8923]
+    }
+    assert(settings.cooldown_settings[0] == 98, 'settings.cooldown_settings[0] is wrong')
+    assert(settings.cooldown_settings[1] == -2, 'settings.cooldown_settings[1] is wrong')
+    assert(settings.cooldown_settings[2] == -8923, 'settings.cooldown_settings[2] is wrong')
+
+    update_settings(&settings.cooldown_settings[1], 100)
+
+    assert(settings.cooldown_settings[0] == 98, 'settings.cooldown_settings[0] should not have changed')
+    assert(settings.cooldown_settings[1] == 100, 'settings.cooldown_settings[1] should have been updated')
+    assert(settings.cooldown_settings[2] == -8923, 'settings.cooldown_settings[2] should not have changed')
+}

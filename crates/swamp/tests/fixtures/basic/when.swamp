@@ -1,0 +1,17 @@
+struct Player {
+    assigned_ship: Int?,
+}
+
+#[test]
+fn when_using_scalar() {
+    player = Player {
+        assigned_ship: 42,
+    }
+
+    when ship_id=player.assigned_ship {
+        assert(ship_id == 42, 'ship_id should be 42 but is {ship_id}')
+        print('ship_id: {ship_id}')
+    } else {
+        panic('player.assigned_ship should not be None')
+    }
+}

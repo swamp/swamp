@@ -1,0 +1,39 @@
+[package]
+name = "swamp-compile"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "Main driver for the Swamp compiler, orchestrating bootstrapping, dependency loading, parsing, and semantic analysis phases."
+
+[dependencies]
+
+# Semantic and Analyzer
+swamp-semantic = { path = "../semantic", version = "0.2.4" }
+swamp-analyzer = { path = "../analyzer", version = "0.2.4" }
+swamp-error-report = { path = "../err", version = "0.2.4" }
+swamp-modules = { path = "../modules", version = "0.2.4" }
+swamp-dep-loader = { path = "../dep-loader", version = "0.2.4" }
+swamp-program-analyzer = { path = "../program-analyzer", version = "0.2.4" }
+swamp-types = { path = "../types", version = "0.2.4" }
+
+# Core
+swamp-core = { path = "../core", version = "0.2.4" }
+swamp-std = { path = "../std", version = "0.2.4" }
+
+swamp-pretty-print = { path = "../pretty-print", version = "0.2.4" }
+
+# Source Map
+source-map-cache = "0.0.3"
+
+time-dilation = { version = "0.1.11", features = [
+    "enable_summary",
+] }
+
+tracing = "0.1.40"
+regex = "1.11.1"
+tiny-ver = "0.1.2"
+seq-map = "0.0.13"
+
+[dev-dependencies]
+test-log = { version = "0.2.16", features = ["trace", "log", "color"] }

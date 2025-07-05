@@ -1,0 +1,165 @@
+#[test]
+fn add_remove() {
+    mut grid: Grid<Int; (10,10)> = []
+
+    x = grid[0, 0]
+    assert(x == 0, "should be 0 at start")
+
+    grid[1, 0] = 42
+    assert(grid[1, 0] == 42, "should be 42 after setting")
+
+    grid[4, 8] = -101
+    assert(grid[4, 8] == -101, "should be -101 after setting")
+}
+
+struct Thing {
+    x: Int,
+    y: Int,
+}
+
+
+fn thing_setter(mut thing: Thing) {
+    thing.x = 1024
+    thing.y = 2048
+}
+
+#[test]
+fn aggregate_type() {
+    mut grid: Grid<Thing; (10,10)> = []
+
+    x = grid[2, 4]
+    assert(x == Thing { x: 0, y: 0 }, "should be 0 at start")
+
+    grid[1, 0] = Thing { x: 42, y: 0 }
+
+    thing_setter(&grid[1, 1])
+    assert(grid[1, 1].x == 1024, "should be 1024 after setting")
+    assert(grid[1, 1].y == 2048, "should be 2048 after setting")
+    assert(grid[1, 1] == Thing { x: 1024, y: 2048 }, "should be 1024, 2048 after setting")
+
+    assert(grid[1, 0] == Thing { x: 42, y: 0 }, "should be 42 after setting")
+    assert(grid[1, 0].x == 42, "should be 42 after setting")
+
+    grid[4, 8] = Thing { x: -101, y: 0 }
+    assert(grid[4, 8] == Thing { x: -101, y: 0 }, "should be -101 after setting")
+}
+
+
+fn grid_setter(mut grid: Grid<Int>) {
+    grid[1, 1] = 1024
+}
+
+fn element_setter(mut element:Int) {
+    element = -32
+}
+
+#[test]
+fn call_mut_func() {
+    mut grid: Grid<Int; (3,4)> = []
+
+    x = grid[0, 0]
+    assert(x == 0, "should be 0 at start")
+
+    assert(grid[1, 1] == 0, "should be 0 before setting")
+    grid_setter(&grid)
+    assert(grid[1, 1] == 1024, "should be 1024 after setting")
+
+    // BUG: not working yet for scalar types // element_setter(&grid[1,1])
+
+    grid[2, 3] = -101
+    assert(grid[2, 3] == -101, "should be -101 after setting")
+}
+
+
+#[test]
+fn to_string() {
+    mut grid: Grid<Int; (3,4)> = []
+
+    x = grid[0, 0]
+    assert(x == 0, "should be 0 at start")
+
+    assert(grid[1, 1] == 0, "should be 0 before setting")
+    grid_setter(&grid)
+    assert(grid[1, 1] == 1024, "should be 1024 after setting")
+
+    // BUG: not working yet for scalar types // element_setter(&grid[1,1])
+
+    grid[2, 3] = -101
+    assert(grid[2, 3] == -101, "should be -101 after setting")
+
+    print('grid:\n{grid}')
+}
+
+#[test]
+fn test_grid_with_those_infuriating_optionals() {
+    mut grid: Grid<Int?; (3,4)> = []
+    x = grid[2, 3]
+    result = x.to_string()
+    assert(result == "None", 'should be none at start {result}')
+    assert(!x, "should be none at start")
+    when x {
+        panic('it should be none')
+    } else {
+        print('worked nicely')
+    }
+
+    grid[2,3] = 2
+    assert(!!grid[2,3], "should be Some after set")
+
+    when a=grid[2,3] {
+        assert(a == 2, "should be 2")
+    } else {
+        panic('should have been in when-expression')
+    }
+
+    a = 3
+    assert(!grid[1,1], "should be None first")
+    grid[1, 1] = a
+    assert(!!grid[1,1], "should be Some after set")
+}
+
+
+struct Arena {
+    grid: Grid<Int?; (7,4)>,
+}
+
+#[test]
+fn test_grid_with_those_pesky_optionals_in_a_struct() {
+    mut arena = Arena {
+        ..
+    }
+
+    x = arena.grid[2, 3]
+    result = x.to_string()
+    print('value now a: {arena.grid[2,3]}')
+
+    assert(result == "None", 'should be none at start {result}')
+    assert(!x, "should be none at start")
+    when x {
+        panic('it should be none')
+    } else {
+        print('worked nicely {x}')
+    }
+
+    arena.grid[2,3] = 2
+
+    print('value now b: {arena.grid[2,3]}')
+
+    assert(!!arena.grid[2,3], "should be Some after set")
+
+    when a=arena.grid[2,3] {
+        assert(a == 2, "should be 2")
+    } else {
+        panic('should have been in when-expression')
+    }
+
+    a = 3
+    assert(!arena.grid[1,1], "should be None first")
+    print('value now c: {arena.grid[2,3]}')
+    arena.grid[1, 1] = a
+    print('value now d: {arena.grid[2,3]}')
+    assert(!!arena.grid[1,1], "should be Some after set")
+
+    print('grid:\n{arena}')
+    print('grid_short:\n{arena.to_short_string()}')
+}

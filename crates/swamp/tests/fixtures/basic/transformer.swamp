@@ -1,0 +1,92 @@
+struct Thing {
+    x: Int,
+    y: Int,
+}
+
+struct Things {
+    items: Vec<Thing; 5>,
+}
+
+struct FoundNumbers {
+    numbers: Vec<Int; 4>,
+}
+
+fn returns_vec() -> Vec<Int> {
+    [10, 20, 30]
+}
+
+
+#[test]
+fn filter() {
+    found = FoundNumbers {
+        numbers: [1, 2, 3, 4],
+    }
+    even_numbers : Vec<Int; 8> = found.numbers.filter(|x| x % 2 == 0)
+    assert(even_numbers.len() == 2, 'should have 2 even numbers {even_numbers.len()}')
+    assert(even_numbers[0] == 2, 'first even number should be 2')
+    assert(even_numbers[1] == 4, 'second even number should be 4')
+}
+
+#[test]
+fn filter_things() {
+    things = Things {
+        items: [Thing {x: -2, y: 10}, Thing {x: 2, y: 20}, Thing {x: -3, y: 30}, Thing {x: 4, y: 40}],
+    }
+    positive_things : Vec<Thing; 3> = things.items.filter(|thing| thing.x >= 0)
+    assert(positive_things.len() == 2, 'should have 2 positive_things things {positive_things.len()}')
+    assert(positive_things[0].x == 2, 'first even number should be 2')
+    assert(positive_things[1].x == 4, 'second even number should be 4')
+}
+
+
+#[test]
+fn find_in_array() {
+    a = [-1, 0, 1, 2, 3, 4]
+
+    assert(a.capacity() == 6, 'array should have capacity of 6, but got: {a.capacity()}')
+    assert(a.len() == 6, 'array should have len of 6, but got: {a.len()}')
+
+    maybe_int = a.find(|x| x == 2)
+
+    when maybe_int {
+        assert(maybe_int == 2, 'found value should be 2, but got: {maybe_int}')
+    } else {
+        panic('should have found 2 in array')
+    }
+}
+
+#[test]
+fn find_thing_in_array() {
+    things = Things {
+        items: [Thing {x: -2, y: 10}, Thing {x: 2, y: 20}, Thing {x: -3, y: 30}, Thing {x: 4, y: 40}],
+    }
+
+    assert(things.items.capacity() == 5, 'vec should have capacity of 6, but got: {things.items.capacity()}')
+    assert(things.items.len() == 4, 'vec should have len of 6, but got: {things.items.len()}')
+
+    maybe_over_twenty_five = things.items.find(|thing| thing.y >= 25)
+
+    when maybe_over_twenty_five {
+        assert(maybe_over_twenty_five.y == 30, 'value should be 30, but got: {maybe_over_twenty_five.y}')
+    } else {
+        panic('should have found y:30 in array')
+    }
+}
+
+#[test]
+fn find_in_vec() {
+    mut a : Vec<Int; 6> = [0, 1]
+    a.push(2)
+    a.push(3)
+
+    assert(a.capacity() == 6, 'array should have capacity of 6, but got: {a.capacity()}')
+    assert(a.len() == 4, 'array should have len of 4, but got: {a.len()}')
+
+    maybe_int = a.find(|x| x == 2)
+
+    when maybe_int {
+        assert(maybe_int == 2, 'found value should be 2, but got: {maybe_int}')
+    } else {
+        panic('should have found 2 in array')
+    }
+}

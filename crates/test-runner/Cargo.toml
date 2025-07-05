@@ -1,0 +1,26 @@
+[package]
+name = "swamp-test-runner"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "test runner for Swamp"
+
+[dependencies]
+
+# Runtime
+swamp-runtime = { path = "../runtime", version = "0.2.4", features = ["debug_vm"] }
+swamp-std = { path = "../std", version = "0.2.4" }
+swamp-vm = { path = "../vm", version = "0.2.4", features = ["debug_vm"] }
+source-map-cache = "0.0.3"
+
+tinter = "0.1.0"
+time-dilation = "0.1.11"
+
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.1", features = [
+    "registry",
+    "env-filter",
+] }
+
+[dev-dependencies]

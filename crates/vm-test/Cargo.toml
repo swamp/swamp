@@ -1,0 +1,26 @@
+[package]
+name = "swamp-vm-test"
+version = "0.2.0"
+edition = "2024"
+license = "MIT"
+description = "examples and tests on how to use the swamp vm with swamp"
+repository = "https://github.com/swamp/swamp"
+
+[dependencies]
+swamp-vm = { path = "../vm", version = "0.2.0", features = [] }
+swamp-vm-types = { path = "../vm-types", version = "0.2.0", features = [] }
+swamp-code-gen-program = { path = "../code-gen-program", version = "0.2.0" }
+swamp-code-gen = { path = "../code-gen", version = "0.2.0" }
+
+swamp-compile = { path = "../compile", version = "0.2.0" }
+
+source-map-cache = "0.0.3"
+
+hexify = "0.0.3"
+
+[dev-dependencies]
+test-log = { version = "0.2.16", features = ["trace", "log", "color"] }
+
+[[bench]]
+name = "benchmark"
+harness = false

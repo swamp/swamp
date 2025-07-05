@@ -1,0 +1,146 @@
+#[test]
+fn string_equality() {
+    s1 = "hello"
+    s2 = "hello"
+    s3 = "world"
+    print('s1:{s1}, s2:{s2}, s3:{s3}')
+    assert(s1 == s2, "string equality (positive) failed")
+    assert(s1 != s3, "string inequality (negative) failed")
+}
+
+#[test]
+fn string_concatenation() {
+    part1 = "swamp"
+    part2 = "-lang"
+    part3 = ".org"
+    combined = part1 + part2 + part3
+    print('combined_string:{combined}')
+    assert(combined == "swamp-lang.org", "string concatenation failed")
+}
+
+struct Something {
+    a: String<42>,
+}
+
+#[test]
+fn string_storage() {
+    save: String<42> = "hello"
+
+    assert(save.len() == 5, 'wrong length {save.len()}')
+}
+
+#[test]
+fn for_loop_ascii() {
+    mut codepoints = 0
+    mut build_string_again = ""
+
+    for char in "hello, world!" {
+        output = char.to_string()
+        build_string_again = build_string_again + output
+
+        codepoints += 1
+    }
+
+    assert(codepoints == 13, 'wrong number of codepoints {codepoints}')
+    assert("hello, world!" == build_string_again, 'was not equal {build_string_again}')
+}
+
+#[test]
+fn for_loop_unicode() {
+    mut codepoints = 0
+    mut rebuilt = ""
+    for c in "🧛✨🌟" {
+        // TODO: compound assignments of string doesn't work yet. e.g. `rebuilt += c.to_string()`
+        rebuilt = rebuilt + c.to_string()
+        print('found codepoint: {c}')
+        codepoints += 1
+    }
+    assert(codepoints == 3, 'expected 3 codepoints, got {codepoints}')
+    assert(rebuilt == "🧛✨🌟", 'round-trip failed: {rebuilt}')
+}
+
+#[test]
+fn char_int_roundtrip() {
+    // TODO: @BUG!. not possible to use the array directly in the for loop. it doesn't get initialized in that case
+    bytes_that_will_become_chars = [0x0, 0x41, 0x7F, 0x2603, 0x1_F9DB]
+    for code in bytes_that_will_become_chars {
+        c: Char = code
+        assert(c.to_int() == code, "{code} -> Char -> Int gave {c.to_int()}")
+    }
+}
+
+#[test]
+fn empty_string() {
+    a = ""
+    print(a)
+    print('a: {a}')
+    assert(a == "", 'string should be completely empty')
+}
+
+#[test]
+fn empty_string_with_interpolation() {
+    a = ''
+    print(a)
+    print('a: {a}')
+    assert(a == "", 'string should be completely empty')
+}
+
+#[test]
+fn test_append() {
+    mut str = ""
+    str = str + 'a word'
+    print(str)
+    assert(str == "a word", 'could not append')
+}
+
+
+#[test]
+fn empty_string_behaviors() {
+    mut s = ""
+    assert(s.len() == 0, 'len was {s.len()}')
+    assert(s.capacity() == 1, "didn't follow the capacity rules of swamp") // capacity is never allowed to be zero for a collection in Swamp
+    assert(s.is_empty(), "is_empty() was wrong")
+    mut iterated = 0
+    for _ in "" { iterated += 1 }
+    assert(iterated == 0, "should not iterate at all")
+}
+
+#[test]
+fn compare_with_char() {
+    mut codepoints = 0
+
+    for index, char in "hello, world!" {
+        if index == 4 {
+            assert(char.to_int() == 111, 'char to int was wrong {char.to_int()}') // 111 is lowercase `o`
+        }
+        codepoints += 1
+    }
+
+    assert(codepoints == 13, 'wrong length {codepoints}')
+}
+
+#[test]
+fn setting_a_char() {
+    unicode_value: Char = 0x1_F9DB
+    print('this is the char {unicode_value}')
+    assert(unicode_value.to_string() == "🧛", 'conversion was wrong {unicode_value}')
+}
+
+#[test]
+fn subscripts() {
+    raw_byte = "hello, world!"[12]
+    assert(raw_byte.to_int() == 0x21, 'must be 0x21, but was {raw_byte}') // 0x21 is the exclamation!
+}
+
+#[test]
+fn subscripts_on_utf8() {
+    raw_byte = "🧛!"[2] // the utf8 encoding for `vampire` is 0xF0, 0x9F, 0xA7, 0x9B
+    assert(raw_byte.to_int() == 0xa7, 'must be 0xA7, but was {raw_byte}')
+}
+
+#[test]
+fn len_on_utf8() {
+    string = "🧛!" // the utf8 encoding for `vampire` is 0xF0 0x9F 0xA7 0x9B
+    assert(string.len() == 5, 'should be 5, but got {string.len()}')
+    assert(string.capacity() == 5, 'capacity should be 5, but got {string.capacity()}')
+}

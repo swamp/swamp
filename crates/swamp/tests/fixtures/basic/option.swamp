@@ -1,0 +1,168 @@
+#[test]
+fn option_some() {
+    a: Int? = 10
+    assert(a, 'a should be Some')
+
+    when a {
+        assert(a == 10, 'a should be 10')
+    }
+}
+
+#[test]
+fn option_none() {
+    a: Int? = none
+    assert(!a, 'a should be None')
+}
+
+
+struct Attacker {
+    health: Int,
+}
+
+impl Attacker {
+    fn to_string(self) -> String {
+        'Attacker health: {self.health}'
+    }
+}
+
+struct Unit {
+    attacker: Attacker?
+}
+
+impl Unit {
+    fn to_string(self) -> String {
+        x = when attacker=self.attacker {
+            '{attacker}'
+        } else {
+            "<None>"
+        }
+        'Unit attacker: {x}'
+    }
+}
+
+#[test]
+fn when_in_when() {
+    unit: Unit? = none
+
+    when unit {
+        panic('unit should be None')
+        when attacker=unit.attacker {
+            panic('unit.attacker should be None')
+        }
+    }
+}
+
+#[test]
+fn when_in_when_no_attacker() {
+    unit: Unit? = Unit {
+        attacker: none
+    }
+
+    when unit {
+        print('found unit: {unit}')
+        assert(!unit.attacker, 'unit.attacker should be None')
+
+        when attacker=unit.attacker {
+            panic('unit.attacker should be None, `when` failed')
+        } else {
+            print('unit.attacker is None')
+        }
+    }
+}
+
+#[test]
+fn when_in_when_some() {
+    unit: Unit? = Unit {
+        attacker: Attacker {
+        health: 100
+        }
+    }
+
+    when unit {
+        print('found unit: {unit}')
+        assert(unit.attacker, 'unit.attacker should be Some')
+
+        when attacker=unit.attacker {
+            print('attacker: {attacker}')
+        }
+    }
+}
+
+fn option_param(unit: Unit?) {
+    print('starting option_param')
+    when unit {
+        print('found unit: {unit}')
+    } else {
+        panic('unit should be Some')
+    }
+}
+
+#[test]
+fn call_option_param() {
+    unit: Unit? = Unit {
+        attacker: Attacker {
+            health: 100
+        }
+    }
+
+    option_param(unit)
+}
+
+type UnitID = Int
+
+struct TestUnit {
+    id: UnitID,
+}
+
+#[test]
+fn optional_set_from_field() {
+    mut unit_id: UnitID? = none
+
+    unit = TestUnit {
+        id: 1590,
+    }
+
+    unit_id = unit.id // this should set unit_id to Some(1590)
+    assert(!!unit_id, 'it is not an optional')
+    print('unit_id is now:{unit_id}')
+    when unit_id {
+        assert(unit_id == 1590, 'optional failed {unit_id}')
+    } else {
+        panic('should not be None {unit_id}')
+    }
+}
+
+#[test]
+fn to_string() {
+    unit_id: UnitID? = none
+    result_string = unit_id.to_string()
+
+    print('result: {result_string}')
+    assert(result_string == "None", 'none to string failed {result_string}')
+}
+
+
+#[test]
+fn to_string_mut() {
+    mut unit_id: UnitID? = none
+    result_string = unit_id.to_string()
+
+    print('result: {result_string}')
+    assert(result_string == "None", 'none to string failed {result_string}')
+}
+
+#[test]
+fn to_string_some() {
+    mut unit_id: UnitID? = none
+
+    another_result_string = unit_id.to_string()
+
+    a = 3
+
+    unit_id = a
+
+    result_string = unit_id.to_string()
+
+    print('result: {result_string}')
+    assert(result_string == "Some(3)", 'Some to string failed {result_string}')
+}

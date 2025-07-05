@@ -1,0 +1,49 @@
+#[test]
+fn round() {
+    assert(100.9.round() == 101, "round is wrong")
+}
+
+#[test]
+fn floor() {
+    print('floor {100.9.floor()}')
+    assert(100.9.floor() == 100, "floor is wrong")
+}
+
+//#[test]
+//fn default_float() {
+//    assert(Float::default() == 0.0, "default() is wrong")
+//}
+
+//#[test]
+// TODO: Probably works as intended, but precision of fixed point numbers were tricky to get right for the test.
+fn rnd() {
+    assert(1224.01.rnd() == 11293.541, "rnd(9595.0) is wrong")
+}
+
+#[test]
+fn max() {
+    assert(3.0.max(-3.0) == 3.0, "max(3.0, -3.0) is wrong")
+}
+
+#[test]
+fn mid() {
+    assert((-3.0).clamp(1.0, 9.0) == 1.0, "clamp() is wrong")
+}
+
+#[test]
+fn to_string() {
+    assert(3.0.to_string() == "3.00", "to_string(3.0) is wrong")
+}
+
+// A bug where materializing intrinsic operations results (e.g. `floor`) into a memory location didn't work correctly.
+// It wrongfully assumed that the target always was a register.
+#[test]
+fn floor_to_tuple() {
+    x = 1.9
+
+    tuple = (x.floor(), 2.0)
+    a, b = tuple
+    assert(a == 1, "floor to tuple first element is wrong")
+    assert(b == 2.0, "second element is unchanged in tuple")
+    print('a: {a}, b: {b}')
+}

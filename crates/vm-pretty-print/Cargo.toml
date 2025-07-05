@@ -1,0 +1,13 @@
+[package]
+name = "swamp-vm-pretty-print"
+version = "0.2.0"
+edition = "2024"
+license = "MIT"
+description = "print values from the Swamp VM memory"
+repository = "https://github.com/swamp/swamp"
+
+[dependencies]
+swamp-vm-types = { path = "../vm-types", version = "0.2.0" }
+swamp-vm = { path = "../vm", version = "0.2.0" }
+fixed32 = "0.0.17"
+tinter = "0.1.0"

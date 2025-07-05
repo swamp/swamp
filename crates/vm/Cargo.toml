@@ -1,0 +1,22 @@
+[package]
+name = "swamp-vm"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+description = "Minimial virtual machine"
+repository = "https://github.com/swamp/swamp"
+
+
+[dependencies]
+swamp-vm-types = { path = "../vm-types", version = "0.2.4" }
+
+fixed32 = "0.0.17"
+squirrel-prng = "0.0.1"
+tinter = "0.1.0"
+
+
+sparse-mem = "0.2.0"
+hashmap-mem = "0.2.0"
+
+[features]
+debug_vm = []  # Enable VM debug output

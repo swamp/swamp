@@ -1,0 +1,17 @@
+[package]
+name = "swamp-parser"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "Parses Swamp programming language source code into an Abstract Syntax Tree (AST) defined in the `swamp-ast` crate, using the pest parsing library."
+
+
+[dependencies]
+swamp-ast = { path = "../ast", version = "0.2.4" }
+
+pest = "2.7.15"
+pest_derive = "2.7.15"
+tracing = "0.1.40"
+
+[dev-dependencies]

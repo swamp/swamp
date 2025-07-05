@@ -1,0 +1,17 @@
+[package]
+name = "swamp-pretty-print"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "Pretty-prints Swamp compiler internal representations (Semantic Graph nodes, Types, Symbol Tables) into human-readable, colorized strings for debugging."
+
+[dependencies]
+swamp-semantic = { path = "../semantic", version = "0.2.4" }
+swamp-modules = { path = "../modules", version = "0.2.4" }
+swamp-types = { path = "../types", version = "0.2.4" }
+source-map-cache = "0.0.3"
+source-map-node = "0.0.1"
+
+seq-map = "0.0.13"
+yansi = "1.0.1"

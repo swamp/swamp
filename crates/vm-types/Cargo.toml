@@ -1,0 +1,15 @@
+[package]
+name = "swamp-vm-types"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+description = "Low-level types for memory layout, addresses, and instructions used by the Swamp Virtual Machine (VM)."
+repository = "https://github.com/swamp/swamp"
+
+[dependencies]
+source-map-node = "0.0.1"
+yansi = "1.0.1"
+tracing = "0.1.40"
+seq-fmt = "0.0.1"
+tinter = "0.1.0"
+hashmap-mem = "0.2.0"

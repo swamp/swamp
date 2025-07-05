@@ -1,0 +1,46 @@
+#[test]
+fn add_remove() {
+    mut sparse: Sparse<Int; 10> = []
+    assert(sparse.is_empty(), "should be empty at start")
+
+    id = sparse.add(-909)
+    assert(sparse.len() == 1, "length should be 1 after adding one element")
+
+    assert(sparse[id] == -909, 'element should be -909 after adding: {sparse[id]}')
+
+    sparse[id] = 100
+    assert(sparse[id] == 100, 'element should be updated to 100: {sparse[id]}')
+
+    sparse.remove(id)
+
+    assert(sparse.len() == 0, "length should be 0 after removing the element")
+}
+
+#[test]
+fn iterate() {
+    mut sparse: Sparse<Int; 10> = []
+
+    assert(!sparse.is_alive(0), "an invalid handle should not be alive")
+
+    a = sparse.add(1)
+    assert(sparse.is_alive(a), "element should be alive after adding")
+
+    b = sparse.add(2)
+    c = sparse.add(3)
+
+    mut count = 0
+    for v in sparse {
+        print('element: {count}: {v}')
+        count += 1
+    }
+    assert(count == 3, 'count of elements should be 3, got {count}')
+
+    assert(sparse.is_alive(b), "element should be alive after adding")
+    sparse.remove(b)
+    assert(!sparse.is_alive(b), "element should not be alive after removing it")
+
+    for id, v in sparse {
+        print('element: {id}: {v}')
+    }
+}
+

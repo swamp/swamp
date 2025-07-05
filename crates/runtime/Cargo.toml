@@ -1,0 +1,41 @@
+[package]
+name = "swamp-runtime"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "runtime for swamp"
+
+[dependencies]
+
+# Semantic and Analyzer
+swamp-dep-loader = { path = "../dep-loader", version = "0.2.4" }
+swamp-semantic = { path = "../semantic", version = "0.2.4" }
+swamp-types = { path = "../types", version = "0.2.4" }
+swamp-analyzer = { path = "../analyzer", version = "0.2.4" }
+swamp-vm-layout = { path = "../vm-layout", version = "0.2.4" }
+
+# Core
+swamp-std = { path = "../std", version = "0.2.4" }
+
+# Compile orchestrator
+swamp-compile = { path = "../compile", version = "0.2.4" }
+
+# Runtime
+swamp-code-gen-program = { path = "../code-gen-program", version = "0.2.4" }
+swamp-code-gen = { path = "../code-gen", version = "0.2.4" }
+swamp-vm = { path = "../vm", version = "0.2.4" }
+swamp-vm-types = { path = "../vm-types", version = "0.2.4" }
+swamp-vm-disasm = { path = "../vm-disasm", version = "0.2.4" }
+swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.4" }
+
+# Source Map
+source-map-cache = "0.0.3"
+
+tinter = "0.1.0"
+seq-map = "0.0.13"
+
+[dev-dependencies]
+
+[features]
+debug_vm = [] #

@@ -1,0 +1,271 @@
+struct Thing {
+    a: Int,
+    b: Int,
+}
+
+struct Another {
+    things: Vec<Thing; 4>,
+}
+
+fn reading_things(things: [Thing]) {
+    thing = things[0]
+    assert(thing.a == 42, 'thing.a is wrong')
+    assert(thing.b == -1024, 'thing.b is wrong')
+    print('thing: a:{thing.a} b: {thing.b}')
+}
+
+fn writing_second_element_in_things(mut things: [Thing]) {
+    print('before things[1]: a:{things[1].a} b: {things[1].b}')
+    new_thing = Thing { a: 100, b: 200 }
+    print('new_thing: a:{new_thing.a} b: {new_thing.b}')
+    things[1] = new_thing
+    print('after things[1]: a:{things[1].a} b: {things[1].b}')
+}
+
+fn writing_second_element_in_things_directly(mut things: [Thing]) {
+    print('before things[1]: a:{things[1].a} b: {things[1].b}')
+    things[1] = Thing { a: 100, b: 200 }
+    print('after things[1]: a:{things[1].a} b: {things[1].b}')
+}
+
+fn writing_second_b_in_things(mut things: [Thing]) {
+    things[1].b = -999
+}
+
+fn pushing_a_thing(mut things: Vec<Thing>, a: Int) {
+    things.push(Thing { a: a, b: a + 44 })
+}
+
+fn pass_things_slice(things: [Thing]) {
+    for x in things {
+        print('slice: thing: {x.a}')
+    }
+}
+
+fn pass_things(things: Vec<Thing>) {
+    for x in things {
+        print('vec: thing: {x.a}')
+    }
+}
+
+#[test]
+fn vec_assign_and_subscript() {
+
+    another = Another {
+        things: [
+            Thing { a: 11, b:  1 },
+            Thing { b:  2, a: 12 }, // Intentionally swapped
+            Thing { a: 13, b:  3 },
+        ]
+    }
+
+    second_thing = another.things[1]
+    assert(second_thing.a == 12, 'second_thing.a is wrong')
+    assert(second_thing.b == 2, 'second_thing.b is wrong')
+    print('second_thing: a: {second_thing.a} b: {second_thing.b}')
+
+    assert(another.things[0].a == 11, 'another.things[0].a is wrong')
+    assert(another.things[0].b == 1, 'another.things[0].a is wrong')
+    assert(another.things[1].a == 12, 'another.things[1].b is wrong')
+    assert(another.things[1].b == 2, 'another.things[1].b is wrong')
+    assert(another.things[2].a == 13, 'another.things[2].a is wrong')
+    assert(another.things[2].b == 3, 'another.things[2].b is wrong')
+
+}
+
+// TODO: #[test]
+fn thing_to_string() {
+    thing = Thing { a: 42, b: 24 }
+    result = thing.to_string()
+    assert(result == "intentionally wrong", 'did not match "{result}"')
+}
+
+// TODO: #[test]
+fn to_string() {
+      another = Another {
+        things: [
+            Thing { a: 11, b:  1 },
+            Thing { b:  2, a: 12 }, // Intentionally swapped
+            Thing { a: 13, b:  3 },
+        ]
+    }
+    result = another.to_string()
+
+    assert("intentionally wrong" == result, 'mismatch! returned "{result}"')
+}
+
+#[test]
+fn parameter_passing() {
+    another = Another {
+        things: [
+            Thing { b:  -1024, a: 42 }, // Intentionally swapped
+        ]
+    }
+
+    reading_things(another.things)
+}
+
+#[test]
+fn mut_parameter_passing_one_field() {
+
+    mut another = Another {
+        things: [
+            Thing { b:  -1024, a: 42 }, // Intentionally swapped
+            Thing { a:  32, b: 8086 },
+        ]
+    }
+
+    // Check that the values has been set correctly
+    assert(another.things[0].a == 42, 'things[0].a is wrong')
+    assert(another.things[0].b == -1024, 'things[0].b is wrong')
+
+    assert(another.things[1].a == 32, 'initial values: things[1].a has been changed!')
+    assert(another.things[1].b == 8086, 'initial values: things[1].b has been changed!')
+
+    // Call the function that mutates the second element
+    writing_second_b_in_things(&another.things)
+
+
+    // Check that first element is unchanged
+    assert(another.things[0].a == 42, 'after mutation: things[0].a has been changed!')
+    assert(another.things[0].b == -1024, 'after mutation: things[0].b has been changed!')
+
+    // Check that second element.b is changed
+    assert(another.things[1].a == 32, 'after mutation: things[1].a has been changed!')
+    assert(another.things[1].b == -999, 'after mutation: things[1].b should have been changed')
+
+ }
+
+#[test]
+fn mut_parameter_passing_whole_element() {
+
+    mut another = Another {
+        things: [
+            Thing { b:  -1024, a: 42 }, // Intentionally swapped
+            Thing { a:  32, b: 8086 },
+        ]
+    }
+
+    // Check that the values has been set correctly
+    assert(another.things[0].a == 42, 'initial values: things[0].a is wrong')
+    assert(another.things[0].b == -1024, 'initial values: things[0].b is wrong')
+
+    assert(another.things[1].a == 32, 'initial values: things[1].a has been changed!')
+    assert(another.things[1].b == 8086, 'initial values: things[1].b has been changed!')
+
+    // Call the function that mutates the second element
+    writing_second_element_in_things(&another.things)
+
+    // Check that first element is unchanged after mutation of the second element
+    assert(another.things[0].a == 42, 'after mutation: things[0].a has been changed!')
+    assert(another.things[0].b == -1024, 'after mutation: things[0].b has been changed!')
+
+    // Check that second element.b is changed
+    assert(another.things[1].a == 100, 'after mutation: things[1].a should have been changed')
+    assert(another.things[1].b == 200, 'after mutation: things[1].b should have been changed')
+
+ }
+
+#[test]
+fn mut_parameter_passing_whole_element_directly() {
+
+    mut another = Another {
+        things: [
+            Thing { b:  -1024, a: 42 }, // Intentionally swapped
+            Thing { a:  32, b: 8086 },
+        ]
+    }
+
+    // Check that the values has been set correctly
+    assert(another.things[0].a == 42, 'initial values: things[0].a is wrong')
+    assert(another.things[0].b == -1024, 'initial values: things[0].b is wrong')
+
+    assert(another.things[1].a == 32, 'initial values: things[1].a has been changed!')
+    assert(another.things[1].b == 8086, 'initial values: things[1].b has been changed!')
+
+    // Call the function that mutates the second element
+    writing_second_element_in_things_directly(&another.things)
+
+    // Check that first element is unchanged after mutation of the second element
+    assert(another.things[0].a == 42, 'after mutation: things[0].a has been changed!')
+    assert(another.things[0].b == -1024, 'after mutation: things[0].b has been changed!')
+
+    // Check that second element.b is changed
+    assert(another.things[1].a == 100, 'after mutation: things[1].a should have been changed')
+    assert(another.things[1].b == 200, 'after mutation: things[1].b should have been changed')
+
+ }
+
+fn returning_a_thing(a: Bool) -> Thing {
+    if a {
+        Thing { a: 22, b: 44 }
+    } else {
+        Thing { a: 33, b: 55 }
+    }
+}
+
+#[test]
+fn fill_thing_from_returning() {
+    thing = returning_a_thing(true)
+    assert(thing.a == 22, 'thing.a is wrong')
+    assert(thing.b == 44, 'thing.b is wrong')
+}
+
+#[test]
+fn push() {
+    mut another = Another {
+        things: [
+            Thing { b:  -1024, a: 42 }, // Intentionally swapped
+            Thing { a:  32, b: 8086 },
+        ]
+    }
+
+    assert(another.things.len() == 2, "wrong length after initialization")
+
+    assert(another.things[1].a == 32, 'another.things[1].a is wrong')
+    assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
+
+    another.things.push(Thing { a: 100, b: 200 })
+    assert(another.things.len() == 3, "wrong length after push")
+
+    another.things[2] = Thing { a: 100, b: 200 }
+
+    assert(another.things.len() == 3, "wrong length")
+
+    pushing_a_thing(&another.things, -2)
+
+    assert(another.things.len() == 4, "wrong length after pushing a thing")
+
+    another.things.remove(2)
+
+    print('another.things[2]: a:{another.things[2].a} b: {another.things[2].b}')
+
+    assert(another.things[1].a == 32, 'another.things[1].a is wrong')
+    assert(another.things[1].b == 8086, 'another.things[1].b is wrong')
+
+    assert(another.things[2].a == -2, 'another.things[3].a is wrong')
+    assert(another.things[2].b == -2 + 44, 'another.things[3].b is wrong')
+}
+
+//#[test] // TODO: Bring this back when you can have arguments for trap expectations
+#[should_trap(expected="vec_bounds_fail")]
+fn trap_remove() {
+    mut another = Another {
+        things: [
+            Thing { b:  -1024, a: 42 }, // Intentionally swapped
+            Thing { a:  32, b: 8086 },
+        ]
+    }
+    assert(another.things.len() == 2, "wrong length after initialization")
+
+    another.things.remove(2) // This should trap
+
+    panic("should not be reached")
+}
+
+#[test]
+fn pass_in_param() {
+    things = [ Thing { a: 33, b: 55 }, Thing { a: -4, b: 9 }, ]
+    pass_things(things)
+    pass_things_slice(things)
+}

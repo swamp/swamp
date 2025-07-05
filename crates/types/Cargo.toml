@@ -1,0 +1,12 @@
+[package]
+name = "swamp-types"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "types used in Swamp"
+
+[dependencies]
+source-map-node = "0.0.1"
+seq-map = "0.0.13"
+seq-fmt = "0.0.1"

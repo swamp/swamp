@@ -1,0 +1,29 @@
+#[test]
+fn basic() {
+    mut sum = 0
+    for x in 0..3 {
+        print('x: {x}')
+        sum += x
+    }
+    assert(sum == 3, 'Sum should be 3, got {sum}')
+}
+
+#[test]
+fn inclusive() {
+    mut sum = 0
+    for x in 0..=3 {
+        print('x: {x}')
+        sum += x
+    }
+    assert(sum == 6, 'Sum should be 6, got {sum}')
+}
+
+#[test]
+fn using_header_struct() {
+    range = 0..10
+    print('range: {range.start} to {range.end} inclusive: {range.is_inclusive}')
+
+    for x in range {
+        print('x: {x}')
+    }
+}

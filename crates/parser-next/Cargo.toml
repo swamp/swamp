@@ -1,0 +1,13 @@
+[package]
+name = "swamp-parser-next"
+version = "0.2.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "New parser that parses Swamp programming language source code into an Abstract Syntax Tree (AST) defined in the `swamp-ast` crate"
+
+[dependencies]
+lexer = { path = "../lexer", version = "0.2.0" }
+swamp-ast = { path = "../ast", version = "0.2.0" }
+tracing = "0.1.40"
+test-log = { version = "0.2.16", features = ["trace", "log", "color"] }

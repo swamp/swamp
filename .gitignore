@@ -1,0 +1,8 @@
+target/
+.idea
+Cargo.lock
+.DS_Store
+.zed
+output.ansi
+*.trace
+.vscode

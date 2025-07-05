@@ -1,0 +1,16 @@
+[package]
+name = "swamp-vm-disasm"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+description = "disassembler for the opcodes in the swamp vm"
+repository = "https://github.com/swamp/swamp"
+
+[dependencies]
+swamp-vm-types = { path = "../vm-types", version = "0.2.4" }
+swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.4" }
+source-map-cache = "0.0.3"
+source-map-node = "0.0.1"
+tinter = "0.1.0"
+seq-map = "0.0.13"
+fixed32 = "0.0.17"

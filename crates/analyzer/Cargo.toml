@@ -1,0 +1,25 @@
+[package]
+name = "swamp-analyzer"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "analyzer for swamp"
+
+[dependencies]
+swamp-semantic = { path = "../semantic", version = "0.2.4" }
+swamp-ast = { path = "../ast", version = "0.2.4" }
+swamp-types = { path = "../types", version = "0.2.4" }
+swamp-modules = { path = "../modules", version = "0.2.4" }
+swamp-attributes = { path = "../attributes", version = "0.2.4" }
+# Future // swamp-pretty-print = { path = "../pretty-print", version = "0.2.0" }
+
+source-map-node = "0.0.1"
+source-map-cache = "0.0.3"
+
+seq-map = "0.0.13"
+seq-set = "0.0.2"
+tracing = "0.1.40"
+
+[dev-dependencies]
+seq-map = "0.0.13"

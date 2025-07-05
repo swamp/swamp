@@ -1,0 +1,347 @@
+struct Point {
+    x: Int,
+    y: Int,
+}
+
+impl Point {
+    fn add(self, other: Point) -> Point {
+        Point { x: self.x + other.x, y: self.y + other.y }
+    }
+}
+
+struct Something {
+    first_point: Point,
+    second_point: Point,
+}
+
+
+#[test]
+fn add_points() {
+    a = Point { x: 10, y: 20 }
+    b = Point { x: 30, y: 40 }
+    c = a.add(b)
+    print('x:{c.x}, y:{c.y}')
+    assert(c.x == 40, 'x value is wrong')
+    assert(c.y == 60, 'y value is wrong')
+}
+
+#[test]
+fn literal_struct() {
+    a = Point { x: 10, y: 20 }
+    print('x:{a.x}, y:{a.y}')
+    assert(a.x == 10, 'x value is wrong')
+    assert(a.y == 20, 'y value is wrong')
+}
+
+
+fn overwrite_point(mut p: Point) {
+    p.x = 100
+    p.y = 200
+}
+
+#[test]
+fn borrow_point() {
+    // Intentional dummy variable `dummy` to take up the r1 register.
+    // that forces a `mov r1, r2` (r1=first parameter, r2=point variable) to happen before calling `overwrite_point`.
+    dummy =  3
+
+    mut point = Point { x: 10, y: 20 }
+
+    print('before overwrite: x:{point.x}, y:{point.y}')
+    assert(point.x == 10, 'before: x value is wrong')
+    assert(point.y == 20, 'before: y value is wrong')
+
+    overwrite_point(&point)
+
+    print('after overwrite: x:{point.x}, y:{point.y}')
+    assert(point.x == 100, 'after: x value is wrong')
+    assert(point.y == 200, 'after: y value is wrong')
+}
+
+
+fn partial_overwrite_point(mut p: Point) {
+    p.y = 200
+}
+
+
+#[test]
+fn borrow_point_partial_overwrite() {
+    // Intentional dummy variable `dummy` to take up the r1 register.
+    // that forces a `mov r1, r2` (r1=first parameter, r2=point variable) to happen before calling `overwrite_point`.
+    dummy =  3
+
+    mut point = Point { x: 10, y: 20 }
+
+    print('before overwrite: x:{point.x}, y:{point.y}')
+    assert(point.x == 10, 'before: x value is wrong')
+    assert(point.y == 20, 'before: y value is wrong')
+
+    partial_overwrite_point(&point)
+
+    print('after overwrite: x:{point.x}, y:{point.y}')
+    assert(point.x == 10, 'after: x value should not have been changed')
+    assert(point.y == 200, 'after: y value is wrong')
+}
+
+
+
+#[test]
+fn borrow_point_inside_struct() {
+    // Intentional dummy variable `dummy` to take up the r1 register.
+    // that forces a `mov r1, r2` (r1=first parameter, r2=point variable) to happen before calling `overwrite_point`.
+    dummy =  3
+
+    mut something = Something {
+        first_point: Point { x: 10, y: 20 },
+        second_point: Point { x: 30, y: 40 },
+    }
+
+    print('before overwrite: x:{something.first_point.x}, y:{something.first_point.y}')
+    assert(something.first_point.x == 10, 'before: x value is wrong')
+    assert(something.first_point.y == 20, 'before: y value is wrong')
+    assert(something.second_point.x == 30, 'before: x value is wrong')
+    assert(something.second_point.y == 40, 'before: y value is wrong')
+
+    partial_overwrite_point(&something.second_point)
+
+    print('after overwrite: first: x:{something.first_point.x}, y:{something.first_point.y}')
+    print('after overwrite: second: x:{something.second_point.x}, y:{something.second_point.y}')
+
+    assert(something.first_point.x == 10, 'after: x value should not have been changed')
+    assert(something.first_point.y == 20, 'after: y value should not have been changed')
+    assert(something.second_point.x == 30, 'after: x value should not have been changed')
+    assert(something.second_point.y == 200, 'after: y value is wrong')
+    print('after overwrite: x:{something.second_point.x}, y:{something.second_point.y}')
+}
+
+
+struct DeepNest {
+    a: Something,
+    b: Something,
+}
+
+#[test]
+fn deep_nesting() {
+    dummy = 3
+    mut deep = DeepNest {
+        a: Something {
+          first_point: Point { x: 1, y: 2 },
+          second_point: Point { x: 3, y: 4 }
+        },
+        b: Something {
+          first_point: Point { x: 5, y: 6 },
+          second_point: Point { x: 7, y: 8 }
+        }
+    }
+
+    partial_overwrite_point(&deep.a.first_point)
+    partial_overwrite_point(&deep.b.second_point)
+
+    assert(deep.a.first_point.y == 200, "deep nested first point not updated")
+    assert(deep.b.second_point.y == 200, "deep nested second point not updated")
+    assert(deep.a.first_point.x == 1, "shouldn't have changed")
+    assert(deep.b.second_point.x == 7, "shouldn't have changed")
+}
+
+fn update_x_only(mut x: Int) {
+    x = 777
+}
+
+/// This test surfaced a bug in the code generator where code
+/// was missing for borrowing primitive types directly. In the ABI
+/// they are always passed contained in the register, and the call
+/// generation uses a copy back scheme to get the value back out.
+#[test]
+fn field_borrowing() {
+    dummy = 3
+    mut point = Point { x: 10, y: 20 }
+
+    update_x_only(&point.x)
+
+    assert(point.x == 777, "direct field borrowing failed")
+    assert(point.y == 20, "y shouldn't change")
+}
+
+fn update_both(mut a: Int, mut b: Int) {
+    a = 42
+    b = 43
+}
+
+
+/// This test uncovered a bug where the emit_arguments wasn't handling the fact that it needed to
+/// hold on to, for example, the first argument register (r1) to use as a base pointer for copy back.
+/// but the r1 was clobbered when calling the function (update_both).
+/// Had to add a SeqMap to keep track of the registers that were used as base pointers.
+#[test]
+fn multiple_field_refs() {
+    mut point = Point { x: 10, y: 20 }
+    update_both(&point.x, &point.y)
+    assert(point.x == 42 && point.y == 43, "multiple field refs failed")
+}
+
+
+fn swap_values(mut a: Int, mut b: Int) {
+    temp = a
+    a = b
+    b = temp
+}
+
+#[test]
+fn swap_fields() {
+    mut point = Point { x: 10, y: 20 }
+    print('before swap: x:{point.x}, y:{point.y}')
+    swap_values(&point.x, &point.y)
+    print('after swamp: x:{point.x}, y:{point.y}')
+    assert(point.x == 20 && point.y == 10, "swapping via refs failed")
+}
+
+
+fn add_to_value(mut value: Int, amount: Int) {
+    value += amount
+}
+
+fn subtract_from_value(mut value: Int, amount: Int) {
+    value -= amount
+}
+
+#[test]
+fn compound_assignments() {
+    mut point = Point { x: 10, y: 20 }
+    add_to_value(&point.x, 5)
+    subtract_from_value(&point.y, 7)
+    assert(point.x == 15, "compound add failed")
+    assert(point.y == 13, "compound subtract failed")
+}
+
+
+struct Mixed {
+    num: Int,
+    flag: Bool,
+    text: String<42>,
+}
+
+fn toggle_flag(mut flag: Bool) {
+    print('toggle_flag: before toggling: {flag}')
+    flag = !flag
+    print('toggle_flag: after toggling: {flag}')
+}
+
+#[test]
+fn test_string_to_string() {
+    s = "hello world!"
+    result = s.to_string()
+    assert(result == "\"hello world!\"", 'result is wrong {s}')
+}
+
+/// This test is to ensure that the automatic conversion to string works correctly.
+// TODO: There is currently a string corruption, that probably relates the evaluation of constants
+// are not saving the heap
+#[test]
+fn automatic_to_string() {
+    mut mixed = Mixed { num: 42, flag: false, text: "hello" }
+    print('Mixed struct: {mixed}')
+    result = mixed.to_string()
+    assert(result == "Mixed { num: 42, flag: false, text: \"hello\" }", 'to_string failed "{result}"')
+}
+
+
+// TODO: generate to_string() for anon types
+/*
+#[test]
+fn automatic_anon_to_string() {
+    mut mixed = { num: 42, flag: false, text: "hello" }
+    print('Mixed struct: {mixed}')
+    result = mixed.to_string()
+    assert(result == "{ num: 42, flag: false, text: \"hello\" }", 'to_string failed "{result}"')
+}
+*/
+
+/// This test is to ensure that the automatic conversion to short string works correctly.
+/// to_short_string shows named structs as anonymous structs (without the type name)
+// TODO: There is currently a string corruption, that probably relates the evaluation of constants
+// are not saving the heap
+//#[test]
+fn automatic_to_short_string() {
+    mut mixed = Mixed { num: 42, flag: false, text: "hello" }
+    print('Mixed struct short: {mixed.to_short_string()}')
+    assert(mixed.to_short_string() == "{ num: 42, flag: false, text: \"hello\" }", "to_short_string failed")
+}
+
+/// This uncovered that there was a need for a longer reserve time for certain registers that
+/// were used for copy back of primitive types.
+#[test]
+fn mixed_struct_toggle_ref() {
+    mut mixed = Mixed { num: 42, flag: false, text: "hello" }
+    assert(mixed.num == 42, "num not initialized")
+    assert(mixed.flag == false, "flag not initialized")
+    assert(mixed.text == "hello", "text not initialized")
+
+    print('before toggle: {mixed.flag}')
+    toggle_flag(&mixed.flag)
+    print('after toggle: {mixed.flag}')
+
+    assert(mixed.flag == true, "bool ref update failed")
+
+    assert(mixed.num == 42, "num was overwritten")
+    assert(mixed.text == "hello", "text as overwritten")
+}
+
+
+fn increment(mut value: Int) {
+    value += 1
+}
+
+fn double(mut value: Int) {
+    value *= 2
+}
+
+#[test]
+fn multiple_mut_refs() {
+    mut point = Point { x: 10, y: 20 }
+
+    increment(&point.x)
+    double(&point.x)
+    increment(&point.x)
+
+    assert(point.x == (10 + 1) * 2 + 1, "multiple refs failed")
+}
+
+
+fn conditional_update(mut value: Int, should_update: Bool) {
+    if should_update {
+        value = 100
+    }
+}
+
+#[test]
+fn conditional_updates() {
+    mut point = Point { x: 10, y: 20 }
+
+    conditional_update(&point.x, true)
+    assert(point.x == 100, "conditional update true failed")
+    assert(point.y == 20, "conditional modified y")
+
+    conditional_update(&point.y, false)
+    assert(point.x == 100, "conditional modified x")
+    assert(point.y == 20, "conditional update false should not change")
+}
+
+#[test]
+fn rest_operator() {
+    mut point = Point {
+        x: 10
+        ..
+    }
+    assert(point.x == 10, "x value is wrong")
+    assert(point.y == 0, "y value is wrong")
+}
+
+#[test]
+fn rest_operator_again() {
+    mut point = Point {
+        y: 20
+        ..
+    }
+    assert(point.x == 0, "x value is wrong")
+    assert(point.y == 20, "y value is wrong")
+}

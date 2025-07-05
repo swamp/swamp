@@ -1,0 +1,32 @@
+[package]
+name = "swamp-code-gen"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+description = "generates swamp-vm opcodes"
+repository = "https://github.com/swamp/swamp"
+
+[dependencies]
+# Swamp VM
+swamp-vm-types = { path = "../vm-types", version = "0.2.4" }
+swamp-vm-instr-build = { path = "../vm-instr-build", version = "0.2.4" }
+swamp-vm-disasm = { path = "../vm-disasm", version = "0.2.4" }
+swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.4" }
+
+# Swamp Analyzer
+swamp-semantic = { path = "../semantic", version = "0.2.4" }
+swamp-types = { path = "../types", version = "0.2.4" }
+
+# Layouter
+swamp-vm-layout = { path = "../vm-layout", version = "0.2.4" }
+
+# Attributes
+swamp-attributes = { path = "../attributes", version = "0.2.4" }
+
+# Source Map
+source-map-node = "0.0.1"
+source-map-cache = "0.0.3"
+
+seq-map = "0.0.13"
+tinter = "0.1.0"
+tracing = "0.1.40"

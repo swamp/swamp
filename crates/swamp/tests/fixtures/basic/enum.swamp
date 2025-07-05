@@ -1,0 +1,545 @@
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+impl Color {
+    fn to_string(self) -> String {
+        match self {
+            Red -> "Red",
+            Green -> "Green",
+            Blue -> "Blue",
+        }
+    }
+}
+
+#[test]
+fn literal_enum() {
+    a = Color::Red
+    //print('a: `{a}`')
+    assert(a == Color::Red, "enum value is wrong")
+}
+
+#[test]
+fn matching() {
+    a = Color::Green
+    result = match a {
+        Red -> 0,
+        Green -> 1,
+        Blue -> 2,
+    }
+    assert(result == 1, "enum value is wrong")
+}
+
+
+enum Different {
+    Nothing,
+    FewThings(Color, Int),
+    More { id: Int, color: Color}
+}
+
+enum SimpleEnum {
+    First,
+    Second,
+    Third,
+}
+
+enum IntOption {
+    Some(Int),
+    None,
+}
+
+enum IntResult {
+    Ok(Int),
+    Err(Int),
+}
+
+enum Container {
+    Single(Int),
+    Pair(Int, Int),
+    Triple(Int, Int, Color),
+    Named { id: Int, count: Int },
+    Complex { value: Int, flag: Bool },
+}
+
+#[test]
+fn matching_enum_with_container() {
+    a = Different::FewThings(Color::Green, 42)
+    result = match a {
+        Nothing -> 0,
+        FewThings  _, value  -> value,
+        More { id, color } -> {
+            print('id: {id}, color: {color}')
+            100
+        }
+    }
+    print('result: {result}')
+    assert(result == 42, "enum value is wrong")
+}
+
+#[test]
+fn matching_enum_with_container_struct() {
+    a = Different::More {id: 42, color: Color::Blue}
+    result = match a {
+        Nothing -> 0,
+        FewThings _, value -> value,
+        More { id, color } -> {
+            print('id: {id}, color: {color}')
+            100
+        }
+    }
+    print('result: {result}')
+    assert(result == 100, "enum value is wrong")
+}
+
+#[test]
+fn matching_enum_with_container_fall_through() {
+    a = Different::More {id: 42, color: Color::Blue}
+    result = match a {
+        Nothing -> 0,
+        FewThings  _, value  -> value,
+        _ -> 200,
+    }
+    print('result: {result}')
+    assert(result == 200, "enum value is wrong")
+}
+
+#[test]
+fn matching_mut_enum_struct() {
+    mut a = Different::More {id: 42, color: Color::Blue}
+    result = match a {
+        Nothing -> 0,
+        More { mut id, mut color } -> {
+            print('before: id: {id}, color: {color}')
+
+            assert(id == 42, "id is wrong")
+            assert(color == Color::Blue, "enum value is wrong")
+            color = Color::Red
+            print('after color change: id: {id}, color: {color}')
+            assert(color == Color::Red, "enum value is wrong")
+
+            id = 999
+            assert(id == 999, "id is wrong")
+            print('after id change: id: {id}, color: {color}')
+
+            100
+        }
+        _ -> 200,
+    }
+    print('result: {result}')
+    assert(result == 100, "enum value is wrong")
+}
+
+#[test]
+fn matching_mut_enum_struct_one_field() {
+    mut a = Different::More {id: 42, color: Color::Blue}
+    result = match a {
+        Nothing -> 0,
+        More { id, mut color } -> {
+            print('before: id: {id}, color: {color}')
+            assert(color == Color::Blue, "enum value is wrong")
+            color = Color::Green // change color
+            print('after: id: {id}, color: {color}')
+            assert(color == Color::Green, "enum value is wrong")
+            100
+        }
+        _ -> 200,
+    }
+    print('result: {result}')
+    assert(result == 100, "enum value is wrong")
+}
+
+#[test]
+fn matching_mut_enum_tuple_one_field() {
+    mut a = Different::FewThings(Color::Blue, 99)
+    result = match a {
+        Nothing -> 0,
+        FewThings _, mut value  -> {
+            print('before: value {value}')
+            assert(value == 99, "enum value is wrong")
+            value = 3
+            print('after: value changed: {value}')
+            assert(value == 3, "enum value is wrong")
+            255
+        }
+        More { id, mut color } -> {
+            color = Color::Green
+            100
+        }
+        _ -> 200,
+    }
+    print('result: {result}')
+    assert(result == 255, "enum value is wrong")
+}
+
+#[test]
+fn whole_payload_capture_simple() {
+    opt = IntOption::Some(42)
+    result = match opt {
+        Some payload -> {
+            print('Got payload: {payload}')
+            payload * 2
+        }
+        None -> 0,
+    }
+    assert(result == 84, "whole payload capture failed")
+}
+
+#[test]
+fn tuple_vs_struct_variant_patterns() {
+    container = Container::Named { id: 123, count: 456 }
+    result = match container {
+        Single value -> value,  // Tuple variant - whole payload capture
+        Pair a, b -> a,         // Tuple variant - destructuring
+        Triple x, y, z -> x,    // Tuple variant - partial destructuring
+        Named { id, count } -> {  // Struct variant - must destructure fields
+            print('Got named data: id={id}, count={count}')
+            999  // Return a known value to verify this branch was taken
+        }
+        Complex { value, flag } -> 888,  // Struct variant - must destructure fields
+    }
+    assert(result == 999, "struct variant destructuring failed")
+}
+
+#[test]
+fn whole_payload_capture_tuple() {
+    container = Container::Triple(10, 20, Color::Red)
+    result = match container {
+        Single value -> value,
+        Pair data -> {
+            print('Got pair data: {data}')
+            0
+        }
+        Triple everything -> {
+            print('Got triple everything: {everything}')
+            // everything should be the entire tuple (10, 20, Color::Red)
+            777  // Return a known value to verify this branch was taken
+        }
+        Named { id, count } -> 666,
+        Complex { value, flag } -> 555,
+    }
+    assert(result == 777, "whole payload capture for tuple failed")
+}
+
+#[test]
+fn mutable_whole_payload_capture() {
+    mut opt = IntOption::Some(100)
+    result = match opt {
+        Some mut payload -> {
+            print('Original payload: {payload}')
+            assert(payload == 100, "initial payload wrong")
+            payload = payload + 50
+            print('Modified payload: {payload}')
+            assert(payload == 150, "modified payload wrong")
+            payload
+        }
+        None -> 0,
+    }
+    assert(result == 150, "mutable whole payload capture failed")
+}
+
+#[test]
+fn mutable_whole_payload_struct_capture() {
+    mut container = Container::Named { id: 42, count: 10 }
+    result = match container {
+        Single value -> value,
+        Named { mut id, mut count } -> {
+            print('Original data: id={id}, count={count}')
+            // Modify the individual fields
+            id = 999
+            count = 888
+            print('Modified data: id={id}, count={count}')
+            id  // Return the new id to verify modification
+        }
+        _ -> 0,
+    }
+    assert(result == 999, "mutable struct field capture failed")
+}
+
+#[test]
+fn mutable_whole_payload_tuple_capture() {
+    mut container = Container::Pair(10, 20)
+    result = match container {
+        Single value -> value,
+        Pair mut first, mut second -> {
+            print('Original values: first={first}, second={second}')
+            // Modify the individual values
+            first = first * 2
+            second = second * 3
+            print('Modified values: first={first}, second={second}')
+            // Return the sum to verify modification
+            first + second
+        }
+        _ -> 0,
+    }
+    assert(result == 80, "mutable tuple destructuring failed")  // 10*2 + 20*3 = 20 + 60 = 80
+}
+
+#[test]
+fn mixed_pattern_matching() {
+    containers = [
+        Container::Single(5),
+        Container::Pair(10, 15),
+        Container::Triple(1, 2, Color::Blue),
+        Container::Named { id: 123, count: 456 },
+    ]
+
+    mut total = 0
+    for container in containers {
+        value = match container {
+            Single n -> n,  // Whole payload capture
+            Pair first, second -> first,  // Destructuring
+            Triple x, _, _ -> x,  // Partial destructuring with wildcards
+            Named { id, count } -> id,  // Struct destructuring
+            Complex { value, flag } -> value,  // Struct destructuring
+        }
+        total = total + value
+    }
+
+    // 5 + 10 + 1 + 123 = 139
+    assert(total == 139, "mixed pattern matching failed")
+}
+
+#[test]
+fn nested_enum_pattern_matching() {
+    nested = Container::Complex {
+        value: 42,
+        flag: true
+    }
+
+    result = match nested {
+        Complex { value, flag } -> {
+            inner_result = if flag {
+                value * 2
+            } else {
+                0
+            }
+            inner_result + 5
+        }
+        _ -> 0,
+    }
+
+    // 42 * 2 + 5 = 89
+    assert(result == 89, "nested enum pattern matching failed")
+}
+
+
+#[test]
+fn result_pattern_matching() {
+    success = IntResult::Ok(42)
+    failure = IntResult::Err(404)
+
+    success_result = match success {
+        Ok value -> {
+            print('Success: {value}')
+            value * 2
+        }
+        Err error -> 0,
+    }
+
+    failure_result = match failure {
+        Ok value -> value,
+        Err error -> {
+            print('Error: {error}')
+            42
+        }
+    }
+
+    assert(success_result == 84, "success result pattern failed")  // 42 * 2 = 84
+    assert(failure_result == 42, "failure result pattern failed")
+}
+
+// TODO: Must fix with aggregate type // #[test]
+fn mutable_result_pattern_matching() {
+    mut result = IntResult::Ok(42)
+
+    final_value = match result {
+        Ok mut value -> {
+            print('Original value: {value}')
+            value = value * 2
+            print('Doubled value: {value}')
+            value
+        }
+        Err error -> 0,
+    }
+
+    assert(final_value == 84, "mutable result pattern failed")
+
+    checked_value_again = match result {
+        Ok value -> {
+            value
+        }
+        Err error -> 0,
+    }
+
+    assert(checked_value_again == 84, "mutable result pattern failed")
+}
+
+
+#[test]
+fn wildcard_with_whole_payload() {
+    containers = [
+        Container::Single(100),
+        Container::Pair(200, 300),
+        Container::Complex { value: 400, flag: false },
+    ]
+
+    mut total = 0
+    for container in containers {
+        value = match container {
+            Single n -> n,
+            _ -> 1000,  // Catch-all with no payload capture
+        }
+        total = total + value
+    }
+
+    // 100 + 1000 + 1000 = 2100
+    assert(total == 2100, "wildcard pattern matching failed")
+}
+
+#[test]
+fn multiple_mutable_fields() {
+    mut container = Container::Named { id: 1, count: 2 }
+    result = match container {
+        Named { mut id, mut count } -> {
+            print('Before: id={id}, count={count}')
+            id = id * 10
+            count = count * 100
+            print('After: id={id}, count={count}')
+            id + count
+        }
+        _ -> 0,
+    }
+
+    // 1 * 10 + 2 * 100 = 10 + 200 = 210
+    assert(result == 210, "multiple mutable fields failed")
+}
+
+// Test automatic to_string generation for enums (shows full enum::variant)
+#[test]
+fn automatic_enum_to_string() {
+    a = SimpleEnum::First
+    print('SimpleEnum to_string: {a.to_string()}')
+    assert(a.to_string() == "SimpleEnum::First", "enum to_string failed")
+
+    b = SimpleEnum::Second
+    assert(b.to_string() == "SimpleEnum::Second", "enum to_string failed")
+}
+
+// Test automatic to_short_string generation for enums (shows only variant name)
+#[test]
+fn automatic_enum_to_short_string() {
+    a = SimpleEnum::First
+    print('SimpleEnum::FIRST to_short_string: "{a.to_short_string()}"')
+    a_result = a.to_short_string()
+    assert(a_result == "First", 'enum to_short_string first failed `{a}`')
+
+    b = SimpleEnum::Third
+    b_result = b.to_short_string()
+    assert(b_result == "Third", 'SimpleEnum::THIRD to_short_string third failed {b_result}"')
+}
+
+enum DirectSyntaxEnum {
+    Empty,
+    SingleValue Int,
+    TupleValue( Int, Int ),
+    StructValue { id: Int, count: Int },
+}
+
+#[test]
+fn direct_syntax_creation_and_matching() {
+    direct_variant = DirectSyntaxEnum::SingleValue(42)
+    tuple_variant = DirectSyntaxEnum::TupleValue(123, 456)
+    struct_variant = DirectSyntaxEnum::StructValue { id: 789, count: 321 }
+
+    // Test matching direct syntax variants
+    direct_result = match direct_variant {
+        Empty -> 0,
+        SingleValue value -> {
+            print('Direct syntax value: {value}')
+            value * 2
+        }
+        TupleValue a, b -> 999,
+        StructValue { id, count } -> 888,
+    }
+
+    tuple_result = match tuple_variant {
+        Empty -> 0,
+        SingleValue value -> value,
+        TupleValue num1, num2 -> {
+            print('Tuple values: {num1}, {num2}')
+            num1 * 3
+        }
+        StructValue { id, count } -> 777,
+    }
+
+    struct_result = match struct_variant {
+        Empty -> 0,
+        SingleValue value -> value,
+        TupleValue a, b -> 666,
+        StructValue { id, count } -> {
+            print('Struct values: id={id}, count={count}')
+            id + 100
+        }
+    }
+
+    assert(direct_result == 84, "direct syntax matching failed")  // 42 * 2 = 84
+    assert(tuple_result == 369, "tuple syntax matching failed")   // 123 * 3 = 369
+    assert(struct_result == 889, "struct syntax matching failed") // 789 + 100 = 889
+}
+
+/* TODO: Should work, it should not layout single element tuples as anything other than direct
+#[test]
+fn direct_syntax_backward_compatibility() {
+    old_style = Container::Single(99)
+
+    result = match old_style {
+        Single value -> {
+            print('got single value (old tuple syntax): {value}')
+            value + 1
+        }
+        _ -> 0,
+    }
+
+    assert(result == 100, "backward compatibility with tuple syntax failed")
+}
+*/
+
+enum MixedSyntaxEnum {
+    DirectInt Int,
+    TuplePair ( Int, Int ),
+    StructData { count: Int, value: Int },
+}
+
+#[test]
+fn mixed_syntax_comprehensive() {
+    variants = [
+        MixedSyntaxEnum::DirectInt(42),
+        MixedSyntaxEnum::TuplePair(10, 20),
+        MixedSyntaxEnum::StructData { count: 5, value: 100 },
+    ]
+
+    mut results: Vec<Int; 24> = []
+    for variant in variants {
+        result = match variant {
+            DirectInt value -> {
+                print('Direct int: {value}')
+                value * 2
+            }
+            TuplePair num1, num2 -> {
+                print('Tuple pair: {num1}, {num2}')
+                num1 + num2
+            }
+            StructData { count, value } -> {
+                print('Struct data: count={count}, value={value}')
+                count * 10 + value
+            }
+        }
+        results.push(result)
+    }
+
+    assert(results[0] == 84, "direct int failed")
+    assert(results[1] == 30, "tuple pair failed")
+    assert(results[2] == 150, "struct data failed")
+}

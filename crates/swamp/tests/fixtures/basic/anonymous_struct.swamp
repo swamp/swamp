@@ -1,0 +1,97 @@
+fn add_x_and_y_point_like(point: { x: Int, y: Int }) -> Int {
+    point.x + point.y
+}
+
+fn create_anon() -> { value: Int, valid: Bool } {
+    { valid: true, value: 42 }
+}
+
+fn takes_two_structs(a: { x: Int, y: Int }, b: { x: Int, y: Int }) -> Int {
+    a.x + a.y + b.x + b.y
+}
+
+#[test]
+fn basic() {
+    point = { y: 20, x: 10 }
+    print('x:{point.x}, y:{point.y}')
+    assert(point.x == 10, 'x value is wrong')
+    assert(point.y == 20, 'y value is wrong')
+}
+
+#[test]
+fn as_parameter() {
+    sum = add_x_and_y_point_like({ y: 25, x: 15 })
+    print('sum:{sum}')
+    assert(sum == 40, 'sum is wrong')
+}
+
+#[test]
+fn from_function() {
+    result = create_anon()
+    another = { value: 42, valid: true }
+    print('value:{result.value}, valid:{result.valid}')
+    assert(result.value == 42, 'value is wrong')
+    assert(result.valid, 'valid flag is wrong')
+    assert(result == another, 'structs should be equal regardless of field order')
+}
+
+#[test]
+fn nested() {
+    nested = {
+        data: { valid: true, value: 42 },
+        point: { y: 2, x: 1 }
+    }
+    print('x:{nested.point.x}, value:{nested.data.value}')
+    assert(nested.point.x == 1, 'nested x is wrong')
+    assert(nested.data.value == 42, 'nested value is wrong')
+}
+
+#[test]
+fn mutation() {
+    mut point = { y: 20, x: 10 }
+    point.x = 30
+    print('after mutation: x:{point.x}, y:{point.y}')
+    assert(point.x == 30, 'mutated x is wrong')
+    assert(point.y == 20, 'y should not have changed')
+}
+
+#[test]
+fn mixed_field_orders() {
+    a = { x: 1, y: 2 }
+    b = { y: 4, x: 3 }
+    sum = takes_two_structs(a, b)
+    assert(sum == 10, 'sum is wrong')
+}
+
+#[test]
+fn nested_mixed_orders() {
+    data = {
+        first: { x: 1, y: 2 },
+        second: { y: 4, x: 3 },
+        meta: { value: 42, valid: true }
+    }
+    assert(data.first.x + data.second.y == 5, 'field access is wrong')
+}
+
+#[test]
+fn assignment_between_orders() {
+    a = { x: 10, y: 20 }
+    b = { y: 20, x: 10 }
+    assert(a == b, 'structs should be equal regardless of field order')
+
+    c = a
+    d = b
+    assert(c == d, 'assigned structs should be equal')
+}
+
+#[test]
+fn mutation_mixed() {
+    mut a = { x: 1, y: 2 }
+    mut b = { y: 4, x: 3 }
+
+    a.x = 5
+    b.y = 6
+
+    assert(a.x == 5, 'mutation in same-order struct failed')
+    assert(b.y == 6, 'mutation in different-order struct failed')
+}

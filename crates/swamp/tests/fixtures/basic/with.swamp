@@ -1,0 +1,215 @@
+// =============================================================================
+// WITH STATEMENT TESTS
+// =============================================================================
+// Current Implementation:
+// - Scalars (Int, Float, Bool, String) without & -> Copy semantics
+// - Scalars with & -> Copy semantics (same as without & for now). TODO: Should
+//   use copy-back mechanism in the future
+// - Aggregates (structs, collections) with & -> Reference/alias semantics
+//
+// Future Enhancement:
+// - Scalars with & should use copy-back mechanism (like after function calls)
+//   where the modified scalar value is copied back to the original variable
+//   when the with block goes out of scope.
+// =============================================================================
+
+#[test]
+fn basic() {
+    // NOTE: This test uses scalar copy semantics (no & used).
+    // Scalars without & should always use copy semantics.
+    mut i = 0
+    mut modified_in_with_block = false
+    with mut i {
+        i = i + 1
+        print('i: {i}')
+        assert(i == 1, "i should be 1 inside the with block")
+    }
+    assert(i == 0, "i should NOT have changed outside the with block (copy semantics)")
+}
+
+#[test]
+fn basic_borrow() {
+    // NOTE: This test uses scalar copy semantics (no & used).
+    // Scalars without & should always use copy semantics.
+    mut i = 0
+    with mut a=i {
+        a += 1
+        print('a: {a}')
+    }
+    assert(i == 0, "i should NOT have changed - a is a copy of i (copy semantics)")
+}
+
+#[test]
+fn basic_borrow_same_name() {
+    // NOTE: This test uses scalar copy semantics (no & used).
+    // Scalars without & should always use copy semantics.
+    mut i = 0
+    with mut i {
+        i = i + 1
+        print('i: {i}')
+    }
+    assert(i == 0, "original i should NOT have changed - with creates a copy (copy semantics)")
+}
+
+#[test]
+fn basic_borrow_same_name_explicit() {
+    // NOTE: This test uses scalar copy semantics (no & used).
+    // Scalars without & should always use copy semantics.
+    mut i = 0
+    with mut i=i {
+        i = i + 1
+        print('i: {i}')
+    }
+    assert(i == 0, "original i should NOT have changed - with creates a copy (copy semantics)")
+}
+
+#[test]
+fn not_using_alias() {
+    mut i = 0
+    with mut i=20+300 {
+        i += 1
+        print('i: {i}')
+    }
+    assert(i == 0, "expression should not have changed i")
+}
+
+#[test]
+fn basic_borrow_multiple_bindings() {
+    // NOTE: This test uses scalar copy semantics (no & used).
+    // Scalars without & should always use copy semantics.
+    mut i = 0
+    with a = 200-23, mut i {
+        i += a
+        print('i: {i}')
+    }
+    assert(i == 0, "original i should NOT have changed - with creates a copy (copy semantics)")
+}
+
+#[test]
+fn mutable_reference_to_data_structure() {
+    // NOTE: This test uses aggregate reference semantics (& used with collections).
+    // Aggregates with & create a variable that shares that lvalue and therefor modify the original aggregate.
+    mut numbers: Vec<Int; 10> = [1, 2, 3]
+
+    with mut nums = &numbers {
+        nums.push(4)
+        nums.push(5)
+        nums[0] = 100  // Modify existing element
+    }
+
+    assert(numbers.len() == 5, "numbers should have 5 elements after with block")
+    assert(numbers[0] == 100, "first element should be modified to 100")
+    assert(numbers[3] == 4, "fourth element should be 4")
+    assert(numbers[4] == 5, "fifth element should be 5")
+}
+
+#[test]
+fn all_variants() {
+    // NOTE: This test uses scalar copy semantics (no & used).
+    // Scalars without & should always use copy semantics.
+    mut a = 10
+    mut b = 20
+    with mut a, mut b {
+        a = a + 1
+        b = b + 1
+        print('a: {a}, b: {b}')
+    }
+    assert(a == 10, "original a should NOT have changed - with creates a copy (copy semantics)")
+    assert(b == 20, "original b should NOT have changed - with creates a copy (copy semantics)")
+}
+
+struct Formation {
+    id: Int,
+    name: String<42>,
+}
+
+struct Enemy {
+    id: Int,
+    health: Int,
+    formation: Int
+}
+
+struct GameState {
+    formations: Sparse<Formation, 10>,
+    enemies: Sparse<Enemy, 10>
+}
+
+/// This test is done to reproduce a bug that existed in the `shmup` example game.
+#[test]
+fn mutable_reference_to_field_access_chain() {
+    // NOTE: This test uses aggregate reference semantics (& used with field access chains).
+    // Aggregates with & create variables that point to the same lvalue as the original aggregate.
+    mut game_state = GameState {
+        formations: [],
+        enemies: []
+    }
+
+    mut formation1_id = game_state.formations.add(Formation { id: 1, name: "Alpha Squad" })
+    mut formation2_id = game_state.formations.add(Formation { id: 2, name: "Beta Team" })
+
+    mut enemy1_id = game_state.enemies.add(Enemy { id: 10, health: 100, formation: formation1_id })
+    mut enemy2_id = game_state.enemies.add(Enemy { id: 20, health: 80, formation: formation1_id })
+    mut enemy3_id = game_state.enemies.add(Enemy { id: 30, health: 90, formation: formation2_id })
+
+    print('Before `with` block - formations: {game_state.formations.len()}, enemies: {game_state.enemies.len()}')
+    assert(game_state.formations.len() == 2, "Should have 2 formations initially")
+    assert(game_state.enemies.len() == 3, "Should have 3 enemies initially")
+
+    with mut formations = &game_state.formations, mut enemies = &game_state.enemies {
+        print('Inside `with` block - formations: {formations.len()}, enemies: {enemies.len()}')
+
+        mut enemy_ids_to_remove: Vec<Int; 10> = []
+
+        for id, mut enemy in enemies {
+            print('Processing enemy {enemy.id} with health {enemy.health}')
+
+            // Just some random game logic :)
+            if enemy.health < 85 {
+                print('Enemy {enemy.id} has low health, marking for removal')
+                enemy_ids_to_remove.push(id)
+            } else {
+                enemy.health -= 5
+                print('Enemy {enemy.id} health reduced to {enemy.health}')
+            }
+        }
+
+        // Remove enemies marked for deletion
+        for id in enemy_ids_to_remove {
+            print('Removing enemy {id}')
+            enemies.remove(id)
+        }
+
+        print('After processing - formations: {formations.len()}, enemies: {enemies.len()}')
+        assert(formations.len() == 2, "Should still have 2 formations")
+        assert(enemies.len() == 2, "Should have 2 enemies after removal")
+    }
+
+    print('After with block - formations: {game_state.formations.len()}, enemies: {game_state.enemies.len()}')
+    assert(game_state.formations.len() == 2, "Original formations should have 2 elements - changes should persist")
+    assert(game_state.enemies.len() == 2, "Original enemies should have 2 elements - changes should persist")
+}
+
+// =============================================================================
+// TODO: MISSING FUNCTIONALITY - Scalar mutable references with copy-back
+// =============================================================================
+// This test case documents the missing copy-back functionality for scalar
+// mutable references. Currently commented out because it's not implemented yet.
+//
+// #[test]
+// fn scalar_mutable_reference_with_copy_back() {
+//     // TODO: This should use copy-back mechanism (like function calls)
+//     // where the modified scalar value is copied back to the original variable
+//     // when the with block goes out of scope.
+//     mut a = 3
+//
+//     with mut b = &a {
+//         b = 42  // This should copy back to 'a' at end of scope
+//         print('b inside with: {b}')
+//         assert(b == 42, "b should be 42 inside the with block")
+//     } // At this point `b` register should be copied to the register for `a`
+//
+//     // This should pass once copy-back is implemented:
+//     assert(a == 42, "a should be 42 after with block (copy-back semantics)")
+//     print('a after with: {a}')
+// }
+// =============================================================================

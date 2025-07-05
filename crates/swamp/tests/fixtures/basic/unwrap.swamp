@@ -1,0 +1,254 @@
+// TODO: Go back and inspect the assembly for this file
+// TODO: Investigate why `??` is working. I thought the existing code is not supposed to work with multiple `??`.
+
+// This function indirectly that it automatically wraps the value when function returns an optional type
+fn create_some(value: Int) -> Int? {
+    value
+}
+
+fn create_none() -> Int? {
+    none
+}
+
+// This function indirectly tests the automatic wrapping of `String` into `String?`
+fn create_optional_string(is_some: Bool) -> String? {
+    if is_some {
+        "Hello"
+    } else {
+        none
+    }
+}
+
+struct Data {
+    id: Int,
+    name: String<42>,
+}
+
+// again, tests that a structure is automatically wrapped into `Data?`
+fn create_optional_data(is_some: Bool) -> Data? {
+    if is_some {
+        Data { id: 101, name: "Test Data" }
+    } else {
+        none
+    }
+}
+
+fn process_optional_int(input: Int?) -> Int {
+    value = input ?? 0
+    print('coalesced value: {value}')
+    value + 5
+}
+
+fn process_chained_optional(first: Int?, second: Int?) -> Int {
+    a = first ?? 0
+    b = second ?? 0
+
+    print('coalesced a={a}, b={b}')
+
+    a * b
+}
+
+struct Wrapper {
+    value: Int?,
+}
+
+impl Wrapper {
+    fn get_value(self) -> Int? {
+        self.value
+    }
+}
+
+fn get_wrapper_value(wrapper: Wrapper?) -> Int {
+    when w = wrapper {
+        w.get_value() ?? 0
+    } else {
+        0
+    }
+}
+
+fn calculate_with_optional(a: Int?, b: Int) -> Int {
+    val_a = a ?? 0
+    val_a * b
+}
+
+struct Container {
+    optional_field: Int?,
+}
+
+fn get_container_field(container: Container?) -> Int {
+    when c = container {
+        c.optional_field ?? 0
+    } else {
+        0
+    }
+}
+
+/*
+// #[test] TODO: I think `d ?? default_data` is failing
+fn none_coalesce_struct() {
+    d = create_optional_data(true)
+    default_data = Data { id: 0, name: "No Data" }
+    result = d ?? default_data
+    assert(result.id == 101 && result.name == "Test Data", "?? with Some(Data) should be original data")
+
+    d_none = create_optional_data(false)
+    result_none = d_none ?? default_data
+    assert(result_none.id == 0 && result_none.name == "No Data", "?? with None(Data) should be default data")
+    print('Result: {result.name}, Result None: {result_none.name}')
+}
+*/
+
+#[test]
+fn none_coalesce_some_int() {
+    val = create_some(10)
+    result = val ?? 0 // Should use 10 as val is Some
+    assert(result == 10, "?? with Some(10) should be 10")
+    print('Result: {result}')
+}
+
+#[test]
+fn none_coalesce_none_int() {
+    val = create_none()
+    result = val ?? 99 // Should use 99 as val is None
+    assert(result == 99, "?? with None should be 99")
+    print('Result: {result}')
+}
+
+#[test]
+fn none_coalesce_chained_some_none_int() {
+    val1 = create_some(5)
+    val2: Int? = create_none() // lets have annotation here, just to test it
+    result = val1 ?? val2 ?? 100 // val1 is Some, so it's used
+    assert(result == 5, "Chained ?? with Some(5) ?? None should be 5")
+    print('Result: {result}')
+}
+
+#[test]
+fn none_coalesce_chained_none_some_int() {
+    val1 = create_none()
+    val2: Int? = create_some(15) // lets have annotation here, just to test it
+    result = val1 ?? val2 ?? 100 // val1 is None, so val2 is checked and used
+    assert(result == 15, "Chained ?? with None ?? Some(15) should be 15")
+    print('Result: {result}')
+}
+
+#[test]
+fn none_coalesce_chained_all_none_int() {
+    val1 = create_none()
+    val2 = create_none()
+    result = val1 ?? val2 ?? 200 // TODO: Not sure why this is working :)
+    assert(result == 200, "Chained ?? with all None should be 200")
+    print('Result: {result}')
+}
+
+ #[test]
+fn none_coalesce_string() {
+    s = create_optional_string(true)
+    result = s ?? "Default String"
+    assert(result == "Hello", "?? with Some(String) should be 'Hello'")
+
+    s_none = create_optional_string(false)
+    result_none = s_none ?? "Default String"
+    assert(result_none == "Default String", "?? with None(String) should be 'Default String'")
+    print('Result: {result}, Result None: {result_none}')
+}
+
+#[test]
+fn unwrap_on_method_call_some() {
+    wrapper: Wrapper? = Wrapper { value: 20 }
+    result = get_wrapper_value(wrapper)
+    assert(result == 20, "? on method call with Some should be 20")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_on_method_call_none_wrapper() {
+    wrapper: Wrapper? = none
+    result = get_wrapper_value(wrapper)
+    assert(result == 0, "? on method call with None wrapper should be 0")
+    print('Result: {result}')
+}
+
+
+#[test]
+fn unwrap_some_value() {
+    input = create_some(10)
+    result = process_optional_int(input)
+    assert(result == 15, "? with Some(10) should result in 15")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_none_value() {
+    input = create_none()
+    result = process_optional_int(input)
+    assert(result == 5, "? with None should result in 5 after coalescing")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_chained_both_some() {
+    result = process_chained_optional(create_some(3), create_some(4))
+    assert(result == 12, "Chained ? with Some(3), Some(4) should be 12")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_chained_first_none() {
+    result = process_chained_optional(create_none(), create_some(4))
+    assert(result == 0, "Chained ? with None, Some(4) should be 0")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_chained_second_none() {
+    result = process_chained_optional(create_some(3), create_none())
+    assert(result == 0, "Chained ? with Some(3), None should be 0")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_on_method_call_none_internal_value() {
+    wrapper: Wrapper? = Wrapper { value: create_none() }
+    result = get_wrapper_value(wrapper)
+    assert(result == 0, "? on method call with None internal value should be 0")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_in_expression_some() {
+    result = calculate_with_optional(create_some(10), 5)
+    assert(result == 50, "? in expression with Some should be 50")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_in_expression_none() {
+    result = calculate_with_optional(create_none(), 5)
+    assert(result == 0, "? in expression with None should be 0")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_on_field_access_some() {
+    container: Container? = Container { optional_field: create_some(77) }
+    result = get_container_field(container)
+    assert(result == 77, "? on field access with Some should be 77")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_on_field_access_none_container() {
+    container: Container? = none
+    result = get_container_field(container)
+    assert(result == 0, "? on field access with None container should be 0")
+    print('Result: {result}')
+}
+
+#[test]
+fn unwrap_on_field_access_none_field() {
+    container: Container? = Container { optional_field: create_none() }
+    result = get_container_field(container)
+    assert(result == 0, "? on field access with None field should be 0")
+    print('Result: {result}')
+}

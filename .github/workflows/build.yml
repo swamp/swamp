@@ -1,0 +1,97 @@
+name: Build & Upload Artifacts
+
+on:
+  push:
+    branches:
+      - "*" # All branches for now
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux
+            arch: x86_64
+
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            platform: darwin
+            arch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install latest stable Rust
+        run: rustup update stable
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install zip (Windows)
+        if: matrix.os == 'windows-latest'
+        run: choco install zip
+
+      - name: Build all workspace binaries
+        run: cargo build --color=always --release --target ${{ matrix.target }}
+
+      - name: run tests with color multiple times
+        env:
+          RUST_LOG: trace
+          RUST_LOG_STYLE: always
+          TERM: xterm-256color
+        run: |
+          cargo test --color=always -- --nocapture --color=always
+          cargo test --color=always -- --nocapture --color=always
+          cargo test --color=always -- --nocapture --color=always
+          cargo test --color=always -- --nocapture --color=always
+          cargo test --color=always -- --nocapture --color=always
+
+      - name: Package both binaries into a single “swamp-<platform>-<arch>” archive
+        shell: bash
+        run: |
+          # Define the two binaries we want to ship:
+          BINARIES=("swamp-build" "swamp-test")
+
+          # Make sure dist/ is clean
+          rm -rf dist
+          mkdir -p dist
+
+          for BIN in "${BINARIES[@]}"; do
+            # Determine the file name (add .exe on Windows)
+            if [ "${{ matrix.os }}" = "windows-latest" ]; then
+              BIN_NAME="${BIN}.exe"
+            else
+              BIN_NAME="${BIN}"
+            fi
+
+            # Strip debug symbols on non-Windows
+            if [ "${{ matrix.os }}" != "windows-latest" ]; then
+              strip "target/${{ matrix.target }}/release/${BIN}"
+            fi
+
+            # Copy each compiled binary into dist/
+            cp "target/${{ matrix.target }}/release/${BIN_NAME}" "dist/${BIN_NAME}"
+          done
+
+          # Now package all binary files into a single archive “swamp-<platform>-<arch>.*”
+          ARCHIVE_BASE="swamp-${{ matrix.platform }}-${{ matrix.arch }}"
+
+          cd dist
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            zip "../${ARCHIVE_BASE}.zip" ./*.exe
+          else
+            tar czf "../${ARCHIVE_BASE}.tar.gz" ./*
+          fi
+          cd ..
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: swamp-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error

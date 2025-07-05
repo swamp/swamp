@@ -1,0 +1,18 @@
+[package]
+name = "swamp-core"
+version = "0.2.4"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "Initializes the Swamp core library module, defining primitive type aliases and registering intrinsic functions."
+
+[dependencies]
+swamp-semantic = { path = "../semantic", version = "0.2.4" }
+swamp-types = { path = "../types", version = "0.2.4" }
+swamp-modules = { path = "../modules", version = "0.2.4" }
+
+tiny-ver = "0.1.2"
+
+[dev-dependencies]
+tracing = "0.1.40"
+test-log = { version = "0.2.16", features = ["trace", "log", "color"] }

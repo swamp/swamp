@@ -1,0 +1,88 @@
+struct Point {
+    x: Int,
+    y: Int,
+}
+
+#[test]
+fn simple_tuple() {
+    val1, str_val, bool_val = (100, "swamp_tuple", true,) // Intentional trailing comma
+    assert(val1 == 100, 'Simple tuple: val1 is wrong')
+    assert(str_val == "swamp_tuple", 'Simple tuple: str_val is wrong')
+    assert(bool_val == true, 'Simple tuple: bool_val is wrong')
+}
+
+#[test]
+fn create_and_destructure_simple_tuple() {
+    val1, str_val, bool_val = (100, "swamp_tuple", true)
+    assert(val1 == 100, 'Simple destructure: val1 is wrong')
+    assert(str_val == "swamp_tuple", 'Simple destructure: str_val is wrong')
+    assert(bool_val == true, 'Simple destructure: bool_val is wrong')
+    print('create_and_destructure_simple_tuple: val1:{val1}, str_val:"{str_val}", bool_val:{bool_val}')
+
+    my_tuple = (200, "another example", false)
+    item_a, item_b, item_c = my_tuple
+    print('create_and_destructure_simple_tuple (assigned): item_a:{item_a}, item_b:"{item_b}", item_c:{item_c}')
+    assert(item_a == 200, 'Assigned tuple destructure: item_a is wrong')
+    assert(item_b == "another example", 'Assigned tuple destructure: item_b is wrong')
+    assert(item_c == false, 'Assigned tuple destructure: item_c is wrong')
+}
+
+#[test]
+fn tuple_with_struct_and_destructuring() {
+    p_instance = Point { x: 7, y: 8 }
+    tuple_with_point = ("info_string", p_instance, 255)
+
+    info, point_obj, count = tuple_with_point
+
+    print('tuple_with_struct_and_destructuring: info:"{info}", point.x:{point_obj.x}, point.y:{point_obj.y}, count:{count}')
+    assert(info == "info_string", 'Tuple with struct destructure: info string is wrong')
+    assert(point_obj.x == 7, 'Tuple with struct destructure: point_obj.x is wrong')
+    assert(point_obj.y == 8, 'Tuple with struct destructure: point_obj.y is wrong')
+    assert(count == 255, 'Tuple with struct destructure: count is wrong')
+}
+
+fn create_status_tuple(id: Int, status_code: Int, is_active: Bool) -> (Int, Int, Bool) {
+    (id, status_code, is_active)
+}
+
+#[test]
+fn function_returning_tuple_and_destructuring() {
+    id_val, code_val, active_val = create_status_tuple(99, 200, false)
+
+    print('function_returning_tuple_and_destructuring: id:{id_val}, code:{code_val}, active:{active_val}')
+    assert(id_val == 99, 'Function return destructure: id_val is wrong')
+    assert(code_val == 200, 'Function return destructure: code_val is wrong')
+    assert(active_val == false, 'Function return destructure: active_val is wrong')
+}
+
+/*
+// TODO: @Feature: nested tuple destructuring
+#[test]
+fn nested_tuple_destructuring() {
+    outer_tuple = (10, (200, "inner_text"), 3000)
+
+    val_a, (inner_val_x, inner_val_y), val_c = outer_tuple
+
+    print('nested_tuple_destructuring: a:{val_a}, inner_x:{inner_val_x}, inner_y:"{inner_val_y}", c:{val_c}')
+    assert(val_a == 10, 'Nested destructure: val_a is wrong')
+    assert(inner_val_x == 200, 'Nested destructure: inner_val_x is wrong')
+    assert(inner_val_y == "inner_text", 'Nested destructure: inner_val_y is wrong')
+    assert(val_c == 3000, 'Nested destructure: val_c is wrong')
+}
+*/
+
+#[test]
+fn destructure_tuple_ignoring_elements() {
+    data_tuple = (50, "ignore_this_string", 150, true, "final_value")
+
+    num1, _, num2, _, str_val = data_tuple
+
+    print('destructure_tuple_ignoring_elements: num1:{num1}, num2:{num2}, str_val:"{str_val}"')
+    assert(num1 == 50, 'Ignore elements destructure: num1 is wrong')
+    assert(num2 == 150, 'Ignore elements destructure: num2 is wrong')
+    assert(str_val == "final_value", 'Ignore elements destructure: str_val is wrong')
+
+    _, val_b, _ = ("ignored_start", "val_b_data", "ignored_end")
+    print('destructure_tuple_ignoring_elements: val_b:"{val_b}"')
+    assert(val_b == "val_b_data", "Ignore elements (prefix/suffix): val_b is wrong")
+}

@@ -1,0 +1,416 @@
+struct CardTemplate {
+    mana: Int,
+    healing_per_second: Float,
+}
+
+enum CardId {
+    MightyGolem,
+    Earthquake,
+    MysticSpring, // No one knows what mystic spring does, that is why it is mystic.
+    EtherealDragon, // Ethereal Dragon is never there.
+    GoblinScout,
+}
+
+struct Game {
+    card_templates: [CardId: CardTemplate; 3],
+}
+
+struct ScalarTemplates {
+    card_templates: [Int: CardTemplate; 3],
+}
+
+
+const CARD_LIB = [
+    CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+    CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+]
+
+#[test]
+fn basic_map() {
+    game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ]
+    }
+
+    assert(game.card_templates.has(CardId::MightyGolem), "should have MightyGolem")
+    assert(!game.card_templates.has(CardId::EtherealDragon), "should not have EtherealDragon")
+
+
+    print('healing_per_second: {CardId::MightyGolem}: {game.card_templates[CardId::MightyGolem].healing_per_second}')
+    assert(game.card_templates[CardId::MightyGolem].mana == 5, "should be 5")
+
+    print('mana: {game.card_templates[CardId::Earthquake].mana}')
+    assert(game.card_templates[CardId::Earthquake].mana == 3, "should be 3")
+
+    print('mana: {game.card_templates[CardId::MysticSpring].mana}')
+    assert(game.card_templates[CardId::MysticSpring].mana == 2, "should be 2")
+}
+
+
+#[test]
+#[should_trap(expected="map_entry_or_create_failed")]
+fn add_too_many() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ]
+    }
+
+    game.card_templates[CardId::EtherealDragon] = CardTemplate { mana: 10, healing_per_second: 0.0 }
+    game.card_templates[CardId::GoblinScout] = CardTemplate { mana: 1, healing_per_second: 0.1 }
+}
+
+
+#[test]
+fn add_to_map() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+        ]
+    }
+
+    assert(!game.card_templates.has(CardId::EtherealDragon), "should not have EtherealDragon")
+
+    game.card_templates[CardId::EtherealDragon] = CardTemplate { mana: 10, healing_per_second: 0.0 }
+
+    assert(game.card_templates.has(CardId::EtherealDragon), "should have EtherealDragon")
+}
+
+#[test]
+fn overwrite_existing() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 42, healing_per_second: 0.3 },
+        ]
+    }
+
+    assert(game.card_templates[CardId::Earthquake].mana == 42, "should be 42")
+
+    game.card_templates[CardId::Earthquake] = CardTemplate { mana: -1, healing_per_second: 0.0 }
+
+    assert(game.card_templates[CardId::Earthquake].mana == -1, "should be -1")
+}
+
+#[test]
+fn remove_card() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: -2, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 99, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ],
+    }
+
+    // intentionally add to variable first before has() call since we had a bug where
+    // not a pointer was produced for the map lookup for scalar keys.
+    card_id = CardId::MysticSpring
+    assert(game.card_templates.has(card_id), "should have MysticSpring")
+
+    game.card_templates.remove(CardId::MysticSpring)
+
+    assert(!game.card_templates.has(CardId::MysticSpring), "should not have MysticSpring")
+}
+
+#[test]
+fn remove_card_scalar_key() {
+    mut game = ScalarTemplates {
+        card_templates: [
+            1:  CardTemplate { mana: -2, healing_per_second: 42.13 },
+            2:   CardTemplate { mana: 99, healing_per_second: 0.3 },
+            909: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ],
+    }
+
+    // Intentionally add to variable first before the `has()` call since we had a bug where
+    // a pointer was not produced for the map lookup value for scalar keys.
+    card_id = 909
+    assert(game.card_templates.has(card_id), "should have MysticSpring")
+
+    game.card_templates.remove(909)
+
+    // Intentionally check with the literal, since we had a bug where the map lookup
+    // for scalar keys did not produce a pointer.
+    assert(!game.card_templates.has(909), "should not have MysticSpring")
+}
+
+#[test]
+#[should_trap(expected="map_entry_remove_failed")]
+fn remove_non_existing_card() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: -2, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 99, healing_per_second: 0.3 },
+        ],
+    }
+
+    // Intentionally cause a trap, there is no mystic spring
+    game.card_templates.remove(CardId::MysticSpring)
+    panic("you shouldn't reach this")
+}
+
+
+#[test]
+fn iterate_cards() {
+    game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ],
+    }
+
+    mut count = 0
+    for card_id, card_template in game.card_templates {
+        print('Card ID: {card_id}, Mana: {card_template.mana}, Healing per second: {card_template.healing_per_second}')
+        count += 1
+    }
+
+    assert(count == 3, "should iterate over 3 cards")
+}
+
+#[test]
+fn iterate_cards_value_only() {
+    game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ],
+    }
+
+    mut count = 0
+    for card_template in game.card_templates {
+        print('Mana: {card_template.mana}, Healing per second: {card_template.healing_per_second}')
+        if count == 1 {
+            // Note: the order can change in different versions of Swamp.
+            // It is always deterministic, but the insert order depends on the hash function
+            assert(card_template.mana == 3, "second should be EarthQuake")
+        }
+        count += 1
+    }
+
+    assert(count == 3, "should iterate over 3 cards")
+}
+
+fn overwite_card_template(mut card_template: CardTemplate, some_value: Int) {
+    card_template.mana = some_value * 2
+}
+
+#[test]
+fn iterate_cards_and_mutate() {
+    mut game = Game {
+        card_templates: [
+            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+        ],
+    }
+
+    mut count = 0
+    for mut card_template in game.card_templates {
+        print('Before: Mana: {card_template.mana}, Healing per second: {card_template.healing_per_second}')
+        overwite_card_template(&card_template, count)
+        print('After: Mana: {card_template.mana}, Healing per second: {card_template.healing_per_second}')
+        count += 1
+    }
+
+    assert(count == 3, "should iterate over 3 cards")
+}
+
+
+#[test]
+fn length() {
+    mut game = Game {
+        card_templates: [ : ],
+    }
+
+    assert(game.card_templates.len() == 0, "should be zero")
+    assert(game.card_templates.is_empty(), "should be empty") // Intentionally redundant
+
+    game.card_templates[CardId::Earthquake] = CardTemplate { mana: -1, healing_per_second: 0.0 }
+
+    assert(game.card_templates.len() == 1, "should be one after inserting")
+    assert(game.card_templates[CardId::Earthquake].mana == -1, "should be initial value of -1")
+
+    game.card_templates[CardId::Earthquake] = CardTemplate { mana: 92, healing_per_second: 909.0 }
+
+    assert(game.card_templates.len() == 1, "should still be one after updating existing")
+    assert(game.card_templates[CardId::Earthquake].mana == 92, "should be 92 after the update")
+
+    game.card_templates[CardId::EtherealDragon] = CardTemplate { mana: 10, healing_per_second: 0.0 }
+    assert(game.card_templates.len() == 2, "should be 2 after the dragon")
+
+    game.card_templates.remove(CardId::Earthquake)
+    assert(game.card_templates.len() == 1, "should be 1 after removing a card")
+}
+
+
+
+
+struct ScalarGame {
+    card_templates: [Int: CardTemplate; 2],
+}
+
+#[test]
+fn scalar_key() {
+    mut game = ScalarGame {
+        card_templates: [ -909: CardTemplate { mana: 3, healing_per_second: 0.3 } ],
+    }
+    assert(game.card_templates.len() == 1, "should be 1 after adding a card")
+    game.card_templates[2] = CardTemplate { mana: 92, healing_per_second: 909.0 }
+
+    assert(game.card_templates.len() == 2, "should be 2 after adding a card")
+    assert(game.card_templates[-909].mana == 3, "mana should be 3 for card -909")
+
+    game.card_templates.remove(-909)
+    assert(game.card_templates.len() == 1, "should be 1 after removing")
+
+    game.card_templates.remove(2)
+    assert(game.card_templates.is_empty(), "should be empty after removing")
+}
+
+
+#[test]
+fn scalar_key_for() {
+    mut game = ScalarGame {
+        card_templates: [ -909: CardTemplate { mana: 3, healing_per_second: 0.3 }, 1342: CardTemplate { mana: 5, healing_per_second: 0.3 } ],
+    }
+
+    mut index = 0
+    for id, card in game.card_templates {
+        if index == 0 {
+            assert(id == 1342, 'must be proper id {id}')
+        } else {
+            assert(id == -909, 'second key wrong {id}')
+        }
+        index += 1
+    }
+}
+
+struct Deck {
+    card_id_to_mana: [Int: Float; 2],
+}
+
+struct DeckHolder {
+    deck: Deck,
+}
+
+#[test]
+fn scalar_value() {
+    holder = DeckHolder {
+        deck: Deck {
+            card_id_to_mana: [2: 3.14]
+        }
+    }
+
+    assert(holder.deck.card_id_to_mana[2] == 3.14, "must be found")
+}
+
+#[test]
+fn scalar_value_insert() {
+    mut holder = DeckHolder {
+        deck: Deck {
+            card_id_to_mana: [2: 3.14]
+        }
+    }
+
+    assert(holder.deck.card_id_to_mana[2] == 3.14, "must be found")
+
+    assert(holder.deck.card_id_to_mana.len() == 1, "two cards")
+
+    holder.deck.card_id_to_mana[-99999] = 6.28
+
+    assert(holder.deck.card_id_to_mana.len() == 2, "two cards")
+
+    assert(holder.deck.card_id_to_mana[2] == 3.14, "must be found")
+    assert(holder.deck.card_id_to_mana[-99999] == 6.28, "must be found")
+}
+
+// Tests that map copying correctly handles maps with different capacities.
+//
+// This fixes a bug where map copy optimization performed shallow copies of internal
+// buckets without recalculating element positions. Since element positions are determined
+// by `hash % capacity`, direct bucket copying between maps with different capacities
+// would place elements in incorrect locations, making them unfindable.
+//
+// The test ensures that map copy properly *re-inserts* all elements into their correct
+// bucket positions rather than attempting a direct bucket copy, so lookups work
+// correctly after copying between maps with different capacities.
+#[test]
+fn copy_from_constant_with_different_capacity() {
+    // Copy from `CARD_LIB` with capacity 3 (len 2), into `card_templates` with a different capacity (512)
+    card_templates : [CardId: CardTemplate; 128] = CARD_LIB
+
+    assert(card_templates.len() == 2, "should have 2 cards from constant {card_templates.len()}")
+    assert(card_templates.capacity() == 128, "should have capacity 128")
+    assert(card_templates.has(CardId::MightyGolem), "should have MightyGolem")
+    assert(card_templates.has(CardId::Earthquake), "should have Earthquake")
+    assert(!card_templates.has(CardId::MysticSpring), "should not have MysticSpring")
+    assert(card_templates[CardId::MightyGolem].mana == 5, "should be 5")
+    assert(card_templates[CardId::Earthquake].mana == 3, "should be 3")
+}
+
+enum Alliance {
+    West,
+    East,
+}
+
+enum Tactics {
+    Kind,
+    SuperKind,
+    PrettyAwesome,
+}
+
+struct Team {
+    deck: [CardId: CardTemplate ; 8], // 8 is hand limit
+    tactics: Tactics
+}
+
+struct Battle {
+    teams: [Alliance: Team ; 2], // Only two alliances of course
+}
+
+
+#[test]
+fn map_chaining_bug() {
+    mut battle = Battle {
+        teams: [
+            Alliance::West :
+            Team {
+                deck: [
+                    CardId::MightyGolem: CardTemplate { mana: 3, healing_per_second: 0.3 },
+                    CardId::Earthquake: CardTemplate { mana: 5, healing_per_second: 0.3 }
+                ],
+                tactics: Tactics::Kind,
+            }
+        ]
+    }
+
+    assert(battle.teams[Alliance::West].tactics == Tactics::Kind, "tactics should be kind to start with")
+    assert(battle.teams[Alliance::West].deck.has(CardId::MightyGolem), "wow! card wasn't even here to start with")
+    battle.teams[Alliance::West].tactics = Tactics::SuperKind // This should not reset the cards
+    assert(battle.teams[Alliance::West].deck.has(CardId::MightyGolem), "wow! card disappeared")
+    assert(battle.teams[Alliance::West].tactics == Tactics::SuperKind, "tactics should remain")
+}
+
+
+/// Bug where a map get or create instruction was inserted even though it wasn't the last in the lvalue chain (!)
+/// That meant that map entry was reset since it thought this was a new map entry, but only the lvalue should have been fetched.
+/// Bug found by the excellent @catnipped !
+#[test]
+fn map_chaining_bug_easy() {
+    mut game = ScalarGame {
+        card_templates: [ -909: CardTemplate { mana: 3, healing_per_second: 0.3 }, 1342: CardTemplate { mana: 5, healing_per_second: 0.3 } ],
+    }
+
+    game.card_templates[-909].mana = 3 // This should not reset the whole card template
+    assert(game.card_templates.has(-909), "I want the card template to be left alone")
+    assert(game.card_templates.has(1342), "hope you didn't remove my buddies")
+}

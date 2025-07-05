@@ -1,0 +1,209 @@
+// Test cases for the rest operator (..) implementation
+//
+// 1. If struct has default() -> call struct default(), then overwrite provided fields
+// 2. If struct has no default() -> call default() on individual field types that have it
+
+// Game Effect WITH a default() implementation
+struct GameEffect {
+    name: String<32>,
+    damage: Int,
+    duration: Float,
+    is_magical: Bool,
+}
+
+impl GameEffect {
+    fn default() -> GameEffect {
+        GameEffect {
+            name: "Basic Attack",
+            damage: 10,
+            duration: 1.0,
+            is_magical: false,
+        }
+    }
+}
+
+// Player Stats WITHOUT a default() implementation
+// (but field types have defaults)
+struct PlayerStats {
+    name: String<42>,        // String has default()
+    health: Int,         // Int has default()
+    mana: Int,           // Int has default()
+    is_alive: Bool,      // Bool has default()
+    speed: Float,        // Float has default()
+}
+
+// Position helper struct (no default implementation)
+struct Position {
+    x: Int,
+    y: Int,
+}
+
+// Weapon struct with mixed field types (some have defaults, some don't)
+struct Weapon {
+    name: String<42>,        // String has default()
+    damage: Int,         // Int has default()
+    position: Position,  // Position does NOT have default()
+    is_enchanted: Bool,  // Bool has default()
+}
+
+// ============================================================================
+// Test 1: Game Effect WITH default() method
+// Should call struct's default(), then overwrite provided fields
+// ============================================================================
+
+#[test]
+fn rest_operator_with_effect_default() {
+    // Should call GameEffect::default() then overwrite name and damage
+    fireball = GameEffect { name: "Fireball", damage: 50.. }
+
+    // Provided fields should have our values
+    assert(fireball.name == "Fireball", 'spell name should be overwritten <{fireball.name}>')
+    assert(fireball.damage == 50, "damage should be overwritten")
+
+    // Missing fields should have the struct's default values
+    assert(fireball.duration == 1.0, "duration should use struct default")
+    assert(fireball.is_magical == false, "is_magical should use struct default")
+}
+
+#[test]
+fn rest_operator_with_effect_default_minimal() {
+    // Should call GameEffect::default() then overwrite only name
+    spell = GameEffect { name: "Lightning Bolt".. }
+
+    assert(spell.name == "Lightning Bolt", "spell name should be overwritten")
+
+    // All other fields should use struct defaults
+    assert(spell.damage == 10, "damage should use struct default")
+    assert(spell.duration == 1.0, "duration should use struct default")
+    assert(spell.is_magical == false, "is_magical should use struct default")
+}
+
+// ============================================================================
+// Test 2: Player Stats WITHOUT default() method
+// Should call default() on individual field types that have it
+// ============================================================================
+
+#[test]
+fn rest_operator_without_player_default() {
+    // Should call default() on each field type individually
+    player = PlayerStats { name: "Aragorn", is_alive: true.. }
+
+    // Provided fields should have our values
+    assert(player.name == "Aragorn", "player name should be provided value")
+    assert(player.is_alive == true, "is_alive should be provided value")
+
+    // Missing fields should use their type's default values
+    assert(player.health == 0, "health should use Int default (0)")
+    assert(player.mana == 0, "mana should use Int default (0)")
+    assert(player.speed == 0.0, "speed should use Float default (0.0)")
+}
+
+#[test]
+fn rest_operator_without_player_default_minimal() {
+    // Only provide one field, let others use type defaults
+    player = PlayerStats { name: "Legolas".. }
+
+    assert(player.name == "Legolas", "name should be provided")
+    assert(player.health == 0, "health should use Int default")
+    assert(player.mana == 0, "mana should use Int default")
+    assert(player.is_alive == false, "is_alive should use Bool default")
+    assert(player.speed == 0.0, "speed should use Float default")
+}
+
+// ============================================================================
+// Test 3: Mixed scenario - some field types have defaults, some don't
+// Should skip fields without defaults (Position in this case)
+// ============================================================================
+
+#[test]
+fn rest_operator_mixed_weapon_defaults() {
+    // Position type doesn't have default(), so position field should be skipped
+    // Only fields with type defaults should be filled
+    sword = Weapon { name: "Excalibur".. }
+
+    assert(sword.name == "Excalibur", "weapon name should be provided")
+    assert(sword.damage == 0, "damage should use Int default")
+    assert(!sword.is_enchanted, "is_enchanted should use Bool default")
+    // position field should remain uninitialized/zero-memory since Position has no default
+    assert(sword.position.x == 0, "position.x should be zero-initialized")
+    assert(sword.position.y == 0, "position.y should be zero-initialized")
+}
+
+// ============================================================================
+// Test 4: Edge cases
+// ============================================================================
+
+#[test]
+fn rest_operator_all_effect_fields_provided() {
+    // Even though we provide all fields, rest operator should work fine
+    spell = GameEffect {
+        name: "Meteor",
+        damage: 100,
+        duration: 3.5,
+        is_magical: true..
+    }
+
+    assert(spell.name == "Meteor", "name should be provided")
+    assert(spell.damage == 100, "damage should be provided")
+    assert(spell.duration == 3.5, "duration should be provided")
+    assert(spell.is_magical, "is_magical should be provided")
+}
+
+#[test]
+fn rest_operator_empty_effect_with_default() {
+    // Should just call the struct's default() method
+    basic_spell = GameEffect { .. }
+
+    // All fields should use struct defaults
+    assert(basic_spell.name == "Basic Attack", "name should use struct default")
+    assert(basic_spell.damage == 10, "damage should use struct default")
+    assert(basic_spell.duration == 1.0, "duration should use struct default")
+    assert(!basic_spell.is_magical, "is_magical should use struct default")
+}
+
+// TODO: Investigate why it fails // #[test]
+fn rest_operator_empty_player_without_default() {
+    print("Testing rest operator with no player fields provided (pure field defaults)")
+
+    // Should call default() on each field type
+    newbie = PlayerStats { .. }
+
+    // All fields should use their type defaults
+    assert(newbie.name == "", "name should use String default (empty)")
+    assert(newbie.health == 0, "health should use Int default (0)")
+    assert(newbie.mana == 0, "mana should use Int default (0)")
+    assert(!newbie.is_alive, "is_alive should use Bool default (false)")
+    assert(newbie.speed == 0.0, "speed should use Float default (0.0)")
+}
+
+// ============================================================================
+// Test 5: Nested game structures with rest operator
+// ============================================================================
+
+struct Character {
+    primary_spell: GameEffect,
+    stats: PlayerStats,
+    is_boss: Bool,
+}
+
+// TODO: Investigate why it fails: //#[test]
+fn rest_operator_nested_character() {
+    boss = Character {
+        primary_spell: GameEffect { name: "Dark Magic", damage: 75.. },
+        is_boss: true..
+    }
+
+    // primary_spell should use struct default + overridden values
+    assert(boss.primary_spell.name == "Dark Magic", "boss spell name")
+    assert(boss.primary_spell.damage == 75, "boss spell damage")
+    assert(boss.primary_spell.duration == 1.0, "boss spell should use struct default duration")
+    assert(boss.primary_spell.is_magical == false, "boss spell should use struct default magical")
+
+    // stats should be zero-initialized since Character doesn't have default
+    // and PlayerStats doesn't have default either
+    assert(boss.stats.name == "", "stats should be zero-initialized")
+    assert(boss.stats.health == 0, "stats should be zero-initialized")
+    assert(boss.stats.mana == 0, "stats should be zero-initialized")
+
+    assert(boss.is_boss, "is_boss should be provided value")
+}

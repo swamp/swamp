@@ -1,0 +1,7 @@
+#[test]
+fn stepping() {
+    for i in 0..3 {
+        print('test calls step() now! i:{i}')
+        step()
+    }
+}

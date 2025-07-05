@@ -1,0 +1,146 @@
+struct MockDeck {
+    player_id: Int,
+    cards: [Int; 32],
+    frame_style: Int
+}
+
+fn mock_function_with_locals(input_list: [Int], player_id: Int, style: Int) -> MockDeck {
+    // use many local variables in a variaty of places, at least 6, to ensure we use callee-saved registers
+    mut local_data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    mut temp_array = [100, 200, 300, 400]
+    mut counter = 0
+    mut result_cards: Vec<Int; 32> = []
+
+    for card in input_list {
+        result_cards.push(card + counter)
+        counter += 1
+    }
+
+    MockDeck {
+        player_id: player_id,
+        cards: result_cards,
+        frame_style: style
+    }
+}
+
+fn another_function_with_many_locals() -> Int {
+    // doesn't matter what we do, but have at least 6 local variables.
+    mut var1 = [1, 2, 3]
+    mut var2 = [4, 5, 6, 7]
+    mut var3 = [8, 9, 10, 11, 12]
+    mut var4 = [13, 14, 15, 16, 17, 18]
+    mut var5 = "some string data"
+    mut var6 = [19, 20, 21, 22, 23, 24, 25]
+
+    var1.len() + var2.len() + var3.len() + var4.len() + var6.len()
+}
+
+#[test]
+fn callee_saved_register_corruption_simple() {
+    // Set up local variables that should use callee-saved registers (r6, r7, r8, etc.)
+    mut local_array_1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    mut local_array_2 = [11, 12, 13, 14, 15, 16, 17, 18]
+    mut local_array_3 = [19, 20, 21, 22, 23, 24, 25, 26, 27]
+    mut local_array_4 = [28, 29, 30, 31, 32, 33, 34, 35]
+    mut local_string = "this_string_should_not_be_corrupted_by_function_calls"
+    mut local_number = 12345
+
+    expected_len_1 = local_array_1.len()
+    expected_len_2 = local_array_2.len()
+    expected_len_3 = local_array_3.len()
+    expected_len_4 = local_array_4.len()
+    expected_string = local_string
+    expected_number = local_number
+
+    result = another_function_with_many_locals()
+
+    assert(local_array_1.len() == expected_len_1, 'local_array_1 was corrupted by function call')
+    assert(local_array_2.len() == expected_len_2, 'local_array_2 was corrupted by function call')
+    assert(local_array_3.len() == expected_len_3, 'local_array_3 was corrupted by function call')
+    assert(local_array_4.len() == expected_len_4, 'local_array_4 was corrupted by function call')
+    assert(local_string == expected_string, 'local_string was corrupted by function call')
+    assert(local_number == expected_number, 'local_number was corrupted by function call')
+    assert(result > 0, 'function should have returned a positive result')
+}
+
+//#[test]
+// TODO: This causes a trap for unknown reason. Can it be that it doesn't initialize the memory for a temporary variable?
+//
+fn callee_saved_register_corruption_nested_calls_old() {
+    // Have a lot of local variables, at least 6, to ensure we use callee-saved registers
+    mut data_set_1 = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+    mut data_set_2 = [200, 201, 202, 203, 204, 205, 206, 207]
+    mut data_set_3 = [300, 301, 302, 303, 304, 305]
+    mut data_set_4 = [400, 401, 402, 403]
+    mut data_set_5 = [500, 501]
+    mut accumulator = 0
+
+    original_len_1 = data_set_1.len()
+    original_len_2 = data_set_2.len()
+    original_len_3 = data_set_3.len()
+    original_len_4 = data_set_4.len()
+    original_len_5 = data_set_5.len()
+    original_accumulator = accumulator
+
+    // TODO: Is suspect it is the temporary allocation of memory for the initializer here
+    // that doesn't set the capacity and/or len properly
+    mock_deck = mock_function_with_locals([1, 2, 3, 4, 5], 42, 1)
+
+    assert(data_set_1.len() == original_len_1, 'data_set_1 length corrupted')
+    assert(data_set_2.len() == original_len_2, 'data_set_2 length corrupted')
+    assert(data_set_3.len() == original_len_3, 'data_set_3 length corrupted')
+    assert(data_set_4.len() == original_len_4, 'data_set_4 length corrupted')
+    assert(data_set_5.len() == original_len_5, 'data_set_5 length corrupted')
+    assert(accumulator == original_accumulator, 'accumulator was corrupted')
+
+    assert(mock_deck.player_id == 42, 'mock_deck should have correct player_id')
+    assert(mock_deck.cards.len() > 0, 'mock_deck should have cards')
+    assert(mock_deck.frame_style == 1, 'mock_deck should have correct frame_style')
+}
+
+
+fn simple_function_with_many_locals(input: Int, multiplier: Int) -> Int {
+    // Have a lot of local variables (at least 6) to make sure we use callee-saved registers
+    mut local1 = 10
+    mut local2 = 20
+    mut local3 = 30
+    mut local4 = 40
+    mut local5 = 50
+    mut local6 = 60
+    mut local7 = 70
+    mut local8 = 80
+
+    mut sum = local1 + local2 + local3 + local4 + local5 + local6 + local7 + local8
+
+    input * 2
+}
+
+
+#[test]
+fn callee_saved_register_corruption_nested_calls() {
+    // TODO: probably doesn't have to be mutable, shouldn't change the code generation
+    mut value1 = 100
+    mut value2 = 200
+    mut value3 = 300
+    mut value4 = 400
+    mut value5 = 500
+    mut value6 = 600
+
+    original_value1 = value1
+    original_value2 = value2
+    original_value3 = value3
+    original_value4 = value4
+    original_value5 = value5
+    original_value6 = value6
+
+    result = simple_function_with_many_locals(42, 1)
+
+    assert(value1 == original_value1, 'value1 was corrupted')
+    assert(value2 == original_value2, 'value2 was corrupted')
+    assert(value3 == original_value3, 'value3 was corrupted')
+    assert(value4 == original_value4, 'value4 was corrupted')
+    assert(value5 == original_value5, 'value5 was corrupted')
+    assert(value6 == original_value6, 'value6 was corrupted')
+
+    assert(result == 84, 'function should return 42 * 2')
+}

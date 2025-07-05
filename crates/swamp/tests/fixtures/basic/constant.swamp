@@ -1,0 +1,219 @@
+const TEST_TRUTH = true
+const TEST_VALUE = 100
+
+struct Point {
+    x: Int,
+    y: Int,
+}
+
+enum Player {
+    Red,
+    Blue,
+    Green,
+}
+
+const SPAWN_POINTS : [Player: Vec<Point;3>; 2] = [
+    Player::Red: [Point{x:12, y:13}, Point{x:42, y:43}],
+    Player::Blue: [Point{x:-42, y:-43}],
+]
+
+struct Game {
+    spawn_points: [Player: Vec<Point; 3>; 4],
+}
+
+
+#[test]
+fn bool_constant() {
+    assert(TEST_TRUTH, 'constant is not working')
+}
+
+#[test]
+fn simple_constant() {
+    assert(TEST_VALUE == 100, 'constant is not working')
+}
+
+const POINT = Point { x: 10, y: 20 }
+
+#[test]
+fn aggregate() {
+    assert(POINT.x == 10, 'constant is not working')
+    assert(POINT.y == 20, 'constant is not working')
+}
+
+struct Level {
+    some_data: [Int; 20],
+}
+
+fn create_level() -> Level {
+    mut level = Level {
+    some_data: [
+        10,
+        20,
+        30,
+    ],
+    }
+
+    for i in 0..10 {
+        level.some_data[i] = (i + 1) * 2 + 10
+    }
+
+    level
+}
+
+/// In Swamp, constants have no restrictions on their values. They work like a normal function,
+/// but they are called before the rest of the program runs and their values are stored in a special
+/// area of the memory. When other parts of the program access them, their precomputed values are just copied into
+/// the destination.
+const LEVEL = create_level()
+
+#[test]
+fn check_constant_array() {
+    // for fixed size arrays, capacity and element count are the same
+    assert(LEVEL.some_data.capacity() == 20, 'level some_data capacity {LEVEL.some_data.capacity()}')
+    assert(LEVEL.some_data.len() == 20, 'level some_data length {LEVEL.some_data.len()}')
+    assert(LEVEL.some_data[ 0] == 12, 'lookup failed  {LEVEL.some_data[ 0]}')
+    assert(LEVEL.some_data[ 3] == 18, 'lookup failed  {LEVEL.some_data[ 3]}')
+    assert(LEVEL.some_data[12] == 0, 'lookup failed  {LEVEL.some_data[ 12]}')
+}
+
+#[test]
+fn check_constant_map() {
+    assert(SPAWN_POINTS.capacity() == 2, 'spawn points capacity {SPAWN_POINTS.capacity()}')
+    assert(SPAWN_POINTS.len() == 2, 'spawn points length {SPAWN_POINTS.len()}')
+    assert(SPAWN_POINTS[Player::Blue][0].x == -42, 'lookup failed blue[0]:x {SPAWN_POINTS[Player::Blue][0].x}')
+    assert(SPAWN_POINTS[Player::Blue][0].y == -43, 'lookup failed blue[0]:y {SPAWN_POINTS[Player::Blue][0].y}')
+    assert(SPAWN_POINTS[Player::Red][0].x == 12, 'lookup failed red[0]:x {SPAWN_POINTS[Player::Red][0].x}')
+    assert(SPAWN_POINTS[Player::Red][0].y == 13, 'lookup failed red[0]:y {SPAWN_POINTS[Player::Red][0].y}')
+    assert(SPAWN_POINTS[Player::Red][1].x == 42, 'lookup failed red[1]:x {SPAWN_POINTS[Player::Red][1].x}')
+    assert(SPAWN_POINTS[Player::Red][1].y == 43, 'lookup failed red[1]:y {SPAWN_POINTS[Player::Red][1].y}')
+}
+
+#[test]
+fn fill_map_from_constant() {
+    game = Game {
+        spawn_points:SPAWN_POINTS,
+    }
+
+    assert(game.spawn_points.capacity() == 4, 'spawn points capacity {game.spawn_points.capacity()}')
+    assert(game.spawn_points.len() == 2, 'spawn points length {game.spawn_points.len()}')
+    assert(game.spawn_points[Player::Blue][0].x == -42, 'spawn point blue[0]:x {game.spawn_points[Player::Blue][0].x}')
+    assert(game.spawn_points[Player::Blue][0].y == -43, 'spawn point blue[0]:y {game.spawn_points[Player::Blue][0].y}')
+    assert(game.spawn_points[Player::Red][0].x == 12, 'spawn point red[0]:x {game.spawn_points[Player::Red][0].x}')
+    assert(game.spawn_points[Player::Red][0].y == 13, 'spawn point red[0]:y {game.spawn_points[Player::Red][0].y}')
+    assert(game.spawn_points[Player::Red][1].x == 42, 'spawn point red[1]:x {game.spawn_points[Player::Red][1].x}')
+    assert(game.spawn_points[Player::Red][1].y == 43, 'spawn point red[1]:y {game.spawn_points[Player::Red][1].y}')
+}
+
+#[test]
+fn fill_map_from_constant_and_change_it() {
+    mut game = Game {
+        spawn_points:SPAWN_POINTS,
+    }
+
+    assert(game.spawn_points.capacity() == 4, 'spawn points capacity {game.spawn_points.capacity()}')
+    assert(game.spawn_points.len() == 2, 'spawn points length {game.spawn_points.len()}')
+    assert(game.spawn_points[Player::Blue][0].x == -42, 'spawn point blue[0]:x {game.spawn_points[Player::Blue][0].x}')
+    assert(game.spawn_points[Player::Blue][0].y == -43, 'spawn point blue[0]:y {game.spawn_points[Player::Blue][0].y}')
+    assert(game.spawn_points[Player::Red][0].x == 12, 'spawn point red[0]:x {game.spawn_points[Player::Red][0].x}')
+    assert(game.spawn_points[Player::Red][0].y == 13, 'spawn point red[0]:y {game.spawn_points[Player::Red][0].y}')
+    assert(game.spawn_points[Player::Red][1].x == 42, 'spawn point red[1]:x {game.spawn_points[Player::Red][1].x}')
+    assert(game.spawn_points[Player::Red][1].y == 43, 'spawn point red[1]:y {game.spawn_points[Player::Red][1].y}')
+
+    // Only modify part of the spawn point
+    game.spawn_points[Player::Blue][0].x = 100
+
+    assert(game.spawn_points[Player::Blue][0].x == 100, 'after change blue[0]:x {game.spawn_points[Player::Blue][0].x}')
+    assert(game.spawn_points[Player::Blue][0].y == -43, 'after change blue[0]:y {game.spawn_points[Player::Blue][0].y}')
+
+    // Of course the constant should not change
+    assert(SPAWN_POINTS[Player::Blue][0].x == -42, 'after change blue[0]:x {SPAWN_POINTS[Player::Blue][0].x}')
+    assert(SPAWN_POINTS[Player::Blue][0].y == -43, 'after change blue[0]:y {SPAWN_POINTS[Player::Blue][0].y}')
+}
+
+#[test]
+fn fill_map_from_constant_and_overwrite_it() {
+    mut game = Game {
+        spawn_points:SPAWN_POINTS,
+    }
+
+    assert(game.spawn_points.capacity() == 4, 'spawn points capacity {game.spawn_points.capacity()}')
+    assert(game.spawn_points.len() == 2, 'spawn points length {game.spawn_points.len()}')
+    assert(game.spawn_points[Player::Blue][0].x == -42, 'spawn point blue[0]:x {game.spawn_points[Player::Blue][0].x}')
+    assert(game.spawn_points[Player::Blue][0].y == -43, 'spawn point blue[0]:y {game.spawn_points[Player::Blue][0].y}')
+    assert(game.spawn_points[Player::Red][0].x == 12, 'spawn point red[0]:x {game.spawn_points[Player::Red][0].x}')
+    assert(game.spawn_points[Player::Red][0].y == 13, 'spawn point red[0]:y {game.spawn_points[Player::Red][0].y}')
+    assert(game.spawn_points[Player::Red][1].x == 42, 'spawn point red[1]:x {game.spawn_points[Player::Red][1].x}')
+    assert(game.spawn_points[Player::Red][1].y == 43, 'spawn point red[1]:y {game.spawn_points[Player::Red][1].y}')
+
+    // Overwrite the spawn points for blue
+    game.spawn_points[Player::Blue] = [Point{x: 100, y: 100}, Point{x: 101, y: 101}]
+    assert(game.spawn_points.len() == 2, 'spawn points length {game.spawn_points.len()}')
+
+    assert(game.spawn_points[Player::Blue][0].x == 100, 'spawn point blue[0]:x {game.spawn_points[Player::Blue][0].x}')
+    assert(game.spawn_points[Player::Blue][0].y == 100, 'spawn point blue[0]:y {game.spawn_points[Player::Blue][0].y}')
+    assert(game.spawn_points[Player::Blue][1].x == 101, 'spawn point blue[1]:x {game.spawn_points[Player::Blue][1].x}')
+    assert(game.spawn_points[Player::Blue][1].y == 101, 'spawn point blue[1]:y {game.spawn_points[Player::Blue][1].y}')
+
+    // Of course the constant should not change
+    assert(SPAWN_POINTS[Player::Blue][0].x == -42, 'after change blue[0]:x {SPAWN_POINTS[Player::Blue][0].x}')
+    assert(SPAWN_POINTS[Player::Blue][0].y == -43, 'after change blue[0]:y {SPAWN_POINTS[Player::Blue][0].y}')
+}
+
+#[test]
+fn fill_map_from_constant_and_add_to_it() {
+    mut game = Game {
+        spawn_points:SPAWN_POINTS,
+    }
+
+    assert(game.spawn_points.capacity() == 4, 'spawn points capacity {game.spawn_points.capacity()}')
+    assert(game.spawn_points.len() == 2, 'spawn points length {game.spawn_points.len()}')
+    assert(game.spawn_points[Player::Blue][0].x == -42, 'spawn point blue[0]:x {game.spawn_points[Player::Blue][0].x}')
+    assert(game.spawn_points[Player::Blue][0].y == -43, 'spawn point blue[0]:y {game.spawn_points[Player::Blue][0].y}')
+    assert(game.spawn_points[Player::Red][0].x == 12, 'spawn point red[0]:x {game.spawn_points[Player::Red][0].x}')
+    assert(game.spawn_points[Player::Red][0].y == 13, 'spawn point red[0]:y {game.spawn_points[Player::Red][0].y}')
+    assert(game.spawn_points[Player::Red][1].x == 42, 'spawn point red[1]:x {game.spawn_points[Player::Red][1].x}')
+    assert(game.spawn_points[Player::Red][1].y == 43, 'spawn point red[1]:y {game.spawn_points[Player::Red][1].y}')
+
+    // Add new spawn points for Green
+    print('adding green spawn points')
+    game.spawn_points[Player::Green] = [Point{x: 100, y: 100}, Point{x: 101, y: 101}]
+    assert(game.spawn_points.len() == 3, 'spawn points length {game.spawn_points.len()}')
+
+    assert(game.spawn_points[Player::Green][0].x == 100, 'spawn point green[0]:x {game.spawn_points[Player::Green][0].x}')
+    assert(game.spawn_points[Player::Green][0].y == 100, 'spawn point green[0]:y {game.spawn_points[Player::Green][0].y}')
+    assert(game.spawn_points[Player::Green][1].x == 101, 'spawn point green[1]:x {game.spawn_points[Player::Green][1].x}')
+    assert(game.spawn_points[Player::Green][1].y == 101, 'spawn point green[1]:y {game.spawn_points[Player::Green][1].y}')
+
+    // The constant should not change
+    assert(SPAWN_POINTS[Player::Blue][0].x == -42, 'after change blue[0]:x {SPAWN_POINTS[Player::Blue][0].x}')
+    assert(SPAWN_POINTS[Player::Blue][0].y == -43, 'after change blue[0]:y {SPAWN_POINTS[Player::Blue][0].y}')
+}
+
+
+#[test]
+fn fill_map_view_from_constant() {
+    mut map_view : [Player: Vec<Point;3> ; 2] = SPAWN_POINTS
+
+    assert(map_view.capacity() == 2, 'spawn points capacity {map_view.capacity()}')
+    assert(map_view.len() == 2, 'spawn points length {map_view.len()}')
+    assert(map_view[Player::Blue][0].x == -42, 'spawn point blue[0]:x {map_view[Player::Blue][0].x}')
+    assert(map_view[Player::Blue][0].y == -43, 'spawn point blue[0]:y {map_view[Player::Blue][0].y}')
+    assert(map_view[Player::Red][0].x == 12, 'spawn point red[0]:x {map_view[Player::Red][0].x}')
+    assert(map_view[Player::Red][0].y == 13, 'spawn point red[0]:y {map_view[Player::Red][0].y}')
+    assert(map_view[Player::Red][1].x == 42, 'spawn point red[1]:x {map_view[Player::Red][1].x}')
+    assert(map_view[Player::Red][1].y == 43, 'spawn point red[1]:y {map_view[Player::Red][1].y}')
+}
+
+#[test]
+fn assign_immutable_map_view_from_constant() {
+    map_view = SPAWN_POINTS
+
+    assert(map_view.capacity() == 2, 'spawn points capacity {map_view.capacity()}')
+    assert(map_view.len() == 2, 'spawn points length {map_view.len()}')
+    assert(map_view[Player::Blue][0].x == -42, 'spawn point blue[0]:x {map_view[Player::Blue][0].x}')
+    assert(map_view[Player::Blue][0].y == -43, 'spawn point blue[0]:y {map_view[Player::Blue][0].y}')
+    assert(map_view[Player::Red][0].x == 12, 'spawn point red[0]:x {map_view[Player::Red][0].x}')
+    assert(map_view[Player::Red][0].y == 13, 'spawn point red[0]:y {map_view[Player::Red][0].y}')
+    assert(map_view[Player::Red][1].x == 42, 'spawn point red[1]:x {map_view[Player::Red][1].x}')
+    assert(map_view[Player::Red][1].y == 43, 'spawn point red[1]:y {map_view[Player::Red][1].y}')
+}
