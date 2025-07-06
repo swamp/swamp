@@ -1,8 +1,32 @@
-///! For `to_string()` and `to_short_string()` lowering
-/// Should not use the normal analyzer helpers, since that can interfere with the normal analyze.
-// TODO: Uses to much virtual registers. Must be optimized.
-// Maybe t
+//! Automatic generation of `to_string()`, `to_short_string()`, and `to_pretty_string()` functions.
+//!
+//! This module generates string representation functions for user-defined types in the Swamp language.
+//! The generated functions are optimized for minimal virtual register usage through proper scope
+//! management and register reuse.
+//!
+//! ## Generated Functions
+//!
+//! - **`to_string()`**: Full string representation with type names and structure
+//! - **`to_short_string()`**: Compact representation without type names
+//! - **`to_pretty_string(indentation: Int)`**: Multi-line formatted representation
+//!
+//! ## Key Features
+//!
+//! - **Scope-aware variable management**: Variables are properly scoped and virtual registers
+//!   are reused when variables go out of scope
+//! - **Efficient string building**: Uses mutable result variables and helper functions to
+//!   minimize temporary variable creation
+//! - **Recursive type handling**: Calls `to_string()` methods on child types rather than
+//!   inlining their generation
+//! - **Match arm scoping**: Each pattern match arm gets its own scope for pattern variables
+//!
+//! ## Implementation Notes
+//!
+//! This module intentionally avoids the normal analyzer helpers to prevent interference
+//! with the main analysis phase. It maintains its own `GeneratedScope` with proper
+//! virtual register tracking and cleanup.
 use source_map_node::Node;
+use std::collections::HashSet;
 use swamp_attributes::Attributes;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{
@@ -15,6 +39,154 @@ use swamp_semantic::{
 use swamp_types::prelude::{EnumType, NamedStructType, Signature, TypeCache, TypeForParameter};
 use swamp_types::{TypeKind, TypeRef};
 
+/// Helper to efficiently append a string to a mutable result variable
+fn append_to_result(
+    result_var: &VariableRef,
+    string_to_append: Expression,
+    string_type: &TypeRef,
+    unit_type: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let result_access = create_var_access(result_var, string_type, node);
+    let concat_expr = concat_expressions(result_access, string_to_append, string_type, node);
+    create_var_reassignment(result_var, concat_expr, unit_type, node)
+}
+
+/// Helper to append a string literal to result
+fn append_literal_to_result(
+    result_var: &VariableRef,
+    literal: &str,
+    string_type: &TypeRef,
+    unit_type: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let literal_expr = create_string_literal(literal, string_type, node);
+    append_to_result(result_var, literal_expr, string_type, unit_type, node)
+}
+
+/// Helper to create a mutable string variable initialized with a literal
+fn create_result_var_with_literal(
+    scope: &mut GeneratedScope,
+    var_name: &str,
+    initial_value: &str,
+    string_type: &TypeRef,
+    unit_type: &TypeRef,
+    node: &Node,
+) -> (VariableRef, Expression) {
+    let result_var = scope.create_local_mut_variable(var_name, string_type, node);
+    let initial_literal = create_expr_resolved(
+        ExpressionKind::StringLiteral(initial_value.to_string()),
+        string_type.clone(),
+        node,
+    );
+    let result_init = create_expr_resolved(
+        ExpressionKind::VariableDefinition(result_var.clone(), Box::new(initial_literal)),
+        unit_type.clone(),
+        node,
+    );
+    (result_var, result_init)
+}
+
+/// Helper to create a binary operation expression
+fn create_binary_op(
+    kind: BinaryOperatorKind,
+    left: Expression,
+    right: Expression,
+    result_type: TypeRef,
+    node: &Node,
+) -> Expression {
+    create_expr_resolved(
+        ExpressionKind::BinaryOp(BinaryOperator {
+            kind,
+            left: Box::new(left),
+            right: Box::new(right),
+            node: node.clone(),
+        }),
+        result_type,
+        node,
+    )
+}
+
+/// Helper to concatenate two expressions (left + right)
+fn concat_expressions(
+    left: Expression,
+    right: Expression,
+    string_type: &TypeRef,
+    node: &Node,
+) -> Expression {
+    create_binary_op(
+        BinaryOperatorKind::Add,
+        left,
+        right,
+        string_type.clone(),
+        node,
+    )
+}
+
+/// Helper to create a string literal expression
+fn create_string_literal(literal: &str, string_type: &TypeRef, node: &Node) -> Expression {
+    create_expr_resolved(
+        ExpressionKind::StringLiteral(literal.to_string()),
+        string_type.clone(),
+        node,
+    )
+}
+
+/// Helper to create a variable access expression
+fn create_var_access(var_ref: &VariableRef, var_type: &TypeRef, node: &Node) -> Expression {
+    create_expr_resolved(
+        ExpressionKind::VariableAccess(var_ref.clone()),
+        var_type.clone(),
+        node,
+    )
+}
+
+/// Helper to create a variable reassignment expression
+fn create_var_reassignment(
+    var_ref: &VariableRef,
+    new_value: Expression,
+    unit_type: &TypeRef,
+    node: &Node,
+) -> Expression {
+    create_expr_resolved(
+        ExpressionKind::VariableReassignment(var_ref.clone(), Box::new(new_value)),
+        unit_type.clone(),
+        node,
+    )
+}
+
+/// Helper to create "!is_first" condition for separators
+fn create_not_first_condition(
+    is_first_var: &VariableRef,
+    bool_type: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let is_first_access = create_var_access(is_first_var, bool_type, node);
+    create_expr_resolved(
+        ExpressionKind::UnaryOp(UnaryOperator {
+            kind: UnaryOperatorKind::Not,
+            left: Box::new(is_first_access),
+            node: node.clone(),
+        }),
+        bool_type.clone(),
+        node,
+    )
+}
+
+/// Helper to set a boolean variable to false
+fn set_bool_var_false(
+    var_ref: &VariableRef,
+    bool_type: &TypeRef,
+    unit_type: &TypeRef,
+    node: &Node,
+) -> Expression {
+    let false_expr = create_expr_resolved(
+        ExpressionKind::BoolLiteral(false),
+        bool_type.clone(),
+        node,
+    );
+    create_var_reassignment(var_ref, false_expr, unit_type, node)
+}
 
 fn generate_to_string_for_named_struct(
     generator: &mut ExpressionGenerator,
@@ -127,19 +299,12 @@ fn generate_to_string_for_anon_struct(
     let unit_type = generator.types.unit();
     let bool_type = generator.types.bool();
 
-    // Create a mutable result variable to hold the string
-    let result_var = scope.create_local_mut_variable("result", &string_type, node);
+    // Push a scope for struct generation variables
+    scope.push_scope();
 
-    // Initialize with opening brace
-    let opening_brace = create_expr_resolved(
-        ExpressionKind::StringLiteral("{ ".to_string()),
-        string_type.clone(),
-        node,
-    );
-    let result_init = create_expr_resolved(
-        ExpressionKind::VariableDefinition(result_var.clone(), Box::new(opening_brace)),
-        unit_type.clone(),
-        node,
+    // Create a mutable result variable initialized with opening brace
+    let (result_var, result_init) = create_result_var_with_literal(
+        scope, "result", "{ ", &string_type, &unit_type, node,
     );
 
     // Create a variable to track if we're on the first field
@@ -187,33 +352,8 @@ fn generate_to_string_for_anon_struct(
                 node,
             );
 
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
-
-            let separator_expr = create_expr_resolved(
-                ExpressionKind::StringLiteral(", ".to_string()),
-                string_type.clone(),
-                node,
-            );
-
-            let concat_expr = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(separator_expr),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            let add_separator_stmt = create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
-                unit_type.clone(),
-                node,
+            let add_separator_stmt = append_literal_to_result(
+                &result_var, ", ", &string_type, &unit_type, node,
             );
 
             create_expr_resolved(
@@ -244,36 +384,9 @@ fn generate_to_string_for_anon_struct(
         );
 
         // Add field name
-        let add_field_name = {
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
-
-            let field_name_expr = create_expr_resolved(
-                ExpressionKind::StringLiteral(format!("{field_name}: ")),
-                string_type.clone(),
-                node,
-            );
-
-            let concat_expr = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(field_name_expr),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
-                unit_type.clone(),
-                node,
-            )
-        };
+        let add_field_name = append_literal_to_result(
+            &result_var, &format!("{field_name}: "), &string_type, &unit_type, node,
+        );
 
         // Get field value from the struct
         let postfix_kind = PostfixKind::StructField(anonymous_struct_type_ref.clone(), field_index);
@@ -283,110 +396,8 @@ fn generate_to_string_for_anon_struct(
             kind: postfix_kind,
         };
 
-        let field_value_expr = if matches!(*field_type.field_type.kind, TypeKind::String(_, _)) {
-            let start_of_chain = StartOfChain {
-                kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
-                node: node.clone(),
-            };
-
-            let field_access_expr = create_expr_resolved(
-                ExpressionKind::PostfixChain(start_of_chain, vec![postfix_lookup_field_in_self]),
-                field_type.field_type.clone(),
-                node,
-            );
-
-            // For strings, wrap in quotes
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
-
-            let quote_expr = create_expr_resolved(
-                ExpressionKind::StringLiteral("\"".to_string()),
-                string_type.clone(),
-                node,
-            );
-
-            // result = result + "\""
-            let add_left_quote = {
-                let concat_expr = create_expr_resolved(
-                    ExpressionKind::BinaryOp(BinaryOperator {
-                        kind: BinaryOperatorKind::Add,
-                        left: Box::new(result_access.clone()),
-                        right: Box::new(quote_expr.clone()),
-                        node: node.clone(),
-                    }),
-                    string_type.clone(),
-                    node,
-                );
-
-                create_expr_resolved(
-                    ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
-                    unit_type.clone(),
-                    node,
-                )
-            };
-
-            // result = result + field_value
-            let add_field_value = {
-                let result_access = create_expr_resolved(
-                    ExpressionKind::VariableAccess(result_var.clone()),
-                    string_type.clone(),
-                    node,
-                );
-
-                let concat_expr = create_expr_resolved(
-                    ExpressionKind::BinaryOp(BinaryOperator {
-                        kind: BinaryOperatorKind::Add,
-                        left: Box::new(result_access),
-                        right: Box::new(field_access_expr),
-                        node: node.clone(),
-                    }),
-                    string_type.clone(),
-                    node,
-                );
-
-                create_expr_resolved(
-                    ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
-                    unit_type.clone(),
-                    node,
-                )
-            };
-
-            // result = result + "\""
-            let add_right_quote = {
-                let result_access = create_expr_resolved(
-                    ExpressionKind::VariableAccess(result_var.clone()),
-                    string_type.clone(),
-                    node,
-                );
-
-                let concat_expr = create_expr_resolved(
-                    ExpressionKind::BinaryOp(BinaryOperator {
-                        kind: BinaryOperatorKind::Add,
-                        left: Box::new(result_access),
-                        right: Box::new(quote_expr),
-                        node: node.clone(),
-                    }),
-                    string_type.clone(),
-                    node,
-                );
-
-                create_expr_resolved(
-                    ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
-                    unit_type.clone(),
-                    node,
-                )
-            };
-
-            create_expr_resolved(
-                ExpressionKind::Block(vec![add_left_quote, add_field_value, add_right_quote]),
-                unit_type.clone(),
-                node,
-            )
-        } else {
-            // Get the appropriate string representation based on use_short_string_for_children
+        // Get field value and add it to result
+        let field_value_expr = {
             let start_of_chain = StartOfChain {
                 kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
                 node: node.clone(),
@@ -405,32 +416,9 @@ fn generate_to_string_for_anon_struct(
                 use_short_string_for_children,
             );
 
-            // result = result + field_string
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
-
-            let concat_expr = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(field_string),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
-                unit_type.clone(),
-                node,
-            )
+            append_to_result(&result_var, field_string, &string_type, &unit_type, node)
         };
 
-        // Combine the statements for this field
         let field_block = create_expr_resolved(
             ExpressionKind::Block(vec![
                 add_separator,
@@ -446,36 +434,9 @@ fn generate_to_string_for_anon_struct(
     }
 
     // Add closing brace
-    let add_closing_brace = {
-        let result_access = create_expr_resolved(
-            ExpressionKind::VariableAccess(result_var.clone()),
-            string_type.clone(),
-            node,
-        );
-
-        let closing_brace = create_expr_resolved(
-            ExpressionKind::StringLiteral(" }".to_string()),
-            string_type.clone(),
-            node,
-        );
-
-        let concat_expr = create_expr_resolved(
-            ExpressionKind::BinaryOp(BinaryOperator {
-                kind: BinaryOperatorKind::Add,
-                left: Box::new(result_access),
-                right: Box::new(closing_brace),
-                node: node.clone(),
-            }),
-            string_type.clone(),
-            node,
-        );
-
-        create_expr_resolved(
-            ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
-            unit_type,
-            node,
-        )
-    };
+    let add_closing_brace = append_literal_to_result(
+        &result_var, " }", &string_type, &unit_type, node,
+    );
 
     // Return the result
     let result_access = create_expr_resolved(
@@ -490,7 +451,12 @@ fn generate_to_string_for_anon_struct(
     all_statements.push(add_closing_brace);
     all_statements.push(result_access);
 
-    create_expr_resolved(ExpressionKind::Block(all_statements), string_type, node)
+    let final_result = create_expr_resolved(ExpressionKind::Block(all_statements), string_type, node);
+
+    // Pop the scope to free up variables
+    scope.pop_scope();
+
+    final_result
 }
 
 fn generate_to_string_for_enum(
@@ -529,6 +495,9 @@ fn generate_to_string_for_enum(
                 expression_type: result_expr.ty,
             }
         } else {
+            // Push a scope for this match arm's pattern variables
+            scope.push_scope();
+
             // Variant with payload - create a variable to capture the payload
             let payload_var =
                 scope.create_local_variable("payload", &variant_type.payload_type, node);
@@ -557,45 +526,36 @@ fn generate_to_string_for_enum(
                 use_short_string_for_children,
             );
 
-            // Build the format string: "VariantName(" + payload.to_string() + ")"
-            let prefix = create_expr_resolved(
-                ExpressionKind::StringLiteral(format!("{variant_str}(")),
-                string_type.clone(),
-                node,
-            );
+            // Handle different payload types appropriately:
+            // - Struct payloads: add space before brace (following Rust conventions)
+            // - Tuple payloads: don't add extra parentheses (tuples already have them)
+            // - Other payloads: wrap in parentheses
+            let final_result = match &*variant_type.payload_type.kind {
+                TypeKind::AnonymousStruct(_) | TypeKind::NamedStruct(_) => {
+                    // Struct payload: variant_str + " " + payload (space before brace)
+                    let prefix = create_string_literal(&format!("{variant_str} "), &string_type, node);
+                    concat_expressions(prefix, payload_string, &string_type, node)
+                }
+                TypeKind::Tuple(_) => {
+                    // Tuple payload: variant_str + payload (tuples already have parentheses)
+                    let prefix = create_string_literal(&variant_str, &string_type, node);
+                    concat_expressions(prefix, payload_string, &string_type, node)
+                }
+                _ => {
+                    // Other payload: variant_str + "(" + payload + ")"
+                    let prefix = create_string_literal(&format!("{variant_str}("), &string_type, node);
+                    let suffix = create_string_literal(")", &string_type, node);
+                    let temp_concat = concat_expressions(prefix, payload_string, &string_type, node);
+                    concat_expressions(temp_concat, suffix, &string_type, node)
+                }
+            };
 
-            let suffix = create_expr_resolved(
-                ExpressionKind::StringLiteral(")".to_string()),
-                string_type.clone(),
-                node,
-            );
-
-            let temp_concat = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(prefix),
-                    right: Box::new(payload_string),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            let final_string = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(temp_concat),
-                    right: Box::new(suffix),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
+            scope.pop_scope(); // Clean up pattern variables
 
             MatchArm {
                 pattern: Pattern::Normal(pattern, None), // No guard
-                expression: Box::new(final_string.clone()),
-                expression_type: final_string.ty,
+                expression: Box::new(final_result.clone()),
+                expression_type: final_result.ty,
             }
         };
 
@@ -623,32 +583,10 @@ fn create_string_representation_of_expression(
     let ty = expression_to_convert.ty.clone();
 
     if matches!(*ty.kind, TypeKind::String(..) | TypeKind::StringStorage(..)) {
-        // For strings, wrap in quotes
-        let quote_expr = create_expr_resolved(
-            ExpressionKind::StringLiteral("\"".to_string()),
-            string_type.clone(),
-            node,
-        );
-        let left_concat = create_expr_resolved(
-            ExpressionKind::BinaryOp(BinaryOperator {
-                kind: BinaryOperatorKind::Add,
-                left: Box::new(quote_expr.clone()),
-                right: Box::new(expression_to_convert),
-                node: node.clone(),
-            }),
-            string_type.clone(),
-            node,
-        );
-        create_expr_resolved(
-            ExpressionKind::BinaryOp(BinaryOperator {
-                kind: BinaryOperatorKind::Add,
-                left: Box::new(left_concat),
-                right: Box::new(quote_expr),
-                node: node.clone(),
-            }),
-            string_type,
-            node,
-        )
+        // For strings, wrap in quotes: "\"" + string + "\""
+        let quote_expr = create_string_literal("\"", &string_type, node);
+        let left_concat = concat_expressions(quote_expr.clone(), expression_to_convert, &string_type, node);
+        concat_expressions(left_concat, quote_expr, &string_type, node)
     } else {
         // Choose which function to use based on the prefer_short_string parameter
         let function_name = if prefer_short_string {
@@ -691,12 +629,100 @@ fn create_string_representation_of_expression(
 
 pub struct GeneratedScope {
     pub scope: VariableScopes,
+    active_virtual_registers: HashSet<u8>,
+    scope_stack: Vec<ScopeFrame>,
+    next_unique_id: usize,
 }
+
+#[derive(Debug)]
+struct ScopeFrame {
+    variables_in_scope: Vec<VariableRef>,
+    virtual_registers_in_scope: Vec<u8>,
+}
+
 impl GeneratedScope {
     pub fn new() -> Self {
         Self {
             scope: VariableScopes::default(),
+            active_virtual_registers: HashSet::new(),
+            scope_stack: Vec::new(),
+            next_unique_id: 1, // Start at 1, 0 is reserved for return value
         }
+    }
+
+    /// Push a new scope frame for proper variable management
+    pub fn push_scope(&mut self) {
+        self.scope_stack.push(ScopeFrame {
+            variables_in_scope: Vec::new(),
+            virtual_registers_in_scope: Vec::new(),
+        });
+    }
+
+    /// Pop the current scope and free up virtual registers
+    pub fn pop_scope(&mut self) {
+        if let Some(frame) = self.scope_stack.pop() {
+            // Free up virtual registers used by variables in this scope
+            for virtual_reg in &frame.virtual_registers_in_scope {
+                self.active_virtual_registers.remove(virtual_reg);
+            }
+        }
+    }
+
+    /// Find a free virtual register, reusing if possible
+    fn allocate_virtual_register(&mut self) -> Option<u8> {
+        // First try to reuse a freed virtual register (1-48)
+        for reg in 1..=48u8 {
+            if !self.active_virtual_registers.contains(&reg) {
+                self.active_virtual_registers.insert(reg);
+                return Some(reg);
+            }
+        }
+        None // All virtual registers are in use
+    }
+
+    /// Get the next unique ID (never reused)
+    const fn allocate_unique_id(&mut self) -> usize {
+        let id = self.next_unique_id;
+        self.next_unique_id += 1;
+        id
+    }
+
+    /// Create a variable and track it in the current scope
+    fn create_variable_in_current_scope(
+        &mut self,
+        assigned_name: &str,
+        variable_type: &TypeRef,
+        node: &Node,
+        is_mutable: bool,
+        var_type: VariableType,
+    ) -> VariableRef {
+        let virtual_register = self.allocate_virtual_register()
+            .unwrap_or_else(|| panic!("out of virtual registers for variable {}", assigned_name));
+
+        let unique_id = self.allocate_unique_id();
+
+        let var_ref = VariableRef::new(Variable {
+            name: node.clone(),
+            assigned_name: assigned_name.to_string(),
+            resolved_type: variable_type.clone(),
+            mutable_node: if is_mutable { Some(node.clone()) } else { None },
+            variable_type: var_type,
+            scope_index: 0,
+            variable_index: 0,
+            unique_id_within_function: unique_id,
+            virtual_register,
+            is_unused: false,
+        });
+
+        self.scope.all_variables.push(var_ref.clone());
+
+        // Track this variable in the current scope
+        if let Some(current_frame) = self.scope_stack.last_mut() {
+            current_frame.variables_in_scope.push(var_ref.clone());
+            current_frame.virtual_registers_in_scope.push(virtual_register);
+        }
+
+        var_ref
     }
 
     pub(crate) fn create_local_variable(
@@ -705,28 +731,7 @@ impl GeneratedScope {
         variable_type: &TypeRef,
         node: &Node,
     ) -> VariableRef {
-        let maybe_virtual_register =
-            crate::variable::allocate_next_register_from_variable_scopes(&mut self.scope);
-        if let Some(virtual_register) = maybe_virtual_register {
-            let var_ref = VariableRef::new(Variable {
-                name: node.clone(), // Technically not correct, but at least we get a "valid" node
-                assigned_name: assigned_name.to_string(),
-                resolved_type: variable_type.clone(),
-                mutable_node: None,
-                variable_type: VariableType::Local,
-                scope_index: 0,
-                variable_index: 0,
-                unique_id_within_function: virtual_register,
-                virtual_register: virtual_register as u8,
-                is_unused: false,
-            });
-
-            self.scope.all_variables.push(var_ref.clone());
-
-            var_ref
-        } else {
-            panic!("out of registers for local variable {}", self.scope.current_register);
-        }
+        self.create_variable_in_current_scope(assigned_name, variable_type, node, false, VariableType::Local)
     }
 
     pub(crate) fn create_parameter(
@@ -735,25 +740,7 @@ impl GeneratedScope {
         variable_type: &TypeRef,
         node: &Node,
     ) -> VariableRef {
-        let virtual_register =
-            crate::variable::allocate_next_register_from_variable_scopes(&mut self.scope).expect("failed to get register for parameter");
-
-        let var_ref = VariableRef::new(Variable {
-            name: node.clone(), // Technically not correct, but at least we get a "valid" node
-            assigned_name: assigned_name.to_string(),
-            resolved_type: variable_type.clone(),
-            mutable_node: None,
-            variable_type: VariableType::Parameter,
-            scope_index: 0,
-            variable_index: 0,
-            unique_id_within_function: virtual_register,
-            virtual_register: virtual_register as u8,
-            is_unused: false,
-        });
-
-        self.scope.all_variables.push(var_ref.clone());
-
-        var_ref
+        self.create_variable_in_current_scope(assigned_name, variable_type, node, false, VariableType::Parameter)
     }
 
     pub(crate) fn create_local_mut_variable(
@@ -762,29 +749,7 @@ impl GeneratedScope {
         variable_type: &TypeRef,
         node: &Node,
     ) -> VariableRef {
-        let maybe_virtual_register =
-            crate::variable::allocate_next_register_from_variable_scopes(&mut self.scope);
-
-        if let Some(virtual_register) = maybe_virtual_register {
-            let var_ref = VariableRef::new(Variable {
-                name: node.clone(), // Technically not correct, but at least we get a "valid" node
-                assigned_name: assigned_name.to_string(),
-                resolved_type: variable_type.clone(),
-                mutable_node: Some(node.clone()),
-                variable_type: VariableType::Local,
-                scope_index: 0,
-                variable_index: 0,
-                unique_id_within_function: virtual_register,
-                virtual_register: virtual_register as u8,
-                is_unused: false,
-            });
-
-            self.scope.all_variables.push(var_ref.clone());
-
-            var_ref
-        } else {
-            panic!("out of registers for local mut variable {}", self.scope.current_register);
-        }
+        self.create_variable_in_current_scope(assigned_name, variable_type, node, true, VariableType::Local)
     }
 }
 
@@ -818,21 +783,13 @@ fn generate_to_string_for_sequence_like(
     let bool_type = generator.types.bool();
     let int_type = generator.types.int();
 
+    // Push a scope for the sequence generation variables
+    block_scope.push_scope();
+
     // let mut result = "["
-    let (result_var, result_var_def) = {
-        let result_var_ref = block_scope.create_local_mut_variable("result", &string_type, node);
-        let opening_bracket = create_expr_resolved(
-            ExpressionKind::StringLiteral("[".to_string()),
-            string_type.clone(),
-            node,
-        );
-        let def = create_expr_resolved(
-            ExpressionKind::VariableDefinition(result_var_ref.clone(), Box::new(opening_bracket)),
-            unit_type.clone(),
-            node,
-        );
-        (result_var_ref, def)
-    };
+    let (result_var, result_var_def) = create_result_var_with_literal(
+        block_scope, "result", "[", &string_type, &unit_type, node,
+    );
 
     // let mut is_first = true
     let (is_first_var, is_first_var_def) = {
@@ -1009,7 +966,7 @@ fn generate_to_string_for_sequence_like(
         node,
     );
 
-    create_expr_resolved(
+    let final_result = create_expr_resolved(
         ExpressionKind::Block(vec![
             result_var_def,
             is_first_var_def,
@@ -1019,7 +976,12 @@ fn generate_to_string_for_sequence_like(
         ]),
         string_type,
         node,
-    )
+    );
+
+    // Pop the scope to free up variables
+    block_scope.pop_scope();
+
+    final_result
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1341,7 +1303,6 @@ fn generate_to_string_for_optional(
     if use_short_string_for_self {
         // For to_short_string on optional, we return the inner value's string for Some, "-" for None
         // This creates: when value_var = self_expression { value_var.to_short_string() } else { "-" }
-
         // Create a variable to bind the unwrapped optional value
         let value_var = scope.create_local_variable("value", inner_type, node);
 
@@ -1391,23 +1352,11 @@ fn generate_to_string_for_optional(
         let value_var = scope.create_local_variable("value", inner_type, node);
 
         // Create the `Some` case: "Some(" + value.to_string() + ")"
-        let some_prefix = create_expr_resolved(
-            ExpressionKind::StringLiteral("Some(".to_string()),
-            string_type.clone(),
-            node,
-        );
-        let some_suffix = create_expr_resolved(
-            ExpressionKind::StringLiteral(")".to_string()),
-            string_type.clone(),
-            node,
-        );
+        let some_prefix = create_string_literal("Some(", &string_type, node);
+        let some_suffix = create_string_literal(")", &string_type, node);
 
         // Get the variable access for the unwrapped value
-        let value_access = create_expr_resolved(
-            ExpressionKind::VariableAccess(value_var.clone()),
-            inner_type.clone(),
-            node,
-        );
+        let value_access = create_var_access(&value_var, inner_type, node);
 
         // Get the to_string for the inner value
         let value_string = create_string_representation_of_expression(
@@ -1418,34 +1367,11 @@ fn generate_to_string_for_optional(
         );
 
         // Concatenate: "Some(" + value.to_string() + ")"
-        let prefix_plus_value = create_expr_resolved(
-            ExpressionKind::BinaryOp(BinaryOperator {
-                kind: BinaryOperatorKind::Add,
-                left: Box::new(some_prefix),
-                right: Box::new(value_string),
-                node: node.clone(),
-            }),
-            string_type.clone(),
-            node,
-        );
+        let prefix_plus_value = concat_expressions(some_prefix, value_string, &string_type, node);
+        let some_result = concat_expressions(prefix_plus_value, some_suffix, &string_type, node);
 
-        let some_result = create_expr_resolved(
-            ExpressionKind::BinaryOp(BinaryOperator {
-                kind: BinaryOperatorKind::Add,
-                left: Box::new(prefix_plus_value),
-                right: Box::new(some_suffix),
-                node: node.clone(),
-            }),
-            string_type.clone(),
-            node,
-        );
-
-        // Create the None
-        let none_result = create_expr_resolved(
-            ExpressionKind::StringLiteral("None".to_string()),
-            string_type.clone(),
-            node,
-        );
+        // Create the None case
+        let none_result = create_string_literal("None", &string_type, node);
 
         let binding = WhenBinding {
             variable: value_var,
@@ -1588,8 +1514,10 @@ pub fn internal_generate_to_string_function_for_type(
             panic!("Float to_string() is handled in core_text(), not generated here")
         }
         TypeKind::Bool => panic!("Bool to_string() is handled in core_text(), not generated here"),
+        TypeKind::Range(_) => {
+            panic!("Range to_string() is handled in core_text(), not generated here")
+        }
         TypeKind::String { .. } => {
-            // For String type, to_string() should just return self
             first_self_param
         }
         TypeKind::StringStorage { .. } => first_self_param,
@@ -1619,9 +1547,6 @@ pub fn internal_generate_to_string_function_for_type(
             is_short_string,
             is_short_string,
         ),
-        TypeKind::Range(_) => {
-            panic!("Range to_string() is handled in core_text(), not generated here")
-        }
         TypeKind::Enum(enum_type) => generate_to_string_for_enum(
             generator,
             &mut block_scope_to_use,
@@ -1669,8 +1594,8 @@ pub fn internal_generate_to_string_function_for_type(
                 first_self_param,
                 element_type,
                 resolved_node,
-                is_short_string, // use_short_string_for_self
-                is_short_string, // use_short_string_for_children
+                is_short_string,
+                is_short_string,
             )
         }
         TypeKind::MapStorage(key_type, value_type, _)
@@ -1682,12 +1607,15 @@ pub fn internal_generate_to_string_function_for_type(
             key_type,
             value_type,
             resolved_node,
-            is_short_string, // use_short_string_for_self
-            is_short_string, // use_short_string_for_children
+            is_short_string,
+            is_short_string,
         ),
     };
 
     let unique_function_id = id_gen.alloc();
+
+    // Finalize the scope to set the highest register watermark
+    block_scope_to_use.scope.finalize();
 
     InternalFunctionDefinition {
         body: body_expr,
@@ -1722,7 +1650,6 @@ pub fn internal_generate_to_short_string_function_for_type(
     ty: &TypeRef,
     resolved_node: &Node,
 ) -> InternalFunctionDefinition {
-    // Delegate to the consolidated function with is_short_string=true
     internal_generate_to_string_function_for_type(
         generator,
         id_gen,
@@ -1935,32 +1862,43 @@ fn generate_to_pretty_string_for_type(
     )
 }
 
-fn call_to_string_method(
+/// Helper to call a method on an expression with optional arguments
+fn call_method_on_expression(
     generator: &mut ExpressionGenerator,
     self_expression: Expression,
+    method_name: &str,
+    arguments: Vec<ArgumentExpression>,
     node: &Node,
 ) -> Expression {
     let string_type = generator.types.string();
     let ty = self_expression.ty.clone();
 
-    let to_string_fn = generator
+    let method_fn = generator
         .associated_impls
-        .get_internal_member_function(&ty, "to_string")
-        .unwrap_or_else(|| panic!("to_string() function must exist for type: {ty}"));
+        .get_internal_member_function(&ty, method_name)
+        .unwrap_or_else(|| panic!("{method_name}() function must exist for type: {ty}"));
 
-    let function_ref = Function::Internal(to_string_fn.clone());
+    let function_ref = Function::Internal(method_fn.clone());
     let start_of_chain = StartOfChain {
         kind: StartOfChainKind::Expression(Box::from(self_expression)),
         node: node.clone(),
     };
-    let postfix_call_to_string = Postfix {
+    let postfix_call = Postfix {
         node: node.clone(),
         ty: string_type.clone(),
-        kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), vec![]),
+        kind: PostfixKind::MemberCall(FunctionRef::from(function_ref), arguments),
     };
 
-    let lookup_kind = ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_string]);
+    let lookup_kind = ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call]);
     create_expr_resolved(lookup_kind, string_type, node)
+}
+
+fn call_to_string_method(
+    generator: &mut ExpressionGenerator,
+    self_expression: Expression,
+    node: &Node,
+) -> Expression {
+    call_method_on_expression(generator, self_expression, "to_string", vec![], node)
 }
 
 fn call_to_pretty_string_method(
@@ -1969,31 +1907,13 @@ fn call_to_pretty_string_method(
     indentation_expression: Expression,
     node: &Node,
 ) -> Expression {
-    let string_type = generator.types.string();
-    let ty = self_expression.ty.clone();
-
-    let to_pretty_string_fn = generator
-        .associated_impls
-        .get_internal_member_function(&ty, "to_pretty_string")
-        .unwrap_or_else(|| panic!("to_pretty_string() function must exist for type: {ty}"));
-
-    let function_ref = Function::Internal(to_pretty_string_fn.clone());
-    let start_of_chain = StartOfChain {
-        kind: StartOfChainKind::Expression(Box::from(self_expression)),
-        node: node.clone(),
-    };
-    let postfix_call_to_pretty_string = Postfix {
-        node: node.clone(),
-        ty: string_type.clone(),
-        kind: PostfixKind::MemberCall(
-            FunctionRef::from(function_ref),
-            vec![ArgumentExpression::Expression(indentation_expression)],
-        ),
-    };
-
-    let lookup_kind =
-        ExpressionKind::PostfixChain(start_of_chain, vec![postfix_call_to_pretty_string]);
-    create_expr_resolved(lookup_kind, string_type, node)
+    call_method_on_expression(
+        generator,
+        self_expression,
+        "to_pretty_string",
+        vec![ArgumentExpression::Expression(indentation_expression)],
+        node,
+    )
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2402,7 +2322,10 @@ fn generate_map_pretty_string(
                 node,
             );
             create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(empty_map_str)),
+                ExpressionKind::VariableReassignment(
+                    result_var.clone(),
+                    Box::new(empty_map_str),
+                ),
                 unit_type.clone(),
                 node,
             )
@@ -2939,135 +2862,75 @@ fn generate_named_struct_pretty_string(
         (var, def)
     };
 
-    // Generate field additions
-    let mut field_assignments = Vec::new();
-    let TypeKind::AnonymousStruct(anon_struct) = &*named_struct.anon_struct_type.kind else {
-        panic!("Named struct should contain anonymous struct");
-    };
-
-    for (field_index, (field_name, field_type)) in
-        anon_struct.field_name_sorted_fields.iter().enumerate()
-    {
-        // Add indentation for field (next_indent_var level)
-        let next_indent_access = create_expr_resolved(
-            ExpressionKind::VariableAccess(next_indent_var.clone()),
-            int_type.clone(),
-            node,
-        );
-        let add_indent = generate_add_indentation_to_result(
-            generator,
-            scope,
-            &result_var,
-            &next_indent_access,
-            node,
-        );
-
-        // Add field name: "field_name: "
-        let add_field_name = {
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
-            let field_name_str = create_expr_resolved(
-                ExpressionKind::StringLiteral(format!("{field_name}: ")),
-                string_type.clone(),
-                node,
-            );
-            let concat = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(field_name_str),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat)),
-                unit_type.clone(),
-                node,
-            )
+            // Generate field additions
+        let mut field_assignments = Vec::new();
+        let TypeKind::AnonymousStruct(anon_struct) = &*named_struct.anon_struct_type.kind else {
+            panic!("Named struct should contain anonymous struct");
         };
 
-        // Get field value and call to_pretty_string on it
-        let add_field_value = {
-            let postfix_kind =
-                PostfixKind::StructField(named_struct.anon_struct_type.clone(), field_index);
-            let postfix_lookup_field = Postfix {
-                node: node.clone(),
-                ty: field_type.field_type.clone(),
-                kind: postfix_kind,
+        for (field_index, (field_name, field_type)) in
+            anon_struct.field_name_sorted_fields.iter().enumerate()
+        {
+            // Add indentation for field (next_indent_var level)
+            let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
+            let add_indent = generate_add_indentation_to_result(
+                generator,
+                scope,
+                &result_var,
+                &next_indent_access,
+                node,
+            );
+
+            // Add field name: "field_name: "
+            let add_field_name = {
+                let result_access = create_var_access(&result_var, &string_type, node);
+                let field_name_str = create_string_literal(&format!("{field_name}: "), &string_type, node);
+                let concat = concat_expressions(result_access, field_name_str, &string_type, node);
+                create_var_reassignment(&result_var, concat, &unit_type, node)
             };
 
-            let start_of_chain = StartOfChain {
-                kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
-                node: node.clone(),
+            // Get field value and call to_pretty_string on it
+            let add_field_value = {
+                let postfix_kind =
+                    PostfixKind::StructField(named_struct.anon_struct_type.clone(), field_index);
+                let postfix_lookup_field = Postfix {
+                    node: node.clone(),
+                    ty: field_type.field_type.clone(),
+                    kind: postfix_kind,
+                };
+
+                let start_of_chain = StartOfChain {
+                    kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                    node: node.clone(),
+                };
+                let field_access = create_expr_resolved(
+                    ExpressionKind::PostfixChain(start_of_chain, vec![postfix_lookup_field]),
+                    field_type.field_type.clone(),
+                    node,
+                );
+
+                let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
+
+                let field_pretty_string =
+                    call_to_pretty_string_method(generator, field_access, next_indent_access, node);
+
+                let result_access = create_var_access(&result_var, &string_type, node);
+
+                // result + field_pretty_string + ",\n"
+                let temp1 = concat_expressions(result_access, field_pretty_string, &string_type, node);
+                let comma_newline = create_string_literal(",\n", &string_type, node);
+                let final_str = concat_expressions(temp1, comma_newline, &string_type, node);
+
+                create_var_reassignment(&result_var, final_str, &unit_type, node)
             };
-            let field_access = create_expr_resolved(
-                ExpressionKind::PostfixChain(start_of_chain, vec![postfix_lookup_field]),
-                field_type.field_type.clone(),
-                node,
-            );
 
-            let next_indent_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(next_indent_var.clone()),
-                int_type.clone(),
-                node,
-            );
-
-            let field_pretty_string =
-                call_to_pretty_string_method(generator, field_access, next_indent_access, node);
-
-            let newline = create_expr_resolved(
-                ExpressionKind::StringLiteral("\n".to_string()),
-                string_type.clone(),
-                node,
-            );
-
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
-
-            // result + field_pretty_string + "\n"
-            let temp1 = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(field_pretty_string),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-            let final_str = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(temp1),
-                    right: Box::new(newline),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_str)),
+            let field_block = create_expr_resolved(
+                ExpressionKind::Block(vec![add_indent, add_field_name, add_field_value]),
                 unit_type.clone(),
                 node,
-            )
-        };
-
-        let field_block = create_expr_resolved(
-            ExpressionKind::Block(vec![add_indent, add_field_name, add_field_value]),
-            unit_type.clone(),
-            node,
-        );
-        field_assignments.push(field_block);
-    }
+            );
+            field_assignments.push(field_block);
+        }
 
     // Add final indentation and closing brace
     let add_closing = {
@@ -3189,11 +3052,7 @@ fn generate_anon_struct_pretty_string(
         anon_struct.field_name_sorted_fields.iter().enumerate()
     {
         // Add indentation for field (next_indent_var level)
-        let next_indent_access = create_expr_resolved(
-            ExpressionKind::VariableAccess(next_indent_var.clone()),
-            int_type.clone(),
-            node,
-        );
+        let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
         let add_indent = generate_add_indentation_to_result(
             generator,
             scope,
@@ -3204,31 +3063,10 @@ fn generate_anon_struct_pretty_string(
 
         // Add field name: "field_name: "
         let add_field_name = {
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
-            let field_name_str = create_expr_resolved(
-                ExpressionKind::StringLiteral(format!("{field_name}: ")),
-                string_type.clone(),
-                node,
-            );
-            let concat = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(field_name_str),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat)),
-                unit_type.clone(),
-                node,
-            )
+            let result_access = create_var_access(&result_var, &string_type, node);
+            let field_name_str = create_string_literal(&format!("{field_name}: "), &string_type, node);
+            let concat = concat_expressions(result_access, field_name_str, &string_type, node);
+            create_var_reassignment(&result_var, concat, &unit_type, node)
         };
 
         // Get field value and call to_pretty_string on it
@@ -3250,54 +3088,19 @@ fn generate_anon_struct_pretty_string(
                 node,
             );
 
-            let next_indent_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(next_indent_var.clone()),
-                int_type.clone(),
-                node,
-            );
+            let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
 
             let field_pretty_string =
                 call_to_pretty_string_method(generator, field_access, next_indent_access, node);
 
-            let newline = create_expr_resolved(
-                ExpressionKind::StringLiteral("\n".to_string()),
-                string_type.clone(),
-                node,
-            );
+            let result_access = create_var_access(&result_var, &string_type, node);
 
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
+            // result + field_pretty_string + ",\n"
+            let temp1 = concat_expressions(result_access, field_pretty_string, &string_type, node);
+            let comma_newline = create_string_literal(",\n", &string_type, node);
+            let final_str = concat_expressions(temp1, comma_newline, &string_type, node);
 
-            // result + field_pretty_string + "\n"
-            let temp1 = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(field_pretty_string),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-            let final_str = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(temp1),
-                    right: Box::new(newline),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_str)),
-                unit_type.clone(),
-                node,
-            )
+            create_var_reassignment(&result_var, final_str, &unit_type, node)
         };
 
         let field_block = create_expr_resolved(
@@ -3452,54 +3255,19 @@ fn generate_tuple_pretty_string(
                 node,
             );
 
-            let next_indent_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(next_indent_var.clone()),
-                int_type.clone(),
-                node,
-            );
+            let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
 
             let element_pretty_string =
                 call_to_pretty_string_method(generator, element_access, next_indent_access, node);
 
-            let newline = create_expr_resolved(
-                ExpressionKind::StringLiteral("\n".to_string()),
-                string_type.clone(),
-                node,
-            );
+            let result_access = create_var_access(&result_var, &string_type, node);
 
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
+            // result + element_pretty_string + ",\n"
+            let temp1 = concat_expressions(result_access, element_pretty_string, &string_type, node);
+            let comma_newline = create_string_literal(",\n", &string_type, node);
+            let final_str = concat_expressions(temp1, comma_newline, &string_type, node);
 
-            // result + element_pretty_string + "\n"
-            let temp1 = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(element_pretty_string),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-            let final_str = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(temp1),
-                    right: Box::new(newline),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(final_str)),
-                unit_type.clone(),
-                node,
-            )
+            create_var_reassignment(&result_var, final_str, &unit_type, node)
         };
 
         let element_block = create_expr_resolved(
@@ -3675,32 +3443,8 @@ fn generate_to_string_for_grid(
                     node,
                 );
 
-                // Add comma separator
-                let result_access = create_expr_resolved(
-                    ExpressionKind::VariableAccess(result_var.clone()),
-                    string_type.clone(),
-                    node,
-                );
-                let comma_str = create_expr_resolved(
-                    ExpressionKind::StringLiteral(", ".to_string()),
-                    string_type.clone(),
-                    node,
-                );
-                let concat_expr = create_expr_resolved(
-                    ExpressionKind::BinaryOp(BinaryOperator {
-                        kind: BinaryOperatorKind::Add,
-                        left: Box::new(result_access),
-                        right: Box::new(comma_str),
-                        node: node.clone(),
-                    }),
-                    string_type.clone(),
-                    node,
-                );
-
-                let update_result = create_expr_resolved(
-                    ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat_expr)),
-                    unit_type.clone(),
-                    node,
+                let update_result = append_literal_to_result(
+                    &result_var, ", ", &string_type, &unit_type, node,
                 );
 
                 create_expr_resolved(
