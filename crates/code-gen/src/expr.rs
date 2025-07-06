@@ -67,9 +67,10 @@ impl CodeBuilder<'_> {
             expr,
         )
         {
+            let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
             let temp_materialization_target = self
                 .allocate_frame_space_and_return_destination_to_it(
-                    output.ty(),
+                    &expr_basic_type,
                     &expr.node,
                     "rvalue temporary materialization",
                 );
