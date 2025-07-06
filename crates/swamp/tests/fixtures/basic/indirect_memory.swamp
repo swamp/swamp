@@ -1,0 +1,265 @@
+struct Point {
+    x: Int,
+    y: Int,
+}
+
+struct Line {
+    start: Point,
+    end: Point,
+}
+
+struct Shape {
+    lines: Vec<Line, 4>,
+    center: Point,
+    scale: Float,
+}
+
+struct Scene {
+    shapes: Vec<Shape, 3>,
+    background_color: Int,
+    metadata: { name: String<32>, version: Int },
+}
+
+#[test]
+fn deep_scalar_field_access() {
+    scene = Scene {
+        shapes: [
+            Shape {
+                lines: [
+                    Line { start: Point { x: 0, y: 0 }, end: Point { x: 10, y: 10 } },
+                    Line { start: Point { x: 10, y: 10 }, end: Point { x: 20, y: 0 } }
+                ],
+                center: Point { x: 10, y: 5 },
+                scale: 1.0
+            }
+        ],
+        background_color: 255,
+        metadata: { name: "test scene", version: 1 }
+    }
+
+    assert(scene.background_color == 255, "top-level scalar access should work")
+    assert(scene.metadata.version == 1, "nested scalar access should work")
+    assert(scene.shapes[0].scale == 1.0, "array element scalar access should work")
+    assert(scene.shapes[0].lines[0].start.x == 0, "deeply nested scalar access should work")
+    assert(scene.shapes[0].lines[1].end.y == 0, "complex nested scalar access should work")
+}
+
+#[test]
+fn deep_aggregate_field_access() {
+    scene = Scene {
+        shapes: [
+            Shape {
+                lines: [
+                    Line { start: Point { x: 5, y: 10 }, end: Point { x: 15, y: 20 } }
+                ],
+                center: Point { x: 10, y: 15 },
+                scale: 2.0
+            }
+        ],
+        background_color: 128,
+        metadata: { name: "aggregate test", version: 2 }
+    }
+
+    // Test deep aggregate access (should use memory location + offset)
+    center_point = scene.shapes[0].center
+    assert(center_point.x == 10 && center_point.y == 15, "aggregate extraction should work")
+
+    line_start = scene.shapes[0].lines[0].start
+    assert(line_start.x == 5 && line_start.y == 10, "deeply nested aggregate extraction should work")
+
+    metadata = scene.metadata
+    assert(metadata.name == "aggregate test" && metadata.version == 2, "nested aggregate extraction should work")
+}
+
+#[test]
+fn mutable_deep_scalar_modification() {
+    mut scene = Scene {
+        shapes: [
+            Shape {
+                lines: [
+                    Line { start: Point { x: 0, y: 0 }, end: Point { x: 10, y: 10 } }
+                ],
+                center: Point { x: 5, y: 5 },
+                scale: 1.0
+            }
+        ],
+        background_color: 100,
+        metadata: { name: "mutable test", version: 1 }
+    }
+
+    scene.background_color = 200
+    assert(scene.background_color == 200, "top-level scalar modification should work")
+
+    scene.metadata.version = 3
+    assert(scene.metadata.version == 3, "nested scalar modification should work")
+
+    scene.shapes[0].scale = 2.5
+    assert(scene.shapes[0].scale == 2.5, "array element scalar modification should work")
+
+    scene.shapes[0].lines[0].start.x = 99
+    assert(scene.shapes[0].lines[0].start.x == 99, "deeply nested scalar modification should work")
+
+    scene.shapes[0].lines[0].end.y = 88
+    assert(scene.shapes[0].lines[0].end.y == 88, "complex nested scalar modification should work")
+}
+
+#[test]
+fn mutable_deep_aggregate_modification() {
+    mut scene = Scene {
+        shapes: [
+            Shape {
+                lines: [
+                    Line { start: Point { x: 1, y: 2 }, end: Point { x: 3, y: 4 } }
+                ],
+                center: Point { x: 2, y: 3 },
+                scale: 1.0
+            }
+        ],
+        background_color: 50,
+        metadata: { name: "original", version: 1 }
+    }
+
+    scene.shapes[0].center = Point { x: 100, y: 200 }
+    assert(scene.shapes[0].center.x == 100 && scene.shapes[0].center.y == 200, "aggregate replacement should work")
+
+    scene.shapes[0].lines[0] = Line { start: Point { x: 10, y: 20 }, end: Point { x: 30, y: 40 } }
+    assert(scene.shapes[0].lines[0].start.x == 10, "deeply nested aggregate replacement should work")
+    assert(scene.shapes[0].lines[0].end.y == 40, "deeply nested aggregate replacement should work")
+
+    scene.metadata = { name: "modified", version: 2 }
+    assert(scene.metadata.name == "modified" && scene.metadata.version == 2, "nested aggregate replacement should work")
+}
+
+fn modify_scalar_by_reference(mut value: Int) {
+    value = value * 10
+}
+
+fn modify_point_by_reference(mut point: Point) {
+    point.x = point.x + 1000
+    point.y = point.y + 2000
+}
+
+fn modify_line_by_reference(mut line: Line) {
+    line.start.x = 999
+    line.end.y = 888
+}
+
+#[test]
+fn function_calls_with_nested_scalar_refs() {
+    mut scene = Scene {
+        shapes: [
+            Shape {
+                lines: [
+                    Line { start: Point { x: 1, y: 2 }, end: Point { x: 3, y: 4 } }
+                ],
+                center: Point { x: 10, y: 20 },
+                scale: 2.0
+            }
+        ],
+        background_color: 5,
+        metadata: { name: "func test", version: 7 }
+    }
+
+    modify_scalar_by_reference(&scene.background_color)
+    assert(scene.background_color == 50, "top-level scalar function modification should work")
+
+    modify_scalar_by_reference(&scene.metadata.version)
+    assert(scene.metadata.version == 70, "nested scalar function modification should work")
+
+    modify_scalar_by_reference(&scene.shapes[0].center.x)
+    assert(scene.shapes[0].center.x == 100, "array element scalar function modification should work")
+
+    modify_scalar_by_reference(&scene.shapes[0].lines[0].start.y)
+    assert(scene.shapes[0].lines[0].start.y == 20, "deeply nested scalar function modification should work")
+}
+
+#[test]
+fn function_calls_with_nested_aggregate_refs() {
+    mut scene = Scene {
+        shapes: [
+            Shape {
+                lines: [
+                    Line { start: Point { x: 1, y: 2 }, end: Point { x: 3, y: 4 } }
+                ],
+                center: Point { x: 10, y: 20 },
+                scale: 1.0
+            }
+        ],
+        background_color: 0,
+        metadata: { name: "aggregate func test", version: 1 }
+    }
+
+    // Test function calls with deeply nested aggregate references
+    modify_point_by_reference(&scene.shapes[0].center)
+    assert(scene.shapes[0].center.x == 1010, "aggregate function modification should work")
+    assert(scene.shapes[0].center.y == 2020, "aggregate function modification should work")
+
+    modify_point_by_reference(&scene.shapes[0].lines[0].start)
+    assert(scene.shapes[0].lines[0].start.x == 1001, "deeply nested aggregate function modification should work")
+    assert(scene.shapes[0].lines[0].start.y == 2002, "deeply nested aggregate function modification should work")
+
+    modify_line_by_reference(&scene.shapes[0].lines[0])
+    assert(scene.shapes[0].lines[0].start.x == 999, "complex aggregate function modification should work")
+    assert(scene.shapes[0].lines[0].end.y == 888, "complex aggregate function modification should work")
+}
+
+#[test]
+fn collection_operations_with_nested_scalars() {
+    mut scene = Scene {
+        shapes: [],
+        background_color: 0,
+        metadata: { name: "collection test", version: 1 }
+    }
+
+    new_shape = Shape {
+        lines: [
+            Line { start: Point { x: 0, y: 0 }, end: Point { x: 100, y: 100 } },
+            Line { start: Point { x: 100, y: 100 }, end: Point { x: 200, y: 0 } }
+        ],
+        center: Point { x: 100, y: 50 },
+        scale: 1.5
+    }
+
+    scene.shapes.push(new_shape)
+    assert(scene.shapes.len() == 1, "complex element addition should work")
+    assert(scene.shapes[0].lines[0].start.x == 0, "nested scalar access after addition should work")
+    assert(scene.shapes[0].lines[1].end.y == 0, "complex nested scalar access after addition should work")
+
+    scene.shapes[0].lines[0].end.x = 999
+    assert(scene.shapes[0].lines[0].end.x == 999, "nested scalar modification in collection should work")
+
+    scene.shapes[0].center.y = 777
+    assert(scene.shapes[0].center.y == 777, "aggregate field modification in collection should work")
+}
+
+#[test]
+fn collection_iteration_with_complex_elements() {
+    shapes_data = [
+        Shape {
+            lines: [Line { start: Point { x: 1, y: 2 }, end: Point { x: 3, y: 4 } }],
+            center: Point { x: 2, y: 3 },
+            scale: 1.0
+        },
+        Shape {
+            lines: [Line { start: Point { x: 10, y: 20 }, end: Point { x: 30, y: 40 } }],
+            center: Point { x: 20, y: 30 },
+            scale: 2.0
+        }
+    ]
+
+    mut total_start_x = 0
+    mut total_center_y = 0
+    mut total_scale = 0.0
+
+    for shape in shapes_data {
+        // Test scalar access during iteration
+        total_start_x += shape.lines[0].start.x
+        total_center_y += shape.center.y
+        total_scale += shape.scale
+    }
+
+    assert(total_start_x == 11, "scalar accumulation during iteration should work")
+    assert(total_center_y == 33, "nested scalar accumulation should work")
+    assert(total_scale == 3.0, "scalar accumulation should work")
+}
+

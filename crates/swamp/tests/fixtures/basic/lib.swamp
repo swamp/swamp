@@ -12,6 +12,7 @@ mod float
 mod for
 mod grid
 mod guard
+mod indirect_memory
 mod int
 mod intrinsic_materialization
 mod intrinsic_materialization_simple
@@ -21,6 +22,7 @@ mod operator
 mod option
 mod queue
 mod rest_operator
+mod scalar_vs_aggregate
 mod slice
 mod sparse
 mod stack

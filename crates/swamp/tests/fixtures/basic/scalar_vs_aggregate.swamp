@@ -1,0 +1,250 @@
+struct Point {
+    x: Int,
+    y: Int,
+}
+
+#[test]
+fn sparse_scalar_elements() {
+    mut sparse_ints: Sparse<Int, 5> = []
+
+    id1 = sparse_ints.add(42)
+    id2 = sparse_ints.add(100)
+    id3 = sparse_ints.add(-50)
+
+    assert(sparse_ints.len() == 3, "should have 3 scalar elements")
+    assert(sparse_ints[id1] == 42, "first scalar should be 42")
+    assert(sparse_ints[id2] == 100, "second scalar should be 100")
+    assert(sparse_ints[id3] == -50, "third scalar should be -50")
+
+    sparse_ints[id1] = 999
+    assert(sparse_ints[id1] == 999, "scalar element should be modified")
+
+    mut sum = 0
+    for id, value in sparse_ints {
+        sum += value
+    }
+    assert(sum == 1049, "sum of scalar elements should be 999 + 100 + (-50) = 1049")
+}
+
+#[test]
+fn sparse_aggregate_elements() {
+    mut sparse_points: Sparse<Point, 5> = []
+
+    id1 = sparse_points.add(Point { x: 10, y: 20 })
+    id2 = sparse_points.add(Point { x: 30, y: 40 })
+    id3 = sparse_points.add(Point { x: -5, y: -10 })
+
+    assert(sparse_points.len() == 3, "should have 3 aggregate elements")
+    assert(sparse_points[id1].x == 10, "first aggregate x should be 10")
+    assert(sparse_points[id2].y == 40, "second aggregate y should be 40")
+
+    sparse_points[id1] = Point { x: 100, y: 200 }
+    assert(sparse_points[id1].x == 100, "aggregate element should be modified")
+
+    sparse_points[id2].x = 999
+    assert(sparse_points[id2].x == 999, "aggregate field should be modified")
+    assert(sparse_points[id2].y == 40, "other field should remain unchanged")
+
+    mut sum_x = 0
+    for id, point in sparse_points {
+        sum_x += point.x
+    }
+    assert(sum_x == 1094, "sum of x coordinates should be 100 + 999 + (-5) = 1094")
+}
+
+
+#[test]
+fn queue_scalar_elements() {
+    mut queue: Queue<Int, 8> = []
+
+    queue.enqueue(10)
+    queue.enqueue(20)
+    queue.enqueue(30)
+
+    assert(queue.len() == 3, "queue should have 3 scalar elements")
+
+    first = queue.dequeue()
+        assert(first == 10, "first popped scalar should be 10")
+
+    assert(queue.len() == 2, "queue should have 2 elements after pop")
+}
+
+#[test]
+fn queue_aggregate_elements() {
+    mut queue: Queue<Point, 8> = []
+
+    queue.enqueue(Point { x: 1, y: 2 })
+    queue.enqueue(Point { x: 3, y: 4 })
+    queue.enqueue(Point { x: 5, y: 6 })
+
+    assert(queue.len() == 3, "queue should have 3 aggregate elements")
+
+    first = queue.dequeue()
+		assert(first.x == 1 && first.y == 2, "first popped aggregate should be (1,2)")
+
+}
+
+
+#[test]
+fn array_scalar_comprehensive() {
+    mut numbers = [10, 20, 30, 40, 50]
+
+    assert(numbers[0] == 10, "scalar array access should work")
+    assert(numbers[4] == 50, "scalar array bounds access should work")
+
+    numbers[2] = 999
+    assert(numbers[2] == 999, "scalar array modification should work")
+
+    mut sum = 0
+    for value in numbers {
+        sum += value
+    }
+    assert(sum == 1119, "scalar array iteration sum should be 10+20+999+40+50 = 1119")
+
+    mut index_sum = 0
+    for i, value in numbers {
+        index_sum += i * value
+    }
+    assert(index_sum == 2338, 'scalar array indexed iteration should work {index_sum}')
+}
+
+#[test]
+fn array_aggregate_comprehensive() {
+    mut points: [Point; 5] = [
+        Point { x: 1, y: 2 },
+        Point { x: 3, y: 4 },
+        Point { x: 5, y: 6 },
+        Point { x: 7, y: 8 },
+        Point { x: 9, y: 10 }
+    ]
+
+    assert(points[0].x == 1 && points[0].y == 2, "aggregate array access should work")
+    assert(points[4].x == 9 && points[4].y == 10, "aggregate array bounds access should work")
+
+    points[2] = Point { x: 100, y: 200 }
+    assert(points[2].x == 100 && points[2].y == 200, "aggregate array modification should work")
+
+    points[1].x = 999
+    assert(points[1].x == 999, "aggregate field modification should work")
+    assert(points[1].y == 4, "other field should remain unchanged")
+
+    mut sum_x = 0
+    for point in points {
+        sum_x += point.x
+    }
+    assert(sum_x == 1116, "aggregate array iteration sum should be 1+999+100+7+9 = 1116")
+}
+
+fn modify_scalar_value(mut value: Int) {
+    value = value * 2 + 10
+}
+
+fn modify_aggregate_value(mut point: Point) {
+    point.x = point.x * 2
+    point.y = point.y * 3
+}
+
+#[test]
+fn scalar_copy_back_mechanism() {
+    mut numbers: [Int; 3] = [5, 10, 15]
+
+    modify_scalar_value(&numbers[1])
+    assert(numbers[1] == 30, "scalar copy-back should work: 10 * 2 + 10 = 30")
+    assert(numbers[0] == 5, "other elements should remain unchanged")
+    assert(numbers[2] == 15, "other elements should remain unchanged")
+}
+
+#[test]
+fn aggregate_reference_mechanism() {
+    mut points: [Point; 3] = [
+        Point { x: 1, y: 2 },
+        Point { x: 3, y: 4 },
+        Point { x: 5, y: 6 }
+    ]
+
+    modify_aggregate_value(&points[1])
+    assert(points[1].x == 6, "aggregate reference should work: 3 * 2 = 6")
+    assert(points[1].y == 12, "aggregate reference should work: 4 * 3 = 12")
+    assert(points[0].x == 1, "other elements should remain unchanged")
+    assert(points[2].x == 5, "other elements should remain unchanged")
+}
+
+
+
+#[test]
+fn scalar_register_storage() {
+    mut a = 42
+    b = 3.14
+    c = true
+    d = "hello"
+
+    a_copy = a
+    b_copy = b
+    c_copy = c
+    d_copy = d
+
+    assert(a_copy == 42, "scalar int copy should work")
+    assert(b_copy == 3.14, "scalar float copy should work")
+    assert(c_copy == true, "scalar bool copy should work")
+    assert(d_copy == "hello", "scalar string copy should work")
+
+    // Modify originals to ensure copies are independent
+    a = 999
+    assert(a_copy == 42, "scalar copies should be independent")
+}
+
+#[test]
+fn aggregate_memory_storage() {
+    mut point1 = Point { x: 10, y: 20 }
+    point2 = Point { x: 30, y: 40 }
+
+    point1_copy = point1
+    point2_copy = point2
+
+    assert(point1_copy.x == 10 && point1_copy.y == 20, "aggregate copy should work")
+    assert(point2_copy.x == 30 && point2_copy.y == 40, "aggregate copy should work")
+
+    point1.x = 999
+
+    assert(point1_copy.x == 10, "aggregate copies should be independent")
+}
+
+
+struct GameData {
+    scalar_map: [Int: Int; 5],
+    aggregate_map: [Int: Point; 5],
+}
+
+#[test]
+fn scalar_key_pointer_generation() {
+    mut game = GameData {
+        scalar_map: [1: 100, 2: 200, 3: 300],
+        aggregate_map: [1: Point { x: 1, y: 1 }, 2: Point { x: 2, y: 2 }],
+    }
+
+    key = 2
+    assert(game.scalar_map.has(key), "scalar key variable lookup should work")
+    assert(game.scalar_map[key] == 200, "scalar key variable access should work")
+
+    assert(game.scalar_map.has(3), "scalar key literal lookup should work")
+    assert(game.scalar_map[3] == 300, "scalar key literal access should work")
+
+    game.scalar_map[key] = 999
+    assert(game.scalar_map[2] == 999, "scalar key modification should work")
+}
+
+#[test]
+fn aggregate_value_pointer_generation() {
+    mut game = GameData {
+        scalar_map: [1: 100, 2: 200],
+        aggregate_map: [1: Point { x: 10, y: 20 }, 2: Point { x: 30, y: 40 }],
+    }
+
+    key = 1
+    assert(game.aggregate_map.has(key), "aggregate value key lookup should work")
+    assert(game.aggregate_map[key].x == 10, "aggregate value access should work")
+
+    game.aggregate_map[key].x = 999
+    assert(game.aggregate_map[1].x == 999, "aggregate value field modification should work")
+    assert(game.aggregate_map[1].y == 20, "other fields should remain unchanged")
+}
