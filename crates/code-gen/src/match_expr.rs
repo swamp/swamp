@@ -89,8 +89,6 @@ impl CodeBuilder<'_> {
                 None
             };
 
-            let maybe_guard_skip = maybe_guard.map(|guard| self.emit_condition_context(guard, ctx));
-
             // insert code here to emit patterns to variables
             match &arm.pattern {
                 Pattern::Normal(normal_pattern, maybe_guard) => match normal_pattern {
@@ -171,6 +169,9 @@ impl CodeBuilder<'_> {
                     // Intentionally do nothing, the expression will be used below
                 }
             }
+
+            // evaluate the guard condition after pattern variables are loaded
+            let maybe_guard_skip = maybe_guard.map(|guard| self.emit_condition_context(guard, ctx));
 
             self.emit_expression(output_destination, &arm.expression, ctx);
 
