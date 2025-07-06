@@ -36,7 +36,15 @@ impl CodeBuilder<'_> {
         let collection_type = &iterable.resolved_expression.ty;
         let hwm = self.temp_registers.save_mark();
 
-        let collection_ptr_reg = self.emit_scalar_rvalue(&iterable.resolved_expression, ctx);
+        // Check if any of the lambda variables are mutable
+        // If so, we need persistent storage for the collection (not temporary)
+        let variables_are_mutable = match for_pattern {
+            ForPattern::Single(var) => var.is_mutable(),
+            ForPattern::Pair(var1, var2) => var1.is_mutable() || var2.is_mutable(),
+        };
+        let allow_temporary = !variables_are_mutable;
+
+        let collection_ptr_reg = self.emit_scalar_rvalue_or_pointer_to_temporary(&iterable.resolved_expression, ctx, allow_temporary);
         let underlying_collection = collection_type;
         match &*underlying_collection.kind {
             TypeKind::Range(_range_struct_ref) => {

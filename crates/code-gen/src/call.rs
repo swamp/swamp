@@ -167,32 +167,8 @@ impl CodeBuilder<'_> {
                 // For expressions that need memory (like VecStorage literals), we need to check
                 // if they should be materialized into temporary frame space first
                 if Self::rvalue_needs_memory_location_to_materialize_in(&mut self.state.layout_cache, expr) {
-                    // Allocate temporary frame space for the expression using its actual type
-                    let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
-                    let temp_memory = self.allocate_frame_space_and_return_destination_to_it(
-                        &expr_basic_type,
-                        node,
-                        "temporary storage for argument expression"
-                    );
-                    
-                    // Initialize the temporary memory for collections (vectors, etc.)
-                    if let Destination::Memory(ref memory_location) = temp_memory {
-                        self.emit_initialize_memory_for_any_type(
-                            memory_location,
-                            node,
-                            "initialize temporary storage for argument expression"
-                        );
-                    }
-                    
-                    // Materialize the expression into the temporary memory
-                    self.emit_expression(&temp_memory, expr, ctx);
-                    
-                    // Get the address of the temporary memory and put it in the argument register
-                    let temp_ptr = self.emit_compute_effective_address_to_register(
-                        &temp_memory,
-                        node,
-                        "get temporary storage address for argument"
-                    );
+                    // Use the helper function to get a pointer to the temporary storage
+                    let temp_ptr = self.emit_scalar_rvalue_or_pointer_to_temporary(expr, ctx, true);
                     
                     self.builder.add_mov_reg(
                         argument_to_use,

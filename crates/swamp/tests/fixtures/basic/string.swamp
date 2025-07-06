@@ -61,9 +61,16 @@ fn for_loop_unicode() {
 
 #[test]
 fn char_int_roundtrip() {
-    // TODO: @BUG!. not possible to use the array directly in the for loop. it doesn't get initialized in that case
     bytes_that_will_become_chars = [0x0, 0x41, 0x7F, 0x2603, 0x1_F9DB]
     for code in bytes_that_will_become_chars {
+        c: Char = code
+        assert(c.to_int() == code, "{code} -> Char -> Int gave {c.to_int()}")
+    }
+}
+
+#[test]
+fn char_int_roundtrip_with_temporary() {
+    for code in [0x0, 0x41, 0x7F, 0x2603, 0x1_F9DB] {
         c: Char = code
         assert(c.to_int() == code, "{code} -> Char -> Int gave {c.to_int()}")
     }
