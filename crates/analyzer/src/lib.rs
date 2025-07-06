@@ -1492,6 +1492,7 @@ impl<'a> Analyzer<'a> {
             TypeKind::QueueView(element_type) => (int_type, element_type.clone()),
             TypeKind::DynamicLengthVecView(element_type) => (int_type, element_type.clone()),
             TypeKind::SparseView(element_type) => (int_type, element_type.clone()),
+            TypeKind::FixedCapacityAndLengthArray(element_type, _fixed_size) => (int_type, element_type.clone()),
             TypeKind::DynamicLengthMapView(key_type, value_type)
             | TypeKind::MapStorage(key_type, value_type, _) => {
                 (Some(key_type.clone()), value_type.clone())
