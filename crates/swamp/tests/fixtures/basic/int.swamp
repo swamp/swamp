@@ -42,3 +42,18 @@ fn clamp_upper() {
 fn to_string() {
     assert(3.to_string() == "3", "to_string(3) is wrong")
 }
+
+#[test]
+fn integer_boundary_operations() {
+    large_positive = 2_000_000_000
+    large_negative = -2_000_000_000
+
+    result1 = large_positive + 100
+    assert(result1 > large_positive, "large positive addition failed")
+
+    result2 = large_negative - 100
+    assert(result2 < large_negative, "large negative subtraction failed")
+
+    result3 = large_positive / 1000
+    assert(result3 == 2_000_000, "large division failed")
+}

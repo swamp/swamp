@@ -1,0 +1,184 @@
+enum NumberWrapper {
+    Value Int,
+    Range (Int, Int),
+    None,
+}
+
+enum Status {
+    Active Int,    // score
+    Inactive,
+    Pending String,
+}
+
+fn is_even(n: Int) -> Bool {
+    n % 2 == 0
+}
+
+fn is_in_range(value: Int, min: Int, max: Int) -> Bool {
+    value >= min && value <= max
+}
+
+#[test]
+fn complex_guard_with_multiple_conditions() {
+    min_threshold = 10
+    max_threshold = 20
+
+    result = match NumberWrapper::Value(15) {
+        Value x | x > min_threshold && x < max_threshold -> "in range",
+        Value x | x <= min_threshold -> "too small",
+        Value x | x >= max_threshold -> "too large",
+        Range start, end | start > 0 && end < 100 -> "valid range",
+        None -> "no value",
+        _ -> "other",
+    }
+
+    assert(result == "in range", 'complex guard failed: {result}')
+}
+
+#[test]
+fn guard_with_function_calls() {
+    wrapper = NumberWrapper::Value(12)
+
+    result = match wrapper {
+        Value x | is_even(x) && x > 10 -> "large even",
+        Value x | is_even(x) -> "small even",
+        Value x | x > 10 -> "large odd",
+        Value x -> "small odd",
+        _ -> "no number",
+    }
+
+    assert(result == "large even", 'function guard failed: {result}')
+}
+
+#[test]
+fn guard_with_external_variables_and_functions() {
+    status = Status::Active(85)
+    passing_score = 70
+    excellent_score = 90
+
+    result = match status {
+        Active score | score >= excellent_score -> "excellent",
+        Active score | score >= passing_score && is_in_range(score, 70, 89) -> "good",
+        Active score | score < passing_score -> "failing",
+        Pending reason | reason == "review" -> "under review",
+        Pending _ -> "waiting",
+        Inactive -> "not active",
+    }
+
+    assert(result == "good", 'complex external guard failed: {result}')
+}
+
+#[test]
+fn nested_enum_with_guards() {
+    wrapper = NumberWrapper::Range(5, 25)
+    target = 15
+
+    result = match wrapper {
+        Value x | x == target -> "exact match",
+        Value x | x > target -> "above target",
+        Value x | x < target -> "below target",
+        Range start, end | start <= target && end >= target -> "target in range",
+        Range start, end | end < target -> "range below target",
+        Range start, end | start > target -> "range above target",
+        None -> "no value",
+    }
+
+    assert(result == "target in range", 'nested enum guard failed: {result}')
+}
+
+#[test]
+fn guard_with_multiple_pattern_variables() {
+    wrapper = NumberWrapper::Range(10, 20)
+
+    result = match wrapper {
+        Range start, end | start > 0 && end < 100 && (end - start) > 5 -> "valid wide range",
+        Range start, end | start > 0 && end < 100 -> "valid narrow range",
+        Range start, end | start <= 0 -> "invalid start",
+        Range start, end | end >= 100 -> "invalid end",
+        Value x | x > 0 -> "positive value",
+        _ -> "other",
+    }
+
+    assert(result == "valid wide range", 'multiple variable guard failed: {result}')
+}
+
+#[test]
+fn guard_precedence_and_order() {
+    wrapper = NumberWrapper::Value(50)
+
+    // Test that guards are evaluated in order
+    result = match wrapper {
+        Value x | x > 40 -> "first match",  // This should match
+        Value x | x > 30 -> "second match", // This would also match but shouldn't be reached
+        Value x | x > 20 -> "third match",  // This would also match but shouldn't be reached
+        _ -> "no match",
+    }
+
+    assert(result == "first match", 'guard precedence failed: {result}')
+}
+
+#[test]
+fn guard_with_boolean_operations() {
+    wrapper = NumberWrapper::Value(42)
+    is_special = true
+
+    result = match wrapper {
+        Value x | is_special && x > 40 -> "special and large",
+        Value x | is_special && x <= 40 -> "special and small",
+        Value x | !is_special && x > 40 -> "normal and large",
+        Value x | !is_special && x <= 40 -> "normal and small",
+        _ -> "other",
+    }
+
+    assert(result == "special and large", 'boolean operation guard failed: {result}')
+}
+
+#[test]
+fn guard_with_string_matching() {
+    status = Status::Pending("urgent")
+    priority_keywords = ["urgent", "critical", "immediate"]
+
+    result = match status {
+        Pending reason | reason == "urgent" || reason == "critical" -> "high priority",
+        Pending reason | reason == "normal" -> "normal priority",
+        Pending -> "unknown priority",
+        Active score | score > 90 -> "high performer",
+        _ -> "other",
+    }
+
+    assert(result == "high priority", 'string guard failed: {result}')
+}
+
+
+enum DirectSyntaxEnum {
+    Empty,
+    SingleValue Int,
+    TupleValue( Int, Int ),
+    StructValue { id: Int, count: Int },
+}
+
+
+#[test]
+fn check_with_guards() {
+    direct_variant = DirectSyntaxEnum::SingleValue(42)
+    tuple_variant = DirectSyntaxEnum::TupleValue(123, 456)
+    struct_variant = DirectSyntaxEnum::StructValue { id: 789, count: 321 }
+
+    i = 3
+    // Test matching direct syntax variants
+    direct_result = match direct_variant {
+        Empty -> 0,
+        SingleValue value | i < 3 -> {
+            panic('wrong match!')
+            0
+        }
+        SingleValue value | i >= 3 -> {
+            print('Direct syntax value: {value}')
+            value * 2
+        }
+        TupleValue a, b -> 999,
+        StructValue { id, count } -> 888,
+    }
+
+    assert(direct_result == 84, "direct syntax matching failed")  // 42 * 2 = 84
+}

@@ -566,3 +566,4 @@ fn mixed_to_string() {
     assert(short1 == "TuplePair(10, 20)", 'mismatch {s1}')
     assert(short2 == "StructData { count: 5, value: 100 }", 'mismatch {s2}')
 }
+

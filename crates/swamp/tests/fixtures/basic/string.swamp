@@ -151,3 +151,19 @@ fn len_on_utf8() {
     assert(string.len() == 5, 'should be 5, but got {string.len()}')
     assert(string.capacity() == 5, 'capacity should be 5, but got {string.capacity()}')
 }
+
+struct StringStorage {
+    i: Byte,
+    str: String<42>,
+}
+
+#[test]
+fn store_string() {
+    storage = StringStorage {
+        str: "store this text",
+        ..
+    }
+    assert(storage.str == "store this text", 'string failed to be stored {storage.str}')
+    assert(storage.i.to_int() == 0, 'byte must be zero')
+    assert(storage.i.to_string() == "0x00", 'byte to_string failed')
+}
