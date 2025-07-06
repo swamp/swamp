@@ -1330,20 +1330,14 @@ impl InstructionBuilder<'_> {
         &mut self,
         iterator_target: &TypedRegister,
         pointer_to_vec_header: &TypedRegister,
-        element_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
-        let element_size_bytes = u32_to_bytes(element_size.0);
         self.state.add_instruction(
             OpCode::VecIterInit,
             &[
                 iterator_target.addressing(),
                 pointer_to_vec_header.addressing(),
-                element_size_bytes.0,
-                element_size_bytes.1,
-                element_size_bytes.2,
-                element_size_bytes.3,
             ],
             node,
             comment,

@@ -45,6 +45,10 @@ impl Vm {
             (*mut_vec_ptr).element_size = element_size;
             (*mut_vec_ptr).padding = VEC_HEADER_MAGIC_CODE;
         }
+        
+        if self.debug_operations_enabled {
+            eprintln!("array init element_size:{element_size} into vec_addr: {vec_addr:X}");
+        }
     }
 
     #[inline]
@@ -83,12 +87,6 @@ impl Vm {
                 return self.internal_trap(TrapCode::VecNeverInitialized);
             }
 
-            if (*left_vec_ptr).capacity < (*right_vec_ptr).element_count {
-                return self.internal_trap(TrapCode::VecOutOfCapacity {
-                    encountered: (*right_vec_ptr).element_count,
-                    capacity: (*left_vec_ptr).capacity,
-                });
-            }
 
             if (*left_vec_ptr).element_count != (*right_vec_ptr).element_count {
                 set_reg!(self, bool_target_reg, 0);
@@ -238,9 +236,13 @@ impl Vm {
                 vec_header.element_size
             );
         }
+        
+        // Assert that element_size is reasonable
+        debug_assert!(vec_header.element_size > 0, 
+            "Element size cannot be zero");
+        
         let vec_iterator = VecIterator {
             vec_header_heap_ptr: vec_header_addr,
-            element_size: vec_header.element_size as u16,
             index: 0,
         };
 
@@ -278,8 +280,8 @@ impl Vm {
                 let iter_addr = get_reg!(self, vec_iterator_header_reg);
                 let index = (*vec_iterator).index;
                 eprintln!(
-                    "vec_iter_next: iter_addr: {iter_addr:04X} addr:{vec_header_addr:04X} index:{index} len: {}, capacity: {}",
-                    vec_header.element_count, vec_header.capacity
+                    "vec_iter_next: iter_addr: {iter_addr:04X} addr:{vec_header_addr:04X} index:{index} len: {}, capacity: {}, element_size: {}",
+                    vec_header.element_count, vec_header.capacity, vec_header.element_size
                 );
             }
 
@@ -303,7 +305,7 @@ impl Vm {
             // Calculate the address of the current element
             let element_addr = (*vec_iterator).vec_header_heap_ptr
                 + VEC_HEADER_PAYLOAD_OFFSET.0 as u32
-                + (*vec_iterator).index as u32 * (*vec_iterator).element_size as u32;
+                + (*vec_iterator).index as u32 * vec_header.element_size;
 
             #[cfg(feature = "debug_vm")]
             if self.debug_operations_enabled {
@@ -369,7 +371,7 @@ impl Vm {
             // Calculate the address of the current element
             let element_addr = (*vec_iterator).vec_header_heap_ptr
                 + VEC_HEADER_PAYLOAD_OFFSET.0 as u32
-                + (*vec_iterator).index as u32 * (*vec_iterator).element_size as u32;
+                + (*vec_iterator).index as u32 * vec_header.element_size;
 
             #[cfg(feature = "debug_vm")]
             if self.debug_operations_enabled {

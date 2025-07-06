@@ -2,14 +2,14 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::transformer::{Collection, Transformer, TransformerResult};
+use crate::FlagStateKind;
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
 use swamp_vm_types::types::{
-    BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType, u8_type, u32_type,
+    pointer_type, u32_type, u8_type, BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType,
 };
 use swamp_vm_types::{InstructionPosition, MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::error;
@@ -413,7 +413,7 @@ impl CodeBuilder<'_> {
                         // the address
                         let temp_addr = self
                             .temp_registers
-                            .allocate(primary_register.ty.clone(), "temp address for value");
+                            .allocate(VmType::new_contained_in_register(pointer_type()), "temp address for value");
 
                         if target_variables.len() == 2 {
                             (
@@ -532,7 +532,6 @@ impl CodeBuilder<'_> {
                 self.builder.add_vec_iter_init(
                     target_iterator_header_reg,
                     collection_self_addr,
-                    maybe_element_type.unwrap().total_size,
                     node,
                     "vec iter init",
                 );

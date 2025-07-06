@@ -747,7 +747,6 @@ pub const VEC_PTR_ALIGNMENT: MemoryAlignment = HEAP_PTR_ON_FRAME_ALIGNMENT;
 #[repr(C)]
 pub struct VecIterator {
     pub vec_header_heap_ptr: u32,
-    pub element_size: u16,
     pub index: u16,
 }
 
