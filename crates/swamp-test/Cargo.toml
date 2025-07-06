@@ -1,11 +1,11 @@
 [package]
 name = "swamp-test"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2024"
 description = "swamp test runner tool"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-test-runner = { path = "../test-runner", version = "0.2.4" }
+swamp-test-runner = { path = "../test-runner", version = "0.2.5" }
 pico-args = "0.5.0"

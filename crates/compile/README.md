@@ -21,5 +21,5 @@ This crate is typically used as the main entry point for compiling Swamp code, e
 
 ```toml
 [dependencies]
-swamp-compile = "0.2.4"
+swamp-compile = "0.2.5"
 ```

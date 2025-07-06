@@ -1,12 +1,12 @@
 [package]
 name = "swamp-std"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 description = "Standard i/o functions for Swamp"
 
 [dependencies]
-swamp-vm = { path = "../vm", version = "0.2.4" }
+swamp-vm = { path = "../vm", version = "0.2.5" }
 
 [dev-dependencies]
