@@ -1133,12 +1133,39 @@ impl<'a> Analyzer<'a> {
         };
 
         let mut uncertain = false;
+        let mut previous_was_optional_chaining = false;
 
         let mut suffixes = Vec::new();
 
         for (index, item) in chain.postfixes[start_index..].iter().enumerate() {
             //            trace!(?item, "postfix");
             let is_last = index == chain.postfixes[start_index..].len() - 1;
+
+            // Check if this operator is invalid after optional chaining
+            if previous_was_optional_chaining {
+                match item {
+                    swamp_ast::Postfix::FieldAccess(_)
+                    | swamp_ast::Postfix::MemberCall(_, _, _)
+                    | swamp_ast::Postfix::Subscript(_)
+                    | swamp_ast::Postfix::SubscriptTuple(_, _) => {
+                        // These are valid after optional chaining
+                    }
+                    swamp_ast::Postfix::NoneCoalescingOperator(node) => {
+                        return self.create_err(
+                            ErrorKind::InvalidOperatorAfterOptionalChaining,
+                            &node.node,
+                        );
+                    }
+                    swamp_ast::Postfix::OptionalChainingOperator(node) => {
+                        return self
+                            .create_err(ErrorKind::InvalidOperatorAfterOptionalChaining, node);
+                    }
+                    swamp_ast::Postfix::FunctionCall(node, _, _) => {
+                        return self
+                            .create_err(ErrorKind::InvalidOperatorAfterOptionalChaining, node);
+                    }
+                }
+            }
 
             match item {
                 /*
@@ -1148,6 +1175,7 @@ impl<'a> Analyzer<'a> {
 
                  */
                 swamp_ast::Postfix::FieldAccess(field_name) => {
+                    previous_was_optional_chaining = false;
                     let (struct_type_ref, index, return_type) =
                         self.analyze_struct_field(&field_name.clone(), &tv.resolved_type);
                     let struct_type_type_ref = self
@@ -1167,6 +1195,7 @@ impl<'a> Analyzer<'a> {
                 }
 
                 swamp_ast::Postfix::SubscriptTuple(col_expr, row_expr) => {
+                    previous_was_optional_chaining = false;
                     let collection_type = tv.resolved_type.clone();
                     match &*collection_type.kind {
                         TypeKind::GridStorage(element_type, x, _) => {
@@ -1204,6 +1233,7 @@ impl<'a> Analyzer<'a> {
                 }
 
                 swamp_ast::Postfix::Subscript(lookup_expr) => {
+                    previous_was_optional_chaining = false;
                     let collection_type = tv.resolved_type.clone();
                     match &*collection_type.kind {
                         TypeKind::FixedCapacityAndLengthArray(element_type_in_slice, _) => {
@@ -1306,6 +1336,7 @@ impl<'a> Analyzer<'a> {
                 }
 
                 swamp_ast::Postfix::MemberCall(member_name, generic_arguments, ast_arguments) => {
+                    previous_was_optional_chaining = false;
                     let member_name_str = self.get_text(member_name).to_string();
                     let underlying_type = tv.resolved_type;
 
@@ -1327,6 +1358,7 @@ impl<'a> Analyzer<'a> {
                 }
 
                 swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
+                    previous_was_optional_chaining = false;
                     let unwrapped_type = if let TypeKind::Optional(unwrapped_type) =
                         &*tv.resolved_type.kind
                     {
@@ -1353,7 +1385,7 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::OptionalChainingOperator(option_node) => {
                     if is_last {
                         return self.create_err(
-                            ErrorKind::OptionalChainingOperatorCanNotBePartOfChain,
+                            ErrorKind::InvalidOperatorAfterOptionalChaining,
                             option_node,
                         );
                     }
@@ -1367,6 +1399,7 @@ impl<'a> Analyzer<'a> {
                             option_node,
                         );
                         tv.resolved_type = (*unwrapped_type).clone();
+                        previous_was_optional_chaining = true;
                     } else {
                         return self.create_err(ErrorKind::ExpectedOptional, option_node);
                     }
@@ -1795,21 +1828,24 @@ impl<'a> Analyzer<'a> {
                 }
                 TypeKind::QueueView(element_type) => {
                     // For QueueView expected type, infer QueueStorage for the literal
-                    let inferred_storage_type = self.types().queue_storage(element_type, items.len());
+                    let inferred_storage_type =
+                        self.types().queue_storage(element_type, items.len());
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&inferred_storage_type, &default_node);
                     (inferred_storage_type, element_type.clone())
                 }
                 TypeKind::SparseView(element_type) => {
                     // For SparseView expected type, infer SparseStorage for the literal
-                    let inferred_storage_type = self.types().sparse_storage(element_type, items.len());
+                    let inferred_storage_type =
+                        self.types().sparse_storage(element_type, items.len());
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&inferred_storage_type, &default_node);
                     (inferred_storage_type, element_type.clone())
                 }
                 TypeKind::StackView(element_type) => {
                     // For StackView expected type, infer StackStorage for the literal
-                    let inferred_storage_type = self.types().stack_storage(element_type, items.len());
+                    let inferred_storage_type =
+                        self.types().stack_storage(element_type, items.len());
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&inferred_storage_type, &default_node);
                     (inferred_storage_type, element_type.clone())

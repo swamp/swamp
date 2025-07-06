@@ -80,7 +80,7 @@ pub enum ErrorKind {
     CallsCanNotBePartOfChain,
     UnwrapCanNotBePartOfChain,
     NoneCoalesceCanNotBePartOfChain,
-    OptionalChainingOperatorCanNotBePartOfChain,
+    InvalidOperatorAfterOptionalChaining,
     SelfNotCorrectType,
     CanNotNoneCoalesce,
     UnknownSymbol,
@@ -190,8 +190,8 @@ impl fmt::Display for ErrorKind {
             Self::NoneNeedsExpectedTypeHint => "none requires a type hint",
             Self::UnwrapCanNotBePartOfChain => "unwrap cannot be part of a chain",
             Self::NoneCoalesceCanNotBePartOfChain => "none coalesce cannot be part of a chain",
-            Self::OptionalChainingOperatorCanNotBePartOfChain => {
-                "optional chaining cannot be part of a chain"
+            Self::InvalidOperatorAfterOptionalChaining => {
+                "invalid operator after optional chaining (?)"
             }
             Self::CanNotNoneCoalesce => "cannot none-coalesce",
 

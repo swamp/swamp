@@ -6,7 +6,6 @@ use crate::util::{should_fail, should_hint, should_work};
 
 mod util;
 
-
 #[test_log::test]
 fn fail_different_types_assignment() {
     should_fail(
@@ -25,6 +24,32 @@ fn fail_different_types_assignment() {
 
     ",
         "incompatible types",
+    );
+}
+
+#[test_log::test]
+fn not_allowed_with_wrong_operator_after_optional_chaining() {
+    should_fail(
+        r"
+        a: Int? = 3
+        
+        b = a? ?? 4
+
+    ",
+        "invalid operator after optional chaining (?)",
+    );
+}
+
+#[test_log::test]
+fn not_allowed_with_ending_optional_chaining() {
+    should_fail(
+        r"
+        a: Int? = 3
+        
+        b = a?
+
+    ",
+        "invalid operator after optional chaining (?)",
     );
 }
 

@@ -189,15 +189,13 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
         | ErrorKind::NoneCoalesceCanNotBePartOfChain => {
             Report::build(Kind::Error, 9904, "chain error", span)
         }
-        ErrorKind::OptionalChainingOperatorCanNotBePartOfChain => Report::build(
+        ErrorKind::InvalidOperatorAfterOptionalChaining => Report::build(
             Kind::Error,
             9905,
-            "optional chaining operator `?` cannot be used at the end of a chain",
+            "invalid operator after optional chaining (?)",
             span,
         )
-        .with_note(
-            "use `??` to provide a default value or continue the chain with another operation",
-        ),
+        .with_note("only field access, method calls, or subscripts are allowed after ?"),
         ErrorKind::SelfNotCorrectType => {
             Report::build(Kind::Error, 9901, "self is of wrong type", span)
         }
