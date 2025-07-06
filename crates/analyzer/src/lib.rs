@@ -1793,17 +1793,48 @@ impl<'a> Analyzer<'a> {
                     }
                     (expected_type.clone(), element_type.clone())
                 }
-                TypeKind::QueueView(element_type)
-                | TypeKind::SparseView(element_type)
-                | TypeKind::StackView(element_type)
-                | TypeKind::GridView(element_type)
-                | TypeKind::DynamicLengthVecView(element_type) => {
+                TypeKind::QueueView(element_type) => {
+                    // For QueueView expected type, infer QueueStorage for the literal
+                    let inferred_storage_type = self.types().queue_storage(element_type, items.len());
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&inferred_storage_type, &default_node);
+                    (inferred_storage_type, element_type.clone())
+                }
+                TypeKind::SparseView(element_type) => {
+                    // For SparseView expected type, infer SparseStorage for the literal
+                    let inferred_storage_type = self.types().sparse_storage(element_type, items.len());
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&inferred_storage_type, &default_node);
+                    (inferred_storage_type, element_type.clone())
+                }
+                TypeKind::StackView(element_type) => {
+                    // For StackView expected type, infer StackStorage for the literal
+                    let inferred_storage_type = self.types().stack_storage(element_type, items.len());
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&inferred_storage_type, &default_node);
+                    (inferred_storage_type, element_type.clone())
+                }
+                TypeKind::GridView(element_type) => {
+                    // For GridView, we can't infer dimensions from a 1D list, so keep the expected type
                     (expected_type.clone(), element_type.clone())
+                }
+                TypeKind::DynamicLengthVecView(element_type) => {
+                    // For DynamicLengthVecView expected type, infer VecStorage for the literal
+                    let inferred_storage_type = self.types().vec_storage(element_type, items.len());
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&inferred_storage_type, &default_node);
+                    (inferred_storage_type, element_type.clone())
+                }
+                TypeKind::SliceView(element_type) => {
+                    // For SliceView expected type, infer VecStorage for the literal
+                    let inferred_storage_type = self.types().vec_storage(element_type, items.len());
+                    let default_node = swamp_ast::Node::default();
+                    self.add_default_functions(&inferred_storage_type, &default_node);
+                    (inferred_storage_type, element_type.clone())
                 }
                 TypeKind::FixedCapacityAndLengthArray(element_type, _size) => {
                     (expected_type.clone(), element_type.clone())
                 }
-                TypeKind::SliceView(element_type) => (expected_type.clone(), element_type.clone()),
                 _ => {
                     return (
                         self.types().unit(),
