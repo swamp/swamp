@@ -1,9 +1,9 @@
 use source_map_cache::{FileId, SourceMap};
+use swamp_modules::prelude::ModuleRef;
 use swamp_modules::{
     prelude::Modules,
     symtbl::{SymbolTable, SymbolTableRef},
 };
-use swamp_modules::prelude::ModuleRef;
 use swamp_semantic::ProgramState;
 
 pub struct SharedState<'a> {

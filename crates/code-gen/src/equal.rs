@@ -8,8 +8,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::{FlagState, FlagStateKind};
 use source_map_node::Node;
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 use swamp_vm_types::PointerLocation;
+use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 
 impl CodeBuilder<'_> {
     pub fn emit_binary_operator_equality_to_bool(
@@ -33,8 +33,10 @@ impl CodeBuilder<'_> {
             }
             // Any comparison involving StringStorage: do content comparison
             // TODO: All vec liked should use this
-            (BasicTypeKind::StringView { .. } | BasicTypeKind::StringStorage { .. },
-                BasicTypeKind::StringView { .. } | BasicTypeKind::StringStorage { .. }) => {
+            (
+                BasicTypeKind::StringView { .. } | BasicTypeKind::StringStorage { .. },
+                BasicTypeKind::StringView { .. } | BasicTypeKind::StringStorage { .. },
+            ) => {
                 let left_source_ptr_reg = PointerLocation::new(left_source.clone());
                 let right_source_ptr_reg = PointerLocation::new(right_source.clone());
                 self.emit_binary_operator_block_cmp_vec_like(

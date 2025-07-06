@@ -39,17 +39,17 @@ impl CodeBuilder<'_> {
     }
 
     /// Emits code to evaluate an expression and return a pointer register.
-    /// 
+    ///
     /// This function handles both regular expressions that can be materialized as scalar rvalues
     /// and expressions that need temporary memory storage (like initializer lists).
-    /// 
+    ///
     /// For expressions that need memory materialization:
     /// - If allow_temporary is true: Allocates temporary frame space, initializes it, and returns pointer
     /// - If allow_temporary is false: Falls back to emit_scalar_rvalue (may fail for some expressions)
-    /// 
+    ///
     /// For regular expressions:
     /// - Uses emit_scalar_rvalue to get the pointer directly
-    /// 
+    ///
     /// # Parameters
     /// - `expr`: The expression to evaluate
     /// - `ctx`: Code generation context
@@ -60,32 +60,37 @@ impl CodeBuilder<'_> {
         ctx: &Context,
         allow_temporary: bool,
     ) -> TypedRegister {
-        if allow_temporary && Self::rvalue_needs_memory_location_to_materialize_in(&mut self.state.layout_cache, expr) {
+        if allow_temporary
+            && Self::rvalue_needs_memory_location_to_materialize_in(
+                &mut self.state.layout_cache,
+                expr,
+            )
+        {
             // Expression needs temporary storage (like initializer lists)
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
             let temp_memory = self.allocate_frame_space_and_return_destination_to_it(
                 &expr_basic_type,
                 &expr.node,
-                "temporary storage for expression that needs memory materialization"
+                "temporary storage for expression that needs memory materialization",
             );
-            
+
             // Initialize the temporary memory for collections (vectors, etc.)
             if let Destination::Memory(ref memory_location) = temp_memory {
                 self.emit_initialize_memory_for_any_type(
                     memory_location,
                     &expr.node,
-                    "initialize temporary storage for expression"
+                    "initialize temporary storage for expression",
                 );
             }
-            
+
             // Materialize the expression into the temporary memory
             self.emit_expression(&temp_memory, expr, ctx);
-            
+
             // Return the pointer to the temporary memory
             self.emit_compute_effective_address_to_register(
                 &temp_memory,
                 &expr.node,
-                "get pointer to temporary storage"
+                "get pointer to temporary storage",
             )
         } else {
             // Regular case: expression can be materialized as scalar rvalue

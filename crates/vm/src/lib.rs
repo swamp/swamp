@@ -4,10 +4,10 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::ExecutionMode::NormalExecution;
 use crate::memory::Memory;
-use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -222,7 +222,7 @@ impl FromStr for TrapCode {
 
 impl Display for TrapCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "trap {:?}", self)
+        write!(f, "trap {self:?}")
     }
 }
 
@@ -759,7 +759,7 @@ impl Vm {
     }
 
     pub fn set_register_pointer_addr_for_parameter(&mut self, register: u8, addr: u32) {
-        assert!(register >= 1 && register <= 6, "not a parameter register");
+        assert!((1..=6).contains(&register), "not a parameter register");
         set_reg!(self, register, addr);
     }
 
@@ -1117,8 +1117,7 @@ impl Vm {
             }
             None => {
                 panic!(
-                    "VM Runtime Error: Signed 32-bit integer overflow during DIV_I32 (R{} = R{} - R{})",
-                    dst_reg, lhs_reg, rhs_reg
+                    "VM Runtime Error: Signed 32-bit integer overflow during DIV_I32 (R{dst_reg} = R{lhs_reg} - R{rhs_reg})"
                 );
             }
         }
@@ -1289,7 +1288,7 @@ impl Vm {
         let a = get_reg!(self, a_reg);
         let b = get_reg!(self, b_reg);
         if a < b {
-            self.internal_trap(TrapCode::LessThanTrap { a: a, b: b })
+            self.internal_trap(TrapCode::LessThanTrap { a, b })
         }
     }
 
@@ -1716,7 +1715,7 @@ impl Vm {
         let dest_end = dest_addr + memory_size;
         let src_end = src_addr + memory_size;
 
-        if (dest_addr < src_end && src_addr < dest_end) {
+        if dest_addr < src_end && src_addr < dest_end {
             return self.internal_trap(TrapCode::OverlappingMemoryCopy);
         }
 
@@ -1849,7 +1848,7 @@ impl Vm {
         function_id_lower: u8,
         function_id_upper: u8,
         register_count: u8,
-        mut callback: &mut dyn HostFunctionCallback,
+        callback: &mut dyn HostFunctionCallback,
     ) {
         let heap = self.memory();
 

@@ -7,7 +7,6 @@ use crate::{TrapCode, Vm, get_reg, i16_from_u8s};
 use crate::{set_reg, u16_from_u8s};
 use hashmap_mem::MapHeader;
 use std::ptr;
-use std::ptr::null_mut;
 use swamp_vm_types::MapIterator;
 
 impl Vm {
@@ -43,7 +42,7 @@ impl Vm {
         unsafe {
             let key_ptr = memory.get_heap_ptr(key_ptr_addr);
             let entry_ptr = hashmap_mem::get_or_reserve_entry(header as *mut u8, key_ptr);
-            if entry_ptr == ptr::null_mut() {
+            if entry_ptr.is_null() {
                 return 0;
             }
 
@@ -233,10 +232,10 @@ impl Vm {
         memory: &Memory,
         map_header: *mut MapHeader,
         key_ptr_addr: usize,
-    ) -> bool {
+    ) -> bool { unsafe {
         let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
         hashmap_mem::has(map_header as *mut u8, key_ptr)
-    }
+    }}
 
     /// Looks up a key in the hash map using open addressing and linear probing.
     ///
@@ -247,17 +246,17 @@ impl Vm {
         memory: &Memory,
         map_header: *mut MapHeader,
         key_ptr_addr: usize,
-    ) -> u32 {
+    ) -> u32 { unsafe {
         let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
 
         let value_ptr = hashmap_mem::lookup(map_header as *mut u8, key_ptr);
 
-        if value_ptr == null_mut() {
+        if value_ptr.is_null() {
             0
         } else {
             memory.get_heap_offset(value_ptr)
         }
-    }
+    }}
 
     /// Removes an entry from the hash map given a key using open addressing.
     ///
@@ -267,11 +266,11 @@ impl Vm {
         memory: &Memory,
         map_header_ptr: *mut MapHeader,
         key_ptr_addr: usize,
-    ) -> bool {
+    ) -> bool { unsafe {
         let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
 
         hashmap_mem::remove(map_header_ptr as *mut u8, key_ptr)
-    }
+    }}
 
     pub(crate) fn execute_map_iter_init(
         &mut self,
@@ -344,11 +343,11 @@ impl Vm {
                 );
             }
 
-            let mut index = (*map_iterator).index;
+            let index = (*map_iterator).index;
 
             let (key_ptr, value_ptr, found_index) =
                 hashmap_mem::find_next_valid_entry(map_header_ptr as *mut u8, index as u16);
-            if key_ptr != null_mut() {
+            if !key_ptr.is_null() {
                 let key_offset = self.memory.get_heap_offset(key_ptr);
                 let value_offset = self.memory.get_heap_offset(value_ptr);
 
@@ -398,11 +397,11 @@ impl Vm {
                 );
             }
 
-            let mut index = (*map_iterator).index;
+            let index = (*map_iterator).index;
 
             let (_key_ptr, value_ptr, found_index) =
                 hashmap_mem::find_next_valid_entry(map_header_ptr as *mut u8, index as u16);
-            if value_ptr != null_mut() {
+            if !value_ptr.is_null() {
                 let value_offset = self.memory.get_heap_offset(value_ptr);
 
                 set_reg!(self, target_value_reg, value_offset);

@@ -4,10 +4,10 @@
  */
 use crate::memory::Memory;
 use crate::set_reg;
-use crate::{get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s, TrapCode, Vm};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s};
 use std::ptr;
 use swamp_vm_types::{
-    VecHeader, VecIterator, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE,
+    VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE, VecHeader, VecIterator,
 };
 
 impl Vm {
@@ -45,7 +45,7 @@ impl Vm {
             (*mut_vec_ptr).element_size = element_size;
             (*mut_vec_ptr).padding = VEC_HEADER_MAGIC_CODE;
         }
-        
+
         if self.debug_operations_enabled {
             eprintln!("array init element_size:{element_size} into vec_addr: {vec_addr:X}");
         }
@@ -86,7 +86,6 @@ impl Vm {
                 eprintln!("SOURCE IS NOT INITIALIZED");
                 return self.internal_trap(TrapCode::VecNeverInitialized);
             }
-
 
             if (*left_vec_ptr).element_count != (*right_vec_ptr).element_count {
                 set_reg!(self, bool_target_reg, 0);
@@ -236,11 +235,10 @@ impl Vm {
                 vec_header.element_size
             );
         }
-        
+
         // Assert that element_size is reasonable
-        debug_assert!(vec_header.element_size > 0, 
-            "Element size cannot be zero");
-        
+        debug_assert!(vec_header.element_size > 0, "Element size cannot be zero");
+
         let vec_iterator = VecIterator {
             vec_header_heap_ptr: vec_header_addr,
             index: 0,
@@ -304,7 +302,7 @@ impl Vm {
 
             // Calculate the address of the current element
             let element_addr = (*vec_iterator).vec_header_heap_ptr
-                + VEC_HEADER_PAYLOAD_OFFSET.0 as u32
+                + VEC_HEADER_PAYLOAD_OFFSET.0
                 + (*vec_iterator).index as u32 * vec_header.element_size;
 
             #[cfg(feature = "debug_vm")]
@@ -370,7 +368,7 @@ impl Vm {
 
             // Calculate the address of the current element
             let element_addr = (*vec_iterator).vec_header_heap_ptr
-                + VEC_HEADER_PAYLOAD_OFFSET.0 as u32
+                + VEC_HEADER_PAYLOAD_OFFSET.0
                 + (*vec_iterator).index as u32 * vec_header.element_size;
 
             #[cfg(feature = "debug_vm")]
@@ -489,7 +487,7 @@ impl Vm {
         }
 
         let address_of_new_element = unsafe {
-            vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 as u32 + len as u32 * (*mut_vec_ptr).element_size
+            vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 + len as u32 * (*mut_vec_ptr).element_size
         };
 
         set_reg!(self, destination_entry_addr_reg, address_of_new_element);
@@ -515,7 +513,7 @@ impl Vm {
 
             // Calculate address of the element to be popped
             let address_of_element_to_pop = vec_addr
-                + u32::from(VEC_HEADER_PAYLOAD_OFFSET.0)
+                + VEC_HEADER_PAYLOAD_OFFSET.0
                 + last_index * header.element_size;
 
             header.element_count -= 1;
@@ -545,7 +543,7 @@ impl Vm {
 
         let size_of_each_element = unsafe { (*mut_vec_ptr).element_size };
         let address_of_element_to_be_removed =
-            vec_addr + u32::from(VEC_HEADER_PAYLOAD_OFFSET.0) + index * size_of_each_element;
+            vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 + index * size_of_each_element;
 
         unsafe {
             let header = &mut *mut_vec_ptr;

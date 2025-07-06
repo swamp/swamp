@@ -7,8 +7,8 @@
 mod tests {
     use std::collections::HashSet;
     use std::rc::Rc;
-    use swamp_types::prelude::{TypeCache, TypeKind};
     use swamp_types::TypeId;
+    use swamp_types::prelude::{TypeCache, TypeKind};
 
     fn count_unique_types(cache: &TypeCache) -> usize {
         cache.type_id_to_type().len()

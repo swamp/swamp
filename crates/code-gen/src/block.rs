@@ -4,7 +4,7 @@
  */
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
-use swamp_vm_types::{MemoryLocation, MemorySize};
+use swamp_vm_types::MemoryLocation;
 
 impl CodeBuilder<'_> {
     pub fn emit_block_copy_with_size_from_location(
@@ -33,5 +33,4 @@ impl CodeBuilder<'_> {
             comment,
         );
     }
-
 }

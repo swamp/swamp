@@ -4,9 +4,8 @@
  */
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use source_map_node::Node;
 use swamp_semantic::Expression;
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister, VmType};
+use swamp_vm_types::types::VmType;
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {

@@ -142,7 +142,7 @@ impl Vm {
         let sparse_header_addr = get_reg!(self, map_header_reg);
 
         #[cfg(feature = "debug_vm")]
-        if self.debug_operations_enabled {}
+        self.debug_operations_enabled;
         let map_iterator = SparseIterator {
             sparse_header_heap_ptr: sparse_header_addr,
             index: 0,

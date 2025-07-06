@@ -299,7 +299,7 @@ impl Memory {
         );
         debug_assert_eq!(offset % 4, 0, "Unaligned i32 access at offset {offset}");
 
-        unsafe { self.get_heap_ptr((offset as usize + self.frame_offset)) as *mut u32 }
+        unsafe { self.get_heap_ptr(offset as usize + self.frame_offset) as *mut u32 }
     }
 
     #[inline(always)]
@@ -326,7 +326,7 @@ impl Memory {
             "wrong frame addr"
         );
 
-        unsafe { self.get_heap_ptr((fp_offset as usize + self.frame_offset)) }
+        unsafe { self.get_heap_ptr(fp_offset as usize + self.frame_offset) }
     }
 
     #[inline(always)]
@@ -337,7 +337,7 @@ impl Memory {
             "wrong frame addr"
         );
 
-        unsafe { self.get_heap_ptr((fp_offset as usize + self.frame_offset)) }
+        unsafe { self.get_heap_ptr(fp_offset as usize + self.frame_offset) }
     }
     pub(crate) fn read_frame_debug_slice(&self, start_offset: u32, size: u16) -> Vec<u8> {
         let slice =

@@ -44,7 +44,11 @@ impl CodeBuilder<'_> {
         };
         let allow_temporary = !variables_are_mutable;
 
-        let collection_ptr_reg = self.emit_scalar_rvalue_or_pointer_to_temporary(&iterable.resolved_expression, ctx, allow_temporary);
+        let collection_ptr_reg = self.emit_scalar_rvalue_or_pointer_to_temporary(
+            &iterable.resolved_expression,
+            ctx,
+            allow_temporary,
+        );
         let underlying_collection = collection_type;
         match &*underlying_collection.kind {
             TypeKind::Range(_range_struct_ref) => {
@@ -133,20 +137,12 @@ impl CodeBuilder<'_> {
         source_collection_type: &TypeRef,
         for_pattern: &ForPattern,
         lambda_expr: &Expression,
-
         ctx: &Context,
     ) {
         let variables = match for_pattern {
             ForPattern::Single(a) => vec![a.clone()],
             ForPattern::Pair(a, b) => vec![a.clone(), b.clone()],
         };
-
-        //let fake_lambda_kind = ExpressionKind::Lambda(variables, Box::from(lambda_expr.clone()));
-        //let fake_lambda_expr = ArgumentExpression::Expression(Expression {
-        //            ty: lambda_expr.ty.clone(),
-        //          node: node.clone(),
-        //        kind: fake_lambda_kind,
-        //   });
 
         self.emit_iterate_over_collection_with_lambda(
             target_reg,

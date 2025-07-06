@@ -10,7 +10,7 @@ use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
 };
-use swamp_semantic::{ScopeInfo, VariableScopes};
+use swamp_semantic::ScopeInfo;
 use swamp_types::prelude::*;
 
 const MAX_VIRTUAL_REGISTER: usize = 20;
@@ -25,7 +25,6 @@ pub(crate) const fn allocate_next_register(scope: &mut ScopeInfo) -> Option<usiz
         Some(scope.total_scopes.current_register)
     }
 }
-
 
 impl Analyzer<'_> {
     fn try_find_local_variable(&self, node: &Node) -> Option<&VariableRef> {
@@ -246,7 +245,10 @@ impl Analyzer<'_> {
 
             (variable_ref, variable_str)
         } else {
-            panic!("out of registers {}", self.scope.total_scopes.current_register)
+            panic!(
+                "out of registers {}",
+                self.scope.total_scopes.current_register
+            )
         }
     }
 

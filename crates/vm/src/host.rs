@@ -7,7 +7,7 @@ use std::{
     mem::{align_of, size_of},
     ptr, slice,
 };
-use swamp_vm_types::{VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_MAGIC_CODE, VecHeader};
+use swamp_vm_types::{VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VecHeader};
 
 pub struct HostArgs {
     // references into the Vm
@@ -209,11 +209,11 @@ impl HostArgs {
     }
 
     /// Write multiple elements to the end of a vector (bulk append)
-    /// 
+    ///
     /// # Arguments
     /// * `vec_register` - Register containing the vector header address, usually r0
     /// * `data_slice` - Slice of data to append to the vector
-    /// 
+    ///
     /// # Panics
     /// * If the vector header is invalid or corrupted
     /// * If there's insufficient capacity for all elements
@@ -224,34 +224,32 @@ impl HostArgs {
     {
         // Get the vector header address and read the header
         let vec_header_addr = self.register(vec_register);
-        let vec_header_ptr = unsafe {
-            self.all_memory.add(vec_header_addr as usize) as *mut VecHeader
-        };
-        
+        let vec_header_ptr =
+            unsafe { self.all_memory.add(vec_header_addr as usize) as *mut VecHeader };
+
         let (element_count, capacity, element_size) = unsafe {
             let header = &*vec_header_ptr;
-            
+
             // Validate the vector header
             if header.padding != VEC_HEADER_MAGIC_CODE {
                 panic!("Invalid vector header - memory corruption detected");
             }
-            
+
             if header.capacity == 0 {
                 panic!("Vector was never initialized");
             }
-            
+
             (header.element_count, header.capacity, header.element_size)
         };
-        
+
         // Check if there's enough capacity
         let required_capacity = element_count as usize + data_slice.len();
         if required_capacity > capacity as usize {
             panic!(
-                "Not enough capacity: need {}, have {}",
-                required_capacity, capacity
+                "Not enough capacity: need {required_capacity}, have {capacity}"
             );
         }
-        
+
         // Verify element size matches
         if size_of::<T>() != element_size as usize {
             panic!(
@@ -260,29 +258,28 @@ impl HostArgs {
                 size_of::<T>()
             );
         }
-        
+
         // Calculate the starting address for the new elements
-        let start_addr = vec_header_addr
-            + VEC_HEADER_PAYLOAD_OFFSET.0
-            + (element_count as u32) * element_size;
-        
+        let start_addr =
+            vec_header_addr + VEC_HEADER_PAYLOAD_OFFSET.0 + (element_count as u32) * element_size;
+
         // Write all elements
         unsafe {
             let dest_ptr = self.all_memory.add(start_addr as usize) as *mut T;
             ptr::copy_nonoverlapping(data_slice.as_ptr(), dest_ptr, data_slice.len());
-            
+
             // Update the element count
             (*vec_header_ptr).element_count += data_slice.len() as u16;
         }
     }
-    
+
     /// Write a single element to a specific index in a vector
-    /// 
+    ///
     /// # Arguments
     /// * `vec_register` - Register containing the vector header address, usually r0
     /// * `index` - Index where to write the element (must be `< element_count`)
     /// * `data` - Data to write at the specified index
-    /// 
+    ///
     /// # Panics
     /// * If the vector header is invalid or corrupted
     /// * If the index is out of bounds
@@ -293,19 +290,18 @@ impl HostArgs {
     {
         // Get the vector header address and read the header
         let vec_header_addr = self.register(vec_register);
-        let vec_header = unsafe {
-            *(self.all_memory.add(vec_header_addr as usize) as *const VecHeader)
-        };
-        
+        let vec_header =
+            unsafe { *(self.all_memory.add(vec_header_addr as usize) as *const VecHeader) };
+
         // Validate the vector header
         if vec_header.padding != VEC_HEADER_MAGIC_CODE {
             panic!("Invalid vector header - memory corruption detected");
         }
-        
+
         if vec_header.capacity == 0 {
             panic!("Vector was never initialized");
         }
-        
+
         // Bounds check
         if index >= vec_header.element_count {
             panic!(
@@ -313,7 +309,7 @@ impl HostArgs {
                 index, vec_header.element_count
             );
         }
-        
+
         // Verify element size matches
         if size_of::<T>() != vec_header.element_size as usize {
             panic!(
@@ -322,25 +318,25 @@ impl HostArgs {
                 size_of::<T>()
             );
         }
-        
+
         // Calculate the address of the element to write
         let element_addr = vec_header_addr
             + VEC_HEADER_PAYLOAD_OFFSET.0
             + (index as u32) * vec_header.element_size;
-        
+
         // Write the data
         unsafe {
             let element_ptr = self.all_memory.add(element_addr as usize) as *mut T;
             ptr::write(element_ptr, *data);
         }
     }
-    
+
     /// Append a single element to the end of a vector
-    /// 
+    ///
     /// # Arguments
     /// * `vec_register` - Register containing the vector header address, usually r0
     /// * `data` - Data to append to the vector
-    /// 
+    ///
     /// # Panics
     /// * If the vector header is invalid or corrupted
     /// * If there's insufficient capacity for the new element
@@ -351,16 +347,16 @@ impl HostArgs {
     {
         self.write_to_vector_bulk(vec_register, slice::from_ref(data));
     }
-    
+
     /// Read an element from a vector at a specific index
-    /// 
+    ///
     /// # Arguments
     /// * `vec_register` - Register containing the vector header address, usually r0
     /// * `index` - Index of the element to read
-    /// 
+    ///
     /// # Returns
     /// A reference to the element at the specified index
-    /// 
+    ///
     /// # Panics
     /// * If the vector header is invalid or corrupted
     /// * If the index is out of bounds
@@ -371,16 +367,16 @@ impl HostArgs {
     {
         // Get the vector header
         let vec_header = self.get::<VecHeader>(vec_register);
-        
+
         // Validate the vector header
         if vec_header.padding != VEC_HEADER_MAGIC_CODE {
             panic!("Invalid vector header - memory corruption detected");
         }
-        
+
         if vec_header.capacity == 0 {
             panic!("Vector was never initialized");
         }
-        
+
         // Bounds check
         if index >= vec_header.element_count {
             panic!(
@@ -388,7 +384,7 @@ impl HostArgs {
                 index, vec_header.element_count
             );
         }
-        
+
         // Verify element size matches
         if size_of::<T>() != vec_header.element_size as usize {
             panic!(
@@ -397,86 +393,86 @@ impl HostArgs {
                 size_of::<T>()
             );
         }
-        
+
         // Calculate the address of the element to read
         let vec_header_addr = self.register(vec_register);
         let element_addr = vec_header_addr
             + VEC_HEADER_PAYLOAD_OFFSET.0
             + (index as u32) * vec_header.element_size;
-        
+
         // Read the data
         unsafe {
             let element_ptr = self.all_memory.add(element_addr as usize) as *const T;
             &*element_ptr
         }
     }
-    
+
     /// Get the current length (element count) of a vector
-    /// 
+    ///
     /// # Arguments
     /// * `vec_register` - Register containing the vector header address
-    /// 
+    ///
     /// # Returns
     /// The number of elements currently in the vector
-    /// 
+    ///
     /// # Panics
     /// * If the vector header is invalid or corrupted
     pub fn vector_len(&self, vec_register: u8) -> u16 {
         let vec_header = self.get::<VecHeader>(vec_register);
-        
+
         // Validate the vector header
         if vec_header.padding != VEC_HEADER_MAGIC_CODE {
             panic!("Invalid vector header - memory corruption detected");
         }
-        
+
         if vec_header.capacity == 0 {
             panic!("Vector was never initialized");
         }
-        
+
         vec_header.element_count
     }
-    
+
     /// Get the capacity of a vector
-    /// 
+    ///
     /// # Arguments
     /// * `vec_register` - Register containing the vector header address
-    /// 
+    ///
     /// # Returns
     /// The maximum number of elements the vector can hold
-    /// 
+    ///
     /// # Panics
     /// * If the vector header is invalid or corrupted
     pub fn vector_capacity(&self, vec_register: u8) -> u16 {
         let vec_header = self.get::<VecHeader>(vec_register);
-        
+
         // Validate the vector header
         if vec_header.padding != VEC_HEADER_MAGIC_CODE {
             panic!("Invalid vector header - memory corruption detected");
         }
-        
+
         if vec_header.capacity == 0 {
             panic!("Vector was never initialized");
         }
-        
+
         vec_header.capacity
     }
-    
+
     /// Check if a vector is empty
-    /// 
+    ///
     /// # Arguments
     /// * `vec_register` - Register containing the vector header address
-    /// 
+    ///
     /// # Returns
     /// True if the vector has no elements, false otherwise
     pub fn vector_is_empty(&self, vec_register: u8) -> bool {
         self.vector_len(vec_register) == 0
     }
-    
+
     /// Check if a vector is full (at capacity)
-    /// 
+    ///
     /// # Arguments
     /// * `vec_register` - Register containing the vector header address
-    /// 
+    ///
     /// # Returns
     /// True if the vector is at capacity, false otherwise
     pub fn vector_is_full(&self, vec_register: u8) -> bool {

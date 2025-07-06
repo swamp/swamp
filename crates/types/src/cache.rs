@@ -207,12 +207,12 @@ impl TypeCache {
                 // Check if fields match
                 anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
                     && anon_a.field_name_sorted_fields.keys().all(|key| {
-                    anon_b.field_name_sorted_fields.contains_key(key)
-                        && self.compatible_with(
-                        &anon_a.field_name_sorted_fields[key].field_type,
-                        &anon_b.field_name_sorted_fields[key].field_type,
-                    )
-                })
+                        anon_b.field_name_sorted_fields.contains_key(key)
+                            && self.compatible_with(
+                                &anon_a.field_name_sorted_fields[key].field_type,
+                                &anon_b.field_name_sorted_fields[key].field_type,
+                            )
+                    })
             }
 
             (TypeKind::Range(range_a), TypeKind::Range(range_b)) => {
@@ -238,19 +238,19 @@ impl TypeCache {
                 // Compare range types
                 anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
                     && anon_a.field_name_sorted_fields.keys().all(|key| {
-                    anon_b.field_name_sorted_fields.contains_key(key)
-                        && self.compatible_with(
-                        &anon_a.field_name_sorted_fields[key].field_type,
-                        &anon_b.field_name_sorted_fields[key].field_type,
-                    )
-                })
+                        anon_b.field_name_sorted_fields.contains_key(key)
+                            && self.compatible_with(
+                                &anon_a.field_name_sorted_fields[key].field_type,
+                                &anon_b.field_name_sorted_fields[key].field_type,
+                            )
+                    })
             }
 
             (TypeKind::NamedStruct(named_a), TypeKind::NamedStruct(named_b)) => {
                 // Check named struct compatibility
                 if named_a.assigned_name != named_b.assigned_name
                     || named_a.instantiated_type_parameters.len()
-                    != named_b.instantiated_type_parameters.len()
+                        != named_b.instantiated_type_parameters.len()
                 {
                     false
                 } else {
@@ -267,7 +267,7 @@ impl TypeCache {
                 // Check enum compatibility
                 if enum_a.assigned_name != enum_b.assigned_name
                     || enum_a.instantiated_type_parameters.len()
-                    != enum_b.instantiated_type_parameters.len()
+                        != enum_b.instantiated_type_parameters.len()
                 {
                     false
                 } else {

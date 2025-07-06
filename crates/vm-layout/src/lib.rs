@@ -14,9 +14,9 @@ use swamp_vm_types::types::{
     TaggedUnionVariant, TupleType,
 };
 use swamp_vm_types::{
-    adjust_size_to_alignment, align_to, CountU16, MemoryAlignment, MemoryOffset,
-    MemorySize, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, PTR_ALIGNMENT, PTR_SIZE,
-    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
+    CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, MemoryAlignment,
+    MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
+    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
 };
 
 #[derive(Clone)]

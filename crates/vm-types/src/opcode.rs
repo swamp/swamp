@@ -63,7 +63,7 @@ pub enum OpCode {
     Enter,
     Ret,
 
-    BlockCopy,            // Copy without offsets
+    BlockCopy, // Copy without offsets
     FrameMemClr,
 
     // Loaders --------------
@@ -252,7 +252,6 @@ impl OpCode {
             Self::Ret => "ret",
 
             // Mem
-
             Self::BlockCopy => "blk.cpy",
             Self::LdPtrFromEffectiveFrameAddress => "lea",
 

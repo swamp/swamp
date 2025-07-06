@@ -65,7 +65,6 @@ impl CodeBuilder<'_> {
                 node,
                 "copy aggregate pointer to target register",
             );
- 
         } else {
             self.emit_load_scalar_from_memory_offset_instruction(
                 target_reg,

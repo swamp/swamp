@@ -231,7 +231,6 @@ impl AstParser {
         let pair = Self::expect_next(pairs, Rule::type_identifier)?;
         Ok(LocalTypeIdentifier::new(self.to_node(&pair)))
     }
-    
 
     fn convert_into_iterator<'a>(pair: &'a Pair<'a, Rule>) -> impl Iterator<Item = Pair<'a, Rule>> {
         pair.clone().into_inner()

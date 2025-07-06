@@ -9,15 +9,15 @@ use crate::ctx::Context;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
 use crate::{
-    ArgumentAndTempScope, RepresentationOfRegisters, SpilledRegisterRegion,
-    MAX_REGISTER_INDEX_FOR_PARAMETERS,
+    ArgumentAndTempScope, MAX_REGISTER_INDEX_FOR_PARAMETERS, RepresentationOfRegisters,
+    SpilledRegisterRegion,
 };
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
-use swamp_types::prelude::Signature;
+use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType};
+use swamp_types::prelude::Signature;
+use swamp_vm_types::types::{BasicTypeRef, Destination, TypedRegister, VmType};
 use swamp_vm_types::{FrameMemoryRegion, REG_ON_FRAME_SIZE};
 
 pub struct CopyArgument {
@@ -53,7 +53,7 @@ impl CodeBuilder<'_> {
             ABI_ARGUMENT_RETURN_AND_ARGUMENT_REGISTERS as u8,
             &format!("emit abi arguments r0-r6 {comment}"),
         );
-        
+
         self.builder.add_st_masked_regs_to_frame(
             abi_parameter_frame_memory_region.addr,
             ABI_ARGUMENT_MASK,
@@ -166,15 +166,18 @@ impl CodeBuilder<'_> {
             ArgumentExpression::Expression(expr) => {
                 // For expressions that need memory (like VecStorage literals), we need to check
                 // if they should be materialized into temporary frame space first
-                if Self::rvalue_needs_memory_location_to_materialize_in(&mut self.state.layout_cache, expr) {
+                if Self::rvalue_needs_memory_location_to_materialize_in(
+                    &mut self.state.layout_cache,
+                    expr,
+                ) {
                     // Use the helper function to get a pointer to the temporary storage
                     let temp_ptr = self.emit_scalar_rvalue_or_pointer_to_temporary(expr, ctx, true);
-                    
+
                     self.builder.add_mov_reg(
                         argument_to_use,
                         &temp_ptr,
                         node,
-                        "copy temporary storage address to argument register"
+                        "copy temporary storage address to argument register",
                     );
                 } else {
                     // Normal case: expression can be materialized directly into register
@@ -523,7 +526,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling `{function_name}` ({comment})", );
+        let call_comment = &format!("calling `{function_name}` ({comment})",);
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {

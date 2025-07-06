@@ -180,11 +180,8 @@ fn set_bool_var_false(
     unit_type: &TypeRef,
     node: &Node,
 ) -> Expression {
-    let false_expr = create_expr_resolved(
-        ExpressionKind::BoolLiteral(false),
-        bool_type.clone(),
-        node,
-    );
+    let false_expr =
+        create_expr_resolved(ExpressionKind::BoolLiteral(false), bool_type.clone(), node);
     create_var_reassignment(var_ref, false_expr, unit_type, node)
 }
 
@@ -303,9 +300,8 @@ fn generate_to_string_for_anon_struct(
     scope.push_scope();
 
     // Create a mutable result variable initialized with opening brace
-    let (result_var, result_init) = create_result_var_with_literal(
-        scope, "result", "{ ", &string_type, &unit_type, node,
-    );
+    let (result_var, result_init) =
+        create_result_var_with_literal(scope, "result", "{ ", &string_type, &unit_type, node);
 
     // Create a variable to track if we're on the first field
     let is_first_var = scope.create_local_mut_variable("is_first", &bool_type, node);
@@ -352,9 +348,8 @@ fn generate_to_string_for_anon_struct(
                 node,
             );
 
-            let add_separator_stmt = append_literal_to_result(
-                &result_var, ", ", &string_type, &unit_type, node,
-            );
+            let add_separator_stmt =
+                append_literal_to_result(&result_var, ", ", &string_type, &unit_type, node);
 
             create_expr_resolved(
                 ExpressionKind::If(
@@ -385,7 +380,11 @@ fn generate_to_string_for_anon_struct(
 
         // Add field name
         let add_field_name = append_literal_to_result(
-            &result_var, &format!("{field_name}: "), &string_type, &unit_type, node,
+            &result_var,
+            &format!("{field_name}: "),
+            &string_type,
+            &unit_type,
+            node,
         );
 
         // Get field value from the struct
@@ -434,9 +433,8 @@ fn generate_to_string_for_anon_struct(
     }
 
     // Add closing brace
-    let add_closing_brace = append_literal_to_result(
-        &result_var, " }", &string_type, &unit_type, node,
-    );
+    let add_closing_brace =
+        append_literal_to_result(&result_var, " }", &string_type, &unit_type, node);
 
     // Return the result
     let result_access = create_expr_resolved(
@@ -451,7 +449,8 @@ fn generate_to_string_for_anon_struct(
     all_statements.push(add_closing_brace);
     all_statements.push(result_access);
 
-    let final_result = create_expr_resolved(ExpressionKind::Block(all_statements), string_type, node);
+    let final_result =
+        create_expr_resolved(ExpressionKind::Block(all_statements), string_type, node);
 
     // Pop the scope to free up variables
     scope.pop_scope();
@@ -533,7 +532,8 @@ fn generate_to_string_for_enum(
             let final_result = match &*variant_type.payload_type.kind {
                 TypeKind::AnonymousStruct(_) | TypeKind::NamedStruct(_) => {
                     // Struct payload: variant_str + " " + payload (space before brace)
-                    let prefix = create_string_literal(&format!("{variant_str} "), &string_type, node);
+                    let prefix =
+                        create_string_literal(&format!("{variant_str} "), &string_type, node);
                     concat_expressions(prefix, payload_string, &string_type, node)
                 }
                 TypeKind::Tuple(_) => {
@@ -543,9 +543,11 @@ fn generate_to_string_for_enum(
                 }
                 _ => {
                     // Other payload: variant_str + "(" + payload + ")"
-                    let prefix = create_string_literal(&format!("{variant_str}("), &string_type, node);
+                    let prefix =
+                        create_string_literal(&format!("{variant_str}("), &string_type, node);
                     let suffix = create_string_literal(")", &string_type, node);
-                    let temp_concat = concat_expressions(prefix, payload_string, &string_type, node);
+                    let temp_concat =
+                        concat_expressions(prefix, payload_string, &string_type, node);
                     concat_expressions(temp_concat, suffix, &string_type, node)
                 }
             };
@@ -585,7 +587,12 @@ fn create_string_representation_of_expression(
     if matches!(*ty.kind, TypeKind::String(..) | TypeKind::StringStorage(..)) {
         // For strings, wrap in quotes: "\"" + string + "\""
         let quote_expr = create_string_literal("\"", &string_type, node);
-        let left_concat = concat_expressions(quote_expr.clone(), expression_to_convert, &string_type, node);
+        let left_concat = concat_expressions(
+            quote_expr.clone(),
+            expression_to_convert,
+            &string_type,
+            node,
+        );
         concat_expressions(left_concat, quote_expr, &string_type, node)
     } else {
         // Choose which function to use based on the prefer_short_string parameter
@@ -696,8 +703,9 @@ impl GeneratedScope {
         is_mutable: bool,
         var_type: VariableType,
     ) -> VariableRef {
-        let virtual_register = self.allocate_virtual_register()
-            .unwrap_or_else(|| panic!("out of virtual registers for variable {}", assigned_name));
+        let virtual_register = self
+            .allocate_virtual_register()
+            .unwrap_or_else(|| panic!("out of virtual registers for variable {assigned_name}"));
 
         let unique_id = self.allocate_unique_id();
 
@@ -719,7 +727,9 @@ impl GeneratedScope {
         // Track this variable in the current scope
         if let Some(current_frame) = self.scope_stack.last_mut() {
             current_frame.variables_in_scope.push(var_ref.clone());
-            current_frame.virtual_registers_in_scope.push(virtual_register);
+            current_frame
+                .virtual_registers_in_scope
+                .push(virtual_register);
         }
 
         var_ref
@@ -731,7 +741,13 @@ impl GeneratedScope {
         variable_type: &TypeRef,
         node: &Node,
     ) -> VariableRef {
-        self.create_variable_in_current_scope(assigned_name, variable_type, node, false, VariableType::Local)
+        self.create_variable_in_current_scope(
+            assigned_name,
+            variable_type,
+            node,
+            false,
+            VariableType::Local,
+        )
     }
 
     pub(crate) fn create_parameter(
@@ -740,7 +756,13 @@ impl GeneratedScope {
         variable_type: &TypeRef,
         node: &Node,
     ) -> VariableRef {
-        self.create_variable_in_current_scope(assigned_name, variable_type, node, false, VariableType::Parameter)
+        self.create_variable_in_current_scope(
+            assigned_name,
+            variable_type,
+            node,
+            false,
+            VariableType::Parameter,
+        )
     }
 
     pub(crate) fn create_local_mut_variable(
@@ -749,7 +771,13 @@ impl GeneratedScope {
         variable_type: &TypeRef,
         node: &Node,
     ) -> VariableRef {
-        self.create_variable_in_current_scope(assigned_name, variable_type, node, true, VariableType::Local)
+        self.create_variable_in_current_scope(
+            assigned_name,
+            variable_type,
+            node,
+            true,
+            VariableType::Local,
+        )
     }
 }
 
@@ -787,9 +815,8 @@ fn generate_to_string_for_sequence_like(
     block_scope.push_scope();
 
     // let mut result = "["
-    let (result_var, result_var_def) = create_result_var_with_literal(
-        block_scope, "result", "[", &string_type, &unit_type, node,
-    );
+    let (result_var, result_var_def) =
+        create_result_var_with_literal(block_scope, "result", "[", &string_type, &unit_type, node);
 
     // let mut is_first = true
     let (is_first_var, is_first_var_def) = {
@@ -1517,9 +1544,7 @@ pub fn internal_generate_to_string_function_for_type(
         TypeKind::Range(_) => {
             panic!("Range to_string() is handled in core_text(), not generated here")
         }
-        TypeKind::String { .. } => {
-            first_self_param
-        }
+        TypeKind::String { .. } => first_self_param,
         TypeKind::StringStorage { .. } => first_self_param,
         // Unit and Function types cannot be stored in fields/collections in Swamp, so no to_string() needed
         TypeKind::Unit => panic!("Unit type cannot be stored in fields, no to_string() needed"),
@@ -1625,7 +1650,7 @@ pub fn internal_generate_to_string_function_for_type(
         } else {
             "to_string"
         }
-            .to_string(),
+        .to_string(),
         associated_with_type: Option::from(ty.clone()),
         defined_in_module_path: module_path.to_vec(),
         signature: Signature {
@@ -2322,10 +2347,7 @@ fn generate_map_pretty_string(
                 node,
             );
             create_expr_resolved(
-                ExpressionKind::VariableReassignment(
-                    result_var.clone(),
-                    Box::new(empty_map_str),
-                ),
+                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(empty_map_str)),
                 unit_type.clone(),
                 node,
             )
@@ -2862,75 +2884,76 @@ fn generate_named_struct_pretty_string(
         (var, def)
     };
 
-            // Generate field additions
-        let mut field_assignments = Vec::new();
-        let TypeKind::AnonymousStruct(anon_struct) = &*named_struct.anon_struct_type.kind else {
-            panic!("Named struct should contain anonymous struct");
+    // Generate field additions
+    let mut field_assignments = Vec::new();
+    let TypeKind::AnonymousStruct(anon_struct) = &*named_struct.anon_struct_type.kind else {
+        panic!("Named struct should contain anonymous struct");
+    };
+
+    for (field_index, (field_name, field_type)) in
+        anon_struct.field_name_sorted_fields.iter().enumerate()
+    {
+        // Add indentation for field (next_indent_var level)
+        let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
+        let add_indent = generate_add_indentation_to_result(
+            generator,
+            scope,
+            &result_var,
+            &next_indent_access,
+            node,
+        );
+
+        // Add field name: "field_name: "
+        let add_field_name = {
+            let result_access = create_var_access(&result_var, &string_type, node);
+            let field_name_str =
+                create_string_literal(&format!("{field_name}: "), &string_type, node);
+            let concat = concat_expressions(result_access, field_name_str, &string_type, node);
+            create_var_reassignment(&result_var, concat, &unit_type, node)
         };
 
-        for (field_index, (field_name, field_type)) in
-            anon_struct.field_name_sorted_fields.iter().enumerate()
-        {
-            // Add indentation for field (next_indent_var level)
+        // Get field value and call to_pretty_string on it
+        let add_field_value = {
+            let postfix_kind =
+                PostfixKind::StructField(named_struct.anon_struct_type.clone(), field_index);
+            let postfix_lookup_field = Postfix {
+                node: node.clone(),
+                ty: field_type.field_type.clone(),
+                kind: postfix_kind,
+            };
+
+            let start_of_chain = StartOfChain {
+                kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
+                node: node.clone(),
+            };
+            let field_access = create_expr_resolved(
+                ExpressionKind::PostfixChain(start_of_chain, vec![postfix_lookup_field]),
+                field_type.field_type.clone(),
+                node,
+            );
+
             let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
-            let add_indent = generate_add_indentation_to_result(
-                generator,
-                scope,
-                &result_var,
-                &next_indent_access,
-                node,
-            );
 
-            // Add field name: "field_name: "
-            let add_field_name = {
-                let result_access = create_var_access(&result_var, &string_type, node);
-                let field_name_str = create_string_literal(&format!("{field_name}: "), &string_type, node);
-                let concat = concat_expressions(result_access, field_name_str, &string_type, node);
-                create_var_reassignment(&result_var, concat, &unit_type, node)
-            };
+            let field_pretty_string =
+                call_to_pretty_string_method(generator, field_access, next_indent_access, node);
 
-            // Get field value and call to_pretty_string on it
-            let add_field_value = {
-                let postfix_kind =
-                    PostfixKind::StructField(named_struct.anon_struct_type.clone(), field_index);
-                let postfix_lookup_field = Postfix {
-                    node: node.clone(),
-                    ty: field_type.field_type.clone(),
-                    kind: postfix_kind,
-                };
+            let result_access = create_var_access(&result_var, &string_type, node);
 
-                let start_of_chain = StartOfChain {
-                    kind: StartOfChainKind::Expression(Box::from(self_expression.clone())),
-                    node: node.clone(),
-                };
-                let field_access = create_expr_resolved(
-                    ExpressionKind::PostfixChain(start_of_chain, vec![postfix_lookup_field]),
-                    field_type.field_type.clone(),
-                    node,
-                );
+            // result + field_pretty_string + ",\n"
+            let temp1 = concat_expressions(result_access, field_pretty_string, &string_type, node);
+            let comma_newline = create_string_literal(",\n", &string_type, node);
+            let final_str = concat_expressions(temp1, comma_newline, &string_type, node);
 
-                let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
+            create_var_reassignment(&result_var, final_str, &unit_type, node)
+        };
 
-                let field_pretty_string =
-                    call_to_pretty_string_method(generator, field_access, next_indent_access, node);
-
-                let result_access = create_var_access(&result_var, &string_type, node);
-
-                // result + field_pretty_string + ",\n"
-                let temp1 = concat_expressions(result_access, field_pretty_string, &string_type, node);
-                let comma_newline = create_string_literal(",\n", &string_type, node);
-                let final_str = concat_expressions(temp1, comma_newline, &string_type, node);
-
-                create_var_reassignment(&result_var, final_str, &unit_type, node)
-            };
-
-            let field_block = create_expr_resolved(
-                ExpressionKind::Block(vec![add_indent, add_field_name, add_field_value]),
-                unit_type.clone(),
-                node,
-            );
-            field_assignments.push(field_block);
-        }
+        let field_block = create_expr_resolved(
+            ExpressionKind::Block(vec![add_indent, add_field_name, add_field_value]),
+            unit_type.clone(),
+            node,
+        );
+        field_assignments.push(field_block);
+    }
 
     // Add final indentation and closing brace
     let add_closing = {
@@ -3064,7 +3087,8 @@ fn generate_anon_struct_pretty_string(
         // Add field name: "field_name: "
         let add_field_name = {
             let result_access = create_var_access(&result_var, &string_type, node);
-            let field_name_str = create_string_literal(&format!("{field_name}: "), &string_type, node);
+            let field_name_str =
+                create_string_literal(&format!("{field_name}: "), &string_type, node);
             let concat = concat_expressions(result_access, field_name_str, &string_type, node);
             create_var_reassignment(&result_var, concat, &unit_type, node)
         };
@@ -3263,7 +3287,8 @@ fn generate_tuple_pretty_string(
             let result_access = create_var_access(&result_var, &string_type, node);
 
             // result + element_pretty_string + ",\n"
-            let temp1 = concat_expressions(result_access, element_pretty_string, &string_type, node);
+            let temp1 =
+                concat_expressions(result_access, element_pretty_string, &string_type, node);
             let comma_newline = create_string_literal(",\n", &string_type, node);
             let final_str = concat_expressions(temp1, comma_newline, &string_type, node);
 
@@ -3443,9 +3468,8 @@ fn generate_to_string_for_grid(
                     node,
                 );
 
-                let update_result = append_literal_to_result(
-                    &result_var, ", ", &string_type, &unit_type, node,
-                );
+                let update_result =
+                    append_literal_to_result(&result_var, ", ", &string_type, &unit_type, node);
 
                 create_expr_resolved(
                     ExpressionKind::If(

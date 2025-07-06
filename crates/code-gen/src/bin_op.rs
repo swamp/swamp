@@ -2,9 +2,9 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::FlagStateKind;
 use source_map_node::Node;
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind};
 use swamp_types::TypeKind;
@@ -95,8 +95,10 @@ impl CodeBuilder<'_> {
                     &right_source,
                     ctx,
                 ),
-                (TypeKind::String(..) | TypeKind::StringStorage(..),
-                    TypeKind::String(..) | TypeKind::StringStorage(..)) => self.emit_binary_operator_string(
+                (
+                    TypeKind::String(..) | TypeKind::StringStorage(..),
+                    TypeKind::String(..) | TypeKind::StringStorage(..),
+                ) => self.emit_binary_operator_string(
                     dest_bool_reg,
                     &left_source,
                     &binary_operator.node,
@@ -159,7 +161,7 @@ impl CodeBuilder<'_> {
             BinaryOperatorKind::LogicalOr => todo!(),
             BinaryOperatorKind::LogicalAnd => todo!(),
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => todo!(),
-            _ => todo!(), 
+            _ => todo!(),
         }
     }
 

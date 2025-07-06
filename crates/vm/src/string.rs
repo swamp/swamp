@@ -16,7 +16,6 @@ impl Vm {
     ) -> *mut StringIterator {
         self.get_ptr_from_reg(vec_iterator_reg) as *mut StringIterator
     }
-    
 
     #[inline]
     fn get_string(&self, reg: u8) -> &str {
@@ -112,7 +111,7 @@ impl Vm {
         let final_reg_value = get_reg!(self, target_string_reg);
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
-            eprintln!("Final target register value: 0x{:X}", final_reg_value);
+            eprintln!("Final target register value: 0x{final_reg_value:X}");
         }
     }
 
@@ -203,7 +202,7 @@ impl Vm {
 
     pub fn read_string(&self, heap_addr: u32, heap: &Memory) -> &str {
         let string_header_ptr = heap.get_heap_const_ptr(heap_addr as usize) as *const VecHeader;
-        let mut string_header = unsafe { *string_header_ptr };
+        let string_header = unsafe { *string_header_ptr };
 
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {

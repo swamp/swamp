@@ -35,8 +35,8 @@ use swamp_types::prelude::{
     TypeRef,
 };
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::MemoryOffset;
+use swamp_vm_types::types::BasicTypeKind;
 
 #[test]
 fn test_create_cache() {
