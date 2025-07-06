@@ -489,7 +489,6 @@ fn direct_syntax_creation_and_matching() {
     assert(struct_result == 889, "struct syntax matching failed") // 789 + 100 = 889
 }
 
-/* TODO: Should work, it should not layout single element tuples as anything other than direct
 #[test]
 fn direct_syntax_backward_compatibility() {
     old_style = Container::Single(99)
@@ -504,7 +503,6 @@ fn direct_syntax_backward_compatibility() {
 
     assert(result == 100, "backward compatibility with tuple syntax failed")
 }
-*/
 
 enum MixedSyntaxEnum {
     DirectInt Int,
@@ -542,4 +540,29 @@ fn mixed_syntax_comprehensive() {
     assert(results[0] == 84, "direct int failed")
     assert(results[1] == 30, "tuple pair failed")
     assert(results[2] == 150, "struct data failed")
+}
+
+#[test]
+fn mixed_to_string() {
+    variants = [
+        MixedSyntaxEnum::DirectInt(42),
+        MixedSyntaxEnum::TuplePair(10, 20),
+        MixedSyntaxEnum::StructData { count: 5, value: 100 },
+    ]
+
+    s0 = variants[0].to_string()
+    s1 = variants[1].to_string()
+    s2 = variants[2].to_string()
+
+    assert(s0 == "MixedSyntaxEnum::DirectInt(42)", 'mismatch {s0}')
+    assert(s1 == "MixedSyntaxEnum::TuplePair(10, 20)", 'mismatch {s1}')
+    assert(s2 == "MixedSyntaxEnum::StructData { count: 5, value: 100 }", 'mismatch {s2}')
+
+    short0 = variants[0].to_short_string()
+    short1 = variants[1].to_short_string()
+    short2 = variants[2].to_short_string()
+
+    assert(short0 == "DirectInt(42)", 'mismatch {s0}')
+    assert(short1 == "TuplePair(10, 20)", 'mismatch {s1}')
+    assert(short2 == "StructData { count: 5, value: 100 }", 'mismatch {s2}')
 }

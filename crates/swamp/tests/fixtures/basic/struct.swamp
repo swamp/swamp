@@ -233,9 +233,6 @@ fn test_string_to_string() {
     assert(result == "\"hello world!\"", 'result is wrong {s}')
 }
 
-/// This test is to ensure that the automatic conversion to string works correctly.
-// TODO: There is currently a string corruption, that probably relates the evaluation of constants
-// are not saving the heap
 #[test]
 fn automatic_to_string() {
     mut mixed = Mixed { num: 42, flag: false, text: "hello" }
@@ -244,23 +241,18 @@ fn automatic_to_string() {
     assert(result == "Mixed { num: 42, flag: false, text: \"hello\" }", 'to_string failed "{result}"')
 }
 
-
-// TODO: generate to_string() for anon types
-/*
 #[test]
 fn automatic_anon_to_string() {
     mut mixed = { num: 42, flag: false, text: "hello" }
     print('Mixed struct: {mixed}')
     result = mixed.to_string()
-    assert(result == "{ num: 42, flag: false, text: \"hello\" }", 'to_string failed "{result}"')
+    // NOTE: Anonymous struct fields are always sorted alphabetically
+    assert(result == "{ flag: false, num: 42, text: \"hello\" }", 'to_string failed "{result}"')
 }
-*/
 
 /// This test is to ensure that the automatic conversion to short string works correctly.
 /// to_short_string shows named structs as anonymous structs (without the type name)
-// TODO: There is currently a string corruption, that probably relates the evaluation of constants
-// are not saving the heap
-//#[test]
+#[test]
 fn automatic_to_short_string() {
     mut mixed = Mixed { num: 42, flag: false, text: "hello" }
     print('Mixed struct short: {mixed.to_short_string()}')

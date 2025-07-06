@@ -63,9 +63,7 @@ fn callee_saved_register_corruption_simple() {
     assert(result > 0, 'function should have returned a positive result')
 }
 
-//#[test]
-// TODO: This causes a trap for unknown reason. Can it be that it doesn't initialize the memory for a temporary variable?
-//
+#[test]
 fn callee_saved_register_corruption_nested_calls_old() {
     // Have a lot of local variables, at least 6, to ensure we use callee-saved registers
     mut data_set_1 = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
@@ -82,8 +80,6 @@ fn callee_saved_register_corruption_nested_calls_old() {
     original_len_5 = data_set_5.len()
     original_accumulator = accumulator
 
-    // TODO: Is suspect it is the temporary allocation of memory for the initializer here
-    // that doesn't set the capacity and/or len properly
     mock_deck = mock_function_with_locals([1, 2, 3, 4, 5], 42, 1)
 
     assert(data_set_1.len() == original_len_1, 'data_set_1 length corrupted')

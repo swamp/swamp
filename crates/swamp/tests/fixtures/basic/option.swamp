@@ -141,6 +141,16 @@ fn to_string() {
     assert(result_string == "None", 'none to string failed {result_string}')
 }
 
+#[test]
+fn to_short_string() {
+    unit_id: UnitID? = none
+    result_string = unit_id.to_short_string()
+
+    print('result: {result_string}')
+    assert(result_string == "-", 'none to string failed {result_string}')
+}
+
+
 
 #[test]
 fn to_string_mut() {
@@ -165,4 +175,18 @@ fn to_string_some() {
 
     print('result: {result_string}')
     assert(result_string == "Some(3)", 'Some to string failed {result_string}')
+}
+
+#[test]
+fn to_short_string_some() {
+    mut unit_id: UnitID? = none
+
+    a = 3
+
+    unit_id = a
+
+    result_string = unit_id.to_short_string()
+
+    print('result: {result_string}')
+    assert(result_string == "3", 'Some to string failed {result_string}')
 }
