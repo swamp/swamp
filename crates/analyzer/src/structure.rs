@@ -201,6 +201,9 @@ impl Analyzer<'_> {
                 .types
                 .anonymous_struct(deduced_anon_struct_type.clone());
 
+            // Generate default functions for the new anonymous struct type
+            self.add_default_functions(&anon_struct_type_ref, node);
+
             // Move the anon_struct_type_ref to avoid lifetime issues
             return self.analyze_struct_init(
                 node,
