@@ -13,7 +13,7 @@ use swamp_semantic::{
 use swamp_semantic::{ScopeInfo, VariableScopes};
 use swamp_types::prelude::*;
 
-const MAX_VIRTUAL_REGISTER: usize = 48;
+const MAX_VIRTUAL_REGISTER: usize = 20;
 
 /// Common helper function for allocating the next available register from `ScopeInfo`
 /// This ensures all variable creation functions use the same register allocation logic
@@ -26,18 +26,6 @@ pub(crate) const fn allocate_next_register(scope: &mut ScopeInfo) -> Option<usiz
     }
 }
 
-/// Common helper function for allocating the next available register from `VariableScopes`
-/// This ensures all variable creation functions use the same register allocation logic
-pub(crate) const fn allocate_next_register_from_variable_scopes(
-    scope: &mut VariableScopes,
-) -> Option<usize> {
-    if scope.current_register > MAX_VIRTUAL_REGISTER {
-        None
-    } else {
-        scope.current_register += 1;
-        Some(scope.current_register)
-    }
-}
 
 impl Analyzer<'_> {
     fn try_find_local_variable(&self, node: &Node) -> Option<&VariableRef> {

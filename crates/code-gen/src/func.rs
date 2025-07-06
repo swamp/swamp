@@ -287,7 +287,7 @@ impl TopLevelGenState {
 
         let mut instruction_builder = InstructionBuilder::new(&mut self.builder_state);
 
-        let temp_pool = HwmTempRegisterPool::new(128, 64);
+        let temp_pool = HwmTempRegisterPool::new(128, 32);
 
         let ctx = Context::new();
 
