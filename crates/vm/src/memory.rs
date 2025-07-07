@@ -4,7 +4,7 @@
  */
 use crate::ALIGNMENT;
 use std::{alloc, mem, ptr, slice};
-use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_types::{HeapMemoryAddress, HeapMemoryRegion, MemoryAlignment, MemorySize};
 
 /// Execution mode for the VM memory
@@ -103,6 +103,11 @@ impl Memory {
 
     pub fn reset_allocator(&mut self) {
         self.heap_alloc_offset = self.heap_start;
+        // TODO: This is not needed for release builds
+        // but let's do it always for now to catch bugs.
+        unsafe {
+            ptr::write_bytes(self.memory.add(self.heap_start), 0xCD, self.memory_size - self.heap_start);
+        }
     }
 
     pub fn reset_stack_and_fp(&mut self) {
