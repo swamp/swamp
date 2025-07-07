@@ -12,8 +12,8 @@ use swamp_semantic::{
     UnaryOperator, UnaryOperatorKind,
 };
 use swamp_types::TypeKind;
+use swamp_vm_types::types::{b8_type, Destination, TypedRegister, VmType};
 use swamp_vm_types::PatchPosition;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, b8_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn force_normalized_bool_reg_if_needed(
@@ -32,7 +32,7 @@ impl CodeBuilder<'_> {
             }
             FlagStateKind::TFlagIsTrueWhenClear => {
                 self.builder
-                    .add_seqz(target, target, node, "materialize inverse boolean");
+                    .add_meqz(target, target, node, "materialize inverse boolean");
             }
         }
     }
@@ -182,7 +182,7 @@ impl CodeBuilder<'_> {
         assert_ne!(result.kind, FlagStateKind::TFlagIsIndeterminate);
 
         if result.kind == FlagStateKind::TFlagIsTrueWhenClear {
-            self.builder.add_seqz(
+            self.builder.add_meqz(
                 dest_bool_reg,
                 dest_bool_reg,
                 &condition.node,

@@ -29,7 +29,7 @@ pub fn show_parameters_and_variables(
     for variable_register in variables {
         writeln!(
             f,
-            "{}: ({}): {} {}",
+            "var{}: ({}): {} {}",
             tinter::yellow(format!("{}", variable_register.unique_id_in_function)),
             tinter::magenta(variable_register),
             variable_register.register.ty,

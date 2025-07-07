@@ -7,7 +7,7 @@ use crate::ctx::Context;
 use crate::single_intrinsic_fn;
 use source_map_node::Node;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
-use swamp_vm_types::types::{Destination, VmType, u8_type};
+use swamp_vm_types::types::{u8_type, Destination, VmType};
 use swamp_vm_types::{MemoryLocation, MemoryOffset, PatchPosition};
 use tracing::error;
 
@@ -95,6 +95,144 @@ impl CodeBuilder<'_> {
             Destination::Unit => {}
         }
     }
+
+    /* Code that might work in the future. haven't gotten it to work yet
+              PostfixKind::OptionalChainingOperator => {
+                original_optional_location = Some(current_location.clone());
+
+                let hwm = self.temp_registers.save_mark();
+
+                if let Destination::Memory(mem_loc) = &current_location {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_unknown_placement(u8_type()),
+                        "temp for optional tag",
+                    );
+
+
+                    // Load ONLY the tag byte
+                    self.builder.add_ld8_from_pointer_with_offset_u16(
+                        temp_reg.register(),
+                        &mem_loc.base_ptr_reg,
+                        mem_loc.offset + MemoryOffset(0),
+                        &element.node,
+                        "load optional tag byte",
+                    );
+
+                    // If None, jump to end of entire chain
+                    let none_jump = self.builder.add_jmp_if_not_true_placeholder(
+                        temp_reg.register(),
+                        &element.node,
+                        "jump if None to end of chain",
+                    );
+                    opt_none_jumps.push(none_jump);
+
+                    // If Some, update current_location to payload
+                    let optional_layout = current_location.ty();
+                    let (_, _, payload_offset, _) = optional_layout.unwrap_info().unwrap();
+                    current_location = current_location.add_offset(
+                        payload_offset,
+                        VmType::new_unknown_placement(
+                            self.state.layout_cache.layout(&element.ty).clone(),
+                        ),
+                    );
+                }
+
+                if !is_last {
+                    self.temp_registers.restore_to_mark(hwm);
+                }
+            }
+            PostfixKind::NoneCoalescingOperator(expression, optional_type, uncertain) => {
+                if let Destination::Memory(mem_loc) = &original_optional_location.clone().unwrap() {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_unknown_placement(u8_type()),
+                        "temp for coalesce tag",
+                    );
+
+                    // Load tag from current location
+                    self.builder.add_ld8_from_pointer_with_offset_u16(
+                        temp_reg.register(),
+                        &mem_loc.base_ptr_reg,
+                        mem_loc.offset + MemoryOffset(0),
+                        &element.node,
+                        "load tag for coalescing",
+                    );
+
+                    // Jump-if-Some → skip fallback
+                    let skip_fallback_expression_if_some = self.builder.add_jmp_if_true_placeholder(
+                        temp_reg.register(),
+                        &element.node,
+                        "skip fallback expression if some (!= 0)",
+                    );
+
+                    // 2) Patch all previous '?' jumps to land at fallback emission
+                    for jump in opt_none_jumps.drain(..) {
+                        self.builder.patch_jump_here(jump);
+                    }
+
+                    let some_value_destination = if is_last {
+                        output_destination.clone()
+                    } else {
+                        // intermediate: use a temp just like other chain ops
+                        let ty = self.state.layout_cache.layout(&element.ty);
+                        self.allocate_frame_space_and_return_destination_to_it(
+                            &ty,
+                            &element.node,
+                            "temp for coalesce fallback",
+                        )
+                    };
+
+                    // Emit fallback expression (None case)
+                    self.emit_expression(&some_value_destination, expression, ctx);
+
+                    let jump_over_extract_payload = self.builder.add_jump_placeholder(&element.node, "fallback is in place, jump over the extract payload");
+
+                    // Some gets here
+                    self.builder.patch_jump_here(skip_fallback_expression_if_some);
+
+                    let layout = self.state.layout_cache.layout(&optional_type);
+                    let (_, _, payload_offset, _) = layout.unwrap_info().unwrap();
+
+                    let payload_loc = original_optional_location.clone().unwrap()
+                        .add_offset(
+                            payload_offset,
+                            VmType::new_unknown_placement(
+                                self.state.layout_cache.layout(&element.ty).clone(),
+                            ));
+
+                    self.emit_copy_value_between_destinations(
+                        &some_value_destination,
+                        &payload_loc,
+                        &element.node,
+                        "coalesce payload copy",
+                    );
+
+                    self.builder.patch_jump_here(jump_over_extract_payload);
+                    current_location = some_value_destination.clone();
+                } else {
+                    panic!("should have been a memory location");
+                }
+            }
+        }
+    }
+
+    // End of chain: handle any remaining opt_none_jumps
+    if !opt_none_jumps.is_empty() {
+        for jump in opt_none_jumps {
+            self.builder.patch_jump_here(jump);
+        }
+        // Emit None to output
+        self.emit_none_to_destination(output_destination, &chain.last().unwrap().node);
+    }
+
+    // Perform final load/conversion if needed
+    self.emit_final_load_if_needed(
+        output_destination,
+        &current_location,
+        &start_expression.node,
+        chain,
+    );
+ */
+
 
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_postfix_chain(
@@ -315,26 +453,29 @@ impl CodeBuilder<'_> {
                 PostfixKind::OptionalChainingOperator => {
                     let hwm = self.temp_registers.save_mark();
 
-                    // Load and check the optional tag
-                    let resolved_location = self.emit_materialize_value_to_register(
-                        &current_location,
-                        &element.node,
-                        "load optional tag",
-                    );
+                    let temp_reg = self
+                        .temp_registers
+                        .allocate(VmType::new_contained_in_register(u8_type()), "temp for tag");
 
-                    self.builder.add_seqz(
-                        resolved_location.register(),
-                        resolved_location.register(),
+                    // Load and check the optional tag
+                    // Load ONLY the tag byte
+                    let mem_location = current_location.memory_location().unwrap();
+
+                    self.builder.add_ld8_from_pointer_with_offset_u16(
+                        temp_reg.register(),
+                        &mem_location.base_ptr_reg,
+                        mem_location.offset + MemoryOffset(0),
                         &element.node,
-                        "test if optional tag is None",
+                        "load optional tag byte",
                     );
 
                     // If None, add patch to jump to end of all processing
                     let skip_to_end_patch = self.builder.add_jmp_if_equal_placeholder(
-                        resolved_location.register(),
+                        temp_reg.register(),
                         &element.node,
                         "jump if None",
                     );
+
                     none_patches.push(skip_to_end_patch);
 
                     // If Some, update current_location to point to the payload
@@ -355,10 +496,11 @@ impl CodeBuilder<'_> {
                         self.temp_registers.restore_to_mark(hwm);
                     }
                 }
-                PostfixKind::NoneCoalescingOperator(expression) => {
+                PostfixKind::NoneCoalescingOperator(expression, ..) => {
                     assert!(is_last, "None coalescing operator must be last in chain");
 
                     if let Destination::Memory(mem_loc) = &current_location {
+                        let hwm = self.temp_registers.save_mark();
                         // Load and test the tag byte directly from memory
                         // Ensure we don't reuse the base_ptr_reg for the tag load
                         let temp_reg = self
@@ -378,7 +520,7 @@ impl CodeBuilder<'_> {
                         self.builder.add_ld8_from_pointer_with_offset_u16(
                             tag_reg.register(),
                             &mem_loc.base_ptr_reg,
-                            MemoryOffset(0),
+                            mem_loc.offset + MemoryOffset(0),
                             &element.node,
                             "load optional tag",
                         );
@@ -417,6 +559,9 @@ impl CodeBuilder<'_> {
                         );
 
                         none_coalesce_final_load_skip = Some(skip_final_load);
+                        if !is_last {
+                            self.temp_registers.restore_to_mark(hwm);
+                        }
                     } else {
                         panic!("Optional value should always be in memory");
                     }

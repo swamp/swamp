@@ -109,16 +109,10 @@ impl CodeBuilder<'_> {
                             source_pointer_reg.register,
                         );
 
-                    // Get the element size and header size for vec-like copy
-                    let element_size = swamp_vm_types::MemorySize(1); // String elements are bytes
-                    let header_size = swamp_vm_types::VEC_HEADER_SIZE;
-
                     // Perform vec-like copy using the proper helper
                     self.emit_copy_vec_like_value_helper(
                         memory_location,
                         &source_memory_location,
-                        element_size,
-                        header_size,
                         node,
                         &format!("copy string literal '{string}' to StringStorage"),
                     );

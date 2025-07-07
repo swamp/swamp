@@ -10,13 +10,13 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_types::types::{
-    Destination, TypedRegister, VmType, float_type, int_type, pointer_type, u8_type, u16_type,
-    u32_type,
+    float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister,
+    VmType,
 };
 use swamp_vm_types::{
-    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
-    GRID_HEADER_HEIGHT_OFFSET, GRID_HEADER_WIDTH_OFFSET, MemoryLocation, MemoryOffset,
-    PointerLocation,
+    AggregateMemoryLocation, MemoryLocation, MemoryOffset,
+    PointerLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, GRID_HEADER_HEIGHT_OFFSET,
+    GRID_HEADER_WIDTH_OFFSET,
 };
 
 impl CodeBuilder<'_> {
@@ -1360,7 +1360,7 @@ impl CodeBuilder<'_> {
             node,
             "get the map length for testing if it is empty",
         );
-        self.builder.add_seqz(
+        self.builder.add_meqz(
             &output_reg,
             &output_reg,
             node,

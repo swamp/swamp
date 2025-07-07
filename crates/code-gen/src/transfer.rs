@@ -2,12 +2,12 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
+use crate::DetailedLocationResolved;
 use source_map_node::Node;
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, u16_type};
+use swamp_vm_types::types::{u16_type, BasicTypeKind, Destination, TypedRegister, VmType};
 use swamp_vm_types::{
-    COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemorySize,
+    MemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
 };
 
 impl CodeBuilder<'_> {
@@ -317,8 +317,6 @@ impl CodeBuilder<'_> {
         &mut self,
         destination_memory_location: &MemoryLocation,
         source_memory_location: &MemoryLocation,
-        bucket_size: MemorySize,
-        collection_header_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
@@ -404,8 +402,6 @@ impl CodeBuilder<'_> {
                     self.emit_copy_vec_like_value_helper(
                         destination_memory_location,
                         source_memory_location,
-                        element_size,
-                        header_size,
                         node,
                         comment,
                     );

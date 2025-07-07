@@ -4,10 +4,10 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::ExecutionMode::NormalExecution;
 use crate::memory::Memory;
+use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -156,6 +156,7 @@ pub enum TrapCode {
     },
     GridBoundsFail,
     InvalidUtf8Sequence,
+    UnalignedAccess,
 }
 
 impl TryFrom<u8> for TrapCode {
