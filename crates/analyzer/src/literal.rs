@@ -22,13 +22,18 @@ impl Analyzer<'_> {
         &mut self,
         ast_expression: &swamp_ast::Expression,
         ast_literal_kind: &swamp_ast::LiteralKind,
-        context: &TypeContext,
+        parent_context: &TypeContext,
     ) -> Expression {
+        // We intentionally take the inner optional type if it exists
+        // Since we know that the caller will eventually wrap this with an
+        // ExpressionKind::Option()
+        let literal_context = parent_context.expected_type_or_optional_inner();
+
         let ast_node = &ast_expression.node;
         let (lit_kind, literal_type) = match &ast_literal_kind {
             swamp_ast::LiteralKind::InternalInitializerList(items) => {
                 let (collection_type, resolved_items) =
-                    self.analyze_internal_initializer_list(ast_node, items, context);
+                    self.analyze_internal_initializer_list(ast_node, items, &literal_context);
 
                 (
                     ExpressionKind::InitializerList(collection_type.clone(), resolved_items),
@@ -38,7 +43,7 @@ impl Analyzer<'_> {
 
             swamp_ast::LiteralKind::InternalInitializerPairList(entries) => {
                 let (collection_type, resolved_items) =
-                    self.analyze_internal_initializer_pair_list(ast_node, entries, context);
+                    self.analyze_internal_initializer_pair_list(ast_node, entries, &literal_context);
 
                 (
                     ExpressionKind::InitializerPairList(collection_type.clone(), resolved_items),
@@ -46,7 +51,7 @@ impl Analyzer<'_> {
                 )
             }
 
-            _ => return self.analyze_literal(ast_node, ast_literal_kind, context),
+            _ => return self.analyze_literal(ast_node, ast_literal_kind, parent_context, &literal_context),
         };
 
         self.create_expr(lit_kind, literal_type, ast_node)
@@ -57,6 +62,7 @@ impl Analyzer<'_> {
         &mut self,
         ast_node: &swamp_ast::Node,
         ast_literal_kind: &swamp_ast::LiteralKind,
+        parent_context:& TypeContext,
         context: &TypeContext,
     ) -> Expression {
         let node_text = self.get_text(ast_node);
@@ -222,7 +228,7 @@ impl Analyzer<'_> {
                 (ExpressionKind::TupleLiteral(resolved_items), tuple_type)
             }
             swamp_ast::LiteralKind::None => {
-                if let Some(found_expected_type) = context.expected_type {
+                if let Some(found_expected_type) = parent_context.expected_type {
                     let underlying = found_expected_type;
                     if let TypeKind::Optional(_some_type) = &*underlying.kind {
                         (ExpressionKind::NoneLiteral, underlying.clone())

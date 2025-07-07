@@ -2098,7 +2098,7 @@ impl<'a> Analyzer<'a> {
     ) -> NormalPattern {
         let required_condition_type_context =
             TypeContext::new_argument(expected_condition_type, false);
-        let literal = self.analyze_literal(node, ast_literal, &required_condition_type_context);
+        let literal = self.analyze_literal(node, ast_literal,&required_condition_type_context, &required_condition_type_context);
 
         if !self
             .types()

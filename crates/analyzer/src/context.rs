@@ -1,4 +1,4 @@
-use swamp_types::TypeRef;
+use swamp_types::{TypeKind, TypeRef};
 
 /// `TypeRef` checking context
 #[derive(Debug, Clone)]
@@ -84,5 +84,22 @@ impl<'a> TypeContext<'a> {
         has_lvalue_target: bool,
     ) -> Self {
         self.with_expected_type(Some(found_type), has_lvalue_target)
+    }
+
+    /// If the expected type is `Optional<T>`, returns `T`; otherwise returns the
+    /// original expected type.
+    #[must_use]
+    pub fn expected_type_or_optional_inner(&self) -> Self {
+        #[allow(clippy::bind_instead_of_map)]
+        let new_expected = self.expected_type.and_then(|expected| match expected.kind.as_ref() {
+            TypeKind::Optional(inner) =>
+                Some(inner),
+            _ => Some(expected),
+        });
+
+        Self {
+            expected_type: new_expected,
+            has_lvalue_target: self.has_lvalue_target,
+        }
     }
 }
