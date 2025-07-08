@@ -13,12 +13,12 @@ use std::thread::sleep;
 use std::time::Duration;
 use swamp_runtime::prelude::CodeGenOptions;
 use swamp_runtime::{
-    CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions, RunOptions,
-    compile_codegen_and_create_vm,
+    compile_codegen_and_create_vm, CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions,
+    RunOptions,
 };
 use swamp_std::print::print_fn;
-use swamp_vm::VmState;
 use swamp_vm::host::HostFunctionCallback;
+use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
 use tracing::error;
 
@@ -220,6 +220,9 @@ pub fn run_tests(
             show_modules: options.show_modules,
             show_types: options.show_types,
             show_errors: true,
+            show_warnings: true,
+            show_hints: false,
+            show_information: false,
         },
         code_gen_options: CodeGenOptions {
             show_disasm: options.show_assembly,
@@ -520,10 +523,10 @@ pub fn run_tests(
         println!("  ✅ Passed (Expected Trap): {expected_trap_pass_count}");
 
         if total_failed_count > 0 {
-            println!("  ❌ **TOTAL FAILED:** {total_failed_count}",);
+            println!("  ❌ **TOTAL FAILED:** {total_failed_count}", );
         }
 
-        println!("  Total Tests Run: {total_tests_run}",);
+        println!("  Total Tests Run: {total_tests_run}", );
 
         // ---
         // ## Failing Test Details

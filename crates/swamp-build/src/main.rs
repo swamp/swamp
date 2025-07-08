@@ -8,9 +8,9 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
 use swamp_runtime::prelude::CodeGenOptions;
-use swamp_runtime::{CompileAndCodeGenOptions, CompileOptions, compile_and_code_gen};
+use swamp_runtime::{compile_and_code_gen, CompileAndCodeGenOptions, CompileOptions};
 use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 pub fn init_logger() {
     let filter = EnvFilter::builder()
@@ -95,6 +95,9 @@ fn main() -> ExitCode {
             show_semantic,
             show_modules,
             show_errors: true,
+            show_warnings: true,
+            show_hints: true,
+            show_information: true,
             show_types,
         },
         code_gen_options: CodeGenOptions {

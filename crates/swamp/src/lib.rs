@@ -9,8 +9,8 @@ pub mod prelude;
 use swamp_analyzer::Program;
 use swamp_compile::CompileOptions;
 use swamp_error_report::ScriptResolveError;
-use swamp_semantic::SemanticError;
 use swamp_semantic::prelude::Error;
+use swamp_semantic::SemanticError;
 
 #[derive(Debug)]
 pub enum ScriptError {
@@ -51,6 +51,9 @@ pub fn compile_and_analyze(
         show_modules: false,
         show_types: false,
         show_errors: true,
+        show_warnings: true,
+        show_hints: false,
+        show_information: false,
     };
     swamp_compile::bootstrap_and_compile(source_map, module_path, &options)
 }
