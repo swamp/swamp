@@ -27,7 +27,6 @@ swamp-pretty-print = { path = "../pretty-print", version = "0.2.5" }
 source-map-cache = "0.0.3"
 
 time-dilation = { version = "0.1.11", features = [
-    "enable_summary",
 ] }
 
 tracing = "0.1.40"
