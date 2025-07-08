@@ -232,10 +232,12 @@ impl Vm {
         memory: &Memory,
         map_header: *mut MapHeader,
         key_ptr_addr: usize,
-    ) -> bool { unsafe {
-        let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
-        hashmap_mem::has(map_header as *mut u8, key_ptr)
-    }}
+    ) -> bool {
+        unsafe {
+            let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
+            hashmap_mem::has(map_header as *mut u8, key_ptr)
+        }
+    }
 
     /// Looks up a key in the hash map using open addressing and linear probing.
     ///
@@ -246,17 +248,19 @@ impl Vm {
         memory: &Memory,
         map_header: *mut MapHeader,
         key_ptr_addr: usize,
-    ) -> u32 { unsafe {
-        let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
+    ) -> u32 {
+        unsafe {
+            let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
 
-        let value_ptr = hashmap_mem::lookup(map_header as *mut u8, key_ptr);
+            let value_ptr = hashmap_mem::lookup(map_header as *mut u8, key_ptr);
 
-        if value_ptr.is_null() {
-            0
-        } else {
-            memory.get_heap_offset(value_ptr)
+            if value_ptr.is_null() {
+                0
+            } else {
+                memory.get_heap_offset(value_ptr)
+            }
         }
-    }}
+    }
 
     /// Removes an entry from the hash map given a key using open addressing.
     ///
@@ -266,11 +270,13 @@ impl Vm {
         memory: &Memory,
         map_header_ptr: *mut MapHeader,
         key_ptr_addr: usize,
-    ) -> bool { unsafe {
-        let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
+    ) -> bool {
+        unsafe {
+            let key_ptr = memory.get_heap_const_ptr(key_ptr_addr);
 
-        hashmap_mem::remove(map_header_ptr as *mut u8, key_ptr)
-    }}
+            hashmap_mem::remove(map_header_ptr as *mut u8, key_ptr)
+        }
+    }
 
     pub(crate) fn execute_map_iter_init(
         &mut self,

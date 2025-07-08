@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
 use swamp_types::{TypeKind, TypeRef};
 
 /// `TypeRef` checking context
@@ -91,11 +96,12 @@ impl<'a> TypeContext<'a> {
     #[must_use]
     pub fn expected_type_or_optional_inner(&self) -> Self {
         #[allow(clippy::bind_instead_of_map)]
-        let new_expected = self.expected_type.and_then(|expected| match expected.kind.as_ref() {
-            TypeKind::Optional(inner) =>
-                Some(inner),
-            _ => Some(expected),
-        });
+        let new_expected = self
+            .expected_type
+            .and_then(|expected| match expected.kind.as_ref() {
+                TypeKind::Optional(inner) => Some(inner),
+                _ => Some(expected),
+            });
 
         Self {
             expected_type: new_expected,

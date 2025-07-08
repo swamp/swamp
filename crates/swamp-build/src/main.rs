@@ -8,9 +8,9 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
 use swamp_runtime::prelude::CodeGenOptions;
-use swamp_runtime::{compile_and_code_gen, CompileAndCodeGenOptions, CompileOptions};
+use swamp_runtime::{CompileAndCodeGenOptions, CompileOptions, compile_and_code_gen};
 use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 pub fn init_logger() {
     let filter = EnvFilter::builder()

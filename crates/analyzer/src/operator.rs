@@ -29,7 +29,9 @@ impl Analyzer<'_> {
             (&BinaryOperatorKind::NoneCoalesce, _left_kind, _right_kind) => {
                 if let TypeKind::Optional(inner_optional) = &left_type {
                     // Right hand side type must be either an optional <T> or an unwrapped T
-                    if self.types().compatible_with(inner_optional, &right.ty) || self.types().compatible_with(&left.ty, &right.ty) {
+                    if self.types().compatible_with(inner_optional, &right.ty)
+                        || self.types().compatible_with(&left.ty, &right.ty)
+                    {
                         let final_type = right.ty.clone();
                         Some((
                             BinaryOperator {
@@ -42,11 +44,11 @@ impl Analyzer<'_> {
                         ))
                     } else {
                         self.add_err(ErrorKind::ExpectedOptional, &ast_op.node);
-                        return None;
+                        None
                     }
                 } else {
                     self.add_err(ErrorKind::ExpectedOptional, &ast_op.node);
-                    return None;
+                    None
                 }
             }
 
@@ -182,7 +184,9 @@ impl Analyzer<'_> {
             swamp_ast::BinaryOperatorKind::LessEqual => BinaryOperatorKind::LessEqual,
             swamp_ast::BinaryOperatorKind::GreaterThan => BinaryOperatorKind::GreaterThan,
             swamp_ast::BinaryOperatorKind::GreaterEqual => BinaryOperatorKind::GreaterEqual,
-            swamp_ast::BinaryOperatorKind::NoneCoalescingOperator => BinaryOperatorKind::NoneCoalesce,
+            swamp_ast::BinaryOperatorKind::NoneCoalescingOperator => {
+                BinaryOperatorKind::NoneCoalesce
+            }
         }
     }
 }

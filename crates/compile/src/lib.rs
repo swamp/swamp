@@ -11,23 +11,23 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
-pub use swamp_analyzer::prelude::Program;
 use swamp_analyzer::Analyzer;
+pub use swamp_analyzer::prelude::Program;
 use swamp_core::text::core_text;
 use swamp_dep_loader::{
-    parse_local_modules_and_get_order, parse_single_module_from_text, swamp_registry_path,
-    DependencyParser, ParsedAstModule,
+    DependencyParser, ParsedAstModule, parse_local_modules_and_get_order,
+    parse_single_module_from_text, swamp_registry_path,
 };
 use swamp_error_report::analyze::show_analyzer_error;
 use swamp_error_report::prelude::Kind;
-use swamp_error_report::{prelude::show_script_resolve_error, ScriptResolveError};
+use swamp_error_report::{ScriptResolveError, prelude::show_script_resolve_error};
 use swamp_modules::modules::{ModuleRef, Modules};
 use swamp_modules::prelude::Module;
 use swamp_modules::symtbl::{SymbolTable, SymbolTableRef};
 use swamp_pretty_print::{ImplsDisplay, SourceMapDisplay, SymbolTableDisplay};
 use swamp_program_analyzer::analyze_modules_in_order;
 use swamp_semantic::err::Error;
-use swamp_semantic::{formal_module_name, AssociatedImpls, ProgramState};
+use swamp_semantic::{AssociatedImpls, ProgramState, formal_module_name};
 use swamp_std::std_text;
 use swamp_types::prelude::print_types;
 use time_dilation::ScopedTimer;
@@ -218,7 +218,7 @@ pub fn remove_version_from_package_name_regex(package_name_with_version: &str) -
     let re = Regex::new(
         r"-(?P<version>[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)?(?:\+.*)?$",
     )
-        .unwrap();
+    .unwrap();
     re.replace(package_name_with_version, "").to_string()
 }
 
@@ -267,9 +267,9 @@ pub fn bootstrap_and_compile(
         source_map,
         core_symbol_table.into(),
     )
-        .inspect_err(|err| {
-            show_script_resolve_error(err, source_map, &current_path());
-        })?;
+    .inspect_err(|err| {
+        show_script_resolve_error(err, source_map, &current_path());
+    })?;
 
     drop(compile_all_modules_timer);
 
@@ -287,7 +287,6 @@ pub fn bootstrap_and_compile(
         eprintln!("{str}");
         //info!(str, "types");
     }
-
 
     let source_map_wrapper = SourceMapWrapper {
         source_map,

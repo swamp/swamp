@@ -132,7 +132,9 @@ impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let error_message = match self {
             Self::ExpectedTupleType => "expected tuple type",
-            Self::CanOnlyHaveFunctionCallAtStartOfPostfixChain => "function calls only allowed at start of chain",
+            Self::CanOnlyHaveFunctionCallAtStartOfPostfixChain => {
+                "function calls only allowed at start of chain"
+            }
             // Function and Method Errors
             Self::NoAssociatedFunction(_, _) => "no associated function",
             Self::UnknownMemberFunction(_) => "unknown member function",

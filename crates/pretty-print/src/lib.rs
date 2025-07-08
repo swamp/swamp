@@ -309,7 +309,7 @@ impl SourceMapDisplay<'_> {
     /// # Errors
     ///
     pub fn show_alias(&self, f: &mut Formatter<'_>, alias: &AliasType) -> std::fmt::Result {
-        write!(f, "{} ==> ", alias.assigned_name.blue(), )?;
+        write!(f, "{} ==> ", alias.assigned_name.blue(),)?;
 
         self.show_type_short(f, &alias.ty, 0)?;
 
@@ -1036,7 +1036,7 @@ impl SourceMapDisplay<'_> {
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         tabs: usize,
     ) -> std::fmt::Result {
-        write!(f, "{{", )?;
+        write!(f, "{{",)?;
 
         // Extract the anonymous struct fields from the TypeRef
         let field_name_sorted_fields = match &*struct_like_type.kind {

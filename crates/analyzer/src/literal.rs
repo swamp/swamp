@@ -42,8 +42,8 @@ impl Analyzer<'_> {
             }
 
             swamp_ast::LiteralKind::InternalInitializerPairList(entries) => {
-                let (collection_type, resolved_items) =
-                    self.analyze_internal_initializer_pair_list(ast_node, entries, &literal_context);
+                let (collection_type, resolved_items) = self
+                    .analyze_internal_initializer_pair_list(ast_node, entries, &literal_context);
 
                 (
                     ExpressionKind::InitializerPairList(collection_type.clone(), resolved_items),
@@ -51,7 +51,14 @@ impl Analyzer<'_> {
                 )
             }
 
-            _ => return self.analyze_literal(ast_node, ast_literal_kind, parent_context, &literal_context),
+            _ => {
+                return self.analyze_literal(
+                    ast_node,
+                    ast_literal_kind,
+                    parent_context,
+                    &literal_context,
+                );
+            }
         };
 
         self.create_expr(lit_kind, literal_type, ast_node)
@@ -62,7 +69,7 @@ impl Analyzer<'_> {
         &mut self,
         ast_node: &swamp_ast::Node,
         ast_literal_kind: &swamp_ast::LiteralKind,
-        parent_context:& TypeContext,
+        parent_context: &TypeContext,
         context: &TypeContext,
     ) -> Expression {
         let node_text = self.get_text(ast_node);

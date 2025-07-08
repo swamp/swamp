@@ -5,12 +5,12 @@
 use crate::Analyzer;
 use source_map_node::Node;
 use std::rc::Rc;
+use swamp_semantic::ScopeInfo;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
 };
-use swamp_semantic::ScopeInfo;
 use swamp_types::prelude::*;
 
 const MAX_VIRTUAL_REGISTER: usize = 20;

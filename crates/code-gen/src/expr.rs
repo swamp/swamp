@@ -6,8 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{BinaryOperatorKind, Expression, ExpressionKind};
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::types::{int_type, BasicTypeKind, Destination, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
+use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, int_type};
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
@@ -63,9 +63,9 @@ impl CodeBuilder<'_> {
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, Destination::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(
-            &mut self.state.layout_cache,
-            expr,
-        )
+                &mut self.state.layout_cache,
+                expr,
+            )
         {
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
             let temp_materialization_target = self
@@ -346,42 +346,36 @@ impl CodeBuilder<'_> {
                     ctx,
                 ); // todo:
             }
-            ExpressionKind::BinaryOp(operator) => {
-                match operator.kind {
-                    BinaryOperatorKind::NoneCoalesce => {
-                        self.emit_none_coalesce_operator(
-                            output,
-                            &operator.left,
-                            &operator.right,
-                            &operator.node,
-                            ctx,
-                        )
+            ExpressionKind::BinaryOp(operator) => match operator.kind {
+                BinaryOperatorKind::NoneCoalesce => self.emit_none_coalesce_operator(
+                    output,
+                    &operator.left,
+                    &operator.right,
+                    &operator.node,
+                    ctx,
+                ),
+                _ => match output {
+                    Destination::Register(reg) => {
+                        self.emit_binary_operator(reg, operator, ctx);
                     }
-                    _ => {
-                        match output {
-                            Destination::Register(reg) => {
-                                self.emit_binary_operator(reg, operator, ctx);
-                            }
-                            Destination::Memory(mem_loc) => {
-                                let temp_reg = self
-                                    .temp_registers
-                                    .allocate(mem_loc.ty.clone(), "binary_op_temp");
-                                self.emit_binary_operator(temp_reg.register(), operator, ctx);
+                    Destination::Memory(mem_loc) => {
+                        let temp_reg = self
+                            .temp_registers
+                            .allocate(mem_loc.ty.clone(), "binary_op_temp");
+                        self.emit_binary_operator(temp_reg.register(), operator, ctx);
 
-                                self.builder.add_st32_using_ptr_with_offset(
-                                    mem_loc,
-                                    temp_reg.register(),
-                                    node,
-                                    "store binary op result directly to memory with offset",
-                                );
-                            }
-                            Destination::Unit => {
-                                panic!("binary operator always returns a value")
-                            }
-                        }
+                        self.builder.add_st32_using_ptr_with_offset(
+                            mem_loc,
+                            temp_reg.register(),
+                            node,
+                            "store binary op result directly to memory with offset",
+                        );
                     }
-                }
-            }
+                    Destination::Unit => {
+                        panic!("binary operator always returns a value")
+                    }
+                },
+            },
             ExpressionKind::UnaryOp(operator) => match output {
                 Destination::Register(reg) => {
                     self.emit_unary_operator(reg, operator, ctx);

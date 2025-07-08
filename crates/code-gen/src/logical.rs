@@ -12,8 +12,8 @@ use swamp_semantic::{
     UnaryOperator, UnaryOperatorKind,
 };
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{b8_type, Destination, TypedRegister, VmType};
 use swamp_vm_types::PatchPosition;
+use swamp_vm_types::types::{Destination, TypedRegister, VmType, b8_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn force_normalized_bool_reg_if_needed(

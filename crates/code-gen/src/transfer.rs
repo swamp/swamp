@@ -2,13 +2,11 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::code_bld::CodeBuilder;
 use crate::DetailedLocationResolved;
+use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
-use swamp_vm_types::types::{u16_type, BasicTypeKind, Destination, TypedRegister, VmType};
-use swamp_vm_types::{
-    MemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
-};
+use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, u16_type};
+use swamp_vm_types::{COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation};
 
 impl CodeBuilder<'_> {
     // Load -------------------------------------------------------

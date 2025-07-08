@@ -512,9 +512,8 @@ impl Vm {
             let last_index = u32::from(header.element_count) - 1;
 
             // Calculate address of the element to be popped
-            let address_of_element_to_pop = vec_addr
-                + VEC_HEADER_PAYLOAD_OFFSET.0
-                + last_index * header.element_size;
+            let address_of_element_to_pop =
+                vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 + last_index * header.element_size;
 
             header.element_count -= 1;
 

@@ -41,41 +41,40 @@ use swamp_semantic::{
     WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
-use swamp_types::prelude::*;
 use swamp_types::TypeKind;
+use swamp_types::prelude::*;
 use tracing::error;
 
-
 /*
-            swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
-                    previous_was_optional_chaining = false;
+           swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
+                   previous_was_optional_chaining = false;
 
-                    let (unwrapped_type, optional_type) = if let TypeKind::Optional(unwrapped_type) =
-                        &*tv.resolved_type.kind
-                    {
-                        // Standalone mode: tv.resolved_type is already optional
-                        (unwrapped_type, tv.resolved_type.clone())
-                    } else if uncertain {
-                        // Uncertain mode: tv.resolved_type is unwrapped, need to create optional type
-                        let optional_type = self.shared.state.types.optional(&tv.resolved_type);
-                        (&tv.resolved_type, optional_type)
-                    } else {
-                        return self.create_err(ErrorKind::CanNotNoneCoalesce, &default_expr.node);
-                    };
+                   let (unwrapped_type, optional_type) = if let TypeKind::Optional(unwrapped_type) =
+                       &*tv.resolved_type.kind
+                   {
+                       // Standalone mode: tv.resolved_type is already optional
+                       (unwrapped_type, tv.resolved_type.clone())
+                   } else if uncertain {
+                       // Uncertain mode: tv.resolved_type is unwrapped, need to create optional type
+                       let optional_type = self.shared.state.types.optional(&tv.resolved_type);
+                       (&tv.resolved_type, optional_type)
+                   } else {
+                       return self.create_err(ErrorKind::CanNotNoneCoalesce, &default_expr.node);
+                   };
 
-                    let unwrapped_type_context = TypeContext::new_argument(unwrapped_type, false);
-                    let resolved_default_expr =
-                        self.analyze_expression(default_expr, &unwrapped_type_context);
-                    self.add_postfix(
-                        &mut suffixes,
-                        PostfixKind::NoneCoalescingOperator(resolved_default_expr, optional_type, uncertain),
-                        (*unwrapped_type).clone(),
-                        &default_expr.node,
-                    );
-                    tv.resolved_type = (*unwrapped_type).clone();
-                    uncertain = false; // the chain is safe, because this will always solve None
-                }
- */
+                   let unwrapped_type_context = TypeContext::new_argument(unwrapped_type, false);
+                   let resolved_default_expr =
+                       self.analyze_expression(default_expr, &unwrapped_type_context);
+                   self.add_postfix(
+                       &mut suffixes,
+                       PostfixKind::NoneCoalescingOperator(resolved_default_expr, optional_type, uncertain),
+                       (*unwrapped_type).clone(),
+                       &default_expr.node,
+                   );
+                   tv.resolved_type = (*unwrapped_type).clone();
+                   uncertain = false; // the chain is safe, because this will always solve None
+               }
+*/
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum AssignmentMode {
@@ -935,7 +934,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                        .kind
+                    .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -969,14 +968,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                    .kind
+                .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-                .kind
+            .kind
         }
     }
 
@@ -1409,7 +1408,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
+            } else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -1492,7 +1492,9 @@ impl<'a> Analyzer<'a> {
             TypeKind::QueueView(element_type) => (int_type, element_type.clone()),
             TypeKind::DynamicLengthVecView(element_type) => (int_type, element_type.clone()),
             TypeKind::SparseView(element_type) => (int_type, element_type.clone()),
-            TypeKind::FixedCapacityAndLengthArray(element_type, _fixed_size) => (int_type, element_type.clone()),
+            TypeKind::FixedCapacityAndLengthArray(element_type, _fixed_size) => {
+                (int_type, element_type.clone())
+            }
             TypeKind::DynamicLengthMapView(key_type, value_type)
             | TypeKind::MapStorage(key_type, value_type, _) => {
                 (Some(key_type.clone()), value_type.clone())
@@ -2098,7 +2100,12 @@ impl<'a> Analyzer<'a> {
     ) -> NormalPattern {
         let required_condition_type_context =
             TypeContext::new_argument(expected_condition_type, false);
-        let literal = self.analyze_literal(node, ast_literal, &required_condition_type_context, &required_condition_type_context);
+        let literal = self.analyze_literal(
+            node,
+            ast_literal,
+            &required_condition_type_context,
+            &required_condition_type_context,
+        );
 
         if !self
             .types()
@@ -2352,8 +2359,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                    .expect_immutable()
-                    .unwrap()
+                .expect_immutable()
+                .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2589,7 +2596,8 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
+    }
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -4220,8 +4228,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                    .types()
-                    .compatible_with(initializer_value_type, storage_value)
+                        .types()
+                        .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }

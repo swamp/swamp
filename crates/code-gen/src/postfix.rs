@@ -7,7 +7,7 @@ use crate::ctx::Context;
 use crate::single_intrinsic_fn;
 use source_map_node::Node;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
-use swamp_vm_types::types::{u8_type, Destination, VmType};
+use swamp_vm_types::types::{Destination, VmType, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
@@ -143,142 +143,141 @@ impl CodeBuilder<'_> {
     }
 
     /* Code that might work in the future. haven't gotten it to work yet
-              PostfixKind::OptionalChainingOperator => {
-                original_optional_location = Some(current_location.clone());
+                 PostfixKind::OptionalChainingOperator => {
+                   original_optional_location = Some(current_location.clone());
 
-                let hwm = self.temp_registers.save_mark();
+                   let hwm = self.temp_registers.save_mark();
 
-                if let Destination::Memory(mem_loc) = &current_location {
-                    let temp_reg = self.temp_registers.allocate(
-                        VmType::new_unknown_placement(u8_type()),
-                        "temp for optional tag",
-                    );
+                   if let Destination::Memory(mem_loc) = &current_location {
+                       let temp_reg = self.temp_registers.allocate(
+                           VmType::new_unknown_placement(u8_type()),
+                           "temp for optional tag",
+                       );
 
 
-                    // Load ONLY the tag byte
-                    self.builder.add_ld8_from_pointer_with_offset_u16(
-                        temp_reg.register(),
-                        &mem_loc.base_ptr_reg,
-                        mem_loc.offset + MemoryOffset(0),
-                        &element.node,
-                        "load optional tag byte",
-                    );
+                       // Load ONLY the tag byte
+                       self.builder.add_ld8_from_pointer_with_offset_u16(
+                           temp_reg.register(),
+                           &mem_loc.base_ptr_reg,
+                           mem_loc.offset + MemoryOffset(0),
+                           &element.node,
+                           "load optional tag byte",
+                       );
 
-                    // If None, jump to end of entire chain
-                    let none_jump = self.builder.add_jmp_if_not_true_placeholder(
-                        temp_reg.register(),
-                        &element.node,
-                        "jump if None to end of chain",
-                    );
-                    opt_none_jumps.push(none_jump);
+                       // If None, jump to end of entire chain
+                       let none_jump = self.builder.add_jmp_if_not_true_placeholder(
+                           temp_reg.register(),
+                           &element.node,
+                           "jump if None to end of chain",
+                       );
+                       opt_none_jumps.push(none_jump);
 
-                    // If Some, update current_location to payload
-                    let optional_layout = current_location.ty();
-                    let (_, _, payload_offset, _) = optional_layout.unwrap_info().unwrap();
-                    current_location = current_location.add_offset(
-                        payload_offset,
-                        VmType::new_unknown_placement(
-                            self.state.layout_cache.layout(&element.ty).clone(),
-                        ),
-                    );
-                }
+                       // If Some, update current_location to payload
+                       let optional_layout = current_location.ty();
+                       let (_, _, payload_offset, _) = optional_layout.unwrap_info().unwrap();
+                       current_location = current_location.add_offset(
+                           payload_offset,
+                           VmType::new_unknown_placement(
+                               self.state.layout_cache.layout(&element.ty).clone(),
+                           ),
+                       );
+                   }
 
-                if !is_last {
-                    self.temp_registers.restore_to_mark(hwm);
-                }
-            }
-            PostfixKind::NoneCoalescingOperator(expression, optional_type, uncertain) => {
-                if let Destination::Memory(mem_loc) = &original_optional_location.clone().unwrap() {
-                    let temp_reg = self.temp_registers.allocate(
-                        VmType::new_unknown_placement(u8_type()),
-                        "temp for coalesce tag",
-                    );
+                   if !is_last {
+                       self.temp_registers.restore_to_mark(hwm);
+                   }
+               }
+               PostfixKind::NoneCoalescingOperator(expression, optional_type, uncertain) => {
+                   if let Destination::Memory(mem_loc) = &original_optional_location.clone().unwrap() {
+                       let temp_reg = self.temp_registers.allocate(
+                           VmType::new_unknown_placement(u8_type()),
+                           "temp for coalesce tag",
+                       );
 
-                    // Load tag from current location
-                    self.builder.add_ld8_from_pointer_with_offset_u16(
-                        temp_reg.register(),
-                        &mem_loc.base_ptr_reg,
-                        mem_loc.offset + MemoryOffset(0),
-                        &element.node,
-                        "load tag for coalescing",
-                    );
+                       // Load tag from current location
+                       self.builder.add_ld8_from_pointer_with_offset_u16(
+                           temp_reg.register(),
+                           &mem_loc.base_ptr_reg,
+                           mem_loc.offset + MemoryOffset(0),
+                           &element.node,
+                           "load tag for coalescing",
+                       );
 
-                    // Jump-if-Some → skip fallback
-                    let skip_fallback_expression_if_some = self.builder.add_jmp_if_true_placeholder(
-                        temp_reg.register(),
-                        &element.node,
-                        "skip fallback expression if some (!= 0)",
-                    );
+                       // Jump-if-Some → skip fallback
+                       let skip_fallback_expression_if_some = self.builder.add_jmp_if_true_placeholder(
+                           temp_reg.register(),
+                           &element.node,
+                           "skip fallback expression if some (!= 0)",
+                       );
 
-                    // 2) Patch all previous '?' jumps to land at fallback emission
-                    for jump in opt_none_jumps.drain(..) {
-                        self.builder.patch_jump_here(jump);
-                    }
+                       // 2) Patch all previous '?' jumps to land at fallback emission
+                       for jump in opt_none_jumps.drain(..) {
+                           self.builder.patch_jump_here(jump);
+                       }
 
-                    let some_value_destination = if is_last {
-                        output_destination.clone()
-                    } else {
-                        // intermediate: use a temp just like other chain ops
-                        let ty = self.state.layout_cache.layout(&element.ty);
-                        self.allocate_frame_space_and_return_destination_to_it(
-                            &ty,
-                            &element.node,
-                            "temp for coalesce fallback",
-                        )
-                    };
+                       let some_value_destination = if is_last {
+                           output_destination.clone()
+                       } else {
+                           // intermediate: use a temp just like other chain ops
+                           let ty = self.state.layout_cache.layout(&element.ty);
+                           self.allocate_frame_space_and_return_destination_to_it(
+                               &ty,
+                               &element.node,
+                               "temp for coalesce fallback",
+                           )
+                       };
 
-                    // Emit fallback expression (None case)
-                    self.emit_expression(&some_value_destination, expression, ctx);
+                       // Emit fallback expression (None case)
+                       self.emit_expression(&some_value_destination, expression, ctx);
 
-                    let jump_over_extract_payload = self.builder.add_jump_placeholder(&element.node, "fallback is in place, jump over the extract payload");
+                       let jump_over_extract_payload = self.builder.add_jump_placeholder(&element.node, "fallback is in place, jump over the extract payload");
 
-                    // Some gets here
-                    self.builder.patch_jump_here(skip_fallback_expression_if_some);
+                       // Some gets here
+                       self.builder.patch_jump_here(skip_fallback_expression_if_some);
 
-                    let layout = self.state.layout_cache.layout(&optional_type);
-                    let (_, _, payload_offset, _) = layout.unwrap_info().unwrap();
+                       let layout = self.state.layout_cache.layout(&optional_type);
+                       let (_, _, payload_offset, _) = layout.unwrap_info().unwrap();
 
-                    let payload_loc = original_optional_location.clone().unwrap()
-                        .add_offset(
-                            payload_offset,
-                            VmType::new_unknown_placement(
-                                self.state.layout_cache.layout(&element.ty).clone(),
-                            ));
+                       let payload_loc = original_optional_location.clone().unwrap()
+                           .add_offset(
+                               payload_offset,
+                               VmType::new_unknown_placement(
+                                   self.state.layout_cache.layout(&element.ty).clone(),
+                               ));
 
-                    self.emit_copy_value_between_destinations(
-                        &some_value_destination,
-                        &payload_loc,
-                        &element.node,
-                        "coalesce payload copy",
-                    );
+                       self.emit_copy_value_between_destinations(
+                           &some_value_destination,
+                           &payload_loc,
+                           &element.node,
+                           "coalesce payload copy",
+                       );
 
-                    self.builder.patch_jump_here(jump_over_extract_payload);
-                    current_location = some_value_destination.clone();
-                } else {
-                    panic!("should have been a memory location");
-                }
-            }
-        }
-    }
+                       self.builder.patch_jump_here(jump_over_extract_payload);
+                       current_location = some_value_destination.clone();
+                   } else {
+                       panic!("should have been a memory location");
+                   }
+               }
+           }
+       }
 
-    // End of chain: handle any remaining opt_none_jumps
-    if !opt_none_jumps.is_empty() {
-        for jump in opt_none_jumps {
-            self.builder.patch_jump_here(jump);
-        }
-        // Emit None to output
-        self.emit_none_to_destination(output_destination, &chain.last().unwrap().node);
-    }
+       // End of chain: handle any remaining opt_none_jumps
+       if !opt_none_jumps.is_empty() {
+           for jump in opt_none_jumps {
+               self.builder.patch_jump_here(jump);
+           }
+           // Emit None to output
+           self.emit_none_to_destination(output_destination, &chain.last().unwrap().node);
+       }
 
-    // Perform final load/conversion if needed
-    self.emit_final_load_if_needed(
-        output_destination,
-        &current_location,
-        &start_expression.node,
-        chain,
-    );
- */
-
+       // Perform final load/conversion if needed
+       self.emit_final_load_if_needed(
+           output_destination,
+           &current_location,
+           &start_expression.node,
+           chain,
+       );
+    */
 
     /*
     if let Destination::Memory(mem_loc) = &current_location {
@@ -365,7 +364,6 @@ impl CodeBuilder<'_> {
                     }
      */
 
-
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_postfix_chain(
         &mut self,
@@ -377,14 +375,21 @@ impl CodeBuilder<'_> {
         let mut current_location = self.emit_start_of_chain(start_expression, ctx);
         let mut optional_chaining_none_patches = Vec::new();
 
-        let has_any_optional_chaining = chain.iter().any(|x| matches!(x.kind, PostfixKind::OptionalChainingOperator ));
+        let has_any_optional_chaining = chain
+            .iter()
+            .any(|x| matches!(x.kind, PostfixKind::OptionalChainingOperator));
 
         let (tag_output_destination, payload_output_destination) = if has_any_optional_chaining {
-            let (tag_offset, _, payload_offset, _) = initial_output_destination.ty().unwrap_info().unwrap();
+            let (tag_offset, _, payload_offset, _) =
+                initial_output_destination.ty().unwrap_info().unwrap();
             let optional_inner_type = &initial_output_destination.ty().get_variant(1).ty;
 
-            let tag_destination = initial_output_destination.add_offset(tag_offset, VmType::new_unknown_placement(u8_type()));
-            let payload_destination = initial_output_destination.add_offset(payload_offset, VmType::new_unknown_placement(optional_inner_type.clone()));
+            let tag_destination = initial_output_destination
+                .add_offset(tag_offset, VmType::new_unknown_placement(u8_type()));
+            let payload_destination = initial_output_destination.add_offset(
+                payload_offset,
+                VmType::new_unknown_placement(optional_inner_type.clone()),
+            );
             (Some(tag_destination), Some(payload_destination))
         } else {
             (None, None)
@@ -588,13 +593,13 @@ impl CodeBuilder<'_> {
 
                     current_location = call_return_destination.clone();
 
-
                     //info!(?current_location, "after member call");
                 }
                 PostfixKind::OptionalChainingOperator => {
-                    let temp_reg = self
-                        .temp_registers
-                        .allocate(VmType::new_contained_in_register(u8_type()), "?. temp for tag");
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u8_type()),
+                        "?. temp for tag",
+                    );
 
                     let mem_location = current_location.memory_location().unwrap();
 
@@ -645,7 +650,7 @@ impl CodeBuilder<'_> {
                 // Just copy the whole tag+payload over.
                 self.emit_copy_value_between_destinations(
                     &tag_output_destination.clone().unwrap(),
-                    &current_location,        // tag+payload
+                    &current_location, // tag+payload
                     node,
                     "propagate inner option record",
                 );
@@ -666,16 +671,18 @@ impl CodeBuilder<'_> {
             // It was a "normal"
             // Perform final load/conversion if needed
             self.emit_final_load_if_needed(
-                &output_destination,
+                output_destination,
                 &current_location,
                 &start_expression.node,
                 chain,
             );
         };
 
-
         let patch_jump_over_none = if we_did_optional_chaining {
-            Some(self.builder.add_jump_placeholder(node, "jump over none case"))
+            Some(
+                self.builder
+                    .add_jump_placeholder(node, "jump over none case"),
+            )
         } else {
             None
         };

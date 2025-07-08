@@ -245,9 +245,7 @@ impl HostArgs {
         // Check if there's enough capacity
         let required_capacity = element_count as usize + data_slice.len();
         if required_capacity > capacity as usize {
-            panic!(
-                "Not enough capacity: need {required_capacity}, have {capacity}"
-            );
+            panic!("Not enough capacity: need {required_capacity}, have {capacity}");
         }
 
         // Verify element size matches

@@ -1852,11 +1852,10 @@ impl Vm {
         self.memory.set_fp_from_sp(); // set the frame pointer to what sp is now
         self.memory.inc_sp(frame_size as usize);
         #[cfg(feature = "debug_vm")]
-        if self.debug_stats_enabled {
-            if self.memory.stack_offset > self.debug.max_stack_offset {
+        if self.debug_stats_enabled
+            && self.memory.stack_offset > self.debug.max_stack_offset {
                 self.debug.max_stack_offset = self.memory.stack_offset - self.memory.stack_start;
             }
-        }
     }
 
     #[inline]

@@ -422,7 +422,7 @@ pub enum Postfix {
     Subscript(Expression),
     MemberCall(Node, Option<Vec<GenericParameter>>, Vec<Expression>),
     FunctionCall(Node, Option<Vec<GenericParameter>>, Vec<Expression>),
-    OptionalChainingOperator(Node),     // ?-postfix
+    OptionalChainingOperator(Node), // ?-postfix
     SubscriptTuple(Expression, Expression),
 }
 

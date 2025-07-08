@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
 //! Automatic generation of `to_string()`, `to_short_string()`, and `to_pretty_string()` functions.
 //!
 //! This module generates string representation functions for user-defined types in the Swamp language.

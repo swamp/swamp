@@ -670,7 +670,7 @@ pub struct MapType {
 pub enum PostfixKind {
     StructField(TypeRef, usize),
     MemberCall(FunctionRef, Vec<ArgumentExpression>),
-    OptionalChainingOperator,           // ? operator
+    OptionalChainingOperator, // ? operator
     SliceViewSubscript(SliceViewType, Expression),
     VecSubscript(VecType, Expression),
     SparseSubscript(SparseType, Expression),
