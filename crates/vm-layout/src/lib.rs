@@ -14,9 +14,9 @@ use swamp_vm_types::types::{
     TaggedUnionVariant, TupleType,
 };
 use swamp_vm_types::{
-    CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, MemoryAlignment,
-    MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
+    adjust_size_to_alignment, align_to, CountU16, MemoryAlignment, MemoryOffset,
+    MemorySize, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, PTR_ALIGNMENT, PTR_SIZE,
+    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
 };
 
 #[derive(Clone)]
@@ -924,6 +924,6 @@ fn create_basic_type(
 
 pub fn check_type_size(ty: &BasicType, _comment: &str) {
     if ty.total_size.0 > 1024 * 1024 {
-        eprintln!("suspicious allocation: {} for {ty}", ty.total_size);
+        //eprintln!("suspicious allocation: {} for {ty}", ty.total_size);
     }
 }
