@@ -615,10 +615,6 @@ impl SourceMapDisplay<'_> {
                 write!(f, "membercall {}({b:?})", function_ref.name())
             }
             PostfixKind::OptionalChainingOperator => todo!(),
-            PostfixKind::NoneCoalescingOperator(x,_,_) => {
-                self.show_expression(f, x, tabs)?;
-                write!(f, "?")
-            }
         }
     }
 

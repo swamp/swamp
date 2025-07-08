@@ -395,6 +395,7 @@ pub enum BinaryOperatorKind {
     LessEqual,
     GreaterThan,
     GreaterEqual,
+    NoneCoalesce,
 }
 
 #[derive(Debug, Clone)]
@@ -670,7 +671,6 @@ pub enum PostfixKind {
     StructField(TypeRef, usize),
     MemberCall(FunctionRef, Vec<ArgumentExpression>),
     OptionalChainingOperator,           // ? operator
-    NoneCoalescingOperator(Expression, TypeRef, bool), // ?? operator
     SliceViewSubscript(SliceViewType, Expression),
     VecSubscript(VecType, Expression),
     SparseSubscript(SparseType, Expression),

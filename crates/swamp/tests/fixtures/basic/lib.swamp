@@ -18,8 +18,10 @@ mod intrinsic_materialization
 mod intrinsic_materialization_simple
 mod logical
 mod map
+mod match
 mod operator
 mod option
+mod optional_chaining
 mod queue
 mod rest_operator
 mod scalar_vs_aggregate

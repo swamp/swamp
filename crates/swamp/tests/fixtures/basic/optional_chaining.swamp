@@ -1,0 +1,259 @@
+// I know this structure with string Weapon in Equipment doesn't make any sense
+// But couldn't come up with something better at the time
+struct Equipment {
+    name: String<64>,
+    stats: [Int; 3],
+		weapon: String<18>?,
+}
+
+impl Equipment {
+	fn format_enchantment(self) -> String {
+		self.name
+	}
+}
+
+struct Player {
+    name: String<32>,
+    level: Int,
+    maybe_equipment: Equipment?,
+}
+
+impl Player {
+    fn get_title(self) -> String {
+        "Adventurer " + self.name
+    }
+
+    fn calculate_power_level(self, bonus: Int) -> Int {
+        self.level * 10 + bonus
+    }
+
+    fn get_equipment_description(self) -> String? {
+        when eq = self.maybe_equipment {
+            'has cool equipment: {eq}'
+        } else {
+            none
+        }
+    }
+}
+
+fn create_player_with_equipment() -> Player? {
+    Player {
+        name: "DragonSlayer",
+        level: 42,
+        maybe_equipment: Equipment {
+            weapon: "Flaming Sword",
+            stats: [85, 70, 60],
+						name: "not sure",
+        },
+    }
+}
+
+fn create_player_without_equipment() -> Player? {
+    Player {
+        name: "First Level",
+        level: 1,
+        maybe_equipment: none,
+    }
+}
+
+fn create_none_player() -> Player? {
+    none
+}
+
+// Test basic field access with optional chaining
+#[test]
+fn optional_chaining_field_access_some() {
+    player = create_player_with_equipment()
+		print('player: {player}')
+    name = player?.name ?? "something"
+    level = player?.level ?? 0
+
+    assert(name == "DragonSlayer", 'optional chaining field access should work with Some {name}')
+    assert(level == 42, 'Optional chaining field access should work with Some {level}')
+    print('Name: {name}, Level: {level}')
+}
+
+#[test]
+fn optional_chaining_field_access_none() {
+    player = create_none_player()
+    name = player?.name ?? "Unknown"
+    level = player?.level ?? 0
+
+    assert(name == "Unknown", "Optional chaining field access should return default for None")
+    assert(level == 0, "Optional chaining field access should return default for None")
+    print('Name: {name}, Level: {level}')
+}
+
+/*
+TODO: Create more tests for optional chaining
+
+#[test]
+fn optional_chaining_nested_field_access_some() {
+    player = create_player_with_equipment()
+    weapon = player?.maybe_equipment?.weapon ?? "No Weapon"
+
+    assert(weapon == "Flaming Sword", "Nested optional chaining should work with Some")
+    print('Weapon: {weapon}')
+}
+
+#[test]
+fn optional_chaining_nested_field_access_none_player() {
+    player = create_none_player()
+    weapon = player?.maybe_equipment?.weapon ?? "No Weapon"
+
+    assert(weapon == "No Weapon", "Nested optional chaining should return default when player is None")
+    print('Weapon: {weapon}')
+}
+
+#[test]
+fn optional_chaining_nested_field_access_none_equipment() {
+    player = create_player_without_equipment()
+    weapon = player?.maybe_equipment?.weapon ?? "No Weapon"
+
+    assert(weapon == "No Weapon", "Nested optional chaining should return default when equipment is None")
+    print('Weapon: {weapon}')
+}
+
+#[test]
+fn optional_chaining_method_call_some() {
+    player = create_player_with_equipment()
+    title = player?.get_title() ?? "No Title"
+    power_level = player?.calculate_power_level(100) ?? 0
+
+    assert(title == "Adventurer DragonSlayer", "Optional chaining method call should work with Some")
+    assert(power_level == 520, "Optional chaining method call with args should work with Some")
+    print('Title: {title}, Power Level: {power_level}')
+}
+
+#[test]
+fn optional_chaining_method_call_none() {
+    player = create_none_player()
+    title = player?.get_title() ?? "No Title"
+    power_level = player?.calculate_power_level(100) ?? 0
+
+    assert(title == "No Title", "Optional chaining method call should return default for None")
+    assert(power_level == 0, "Optional chaining method call with args should return default for None")
+    print('Title: {title}, Power Level: {power_level}')
+}
+
+#[test]
+fn optional_chaining_nested_method_call_none_equipment() {
+    player = create_player_without_equipment()
+    magic_description = player?.maybe_equipment?.format_enchantment() ?? "No Magic"
+
+    assert(magic_description == "No Magic", "Nested optional chaining method call should return default when equipment is None")
+    print('Magic: {magic_description}')
+}
+
+// Test nested array indexing with optional chaining
+#[test]
+fn optional_chaining_nested_array_index_some() {
+    player = create_player_with_equipment()
+
+    // Test regular array access (stats is not optional)
+    attack = player?.maybe_equipment?.stats[0] ?? 0
+    defense = player?.maybe_equipment?.stats[1] ?? 0
+
+    print('Attack: {attack}, Defense: {defense}')
+}
+
+#[test]
+fn optional_chaining_nested_array_index_none() {
+    player = create_player_without_equipment()
+
+    // Test when equipment is None - both regular and optional arrays should return defaults
+    attack = player?.maybe_equipment?.stats[0] ?? 0
+    defense = player?.maybe_equipment?.stats[1] ?? 0
+
+    assert(attack == 0, "Nested optional chaining array index should return default when equipment is None")
+    assert(defense == 0, "Nested optional chaining array index should return default when equipment is None")
+    print('Attack: {attack}, Defense: {defense}')
+}
+
+
+// Test mixed optional chaining with none coalescing
+#[test]
+fn optional_chaining_with_none_coalescing() {
+    player_some = create_player_with_equipment()
+    player_none = create_none_player()
+
+    name_some = player_some?.name ?? "Unknown Hero"
+    name_none = player_none?.name ?? "Unknown Hero"
+
+    weapon_some = player_some?.maybe_equipment?.weapon ?? "No Weapon"
+    weapon_none = player_none?.maybe_equipment?.weapon ?? "No Weapon"
+
+    assert(name_some == "DragonSlayer", "Optional chaining with ?? should use value when Some")
+    assert(name_none == "Unknown Hero", "Optional chaining with ?? should use default when None")
+    assert(weapon_some == "Flaming Sword", "Nested optional chaining with ?? should use value when Some")
+    assert(weapon_none == "No Weapon", "Nested optional chaining with ?? should use default when None")
+
+    print('Name Some: {name_some}, Name None: {name_none}')
+    print('Weapon Some: {weapon_some}, Weapon None: {weapon_none}')
+}
+
+// Test optional chaining with method returning optional
+#[test]
+fn optional_chaining_method_returning_optional() {
+    player_with_eq = create_player_with_equipment()
+    player_without_eq = create_player_without_equipment()
+    player_none = create_none_player()
+
+    eq_desc_some = player_with_eq?.get_equipment_description() ?? "No Equipment"
+    eq_desc_no_eq = player_without_eq?.get_equipment_description() ?? "No Equipment"
+    eq_desc_none = player_none?.get_equipment_description() ?? "No Equipment"
+
+    assert(eq_desc_some == "Flaming Sword and Dragon Scale Mail (Fire Resistance)", "Optional chaining with method returning optional should work")
+    assert(eq_desc_no_eq == "No Equipment", "Optional chaining with method returning none should return default")
+    assert(eq_desc_none == "No Equipment", "Optional chaining on none should return default")
+
+    print('Equipment desc some: {eq_desc_some}')
+    print('Equipment desc no eq: {eq_desc_no_eq}')
+    print('Equipment desc none: {eq_desc_none}')
+}
+
+// Test optional chaining without none coalescing (returning Optional types)
+#[test]
+fn optional_chaining_return_optional_some() {
+    player = create_player_with_equipment()
+    optional_name = player?.name  // Returns String?
+    optional_weapon = player?.maybe_equipment?.weapon  // Returns String?
+
+    // Test that we got Some values
+    when name = optional_name {
+        assert(name == "DragonSlayer", "Optional chaining should return Some(value)")
+    } else {
+        assert(false, "Should have gotten Some value")
+    }
+
+    when weapon = optional_weapon {
+        assert(weapon == "Flaming Sword", "Optional chaining should return Some(value)")
+    } else {
+        assert(false, "Should have gotten Some value")
+    }
+
+    print('Optional name: {optional_name}, Optional weapon: {optional_weapon}')
+}
+
+#[test]
+fn optional_chaining_return_optional_none() {
+    player = create_none_player()
+    optional_name = player?.name  // Returns String? (None)
+    optional_weapon = player?.maybe_equipment?.weapon  // Returns String? (None)
+
+    // Test that we got None values
+    when name = optional_name {
+        assert(false, "Should have gotten None value")
+    } else {
+        // This is expected - we should get None
+    }
+
+    when weapon = optional_weapon {
+        assert(false, "Should have gotten None value")
+    } else {
+        // This is expected - we should get None
+    }
+
+    print('Optional name: {optional_name}, Optional weapon: {optional_weapon}')
+}
+*/

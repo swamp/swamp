@@ -79,6 +79,10 @@ impl Type {
         self.flags.contains(TypeFlags::IS_BLITTABLE)
     }
 
+    pub fn is_option(&self) -> bool {
+        matches!(&*self.kind, TypeKind::Optional(_))
+    }
+
     #[inline]
     #[must_use]
     pub const fn is_storage(&self) -> bool {

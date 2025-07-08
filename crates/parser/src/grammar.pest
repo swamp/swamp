@@ -18,6 +18,9 @@ BLOCK_COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 // TODO: can we avoid negative lookahead?
 DOC_COMMENT = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 
+NONE_COALESCE_OP     = { "??" }
+QUESTION              = { "?" }
+
 /*
 =============================================================
 Basic Identifiers and Tokens
@@ -106,8 +109,8 @@ Operators
 */
 // Operators and their precedence are defined from lowest to highest.
 
-logical        = { range ~ ((op_and | op_or) ~ range)* }
-
+logical        = { none_coalesce ~ ((op_and | op_or) ~ none_coalesce)* }
+none_coalesce  = { range ~ ( op_none_coalesce ~ range )* }
 range          = { comparison ~ ((inclusive_range_op | exclusive_range_op) ~ comparison)? }
 comparison     = { addition ~ ((op_lte | op_gte | op_eq | op_neq | op_lt | op_gt) ~ addition)* }
 addition       = { multiplication ~ ((op_add | op_sub) ~ multiplication)* }
@@ -131,6 +134,7 @@ op_sub = @{ "-" }
 op_mul = @{ "*" }
 op_div = @{ "/" }
 op_mod = @{ "%" }
+op_none_coalesce = @{ NONE_COALESCE_OP }
 
 // Prefix op
 op_neg = @{ "-" }
@@ -148,7 +152,6 @@ postfix = { term ~ postfix_op* }
 postfix_op = {
 member_call_postfix
 | function_call_postfix
-| none_coalesce_postfix
 | unwrap_postfix
 | subscript_postfix
 | member_access_postfix
@@ -166,8 +169,8 @@ function_call_args = {
 subscript_postfix = { "[" ~ expression ~ ("," ~ expression)? ~ "]" }
 member_access_postfix = { dot_identifier }
 dot_identifier        = { "." ~ identifier }
-unwrap_postfix        = { "?" }
-none_coalesce_postfix = { "??" ~ expression }
+unwrap_postfix        = { QUESTION ~ !QUESTION }
+
 
 static_member_reference = {
 qualified_type_identifier ~ SCOPE_OPERATOR ~ identifier

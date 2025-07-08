@@ -2,13 +2,13 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
+use crate::FlagStateKind;
 use source_map_node::Node;
-use swamp_semantic::{BinaryOperator, BinaryOperatorKind};
+use swamp_semantic::{BinaryOperator, BinaryOperatorKind, Expression};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::TypedRegister;
+use swamp_vm_types::types::{u8_type, Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_binary_operator(
@@ -43,6 +43,7 @@ impl CodeBuilder<'_> {
         let right_source = self.emit_scalar_rvalue(&binary_operator.right, ctx);
 
         match &binary_operator.kind {
+            BinaryOperatorKind::NoneCoalesce => { panic!("handled elsewhere") }
             BinaryOperatorKind::Equal | BinaryOperatorKind::NotEqual => {
                 let is_equal_polarity = matches!(binary_operator.kind, BinaryOperatorKind::Equal);
                 let t_flag = self.emit_binary_operator_equality_to_bool(
@@ -106,11 +107,7 @@ impl CodeBuilder<'_> {
                     &right_source,
                     ctx,
                 ),
-                _ => todo!(
-                    "binary operator {} <-> {}",
-                    binary_operator.left.ty,
-                    binary_operator.right.ty
-                ),
+                _ => todo!(),
             },
         }
 
@@ -228,5 +225,55 @@ impl CodeBuilder<'_> {
             BinaryOperatorKind::NotEqual => todo!(),
             _ => panic!("illegal string operator"),
         }
+    }
+
+    pub(crate) fn emit_none_coalesce_operator(&mut self, dest: &Destination, left: &Expression, right: &Expression, node: &Node, ctx: &Context) {
+        let both_are_optionals = left.ty.id.inner() == right.ty.id.inner();
+
+        let left_optional_basic_type = self.state.layout_cache.layout(&left.ty);
+
+        let destination_to_use = if both_are_optionals {
+            dest
+        } else {
+            let pointer_location = self.allocate_frame_space_and_return_pointer_location(&left_optional_basic_type, node, "?? right hand side is NOT optional. need temp storage for the left hand side");
+
+            &Destination::Memory(pointer_location.memory_location())
+        };
+
+        self.emit_expression(destination_to_use, left, ctx);
+
+        let (tag_offset, _, payload_offset, _) = left_optional_basic_type.unwrap_info().unwrap();
+
+
+        let tag_location = destination_to_use.add_offset(tag_offset, VmType::new_contained_in_register(u8_type()));
+        let tag_memory_location = tag_location.memory_location().unwrap();
+
+        let temp_tag_reg = self.temp_registers.allocate(VmType::new_contained_in_register(u8_type()), "?? temporary tag register");
+
+        self.builder.add_ld8_from_pointer_with_offset_u16(temp_tag_reg.register(), tag_memory_location.reg(), tag_memory_location.offset, node, "?? load temporary register from tag_memory");
+
+        let jump_if_none = self.builder.add_jmp_if_not_true_placeholder(&temp_tag_reg.register, node, "?? jump if None ");
+
+        // SOME case ---------------------------------------------------------------
+        // Either just use it as is, or unwrap payload
+        if both_are_optionals {
+            // Case B
+            // We have already materialized the expression above, so we are done
+        } else {
+            // Case A
+            let some_payload_basic_type = left_optional_basic_type.get_variant(1);
+            let payload_source_location = destination_to_use.add_offset(payload_offset, VmType::new_unknown_placement(some_payload_basic_type.ty.clone()));
+            self.emit_copy_value_between_destinations(dest, &payload_source_location, node, "?? right hand side is NOT optional. must copy from payload area to output destination. unwrap was needed because of different types");
+        }
+
+        let jump_to_after_whole_thing = self.builder.add_jump_placeholder(node, "jump over payload ");
+        // NONE case ---------------------------------------------------------------
+        self.builder.patch_jump_here(jump_if_none);
+
+        // Emit fallback, right hand is always of the correct type
+        self.emit_expression(dest, right, ctx);
+
+        // join ------------------------------------------
+        self.builder.patch_jump_here(jump_to_after_whole_thing);
     }
 }

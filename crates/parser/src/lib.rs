@@ -11,12 +11,12 @@ use pest_derive::Parser;
 use std::iter::Peekable;
 use std::str::Chars;
 use swamp_ast::{
-    AssignmentOperatorKind, BinaryOperatorKind, CompoundOperator, CompoundOperatorKind,
-    ConcretePattern, DestructuringPattern, EnumVariantLiteral, ExpressionKind, FieldExpression,
-    FieldName, ForPattern, ForVar, ImportItems, IterableExpression, LocalConstantIdentifier,
-    LocalTypeIdentifierWithOptionalTypeVariables, Mod, NamedStructDef, PatternVariableOrWildcard,
-    QualifiedIdentifier, RangeMode, SpanWithoutFileId, StructTypeField, TypeForParameter,
-    TypeVariable, VariableBinding, prelude::*,
+    prelude::*, AssignmentOperatorKind, BinaryOperatorKind, CompoundOperator,
+    CompoundOperatorKind, ConcretePattern, DestructuringPattern, EnumVariantLiteral, ExpressionKind,
+    FieldExpression, FieldName, ForPattern, ForVar, ImportItems, IterableExpression,
+    LocalConstantIdentifier, LocalTypeIdentifierWithOptionalTypeVariables, Mod, NamedStructDef,
+    PatternVariableOrWildcard, QualifiedIdentifier, RangeMode, SpanWithoutFileId, StructTypeField,
+    TypeForParameter, TypeVariable, VariableBinding,
 };
 use swamp_ast::{AttributeLiteralKind, Function};
 use swamp_ast::{GenericParameter, LiteralKind};
@@ -138,7 +138,7 @@ impl From<Error<Rule>> for ParseError {
 
 impl AstParser {
     fn next_pair<'a>(
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<Pair<'a, Rule>, ParseError> {
         Ok(pairs.next().ok_or_else(|| {
             Error::new_from_pos(
@@ -151,7 +151,7 @@ impl AstParser {
     }
 
     fn expect_next<'a>(
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
         expected_rule: Rule,
     ) -> Result<Pair<'a, Rule>, ParseError> {
         let pair = Self::next_pair(pairs)?;
@@ -168,7 +168,7 @@ impl AstParser {
 
     fn expect_identifier_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<LocalIdentifier, ParseError> {
         let pair = Self::expect_next(pairs, Rule::identifier)?;
         Ok(LocalIdentifier::new(self.to_node(&pair)))
@@ -176,7 +176,7 @@ impl AstParser {
 
     fn expect_function_identifier_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<LocalIdentifier, ParseError> {
         let pair = Self::expect_next(pairs, Rule::function_identifier)?;
         Ok(LocalIdentifier::new(self.to_node(&pair)))
@@ -184,7 +184,7 @@ impl AstParser {
 
     fn expect_constant_identifier_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<LocalConstantIdentifier, ParseError> {
         let pair = Self::expect_next(pairs, Rule::constant_identifier)?;
         Ok(LocalConstantIdentifier(self.to_node(&pair)))
@@ -192,7 +192,7 @@ impl AstParser {
 
     fn _expect_variable_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<Variable, ParseError> {
         let identifier = self.expect_identifier_next(pairs)?;
         Ok(Variable {
@@ -203,7 +203,7 @@ impl AstParser {
 
     fn expect_field_label_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<FieldName, ParseError> {
         let field_label_pair = Self::expect_next(pairs, Rule::field_label)?;
         let mut inner = field_label_pair.clone().into_inner();
@@ -226,13 +226,13 @@ impl AstParser {
 
     fn expect_local_type_identifier_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<LocalTypeIdentifier, ParseError> {
         let pair = Self::expect_next(pairs, Rule::type_identifier)?;
         Ok(LocalTypeIdentifier::new(self.to_node(&pair)))
     }
 
-    fn convert_into_iterator<'a>(pair: &'a Pair<'a, Rule>) -> impl Iterator<Item = Pair<'a, Rule>> {
+    fn convert_into_iterator<'a>(pair: &'a Pair<'a, Rule>) -> impl Iterator<Item=Pair<'a, Rule>> {
         pair.clone().into_inner()
     }
 
@@ -609,13 +609,6 @@ impl AstParser {
                         Rule::unwrap_postfix => {
                             postfixes
                                 .push(Postfix::OptionalChainingOperator(self.to_node(&op_pair)));
-                        }
-
-                        Rule::none_coalesce_postfix => {
-                            let mut postfix_inner = Self::convert_into_iterator(&child);
-                            let expr_pair = postfix_inner.next().expect("must have following");
-                            let default_expression = self.parse_expression(&expr_pair)?;
-                            postfixes.push(Postfix::NoneCoalescingOperator(default_expression));
                         }
 
                         Rule::function_call_postfix => {
@@ -1213,6 +1206,7 @@ impl AstParser {
             Rule::addition => self.parse_addition(sub),
             Rule::range => self.parse_range(sub),
             Rule::logical => self.parse_logical(sub),
+            Rule::none_coalesce => self.parse_none_coalesce(sub),
             Rule::comparison => self.parse_comparison(sub),
             Rule::multiplication => self.parse_multiplication(sub),
 
@@ -1523,6 +1517,7 @@ impl AstParser {
             Rule::op_gte => BinaryOperatorKind::GreaterEqual,
             Rule::op_and => BinaryOperatorKind::LogicalAnd,
             Rule::op_or => BinaryOperatorKind::LogicalOr,
+            Rule::op_none_coalesce => BinaryOperatorKind::NoneCoalescingOperator,
             _ => {
                 panic!("unknown operator")
             }
@@ -2897,18 +2892,42 @@ impl AstParser {
         }
     }
 
-    fn parse_logical(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
-        debug_assert_eq!(pair.as_rule(), Rule::logical);
+    fn parse_none_coalesce(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
+        debug_assert_eq!(pair.as_rule(), Rule::none_coalesce);
         let mut inner = pair.clone().into_inner();
         let mut expr = self.parse_range(&inner.next().unwrap())?;
         while let Some(op) = inner.next() {
             let operator = self.parse_binary_operator(&op)?; // op_and or op_or
+
+            if operator.kind != BinaryOperatorKind::NoneCoalescingOperator {
+                panic!("expected ?? in none_coalesce, got {:?}", operator);
+            }
+
             let right = self.parse_range(&inner.next().unwrap())?;
             expr = self.create_expr(
                 ExpressionKind::BinaryOp(Box::new(expr), operator, Box::new(right)),
                 pair,
             );
         }
+        Ok(expr)
+    }
+
+    fn parse_logical(&self, pair: &Pair<Rule>) -> Result<Expression, ParseError> {
+        debug_assert_eq!(pair.as_rule(), Rule::logical);
+
+        let mut inner = pair.clone().into_inner();
+        // first, parse a full coalesce‐expression (so “a ?? b” binds tighter than “&&”)
+        let mut expr = self.parse_none_coalesce(&inner.next().unwrap())?;
+
+        while let Some(op_pair) = inner.next() {
+            let operator = self.parse_binary_operator(&op_pair)?;  // && or ||
+            let right = self.parse_none_coalesce(&inner.next().unwrap())?;
+            expr = self.create_expr(
+                ExpressionKind::BinaryOp(Box::new(expr), operator, Box::new(right)),
+                pair,
+            );
+        }
+
         Ok(expr)
     }
 

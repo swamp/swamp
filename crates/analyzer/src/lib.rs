@@ -45,6 +45,38 @@ use swamp_types::prelude::*;
 use swamp_types::TypeKind;
 use tracing::error;
 
+
+/*
+            swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
+                    previous_was_optional_chaining = false;
+
+                    let (unwrapped_type, optional_type) = if let TypeKind::Optional(unwrapped_type) =
+                        &*tv.resolved_type.kind
+                    {
+                        // Standalone mode: tv.resolved_type is already optional
+                        (unwrapped_type, tv.resolved_type.clone())
+                    } else if uncertain {
+                        // Uncertain mode: tv.resolved_type is unwrapped, need to create optional type
+                        let optional_type = self.shared.state.types.optional(&tv.resolved_type);
+                        (&tv.resolved_type, optional_type)
+                    } else {
+                        return self.create_err(ErrorKind::CanNotNoneCoalesce, &default_expr.node);
+                    };
+
+                    let unwrapped_type_context = TypeContext::new_argument(unwrapped_type, false);
+                    let resolved_default_expr =
+                        self.analyze_expression(default_expr, &unwrapped_type_context);
+                    self.add_postfix(
+                        &mut suffixes,
+                        PostfixKind::NoneCoalescingOperator(resolved_default_expr, optional_type, uncertain),
+                        (*unwrapped_type).clone(),
+                        &default_expr.node,
+                    );
+                    tv.resolved_type = (*unwrapped_type).clone();
+                    uncertain = false; // the chain is safe, because this will always solve None
+                }
+ */
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum AssignmentMode {
     OwnedValue,
@@ -1150,12 +1182,6 @@ impl<'a> Analyzer<'a> {
                     | swamp_ast::Postfix::SubscriptTuple(_, _) => {
                         // These are valid after optional chaining
                     }
-                    swamp_ast::Postfix::NoneCoalescingOperator(node) => {
-                        return self.create_err(
-                            ErrorKind::InvalidOperatorAfterOptionalChaining,
-                            &node.node,
-                        );
-                    }
                     swamp_ast::Postfix::OptionalChainingOperator(node) => {
                         return self
                             .create_err(ErrorKind::InvalidOperatorAfterOptionalChaining, node);
@@ -1355,35 +1381,6 @@ impl<'a> Analyzer<'a> {
                 }
                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, arguments) => {
                     panic!("can only have function call at the start of a postfix chain")
-                }
-
-                swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
-                    previous_was_optional_chaining = false;
-
-                    let (unwrapped_type, optional_type) = if let TypeKind::Optional(unwrapped_type) =
-                        &*tv.resolved_type.kind
-                    {
-                        // Standalone mode: tv.resolved_type is already optional
-                        (unwrapped_type, tv.resolved_type.clone())
-                    } else if uncertain {
-                        // Uncertain mode: tv.resolved_type is unwrapped, need to create optional type
-                        let optional_type = self.shared.state.types.optional(&tv.resolved_type);
-                        (&tv.resolved_type, optional_type)
-                    } else {
-                        return self.create_err(ErrorKind::CanNotNoneCoalesce, &default_expr.node);
-                    };
-
-                    let unwrapped_type_context = TypeContext::new_argument(unwrapped_type, false);
-                    let resolved_default_expr =
-                        self.analyze_expression(default_expr, &unwrapped_type_context);
-                    self.add_postfix(
-                        &mut suffixes,
-                        PostfixKind::NoneCoalescingOperator(resolved_default_expr, optional_type, uncertain),
-                        (*unwrapped_type).clone(),
-                        &default_expr.node,
-                    );
-                    tv.resolved_type = (*unwrapped_type).clone();
-                    uncertain = false; // the chain is safe, because this will always solve None
                 }
 
                 swamp_ast::Postfix::OptionalChainingOperator(option_node) => {
@@ -2540,10 +2537,6 @@ impl<'a> Analyzer<'a> {
                     is_owned_result = true;
                     is_mutable = false;
                 }
-                PostfixKind::NoneCoalescingOperator(_, _, _) => {
-                    is_owned_result = true;
-                    is_mutable = false;
-                }
                 PostfixKind::VecSubscript(_, _) => {}
                 PostfixKind::SparseSubscript(_, _) => {}
                 PostfixKind::GridSubscript(_, _, _) => {}
@@ -3004,15 +2997,6 @@ impl<'a> Analyzer<'a> {
                     return SingleLocationExpression {
                         kind: MutableReferenceKind::MutVariableRef,
                         node: self.to_node(node),
-                        ty: self.shared.state.types.unit(),
-                        starting_variable: start_variable,
-                        access_chain: vec![],
-                    };
-                }
-                swamp_ast::Postfix::NoneCoalescingOperator(expr) => {
-                    return SingleLocationExpression {
-                        kind: MutableReferenceKind::MutVariableRef,
-                        node: self.to_node(&expr.node),
                         ty: self.shared.state.types.unit(),
                         starting_variable: start_variable,
                         access_chain: vec![],

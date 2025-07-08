@@ -423,7 +423,6 @@ pub enum Postfix {
     MemberCall(Node, Option<Vec<GenericParameter>>, Vec<Expression>),
     FunctionCall(Node, Option<Vec<GenericParameter>>, Vec<Expression>),
     OptionalChainingOperator(Node),     // ?-postfix
-    NoneCoalescingOperator(Expression), // ??-postfix
     SubscriptTuple(Expression, Expression),
 }
 
@@ -619,7 +618,7 @@ pub struct BinaryOperator {
 }
 
 // Takes a left and right side expression
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOperatorKind {
     Add,
     Subtract,
@@ -634,6 +633,7 @@ pub enum BinaryOperatorKind {
     LessEqual,
     GreaterThan,
     GreaterEqual,
+    NoneCoalescingOperator,
 }
 
 // Only takes one expression argument

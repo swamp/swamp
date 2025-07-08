@@ -26,6 +26,30 @@ impl Analyzer<'_> {
         let node = self.to_node(&ast_op.node);
 
         match (&kind, &left_type, &right_type) {
+            (&BinaryOperatorKind::NoneCoalesce, _left_kind, _right_kind) => {
+                if let TypeKind::Optional(inner_optional) = &left_type {
+                    // Right hand side type must be either an optional <T> or an unwrapped T
+                    if self.types().compatible_with(inner_optional, &right.ty) || self.types().compatible_with(&left.ty, &right.ty) {
+                        let final_type = right.ty.clone();
+                        Some((
+                            BinaryOperator {
+                                left: Box::new(left),
+                                right: Box::new(right.clone()),
+                                kind,
+                                node,
+                            },
+                            final_type,
+                        ))
+                    } else {
+                        self.add_err(ErrorKind::ExpectedOptional, &ast_op.node);
+                        return None;
+                    }
+                } else {
+                    self.add_err(ErrorKind::ExpectedOptional, &ast_op.node);
+                    return None;
+                }
+            }
+
             // String concatenation - allow any type on the right
             (&BinaryOperatorKind::Add, TypeKind::VecStorage(inner, _), _) => {
                 if *inner.kind != TypeKind::Byte {
@@ -158,6 +182,7 @@ impl Analyzer<'_> {
             swamp_ast::BinaryOperatorKind::LessEqual => BinaryOperatorKind::LessEqual,
             swamp_ast::BinaryOperatorKind::GreaterThan => BinaryOperatorKind::GreaterThan,
             swamp_ast::BinaryOperatorKind::GreaterEqual => BinaryOperatorKind::GreaterEqual,
+            swamp_ast::BinaryOperatorKind::NoneCoalescingOperator => BinaryOperatorKind::NoneCoalesce,
         }
     }
 }
