@@ -4,7 +4,7 @@
  */
 use crate::ALIGNMENT;
 use std::{alloc, mem, ptr, slice};
-use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::{HeapMemoryAddress, HeapMemoryRegion, MemoryAlignment, MemorySize};
 
 /// Execution mode for the VM memory
@@ -14,6 +14,10 @@ pub enum ExecutionMode {
     ConstantEvaluation,
     /// Normal execution mode - strings should be in heap
     NormalExecution,
+}
+
+pub struct MemoryDebug {
+    pub max_heap_alloc_offset: usize,
 }
 
 /// VM Memory Layout (from lower to higher addresses):
@@ -41,13 +45,9 @@ pub struct Memory {
     pub heap_alloc_offset: usize,
     pub constant_memory_size: usize,
     pub execution_mode: ExecutionMode, // Track whether we're in constant evaluation or normal execution
+
+    pub debug: MemoryDebug,
 }
-
-impl Memory {}
-
-impl Memory {}
-
-impl Memory {}
 
 impl Drop for Memory {
     fn drop(&mut self) {
@@ -88,6 +88,9 @@ impl Memory {
             constant_memory_size: aligned_start_of_stack,
             stack_start: aligned_start_of_stack,
             execution_mode: ExecutionMode::NormalExecution,
+            debug: MemoryDebug {
+                max_heap_alloc_offset: 0,
+            },
         }
     }
 
@@ -106,7 +109,11 @@ impl Memory {
         // TODO: This is not needed for release builds
         // but let's do it always for now to catch bugs.
         unsafe {
-            ptr::write_bytes(self.memory.add(self.heap_start), 0xCD, self.memory_size - self.heap_start);
+            ptr::write_bytes(
+                self.memory.add(self.heap_start),
+                0xCD,
+                self.memory_size - self.heap_start,
+            );
         }
     }
 
@@ -213,6 +220,11 @@ impl Memory {
 
         let result_offset = self.heap_alloc_offset;
         self.heap_alloc_offset = aligned_offset;
+
+        #[cfg(feature = "debug_vm")]
+        if self.heap_alloc_offset > self.debug.max_heap_alloc_offset {
+            self.debug.max_heap_alloc_offset = self.heap_alloc_offset - self.heap_start;
+        }
 
         result_offset as u32
     }

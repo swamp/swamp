@@ -4,10 +4,10 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::ExecutionMode::NormalExecution;
-use crate::memory::Memory;
-use crate::VmState::Normal;
+use crate::memory::{Memory, MemoryDebug};
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -109,6 +109,7 @@ pub struct Debug {
     pub opcodes_executed: usize,
     pub call_depth: usize,
     pub max_call_depth: usize,
+    pub max_stack_offset: usize,
 }
 
 pub struct CallFrame {
@@ -306,6 +307,7 @@ impl Vm {
                 opcodes_executed: 0,
                 call_depth: 0,
                 max_call_depth: 0,
+                max_stack_offset: 0,
             },
             debug_stats_enabled: setup.debug_stats_enabled,
             debug_opcodes_enabled: setup.debug_opcodes_enabled,
@@ -883,6 +885,9 @@ impl Vm {
 
     pub fn reset_debug(&mut self) {
         self.debug = Debug::default();
+        self.memory.debug = MemoryDebug {
+            max_heap_alloc_offset: 0,
+        }
     }
 
     #[must_use]
@@ -910,41 +915,6 @@ impl Vm {
     fn execute_mov_8(&mut self, dst_reg: u8, octet: u8) {
         set_reg!(self, dst_reg, octet);
     }
-
-    /*
-    #[inline]
-    pub fn execute_unwrap_jmp_some(&mut self, wrapped_ptr_reg: u8, jmp_ip_0: u8, jmp_ip_1: u8) {
-        get_reg!(self, wrapped_ptr_reg, Ptr => ptr_addr);
-        let ptr = self.memory.get_heap_const_ptr(ptr_addr as usize);
-        unsafe {
-            if *ptr != 0 {
-                self.ip = u8s_to_u16!(jmp_ip_0, jmp_ip_1) as usize;
-            }
-        }
-    }
-
-    #[inline]
-    pub fn execute_unwrap_jmp_none(&mut self, wrapped_ptr_reg: u8, jmp_ip_0: u8, jmp_ip_1: u8) {
-        get_reg!(self, wrapped_ptr_reg, Ptr => ptr_addr);
-        let ptr = self.memory.get_heap_const_ptr(ptr_addr as usize);
-        unsafe {
-            if *ptr == 0 {
-                self.ip = u8s_to_u16!(jmp_ip_0, jmp_ip_1) as usize;
-            }
-        }
-    }
-
-     */
-
-    /*
-    #[inline]
-    fn execute_alloc(&mut self, dst_reg: u8, size_0: u8, size_1: u8) {
-        let memory_size = u8s_to_u16!(size_0, size_1);
-        let data_ptr = self.memory.heap_allocate(memory_size as usize);
-        set_reg!(self, dst_reg, data_ptr);
-    }
-
-     */
 
     // Fixed Point special methods
     #[inline]
@@ -1881,6 +1851,12 @@ impl Vm {
         let frame_size = u32_from_u8s!(frame_size_0, frame_size_1, frame_size_2, frame_size_3);
         self.memory.set_fp_from_sp(); // set the frame pointer to what sp is now
         self.memory.inc_sp(frame_size as usize);
+        #[cfg(feature = "debug_vm")]
+        if self.debug_stats_enabled {
+            if self.memory.stack_offset > self.debug.max_stack_offset {
+                self.debug.max_stack_offset = self.memory.stack_offset - self.memory.stack_start;
+            }
+        }
     }
 
     #[inline]

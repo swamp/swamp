@@ -29,7 +29,7 @@ pub fn layout_variables(
 ) -> FrameAndVariableInfo {
     let mut local_frame_allocator = StackFrameAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
-        MemorySize(3 * 1024 * 1024 * 1024),
+        MemorySize(64 * 1024 * 1024),
     ));
 
     let mut enter_comment = "variables:\n".to_string();
