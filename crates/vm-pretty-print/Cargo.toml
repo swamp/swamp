@@ -9,5 +9,5 @@ repository = "https://github.com/swamp/swamp"
 [dependencies]
 swamp-vm-types = { path = "../vm-types", version = "0.2.0" }
 swamp-vm = { path = "../vm", version = "0.2.0" }
-fixed32 = "0.0.17"
+fixed32 = "0.0.18"
 tinter = "0.1.0"

@@ -10,7 +10,7 @@ repository = "https://github.com/swamp/swamp"
 [dependencies]
 swamp-vm-types = { path = "../vm-types", version = "0.2.5" }
 
-fixed32 = "0.0.17"
+fixed32 = "0.0.18"
 squirrel-prng = "0.0.1"
 tinter = "0.1.0"
 

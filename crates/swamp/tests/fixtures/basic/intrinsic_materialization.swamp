@@ -135,7 +135,7 @@ fn int_to_string_from_struct() {
 fn float_to_string_from_struct() {
     data = TestData { int_value: 0, float_value: 3.14, result_int: 0, result_float: 0.0 }
     result = data.float_value.to_string()
-    assert(result == "3.14", "float to_string from struct is wrong")
+    assert(result == "3.140", "float to_string from struct is wrong")
 }
 
 #[test]

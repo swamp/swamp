@@ -11,7 +11,7 @@ source-map-node = "0.0.1"
 swamp-types = { path = "../types", version = "0.2.5" }
 
 seq-map = "0.0.13"
-fixed32 = "0.0.17"
+fixed32 = "0.0.18"
 tracing = "0.1.40"
 swamp-attributes = { path = "../attributes", version = "0.2.5" }
 
