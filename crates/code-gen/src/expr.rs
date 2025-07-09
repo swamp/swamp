@@ -5,9 +5,10 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{BinaryOperatorKind, Expression, ExpressionKind};
+use swamp_types::TypeKind;
 use swamp_vm_layout::LayoutCache;
+use swamp_vm_types::types::{int_type, BasicTypeKind, Destination, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, int_type};
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
@@ -63,9 +64,9 @@ impl CodeBuilder<'_> {
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, Destination::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(
-                &mut self.state.layout_cache,
-                expr,
-            )
+            &mut self.state.layout_cache,
+            expr,
+        )
         {
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
             let temp_materialization_target = self
@@ -400,7 +401,16 @@ impl CodeBuilder<'_> {
             ExpressionKind::PostfixChain(start, chain) => {
                 self.emit_postfix_chain(output, start, chain, ctx);
             }
-            ExpressionKind::Match(match_expr) => self.emit_match(output, match_expr, ctx),
+            ExpressionKind::Match(match_expr) => {
+                match &*match_expr.expression.ty.kind {
+                    TypeKind::Enum(_enum_type) => {
+                        self.emit_match_enum(output, match_expr, ctx)
+                    }
+                    _ => {
+                        self.emit_match_literal(output, match_expr, ctx)
+                    }
+                }
+            }
             ExpressionKind::Guard(guards) => self.emit_guard(output, guards, ctx),
             ExpressionKind::When(bindings, true_expr, false_expr) => {
                 self.emit_when(output, bindings, true_expr, false_expr.as_deref(), ctx);

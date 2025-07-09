@@ -18,6 +18,7 @@ mod intrinsic_materialization
 mod intrinsic_materialization_simple
 mod logical
 mod map
+mod match_literal
 mod match
 mod operator
 mod option

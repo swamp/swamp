@@ -12,8 +12,8 @@ use swamp_semantic::{
     UnaryOperator, UnaryOperatorKind,
 };
 use swamp_types::TypeKind;
+use swamp_vm_types::types::{b8_type, Destination, TypedRegister, VmType};
 use swamp_vm_types::PatchPosition;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, b8_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn force_normalized_bool_reg_if_needed(
@@ -127,7 +127,7 @@ impl CodeBuilder<'_> {
                     let left = self.emit_scalar_rvalue(&operator.left, ctx);
                     let right = self.emit_scalar_rvalue(&operator.right, ctx);
                     let is_equal_polarity = matches!(operator.kind, BinaryOperatorKind::Equal);
-                    return self.emit_binary_operator_equality_to_bool(
+                    return self.emit_equality_to_bool_target(
                         dest_bool_reg,
                         &left,
                         is_equal_polarity,

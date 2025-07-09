@@ -8,11 +8,11 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::{FlagState, FlagStateKind};
 use source_map_node::Node;
-use swamp_vm_types::PointerLocation;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
+use swamp_vm_types::PointerLocation;
 
 impl CodeBuilder<'_> {
-    pub fn emit_binary_operator_equality_to_bool(
+    pub fn emit_equality_to_bool_target(
         &mut self,
         dest_bool_reg: &TypedRegister,
         left_source: &TypedRegister,
@@ -117,7 +117,7 @@ impl CodeBuilder<'_> {
             &left_source.ptr_reg,
             &right_source.ptr_reg,
             node,
-            "compare block",
+            "compare vec like",
         );
 
         FlagState {

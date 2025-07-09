@@ -1,0 +1,45 @@
+
+#[test]
+fn match_int() {
+    x = 20
+
+    result = match x {
+        10 -> "cool",
+        20 -> "warm",
+        40 -> "burning",
+        _ -> "not found",
+    }
+
+    assert(result == "warm", 'should have match {result}')
+}
+
+
+
+#[test]
+fn match_int_with_guard() {
+    x = 40
+    number_of_notifications = 4
+
+    result = match x {
+        10 -> "cool",
+        20 -> "warm",
+        40 | number_of_notifications < 3 -> "burning",
+        40 -> "you know, same as before",
+        _ -> "not found",
+    }
+
+    assert(result == "you know, same as before", 'should have match {result}')
+}
+
+
+#[test]
+fn match_float() {
+    x = 42.0
+
+    result = match x {
+        -1.0 -> 'freezing',
+        42.0 -> "burning",
+    }
+
+    assert(result == "burning", 'should have match {result}')
+}
