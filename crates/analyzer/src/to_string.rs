@@ -504,7 +504,7 @@ fn generate_to_string_for_enum(
 
             // Variant with payload - create a variable to capture the payload
             let payload_var =
-                scope.create_local_variable("payload", &variant_type.payload_type, node);
+                scope.create_local_variable_param_like("payload", &variant_type.payload_type, node);
 
             // Create pattern element for the payload variable
             let payload_pattern_element = PatternElement::Variable(payload_var.clone());
@@ -755,6 +755,22 @@ impl GeneratedScope {
         )
     }
 
+
+    pub(crate) fn create_local_variable_param_like(
+        &mut self,
+        assigned_name: &str,
+        variable_type: &TypeRef,
+        node: &Node,
+    ) -> VariableRef {
+        self.create_variable_in_current_scope(
+            assigned_name,
+            variable_type,
+            node,
+            false,
+            VariableType::Parameter,
+        )
+    }
+
     pub(crate) fn create_parameter(
         &mut self,
         assigned_name: &str,
@@ -837,7 +853,7 @@ fn generate_to_string_for_sequence_like(
     };
 
     let for_loop = {
-        let element_var = block_scope.create_local_variable("element", element_type, node);
+        let element_var = block_scope.create_local_variable_param_like("element", element_type, node);
 
         // if !is_first { result = result + ", " }
         let if_body = {
@@ -1063,8 +1079,8 @@ fn generate_to_string_for_map_like(
 
     let for_loop = {
         // For maps, we need two variables: key and value
-        let key_var = scope.create_local_variable("key", key_type, node);
-        let value_var = scope.create_local_variable("val", value_type, node);
+        let key_var = scope.create_local_variable_param_like("key", key_type, node);
+        let value_var = scope.create_local_variable_param_like("val", value_type, node);
 
         // if !is_first { result = result + ", " }
         let if_body = {
@@ -1336,7 +1352,7 @@ fn generate_to_string_for_optional(
         // For to_short_string on optional, we return the inner value's string for Some, "-" for None
         // This creates: when value_var = self_expression { value_var.to_short_string() } else { "-" }
         // Create a variable to bind the unwrapped optional value
-        let value_var = scope.create_local_variable("value", inner_type, node);
+        let value_var = scope.create_local_variable_param_like("value", inner_type, node);
 
         // Get the variable access for the unwrapped value
         let value_access = create_expr_resolved(
@@ -1655,7 +1671,7 @@ pub fn internal_generate_to_string_function_for_type(
         } else {
             "to_string"
         }
-        .to_string(),
+            .to_string(),
         associated_with_type: Option::from(ty.clone()),
         defined_in_module_path: module_path.to_vec(),
         signature: Signature {
@@ -2191,8 +2207,8 @@ fn generate_map_pretty_string(
 
     // for key, value in self { ... }
     let for_loop = {
-        let key_var = scope.create_local_variable("key", key_type, node);
-        let value_var = scope.create_local_variable("value", value_type, node);
+        let key_var = scope.create_local_variable_param_like("key", key_type, node);
+        let value_var = scope.create_local_variable_param_like("value", value_type, node);
 
         // Set has_items = true (we found at least one item)
         let set_has_items = {
@@ -2578,7 +2594,7 @@ fn generate_multi_line_sequence_format(
 
     // for element in self { add indentation + element.to_pretty_string(next_indentation) + ",\n" }
     let for_loop = {
-        let element_var = scope.create_local_variable("element", element_type, node);
+        let element_var = scope.create_local_variable_param_like("element", element_type, node);
 
         // Add element line: result += indentation_spaces + element.to_pretty_string(next_indentation) + ",\n"
         let add_element_line = {

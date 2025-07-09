@@ -5,8 +5,8 @@
 use crate::Analyzer;
 use source_map_node::Node;
 use std::rc::Rc;
-use swamp_semantic::ScopeInfo;
 use swamp_semantic::err::ErrorKind;
+use swamp_semantic::ScopeInfo;
 use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
@@ -105,12 +105,50 @@ impl Analyzer<'_> {
         )
     }
 
+    pub(crate) fn create_local_variable_parameter_like(
+        &mut self,
+        variable: &swamp_ast::Node,
+        is_mutable: Option<&swamp_ast::Node>,
+        variable_type_ref: &TypeRef,
+        concrete_check: bool,
+    ) -> VariableRef {
+        let debug_text = self.get_text(variable);
+        if !debug_text.starts_with('_')
+            && concrete_check
+            && !variable_type_ref.can_be_stored_in_variable()
+        {
+            self.add_err(
+                ErrorKind::VariableTypeMustBeBlittable(variable_type_ref.clone()),
+                variable,
+            );
+            return Rc::new(Variable::create_err(self.types().unit()));
+        }
+        self.create_local_variable_parameter_like_resolved(
+            &self.to_node(variable),
+            Option::from(&self.to_node_option(is_mutable)),
+            variable_type_ref,
+        )
+    }
+
     pub(crate) fn create_variable(
         &mut self,
         variable: &swamp_ast::Variable,
         variable_type_ref: &TypeRef,
     ) -> VariableRef {
         self.create_local_variable(
+            &variable.name,
+            Option::from(&variable.is_mutable),
+            variable_type_ref,
+            true,
+        )
+    }
+
+    pub(crate) fn create_variable_param_like(
+        &mut self,
+        variable: &swamp_ast::Variable,
+        variable_type_ref: &TypeRef,
+    ) -> VariableRef {
+        self.create_local_variable_parameter_like(
             &variable.name,
             Option::from(&variable.is_mutable),
             variable_type_ref,
@@ -129,6 +167,22 @@ impl Analyzer<'_> {
             is_mutable,
             variable_type_ref,
             VariableType::Local,
+        );
+
+        variable_ref
+    }
+
+    pub(crate) fn create_local_variable_parameter_like_resolved(
+        &mut self,
+        variable: &Node,
+        is_mutable: Option<&Node>,
+        variable_type_ref: &TypeRef,
+    ) -> VariableRef {
+        let (variable_ref, variable_str) = self.create_variable_like_resolved(
+            variable,
+            is_mutable,
+            variable_type_ref,
+            VariableType::Parameter,
         );
 
         variable_ref

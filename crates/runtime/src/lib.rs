@@ -14,7 +14,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
-use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
+use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
 pub use swamp_compile::CompileOptions;
 use swamp_dep_loader::swamp_registry_path;
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
@@ -56,8 +56,7 @@ pub fn run_constants_in_order(
         // do not reset heap, all allocations from heap should remain (for now)
         vm.reset_call_stack();
 
-        if constant.target_constant_memory.ty().is_scalar() {
-        } else {
+        if constant.target_constant_memory.ty().is_scalar() {} else {
             // set memory location into to r0
             vm.registers[0] = constant.target_constant_memory.addr().0;
         }
@@ -491,7 +490,7 @@ pub fn run_function_with_debug(
             if use_color {
                 print!(
                     "{}",
-                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X} ", vm.fp(), vm.sp(),))
+                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X} ", vm.fp(), vm.sp(), ))
                 );
 
                 for reg in regs {
@@ -553,8 +552,6 @@ pub fn run_function_with_debug(
             println!("{pc:04X}> {string}");
         }
 
-        //        eprintln!("constant (from address 0x34): {:?}", &vm.heap_memory()[0x34..0x34+32]);
-
         vm.step(host_function_callback);
 
         // Check if VM encountered a trap or panic and show source information
@@ -572,13 +569,6 @@ pub fn run_function_with_debug(
                 (hash_after == hash_before),
                 "INTERNAL ERROR: constant memory has been written to"
             );
-            /*
-            assert_eq!(
-                hash_before, hash_after,
-                "constant memory has been clobbered"
-            );
-
-             */
         }
     }
 }

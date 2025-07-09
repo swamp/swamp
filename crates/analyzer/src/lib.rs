@@ -2309,6 +2309,9 @@ impl<'a> Analyzer<'a> {
             let tk = &mut_expr.ty.kind;
 
             if let TypeKind::Optional(found_ty) = &**tk {
+                // TODO: In the future we should check if this binding variable is just the payload of the variable
+                // given to it. in that case we should just create a param like variable, in the sense
+                // that it is *not* allocated in the stack frame, but is just represented as a register
                 let variable_ref = self.create_variable(&variable_binding.variable, found_ty);
 
                 let binding = WhenBinding {

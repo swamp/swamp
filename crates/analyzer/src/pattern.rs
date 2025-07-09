@@ -136,7 +136,7 @@ impl Analyzer<'_> {
                                         anyone_wants_mutable = true;
                                     }
 
-                                    let variable_ref = self.create_local_variable(
+                                    let variable_ref = self.create_local_variable_parameter_like(
                                         &var.name,
                                         Option::from(&var.is_mutable),
                                         &field_type.field_type,
@@ -206,7 +206,7 @@ impl Analyzer<'_> {
                                             anyone_wants_mutable = true;
                                         }
 
-                                        let variable_ref = self.create_local_variable(
+                                        let variable_ref = self.create_local_variable_parameter_like(
                                             &var.name,
                                             var.is_mutable.as_ref(),
                                             field_type,
