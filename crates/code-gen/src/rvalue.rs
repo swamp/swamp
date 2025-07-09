@@ -44,11 +44,11 @@ impl CodeBuilder<'_> {
     /// and expressions that need temporary memory storage (like initializer lists).
     ///
     /// For expressions that need memory materialization:
-    /// - If allow_temporary is true: Allocates temporary frame space, initializes it, and returns pointer
-    /// - If allow_temporary is false: Falls back to emit_scalar_rvalue (may fail for some expressions)
+    /// - If `allow_temporary` is true: Allocates temporary frame space, initializes it, and returns pointer
+    /// - If `allow_temporary` is false: Falls back to `emit_scalar_rvalue` (may fail for some expressions)
     ///
     /// For regular expressions:
-    /// - Uses emit_scalar_rvalue to get the pointer directly
+    /// - Uses `emit_scalar_rvalue` to get the pointer directly
     ///
     /// # Parameters
     /// - `expr`: The expression to evaluate

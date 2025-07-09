@@ -79,7 +79,7 @@ impl Type {
         self.flags.contains(TypeFlags::IS_BLITTABLE)
     }
 
-    pub fn is_option(&self) -> bool {
+    #[must_use] pub fn is_option(&self) -> bool {
         matches!(&*self.kind, TypeKind::Optional(_))
     }
 

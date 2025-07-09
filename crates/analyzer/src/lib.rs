@@ -29,7 +29,6 @@ use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::rc::Rc;
 use std::str::{FromStr, ParseBoolError};
-use std::task::Context;
 use swamp_ast::{GenericParameter, QualifiedTypeIdentifier};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
@@ -43,7 +42,7 @@ use swamp_semantic::{
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::prelude::*;
-use swamp_types::{Type, TypeKind};
+use swamp_types::TypeKind;
 use tracing::error;
 
 /*
@@ -3439,7 +3438,7 @@ impl<'a> Analyzer<'a> {
                         parameters: vec![self_type_param,
                                          TypeForParameter {
                                              name: "range".to_string(),
-                                             resolved_type: range_type.clone(),
+                                             resolved_type: range_type,
                                              is_mutable: false,
                                              node: None,
                                          }, ],

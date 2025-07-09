@@ -404,10 +404,10 @@ impl CodeBuilder<'_> {
             ExpressionKind::Match(match_expr) => {
                 match &*match_expr.expression.ty.kind {
                     TypeKind::Enum(_enum_type) => {
-                        self.emit_match_enum(output, match_expr, ctx)
+                        self.emit_match_enum(output, match_expr, ctx);
                     }
                     _ => {
-                        self.emit_match_literal(output, match_expr, ctx)
+                        self.emit_match_literal(output, match_expr, ctx);
                     }
                 }
             }

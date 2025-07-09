@@ -673,7 +673,7 @@ impl CodeBuilder<'_> {
                 &start_expression.node,
                 chain,
             );
-        };
+        }
 
         let patch_jump_over_none = if we_did_optional_chaining {
             Some(

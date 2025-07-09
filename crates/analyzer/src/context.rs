@@ -37,7 +37,7 @@ impl<'a> TypeContext<'a> {
         }
     }
 
-    pub(crate) fn with_argument_anything(&self) -> Self {
+    pub(crate) const fn with_argument_anything(&self) -> Self {
         Self {
             expected_type: None,
             has_lvalue_target: self.has_lvalue_target,

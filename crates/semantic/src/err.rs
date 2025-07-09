@@ -259,7 +259,7 @@ impl fmt::Display for ErrorKind {
 
 
 impl ErrorKind {
-    pub fn code(&self) -> usize {
+    #[must_use] pub const fn code(&self) -> usize {
         match self {
             Self::NoAssociatedFunction(_, _) => 1,
             Self::MissingSubscriptMember => 2,

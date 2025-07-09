@@ -922,7 +922,7 @@ fn create_basic_type(
     })
 }
 
-pub fn check_type_size(ty: &BasicType, _comment: &str) {
+pub const fn check_type_size(ty: &BasicType, _comment: &str) {
     if ty.total_size.0 > 1024 * 1024 {
         //eprintln!("suspicious allocation: {} for {ty}", ty.total_size);
     }

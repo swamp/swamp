@@ -407,7 +407,7 @@ impl CodeBuilder<'_> {
                 let range_expr = &arguments[0];
                 let range_region = self.emit_scalar_rvalue(range_expr, ctx);
 
-                self.builder.add_vec_copy_range(&output_destination.grab_memory_location().pointer_location().unwrap(), &self_ptr_reg, &range_region, node, "vec slice");
+                self.builder.add_vec_copy_range(&output_destination.grab_memory_location().pointer_location().unwrap(), self_ptr_reg, &range_region, node, "vec slice");
             }
 
             IntrinsicFunction::VecRemoveIndex => {

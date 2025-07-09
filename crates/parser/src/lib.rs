@@ -2899,9 +2899,7 @@ impl AstParser {
         while let Some(op) = inner.next() {
             let operator = self.parse_binary_operator(&op)?; // op_and or op_or
 
-            if operator.kind != BinaryOperatorKind::NoneCoalescingOperator {
-                panic!("expected ?? in none_coalesce, got {operator:?}");
-            }
+            assert!(!(operator.kind != BinaryOperatorKind::NoneCoalescingOperator), "expected ?? in none_coalesce, got {operator:?}");
 
             let right = self.parse_range(&inner.next().unwrap())?;
             expr = self.create_expr(

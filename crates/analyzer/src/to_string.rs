@@ -160,7 +160,7 @@ fn create_var_reassignment(
     )
 }
 
-/// Helper to create "!is_first" condition for separators
+/// Helper to create "!`is_first`" condition for separators
 fn create_not_first_condition(
     is_first_var: &VariableRef,
     bool_type: &TypeRef,
