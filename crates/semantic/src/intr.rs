@@ -64,6 +64,7 @@ pub enum IntrinsicFunction {
     VecInsert,
     VecFirst,
     VecGet,
+    VecSlice,
     VecLast,
     VecLen,
     VecCapacity,
@@ -163,6 +164,7 @@ impl fmt::Display for IntrinsicFunction {
             // Vec
             Self::VecPush => "vec_push",
             Self::VecPop => "vec_pop",
+            Self::VecSlice => "vec_slice",
             Self::VecRemoveIndex => "vec_remove_index",
             Self::VecRemoveIndexGetValue => "vec_remove_index_get_value",
             Self::VecRemoveFirstIndexGetValue => "vec_remove_first_get_value",

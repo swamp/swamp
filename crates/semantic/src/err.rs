@@ -126,6 +126,7 @@ pub enum ErrorKind {
         allowed: usize,
     },
     CanOnlyHaveFunctionCallAtStartOfPostfixChain,
+    CanNotSubscriptWithThatType,
 }
 
 impl fmt::Display for ErrorKind {
@@ -134,6 +135,9 @@ impl fmt::Display for ErrorKind {
             Self::ExpectedTupleType => "expected tuple type",
             Self::CanOnlyHaveFunctionCallAtStartOfPostfixChain => {
                 "function calls only allowed at start of chain"
+            }
+            Self::CanNotSubscriptWithThatType => {
+                "subscript not possible with that type"
             }
             // Function and Method Errors
             Self::NoAssociatedFunction(_, _) => "no associated function",
@@ -252,6 +256,102 @@ impl fmt::Display for ErrorKind {
         f.write_str(error_message)
     }
 }
+
+
+impl ErrorKind {
+    pub fn code(&self) -> usize {
+        match self {
+            Self::NoAssociatedFunction(_, _) => 1,
+            Self::MissingSubscriptMember => 2,
+            Self::UnusedVariablesCanNotBeMut => 3,
+            Self::VariableTypeMustBeBlittable(_) => 4,
+            Self::GuardCanNotHaveMultipleWildcards => 5,
+            Self::WildcardMustBeLastInGuard => 6,
+            Self::GuardMustHaveWildcard => 7,
+            Self::GuardHasNoType => 8,
+            Self::TooManyDestructureVariables => 9,
+            Self::CanNotDestructure => 10,
+            Self::UnknownStructTypeReference => 11,
+            Self::DuplicateFieldName => 12,
+            Self::MissingFieldInStructInstantiation(_, _) => 13,
+            Self::UnknownVariable => 14,
+            Self::ArrayIndexMustBeInt(_) => 15,
+            Self::OverwriteVariableWithAnotherType => 16,
+            Self::NoneNeedsExpectedTypeHint => 17,
+            Self::ExpectedMutableLocation => 18,
+            Self::WrongNumberOfArguments(_, _) => 19,
+            Self::CanOnlyOverwriteVariableWithMut => 20,
+            Self::OverwriteVariableNotAllowedHere => 21,
+            Self::UnknownEnumVariantType => 22,
+            Self::UnknownStructField => 23,
+            Self::UnknownEnumVariantTypeInPattern => 24,
+            Self::ExpectedEnumInPattern => 25,
+            Self::WrongEnumVariantContainer(_) => 26,
+            Self::VariableIsNotMutable => 27,
+            Self::ArgumentIsNotMutable => 28,
+            Self::UnknownTypeReference => 29,
+            Self::SemanticError(_) => 30,
+            Self::ExpectedOptional => 31,
+            Self::MapKeyTypeMismatch { .. } => 32,
+            Self::MapValueTypeMismatch { .. } => 33,
+            Self::IncompatibleTypes { .. } => 34,
+            Self::UnknownMemberFunction(_) => 35,
+            Self::ExpressionsNotAllowedInLetPattern => 36,
+            Self::UnknownField => 37,
+            Self::EnumVariantHasNoFields => 38,
+            Self::ExpectedTupleType => 39,
+            Self::TooManyTupleFields { .. } => 40,
+            Self::ExpectedBooleanExpression => 41,
+            Self::NotAnIterator => 42,
+            Self::IntConversionError(_) => 43,
+            Self::FloatConversionError(_) => 44,
+            Self::BoolConversionError => 45,
+            Self::DuplicateFieldInStructInstantiation(_) => 46,
+            Self::UnknownIdentifier(_) => 47,
+            Self::NoDefaultImplemented(_) => 48,
+            Self::UnknownConstant => 49,
+            Self::NotValidLocationStartingPoint => 50,
+            Self::CallsCanNotBePartOfChain => 51,
+            Self::UnwrapCanNotBePartOfChain => 52,
+            Self::NoneCoalesceCanNotBePartOfChain => 53,
+            Self::InvalidOperatorAfterOptionalChaining => 54,
+            Self::SelfNotCorrectType => 55,
+            Self::CanNotNoneCoalesce => 56,
+            Self::UnknownSymbol => 57,
+            Self::UnknownEnumType => 58,
+            Self::UnknownModule => 59,
+            Self::BreakOutsideLoop => 60,
+            Self::ReturnOutsideCompare => 61,
+            Self::EmptyMatch => 62,
+            Self::MatchArmsMustHaveTypes => 63,
+            Self::ContinueOutsideLoop => 64,
+            Self::ParameterIsNotMutable => 65,
+            Self::CouldNotCoerceTo(_) => 66,
+            Self::UnexpectedType => 67,
+            Self::CanNotAttachFunctionsToType => 68,
+            Self::MissingMemberFunction(_, _) => 69,
+            Self::ExpectedLambda => 70,
+            Self::ExpectedSlice => 71,
+            Self::MissingToString(_) => 72,
+            Self::IncompatibleTypesForAssignment { .. } => 73,
+            Self::CapacityNotEnough { .. } => 74,
+            Self::ExpectedInitializerTarget { .. } => 75,
+            Self::NoInferredTypeForEmptyInitializer => 76,
+            Self::TooManyInitializerListElementsForStorage { .. } => 77,
+            Self::KeyVariableNotAllowedToBeMutable => 78,
+            Self::SelfNotCorrectMutableState => 79,
+            Self::NotAllowedAsReturnType(_) => 80,
+            Self::ParameterTypeCanNotBeStorage(_) => 81,
+            Self::OperatorProblem => 82,
+            Self::MatchMustHaveAtLeastOneArm => 83,
+            Self::NeedStorage => 84,
+            Self::TooManyParameters { .. } => 85,
+            Self::CanOnlyHaveFunctionCallAtStartOfPostfixChain => 86,
+            Self::CanNotSubscriptWithThatType => 87,
+        }
+    }
+}
+
 
 impl From<SemanticError> for Error {
     fn from(value: SemanticError) -> Self {

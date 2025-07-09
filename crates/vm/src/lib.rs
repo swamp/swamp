@@ -4,13 +4,14 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::ExecutionMode::NormalExecution;
 use crate::memory::{Memory, MemoryDebug};
+use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::mem::discriminant;
 use std::ptr;
 use std::str::FromStr;
 use swamp_vm_types::opcode::OpCode;
@@ -158,6 +159,13 @@ pub enum TrapCode {
     GridBoundsFail,
     InvalidUtf8Sequence,
     UnalignedAccess,
+    ReverseRangeNotAllowedHere,
+}
+
+impl TrapCode {
+    pub fn is_sort_of_equal(&self, other: &Self) -> bool {
+        discriminant(self) == discriminant(other)
+    }
 }
 
 impl TryFrom<u8> for TrapCode {
@@ -205,6 +213,11 @@ impl FromStr for TrapCode {
                 encountered: 0,
                 element_count: 0,
             }, // TODO: FIX
+            "vec_out_of_capacity" => Self::VecOutOfCapacity {
+                encountered: 0,
+                capacity: 0,
+            }, // TODO: FIX
+            "reverse_range_not_allowed_here" => Self::ReverseRangeNotAllowedHere,
             "map_out_of_space" => Self::MapOutOfSpace,
             "map_entry_not_found" => Self::MapEntryNotFound,
             "map_entry_or_create_failed" => Self::MapEntryNotFoundAndCouldNotBeCreated,
@@ -511,6 +524,7 @@ impl Vm {
         // Vec
         vm.handlers[OpCode::VecInit as usize] = HandlerType::Args7(Self::execute_vec_init);
         vm.handlers[OpCode::VecCopy as usize] = HandlerType::Args2(Self::execute_vec_copy);
+        vm.handlers[OpCode::VecCopyRange as usize] = HandlerType::Args3(Self::execute_vec_copy_range);
         vm.handlers[OpCode::VecCmp as usize] = HandlerType::Args3(Self::execute_vec_cmp);
         vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args2(Self::execute_vec_iter_init);
         vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args4(Self::execute_vec_iter_next);
@@ -1854,8 +1868,8 @@ impl Vm {
         #[cfg(feature = "debug_vm")]
         if self.debug_stats_enabled
             && self.memory.stack_offset > self.debug.max_stack_offset {
-                self.debug.max_stack_offset = self.memory.stack_offset - self.memory.stack_start;
-            }
+            self.debug.max_stack_offset = self.memory.stack_offset - self.memory.stack_start;
+        }
     }
 
     #[inline]

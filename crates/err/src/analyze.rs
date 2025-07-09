@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::semantic::build_semantic_error;
-use crate::{Builder, Report, build_and_print};
+use crate::{build_and_print, Builder, Report};
 use eira::Kind;
 use source_map_cache::SourceMap;
 use std::path::Path;
@@ -14,6 +14,9 @@ use swamp_semantic::prelude::{Error, ErrorKind};
 pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
     let span = &err.node.span;
     let mut b = match &err.kind {
+        ErrorKind::CanNotSubscriptWithThatType => {
+            Report::build(Kind::Error, err.kind.code(), &err.kind.to_string(), span)
+        }
         ErrorKind::CanOnlyHaveFunctionCallAtStartOfPostfixChain => {
             Report::build(Kind::Error, 23, &err.kind.to_string(), span)
         }
@@ -27,7 +30,7 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
             "function definition has too many parameters",
             span,
         )
-        .with_note(&format!("encountered {encountered} allowed {allowed}")),
+            .with_note(&format!("encountered {encountered} allowed {allowed}")),
         ErrorKind::NeedStorage => {
             Report::build(Kind::Error, 23, "expression needs storage (lvalue)", span).with_note("")
         }
@@ -198,7 +201,7 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
             "invalid operator after optional chaining (?)",
             span,
         )
-        .with_note("only field access, method calls, or subscripts are allowed after ?"),
+            .with_note("only field access, method calls, or subscripts are allowed after ?"),
         ErrorKind::SelfNotCorrectType => {
             Report::build(Kind::Error, 9901, "self is of wrong type", span)
         }

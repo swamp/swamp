@@ -10,13 +10,13 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_types::types::{
-    Destination, TypedRegister, VmType, float_type, int_type, pointer_type, u8_type, u16_type,
-    u32_type,
+    float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister,
+    VmType,
 };
 use swamp_vm_types::{
-    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
-    GRID_HEADER_HEIGHT_OFFSET, GRID_HEADER_WIDTH_OFFSET, MemoryLocation, MemoryOffset,
-    PointerLocation,
+    AggregateMemoryLocation, MemoryLocation, MemoryOffset,
+    PointerLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, GRID_HEADER_HEIGHT_OFFSET,
+    GRID_HEADER_WIDTH_OFFSET,
 };
 
 impl CodeBuilder<'_> {
@@ -402,6 +402,14 @@ impl CodeBuilder<'_> {
                     "copy from vec pop",
                 );
             }
+
+            IntrinsicFunction::VecSlice => {
+                let range_expr = &arguments[0];
+                let range_region = self.emit_scalar_rvalue(range_expr, ctx);
+
+                self.builder.add_vec_copy_range(&output_destination.grab_memory_location().pointer_location().unwrap(), &self_ptr_reg, &range_region, node, "vec slice");
+            }
+
             IntrinsicFunction::VecRemoveIndex => {
                 let index_region_expr = &arguments[0];
                 let index_region = self.emit_scalar_rvalue(index_region_expr, ctx);
@@ -514,6 +522,7 @@ impl CodeBuilder<'_> {
                     "set element_count to zero",
                 );
             }
+
             IntrinsicFunction::VecGet => {
                 let key_expr = &arguments[0];
                 let key_region = self.emit_scalar_rvalue(key_expr, ctx);
@@ -992,6 +1001,7 @@ impl CodeBuilder<'_> {
             | IntrinsicFunction::VecRemoveIndexGetValue
             | IntrinsicFunction::VecRemoveFirstIndexGetValue
             | IntrinsicFunction::VecClear
+            | IntrinsicFunction::VecSlice
             | IntrinsicFunction::VecSwap
             | IntrinsicFunction::VecInsert
             | IntrinsicFunction::VecFirst

@@ -52,14 +52,7 @@ impl Analyzer<'_> {
     ) -> Expression {
         let (min, max) = self.analyze_min_max_expr(min_expr, max_expr);
 
-        let range_type_ref = self
-            .shared
-            .core_symbol_table
-            .get_struct("Range")
-            .unwrap()
-            .clone();
-
-        let range_type = self.shared.state.types.range(range_type_ref);
+        let range_type = self.shared.state.types.range_int();
 
         let is_inclusive = matches!(mode, swamp_ast::RangeMode::Inclusive);
 
@@ -74,7 +67,7 @@ impl Analyzer<'_> {
                 ArgumentExpression::Expression(max),
                 ArgumentExpression::Expression(bool_expr),
             ]), //ast_node,
-                //&range_type,
+            //&range_type,
         );
 
         self.create_expr(call_kind, range_type, ast_node)

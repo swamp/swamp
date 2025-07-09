@@ -671,8 +671,9 @@ pub enum PostfixKind {
     StructField(TypeRef, usize),
     MemberCall(FunctionRef, Vec<ArgumentExpression>),
     OptionalChainingOperator, // ? operator
-    SliceViewSubscript(SliceViewType, Expression),
+    // Subscripts
     VecSubscript(VecType, Expression),
+    VecSubscriptRange(VecType, Expression),
     SparseSubscript(SparseType, Expression),
     MapSubscript(MapType, Expression),
     GridSubscript(GridType, Expression, Expression),

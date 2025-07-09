@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
+    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
+    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
+    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
 };
 use swamp_vm_types::{
     CountU16, HeapMemoryAddress, MemoryAlignment, MemoryLocation, PointerLocation,
@@ -479,30 +479,6 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_vec_get_range(
-        &mut self,
-        target: &TypedRegister,
-        vec_self_addr: &TypedRegister,
-        range_header: &TypedRegister,
-        node: &Node,
-        comment: &str,
-    ) {
-        assert!(matches!(
-            vec_self_addr.ty().kind,
-            BasicTypeKind::DynamicLengthVecView(_)
-        ));
-
-        self.state.add_instruction(
-            OpCode::VecGetRange,
-            &[
-                target.addressing(),
-                vec_self_addr.addressing(),
-                range_header.addressing(),
-            ],
-            node,
-            comment,
-        );
-    }
 
     pub fn add_vec_push_addr(
         &mut self,
@@ -1290,6 +1266,26 @@ impl InstructionBuilder<'_> {
             &[
                 target_vec.ptr_reg.addressing(),
                 source_vec.ptr_reg.addressing(),
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_vec_copy_range(
+        &mut self,
+        target_vec: &PointerLocation,
+        source_vec: &PointerLocation,
+        range_header: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::VecCopyRange,
+            &[
+                target_vec.addressing(),
+                source_vec.addressing(),
+                range_header.addressing(),
             ],
             node,
             comment,

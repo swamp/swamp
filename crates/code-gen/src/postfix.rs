@@ -7,7 +7,7 @@ use crate::ctx::Context;
 use crate::single_intrinsic_fn;
 use source_map_node::Node;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
-use swamp_vm_types::types::{Destination, VmType, u8_type};
+use swamp_vm_types::types::{u8_type, Destination, VmType};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
@@ -414,14 +414,6 @@ impl CodeBuilder<'_> {
                         VmType::new_unknown_placement(offset_item.ty.clone()),
                     );
                 }
-                PostfixKind::SliceViewSubscript(slice_type, int_expression) => {
-                    current_location = self.vec_subscript_helper(
-                        &current_location,
-                        &slice_type.element,
-                        int_expression,
-                        ctx,
-                    );
-                }
 
                 PostfixKind::VecSubscript(vec_type, int_expression) => {
                     current_location = self.vec_subscript_helper(
@@ -430,6 +422,11 @@ impl CodeBuilder<'_> {
                         int_expression,
                         ctx,
                     );
+                }
+
+                PostfixKind::VecSubscriptRange(_vec_type, _range_expression) => {
+                    // Implement this in the future when we can handle "true" views into another vec
+                    todo!()
                 }
 
                 PostfixKind::GridSubscript(grid_type, x_int_expression, y_int_expression) => {

@@ -784,7 +784,7 @@ pub const RANGE_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<RangeIterator>(
 pub const RANGE_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct RangeHeader {
     // Do not change! These must match the structure in Swamp core exactly
     pub min: i32,

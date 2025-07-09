@@ -29,6 +29,7 @@ use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::rc::Rc;
 use std::str::{FromStr, ParseBoolError};
+use std::task::Context;
 use swamp_ast::{GenericParameter, QualifiedTypeIdentifier};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
@@ -41,8 +42,8 @@ use swamp_semantic::{
     WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
-use swamp_types::TypeKind;
 use swamp_types::prelude::*;
+use swamp_types::{Type, TypeKind};
 use tracing::error;
 
 /*
@@ -934,7 +935,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                    .kind
+                        .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -968,14 +969,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                .kind
+                    .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-            .kind
+                .kind
         }
     }
 
@@ -1003,6 +1004,7 @@ impl<'a> Analyzer<'a> {
 
         vec.push(postfix);
     }
+
 
     /// # Panics
     ///
@@ -1169,7 +1171,6 @@ impl<'a> Analyzer<'a> {
         let mut suffixes = Vec::new();
 
         for (index, item) in chain.postfixes[start_index..].iter().enumerate() {
-            //            trace!(?item, "postfix");
             let is_last = index == chain.postfixes[start_index..].len() - 1;
 
             // Check if this operator is invalid after optional chaining
@@ -1260,102 +1261,35 @@ impl<'a> Analyzer<'a> {
                 swamp_ast::Postfix::Subscript(lookup_expr) => {
                     previous_was_optional_chaining = false;
                     let collection_type = tv.resolved_type.clone();
+
                     match &*collection_type.kind {
-                        TypeKind::FixedCapacityAndLengthArray(element_type_in_slice, _) => {
-                            let int_type = self.shared.state.types.int();
-                            let unsigned_int_context = TypeContext::new_argument(&int_type, false);
-                            let unsigned_int_expression =
-                                self.analyze_expression(lookup_expr, &unsigned_int_context);
-
-                            let slice_type = SliceViewType {
-                                element: element_type_in_slice.clone(),
-                            };
-
-                            self.add_postfix(
-                                &mut suffixes,
-                                PostfixKind::SliceViewSubscript(
-                                    slice_type,
-                                    unsigned_int_expression,
-                                ),
-                                collection_type.clone(),
-                                &lookup_expr.node,
-                            );
-
-                            // Keep previous mutable
-                            tv.resolved_type = element_type_in_slice.clone();
-                        }
-                        TypeKind::QueueStorage(element_type, _)
-                        | TypeKind::StackStorage(element_type, _)
-                        | TypeKind::StackView(element_type)
-                        | TypeKind::VecStorage(element_type, _)
-                        | TypeKind::StringStorage(element_type, _, _)
-                        | TypeKind::String(element_type, _)
-                        | TypeKind::DynamicLengthVecView(element_type)
-                        | TypeKind::SliceView(element_type) => {
-                            let int_type = self.shared.state.types.int();
-                            let unsigned_int_context = TypeContext::new_argument(&int_type, false);
-                            let unsigned_int_expression =
-                                self.analyze_expression(lookup_expr, &unsigned_int_context);
-
-                            let vec_type = VecType {
-                                element: element_type.clone(),
-                            };
-
-                            self.add_postfix(
-                                &mut suffixes,
-                                PostfixKind::VecSubscript(vec_type, unsigned_int_expression),
-                                element_type.clone(),
-                                &lookup_expr.node,
-                            );
-
-                            // Keep previous mutable
-                            tv.resolved_type = element_type.clone();
-                        }
-                        TypeKind::SparseStorage(element_type, _)
-                        | TypeKind::SparseView(element_type) => {
-                            let int_type = self.shared.state.types.int();
-                            let unsigned_int_context = TypeContext::new_argument(&int_type, false);
-                            let unsigned_int_expression =
-                                self.analyze_expression(lookup_expr, &unsigned_int_context);
-
-                            let vec_type = SparseType {
-                                element: element_type.clone(),
-                            };
-
-                            self.add_postfix(
-                                &mut suffixes,
-                                PostfixKind::SparseSubscript(vec_type, unsigned_int_expression),
-                                element_type.clone(),
-                                &lookup_expr.node,
-                            );
-
-                            // Keep previous mutable
-                            tv.resolved_type = element_type.clone();
-                        }
-                        TypeKind::MapStorage(key_type, value_type, _)
-                        | TypeKind::DynamicLengthMapView(key_type, value_type) => {
-                            let key_context = TypeContext::new_argument(key_type, false);
-                            let key_expression = self.analyze_expression(lookup_expr, &key_context);
-
-                            let map_type = MapType {
-                                key: key_type.clone(),
-                                value: value_type.clone(),
-                            };
-
-                            self.add_postfix(
-                                &mut suffixes,
-                                PostfixKind::MapSubscript(map_type, key_expression),
-                                value_type.clone(),
-                                &lookup_expr.node,
-                            );
-
-                            // Keep previous mutable
-                            tv.resolved_type = value_type.clone();
+                        // Map lookups can involve a wide range of lookup (key) types, so handle the specifically
+                        TypeKind::MapStorage(key_type, value_type, ..) | TypeKind::DynamicLengthMapView(key_type, value_type) => {
+                            let (postfix, return_type) = self.analyze_map_subscript(key_type, value_type, lookup_expr);
+                            suffixes.push(postfix);
+                            tv.resolved_type = return_type;
                         }
                         _ => {
-                            eprintln!("xwhat is this: {collection_type:?}");
-                            return self
-                                .create_err(ErrorKind::MissingSubscriptMember, &lookup_expr.node);
+                            // If it is not a map lookup, it can only be with an (unsigned) int or a range
+                            let anything_context = context.with_argument_anything();
+                            let anything_expression =
+                                self.analyze_expression(lookup_expr, &anything_context);
+
+                            match &*anything_expression.ty.kind {
+                                TypeKind::Int => {
+                                    let (postfix, return_type) = self.analyze_subscript_int(collection_type, anything_expression);
+                                    suffixes.push(postfix);
+                                    tv.resolved_type = return_type;
+                                }
+                                TypeKind::Range(_range_type) => {
+                                    let (postfix, return_type) = self.analyze_subscript_range(collection_type, anything_expression);
+                                    suffixes.push(postfix);
+                                    tv.resolved_type = return_type;
+                                }
+                                _ => {
+                                    return self.create_err(ErrorKind::CanNotSubscriptWithThatType, &lookup_expr.node)
+                                }
+                            }
                         }
                     }
                 }
@@ -1408,8 +1342,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
-            } else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -2359,8 +2292,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                .expect_immutable()
-                .unwrap()
+                    .expect_immutable()
+                    .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2533,9 +2466,6 @@ impl<'a> Analyzer<'a> {
                 PostfixKind::StructField(_, _) => {
                     is_owned_result = false;
                 }
-                PostfixKind::SliceViewSubscript(_, _) => {
-                    is_owned_result = false;
-                }
                 PostfixKind::MemberCall(_, _) => {
                     is_owned_result = true;
                     is_mutable = false;
@@ -2545,6 +2475,7 @@ impl<'a> Analyzer<'a> {
                     is_mutable = false;
                 }
                 PostfixKind::VecSubscript(_, _) => {}
+                PostfixKind::VecSubscriptRange(_, _) => {}
                 PostfixKind::SparseSubscript(_, _) => {}
                 PostfixKind::GridSubscript(_, _, _) => {}
                 PostfixKind::MapSubscript(_, _) => {}
@@ -2596,8 +2527,7 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
-    }
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -3501,6 +3431,23 @@ impl<'a> Analyzer<'a> {
                 },
             ),
 
+            "slice" => {
+                let range_type = self.types().range_int();
+                (
+                    IntrinsicFunction::VecSlice,
+                    Signature {
+                        parameters: vec![self_type_param,
+                                         TypeForParameter {
+                                             name: "range".to_string(),
+                                             resolved_type: range_type.clone(),
+                                             is_mutable: false,
+                                             node: None,
+                                         }, ],
+                        return_type: self_type.clone(),
+                    },
+                )
+            }
+
             _ => {
                 self.slice_member_signature(
                     self_type,
@@ -4228,8 +4175,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                        .types()
-                        .compatible_with(initializer_value_type, storage_value)
+                    .types()
+                    .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }
@@ -4499,5 +4446,143 @@ impl<'a> Analyzer<'a> {
             "Stack" => None,
             _ => None,
         }
+    }
+
+    fn analyze_subscript_int(&mut self, collection_type: TypeRef, unsigned_int_expression: Expression) -> (Postfix, TypeRef) {
+        let node = &unsigned_int_expression.node;
+        match &*collection_type.kind {
+            TypeKind::QueueStorage(element_type, _)
+            | TypeKind::StackStorage(element_type, _)
+            | TypeKind::StackView(element_type)
+            | TypeKind::VecStorage(element_type, _)
+            | TypeKind::StringStorage(element_type, _, _)
+            | TypeKind::String(element_type, _)
+            | TypeKind::FixedCapacityAndLengthArray(element_type, _)
+            | TypeKind::DynamicLengthVecView(element_type)
+            | TypeKind::SliceView(element_type) => {
+                let vec_type = VecType {
+                    element: element_type.clone(),
+                };
+
+                let postfix = Postfix {
+                    node: node.clone(),
+                    ty: collection_type.clone(),
+                    kind: PostfixKind::VecSubscript(
+                        vec_type,
+                        unsigned_int_expression,
+                    ),
+                };
+
+                (postfix, element_type.clone())
+            }
+            // Sparse
+            TypeKind::SparseStorage(element_type, _)
+            | TypeKind::SparseView(element_type) => {
+                let sparse_type = SparseType {
+                    element: element_type.clone(),
+                };
+
+
+                let postfix = Postfix {
+                    node: node.clone(),
+                    ty: collection_type.clone(),
+                    kind: PostfixKind::SparseSubscript(
+                        sparse_type,
+                        unsigned_int_expression,
+                    ),
+                };
+
+                (postfix, element_type.clone())
+            }
+
+            _ => {
+                self
+                    .add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, node);
+
+                let error_vec_type = VecType {
+                    element: self.types().unit(),
+                };
+
+                let error_postfix = Postfix {
+                    node: node.clone(),
+                    ty: collection_type.clone(),
+                    kind: PostfixKind::VecSubscript(
+                        error_vec_type,
+                        unsigned_int_expression,
+                    ),
+                };
+
+                (error_postfix, self.types().unit())
+            }
+        }
+    }
+
+
+    fn analyze_subscript_range(&mut self, collection_type: TypeRef, range_expression: Expression) -> (Postfix, TypeRef) {
+        let node = &range_expression.node;
+        match &*collection_type.kind {
+            TypeKind::QueueStorage(element_type, _)
+            | TypeKind::StackStorage(element_type, _)
+            | TypeKind::StackView(element_type)
+            | TypeKind::VecStorage(element_type, _)
+            | TypeKind::StringStorage(element_type, _, _)
+            | TypeKind::String(element_type, _)
+            | TypeKind::FixedCapacityAndLengthArray(element_type, _)
+            | TypeKind::DynamicLengthVecView(element_type)
+            | TypeKind::SliceView(element_type) => {
+                let vec_type = VecType {
+                    element: element_type.clone(),
+                };
+
+                let postfix = Postfix {
+                    node: node.clone(),
+                    ty: collection_type.clone(),
+                    kind: PostfixKind::VecSubscriptRange(
+                        vec_type,
+                        range_expression,
+                    ),
+                };
+
+                // A range subscript returns the same type again
+                (postfix, collection_type.clone())
+            }
+
+            _ => {
+                self
+                    .add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, node);
+
+                let error_vec_type = VecType {
+                    element: self.types().unit(),
+                };
+
+                let error_postfix = Postfix {
+                    node: node.clone(),
+                    ty: collection_type.clone(),
+                    kind: PostfixKind::VecSubscriptRange(
+                        error_vec_type,
+                        range_expression,
+                    ),
+                };
+
+                (error_postfix, self.types().unit())
+            }
+        }
+    }
+    fn analyze_map_subscript(&mut self, key_type: &TypeRef, value_type: &TypeRef, lookup_expr: &swamp_ast::Expression) -> (Postfix, TypeRef) {
+        let key_context = TypeContext::new_argument(key_type, false);
+        let key_expression = self.analyze_expression(lookup_expr, &key_context);
+
+        let map_type = MapType {
+            key: key_type.clone(),
+            value: value_type.clone(),
+        };
+
+        let postfix = Postfix {
+            node: self.to_node(&lookup_expr.node),
+            ty: key_type.clone(),
+            kind: PostfixKind::MapSubscript(map_type, key_expression),
+        };
+
+        (postfix, value_type.clone())
     }
 }

@@ -4,10 +4,10 @@
  */
 use crate::memory::Memory;
 use crate::set_reg;
-use crate::{TrapCode, Vm, get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s};
+use crate::{get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s, TrapCode, Vm};
 use std::ptr;
 use swamp_vm_types::{
-    VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE, VecHeader, VecIterator,
+    VecHeader, VecIterator, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE,
 };
 
 impl Vm {
@@ -165,6 +165,86 @@ impl Vm {
                 (*src_vec_ptr).element_count,
                 "element count differs"
             );
+            debug_assert_eq!(
+                (*mut_vec_ptr).capacity,
+                target_capacity,
+                "capacity has been modified"
+            );
+        }
+    }
+
+
+    #[inline]
+    pub fn execute_vec_copy_range(&mut self, target_vec_ptr_reg: u8, source_vec_ptr_reg: u8, range_reg: u8) {
+        let target_vec_addr = get_reg!(self, target_vec_ptr_reg);
+        let source_vec_addr = get_reg!(self, source_vec_ptr_reg);
+        let range_header = self.range_header_from_reg(range_reg);
+        eprintln!("=========== {range_header:?} =======");
+
+        let mut_vec_ptr = self
+            .memory
+            .get_heap_ptr(target_vec_addr as usize)
+            .cast::<VecHeader>();
+
+        let src_vec_ptr = self
+            .memory
+            .get_heap_const_ptr(source_vec_addr as usize)
+            .cast::<VecHeader>();
+
+        unsafe {
+            if (*mut_vec_ptr).padding != VEC_HEADER_MAGIC_CODE {
+                return self.internal_trap(TrapCode::MemoryCorruption);
+            }
+            if (*mut_vec_ptr).capacity == 0 {
+                eprintln!("TARGET IS NOT INITIALIZED");
+                return self.internal_trap(TrapCode::VecNeverInitialized);
+            }
+            if (*src_vec_ptr).padding != VEC_HEADER_MAGIC_CODE {
+                return self.internal_trap(TrapCode::MemoryCorruption);
+            }
+            if (*src_vec_ptr).capacity == 0 {
+                eprintln!("SOURCE IS NOT INITIALIZED");
+                return self.internal_trap(TrapCode::VecNeverInitialized);
+            }
+
+            if range_header.max < range_header.min {
+                return self.internal_trap(TrapCode::ReverseRangeNotAllowedHere);
+            }
+
+
+            debug_assert!(range_header.max >= range_header.min);
+
+            let num_elements_to_copy = if range_header.inclusive { (range_header.max - range_header.min + 1) as u32 } else { (range_header.max - range_header.min) as u32 };
+            let source_element_index = range_header.min as u32;
+            let required_source_element_count = source_element_index + num_elements_to_copy;
+
+            if (*mut_vec_ptr).capacity < num_elements_to_copy as u16 {
+                return self.internal_trap(TrapCode::VecOutOfCapacity {
+                    encountered: (*src_vec_ptr).element_count,
+                    capacity: (*mut_vec_ptr).capacity,
+                });
+            }
+
+            if (*src_vec_ptr).element_count < required_source_element_count as u16 {
+                return self.internal_trap(TrapCode::VecBoundsFail {
+                    encountered: required_source_element_count as usize,
+                    element_count: (*src_vec_ptr).element_count as usize,
+                });
+            }
+
+            let target_capacity = (*mut_vec_ptr).capacity;
+
+            let target_payload = (target_vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0) as usize;
+            let target_raw = self.memory.get_heap_ptr(target_payload);
+
+            let source_slice_start = (source_vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 + source_element_index * (*src_vec_ptr).element_size) as usize;
+            let source_raw = self.memory.get_heap_const_ptr(source_slice_start);
+
+            let total_bytes_to_copy = num_elements_to_copy * (*src_vec_ptr).element_size;
+
+            ptr::copy_nonoverlapping(source_raw, target_raw, total_bytes_to_copy as usize);
+            (*mut_vec_ptr).element_count = num_elements_to_copy as u16;
+
             debug_assert_eq!(
                 (*mut_vec_ptr).capacity,
                 target_capacity,

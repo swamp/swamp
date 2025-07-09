@@ -167,3 +167,18 @@ fn store_string() {
     assert(storage.i.to_int() == 0, 'byte must be zero')
     assert(storage.i.to_string() == "0x00", 'byte to_string failed')
 }
+
+/*
+TODO: not working yet
+#[test]
+fn match_with_string() {
+    str = "<blood>"
+    result = match str {
+        "<damage>" -> "hej",
+        '<vampire>' -> "\u(1F9DB)",
+        "<blood>" -> "🩸",
+        _ -> "",
+    }
+    assert(result == "🩸", 'should have matches {result}')
+}
+*/

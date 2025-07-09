@@ -4,6 +4,7 @@
  */
 
 use crate::flags::TypeFlags;
+use crate::prelude::StructTypeField;
 use crate::supporting_types::{AnonymousStructType, EnumType, NamedStructType, Signature};
 use crate::type_kind::{TypeKind, TypeRef};
 use crate::{Type, TypeId};
@@ -207,12 +208,12 @@ impl TypeCache {
                 // Check if fields match
                 anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
                     && anon_a.field_name_sorted_fields.keys().all(|key| {
-                        anon_b.field_name_sorted_fields.contains_key(key)
-                            && self.compatible_with(
-                                &anon_a.field_name_sorted_fields[key].field_type,
-                                &anon_b.field_name_sorted_fields[key].field_type,
-                            )
-                    })
+                    anon_b.field_name_sorted_fields.contains_key(key)
+                        && self.compatible_with(
+                        &anon_a.field_name_sorted_fields[key].field_type,
+                        &anon_b.field_name_sorted_fields[key].field_type,
+                    )
+                })
             }
 
             (TypeKind::Range(range_a), TypeKind::Range(range_b)) => {
@@ -238,19 +239,19 @@ impl TypeCache {
                 // Compare range types
                 anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
                     && anon_a.field_name_sorted_fields.keys().all(|key| {
-                        anon_b.field_name_sorted_fields.contains_key(key)
-                            && self.compatible_with(
-                                &anon_a.field_name_sorted_fields[key].field_type,
-                                &anon_b.field_name_sorted_fields[key].field_type,
-                            )
-                    })
+                    anon_b.field_name_sorted_fields.contains_key(key)
+                        && self.compatible_with(
+                        &anon_a.field_name_sorted_fields[key].field_type,
+                        &anon_b.field_name_sorted_fields[key].field_type,
+                    )
+                })
             }
 
             (TypeKind::NamedStruct(named_a), TypeKind::NamedStruct(named_b)) => {
                 // Check named struct compatibility
                 if named_a.assigned_name != named_b.assigned_name
                     || named_a.instantiated_type_parameters.len()
-                        != named_b.instantiated_type_parameters.len()
+                    != named_b.instantiated_type_parameters.len()
                 {
                     false
                 } else {
@@ -267,7 +268,7 @@ impl TypeCache {
                 // Check enum compatibility
                 if enum_a.assigned_name != enum_b.assigned_name
                     || enum_a.instantiated_type_parameters.len()
-                        != enum_b.instantiated_type_parameters.len()
+                    != enum_b.instantiated_type_parameters.len()
                 {
                     false
                 } else {
@@ -643,6 +644,52 @@ impl TypeCache {
         let range_type = self.create_type(range_kind);
         self.add_type_to_cache(&range_type);
         range_type
+    }
+
+    pub fn range_int(&mut self) -> Rc<Type> {
+        let int_type = self.int();
+        let bool_type = self.bool();
+
+        // Create an anonymous struct for the Range type: {min: int, max: int, inclusive: bool}
+        let mut range_fields = SeqMap::new();
+        let _ = range_fields.insert(
+            "start".to_string(),
+            StructTypeField {
+                identifier: None,
+                field_type: int_type.clone(),
+            },
+        );
+        let _ = range_fields.insert(
+            "end".to_string(),
+            StructTypeField {
+                identifier: None,
+                field_type: int_type,
+            },
+        );
+        let _ = range_fields.insert(
+            "is_inclusive".to_string(),
+            StructTypeField {
+                identifier: None,
+                field_type: bool_type,
+            },
+        );
+
+        let anon_struct = AnonymousStructType::new(range_fields);
+        let anon_struct_ref = self.anonymous_struct(anon_struct);
+        /*
+                // Create a NamedStructType for Range
+                let range_named_struct = NamedStructType::new(
+                    Node::default(),
+                    "Range",
+                    anon_struct_ref,
+                    &["core".to_string()],
+                );
+
+         */
+
+        //let named_struct_ref1 = self.named_struct(range_named_struct.clone());
+
+        self.range(anon_struct_ref)
     }
 
     pub fn named_struct(&mut self, named_struct: NamedStructType) -> Rc<Type> {

@@ -13,6 +13,7 @@ pub struct TypeContext<'a> {
     pub has_lvalue_target: bool,
 }
 
+
 impl<'a> TypeContext<'a> {
     #[must_use]
     pub const fn new(expected_type: Option<&'a TypeRef>, has_lvalue_target: bool) -> Self {
@@ -32,6 +33,13 @@ impl<'a> TypeContext<'a> {
     pub(crate) const fn argument(&self, expected_type: &'a TypeRef) -> Self {
         Self {
             expected_type: Some(expected_type),
+            has_lvalue_target: self.has_lvalue_target,
+        }
+    }
+
+    pub(crate) fn with_argument_anything(&self) -> Self {
+        Self {
+            expected_type: None,
             has_lvalue_target: self.has_lvalue_target,
         }
     }

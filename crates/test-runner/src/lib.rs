@@ -13,12 +13,12 @@ use std::thread::sleep;
 use std::time::Duration;
 use swamp_runtime::prelude::CodeGenOptions;
 use swamp_runtime::{
-    CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions, RunOptions,
-    compile_codegen_and_create_vm,
+    compile_codegen_and_create_vm, CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions,
+    RunOptions,
 };
 use swamp_std::print::print_fn;
-use swamp_vm::VmState;
 use swamp_vm::host::HostFunctionCallback;
+use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
 use tracing::error;
 
@@ -421,7 +421,7 @@ pub fn run_tests(
                     } else if let VmState::Trap(expected_trap_code) = expected_vm_state {
                         match &result.codegen.vm.state {
                             VmState::Trap(actual_trap_code) => {
-                                if actual_trap_code == &expected_trap_code {
+                                if actual_trap_code.is_sort_of_equal(&expected_trap_code) {
                                     expected_trap_passed.push(test_info.clone());
                                     eprintln!(
                                         "✅ Expected Trap {complete_name} (code: {actual_trap_code})"
@@ -523,10 +523,10 @@ pub fn run_tests(
         println!("  ✅ Passed (Expected Trap): {expected_trap_pass_count}");
 
         if total_failed_count > 0 {
-            println!("  ❌ **TOTAL FAILED:** {total_failed_count}",);
+            println!("  ❌ **TOTAL FAILED:** {total_failed_count}", );
         }
 
-        println!("  Total Tests Run: {total_tests_run}",);
+        println!("  Total Tests Run: {total_tests_run}", );
 
         // ---
         // ## Failing Test Details

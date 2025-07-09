@@ -4,6 +4,7 @@
  */
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
+use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_types::TypeRef;
 use swamp_vm_types::types::{Destination, VmType};
@@ -52,6 +53,41 @@ impl CodeBuilder<'_> {
         );
         Destination::Memory(pointer_location.memory_location())
     }
+
+
+    pub fn emit_vec_subscript_range_helper(
+        &mut self,
+        destination_memory_location: &Destination,
+        source_memory_location: &Destination,
+        range_expr: &Expression,
+        node: &Node,
+        comment: &str,
+        ctx: &Context,
+    ) {
+        let destination_pointer = self.emit_compute_effective_address_to_register(
+            destination_memory_location,
+            node,
+            "get the destination vec",
+        );
+        let destination_pointer_loc = PointerLocation::new(destination_pointer);
+        let source_pointer = self.emit_compute_effective_address_to_register(
+            source_memory_location,
+            node,
+            "get vector source address to take range from",
+        );
+        let source_pointer_loc = PointerLocation::new(source_pointer);
+
+        let range_header_register = self.emit_scalar_rvalue(range_expr, ctx);
+
+        self.builder.add_vec_copy_range(
+            &destination_pointer_loc,
+            &source_pointer_loc,
+            &range_header_register,
+            node,
+            "copy range, but leave the capacity on the destination",
+        );
+    }
+
 
     pub fn grid_subscript_helper_helper(
         &mut self,
