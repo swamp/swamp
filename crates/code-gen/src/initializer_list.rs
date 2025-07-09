@@ -69,6 +69,8 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
+        let hwm = self.temp_registers.save_mark();
+
         let output_memory_location_reg =
             self.emit_compute_effective_address_to_register(output_destination, node, "set start");
         let output_memory_location =
@@ -124,5 +126,7 @@ impl CodeBuilder<'_> {
             node,
             ctx,
         );
+
+        self.temp_registers.restore_to_mark(hwm);
     }
 }

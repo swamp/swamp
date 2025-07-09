@@ -46,6 +46,7 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) -> FlagState {
+        let hwm = self.temp_registers.save_mark();
         let struct_type = self.state.layout_cache.layout(struct_type_ref);
 
         let BasicTypeKind::Struct(gen_source_struct_type) = &struct_type.kind else {
@@ -80,6 +81,8 @@ impl CodeBuilder<'_> {
                 ctx,
             );
         }
+
+        self.temp_registers.restore_to_mark(hwm);
 
         FlagState::default()
     }
