@@ -7,9 +7,10 @@ use swamp_analyzer::Program;
 use swamp_compile::compile_string;
 use swamp_pretty_print::{SourceMapDisplay, SymbolTableDisplay};
 use tracing::info;
+use swamp_dep_loader::RunMode;
 
 fn internal_compile(script: &str) -> Program {
-    let (program, test_module, source_map) = compile_string(script);
+    let (program, test_module, source_map) = compile_string(script, &RunMode::Development);
 
     let source_map_lookup = SourceMapWrapper {
         source_map: &source_map,

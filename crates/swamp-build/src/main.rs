@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
-use swamp_runtime::prelude::CodeGenOptions;
+use swamp_runtime::prelude::{CodeGenOptions, RunMode};
 use swamp_runtime::{CompileAndCodeGenOptions, CompileOptions, compile_and_code_gen};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::{EnvFilter, fmt};
@@ -107,6 +107,7 @@ fn main() -> ExitCode {
             show_types,
             ignore_host_call: false,
         },
+        run_mode: RunMode::Development,
     };
 
     let test_result = compile_and_code_gen(

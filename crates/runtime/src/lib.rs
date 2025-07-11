@@ -16,7 +16,7 @@ use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
 use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
 pub use swamp_compile::CompileOptions;
-use swamp_dep_loader::swamp_registry_path;
+use swamp_dep_loader::{swamp_registry_path, RunMode};
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
 use swamp_std::print::print_fn;
 use swamp_types::TypeRef;
@@ -117,14 +117,14 @@ pub fn run_constants_in_order(
 
 // "/Users/peter/external/swamp_autobattler/scripts"
 #[must_use]
-pub fn crate_and_registry(path_to_swamp: &Path) -> SourceMap {
+pub fn crate_and_registry(path_to_swamp: &Path, run_mode: &RunMode) -> SourceMap {
     let mut mounts = SeqMap::new();
     //  let path_buf = Path::new(path_to_swamp).to_path_buf();
     mounts
         .insert("crate".to_string(), path_to_swamp.to_path_buf())
         .unwrap();
 
-    if let Some(found_swamp_home) = swamp_registry_path() {
+    if let Some(found_swamp_home) = swamp_registry_path(run_mode) {
         mounts
             .insert("registry".to_string(), found_swamp_home)
             .unwrap();
@@ -577,6 +577,7 @@ pub struct CompileAndCodeGenOptions {
     pub compile_options: CompileOptions,
     pub code_gen_options: CodeGenOptions,
     pub skip_codegen: bool,
+    pub run_mode: RunMode,
 }
 
 #[must_use]
@@ -585,7 +586,7 @@ pub fn compile_and_code_gen(
     main_module_path: &[String],
     options: &CompileAndCodeGenOptions,
 ) -> Option<(CompileAndMaybeCodeGenResult, SourceMap)> {
-    let mut source_map = crate_and_registry(path_to_root_of_swamp_files);
+    let mut source_map = crate_and_registry(path_to_root_of_swamp_files, &options.run_mode);
     let current_dir = PathBuf::from(Path::new(""));
 
     let compile_result =

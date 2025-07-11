@@ -14,10 +14,7 @@ use std::str::FromStr;
 use swamp_analyzer::Analyzer;
 pub use swamp_analyzer::prelude::Program;
 use swamp_core::text::core_text;
-use swamp_dep_loader::{
-    DependencyParser, ParsedAstModule, parse_local_modules_and_get_order,
-    parse_single_module_from_text, swamp_registry_path,
-};
+use swamp_dep_loader::{DependencyParser, ParsedAstModule, parse_local_modules_and_get_order, parse_single_module_from_text, swamp_registry_path, RunMode};
 use swamp_error_report::analyze::show_analyzer_error;
 use swamp_error_report::prelude::Kind;
 use swamp_error_report::{ScriptResolveError, prelude::show_script_resolve_error};
@@ -385,11 +382,11 @@ fn debug_all_impl_functions(all_impls: &AssociatedImpls, source_map: &mut Source
 }
 
 #[must_use]
-pub fn compile_string(script: &str) -> (Program, ModuleRef, SourceMap) {
+pub fn compile_string(script: &str, run_mode: &RunMode) -> (Program, ModuleRef, SourceMap) {
     let mut source_map = SourceMap::new(&SeqMap::default()).unwrap();
     let file_id = 0xffff;
 
-    if let Some(swamp_home) = swamp_registry_path() {
+    if let Some(swamp_home) = swamp_registry_path(run_mode) {
         source_map.add_mount("registry", &swamp_home).unwrap();
     }
 

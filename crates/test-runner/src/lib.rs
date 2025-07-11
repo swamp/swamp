@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::thread::sleep;
 use std::time::Duration;
-use swamp_runtime::prelude::CodeGenOptions;
+use swamp_runtime::prelude::{CodeGenOptions, RunMode};
 use swamp_runtime::{
     compile_codegen_and_create_vm, CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions,
     RunOptions,
@@ -232,6 +232,7 @@ pub fn run_tests(
             ignore_host_call: true,
         },
         skip_codegen: false,
+        run_mode: RunMode::Development,
     };
     let internal_result =
         compile_codegen_and_create_vm(test_dir, crate_main_path, &compile_and_code_gen_options)

@@ -432,6 +432,11 @@ impl From<DependencyError> for DepLoaderError {
 fn os_home_relative_path(project_name: &str) -> Option<PathBuf> {
     home_dir().map(|home_path| home_path.join(format!(".{project_name}")))
 }
+
+fn current_directory_relative_path(project_name: &str) -> PathBuf {
+    Path::new(".").join(format!(".{}", project_name))
+}
+
 #[must_use]
 pub fn path_from_environment_variable() -> Option<PathBuf> {
     env::var("SWAMP_HOME")
@@ -440,9 +445,14 @@ pub fn path_from_environment_variable() -> Option<PathBuf> {
 }
 
 #[must_use]
-pub fn swamp_home() -> Option<PathBuf> {
+pub fn swamp_home(run_mode: &RunMode) -> Option<PathBuf> {
     // First try environment variable
-    path_from_environment_variable().or_else(|| os_home_relative_path("swamp"))
+    match run_mode {
+        RunMode::Development => {
+            path_from_environment_variable().or_else(|| os_home_relative_path("swamp"))
+        }
+        RunMode::Deployed => Some(Path::new(".").to_path_buf()),
+    }
 }
 
 // Verifies the structure of swamp_home to make sure if we can use it
@@ -455,11 +465,16 @@ pub fn verify_if_swamp_home_seems_correct(swamp_home: &Path) -> bool {
     swamp_packages_dir.exists() && swamp_packages_dir.is_dir()
 }
 
+pub enum RunMode {
+    Development,
+    Deployed,
+}
+
 /// # Errors
 ///
 #[must_use]
-pub fn swamp_registry_path() -> Option<PathBuf> {
-    let swamp_home = swamp_home()?;
+pub fn swamp_registry_path(run_mode: &RunMode) -> Option<PathBuf> {
+    let swamp_home = swamp_home(run_mode)?;
 
     if verify_if_swamp_home_seems_correct(&swamp_home) {
         let mut packages_path = swamp_home;

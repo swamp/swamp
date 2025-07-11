@@ -7,5 +7,5 @@ pub use crate::{
     InstructionRange, MemoryAlignment, MemoryOffset, MemorySize, StackMemoryAddress,
     aligner::SAFE_ALIGNMENT,
     aligner::align,
-    types::{BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef},
+    types::{BasicType, BasicTypeId, OffsetMemoryItem , BasicTypeKind, BasicTypeRef},
 };
