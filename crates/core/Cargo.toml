@@ -1,15 +1,15 @@
 [package]
 name = "swamp-core"
-version = "0.2.7"
+version = "0.2.8"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 description = "Initializes the Swamp core library module, defining primitive type aliases and registering intrinsic functions."
 
 [dependencies]
-swamp-semantic = { path = "../semantic", version = "0.2.7" }
-swamp-types = { path = "../types", version = "0.2.7" }
-swamp-modules = { path = "../modules", version = "0.2.7" }
+swamp-semantic = { path = "../semantic", version = "0.2.8" }
+swamp-types = { path = "../types", version = "0.2.8" }
+swamp-modules = { path = "../modules", version = "0.2.8" }
 
 tiny-ver = "0.1.2"
 

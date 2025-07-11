@@ -1,16 +1,16 @@
 [package]
 name = "swamp-error-report"
-version = "0.2.7"
+version = "0.2.8"
 edition = "2024"
 license = "MIT"
 description = "Swamp error report"
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-semantic = { path = "../semantic", version = "0.2.7" }
+swamp-semantic = { path = "../semantic", version = "0.2.8" }
 source-map-node = "0.0.1"
 source-map-cache = "0.0.3"
-swamp-dep-loader = { path = "../dep-loader", version = "0.2.7" }
-swamp-program-analyzer = { path = "../program-analyzer", version = "0.2.7" }
-swamp-parser = { path = "../parser", version = "0.2.7" }
+swamp-dep-loader = { path = "../dep-loader", version = "0.2.8" }
+swamp-program-analyzer = { path = "../program-analyzer", version = "0.2.8" }
+swamp-parser = { path = "../parser", version = "0.2.8" }
 eira = "0.1.10"
