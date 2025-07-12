@@ -9,14 +9,14 @@ use crate::ctx::Context;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
 use crate::{
-    ArgumentAndTempScope, MAX_REGISTER_INDEX_FOR_PARAMETERS, RepresentationOfRegisters,
-    SpilledRegisterRegion,
+    ArgumentAndTempScope, RepresentationOfRegisters, SpilledRegisterRegion,
+    MAX_REGISTER_INDEX_FOR_PARAMETERS,
 };
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
-use swamp_types::TypeKind;
+use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
 use swamp_types::prelude::Signature;
+use swamp_types::TypeKind;
 use swamp_vm_types::types::{BasicTypeRef, Destination, TypedRegister, VmType};
 use swamp_vm_types::{FrameMemoryRegion, REG_ON_FRAME_SIZE};
 
@@ -228,7 +228,7 @@ impl CodeBuilder<'_> {
 
         // Step 3: Prepare argument registers and handle temporary register conflicts
         let mut temp_to_abi_copies = Vec::new();
-        let mut argument_registers = RegisterPool::new(1, 10); // r1-r10 for arguments
+        let mut argument_registers = RegisterPool::new(1, 6); // r1-r6 for arguments
 
         for (index_in_signature, type_for_parameter) in signature.parameters.iter().enumerate() {
             let parameter_basic_type = self
@@ -526,7 +526,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling `{function_name}` ({comment})",);
+        let call_comment = &format!("calling `{function_name}` ({comment})", );
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {

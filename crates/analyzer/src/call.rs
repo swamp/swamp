@@ -5,8 +5,8 @@
 use crate::TypeContext;
 use crate::{Analyzer, LocationSide};
 use source_map_node::Node;
-use swamp_semantic::ArgumentExpression;
 use swamp_semantic::err::ErrorKind;
+use swamp_semantic::ArgumentExpression;
 use swamp_types::prelude::*;
 
 pub struct MaybeBorrowMutRefExpression {
@@ -78,6 +78,17 @@ impl Analyzer<'_> {
             self.add_err(
                 ErrorKind::WrongNumberOfArguments(fn_parameters.len(), arguments.len()),
                 node,
+            );
+            return vec![];
+        }
+
+        if fn_parameters.len() > Self::MAX_PARAMETER_COUNT {
+            self.add_err(
+                ErrorKind::TooManyParameters {
+                    encountered: fn_parameters.len(),
+                    allowed: Self::MAX_PARAMETER_COUNT,
+                },
+                &node,
             );
             return vec![];
         }
