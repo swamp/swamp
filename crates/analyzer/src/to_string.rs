@@ -710,7 +710,10 @@ impl GeneratedScope {
     ) -> VariableRef {
         let virtual_register = self
             .allocate_virtual_register()
-            .unwrap_or_else(|| panic!("out of virtual registers for variable {assigned_name}"));
+            .unwrap_or_else(||
+                panic!("out of virtual registers for variable {assigned_name}")
+
+            );
 
         let unique_id = self.allocate_unique_id();
 
@@ -1786,6 +1789,12 @@ fn generate_to_pretty_string_for_type(
     indentation_expression: Expression,
     node: &Node,
 ) -> Expression {
+    let string_type = generator.types.string();
+    return Expression {
+        ty: string_type,
+        node: Default::default(),
+        kind: ExpressionKind::StringLiteral("not working yet".to_string()),
+    };
     let string_type = generator.types.string();
     let int_type = generator.types.int();
     let unit_type = generator.types.unit();
