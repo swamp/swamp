@@ -23,7 +23,7 @@ This crate is primarily intended as a dependency for the Swamp VM implementation
 
 ```toml
 [dependencies]
-swamp-vm-types = "0.2.8"
+swamp-vm-types = "0.2.9"
 ```
 
 ## License

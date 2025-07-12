@@ -26,5 +26,5 @@ This crate is primarily intended for use within the Swamp compiler or related de
 
 ```toml
 [dependencies]
-swamp-pretty-print = "0.2.8"
+swamp-pretty-print = "0.2.9"
 ```
