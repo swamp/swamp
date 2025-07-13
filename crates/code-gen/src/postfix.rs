@@ -203,7 +203,7 @@ impl CodeBuilder<'_> {
                            "load tag for coalescing",
                        );
 
-                       // Jump-if-Some → skip fallback
+                       // Jump-if-Some -> skip fallback
                        let skip_fallback_expression_if_some = self.builder.add_jmp_if_true_placeholder(
                            temp_reg.register(),
                            &element.node,

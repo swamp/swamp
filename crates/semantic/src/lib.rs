@@ -1057,21 +1057,19 @@ impl AssociatedImpls {
     #[must_use]
     pub fn get_member_function(&self, ty: &TypeRef, function_name: &str) -> Option<&FunctionRef> {
         let maybe_found_impl = self.functions.get(ty);
-        if let Some(found_impl) = maybe_found_impl {
-            if let Some(func) = found_impl.functions.get(&function_name.to_string()) {
+        if let Some(found_impl) = maybe_found_impl
+            && let Some(func) = found_impl.functions.get(&function_name.to_string()) {
                 return Some(func);
             }
-        }
         None
     }
 
     fn has_internal_member_function(&self, ty: &TypeRef, function_name: &str) -> bool {
         let maybe_found_impl = self.functions.get(ty);
-        if let Some(found_impl) = maybe_found_impl {
-            if let Some(_func) = found_impl.functions.get(&function_name.to_string()) {
+        if let Some(found_impl) = maybe_found_impl
+            && let Some(_func) = found_impl.functions.get(&function_name.to_string()) {
                 return true;
             }
-        }
         false
     }
 
@@ -1081,11 +1079,10 @@ impl AssociatedImpls {
         ty: &TypeRef,
         function_name: &str,
     ) -> Option<&ExternalFunctionDefinitionRef> {
-        if let Some(found) = self.get_member_function(ty, function_name) {
-            if let Function::External(ext_fn) = &**found {
+        if let Some(found) = self.get_member_function(ty, function_name)
+            && let Function::External(ext_fn) = &**found {
                 return Some(ext_fn);
             }
-        }
         None
     }
 
@@ -1095,11 +1092,10 @@ impl AssociatedImpls {
         ty: &TypeRef,
         function_name: &str,
     ) -> Option<&InternalFunctionDefinitionRef> {
-        if let Some(found) = self.get_member_function(ty, function_name) {
-            if let Function::Internal(int_fn) = &**found {
+        if let Some(found) = self.get_member_function(ty, function_name)
+            && let Function::Internal(int_fn) = &**found {
                 return Some(int_fn);
             }
-        }
         None
     }
 

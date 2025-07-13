@@ -3,13 +3,13 @@
 struct Equipment {
     name: String<64>,
     stats: [Int; 3],
-		weapon: String<18>?,
+        weapon: String<18>?,
 }
 
 impl Equipment {
-	fn format_enchantment(self) -> String {
-		self.name
-	}
+    fn format_enchantment(self) -> String {
+        self.name
+    }
 }
 
 struct Player {
@@ -43,7 +43,7 @@ fn create_player_with_equipment() -> Player? {
         maybe_equipment: Equipment {
             weapon: "Flaming Sword",
             stats: [85, 70, 60],
-						name: "not sure",
+                        name: "not sure",
         },
     }
 }
@@ -64,7 +64,7 @@ fn create_none_player() -> Player? {
 #[test]
 fn optional_chaining_field_access_some() {
     player = create_player_with_equipment()
-		print('player: {player}')
+        print('player: {player}')
     name = player?.name ?? "something"
     level = player?.level ?? 0
 

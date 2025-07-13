@@ -80,7 +80,7 @@ fn queue_aggregate_elements() {
     assert(queue.len() == 3, "queue should have 3 aggregate elements")
 
     first = queue.dequeue()
-		assert(first.x == 1 && first.y == 2, "first popped aggregate should be (1,2)")
+        assert(first.x == 1 && first.y == 2, "first popped aggregate should be (1,2)")
 
 }
 

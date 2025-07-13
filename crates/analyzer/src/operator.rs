@@ -67,7 +67,7 @@ impl Analyzer<'_> {
                 ))
             }
 
-            (&BinaryOperatorKind::Multiply, TypeKind::StringStorage(..) | TypeKind::String(_, ..), TypeKind::Int) => {
+            (&BinaryOperatorKind::Multiply, TypeKind::StringStorage(..) | TypeKind::String(..), TypeKind::Int) => {
                 Some((
                     BinaryOperator {
                         left: Box::new(left),

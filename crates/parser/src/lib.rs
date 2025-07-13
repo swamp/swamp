@@ -866,12 +866,11 @@ impl AstParser {
         let function_name = self.expect_function_identifier_next(&mut inner)?;
 
         let mut maybe_next_token = inner.next();
-        if let Some(next_rule) = &maybe_next_token {
-            if next_rule.as_rule() == Rule::generic_type_variables {
+        if let Some(next_rule) = &maybe_next_token
+            && next_rule.as_rule() == Rule::generic_type_variables {
                 //generic_types = self.parse_generic_type_variables(next_rule)?;
                 maybe_next_token = inner.next();
             }
-        }
 
         let (parameters, return_type) = match maybe_next_token {
             Some(token) if token.as_rule() == Rule::parameter_list => {
@@ -982,12 +981,11 @@ impl AstParser {
 
         // TODO: Remove the parsing of generic type variables
         let maybe_next_token = inner.peek();
-        if let Some(next_rule) = &maybe_next_token {
-            if next_rule.as_rule() == Rule::generic_type_variables {
+        if let Some(next_rule) = &maybe_next_token
+            && next_rule.as_rule() == Rule::generic_type_variables {
                 // self.parse_generic_type_variables(next_rule)?;
                 let _ = inner.next();
             }
-        }
 
         let mut parameters = Vec::new();
         let mut self_parameter = None;
@@ -1583,11 +1581,10 @@ impl AstParser {
                 let type_identifier = self.parse_local_type_identifier(&type_id)?;
 
                 // TODO: Maybe loop and check for generic params
-                if let Some(generic_params) = inner_pairs.next() {
-                    if generic_params.as_rule() == Rule::generic_arguments {
+                if let Some(generic_params) = inner_pairs.next()
+                    && generic_params.as_rule() == Rule::generic_arguments {
                         generic_types = self.parse_generic_arguments(&generic_params)?; // TODO: maybe not used?
                     }
-                }
 
                 Ok(QualifiedTypeIdentifier::new_with_generics(
                     type_identifier,
@@ -1599,11 +1596,10 @@ impl AstParser {
                 let type_identifier = LocalTypeIdentifier(self.to_node(&first));
 
                 // TODO: Maybe loop and check for generic params
-                if let Some(generic_params) = inner_pairs.next() {
-                    if generic_params.as_rule() == Rule::generic_arguments {
+                if let Some(generic_params) = inner_pairs.next()
+                    && generic_params.as_rule() == Rule::generic_arguments {
                         generic_types = self.parse_generic_arguments(&generic_params)?;
                     }
-                }
 
                 Ok(QualifiedTypeIdentifier::new_with_generics(
                     type_identifier,
@@ -1639,12 +1635,11 @@ impl AstParser {
                 let identifier = self.to_node(&id);
 
                 // TODO: Maybe loop and check for generic params
-                if let Some(generic_params) = inner_pairs.next() {
-                    if generic_params.as_rule() == Rule::generic_arguments {
+                if let Some(generic_params) = inner_pairs.next()
+                    && generic_params.as_rule() == Rule::generic_arguments {
                         // TODO: maybe not used?
                         generic_types = self.parse_generic_arguments(&generic_params)?;
                     }
-                }
 
                 Ok(QualifiedIdentifier::new_with_generics(
                     identifier,
@@ -1656,12 +1651,11 @@ impl AstParser {
                 let type_identifier = self.to_node(&first);
 
                 // TODO: Maybe loop and check for generic params
-                if let Some(generic_params) = inner_pairs.next() {
-                    if generic_params.as_rule() == Rule::generic_arguments {
+                if let Some(generic_params) = inner_pairs.next()
+                    && generic_params.as_rule() == Rule::generic_arguments {
                         // TODO: maybe not used
                         generic_types = self.parse_generic_arguments(&generic_params)?;
                     }
-                }
 
                 Ok(QualifiedIdentifier::new_with_generics(
                     type_identifier,
@@ -2457,8 +2451,8 @@ impl AstParser {
 
         let mut variants = Vec::new();
 
-        if let Some(variants_pair) = inner.next() {
-            if variants_pair.as_rule() == Rule::enum_variants {
+        if let Some(variants_pair) = inner.next()
+            && variants_pair.as_rule() == Rule::enum_variants {
                 for variant_pair in Self::convert_into_iterator(&variants_pair) {
                     if variant_pair.as_rule() == Rule::enum_variant {
                         let variant =
@@ -2468,7 +2462,6 @@ impl AstParser {
                     }
                 }
             }
-        }
 
         Ok(DefinitionKind::EnumDef(
             name_with_optional_type_params,
@@ -2914,7 +2907,7 @@ impl AstParser {
         debug_assert_eq!(pair.as_rule(), Rule::logical);
 
         let mut inner = pair.clone().into_inner();
-        // first, parse a full coalesce‐expression (so “a ?? b” binds tighter than “&&”)
+        // first, parse a full coalesce-expression (so "a ?? b" binds tighter than "&&")
         let mut expr = self.parse_none_coalesce(&inner.next().unwrap())?;
 
         while let Some(op_pair) = inner.next() {

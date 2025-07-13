@@ -378,8 +378,8 @@ impl<'a> Analyzer<'a> {
         let path = self.get_module_path(qualified_func_name.module_path.as_ref());
         let function_name = self.get_text(&qualified_func_name.name);
 
-        if let Some(found_table) = self.shared.get_symbol_table(&path) {
-            if let Some(found_func) = found_table.get_function(function_name) {
+        if let Some(found_table) = self.shared.get_symbol_table(&path)
+            && let Some(found_func) = found_table.get_function(function_name) {
                 let (kind, signature) = match found_func {
                     FuncDef::Internal(internal_fn) => (
                         Function::Internal(internal_fn.clone()),
@@ -398,7 +398,6 @@ impl<'a> Analyzer<'a> {
 
                 return Some(kind);
             }
-        }
 
         None
     }
@@ -493,8 +492,7 @@ impl<'a> Analyzer<'a> {
     ) -> MaybeBorrowMutRefExpression {
         if let swamp_ast::ExpressionKind::UnaryOp(found_unary, ast_inner_expression) =
             &ast_expr.kind
-        {
-            if let swamp_ast::UnaryOperator::BorrowMutRef(node) = found_unary {
+            && let swamp_ast::UnaryOperator::BorrowMutRef(node) = found_unary {
                 //let inner = self.analyze_expression(ast_inner_expression, context)?;
                 let resolved_node = self.to_node(node);
                 return MaybeBorrowMutRefExpression {
@@ -502,7 +500,6 @@ impl<'a> Analyzer<'a> {
                     has_borrow_mutable_reference: Some(resolved_node),
                 };
             }
-        }
 
         MaybeBorrowMutRefExpression {
             ast_expression: ast_expr.clone(),
@@ -1051,8 +1048,8 @@ impl<'a> Analyzer<'a> {
         };
 
         // Extract the AnonymousStructType from the TypeRef
-        if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_ref.kind {
-            if let Some(found_field) = anon_struct.field_name_sorted_fields.get(&field_name_str) {
+        if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_ref.kind
+            && let Some(found_field) = anon_struct.field_name_sorted_fields.get(&field_name_str) {
                 let index = anon_struct
                     .field_name_sorted_fields
                     .get_index(&field_name_str)
@@ -1060,7 +1057,6 @@ impl<'a> Analyzer<'a> {
 
                 return (anon_struct.clone(), index, found_field.field_type.clone());
             }
-        }
 
         self.add_err(ErrorKind::UnknownStructField, field_name);
         // Return fallback values
@@ -1624,15 +1620,13 @@ impl<'a> Analyzer<'a> {
         // local variables before other functions
         if qualified_func_name.module_path.is_none()
             && qualified_func_name.generic_params.is_empty()
-        {
-            if let Some(found_variable) = self.try_find_variable(&qualified_func_name.name) {
+            && let Some(found_variable) = self.try_find_variable(&qualified_func_name.name) {
                 return self.create_expr(
                     ExpressionKind::VariableAccess(found_variable.clone()),
                     found_variable.resolved_type.clone(),
                     &qualified_func_name.name,
                 );
             }
-        }
 
         let text = self.get_text(&qualified_func_name.name);
         self.create_err(
@@ -2945,8 +2939,8 @@ impl<'a> Analyzer<'a> {
             }
         }
 
-        if let Some(found_expected_type) = context.expected_type {
-            if !self.types().compatible_with(found_expected_type, &ty) {
+        if let Some(found_expected_type) = context.expected_type
+            && !self.types().compatible_with(found_expected_type, &ty) {
                 self.add_err(
                     ErrorKind::IncompatibleTypes {
                         expected: found_expected_type.clone(),
@@ -2955,7 +2949,6 @@ impl<'a> Analyzer<'a> {
                     &chain.base.node,
                 );
             }
-        }
 
         SingleLocationExpression {
             kind: MutableReferenceKind::MutVariableRef,

@@ -94,11 +94,10 @@ impl SymbolTable {
         let mut v = Vec::new();
 
         for (_name, sym) in &self.symbols {
-            if let Symbol::FunctionDefinition(func_def) = sym {
-                if let FuncDef::Internal(internal) = func_def {
+            if let Symbol::FunctionDefinition(func_def) = sym
+                && let FuncDef::Internal(internal) = func_def {
                     v.push(internal.clone());
                 }
-            }
         }
 
         v
@@ -138,13 +137,12 @@ impl SymbolTable {
         let mut structs = SeqMap::new();
 
         for (name, symbol) in &self.symbols {
-            if let Symbol::Type(ty) = symbol {
-                if let TypeKind::NamedStruct(struct_ref) = &*ty.kind {
+            if let Symbol::Type(ty) = symbol
+                && let TypeKind::NamedStruct(struct_ref) = &*ty.kind {
                     structs
                         .insert(name.to_string(), struct_ref.clone())
                         .unwrap();
                 }
-            }
         }
 
         structs
@@ -155,11 +153,10 @@ impl SymbolTable {
         let mut enums = SeqMap::new();
 
         for (name, symbol) in &self.symbols {
-            if let Symbol::Type(ty) = symbol {
-                if let TypeKind::Enum(enum_type) = &*ty.kind {
+            if let Symbol::Type(ty) = symbol
+                && let TypeKind::Enum(enum_type) = &*ty.kind {
                     enums.insert(name.to_string(), enum_type.clone()).unwrap();
                 }
-            }
         }
 
         enums
@@ -201,11 +198,10 @@ impl SymbolTable {
         symbol_table: &Self,
     ) -> Result<(), SemanticError> {
         for (name, symbol) in symbol_table.symbols() {
-            if let Symbol::FunctionDefinition(func_def) = symbol {
-                if let FuncDef::Intrinsic(_intrinsic_def) = func_def {
+            if let Symbol::FunctionDefinition(func_def) = symbol
+                && let FuncDef::Intrinsic(_intrinsic_def) = func_def {
                     self.add_symbol(name, symbol.clone())?;
                 }
-            }
         }
         Ok(())
     }

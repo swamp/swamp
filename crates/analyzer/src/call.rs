@@ -88,7 +88,7 @@ impl Analyzer<'_> {
                     encountered: fn_parameters.len(),
                     allowed: Self::MAX_PARAMETER_COUNT,
                 },
-                &node,
+                node,
             );
             return vec![];
         }

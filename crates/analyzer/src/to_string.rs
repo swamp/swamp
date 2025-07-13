@@ -2098,7 +2098,7 @@ fn call_to_string_method(
     call_method_on_expression(generator, self_expression, "string", vec![], node)
 }
 
-/// Helper to call to_short_string method
+/// Helper to call `to_short_string` method
 fn call_to_short_string_method(
     generator: &mut ExpressionGenerator,
     self_expression: Expression,
@@ -2785,31 +2785,28 @@ fn generate_add_indentation_to_result(
     );
 
     // Generate indentation string based on the expression type
-    let indentation_spaces = match &indentation_expr.kind {
-        ExpressionKind::VariableAccess(var_ref) => {
-            // Direct variable access - use the optimized path
-            generate_indentation_string(generator, scope, var_ref, node)
-        }
-        _ => {
-            // For other expressions (like IntLiteral(0)), use string repeat directly
-            let spaces_literal = create_expr_resolved(
-                ExpressionKind::StringLiteral("  ".to_string()),
-                string_type.clone(),
-                node,
-            );
+    let indentation_spaces = if let ExpressionKind::VariableAccess(var_ref) = &indentation_expr.kind {
+        // Direct variable access - use the optimized path
+        generate_indentation_string(generator, scope, var_ref, node)
+    } else {
+        // For other expressions (like IntLiteral(0)), use string repeat directly
+        let spaces_literal = create_expr_resolved(
+            ExpressionKind::StringLiteral("  ".to_string()),
+            string_type.clone(),
+            node,
+        );
 
-            // Use the Multiply operator for string repeat
-            create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Multiply,
-                    left: Box::new(spaces_literal),
-                    right: Box::new(indentation_expr.clone()),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            )
-        }
+        // Use the Multiply operator for string repeat
+        create_expr_resolved(
+            ExpressionKind::BinaryOp(BinaryOperator {
+                kind: BinaryOperatorKind::Multiply,
+                left: Box::new(spaces_literal),
+                right: Box::new(indentation_expr.clone()),
+                node: node.clone(),
+            }),
+            string_type.clone(),
+            node,
+        )
     };
 
     // Concatenate result + indentation_spaces

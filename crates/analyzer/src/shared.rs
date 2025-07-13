@@ -45,11 +45,10 @@ impl<'a> SharedState<'a> {
             )
         };
 
-        if path.len() == 1 {
-            if let Some(module_ref) = self.lookup_table.get_module_link(&path[0]) {
+        if path.len() == 1
+            && let Some(module_ref) = self.lookup_table.get_module_link(&path[0]) {
                 return Some(module_ref);
             }
-        }
 
         if let Some(x) = self.modules.get(&resolved_path) {
             return Some(x);

@@ -434,7 +434,7 @@ fn os_home_relative_path(project_name: &str) -> Option<PathBuf> {
 }
 
 fn current_directory_relative_path(project_name: &str) -> PathBuf {
-    Path::new(".").join(format!(".{}", project_name))
+    Path::new(".").join(format!(".{project_name}"))
 }
 
 #[must_use]
