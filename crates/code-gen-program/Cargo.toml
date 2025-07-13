@@ -1,6 +1,6 @@
 [package]
 name = "swamp-code-gen-program"
-version = "0.2.10"
+version = "0.2.11"
 edition = "2024"
 license = "MIT"
 description = "converts a Swamp program to swamp-vm opcodes"
@@ -9,15 +9,15 @@ repository = "https://github.com/swamp/swamp"
 [dependencies]
 
 # Compilation
-swamp-semantic = { path = "../semantic", version = "0.2.10" }
+swamp-semantic = { path = "../semantic", version = "0.2.11" }
 
 
 # REMOVE
-swamp-compile = { path = "../compile", version = "0.2.10" } # TODO: Only needed for `Program` which should not be defined there.
+swamp-compile = { path = "../compile", version = "0.2.11" } # TODO: Only needed for `Program` which should not be defined there.
 
 # Code Generation
-swamp-code-gen = { path = "../code-gen", version = "0.2.10" }
-swamp-vm-types = { path = "../vm-types", version = "0.2.10" }
+swamp-code-gen = { path = "../code-gen", version = "0.2.11" }
+swamp-vm-types = { path = "../vm-types", version = "0.2.11" }
 
 # Source Map
 source-map-cache = "0.0.3"

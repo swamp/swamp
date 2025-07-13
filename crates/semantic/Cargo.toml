@@ -1,6 +1,6 @@
 [package]
 name = "swamp-semantic"
-version = "0.2.10"
+version = "0.2.11"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
@@ -8,11 +8,11 @@ description = "semantic types for swamp"
 
 [dependencies]
 source-map-node = "0.0.1"
-swamp-types = { path = "../types", version = "0.2.10" }
+swamp-types = { path = "../types", version = "0.2.11" }
 
 seq-map = "0.0.13"
 fixed32 = "0.0.18"
 tracing = "0.1.40"
-swamp-attributes = { path = "../attributes", version = "0.2.10" }
+swamp-attributes = { path = "../attributes", version = "0.2.11" }
 
 [dev-dependencies]
