@@ -313,7 +313,6 @@ impl Vm {
             "String too large: {byte_count} bytes"
         );
 
-        eprintln!("allocating len:{} payload: '{string}'", string.len());
         // Calculate total size needed: header + string data
         // We assume that StringHeader is aligned to u32
         let total_size = size_of::<VecHeader>() + byte_count;

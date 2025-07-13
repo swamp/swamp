@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use std::path::PathBuf;
-use swamp_test_runner::{StepBehavior, TestRunOptions, run_tests};
+use swamp_test_runner::{run_tests, StepBehavior, TestRunOptions};
 
 #[must_use]
 pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
@@ -67,6 +67,6 @@ fn run_swamp_test_verbose(test_filter: &str) {
     run_swamp_test(test_filter, true);
 }
 #[test_log::test]
-fn very_basic() {
-    run_swamp_test_quiet("stack::init_and_push");
+fn swamp_tests() {
+    run_swamp_test_verbose("");
 }
