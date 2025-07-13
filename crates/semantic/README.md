@@ -10,7 +10,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-swamp-semantic = "0.2.9"
+swamp-semantic = "0.2.10"
 ```
 
 ## License

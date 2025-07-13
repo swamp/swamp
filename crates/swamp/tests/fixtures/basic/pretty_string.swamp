@@ -1,0 +1,496 @@
+// Tests for to_string(), to_short_string(), and to_pretty_string() functionality
+// Using game-related hierarchical structures to test formatting
+
+struct Vector3 {
+    x: Float,
+    y: Float,
+    z: Float,
+}
+
+struct Transform {
+    position: Vector3,
+    rotation: Vector3,
+    scale: Vector3,
+}
+
+struct Player {
+    name: String,
+    health: Int,
+    level: Int,
+    transform: Transform,
+}
+
+struct Weapon {
+    name: String,
+    damage: Int,
+    range: Float,
+}
+
+enum GameState {
+    MainMenu,
+    Playing { current_level: Int, score: Int },
+    Paused,
+    GameOver(Int), // final score
+}
+
+enum EntityType {
+    Player(Player),
+    Enemy { health: Int, weapon: Weapon },
+    Powerup(String<32>),
+}
+
+struct GameWorld {
+    entities: [EntityType; 3],
+    current_state: GameState,
+    time_elapsed: Float,
+}
+
+#[test]
+fn vector3_basic_formats() {
+    pos = Vector3 { x: 1.5, y: 2.0, z: -3.25 }
+
+    string_result = pos.string()
+    short_result = pos.short_string()
+    pretty_result = pos.pretty_string()
+
+    print('Vector3.string(): {string_result}')
+    print('Vector3.short_string(): {short_result}')
+    print('Vector3.pretty_string(): {pretty_result}')
+
+    // Verify exact formats
+    expected_string = "Vector3 { x: 1.500, y: 2.000, z: -3.250 }"
+    expected_short = "{ x: 1.500, y: 2.000, z: -3.250 }"
+    // Small Vector3 should stay compact since it's under 80 characters
+    expected_pretty = "Vector3 { x: 1.500, y: 2.000, z: -3.250 }"
+
+    assert(string_result == expected_string, 'Vector3 string format should match exactly {string_result}')
+    assert(short_result == expected_short, 'Vector3 short format should match exactly {short_result}')
+    assert(pretty_result == expected_pretty, 'Vector3 pretty format should match exactly {pretty_result}')
+}
+
+#[test]
+fn player_hierarchical_structure() {
+    player = Player {
+        name: "Hero",
+        health: 100,
+        level: 5,
+        transform: Transform {
+            position: Vector3 { x: 10.0, y: 0.0, z: 5.0 },
+            rotation: Vector3 { x: 0.0, y: 45.0, z: 0.0 },
+            scale: Vector3 { x: 1.0, y: 1.0, z: 1.0 },
+        },
+    }
+
+    result = player.pretty_string()
+    print('Player hierarchical pretty_string:')
+    print(result)
+
+    // In pretty_string, children should use short format for compactness
+    expected = "Player {\n  name: Hero,\n  health: 100,\n  level: 5,\n  transform: { position: { x: 10.000, y: 0.000, z: 5.000 }, rotation: { x: 0.000, y: 45.000, z: 0.000 }, scale: { x: 1.000, y: 1.000, z: 1.000 } },\n}"
+    assert(result == expected, 'Player pretty format should use short format for nested structures. Got: {result}')
+}
+
+#[test]
+fn enum_variants_comprehensive() {
+    // Test all enum variant types
+    menu_state = GameState::MainMenu
+    playing_state = GameState::Playing { current_level: 3, score: 15750 }
+    paused_state = GameState::Paused
+    gameover_state = GameState::GameOver(25000)
+
+    // Test string formats
+    menu_str = menu_state.string()
+    playing_str = playing_state.string()
+    gameover_str = gameover_state.string()
+
+    print('GameState variants:')
+    print('MainMenu: {menu_str}')
+    print('Playing: {playing_str}')
+    print('GameOver: {gameover_str}')
+
+    // Verify exact enum formats
+    assert(menu_str == "GameState::MainMenu", 'Unit variant should show full path. Got: {menu_str}')
+    assert(playing_str == "GameState::Playing { current_level: 3, score: 15750 }", 'Struct variant should show full format. Got: {playing_str}')
+    assert(gameover_str == "GameState::GameOver(25000)", 'Tuple variant should show parentheses. Got: {gameover_str}')
+
+    // Test short formats (without enum name)
+    menu_short = menu_state.short_string()
+    playing_short = playing_state.short_string()
+    gameover_short = gameover_state.short_string()
+
+    assert(menu_short == "MainMenu", 'Short format should omit enum name. Got: {menu_short}')
+    assert(playing_short == "Playing { current_level: 3, score: 15750 }", 'Short struct variant should omit enum name. Got: {playing_short}')
+    assert(gameover_short == "GameOver(25000)", 'Short tuple variant should omit enum name. Got: {gameover_short}')
+}
+
+#[test]
+fn game_world_complex_hierarchy() {
+    // Create a complex hierarchical game structure
+    world = GameWorld {
+        entities: [
+            EntityType::Player(Player {
+                name: "MainChar",
+                health: 85,
+                level: 12,
+                transform: Transform {
+                    position: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
+                    rotation: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
+                    scale: Vector3 { x: 1.0, y: 1.0, z: 1.0 },
+                },
+            }),
+            EntityType::Enemy {
+                health: 50,
+                weapon: Weapon { name: "Sword", damage: 25, range: 2.0 }
+            },
+            EntityType::Powerup("HealthPotion"),
+        ],
+        current_state: GameState::Playing { current_level: 2, score: 8500 },
+        time_elapsed: 125.75,
+    }
+
+    result = world.pretty_string()
+    print('Complex GameWorld pretty_string:')
+    print(result)
+
+    // This should be multi-line with proper indentation
+    // Children should use short format to keep it readable
+    expected = "GameWorld {\n  entities: [\n    Player({ name: MainChar, health: 85, level: 12, transform: { position: { x: 0.000, y: 0.000, z: 0.000 }, rotation: { x: 0.000, y: 0.000, z: 0.000 }, scale: { x: 1.000, y: 1.000, z: 1.000 } } }),\n    Enemy { health: 50, weapon: { name: Sword, damage: 25, range: 2.000 } },\n    Powerup(HealthPotion),\n  ],\n  current_state: Playing { current_level: 2, score: 8500 },\n  time_elapsed: 125.750,\n}"
+    assert(result == expected, 'Complex hierarchy should use proper indentation and short formats for children. Got: {result}')
+}
+
+#[test]
+fn array_of_entities_formatting() {
+    entities = [
+        EntityType::Player(Player {
+            name: "P1",
+            health: 100,
+            level: 1,
+            transform: Transform {
+                position: Vector3 { x: 1.0, y: 0.0, z: 1.0 },
+                rotation: Vector3 { x: 0.0, y: 90.0, z: 0.0 },
+                scale: Vector3 { x: 1.0, y: 1.0, z: 1.0 },
+            },
+        }),
+        EntityType::Enemy {
+            health: 75,
+            weapon: Weapon { name: "Axe", damage: 30, range: 1.5 }
+        },
+        EntityType::Powerup("SpeedBoost"),
+    ]
+
+    result = entities.pretty_string()
+    print('Entity array pretty_string:')
+    print(result)
+
+    // Array should format each element on its own line with proper indentation
+    expected = "[\n  Player({ name: P1, health: 100, level: 1, transform: { position: { x: 1.000, y: 0.000, z: 1.000 }, rotation: { x: 0.000, y: 90.000, z: 0.000 }, scale: { x: 1.000, y: 1.000, z: 1.000 } } }),\n  Enemy { health: 75, weapon: { name: Axe, damage: 30, range: 1.500 } },\n  Powerup(SpeedBoost),\n]"
+    assert(result == expected, 'Entity array should format with proper line breaks and indentation. Got: {result}')
+}
+
+#[test]
+fn compact_vs_multiline_threshold() {
+    // Small structure should stay compact even in pretty format
+    small_vector = Vector3 { x: 1.0, y: 2.0, z: 3.0 }
+    small_pretty = small_vector.pretty_string()
+
+    // Large nested structure should go multiline
+    large_transform = Transform {
+        position: Vector3 { x: 123.456789, y: 987.654321, z: -555.123456 },
+        rotation: Vector3 { x: 45.123456, y: -90.987654, z: 180.555444 },
+        scale: Vector3 { x: 2.5, y: 3.75, z: 1.25 },
+    }
+    large_pretty = large_transform.pretty_string()
+
+    print('Small vector pretty (should be compact): {small_pretty}')
+    print('Large transform pretty (should be multiline):')
+    print(large_pretty)    // Small structure should remain compact - exact string check
+    expected_small = "Vector3 { x: 1.000, y: 2.000, z: 3.000 }"
+    assert(small_pretty == expected_small, 'Small structures should stay compact with exact format. Got: {small_pretty}')
+
+    // Large structure should be multiline - exact string check
+    expected_large = "Transform {\n  position: { x: 123.456789, y: 987.654321, z: -555.123456 },\n  rotation: { x: 45.123456, y: -90.987654, z: 180.555444 },\n  scale: { x: 2.500, y: 3.750, z: 1.250 },\n}"
+    assert(large_pretty == expected_large, 'Large structures should be multiline with exact format. Got: {large_pretty}')
+}
+
+#[test]
+fn force_multiline_pretty_formatting() {
+    // Create a structure that's definitely over 80 characters to force multiline
+    long_name_vector = Vector3 {
+        x: 123456789.123456789,
+        y: -987654321.987654321,
+        z: 555666777.888999000
+    }
+
+    result = long_name_vector.pretty_string()
+    print('Long vector pretty (should be multiline):')
+    print(result)
+
+    // This should be multiline because the compact form would be over 80 characters
+    expected = "Vector3 {\n  x: 123456789.123456789,\n  y: -987654321.987654321,\n  z: 555666777.888999000,\n}"
+    assert(result == expected, 'Long structures should use multiline pretty format. Got: {result}')
+}
+
+#[test]
+fn weapon_stats_table_format() {
+    weapons = [
+        Weapon { name: "Sword", damage: 25, range: 2.0 },
+        Weapon { name: "Bow", damage: 15, range: 10.0 },
+        Weapon { name: "Staff", damage: 35, range: 5.0 },
+    ]
+
+    result = weapons.pretty_string()
+    print('Weapon stats table:')
+    print(result)
+
+    expected = "[\n  { name: Sword, damage: 25, range: 2.000 },\n  { name: Bow, damage: 15, range: 10.000 },\n  { name: Staff, damage: 35, range: 5.000 },\n]"
+    assert(result == expected, 'Weapon array should format like a clean table. Got: {result}')
+}
+
+#[test]
+fn nested_tuples_with_game_data() {
+    // Test tuple formatting with game coordinates and stats
+    spawn_points = [
+        (Vector3 { x: 0.0, y: 0.0, z: 0.0 }, "PlayerSpawn"),
+        (Vector3 { x: 10.0, y: 0.0, z: 10.0 }, "EnemySpawn"),
+        (Vector3 { x: -5.0, y: 2.0, z: 8.0 }, "PowerupSpawn"),
+    ]
+
+    result = spawn_points.pretty_string()
+    print('Spawn points with coordinates:')
+    print(result)
+
+    expected = "[\n  (\n    { x: 0.000, y: 0.000, z: 0.000 },\n    PlayerSpawn,\n  ),\n  (\n    { x: 10.000, y: 0.000, z: 10.000 },\n    EnemySpawn,\n  ),\n  (\n    { x: -5.000, y: 2.000, z: 8.000 },\n    PowerupSpawn,\n  ),\n]"
+    assert(result == expected, 'Tuple array should format with proper multiline structure. Got: {result}')
+}
+
+#[test]
+fn game_state_transitions() {
+    // Test different game states and their transitions
+    states = [
+        GameState::MainMenu,
+        GameState::Playing { current_level: 1, score: 0 },
+        GameState::Playing { current_level: 5, score: 12750 },
+        GameState::Paused,
+        GameState::GameOver(15000),
+    ]
+
+    result = states.pretty_string()
+    print('Game state transitions:')
+    print(result)
+
+    expected = "[\n  MainMenu,\n  Playing { current_level: 1, score: 0 },\n  Playing { current_level: 5, score: 12750 },\n  Paused,\n  GameOver(15000),\n]"
+    assert(result == expected, 'Game states should format consistently in arrays. Got: {result}')
+}
+
+#[test]
+fn rpg_character_sheet() {
+    // Test a comprehensive RPG character with nested stats
+    wizard = Player {
+        name: "Gandalf",
+        health: 120,
+        level: 50,
+        transform: Transform {
+            position: Vector3 { x: 100.5, y: 0.0, z: 200.75 },
+            rotation: Vector3 { x: 0.0, y: 180.0, z: 0.0 },
+            scale: Vector3 { x: 1.0, y: 1.0, z: 1.0 },
+        },
+    }
+
+    // Test string format - should include full type names
+    string_result = wizard.string()
+    print('RPG Character string():')
+    print(string_result)    expected_string = "Player { name: Gandalf, health: 120, level: 50, transform: Transform { position: Vector3 { x: 100.500, y: 0.000, z: 200.750 }, rotation: Vector3 { x: 0.000, y: 180.000, z: 0.000 }, scale: Vector3 { x: 1.000, y: 1.000, z: 1.000 } } }"
+    assert(string_result == expected_string, 'Character string should show all type names. Got: {string_result}')
+
+    // Test short format - should omit type names
+    short_result = wizard.short_string()
+    print('RPG Character short_string():')
+    print(short_result)
+
+    expected_short = "{ name: Gandalf, health: 120, level: 50, transform: { position: { x: 100.500, y: 0.000, z: 200.750 }, rotation: { x: 0.000, y: 180.000, z: 0.000 }, scale: { x: 1.000, y: 1.000, z: 1.000 } } }"
+    assert(short_result == expected_short, 'Character short should omit type names but keep structure. Got: {short_result}')
+
+    // Test pretty format - should be multiline with proper indentation
+    pretty_result = wizard.pretty_string()
+    print('RPG Character pretty_string():')
+    print(pretty_result)
+
+    // Pretty format should use short format for children to keep it readable
+    expected_pretty = "Player {\n  name: Gandalf,\n  health: 120,\n  level: 50,\n  transform: { position: { x: 100.500, y: 0.000, z: 200.750 }, rotation: { x: 0.000, y: 180.000, z: 0.000 }, scale: { x: 1.000, y: 1.000, z: 1.000 } },\n}"
+    assert(pretty_result == expected_pretty, 'Character pretty should use short format for nested children. Got: {pretty_result}')
+}
+
+#[test]
+fn battle_arena_entities() {
+    // Test array of different entity types in a battle arena
+    arena_entities = [
+        EntityType::Player(Player {
+            name: "Warrior",
+            health: 150,
+            level: 25,
+            transform: Transform {
+                position: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
+                rotation: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
+                scale: Vector3 { x: 1.2, y: 1.2, z: 1.2 },
+            },
+        }),
+        EntityType::Enemy {
+            health: 80,
+            weapon: Weapon { name: "Battleaxe", damage: 45, range: 3.0 }
+        },
+        EntityType::Enemy {
+            health: 60,
+            weapon: Weapon { name: "Dagger", damage: 20, range: 1.0 }
+        },
+        EntityType::Powerup("HealthElixir"),
+        EntityType::Powerup("StrengthBoost"),
+    ]
+
+    result = arena_entities.pretty_string()
+    print('Battle Arena Entities:')
+    print(result)
+
+    // Verify exact format - array elements should be on separate lines with proper indentation
+    // Children should use short format for readability
+    expected = "[\n  Player({ name: Warrior, health: 150, level: 25, transform: { position: { x: 0.000, y: 0.000, z: 0.000 }, rotation: { x: 0.000, y: 0.000, z: 0.000 }, scale: { x: 1.200, y: 1.200, z: 1.200 } } }),\n  Enemy { health: 80, weapon: { name: Battleaxe, damage: 45, range: 3.000 } },\n  Enemy { health: 60, weapon: { name: Dagger, damage: 20, range: 1.000 } },\n  Powerup(HealthElixir),\n  Powerup(StrengthBoost),\n]"
+    assert(result == expected, 'Arena entities should format with proper indentation and short children. Got: {result}')
+}
+
+#[test]
+fn game_inventory_system() {
+    // Test tuple-based inventory system with positions and items
+    inventory_slots = [
+        (0, EntityType::Powerup("HealthPotion")),
+        (1, EntityType::Powerup("ManaPotion")),
+        (2, EntityType::Enemy { health: 1, weapon: Weapon { name: "Stick", damage: 1, range: 0.5 } }), // Captured enemy as pet
+    ]
+
+    result = inventory_slots.pretty_string()
+    print('Game Inventory System:')
+    print(result)
+
+    // Tuples in arrays should format with proper multiline structure
+    expected = "[\n  (\n    0,\n    Powerup(HealthPotion),\n  ),\n  (\n    1,\n    Powerup(ManaPotion),\n  ),\n  (\n    2,\n    Enemy { health: 1, weapon: { name: Stick, damage: 1, range: 0.500 } },\n  ),\n]"
+    assert(result == expected, 'Inventory tuples should format with multiline structure. Got: {result}')
+}
+
+#[test]
+fn quest_progression_log() {
+    // Test game state progression through different phases
+    quest_states = [
+        GameState::MainMenu,
+        GameState::Playing { current_level: 1, score: 0 },
+        GameState::Playing { current_level: 2, score: 500 },
+        GameState::Playing { current_level: 3, score: 1250 },
+        GameState::Paused,
+        GameState::Playing { current_level: 3, score: 1250 }, // Resume
+        GameState::Playing { current_level: 4, score: 2000 },
+        GameState::GameOver(2000),
+    ]
+
+    result = quest_states.pretty_string()
+    print('Quest Progression Log:')
+    print(result)
+
+    // Game states should format consistently in arrays with enum short format
+    expected = "[\n  MainMenu,\n  Playing { current_level: 1, score: 0 },\n  Playing { current_level: 2, score: 500 },\n  Playing { current_level: 3, score: 1250 },\n  Paused,\n  Playing { current_level: 3, score: 1250 },\n  Playing { current_level: 4, score: 2000 },\n  GameOver(2000),\n]"
+    assert(result == expected, 'Quest states should format with enum short format in arrays. Got: {result}')
+}
+
+#[test]
+fn weapon_comparison_table() {
+    // Test weapon stats formatted as a clean table
+    weapon_collection = [
+        Weapon { name: "Sword", damage: 25, range: 2.0 },
+        Weapon { name: "Bow", damage: 15, range: 10.0 },
+        Weapon { name: "Staff", damage: 35, range: 5.0 },
+        Weapon { name: "Dagger", damage: 12, range: 1.0 },
+        Weapon { name: "Crossbow", damage: 30, range: 8.0 },
+    ]
+
+    result = weapon_collection.pretty_string()
+    print('Weapon Comparison Table:')
+    print(result)
+
+    // Should format like a clean table with consistent spacing
+    expected = "[\n  { name: Sword, damage: 25, range: 2.000 },\n  { name: Bow, damage: 15, range: 10.000 },\n  { name: Staff, damage: 35, range: 5.000 },\n  { name: Dagger, damage: 12, range: 1.000 },\n  { name: Crossbow, damage: 30, range: 8.000 },\n]"
+    assert(result == expected, 'Weapon table should format cleanly with short struct format. Got: {result}')
+}
+
+#[test]
+fn dungeon_level_coordinates() {
+    // Test coordinate system for dungeon levels with spawn points
+    level_layout = [
+        (Vector3 { x: 0.0, y: 0.0, z: 0.0 }, "PlayerStart"),
+        (Vector3 { x: 10.0, y: 0.0, z: 5.0 }, "EnemySpawn1"),
+        (Vector3 { x: -5.0, y: 2.0, z: 8.0 }, "TreasureChest"),
+        (Vector3 { x: 15.0, y: -1.0, z: 12.0 }, "BossRoom"),
+        (Vector3 { x: 20.0, y: 0.0, z: 15.0 }, "Exit"),
+    ]
+
+    result = level_layout.pretty_string()
+    print('Dungeon Level Coordinates:')
+    print(result)
+
+    // Coordinate tuples should format with proper multiline indentation
+    expected = "[\n  (\n    { x: 0.000, y: 0.000, z: 0.000 },\n    PlayerStart,\n  ),\n  (\n    { x: 10.000, y: 0.000, z: 5.000 },\n    EnemySpawn1,\n  ),\n  (\n    { x: -5.000, y: 2.000, z: 8.000 },\n    TreasureChest,\n  ),\n  (\n    { x: 15.000, y: -1.000, z: 12.000 },\n    BossRoom,\n  ),\n  (\n    { x: 20.000, y: 0.000, z: 15.000 },\n    Exit,\n  ),\n]"
+    assert(result == expected, 'Coordinate tuples should use multiline format with proper indentation. Got: {result}')
+}
+
+#[test]
+fn hierarchical_short_format_verification() {
+    // Test that nested structures properly use short format for children
+    complex_world = GameWorld {
+        entities: [
+            EntityType::Player(Player {
+                name: "Hero",
+                health: 100,
+                level: 10,
+                transform: Transform {
+                    position: Vector3 { x: 1.0, y: 2.0, z: 3.0 },
+                    rotation: Vector3 { x: 0.0, y: 90.0, z: 0.0 },
+                    scale: Vector3 { x: 1.0, y: 1.0, z: 1.0 },
+                },
+            }),
+            EntityType::Enemy {
+                health: 50,
+                weapon: Weapon { name: "Club", damage: 20, range: 1.5 }
+            },
+            EntityType::Powerup("Shield"),
+        ],
+        current_state: GameState::Playing { current_level: 5, score: 2500 },
+        time_elapsed: 300.5,
+    }
+
+    result = complex_world.pretty_string()
+    print('Complex World Hierarchy:')
+    print(result)
+
+    // Verify exact format - children should use short format for readability
+    expected = "GameWorld {\n  entities: [\n    Player({ name: Hero, health: 100, level: 10, transform: { position: { x: 1.000, y: 2.000, z: 3.000 }, rotation: { x: 0.000, y: 90.000, z: 0.000 }, scale: { x: 1.000, y: 1.000, z: 1.000 } } }),\n    Enemy { health: 50, weapon: { name: Club, damage: 20, range: 1.500 } },\n    Powerup(Shield),\n  ],\n  current_state: Playing { current_level: 5, score: 2500 },\n  time_elapsed: 300.500,\n}"
+    assert(result == expected, 'Complex world should format with proper hierarchy and short format for children. Got: {result}')
+}
+
+#[test]
+fn character_length_threshold_test() {
+    // Test exactly at the boundary of 80 characters
+    // This Player with a long name should force multiline pretty formatting
+    long_name_player = Player {
+        name: "VeryLongCharacterNameThatExceedsNormalLengthAndForcesMultilineFormatting",
+        health: 999,
+        level: 100,
+        transform: Transform {
+            position: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
+            rotation: Vector3 { x: 0.0, y: 0.0, z: 0.0 },
+            scale: Vector3 { x: 1.0, y: 1.0, z: 1.0 },
+        },
+    }
+
+    result = long_name_player.pretty_string()
+    print('Long name player pretty (should be multiline):')
+    print(result)
+
+    // This should definitely be multiline due to the long name
+    expected = "Player {\n  name: VeryLongCharacterNameThatExceedsNormalLengthAndForcesMultilineFormatting,\n  health: 999,\n  level: 100,\n  transform: { position: { x: 0.000, y: 0.000, z: 0.000 }, rotation: { x: 0.000, y: 0.000, z: 0.000 }, scale: { x: 1.000, y: 1.000, z: 1.000 } },\n}"
+    assert(result == expected, 'Player with long name should use multiline pretty format. Got: {result}')
+}
