@@ -1790,12 +1790,6 @@ fn generate_to_pretty_string_for_type(
     node: &Node,
 ) -> Expression {
     let string_type = generator.types.string();
-    return Expression {
-        ty: string_type,
-        node: Default::default(),
-        kind: ExpressionKind::StringLiteral("not working yet".to_string()),
-    };
-    let string_type = generator.types.string();
     let int_type = generator.types.int();
     let unit_type = generator.types.unit();
     let bool_type = generator.types.bool();
@@ -1971,155 +1965,36 @@ fn call_to_pretty_string_method(
     )
 }
 
-#[allow(clippy::too_many_lines)]
 fn generate_indentation_string(
     generator: &mut ExpressionGenerator,
-    scope: &mut GeneratedScope,
+    _scope: &mut GeneratedScope,
     indentation_var: &VariableRef,
     node: &Node,
 ) -> Expression {
     let string_type = generator.types.string();
     let int_type = generator.types.int();
-    let unit_type = generator.types.unit();
-    let bool_type = generator.types.bool();
 
-    // let mut result = ""
-    let (result_var, result_var_def) = {
-        let var = scope.create_local_mut_variable("indentation_str", &string_type, node);
-        let empty_string = create_expr_resolved(
-            ExpressionKind::StringLiteral(String::new()),
-            string_type.clone(),
-            node,
-        );
-        let def = create_expr_resolved(
-            ExpressionKind::VariableDefinition(var.clone(), Box::new(empty_string)),
-            unit_type.clone(),
-            node,
-        );
-        (var, def)
-    };
-
-    // let mut i = 0
-    let (counter_var, counter_var_def) = {
-        let var = scope.create_local_mut_variable("i", &int_type, node);
-        let zero = create_expr_resolved(ExpressionKind::IntLiteral(0), int_type.clone(), node);
-        let def = create_expr_resolved(
-            ExpressionKind::VariableDefinition(var.clone(), Box::new(zero)),
-            unit_type.clone(),
-            node,
-        );
-        (var, def)
-    };
-
-    // while i < indentation { result = result + "  "; i = i + 1 }
-    let while_loop = {
-        let counter_access = create_expr_resolved(
-            ExpressionKind::VariableAccess(counter_var.clone()),
-            int_type.clone(),
-            node,
-        );
-        let indentation_access = create_expr_resolved(
-            ExpressionKind::VariableAccess(indentation_var.clone()),
-            int_type.clone(),
-            node,
-        );
-
-        let condition = create_expr_resolved(
-            ExpressionKind::BinaryOp(BinaryOperator {
-                kind: BinaryOperatorKind::LessThan,
-                left: Box::new(counter_access),
-                right: Box::new(indentation_access),
-                node: node.clone(),
-            }),
-            bool_type,
-            node,
-        );
-
-        // result = result + "  "
-        let append_spaces = {
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
-            let spaces = create_expr_resolved(
-                ExpressionKind::StringLiteral("  ".to_string()),
-                string_type.clone(),
-                node,
-            );
-            let concat = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(result_access),
-                    right: Box::new(spaces),
-                    node: node.clone(),
-                }),
-                string_type.clone(),
-                node,
-            );
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat)),
-                unit_type.clone(),
-                node,
-            )
-        };
-
-        // i = i + 1
-        let increment_counter = {
-            let counter_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(counter_var.clone()),
-                int_type.clone(),
-                node,
-            );
-            let one = create_expr_resolved(ExpressionKind::IntLiteral(1), int_type.clone(), node);
-            let add = create_expr_resolved(
-                ExpressionKind::BinaryOp(BinaryOperator {
-                    kind: BinaryOperatorKind::Add,
-                    left: Box::new(counter_access),
-                    right: Box::new(one),
-                    node: node.clone(),
-                }),
-                int_type.clone(),
-                node,
-            );
-            create_expr_resolved(
-                ExpressionKind::VariableReassignment(counter_var, Box::new(add)),
-                unit_type.clone(),
-                node,
-            )
-        };
-
-        let while_body = create_expr_resolved(
-            ExpressionKind::Block(vec![append_spaces, increment_counter]),
-            unit_type.clone(),
-            node,
-        );
-
-        create_expr_resolved(
-            ExpressionKind::WhileLoop(
-                BooleanExpression {
-                    expression: Box::new(condition),
-                },
-                Box::new(while_body),
-            ),
-            unit_type,
-            node,
-        )
-    };
-
-    let result_access = create_expr_resolved(
-        ExpressionKind::VariableAccess(result_var),
+    // Use string repeat: "  " * indentation
+    let spaces_literal = create_expr_resolved(
+        ExpressionKind::StringLiteral("  ".to_string()),
         string_type.clone(),
         node,
     );
 
+    let indentation_access = create_expr_resolved(
+        ExpressionKind::VariableAccess(indentation_var.clone()),
+        int_type,
+        node,
+    );
+
+    // Use the Multiply operator for string repeat
     create_expr_resolved(
-        ExpressionKind::Block(vec![
-            result_var_def,
-            counter_var_def,
-            while_loop,
-            result_access,
-        ]),
+        ExpressionKind::BinaryOp(BinaryOperator {
+            kind: BinaryOperatorKind::Multiply,
+            left: Box::new(spaces_literal),
+            right: Box::new(indentation_access),
+            node: node.clone(),
+        }),
         string_type,
         node,
     )
@@ -2840,26 +2715,13 @@ fn generate_add_indentation_to_result(
         _ => panic!("Expected variable access for indentation"),
     };
 
-    // Generate the proper indentation string
+    // Generate the proper indentation string directly without extra variables
     let indentation_spaces = generate_indentation_string(generator, scope, &indentation_var, node);
 
     // Concatenate result + indentation_spaces
-    let concat = create_expr_resolved(
-        ExpressionKind::BinaryOp(BinaryOperator {
-            kind: BinaryOperatorKind::Add,
-            left: Box::new(result_access),
-            right: Box::new(indentation_spaces),
-            node: node.clone(),
-        }),
-        string_type,
-        node,
-    );
+    let concat = concat_expressions(result_access, indentation_spaces, &string_type, node);
 
-    create_expr_resolved(
-        ExpressionKind::VariableReassignment(result_var.clone(), Box::new(concat)),
-        unit_type,
-        node,
-    )
+    create_var_reassignment(result_var, concat, &unit_type, node)
 }
 
 #[allow(clippy::too_many_lines)]

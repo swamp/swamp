@@ -250,7 +250,7 @@ fn automatic_anon_to_string() {
     assert(result == "{ flag: false, num: 42, text: \"hello\" }", 'to_string failed "{result}"')
 }
 
-// TODO: Not working yet #[test]
+#[test]
 fn automatic_anon_to_pretty_string() {
     mut mixed = { num: 42, flag: false, text: "hello" }
     print('Mixed struct: {mixed}')
