@@ -1136,6 +1136,25 @@ impl InstructionBuilder<'_> {
             comment,
         );
     }
+    pub fn add_string_multiply(
+        &mut self,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::StringRepeat,
+            &[
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
+            ],
+            node,
+            comment,
+        );
+    }
 
     pub fn add_string_cmp(
         &mut self,

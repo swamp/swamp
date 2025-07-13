@@ -459,6 +459,8 @@ impl Vm {
         // String
         vm.handlers[OpCode::StringAppend as usize] =
             HandlerType::Args3(Self::execute_string_append);
+        vm.handlers[OpCode::StringRepeat as usize] =
+            HandlerType::Args3(Self::execute_string_repeat);
 
         vm.handlers[OpCode::StringCmp as usize] = HandlerType::Args3(Self::execute_string_cmp);
         vm.handlers[OpCode::StringToString as usize] =

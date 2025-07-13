@@ -3,10 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::{ExecutionMode, Memory};
-use crate::{TrapCode, Vm, get_reg, i16_from_u8s, set_reg};
+use crate::{get_reg, i16_from_u8s, set_reg, TrapCode, Vm};
 use std::{mem::size_of, ptr};
 use swamp_vm_types::{
-    MAX_STRING_LEN, StringIterator, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VecHeader,
+    StringIterator, VecHeader, MAX_STRING_LEN, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET,
 };
 
 impl Vm {
@@ -114,6 +114,57 @@ impl Vm {
             eprintln!("Final target register value: 0x{final_reg_value:X}");
         }
     }
+
+    #[inline]
+    pub fn execute_string_repeat(&mut self, target_string_reg: u8, string_a: u8, repeat_reg: u8) {
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            eprintln!("=== STRING_REPEAT OPERATION ===");
+            eprintln!(
+                "Memory layout: constants: 0x0-0x{:X}, stack: 0x{:X}-0x{:X}, heap: 0x{:X}-0x{:X}",
+                self.memory().constant_memory_size,
+                self.memory().stack_start,
+                self.memory().stack_offset,
+                self.memory().heap_start,
+                self.memory().heap_alloc_offset
+            );
+
+            // Debug: Print register values
+            let reg_a_value = get_reg!(self, string_a);
+            let repeat_value = get_reg!(self, repeat_reg);
+            eprintln!("String A register {string_a}: 0x{reg_a_value:X}");
+            eprintln!("Repeat count register {repeat_reg}: {}", repeat_value);
+            eprintln!("Target register {target_string_reg}");
+        }
+
+        // Load the input string
+        let str_a = self.get_string(string_a);
+
+        let count = get_reg!(self, repeat_reg) as usize;
+
+        // Perform the repeat
+        let result = str_a.repeat(count);
+
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            eprintln!(
+                "Repeated string: \"{}\" (length: {}, repeated {} times)",
+                result,
+                result.len(),
+                count
+            );
+        }
+
+        // Store the result back into the target register
+        self.create_string(target_string_reg, &result);
+
+        #[cfg(feature = "debug_vm")]
+        if self.debug_operations_enabled {
+            let final_reg_value = get_reg!(self, target_string_reg);
+            eprintln!("Final target register value: 0x{final_reg_value:X}");
+        }
+    }
+
 
     #[inline]
     pub fn execute_string_cmp(&mut self, dest_reg: u8, string_a: u8, string_b: u8) {
@@ -262,6 +313,7 @@ impl Vm {
             "String too large: {byte_count} bytes"
         );
 
+        eprintln!("allocating len:{} payload: '{string}'", string.len());
         // Calculate total size needed: header + string data
         // We assume that StringHeader is aligned to u32
         let total_size = size_of::<VecHeader>() + byte_count;

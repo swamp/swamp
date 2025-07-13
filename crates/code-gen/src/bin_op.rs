@@ -109,6 +109,18 @@ impl CodeBuilder<'_> {
                     &right_source,
                     ctx,
                 ),
+
+                (
+                    TypeKind::String(..) | TypeKind::StringStorage(..),
+                    TypeKind::Int,
+                ) => self.emit_binary_operator_string(
+                    dest_bool_reg,
+                    &left_source,
+                    &binary_operator.node,
+                    &binary_operator.kind,
+                    &right_source,
+                    ctx,
+                ),
                 _ => todo!(),
             },
         }
@@ -222,7 +234,15 @@ impl CodeBuilder<'_> {
                     "string append",
                 );
             }
-
+            BinaryOperatorKind::Multiply => {
+                self.builder.add_string_multiply(
+                    target_reg,
+                    left_source,
+                    right_source,
+                    node,
+                    "string multiply",
+                );
+            }
             BinaryOperatorKind::Equal => todo!(),
             BinaryOperatorKind::NotEqual => todo!(),
             _ => panic!("illegal string operator"),

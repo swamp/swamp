@@ -209,6 +209,11 @@ fn match_with_string_guard_fall_through() {
     assert(result == "not found", 'should have no match {result}')
 }
 
+#[test]
+fn repeat_string() {
+    a = ".." * 4
+    assert(a == "........", 'repeat did not work {a}')
+}
 
 /*
 TODO: Not working yet

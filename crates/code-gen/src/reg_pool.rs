@@ -145,7 +145,7 @@ impl RegisterPool {
     ///
     pub fn alloc_register(&mut self, ty: VmType, comment: &str) -> TypedRegister {
         assert!(
-            self.current_index + 1 < self.end_index,
+            self.current_index < self.end_index,
             "out of registers {} {}",
             self.current_index,
             self.end_index

@@ -52,8 +52,36 @@ impl Analyzer<'_> {
                 }
             }
 
+            (&BinaryOperatorKind::Multiply, TypeKind::VecStorage(inner, _), TypeKind::Int) => {
+                if *inner.kind != TypeKind::Byte {
+                    return None;
+                }
+                Some((
+                    BinaryOperator {
+                        left: Box::new(left),
+                        right: Box::new(right),
+                        kind,
+                        node,
+                    },
+                    self.shared.state.types.string(),
+                ))
+            }
+
+            (&BinaryOperatorKind::Multiply, TypeKind::StringStorage(..) | TypeKind::String(_, ..), TypeKind::Int) => {
+                Some((
+                    BinaryOperator {
+                        left: Box::new(left),
+                        right: Box::new(right),
+                        kind,
+                        node,
+                    },
+                    self.shared.state.types.string(),
+                ))
+            }
+
+
             // String concatenation - allow any type on the right
-            (&BinaryOperatorKind::Add, TypeKind::VecStorage(inner, _), _) => {
+            (&BinaryOperatorKind::Add, TypeKind::VecStorage(inner, _), TypeKind::StringStorage(..)) => {
                 if *inner.kind != TypeKind::Byte {
                     return None;
                 }

@@ -226,6 +226,8 @@ impl CodeBuilder<'_> {
             }
         }
 
+        assert!(signature.parameters.len() <= MAX_REGISTER_INDEX_FOR_PARAMETERS.into(), "signature is wrong {signature:?}");
+
         // Step 3: Prepare argument registers and handle temporary register conflicts
         let mut temp_to_abi_copies = Vec::new();
         let mut argument_registers = RegisterPool::new(1, 6); // r1-r6 for arguments
