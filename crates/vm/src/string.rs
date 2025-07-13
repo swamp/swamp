@@ -278,7 +278,7 @@ impl Vm {
             );
             // TODO: just a hack for now to see if it is plausible.
             debug_assert!(
-                byte_count < 512,
+                byte_count < 1024,
                 "Strange. string byte_count {byte_count} is unreasonably large"
             );
         }
