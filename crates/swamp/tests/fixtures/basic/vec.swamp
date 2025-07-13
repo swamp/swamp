@@ -76,7 +76,7 @@ fn vec_assign_and_subscript() {
 // TODO: #[test]
 fn thing_to_string() {
     thing = Thing { a: 42, b: 24 }
-    result = thing.to_string()
+    result = thing.string()
     assert(result == "intentionally wrong", 'did not match "{result}"')
 }
 
@@ -89,7 +89,7 @@ fn to_string() {
             Thing { a: 13, b:  3 },
         ]
     }
-    result = another.to_string()
+    result = another.string()
 
     assert("intentionally wrong" == result, 'mismatch! returned "{result}"')
 }

@@ -232,6 +232,7 @@ impl Analyzer<'_> {
                 let (tuple_type_ref, resolved_items) =
                     self.analyze_tuple_literal(expressions, context);
                 let tuple_type = self.shared.state.types.tuple(tuple_type_ref);
+                self.ensure_default_functions_for_type(&tuple_type, &expressions[0].node);
                 (ExpressionKind::TupleLiteral(resolved_items), tuple_type)
             }
             swamp_ast::LiteralKind::None => {

@@ -2,12 +2,12 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::Analyzer;
 use crate::to_string::{
-    ExpressionGenerator, internal_generate_to_pretty_string_function_for_type,
-    internal_generate_to_short_string_function_for_type,
+    internal_generate_to_pretty_string_function_for_type, internal_generate_to_pretty_string_parameterless_function_for_type, internal_generate_to_short_string_function_for_type,
     internal_generate_to_string_function_for_type,
+    ExpressionGenerator,
 };
+use crate::Analyzer;
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_ast::Node;
@@ -280,6 +280,9 @@ impl Analyzer<'_> {
     ///
     pub fn analyze_alias_type_definition(&mut self, ast_alias: &swamp_ast::AliasType) -> AliasType {
         let resolved_type = self.analyze_type(&ast_alias.referenced_type);
+
+        // Ensure string functions are generated for the resolved type
+        self.ensure_default_functions_for_type(&resolved_type, &ast_alias.identifier.0);
 
         let alias_name_str = self.get_text(&ast_alias.identifier.0).to_string();
         let resolved_alias = AliasType {
@@ -677,7 +680,7 @@ impl Analyzer<'_> {
 
             let existing_function_id = if matches!(
                 function_name_str.as_str(),
-                "to_string" | "to_short_string" | "to_pretty_string" | "default"
+                "string" | "short_string" | "pretty_string" | "pretty_string_with_indent" | "default"
             ) {
                 self.shared
                     .state
@@ -697,7 +700,7 @@ impl Analyzer<'_> {
 
             let is_built_in = matches!(
                 function_name_str.as_str(),
-                "to_string" | "to_short_string" | "to_pretty_string" | "default"
+                "string" | "short_string" | "pretty_string" | "pretty_string_with_indent" | "default"
             );
             if is_built_in {
                 self.shared
@@ -854,6 +857,19 @@ impl Analyzer<'_> {
         }
     }
 
+    /// Called whenever a type is resolved/created during analysis to ensure string functions exist
+    pub fn on_type_encountered(&mut self, ty: &TypeRef, node: &swamp_ast::Node) {
+        // Only generate string functions for types that need them and don't already have them
+        if self.needs_any_string_functions(ty) {
+            // Check if we already have the functions to avoid infinite recursion
+            if !self.shared.state.associated_impls.is_prepared(ty)
+                || self.shared.state.associated_impls.get_internal_member_function(ty, "string").is_none()
+            {
+                self.add_default_functions(ty, node);
+            }
+        }
+    }
+
     // Helper method to check if a type needs any string functions
     fn needs_any_string_functions(&self, ty: &TypeRef) -> bool {
         // TODO: Maybe reverse the check, it is basically primitives that should
@@ -886,6 +902,7 @@ impl Analyzer<'_> {
             return false;
         }
 
+        // Early check - if not prepared at all, definitely needs functions
         if !self.shared.state.associated_impls.is_prepared(ty) {
             return true;
         }
@@ -894,24 +911,31 @@ impl Analyzer<'_> {
             .shared
             .state
             .associated_impls
-            .get_internal_member_function(ty, "to_string")
+            .get_internal_member_function(ty, "string")
             .is_some();
 
         let has_to_short_string = self
             .shared
             .state
             .associated_impls
-            .get_internal_member_function(ty, "to_short_string")
+            .get_internal_member_function(ty, "short_string")
             .is_some();
 
         let has_to_pretty_string = self
             .shared
             .state
             .associated_impls
-            .get_internal_member_function(ty, "to_pretty_string")
+            .get_internal_member_function(ty, "pretty_string")
             .is_some();
 
-        !has_to_string || !has_to_short_string || !has_to_pretty_string
+        let has_to_pretty_string_with_indent = self
+            .shared
+            .state
+            .associated_impls
+            .get_internal_member_function(ty, "pretty_string_with_indent")
+            .is_some();
+
+        !has_to_string || !has_to_short_string || !has_to_pretty_string || !has_to_pretty_string_with_indent
     }
 
     pub fn add_default_functions(&mut self, type_to_attach_to: &TypeRef, node: &swamp_ast::Node) {
@@ -928,6 +952,48 @@ impl Analyzer<'_> {
                     }
                 }
             }
+        }
+
+        // Also check tuple elements and other nested types
+        match &*type_to_attach_to.kind {
+            TypeKind::Tuple(tuple_types) => {
+                for element_type in tuple_types {
+                    if self.needs_any_string_functions(element_type) {
+                        self.add_default_functions(element_type, node);
+                    }
+                }
+            }
+            TypeKind::Optional(inner_type) => {
+                if self.needs_any_string_functions(inner_type) {
+                    self.add_default_functions(inner_type, node);
+                }
+            }
+            TypeKind::FixedCapacityAndLengthArray(element_type, _)
+            | TypeKind::SliceView(element_type)
+            | TypeKind::DynamicLengthVecView(element_type)
+            | TypeKind::VecStorage(element_type, _)
+            | TypeKind::StackView(element_type)
+            | TypeKind::QueueView(element_type)
+            | TypeKind::StackStorage(element_type, _)
+            | TypeKind::QueueStorage(element_type, _)
+            | TypeKind::SparseView(element_type)
+            | TypeKind::SparseStorage(element_type, _)
+            | TypeKind::GridView(element_type)
+            | TypeKind::GridStorage(element_type, _, _) => {
+                if self.needs_any_string_functions(element_type) {
+                    self.add_default_functions(element_type, node);
+                }
+            }
+            TypeKind::MapStorage(key_type, value_type, _)
+            | TypeKind::DynamicLengthMapView(key_type, value_type) => {
+                if self.needs_any_string_functions(key_type) {
+                    self.add_default_functions(key_type, node);
+                }
+                if self.needs_any_string_functions(value_type) {
+                    self.add_default_functions(value_type, node);
+                }
+            }
+            _ => {}
         }
 
         let underlying = type_to_attach_to;
@@ -949,7 +1015,7 @@ impl Analyzer<'_> {
                 .shared
                 .state
                 .associated_impls
-                .get_internal_member_function(underlying, "to_string")
+                .get_internal_member_function(underlying, "string")
                 .is_none()
             {
                 let to_string_function =
@@ -965,7 +1031,7 @@ impl Analyzer<'_> {
                 .shared
                 .state
                 .associated_impls
-                .get_internal_member_function(underlying, "to_short_string")
+                .get_internal_member_function(underlying, "short_string")
                 .is_none()
             {
                 let to_short_string_function =
@@ -981,17 +1047,41 @@ impl Analyzer<'_> {
                 .shared
                 .state
                 .associated_impls
-                .get_internal_member_function(underlying, "to_pretty_string")
+                .get_internal_member_function(underlying, "pretty_string")
                 .is_none()
             {
                 let to_pretty_string_function =
-                    self.generate_to_pretty_string_function_for_type(type_to_attach_to, node);
+                    self.generate_to_pretty_string_parameterless_function_for_type(type_to_attach_to, node);
                 self.shared
                     .state
                     .associated_impls
                     .add_internal_function(type_to_attach_to, to_pretty_string_function)
                     .unwrap();
             }
+
+            if self
+                .shared
+                .state
+                .associated_impls
+                .get_internal_member_function(underlying, "pretty_string_with_indent")
+                .is_none()
+            {
+                let to_pretty_string_with_indent_function =
+                    self.generate_to_pretty_string_function_for_type(type_to_attach_to, node);
+                self.shared
+                    .state
+                    .associated_impls
+                    .add_internal_function(type_to_attach_to, to_pretty_string_with_indent_function)
+                    .unwrap();
+            }
+        }
+    }
+
+    /// Ensures that a type has all necessary string functions generated
+    /// This should be called whenever a type is encountered during analysis
+    pub fn ensure_default_functions_for_type(&mut self, ty: &TypeRef, node: &swamp_ast::Node) {
+        if self.needs_any_string_functions(ty) {
+            self.add_default_functions(ty, node);
         }
     }
 
@@ -1045,6 +1135,25 @@ impl Analyzer<'_> {
             &self.shared.state.associated_impls,
         );
         internal_generate_to_pretty_string_function_for_type(
+            &mut generator,
+            &mut self.shared.state.internal_function_id_allocator,
+            &self.module_path,
+            ty,
+            &node,
+        )
+    }
+
+    fn generate_to_pretty_string_parameterless_function_for_type(
+        &mut self,
+        ty: &TypeRef,
+        ast_node: &Node,
+    ) -> InternalFunctionDefinition {
+        let node = self.to_node(ast_node);
+        let mut generator = ExpressionGenerator::new(
+            &mut self.shared.state.types,
+            &self.shared.state.associated_impls,
+        );
+        internal_generate_to_pretty_string_parameterless_function_for_type(
             &mut generator,
             &mut self.shared.state.internal_function_id_allocator,
             &self.module_path,

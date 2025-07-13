@@ -531,14 +531,13 @@ fn generate_to_string_for_enum(
             );
 
             // Handle different payload types appropriately:
-            // - Struct payloads: add space before brace (following Rust conventions)
+            // - Struct payloads: always use space + braces format
             // - Tuple payloads: don't add extra parentheses (tuples already have them)
             // - Other payloads: wrap in parentheses
             let final_result = match &*variant_type.payload_type.kind {
                 TypeKind::AnonymousStruct(_) | TypeKind::NamedStruct(_) => {
-                    // Struct payload: variant_str + " " + payload (space before brace)
-                    let prefix =
-                        create_string_literal(&format!("{variant_str} "), &string_type, node);
+                    // Struct payload: always variant_str + " " + payload (space before brace)
+                    let prefix = create_string_literal(&format!("{variant_str} "), &string_type, node);
                     concat_expressions(prefix, payload_string, &string_type, node)
                 }
                 TypeKind::Tuple(_) => {
@@ -548,11 +547,9 @@ fn generate_to_string_for_enum(
                 }
                 _ => {
                     // Other payload: variant_str + "(" + payload + ")"
-                    let prefix =
-                        create_string_literal(&format!("{variant_str}("), &string_type, node);
+                    let prefix = create_string_literal(&format!("{variant_str}("), &string_type, node);
                     let suffix = create_string_literal(")", &string_type, node);
-                    let temp_concat =
-                        concat_expressions(prefix, payload_string, &string_type, node);
+                    let temp_concat = concat_expressions(prefix, payload_string, &string_type, node);
                     concat_expressions(temp_concat, suffix, &string_type, node)
                 }
             };
@@ -602,9 +599,9 @@ fn create_string_representation_of_expression(
     } else {
         // Choose which function to use based on the prefer_short_string parameter
         let function_name = if prefer_short_string {
-            "to_short_string"
+            "short_string"
         } else {
-            "to_string"
+            "string"
         };
 
         // Simply call the appropriate string function
@@ -1670,9 +1667,9 @@ pub fn internal_generate_to_string_function_for_type(
         body: body_expr,
         name: LocalIdentifier(resolved_node.clone()),
         assigned_name: if is_short_string {
-            "to_short_string"
+            "short_string"
         } else {
-            "to_string"
+            "string"
         }
             .to_string(),
         associated_with_type: Option::from(ty.clone()),
@@ -1745,6 +1742,8 @@ pub fn internal_generate_to_pretty_string_function_for_type(
         &self_param,
         indentation_param,
         resolved_node,
+        false, // use_short_string_for_self
+        false, // use_short_string_for_children
     );
 
     let unique_function_id = id_gen.alloc();
@@ -1754,7 +1753,7 @@ pub fn internal_generate_to_pretty_string_function_for_type(
     InternalFunctionDefinition {
         body: body_expr,
         name: LocalIdentifier(resolved_node.clone()),
-        assigned_name: "to_pretty_string".to_string(),
+        assigned_name: "pretty_string_with_indent".to_string(),
         associated_with_type: Option::from(ty.clone()),
         defined_in_module_path: module_path.to_vec(),
         signature: Signature {
@@ -1780,6 +1779,142 @@ pub fn internal_generate_to_pretty_string_function_for_type(
     }
 }
 
+pub fn internal_generate_to_pretty_short_string_function_for_type(
+    generator: &mut ExpressionGenerator,
+    id_gen: &mut InternalFunctionIdAllocator,
+    module_path: &[String],
+    ty: &TypeRef,
+    resolved_node: &Node,
+) -> InternalFunctionDefinition {
+    let mut block_scope_to_use = GeneratedScope::new();
+
+    // Create the "self" parameter
+    let self_variable_ref = block_scope_to_use.create_parameter("self", ty, resolved_node);
+
+    // Create the "indentation" parameter
+    let int_type = generator.types.int();
+    let indentation_variable_ref =
+        block_scope_to_use.create_parameter("indentation", &int_type, resolved_node);
+
+    let self_param = create_expr_resolved(
+        ExpressionKind::VariableAccess(self_variable_ref),
+        ty.clone(),
+        resolved_node,
+    );
+
+    let indentation_param = create_expr_resolved(
+        ExpressionKind::VariableAccess(indentation_variable_ref),
+        int_type.clone(),
+        resolved_node,
+    );
+
+    let body_expr = generate_to_pretty_string_for_type(
+        generator,
+        &mut block_scope_to_use,
+        ty,
+        &self_param,
+        indentation_param,
+        resolved_node,
+        true, // use_short_string_for_self (short format for top level)
+        true, // use_short_string_for_children (short format for children)
+    );
+
+    let unique_function_id = id_gen.alloc();
+
+    block_scope_to_use.scope.finalize();
+
+    InternalFunctionDefinition {
+        body: body_expr,
+        name: LocalIdentifier(resolved_node.clone()),
+        assigned_name: "pretty_short_string".to_string(),
+        associated_with_type: Option::from(ty.clone()),
+        defined_in_module_path: module_path.to_vec(),
+        signature: Signature {
+            parameters: vec![
+                TypeForParameter {
+                    name: "self".to_string(),
+                    resolved_type: ty.clone(),
+                    is_mutable: false,
+                    node: None,
+                },
+                TypeForParameter {
+                    name: "indentation".to_string(),
+                    resolved_type: int_type,
+                    is_mutable: false,
+                    node: None,
+                },
+            ],
+            return_type: generator.types.string(),
+        },
+        function_variables: block_scope_to_use.scope.clone(),
+        program_unique_id: unique_function_id,
+        attributes: Attributes::default(),
+    }
+}
+
+pub fn internal_generate_to_pretty_string_parameterless_function_for_type(
+    generator: &mut ExpressionGenerator,
+    id_gen: &mut InternalFunctionIdAllocator,
+    module_path: &[String],
+    ty: &TypeRef,
+    resolved_node: &Node,
+) -> InternalFunctionDefinition {
+    let mut block_scope_to_use = GeneratedScope::new();
+
+    // Create the "self" parameter
+    let self_variable_ref = block_scope_to_use.create_parameter("self", ty, resolved_node);
+
+    let self_param = create_expr_resolved(
+        ExpressionKind::VariableAccess(self_variable_ref),
+        ty.clone(),
+        resolved_node,
+    );
+
+    // Start with indentation level 0
+    let zero_indentation = create_expr_resolved(
+        ExpressionKind::IntLiteral(0),
+        generator.types.int(),
+        resolved_node,
+    );
+
+    let body_expr = generate_to_pretty_string_for_type(
+        generator,
+        &mut block_scope_to_use,
+        ty,
+        &self_param,
+        zero_indentation,
+        resolved_node,
+        false, // use_short_string_for_self (pretty format for top level)
+        true,  // use_short_string_for_children (short format for children)
+    );
+
+    let unique_function_id = id_gen.alloc();
+
+    block_scope_to_use.scope.finalize();
+
+    InternalFunctionDefinition {
+        body: body_expr,
+        name: LocalIdentifier(resolved_node.clone()),
+        assigned_name: "pretty_string".to_string(),
+        associated_with_type: Option::from(ty.clone()),
+        defined_in_module_path: module_path.to_vec(),
+        signature: Signature {
+            parameters: vec![
+                TypeForParameter {
+                    name: "self".to_string(),
+                    resolved_type: ty.clone(),
+                    is_mutable: false,
+                    node: None,
+                },
+            ],
+            return_type: generator.types.string(),
+        },
+        function_variables: block_scope_to_use.scope.clone(),
+        program_unique_id: unique_function_id,
+        attributes: Attributes::default(),
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 fn generate_to_pretty_string_for_type(
     generator: &mut ExpressionGenerator,
@@ -1788,15 +1923,21 @@ fn generate_to_pretty_string_for_type(
     self_expression: &Expression,
     indentation_expression: Expression,
     node: &Node,
+    use_short_string_for_self: bool,
+    use_short_string_for_children: bool,
 ) -> Expression {
     let string_type = generator.types.string();
     let int_type = generator.types.int();
     let unit_type = generator.types.unit();
     let bool_type = generator.types.bool();
 
-    // Step 1: compact = self.to_string()
+    // Step 1: compact = self.to_string() or to_short_string()
     let compact_var = scope.create_local_variable("compact", &string_type, node);
-    let compact_string = call_to_string_method(generator, self_expression.clone(), node);
+    let compact_string = if use_short_string_for_self {
+        call_to_short_string_method(generator, self_expression.clone(), node)
+    } else {
+        call_to_string_method(generator, self_expression.clone(), node)
+    };
     let compact_def = create_expr_resolved(
         ExpressionKind::VariableDefinition(compact_var.clone(), Box::new(compact_string)),
         unit_type,
@@ -1849,6 +1990,7 @@ fn generate_to_pretty_string_for_type(
                 indentation_expression,
                 ty,
                 node,
+                use_short_string_for_children,
             )
         }
         TypeKind::FixedCapacityAndLengthArray(_, _)
@@ -1860,14 +2002,19 @@ fn generate_to_pretty_string_for_type(
         | TypeKind::StackStorage(_, _)
         | TypeKind::QueueStorage(_, _)
         | TypeKind::SparseView(_)
-        | TypeKind::SparseStorage(_, _) => generate_sequence_pretty_string(
-            generator,
-            scope,
-            self_expression.clone(),
-            indentation_expression,
-            ty,
-            node,
-        ),
+        | TypeKind::SparseStorage(_, _) => {
+            // For sequences, just use the multi-line format directly
+            // The threshold checking happens at the higher level
+            generate_multi_line_sequence_format(
+                generator,
+                scope,
+                self_expression.clone(),
+                indentation_expression,
+                ty,
+                node,
+                use_short_string_for_children,
+            )
+        }
         TypeKind::NamedStruct(_) | TypeKind::AnonymousStruct(_) | TypeKind::Tuple(_) => {
             generate_struct_pretty_string(
                 generator,
@@ -1876,6 +2023,7 @@ fn generate_to_pretty_string_for_type(
                 &indentation_expression,
                 ty,
                 node,
+                use_short_string_for_children,
             )
         }
         _ => {
@@ -1947,7 +2095,16 @@ fn call_to_string_method(
     self_expression: Expression,
     node: &Node,
 ) -> Expression {
-    call_method_on_expression(generator, self_expression, "to_string", vec![], node)
+    call_method_on_expression(generator, self_expression, "string", vec![], node)
+}
+
+/// Helper to call to_short_string method
+fn call_to_short_string_method(
+    generator: &mut ExpressionGenerator,
+    self_expression: Expression,
+    node: &Node,
+) -> Expression {
+    call_method_on_expression(generator, self_expression, "short_string", vec![], node)
 }
 
 fn call_to_pretty_string_method(
@@ -1959,7 +2116,7 @@ fn call_to_pretty_string_method(
     call_method_on_expression(
         generator,
         self_expression,
-        "to_pretty_string",
+        "pretty_string_with_indent",
         vec![ArgumentExpression::Expression(indentation_expression)],
         node,
     )
@@ -2008,6 +2165,7 @@ fn generate_map_pretty_string(
     indentation_expression: Expression,
     ty: &TypeRef,
     node: &Node,
+    use_short_string_for_children: bool,
 ) -> Expression {
     let string_type = generator.types.string();
     let int_type = generator.types.int();
@@ -2126,15 +2284,22 @@ fn generate_map_pretty_string(
                 node,
             );
 
-            // Call to_pretty_string on both key and value
-            let key_pretty_str = call_to_pretty_string_method(
-                generator,
-                key_access,
-                next_indent_access.clone(),
-                node,
-            );
-            let value_pretty_str =
-                call_to_pretty_string_method(generator, value_access, next_indent_access, node);
+            // Call appropriate string method based on use_short_string_for_children
+            let key_pretty_str = if use_short_string_for_children {
+                call_to_short_string_method(generator, key_access, node)
+            } else {
+                call_to_pretty_string_method(
+                    generator,
+                    key_access,
+                    next_indent_access.clone(),
+                    node,
+                )
+            };
+            let value_pretty_str = if use_short_string_for_children {
+                call_to_short_string_method(generator, value_access, node)
+            } else {
+                call_to_pretty_string_method(generator, value_access, next_indent_access, node)
+            };
 
             let result_access = create_expr_resolved(
                 ExpressionKind::VariableAccess(result_var.clone()),
@@ -2321,94 +2486,6 @@ fn generate_map_pretty_string(
     )
 }
 
-fn generate_sequence_pretty_string(
-    generator: &mut ExpressionGenerator,
-    scope: &mut GeneratedScope,
-    self_expression: Expression,
-    indentation_expression: Expression,
-    ty: &TypeRef,
-    node: &Node,
-) -> Expression {
-    let string_type = generator.types.string();
-    let int_type = generator.types.int();
-    let unit_type = generator.types.unit();
-    let bool_type = generator.types.bool();
-
-    // Step 1: Get compact representation
-    let (compact_var, compact_def) = {
-        let var = scope.create_local_variable("compact", &string_type, node);
-        let compact_string = call_to_string_method(generator, self_expression.clone(), node);
-        let def = create_expr_resolved(
-            ExpressionKind::VariableDefinition(var.clone(), Box::new(compact_string)),
-            unit_type,
-            node,
-        );
-        (var, def)
-    };
-
-    // Step 2: Check length using StringLen intrinsic
-    let compact_access = create_expr_resolved(
-        ExpressionKind::VariableAccess(compact_var.clone()),
-        string_type.clone(),
-        node,
-    );
-
-    let length_expr = create_expr_resolved(
-        ExpressionKind::IntrinsicCallEx(
-            IntrinsicFunction::StringLen,
-            vec![ArgumentExpression::Expression(compact_access)],
-        ),
-        int_type.clone(),
-        node,
-    );
-
-    let threshold = create_expr_resolved(ExpressionKind::IntLiteral(80), int_type, node);
-    let threshold_check = create_expr_resolved(
-        ExpressionKind::BinaryOp(BinaryOperator {
-            kind: BinaryOperatorKind::LessThan,
-            left: Box::new(length_expr),
-            right: Box::new(threshold),
-            node: node.clone(),
-        }),
-        bool_type,
-        node,
-    );
-
-    // Step 3: Generate multi-line format for sequences
-    let multi_line_result = generate_multi_line_sequence_format(
-        generator,
-        scope,
-        self_expression,
-        indentation_expression,
-        ty,
-        node,
-    );
-
-    // Step 4: Return compact if short, multi-line if long
-    let compact_access_for_if = create_expr_resolved(
-        ExpressionKind::VariableAccess(compact_var),
-        string_type.clone(),
-        node,
-    );
-
-    let if_expr = create_expr_resolved(
-        ExpressionKind::If(
-            BooleanExpression {
-                expression: Box::new(threshold_check),
-            },
-            Box::new(compact_access_for_if),
-            Some(Box::new(multi_line_result)),
-        ),
-        string_type.clone(),
-        node,
-    );
-
-    create_expr_resolved(
-        ExpressionKind::Block(vec![compact_def, if_expr]),
-        string_type,
-        node,
-    )
-}
 
 #[allow(clippy::too_many_lines)]
 fn generate_multi_line_sequence_format(
@@ -2418,6 +2495,7 @@ fn generate_multi_line_sequence_format(
     indentation_expression: Expression,
     ty: &TypeRef,
     node: &Node,
+    use_short_string_for_children: bool,
 ) -> Expression {
     let string_type = generator.types.string();
     let int_type = generator.types.int();
@@ -2493,24 +2571,19 @@ fn generate_multi_line_sequence_format(
                 node,
             );
 
-            let element_pretty_str =
-                call_to_pretty_string_method(generator, element_access, next_indent_access, node);
+            let element_pretty_str = if use_short_string_for_children {
+                call_to_short_string_method(generator, element_access, node)
+            } else {
+                call_to_pretty_string_method(generator, element_access, next_indent_access, node)
+            };
 
-            let result_access = create_expr_resolved(
-                ExpressionKind::VariableAccess(result_var.clone()),
-                string_type.clone(),
-                node,
-            );
+            let result_access = create_var_access(&result_var, &string_type, node);
 
             // Generate indentation string for next_indentation level
             let indent_spaces =
                 generate_indentation_string(generator, scope, &next_indent_var, node);
 
-            let comma_newline_str = create_expr_resolved(
-                ExpressionKind::StringLiteral(",\n".to_string()),
-                string_type.clone(),
-                node,
-            );
+            let comma_newline_str = create_string_literal(",\n", &string_type, node);
 
             // result + indent_spaces + element_pretty + ",\n"
             let temp1 = create_expr_resolved(
@@ -2654,6 +2727,7 @@ fn generate_struct_pretty_string(
     indentation_expression: &Expression,
     ty: &TypeRef,
     node: &Node,
+    use_short_string_for_children: bool,
 ) -> Expression {
     match &*ty.kind {
         TypeKind::NamedStruct(named_struct) => generate_named_struct_pretty_string(
@@ -2663,6 +2737,8 @@ fn generate_struct_pretty_string(
             indentation_expression,
             named_struct,
             node,
+            false, // use_short_string_for_self (always false for struct pretty printing)
+            use_short_string_for_children,
         ),
         TypeKind::AnonymousStruct(_) => generate_anon_struct_pretty_string(
             generator,
@@ -2672,7 +2748,7 @@ fn generate_struct_pretty_string(
             ty,
             node,
             false, // use_short_string_for_self
-            false, // use_short_string_for_children
+            use_short_string_for_children, // use_short_string_for_children
         ),
         TypeKind::Tuple(tuple_types) => generate_tuple_pretty_string(
             generator,
@@ -2681,8 +2757,8 @@ fn generate_struct_pretty_string(
             indentation_expression,
             tuple_types,
             node,
-            false,
-            false,
+            false, // use_short_string_for_self
+            use_short_string_for_children, // use_short_string_for_children
         ),
         _ => {
             // Fallback to compact format
@@ -2708,15 +2784,33 @@ fn generate_add_indentation_to_result(
         node,
     );
 
-    // We need to extract the indentation variable from the expression
-    // Since we know indentation_expr is a VariableAccess, we can extract the variable
-    let indentation_var = match &indentation_expr.kind {
-        ExpressionKind::VariableAccess(var_ref) => var_ref.clone(),
-        _ => panic!("Expected variable access for indentation"),
-    };
+    // Generate indentation string based on the expression type
+    let indentation_spaces = match &indentation_expr.kind {
+        ExpressionKind::VariableAccess(var_ref) => {
+            // Direct variable access - use the optimized path
+            generate_indentation_string(generator, scope, var_ref, node)
+        }
+        _ => {
+            // For other expressions (like IntLiteral(0)), use string repeat directly
+            let spaces_literal = create_expr_resolved(
+                ExpressionKind::StringLiteral("  ".to_string()),
+                string_type.clone(),
+                node,
+            );
 
-    // Generate the proper indentation string directly without extra variables
-    let indentation_spaces = generate_indentation_string(generator, scope, &indentation_var, node);
+            // Use the Multiply operator for string repeat
+            create_expr_resolved(
+                ExpressionKind::BinaryOp(BinaryOperator {
+                    kind: BinaryOperatorKind::Multiply,
+                    left: Box::new(spaces_literal),
+                    right: Box::new(indentation_expr.clone()),
+                    node: node.clone(),
+                }),
+                string_type.clone(),
+                node,
+            )
+        }
+    };
 
     // Concatenate result + indentation_spaces
     let concat = concat_expressions(result_access, indentation_spaces, &string_type, node);
@@ -2732,15 +2826,21 @@ fn generate_named_struct_pretty_string(
     indentation_expression: &Expression,
     named_struct: &NamedStructType,
     node: &Node,
+    use_short_string_for_self: bool,
+    use_short_string_for_children: bool,
 ) -> Expression {
     let string_type = generator.types.string();
     let int_type = generator.types.int();
     let unit_type = generator.types.unit();
 
-    // Start with struct name + " {\n"
+    // Start with "{\n" or "StructName {\n" depending on use_short_string_for_self
     let (result_var, result_def) = {
         let var = scope.create_local_mut_variable("result", &string_type, node);
-        let struct_prefix = format!("{} {{\n", named_struct.assigned_name);
+        let struct_prefix = if use_short_string_for_self {
+            "{\n".to_string()
+        } else {
+            format!("{} {{\n", named_struct.assigned_name)
+        };
         let initial = create_expr_resolved(
             ExpressionKind::StringLiteral(struct_prefix),
             string_type.clone(),
@@ -2826,8 +2926,11 @@ fn generate_named_struct_pretty_string(
 
             let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
 
-            let field_pretty_string =
-                call_to_pretty_string_method(generator, field_access, next_indent_access, node);
+            let field_pretty_string = if use_short_string_for_children {
+                call_to_short_string_method(generator, field_access, node)
+            } else {
+                call_to_pretty_string_method(generator, field_access, next_indent_access, node)
+            };
 
             let result_access = create_var_access(&result_var, &string_type, node);
 
@@ -2913,7 +3016,7 @@ fn generate_anon_struct_pretty_string(
     ty: &TypeRef,
     node: &Node,
     _use_short_string_for_self: bool,
-    _use_short_string_for_children: bool,
+    use_short_string_for_children: bool,
 ) -> Expression {
     let string_type = generator.types.string();
     let int_type = generator.types.int();
@@ -3006,8 +3109,11 @@ fn generate_anon_struct_pretty_string(
 
             let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
 
-            let field_pretty_string =
-                call_to_pretty_string_method(generator, field_access, next_indent_access, node);
+            let field_pretty_string = if use_short_string_for_children {
+                call_to_short_string_method(generator, field_access, node)
+            } else {
+                call_to_pretty_string_method(generator, field_access, next_indent_access, node)
+            };
 
             let result_access = create_var_access(&result_var, &string_type, node);
 
@@ -3093,7 +3199,7 @@ fn generate_tuple_pretty_string(
     tuple_types: &[TypeRef],
     node: &Node,
     _use_short_string_for_self: bool,
-    _use_short_string_for_children: bool,
+    use_short_string_for_children: bool,
 ) -> Expression {
     let string_type = generator.types.string();
     let int_type = generator.types.int();
@@ -3173,14 +3279,16 @@ fn generate_tuple_pretty_string(
 
             let next_indent_access = create_var_access(&next_indent_var, &int_type, node);
 
-            let element_pretty_string =
-                call_to_pretty_string_method(generator, element_access, next_indent_access, node);
+            let element_pretty_string = if use_short_string_for_children {
+                call_to_short_string_method(generator, element_access, node)
+            } else {
+                call_to_pretty_string_method(generator, element_access, next_indent_access, node)
+            };
 
             let result_access = create_var_access(&result_var, &string_type, node);
 
             // result + element_pretty_string + ",\n"
-            let temp1 =
-                concat_expressions(result_access, element_pretty_string, &string_type, node);
+            let temp1 = concat_expressions(result_access, element_pretty_string, &string_type, node);
             let comma_newline = create_string_literal(",\n", &string_type, node);
             let final_str = concat_expressions(temp1, comma_newline, &string_type, node);
 

@@ -32,7 +32,7 @@ fn mid() {
 
 #[test]
 fn to_string() {
-    assert(3.0.to_string() == "3.000", "to_string(3.0) is wrong")
+    assert(3.0.string() == "3.000", "to_string(3.0) is wrong")
 }
 
 // A bug where materializing intrinsic operations results (e.g. `floor`) into a memory location didn't work correctly.

@@ -127,14 +127,14 @@ fn int_max_from_variables() {
 #[test]
 fn int_to_string_from_struct() {
     data = TestData { int_value: 123, float_value: 0.0, result_int: 0, result_float: 0.0 }
-    result = data.int_value.to_string()
+    result = data.int_value.string()
     assert(result == "123", "int to_string from struct is wrong")
 }
 
 #[test]
 fn float_to_string_from_struct() {
     data = TestData { int_value: 0, float_value: 3.14, result_int: 0, result_float: 0.0 }
-    result = data.float_value.to_string()
+    result = data.float_value.string()
     assert(result == "3.140", "float to_string from struct is wrong")
 }
 

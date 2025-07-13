@@ -1536,7 +1536,7 @@ impl<'a> Analyzer<'a> {
                         .shared
                         .state
                         .associated_impls
-                        .get_internal_member_function(&expr.ty, "to_string");
+                        .get_internal_member_function(&expr.ty, "string");
 
                     if matches!(tk, TypeKind::String { .. }) {
                         expr
@@ -1563,7 +1563,7 @@ impl<'a> Analyzer<'a> {
                         } else {
                             let expr_as_param = ArgumentExpression::Expression(expr);
                             self.create_static_member_call(
-                                "to_string",
+                                "string",
                                 &[expr_as_param.clone()],
                                 &expression.node,
                                 &underlying,

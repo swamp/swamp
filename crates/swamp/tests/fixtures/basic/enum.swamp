@@ -5,7 +5,7 @@ enum Color {
 }
 
 impl Color {
-    fn to_string(self) -> String {
+    fn string(self) -> String {
         match self {
             Red -> "Red",
             Green -> "Green",
@@ -420,23 +420,23 @@ fn multiple_mutable_fields() {
 #[test]
 fn automatic_enum_to_string() {
     a = SimpleEnum::First
-    print('SimpleEnum to_string: {a.to_string()}')
-    assert(a.to_string() == "SimpleEnum::First", "enum to_string failed")
+    print('SimpleEnum to_string: {a.string()}')
+    assert(a.string() == "SimpleEnum::First", "enum to_string failed")
 
     b = SimpleEnum::Second
-    assert(b.to_string() == "SimpleEnum::Second", "enum to_string failed")
+    assert(b.string() == "SimpleEnum::Second", "enum to_string failed")
 }
 
 // Test automatic to_short_string generation for enums (shows only variant name)
 #[test]
 fn automatic_enum_to_short_string() {
     a = SimpleEnum::First
-    print('SimpleEnum::FIRST to_short_string: "{a.to_short_string()}"')
-    a_result = a.to_short_string()
+    print('SimpleEnum::FIRST to_short_string: "{a.short_string()}"')
+    a_result = a.short_string()
     assert(a_result == "First", 'enum to_short_string first failed `{a}`')
 
     b = SimpleEnum::Third
-    b_result = b.to_short_string()
+    b_result = b.short_string()
     assert(b_result == "Third", 'SimpleEnum::THIRD to_short_string third failed {b_result}"')
 }
 
@@ -550,17 +550,17 @@ fn mixed_to_string() {
         MixedSyntaxEnum::StructData { count: 5, value: 100 },
     ]
 
-    s0 = variants[0].to_string()
-    s1 = variants[1].to_string()
-    s2 = variants[2].to_string()
+    s0 = variants[0].string()
+    s1 = variants[1].string()
+    s2 = variants[2].string()
 
     assert(s0 == "MixedSyntaxEnum::DirectInt(42)", 'mismatch {s0}')
     assert(s1 == "MixedSyntaxEnum::TuplePair(10, 20)", 'mismatch {s1}')
     assert(s2 == "MixedSyntaxEnum::StructData { count: 5, value: 100 }", 'mismatch {s2}')
 
-    short0 = variants[0].to_short_string()
-    short1 = variants[1].to_short_string()
-    short2 = variants[2].to_short_string()
+    short0 = variants[0].short_string()
+    short1 = variants[1].short_string()
+    short2 = variants[2].short_string()
 
     assert(short0 == "DirectInt(42)", 'mismatch {s0}')
     assert(short1 == "TuplePair(10, 20)", 'mismatch {s1}')
@@ -576,7 +576,7 @@ fn mixed_to_pretty_string() {
         MixedSyntaxEnum::StructData { count: 5, value: 100 },
     ]
 
-    s = variants.to_pretty_string(0)
+    s = variants.pretty_string()
 
     assert(s == "[\n  MixedSyntaxEnum::DirectInt(42),\n  MixedSyntaxEnum::TuplePair(10, 20),\n  MixedSyntaxEnum::StructData { count: 5, value: 100 },\n]\n", 'mismatch {s}')
 }

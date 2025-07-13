@@ -18,49 +18,64 @@ pub fn core_text() -> String {
 type SparseId = Int
 
 impl Byte {
-  fn to_string(self) -> String {
+  fn string(self) -> String {
       byte_to_string(self)
   }
-  fn to_short_string(self) -> String {
+  fn short_string(self) -> String {
     byte_to_string(self)
   }
-  fn to_pretty_string(self, indentation: Int) -> String {
+  fn pretty_string(self) -> String {
+    byte_to_string(self)
+  }
+  fn pretty_string_with_indent(self, indentation: Int) -> String {
     byte_to_string(self)
   }
 }
 
 impl Char {
-  fn to_string(self) -> String {
+  fn string(self) -> String {
     codepoint_to_string(self)
   }
-  fn to_short_string(self) -> String {
+  fn short_string(self) -> String {
     codepoint_to_string(self)
   }
-  fn to_pretty_string(self, indentation: Int) -> String {
+  fn pretty_string(self) -> String {
+    codepoint_to_string(self)
+  }
+  fn pretty_string_with_indent(self, indentation: Int) -> String {
     codepoint_to_string(self)
   }
 }
 
 impl Bool {
-  fn to_string(self) -> String {
+  fn string(self) -> String {
       bool_to_string(self)
   }
-  fn to_short_string(self) -> String {
+  fn short_string(self) -> String {
     bool_to_string(self)
   }
-  fn to_pretty_string(self, indentation: Int) -> String {
+  fn pretty_string(self) -> String {
+    bool_to_string(self)
+  }
+  fn pretty_string_with_indent(self, indentation: Int) -> String {
     bool_to_string(self)
   }
 }
 
 impl Float {
-    fn to_string(self) -> String {
+    fn string(self) -> String {
         float_to_string(self)
     }
-    fn to_short_string(self) -> String {
+    fn short_string(self) -> String {
         float_to_string(self)
     }
-    fn to_pretty_string(self, indentation: Int) -> String {
+    fn short_string(self) -> String {
+        float_to_string(self)
+    }
+    fn pretty_string(self) -> String {
+        float_to_string(self)
+    }
+    fn pretty_string_with_indent(self, indentation: Int) -> String {
         float_to_string(self)
     }
 
@@ -221,14 +236,19 @@ impl Float {
 }
 
 impl Int {
-    fn to_string(self) -> String {
+    fn string(self) -> String {
         int_to_string(self)
     }
 
-        fn to_short_string(self) -> String {
+    fn short_string(self) -> String {
         int_to_string(self)
     }
-    fn to_pretty_string(self, indentation: Int) -> String {
+
+    fn pretty_string(self) -> String {
+        int_to_string(self)
+    }
+
+    fn pretty_string_with_indent(self, indentation: Int) -> String {
         int_to_string(self)
     }
 
@@ -296,15 +316,19 @@ impl Int {
 }
 
 impl String {
-    fn to_string(self) -> String {
+    fn string(self) -> String {
         string_to_string(self)
     }
 
-    fn to_short_string(self) -> String {
+    fn short_string(self) -> String {
         self
     }
 
-        fn to_pretty_string(self, indentation: Int) -> String {
+    fn pretty_string(self) -> String {
+        self
+    }
+
+    fn pretty_string_with_indent(self, indentation: Int) -> String {
         self
     }
 

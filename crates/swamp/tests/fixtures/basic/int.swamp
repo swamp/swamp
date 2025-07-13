@@ -40,7 +40,7 @@ fn clamp_upper() {
 
 #[test]
 fn to_string() {
-    assert(3.to_string() == "3", "to_string(3) is wrong")
+    assert(3.string() == "3", "to_string(3) is wrong")
 }
 
 #[test]

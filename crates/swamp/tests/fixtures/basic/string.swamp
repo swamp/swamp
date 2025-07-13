@@ -35,7 +35,7 @@ fn for_loop_ascii() {
     mut build_string_again = ""
 
     for char in "hello, world!" {
-        output = char.to_string()
+        output = char.string()
         build_string_again = build_string_again + output
 
         codepoints += 1
@@ -50,8 +50,8 @@ fn for_loop_unicode() {
     mut codepoints = 0
     mut rebuilt = ""
     for c in "🧛✨🌟" {
-        // TODO: compound assignments of string doesn't work yet. e.g. `rebuilt += c.to_string()`
-        rebuilt = rebuilt + c.to_string()
+        // TODO: compound assignments of string doesn't work yet. e.g. `rebuilt += c.string()`
+        rebuilt = rebuilt + c.string()
         print('found codepoint: {c}')
         codepoints += 1
     }
@@ -130,7 +130,7 @@ fn compare_with_char() {
 fn setting_a_char() {
     unicode_value: Char = 0x1_F9DB
     print('this is the char {unicode_value}')
-    assert(unicode_value.to_string() == "🧛", 'conversion was wrong {unicode_value}')
+    assert(unicode_value.string() == "🧛", 'conversion was wrong {unicode_value}')
 }
 
 #[test]
@@ -165,7 +165,7 @@ fn store_string() {
     }
     assert(storage.str == "store this text", 'string failed to be stored {storage.str}')
     assert(storage.i.to_int() == 0, 'byte must be zero')
-    assert(storage.i.to_string() == "0x00", 'byte to_string failed')
+    assert(storage.i.string() == "0x00", 'byte to_string failed')
 }
 
 #[test]

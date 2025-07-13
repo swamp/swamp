@@ -20,7 +20,7 @@ struct Attacker {
 }
 
 impl Attacker {
-    fn to_string(self) -> String {
+    fn string(self) -> String {
         'Attacker health: {self.health}'
     }
 }
@@ -30,7 +30,7 @@ struct Unit {
 }
 
 impl Unit {
-    fn to_string(self) -> String {
+    fn string(self) -> String {
         x = when attacker=self.attacker {
             '{attacker}'
         } else {
@@ -135,7 +135,7 @@ fn optional_set_from_field() {
 #[test]
 fn to_string() {
     unit_id: UnitID? = none
-    result_string = unit_id.to_string()
+    result_string = unit_id.string()
 
     print('result: {result_string}')
     assert(result_string == "None", 'none to string failed {result_string}')
@@ -144,7 +144,7 @@ fn to_string() {
 #[test]
 fn to_short_string() {
     unit_id: UnitID? = none
-    result_string = unit_id.to_short_string()
+    result_string = unit_id.short_string()
 
     print('result: {result_string}')
     assert(result_string == "-", 'none to string failed {result_string}')
@@ -155,7 +155,7 @@ fn to_short_string() {
 #[test]
 fn to_string_mut() {
     mut unit_id: UnitID? = none
-    result_string = unit_id.to_string()
+    result_string = unit_id.string()
 
     print('result: {result_string}')
     assert(result_string == "None", 'none to string failed {result_string}')
@@ -165,13 +165,13 @@ fn to_string_mut() {
 fn to_string_some() {
     mut unit_id: UnitID? = none
 
-    another_result_string = unit_id.to_string()
+    another_result_string = unit_id.string()
 
     a = 3
 
     unit_id = a
 
-    result_string = unit_id.to_string()
+    result_string = unit_id.string()
 
     print('result: {result_string}')
     assert(result_string == "Some(3)", 'Some to string failed {result_string}')
@@ -185,7 +185,7 @@ fn to_short_string_some() {
 
     unit_id = a
 
-    result_string = unit_id.to_short_string()
+    result_string = unit_id.short_string()
 
     print('result: {result_string}')
     assert(result_string == "3", 'Some to string failed {result_string}')

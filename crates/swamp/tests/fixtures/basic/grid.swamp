@@ -94,7 +94,7 @@ fn to_string() {
 fn test_grid_with_those_infuriating_optionals() {
     mut grid: Grid<Int?; (3,4)> = []
     x = grid[2, 3]
-    result = x.to_string()
+    result = x.string()
     assert(result == "None", 'should be none at start {result}')
     assert(!x, "should be none at start")
     when x {
@@ -130,7 +130,7 @@ fn test_grid_with_those_pesky_optionals_in_a_struct() {
     }
 
     x = arena.grid[2, 3]
-    result = x.to_string()
+    result = x.string()
     print('value now a: {arena.grid[2,3]}')
 
     assert(result == "None", 'should be none at start {result}')
@@ -161,5 +161,5 @@ fn test_grid_with_those_pesky_optionals_in_a_struct() {
     assert(!!arena.grid[1,1], "should be Some after set")
 
     print('grid:\n{arena}')
-    print('grid_short:\n{arena.to_short_string()}')
+    print('grid_short:\n{arena.short_string()}')
 }

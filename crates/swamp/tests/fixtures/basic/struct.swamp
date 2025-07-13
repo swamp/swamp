@@ -229,7 +229,7 @@ fn toggle_flag(mut flag: Bool) {
 #[test]
 fn test_string_to_string() {
     s = "hello world!"
-    result = s.to_string()
+    result = s.string()
     assert(result == "\"hello world!\"", 'result is wrong {s}')
 }
 
@@ -237,7 +237,7 @@ fn test_string_to_string() {
 fn automatic_to_string() {
     mut mixed = Mixed { num: 42, flag: false, text: "hello" }
     print('Mixed struct: {mixed}')
-    result = mixed.to_string()
+    result = mixed.string()
     assert(result == "Mixed { num: 42, flag: false, text: \"hello\" }", 'to_string failed "{result}"')
 }
 
@@ -245,7 +245,7 @@ fn automatic_to_string() {
 fn automatic_anon_to_string() {
     mut mixed = { num: 42, flag: false, text: "hello" }
     print('Mixed struct: {mixed}')
-    result = mixed.to_string()
+    result = mixed.string()
     // NOTE: Anonymous struct fields are always sorted alphabetically
     assert(result == "{ flag: false, num: 42, text: \"hello\" }", 'to_string failed "{result}"')
 }
@@ -254,7 +254,7 @@ fn automatic_anon_to_string() {
 fn automatic_anon_to_pretty_string() {
     mut mixed = { num: 42, flag: false, text: "hello" }
     print('Mixed struct: {mixed}')
-    result = mixed.to_pretty_string(0)
+    result = mixed.pretty_string()
     // NOTE: Anonymous struct fields are always sorted alphabetically
     assert(result == "{ flag: false, num: 42, text: \"hello\" }", 'to_pretty_string failed "{result}"')
 }
@@ -264,8 +264,8 @@ fn automatic_anon_to_pretty_string() {
 #[test]
 fn automatic_to_short_string() {
     mut mixed = Mixed { num: 42, flag: false, text: "hello" }
-    print('Mixed struct short: {mixed.to_short_string()}')
-    assert(mixed.to_short_string() == "{ num: 42, flag: false, text: \"hello\" }", "to_short_string failed")
+    print('Mixed struct short: {mixed.short_string()}')
+    assert(mixed.short_string() == "{ num: 42, flag: false, text: \"hello\" }", "to_short_string failed")
 }
 
 /// This uncovered that there was a need for a longer reserve time for certain registers that
