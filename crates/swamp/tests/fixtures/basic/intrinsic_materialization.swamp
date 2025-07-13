@@ -29,7 +29,7 @@ fn float_abs_literal() {
 
 #[test]
 fn int_to_float_literal() {
-    assert(42.to_float() == 42.0, "int to_float literal is wrong")
+    assert(42.float() == 42.0, "int to_float literal is wrong")
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn float_floor_from_struct_field() {
 #[test]
 fn int_to_float_from_struct_field() {
     data = TestData { int_value: 42, float_value: 0.0, result_int: 0, result_float: 0.0 }
-    result = data.int_value.to_float()
+    result = data.int_value.float()
     assert(result == 42.0, "int to_float from struct field is wrong")
 }
 
@@ -63,7 +63,7 @@ fn float_round_to_struct_field() {
 #[test]
 fn int_to_float_to_struct_field() {
     mut data = TestData { int_value: 42, float_value: 0.0, result_int: 0, result_float: 0.0 }
-    data.result_float = data.int_value.to_float()
+    data.result_float = data.int_value.float()
     assert(data.result_float == 42.0, "int to_float to struct field is wrong")
 }
 
@@ -78,7 +78,7 @@ fn float_floor_to_tuple() {
 #[test]
 fn int_to_float_to_tuple() {
     x = 42
-    float_result = x.to_float()
+    float_result = x.float()
     a, b = (float_result, 3.0)
     assert(a == 42.0, "int to_float to tuple first element is wrong")
     assert(b == 3.0, "second element unchanged in tuple")
@@ -103,7 +103,7 @@ fn int_abs_struct_to_struct() {
 #[test]
 fn complex_expression_with_struct_fields() {
     data = TestData { int_value: 10, float_value: 3.7, result_int: 0, result_float: 0.0 }
-    int_as_float = data.int_value.to_float()
+    int_as_float = data.int_value.float()
     sum = int_as_float + data.float_value
     result = sum.floor()
     assert(result == 13, "complex expression with struct fields is wrong")
@@ -141,6 +141,6 @@ fn float_to_string_from_struct() {
 #[test]
 fn chained_intrinsics_from_struct() {
     data = TestData { int_value: -42, float_value: 0.0, result_int: 0, result_float: 0.0 }
-    result = data.int_value.abs().to_float().sqrt().floor()
+    result = data.int_value.abs().float().sqrt().floor()
     assert(result == 6, "chained intrinsics from struct is wrong") // sqrt(42) about 6.48, floor = 6
 }

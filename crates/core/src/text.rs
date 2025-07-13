@@ -310,7 +310,7 @@ impl Int {
     ///
     /// # Returns
     /// A `Float` representing the integer.
-    fn to_float(self) -> Float {
+    fn float(self) -> Float {
         int_to_float(self)
     }
 }

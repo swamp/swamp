@@ -8,7 +8,7 @@ struct TestData {
 #[test]
 fn int_to_float_from_struct_field() {
     data = TestData { int_value: 42, float_value: 0.0 }
-    result = data.int_value.to_float()
+    result = data.int_value.float()
     assert(result == 42.0, "int to_float from struct field is wrong")
 }
 
@@ -29,7 +29,7 @@ fn int_abs_from_struct_field() {
 #[test]
 fn int_to_float_from_variable() {
     x = 123
-    result = x.to_float()
+    result = x.float()
     assert(result == 123.0, "int to_float from variable is wrong")
 }
 
