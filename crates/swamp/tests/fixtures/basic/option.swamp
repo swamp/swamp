@@ -190,3 +190,23 @@ fn to_short_string_some() {
     print('result: {result_string}')
     assert(result_string == "3", 'Some to string failed {result_string}')
 }
+
+
+/*
+TODO: Not working yet
+fn take_optional_vec(maybe_vec: Vec<Int>?) -> Int {
+    when maybe_vec {
+        42
+    } else {
+        -1
+    }
+}
+
+
+
+#[test]
+fn optional_vec_param() {
+    result = take_optional_vec(none)
+    assert(result == -1, 'should return -1 {result}')
+}
+*/

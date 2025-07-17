@@ -95,3 +95,40 @@ fn mutation_mixed() {
     assert(a.x == 5, 'mutation in same-order struct failed')
     assert(b.y == 6, 'mutation in different-order struct failed')
 }
+
+struct Entity {
+    x: Int,
+    speed: Float,
+}
+
+fn anonymous_struct_with_no_storage(anon: {
+    entities: Vec<Entity>,
+}) -> Bool {
+    anon.entities.len() > 10
+}
+
+
+/* TODO: Not working yet
+/// # Problem
+/// reported by @catnipped. Ephemeral types wrapped in an anonymous struct
+/// could not be passed as function arguments. Because they lacked a
+/// transient lifetime, the compiler treated them as needing persistent storage.
+///
+/// # Potential Fix
+/// Allow ephemeral values to be passed through anonymous structs for the
+/// duration of a call without requiring a stack slot (and no copy of the value/collection).
+#[test]
+fn call_func_with_anon_struct_no_storage() {
+    entities: Vec<Entity; 4> = [
+        Entity {
+            x: 10, speed: 18.3,
+        }
+    ]
+
+    result = anonymous_struct_with_no_storage( {
+        entities: entities,
+    })
+
+    assert(!result, 'should be false {result}')
+}
+*/

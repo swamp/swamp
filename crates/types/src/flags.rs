@@ -130,7 +130,11 @@ impl TypeFlags {
                 // An optional is blittable if its inner type is blittable
                 if inner.flags.contains(Self::IS_BLITTABLE) {
                     flags = flags
-                        .union(Self::IS_BLITTABLE)
+                        .union(Self::IS_BLITTABLE);
+                }
+                // TODO: check this
+                if inner.flags.contains(Self::IS_ALLOWED_RETURN) {
+                    flags = flags
                         .union(Self::IS_ALLOWED_RETURN);
                 }
                 if inner.flags.contains(Self::IS_STORAGE) {
@@ -140,11 +144,14 @@ impl TypeFlags {
             TypeKind::NamedStruct(named) => {
                 if named.anon_struct_type.flags.contains(Self::IS_BLITTABLE) {
                     flags = flags
-                        .union(Self::IS_BLITTABLE)
-                        .union(Self::IS_ALLOWED_RETURN);
+                        .union(Self::IS_BLITTABLE);
                 }
                 if named.anon_struct_type.flags.contains(Self::IS_STORAGE) {
                     flags = flags.union(Self::IS_STORAGE);
+                }
+                if named.anon_struct_type.flags.contains(Self::IS_ALLOWED_RETURN) {
+                    flags = flags
+                        .union(Self::IS_ALLOWED_RETURN);
                 }
             }
             TypeKind::AnonymousStruct(anon) => {
@@ -154,9 +161,16 @@ impl TypeFlags {
                     .all(|(_name, field)| field.field_type.flags.contains(Self::IS_BLITTABLE))
                 {
                     flags = flags
-                        .union(Self::IS_BLITTABLE)
-                        .union(Self::IS_ALLOWED_RETURN);
+                        .union(Self::IS_BLITTABLE);
                 }
+
+                if anon
+                    .field_name_sorted_fields
+                    .iter()
+                    .all(|(_name, field)| field.field_type.flags.contains(Self::IS_ALLOWED_RETURN))
+                {}
+                flags = flags
+                    .union(Self::IS_ALLOWED_RETURN);
 
                 if anon
                     .field_name_sorted_fields

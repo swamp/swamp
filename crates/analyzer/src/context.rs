@@ -11,6 +11,7 @@ pub struct TypeContext<'a> {
     /// Expected type for the current expression
     pub expected_type: Option<&'a TypeRef>,
     pub has_lvalue_target: bool,
+    pub ephemeral_is_allowed: bool,
 }
 
 
@@ -20,6 +21,7 @@ impl<'a> TypeContext<'a> {
         Self {
             expected_type,
             has_lvalue_target,
+            ephemeral_is_allowed: false,
         }
     }
 
@@ -27,6 +29,15 @@ impl<'a> TypeContext<'a> {
         Self {
             expected_type: self.expected_type,
             has_lvalue_target: true,
+            ephemeral_is_allowed: false,
+        }
+    }
+
+    pub(crate) fn with_ephemeral(&self) -> TypeContext {
+        Self {
+            expected_type: self.expected_type,
+            has_lvalue_target: self.has_lvalue_target,
+            ephemeral_is_allowed: true,
         }
     }
 
@@ -34,13 +45,16 @@ impl<'a> TypeContext<'a> {
         Self {
             expected_type: Some(expected_type),
             has_lvalue_target: self.has_lvalue_target,
+            ephemeral_is_allowed: false,
         }
     }
+
 
     pub(crate) const fn with_argument_anything(&self) -> Self {
         Self {
             expected_type: None,
             has_lvalue_target: self.has_lvalue_target,
+            ephemeral_is_allowed: false,
         }
     }
 
@@ -49,6 +63,15 @@ impl<'a> TypeContext<'a> {
         Self {
             expected_type: Some(required_type),
             has_lvalue_target,
+            ephemeral_is_allowed: false,
+        }
+    }
+
+    pub(crate) fn new_argument_ephemeral(required_type: &'a TypeRef, has_lvalue_target: bool) -> Self {
+        Self {
+            expected_type: Some(required_type),
+            has_lvalue_target,
+            ephemeral_is_allowed: true,
         }
     }
 
@@ -60,6 +83,7 @@ impl<'a> TypeContext<'a> {
         Self {
             expected_type,
             has_lvalue_target,
+            ephemeral_is_allowed: false,
         }
     }
 
@@ -68,6 +92,7 @@ impl<'a> TypeContext<'a> {
         Self {
             expected_type: None,
             has_lvalue_target,
+            ephemeral_is_allowed: false,
         }
     }
 
@@ -76,6 +101,7 @@ impl<'a> TypeContext<'a> {
         Self {
             expected_type: Some(required_type),
             has_lvalue_target: required_type.collection_view_that_needs_explicit_storage(),
+            ephemeral_is_allowed: false,
         }
     }
 
@@ -88,6 +114,7 @@ impl<'a> TypeContext<'a> {
         Self {
             expected_type,
             has_lvalue_target,
+            ephemeral_is_allowed: false,
         }
     }
 
@@ -114,6 +141,7 @@ impl<'a> TypeContext<'a> {
         Self {
             expected_type: new_expected,
             has_lvalue_target: self.has_lvalue_target,
+            ephemeral_is_allowed: false,
         }
     }
 }

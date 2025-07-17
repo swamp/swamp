@@ -7,6 +7,7 @@ use crate::to_string::{
     internal_generate_to_string_function_for_type,
     ExpressionGenerator,
 };
+use crate::types::TypeAnalyzeContext;
 use crate::Analyzer;
 use seq_map::SeqMap;
 use std::rc::Rc;
@@ -190,7 +191,7 @@ impl Analyzer<'_> {
             let payload_type = match ast_variant_type {
                 swamp_ast::EnumVariantType::Simple(_variant_name_node) => self.types().unit(),
                 swamp_ast::EnumVariantType::Direct(_variant_name_node, direct_type) => {
-                    let analyzed_type = self.analyze_type(direct_type);
+                    let analyzed_type = self.analyze_type(direct_type, &TypeAnalyzeContext::default());
                     // If the direct_type is actually a single-element tuple, unwrap it
                     match &*analyzed_type.kind {
                         TypeKind::Tuple(elements) if elements.len() == 1 => elements[0].clone(),
@@ -200,7 +201,7 @@ impl Analyzer<'_> {
                 swamp_ast::EnumVariantType::Tuple(_variant_name_node, types) => {
                     let mut vec = Vec::new();
                     for tuple_type in types {
-                        let resolved_type = self.analyze_type(tuple_type);
+                        let resolved_type = self.analyze_type(tuple_type, &TypeAnalyzeContext::default());
                         vec.push(resolved_type);
                     }
 
@@ -215,7 +216,7 @@ impl Analyzer<'_> {
                     let mut fields = SeqMap::new();
 
                     for field_with_type in &ast_struct_fields.fields {
-                        let resolved_type = self.analyze_type(&field_with_type.field_type);
+                        let resolved_type = self.analyze_type(&field_with_type.field_type, &TypeAnalyzeContext::default());
                         let field_name_str =
                             self.get_text(&field_with_type.field_name.0).to_string();
 
@@ -279,7 +280,7 @@ impl Analyzer<'_> {
     /// # Errors
     ///
     pub fn analyze_alias_type_definition(&mut self, ast_alias: &swamp_ast::AliasType) -> AliasType {
-        let resolved_type = self.analyze_type(&ast_alias.referenced_type);
+        let resolved_type = self.analyze_type(&ast_alias.referenced_type, &TypeAnalyzeContext::default());
 
         // Ensure string functions are generated for the resolved type
         self.ensure_default_functions_for_type(&resolved_type, &ast_alias.identifier.0);
@@ -325,8 +326,9 @@ impl Analyzer<'_> {
     pub fn analyze_anonymous_struct_type(
         &mut self,
         ast_struct: &swamp_ast::AnonymousStructType,
+        ctx: &TypeAnalyzeContext,
     ) -> AnonymousStructType {
-        let resolved_fields = self.analyze_anonymous_struct_type_fields(&ast_struct.fields);
+        let resolved_fields = self.analyze_anonymous_struct_type_fields(&ast_struct.fields, ctx);
 
         AnonymousStructType::new_and_sort_fields(&resolved_fields)
     }
@@ -336,14 +338,16 @@ impl Analyzer<'_> {
     pub fn analyze_anonymous_struct_type_fields(
         &mut self,
         ast_struct_fields: &[swamp_ast::StructTypeField],
+        ctx: &TypeAnalyzeContext,
     ) -> SeqMap<String, StructTypeField> {
         let mut resolved_fields = SeqMap::new();
+        let allow_ephemeral = ctx.allows_ephemeral();
 
         for field_name_and_type in ast_struct_fields {
-            let resolved_type = self.analyze_type(&field_name_and_type.field_type);
+            let resolved_type = self.analyze_type(&field_name_and_type.field_type, ctx);
             let name_string = self.get_text(&field_name_and_type.field_name.0).to_string();
 
-            if !resolved_type.can_be_stored_in_transient_field() {
+            if !resolved_type.can_be_stored_in_transient_field() && !allow_ephemeral {
                 self.add_err(ErrorKind::NeedStorage, &field_name_and_type.field_name.0);
                 return resolved_fields;
             }
@@ -376,7 +380,7 @@ impl Analyzer<'_> {
     ) {
         let struct_name_str = self.get_text(&ast_struct_def.identifier.name).to_string();
 
-        let fields = self.analyze_anonymous_struct_type_fields(&ast_struct_def.struct_type.fields);
+        let fields = self.analyze_anonymous_struct_type_fields(&ast_struct_def.struct_type.fields, &TypeAnalyzeContext::default());
 
         let analyzed_anonymous_struct = AnonymousStructType::new(fields);
 
@@ -437,7 +441,7 @@ impl Analyzer<'_> {
             swamp_ast::Function::Internal(function_data) => {
                 let parameters = self.analyze_parameters(&function_data.declaration.params);
                 let return_type = if let Some(found) = &function_data.declaration.return_type {
-                    let analyzed_return_type = self.analyze_type(found);
+                    let analyzed_return_type = self.analyze_type(found, &TypeAnalyzeContext::default());
                     if !analyzed_return_type.allowed_as_return_type() {
                         self.add_err(
                             ErrorKind::NotAllowedAsReturnType(analyzed_return_type),
@@ -516,7 +520,7 @@ impl Analyzer<'_> {
             swamp_ast::Function::External(int_node, ast_signature) => {
                 let parameters = self.analyze_parameters(&ast_signature.params);
                 let external_return_type = if let Some(found) = &ast_signature.return_type {
-                    self.analyze_type(found)
+                    self.analyze_type(found, &TypeAnalyzeContext::default())
                 } else {
                     self.shared.state.types.unit()
                 };
@@ -744,7 +748,7 @@ impl Analyzer<'_> {
                 }
 
                 for param in &function_data.declaration.params {
-                    let resolved_type = self.analyze_type(&param.param_type);
+                    let resolved_type = self.analyze_type(&param.param_type, &TypeAnalyzeContext::default());
 
                     let resolved_param = TypeForParameter {
                         name: self.get_text(&param.variable.name).to_string(),
@@ -762,7 +766,7 @@ impl Analyzer<'_> {
 
                 let return_type =
                     if let Some(ast_return_type) = &function_data.declaration.return_type {
-                        self.analyze_type(ast_return_type)
+                        self.analyze_type(ast_return_type, &TypeAnalyzeContext::default())
                     } else {
                         self.shared.state.types.unit()
                     };
@@ -819,7 +823,7 @@ impl Analyzer<'_> {
                 }
 
                 for param in &signature.params {
-                    let resolved_type = self.analyze_type(&param.param_type);
+                    let resolved_type = self.analyze_type(&param.param_type, &TypeAnalyzeContext::default());
 
                     parameters.push(TypeForParameter {
                         name: self.get_text(&param.variable.name).to_string(),

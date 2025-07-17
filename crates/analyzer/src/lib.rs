@@ -22,6 +22,7 @@ use crate::call::MaybeBorrowMutRefExpression;
 use crate::context::TypeContext;
 use crate::shared::SharedState;
 use crate::to_string::create_expr_resolved;
+use crate::types::TypeAnalyzeContext;
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
@@ -44,7 +45,6 @@ use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::prelude::*;
 use swamp_types::TypeKind;
 use tracing::error;
-
 /*
            swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
                    previous_was_optional_chaining = false;
@@ -263,7 +263,7 @@ impl<'a> Analyzer<'a> {
 
         match ast_return_type {
             None => self.shared.state.types.unit(),
-            Some(x) => self.analyze_type(x),
+            Some(x) => self.analyze_type(x, &TypeAnalyzeContext::default()),
         }
     }
 
@@ -280,7 +280,7 @@ impl<'a> Analyzer<'a> {
     fn analyze_maybe_type(&mut self, maybe_type: Option<&swamp_ast::Type>) -> TypeRef {
         match maybe_type {
             None => self.shared.state.types.unit(),
-            Some(ast_type) => self.analyze_type(ast_type),
+            Some(ast_type) => self.analyze_type(ast_type, &TypeAnalyzeContext::default()),
         }
     }
 
@@ -334,8 +334,10 @@ impl<'a> Analyzer<'a> {
             );
             return vec![];
         }
+
+        let allow_ephemeral = TypeAnalyzeContext::new_ephemeral();
         for parameter in parameters {
-            let param_type = self.analyze_type(&parameter.param_type);
+            let param_type = self.analyze_type(&parameter.param_type, &allow_ephemeral);
             if !param_type.allowed_as_parameter_type() {
                 self.add_err(
                     ErrorKind::ParameterTypeCanNotBeStorage(param_type),
@@ -380,24 +382,24 @@ impl<'a> Analyzer<'a> {
 
         if let Some(found_table) = self.shared.get_symbol_table(&path)
             && let Some(found_func) = found_table.get_function(function_name) {
-                let (kind, signature) = match found_func {
-                    FuncDef::Internal(internal_fn) => (
-                        Function::Internal(internal_fn.clone()),
-                        &internal_fn.signature,
-                    ),
-                    FuncDef::External(external_fn) => (
-                        Function::External(external_fn.clone()),
-                        &external_fn.signature,
-                    ),
-                    // Can not have a reference to an intrinsic function
-                    FuncDef::Intrinsic(intrinsic_fn) => (
-                        Function::Intrinsic(intrinsic_fn.clone()),
-                        &intrinsic_fn.signature,
-                    ),
-                };
+            let (kind, signature) = match found_func {
+                FuncDef::Internal(internal_fn) => (
+                    Function::Internal(internal_fn.clone()),
+                    &internal_fn.signature,
+                ),
+                FuncDef::External(external_fn) => (
+                    Function::External(external_fn.clone()),
+                    &external_fn.signature,
+                ),
+                // Can not have a reference to an intrinsic function
+                FuncDef::Intrinsic(intrinsic_fn) => (
+                    Function::Intrinsic(intrinsic_fn.clone()),
+                    &intrinsic_fn.signature,
+                ),
+            };
 
-                return Some(kind);
-            }
+            return Some(kind);
+        }
 
         None
     }
@@ -493,13 +495,13 @@ impl<'a> Analyzer<'a> {
         if let swamp_ast::ExpressionKind::UnaryOp(found_unary, ast_inner_expression) =
             &ast_expr.kind
             && let swamp_ast::UnaryOperator::BorrowMutRef(node) = found_unary {
-                //let inner = self.analyze_expression(ast_inner_expression, context)?;
-                let resolved_node = self.to_node(node);
-                return MaybeBorrowMutRefExpression {
-                    ast_expression: *ast_inner_expression.clone(),
-                    has_borrow_mutable_reference: Some(resolved_node),
-                };
-            }
+            //let inner = self.analyze_expression(ast_inner_expression, context)?;
+            let resolved_node = self.to_node(node);
+            return MaybeBorrowMutRefExpression {
+                ast_expression: *ast_inner_expression.clone(),
+                has_borrow_mutable_reference: Some(resolved_node),
+            };
+        }
 
         MaybeBorrowMutRefExpression {
             ast_expression: ast_expr.clone(),
@@ -844,7 +846,7 @@ impl<'a> Analyzer<'a> {
         }
 
         for analyzed_type in &type_name_to_find.generic_params {
-            let ty = self.analyze_type(analyzed_type.get_type());
+            let ty = self.analyze_type(analyzed_type.get_type(), &TypeAnalyzeContext::default());
 
             analyzed_type_parameters.push(ty);
         }
@@ -1050,13 +1052,13 @@ impl<'a> Analyzer<'a> {
         // Extract the AnonymousStructType from the TypeRef
         if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_ref.kind
             && let Some(found_field) = anon_struct.field_name_sorted_fields.get(&field_name_str) {
-                let index = anon_struct
-                    .field_name_sorted_fields
-                    .get_index(&field_name_str)
-                    .expect("checked earlier");
+            let index = anon_struct
+                .field_name_sorted_fields
+                .get_index(&field_name_str)
+                .expect("checked earlier");
 
-                return (anon_struct.clone(), index, found_field.field_type.clone());
-            }
+            return (anon_struct.clone(), index, found_field.field_type.clone());
+        }
 
         self.add_err(ErrorKind::UnknownStructField, field_name);
         // Return fallback values
@@ -1621,12 +1623,12 @@ impl<'a> Analyzer<'a> {
         if qualified_func_name.module_path.is_none()
             && qualified_func_name.generic_params.is_empty()
             && let Some(found_variable) = self.try_find_variable(&qualified_func_name.name) {
-                return self.create_expr(
-                    ExpressionKind::VariableAccess(found_variable.clone()),
-                    found_variable.resolved_type.clone(),
-                    &qualified_func_name.name,
-                );
-            }
+            return self.create_expr(
+                ExpressionKind::VariableAccess(found_variable.clone()),
+                found_variable.resolved_type.clone(),
+                &qualified_func_name.name,
+            );
+        }
 
         let text = self.get_text(&qualified_func_name.name);
         self.create_err(
@@ -2306,7 +2308,11 @@ impl<'a> Analyzer<'a> {
                 // TODO: In the future we should check if this binding variable is just the payload of the variable
                 // given to it. in that case we should just create a param like variable, in the sense
                 // that it is *not* allocated in the stack frame, but is just represented as a register
-                let variable_ref = self.create_variable(&variable_binding.variable, found_ty);
+                let variable_ref = { //variable_binding.expression.is_some() || variable_binding.variable.is_mutable.is_some() {
+                    self.create_variable(&variable_binding.variable, found_ty)
+                }/* else {
+                    self.create_local_variable_parameter_like(&variable_binding.variable.name, Option::from(&variable_binding.variable.is_mutable), found_ty, false)
+                }*/;
 
                 let binding = WhenBinding {
                     variable: variable_ref,
@@ -2631,7 +2637,7 @@ impl<'a> Analyzer<'a> {
         source_expression: &swamp_ast::Expression,
     ) -> Expression {
         let maybe_annotated_type =
-            annotation_type.map(|found_ast_type| self.analyze_type(found_ast_type));
+            annotation_type.map(|found_ast_type| self.analyze_type(found_ast_type, &TypeAnalyzeContext::default()));
 
         let unsure_arg_context =
             TypeContext::new_unsure_argument(maybe_annotated_type.as_ref(), true);
@@ -2941,14 +2947,14 @@ impl<'a> Analyzer<'a> {
 
         if let Some(found_expected_type) = context.expected_type
             && !self.types().compatible_with(found_expected_type, &ty) {
-                self.add_err(
-                    ErrorKind::IncompatibleTypes {
-                        expected: found_expected_type.clone(),
-                        found: ty.clone(),
-                    },
-                    &chain.base.node,
-                );
-            }
+            self.add_err(
+                ErrorKind::IncompatibleTypes {
+                    expected: found_expected_type.clone(),
+                    found: ty.clone(),
+                },
+                &chain.base.node,
+            );
+        }
 
         SingleLocationExpression {
             kind: MutableReferenceKind::MutVariableRef,
@@ -4040,7 +4046,7 @@ impl<'a> Analyzer<'a> {
         let generic_arguments = if let Some(ast_generic_arguments) = ast_maybe_generic_arguments {
             let mut resolved_types = Vec::new();
             for ast_type in ast_generic_arguments {
-                resolved_types.push(self.analyze_type(ast_type.get_type()));
+                resolved_types.push(self.analyze_type(ast_type.get_type(), &TypeAnalyzeContext::default()));
             }
             resolved_types
         } else {
@@ -4290,14 +4296,14 @@ impl<'a> Analyzer<'a> {
             }
             "Vec" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
                     let vec_type = self.shared.state.types.dynamic_vec_view(&element_type);
                     // Generate default functions for the new dynamic vec view type
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&vec_type, &default_node);
                     vec_type
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     let vec_storage_type = self
@@ -4315,14 +4321,14 @@ impl<'a> Analyzer<'a> {
             }
             "Stack" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
                     let stack_view_type = self.shared.state.types.stack_view(&element_type);
                     // Generate default functions for the new stack view type
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&stack_view_type, &default_node);
                     stack_view_type
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     let stack_storage_type = self
@@ -4340,14 +4346,14 @@ impl<'a> Analyzer<'a> {
             }
             "Queue" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
                     let queue_view_type = self.shared.state.types.queue_view(&element_type);
                     // Generate default functions for the new queue view type
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&queue_view_type, &default_node);
                     queue_view_type
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     let queue_storage_type = self
@@ -4365,14 +4371,14 @@ impl<'a> Analyzer<'a> {
             }
             "Sparse" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
                     let sparse_view_type = self.shared.state.types.sparse_view(&element_type);
                     // Generate default functions for the new sparse view type
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&sparse_view_type, &default_node);
                     sparse_view_type
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     let sparse_storage_type = self
@@ -4391,14 +4397,14 @@ impl<'a> Analyzer<'a> {
 
             "Grid" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
                     let grid_view_type = self.shared.state.types.grid_view(&element_type);
                     // Generate default functions for the new grid view type
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&grid_view_type, &default_node);
                     grid_view_type
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type());
+                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
                     let (width, height) =
                         self.analyze_generic_parameter_usize_tuple(&ast_generic_parameters[1]);
                     let grid_storage_type =

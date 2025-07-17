@@ -23,8 +23,9 @@ mod match
 mod operator
 mod option
 mod optional_chaining
-//mod pretty_string
+// mod pretty_string
 mod queue
+mod range
 mod rest_operator
 mod scalar_vs_aggregate
 mod slice
@@ -37,6 +38,6 @@ mod transformer
 mod tuple
 mod unwrap
 mod vec
+mod when
 mod while
 mod with
-mod when

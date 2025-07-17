@@ -179,7 +179,6 @@ impl Vm {
         let target_vec_addr = get_reg!(self, target_vec_ptr_reg);
         let source_vec_addr = get_reg!(self, source_vec_ptr_reg);
         let range_header = self.range_header_from_reg(range_reg);
-        eprintln!("=========== {range_header:?} =======");
 
         let mut_vec_ptr = self
             .memory
@@ -203,7 +202,6 @@ impl Vm {
                 return self.internal_trap(TrapCode::MemoryCorruption);
             }
             if (*src_vec_ptr).capacity == 0 {
-                eprintln!("SOURCE IS NOT INITIALIZED");
                 return self.internal_trap(TrapCode::VecNeverInitialized);
             }
 

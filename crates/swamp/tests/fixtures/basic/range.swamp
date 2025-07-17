@@ -74,3 +74,33 @@ fn slice_is_wrong_order() {
 
     b: Vec<Int; 2> = a.slice(3..1)
 }
+
+
+struct SliceTarget {
+    other: Int,
+    numbers: Vec<Int; 2>,
+}
+
+/*
+impl SliceTarget {
+
+    // The bug only happened if another self field
+    // was set before the slice
+    fn function_that_fills_slice(mut self, data: Vec<Int; 4>) {
+        self.other = 42
+        self.numbers = data.slice(1..3)
+    }
+
+}
+
+    /// Bug found by @catnipped
+#[test]
+fn slice_target() {
+    mut target = SliceTarget {..}
+
+    data = [10, 20, 30, 40]
+
+    target.function_that_fills_slice(data)
+}
+
+*/

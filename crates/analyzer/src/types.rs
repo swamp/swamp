@@ -3,8 +3,32 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Analyzer;
-use swamp_types::TypeRef;
 use swamp_types::prelude::{Signature, TypeForParameter};
+use swamp_types::TypeRef;
+
+pub(crate) struct TypeAnalyzeContext {
+    pub allow_ephemeral: bool,
+}
+
+impl TypeAnalyzeContext {
+    pub(crate) fn new_ephemeral() -> Self {
+        Self {
+            allow_ephemeral: true,
+        }
+    }
+
+    pub fn allows_ephemeral(&self) -> bool {
+        self.allow_ephemeral
+    }
+}
+
+impl Default for TypeAnalyzeContext {
+    fn default() -> Self {
+        Self {
+            allow_ephemeral: false,
+        }
+    }
+}
 
 impl Analyzer<'_> {
     /// # Errors
@@ -14,8 +38,8 @@ impl Analyzer<'_> {
         ast_key_type: &swamp_ast::Type,
         ast_value_type: &swamp_ast::Type,
     ) -> (TypeRef, TypeRef) {
-        let key_type = self.analyze_type(ast_key_type);
-        let value_type = self.analyze_type(ast_value_type);
+        let key_type = self.analyze_type(ast_key_type, &TypeAnalyzeContext::default());
+        let value_type = self.analyze_type(ast_value_type, &TypeAnalyzeContext::default());
 
         // Using TypeCache to ensure proper type comparison and creation
         (key_type, value_type)
@@ -28,8 +52,8 @@ impl Analyzer<'_> {
         ast_key_type: &swamp_ast::Type,
         ast_value_type: &swamp_ast::Type,
     ) -> (TypeRef, TypeRef) {
-        let key_type = self.analyze_type(ast_key_type);
-        let value_type = self.analyze_type(ast_value_type);
+        let key_type = self.analyze_type(ast_key_type, &TypeAnalyzeContext::default());
+        let value_type = self.analyze_type(ast_value_type, &TypeAnalyzeContext::default());
 
         // Using TypeCache to ensure proper type comparison and creation
         (key_type, value_type)
@@ -38,10 +62,10 @@ impl Analyzer<'_> {
     /// # Errors
     ///
     /// # Panics
-    pub fn analyze_type(&mut self, ast_type: &swamp_ast::Type) -> TypeRef {
+    pub fn analyze_type(&mut self, ast_type: &swamp_ast::Type, ctx: &TypeAnalyzeContext) -> TypeRef {
         match ast_type {
             swamp_ast::Type::AnonymousStruct(ast_struct) => {
-                let struct_ref = self.analyze_anonymous_struct_type(ast_struct);
+                let struct_ref = self.analyze_anonymous_struct_type(ast_struct, ctx);
                 // Use TypeCache to create the anonymous struct type
                 let anon_struct_type = self.shared.state.types.anonymous_struct(struct_ref);
 
@@ -52,7 +76,7 @@ impl Analyzer<'_> {
                 anon_struct_type
             }
             swamp_ast::Type::FixedCapacityArray(ast_type, fixed_size) => {
-                let element_type = self.analyze_type(ast_type);
+                let element_type = self.analyze_type(ast_type, &TypeAnalyzeContext::default());
                 let int_str = self.get_text(fixed_size);
                 let int_value = Self::str_to_unsigned_int(int_str).unwrap() as usize;
 
@@ -69,7 +93,7 @@ impl Analyzer<'_> {
                 array_type
             }
             swamp_ast::Type::Slice(ast_type) => {
-                let element_type = self.analyze_type(ast_type);
+                let element_type = self.analyze_type(ast_type, &TypeAnalyzeContext::default());
                 // Use TypeCache for slice view creation
                 let slice_type = self.shared.state.types.slice_view(&element_type);
 
@@ -118,7 +142,7 @@ impl Analyzer<'_> {
             }
 
             swamp_ast::Type::Tuple(types) => {
-                let analyzed_types = self.analyze_types(types);
+                let analyzed_types = self.analyze_types(types, &TypeAnalyzeContext::default());
                 // Use TypeCache for tuple creation
                 let tuple_type = self.shared.state.types.tuple(analyzed_types);
 
@@ -134,7 +158,7 @@ impl Analyzer<'_> {
             }
             swamp_ast::Type::Unit => self.shared.state.types.unit(),
             swamp_ast::Type::Optional(inner_type_ast, _node) => {
-                let inner_resolved_type = self.analyze_type(inner_type_ast);
+                let inner_resolved_type = self.analyze_type(inner_type_ast, &TypeAnalyzeContext::default());
                 // Use TypeCache for optional type creation
                 let optional_type = self.shared.state.types.optional(&inner_resolved_type);
 
@@ -147,7 +171,7 @@ impl Analyzer<'_> {
             swamp_ast::Type::Function(parameters, return_type) => {
                 let parameter_types = self.analyze_param_types(parameters);
 
-                let resolved_return_type = self.analyze_type(return_type);
+                let resolved_return_type = self.analyze_type(return_type, ctx);
                 let signature = Signature {
                     parameters: parameter_types,
                     return_type: resolved_return_type,
@@ -158,10 +182,10 @@ impl Analyzer<'_> {
         }
     }
 
-    pub(crate) fn analyze_types(&mut self, types: &[swamp_ast::Type]) -> Vec<TypeRef> {
+    pub(crate) fn analyze_types(&mut self, types: &[swamp_ast::Type], ctx: &TypeAnalyzeContext) -> Vec<TypeRef> {
         let mut resolved_types = Vec::new();
         for some_type in types {
-            resolved_types.push(self.analyze_type(some_type));
+            resolved_types.push(self.analyze_type(some_type, ctx));
         }
         resolved_types
     }
@@ -175,7 +199,7 @@ impl Analyzer<'_> {
             vec.push(TypeForParameter {
                 name: String::new(),
                 // Use TypeCache to ensure the resolved type is properly created
-                resolved_type: self.analyze_type(&x.ast_type),
+                resolved_type: self.analyze_type(&x.ast_type, &TypeAnalyzeContext::default()),
                 is_mutable: x.is_mutable,
                 node: None,
             });
