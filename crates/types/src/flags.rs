@@ -164,11 +164,10 @@ impl TypeFlags {
                         .union(Self::IS_BLITTABLE);
                 }
 
-                if anon
+                anon
                     .field_name_sorted_fields
                     .iter()
-                    .all(|(_name, field)| field.field_type.flags.contains(Self::IS_ALLOWED_RETURN))
-                {}
+                    .all(|(_name, field)| field.field_type.flags.contains(Self::IS_ALLOWED_RETURN));
                 flags = flags
                     .union(Self::IS_ALLOWED_RETURN);
 

@@ -33,7 +33,7 @@ impl<'a> TypeContext<'a> {
         }
     }
 
-    pub(crate) fn with_ephemeral(&self) -> TypeContext {
+    pub(crate) const fn with_ephemeral(&self) -> TypeContext {
         Self {
             expected_type: self.expected_type,
             has_lvalue_target: self.has_lvalue_target,
@@ -67,7 +67,7 @@ impl<'a> TypeContext<'a> {
         }
     }
 
-    pub(crate) fn new_argument_ephemeral(required_type: &'a TypeRef, has_lvalue_target: bool) -> Self {
+    pub(crate) const fn new_argument_ephemeral(required_type: &'a TypeRef, has_lvalue_target: bool) -> Self {
         Self {
             expected_type: Some(required_type),
             has_lvalue_target,

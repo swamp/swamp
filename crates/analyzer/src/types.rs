@@ -6,29 +6,23 @@ use crate::Analyzer;
 use swamp_types::prelude::{Signature, TypeForParameter};
 use swamp_types::TypeRef;
 
+#[derive(Default)]
 pub(crate) struct TypeAnalyzeContext {
     pub allow_ephemeral: bool,
 }
 
 impl TypeAnalyzeContext {
-    pub(crate) fn new_ephemeral() -> Self {
+    pub(crate) const fn new_ephemeral() -> Self {
         Self {
             allow_ephemeral: true,
         }
     }
 
-    pub fn allows_ephemeral(&self) -> bool {
+    pub const fn allows_ephemeral(&self) -> bool {
         self.allow_ephemeral
     }
 }
 
-impl Default for TypeAnalyzeContext {
-    fn default() -> Self {
-        Self {
-            allow_ephemeral: false,
-        }
-    }
-}
 
 impl Analyzer<'_> {
     /// # Errors

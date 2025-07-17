@@ -4,7 +4,6 @@
  */
 use crate::{Analyzer, TypeContext};
 use source_map_node::Node;
-use std::env::current_dir;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::prelude::Error;
 use swamp_semantic::{EnumLiteralExpressions, ExpressionKind};
