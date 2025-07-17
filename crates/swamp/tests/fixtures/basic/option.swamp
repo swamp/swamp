@@ -191,7 +191,6 @@ fn to_short_string_some() {
     assert(result_string == "3", 'Some to string failed {result_string}')
 }
 
-
 /*
 TODO: Not working yet
 

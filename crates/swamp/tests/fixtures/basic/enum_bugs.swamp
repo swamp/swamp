@@ -25,7 +25,7 @@ type UnitID = Int
 
 enum EnumCapacityPayload {
     Message,
-    RefreshUnits(Vec<UnitID;30>),
+    RefreshUnits Vec<UnitID;30>,
     StructPayload { units: Vec<UnitID;40> }
 }
 

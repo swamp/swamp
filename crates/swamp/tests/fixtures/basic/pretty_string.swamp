@@ -34,9 +34,9 @@ enum GameState {
 }
 
 enum EntityType {
-    Player(Player),
+    Player Player,
     Enemy { health: Int, weapon: Weapon },
-    Powerup(String<32>),
+    Powerup String<32>,
 }
 
 struct GameWorld {

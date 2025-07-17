@@ -26,8 +26,8 @@ fn vector_slice() {
     print('c:{c}')
 
     assert(c.capacity() == 4, "should still have 4 in capacity")
-    // TODO: c == [20, 30, 40] // did not work!
-
+    // TODO: Compare with vec likes should work
+    // assert(c == [20, 30, 40], 'equals should work')
     assert(c.len() == 3, 'len failed {c.len()}')
 
     assert(c[0] == 20, 'not equal {c[0]}')

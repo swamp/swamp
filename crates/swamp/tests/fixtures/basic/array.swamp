@@ -203,9 +203,7 @@ fn update_settings(mut cooldown: Int, value: Int) {
 
 #[test]
 fn simple_initialization() {
-    another = Another {
-        ..
-    }
+    another = Another {..}
 
     assert(another.things.capacity() == 3, "capacity is not set?")
 }

@@ -46,19 +46,19 @@ enum SimpleEnum {
 }
 
 enum IntOption {
-    Some(Int),
+    Some Int,
     None,
 }
 
 enum IntResult {
-    Ok(Int),
-    Err(Int),
+    Ok Int,
+    Err Int,
 }
 
 enum Container {
-    Single(Int),
-    Pair(Int, Int),
-    Triple(Int, Int, Color),
+    Single Int,
+    Pair (Int, Int),
+    Triple (Int, Int, Color),
     Named { id: Int, count: Int },
     Complex { value: Int, flag: Bool },
 }

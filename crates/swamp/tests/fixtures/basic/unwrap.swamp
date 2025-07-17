@@ -1,6 +1,3 @@
-// TODO: Go back and inspect the assembly for this file
-// TODO: Investigate why `??` is working. I thought the existing code is not supposed to work with multiple `??`.
-
 // This function indirectly that it automatically wraps the value when function returns an optional type
 fn create_some(value: Int) -> Int? {
     value
@@ -83,8 +80,7 @@ fn get_container_field(container: Container?) -> Int {
     }
 }
 
-/*
-// #[test] TODO: I think `d ?? default_data` is failing
+#[test]
 fn none_coalesce_struct() {
     d = create_optional_data(true)
     default_data = Data { id: 0, name: "No Data" }
@@ -96,7 +92,6 @@ fn none_coalesce_struct() {
     assert(result_none.id == 0 && result_none.name == "No Data", "?? with None(Data) should be default data")
     print('Result: {result.name}, Result None: {result_none.name}')
 }
-*/
 
 #[test]
 fn none_coalesce_some_int() {
@@ -136,7 +131,7 @@ fn none_coalesce_chained_none_some_int() {
 fn none_coalesce_chained_all_none_int() {
     val1 = create_none()
     val2 = create_none()
-    result = val1 ?? val2 ?? 200 // TODO: Not sure why this is working :)
+    result = val1 ?? val2 ?? 200
     assert(result == 200, "Chained ?? with all None should be 200")
     print('Result: {result}')
 }

@@ -161,7 +161,7 @@ fn rest_operator_empty_effect_with_default() {
     assert(!basic_spell.is_magical, "is_magical should use struct default")
 }
 
-// TODO: Investigate why it fails // #[test]
+#[test]
 fn rest_operator_empty_player_without_default() {
     print("Testing rest operator with no player fields provided (pure field defaults)")
 
@@ -186,7 +186,7 @@ struct Character {
     is_boss: Bool,
 }
 
-// TODO: Investigate why it fails: //#[test]
+#[test]
 fn rest_operator_nested_character() {
     boss = Character {
         primary_spell: GameEffect { name: "Dark Magic", damage: 75.. },
