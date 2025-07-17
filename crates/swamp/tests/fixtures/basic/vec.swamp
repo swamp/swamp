@@ -269,3 +269,19 @@ fn pass_in_param() {
     pass_things(things)
     pass_things_slice(things)
 }
+
+#[test]
+fn clear() {
+    mut another = Another {
+        things: [
+            Thing { b:  -1024, a: 42 }, // Intentionally swapped
+            Thing { a:  32, b: 8086 },
+        ]
+    }
+
+    assert(another.things.len() == 2, 'should be two {another.things.len()}')
+
+    another.things.clear()
+
+    assert(another.things.len() == 0, 'should be zero {another.things.len()}')
+}

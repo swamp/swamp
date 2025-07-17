@@ -81,7 +81,6 @@ struct SliceTarget {
     numbers: Vec<Int; 2>,
 }
 
-/*
 impl SliceTarget {
 
     // The bug only happened if another self field
@@ -93,7 +92,14 @@ impl SliceTarget {
 
 }
 
-    /// Bug found by @catnipped
+/// # Problem
+/// Reported by @catnipped. The `VecSlice` intrinsic was grabbing the
+/// output destination’s memory address directly instead of flattening it
+/// via `emit_compute_effective_address_to_register`.
+///
+/// # Fix
+/// Change `VecSlice` to compute the effective address of the destination
+/// into a register before use—ensuring it’s properly “flattened”.
 #[test]
 fn slice_target() {
     mut target = SliceTarget {..}
@@ -102,5 +108,3 @@ fn slice_target() {
 
     target.function_that_fills_slice(data)
 }
-
-*/

@@ -407,7 +407,14 @@ impl CodeBuilder<'_> {
                 let range_expr = &arguments[0];
                 let range_region = self.emit_scalar_rvalue(range_expr, ctx);
 
-                self.builder.add_vec_copy_range(&output_destination.grab_memory_location().pointer_location().unwrap(), self_ptr_reg, &range_region, node, "vec slice");
+                let output_pointer = self.emit_compute_effective_address_to_register(
+                    output_destination,
+                    node,
+                    "get absolute pointer for vec slice destination",
+                );
+                let output_pointer_location = PointerLocation::new(output_pointer);
+
+                self.builder.add_vec_copy_range(&output_pointer_location, self_ptr_reg, &range_region, node, "vec slice");
             }
 
             IntrinsicFunction::VecRemoveIndex => {
@@ -515,8 +522,13 @@ impl CodeBuilder<'_> {
                     node,
                     "set to zero",
                 );
+
+                let self_memory_location = AggregateMemoryLocation::new(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                    self_ptr_reg.ptr_reg.clone(),
+                ));
+
                 self.builder.add_st16_using_ptr_with_offset(
-                    output_destination.grab_memory_location(),
+                    &self_memory_location.offset(COLLECTION_ELEMENT_COUNT_OFFSET, u16_type()).location,
                     temp_element_count_reg.register(),
                     node,
                     "set element_count to zero",

@@ -3569,6 +3569,13 @@ impl<'a> Analyzer<'a> {
                     return_type: self.types().bool(),
                 },
             ),
+            "clear" => {
+                let signature = Signature {
+                    parameters: vec![self_mut_type_param],
+                    return_type: self.types().unit(),
+                };
+                (IntrinsicFunction::VecClear, signature)
+            }
             "capacity" => {
                 let signature = Signature {
                     parameters: vec![self_type_param],
