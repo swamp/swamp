@@ -30,7 +30,7 @@ This crate is a core part of the Swamp compiler and is not typically used standa
 
 ```toml
 [dependencies]
-swamp-program-analyzer = "0.2.11"
+swamp-program-analyzer = "0.2.12"
 ```
 
 ## License

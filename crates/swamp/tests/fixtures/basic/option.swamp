@@ -194,6 +194,7 @@ fn to_short_string_some() {
 
 /*
 TODO: Not working yet
+
 fn take_optional_vec(maybe_vec: Vec<Int>?) -> Int {
     when maybe_vec {
         42
@@ -203,10 +204,13 @@ fn take_optional_vec(maybe_vec: Vec<Int>?) -> Int {
 }
 
 
-
+/// # Problem
+/// Reported by @catnipped. It wasn't possible to have an optional view type as a parameter
+/// Which should be allowed.
 #[test]
 fn optional_vec_param() {
     result = take_optional_vec(none)
     assert(result == -1, 'should return -1 {result}')
 }
+
 */

@@ -51,7 +51,7 @@ VM implementation, usually not for direct use by Swamp language users.
 
 ```toml
 [dependencies]
-swamp-vm-layout = "0.2.11"
+swamp-vm-layout = "0.2.12"
 ```
 
 ## License
