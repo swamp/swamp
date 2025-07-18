@@ -346,3 +346,46 @@ fn rest_operator_again() {
     assert(point.x == 0, "x value is wrong")
     assert(point.y == 20, "y value is wrong")
 }
+
+
+#[test]
+fn compare_structs() {
+    point1 = Point {
+        y: 20
+        ..
+    }
+    point2 = Point {
+        y: 20,
+        x: 0,
+    }
+    assert(point1 == point2, "structs should be equal")
+}
+
+struct SubStruct {
+	map: [Int:String<32>; 2],
+}
+
+struct Complex {
+	sub: SubStruct,
+	maybe: Int?
+}
+
+#[test]
+fn compare_complex_structs_() {
+	complex1 = Complex {
+		sub:  {
+			map: [ 10 : "hello" ],
+		},
+		maybe: 23,
+	}
+
+	complex2 = Complex {
+		sub: {
+			map: [ 10 : "hello" ],
+		},
+		maybe: 23,
+	}
+
+	assert(complex1 == complex2, "complex should be equal")
+}
+
