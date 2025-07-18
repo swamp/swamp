@@ -549,7 +549,7 @@ impl Div<Self> for MemorySize {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MemoryAlignment {
     // Do not change the order.
     U8,

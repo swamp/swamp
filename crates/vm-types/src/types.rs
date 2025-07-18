@@ -3,23 +3,25 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::{
-    AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryRegion,
-    InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
-    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryLocation,
-    MemoryOffset, MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
-    align_to,
+    align_to, AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion,
+    FrameMemorySize, HeapMemoryAddress, HeapMemoryRegion, InstructionPosition,
+    InstructionPositionOffset, InstructionRange, MemoryAlignment, MemoryLocation,
+    MemoryOffset, MemorySize, ProgramCounterDelta, RegIndex, HEAP_PTR_ON_FRAME_ALIGNMENT,
+    HEAP_PTR_ON_FRAME_SIZE, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
+    RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_PTR_ALIGNMENT,
+    STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT,
+    VEC_PTR_SIZE,
 };
 use seq_fmt::comma;
-use std::cmp::{Ordering, max};
+use std::cmp::{max, Ordering};
 use std::fmt::{Debug, Display, Formatter, Write};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use tracing::error;
 use yansi::Paint;
 
 pub type BasicTypeRef = Rc<BasicType>;
+
 
 #[derive(Clone, Debug)]
 pub struct OffsetMemoryItem {
@@ -109,7 +111,7 @@ pub struct TaggedUnion {
 
 impl Display for TaggedUnion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "union {}:", self.name,)?;
+        write!(f, "union {}:", self.name, )?;
         for (offset, variant) in self.variants.iter().enumerate() {
             writeln!(f, "  {offset}: {variant}")?;
         }
@@ -1007,8 +1009,8 @@ impl VmType {
     pub fn is_mutable_primitive(&self) -> bool {
         self.basic_type.is_mutable_reference()
             && self
-                .basic_type
-                .should_be_copied_back_when_mutable_arg_or_return()
+            .basic_type
+            .should_be_copied_back_when_mutable_arg_or_return()
     }
 
     #[must_use]
@@ -1967,7 +1969,7 @@ pub fn write_basic_type(
             value_type,
             ..
         } => {
-            write!(f, "MapStorage<{key_type}, {value_type}, {logical_size}>",)
+            write!(f, "MapStorage<{key_type}, {value_type}, {logical_size}>", )
         }
         BasicTypeKind::InternalVecIterator => {
             write!(f, "vec_iter")
@@ -2037,4 +2039,200 @@ pub fn show_frame_memory(
         frame_relative_infos.frame_size_for_variables_except_temp
     )?;
     Ok(())
+}
+
+impl Hash for BasicType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Remember: do not include the application-specific ID in the universal hash
+        // Only hash the structural components
+        self.kind.hash(state);
+        self.total_size.0.hash(state);
+        self.max_alignment.hash(state);
+    }
+}
+
+impl Hash for BasicTypeKind {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+
+        match self {
+            Self::Empty => {}
+            Self::U8 => {}
+            Self::B8 => {}
+            Self::U16 => {}
+            Self::S32 => {}
+            Self::Fixed32 => {}
+            Self::U32 => {}
+            Self::InternalRangeHeader => {}
+            Self::InternalVecIterator => {}
+            Self::InternalStringIterator => {}
+            Self::InternalMapIterator => {}
+            Self::InternalSparseIterator => {}
+            Self::InternalRangeIterator => {}
+
+            Self::StringView { byte, char } => {
+                byte.universal_hash(state);
+                char.universal_hash(state);
+            }
+
+            Self::Struct(struct_type) => {
+                struct_type.hash(state);
+            }
+
+            Self::TaggedUnion(union) => {
+                union.hash(state);
+            }
+
+            Self::Tuple(tuple_type) => {
+                tuple_type.hash(state);
+            }
+
+            Self::Optional(optional) => {
+                optional.hash(state);
+            }
+
+            Self::SliceView(inner) => {
+                inner.universal_hash(state);
+            }
+
+            Self::FixedCapacityArray(inner, size) => {
+                inner.universal_hash(state);
+                size.hash(state);
+            }
+
+            Self::DynamicLengthVecView(inner) => {
+                inner.universal_hash(state);
+            }
+
+            Self::VecStorage(inner, size) => {
+                inner.universal_hash(state);
+                size.hash(state);
+            }
+
+            Self::StringStorage { element_type, char, capacity } => {
+                element_type.universal_hash(state);
+                char.universal_hash(state);
+                capacity.hash(state);
+            }
+
+            Self::StackStorage(inner, size) => {
+                inner.universal_hash(state);
+                size.hash(state);
+            }
+
+            Self::QueueStorage(inner, size) => {
+                inner.universal_hash(state);
+                size.hash(state);
+            }
+
+            Self::MapStorage { key_type, value_type, logical_limit, capacity } => {
+                key_type.universal_hash(state);
+                value_type.universal_hash(state);
+                logical_limit.hash(state);
+                capacity.0.hash(state);
+            }
+
+            Self::SparseView(inner) => {
+                inner.universal_hash(state);
+            }
+
+            Self::SparseStorage(inner, size) => {
+                inner.universal_hash(state);
+                size.hash(state);
+            }
+
+            Self::DynamicLengthMapView(key, value) => {
+                key.hash(state);
+                value.hash(state);
+            }
+
+            Self::GridView(inner) => {
+                inner.universal_hash(state);
+            }
+
+            Self::GridStorage(inner, width, height) => {
+                inner.universal_hash(state);
+                width.hash(state);
+                height.hash(state);
+            }
+        }
+    }
+}
+
+impl Hash for StructType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        // Hash fields in a deterministic order
+        for field in &self.fields {
+            field.hash(state);
+        }
+        self.total_size.0.hash(state);
+        self.max_alignment.hash(state);
+    }
+}
+
+impl Hash for TupleType {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash fields in order
+        for field in &self.fields {
+            field.hash(state);
+        }
+        self.total_size.0.hash(state);
+        self.max_alignment.hash(state);
+    }
+}
+
+impl Hash for TaggedUnion {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.tag_offset.0.hash(state);
+        self.tag_alignment.hash(state);
+        self.tag_size.0.hash(state);
+        self.payload_max_size.0.hash(state);
+        self.max_payload_alignment.hash(state);
+        self.payload_offset.0.hash(state);
+
+        // Hash variants in order
+        for variant in &self.variants {
+            variant.hash(state);
+        }
+
+        self.total_size.0.hash(state);
+        self.max_alignment.hash(state);
+    }
+}
+
+impl Hash for TaggedUnionVariant {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.ty.universal_hash(state);
+    }
+}
+
+impl Hash for OffsetMemoryItem {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.offset.0.hash(state);
+        self.size.0.hash(state);
+        self.name.hash(state);
+        self.ty.universal_hash(state);
+    }
+}
+
+// Add universal hash methods to BasicType
+impl BasicType {
+    /// Computes a universal hash based on the type's structure, independent of application-specific IDs.
+    /// This is useful for RPC calls and serialization in general.
+    ///
+    /// Two types with the same structure will have the same universal hash across different applications,
+    /// even if they have different BasicTypeId values.
+    pub fn universal_hash<H: Hasher>(&self, state: &mut H) {
+        self.hash(state);
+    }
+
+    /// Computes a universal hash and returns it as an u64.
+    pub fn universal_hash_u64(&self) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.universal_hash(&mut hasher);
+        hasher.finish()
+    }
 }
