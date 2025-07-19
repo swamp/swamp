@@ -8,9 +8,9 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
 use swamp_runtime::prelude::{CodeGenOptions, RunMode};
-use swamp_runtime::{CompileAndCodeGenOptions, CompileOptions, compile_and_code_gen};
+use swamp_runtime::{compile_and_code_gen, CompileAndCodeGenOptions, CompileOptions};
 use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 pub fn init_logger() {
     let filter = EnvFilter::builder()
@@ -34,6 +34,8 @@ Options:\n\
   -s, --show-semantic     (show semantic information)\n\
   -m, --show-modules      (show module structure)\n\
   -a, --show-assembly     (show Swamp VM disassembly)\n\
+  --no-warnings           (hide warnings)\n\
+  --no-hints              (hide hints)\n\
   --skip-codegen          (skip Swamp VM code generation)\n\
   -h, --help              (print this help and exit)\n"
     );
@@ -78,6 +80,9 @@ fn main() -> ExitCode {
     let debug_codegen = args.contains("--debug-codegen");
     let skip_codegen = args.contains("--skip-codegen");
 
+    let show_warnings = !args.contains("--no-warnings");
+    let show_hints = !args.contains("--no-hints");
+
     // Check for any unexpected positional arguments
     let leftover = args.finish();
     if !leftover.is_empty() {
@@ -95,8 +100,8 @@ fn main() -> ExitCode {
             show_semantic,
             show_modules,
             show_errors: true,
-            show_warnings: true,
-            show_hints: true,
+            show_warnings,
+            show_hints,
             show_information: true,
             show_types,
         },
@@ -107,7 +112,7 @@ fn main() -> ExitCode {
             show_types,
             ignore_host_call: false,
         },
-        run_mode: RunMode::Development,
+        run_mode: RunMode::Deployed,
     };
 
     let test_result = compile_and_code_gen(

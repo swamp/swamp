@@ -232,7 +232,7 @@ pub fn run_tests(
             ignore_host_call: true,
         },
         skip_codegen: false,
-        run_mode: RunMode::Development,
+        run_mode: RunMode::Deployed,
     };
     let internal_result =
         compile_codegen_and_create_vm(test_dir, crate_main_path, &compile_and_code_gen_options)
