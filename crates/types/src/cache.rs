@@ -22,6 +22,8 @@ pub struct TypeCache {
 
 impl TypeCache {}
 
+impl TypeCache {}
+
 impl Default for TypeCache {
     fn default() -> Self {
         Self::new()
@@ -578,6 +580,18 @@ impl TypeCache {
         let stack_type = self.create_type(stack_kind);
         self.add_type_to_cache(&stack_type);
         stack_type
+    }
+
+    pub fn any(&mut self) -> Rc<Type> {
+        let any_kind = TypeKind::Any;
+
+        if let Some(existing) = self.find_type(&any_kind) {
+            return existing;
+        }
+
+        let any_type = self.create_type(any_kind);
+        self.add_type_to_cache(&any_type);
+        any_type
     }
 
     pub fn dynamic_vec_view(&mut self, element_type: &Rc<Type>) -> Rc<Type> {

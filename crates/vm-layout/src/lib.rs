@@ -13,11 +13,7 @@ use swamp_vm_types::types::{
     BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, OffsetMemoryItem, StructType, TaggedUnion,
     TaggedUnionVariant, TupleType,
 };
-use swamp_vm_types::{
-    CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, MemoryAlignment,
-    MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE, adjust_size_to_alignment, align_to,
-};
+use swamp_vm_types::{adjust_size_to_alignment, align_to, CountU16, MemoryAlignment, MemoryOffset, MemorySize, ANY_HEADER_ALIGNMENT, ANY_HEADER_SIZE, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT, PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE};
 
 #[derive(Clone)]
 pub struct LayoutCache {
@@ -370,6 +366,10 @@ impl LayoutCache {
                 let _ = self.id_to_layout.insert(byte_type.id, element_layout);
 
                 array_type
+            }
+
+            TypeKind::Any => {
+                create_basic_type(ty.id, BasicTypeKind::Any, ANY_HEADER_SIZE, ANY_HEADER_ALIGNMENT)
             }
 
             TypeKind::DynamicLengthVecView(element_type) => {

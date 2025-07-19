@@ -30,7 +30,7 @@ enum GameState {
     MainMenu,
     Playing { current_level: Int, score: Int },
     Paused,
-    GameOver(Int), // final score
+    GameOver Int,
 }
 
 enum EntityType {

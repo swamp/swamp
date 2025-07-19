@@ -753,6 +753,27 @@ pub struct VecIterator {
 pub const VEC_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<VecIterator>() as u32);
 pub const VEC_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AnyHeader {
+    /// VM heap pointer to the actual data
+    pub data_ptr: u32,
+
+    /// Size in bytes of the pointed-to data
+    pub size: u32,
+
+    /// Universal hash of the type
+    pub type_hash: u32,
+}
+
+
+pub const ANY_HEADER_SIZE: MemorySize = MemorySize(size_of::<AnyHeader>() as u32);
+
+pub const ANY_HEADER_SIZE_OFFSET: MemoryOffset = MemoryOffset(4);
+pub const ANY_HEADER_HASH_OFFSET: MemoryOffset = MemoryOffset(8);
+pub const ANY_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
+
 #[repr(C)]
 pub struct StringIterator {
     pub string_heap_ptr: u32,

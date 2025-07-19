@@ -47,6 +47,10 @@ impl TypeFlags {
         let mut flags = Self::NONE;
 
         match kind {
+            TypeKind::Any => {
+                flags = flags
+                    .union(Self::IS_ALLOWED_RETURN)
+            }
             TypeKind::Codepoint => {
                 flags = flags
                     .union(Self::IS_BLITTABLE)

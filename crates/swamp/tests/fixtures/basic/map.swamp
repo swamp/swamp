@@ -29,9 +29,9 @@ const CARD_LIB = [
 fn basic_map() {
     game = Game {
         card_templates: [
-            CardId::MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
-            CardId::Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
-            CardId::MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
+            MightyGolem:  CardTemplate { mana: 5, healing_per_second: 42.13 },
+            Earthquake:   CardTemplate { mana: 3, healing_per_second: 0.3 },
+            MysticSpring: CardTemplate { mana: 2, healing_per_second: 1.5 },
         ]
     }
 

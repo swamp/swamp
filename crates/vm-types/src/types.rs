@@ -247,6 +247,7 @@ pub enum BasicTypeKind {
     // DynamicLengthMapView(),
     GridView(BasicTypeRef),
     GridStorage(BasicTypeRef, usize, usize),
+    Any,
 }
 
 impl BasicTypeKind {
@@ -348,6 +349,7 @@ impl Display for BasicTypeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Empty => write!(f, "()"),
+            Self::Any => write!(f, "Any"),
             Self::U8 => write!(f, "u8"),
             Self::B8 => write!(f, "b8"),
             Self::U16 => write!(f, "u16"),
@@ -1893,6 +1895,7 @@ pub fn write_basic_type(
     tabs: usize,
 ) -> std::fmt::Result {
     match &ty.kind {
+        BasicTypeKind::Any => write!(f, "Any"),
         BasicTypeKind::Empty => write!(f, "()"),
         BasicTypeKind::U8 => write!(f, "{}", "u8".white()),
         BasicTypeKind::B8 => write!(f, "{}", "b8".white()),
@@ -2056,6 +2059,7 @@ impl Hash for BasicTypeKind {
         std::mem::discriminant(self).hash(state);
 
         match self {
+            Self::Any => panic!("not allowed to perform hash on any"),
             Self::Empty => {}
             Self::U8 => {}
             Self::B8 => {}

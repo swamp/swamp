@@ -43,7 +43,7 @@ use swamp_semantic::{
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_types::prelude::*;
-use swamp_types::TypeKind;
+use swamp_types::{Type, TypeKind};
 use tracing::error;
 /*
            swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
@@ -712,7 +712,7 @@ impl<'a> Analyzer<'a> {
 
             // Creation
             swamp_ast::ExpressionKind::NamedStructLiteral(struct_identifier, fields, has_rest) => {
-                self.analyze_named_struct_literal(struct_identifier, fields, *has_rest)
+                self.analyze_named_struct_literal(struct_identifier, fields, *has_rest, context)
             }
 
             swamp_ast::ExpressionKind::AnonymousStructLiteral(fields, rest_was_specified) => self
@@ -1251,7 +1251,7 @@ impl<'a> Analyzer<'a> {
                             // Keep previous mutable
                             tv.resolved_type = element_type.clone();
                         }
-                        _ => panic!("not a subscript tuple"),
+                        _ => return self.create_err(ErrorKind::ExpectedTupleType, &chain.base.node),
                     }
                 }
 
@@ -2656,6 +2656,9 @@ impl<'a> Analyzer<'a> {
             true,
         );
 
+        if *resulting_type.kind == TypeKind::Unit {
+            return self.create_err(ErrorKind::VariableTypeMustBeBlittable(resulting_type), &var.name);
+        }
         assert_ne!(&*resulting_type.kind, &TypeKind::Unit);
         let kind = ExpressionKind::VariableDefinition(var_ref, Box::from(resolved_source));
 
@@ -2800,7 +2803,32 @@ impl<'a> Analyzer<'a> {
 
                         ty = element_type.clone();
                     }
-                    _ => panic!("not allowed"),
+                    _ => {
+                        self.add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, &base_expr.node);
+
+                        return SingleLocationExpression {
+                            kind: MutableReferenceKind::MutVariableRef,
+                            node: Default::default(),
+                            ty,
+                            starting_variable: Rc::new(Variable {
+                                name: Default::default(),
+                                assigned_name: "".to_string(),
+                                resolved_type: Rc::new(Type {
+                                    id: TypeId::new(0),
+                                    flags: Default::default(),
+                                    kind: Rc::new(TypeKind::Byte),
+                                }),
+                                mutable_node: None,
+                                variable_type: VariableType::Local,
+                                scope_index: 0,
+                                variable_index: 0,
+                                unique_id_within_function: 0,
+                                virtual_register: 0,
+                                is_unused: false,
+                            }),
+                            access_chain: vec![],
+                        };
+                    }
                 },
                 swamp_ast::Postfix::Subscript(ast_key_expression) => {
                     let underlying = &ty.kind;
@@ -2903,8 +2931,30 @@ impl<'a> Analyzer<'a> {
                         }
 
                         _ => {
-                            eprintln!("can not subscript with this type: {underlying}");
-                            todo!()
+                            self.add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, &base_expr.node);
+
+                            return SingleLocationExpression {
+                                kind: MutableReferenceKind::MutVariableRef,
+                                node: Default::default(),
+                                ty,
+                                starting_variable: Rc::new(Variable {
+                                    name: Default::default(),
+                                    assigned_name: "".to_string(),
+                                    resolved_type: Rc::new(Type {
+                                        id: TypeId::new(0),
+                                        flags: Default::default(),
+                                        kind: Rc::new(TypeKind::Byte),
+                                    }),
+                                    mutable_node: None,
+                                    variable_type: VariableType::Local,
+                                    scope_index: 0,
+                                    variable_index: 0,
+                                    unique_id_within_function: 0,
+                                    virtual_register: 0,
+                                    is_unused: false,
+                                }),
+                                access_chain: vec![],
+                            };
                         }
                     }
                 }
@@ -4289,6 +4339,11 @@ impl<'a> Analyzer<'a> {
         ast_generic_parameters: &[GenericParameter],
     ) -> Option<TypeRef> {
         let converted_type = match name {
+            "Any" => {
+                let new_type = self.shared.state.types.any();
+                let default_node = swamp_ast::Node::default();
+                new_type
+            }
             "String" => {
                 if ast_generic_parameters.len() == 1 {
                     let fixed_size =

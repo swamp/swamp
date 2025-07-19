@@ -58,11 +58,14 @@ pub enum TypeKind {
 
     GridStorage(Rc<Type>, usize, usize),
     GridView(Rc<Type>),
+
+    Any,
 }
 
 impl Display for TypeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Any => write!(f, "Any"),
             Self::Byte => write!(f, "byte"),
             Self::Codepoint => write!(f, "codepoint"),
             Self::Int => write!(f, "int"),

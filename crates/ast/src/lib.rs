@@ -517,31 +517,23 @@ pub struct StructTypeField {
     pub field_type: Type,
 }
 
+#[derive(Clone, Debug)]
+pub struct EnumVariantLiteral {
+    pub qualified_enum_type_name: Option<QualifiedTypeIdentifier>,
+    pub name: LocalTypeIdentifier,
+    pub kind: EnumVariantLiteralKind,
+}
+
 #[derive(Debug, Clone)]
-pub enum EnumVariantLiteral {
-    Simple(QualifiedTypeIdentifier, LocalTypeIdentifier),
+pub enum EnumVariantLiteralKind {
+    Simple,
     Tuple(
-        QualifiedTypeIdentifier,
-        LocalTypeIdentifier,
         Vec<Expression>,
     ),
     Struct(
-        QualifiedTypeIdentifier,
-        LocalTypeIdentifier,
         Vec<FieldExpression>,
         bool,
     ),
-}
-
-impl EnumVariantLiteral {
-    #[must_use]
-    pub const fn node(&self) -> &Node {
-        match self {
-            Self::Tuple(ident, _, _) | Self::Struct(ident, _, _, _) | Self::Simple(ident, _) => {
-                &ident.name.0
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

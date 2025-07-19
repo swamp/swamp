@@ -709,7 +709,6 @@ impl GeneratedScope {
             .allocate_virtual_register()
             .unwrap_or_else(||
                 panic!("out of virtual registers for variable {assigned_name}")
-
             );
 
         let unique_id = self.allocate_unique_id();
@@ -1553,6 +1552,7 @@ pub fn internal_generate_to_string_function_for_type(
 
     let body_expr = match &*ty.kind {
         // Primitive types have their own to_string() implementations in core_text()
+        TypeKind::Any => panic!("Any can not be converted to string"),
         TypeKind::Byte => panic!("Byte to_string() is handled in core_text(), not generated here"),
         TypeKind::Codepoint => {
             panic!("Codepoint to_string() is handled in core_text(), not generated here")

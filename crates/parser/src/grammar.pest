@@ -57,7 +57,7 @@ float_lit      = @{ ("+" | "-")? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 string_lit     = @{ "\"" ~ ("\\\"" | !"\"" ~ ANY)* ~ "\"" }
 bool_lit       =  @{ "true" | "false" }
 tuple_lit      =  { "(" ~ expression ~ (COMMA ~ expression)* ~ TRAILING_COMMA ~ ")" }
-enum_literal   =  { qualified_type_identifier ~ SCOPE_OPERATOR ~ type_identifier ~ (struct_literal_optional_field_list | tuple_fields)? }
+enum_literal   =  { (qualified_type_identifier ~ SCOPE_OPERATOR)? ~ type_identifier ~ (struct_literal_optional_field_list | tuple_fields)? }
 struct_literal =  { qualified_type_identifier ~ struct_literal_optional_field_list }
 
 struct_literal_optional_field_list = {  "{" ~ struct_field_list? ~ "}" }
@@ -454,12 +454,12 @@ parenthesized = { "(" ~ expression ~ ")" }
 term = {
 context_access
 | static_member_reference
-| enum_literal
 | parenthesized
 | basic_literal // must be before identifier_reference
 | qualified_identifier
 | constant_reference
 | struct_literal
+| enum_literal
 | anonymous_struct_literal
 | initializer_list
 | initializer_pair_list

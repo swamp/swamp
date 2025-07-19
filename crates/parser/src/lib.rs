@@ -10,14 +10,7 @@ use pest::{Parser, Position};
 use pest_derive::Parser;
 use std::iter::Peekable;
 use std::str::Chars;
-use swamp_ast::{
-    AssignmentOperatorKind, BinaryOperatorKind, CompoundOperator, CompoundOperatorKind,
-    ConcretePattern, DestructuringPattern, EnumVariantLiteral, ExpressionKind, FieldExpression,
-    FieldName, ForPattern, ForVar, ImportItems, IterableExpression, LocalConstantIdentifier,
-    LocalTypeIdentifierWithOptionalTypeVariables, Mod, NamedStructDef, PatternVariableOrWildcard,
-    QualifiedIdentifier, RangeMode, SpanWithoutFileId, StructTypeField, TypeForParameter,
-    TypeVariable, VariableBinding, prelude::*,
-};
+use swamp_ast::{prelude::*, AssignmentOperatorKind, BinaryOperatorKind, CompoundOperator, CompoundOperatorKind, ConcretePattern, DestructuringPattern, EnumVariantLiteral, EnumVariantLiteralKind, ExpressionKind, FieldExpression, FieldName, ForPattern, ForVar, ImportItems, IterableExpression, LocalConstantIdentifier, LocalTypeIdentifierWithOptionalTypeVariables, Mod, NamedStructDef, PatternVariableOrWildcard, QualifiedIdentifier, RangeMode, SpanWithoutFileId, StructTypeField, TypeForParameter, TypeVariable, VariableBinding};
 use swamp_ast::{AttributeLiteralKind, Function};
 use swamp_ast::{GenericParameter, LiteralKind};
 use swamp_ast::{Postfix, PostfixChain};
@@ -138,7 +131,7 @@ impl From<Error<Rule>> for ParseError {
 
 impl AstParser {
     fn next_pair<'a>(
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<Pair<'a, Rule>, ParseError> {
         Ok(pairs.next().ok_or_else(|| {
             Error::new_from_pos(
@@ -151,7 +144,7 @@ impl AstParser {
     }
 
     fn expect_next<'a>(
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
         expected_rule: Rule,
     ) -> Result<Pair<'a, Rule>, ParseError> {
         let pair = Self::next_pair(pairs)?;
@@ -168,7 +161,7 @@ impl AstParser {
 
     fn expect_identifier_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<LocalIdentifier, ParseError> {
         let pair = Self::expect_next(pairs, Rule::identifier)?;
         Ok(LocalIdentifier::new(self.to_node(&pair)))
@@ -176,7 +169,7 @@ impl AstParser {
 
     fn expect_function_identifier_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<LocalIdentifier, ParseError> {
         let pair = Self::expect_next(pairs, Rule::function_identifier)?;
         Ok(LocalIdentifier::new(self.to_node(&pair)))
@@ -184,7 +177,7 @@ impl AstParser {
 
     fn expect_constant_identifier_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<LocalConstantIdentifier, ParseError> {
         let pair = Self::expect_next(pairs, Rule::constant_identifier)?;
         Ok(LocalConstantIdentifier(self.to_node(&pair)))
@@ -192,7 +185,7 @@ impl AstParser {
 
     fn _expect_variable_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<Variable, ParseError> {
         let identifier = self.expect_identifier_next(pairs)?;
         Ok(Variable {
@@ -203,7 +196,7 @@ impl AstParser {
 
     fn expect_field_label_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<FieldName, ParseError> {
         let field_label_pair = Self::expect_next(pairs, Rule::field_label)?;
         let mut inner = field_label_pair.clone().into_inner();
@@ -226,13 +219,13 @@ impl AstParser {
 
     fn expect_local_type_identifier_next<'a>(
         &self,
-        pairs: &mut impl Iterator<Item = Pair<'a, Rule>>,
+        pairs: &mut impl Iterator<Item=Pair<'a, Rule>>,
     ) -> Result<LocalTypeIdentifier, ParseError> {
         let pair = Self::expect_next(pairs, Rule::type_identifier)?;
         Ok(LocalTypeIdentifier::new(self.to_node(&pair)))
     }
 
-    fn convert_into_iterator<'a>(pair: &'a Pair<'a, Rule>) -> impl Iterator<Item = Pair<'a, Rule>> {
+    fn convert_into_iterator<'a>(pair: &'a Pair<'a, Rule>) -> impl Iterator<Item=Pair<'a, Rule>> {
         pair.clone().into_inner()
     }
 
@@ -868,9 +861,9 @@ impl AstParser {
         let mut maybe_next_token = inner.next();
         if let Some(next_rule) = &maybe_next_token
             && next_rule.as_rule() == Rule::generic_type_variables {
-                //generic_types = self.parse_generic_type_variables(next_rule)?;
-                maybe_next_token = inner.next();
-            }
+            //generic_types = self.parse_generic_type_variables(next_rule)?;
+            maybe_next_token = inner.next();
+        }
 
         let (parameters, return_type) = match maybe_next_token {
             Some(token) if token.as_rule() == Rule::parameter_list => {
@@ -983,9 +976,9 @@ impl AstParser {
         let maybe_next_token = inner.peek();
         if let Some(next_rule) = &maybe_next_token
             && next_rule.as_rule() == Rule::generic_type_variables {
-                // self.parse_generic_type_variables(next_rule)?;
-                let _ = inner.next();
-            }
+            // self.parse_generic_type_variables(next_rule)?;
+            let _ = inner.next();
+        }
 
         let mut parameters = Vec::new();
         let mut self_parameter = None;
@@ -1583,8 +1576,8 @@ impl AstParser {
                 // TODO: Maybe loop and check for generic params
                 if let Some(generic_params) = inner_pairs.next()
                     && generic_params.as_rule() == Rule::generic_arguments {
-                        generic_types = self.parse_generic_arguments(&generic_params)?; // TODO: maybe not used?
-                    }
+                    generic_types = self.parse_generic_arguments(&generic_params)?; // TODO: maybe not used?
+                }
 
                 Ok(QualifiedTypeIdentifier::new_with_generics(
                     type_identifier,
@@ -1598,8 +1591,8 @@ impl AstParser {
                 // TODO: Maybe loop and check for generic params
                 if let Some(generic_params) = inner_pairs.next()
                     && generic_params.as_rule() == Rule::generic_arguments {
-                        generic_types = self.parse_generic_arguments(&generic_params)?;
-                    }
+                    generic_types = self.parse_generic_arguments(&generic_params)?;
+                }
 
                 Ok(QualifiedTypeIdentifier::new_with_generics(
                     type_identifier,
@@ -1637,9 +1630,9 @@ impl AstParser {
                 // TODO: Maybe loop and check for generic params
                 if let Some(generic_params) = inner_pairs.next()
                     && generic_params.as_rule() == Rule::generic_arguments {
-                        // TODO: maybe not used?
-                        generic_types = self.parse_generic_arguments(&generic_params)?;
-                    }
+                    // TODO: maybe not used?
+                    generic_types = self.parse_generic_arguments(&generic_params)?;
+                }
 
                 Ok(QualifiedIdentifier::new_with_generics(
                     identifier,
@@ -1653,9 +1646,9 @@ impl AstParser {
                 // TODO: Maybe loop and check for generic params
                 if let Some(generic_params) = inner_pairs.next()
                     && generic_params.as_rule() == Rule::generic_arguments {
-                        // TODO: maybe not used
-                        generic_types = self.parse_generic_arguments(&generic_params)?;
-                    }
+                    // TODO: maybe not used
+                    generic_types = self.parse_generic_arguments(&generic_params)?;
+                }
 
                 Ok(QualifiedIdentifier::new_with_generics(
                     type_identifier,
@@ -2007,19 +2000,28 @@ impl AstParser {
     fn parse_enum_literal(&self, pair: &Pair<Rule>) -> Result<LiteralKind, ParseError> {
         let mut inner = Self::convert_into_iterator(pair);
 
-        let enum_type = self.parse_qualified_type_identifier(&inner.next().unwrap())?;
+        // Parse the optional qualified type identifier and type identifier
+        let first_pair = inner.next().unwrap();
+        let (enum_type, variant_type_identifier) = if first_pair.as_rule() == Rule::qualified_type_identifier {
+            // We have a qualified type identifier, expect type_identifier next
+            let enum_type = Some(self.parse_qualified_type_identifier(&first_pair)?);
+            let variant_pair = inner.next().unwrap(); // This should be the type_identifier
+            let variant_type_identifier = LocalTypeIdentifier::new(self.to_node(&variant_pair));
+            (enum_type, variant_type_identifier)
+        } else if first_pair.as_rule() == Rule::type_identifier {
+            // No qualified type identifier, just the type identifier
+            let variant_type_identifier = LocalTypeIdentifier::new(self.to_node(&first_pair));
+            (None, variant_type_identifier)
+        } else {
+            panic!("internal parse err");
+        };
 
-        let variant_pair = Self::expect_next(&mut inner, Rule::type_identifier)?;
-        let variant_type_identifier = LocalTypeIdentifier::new(self.to_node(&variant_pair));
-
-        let enum_variant_literal = match inner.next() {
+        let enum_variant_literal_kind = match inner.next() {
             Some(fields_pair) => match fields_pair.as_rule() {
                 Rule::struct_literal_optional_field_list => {
                     let (field_expressions, detected_rest) =
                         self.parse_struct_literal_optional_fields(&fields_pair)?;
-                    EnumVariantLiteral::Struct(
-                        enum_type,
-                        variant_type_identifier,
+                    EnumVariantLiteralKind::Struct(
                         field_expressions,
                         detected_rest,
                     )
@@ -2030,7 +2032,7 @@ impl AstParser {
                         let field_value = self.parse_expression(&field)?;
                         expressions.push(field_value);
                     }
-                    EnumVariantLiteral::Tuple(enum_type, variant_type_identifier, expressions)
+                    EnumVariantLiteralKind::Tuple(expressions)
                 }
                 _ => {
                     error!("{:?}, {}", fields_pair.as_rule(), "strange");
@@ -2039,7 +2041,12 @@ impl AstParser {
                     );
                 }
             },
-            _ => EnumVariantLiteral::Simple(enum_type, variant_type_identifier),
+            _ => EnumVariantLiteralKind::Simple,
+        };
+        let enum_variant_literal = EnumVariantLiteral {
+            qualified_enum_type_name: enum_type,
+            name: variant_type_identifier,
+            kind: enum_variant_literal_kind,
         };
 
         Ok(LiteralKind::EnumVariant(enum_variant_literal))
@@ -2453,15 +2460,15 @@ impl AstParser {
 
         if let Some(variants_pair) = inner.next()
             && variants_pair.as_rule() == Rule::enum_variants {
-                for variant_pair in Self::convert_into_iterator(&variants_pair) {
-                    if variant_pair.as_rule() == Rule::enum_variant {
-                        let variant =
-                            self.parse_enum_variant(&self.next_inner_pair(&variant_pair)?)?;
+            for variant_pair in Self::convert_into_iterator(&variants_pair) {
+                if variant_pair.as_rule() == Rule::enum_variant {
+                    let variant =
+                        self.parse_enum_variant(&self.next_inner_pair(&variant_pair)?)?;
 
-                        variants.push(variant);
-                    }
+                    variants.push(variant);
                 }
             }
+        }
 
         Ok(DefinitionKind::EnumDef(
             name_with_optional_type_params,

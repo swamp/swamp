@@ -651,6 +651,7 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         match &*resolved_type.kind {
+            TypeKind::Any => write!(f, "{}", "Any".bright_blue()),
             TypeKind::Byte => write!(f, "{}", "Byte".bright_blue()),
             TypeKind::Codepoint => write!(f, "{}", "Codepoint".bright_blue()),
             TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
@@ -711,6 +712,7 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         match &*resolved_type.kind {
+            TypeKind::Any => write!(f, "{}", "Any".bright_blue()),
             TypeKind::Byte => write!(f, "{}", "Byte".bright_blue()),
             TypeKind::Codepoint => write!(f, "{}", "Codepoint".bright_blue()),
             TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
@@ -770,6 +772,7 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         match &*resolved_type.kind {
+            TypeKind::Any => write!(f, "{}", "Any".bright_blue()),
             TypeKind::Byte => write!(f, "{}", "Byte".bright_blue()),
             TypeKind::Codepoint => write!(f, "{}", "Codepoint".bright_blue()),
             TypeKind::Int => write!(f, "{}", "Int".bright_blue()),

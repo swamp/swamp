@@ -94,12 +94,12 @@ impl SliceTarget {
 
 /// # Problem
 /// Reported by @catnipped. The `VecSlice` intrinsic was grabbing the
-/// output destination’s memory address directly instead of flattening it
+/// output destination's memory address directly instead of flattening it
 /// via `emit_compute_effective_address_to_register`.
 ///
 /// # Fix
 /// Change `VecSlice` to compute the effective address of the destination
-/// into a register before use—ensuring it’s properly “flattened”.
+/// into a register before use-ensuring it's properly "flattened".
 #[test]
 fn slice_target() {
     mut target = SliceTarget {..}

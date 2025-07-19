@@ -127,11 +127,15 @@ pub enum ErrorKind {
     },
     CanOnlyHaveFunctionCallAtStartOfPostfixChain,
     CanNotSubscriptWithThatType,
+    EnumTypeWasntExpectedHere,
+    CanNotInferEnumType,
 }
 
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let error_message = match self {
+            Self::EnumTypeWasntExpectedHere => "enum type was not expected here",
+            Self::CanNotInferEnumType => "can not infer enum type",
             Self::ExpectedTupleType => "expected tuple type",
             Self::CanOnlyHaveFunctionCallAtStartOfPostfixChain => {
                 "function calls only allowed at start of chain"
@@ -259,7 +263,8 @@ impl fmt::Display for ErrorKind {
 
 
 impl ErrorKind {
-    #[must_use] pub const fn code(&self) -> usize {
+    #[must_use]
+    pub const fn code(&self) -> usize {
         match self {
             Self::NoAssociatedFunction(_, _) => 1,
             Self::MissingSubscriptMember => 2,
@@ -348,6 +353,8 @@ impl ErrorKind {
             Self::TooManyParameters { .. } => 85,
             Self::CanOnlyHaveFunctionCallAtStartOfPostfixChain => 86,
             Self::CanNotSubscriptWithThatType => 87,
+            Self::EnumTypeWasntExpectedHere => 88,
+            Self::CanNotInferEnumType => 89,
         }
     }
 }

@@ -65,7 +65,7 @@ enum Container {
 
 #[test]
 fn matching_enum_with_container() {
-    a = Different::FewThings(Color::Green, 42)
+    a = Different::FewThings(Green, 42)
     result = match a {
         Nothing -> 0,
         FewThings  _, value  -> value,
@@ -80,7 +80,7 @@ fn matching_enum_with_container() {
 
 #[test]
 fn matching_enum_with_container_struct() {
-    a = Different::More {id: 42, color: Color::Blue}
+    a = Different::More {id: 42, color: Blue}
     result = match a {
         Nothing -> 0,
         FewThings _, value -> value,
@@ -107,7 +107,7 @@ fn matching_enum_with_container_fall_through() {
 
 #[test]
 fn matching_mut_enum_struct() {
-    mut a = Different::More {id: 42, color: Color::Blue}
+    mut a = Different::More {id: 42, color: Blue}
     result = match a {
         Nothing -> 0,
         More { mut id, mut color } -> {
@@ -512,10 +512,10 @@ enum MixedSyntaxEnum {
 
 #[test]
 fn mixed_syntax_comprehensive() {
-    variants = [
-        MixedSyntaxEnum::DirectInt(42),
-        MixedSyntaxEnum::TuplePair(10, 20),
-        MixedSyntaxEnum::StructData { count: 5, value: 100 },
+    variants : [MixedSyntaxEnum; 3] =  [
+        DirectInt(42),
+        TuplePair(10, 20),
+        StructData { count: 5, value: 100 },
     ]
 
     mut results: Vec<Int; 24> = []

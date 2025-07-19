@@ -4,6 +4,7 @@
  */
 use crate::{Analyzer, TypeContext};
 use source_map_node::Node;
+use swamp_ast::FieldExpression;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::prelude::Error;
 use swamp_semantic::{EnumLiteralExpressions, ExpressionKind};
@@ -12,6 +13,38 @@ use swamp_types::prelude::*;
 use tracing::{error, warn};
 
 impl Analyzer<'_> {
+    pub fn analyze_enum_variant_struct_literal(&mut self, variant_ref: &EnumVariantType, found_enum_type: &TypeRef,
+                                               /*anon_payload: AnonymousStructType, */anonym_struct_field_and_expressions: &[FieldExpression], detected_rest: bool, node: &swamp_ast::Node) -> Expression {
+        if let TypeKind::AnonymousStruct(anon_payload) = &*variant_ref.payload_type.kind {
+            if anonym_struct_field_and_expressions.len()
+                != anon_payload.field_name_sorted_fields.len()
+            {
+                return self.create_err(
+                    ErrorKind::WrongNumberOfArguments(
+                        anonym_struct_field_and_expressions.len(),
+                        anon_payload.field_name_sorted_fields.len(),
+                    ),
+                    &node,
+                );
+            }
+
+            let resolved_fields = self.analyze_anon_struct_instantiation(
+                &node,
+                &anon_payload,
+                &anonym_struct_field_and_expressions.to_vec(),
+                detected_rest,
+            );
+
+            let data = EnumLiteralExpressions::Struct(resolved_fields);
+
+            self.create_expr(
+                ExpressionKind::EnumVariantLiteral(variant_ref.clone(), data),
+                found_enum_type.clone(), node)
+        } else {
+            panic!("strange")
+        }
+    }
+
     /// # Errors
     ///
     /// # Panics
@@ -102,48 +135,45 @@ impl Analyzer<'_> {
                     self.shared.state.types.bool(),
                 ),
             },
-            swamp_ast::LiteralKind::EnumVariant(enum_literal) => {
-                let (enum_name, variant_name_node) = match enum_literal {
-                    swamp_ast::EnumVariantLiteral::Simple(enum_name, variant_name) => {
-                        (enum_name, variant_name)
-                    }
-                    swamp_ast::EnumVariantLiteral::Tuple(enum_name, variant_name, _) => {
-                        (enum_name, variant_name)
-                    }
-                    swamp_ast::EnumVariantLiteral::Struct(enum_name, variant_name, _, _) => {
-                        (enum_name, variant_name)
-                    }
-                };
+            swamp_ast::LiteralKind::EnumVariant(enum_variant_literal) => {
+                let variant_name_text = self.get_text(&enum_variant_literal.name.0).to_string();
 
-                // Get the text first to avoid borrowing conflicts
-                let variant_name_text = self.get_text(&variant_name_node.0).to_string();
-
-                // Get the enum type, then release the borrow
-                let found_enum_type = {
-                    let Some((symbol_table, name)) = self.get_symbol_table_and_name(enum_name)
+                let found_enum_type = if let Some(enum_type_name_node) = &enum_variant_literal.qualified_enum_type_name {
+                    let Some((symbol_table, name)) = self.get_symbol_table_and_name(enum_type_name_node)
                     else {
-                        self.add_err(ErrorKind::UnknownModule, &enum_name.name.0);
+                        self.add_err(ErrorKind::UnknownModule, &enum_type_name_node.name.0);
                         return self.create_err(ErrorKind::UnknownEnumVariantType, ast_node);
                     };
                     let Some(found_enum_type) = symbol_table.get_type(&name) else {
                         return self.create_err(ErrorKind::UnknownEnumType, ast_node);
                     };
                     found_enum_type.clone()
+                } else {
+                    if let Some(expected_type) = context.expected_type {
+                        if let TypeKind::Enum(_enum_type) = &*expected_type.kind {
+                            expected_type.clone()
+                        } else {
+                            return self.create_err(ErrorKind::EnumTypeWasntExpectedHere, ast_node);
+                        }
+                    } else {
+                        return self.create_err(ErrorKind::CanNotInferEnumType, ast_node);
+                    }
                 };
 
                 let TypeKind::Enum(enum_type) = &*found_enum_type.kind else {
                     return self.create_err(ErrorKind::UnknownEnumType, ast_node);
                 };
+
                 let variant_name = &variant_name_text;
                 // Handle enum variant literals in patterns
                 let Some(variant_ref) = enum_type.get_variant(variant_name) else {
                     return self
-                        .create_err(ErrorKind::UnknownEnumVariantType, &variant_name_node.0);
+                        .create_err(ErrorKind::UnknownEnumVariantType, &enum_variant_literal.name.0);
                 };
 
-                let resolved_data = match enum_literal {
-                    swamp_ast::EnumVariantLiteral::Simple(_, _) => EnumLiteralExpressions::Nothing,
-                    swamp_ast::EnumVariantLiteral::Tuple(_node, _variant, ast_expressions) => {
+                let resolved_data = match &enum_variant_literal.kind {
+                    swamp_ast::EnumVariantLiteralKind::Simple => EnumLiteralExpressions::Nothing,
+                    swamp_ast::EnumVariantLiteralKind::Tuple(ast_expressions) => {
                         if let TypeKind::Tuple(tuple_field_types) = &*variant_ref.payload_type.kind
                         {
                             // Multi-element tuple variant
@@ -183,9 +213,7 @@ impl Analyzer<'_> {
                             EnumLiteralExpressions::Tuple(vec![resolved_expression])
                         }
                     }
-                    swamp_ast::EnumVariantLiteral::Struct(
-                        _qualified_type_identifier,
-                        variant,
+                    swamp_ast::EnumVariantLiteralKind::Struct(
                         anonym_struct_field_and_expressions,
                         detected_rest,
                     ) => {
@@ -206,12 +234,12 @@ impl Analyzer<'_> {
                                     anonym_struct_field_and_expressions.len(),
                                     anon_payload.field_name_sorted_fields.len(),
                                 ),
-                                &variant.0,
+                                &enum_variant_literal.name.0,
                             );
                         }
 
                         let resolved_fields = self.analyze_anon_struct_instantiation(
-                            &variant.0.clone(),
+                            &enum_variant_literal.name.0,
                             anon_payload,
                             anonym_struct_field_and_expressions,
                             *detected_rest,
