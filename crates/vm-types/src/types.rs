@@ -2228,13 +2228,13 @@ impl BasicType {
     /// This is useful for RPC calls and serialization in general.
     ///
     /// Two types with the same structure will have the same universal hash across different applications,
-    /// even if they have different BasicTypeId values.
+    /// even if they have different `BasicTypeId` values.
     pub fn universal_hash<H: Hasher>(&self, state: &mut H) {
         self.hash(state);
     }
 
     /// Computes a universal hash and returns it as an u64.
-    pub fn universal_hash_u64(&self) -> u64 {
+    #[must_use] pub fn universal_hash_u64(&self) -> u64 {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         self.universal_hash(&mut hasher);
         hasher.finish()

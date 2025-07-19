@@ -231,18 +231,15 @@ impl Analyzer<'_> {
         rest_was_specified: bool,
         context: &TypeContext,
     ) -> Expression {
-        if qualified_type_identifier.module_path.is_none() {
-            if let Some(expected_type) = context.expected_type {
-                if let TypeKind::Enum(found_enum_type) = &*expected_type.kind {
+        if qualified_type_identifier.module_path.is_none()
+            && let Some(expected_type) = context.expected_type
+                && let TypeKind::Enum(found_enum_type) = &*expected_type.kind {
                     let named_struct_or_variant = self.get_text(&qualified_type_identifier.name.0);
-                    if let Some(found_variant) = found_enum_type.get_variant(named_struct_or_variant) {
-                        if matches!(*found_variant.payload_type.kind, TypeKind::AnonymousStruct(_)) {
+                    if let Some(found_variant) = found_enum_type.get_variant(named_struct_or_variant)
+                        && matches!(*found_variant.payload_type.kind, TypeKind::AnonymousStruct(_)) {
                             return self.analyze_enum_variant_struct_literal(found_variant, expected_type, ast_fields, rest_was_specified, &qualified_type_identifier.name.0);
                         }
-                    }
                 }
-            }
-        }
 
 
         let named_struct_type = self.get_struct_type(qualified_type_identifier);

@@ -24,13 +24,13 @@ impl Analyzer<'_> {
                         anonym_struct_field_and_expressions.len(),
                         anon_payload.field_name_sorted_fields.len(),
                     ),
-                    &node,
+                    node,
                 );
             }
 
             let resolved_fields = self.analyze_anon_struct_instantiation(
-                &node,
-                &anon_payload,
+                node,
+                anon_payload,
                 &anonym_struct_field_and_expressions.to_vec(),
                 detected_rest,
             );
@@ -148,16 +148,14 @@ impl Analyzer<'_> {
                         return self.create_err(ErrorKind::UnknownEnumType, ast_node);
                     };
                     found_enum_type.clone()
-                } else {
-                    if let Some(expected_type) = context.expected_type {
-                        if let TypeKind::Enum(_enum_type) = &*expected_type.kind {
-                            expected_type.clone()
-                        } else {
-                            return self.create_err(ErrorKind::EnumTypeWasntExpectedHere, ast_node);
-                        }
+                } else if let Some(expected_type) = context.expected_type {
+                    if let TypeKind::Enum(_enum_type) = &*expected_type.kind {
+                        expected_type.clone()
                     } else {
-                        return self.create_err(ErrorKind::CanNotInferEnumType, ast_node);
+                        return self.create_err(ErrorKind::EnumTypeWasntExpectedHere, ast_node);
                     }
+                } else {
+                    return self.create_err(ErrorKind::CanNotInferEnumType, ast_node);
                 };
 
                 let TypeKind::Enum(enum_type) = &*found_enum_type.kind else {

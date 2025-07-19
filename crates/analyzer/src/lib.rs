@@ -2812,7 +2812,7 @@ impl<'a> Analyzer<'a> {
                             ty,
                             starting_variable: Rc::new(Variable {
                                 name: Default::default(),
-                                assigned_name: "".to_string(),
+                                assigned_name: String::new(),
                                 resolved_type: Rc::new(Type {
                                     id: TypeId::new(0),
                                     flags: Default::default(),
@@ -2939,7 +2939,7 @@ impl<'a> Analyzer<'a> {
                                 ty,
                                 starting_variable: Rc::new(Variable {
                                     name: Default::default(),
-                                    assigned_name: "".to_string(),
+                                    assigned_name: String::new(),
                                     resolved_type: Rc::new(Type {
                                         id: TypeId::new(0),
                                         flags: Default::default(),

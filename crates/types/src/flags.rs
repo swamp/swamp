@@ -49,7 +49,7 @@ impl TypeFlags {
         match kind {
             TypeKind::Any => {
                 flags = flags
-                    .union(Self::IS_ALLOWED_RETURN)
+                    .union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::Codepoint => {
                 flags = flags

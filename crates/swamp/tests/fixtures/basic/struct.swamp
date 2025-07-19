@@ -362,30 +362,30 @@ fn compare_structs() {
 }
 
 struct SubStruct {
-	map: [Int:String<32>; 2],
+    map: [Int:String<32>; 2],
 }
 
 struct Complex {
-	sub: SubStruct,
-	maybe: Int?
+    sub: SubStruct,
+    maybe: Int?
 }
 
 #[test]
 fn compare_complex_structs_() {
-	complex1 = Complex {
-		sub:  {
-			map: [ 10 : "hello" ],
-		},
-		maybe: 23,
-	}
+    complex1 = Complex {
+        sub:  {
+            map: [ 10 : "hello" ],
+        },
+        maybe: 23,
+    }
 
-	complex2 = Complex {
-		sub: {
-			map: [ 10 : "hello" ],
-		},
-		maybe: 23,
-	}
+    complex2 = Complex {
+        sub: {
+            map: [ 10 : "hello" ],
+        },
+        maybe: 23,
+    }
 
-	assert(complex1 == complex2, "complex should be equal")
+    assert(complex1 == complex2, "complex should be equal")
 }
 
