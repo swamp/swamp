@@ -14,7 +14,7 @@ use swamp_semantic::prelude::{Error, ErrorKind};
 pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
     let span = &err.node.span;
     let mut b = match &err.kind {
-        ErrorKind::CanNotSubscriptWithThatType | ErrorKind::EnumTypeWasntExpectedHere | ErrorKind::CanNotInferEnumType => {
+        ErrorKind::CanNotHaveSeparateMemberFuncRef | ErrorKind::CanNotSubscriptWithThatType | ErrorKind::EnumTypeWasntExpectedHere | ErrorKind::CanNotInferEnumType => {
             Report::build(Kind::Error, err.kind.code(), &err.kind.to_string(), span)
         }
         ErrorKind::CanOnlyHaveFunctionCallAtStartOfPostfixChain => {

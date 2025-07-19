@@ -157,12 +157,20 @@ impl<'a> Analyzer<'a> {
             source_map,
             file_id,
         };
-        Self {
+
+
+        let mut analyzer = Self {
             scope: ScopeInfo::default(),
             global: FunctionScopeState::new(),
             shared,
             module_path: module_path.to_vec(),
-        }
+        };
+
+        // Hack
+        let unit_type = analyzer.shared.state.types.unit();
+        analyzer.add_default_functions(&unit_type, &swamp_ast::Node::default());
+
+        analyzer
     }
 
     // TODO: Not happy about this construct of a start function, should be a separate struct.
@@ -634,7 +642,7 @@ impl<'a> Analyzer<'a> {
             ) => {
                 let debug_name = self.get_text(member_name);
                 let type_name = self.get_text(&type_identifier.name.0);
-                panic!("can not have separate member func ref {type_name:?} {debug_name}")
+                return self.create_err(ErrorKind::CanNotHaveSeparateMemberFuncRef, &member_name);
             }
 
             swamp_ast::ExpressionKind::ConstantReference(constant_identifier) => {
@@ -1310,7 +1318,7 @@ impl<'a> Analyzer<'a> {
                     tv.is_mutable = false;
                 }
                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, arguments) => {
-                    panic!("can only have function call at the start of a postfix chain")
+                    return self.create_err(ErrorKind::CanOnlyHaveFunctionCallAtStartOfPostfixChain, node);
                 }
 
                 swamp_ast::Postfix::OptionalChainingOperator(option_node) => {

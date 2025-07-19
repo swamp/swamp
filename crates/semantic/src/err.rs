@@ -129,11 +129,13 @@ pub enum ErrorKind {
     CanNotSubscriptWithThatType,
     EnumTypeWasntExpectedHere,
     CanNotInferEnumType,
+    CanNotHaveSeparateMemberFuncRef,
 }
 
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let error_message = match self {
+            Self::CanNotHaveSeparateMemberFuncRef => "can not have separate member func reference",
             Self::EnumTypeWasntExpectedHere => "enum type was not expected here",
             Self::CanNotInferEnumType => "can not infer enum type",
             Self::ExpectedTupleType => "expected tuple type",
@@ -355,6 +357,7 @@ impl ErrorKind {
             Self::CanNotSubscriptWithThatType => 87,
             Self::EnumTypeWasntExpectedHere => 88,
             Self::CanNotInferEnumType => 89,
+            Self::CanNotHaveSeparateMemberFuncRef => 90,
         }
     }
 }
