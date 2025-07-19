@@ -890,7 +890,6 @@ impl Analyzer<'_> {
                 | TypeKind::Bool
                 | TypeKind::Range(_)
                 | TypeKind::String(..)
-                | TypeKind::StringStorage(..)
                 | TypeKind::Function(_)
         );
 
