@@ -642,7 +642,7 @@ impl<'a> Analyzer<'a> {
             ) => {
                 let debug_name = self.get_text(member_name);
                 let type_name = self.get_text(&type_identifier.name.0);
-                return self.create_err(ErrorKind::CanNotHaveSeparateMemberFuncRef, &member_name);
+                self.create_err(ErrorKind::CanNotHaveSeparateMemberFuncRef, member_name)
             }
 
             swamp_ast::ExpressionKind::ConstantReference(constant_identifier) => {
