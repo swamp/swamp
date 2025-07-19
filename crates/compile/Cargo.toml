@@ -1,6 +1,6 @@
 [package]
 name = "swamp-compile"
-version = "0.2.13"
+version = "0.2.14"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
@@ -9,19 +9,19 @@ description = "Main driver for the Swamp compiler, orchestrating bootstrapping, 
 [dependencies]
 
 # Semantic and Analyzer
-swamp-semantic = { path = "../semantic", version = "0.2.13" }
-swamp-analyzer = { path = "../analyzer", version = "0.2.13" }
-swamp-error-report = { path = "../err", version = "0.2.13" }
-swamp-modules = { path = "../modules", version = "0.2.13" }
-swamp-dep-loader = { path = "../dep-loader", version = "0.2.13" }
-swamp-program-analyzer = { path = "../program-analyzer", version = "0.2.13" }
-swamp-types = { path = "../types", version = "0.2.13" }
+swamp-semantic = { path = "../semantic", version = "0.2.14" }
+swamp-analyzer = { path = "../analyzer", version = "0.2.14" }
+swamp-error-report = { path = "../err", version = "0.2.14" }
+swamp-modules = { path = "../modules", version = "0.2.14" }
+swamp-dep-loader = { path = "../dep-loader", version = "0.2.14" }
+swamp-program-analyzer = { path = "../program-analyzer", version = "0.2.14" }
+swamp-types = { path = "../types", version = "0.2.14" }
 
 # Core
-swamp-core = { path = "../core", version = "0.2.13" }
-swamp-std = { path = "../std", version = "0.2.13" }
+swamp-core = { path = "../core", version = "0.2.14" }
+swamp-std = { path = "../std", version = "0.2.14" }
 
-swamp-pretty-print = { path = "../pretty-print", version = "0.2.13" }
+swamp-pretty-print = { path = "../pretty-print", version = "0.2.14" }
 
 # Source Map
 source-map-cache = "0.0.3"

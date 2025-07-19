@@ -22,7 +22,7 @@ This crate is primarily a dependency for the Swamp compiler or tools that need t
 
 ```toml
 [dependencies]
-swamp-core = "0.2.13"
+swamp-core = "0.2.14"
 ```
 
 ## License
