@@ -876,33 +876,25 @@ impl Analyzer<'_> {
 
     // Helper method to check if a type needs any string functions
     fn needs_any_string_functions(&self, ty: &TypeRef) -> bool {
-        // TODO: Maybe reverse the check, it is basically primitives that should
-        // not need string functions.
-        let should_have_string_functions = matches!(
+        // Types that should not have generated string functions:
+        // - Primitives: handled in core_text()
+        // - String types: (they return themselves)
+        // - Function types: (cannot be stored in fields)
+        let should_not_have_string_functions = matches!(
             &*ty.kind,
-            TypeKind::Enum(_)
-                | TypeKind::NamedStruct(_)
-                | TypeKind::AnonymousStruct(_)
-                | TypeKind::Tuple(_)
-                | TypeKind::FixedCapacityAndLengthArray(_, _)
-                | TypeKind::SliceView(_)
-                | TypeKind::DynamicLengthVecView(_)
-                | TypeKind::VecStorage(_, _)
-                | TypeKind::StackView(_)
-                | TypeKind::QueueView(_)
-                | TypeKind::StringStorage(_, _, _)
-                | TypeKind::StackStorage(_, _)
-                | TypeKind::QueueStorage(_, _)
-                | TypeKind::SparseView(_)
-                | TypeKind::SparseStorage(_, _)
-                | TypeKind::GridView(_)
-                | TypeKind::GridStorage(_, _, _)
-                | TypeKind::MapStorage(_, _, _)
-                | TypeKind::DynamicLengthMapView(_, _)
-                | TypeKind::Optional(_)
+            TypeKind::Any
+                | TypeKind::Byte
+                | TypeKind::Codepoint
+                | TypeKind::Int
+                | TypeKind::Float
+                | TypeKind::Bool
+                | TypeKind::Range(_)
+                | TypeKind::String(..)
+                | TypeKind::StringStorage(..)
+                | TypeKind::Function(_)
         );
 
-        if !should_have_string_functions {
+        if should_not_have_string_functions {
             return false;
         }
 

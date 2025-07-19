@@ -1567,8 +1567,12 @@ pub fn internal_generate_to_string_function_for_type(
         }
         TypeKind::String { .. } => first_self_param,
         TypeKind::StringStorage { .. } => first_self_param,
-        // Unit and Function types cannot be stored in fields/collections in Swamp, so no to_string() needed
-        TypeKind::Unit => panic!("Unit type cannot be stored in fields, no to_string() needed"),
+        // Unit type should display as "()"
+        TypeKind::Unit => create_expr_resolved(
+            ExpressionKind::StringLiteral("()".to_string()),
+            generator.types.string(),
+            resolved_node,
+        ),
         TypeKind::Tuple(tuple_types) => generate_to_string_for_tuple(
             generator,
             &first_self_param,
