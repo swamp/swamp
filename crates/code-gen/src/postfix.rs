@@ -600,7 +600,7 @@ impl CodeBuilder<'_> {
 
                     let mem_location = current_location.memory_location().unwrap();
 
-                    self.builder.add_ld8_from_pointer_with_offset_u16(
+                    self.builder.add_ld8_from_pointer_with_offset(
                         temp_reg.register(),
                         &mem_location.base_ptr_reg,
                         mem_location.offset + MemoryOffset(0),

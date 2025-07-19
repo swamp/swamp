@@ -418,6 +418,9 @@ impl CodeBuilder<'_> {
             ExpressionKind::IntrinsicCallEx(intrinsic_fn, arguments) => {
                 self.emit_single_intrinsic_call(output, &expr.node, intrinsic_fn, arguments, ctx);
             }
+            ExpressionKind::CoerceToAny(a) => {
+                self.emit_coerce_to_any(output, a, ctx);
+            }
             ExpressionKind::CoerceOptionToBool(a) => {
                 self.emit_coerce_option_to_bool(output.grab_register(), a, ctx);
             }
@@ -508,7 +511,7 @@ impl CodeBuilder<'_> {
             | ExpressionKind::TupleLiteral(_)
             | ExpressionKind::InitializerList(_, _)
             | ExpressionKind::InitializerPairList(_, _) => true,
-            ExpressionKind::Option(_) | ExpressionKind::AnonymousStructLiteral(_) => true,
+            ExpressionKind::Option(_) | ExpressionKind::AnonymousStructLiteral(_) | ExpressionKind::CoerceToAny(_) => true,
             _ => false,
         };
 

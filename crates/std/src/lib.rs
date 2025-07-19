@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 pub mod print;
+pub mod pack;
 
 #[must_use]
 pub fn std_text() -> String {

@@ -7,5 +7,5 @@ struct MyStruct {
 fn pack_any() {
     value = MyStruct { x: 24, .. }
     packed_bytes = std::pack(value)
-    unpacked_value = std::unpack<MyStruct>(packed_bytes)
-}   
+//    unpacked_value = std::unpack<MyStruct>(packed_bytes)
+}

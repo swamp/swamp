@@ -1693,7 +1693,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_ld8_from_pointer_with_offset_u16(
+    pub fn add_ld8_from_pointer_with_offset(
         &mut self,
         dst_reg: &TypedRegister,
         base_ptr_reg: &TypedRegister,

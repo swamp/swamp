@@ -857,6 +857,7 @@ pub enum ExpressionKind {
     // the `?` operator. unwraps the value, unless it is none
     CoerceOptionToBool(Box<Expression>),
     CoerceIntToChar(Box<Expression>),
+    CoerceToAny(Box<Expression>),
 
     // Calls
     IntrinsicCallEx(IntrinsicFunction, Vec<ArgumentExpression>),
@@ -1059,8 +1060,8 @@ impl AssociatedImpls {
         let maybe_found_impl = self.functions.get(ty);
         if let Some(found_impl) = maybe_found_impl
             && let Some(func) = found_impl.functions.get(&function_name.to_string()) {
-                return Some(func);
-            }
+            return Some(func);
+        }
         None
     }
 
@@ -1068,8 +1069,8 @@ impl AssociatedImpls {
         let maybe_found_impl = self.functions.get(ty);
         if let Some(found_impl) = maybe_found_impl
             && let Some(_func) = found_impl.functions.get(&function_name.to_string()) {
-                return true;
-            }
+            return true;
+        }
         false
     }
 
@@ -1081,8 +1082,8 @@ impl AssociatedImpls {
     ) -> Option<&ExternalFunctionDefinitionRef> {
         if let Some(found) = self.get_member_function(ty, function_name)
             && let Function::External(ext_fn) = &**found {
-                return Some(ext_fn);
-            }
+            return Some(ext_fn);
+        }
         None
     }
 
@@ -1094,8 +1095,8 @@ impl AssociatedImpls {
     ) -> Option<&InternalFunctionDefinitionRef> {
         if let Some(found) = self.get_member_function(ty, function_name)
             && let Function::Internal(int_fn) = &**found {
-                return Some(int_fn);
-            }
+            return Some(int_fn);
+        }
         None
     }
 

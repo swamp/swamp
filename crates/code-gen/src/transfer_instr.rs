@@ -38,7 +38,7 @@ impl CodeBuilder<'_> {
                 );
             }
             BasicTypeKind::B8 | BasicTypeKind::U8 => {
-                self.builder.add_ld8_from_pointer_with_offset_u16(
+                self.builder.add_ld8_from_pointer_with_offset(
                     target,
                     &source_location.base_ptr_reg,
                     source_location.offset,
@@ -46,7 +46,7 @@ impl CodeBuilder<'_> {
                     &format!("{comment} (load bool)"),
                 );
             }
-            _ => panic!("Unsupported primitive type in add_load_primitive: {underlying_scalar:?}",),
+            _ => panic!("Unsupported primitive type in add_load_primitive: {underlying_scalar:?}", ),
         }
     }
 
@@ -191,7 +191,7 @@ impl CodeBuilder<'_> {
                     node,
                     comment,
                 )
-                .ptr_reg
+                    .ptr_reg
             }
             Destination::Unit => {
                 panic!("can not compute effective address from unit")

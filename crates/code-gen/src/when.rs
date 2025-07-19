@@ -6,8 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, WhenBinding};
 use swamp_types::TypeKind;
+use swamp_vm_types::types::{u8_type, Destination, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Destination, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -30,7 +30,7 @@ impl CodeBuilder<'_> {
                 .temp_registers
                 .allocate(VmType::new_unknown_placement(u8_type()), "tag value");
 
-            self.builder.add_ld8_from_pointer_with_offset_u16(
+            self.builder.add_ld8_from_pointer_with_offset(
                 tag_reg.register(),
                 &base_aggregate.location.base_ptr_reg,
                 tag_offset,

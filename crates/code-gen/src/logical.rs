@@ -96,7 +96,7 @@ impl CodeBuilder<'_> {
                 );
 
                 let (tag_offset, ..) = region.ty.basic_type.unwrap_info().unwrap();
-                self.builder.add_ld8_from_pointer_with_offset_u16(
+                self.builder.add_ld8_from_pointer_with_offset(
                     tag_reg.register(),
                     &region,
                     tag_offset,

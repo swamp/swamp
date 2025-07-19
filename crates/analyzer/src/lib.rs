@@ -4257,6 +4257,18 @@ impl<'a> Analyzer<'a> {
     ) -> Expression {
         let expected_type = special_expected_type;
         let encountered_type = special_encountered_type;
+
+        if let TypeKind::Any = &*expected_type.kind {
+            if encountered_type.is_storage() {
+                let wrapped = self.create_expr(
+                    ExpressionKind::CoerceToAny(Box::new(expr)),
+                    expected_type.clone(),
+                    node,
+                );
+                return wrapped;
+            }
+        }
+
         let encountered_is_optional = matches!(&*encountered_type.kind, TypeKind::Optional(_));
         if let TypeKind::Optional(expected_inner_type) = &*expected_type.kind {
             let inner_is_also_optional =

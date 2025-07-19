@@ -18,6 +18,7 @@ use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
 pub use swamp_compile::CompileOptions;
 use swamp_dep_loader::{swamp_registry_path, RunMode};
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
+use swamp_std::pack::pack;
 use swamp_std::print::print_fn;
 use swamp_types::TypeRef;
 use swamp_vm::host::{HostArgs, HostFunctionCallback};
@@ -640,6 +641,7 @@ impl HostFunctionCallback for StandardOnlyHostCallbacks {
     fn dispatch_host_call(&mut self, args: HostArgs) {
         match args.function_id {
             1 => print_fn(args),
+            2 => pack(args),
 
             _ => panic!("unknown external {}", args.function_id),
         }

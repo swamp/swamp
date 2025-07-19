@@ -286,7 +286,7 @@ impl CodeBuilder<'_> {
             "?? temporary tag register",
         );
 
-        self.builder.add_ld8_from_pointer_with_offset_u16(
+        self.builder.add_ld8_from_pointer_with_offset(
             temp_tag_reg.register(),
             tag_memory_location.reg(),
             tag_memory_location.offset,

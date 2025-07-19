@@ -12,6 +12,7 @@ use crate::{
     STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT,
     VEC_PTR_SIZE,
 };
+use fxhash::FxHasher;
 use seq_fmt::comma;
 use std::cmp::{max, Ordering};
 use std::fmt::{Debug, Display, Formatter, Write};
@@ -2234,8 +2235,9 @@ impl BasicType {
     }
 
     /// Computes a universal hash and returns it as an u64.
-    #[must_use] pub fn universal_hash_u64(&self) -> u64 {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    #[must_use]
+    pub fn universal_hash_u64(&self) -> u64 {
+        let mut hasher = FxHasher::default();
         self.universal_hash(&mut hasher);
         hasher.finish()
     }

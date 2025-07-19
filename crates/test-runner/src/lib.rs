@@ -12,10 +12,7 @@ use std::str::FromStr;
 use std::thread::sleep;
 use std::time::Duration;
 use swamp_runtime::prelude::{CodeGenOptions, RunMode};
-use swamp_runtime::{
-    compile_codegen_and_create_vm, CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions,
-    RunOptions,
-};
+use swamp_runtime::{compile_codegen_and_create_vm, CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions, RunOptions, StandardOnlyHostCallbacks};
 use swamp_std::print::print_fn;
 use swamp_vm::host::HostFunctionCallback;
 use swamp_vm::VmState;
@@ -195,15 +192,6 @@ impl TestResult {
     }
 }
 
-pub struct TestExternals {}
-
-impl HostFunctionCallback for TestExternals {
-    fn dispatch_host_call(&mut self, args: swamp_vm::host::HostArgs) {
-        if args.function_id == 1 {
-            print_fn(args);
-        }
-    }
-}
 
 /// # Panics
 #[allow(clippy::too_many_lines)]
@@ -270,7 +258,7 @@ pub fn run_tests(
         swamp_runtime::run_first_time(
             &mut result.codegen.vm,
             &result.codegen.code_gen_result.constants_in_order,
-            &mut TestExternals {},
+            &mut StandardOnlyHostCallbacks {},
             &run_first_options,
         );
 
@@ -339,7 +327,7 @@ pub fn run_tests(
                             swamp_runtime::run_function_with_debug(
                                 &mut result.codegen.vm,
                                 &function_to_run.ip_range,
-                                &mut TestExternals {},
+                                &mut StandardOnlyHostCallbacks {},
                                 &RunOptions {
                                     debug_stats_enabled: options.debug_stats,
                                     debug_opcodes_enabled: options.debug_opcodes,
@@ -358,7 +346,7 @@ pub fn run_tests(
                             while result.codegen.vm.state == VmState::Step {
                                 handle_step(&options.step_behaviour);
                                 result.codegen.vm.state = VmState::Normal;
-                                result.codegen.vm.resume(&mut TestExternals {});
+                                result.codegen.vm.resume(&mut StandardOnlyHostCallbacks {});
                             }
 
                             if result.codegen.vm.state != expected_vm_state {
@@ -370,7 +358,7 @@ pub fn run_tests(
                             swamp_runtime::run_as_fast_as_possible(
                                 &mut result.codegen.vm,
                                 function_to_run,
-                                &mut TestExternals {},
+                                &mut StandardOnlyHostCallbacks {},
                                 RunOptions {
                                     debug_stats_enabled: options.debug_stats,
                                     debug_opcodes_enabled: options.debug_opcodes,
@@ -388,7 +376,7 @@ pub fn run_tests(
                             while result.codegen.vm.state == VmState::Step {
                                 handle_step(&options.step_behaviour);
                                 result.codegen.vm.state = VmState::Normal;
-                                result.codegen.vm.resume(&mut TestExternals {});
+                                result.codegen.vm.resume(&mut StandardOnlyHostCallbacks {});
                             }
                             if result.codegen.vm.state != expected_vm_state {
                                 break;

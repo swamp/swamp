@@ -49,6 +49,8 @@ impl TypeFlags {
         match kind {
             TypeKind::Any => {
                 flags = flags
+                    .union(Self::IS_BLITTABLE)
+                    .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::Codepoint => {

@@ -770,6 +770,7 @@ pub struct AnyHeader {
 
 pub const ANY_HEADER_SIZE: MemorySize = MemorySize(size_of::<AnyHeader>() as u32);
 
+pub const ANY_HEADER_PTR_OFFSET: MemoryOffset = MemoryOffset(0);
 pub const ANY_HEADER_SIZE_OFFSET: MemoryOffset = MemoryOffset(4);
 pub const ANY_HEADER_HASH_OFFSET: MemoryOffset = MemoryOffset(8);
 pub const ANY_HEADER_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
