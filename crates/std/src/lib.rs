@@ -6,5 +6,10 @@ pub mod print;
 
 #[must_use]
 pub fn std_text() -> String {
-    "external 1 fn print(output: String)".to_string()
+    r"
+    external 1 fn print(output: String)
+    external 2 fn pack(data: Any)
+    external 3 fn unpack(universal_hash: Int, data: [Byte])
+
+    ".to_string()
 }

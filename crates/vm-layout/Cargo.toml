@@ -1,6 +1,6 @@
 [package]
 name = "swamp-vm-layout"
-version = "0.2.12"
+version = "0.2.13"
 edition = "2024"
 authors = ["Peter Bjorklund <piot@hotmail.com>"]
 description = "Memory layout calculation for Swamp VM types, handling size, alignment, and efficient representation of data structures"
@@ -11,8 +11,8 @@ categories = ["compilers", "memory-management", "data-structures"]
 readme = "README.md"
 
 [dependencies]
-swamp-vm-types = { path = "../vm-types", version = "0.2.12" }
-swamp-types = { path = "../types", version = "0.2.12" }
+swamp-vm-types = { path = "../vm-types", version = "0.2.13" }
+swamp-types = { path = "../types", version = "0.2.13" }
 seq-map = "0.0.13"
 sparse-mem = "0.2.0"
 hashmap-mem = "0.2.0"
