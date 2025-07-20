@@ -341,13 +341,12 @@ impl Analyzer<'_> {
         ctx: &TypeAnalyzeContext,
     ) -> SeqMap<String, StructTypeField> {
         let mut resolved_fields = SeqMap::new();
-        let allow_ephemeral = ctx.allows_ephemeral();
 
         for field_name_and_type in ast_struct_fields {
             let resolved_type = self.analyze_type(&field_name_and_type.field_type, ctx);
             let name_string = self.get_text(&field_name_and_type.field_name.0).to_string();
 
-            if !resolved_type.can_be_stored_in_transient_field() && !allow_ephemeral {
+            if !resolved_type.can_be_stored_in_transient_field() {
                 self.add_err(ErrorKind::NeedStorage, &field_name_and_type.field_name.0);
                 return resolved_fields;
             }

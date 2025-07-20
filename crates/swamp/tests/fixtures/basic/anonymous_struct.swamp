@@ -102,7 +102,7 @@ struct Entity {
 }
 
 fn anonymous_struct_with_no_storage(anon: {
-    entities: Vec<Entity>,
+    entities: Vec<Entity; 32>,
 }) -> Bool {
     anon.entities.len() > 10
 }

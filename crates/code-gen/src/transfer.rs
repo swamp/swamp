@@ -378,6 +378,7 @@ impl CodeBuilder<'_> {
         );
     }
 
+
     pub(crate) fn emit_copy_aggregate_value_helper(
         &mut self,
         destination_memory_location: &MemoryLocation,

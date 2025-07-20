@@ -1,0 +1,30 @@
+struct Artifact {
+    id: Int,
+}
+
+// TODO [OutOfBandViews]: once Swamp support true "out-of-band" views (i.e. fat pointers carrying
+// metadata *separately* from the payload), we'll be able to pass parameters without allocating
+// dedicated storage. For now, Swamp deliberately uses "in-band" metadata views-where the
+// length/capacity header is embedded immediately before the elements-to optimize for the
+// overwhelmingly common fixed-capacity case, maximize cache locality, and avoid the extra
+// indirection of a separate metadata pointer.
+fn function_with_anon_struct(params: { layer: Int, artifacts: Vec<Artifact; 32> }) {
+    assert(params.artifacts.len() == 1, 'artifacts len is wrong {params.artifacts.len()}')
+}
+
+struct Main {
+    artifacts: Vec<Artifact; 4>,
+}
+
+
+#[test]
+fn call_anon_param() {
+    main = Main {
+        artifacts: [ { id: 3 } ],
+    }
+
+    function_with_anon_struct( {
+        layer: 20,
+        artifacts: main.artifacts
+    })
+}

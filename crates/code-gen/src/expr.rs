@@ -10,6 +10,7 @@ use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{int_type, BasicTypeKind, Destination, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
 
+
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
     /// making sure each value finds its proper home in either a register or memory location.
@@ -91,6 +92,7 @@ impl CodeBuilder<'_> {
         }
 
         let hwm = self.temp_registers.save_mark();
+
 
         match &expr.kind {
             &ExpressionKind::InitializerList(_, _) | &ExpressionKind::InitializerPairList(_, _) => {

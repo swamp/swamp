@@ -343,7 +343,7 @@ impl<'a> Analyzer<'a> {
             return vec![];
         }
 
-        let allow_ephemeral = TypeAnalyzeContext::new_ephemeral();
+        let allow_ephemeral = TypeAnalyzeContext::new_parameter_context();
         for parameter in parameters {
             let param_type = self.analyze_type(&parameter.param_type, &allow_ephemeral);
             if !param_type.allowed_as_parameter_type() {

@@ -8,18 +8,18 @@ use swamp_types::TypeRef;
 
 #[derive(Default)]
 pub(crate) struct TypeAnalyzeContext {
-    pub allow_ephemeral: bool,
+    pub is_analyzing_type_in_parameter_context: bool,
 }
 
 impl TypeAnalyzeContext {
-    pub(crate) const fn new_ephemeral() -> Self {
+    pub(crate) const fn new_parameter_context() -> Self {
         Self {
-            allow_ephemeral: true,
+            is_analyzing_type_in_parameter_context: true,
         }
     }
 
-    pub const fn allows_ephemeral(&self) -> bool {
-        self.allow_ephemeral
+    pub const fn is_analyzing_a_parameter_type(&self) -> bool {
+        self.is_analyzing_type_in_parameter_context
     }
 }
 
