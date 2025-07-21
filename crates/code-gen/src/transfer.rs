@@ -386,6 +386,28 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        // Special case: StringView to StringStorage should perform vec-like copy
+        if matches!(
+            source_memory_location.ty.basic_type.kind,
+            BasicTypeKind::StringView { byte: _, char: _ }
+        ) && matches!(
+            destination_memory_location.ty.basic_type.kind,
+            BasicTypeKind::StringStorage {
+                element_type: _,
+                char: _,
+                capacity: _
+            }
+        ) {
+            // Perform vec-like copy for StringView to StringStorage
+            self.emit_copy_vec_like_value_helper(
+                destination_memory_location,
+                source_memory_location,
+                node,
+                &format!("copy StringView to StringStorage {comment}"),
+            );
+            return;
+        }
+
         let ty = &source_memory_location.ty;
         if ty.is_collection_like() {
             if ty.basic_type.is_vec_like() {
