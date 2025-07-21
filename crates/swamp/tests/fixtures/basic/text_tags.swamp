@@ -1,5 +1,3 @@
-
-
 enum ArgValue {
     Int Int,
     Float Float,
@@ -16,6 +14,7 @@ struct Element {
 
 enum Node {
     Element Element,
+    Text String,
 }
 
 struct Parser {
@@ -28,10 +27,9 @@ struct Parser {
 
 impl Parser {
     fn new() -> Parser {
-        Parser {
-            ..
-        }
+        Parser {..}
     }
+
     fn next(mut self) -> Byte {
         if self.pos == self.str.len() {
             self.is_eof = true
@@ -46,53 +44,154 @@ impl Parser {
         }
     }
 
+    fn skip(mut self) {
+        if self.pos == self.str.len() {
+            self.is_eof = true
+        } else {
+            self.pos += 1
+        }
+    }
+
     fn peek(mut self) -> Byte {
-        //print('peek {self.pos} len:{self.str.len()}')
+        print('peek {self.pos} len:{self.str.len()}')
         if self.pos == self.str.len() {
             self.is_eof = true
             b' '
         } else {
+            print('peek {self.pos} ch:{self.str[self.pos]} str:{self.str}')
             self.str[self.pos]
         }
     }
 
-    fn read_opening_tag(mut self) {
-        mut raw_name : Vec<Byte; 64> = []
-
-        _ = self.next() // Discard `[`
-
-        mut done = false
-        while !done {
-            ch = self.peek()
-            if (ch >= b'a' && ch <= b'z') || ch == b'_' {
-                raw_name.push(ch)
-                _ = self.next()
-            } else {
-                done = true
-            }
+    fn skip_ws(mut self) {
+        while self.peek() == b' ' {
+            self.skip()
         }
-
-        element = Element {
-            name: raw_name,
-            ..
-        }
-        print('added element: {element}')
-        self.nodes.push(Node::Element(element))
     }
-
-    fn read_closing_tag(mut self) {
-        _ = self.next()
-    }
-
 
     fn starts_with(self, str: String) -> Bool {
         rest = self.str.slice(self.pos..self.str.len())
         rest.starts_with(str)
     }
 
+    fn parse_identifier(mut self, mut raw_name: Vec<Byte>) {
+        mut done = false
+        while !done && !self.is_eof {
+            ch = self.peek()
+            if (ch >= b'a' && ch <= b'z') || ch == b'_' {
+                raw_name.push(ch)
+                self.skip()
+            } else {
+                done = true
+            }
+        }
+        str: String<32> = raw_name
+        print('name: {str}')
+    }
+
+    fn parse_rgb(mut self) -> ArgValue {
+        ArgValue::Hex([b' ', b' ', b' ', b' '])
+    }
+
+    fn parse_rgba(mut self) -> ArgValue {
+        ArgValue::Hex([b' ', b' ', b' ', b' '])
+    }
+
+    fn parse_hex(mut self) -> ArgValue {
+        ArgValue::Hex([b' ', b' ', b' ', b' '])
+    }
+
+    fn parse_text_value(mut self) -> ArgValue {
+        self.skip()
+        ArgValue::Str("hello")
+    }
+
+    fn parse_value(mut self) -> ArgValue {
+        first = self.peek()
+
+        | self.starts_with("rgb") -> self.parse_rgb()
+        | self.starts_with("rgba") -> self.parse_rgba()
+        | self.starts_with("true") -> ArgValue::Bool(true)
+        | self.starts_with("false") -> ArgValue::Bool(false)
+        | first == b'#' -> self.parse_hex()
+        | first == b'"' -> self.parse_text_value()
+        | self.parse_number()
+        | _ -> ArgValue::Str("error")
+    }
+
+    fn parse_args(mut self, mut args: [String:ArgValue]) {
+        mut done = false
+        mut raw_name: Vec<Byte; 42> = []
+        mut first = true
+        print('parse args!!')
+        while !done && !self.is_eof {
+            if !first {
+                self.parse_identifier(&raw_name)
+                self.skip_ws()
+                ch = self.next()
+                assert(ch == b'=', 'must have equals after, but got "{ch}"')
+            } else {
+                raw_name = "value"
+            }
+
+            first = false
+
+            self.skip_ws()
+
+            if self.peek() == b']' {
+                done = true
+            } else {
+                value = self.parse_value()
+                args[raw_name] = value
+            }
+        }
+    }
+
+    fn read_opening_tag(mut self) {
+
+        self.skip() // Discard `[`
+
+        mut element = Element {
+            ..
+        }
+
+        self.parse_identifier(&element.name)
+
+        self.parse_args(&element.args)
+
+        self.skip() // Discard `]`
+
+
+
+        print('added element: {element}')
+        self.nodes.push(Node::Element(element))
+    }
+
+    fn read_closing_tag(mut self) {
+        self.skip()
+    }
+
+    fn parse_text(mut self) -> String {
+        mut raw_text : Vec<Byte; 64> = []
+        mut done = false
+        while !done && !self.is_eof {
+            ch = self.peek()
+            if ch == b'[' {
+                done = true
+            } else if self.is_eof {
+                done = true
+            }else {
+                // TODO: Handle escaped \[ or \]
+                self.skip()
+                raw_text.push(ch)
+            }
+        }
+        raw_text
+    }
+
     fn parse(mut self, text: String) -> [Node] {
         self.str = text
-        print('self.str {self.str}, text: {text}')
+        print('>self.str: {self.str} text:{text}')
         while !self.is_eof {
             if self.starts_with("[/") {
                 print('strange, it started with closing')
@@ -104,8 +203,10 @@ impl Parser {
 
                 name = self.read_opening_tag()
             } else {
-                //panic("not sure what to do")
-                self.is_eof = true // HACK: TODO: Fix this
+                print('found text')
+                parsed_text = self.parse_text()
+
+                self.nodes.push(Node::Text(parsed_text))
             }
         }
 
@@ -113,10 +214,26 @@ impl Parser {
     }
 }
 
-
 #[test]
 fn parse() {
     mut parser = Parser::new()
-    nodes: Vec<Node; 128> = parser.parse("[test]hello")
+
+    nodes: Vec<Node; 128> = parser.parse("[test]hello [after 23 a=3]")
     print('nodes: {nodes}')
+
+    match nodes[0] {
+        Element element -> {
+            print('element {element}')
+            assert(element.name == "test", 'element name is wrong {element.name}')
+        }
+        _ -> panic('should have been element'),
+    }
+
+    match nodes[1] {
+        Text text -> {
+            print('text {text}')
+            assert(text == "hello", 'text is wrong "{text}"')
+        }
+        _ -> panic('should have been text'),
+    }
 }
