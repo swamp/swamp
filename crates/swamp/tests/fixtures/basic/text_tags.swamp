@@ -1,0 +1,122 @@
+
+
+enum ArgValue {
+    Int Int,
+    Float Float,
+    Bool Bool,
+    Hex [Byte; 4],
+    Keyword String,
+    Str String,
+}
+
+struct Element {
+    name: String<32>,
+    args: [String: ArgValue; 8]
+}
+
+enum Node {
+    Element Element,
+}
+
+struct Parser {
+    is_eof: Bool,
+    str: String<256>,
+    region_stack: Stack<Int; 32>, // keep track on where region started
+    pos: Int,
+    nodes: Vec<Node; 256>,
+}
+
+impl Parser {
+    fn new() -> Parser {
+        Parser {
+            ..
+        }
+    }
+    fn next(mut self) -> Byte {
+        if self.pos == self.str.len() {
+            self.is_eof = true
+            b' '
+        } else {
+            ch = self.str[self.pos]
+            self.pos += 1
+            if self.pos == self.str.len() {
+                self.is_eof = true
+            }
+            ch
+        }
+    }
+
+    fn peek(mut self) -> Byte {
+        //print('peek {self.pos} len:{self.str.len()}')
+        if self.pos == self.str.len() {
+            self.is_eof = true
+            b' '
+        } else {
+            self.str[self.pos]
+        }
+    }
+
+    fn read_opening_tag(mut self) {
+        mut raw_name : Vec<Byte; 64> = []
+
+        _ = self.next() // Discard `[`
+
+        mut done = false
+        while !done {
+            ch = self.peek()
+            if (ch >= b'a' && ch <= b'z') || ch == b'_' {
+                raw_name.push(ch)
+                _ = self.next()
+            } else {
+                done = true
+            }
+        }
+
+        element = Element {
+            name: raw_name,
+            ..
+        }
+        print('added element: {element}')
+        self.nodes.push(Node::Element(element))
+    }
+
+    fn read_closing_tag(mut self) {
+        _ = self.next()
+    }
+
+
+    fn starts_with(self, str: String) -> Bool {
+        rest = self.str.slice(self.pos..self.str.len())
+        rest.starts_with(str)
+    }
+
+    fn parse(mut self, text: String) -> [Node] {
+        self.str = text
+        print('self.str {self.str}, text: {text}')
+        while !self.is_eof {
+            if self.starts_with("[/") {
+                print('strange, it started with closing')
+                self.read_closing_tag()
+
+                //start_index = self.region_stack.pop()
+            } else if self.peek() == b'[' {
+                print('found start')
+
+                name = self.read_opening_tag()
+            } else {
+                //panic("not sure what to do")
+                self.is_eof = true // HACK: TODO: Fix this
+            }
+        }
+
+        self.nodes
+    }
+}
+
+
+#[test]
+fn parse() {
+    mut parser = Parser::new()
+    nodes: Vec<Node; 128> = parser.parse("[test]hello")
+    print('nodes: {nodes}')
+}
