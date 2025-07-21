@@ -7,7 +7,7 @@ use crate::ctx::Context;
 use swamp_semantic::{BinaryOperatorKind, Expression, ExpressionKind};
 use swamp_types::TypeKind;
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::types::{int_type, BasicTypeKind, Destination, TypedRegister, VmType};
+use swamp_vm_types::types::{int_type, Destination, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
 
 
@@ -320,81 +320,13 @@ impl CodeBuilder<'_> {
             }
             ExpressionKind::VariableAccess(variable_ref) => {
                 let variable_register = self.get_variable_register(variable_ref).clone();
-                match output {
-                    Destination::Register(target_reg) => {
-                        self.builder.add_mov_reg(
-                            target_reg,
-                            &variable_register,
-                            &expr.node,
-                            "Extra copy variable access. Use `emit_scalar_rvalue` to avoid this extra copy",
-                        );
-                    }
-                    Destination::Memory(location) => {
-                        if variable_register.ty.is_scalar() {
-                            // Special case: StringView to StringStorage should perform vec-like copy
-                            if matches!(
-                                variable_register.ty.basic_type.kind,
-                                BasicTypeKind::StringView { byte: _, char: _ }
-                            ) && matches!(
-                                location.ty.basic_type.kind,
-                                BasicTypeKind::StringStorage {
-                                    element_type: _,
-                                    char: _,
-                                    capacity: _
-                                }
-                            ) {
-                                let source_memory_location =
-                                    MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                                        variable_register,
-                                    );
-                                self.emit_copy_vec_like_value_helper(
-                                    location,
-                                    &source_memory_location,
-                                    node,
-                                    &format!("copy StringView variable '{}' to StringStorage", variable_ref.assigned_name),
-                                );
-                            } else {
-                                match variable_register.ty.basic_type.kind {
-                                    BasicTypeKind::B8 | BasicTypeKind::U8 => {
-                                        self.builder.add_st8_using_ptr_with_offset(
-                                            location,
-                                            &variable_register,
-                                            node,
-                                            &format!("var access to primitive memory location {location} <- {variable_register}"),
-                                        );
-                                    }
-                                    BasicTypeKind::S32
-                                    | BasicTypeKind::U32
-                                    | BasicTypeKind::StringView { .. }
-                                    | BasicTypeKind::Fixed32 => {
-                                        self.builder.add_st32_using_ptr_with_offset(
-                                            location,
-                                            &variable_register,
-                                            node,
-                                            &format!("var access to primitive memory location {location} <- {variable_register}"),
-                                        );
-                                    }
-                                    _ => panic!(
-                                        "unknown scalar {}",
-                                        variable_register.ty.basic_type.kind
-                                    ),
-                                }
-                            }
-                        } else {
-                            let source_memory_location =
-                                MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                                    variable_register,
-                                );
-                            self.emit_copy_aggregate_value_helper(
-                                location,
-                                &source_memory_location,
-                                node,
-                                &format!("emit_expression: var_access: it is a aggregate type. copy var access block name:{} ty: {}", variable_ref.assigned_name, variable_ref.resolved_type),
-                            );
-                        }
-                    }
-                    Destination::Unit => panic!("should not be possible"),
-                }
+                let source_destination = Destination::Register(variable_register);
+                self.emit_copy_value_between_destinations(
+                    output,
+                    &source_destination,
+                    node,
+                    &format!("copy variable '{}' to destination", variable_ref.assigned_name),
+                );
             }
             ExpressionKind::BorrowMutRef(expression) => {
                 self.emit_borrow_mutable_reference(
