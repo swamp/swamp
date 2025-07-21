@@ -177,6 +177,7 @@ pub enum OpCode {
     StringRepeat,
     StringCmp,
     StringToString,
+    StringStartsWith,
     StringIterInit,
     StringIterNext,
     StringIterNextPair,
@@ -197,6 +198,8 @@ pub enum OpCode {
     // Grid
     GridInit,
     GridGetEntryAddr,
+    LeU32,
+    GtU32,
 }
 
 impl OpCode {
@@ -232,7 +235,9 @@ impl OpCode {
             Self::GeI32 => "ge",
 
             Self::GeU32 => "uge",
+            Self::GtU32 => "ugt",
             Self::LtU32 => "ult",
+            Self::LeU32 => "ule",
 
             // Byte/memory comparisons
             Self::Eq8Imm | Self::CmpReg => "cmp",
@@ -366,6 +371,7 @@ impl OpCode {
             Self::StringRepeat => "str.repeat",
             Self::StringCmp => "str.cmp",
             Self::StringToString => "str.tos",
+            Self::StringStartsWith => "str.starts.with",
             Self::StringIterInit => "str.iter",
             Self::StringIterNext => "str.iter.next",
             Self::StringIterNextPair => "str.iter.next.pair",

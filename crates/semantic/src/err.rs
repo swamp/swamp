@@ -70,6 +70,7 @@ pub enum ErrorKind {
     ExpectedBooleanExpression,
     NotAnIterator,
     IntConversionError(ParseIntError),
+    ByteConversionError(String),
     FloatConversionError(ParseFloatError),
     BoolConversionError,
     DuplicateFieldInStructInstantiation(String),
@@ -258,6 +259,7 @@ impl fmt::Display for ErrorKind {
             Self::UnknownModule => "unknown module",
             Self::CanNotAttachFunctionsToType => "cannot attach functions to this type",
             Self::NeedStorage => "storage needed",
+            Self::ByteConversionError(_) => "byte conversion error"
         };
         f.write_str(error_message)
     }
@@ -358,6 +360,7 @@ impl ErrorKind {
             Self::EnumTypeWasntExpectedHere => 88,
             Self::CanNotInferEnumType => 89,
             Self::CanNotHaveSeparateMemberFuncRef => 90,
+            Self::ByteConversionError(_) => 91,
         }
     }
 }

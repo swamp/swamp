@@ -496,6 +496,7 @@ pub struct MatchArm {
 pub enum LiteralKind {
     Int,
     Float,
+    Byte,
     String(String),
     Bool,
     EnumVariant(EnumVariantLiteral),

@@ -207,6 +207,15 @@ impl Vm {
 
     /// Return the same string but with quotes.
     #[inline]
+    pub fn execute_string_starts_with(&mut self, dest_reg: u8, source_string: u8, other_string_reg: u8) {
+        let source_str = self.get_string(source_string);
+        let other_str = self.get_string(other_string_reg);
+
+        set_reg!(self, dest_reg, source_str.starts_with(other_str))
+    }
+
+    /// Return the same string but with quotes.
+    #[inline]
     pub fn execute_string_to_string(&mut self, dest_reg: u8, source_string: u8) {
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {

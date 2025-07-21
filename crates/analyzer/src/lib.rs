@@ -76,6 +76,14 @@ use tracing::error;
                }
 */
 
+#[derive(Debug)]
+pub enum ParseByteError {
+    /// Input wasn’t of the form `b'X'`
+    InvalidFormat,
+    /// Escape‐sequence wasn’t one of our supported set
+    InvalidEscape,
+}
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum AssignmentMode {
     OwnedValue,
@@ -2014,6 +2022,39 @@ impl<'a> Analyzer<'a> {
         )
     }
 
+
+    pub fn str_to_byte(text: &str) -> Result<u8, ParseByteError> {
+        // TODO: Fix better parsing so you don't get text for the whole node
+        let inner = text
+            .strip_prefix("b'")
+            .and_then(|s| s.strip_suffix("'"))
+            .ok_or(ParseByteError::InvalidFormat)?;
+
+        let mut chars = inner.chars();
+        let first = chars.next().ok_or(ParseByteError::InvalidFormat)?;
+
+        if first == '\\' {
+            let esc = chars.next().ok_or(ParseByteError::InvalidEscape)?;
+            if chars.next().is_some() {
+                return Err(ParseByteError::InvalidFormat);
+            }
+            return match esc {
+                'n' => Ok(b'\n'),
+                'r' => Ok(b'\r'),
+                't' => Ok(b'\t'),
+                '0' => Ok(b'\0'),
+                '\\' => Ok(b'\\'),
+                '\'' => Ok(b'\''),
+                _ => Err(ParseByteError::InvalidEscape),
+            };
+        }
+
+        if first.is_ascii() && chars.next().is_none() {
+            return Ok(first as u8);
+        }
+
+        Err(ParseByteError::InvalidFormat)
+    }
     fn str_to_unsigned_int(text: &str) -> Result<u32, ParseIntError> {
         let text = text.replace('_', "");
         text.strip_prefix("0x")
@@ -3667,7 +3708,7 @@ impl<'a> Analyzer<'a> {
         };
 
         match field_name_str {
-            "to_int" => Some((
+            "int" => Some((
                 IntrinsicFunction::CodepointToInt,
                 Signature {
                     parameters: vec![self_type_param],
@@ -3696,7 +3737,7 @@ impl<'a> Analyzer<'a> {
         };
 
         match field_name_str {
-            "to_int" => Some((
+            "int" => Some((
                 IntrinsicFunction::ByteToInt,
                 Signature {
                     parameters: vec![self_type_param],
@@ -3717,13 +3758,43 @@ impl<'a> Analyzer<'a> {
         lambda_variable_count: usize,
         node: &swamp_ast::Node,
     ) -> Option<(IntrinsicFunction, Signature)> {
-        self.vec_member_signature(
-            self_type,
-            element_type,
-            field_name_str,
-            lambda_variable_count,
-            node,
-        )
+        let self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: false,
+            node: None,
+        };
+
+        let x = match field_name_str {
+            "starts_with" => {
+                (
+                    IntrinsicFunction::StringStartsWith,
+                    Signature {
+                        parameters: vec![
+                            self_type_param,
+                            TypeForParameter {
+                                name: "key".to_string(),
+                                resolved_type: self_type.clone(),
+                                is_mutable: false,
+                                node: None,
+                            },
+                        ],
+                        return_type: self.types().bool(),
+                    },
+                )
+            }
+            _ => {
+                return self.vec_member_signature(
+                    self_type,
+                    element_type,
+                    field_name_str,
+                    lambda_variable_count,
+                    node,
+                )
+            }
+        };
+
+        Some(x)
     }
 
     #[allow(clippy::too_many_lines)]

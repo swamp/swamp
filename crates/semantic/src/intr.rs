@@ -106,6 +106,7 @@ pub enum IntrinsicFunction {
     RuntimeHalt,
     RuntimeStep,
     ByteToInt,
+    StringStartsWith,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -160,6 +161,7 @@ impl fmt::Display for IntrinsicFunction {
             // String
             Self::StringLen => "string_len",
             Self::StringToString => "string_to_string",
+            Self::StringStartsWith => "string_starts_with",
 
             // Vec
             Self::VecPush => "vec_push",

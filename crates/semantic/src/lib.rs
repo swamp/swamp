@@ -881,6 +881,7 @@ pub enum ExpressionKind {
     FloatLiteral(Fp),
     NoneLiteral,
     IntLiteral(i32),
+    ByteLiteral(u8),
     StringLiteral(String),
     BoolLiteral(bool),
     EnumVariantLiteral(EnumVariantType, EnumLiteralExpressions), // TypeRef: EnumType

@@ -21,6 +21,16 @@ DOC_COMMENT = @{ "///" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 NONE_COALESCE_OP     = { "??" }
 QUESTION              = { "?" }
 
+BYTE_CHAR    = _{ ESCAPE_SEQ | ASCII }
+
+ESCAPE_SEQ   = _{ "\\" ~ (
+      "'"
+    | "\\"
+    | "n"
+    | "r"
+    | "t" ) }
+
+
 /*
 =============================================================
 Basic Identifiers and Tokens
@@ -46,7 +56,7 @@ SCOPE_OPERATOR = _{ "::" }
 Literals
 =============================================================
 */
-basic_literal = { tuple_lit | float_lit | int_lit | string_lit | bool_lit | none_lit }
+basic_literal = { tuple_lit | byte_lit | float_lit | int_lit | string_lit | bool_lit | none_lit }
 
 none_lit       =  { "none" }
 int_lit = @{ "-"? ~ ( hex_int | dec_int ) }
@@ -55,6 +65,7 @@ dec_int = { ASCII_DIGIT ~ ( "_"? ~ ASCII_DIGIT )* }
 hex_int = { "0x" ~ ASCII_HEX_DIGIT ~ ( "_"? ~ ASCII_HEX_DIGIT )* }
 float_lit      = @{ ("+" | "-")? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 string_lit     = @{ "\"" ~ ("\\\"" | !"\"" ~ ANY)* ~ "\"" }
+byte_lit       = @{ "b'" ~ BYTE_CHAR ~ "'" }
 bool_lit       =  @{ "true" | "false" }
 tuple_lit      =  { "(" ~ expression ~ (COMMA ~ expression)* ~ TRAILING_COMMA ~ ")" }
 enum_literal   =  { (qualified_type_identifier ~ SCOPE_OPERATOR)? ~ type_identifier ~ (struct_literal_optional_field_list | tuple_fields)? }

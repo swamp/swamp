@@ -127,6 +127,8 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
     pub const fn new(state: &'a mut InstructionBuilderState) -> Self {
@@ -2042,6 +2044,7 @@ impl InstructionBuilder<'_> {
 
     pub fn add_lt_u32(
         &mut self,
+        dest_bool_reg: &TypedRegister,
         lhs_offset: &TypedRegister,
         rhs_offset: &TypedRegister,
         node: &Node,
@@ -2051,7 +2054,25 @@ impl InstructionBuilder<'_> {
         // TODO: Bring Back //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LtU32,
-            &[lhs_offset.addressing(), rhs_offset.addressing()],
+            &[dest_bool_reg.addressing(), lhs_offset.addressing(), rhs_offset.addressing()],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_le_u32(
+        &mut self,
+        dest_bool_reg: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        // TODO: Bring Back //assert!(lhs_offset.ty().is_int());
+        // TODO: Bring Back //assert!(rhs_offset.ty().is_int());
+        self.state.add_instruction(
+            OpCode::LeU32,
+            &[dest_bool_reg.addressing(), lhs_offset.addressing(), rhs_offset.addressing()],
             node,
             comment,
         );
@@ -2135,6 +2156,28 @@ impl InstructionBuilder<'_> {
         // TODO: bring this back //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::GeU32,
+            &[
+                dest_bool_reg.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
+            ],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_gt_u32(
+        &mut self,
+        dest_bool_reg: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        rhs_offset: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        // TODO: bring this back //assert!(lhs_offset.ty().is_int());
+        // TODO: bring this back //assert!(rhs_offset.ty().is_int());
+        self.state.add_instruction(
+            OpCode::GtU32,
             &[
                 dest_bool_reg.addressing(),
                 lhs_offset.addressing(),
@@ -2500,6 +2543,18 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::StringToString,
             &[dest_str.addressing(), self_str.addressing()],
+            node,
+            comment,
+        );
+    }
+
+    pub fn string_starts_with(&mut self, dest_bool: &TypedRegister, source_str: &TypedRegister, other_str: &TypedRegister, node: &Node, comment: &str) {
+        assert!(dest_bool.ty().is_bool());
+        //assert!(source_str.ty().is_str());
+        assert!(other_str.ty().is_str());
+        self.state.add_instruction(
+            OpCode::StringStartsWith,
+            &[dest_bool.addressing(), source_str.addressing(), other_str.addressing()],
             node,
             comment,
         );

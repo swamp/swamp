@@ -442,6 +442,9 @@ impl SourceMapDisplay<'_> {
             ExpressionKind::IntLiteral(i) => {
                 write!(f, "{}i", i.bright_cyan())
             }
+            ExpressionKind::ByteLiteral(i) => {
+                write!(f, "b{}i", i.bright_cyan())
+            }
             ExpressionKind::StringLiteral(s) => {
                 write!(f, "'{}'", s.bright_red())
             }

@@ -136,6 +136,37 @@ impl CodeBuilder<'_> {
                     panic!("int can not materialize into nothing")
                 }
             },
+            ExpressionKind::ByteLiteral(byte) => match output {
+                Destination::Register(target_reg) => {
+                    self.builder.add_mov8_immediate(
+                        target_reg,
+                        *byte,
+                        node,
+                        "int literal",
+                    );
+                }
+                Destination::Memory(location) => {
+                    let temp_byte_literal_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(int_type()),
+                        "temporary for byte literal",
+                    );
+                    self.builder.add_mov8_immediate(
+                        temp_byte_literal_reg.register(),
+                        *byte,
+                        node,
+                        "byte literal",
+                    );
+                    self.builder.add_st8_using_ptr_with_offset(
+                        location,
+                        temp_byte_literal_reg.register(),
+                        node,
+                        &format!("copy byte literal into destination memory {location} <- {temp_byte_literal_reg}"),
+                    );
+                }
+                Destination::Unit => {
+                    panic!("byte can not materialize into nothing")
+                }
+            },
             ExpressionKind::FloatLiteral(fixed_point) => match output {
                 Destination::Register(target_reg) => {
                     self.builder.add_mov_32_immediate_value(

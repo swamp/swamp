@@ -64,7 +64,7 @@ fn char_int_roundtrip() {
     bytes_that_will_become_chars = [0x0, 0x41, 0x7F, 0x2603, 0x1_F9DB]
     for code in bytes_that_will_become_chars {
         c: Char = code
-        assert(c.to_int() == code, "{code} -> Char -> Int gave {c.to_int()}")
+        assert(c.int() == code, "{code} -> Char -> Int gave {c.int()}")
     }
 }
 
@@ -72,7 +72,7 @@ fn char_int_roundtrip() {
 fn char_int_roundtrip_with_temporary() {
     for code in [0x0, 0x41, 0x7F, 0x2603, 0x1_F9DB] {
         c: Char = code
-        assert(c.to_int() == code, "{code} -> Char -> Int gave {c.to_int()}")
+        assert(c.int() == code, "{code} -> Char -> Int gave {c.int()}")
     }
 }
 
@@ -118,7 +118,7 @@ fn compare_with_char() {
 
     for index, char in "hello, world!" {
         if index == 4 {
-            assert(char.to_int() == 111, 'char to int was wrong {char.to_int()}') // 111 is lowercase `o`
+            assert(char.int() == 111, 'char to int was wrong {char.int()}') // 111 is lowercase `o`
         }
         codepoints += 1
     }
@@ -136,13 +136,13 @@ fn setting_a_char() {
 #[test]
 fn subscripts() {
     raw_byte = "hello, world!"[12]
-    assert(raw_byte.to_int() == 0x21, 'must be 0x21, but was {raw_byte}') // 0x21 is the exclamation!
+    assert(raw_byte.int() == 0x21, 'must be 0x21, but was {raw_byte}') // 0x21 is the exclamation!
 }
 
 #[test]
 fn subscripts_on_utf8() {
     raw_byte = "🧛!"[2] // the utf8 encoding for `vampire` is 0xF0, 0x9F, 0xA7, 0x9B
-    assert(raw_byte.to_int() == 0xa7, 'must be 0xA7, but was {raw_byte}')
+    assert(raw_byte.int() == 0xa7, 'must be 0xA7, but was {raw_byte}')
 }
 
 #[test]
@@ -164,7 +164,7 @@ fn store_string() {
         ..
     }
     assert(storage.str == "store this text", 'string failed to be stored {storage.str}')
-    assert(storage.i.to_int() == 0, 'byte must be zero')
+    assert(storage.i.int() == 0, 'byte must be zero')
     assert(storage.i.string() == "0x00", 'byte to_string failed')
 }
 
@@ -215,6 +215,12 @@ fn repeat_string() {
     assert(a == "........", 'repeat did not work {a}')
 }
 
+
+#[test]
+fn starts_with() {
+    a = "123hello"
+    assert(a.starts_with("123"), 'string was not correct')
+}
 /*
 TODO: Not working yet
 #[test]

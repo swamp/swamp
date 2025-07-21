@@ -2208,6 +2208,7 @@ impl AstParser {
         let literal_kind = match inner.as_rule() {
             Rule::int_lit => LiteralKind::Int,
             Rule::float_lit => LiteralKind::Float,
+            Rule::byte_lit => LiteralKind::Byte,
             Rule::string_lit => {
                 let processed_string = self.unescape_string(&inner, true)?;
                 LiteralKind::String(processed_string)

@@ -9,13 +9,13 @@ use crate::reg_pool::HwmTempRegisterPool;
 use crate::state::GenOptions;
 use crate::top_state::TopLevelGenState;
 use crate::{
-    FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, MAX_REGISTER_INDEX_FOR_PARAMETERS,
-    RepresentationOfRegisters, SpilledRegisterRegion,
+    FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, RepresentationOfRegisters,
+    SpilledRegisterRegion, MAX_REGISTER_INDEX_FOR_PARAMETERS,
 };
 use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{InternalFunctionDefinitionRef, InternalMainExpression, formal_function_name};
+use swamp_semantic::{formal_function_name, InternalFunctionDefinitionRef, InternalMainExpression};
 use swamp_vm_debug_info::FunctionDebugInfo;
 use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_types::types::{
@@ -71,6 +71,7 @@ impl TopLevelGenState {
                 internal_fn_def.program_unique_id,
                 GenFunctionInfo {
                     ip_range: range.clone(),
+                    params: function_info.params.clone(),
                     return_type: self.codegen_state.layout_cache.layout(&in_data.return_type),
                     internal_function_definition: internal_fn_def.clone(),
                 },
@@ -128,6 +129,7 @@ impl TopLevelGenState {
         let function_info = FunctionInfo {
             kind: FunctionInfoKind::Normal(main.program_unique_id as usize),
             frame_memory: variable_and_frame_memory.frame_memory,
+            params: vec![],
             return_type: variable_and_frame_memory.return_type,
             name: "main".to_string(),
             ip_range: InstructionRange {
@@ -266,9 +268,15 @@ impl TopLevelGenState {
         // Get the return type layout before borrowing codegen_state mutably
         let return_basic_type = self.codegen_state.layout_cache.layout(&in_data.return_type);
 
+        let mut params = Vec::new();
+        for (index, x) in &frame_and_variable_info.parameter_and_variable_offsets {
+            params.push(x.ty.basic_type.clone());
+        }
+
         let mut function_info = FunctionInfo {
             kind: in_data.kind.clone(),
             frame_memory: frame_and_variable_info.frame_memory,
+            params: params,
             return_type: frame_and_variable_info.return_type,
             name: in_data.assigned_name.clone(),
             ip_range: InstructionRange {

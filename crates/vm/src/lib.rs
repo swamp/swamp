@@ -398,8 +398,11 @@ impl Vm {
         vm.handlers[OpCode::GtI32 as usize] = HandlerType::Args3(Self::execute_gt_i32);
         vm.handlers[OpCode::GeI32 as usize] = HandlerType::Args3(Self::execute_ge_i32);
 
-        vm.handlers[OpCode::GeU32 as usize] = HandlerType::Args3(Self::execute_ge_u32);
+        // Comparison u32
         vm.handlers[OpCode::LtU32 as usize] = HandlerType::Args3(Self::execute_lt_u32);
+        vm.handlers[OpCode::LeU32 as usize] = HandlerType::Args3(Self::execute_le_u32);
+        vm.handlers[OpCode::GtU32 as usize] = HandlerType::Args3(Self::execute_gt_u32);
+        vm.handlers[OpCode::GeU32 as usize] = HandlerType::Args3(Self::execute_ge_u32);
 
         // Comparison
         vm.handlers[OpCode::CmpReg as usize] = HandlerType::Args3(Self::execute_cmp_reg);
@@ -465,6 +468,8 @@ impl Vm {
         vm.handlers[OpCode::StringCmp as usize] = HandlerType::Args3(Self::execute_string_cmp);
         vm.handlers[OpCode::StringToString as usize] =
             HandlerType::Args2(Self::execute_string_to_string);
+        vm.handlers[OpCode::StringStartsWith as usize] =
+            HandlerType::Args3(Self::execute_string_starts_with);
 
         vm.handlers[OpCode::StringIterInit as usize] =
             HandlerType::Args2(Self::execute_string_iter_init);
@@ -1153,6 +1158,23 @@ impl Vm {
         let rhs = get_reg!(self, rhs_reg);
 
         set_reg!(self, dest_bool_reg, lhs < rhs);
+    }
+
+
+    #[inline]
+    fn execute_le_u32(&mut self, dest_bool_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        let lhs = get_reg!(self, lhs_reg);
+        let rhs = get_reg!(self, rhs_reg);
+
+        set_reg!(self, dest_bool_reg, lhs <= rhs);
+    }
+
+    #[inline]
+    fn execute_gt_u32(&mut self, dest_bool_reg: u8, lhs_reg: u8, rhs_reg: u8) {
+        let lhs = get_reg!(self, lhs_reg);
+        let rhs = get_reg!(self, rhs_reg);
+
+        set_reg!(self, dest_bool_reg, lhs > rhs);
     }
 
     #[inline]

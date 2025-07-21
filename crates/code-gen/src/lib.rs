@@ -214,6 +214,7 @@ pub struct SlicePairInfo {
 pub struct GenFunctionInfo {
     pub ip_range: InstructionRange,
     pub return_type: BasicTypeRef,
+    pub params: Vec<BasicTypeRef>,
     pub internal_function_definition: InternalFunctionDefinitionRef,
 }
 
@@ -290,6 +291,9 @@ fn single_intrinsic_fn(
         return None;
     };
 
+    if block_expressions.is_empty() {
+        return None;
+    }
     if let ExpressionKind::IntrinsicCallEx(found_intrinsic_fn, arguments) =
         &block_expressions[0].kind
     {

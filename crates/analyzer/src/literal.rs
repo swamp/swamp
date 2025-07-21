@@ -115,6 +115,15 @@ impl Analyzer<'_> {
                     self.shared.state.types.int(),
                 ),
             },
+            swamp_ast::LiteralKind::Byte => match Self::str_to_byte(node_text) {
+                Err(byte_err) => {
+                    return self.create_err(ErrorKind::ByteConversionError(format!("{byte_err:?}")), ast_node);
+                }
+                Ok(byte_value) => (
+                    ExpressionKind::ByteLiteral(byte_value),
+                    self.shared.state.types.byte(),
+                ),
+            },
             swamp_ast::LiteralKind::Float => match Self::str_to_float(node_text) {
                 Err(float_err) => {
                     return self.create_err(ErrorKind::FloatConversionError(float_err), ast_node);

@@ -1257,6 +1257,26 @@ impl CodeBuilder<'_> {
                 );
             }
 
+            IntrinsicFunction::StringStartsWith => {
+                let converted_to_expressions: Vec<_> = arguments
+                    .iter()
+                    .map(|arg| {
+                        let ArgumentExpression::Expression(found_expression) = arg else {
+                            panic!("must be expression");
+                        };
+                        found_expression.clone()
+                    })
+                    .collect();
+                let other_str = self.emit_scalar_rvalue(&converted_to_expressions[0], ctx);
+                self.builder.string_starts_with(
+                    maybe_target.unwrap(),
+                    self_reg.unwrap(),
+                    &other_str,
+                    node,
+                    "string_starts_with",
+                );
+            }
+
             // Common Collection
             IntrinsicFunction::MapIsEmpty | IntrinsicFunction::VecIsEmpty => {
                 let collection_pointer = PointerLocation {
