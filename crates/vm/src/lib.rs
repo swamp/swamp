@@ -470,6 +470,10 @@ impl Vm {
             HandlerType::Args2(Self::execute_string_to_string);
         vm.handlers[OpCode::StringStartsWith as usize] =
             HandlerType::Args3(Self::execute_string_starts_with);
+        vm.handlers[OpCode::StringToInt as usize] =
+            HandlerType::Args2(Self::execute_string_to_int);
+        vm.handlers[OpCode::StringToFloat as usize] =
+            HandlerType::Args2(Self::execute_string_to_float);
 
         vm.handlers[OpCode::StringIterInit as usize] =
             HandlerType::Args2(Self::execute_string_iter_init);

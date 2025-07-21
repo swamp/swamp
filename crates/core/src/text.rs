@@ -252,6 +252,8 @@ impl Int {
         int_to_string(self)
     }
 
+
+
     /// Computes the absolute value.
     ///
     /// Uses intrinsic function `int_abs` to return the non-negative value of the Int.
@@ -330,6 +332,14 @@ impl String {
 
     fn pretty_string_with_indent(self, indentation: Int) -> String {
         self
+    }
+
+    fn int(self) -> (Int, Bool) {
+        string_to_int(self)
+    }
+
+    fn float(self) -> (Float, Bool) {
+        string_to_float(self)
     }
 
     /// Computes the length of a String.

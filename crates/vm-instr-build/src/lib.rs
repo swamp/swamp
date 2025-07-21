@@ -2514,7 +2514,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn codepoint_to_string(
+    pub fn add_codepoint_to_string(
         &mut self,
         dest_str: &TypedRegister,
         self_char: &TypedRegister,
@@ -2531,7 +2531,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn string_to_string(
+    pub fn add_string_to_string(
         &mut self,
         dest_str: &TypedRegister,
         self_str: &TypedRegister,
@@ -2548,7 +2548,7 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn string_starts_with(&mut self, dest_bool: &TypedRegister, source_str: &TypedRegister, other_str: &TypedRegister, node: &Node, comment: &str) {
+    pub fn add_string_starts_with(&mut self, dest_bool: &TypedRegister, source_str: &TypedRegister, other_str: &TypedRegister, node: &Node, comment: &str) {
         assert!(dest_bool.ty().is_bool());
         //assert!(source_str.ty().is_str());
         assert!(other_str.ty().is_str());
@@ -2560,7 +2560,25 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn float_to_string(
+    pub fn add_string_to_int(&mut self, dest_tuple: &TypedRegister, source_str: &TypedRegister, node: &Node, comment: &str) {
+        self.state.add_instruction(
+            OpCode::StringToInt,
+            &[dest_tuple.addressing(), source_str.addressing()],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_string_to_float(&mut self, dest_tuple: &TypedRegister, source_str: &TypedRegister, node: &Node, comment: &str) {
+        self.state.add_instruction(
+            OpCode::StringToFloat,
+            &[dest_tuple.addressing(), source_str.addressing()],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_float_to_string(
         &mut self,
         dest_str: &TypedRegister,
         self_float: &TypedRegister,

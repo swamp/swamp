@@ -1181,6 +1181,15 @@ pub fn disasm(
             to_read_reg(operands[2], &string_type(), frame_memory_info),
         ],
 
+        OpCode::StringToInt => &[
+            to_write_reg(operands[0], &string_type(), frame_memory_info),
+            to_read_reg(operands[1], &string_type(), frame_memory_info),
+        ],
+        OpCode::StringToFloat => &[
+            to_write_reg(operands[0], &string_type(), frame_memory_info),
+            to_read_reg(operands[1], &string_type(), frame_memory_info),
+        ],
+
         OpCode::StringIterInit => &[
             to_write_reg(operands[0], &vec_iter_type(), frame_memory_info),
             to_read_reg(operands[1], &vec_iter_type(), frame_memory_info),

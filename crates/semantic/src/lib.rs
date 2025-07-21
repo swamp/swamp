@@ -1128,7 +1128,7 @@ impl AssociatedImpls {
             found_impl
                 .functions
                 .insert(name.to_string(), func)
-                .expect("todo");
+                .expect(&format!("already had key {name}"));
             Ok(())
         } else {
             error!(%ty, ?name, "wasn't prepared");

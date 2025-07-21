@@ -200,6 +200,8 @@ pub enum OpCode {
     GridGetEntryAddr,
     LeU32,
     GtU32,
+    StringToInt,
+    StringToFloat,
 }
 
 impl OpCode {
@@ -372,6 +374,8 @@ impl OpCode {
             Self::StringCmp => "str.cmp",
             Self::StringToString => "str.tos",
             Self::StringStartsWith => "str.starts.with",
+            Self::StringToInt => "str.to.int",
+            Self::StringToFloat => "str.to.float",
             Self::StringIterInit => "str.iter",
             Self::StringIterNext => "str.iter.next",
             Self::StringIterNextPair => "str.iter.next.pair",

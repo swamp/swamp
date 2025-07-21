@@ -49,6 +49,9 @@ pub enum IntrinsicFunction {
     StringLen,
     StringToString,
     // TODO: StringSubscript, StringConcat
+    StringStartsWith,
+    StringToInt,
+    StringToFloat,
 
     // Range
     RangeInit,
@@ -106,7 +109,6 @@ pub enum IntrinsicFunction {
     RuntimeHalt,
     RuntimeStep,
     ByteToInt,
-    StringStartsWith,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -162,6 +164,8 @@ impl fmt::Display for IntrinsicFunction {
             Self::StringLen => "string_len",
             Self::StringToString => "string_to_string",
             Self::StringStartsWith => "string_starts_with",
+            Self::StringToInt => "string_to_int",
+            Self::StringToFloat => "string_to_float",
 
             // Vec
             Self::VecPush => "vec_push",

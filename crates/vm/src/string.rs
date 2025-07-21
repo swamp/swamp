@@ -4,6 +4,7 @@
  */
 use crate::memory::{ExecutionMode, Memory};
 use crate::{get_reg, i16_from_u8s, set_reg, TrapCode, Vm};
+use std::num::ParseIntError;
 use std::{mem::size_of, ptr};
 use swamp_vm_types::{
     StringIterator, VecHeader, MAX_STRING_LEN, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET,
@@ -213,6 +214,68 @@ impl Vm {
 
         set_reg!(self, dest_reg, source_str.starts_with(other_str))
     }
+
+    fn str_to_int(text: &str) -> Result<i32, ParseIntError> {
+        let text = text.replace('_', "");
+        text.strip_prefix("0x").map_or_else(
+            || {
+                text.strip_prefix("-0x").map_or_else(
+                    || text.parse::<i32>(),
+                    |rest| i32::from_str_radix(rest, 16).map(|x| -x),
+                )
+            },
+            |rest| i32::from_str_radix(rest, 16),
+        )
+    }
+
+    /// Parses the string to float and returns the tuple with result
+    #[inline]
+    pub fn execute_string_to_float(&mut self, dest_tuple_reg: u8, source_string: u8) {
+        let source_str = self.get_string(source_string).to_string();
+
+        let tuple_addr = get_reg!(self, dest_tuple_reg);
+
+        let tuple_ptr = self.memory_mut().get_heap_ptr(tuple_addr as usize);
+
+        let float_value = source_str.parse::<f32>();
+
+        if let Ok(value) = float_value {
+            unsafe {
+                let fp = fixed32::Fp::from(value);
+                *(tuple_ptr as *mut u32) = fp.inner() as u32;
+                *tuple_ptr.add(4) = 0x01;
+            }
+        } else {
+            unsafe {
+                *(tuple_ptr as *mut u32) = 0;
+                *tuple_ptr.add(4) = 0x00;
+            }
+        }
+    }
+
+    #[inline]
+    pub fn execute_string_to_int(&mut self, dest_tuple_reg: u8, source_string: u8) {
+        let source_str = self.get_string(source_string).to_string();
+
+        let tuple_addr = get_reg!(self, dest_tuple_reg);
+
+        let tuple_ptr = self.memory_mut().get_heap_ptr(tuple_addr as usize);
+
+        let int_value = Self::str_to_int(&source_str);
+
+        if let Ok(value) = int_value {
+            unsafe {
+                *(tuple_ptr as *mut i32) = value;
+                *tuple_ptr.add(4) = 0x01;
+            }
+        } else {
+            unsafe {
+                *(tuple_ptr as *mut u32) = 0;
+                *tuple_ptr.add(4) = 0x00;
+            }
+        }
+    }
+
 
     /// Return the same string but with quotes.
     #[inline]

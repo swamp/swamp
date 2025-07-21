@@ -157,11 +157,9 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
             node: None,
         }]
             .into(),
-        return_type: string_type,
+        return_type: string_type.clone(),
     };
-
     let string_to_string_functions = [IntrinsicFunction::StringToString];
-
     for intrinsic_fn in string_to_string_functions {
         let name = intrinsic_fn.to_string();
         core_ns
@@ -169,6 +167,53 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
                 name,
                 intrinsic: intrinsic_fn,
                 signature: string_to_string.clone(),
+            })
+            .unwrap();
+    }
+
+    let int = type_cache.int();
+    let bool = type_cache.bool();
+    let string_to_int_tuple = Signature {
+        parameters: [TypeForParameter {
+            name: "self".into(),
+            resolved_type: string_type.clone(),
+            is_mutable: false,
+            node: None,
+        }]
+            .into(),
+        return_type: type_cache.tuple(vec![int, bool.clone()]),
+    };
+    let string_to_int_tuple_functions = [IntrinsicFunction::StringToInt];
+    for intrinsic_fn in string_to_int_tuple_functions {
+        let name = intrinsic_fn.to_string();
+        core_ns
+            .add_intrinsic_function(IntrinsicFunctionDefinition {
+                name,
+                intrinsic: intrinsic_fn,
+                signature: string_to_int_tuple.clone(),
+            })
+            .unwrap();
+    }
+
+    let float = type_cache.float();
+    let string_to_float_tuple = Signature {
+        parameters: [TypeForParameter {
+            name: "self".into(),
+            resolved_type: string_type.clone(),
+            is_mutable: false,
+            node: None,
+        }]
+            .into(),
+        return_type: type_cache.tuple(vec![float, bool]),
+    };
+    let string_to_float_tuple_functions = [IntrinsicFunction::StringToFloat];
+    for intrinsic_fn in string_to_float_tuple_functions {
+        let name = intrinsic_fn.to_string();
+        core_ns
+            .add_intrinsic_function(IntrinsicFunctionDefinition {
+                name,
+                intrinsic: intrinsic_fn,
+                signature: string_to_float_tuple.clone(),
             })
             .unwrap();
     }

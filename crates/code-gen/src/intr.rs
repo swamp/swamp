@@ -751,7 +751,7 @@ impl CodeBuilder<'_> {
                     "float round",
                 );
             }
-            IntrinsicFunction::FloatToString => self.builder.float_to_string(
+            IntrinsicFunction::FloatToString => self.builder.add_float_to_string(
                 target_reg,
                 first_argument_reg,
                 node,
@@ -1188,7 +1188,7 @@ impl CodeBuilder<'_> {
                 if maybe_target.is_none() {
                     eprintln!("problem");
                 }
-                self.builder.codepoint_to_string(
+                self.builder.add_codepoint_to_string(
                     maybe_target.unwrap(),
                     self_reg.unwrap(),
                     node,
@@ -1249,7 +1249,7 @@ impl CodeBuilder<'_> {
             }
 
             IntrinsicFunction::StringToString => {
-                self.builder.string_to_string(
+                self.builder.add_string_to_string(
                     maybe_target.unwrap(),
                     self_reg.unwrap(),
                     node,
@@ -1268,13 +1268,32 @@ impl CodeBuilder<'_> {
                     })
                     .collect();
                 let other_str = self.emit_scalar_rvalue(&converted_to_expressions[0], ctx);
-                self.builder.string_starts_with(
+                self.builder.add_string_starts_with(
                     maybe_target.unwrap(),
                     self_reg.unwrap(),
                     &other_str,
                     node,
                     "string_starts_with",
                 );
+            }
+
+            IntrinsicFunction::StringToInt => {
+                let pointer = self.emit_compute_effective_address_to_register(target_destination, node, "need pointer to tuple");
+                self.builder.add_string_to_int(
+                    &pointer,
+                    self_reg.unwrap(),
+                    node,
+                    "string to int",
+                )
+            }
+            IntrinsicFunction::StringToFloat => {
+                let pointer = self.emit_compute_effective_address_to_register(target_destination, node, "need pointer to tuple");
+                self.builder.add_string_to_float(
+                    &pointer,
+                    self_reg.unwrap(),
+                    node,
+                    "string to float",
+                )
             }
 
             // Common Collection
