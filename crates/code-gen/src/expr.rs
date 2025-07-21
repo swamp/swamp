@@ -331,30 +331,54 @@ impl CodeBuilder<'_> {
                     }
                     Destination::Memory(location) => {
                         if variable_register.ty.is_scalar() {
-                            match variable_register.ty.basic_type.kind {
-                                BasicTypeKind::B8 | BasicTypeKind::U8 => {
-                                    self.builder.add_st8_using_ptr_with_offset(
-                                        location,
-                                        &variable_register,
-                                        node,
-                                        &format!("var access to primitive memory location {location} <- {variable_register}"),
-                                    );
+                            // Special case: StringView to StringStorage should perform vec-like copy
+                            if matches!(
+                                variable_register.ty.basic_type.kind,
+                                BasicTypeKind::StringView { byte: _, char: _ }
+                            ) && matches!(
+                                location.ty.basic_type.kind,
+                                BasicTypeKind::StringStorage {
+                                    element_type: _,
+                                    char: _,
+                                    capacity: _
                                 }
-                                BasicTypeKind::S32
-                                | BasicTypeKind::U32
-                                | BasicTypeKind::StringView { .. }
-                                | BasicTypeKind::Fixed32 => {
-                                    self.builder.add_st32_using_ptr_with_offset(
-                                        location,
-                                        &variable_register,
-                                        node,
-                                        &format!("var access to primitive memory location {location} <- {variable_register}"),
+                            ) {
+                                let source_memory_location =
+                                    MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                                        variable_register,
                                     );
+                                self.emit_copy_vec_like_value_helper(
+                                    location,
+                                    &source_memory_location,
+                                    node,
+                                    &format!("copy StringView variable '{}' to StringStorage", variable_ref.assigned_name),
+                                );
+                            } else {
+                                match variable_register.ty.basic_type.kind {
+                                    BasicTypeKind::B8 | BasicTypeKind::U8 => {
+                                        self.builder.add_st8_using_ptr_with_offset(
+                                            location,
+                                            &variable_register,
+                                            node,
+                                            &format!("var access to primitive memory location {location} <- {variable_register}"),
+                                        );
+                                    }
+                                    BasicTypeKind::S32
+                                    | BasicTypeKind::U32
+                                    | BasicTypeKind::StringView { .. }
+                                    | BasicTypeKind::Fixed32 => {
+                                        self.builder.add_st32_using_ptr_with_offset(
+                                            location,
+                                            &variable_register,
+                                            node,
+                                            &format!("var access to primitive memory location {location} <- {variable_register}"),
+                                        );
+                                    }
+                                    _ => panic!(
+                                        "unknown scalar {}",
+                                        variable_register.ty.basic_type.kind
+                                    ),
                                 }
-                                _ => panic!(
-                                    "unknown scalar {}",
-                                    variable_register.ty.basic_type.kind
-                                ),
                             }
                         } else {
                             let source_memory_location =
