@@ -1235,6 +1235,20 @@ impl CodeBuilder<'_> {
                 );
             }
 
+            IntrinsicFunction::ByteToCodepoint => {
+                if maybe_target.is_none() {
+                    eprintln!("problem");
+                }
+                // It is safe to "upcast" to a codepoint from a u8, so just copy the register
+                // TODO: Make something smarter so we don't have to copy
+                self.builder.add_mov_reg(
+                    maybe_target.unwrap(),
+                    self_reg.unwrap(),
+                    node,
+                    "byte_to_codepoint",
+                );
+            }
+
             // Bool
             IntrinsicFunction::BoolToString => {
                 if maybe_target.is_none() {

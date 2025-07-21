@@ -11,6 +11,8 @@ use swamp_types::prelude::*;
 pub enum IntrinsicFunction {
     // Byte
     ByteToString,
+    ByteToInt,
+    ByteToCodepoint,
 
     // Char
     CodepointToString,
@@ -108,7 +110,6 @@ pub enum IntrinsicFunction {
     RuntimePanic,
     RuntimeHalt,
     RuntimeStep,
-    ByteToInt,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -130,6 +131,7 @@ impl fmt::Display for IntrinsicFunction {
             // Byte
             Self::ByteToString => "byte_to_string",
             Self::ByteToInt => "byte_to_int",
+            Self::ByteToCodepoint => "byte_to_char",
 
             // Bool
             Self::BoolToString => "bool_to_string",

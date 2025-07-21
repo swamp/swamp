@@ -624,6 +624,10 @@ pub fn disasm(
             ]
         }
 
+        OpCode::CheckU8 => &[
+            to_read_reg(operands[0], &u8_type(), frame_memory_info),
+        ],
+
         // Integer
         OpCode::AddU32 => &[
             to_write_reg(operands[0], &int_type(), frame_memory_info),

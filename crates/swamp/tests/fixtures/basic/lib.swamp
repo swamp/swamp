@@ -3,6 +3,7 @@ mod any
 mod arithmetic
 mod array
 mod bool
+mod byte
 mod callee_save
 mod constant
 mod enum_bugs

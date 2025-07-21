@@ -202,6 +202,7 @@ pub enum OpCode {
     GtU32,
     StringToInt,
     StringToFloat,
+    CheckU8,
 }
 
 impl OpCode {
@@ -280,6 +281,8 @@ impl OpCode {
             Self::St16UsingPtrWithOffset => "st.h",
             Self::St8UsingPtrWithOffset => "st.b",
             Self::StRegToFrameUsingMask | Self::StRegToFrame => "stmf",
+
+            Self::CheckU8 => "check.b",
 
             // Float functions
             Self::FloatRound => "f.round",

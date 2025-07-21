@@ -160,6 +160,7 @@ pub enum TrapCode {
     InvalidUtf8Sequence,
     UnalignedAccess,
     ReverseRangeNotAllowedHere,
+    U8CheckFailed,
 }
 
 impl TrapCode {
@@ -450,6 +451,8 @@ impl Vm {
         vm.handlers[OpCode::Step as usize] = HandlerType::Args0(Self::execute_step);
         vm.handlers[OpCode::Trap as usize] = HandlerType::Args1(Self::execute_trap);
         vm.handlers[OpCode::Panic as usize] = HandlerType::Args1(Self::execute_panic);
+
+        vm.handlers[OpCode::CheckU8 as usize] = HandlerType::Args1(Self::execute_check_u8);
 
         // Codepoint
         vm.handlers[OpCode::CodepointToString as usize] =
@@ -1295,6 +1298,15 @@ impl Vm {
         let compare = get_reg!(self, val_reg);
         set_reg!(self, dest_bool_reg, compare == octet as u32);
     }
+
+    #[inline]
+    fn execute_check_u8(&mut self, check_u8_reg: u8) {
+        let compare = get_reg!(self, check_u8_reg);
+        if compare > 0xff {
+            self.internal_trap(TrapCode::U8CheckFailed);
+        }
+    }
+
 
     #[inline]
     fn execute_trap_on_less_than(&mut self, a_reg: u8, b_reg: u8) {

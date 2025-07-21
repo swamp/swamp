@@ -405,6 +405,9 @@ impl SourceMapDisplay<'_> {
             ExpressionKind::CoerceIntToChar(_) => {
                 write!(f, "CoerceIntToChar()")
             }
+            ExpressionKind::CoerceIntToByte(_) => {
+                write!(f, "CoerceIntToByte()")
+            }
             ExpressionKind::CoerceToAny(_) => {
                 write!(f, "CoerceToAny()")
             }

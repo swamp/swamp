@@ -3744,6 +3744,13 @@ impl<'a> Analyzer<'a> {
                     return_type: self.types().int(),
                 },
             )),
+            "char" => Some((
+                IntrinsicFunction::ByteToCodepoint,
+                Signature {
+                    parameters: vec![self_type_param],
+                    return_type: self.types().codepoint(),
+                },
+            )),
             _ => None,
         }
     }
@@ -4386,6 +4393,18 @@ impl<'a> Analyzer<'a> {
         ) {
             let coerced = self.create_expr(
                 ExpressionKind::CoerceIntToChar(Box::new(expr)),
+                expected_type.clone(),
+                node,
+            );
+            return coerced;
+        }
+
+        if matches!(
+            (&*expected_type.kind, &*encountered_type.kind),
+            (TypeKind::Byte, TypeKind::Int)
+        ) {
+            let coerced = self.create_expr(
+                ExpressionKind::CoerceIntToByte(Box::new(expr)),
                 expected_type.clone(),
                 node,
             );

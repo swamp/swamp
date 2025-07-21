@@ -48,17 +48,18 @@ impl Parser {
         if self.pos == self.str.len() {
             self.is_eof = true
         } else {
+            print('skipping: {self.str[self.pos].char()}')
             self.pos += 1
         }
     }
 
     fn peek(mut self) -> Byte {
-        print('peek {self.pos} len:{self.str.len()}')
         if self.pos == self.str.len() {
             self.is_eof = true
+            print('peek {self.pos} end')
             b' '
         } else {
-            print('peek {self.pos} ch:{self.str[self.pos]} str:{self.str}')
+            print('peek {self.pos} ch:"{self.str[self.pos].char()}"')
             self.str[self.pos]
         }
     }
@@ -85,8 +86,6 @@ impl Parser {
                 done = true
             }
         }
-        str: String<32> = raw_name
-        print('name: {str}')
     }
 
     fn parse_rgb(mut self) -> ArgValue {
@@ -125,9 +124,12 @@ impl Parser {
     }
 
     fn parse_number(mut self) -> ArgValue {
+        print('parsing number')
         s = self.parse_text_until_space_or_end_bracket()
+        print('parsing number returned "{s}"')
         int_value, int_worked = s.int()
         if int_worked {
+            print('found int {int_value}')
             ArgValue::Int(int_value)
         } else {
             float_value, float_worked = s.float()
@@ -137,6 +139,7 @@ impl Parser {
 
     fn parse_value(mut self) -> ArgValue {
         first = self.peek()
+        print('peek in value {first.char()}')
 
         | self.starts_with("rgb") -> self.parse_rgb()
         | self.starts_with("rgba") -> self.parse_rgba()
@@ -154,24 +157,37 @@ impl Parser {
         mut first = true
         print('parse args!!')
         while !done && !self.is_eof {
-            if !first {
-                self.parse_identifier(&raw_name)
-                self.skip_ws()
-                ch = self.next()
-                assert(ch == b'=', 'must have equals after, but got "{ch}"')
-            } else {
-                raw_name = "value"
-            }
-
-            first = false
-
-            self.skip_ws()
-
             if self.peek() == b']' {
                 done = true
             } else {
-                value = self.parse_value()
-                args[raw_name] = value
+                if !first {
+                    print('parse identifier')
+                    self.skip_ws()
+                    self.parse_identifier(&raw_name)
+                                    print('identifier done {raw_name}')
+
+
+                    self.skip_ws()
+                    ch = self.next()
+                    assert(ch == b'=', 'must have equals after, but got "{ch}"')
+                } else {
+                    print('no identifier first')
+                    raw_name = "value"
+                }
+
+                first = false
+
+                self.skip_ws()
+
+                print('check end or value')
+
+                {
+                    value = self.parse_value()
+                    str: String<32> = raw_name
+                    print('inserting into map: {str} with {value}')
+                    key = ' {str} '
+                    args[key] = value
+                }
             }
         }
     }

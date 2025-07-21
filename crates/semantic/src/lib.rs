@@ -857,6 +857,7 @@ pub enum ExpressionKind {
     // the `?` operator. unwraps the value, unless it is none
     CoerceOptionToBool(Box<Expression>),
     CoerceIntToChar(Box<Expression>),
+    CoerceIntToByte(Box<Expression>),
     CoerceToAny(Box<Expression>),
 
     // Calls

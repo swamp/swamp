@@ -1695,6 +1695,17 @@ impl InstructionBuilder<'_> {
         );
     }
 
+    pub fn add_check_u8(&mut self, dst_reg: &TypedRegister, node: &Node, comment: &str) {
+        self.state.add_instruction(
+            OpCode::CheckU8,
+            &[
+                dst_reg.addressing(),
+            ],
+            node,
+            comment,
+        )
+    }
+
     pub fn add_ld8_from_pointer_with_offset(
         &mut self,
         dst_reg: &TypedRegister,

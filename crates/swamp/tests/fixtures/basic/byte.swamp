@@ -1,0 +1,4 @@
+#[test]
+fn byte_array() {
+    a: [Byte; 4] = [0x41, 23, 44, 255]
+}

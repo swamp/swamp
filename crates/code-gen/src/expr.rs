@@ -416,6 +416,9 @@ impl CodeBuilder<'_> {
             ExpressionKind::CoerceIntToChar(a) => {
                 self.emit_coerce_int_to_char(output.grab_register(), a, ctx);
             }
+            ExpressionKind::CoerceIntToByte(a) => {
+                self.emit_coerce_int_to_byte(output, a, ctx);
+            }
             ExpressionKind::InternalCall(internal, arguments) => {
                 self.emit_internal_call(output, &expr.node, internal, arguments, ctx);
             }
