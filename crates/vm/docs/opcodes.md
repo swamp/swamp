@@ -37,7 +37,7 @@ Note: These ranges might be reduced in future Swamp VM versions.
 
 ## Instruction Categories and Encoding
 
-**134** unique opcodes.
+**141** unique opcodes.
 
 | Mnemonic                   | Operands                       | Description                                                                                                                             |
 | -------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -73,7 +73,9 @@ Note: These ranges might be reduced in future Swamp VM versions.
 | `gt`                       | `Rd, Rn, Rm`                   | Set $Rd$ to 1 if signed 32-bit $Rn > Rm$, otherwise set $Rd$ to 0.                                                                      |
 | `ge`                       | `Rd, Rn, Rm`                   | Set $Rd$ to 1 if signed 32-bit $Rn \ge Rm$, otherwise set $Rd$ to 0.                                                                    |
 | `uge`                      | `Rd, Rn, Rm`                   | Set $Rd$ to 1 if unsigned $Rn \ge Rm$, otherwise set $Rd$ to 0.                                                                         |
+| `ule`                      | `Rd, Rn, Rm`                   | Set $Rd$ to 1 if unsigned 32-bit $Rn \le Rm$, otherwise set $Rd$ to 0.                                                                  |
 | `ult`                      | `Rd, Rn, Rm`                   | Set $Rd$ to 1 if unsigned 32-bit $Rn < Rm$, otherwise set $Rd$ to 0.                                                                    |
+| `ugt`                      | `Rd, Rn, Rm`                   | Set $Rd$ to 1 if unsigned 32-bit $Rn > Rm$, otherwise set $Rd$ to 0.                                                                    |
 | `cmp`                      | `Rd, Rn, Rm`                   | Compare registers $Rn$ and $Rm$ and set register $Rd$ to 1 if equal, otherwise set $Rd$ to 0.                                           |
 | `cmp`                      | `Rd, Rn, #imm8`                | Set register $Rd$ to 1 if the whole $Rn$ equal immediate value `#imm8`, otherwise set $Rd$ to 0.                                        |
 | `cmp.blk`                  | `Rd, Rn, Rm, #len`             | Compares block of memory pointed to by $Rn$ and $Rm$ with length `#len`. Set register $Rd$ to 1 if equal, otherwise set $Rd$ to 0.      |
@@ -102,6 +104,7 @@ Note: These ranges might be reduced in future Swamp VM versions.
 | `mov.h`                    | `Rd, #imm16`                   | Move a 16-bit immediate value `#imm16` into register $Rd$.                                                                              |
 | `mov`                      | `Rd, #imm32`                   | Move a 32-bit immediate value `#imm32` into register $Rd$.                                                                              |
 | `meqz`                     | `Rd, Rm`                       | Set register $Rd$ to 1 if $Rm$ equals zero, otherwise sets $Rd$ to 0.                                                                   |
+| `check.b`                  | `Rd`                           | Check that the byte value in register $Rd$ is within valid range (0-255).                                                               |
 | **Float Functions**        |                                |                                                                                                                                         |
 | `f.round`                  | `Rd, Rm`                       | Round the 32-bit fixed point in $Rm$ to the nearest integer fixed point, store in $Rd$.                                                 |
 | `f.floor`                  | `Rd, Rm`                       | Compute the floor of the 32-bit fixed point in $Rm$, stores in $Rd$.                                                                    |
@@ -147,7 +150,7 @@ Note: These ranges might be reduced in future Swamp VM versions.
 | `vec.pop`                  | `Rd, Rm`                       | Remove the last element from vector $Rm$ and store its address in $Rd$.                                                                 |
 | `vec.rem.v`                | `Rd, Rm, Rp`                   | Remove the element at index $Rp$ from vector $Rm$ and store its value in $Rd$.                                                          |
 | `vec.get`                  | `Rd, Rm, Rp`                   | Get the element at index $Rp$ from vector $Rm$ and store its address in $Rd$.                                                           |
-| `vec.get.range`            | `Rd, Rm, Rp`                   | Create a new slice from vector $Rm$ using range $Rp$, store slice pointer in $Rd$.                                                      |
+| `vec.copy.range`           | `Rd, Rm, Rp`                   | Create a new slice from vector $Rm$ using range $Rp$, store slice pointer in $Rd$.                                                      |
 | `vec.swap`                 | `Rd, Rm, Rp`                   | Swap the elements at indices $Rm$ and $Rp$ in vector $Rd$.                                                                              |
 | `vec.iter`                 | `Rd, Rm`                       | Initialize a vector iterator for vector $Rm$, store iterator state in $Rd$.                                                             |
 | `vec.iter.next`            | `Rd, Rm, #branch_delta`        | Advance vector iterator in $Rm$, store the next element in $Rd$. Branches to PC + `#branch_delta` if iteration is complete.             |
@@ -164,8 +167,13 @@ Note: These ranges might be reduced in future Swamp VM versions.
 | `map.iter.next.pair`       | `Rd, Rm, Rp, #branch_delta`    | Advance map iterator in $Rm$, store key in $Rd$ and value in $Rp$. Branches to PC + `#branch_delta` if iteration is complete.           |
 | **String Operations**      |                                |                                                                                                                                         |
 | `str.app`                  | `Rd, Rm, Rp`                   | Create a new string with $Rm$ appended with $Rp$ and store the new string at $Rd$.                                                      |
+| `str.dup`                  | `Rd, Rm`                       | Create a duplicate copy of string $Rm$, store pointer in $Rd$.                                                                          |
+| `str.repeat`               | `Rd, Rm, Rp`                   | Create a new string by repeating string $Rm$ a number of times specified by $Rp$, store pointer in $Rd$.                                |
 | `str.cmp`                  | `Rd, Rm, Rp`                   | Compare strings pointed to by $Rm$ and $Rp$, sets register $Rd$ to 1 if equal, otherwise sets $Rd$ to 0.                                |
 | `str.tos`                  | `Rd, Rm`                       | Convert string in $Rm$ to string representation, store pointer in $Rd$.                                                                 |
+| `str.starts.with`          | `Rd, Rm, Rp`                   | Check if string $Rm$ starts with string $Rp$, store boolean result in $Rd$.                                                             |
+| `str.to.int`               | `Rd, Rm`                       | Convert string $Rm$ to integer, store result in $Rd$.                                                                                   |
+| `str.to.float`             | `Rd, Rm`                       | Convert string $Rm$ to 32-bit fixed point, store result in $Rd$.                                                                        |
 | `str.iter`                 | `Rd, Rm`                       | Initialize a string iterator for string $Rm$, store iterator state in $Rd$.                                                             |
 | `str.iter.next`            | `Rd, Rm, #branch_delta`        | Advance string iterator in $Rm$, store the next codepoint in $Rd$. Branches to PC + `#branch_delta` if iteration is complete.           |
 | `str.iter.next.pair`       | `Rd, Rm, Rp, #branch_delta`    | Advance string iterator in $Rm$, store index in $Rd$ and codepoint in $Rp$. Branches to PC + `#branch_delta` if iteration is complete.  |
