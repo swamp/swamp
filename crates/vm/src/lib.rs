@@ -78,7 +78,7 @@ macro_rules! set_reg {
     // $value:expr is the value to store (must be convertible to u32)
     ($vm:expr, $reg_idx:expr, $value:expr) => {
         // Use `as u32` to convert the value to the register's storage type
-        $vm.registers[$reg_idx as usize] = $value as u32;
+        $vm.registers[$reg_idx as usize] = $value as u32
     };
 }
 
