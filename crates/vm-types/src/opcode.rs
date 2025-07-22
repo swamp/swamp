@@ -174,6 +174,7 @@ pub enum OpCode {
 
     // String
     StringAppend,
+    StringDuplicate,
     StringRepeat,
     StringCmp,
     StringToString,
@@ -373,6 +374,7 @@ impl OpCode {
 
             // String
             Self::StringAppend => "str.app",
+            Self::StringDuplicate => "str.dup",
             Self::StringRepeat => "str.repeat",
             Self::StringCmp => "str.cmp",
             Self::StringToString => "str.tos",

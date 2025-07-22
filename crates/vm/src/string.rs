@@ -70,6 +70,13 @@ impl Vm {
             std::str::from_utf8_unchecked(bytes)
         }
     }
+
+    #[inline]
+    pub fn execute_string_duplicate(&mut self, target_string_view_reg: u8, string_storage: u8) {
+        let str_a = self.get_string(string_storage).to_string();
+        self.create_string(target_string_view_reg, &str_a);
+    }
+
     #[inline]
     pub fn execute_string_append(&mut self, target_string_reg: u8, string_a: u8, string_b: u8) {
         #[cfg(feature = "debug_vm")]

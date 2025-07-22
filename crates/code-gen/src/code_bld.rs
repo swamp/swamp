@@ -18,6 +18,7 @@ use swamp_semantic::{
 use swamp_types::TypeKind;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::types::{
     b8_type, u32_type, u8_type, BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType,
 };
@@ -97,12 +98,32 @@ impl CodeBuilder<'_> {
                 );
             }
         } else {
-            self.builder.add_mov_reg(
-                target_reg,
-                source_reg,
-                node,
-                &format!("emit_copy_register. primitive to primitive. {comment}"),
-            );
+            // Special case: StringStorage to StringView should create a string duplicate
+            if matches!(
+                source_reg.ty.basic_type.kind,
+                BasicTypeKind::StringStorage {
+                    element_type: _,
+                    char: _,
+                    capacity: _
+                }
+            ) && matches!(
+                target_reg.ty.basic_type.kind,
+                BasicTypeKind::StringView { byte: _, char: _ }
+            ) {
+                self.builder.add_string_duplicate(
+                    target_reg,
+                    source_reg,
+                    node,
+                    &format!("emit_copy_register. string storage to view (duplicate). {comment}"),
+                );
+            } else {
+                self.builder.add_mov_reg(
+                    target_reg,
+                    source_reg,
+                    node,
+                    &format!("emit_copy_register. primitive to primitive. {comment}"),
+                );
+            }
         }
     }
 

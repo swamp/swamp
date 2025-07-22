@@ -29,6 +29,16 @@ fn string_storage() {
     assert(save.len() == 5, 'wrong length {save.len()}')
 }
 
+
+#[test]
+fn string_storage_to_string_view() {
+    save: String<42> = "hello"
+    ephemeral: String = save
+
+    assert(save.len() == 5, 'wrong length {save.len()}')
+    assert(ephemeral.len() == 5, 'wrong length {ephemeral.len()}')
+}
+
 #[test]
 fn for_loop_ascii() {
     mut codepoints = 0

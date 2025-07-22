@@ -1157,6 +1157,11 @@ pub fn disasm(
             to_branch_offset(i16::from_le_bytes([operands[2], operands[3]])),
         ],
 
+        OpCode::StringDuplicate => &[
+            to_write_reg(operands[0], &string_type(), frame_memory_info),
+            to_read_reg(operands[1], &string_type(), frame_memory_info),
+        ],
+
         OpCode::StringAppend => &[
             to_write_reg(operands[0], &string_type(), frame_memory_info),
             to_read_reg(operands[1], &string_type(), frame_memory_info),

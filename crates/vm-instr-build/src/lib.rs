@@ -1119,6 +1119,24 @@ impl InstructionBuilder<'_> {
         PatchPosition(position)
     }
 
+    pub fn add_string_duplicate(
+        &mut self,
+        dst_offset: &TypedRegister,
+        lhs_offset: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::StringDuplicate,
+            &[
+                dst_offset.addressing(),
+                lhs_offset.addressing(),
+            ],
+            node,
+            comment,
+        );
+    }
+
     pub fn add_string_append(
         &mut self,
         dst_offset: &TypedRegister,

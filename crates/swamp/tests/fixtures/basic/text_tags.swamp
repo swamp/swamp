@@ -4,23 +4,74 @@ enum ArgValue {
     Bool Bool,
     Hex [Byte; 4],
     Keyword String,
-    Str String,
+    Str String<32>,
+}
+
+impl ArgValue {
+    fn string(self) -> String {
+        match self {
+            Int a -> '{a}i',
+            Float a -> '{a}f',
+            Bool a -> '{a}',
+            Hex array -> '#{array}',
+            Keyword keyword -> 'keyword "{keyword}"',
+            Str string -> '"{string}"',
+            _ -> {
+                panic('internal error')
+                "error"
+            }
+        }
+    }
+}
+
+struct Field {
+    name: String<32>,
+    value: ArgValue,
+}
+
+impl Field {
+    fn string(self) -> String {
+        '{self.name}={self.value}'
+    }
 }
 
 struct Element {
     name: String<32>,
-    args: [String: ArgValue; 8]
+    args: Vec<Field; 8>,
+}
+
+impl Element {
+    fn string(self) -> String {
+        mut args = ""
+        for field in self.args {
+            args = args + ' {field}'
+        }
+        '[{self.name}{args}]'
+    }
 }
 
 enum Node {
     Element Element,
-    Text String,
+    Text String<32>,
+}
+
+impl Node {
+    fn string(self) -> String {
+        match self {
+            Element element -> '{element}',
+            Text text -> '"{text}"',
+            _ -> {
+                panic('severe internal error')
+                ""
+            }
+        }
+    }
 }
 
 struct Parser {
     is_eof: Bool,
     str: String<256>,
-    region_stack: Stack<Int; 32>, // keep track on where region started
+    region_stack: Stack<Int; 32>, // TODO: keep track on where region started
     pos: Int,
     nodes: Vec<Node; 256>,
 }
@@ -48,7 +99,6 @@ impl Parser {
         if self.pos == self.str.len() {
             self.is_eof = true
         } else {
-            print('skipping: {self.str[self.pos].char()}')
             self.pos += 1
         }
     }
@@ -56,16 +106,14 @@ impl Parser {
     fn peek(mut self) -> Byte {
         if self.pos == self.str.len() {
             self.is_eof = true
-            print('peek {self.pos} end')
             b' '
         } else {
-            print('peek {self.pos} ch:"{self.str[self.pos].char()}"')
             self.str[self.pos]
         }
     }
 
     fn skip_ws(mut self) {
-        while self.peek() == b' ' {
+        while !self.is_eof && self.peek() == b' ' {
             self.skip()
         }
     }
@@ -88,32 +136,49 @@ impl Parser {
         }
     }
 
-
-    fn parse_text_until_space_or_end_bracket(mut self) -> String {
+    fn parse_text_until_space_or_delimiter(mut self) -> String {
         mut raw_text : Vec<Byte; 64> = []
         mut done = false
+
         while !done && !self.is_eof {
             ch = self.peek()
-            if ch == b']' || ch == b' ' {
+            if ch == b']' || ch == b' ' || ch == b',' || ch == b')' || ch == b'"' {
                 done = true
             } else if self.is_eof {
                 done = true
-            }else {
+            } else {
                 // TODO: Handle escaped \[ or \]
                 self.skip()
                 raw_text.push(ch)
             }
         }
+
+        raw_text
+    }
+
+    fn parse_text_until_quote(mut self) -> String {
+        mut raw_text : Vec<Byte; 64> = []
+        mut done = false
+
+        while !done && !self.is_eof {
+            ch = self.peek()
+            if ch == b'"' {
+                done = true
+            } else if self.is_eof {
+                done = true
+            } else {
+                self.skip()
+                raw_text.push(ch)
+            }
+        }
+
         raw_text
     }
 
     fn parse_number(mut self) -> ArgValue {
-        print('parsing number')
-        s = self.parse_text_until_space_or_end_bracket()
-        print('parsing number returned "{s}"')
+        s = self.parse_text_until_space_or_delimiter()
         int_value, int_worked = s.int()
         if int_worked {
-            print('found int {int_value}')
             ArgValue::Int(int_value)
         } else {
             float_value, float_worked = s.float()
@@ -121,8 +186,14 @@ impl Parser {
         }
     }
 
+    fn parse_float(mut self) -> Float {
+        s = self.parse_text_until_space_or_delimiter()
+        float_value, float_worked = s.float()
+        float_value
+    }
+
     fn parse_integer(mut self) -> Int {
-        s = self.parse_text_until_space_or_end_bracket()
+        s = self.parse_text_until_space_or_delimiter()
         int_value, int_worked = s.int()
         int_value
     }
@@ -134,36 +205,57 @@ impl Parser {
     fn parse_rgb(mut self) -> ArgValue {
         for _ in 0..4 self.skip() // skip `rgb(`
         r = self.parse_byte()
+        self.skip_ws()
         self.skip() // skip `,`
+        self.skip_ws()
         g = self.parse_byte()
+        self.skip_ws()
         self.skip() // skip `,`
+        self.skip_ws()
         b = self.parse_byte()
+        self.skip_ws()
         self.skip() // skip `)`
-
+        self.skip_ws()
         ArgValue::Hex([r, g, b])
     }
 
     fn parse_rgba(mut self) -> ArgValue {
-        for _ in 0..4 self.skip() // skip `rgba`
-        ArgValue::Hex([b' ', b' ', b' ', b' '])
+        for _ in 0..5 self.skip() // skip `rgba(`
+        r = self.parse_byte()
+        self.skip_ws()
+        self.skip() // skip `,`
+        self.skip_ws()
+        g = self.parse_byte()
+        self.skip_ws()
+        self.skip() // skip `,`
+        self.skip_ws()
+        b = self.parse_byte()
+        self.skip_ws()
+        self.skip() // skip `,`
+        self.skip_ws()
+        a: Byte = (self.parse_float() * 255.0).round()
+        self.skip_ws()
+        self.skip() // skip `)`
+        self.skip_ws()
+        ArgValue::Hex([r, g, b, a])
     }
 
     fn parse_hex(mut self) -> ArgValue {
-        ArgValue::Hex([b' ', b' ', b' ', b' '])
+        ArgValue::Hex([0, 0, 0, 0]) // TODO: implement parsing of `#42FA9908`
     }
 
     fn parse_text_value(mut self) -> ArgValue {
-        self.skip()
-        ArgValue::Str("hello")
+        self.skip() // skip `"`
+        text = self.parse_text_until_quote()
+        self.skip() // skip `"`
+        ArgValue::Str(text)
     }
-
 
     fn parse_value(mut self) -> ArgValue {
         first = self.peek()
-        print('peek in value {first.char()}')
 
-        | self.starts_with("rgb") -> self.parse_rgb()
         | self.starts_with("rgba") -> self.parse_rgba()
+        | self.starts_with("rgb") -> self.parse_rgb()
         | self.starts_with("true") -> ArgValue::Bool(true)
         | self.starts_with("false") -> ArgValue::Bool(false)
         | first == b'#' -> self.parse_hex()
@@ -171,43 +263,41 @@ impl Parser {
         | _ -> self.parse_number()
     }
 
-
-    fn parse_args(mut self, mut args: [String:ArgValue]) {
+    fn parse_args(mut self, mut args: Vec<Field>) {
         mut done = false
-        mut raw_name: Vec<Byte; 42> = []
+        mut raw_name: String<42> = ""
         mut first = true
-        print('parse args!!')
         while !done && !self.is_eof {
-            if self.peek() == b']' {
-                done = true
-            } else {
-                if !first {
-                    print('parse identifier')
-                    self.skip_ws()
-                    self.parse_identifier(&raw_name)
-                                    print('identifier done {raw_name}')
-
-
-                    self.skip_ws()
-                    ch = self.next()
-                    assert(ch == b'=', 'must have equals after, but got "{ch}"')
+            self.skip_ws()
+            if !self.is_eof {
+                if self.peek() == b']' {
+                    done = true
                 } else {
-                    print('no identifier first')
-                    raw_name = "value"
-                }
+                    if !first {
+                        self.skip_ws()
+                        raw_name.clear()
+                        self.parse_identifier(&raw_name)
+                        self.skip_ws()
 
-                first = false
+                        ch = self.next()
+                        assert(ch == b'=', 'must have equals after, but got "{ch}"')
+                    } else {
+                        raw_name = "value"
+                    }
 
-                self.skip_ws()
+                    first = false
 
-                print('check end or value')
+                    self.skip_ws()
 
-                {
-                    value = self.parse_value()
-                    str: String<32> = raw_name
-                    print('inserting into map: {str} with {value}')
-                    key = ' {str} '
-                    args[key] = value
+                    {
+                        value = self.parse_value()
+                        str: String<32> = raw_name
+                        key = ' {str} '
+                        args.push( Field {
+                            name: raw_name,
+                            value: value,
+                        } )
+                    }
                 }
             }
         }
@@ -227,9 +317,6 @@ impl Parser {
 
         self.skip() // Discard `]`
 
-
-
-        print('added element: {element}')
         self.nodes.push(Node::Element(element))
     }
 
@@ -238,7 +325,7 @@ impl Parser {
     }
 
     fn parse_text(mut self) -> String {
-        mut raw_text : Vec<Byte; 64> = []
+        mut raw_text : String<64> = ""
         mut done = false
         while !done && !self.is_eof {
             ch = self.peek()
@@ -257,19 +344,14 @@ impl Parser {
 
     fn parse(mut self, text: String) -> [Node] {
         self.str = text
-        print('>self.str: {self.str} text:{text}')
         while !self.is_eof {
             if self.starts_with("[/") {
-                print('strange, it started with closing')
                 self.read_closing_tag()
 
                 //start_index = self.region_stack.pop()
             } else if self.peek() == b'[' {
-                print('found start')
-
                 name = self.read_opening_tag()
             } else {
-                print('found text')
                 parsed_text = self.parse_text()
 
                 self.nodes.push(Node::Text(parsed_text))
@@ -284,12 +366,11 @@ impl Parser {
 fn parse() {
     mut parser = Parser::new()
 
-    nodes: Vec<Node; 128> = parser.parse("[test]hello [after 23 a=3] and then [color rgb(23,44,98)]")
+    nodes: Vec<Node; 128> = parser.parse('[test]hello [after 23 a=3 b="text value"] and then [color rgb(23,44,98)] [color rgba(191, 201, 233, 0.99)]')
     print('nodes: {nodes}')
 
     match nodes[0] {
         Element element -> {
-            print('element {element}')
             assert(element.name == "test", 'element name is wrong {element.name}')
         }
         _ -> panic('should have been element'),
@@ -297,8 +378,7 @@ fn parse() {
 
     match nodes[1] {
         Text text -> {
-            print('text {text}')
-            assert(text == "hello", 'text is wrong "{text}"')
+            assert(text == "hello ", 'text is wrong "{text}"')
         }
         _ -> panic('should have been text'),
     }
