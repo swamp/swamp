@@ -13,16 +13,16 @@ use swamp_semantic::{
 };
 use swamp_types::prelude::*;
 
-const MAX_VIRTUAL_REGISTER: usize = 20;
+const MAX_VIRTUAL_REGISTER: usize = 24;
 
 /// Common helper function for allocating the next available register from `ScopeInfo`
-/// This ensures all variable creation functions use the same register allocation logic
-pub(crate) const fn allocate_next_register(scope: &mut ScopeInfo) -> Option<usize> {
-    if scope.total_scopes.current_register > MAX_VIRTUAL_REGISTER {
+/// This function uses high watermark approach - simply increment counter, restore on scope pop
+pub(crate) fn allocate_next_register(scope: &mut ScopeInfo) -> Option<u8> {
+    if scope.total_scopes.current_register >= MAX_VIRTUAL_REGISTER {
         None
     } else {
         scope.total_scopes.current_register += 1;
-        Some(scope.total_scopes.current_register)
+        Some(scope.total_scopes.current_register as u8)
     }
 }
 
@@ -262,7 +262,7 @@ impl Analyzer<'_> {
                 scope_index,
                 variable_index: *variables_len,
                 unique_id_within_function: index,
-                virtual_register: virtual_register as u8,
+                virtual_register: virtual_register,
                 is_unused: !should_insert_in_scope,
             };
 
@@ -299,99 +299,29 @@ impl Analyzer<'_> {
 
             (variable_ref, variable_str)
         } else {
-            panic!(
-                "out of registers {}",
-                self.scope.total_scopes.current_register
-            )
-        }
-    }
-
-    #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn create_local_variable_generated(
-        &mut self,
-        variable_str: &str,
-        is_mutable: bool,
-        variable_type_ref: &TypeRef,
-    ) -> VariableRef {
-        let scope_index = self.scope.active_scope.block_scope_stack.len() - 1;
-
-        let index_within_function = self.scope.active_scope.emit_variable_index();
-
-        let variables_len = self
-            .scope
-            .active_scope
-            .block_scope_stack
-            .last_mut()
-            .expect("block scope should have at least one scope")
-            .variables
-            .len();
-
-        let is_marked_as_unused = variable_str.starts_with('_');
-
-        let actual_name = if is_marked_as_unused {
-            format!("_{index_within_function}")
-        } else {
-            variable_str.to_string()
-        };
-
-        // Make sure to use the TypeCache to ensure proper type handling
-        // The variable_type_ref should be obtained from the TypeCache
-        let maybe_virtual_register = allocate_next_register(&mut self.scope);
-
-        if let Some(virtual_register) = maybe_virtual_register {
+            eprintln!("variable: {variable_str}");
+            for var in &self.scope.total_scopes.all_variables {
+                eprintln!("var id:{} '{}'", var.virtual_register, var.assigned_name)
+            }
+            self.add_err_resolved(ErrorKind::OutOfVirtualRegisters, variable);
             let resolved_variable = Variable {
-                name: Node::default(),
-                assigned_name: actual_name.clone(),
+                name: variable.clone(),
+                assigned_name: variable_str.clone(),
+                variable_type,
                 resolved_type: variable_type_ref.clone(),
-                variable_type: VariableType::Local,
-                mutable_node: if is_mutable {
-                    Some(Node::default())
-                } else {
-                    None
-                },
+                mutable_node: is_mutable.cloned(),
                 scope_index,
-                variable_index: variables_len,
-                unique_id_within_function: index_within_function,
-                virtual_register: virtual_register as u8,
-                is_unused: is_marked_as_unused,
+                variable_index: *variables_len,
+                unique_id_within_function: index,
+                virtual_register: 0,
+                is_unused: true,
             };
 
             let variable_ref = Rc::new(resolved_variable);
-
-            if !is_marked_as_unused {
-                let lookups = &mut self
-                    .scope
-                    .active_scope
-                    .block_scope_stack
-                    .last_mut()
-                    .expect("block scope should have at least one scope")
-                    .lookup;
-                lookups
-                    .insert(actual_name, variable_ref.clone())
-                    .expect("should have checked earlier for variable");
-            }
-
-            let variables = &mut self
-                .scope
-                .active_scope
-                .block_scope_stack
-                .last_mut()
-                .expect("block scope should have at least one scope")
-                .variables;
-            variables
-                .insert(variable_ref.unique_id_within_function, variable_ref.clone())
-                .expect("should have checked earlier for variable");
-
-            self.scope
-                .total_scopes
-                .all_variables
-                .push(variable_ref.clone());
-
-            variable_ref
-        } else {
-            panic!("out of virtual registers");
+            (variable_ref, "error".to_string())
         }
     }
+
 
     #[allow(clippy::too_many_lines)]
     pub(crate) fn create_variable_binding_for_with(

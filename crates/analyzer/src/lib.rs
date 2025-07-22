@@ -203,6 +203,7 @@ impl<'a> Analyzer<'a> {
         let branch_context = context;
 
         let true_expr = self.analyze_expression(true_expression, branch_context);
+
         let resolved_true = Box::new(true_expr);
 
         let mut detected = context.expected_type.cloned();
@@ -214,7 +215,9 @@ impl<'a> Analyzer<'a> {
         let else_statements = if let Some(false_expression) = maybe_false_expression {
             let else_context =
                 branch_context.with_expected_type(detected.as_ref(), context.has_lvalue_target);
+
             let else_expr = self.analyze_expression(false_expression, &else_context);
+
             if detected.is_none() {
                 detected = Some(else_expr.ty.clone());
             }
@@ -779,10 +782,9 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::WhileLoop(expression, statements) => {
                 let condition = self.analyze_bool_argument_expression(expression);
-                //self.push_block_scope("while_loop");
+
                 let resolved_statements = self.analyze_expression(statements, context);
                 let resolved_type = resolved_statements.ty.clone();
-                //self.pop_block_scope("while_loop");
 
                 self.create_expr(
                     ExpressionKind::WhileLoop(condition, Box::from(resolved_statements)),
@@ -1901,7 +1903,9 @@ impl<'a> Analyzer<'a> {
         let scope = self.scope.active_scope.block_scope_stack.pop().unwrap();
 
         // Record the highest watermark (greatest depth of virtual registers)
-        self.scope.total_scopes.highest_virtual_register = self.scope.total_scopes.current_register;
+        if self.scope.total_scopes.current_register > self.scope.total_scopes.highest_virtual_register {
+            self.scope.total_scopes.highest_virtual_register = self.scope.total_scopes.current_register;
+        }
 
         // Check if we're inside a lambda scope - if so, don't restore register counter
         let is_inside_lambda = self
@@ -1917,6 +1921,7 @@ impl<'a> Analyzer<'a> {
             // block scope inside lambda - virtual, no register restoration
         } else {
             // Regular scopes restore their watermark to free up registers
+            // This enables register reuse when variables go out of scope
             self.scope.total_scopes.current_register = scope.register_watermark;
         }
     }

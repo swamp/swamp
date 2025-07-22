@@ -20,6 +20,7 @@ use swamp_types::prelude::*;
 use swamp_types::{Type, TypeRef};
 use tracing::error;
 
+
 #[derive(Debug, Clone)]
 pub struct TypeWithMut {
     pub resolved_type: TypeRef,
@@ -191,6 +192,7 @@ pub struct BlockScope {
     pub lookup: SeqMap<String, VariableRef>,
     pub variables: SeqMap<usize, VariableRef>,
     pub register_watermark: usize,
+
 }
 
 impl Display for BlockScope {
@@ -218,6 +220,7 @@ impl BlockScope {
             variables: SeqMap::new(),
             lookup: SeqMap::new(),
             register_watermark: 0,
+
         }
     }
 }
@@ -234,16 +237,18 @@ pub struct VariableScopes {
     pub current_register: usize,
     pub highest_virtual_register: usize,
     pub all_variables: Vec<VariableRef>,
+
 }
 
 impl VariableScopes {
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             //block_scope_stack: vec![],
             current_register: 0,
             all_variables: vec![],
             highest_virtual_register: 0,
+
         }
     }
 
