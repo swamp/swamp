@@ -12,6 +12,7 @@ pub enum IntrinsicFunction {
     // Byte
     ByteToString,
     ByteToInt,
+    ByteToFloat,
     ByteToCodepoint,
 
     // Char
@@ -131,6 +132,7 @@ impl fmt::Display for IntrinsicFunction {
             // Byte
             Self::ByteToString => "byte_to_string",
             Self::ByteToInt => "byte_to_int",
+            Self::ByteToFloat => "byte_to_float",
             Self::ByteToCodepoint => "byte_to_char",
 
             // Bool

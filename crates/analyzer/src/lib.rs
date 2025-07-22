@@ -78,9 +78,9 @@ use tracing::error;
 
 #[derive(Debug)]
 pub enum ParseByteError {
-    /// Input wasn’t of the form `b'X'`
+    /// Input wasn't of the form `b'X'`
     InvalidFormat,
-    /// Escape‐sequence wasn’t one of our supported set
+    /// Escape‐sequence wasn't one of our supported set
     InvalidEscape,
 }
 
@@ -3720,6 +3720,13 @@ impl<'a> Analyzer<'a> {
                     return_type: self.types().int(),
                 },
             )),
+            "char" => Some((
+                IntrinsicFunction::ByteToCodepoint,
+                Signature {
+                    parameters: vec![self_type_param],
+                    return_type: self.types().codepoint(),
+                },
+            )),
             _ => None,
         }
     }
@@ -3745,8 +3752,15 @@ impl<'a> Analyzer<'a> {
             "int" => Some((
                 IntrinsicFunction::ByteToInt,
                 Signature {
-                    parameters: vec![self_type_param],
+                    parameters: vec![self_type_param.clone()],
                     return_type: self.types().int(),
+                },
+            )),
+            "float" => Some((
+                IntrinsicFunction::ByteToFloat,
+                Signature {
+                    parameters: vec![self_type_param.clone()],
+                    return_type: self.types().float(),
                 },
             )),
             "char" => Some((

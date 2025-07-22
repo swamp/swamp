@@ -1235,6 +1235,19 @@ impl CodeBuilder<'_> {
                 );
             }
 
+            IntrinsicFunction::ByteToFloat => {
+                if maybe_target.is_none() {
+                    eprintln!("problem");
+                }
+                // Use existing int-to-float conversion since byte is just a small integer
+                self.builder.add_int_to_float(
+                    maybe_target.unwrap(),
+                    self_reg.unwrap(),
+                    node,
+                    "byte_to_float",
+                );
+            }
+
             IntrinsicFunction::ByteToCodepoint => {
                 if maybe_target.is_none() {
                     eprintln!("problem");

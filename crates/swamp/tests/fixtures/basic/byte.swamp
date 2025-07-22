@@ -2,3 +2,9 @@
 fn byte_array() {
     a: [Byte; 4] = [0x41, 23, 44, 255]
 }
+
+#[test]
+fn byte_to_float() {
+    a: Byte = 42
+    assert(a.float() == 42.0, 'was not equal {a.float()}')
+}
