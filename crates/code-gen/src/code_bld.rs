@@ -525,18 +525,18 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         // Since u32 is same size as byte (a register), we can just use it directly
-        self.emit_expression(&output, expr, ctx);
+        self.emit_expression(output, expr, ctx);
 
         match output {
             Destination::Unit => {}
             Destination::Register(dest_reg) => {
-                self.builder.add_check_u8(&dest_reg, &expr.node, "trunc int to byte");
+                self.builder.add_check_u8(dest_reg, &expr.node, "trunc int to byte");
             }
             Destination::Memory(mem) => {
                 let hwm = self.temp_registers.save_mark();
                 let temp_u8 = self.temp_registers.allocate(VmType::new_contained_in_register(u8_type()), "temp u8");
                 self.builder.add_ld8_from_pointer_with_offset(temp_u8.register(), &mem.base_ptr_reg, mem.offset, &expr.node, "load it to check it");
-                self.builder.add_check_u8(&temp_u8.register(), &expr.node, "trunc int to byte");
+                self.builder.add_check_u8(temp_u8.register(), &expr.node, "trunc int to byte");
                 self.temp_registers.restore_to_mark(hwm);
             }
         }

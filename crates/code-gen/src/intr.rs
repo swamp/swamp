@@ -1298,7 +1298,7 @@ impl CodeBuilder<'_> {
                     self_reg.unwrap(),
                     node,
                     "string to int",
-                )
+                );
             }
             IntrinsicFunction::StringToFloat => {
                 let pointer = self.emit_compute_effective_address_to_register(target_destination, node, "need pointer to tuple");
@@ -1307,7 +1307,7 @@ impl CodeBuilder<'_> {
                     self_reg.unwrap(),
                     node,
                     "string to float",
-                )
+                );
             }
 
             // Common Collection

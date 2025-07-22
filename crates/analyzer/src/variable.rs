@@ -17,7 +17,7 @@ const MAX_VIRTUAL_REGISTER: usize = 24;
 
 /// Common helper function for allocating the next available register from `ScopeInfo`
 /// This function uses high watermark approach - simply increment counter, restore on scope pop
-pub(crate) fn allocate_next_register(scope: &mut ScopeInfo) -> Option<u8> {
+pub(crate) const fn allocate_next_register(scope: &mut ScopeInfo) -> Option<u8> {
     if scope.total_scopes.current_register >= MAX_VIRTUAL_REGISTER {
         None
     } else {
@@ -262,7 +262,7 @@ impl Analyzer<'_> {
                 scope_index,
                 variable_index: *variables_len,
                 unique_id_within_function: index,
-                virtual_register: virtual_register,
+                virtual_register,
                 is_unused: !should_insert_in_scope,
             };
 
@@ -301,12 +301,12 @@ impl Analyzer<'_> {
         } else {
             eprintln!("variable: {variable_str}");
             for var in &self.scope.total_scopes.all_variables {
-                eprintln!("var id:{} '{}'", var.virtual_register, var.assigned_name)
+                eprintln!("var id:{} '{}'", var.virtual_register, var.assigned_name);
             }
             self.add_err_resolved(ErrorKind::OutOfVirtualRegisters, variable);
             let resolved_variable = Variable {
                 name: variable.clone(),
-                assigned_name: variable_str.clone(),
+                assigned_name: variable_str,
                 variable_type,
                 resolved_type: variable_type_ref.clone(),
                 mutable_node: is_mutable.cloned(),

@@ -127,7 +127,7 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
 
-impl<'a> InstructionBuilder<'a> {}
+impl InstructionBuilder<'_> {}
 
 impl<'a> InstructionBuilder<'a> {
     #[must_use]
@@ -1721,7 +1721,7 @@ impl InstructionBuilder<'_> {
             ],
             node,
             comment,
-        )
+        );
     }
 
     pub fn add_ld8_from_pointer_with_offset(

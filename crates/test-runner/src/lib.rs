@@ -13,8 +13,6 @@ use std::thread::sleep;
 use std::time::Duration;
 use swamp_runtime::prelude::{CodeGenOptions, RunMode};
 use swamp_runtime::{compile_codegen_and_create_vm, CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions, RunOptions, StandardOnlyHostCallbacks};
-use swamp_std::print::print_fn;
-use swamp_vm::host::HostFunctionCallback;
 use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
 use tracing::error;

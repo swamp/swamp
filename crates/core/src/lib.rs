@@ -199,7 +199,7 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
     let string_to_float_tuple = Signature {
         parameters: [TypeForParameter {
             name: "self".into(),
-            resolved_type: string_type.clone(),
+            resolved_type: string_type,
             is_mutable: false,
             node: None,
         }]

@@ -242,7 +242,7 @@ pub struct VariableScopes {
 
 impl VariableScopes {
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             //block_scope_stack: vec![],
             current_register: 0,
@@ -1134,7 +1134,7 @@ impl AssociatedImpls {
             found_impl
                 .functions
                 .insert(name.to_string(), func)
-                .expect(&format!("already had key {name}"));
+                .unwrap_or_else(|_| panic!("already had key {name}"));
             Ok(())
         } else {
             error!(%ty, ?name, "wasn't prepared");

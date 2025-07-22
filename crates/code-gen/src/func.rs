@@ -276,7 +276,7 @@ impl TopLevelGenState {
         let mut function_info = FunctionInfo {
             kind: in_data.kind.clone(),
             frame_memory: frame_and_variable_info.frame_memory,
-            params: params,
+            params,
             return_type: frame_and_variable_info.return_type,
             name: in_data.assigned_name.clone(),
             ip_range: InstructionRange {
