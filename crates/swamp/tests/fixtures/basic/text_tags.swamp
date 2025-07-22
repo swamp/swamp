@@ -88,22 +88,6 @@ impl Parser {
         }
     }
 
-    fn parse_rgb(mut self) -> ArgValue {
-        ArgValue::Hex([b' ', b' ', b' ', b' '])
-    }
-
-    fn parse_rgba(mut self) -> ArgValue {
-        ArgValue::Hex([b' ', b' ', b' ', b' '])
-    }
-
-    fn parse_hex(mut self) -> ArgValue {
-        ArgValue::Hex([b' ', b' ', b' ', b' '])
-    }
-
-    fn parse_text_value(mut self) -> ArgValue {
-        self.skip()
-        ArgValue::Str("hello")
-    }
 
     fn parse_text_until_space_or_end_bracket(mut self) -> String {
         mut raw_text : Vec<Byte; 64> = []
@@ -136,6 +120,43 @@ impl Parser {
             ArgValue::Float(float_value)
         }
     }
+
+    fn parse_integer(mut self) -> Int {
+        s = self.parse_text_until_space_or_end_bracket()
+        int_value, int_worked = s.int()
+        int_value
+    }
+
+    fn parse_byte(mut self) -> Byte {
+        self.parse_integer()
+    }
+
+    fn parse_rgb(mut self) -> ArgValue {
+        for _ in 0..4 self.skip() // skip `rgb(`
+        r = self.parse_byte()
+        self.skip() // skip `,`
+        g = self.parse_byte()
+        self.skip() // skip `,`
+        b = self.parse_byte()
+        self.skip() // skip `)`
+
+        ArgValue::Hex([r, g, b])
+    }
+
+    fn parse_rgba(mut self) -> ArgValue {
+        for _ in 0..4 self.skip() // skip `rgba`
+        ArgValue::Hex([b' ', b' ', b' ', b' '])
+    }
+
+    fn parse_hex(mut self) -> ArgValue {
+        ArgValue::Hex([b' ', b' ', b' ', b' '])
+    }
+
+    fn parse_text_value(mut self) -> ArgValue {
+        self.skip()
+        ArgValue::Str("hello")
+    }
+
 
     fn parse_value(mut self) -> ArgValue {
         first = self.peek()
@@ -263,7 +284,7 @@ impl Parser {
 fn parse() {
     mut parser = Parser::new()
 
-    nodes: Vec<Node; 128> = parser.parse("[test]hello [after 23 a=3]")
+    nodes: Vec<Node; 128> = parser.parse("[test]hello [after 23 a=3] and then [color rgb(23,44,98)]")
     print('nodes: {nodes}')
 
     match nodes[0] {

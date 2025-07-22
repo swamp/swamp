@@ -1,13 +1,13 @@
 [package]
 name = "swamp-build"
-version = "0.2.14"
+version = "0.2.15"
 edition = "2024"
 description = "swamp build tool"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-runtime = { path = "../runtime", version = "0.2.14" }
+swamp-runtime = { path = "../runtime", version = "0.2.15" }
 pico-args = "0.5.0"
 
 # Minimal tracing for production builds
