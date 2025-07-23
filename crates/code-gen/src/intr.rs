@@ -1185,103 +1185,215 @@ impl CodeBuilder<'_> {
 
             // Bool
             IntrinsicFunction::CodepointToString => {
-                if maybe_target.is_none() {
-                    eprintln!("problem");
+                if target_destination.is_register() {
+                    self.builder.add_codepoint_to_string(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "char_to_string",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u32_type()),
+                        "temporary for codepoint to string intrinsic",
+                    );
+
+                    self.builder.add_codepoint_to_string(
+                        &temp_reg.register,
+                        self_reg.unwrap(),
+                        node,
+                        "char_to_string",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store codepoint to string result to memory",
+                    );
                 }
-                self.builder.add_codepoint_to_string(
-                    maybe_target.unwrap(),
-                    self_reg.unwrap(),
-                    node,
-                    "char_to_string",
-                );
             }
 
             IntrinsicFunction::CodepointToInt => {
-                if maybe_target.is_none() {
-                    eprintln!("problem");
+                if target_destination.is_register() {
+                    self.builder.add_mov_reg(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "char_to_int",
+                    );
+                } else {
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        self_reg.unwrap(),
+                        node,
+                        "store codepoint to int result to memory",
+                    );
                 }
-                self.builder.add_mov_reg(
-                    maybe_target.unwrap(),
-                    self_reg.unwrap(),
-                    node,
-                    "char_to_int",
-                );
             }
 
             // Bool
             IntrinsicFunction::ByteToString => {
-                if maybe_target.is_none() {
-                    eprintln!("problem");
+                if target_destination.is_register() {
+                    self.builder.byte_to_string(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "byte_to_string",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u32_type()),
+                        "temporary for byte to string intrinsic",
+                    );
+
+                    self.builder.byte_to_string(
+                        &temp_reg.register,
+                        self_reg.unwrap(),
+                        node,
+                        "byte_to_string",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store byte to string result to memory",
+                    );
                 }
-                self.builder.byte_to_string(
-                    maybe_target.unwrap(),
-                    self_reg.unwrap(),
-                    node,
-                    "byte_to_string",
-                );
             }
 
             IntrinsicFunction::ByteToInt => {
-                if maybe_target.is_none() {
-                    eprintln!("problem");
+                if target_destination.is_register() {
+                    // It is safe to "upcast" to an i32 from a u8, so just copy the register
+                    // TODO: Make something smarter so we don't have to copy
+                    self.builder.add_mov_reg(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "byte_to_int",
+                    );
+                } else {
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        self_reg.unwrap(),
+                        node,
+                        "store byte to int result to memory",
+                    );
                 }
-                // It is safe to "upcast" to an i32 from a u8, so just copy the register
-                // TODO: Make something smarter so we don't have to copy
-                self.builder.add_mov_reg(
-                    maybe_target.unwrap(),
-                    self_reg.unwrap(),
-                    node,
-                    "byte_to_int",
-                );
             }
 
             IntrinsicFunction::ByteToFloat => {
-                if maybe_target.is_none() {
-                    eprintln!("problem");
+                if target_destination.is_register() {
+                    // Use existing int-to-float conversion since byte is just a small integer
+                    self.builder.add_int_to_float(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "byte_to_float",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(float_type()),
+                        "temporary for byte to float intrinsic",
+                    );
+
+                    // Use existing int-to-float conversion since byte is just a small integer
+                    self.builder.add_int_to_float(
+                        &temp_reg.register,
+                        self_reg.unwrap(),
+                        node,
+                        "byte_to_float",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store byte to float result to memory",
+                    );
                 }
-                // Use existing int-to-float conversion since byte is just a small integer
-                self.builder.add_int_to_float(
-                    maybe_target.unwrap(),
-                    self_reg.unwrap(),
-                    node,
-                    "byte_to_float",
-                );
             }
 
             IntrinsicFunction::ByteToCodepoint => {
-                if maybe_target.is_none() {
-                    eprintln!("problem");
+                if target_destination.is_register() {
+                    // It is safe to "upcast" to a codepoint from a u8, so just copy the register
+                    // TODO: Make something smarter so we don't have to copy
+                    self.builder.add_mov_reg(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "byte_to_codepoint",
+                    );
+                } else {
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        self_reg.unwrap(),
+                        node,
+                        "store byte to codepoint result to memory",
+                    );
                 }
-                // It is safe to "upcast" to a codepoint from a u8, so just copy the register
-                // TODO: Make something smarter so we don't have to copy
-                self.builder.add_mov_reg(
-                    maybe_target.unwrap(),
-                    self_reg.unwrap(),
-                    node,
-                    "byte_to_codepoint",
-                );
             }
 
             // Bool
             IntrinsicFunction::BoolToString => {
-                if maybe_target.is_none() {
-                    eprintln!("problem");
+                if target_destination.is_register() {
+                    self.builder.bool_to_string(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "bool_to_string",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u32_type()),
+                        "temporary for bool to string intrinsic",
+                    );
+
+                    self.builder.bool_to_string(
+                        &temp_reg.register,
+                        self_reg.unwrap(),
+                        node,
+                        "bool_to_string",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store bool to string result to memory",
+                    );
                 }
-                self.builder.bool_to_string(
-                    maybe_target.unwrap(),
-                    self_reg.unwrap(),
-                    node,
-                    "bool_to_string",
-                );
             }
 
             IntrinsicFunction::StringToString => {
-                self.builder.add_string_to_string(
-                    maybe_target.unwrap(),
-                    self_reg.unwrap(),
-                    node,
-                    "string_to_string",
-                );
+                if target_destination.is_register() {
+                    self.builder.add_string_to_string(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "string_to_string",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u32_type()),
+                        "temporary for string to string intrinsic",
+                    );
+
+                    self.builder.add_string_to_string(
+                        &temp_reg.register,
+                        self_reg.unwrap(),
+                        node,
+                        "string_to_string",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store string to string result to memory",
+                    );
+                }
             }
 
             IntrinsicFunction::StringStartsWith => {
@@ -1295,13 +1407,35 @@ impl CodeBuilder<'_> {
                     })
                     .collect();
                 let other_str = self.emit_scalar_rvalue(&converted_to_expressions[0], ctx);
-                self.builder.add_string_starts_with(
-                    maybe_target.unwrap(),
-                    self_reg.unwrap(),
-                    &other_str,
-                    node,
-                    "string_starts_with",
-                );
+                if target_destination.is_register() {
+                    self.builder.add_string_starts_with(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        &other_str,
+                        node,
+                        "string_starts_with",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u8_type()),
+                        "temporary for string starts with intrinsic",
+                    );
+
+                    self.builder.add_string_starts_with(
+                        &temp_reg.register,
+                        self_reg.unwrap(),
+                        &other_str,
+                        node,
+                        "string_starts_with",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store string starts with result to memory",
+                    );
+                }
             }
 
             IntrinsicFunction::StringToInt => {
@@ -1328,12 +1462,33 @@ impl CodeBuilder<'_> {
                 let collection_pointer = PointerLocation {
                     ptr_reg: self_reg.unwrap().clone(),
                 };
-                self.emit_collection_is_empty(
-                    maybe_target.unwrap().clone(),
-                    &collection_pointer,
-                    node,
-                    "vec empty",
-                );
+                if target_destination.is_register() {
+                    self.emit_collection_is_empty(
+                        target_destination.register().unwrap().clone(),
+                        &collection_pointer,
+                        node,
+                        "vec empty",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u8_type()),
+                        "temporary for collection is empty intrinsic",
+                    );
+
+                    self.emit_collection_is_empty(
+                        temp_reg.register.clone(),
+                        &collection_pointer,
+                        node,
+                        "vec empty",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store collection is empty result to memory",
+                    );
+                }
             }
 
             IntrinsicFunction::StringLen
@@ -1342,23 +1497,65 @@ impl CodeBuilder<'_> {
                 let collection_pointer = PointerLocation {
                     ptr_reg: self_reg.unwrap().clone(),
                 };
-                self.emit_collection_len(
-                    maybe_target.unwrap(),
-                    &collection_pointer,
-                    node,
-                    "get the collection element_count",
-                );
+                if target_destination.is_register() {
+                    self.emit_collection_len(
+                        target_destination.register().unwrap(),
+                        &collection_pointer,
+                        node,
+                        "get the collection element_count",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u16_type()),
+                        "temporary for collection len intrinsic",
+                    );
+
+                    self.emit_collection_len(
+                        &temp_reg.register,
+                        &collection_pointer,
+                        node,
+                        "get the collection element_count",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store collection len result to memory",
+                    );
+                }
             }
             IntrinsicFunction::MapCapacity | IntrinsicFunction::VecCapacity => {
                 let collection_pointer = PointerLocation {
                     ptr_reg: self_reg.unwrap().clone(),
                 };
-                self.emit_collection_capacity(
-                    maybe_target.unwrap(),
-                    &collection_pointer,
-                    node,
-                    "get the collection element_count",
-                );
+                if target_destination.is_register() {
+                    self.emit_collection_capacity(
+                        target_destination.register().unwrap(),
+                        &collection_pointer,
+                        node,
+                        "get the collection element_count",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u16_type()),
+                        "temporary for collection capacity intrinsic",
+                    );
+
+                    self.emit_collection_capacity(
+                        &temp_reg.register,
+                        &collection_pointer,
+                        node,
+                        "get the collection element_count",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store collection capacity result to memory",
+                    );
+                }
             }
 
             IntrinsicFunction::MapRemove | IntrinsicFunction::MapHas => {

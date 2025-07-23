@@ -8,3 +8,10 @@ fn byte_to_float() {
     a: Byte = 42
     assert(a.float() == 42.0, 'was not equal {a.float()}')
 }
+
+#[test]
+fn multiple_conversions() {
+    a: Byte = 42
+    s = a.char().int().float().string()
+    assert(s == "42.000", 'float string incorrect {s}')
+}
