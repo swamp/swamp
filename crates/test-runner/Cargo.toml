@@ -1,6 +1,6 @@
 [package]
 name = "swamp-test-runner"
-version = "0.2.15"
+version = "0.2.16"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
@@ -9,9 +9,9 @@ description = "test runner for Swamp"
 [dependencies]
 
 # Runtime
-swamp-runtime = { path = "../runtime", version = "0.2.15", features = ["debug_vm"] }
-swamp-std = { path = "../std", version = "0.2.15" }
-swamp-vm = { path = "../vm", version = "0.2.15", features = ["debug_vm"] }
+swamp-runtime = { path = "../runtime", version = "0.2.16", features = ["debug_vm"] }
+swamp-std = { path = "../std", version = "0.2.16" }
+swamp-vm = { path = "../vm", version = "0.2.16", features = ["debug_vm"] }
 source-map-cache = "0.0.3"
 
 tinter = "0.1.0"

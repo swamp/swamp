@@ -1,6 +1,6 @@
 [package]
 name = "swamp-runtime"
-version = "0.2.15"
+version = "0.2.16"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
@@ -9,25 +9,25 @@ description = "runtime for swamp"
 [dependencies]
 
 # Semantic and Analyzer
-swamp-dep-loader = { path = "../dep-loader", version = "0.2.15" }
-swamp-semantic = { path = "../semantic", version = "0.2.15" }
-swamp-types = { path = "../types", version = "0.2.15" }
-swamp-analyzer = { path = "../analyzer", version = "0.2.15" }
-swamp-vm-layout = { path = "../vm-layout", version = "0.2.15" }
+swamp-dep-loader = { path = "../dep-loader", version = "0.2.16" }
+swamp-semantic = { path = "../semantic", version = "0.2.16" }
+swamp-types = { path = "../types", version = "0.2.16" }
+swamp-analyzer = { path = "../analyzer", version = "0.2.16" }
+swamp-vm-layout = { path = "../vm-layout", version = "0.2.16" }
 
 # Core
-swamp-std = { path = "../std", version = "0.2.15" }
+swamp-std = { path = "../std", version = "0.2.16" }
 
 # Compile orchestrator
-swamp-compile = { path = "../compile", version = "0.2.15" }
+swamp-compile = { path = "../compile", version = "0.2.16" }
 
 # Runtime
-swamp-code-gen-program = { path = "../code-gen-program", version = "0.2.15" }
-swamp-code-gen = { path = "../code-gen", version = "0.2.15" }
-swamp-vm = { path = "../vm", version = "0.2.15" }
-swamp-vm-types = { path = "../vm-types", version = "0.2.15" }
-swamp-vm-disasm = { path = "../vm-disasm", version = "0.2.15" }
-swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.15" }
+swamp-code-gen-program = { path = "../code-gen-program", version = "0.2.16" }
+swamp-code-gen = { path = "../code-gen", version = "0.2.16" }
+swamp-vm = { path = "../vm", version = "0.2.16" }
+swamp-vm-types = { path = "../vm-types", version = "0.2.16" }
+swamp-vm-disasm = { path = "../vm-disasm", version = "0.2.16" }
+swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.16" }
 
 # Source Map
 source-map-cache = "0.0.3"

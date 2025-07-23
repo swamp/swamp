@@ -1,14 +1,14 @@
 [package]
 name = "swamp-dep-loader"
-version = "0.2.15"
+version = "0.2.16"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 description = "Parses Swamp modules, scans for dependencies (`mod` and `use`), and determines the correct analysis order."
 
 [dependencies]
-swamp-ast = { path = "../ast", version = "0.2.15" }
-swamp-parser = { path = "../parser", version = "0.2.15" }
+swamp-ast = { path = "../ast", version = "0.2.16" }
+swamp-parser = { path = "../parser", version = "0.2.16" }
 source-map-cache = "0.0.3"
 
 seq-map = "0.0.13"

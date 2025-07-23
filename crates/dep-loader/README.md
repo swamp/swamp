@@ -25,7 +25,7 @@ This crate is primarily used internally by the Swamp compiler.
 
 ```toml
 [dependencies]
-swamp-dep-loader = "0.2.15"
+swamp-dep-loader = "0.2.16"
 ```
 
 ## License
