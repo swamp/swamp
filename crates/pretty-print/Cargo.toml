@@ -1,15 +1,15 @@
 [package]
 name = "swamp-pretty-print"
-version = "0.2.16"
+version = "0.2.17"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 description = "Pretty-prints Swamp compiler internal representations (Semantic Graph nodes, Types, Symbol Tables) into human-readable, colorized strings for debugging."
 
 [dependencies]
-swamp-semantic = { path = "../semantic", version = "0.2.16" }
-swamp-modules = { path = "../modules", version = "0.2.16" }
-swamp-types = { path = "../types", version = "0.2.16" }
+swamp-semantic = { path = "../semantic", version = "0.2.17" }
+swamp-modules = { path = "../modules", version = "0.2.17" }
+swamp-types = { path = "../types", version = "0.2.17" }
 source-map-cache = "0.0.3"
 source-map-node = "0.0.1"
 
