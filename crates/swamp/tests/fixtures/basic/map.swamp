@@ -414,3 +414,59 @@ fn map_chaining_bug_easy() {
     assert(game.card_templates.has(-909), "I want the card template to be left alone")
     assert(game.card_templates.has(1342), "hope you didn't remove my buddies")
 }
+
+
+struct DeckbuilderMouseHotspot {
+    layer: Int,
+}
+
+fn hotspot_push_workaround(mut hotspot_map: [Int:Vec<DeckbuilderMouseHotspot; 10>], layer: Int, hotspot: DeckbuilderMouseHotspot) {
+	if hotspot_map.has(layer) {
+		hotspot_map[layer].push(hotspot)
+	} else {
+		hotspot_map[layer] = [hotspot]
+	}
+}
+
+
+fn hotspot_push(mut hotspot_map: [Int:Vec<DeckbuilderMouseHotspot>], layer: Int, hotspot: DeckbuilderMouseHotspot) {
+	if hotspot_map.has(layer) {
+		hotspot_map[layer].push(hotspot)
+	} else {
+		hotspot_map[layer] = [hotspot]
+	}
+}
+
+/// # Bug
+///
+/// Bug found by @catnipped
+///
+/// When inserting a map value entry whose value is a collection (e.g. `Vec<T; N>`),
+/// the codegen does not insert instructions for setting capacity during collection initialization, since the
+/// the MapView doesn't know the capacity set for the collection by the caller.
+///
+/// # Impact
+///
+/// Well‑typed code like:
+/// ```
+/// hotspot_map[layer] = [ hotspot ];
+/// ```
+/// will compile successfully but trap when the map entry collection is used, because there’s the capacity field has
+/// not been initialized.
+///
+/// # Solution
+///
+/// Add a N number specifically for value-type collections, and that can emit a special
+/// capacity initialization instructions from the collection N from the Map header to the collection header.
+///#[test]
+fn borrow() {
+	mut mouse_hotspots: [Int:Vec<DeckbuilderMouseHotspot;10>;100] = [:]
+	hotspot_push(&mouse_hotspots, 1, DeckbuilderMouseHotspot { layer: 10 })
+}
+
+
+#[test]
+fn borrow_with_workaround() {
+	mut mouse_hotspots: [Int:Vec<DeckbuilderMouseHotspot;10>;100] = [:]
+	hotspot_push_workaround(&mouse_hotspots, 1, DeckbuilderMouseHotspot { layer: 10 } )
+}
