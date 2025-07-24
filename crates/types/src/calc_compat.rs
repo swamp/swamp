@@ -12,6 +12,16 @@ impl Type {
             return true;
         }
 
+        // Since `Never` (!) types never return, then it is safe to be it compatible with anything
+        if matches!(&*other.kind, TypeKind::Never) {
+            return true;
+        }
+
+        // Since `Never` (!) types never return, then it is safe to be it compatible with anything
+        if matches!(&*self.kind, TypeKind::Never) {
+            return true;
+        }
+
         match (&*self.kind, &*other.kind) {
             // Direct comparisons for primitive types
             (TypeKind::Int, TypeKind::Int) => true,

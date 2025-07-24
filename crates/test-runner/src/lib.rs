@@ -322,6 +322,7 @@ pub fn run_tests(
 
                     if should_run_in_debug_mode {
                         for _ in 0..options.iteration_count {
+                            result.codegen.vm.memory_mut().reset_allocator();
                             swamp_runtime::run_function_with_debug(
                                 &mut result.codegen.vm,
                                 &function_to_run.ip_range,
@@ -353,6 +354,7 @@ pub fn run_tests(
                         }
                     } else {
                         for _ in 0..options.iteration_count {
+                            result.codegen.vm.memory_mut().reset_allocator();
                             swamp_runtime::run_as_fast_as_possible(
                                 &mut result.codegen.vm,
                                 function_to_run,

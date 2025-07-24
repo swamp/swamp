@@ -240,7 +240,9 @@ impl Vm {
 
             let total_bytes_to_copy = num_elements_to_copy * (*src_vec_ptr).element_size;
 
-            ptr::copy_nonoverlapping(source_raw, target_raw, total_bytes_to_copy as usize);
+            // HACK: For now allow overlapping, since the slice target can be self
+            //ptr::copy_nonoverlapping(source_raw, target_raw, total_bytes_to_copy as usize);
+            ptr::copy(source_raw, target_raw, total_bytes_to_copy as usize);
             (*mut_vec_ptr).element_count = num_elements_to_copy as u16;
 
             debug_assert_eq!(

@@ -278,6 +278,9 @@ impl LayoutCache {
         }
 
         let basic_type = match &*ty.kind {
+            TypeKind::Never => {
+                create_basic_type(ty.id, BasicTypeKind::U8, MemorySize(0), MemoryAlignment::U8)
+            }
             TypeKind::Byte => {
                 create_basic_type(ty.id, BasicTypeKind::U8, MemorySize(1), MemoryAlignment::U8)
             }

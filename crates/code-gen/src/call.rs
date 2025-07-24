@@ -558,7 +558,9 @@ impl CodeBuilder<'_> {
 
         self.emit_call(node, internal_fn, "call"); // will be fixed up later
 
-        self.emit_post_call(argument_info, node, "restore spilled after call");
+        if !matches!(&*internal_fn.signature.return_type.kind, TypeKind::Never) {
+            self.emit_post_call(argument_info, node, "restore spilled after call");
+        }
     }
 
     /// If you're not on the last argument for "Outer Function", you have to put

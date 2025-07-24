@@ -205,6 +205,7 @@ qualified_type_identifier
 | tuple_type
 | struct_type
 | unit_type
+| never_type
 }
 
 fixed_capacity_array_type    = { "[" ~ type_name ~ ";" ~ unsigned_int_lit ~ "]" }
@@ -222,6 +223,7 @@ struct_type_field         = { field_label ~ type_name }
 // struct_type_field = { field_label ~ type_name }
 
 unit_type     = @{ "()" }
+never_type = @{ "!" }
 
 field_label       = { identifier ~ ":" }
 

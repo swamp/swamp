@@ -226,7 +226,7 @@ pub fn run_as_fast_as_possible(
     host_function_callback: &mut dyn HostFunctionCallback,
     run_options: RunOptions,
 ) {
-    vm.reset_stack_and_heap_to_constant_limit();
+    vm.reset_minimal_stack_and_fp();
     vm.state = VmState::Normal;
     vm.debug_opcodes_enabled = false;
     vm.debug_operations_enabled = run_options.debug_operations_enabled;
@@ -250,7 +250,7 @@ pub fn run_function(
     host_function_callback: &mut dyn HostFunctionCallback,
     run_options: &RunOptions,
 ) {
-    vm.reset_stack_and_heap_to_constant_limit();
+    vm.reset_minimal_stack_and_fp();
 
     vm.state = VmState::Normal;
 
@@ -451,7 +451,7 @@ pub fn run_function_with_debug(
     host_function_callback: &mut dyn HostFunctionCallback,
     run_options: &RunOptions,
 ) {
-    vm.reset_stack_and_heap_to_constant_limit();
+    vm.reset_minimal_stack_and_fp();
     //vm.reset_debug();
     vm.state = VmState::Normal;
     vm.debug_opcodes_enabled = run_options.debug_opcodes_enabled;
@@ -691,7 +691,7 @@ pub fn compile_codegen_and_create_vm_and_run_first_time(
             let mut callbacks = StandardOnlyHostCallbacks {};
             let run_first_options = RunOptions {
                 debug_stats_enabled: false,
-                debug_opcodes_enabled: false,
+                debug_opcodes_enabled: true,
                 debug_operations_enabled: false,
                 use_color: true,
                 max_count: 0,

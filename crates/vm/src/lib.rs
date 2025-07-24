@@ -900,12 +900,15 @@ impl Vm {
         self.call_stack.clear();
     }
 
-    pub fn reset_stack_and_heap_to_constant_limit(&mut self) {
+    pub fn reset_heap_allocator(&mut self) {
         self.memory.reset_allocator();
+        //self.pc = 0;
+    }
+
+    pub fn reset_minimal_stack_and_fp(&mut self) {
         self.memory.reset_stack_and_fp();
         self.reset_call_stack();
         self.execution_complete = false;
-        //self.pc = 0;
     }
 
     pub fn reset_call_stack(&mut self) {

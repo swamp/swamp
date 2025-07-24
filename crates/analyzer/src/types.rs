@@ -151,6 +151,7 @@ impl Analyzer<'_> {
                 self.analyze_named_type(ast_type_reference)
             }
             swamp_ast::Type::Unit => self.shared.state.types.unit(),
+            swamp_ast::Type::Never => self.shared.state.types.never(),
             swamp_ast::Type::Optional(inner_type_ast, _node) => {
                 let inner_resolved_type = self.analyze_type(inner_type_ast, &TypeAnalyzeContext::default());
                 // Use TypeCache for optional type creation

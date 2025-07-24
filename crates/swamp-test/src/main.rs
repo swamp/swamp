@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
-use swamp_test_runner::{StepBehavior, TestRunOptions, init_logger, run_tests};
+use swamp_test_runner::{init_logger, run_tests, StepBehavior, TestRunOptions};
 
 fn print_usage<W: Write>(mut out: W) {
     let _ = write!(

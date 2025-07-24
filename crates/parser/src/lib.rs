@@ -2390,6 +2390,7 @@ impl AstParser {
             }
 
             Rule::unit_type => Ok(Type::Unit),
+            Rule::never_type => Ok(Type::Never),
 
             _ => Err(self.create_error_pair(
                 SpecificError::UnexpectedTypeRule(format!("{:?}", pair.as_rule())),

@@ -383,7 +383,7 @@ impl Range {
 /// - `message`: The error message to display
 ///
 /// Uses intrinsic function `runtime_panic` to terminate execution.
-fn panic(message: String) {
+fn panic(message: String) -> ! {
     runtime_panic(message)
 }
 

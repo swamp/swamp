@@ -245,3 +245,44 @@ fn match_with_variables() {
     assert(result == "green", 'should have matches {result}')
 }
 */
+
+/*
+struct ArtifactData {
+	name: String,
+	description: String,
+	label: ArtifactLabel,
+	template: Vec<ArtifactMod; 10>,
+}*/
+
+
+enum ArtifactID {
+	Obsidian,
+	SetCollector
+}
+
+enum ArtifactLabel {
+    Blue,
+    Black,
+}
+
+struct ArtifactData {
+    name: String,
+	description: String,
+}
+
+const ARTIFACT_LIB: [ArtifactID:ArtifactData; 100] = [
+	ArtifactID::Obsidian : {
+        name: "Obsidian Gemstone",
+		description: "Gain one extra move action, lose 1 speed",
+	},
+	ArtifactID::SetCollector : {
+        name: "Set Collector",
+		description: 'For each {ArtifactLabel::Blue} artifact, equipped, +1 strength',
+	}
+]
+
+#[test]
+fn string_in_constant() {
+    print('cool:{ARTIFACT_LIB[ArtifactID::SetCollector].description}')
+    assert(ARTIFACT_LIB[ArtifactID::SetCollector].description == "For each ArtifactLabel::Blue artifact, equipped, +1 strength", 'was not equal {ARTIFACT_LIB[ArtifactID::SetCollector].description}')
+}

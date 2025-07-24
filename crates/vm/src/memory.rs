@@ -4,7 +4,7 @@
  */
 use crate::ALIGNMENT;
 use std::{alloc, mem, ptr, slice};
-use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_types::{HeapMemoryAddress, HeapMemoryRegion, MemoryAlignment, MemorySize};
 
 /// Execution mode for the VM memory
@@ -113,12 +113,18 @@ impl Memory {
         self.frame_offset = self.stack_offset;
     }
 
+    const HEAP_SIZE_DURING_CONSTANT_EVALUATION: usize = 512 * 1024;
     pub fn set_heap_directly_after_constant_area(&mut self) {
         // Set the heap_start to be just after the constant memory area (aligned)
         let original_constant_memory_size = self.constant_memory_size;
         let aligned_heap_start = align(original_constant_memory_size, ALIGNMENT);
         self.heap_start = aligned_heap_start;
         self.heap_alloc_offset = aligned_heap_start;
+
+        // Move the stack start well after heap so they do not clobber each other
+        // TODO: Have a setting instead of a constant?
+        self.stack_start = self.heap_start + Self::HEAP_SIZE_DURING_CONSTANT_EVALUATION;
+        self.stack_offset = self.stack_start;
 
         // When setting heap directly after constant area, we're in constant evaluation mode
         self.execution_mode = ExecutionMode::ConstantEvaluation;
@@ -127,11 +133,14 @@ impl Memory {
     pub fn incorporate_heap_into_constant_area(&mut self) {
         let constant_heap_end = self.heap_alloc_offset;
 
-        //        eprintln!("=== INCORPORATE_HEAP_INTO_CONSTANT_AREA ===");
-        //      eprintln!("Before: constant_memory_size=0x{:X}, heap_alloc_offset=0x{:X}",
-        //              self.constant_memory_size, self.heap_alloc_offset);
+        /*
+        eprintln!("=== INCORPORATE_HEAP_INTO_CONSTANT_AREA ===");
+        eprintln!("Before: constant_memory_size=0x{:X}, heap_alloc_offset=0x{:X}",
+                  self.constant_memory_size, self.heap_alloc_offset);
 
-        // The original code to incorporate heap into constant area
+         */
+
+        // Stack should start right after incorporated constant heap
         let new_stack_start = align(constant_heap_end, ALIGNMENT);
 
         self.stack_start = new_stack_start;
@@ -139,14 +148,16 @@ impl Memory {
         self.frame_offset = new_stack_start;
         self.constant_memory_size = new_stack_start;
 
+        // Heap should be after stack
         let new_heap_start = align(new_stack_start + self.stack_memory_size, ALIGNMENT);
         self.heap_start = new_heap_start;
         self.heap_alloc_offset = new_heap_start;
 
         // After incorporating heap into constant area, we're switching to normal execution mode
         self.execution_mode = ExecutionMode::NormalExecution;
-        //        eprintln!("After: constant_memory_size=0x{:X}, new_stack_start=0x{:X}, new_heap_start=0x{:X}",
-        //                self.constant_memory_size, new_stack_start, new_heap_start);
+
+        eprintln!("After: constant_memory_size=0x{:X}, new_stack_start=0x{:X}, new_heap_start=0x{:X}",
+                  self.constant_memory_size, new_stack_start, new_heap_start);
     }
 
     pub fn alloc_before_stack(

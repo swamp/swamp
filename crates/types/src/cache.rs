@@ -315,6 +315,19 @@ impl TypeCache {
         self.compatible_cache.clear();
     }
 
+
+    pub fn never(&mut self) -> Rc<Type> {
+        let never_kind = TypeKind::Never;
+
+        if let Some(existing) = self.find_type(&never_kind) {
+            return existing;
+        }
+
+        let never_type = self.create_type(never_kind);
+        self.add_type_to_cache(&never_type);
+        never_type
+    }
+
     //
     // Primitive helpers
     // TODO: Maybe just add the primitives at creation instead

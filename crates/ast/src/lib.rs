@@ -602,6 +602,7 @@ pub enum Type {
     Named(QualifiedTypeIdentifier),
 
     Optional(Box<Type>, Node),
+    Never,
 }
 
 #[derive(Debug, Clone)]
