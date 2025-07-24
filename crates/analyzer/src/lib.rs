@@ -166,7 +166,6 @@ impl<'a> Analyzer<'a> {
             file_id,
         };
 
-
         let mut analyzer = Self {
             scope: ScopeInfo::default(),
             global: FunctionScopeState::new(),
@@ -400,7 +399,8 @@ impl<'a> Analyzer<'a> {
         let function_name = self.get_text(&qualified_func_name.name);
 
         if let Some(found_table) = self.shared.get_symbol_table(&path)
-            && let Some(found_func) = found_table.get_function(function_name) {
+            && let Some(found_func) = found_table.get_function(function_name)
+        {
             let (kind, signature) = match found_func {
                 FuncDef::Internal(internal_fn) => (
                     Function::Internal(internal_fn.clone()),
@@ -513,7 +513,8 @@ impl<'a> Analyzer<'a> {
     ) -> MaybeBorrowMutRefExpression {
         if let swamp_ast::ExpressionKind::UnaryOp(found_unary, ast_inner_expression) =
             &ast_expr.kind
-            && let swamp_ast::UnaryOperator::BorrowMutRef(node) = found_unary {
+            && let swamp_ast::UnaryOperator::BorrowMutRef(node) = found_unary
+        {
             //let inner = self.analyze_expression(ast_inner_expression, context)?;
             let resolved_node = self.to_node(node);
             return MaybeBorrowMutRefExpression {
@@ -951,7 +952,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                        .kind
+                    .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -985,14 +986,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                    .kind
+                .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-                .kind
+            .kind
         }
     }
 
@@ -1020,7 +1021,6 @@ impl<'a> Analyzer<'a> {
 
         vec.push(postfix);
     }
-
 
     /// # Panics
     ///
@@ -1069,7 +1069,8 @@ impl<'a> Analyzer<'a> {
 
         // Extract the AnonymousStructType from the TypeRef
         if let TypeKind::AnonymousStruct(anon_struct) = &*anon_struct_ref.kind
-            && let Some(found_field) = anon_struct.field_name_sorted_fields.get(&field_name_str) {
+            && let Some(found_field) = anon_struct.field_name_sorted_fields.get(&field_name_str)
+        {
             let index = anon_struct
                 .field_name_sorted_fields
                 .get_index(&field_name_str)
@@ -1269,7 +1270,9 @@ impl<'a> Analyzer<'a> {
                             // Keep previous mutable
                             tv.resolved_type = element_type.clone();
                         }
-                        _ => return self.create_err(ErrorKind::ExpectedTupleType, &chain.base.node),
+                        _ => {
+                            return self.create_err(ErrorKind::ExpectedTupleType, &chain.base.node);
+                        }
                     }
                 }
 
@@ -1279,8 +1282,10 @@ impl<'a> Analyzer<'a> {
 
                     match &*collection_type.kind {
                         // Map lookups can involve a wide range of lookup (key) types, so handle the specifically
-                        TypeKind::MapStorage(key_type, value_type, ..) | TypeKind::DynamicLengthMapView(key_type, value_type) => {
-                            let (postfix, return_type) = self.analyze_map_subscript(key_type, value_type, lookup_expr);
+                        TypeKind::MapStorage(key_type, value_type, ..)
+                        | TypeKind::DynamicLengthMapView(key_type, value_type) => {
+                            let (postfix, return_type) =
+                                self.analyze_map_subscript(key_type, value_type, lookup_expr);
                             suffixes.push(postfix);
                             tv.resolved_type = return_type;
                         }
@@ -1292,17 +1297,26 @@ impl<'a> Analyzer<'a> {
 
                             match &*anything_expression.ty.kind {
                                 TypeKind::Int => {
-                                    let (postfix, return_type) = self.analyze_subscript_int(collection_type, anything_expression);
+                                    let (postfix, return_type) = self.analyze_subscript_int(
+                                        collection_type,
+                                        anything_expression,
+                                    );
                                     suffixes.push(postfix);
                                     tv.resolved_type = return_type;
                                 }
                                 TypeKind::Range(_range_type) => {
-                                    let (postfix, return_type) = self.analyze_subscript_range(collection_type, anything_expression);
+                                    let (postfix, return_type) = self.analyze_subscript_range(
+                                        collection_type,
+                                        anything_expression,
+                                    );
                                     suffixes.push(postfix);
                                     tv.resolved_type = return_type;
                                 }
                                 _ => {
-                                    return self.create_err(ErrorKind::CanNotSubscriptWithThatType, &lookup_expr.node)
+                                    return self.create_err(
+                                        ErrorKind::CanNotSubscriptWithThatType,
+                                        &lookup_expr.node,
+                                    );
                                 }
                             }
                         }
@@ -1328,7 +1342,10 @@ impl<'a> Analyzer<'a> {
                     tv.is_mutable = false;
                 }
                 swamp_ast::Postfix::FunctionCall(node, _generic_arguments, arguments) => {
-                    return self.create_err(ErrorKind::CanOnlyHaveFunctionCallAtStartOfPostfixChain, node);
+                    return self.create_err(
+                        ErrorKind::CanOnlyHaveFunctionCallAtStartOfPostfixChain,
+                        node,
+                    );
                 }
 
                 swamp_ast::Postfix::OptionalChainingOperator(option_node) => {
@@ -1357,7 +1374,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
+            } else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -1640,7 +1658,8 @@ impl<'a> Analyzer<'a> {
         // local variables before other functions
         if qualified_func_name.module_path.is_none()
             && qualified_func_name.generic_params.is_empty()
-            && let Some(found_variable) = self.try_find_variable(&qualified_func_name.name) {
+            && let Some(found_variable) = self.try_find_variable(&qualified_func_name.name)
+        {
             return self.create_expr(
                 ExpressionKind::VariableAccess(found_variable.clone()),
                 found_variable.resolved_type.clone(),
@@ -1903,8 +1922,11 @@ impl<'a> Analyzer<'a> {
         let scope = self.scope.active_scope.block_scope_stack.pop().unwrap();
 
         // Record the highest watermark (greatest depth of virtual registers)
-        if self.scope.total_scopes.current_register > self.scope.total_scopes.highest_virtual_register {
-            self.scope.total_scopes.highest_virtual_register = self.scope.total_scopes.current_register;
+        if self.scope.total_scopes.current_register
+            > self.scope.total_scopes.highest_virtual_register
+        {
+            self.scope.total_scopes.highest_virtual_register =
+                self.scope.total_scopes.current_register;
         }
 
         // Check if we're inside a lambda scope - if so, don't restore register counter
@@ -2026,7 +2048,6 @@ impl<'a> Analyzer<'a> {
             |rest| i32::from_str_radix(rest, 16),
         )
     }
-
 
     pub fn str_to_byte(text: &str) -> Result<u8, ParseByteError> {
         // TODO: Fix better parsing so you don't get text for the whole node
@@ -2341,8 +2362,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                    .expect_immutable()
-                    .unwrap()
+                .expect_immutable()
+                .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2583,7 +2604,8 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
+    }
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -2690,8 +2712,9 @@ impl<'a> Analyzer<'a> {
         annotation_type: Option<&swamp_ast::Type>,
         source_expression: &swamp_ast::Expression,
     ) -> Expression {
-        let maybe_annotated_type =
-            annotation_type.map(|found_ast_type| self.analyze_type(found_ast_type, &TypeAnalyzeContext::default()));
+        let maybe_annotated_type = annotation_type.map(|found_ast_type| {
+            self.analyze_type(found_ast_type, &TypeAnalyzeContext::default())
+        });
 
         let unsure_arg_context =
             TypeContext::new_unsure_argument(maybe_annotated_type.as_ref(), true);
@@ -2711,7 +2734,10 @@ impl<'a> Analyzer<'a> {
         );
 
         if *resulting_type.kind == TypeKind::Unit {
-            return self.create_err(ErrorKind::VariableTypeMustBeBlittable(resulting_type), &var.name);
+            return self.create_err(
+                ErrorKind::VariableTypeMustBeBlittable(resulting_type),
+                &var.name,
+            );
         }
         assert_ne!(&*resulting_type.kind, &TypeKind::Unit);
         let kind = ExpressionKind::VariableDefinition(var_ref, Box::from(resolved_source));
@@ -2858,7 +2884,10 @@ impl<'a> Analyzer<'a> {
                         ty = element_type.clone();
                     }
                     _ => {
-                        self.add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, &base_expr.node);
+                        self.add_err_resolved(
+                            ErrorKind::CanNotSubscriptWithThatType,
+                            &base_expr.node,
+                        );
 
                         return SingleLocationExpression {
                             kind: MutableReferenceKind::MutVariableRef,
@@ -2985,7 +3014,10 @@ impl<'a> Analyzer<'a> {
                         }
 
                         _ => {
-                            self.add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, &base_expr.node);
+                            self.add_err_resolved(
+                                ErrorKind::CanNotSubscriptWithThatType,
+                                &base_expr.node,
+                            );
 
                             return SingleLocationExpression {
                                 kind: MutableReferenceKind::MutVariableRef,
@@ -3050,7 +3082,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if let Some(found_expected_type) = context.expected_type
-            && !self.types().compatible_with(found_expected_type, &ty) {
+            && !self.types().compatible_with(found_expected_type, &ty)
+        {
             self.add_err(
                 ErrorKind::IncompatibleTypes {
                     expected: found_expected_type.clone(),
@@ -3541,13 +3574,15 @@ impl<'a> Analyzer<'a> {
                 (
                     IntrinsicFunction::VecSlice,
                     Signature {
-                        parameters: vec![self_type_param,
-                                         TypeForParameter {
-                                             name: "range".to_string(),
-                                             resolved_type: range_type,
-                                             is_mutable: false,
-                                             node: None,
-                                         }, ],
+                        parameters: vec![
+                            self_type_param,
+                            TypeForParameter {
+                                name: "range".to_string(),
+                                resolved_type: range_type,
+                                is_mutable: false,
+                                node: None,
+                            },
+                        ],
                         return_type: self_type.clone(),
                     },
                 )
@@ -3752,14 +3787,14 @@ impl<'a> Analyzer<'a> {
             "int" => Some((
                 IntrinsicFunction::ByteToInt,
                 Signature {
-                    parameters: vec![self_type_param.clone()],
+                    parameters: vec![self_type_param],
                     return_type: self.types().int(),
                 },
             )),
             "float" => Some((
                 IntrinsicFunction::ByteToFloat,
                 Signature {
-                    parameters: vec![self_type_param.clone()],
+                    parameters: vec![self_type_param],
                     return_type: self.types().float(),
                 },
             )),
@@ -3792,23 +3827,21 @@ impl<'a> Analyzer<'a> {
         };
 
         let x = match field_name_str {
-            "starts_with" => {
-                (
-                    IntrinsicFunction::StringStartsWith,
-                    Signature {
-                        parameters: vec![
-                            self_type_param,
-                            TypeForParameter {
-                                name: "key".to_string(),
-                                resolved_type: self_type.clone(),
-                                is_mutable: false,
-                                node: None,
-                            },
-                        ],
-                        return_type: self.types().bool(),
-                    },
-                )
-            }
+            "starts_with" => (
+                IntrinsicFunction::StringStartsWith,
+                Signature {
+                    parameters: vec![
+                        self_type_param,
+                        TypeForParameter {
+                            name: "key".to_string(),
+                            resolved_type: self_type.clone(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: self.types().bool(),
+                },
+            ),
             _ => {
                 return self.vec_member_signature(
                     self_type,
@@ -3816,7 +3849,7 @@ impl<'a> Analyzer<'a> {
                     field_name_str,
                     lambda_variable_count,
                     node,
-                )
+                );
             }
         };
 
@@ -4208,7 +4241,8 @@ impl<'a> Analyzer<'a> {
         let generic_arguments = if let Some(ast_generic_arguments) = ast_maybe_generic_arguments {
             let mut resolved_types = Vec::new();
             for ast_type in ast_generic_arguments {
-                resolved_types.push(self.analyze_type(ast_type.get_type(), &TypeAnalyzeContext::default()));
+                resolved_types
+                    .push(self.analyze_type(ast_type.get_type(), &TypeAnalyzeContext::default()));
             }
             resolved_types
         } else {
@@ -4338,8 +4372,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                    .types()
-                    .compatible_with(initializer_value_type, storage_value)
+                        .types()
+                        .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }
@@ -4355,15 +4389,14 @@ impl<'a> Analyzer<'a> {
         let expected_type = special_expected_type;
         let encountered_type = special_encountered_type;
 
-        if matches!(&*expected_type.kind, TypeKind::Any)
-            && encountered_type.is_storage() {
-                let wrapped = self.create_expr(
-                    ExpressionKind::CoerceToAny(Box::new(expr)),
-                    expected_type.clone(),
-                    node,
-                );
-                return wrapped;
-            }
+        if matches!(&*expected_type.kind, TypeKind::Any) && encountered_type.is_storage() {
+            let wrapped = self.create_expr(
+                ExpressionKind::CoerceToAny(Box::new(expr)),
+                expected_type.clone(),
+                node,
+            );
+            return wrapped;
+        }
 
         let encountered_is_optional = matches!(&*encountered_type.kind, TypeKind::Optional(_));
         if let TypeKind::Optional(expected_inner_type) = &*expected_type.kind {
@@ -4486,14 +4519,20 @@ impl<'a> Analyzer<'a> {
             }
             "Vec" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
+                    let element_type = self.analyze_type(
+                        ast_generic_parameters[0].get_type(),
+                        &TypeAnalyzeContext::default(),
+                    );
                     let vec_type = self.shared.state.types.dynamic_vec_view(&element_type);
                     // Generate default functions for the new dynamic vec view type
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&vec_type, &default_node);
                     vec_type
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
+                    let element_type = self.analyze_type(
+                        ast_generic_parameters[0].get_type(),
+                        &TypeAnalyzeContext::default(),
+                    );
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     let vec_storage_type = self
@@ -4511,14 +4550,20 @@ impl<'a> Analyzer<'a> {
             }
             "Stack" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
+                    let element_type = self.analyze_type(
+                        ast_generic_parameters[0].get_type(),
+                        &TypeAnalyzeContext::default(),
+                    );
                     let stack_view_type = self.shared.state.types.stack_view(&element_type);
                     // Generate default functions for the new stack view type
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&stack_view_type, &default_node);
                     stack_view_type
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
+                    let element_type = self.analyze_type(
+                        ast_generic_parameters[0].get_type(),
+                        &TypeAnalyzeContext::default(),
+                    );
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     let stack_storage_type = self
@@ -4536,14 +4581,20 @@ impl<'a> Analyzer<'a> {
             }
             "Queue" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
+                    let element_type = self.analyze_type(
+                        ast_generic_parameters[0].get_type(),
+                        &TypeAnalyzeContext::default(),
+                    );
                     let queue_view_type = self.shared.state.types.queue_view(&element_type);
                     // Generate default functions for the new queue view type
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&queue_view_type, &default_node);
                     queue_view_type
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
+                    let element_type = self.analyze_type(
+                        ast_generic_parameters[0].get_type(),
+                        &TypeAnalyzeContext::default(),
+                    );
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     let queue_storage_type = self
@@ -4561,14 +4612,20 @@ impl<'a> Analyzer<'a> {
             }
             "Sparse" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
+                    let element_type = self.analyze_type(
+                        ast_generic_parameters[0].get_type(),
+                        &TypeAnalyzeContext::default(),
+                    );
                     let sparse_view_type = self.shared.state.types.sparse_view(&element_type);
                     // Generate default functions for the new sparse view type
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&sparse_view_type, &default_node);
                     sparse_view_type
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
+                    let element_type = self.analyze_type(
+                        ast_generic_parameters[0].get_type(),
+                        &TypeAnalyzeContext::default(),
+                    );
                     let fixed_size =
                         self.analyze_generic_parameter_usize(&ast_generic_parameters[1]);
                     let sparse_storage_type = self
@@ -4587,14 +4644,20 @@ impl<'a> Analyzer<'a> {
 
             "Grid" => {
                 if ast_generic_parameters.len() == 1 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
+                    let element_type = self.analyze_type(
+                        ast_generic_parameters[0].get_type(),
+                        &TypeAnalyzeContext::default(),
+                    );
                     let grid_view_type = self.shared.state.types.grid_view(&element_type);
                     // Generate default functions for the new grid view type
                     let default_node = swamp_ast::Node::default();
                     self.add_default_functions(&grid_view_type, &default_node);
                     grid_view_type
                 } else if ast_generic_parameters.len() == 2 {
-                    let element_type = self.analyze_type(ast_generic_parameters[0].get_type(), &TypeAnalyzeContext::default());
+                    let element_type = self.analyze_type(
+                        ast_generic_parameters[0].get_type(),
+                        &TypeAnalyzeContext::default(),
+                    );
                     let (width, height) =
                         self.analyze_generic_parameter_usize_tuple(&ast_generic_parameters[1]);
                     let grid_storage_type =
@@ -4639,7 +4702,11 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn analyze_subscript_int(&mut self, collection_type: TypeRef, unsigned_int_expression: Expression) -> (Postfix, TypeRef) {
+    fn analyze_subscript_int(
+        &mut self,
+        collection_type: TypeRef,
+        unsigned_int_expression: Expression,
+    ) -> (Postfix, TypeRef) {
         let node = &unsigned_int_expression.node;
         match &*collection_type.kind {
             TypeKind::QueueStorage(element_type, _)
@@ -4658,37 +4725,28 @@ impl<'a> Analyzer<'a> {
                 let postfix = Postfix {
                     node: node.clone(),
                     ty: collection_type.clone(),
-                    kind: PostfixKind::VecSubscript(
-                        vec_type,
-                        unsigned_int_expression,
-                    ),
+                    kind: PostfixKind::VecSubscript(vec_type, unsigned_int_expression),
                 };
 
                 (postfix, element_type.clone())
             }
             // Sparse
-            TypeKind::SparseStorage(element_type, _)
-            | TypeKind::SparseView(element_type) => {
+            TypeKind::SparseStorage(element_type, _) | TypeKind::SparseView(element_type) => {
                 let sparse_type = SparseType {
                     element: element_type.clone(),
                 };
 
-
                 let postfix = Postfix {
                     node: node.clone(),
                     ty: collection_type.clone(),
-                    kind: PostfixKind::SparseSubscript(
-                        sparse_type,
-                        unsigned_int_expression,
-                    ),
+                    kind: PostfixKind::SparseSubscript(sparse_type, unsigned_int_expression),
                 };
 
                 (postfix, element_type.clone())
             }
 
             _ => {
-                self
-                    .add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, node);
+                self.add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, node);
 
                 let error_vec_type = VecType {
                     element: self.types().unit(),
@@ -4697,10 +4755,7 @@ impl<'a> Analyzer<'a> {
                 let error_postfix = Postfix {
                     node: node.clone(),
                     ty: collection_type.clone(),
-                    kind: PostfixKind::VecSubscript(
-                        error_vec_type,
-                        unsigned_int_expression,
-                    ),
+                    kind: PostfixKind::VecSubscript(error_vec_type, unsigned_int_expression),
                 };
 
                 (error_postfix, self.types().unit())
@@ -4708,8 +4763,11 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-
-    fn analyze_subscript_range(&mut self, collection_type: TypeRef, range_expression: Expression) -> (Postfix, TypeRef) {
+    fn analyze_subscript_range(
+        &mut self,
+        collection_type: TypeRef,
+        range_expression: Expression,
+    ) -> (Postfix, TypeRef) {
         let node = &range_expression.node;
         match &*collection_type.kind {
             TypeKind::QueueStorage(element_type, _)
@@ -4728,10 +4786,7 @@ impl<'a> Analyzer<'a> {
                 let postfix = Postfix {
                     node: node.clone(),
                     ty: collection_type.clone(),
-                    kind: PostfixKind::VecSubscriptRange(
-                        vec_type,
-                        range_expression,
-                    ),
+                    kind: PostfixKind::VecSubscriptRange(vec_type, range_expression),
                 };
 
                 // A range subscript returns the same type again
@@ -4739,8 +4794,7 @@ impl<'a> Analyzer<'a> {
             }
 
             _ => {
-                self
-                    .add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, node);
+                self.add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, node);
 
                 let error_vec_type = VecType {
                     element: self.types().unit(),
@@ -4749,17 +4803,19 @@ impl<'a> Analyzer<'a> {
                 let error_postfix = Postfix {
                     node: node.clone(),
                     ty: collection_type.clone(),
-                    kind: PostfixKind::VecSubscriptRange(
-                        error_vec_type,
-                        range_expression,
-                    ),
+                    kind: PostfixKind::VecSubscriptRange(error_vec_type, range_expression),
                 };
 
                 (error_postfix, self.types().unit())
             }
         }
     }
-    fn analyze_map_subscript(&mut self, key_type: &TypeRef, value_type: &TypeRef, lookup_expr: &swamp_ast::Expression) -> (Postfix, TypeRef) {
+    fn analyze_map_subscript(
+        &mut self,
+        key_type: &TypeRef,
+        value_type: &TypeRef,
+        lookup_expr: &swamp_ast::Expression,
+    ) -> (Postfix, TypeRef) {
         let key_context = TypeContext::new_argument(key_type, false);
         let key_expression = self.analyze_expression(lookup_expr, &key_context);
 

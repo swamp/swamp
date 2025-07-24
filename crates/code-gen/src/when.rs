@@ -6,8 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, WhenBinding};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{u8_type, Destination, VmType};
 use swamp_vm_types::MemoryLocation;
+use swamp_vm_types::types::{Destination, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]

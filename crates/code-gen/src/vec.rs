@@ -54,7 +54,6 @@ impl CodeBuilder<'_> {
         Destination::Memory(pointer_location.memory_location())
     }
 
-
     pub fn emit_vec_subscript_range_helper(
         &mut self,
         destination_memory_location: &Destination,
@@ -87,7 +86,6 @@ impl CodeBuilder<'_> {
             "copy range, but leave the capacity on the destination",
         );
     }
-
 
     pub fn grid_subscript_helper_helper(
         &mut self,

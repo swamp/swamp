@@ -10,13 +10,13 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_types::types::{
-    float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister,
-    VmType,
+    Destination, TypedRegister, VmType, float_type, int_type, pointer_type, u8_type, u16_type,
+    u32_type,
 };
 use swamp_vm_types::{
-    AggregateMemoryLocation, MemoryLocation, MemoryOffset,
-    PointerLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, GRID_HEADER_HEIGHT_OFFSET,
-    GRID_HEADER_WIDTH_OFFSET,
+    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
+    GRID_HEADER_HEIGHT_OFFSET, GRID_HEADER_WIDTH_OFFSET, MemoryLocation, MemoryOffset,
+    PointerLocation,
 };
 
 impl CodeBuilder<'_> {
@@ -414,7 +414,13 @@ impl CodeBuilder<'_> {
                 );
                 let output_pointer_location = PointerLocation::new(output_pointer);
 
-                self.builder.add_vec_copy_range(&output_pointer_location, self_ptr_reg, &range_region, node, "vec slice");
+                self.builder.add_vec_copy_range(
+                    &output_pointer_location,
+                    self_ptr_reg,
+                    &range_region,
+                    node,
+                    "vec slice",
+                );
             }
 
             IntrinsicFunction::VecRemoveIndex => {
@@ -523,12 +529,16 @@ impl CodeBuilder<'_> {
                     "set to zero",
                 );
 
-                let self_memory_location = AggregateMemoryLocation::new(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                    self_ptr_reg.ptr_reg.clone(),
-                ));
+                let self_memory_location = AggregateMemoryLocation::new(
+                    MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                        self_ptr_reg.ptr_reg.clone(),
+                    ),
+                );
 
                 self.builder.add_st16_using_ptr_with_offset(
-                    &self_memory_location.offset(COLLECTION_ELEMENT_COUNT_OFFSET, u16_type()).location,
+                    &self_memory_location
+                        .offset(COLLECTION_ELEMENT_COUNT_OFFSET, u16_type())
+                        .location,
                     temp_element_count_reg.register(),
                     node,
                     "set element_count to zero",
@@ -1439,16 +1449,20 @@ impl CodeBuilder<'_> {
             }
 
             IntrinsicFunction::StringToInt => {
-                let pointer = self.emit_compute_effective_address_to_register(target_destination, node, "need pointer to tuple");
-                self.builder.add_string_to_int(
-                    &pointer,
-                    self_reg.unwrap(),
+                let pointer = self.emit_compute_effective_address_to_register(
+                    target_destination,
                     node,
-                    "string to int",
+                    "need pointer to tuple",
                 );
+                self.builder
+                    .add_string_to_int(&pointer, self_reg.unwrap(), node, "string to int");
             }
             IntrinsicFunction::StringToFloat => {
-                let pointer = self.emit_compute_effective_address_to_register(target_destination, node, "need pointer to tuple");
+                let pointer = self.emit_compute_effective_address_to_register(
+                    target_destination,
+                    node,
+                    "need pointer to tuple",
+                );
                 self.builder.add_string_to_float(
                     &pointer,
                     self_reg.unwrap(),

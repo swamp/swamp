@@ -14,7 +14,6 @@ pub struct TypeContext<'a> {
     pub ephemeral_is_allowed: bool,
 }
 
-
 impl<'a> TypeContext<'a> {
     #[must_use]
     pub const fn new(expected_type: Option<&'a TypeRef>, has_lvalue_target: bool) -> Self {
@@ -49,7 +48,6 @@ impl<'a> TypeContext<'a> {
         }
     }
 
-
     pub(crate) const fn with_argument_anything(&self) -> Self {
         Self {
             expected_type: None,
@@ -67,7 +65,10 @@ impl<'a> TypeContext<'a> {
         }
     }
 
-    pub(crate) const fn new_argument_ephemeral(required_type: &'a TypeRef, has_lvalue_target: bool) -> Self {
+    pub(crate) const fn new_argument_ephemeral(
+        required_type: &'a TypeRef,
+        has_lvalue_target: bool,
+    ) -> Self {
         Self {
             expected_type: Some(required_type),
             has_lvalue_target,

@@ -4,10 +4,10 @@
  */
 use crate::memory::Memory;
 use crate::set_reg;
-use crate::{get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s, TrapCode, Vm};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s};
 use std::ptr;
 use swamp_vm_types::{
-    VecHeader, VecIterator, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE,
+    VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE, VecHeader, VecIterator,
 };
 
 impl Vm {
@@ -173,9 +173,13 @@ impl Vm {
         }
     }
 
-
     #[inline]
-    pub fn execute_vec_copy_range(&mut self, target_vec_ptr_reg: u8, source_vec_ptr_reg: u8, range_reg: u8) {
+    pub fn execute_vec_copy_range(
+        &mut self,
+        target_vec_ptr_reg: u8,
+        source_vec_ptr_reg: u8,
+        range_reg: u8,
+    ) {
         let target_vec_addr = get_reg!(self, target_vec_ptr_reg);
         let source_vec_addr = get_reg!(self, source_vec_ptr_reg);
         let range_header = self.range_header_from_reg(range_reg);
@@ -209,10 +213,13 @@ impl Vm {
                 return self.internal_trap(TrapCode::ReverseRangeNotAllowedHere);
             }
 
-
             debug_assert!(range_header.max >= range_header.min);
 
-            let num_elements_to_copy = if range_header.inclusive { (range_header.max - range_header.min + 1) as u32 } else { (range_header.max - range_header.min) as u32 };
+            let num_elements_to_copy = if range_header.inclusive {
+                (range_header.max - range_header.min + 1) as u32
+            } else {
+                (range_header.max - range_header.min) as u32
+            };
             let source_element_index = range_header.min as u32;
             let required_source_element_count = source_element_index + num_elements_to_copy;
 
@@ -235,7 +242,10 @@ impl Vm {
             let target_payload = (target_vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0) as usize;
             let target_raw = self.memory.get_heap_ptr(target_payload);
 
-            let source_slice_start = (source_vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 + source_element_index * (*src_vec_ptr).element_size) as usize;
+            let source_slice_start = (source_vec_addr
+                + VEC_HEADER_PAYLOAD_OFFSET.0
+                + source_element_index * (*src_vec_ptr).element_size)
+                as usize;
             let source_raw = self.memory.get_heap_const_ptr(source_slice_start);
 
             let total_bytes_to_copy = num_elements_to_copy * (*src_vec_ptr).element_size;

@@ -20,7 +20,6 @@ use swamp_types::prelude::*;
 use swamp_types::{Type, TypeRef};
 use tracing::error;
 
-
 #[derive(Debug, Clone)]
 pub struct TypeWithMut {
     pub resolved_type: TypeRef,
@@ -192,7 +191,6 @@ pub struct BlockScope {
     pub lookup: SeqMap<String, VariableRef>,
     pub variables: SeqMap<usize, VariableRef>,
     pub register_watermark: usize,
-
 }
 
 impl Display for BlockScope {
@@ -220,7 +218,6 @@ impl BlockScope {
             variables: SeqMap::new(),
             lookup: SeqMap::new(),
             register_watermark: 0,
-
         }
     }
 }
@@ -237,7 +234,6 @@ pub struct VariableScopes {
     pub current_register: usize,
     pub highest_virtual_register: usize,
     pub all_variables: Vec<VariableRef>,
-
 }
 
 impl VariableScopes {
@@ -248,7 +244,6 @@ impl VariableScopes {
             current_register: 0,
             all_variables: vec![],
             highest_virtual_register: 0,
-
         }
     }
 
@@ -1066,7 +1061,8 @@ impl AssociatedImpls {
     pub fn get_member_function(&self, ty: &TypeRef, function_name: &str) -> Option<&FunctionRef> {
         let maybe_found_impl = self.functions.get(ty);
         if let Some(found_impl) = maybe_found_impl
-            && let Some(func) = found_impl.functions.get(&function_name.to_string()) {
+            && let Some(func) = found_impl.functions.get(&function_name.to_string())
+        {
             return Some(func);
         }
         None
@@ -1075,7 +1071,8 @@ impl AssociatedImpls {
     fn has_internal_member_function(&self, ty: &TypeRef, function_name: &str) -> bool {
         let maybe_found_impl = self.functions.get(ty);
         if let Some(found_impl) = maybe_found_impl
-            && let Some(_func) = found_impl.functions.get(&function_name.to_string()) {
+            && let Some(_func) = found_impl.functions.get(&function_name.to_string())
+        {
             return true;
         }
         false
@@ -1088,7 +1085,8 @@ impl AssociatedImpls {
         function_name: &str,
     ) -> Option<&ExternalFunctionDefinitionRef> {
         if let Some(found) = self.get_member_function(ty, function_name)
-            && let Function::External(ext_fn) = &**found {
+            && let Function::External(ext_fn) = &**found
+        {
             return Some(ext_fn);
         }
         None
@@ -1101,7 +1099,8 @@ impl AssociatedImpls {
         function_name: &str,
     ) -> Option<&InternalFunctionDefinitionRef> {
         if let Some(found) = self.get_member_function(ty, function_name)
-            && let Function::Internal(int_fn) = &**found {
+            && let Function::Internal(int_fn) = &**found
+        {
             return Some(int_fn);
         }
         None

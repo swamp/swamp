@@ -206,12 +206,13 @@ impl Analyzer<'_> {
                                             anyone_wants_mutable = true;
                                         }
 
-                                        let variable_ref = self.create_local_variable_parameter_like(
-                                            &var.name,
-                                            var.is_mutable.as_ref(),
-                                            field_type,
-                                            false,
-                                        );
+                                        let variable_ref = self
+                                            .create_local_variable_parameter_like(
+                                                &var.name,
+                                                var.is_mutable.as_ref(),
+                                                field_type,
+                                                false,
+                                            );
 
                                         resolved_elements.push(
                                             PatternElement::VariableWithFieldIndex(

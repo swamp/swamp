@@ -2,13 +2,14 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::Analyzer;
 use crate::to_string::{
-    internal_generate_to_pretty_string_function_for_type, internal_generate_to_pretty_string_parameterless_function_for_type, internal_generate_to_short_string_function_for_type,
+    ExpressionGenerator, internal_generate_to_pretty_string_function_for_type,
+    internal_generate_to_pretty_string_parameterless_function_for_type,
+    internal_generate_to_short_string_function_for_type,
     internal_generate_to_string_function_for_type,
-    ExpressionGenerator,
 };
 use crate::types::TypeAnalyzeContext;
-use crate::Analyzer;
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_ast::Node;
@@ -191,7 +192,8 @@ impl Analyzer<'_> {
             let payload_type = match ast_variant_type {
                 swamp_ast::EnumVariantType::Simple(_variant_name_node) => self.types().unit(),
                 swamp_ast::EnumVariantType::Direct(_variant_name_node, direct_type) => {
-                    let analyzed_type = self.analyze_type(direct_type, &TypeAnalyzeContext::default());
+                    let analyzed_type =
+                        self.analyze_type(direct_type, &TypeAnalyzeContext::default());
                     // If the direct_type is actually a single-element tuple, unwrap it
                     match &*analyzed_type.kind {
                         TypeKind::Tuple(elements) if elements.len() == 1 => elements[0].clone(),
@@ -201,7 +203,8 @@ impl Analyzer<'_> {
                 swamp_ast::EnumVariantType::Tuple(_variant_name_node, types) => {
                     let mut vec = Vec::new();
                     for tuple_type in types {
-                        let resolved_type = self.analyze_type(tuple_type, &TypeAnalyzeContext::default());
+                        let resolved_type =
+                            self.analyze_type(tuple_type, &TypeAnalyzeContext::default());
                         vec.push(resolved_type);
                     }
 
@@ -216,7 +219,10 @@ impl Analyzer<'_> {
                     let mut fields = SeqMap::new();
 
                     for field_with_type in &ast_struct_fields.fields {
-                        let resolved_type = self.analyze_type(&field_with_type.field_type, &TypeAnalyzeContext::default());
+                        let resolved_type = self.analyze_type(
+                            &field_with_type.field_type,
+                            &TypeAnalyzeContext::default(),
+                        );
                         let field_name_str =
                             self.get_text(&field_with_type.field_name.0).to_string();
 
@@ -280,7 +286,8 @@ impl Analyzer<'_> {
     /// # Errors
     ///
     pub fn analyze_alias_type_definition(&mut self, ast_alias: &swamp_ast::AliasType) -> AliasType {
-        let resolved_type = self.analyze_type(&ast_alias.referenced_type, &TypeAnalyzeContext::default());
+        let resolved_type =
+            self.analyze_type(&ast_alias.referenced_type, &TypeAnalyzeContext::default());
 
         // Ensure string functions are generated for the resolved type
         self.ensure_default_functions_for_type(&resolved_type, &ast_alias.identifier.0);
@@ -379,7 +386,10 @@ impl Analyzer<'_> {
     ) {
         let struct_name_str = self.get_text(&ast_struct_def.identifier.name).to_string();
 
-        let fields = self.analyze_anonymous_struct_type_fields(&ast_struct_def.struct_type.fields, &TypeAnalyzeContext::default());
+        let fields = self.analyze_anonymous_struct_type_fields(
+            &ast_struct_def.struct_type.fields,
+            &TypeAnalyzeContext::default(),
+        );
 
         let analyzed_anonymous_struct = AnonymousStructType::new(fields);
 
@@ -440,7 +450,8 @@ impl Analyzer<'_> {
             swamp_ast::Function::Internal(function_data) => {
                 let parameters = self.analyze_parameters(&function_data.declaration.params);
                 let return_type = if let Some(found) = &function_data.declaration.return_type {
-                    let analyzed_return_type = self.analyze_type(found, &TypeAnalyzeContext::default());
+                    let analyzed_return_type =
+                        self.analyze_type(found, &TypeAnalyzeContext::default());
                     if !analyzed_return_type.allowed_as_return_type() {
                         self.add_err(
                             ErrorKind::NotAllowedAsReturnType(analyzed_return_type),
@@ -683,7 +694,11 @@ impl Analyzer<'_> {
 
             let existing_function_id = if matches!(
                 function_name_str.as_str(),
-                "string" | "short_string" | "pretty_string" | "pretty_string_with_indent" | "default"
+                "string"
+                    | "short_string"
+                    | "pretty_string"
+                    | "pretty_string_with_indent"
+                    | "default"
             ) {
                 self.shared
                     .state
@@ -703,7 +718,11 @@ impl Analyzer<'_> {
 
             let is_built_in = matches!(
                 function_name_str.as_str(),
-                "string" | "short_string" | "pretty_string" | "pretty_string_with_indent" | "default"
+                "string"
+                    | "short_string"
+                    | "pretty_string"
+                    | "pretty_string_with_indent"
+                    | "default"
             );
             if is_built_in {
                 self.shared
@@ -747,7 +766,8 @@ impl Analyzer<'_> {
                 }
 
                 for param in &function_data.declaration.params {
-                    let resolved_type = self.analyze_type(&param.param_type, &TypeAnalyzeContext::default());
+                    let resolved_type =
+                        self.analyze_type(&param.param_type, &TypeAnalyzeContext::default());
 
                     let resolved_param = TypeForParameter {
                         name: self.get_text(&param.variable.name).to_string(),
@@ -822,7 +842,8 @@ impl Analyzer<'_> {
                 }
 
                 for param in &signature.params {
-                    let resolved_type = self.analyze_type(&param.param_type, &TypeAnalyzeContext::default());
+                    let resolved_type =
+                        self.analyze_type(&param.param_type, &TypeAnalyzeContext::default());
 
                     parameters.push(TypeForParameter {
                         name: self.get_text(&param.variable.name).to_string(),
@@ -866,7 +887,12 @@ impl Analyzer<'_> {
         if self.needs_any_string_functions(ty) {
             // Check if we already have the functions to avoid infinite recursion
             if !self.shared.state.associated_impls.is_prepared(ty)
-                || self.shared.state.associated_impls.get_internal_member_function(ty, "string").is_none()
+                || self
+                    .shared
+                    .state
+                    .associated_impls
+                    .get_internal_member_function(ty, "string")
+                    .is_none()
             {
                 self.add_default_functions(ty, node);
             }
@@ -929,7 +955,10 @@ impl Analyzer<'_> {
             .get_internal_member_function(ty, "pretty_string_with_indent")
             .is_some();
 
-        !has_to_string || !has_to_short_string || !has_to_pretty_string || !has_to_pretty_string_with_indent
+        !has_to_string
+            || !has_to_short_string
+            || !has_to_pretty_string
+            || !has_to_pretty_string_with_indent
     }
 
     pub fn add_default_functions(&mut self, type_to_attach_to: &TypeRef, node: &swamp_ast::Node) {
@@ -1044,8 +1073,11 @@ impl Analyzer<'_> {
                 .get_internal_member_function(underlying, "pretty_string")
                 .is_none()
             {
-                let to_pretty_string_function =
-                    self.generate_to_pretty_string_parameterless_function_for_type(type_to_attach_to, node);
+                let to_pretty_string_function = self
+                    .generate_to_pretty_string_parameterless_function_for_type(
+                        type_to_attach_to,
+                        node,
+                    );
                 self.shared
                     .state
                     .associated_impls

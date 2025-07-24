@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::Analyzer;
-use swamp_types::prelude::{Signature, TypeForParameter};
 use swamp_types::TypeRef;
+use swamp_types::prelude::{Signature, TypeForParameter};
 
 #[derive(Default)]
 pub(crate) struct TypeAnalyzeContext {
@@ -22,7 +22,6 @@ impl TypeAnalyzeContext {
         self.is_analyzing_type_in_parameter_context
     }
 }
-
 
 impl Analyzer<'_> {
     /// # Errors
@@ -56,7 +55,11 @@ impl Analyzer<'_> {
     /// # Errors
     ///
     /// # Panics
-    pub fn analyze_type(&mut self, ast_type: &swamp_ast::Type, ctx: &TypeAnalyzeContext) -> TypeRef {
+    pub fn analyze_type(
+        &mut self,
+        ast_type: &swamp_ast::Type,
+        ctx: &TypeAnalyzeContext,
+    ) -> TypeRef {
         match ast_type {
             swamp_ast::Type::AnonymousStruct(ast_struct) => {
                 let struct_ref = self.analyze_anonymous_struct_type(ast_struct, ctx);
@@ -153,7 +156,8 @@ impl Analyzer<'_> {
             swamp_ast::Type::Unit => self.shared.state.types.unit(),
             swamp_ast::Type::Never => self.shared.state.types.never(),
             swamp_ast::Type::Optional(inner_type_ast, _node) => {
-                let inner_resolved_type = self.analyze_type(inner_type_ast, &TypeAnalyzeContext::default());
+                let inner_resolved_type =
+                    self.analyze_type(inner_type_ast, &TypeAnalyzeContext::default());
                 // Use TypeCache for optional type creation
                 let optional_type = self.shared.state.types.optional(&inner_resolved_type);
 
@@ -177,7 +181,11 @@ impl Analyzer<'_> {
         }
     }
 
-    pub(crate) fn analyze_types(&mut self, types: &[swamp_ast::Type], ctx: &TypeAnalyzeContext) -> Vec<TypeRef> {
+    pub(crate) fn analyze_types(
+        &mut self,
+        types: &[swamp_ast::Type],
+        ctx: &TypeAnalyzeContext,
+    ) -> Vec<TypeRef> {
         let mut resolved_types = Vec::new();
         for some_type in types {
             resolved_types.push(self.analyze_type(some_type, ctx));

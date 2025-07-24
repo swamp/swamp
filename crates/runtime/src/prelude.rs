@@ -7,9 +7,9 @@ pub use crate::{
     CompileCodeGenVmResult, RunConstantsOptions, RunOptions, StandardOnlyHostCallbacks,
     compile_and_code_gen, compile_codegen_and_create_vm,
     compile_codegen_and_create_vm_and_run_first_time, run_first_time, run_function,
-    run_function_with_debug, 
+    run_function_with_debug,
 };
 
-pub use swamp_dep_loader::RunMode;
 pub use swamp_code_gen_program::CodeGenOptions;
 pub use swamp_compile::CompileOptions;
+pub use swamp_dep_loader::RunMode;

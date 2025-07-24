@@ -4,10 +4,10 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::ExecutionMode::NormalExecution;
 use crate::memory::{Memory, MemoryDebug};
-use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -475,8 +475,7 @@ impl Vm {
             HandlerType::Args2(Self::execute_string_to_string);
         vm.handlers[OpCode::StringStartsWith as usize] =
             HandlerType::Args3(Self::execute_string_starts_with);
-        vm.handlers[OpCode::StringToInt as usize] =
-            HandlerType::Args2(Self::execute_string_to_int);
+        vm.handlers[OpCode::StringToInt as usize] = HandlerType::Args2(Self::execute_string_to_int);
         vm.handlers[OpCode::StringToFloat as usize] =
             HandlerType::Args2(Self::execute_string_to_float);
 
@@ -540,7 +539,8 @@ impl Vm {
         // Vec
         vm.handlers[OpCode::VecInit as usize] = HandlerType::Args7(Self::execute_vec_init);
         vm.handlers[OpCode::VecCopy as usize] = HandlerType::Args2(Self::execute_vec_copy);
-        vm.handlers[OpCode::VecCopyRange as usize] = HandlerType::Args3(Self::execute_vec_copy_range);
+        vm.handlers[OpCode::VecCopyRange as usize] =
+            HandlerType::Args3(Self::execute_vec_copy_range);
         vm.handlers[OpCode::VecCmp as usize] = HandlerType::Args3(Self::execute_vec_cmp);
         vm.handlers[OpCode::VecIterInit as usize] = HandlerType::Args2(Self::execute_vec_iter_init);
         vm.handlers[OpCode::VecIterNext as usize] = HandlerType::Args4(Self::execute_vec_iter_next);
@@ -1172,7 +1172,6 @@ impl Vm {
         set_reg!(self, dest_bool_reg, lhs < rhs);
     }
 
-
     #[inline]
     fn execute_le_u32(&mut self, dest_bool_reg: u8, lhs_reg: u8, rhs_reg: u8) {
         let lhs = get_reg!(self, lhs_reg);
@@ -1311,7 +1310,6 @@ impl Vm {
             self.internal_trap(TrapCode::U8CheckFailed);
         }
     }
-
 
     #[inline]
     fn execute_trap_on_less_than(&mut self, a_reg: u8, b_reg: u8) {
@@ -1911,8 +1909,7 @@ impl Vm {
         self.memory.set_fp_from_sp(); // set the frame pointer to what sp is now
         self.memory.inc_sp(frame_size as usize);
         #[cfg(feature = "debug_vm")]
-        if self.debug_stats_enabled
-            && self.memory.stack_offset > self.debug.max_stack_offset {
+        if self.debug_stats_enabled && self.memory.stack_offset > self.debug.max_stack_offset {
             self.debug.max_stack_offset = self.memory.stack_offset - self.memory.stack_start;
         }
     }

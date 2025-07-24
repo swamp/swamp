@@ -5,8 +5,8 @@
 use crate::TypeContext;
 use crate::{Analyzer, LocationSide};
 use source_map_node::Node;
-use swamp_semantic::err::ErrorKind;
 use swamp_semantic::ArgumentExpression;
+use swamp_semantic::err::ErrorKind;
 use swamp_types::prelude::*;
 
 pub struct MaybeBorrowMutRefExpression {

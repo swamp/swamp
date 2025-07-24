@@ -753,7 +753,6 @@ pub struct VecIterator {
 pub const VEC_ITERATOR_SIZE: MemorySize = MemorySize(size_of::<VecIterator>() as u32);
 pub const VEC_ITERATOR_ALIGNMENT: MemoryAlignment = MemoryAlignment::U32;
 
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct AnyHeader {
@@ -766,7 +765,6 @@ pub struct AnyHeader {
     /// Universal hash of the type
     pub type_hash: u32,
 }
-
 
 pub const ANY_HEADER_SIZE: MemorySize = MemorySize(size_of::<AnyHeader>() as u32);
 

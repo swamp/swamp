@@ -5,7 +5,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Match, NormalPattern, Pattern, PatternElement};
-use swamp_vm_types::types::{b8_type, u8_type, BasicTypeKind, Destination, VmType};
+use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, b8_type, u8_type};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
@@ -196,7 +196,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-
     pub(crate) fn emit_match_literal(
         &mut self,
         output_destination: &Destination,
@@ -222,19 +221,26 @@ impl CodeBuilder<'_> {
             let is_last = index == arm_len_to_consider - 1;
 
             let maybe_guard = match &arm.pattern {
-                Pattern::Normal(normal_pattern, maybe_guard) => {
-                    match normal_pattern {
-                        NormalPattern::Literal(literal_expression) => {
-                            let literal_expr_reg = self.emit_scalar_rvalue(literal_expression, ctx);
-                            let node = literal_expression.node.clone();
-                            self.emit_equality_to_bool_target(arm_bool_condition_reg.register(), &scrutinee_reg, true, &literal_expr_reg, &node, ctx);
+                Pattern::Normal(normal_pattern, maybe_guard) => match normal_pattern {
+                    NormalPattern::Literal(literal_expression) => {
+                        let literal_expr_reg = self.emit_scalar_rvalue(literal_expression, ctx);
+                        let node = literal_expression.node.clone();
+                        self.emit_equality_to_bool_target(
+                            arm_bool_condition_reg.register(),
+                            &scrutinee_reg,
+                            true,
+                            &literal_expr_reg,
+                            &node,
+                            ctx,
+                        );
 
-                            maybe_guard.as_ref()
-                        }
-                        NormalPattern::PatternList(_) => panic!("not handled here"),
-                        NormalPattern::EnumPattern(a, b) => panic!("got enum pattern in literals! {a:?} {b:?}"),
+                        maybe_guard.as_ref()
                     }
-                }
+                    NormalPattern::PatternList(_) => panic!("not handled here"),
+                    NormalPattern::EnumPattern(a, b) => {
+                        panic!("got enum pattern in literals! {a:?} {b:?}")
+                    }
+                },
                 Pattern::Wildcard(_) => {
                     // Wildcard is always true, so no comparison code is needed here at all
                     None
@@ -269,7 +275,8 @@ impl CodeBuilder<'_> {
             }
 
             // evaluate the guard condition after pattern variables are loaded
-            let maybe_guard_skip = maybe_guard.map(|found_guard| self.emit_condition_context(found_guard, ctx));
+            let maybe_guard_skip =
+                maybe_guard.map(|found_guard| self.emit_condition_context(found_guard, ctx));
 
             self.emit_expression(output_destination, &arm.expression, ctx);
 

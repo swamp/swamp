@@ -145,9 +145,7 @@ impl fmt::Display for ErrorKind {
             Self::CanOnlyHaveFunctionCallAtStartOfPostfixChain => {
                 "function calls only allowed at start of chain"
             }
-            Self::CanNotSubscriptWithThatType => {
-                "subscript not possible with that type"
-            }
+            Self::CanNotSubscriptWithThatType => "subscript not possible with that type",
             // Function and Method Errors
             Self::NoAssociatedFunction(_, _) => "no associated function",
             Self::UnknownMemberFunction(_) => "unknown member function",
@@ -261,12 +259,11 @@ impl fmt::Display for ErrorKind {
             Self::UnknownModule => "unknown module",
             Self::CanNotAttachFunctionsToType => "cannot attach functions to this type",
             Self::NeedStorage => "storage needed",
-            Self::ByteConversionError(_) => "byte conversion error"
+            Self::ByteConversionError(_) => "byte conversion error",
         };
         f.write_str(error_message)
     }
 }
-
 
 impl ErrorKind {
     #[must_use]
@@ -367,7 +364,6 @@ impl ErrorKind {
         }
     }
 }
-
 
 impl From<SemanticError> for Error {
     fn from(value: SemanticError) -> Self {

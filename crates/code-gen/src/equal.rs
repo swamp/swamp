@@ -8,8 +8,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::{FlagState, FlagStateKind};
 use source_map_node::Node;
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 use swamp_vm_types::PointerLocation;
+use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 
 impl CodeBuilder<'_> {
     pub fn emit_equality_to_bool_target(

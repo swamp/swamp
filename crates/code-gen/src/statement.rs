@@ -13,7 +13,7 @@ use swamp_vm_types::types::{Destination, TypedRegister};
 
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
-        debug_assert!(matches!(&*expr.ty.kind, TypeKind::Unit| TypeKind::Never ));
+        debug_assert!(matches!(&*expr.ty.kind, TypeKind::Unit | TypeKind::Never));
         let output_destination = Destination::new_unit();
         self.emit_expression(&output_destination, expr, ctx);
     }

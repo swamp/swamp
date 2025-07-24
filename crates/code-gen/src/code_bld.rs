@@ -17,12 +17,16 @@ use swamp_semantic::{
 };
 use swamp_types::TypeKind;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::types::{
-    b8_type, u32_type, u8_type, BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType,
+    BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType, b8_type, u8_type, u32_type,
 };
-use swamp_vm_types::{AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset, MemorySize, PointerLocation, ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE};
+use swamp_vm_types::{
+    ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, AggregateMemoryLocation,
+    FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset, MemorySize, PointerLocation,
+    REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
+};
 use tracing::info;
 
 #[derive(Copy, Clone)]
@@ -530,13 +534,23 @@ impl CodeBuilder<'_> {
         match output {
             Destination::Unit => {}
             Destination::Register(dest_reg) => {
-                self.builder.add_check_u8(dest_reg, &expr.node, "trunc int to byte");
+                self.builder
+                    .add_check_u8(dest_reg, &expr.node, "trunc int to byte");
             }
             Destination::Memory(mem) => {
                 let hwm = self.temp_registers.save_mark();
-                let temp_u8 = self.temp_registers.allocate(VmType::new_contained_in_register(u8_type()), "temp u8");
-                self.builder.add_ld8_from_pointer_with_offset(temp_u8.register(), &mem.base_ptr_reg, mem.offset, &expr.node, "load it to check it");
-                self.builder.add_check_u8(temp_u8.register(), &expr.node, "trunc int to byte");
+                let temp_u8 = self
+                    .temp_registers
+                    .allocate(VmType::new_contained_in_register(u8_type()), "temp u8");
+                self.builder.add_ld8_from_pointer_with_offset(
+                    temp_u8.register(),
+                    &mem.base_ptr_reg,
+                    mem.offset,
+                    &expr.node,
+                    "load it to check it",
+                );
+                self.builder
+                    .add_check_u8(temp_u8.register(), &expr.node, "trunc int to byte");
                 self.temp_registers.restore_to_mark(hwm);
             }
         }
@@ -569,7 +583,6 @@ impl CodeBuilder<'_> {
         );
     }
 
-
     pub(crate) fn emit_coerce_to_any(
         &mut self,
         output: &Destination,
@@ -580,19 +593,58 @@ impl CodeBuilder<'_> {
 
         let source_aggregate_pointer = self.emit_scalar_rvalue(expr, ctx);
 
-        let pointer_register = self.emit_compute_effective_address_to_register(output, &expr.node, "get starting ptr to output");
-        let output_aggregate_location = AggregateMemoryLocation::new(MemoryLocation::new_copy_over_whole_type_with_zero_offset(pointer_register));
+        let pointer_register = self.emit_compute_effective_address_to_register(
+            output,
+            &expr.node,
+            "get starting ptr to output",
+        );
+        let output_aggregate_location = AggregateMemoryLocation::new(
+            MemoryLocation::new_copy_over_whole_type_with_zero_offset(pointer_register),
+        );
 
-        self.builder.add_st32_using_ptr_with_offset(&output_aggregate_location.offset(ANY_HEADER_PTR_OFFSET, u32_type()).location, &source_aggregate_pointer, &expr.node, "store aggregate pointer into Any Header");
-        let temp_size = self.temp_registers.allocate(VmType::new_contained_in_register(u32_type()), "Any header size temp");
+        self.builder.add_st32_using_ptr_with_offset(
+            &output_aggregate_location
+                .offset(ANY_HEADER_PTR_OFFSET, u32_type())
+                .location,
+            &source_aggregate_pointer,
+            &expr.node,
+            "store aggregate pointer into Any Header",
+        );
+        let temp_size = self.temp_registers.allocate(
+            VmType::new_contained_in_register(u32_type()),
+            "Any header size temp",
+        );
 
-        self.builder.add_mov_32_immediate_value(temp_size.register(), source_aggregate_pointer.ty.basic_type.total_size.0, &expr.node, "fixed size");
-        self.builder.add_st32_using_ptr_with_offset(&output_aggregate_location.offset(ANY_HEADER_SIZE_OFFSET, u32_type()).location, temp_size.register(), &expr.node, "copy size into Any Header");
+        self.builder.add_mov_32_immediate_value(
+            temp_size.register(),
+            source_aggregate_pointer.ty.basic_type.total_size.0,
+            &expr.node,
+            "fixed size",
+        );
+        self.builder.add_st32_using_ptr_with_offset(
+            &output_aggregate_location
+                .offset(ANY_HEADER_SIZE_OFFSET, u32_type())
+                .location,
+            temp_size.register(),
+            &expr.node,
+            "copy size into Any Header",
+        );
 
-        self.builder.add_mov_32_immediate_value(temp_size.register(), source_aggregate_pointer.ty.basic_type.universal_hash_u64() as u32, &expr.node, "reuse for hash");
-        self.builder.add_st32_using_ptr_with_offset(&output_aggregate_location.offset(ANY_HEADER_HASH_OFFSET, u32_type()).location, temp_size.register(), &expr.node, "copy size into Any Header");
+        self.builder.add_mov_32_immediate_value(
+            temp_size.register(),
+            source_aggregate_pointer.ty.basic_type.universal_hash_u64() as u32,
+            &expr.node,
+            "reuse for hash",
+        );
+        self.builder.add_st32_using_ptr_with_offset(
+            &output_aggregate_location
+                .offset(ANY_HEADER_HASH_OFFSET, u32_type())
+                .location,
+            temp_size.register(),
+            &expr.node,
+            "copy size into Any Header",
+        );
     }
-
 
     pub(crate) fn merge_arguments_keep_literals(
         outer_args: &Vec<ArgumentExpression>,

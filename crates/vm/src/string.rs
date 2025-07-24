@@ -3,11 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::{ExecutionMode, Memory};
-use crate::{get_reg, i16_from_u8s, set_reg, TrapCode, Vm};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s, set_reg};
 use std::num::ParseIntError;
 use std::{mem::size_of, ptr};
 use swamp_vm_types::{
-    StringIterator, VecHeader, MAX_STRING_LEN, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET,
+    MAX_STRING_LEN, StringIterator, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VecHeader,
 };
 
 impl Vm {
@@ -173,7 +173,6 @@ impl Vm {
         }
     }
 
-
     #[inline]
     pub fn execute_string_cmp(&mut self, dest_reg: u8, string_a: u8, string_b: u8) {
         #[cfg(feature = "debug_vm")]
@@ -215,7 +214,12 @@ impl Vm {
 
     /// Return the same string but with quotes.
     #[inline]
-    pub fn execute_string_starts_with(&mut self, dest_reg: u8, source_string: u8, other_string_reg: u8) {
+    pub fn execute_string_starts_with(
+        &mut self,
+        dest_reg: u8,
+        source_string: u8,
+        other_string_reg: u8,
+    ) {
         let source_str = self.get_string(source_string);
         let other_str = self.get_string(other_string_reg);
 
@@ -282,7 +286,6 @@ impl Vm {
             }
         }
     }
-
 
     /// Return the same string but with quotes.
     #[inline]

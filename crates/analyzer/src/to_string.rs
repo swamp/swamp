@@ -537,7 +537,8 @@ fn generate_to_string_for_enum(
             let final_result = match &*variant_type.payload_type.kind {
                 TypeKind::AnonymousStruct(_) | TypeKind::NamedStruct(_) => {
                     // Struct payload: always variant_str + " " + payload (space before brace)
-                    let prefix = create_string_literal(&format!("{variant_str} "), &string_type, node);
+                    let prefix =
+                        create_string_literal(&format!("{variant_str} "), &string_type, node);
                     concat_expressions(prefix, payload_string, &string_type, node)
                 }
                 TypeKind::Tuple(_) => {
@@ -547,9 +548,11 @@ fn generate_to_string_for_enum(
                 }
                 _ => {
                     // Other payload: variant_str + "(" + payload + ")"
-                    let prefix = create_string_literal(&format!("{variant_str}("), &string_type, node);
+                    let prefix =
+                        create_string_literal(&format!("{variant_str}("), &string_type, node);
                     let suffix = create_string_literal(")", &string_type, node);
-                    let temp_concat = concat_expressions(prefix, payload_string, &string_type, node);
+                    let temp_concat =
+                        concat_expressions(prefix, payload_string, &string_type, node);
                     concat_expressions(temp_concat, suffix, &string_type, node)
                 }
             };
@@ -707,9 +710,7 @@ impl GeneratedScope {
     ) -> VariableRef {
         let virtual_register = self
             .allocate_virtual_register()
-            .unwrap_or_else(||
-                panic!("out of virtual registers for variable {assigned_name}")
-            );
+            .unwrap_or_else(|| panic!("out of virtual registers for variable {assigned_name}"));
 
         let unique_id = self.allocate_unique_id();
 
@@ -753,7 +754,6 @@ impl GeneratedScope {
             VariableType::Local,
         )
     }
-
 
     pub(crate) fn create_local_variable_param_like(
         &mut self,
@@ -852,7 +852,8 @@ fn generate_to_string_for_sequence_like(
     };
 
     let for_loop = {
-        let element_var = block_scope.create_local_variable_param_like("element", element_type, node);
+        let element_var =
+            block_scope.create_local_variable_param_like("element", element_type, node);
 
         // if !is_first { result = result + ", " }
         let if_body = {
@@ -1676,7 +1677,7 @@ pub fn internal_generate_to_string_function_for_type(
         } else {
             "string"
         }
-            .to_string(),
+        .to_string(),
         associated_with_type: Option::from(ty.clone()),
         defined_in_module_path: module_path.to_vec(),
         signature: Signature {
@@ -1904,14 +1905,12 @@ pub fn internal_generate_to_pretty_string_parameterless_function_for_type(
         associated_with_type: Option::from(ty.clone()),
         defined_in_module_path: module_path.to_vec(),
         signature: Signature {
-            parameters: vec![
-                TypeForParameter {
-                    name: "self".to_string(),
-                    resolved_type: ty.clone(),
-                    is_mutable: false,
-                    node: None,
-                },
-            ],
+            parameters: vec![TypeForParameter {
+                name: "self".to_string(),
+                resolved_type: ty.clone(),
+                is_mutable: false,
+                node: None,
+            }],
             return_type: generator.types.string(),
         },
         function_variables: block_scope_to_use.scope.clone(),
@@ -2491,7 +2490,6 @@ fn generate_map_pretty_string(
     )
 }
 
-
 #[allow(clippy::too_many_lines)]
 fn generate_multi_line_sequence_format(
     generator: &mut ExpressionGenerator,
@@ -2752,7 +2750,7 @@ fn generate_struct_pretty_string(
             indentation_expression,
             ty,
             node,
-            false, // use_short_string_for_self
+            false,                         // use_short_string_for_self
             use_short_string_for_children, // use_short_string_for_children
         ),
         TypeKind::Tuple(tuple_types) => generate_tuple_pretty_string(
@@ -2762,7 +2760,7 @@ fn generate_struct_pretty_string(
             indentation_expression,
             tuple_types,
             node,
-            false, // use_short_string_for_self
+            false,                         // use_short_string_for_self
             use_short_string_for_children, // use_short_string_for_children
         ),
         _ => {
@@ -2790,7 +2788,8 @@ fn generate_add_indentation_to_result(
     );
 
     // Generate indentation string based on the expression type
-    let indentation_spaces = if let ExpressionKind::VariableAccess(var_ref) = &indentation_expr.kind {
+    let indentation_spaces = if let ExpressionKind::VariableAccess(var_ref) = &indentation_expr.kind
+    {
         // Direct variable access - use the optimized path
         generate_indentation_string(generator, scope, var_ref, node)
     } else {
@@ -3290,7 +3289,8 @@ fn generate_tuple_pretty_string(
             let result_access = create_var_access(&result_var, &string_type, node);
 
             // result + element_pretty_string + ",\n"
-            let temp1 = concat_expressions(result_access, element_pretty_string, &string_type, node);
+            let temp1 =
+                concat_expressions(result_access, element_pretty_string, &string_type, node);
             let comma_newline = create_string_literal(",\n", &string_type, node);
             let final_str = concat_expressions(temp1, comma_newline, &string_type, node);
 

@@ -5,8 +5,8 @@
 use crate::Analyzer;
 use source_map_node::Node;
 use std::rc::Rc;
-use swamp_semantic::err::ErrorKind;
 use swamp_semantic::ScopeInfo;
+use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
@@ -321,7 +321,6 @@ impl Analyzer<'_> {
             (variable_ref, "error".to_string())
         }
     }
-
 
     #[allow(clippy::too_many_lines)]
     pub(crate) fn create_variable_binding_for_with(

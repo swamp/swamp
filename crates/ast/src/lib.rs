@@ -528,13 +528,8 @@ pub struct EnumVariantLiteral {
 #[derive(Debug, Clone)]
 pub enum EnumVariantLiteralKind {
     Simple,
-    Tuple(
-        Vec<Expression>,
-    ),
-    Struct(
-        Vec<FieldExpression>,
-        bool,
-    ),
+    Tuple(Vec<Expression>),
+    Struct(Vec<FieldExpression>, bool),
 }
 
 #[derive(Debug, Clone)]

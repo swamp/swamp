@@ -67,7 +67,7 @@ impl Analyzer<'_> {
                 ArgumentExpression::Expression(max),
                 ArgumentExpression::Expression(bool_expr),
             ]), //ast_node,
-            //&range_type,
+                //&range_type,
         );
 
         self.create_expr(call_kind, range_type, ast_node)

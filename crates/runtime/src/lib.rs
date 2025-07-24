@@ -691,7 +691,7 @@ pub fn compile_codegen_and_create_vm_and_run_first_time(
             let mut callbacks = StandardOnlyHostCallbacks {};
             let run_first_options = RunOptions {
                 debug_stats_enabled: false,
-                debug_opcodes_enabled: true,
+                debug_opcodes_enabled: false,
                 debug_operations_enabled: false,
                 use_color: true,
                 max_count: 0,

@@ -4,7 +4,7 @@
  */
 use crate::ALIGNMENT;
 use std::{alloc, mem, ptr, slice};
-use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::{HeapMemoryAddress, HeapMemoryRegion, MemoryAlignment, MemorySize};
 
 /// Execution mode for the VM memory
@@ -156,8 +156,10 @@ impl Memory {
         // After incorporating heap into constant area, we're switching to normal execution mode
         self.execution_mode = ExecutionMode::NormalExecution;
 
-        eprintln!("After: constant_memory_size=0x{:X}, new_stack_start=0x{:X}, new_heap_start=0x{:X}",
-                  self.constant_memory_size, new_stack_start, new_heap_start);
+        eprintln!(
+            "After: constant_memory_size=0x{:X}, new_stack_start=0x{:X}, new_heap_start=0x{:X}",
+            self.constant_memory_size, new_stack_start, new_heap_start
+        );
     }
 
     pub fn alloc_before_stack(

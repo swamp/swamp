@@ -9,10 +9,9 @@ use swamp_semantic::{Constant, ConstantId, ConstantRef, Expression, ExpressionKi
 
 impl Analyzer<'_> {
     fn analyze_constant(&mut self, constant: &swamp_ast::ConstantInfo) {
-        let maybe_annotation_type = constant
-            .annotation
-            .as_ref()
-            .map(|found_ast_type| self.analyze_type(found_ast_type, &TypeAnalyzeContext::default()));
+        let maybe_annotation_type = constant.annotation.as_ref().map(|found_ast_type| {
+            self.analyze_type(found_ast_type, &TypeAnalyzeContext::default())
+        });
 
         let context = TypeContext::new_unsure_argument(maybe_annotation_type.as_ref(), true);
 

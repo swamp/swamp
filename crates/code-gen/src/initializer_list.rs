@@ -8,8 +8,8 @@ use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_vm_types::types::{BasicTypeRef, Destination};
 use swamp_vm_types::{
-    AggregateMemoryLocation, MemoryLocation, MemoryOffset, PointerLocation,
-    COLLECTION_ELEMENT_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET,
+    AggregateMemoryLocation, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
+    PointerLocation, VEC_HEADER_PAYLOAD_OFFSET,
 };
 
 impl CodeBuilder<'_> {

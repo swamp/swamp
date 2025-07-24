@@ -7,9 +7,9 @@ use swamp_vm_types::opcode::OpCode;
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
 pub use swamp_vm_types::{
     BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HeapMemoryOffset, HeapMemoryRegion, InstructionPosition, InstructionPositionOffset,
-    MemoryOffset, MemorySize, Meta, PatchPosition, ZFlagPolarity, HEAP_PTR_ON_FRAME_SIZE,
-    RANGE_HEADER_SIZE, RANGE_ITERATOR_SIZE,
+    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
+    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
+    RANGE_ITERATOR_SIZE, ZFlagPolarity,
 };
 use swamp_vm_types::{
     CountU16, HeapMemoryAddress, MemoryAlignment, MemoryLocation, PointerLocation,
@@ -480,7 +480,6 @@ impl InstructionBuilder<'_> {
             comment,
         );
     }
-
 
     pub fn add_vec_push_addr(
         &mut self,
@@ -1128,10 +1127,7 @@ impl InstructionBuilder<'_> {
     ) {
         self.state.add_instruction(
             OpCode::StringDuplicate,
-            &[
-                dst_offset.addressing(),
-                lhs_offset.addressing(),
-            ],
+            &[dst_offset.addressing(), lhs_offset.addressing()],
             node,
             comment,
         );
@@ -1714,14 +1710,8 @@ impl InstructionBuilder<'_> {
     }
 
     pub fn add_check_u8(&mut self, dst_reg: &TypedRegister, node: &Node, comment: &str) {
-        self.state.add_instruction(
-            OpCode::CheckU8,
-            &[
-                dst_reg.addressing(),
-            ],
-            node,
-            comment,
-        );
+        self.state
+            .add_instruction(OpCode::CheckU8, &[dst_reg.addressing()], node, comment);
     }
 
     pub fn add_ld8_from_pointer_with_offset(
@@ -2083,7 +2073,11 @@ impl InstructionBuilder<'_> {
         // TODO: Bring Back //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LtU32,
-            &[dest_bool_reg.addressing(), lhs_offset.addressing(), rhs_offset.addressing()],
+            &[
+                dest_bool_reg.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
+            ],
             node,
             comment,
         );
@@ -2101,7 +2095,11 @@ impl InstructionBuilder<'_> {
         // TODO: Bring Back //assert!(rhs_offset.ty().is_int());
         self.state.add_instruction(
             OpCode::LeU32,
-            &[dest_bool_reg.addressing(), lhs_offset.addressing(), rhs_offset.addressing()],
+            &[
+                dest_bool_reg.addressing(),
+                lhs_offset.addressing(),
+                rhs_offset.addressing(),
+            ],
             node,
             comment,
         );
@@ -2577,19 +2575,36 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_string_starts_with(&mut self, dest_bool: &TypedRegister, source_str: &TypedRegister, other_str: &TypedRegister, node: &Node, comment: &str) {
+    pub fn add_string_starts_with(
+        &mut self,
+        dest_bool: &TypedRegister,
+        source_str: &TypedRegister,
+        other_str: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
         assert!(dest_bool.ty().is_bool());
         //assert!(source_str.ty().is_str());
         assert!(other_str.ty().is_str());
         self.state.add_instruction(
             OpCode::StringStartsWith,
-            &[dest_bool.addressing(), source_str.addressing(), other_str.addressing()],
+            &[
+                dest_bool.addressing(),
+                source_str.addressing(),
+                other_str.addressing(),
+            ],
             node,
             comment,
         );
     }
 
-    pub fn add_string_to_int(&mut self, dest_tuple: &TypedRegister, source_str: &TypedRegister, node: &Node, comment: &str) {
+    pub fn add_string_to_int(
+        &mut self,
+        dest_tuple: &TypedRegister,
+        source_str: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
         self.state.add_instruction(
             OpCode::StringToInt,
             &[dest_tuple.addressing(), source_str.addressing()],
@@ -2598,7 +2613,13 @@ impl InstructionBuilder<'_> {
         );
     }
 
-    pub fn add_string_to_float(&mut self, dest_tuple: &TypedRegister, source_str: &TypedRegister, node: &Node, comment: &str) {
+    pub fn add_string_to_float(
+        &mut self,
+        dest_tuple: &TypedRegister,
+        source_str: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
         self.state.add_instruction(
             OpCode::StringToFloat,
             &[dest_tuple.addressing(), source_str.addressing()],

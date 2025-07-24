@@ -13,8 +13,15 @@ use swamp_types::prelude::*;
 use tracing::{error, warn};
 
 impl Analyzer<'_> {
-    pub fn analyze_enum_variant_struct_literal(&mut self, variant_ref: &EnumVariantType, found_enum_type: &TypeRef,
-                                               /*anon_payload: AnonymousStructType, */anonym_struct_field_and_expressions: &[FieldExpression], detected_rest: bool, node: &swamp_ast::Node) -> Expression {
+    pub fn analyze_enum_variant_struct_literal(
+        &mut self,
+        variant_ref: &EnumVariantType,
+        found_enum_type: &TypeRef,
+        /*anon_payload: AnonymousStructType, */
+        anonym_struct_field_and_expressions: &[FieldExpression],
+        detected_rest: bool,
+        node: &swamp_ast::Node,
+    ) -> Expression {
         if let TypeKind::AnonymousStruct(anon_payload) = &*variant_ref.payload_type.kind {
             if anonym_struct_field_and_expressions.len()
                 != anon_payload.field_name_sorted_fields.len()
@@ -39,7 +46,9 @@ impl Analyzer<'_> {
 
             self.create_expr(
                 ExpressionKind::EnumVariantLiteral(variant_ref.clone(), data),
-                found_enum_type.clone(), node)
+                found_enum_type.clone(),
+                node,
+            )
         } else {
             panic!("strange")
         }
@@ -117,7 +126,10 @@ impl Analyzer<'_> {
             },
             swamp_ast::LiteralKind::Byte => match Self::str_to_byte(node_text) {
                 Err(byte_err) => {
-                    return self.create_err(ErrorKind::ByteConversionError(format!("{byte_err:?}")), ast_node);
+                    return self.create_err(
+                        ErrorKind::ByteConversionError(format!("{byte_err:?}")),
+                        ast_node,
+                    );
                 }
                 Ok(byte_value) => (
                     ExpressionKind::ByteLiteral(byte_value),
@@ -147,8 +159,11 @@ impl Analyzer<'_> {
             swamp_ast::LiteralKind::EnumVariant(enum_variant_literal) => {
                 let variant_name_text = self.get_text(&enum_variant_literal.name.0).to_string();
 
-                let found_enum_type = if let Some(enum_type_name_node) = &enum_variant_literal.qualified_enum_type_name {
-                    let Some((symbol_table, name)) = self.get_symbol_table_and_name(enum_type_name_node)
+                let found_enum_type = if let Some(enum_type_name_node) =
+                    &enum_variant_literal.qualified_enum_type_name
+                {
+                    let Some((symbol_table, name)) =
+                        self.get_symbol_table_and_name(enum_type_name_node)
                     else {
                         self.add_err(ErrorKind::UnknownModule, &enum_type_name_node.name.0);
                         return self.create_err(ErrorKind::UnknownEnumVariantType, ast_node);
@@ -174,8 +189,10 @@ impl Analyzer<'_> {
                 let variant_name = &variant_name_text;
                 // Handle enum variant literals in patterns
                 let Some(variant_ref) = enum_type.get_variant(variant_name) else {
-                    return self
-                        .create_err(ErrorKind::UnknownEnumVariantType, &enum_variant_literal.name.0);
+                    return self.create_err(
+                        ErrorKind::UnknownEnumVariantType,
+                        &enum_variant_literal.name.0,
+                    );
                 };
 
                 let resolved_data = match &enum_variant_literal.kind {

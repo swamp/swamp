@@ -27,7 +27,6 @@ fn fail_different_types_assignment() {
     );
 }
 
-
 #[test_log::test]
 fn not_allowed_with_ending_optional_chaining() {
     should_fail(
