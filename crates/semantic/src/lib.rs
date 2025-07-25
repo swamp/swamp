@@ -878,6 +878,7 @@ pub enum ExpressionKind {
     ),
 
     AnonymousStructLiteral(AnonymousStructLiteral),
+    NamedStructLiteral(Box<Expression>),
 
     FloatLiteral(Fp),
     NoneLiteral,

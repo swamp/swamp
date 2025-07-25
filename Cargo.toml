@@ -45,7 +45,6 @@ members = [
     "crates/swamp-test",
     "crates/swamp-build",
     # Future projects
-    "crates/lsp",
     # "crates/lexer",
     # "crates/parser-next",
 ]

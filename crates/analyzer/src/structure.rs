@@ -261,13 +261,15 @@ impl Analyzer<'_> {
             .named_struct(named_struct_type.clone());
 
         if let TypeKind::AnonymousStruct(anon_struct) = &*named_struct_type.anon_struct_type.kind {
-            self.analyze_struct_init(
+            let anon_expr = self.analyze_struct_init(
                 &qualified_type_identifier.name.0,
                 &super_type,
                 anon_struct,
                 ast_fields,
                 rest_was_specified,
-            )
+            );
+            let ty = anon_expr.ty.clone();
+            self.create_expr(ExpressionKind::NamedStructLiteral(Box::from(anon_expr)), ty, &qualified_type_identifier.name.0)
         } else {
             self.create_err(
                 ErrorKind::UnknownStructTypeReference,

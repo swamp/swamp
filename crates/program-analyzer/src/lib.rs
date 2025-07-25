@@ -104,7 +104,8 @@ pub fn analyze_modules_in_order(
                 module_path,
                 parse_module,
             )?;
-            let analyzed_module = Module::new(analyzed_symbol_table, errors, maybe_expression);
+
+            let analyzed_module = Module::new(analyzed_symbol_table, errors, maybe_expression, parse_module.file_id);
             modules.add(analyzed_module.into());
         } else {
             panic!("could not load")

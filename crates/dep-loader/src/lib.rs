@@ -249,7 +249,8 @@ pub fn parse_single_module_from_text(
 
     let mount_name = mount_name_from_path(module_path);
 
-    let file_id = source_map.add_manual_no_id(
+
+    let file_id = source_map.set(
         mount_name,
         module_path_to_relative_swamp_file_string(module_path).as_ref(),
         script,

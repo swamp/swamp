@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 pub mod text;
-
+use source_map_node::FileId;
 use swamp_modules::prelude::{Module, SymbolTable};
 use swamp_modules::symtbl::AliasType;
 use swamp_semantic::prelude::{IntrinsicFunction, IntrinsicFunctionDefinition};
@@ -614,20 +614,20 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
 /// # Panics
 /// if `versioned_name` is wrong
 #[must_use]
-pub fn create_module(tiny_version: &TinyVersion, type_cache: &mut TypeCache) -> Module {
+pub fn create_module(tiny_version: &TinyVersion, type_cache: &mut TypeCache, file_id: FileId) -> Module {
     let canonical_core_path = [tiny_version.versioned_name(PACKAGE_NAME).unwrap()];
     let mut intrinsic_types_symbol_table = SymbolTable::new(&canonical_core_path);
     add_intrinsic_types(&mut intrinsic_types_symbol_table, type_cache);
     add_intrinsic_functions(&mut intrinsic_types_symbol_table, type_cache);
 
-    Module::new(intrinsic_types_symbol_table, Vec::new(), None)
+    Module::new(intrinsic_types_symbol_table, Vec::new(), None, file_id)
 }
 
 /// # Panics
 /// if `versioned_name` is wrong
 #[must_use]
-pub fn create_module_with_name(path: &[String]) -> Module {
+pub fn create_module_with_name(path: &[String], file_id: FileId) -> Module {
     let intrinsic_types_symbol_table = SymbolTable::new(path);
 
-    Module::new(intrinsic_types_symbol_table, Vec::new(), None)
+    Module::new(intrinsic_types_symbol_table, Vec::new(), None, file_id)
 }

@@ -886,7 +886,7 @@ impl<'a> Analyzer<'a> {
 
         if analyzed_type_parameters.is_empty() {
             match &symbol {
-                Symbol::Type(base_type) => base_type.clone(),
+                Symbol::Type(_, base_type) => base_type.clone(),
                 Symbol::Alias(alias_type) => alias_type.ty.clone(),
                 _ => {
                     self.add_err(ErrorKind::UnexpectedType, &type_name_to_find.name.0);

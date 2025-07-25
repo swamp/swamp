@@ -33,7 +33,7 @@ impl SourceMapDisplay<'_> {
     }
     const fn get_color_from_symbol(symbol: &Symbol) -> Color {
         match symbol {
-            Symbol::Type(_) => Color::BrightYellow,
+            Symbol::Type(_, _) => Color::BrightYellow,
             Symbol::Module(_) => Color::BrightGreen,
             Symbol::PackageVersion(_) => Color::BrightMagenta,
             Symbol::Constant(_) => Color::BrightCyan,
@@ -81,7 +81,7 @@ impl SourceMapDisplay<'_> {
         write!(f, "{tab_str}{} ", name.paint(color))?;
 
         match symbol {
-            Symbol::Type(ty) => self.show_type_except_name(f, ty, tabs + 1),
+            Symbol::Type(_, ty) => self.show_type_except_name(f, ty, tabs + 1),
             Symbol::Module(module_ref) => {
                 write!(f, "{module_ref:?}")
             }
@@ -309,7 +309,7 @@ impl SourceMapDisplay<'_> {
     /// # Errors
     ///
     pub fn show_alias(&self, f: &mut Formatter<'_>, alias: &AliasType) -> std::fmt::Result {
-        write!(f, "{} ==> ", alias.assigned_name.blue(),)?;
+        write!(f, "{} ==> ", alias.assigned_name.blue(), )?;
 
         self.show_type_short(f, &alias.ty, 0)?;
 
@@ -480,6 +480,8 @@ impl SourceMapDisplay<'_> {
                 }
                 write!(f, "]")
             }
+
+            ExpressionKind::NamedStructLiteral(inner) => self.show_expression(f, inner, tabs),
 
             ExpressionKind::AnonymousStructLiteral(struct_literal) => self
                 .show_named_struct_literal(
@@ -1051,7 +1053,7 @@ impl SourceMapDisplay<'_> {
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         tabs: usize,
     ) -> std::fmt::Result {
-        write!(f, "{{",)?;
+        write!(f, "{{", )?;
 
         // Extract the anonymous struct fields from the TypeRef
         let field_name_sorted_fields = match &*struct_like_type.kind {

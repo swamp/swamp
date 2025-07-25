@@ -51,7 +51,7 @@ pub struct AliasType {
 
 #[derive(Clone, Debug)]
 pub enum Symbol {
-    Type(TypeRef),
+    Type(Node, TypeRef),
     Module(ModuleRef),
     PackageVersion(TinyVersion),
     Constant(ConstantRef),
@@ -138,7 +138,7 @@ impl SymbolTable {
         let mut structs = SeqMap::new();
 
         for (name, symbol) in &self.symbols {
-            if let Symbol::Type(ty) = symbol
+            if let Symbol::Type(_, ty) = symbol
                 && let TypeKind::NamedStruct(struct_ref) = &*ty.kind
             {
                 structs
@@ -155,7 +155,7 @@ impl SymbolTable {
         let mut enums = SeqMap::new();
 
         for (name, symbol) in &self.symbols {
-            if let Symbol::Type(ty) = symbol
+            if let Symbol::Type(_, ty) = symbol
                 && let TypeKind::Enum(enum_type) = &*ty.kind
             {
                 enums.insert(name.to_string(), enum_type.clone()).unwrap();
@@ -303,7 +303,7 @@ impl SymbolTable {
 
     #[must_use]
     pub fn get_type(&self, name: &str) -> Option<&TypeRef> {
-        if let Some(Symbol::Type(type_ref)) = self.get_symbol(name) {
+        if let Some(Symbol::Type(_, type_ref)) = self.get_symbol(name) {
             Some(type_ref)
         } else {
             None
@@ -396,7 +396,14 @@ impl SymbolTable {
             TypeKind::Enum(enum_type) => enum_type.assigned_name.clone(),
             _ => panic!("not a named type"),
         };
-        self.insert_symbol(&name, Symbol::Type(ty))
+
+        let node = match &*ty.kind {
+            TypeKind::NamedStruct(named) => named.name.clone(),
+            TypeKind::Enum(enum_type) => enum_type.name.clone(),
+            _ => panic!("not a named type"),
+        };
+
+        self.insert_symbol(&name, Symbol::Type(node, ty))
     }
 
     pub fn add_external_function_declaration(

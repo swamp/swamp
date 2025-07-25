@@ -4,6 +4,7 @@
  */
 use crate::symtbl::SymbolTable;
 use seq_map::SeqMap;
+use source_map_node::FileId;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use swamp_semantic::prelude::Error;
@@ -23,6 +24,7 @@ impl Default for Modules {
 pub struct Module {
     pub main_expression: Option<InternalMainExpression>,
     pub symbol_table: SymbolTable,
+    pub file_id: FileId,
     pub errors: Vec<Error>,
 }
 
@@ -68,9 +70,11 @@ impl Module {
         symbol_table: SymbolTable,
         errors: Vec<Error>,
         expression: Option<InternalMainExpression>,
+        file_id: FileId,
     ) -> Self {
         Self {
             symbol_table,
+            file_id,
             main_expression: expression,
             errors,
         }
