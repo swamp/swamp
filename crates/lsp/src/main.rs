@@ -4,6 +4,7 @@
  */
 mod conn;
 mod srv;
+
 mod log;
 
 use crate::conn::SendConnection;
@@ -202,9 +203,9 @@ fn main() {
     }
 
     info!("LSP server initialized and ready to start fetching swamp files");
-    let source_map_cache = first_init(&params);
+    let (source_map_cache, roots) = first_init(&params);
 
-    let mut server = Server::new(source_map_cache);
+    let mut server = Server::new(source_map_cache, roots);
 
     for msg in &send_connection_arc.connection.receiver {
         match msg {
@@ -285,7 +286,7 @@ fn to_relative_key(workspace_root: &Path, path: &Path) -> Result<String, ()> {
     Ok(s)
 }
 
-fn first_init(params: &InitializeParams) -> SourceMap {
+fn first_init(params: &InitializeParams) -> (SourceMap, Vec<PathBuf>) {
     if let Some(folder_list) = &params.workspace_folders {
         let roots = extract_workspace_roots(folder_list);
 
@@ -296,7 +297,7 @@ fn first_init(params: &InitializeParams) -> SourceMap {
         let mut mounts = SeqMap::new();
 
         let _ = mounts.insert("crate".to_string(), scripts.clone());
-        let _ = mounts.insert("packages".to_string(), packages.clone());
+        let _ = mounts.insert("registry".to_string(), packages.clone());
 
         let mut source_map_cache = SourceMap::new(&mounts).unwrap();
 
@@ -309,9 +310,9 @@ fn first_init(params: &InitializeParams) -> SourceMap {
         let package_files = collect_swamp_files(&packages);
         debug!(count=%package_files.len(), "found package files");
         for file in package_files {
-            source_map_cache.read_file(&file, "packages").unwrap();
+            source_map_cache.read_file(&file, "registry").unwrap();
         }
-        source_map_cache
+        (source_map_cache, roots)
     } else {
         panic!("no workspace folders");
     }

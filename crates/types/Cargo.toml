@@ -8,5 +8,5 @@ description = "types used in Swamp"
 
 [dependencies]
 source-map-node = "0.0.1"
-seq-map = "0.0.13"
+seq-map = "0.0.14"
 seq-fmt = "0.0.1"

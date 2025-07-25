@@ -10,7 +10,7 @@ description = "semantic types for swamp"
 source-map-node = "0.0.1"
 swamp-types = { path = "../types", version = "0.2.17" }
 
-seq-map = "0.0.13"
+seq-map = "0.0.14"
 fixed32 = "0.0.18"
 tracing = "0.1.40"
 swamp-attributes = { path = "../attributes", version = "0.2.17" }

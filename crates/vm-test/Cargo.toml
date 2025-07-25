@@ -14,7 +14,7 @@ swamp-code-gen = { path = "../code-gen", version = "0.2.0" }
 
 swamp-compile = { path = "../compile", version = "0.2.0" }
 
-source-map-cache = "0.0.3"
+source-map-cache = "0.0.4"
 
 hexify = "0.0.3"
 

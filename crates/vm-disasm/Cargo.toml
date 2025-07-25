@@ -9,8 +9,8 @@ repository = "https://github.com/swamp/swamp"
 [dependencies]
 swamp-vm-types = { path = "../vm-types", version = "0.2.17" }
 swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.17" }
-source-map-cache = "0.0.3"
+source-map-cache = "0.0.4"
 source-map-node = "0.0.1"
 tinter = "0.1.0"
-seq-map = "0.0.13"
+seq-map = "0.0.14"
 fixed32 = "0.0.18"
