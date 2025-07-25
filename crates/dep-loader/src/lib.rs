@@ -9,8 +9,8 @@ use source_map_cache::{FileId, SourceMap};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::{env, io};
-use swamp_ast::Function;
 use swamp_ast::prelude::*;
+use swamp_ast::Function;
 use swamp_parser::{AstParser, SpecificError};
 use time_dilation::ScopedTimer;
 use tracing::error;
@@ -26,37 +26,6 @@ pub enum ParseRootError {
 pub struct ParsedAstModule {
     pub ast_module: swamp_ast::Module,
     pub file_id: FileId,
-}
-
-impl ParsedAstModule {
-    // TODO: HACK: declare_external_function() should be removed
-    pub fn declare_external_function(
-        &mut self,
-        node: &Node,
-        parameters: Vec<Parameter>,
-        return_type: Option<Type>,
-    ) {
-        let fake_identifier = Node::default();
-
-        let signature = FunctionDeclaration {
-            name: fake_identifier,
-            params: parameters,
-            self_parameter: None,
-            return_type,
-        };
-        let external_signature = Function::External(Node::default(), signature);
-
-        let fake_def = Definition {
-            node: node.clone(),
-            kind: DefinitionKind::FunctionDef(external_signature),
-            attributes: vec![],
-        };
-
-        self.ast_module.definitions.insert(
-            0, // add it first
-            fake_def,
-        );
-    }
 }
 
 #[derive(Debug)]
