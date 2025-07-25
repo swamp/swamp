@@ -9,7 +9,7 @@ description = "Parses Swamp modules, scans for dependencies (`mod` and `use`), a
 [dependencies]
 swamp-ast = { path = "../ast", version = "0.2.17" }
 swamp-parser = { path = "../parser", version = "0.2.17" }
-source-map-cache = "0.0.4"
+source-map-cache = "0.0.6"
 
 seq-map = "0.0.14"
 time-dilation = "0.1.11"

@@ -304,13 +304,19 @@ fn first_init(params: &InitializeParams) -> (SourceMap, Vec<PathBuf>) {
         let script_files = collect_swamp_files(&scripts);
         debug!(count=%script_files.len(), "found script files");
         for file in script_files {
-            source_map_cache.read_file(&file, "crate").unwrap();
+            if let Ok(relative_key) = to_relative_key(&scripts, &file) {
+                debug!(?relative_key, "adding file");
+                source_map_cache.read_file_relative("crate", &relative_key).unwrap();
+            }
         }
 
         let package_files = collect_swamp_files(&packages);
         debug!(count=%package_files.len(), "found package files");
         for file in package_files {
-            source_map_cache.read_file(&file, "registry").unwrap();
+            if let Ok(relative_key) = to_relative_key(&packages, &file) {
+                debug!(?relative_key, "adding package file");
+                source_map_cache.read_file_relative("registry", &relative_key).unwrap();
+            }
         }
         (source_map_cache, roots)
     } else {

@@ -15,7 +15,7 @@ swamp-attributes = { path = "../attributes", version = "0.2.17" }
 # Future // swamp-pretty-print = { path = "../pretty-print", version = "0.2.0" }
 
 source-map-node = "0.0.1"
-source-map-cache = "0.0.4"
+source-map-cache = "0.0.6"
 
 seq-map = "0.0.14"
 seq-set = "0.0.2"
