@@ -9,21 +9,21 @@ use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::{Debug, Display};
 use std::hash::{Hash, Hasher};
+use swamp_symbol::TopLevelSymbolId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamedStructType {
+    pub symbol_id: TopLevelSymbolId,
     pub name: Node,
     pub module_path: Vec<String>,
     pub assigned_name: String,
     pub anon_struct_type: TypeRef,
-    pub instantiated_type_parameters: Vec<Type>,
 }
 
 impl Hash for NamedStructType {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.module_path.hash(state);
         state.write(self.assigned_name.as_ref());
-        self.instantiated_type_parameters.hash(state);
     }
 }
 
@@ -32,15 +32,16 @@ impl NamedStructType {
     pub fn new(
         name: Node,
         assigned_name: &str,
+        symbol_id: TopLevelSymbolId,
         anon_struct_type: TypeRef,
         module_path: &[String],
     ) -> Self {
         Self {
+            symbol_id,
             anon_struct_type,
             name,
             module_path: module_path.to_vec(),
             assigned_name: assigned_name.to_string(),
-            instantiated_type_parameters: Vec::default(),
         }
     }
 
@@ -92,6 +93,7 @@ impl AnonymousStructType {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct StructTypeField {
+    pub symbol_id: TopLevelSymbolId,
     pub identifier: Option<Node>,
     pub field_type: TypeRef,
 }
@@ -203,6 +205,7 @@ impl ParameterNode {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct EnumType {
+    pub symbol_id: TopLevelSymbolId,
     pub name: Node,
     pub assigned_name: String,
     pub module_path: Vec<String>,
@@ -214,8 +217,9 @@ impl EnumType {}
 
 impl EnumType {
     #[must_use]
-    pub fn new(name: Node, assigned_name: &str, module_path: Vec<String>) -> Self {
+    pub fn new(name: Node, assigned_name: &str, symbol_id: TopLevelSymbolId, module_path: Vec<String>) -> Self {
         Self {
+            symbol_id,
             name,
             assigned_name: assigned_name.to_string(),
             module_path,
@@ -275,6 +279,7 @@ impl EnumVariantType {
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct EnumVariantCommon {
+    pub symbol_id: TopLevelSymbolId,
     pub name: Node,
     pub assigned_name: String,
     pub container_index: u8,
@@ -302,16 +307,7 @@ pub fn sort_struct_fields2(
 
 impl Display for NamedStructType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.instantiated_type_parameters.is_empty() {
-            write!(f, "{}", self.assigned_name)
-        } else {
-            write!(
-                f,
-                "{}<{}>",
-                self.assigned_name,
-                seq_fmt::comma(&self.instantiated_type_parameters)
-            )
-        }
+        write!(f, "{}", self.assigned_name)
     }
 }
 

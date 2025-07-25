@@ -6,6 +6,7 @@ use crate::types::TypeAnalyzeContext;
 use crate::{Analyzer, TypeContext};
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{Constant, ConstantId, ConstantRef, Expression, ExpressionKind};
+use swamp_symbol::{Symbol, SymbolKind};
 
 impl Analyzer<'_> {
     fn analyze_constant(&mut self, constant: &swamp_ast::ConstantInfo) {
@@ -56,7 +57,15 @@ impl Analyzer<'_> {
 
         let name_node = self.to_node(&constant.constant_identifier.0);
         let name_text = self.get_text_resolved(&name_node).to_string();
+        let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
+        self.shared.state.symbols.insert_top(symbol_id, Symbol {
+            id: symbol_id.into(),
+            kind: SymbolKind::Const,
+            source_map_node: name_node.clone(),
+            name: name_node.clone(),
+        });
         let constant = Constant {
+            symbol_id,
             name: name_node.clone(),
             assigned_name: name_text,
             id: ConstantId::from(self.shared.state.internal_function_id_allocator.alloc()),
@@ -100,13 +109,17 @@ impl Analyzer<'_> {
         &mut self,
         qualified_constant_identifier: &swamp_ast::QualifiedConstantIdentifier,
     ) -> Expression {
-        match self.try_find_constant(qualified_constant_identifier) {
+        match self.try_find_constant(qualified_constant_identifier).cloned() {
             None => self.create_err(
                 ErrorKind::UnknownConstant,
                 &qualified_constant_identifier.name,
             ),
             Some(constant_ref) => {
                 let ty = constant_ref.resolved_type.clone();
+
+                let constant_reference_name_node = self.to_node(&qualified_constant_identifier.name);
+                self.shared.state.refs.add(constant_ref.symbol_id.into(), constant_reference_name_node);
+
                 self.create_expr(
                     ExpressionKind::ConstantAccess(constant_ref.clone()),
                     ty,

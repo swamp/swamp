@@ -7,6 +7,7 @@
 use seq_map::SeqMap;
 use std::cmp::max;
 use std::rc::Rc;
+use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::{AnonymousStructType, EnumType, EnumVariantType, NamedStructType};
 use swamp_types::{TypeId, TypeKind, TypeRef};
 use swamp_vm_types::types::{
@@ -14,10 +15,10 @@ use swamp_vm_types::types::{
     TaggedUnionVariant, TupleType,
 };
 use swamp_vm_types::{
-    ANY_HEADER_ALIGNMENT, ANY_HEADER_SIZE, CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
-    MAP_HEADER_ALIGNMENT, MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE,
-    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
-    adjust_size_to_alignment, align_to,
+    adjust_size_to_alignment, align_to, CountU16, MemoryAlignment, MemoryOffset,
+    MemorySize, ANY_HEADER_ALIGNMENT, ANY_HEADER_SIZE, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT,
+    PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
+    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
 };
 
 #[derive(Clone)]
@@ -144,11 +145,13 @@ impl LayoutCache {
         name: &str,
         variants: &[EnumVariantType],
         type_id: TypeId,
+        symbol_id: TopLevelSymbolId,
     ) -> BasicTypeRef {
         // Check if we already have a layout for this kind
         let enum_kind = TypeKind::Enum(EnumType::new(
             source_map_node::Node::default(),
             name,
+            symbol_id,
             vec![String::new()],
         ));
         if let Some(existing_layout) = self.kind_to_layout.get(&enum_kind) {
@@ -335,7 +338,7 @@ impl LayoutCache {
 
             TypeKind::Enum(enum_type) => {
                 let variants = enum_type.variants.values().cloned().collect::<Vec<_>>();
-                self.layout_enum(&enum_type.assigned_name, &variants, ty.id)
+                self.layout_enum(&enum_type.assigned_name, &variants, ty.id, enum_type.symbol_id)
             }
 
             TypeKind::FixedCapacityAndLengthArray(element_type, capacity) => {

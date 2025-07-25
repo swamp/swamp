@@ -42,6 +42,7 @@ use swamp_semantic::{
     WhenBinding,
 };
 use swamp_semantic::{StartOfChain, StartOfChainKind};
+use swamp_symbol::{ScopedSymbolId, TopLevelSymbolId};
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeKind};
 use tracing::error;
@@ -399,21 +400,27 @@ impl<'a> Analyzer<'a> {
         let function_name = self.get_text(&qualified_func_name.name);
 
         if let Some(found_table) = self.shared.get_symbol_table(&path)
-            && let Some(found_func) = found_table.get_function(function_name)
+            && let Some(found_func) = found_table.get_function(function_name).cloned()
         {
+            {
+                let converted_node = self.to_node(&qualified_func_name.name);
+                let symbol_id: TopLevelSymbolId = found_func.symbol_id().into();
+                let refs = &mut self.shared.state.refs;
+                refs.add(symbol_id.into(), converted_node);
+            }
             let (kind, signature) = match found_func {
                 FuncDef::Internal(internal_fn) => (
                     Function::Internal(internal_fn.clone()),
-                    &internal_fn.signature,
+                    &internal_fn.signature.clone(),
                 ),
                 FuncDef::External(external_fn) => (
                     Function::External(external_fn.clone()),
-                    &external_fn.signature,
+                    &external_fn.signature.clone(),
                 ),
                 // Can not have a reference to an intrinsic function
                 FuncDef::Intrinsic(intrinsic_fn) => (
                     Function::Intrinsic(intrinsic_fn.clone()),
-                    &intrinsic_fn.signature,
+                    &intrinsic_fn.signature.clone(),
                 ),
             };
 
@@ -452,8 +459,13 @@ impl<'a> Analyzer<'a> {
                         found_qualified_identifier,
                     ) = &ast_expression.kind
                     {
-                        self.try_find_variable(&found_qualified_identifier.name)
-                            .map(StartOfChainBase::Variable)
+                        if let Some(found_var) = self.try_find_variable(&found_qualified_identifier.name) {
+                            let name_node = self.to_node(&found_qualified_identifier.name);
+                            self.shared.state.refs.add(found_var.symbol_id.into(), name_node);
+                            Some(StartOfChainBase::Variable(found_var))
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
@@ -842,11 +854,11 @@ impl<'a> Analyzer<'a> {
             );
 
             NamedStructType {
+                symbol_id: TopLevelSymbolId::new_illegal(),
                 name: Default::default(),
                 module_path: vec![],
                 assigned_name: String::new(),
                 anon_struct_type: self.types().unit(),
-                instantiated_type_parameters: vec![],
             }
         }
     }
@@ -873,7 +885,7 @@ impl<'a> Analyzer<'a> {
         let symbol = {
             if let Some(symbol_table) = self.shared.get_symbol_table(&path) {
                 if let Some(x) = symbol_table.get_symbol(&name) {
-                    x
+                    x.clone()
                 } else {
                     self.add_err(ErrorKind::UnknownSymbol, &type_name_to_find.name.0);
                     return self.types().unit();
@@ -884,10 +896,17 @@ impl<'a> Analyzer<'a> {
             }
         };
 
+        let sym_node = self.to_node(&type_name_to_find.name.0);
         if analyzed_type_parameters.is_empty() {
             match &symbol {
-                Symbol::Type(_, base_type) => base_type.clone(),
-                Symbol::Alias(alias_type) => alias_type.ty.clone(),
+                Symbol::Type(symbol_id, base_type) => {
+                    self.shared.state.refs.add((*symbol_id).into(), sym_node);
+                    base_type.clone()
+                }
+                Symbol::Alias(alias_type) => {
+                    self.shared.state.refs.add(alias_type.symbol_id.into(), sym_node);
+                    alias_type.ty.clone()
+                }
                 _ => {
                     self.add_err(ErrorKind::UnexpectedType, &type_name_to_find.name.0);
                     self.types().unit()
@@ -952,7 +971,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                    .kind
+                        .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -986,14 +1005,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                .kind
+                    .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-            .kind
+                .kind
         }
     }
 
@@ -1091,13 +1110,14 @@ impl<'a> Analyzer<'a> {
     pub fn analyze_static_call(
         &mut self,
         ast_node: &swamp_ast::Node,
-        maybe_associated_to_type: Option<TypeRef>,
         func_def: Function,
-        maybe_generic_arguments: &Option<Vec<swamp_ast::GenericParameter>>,
         arguments: &[swamp_ast::Expression],
         context: &TypeContext,
     ) -> Expression {
         let signature = func_def.signature().clone();
+
+        let name_node = self.to_node(ast_node);
+        self.shared.state.refs.add(func_def.symbol_id().into(), name_node);
 
         let analyzed_arguments =
             self.analyze_and_verify_parameters(ast_node, &signature.parameters, arguments);
@@ -1137,20 +1157,20 @@ impl<'a> Analyzer<'a> {
             //trace!(?start_of_chain_base, "start of postfix chain");
             match start_of_chain_base {
                 StartOfChainBase::FunctionReference(func_def) => {
+
+
                     // In this language version, it is not allowed to provide references to functions
                     // So it must mean that this is a function call
                     if let swamp_ast::Postfix::FunctionCall(
                         ast_node,
-                        maybe_generic_arguments,
+                        _maybe_generic_arguments,
                         arguments,
                     ) = &chain.postfixes[0]
                     {
                         start_index = 1;
                         let call_expr = self.analyze_static_call(
                             ast_node,
-                            None,
                             func_def,
-                            maybe_generic_arguments,
                             arguments,
                             context,
                         );
@@ -1225,6 +1245,10 @@ impl<'a> Analyzer<'a> {
                         .state
                         .types
                         .anonymous_struct(struct_type_ref.clone());
+
+                    let field = struct_type_ref.field_name_sorted_fields.values().collect::<Vec<_>>()[index];
+                    let name_node = self.to_node(field_name);
+                    self.shared.state.refs.add(field.symbol_id.into(), name_node);
                     self.add_postfix(
                         &mut suffixes,
                         PostfixKind::StructField(struct_type_type_ref, index),
@@ -1374,8 +1398,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
-            } else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -2160,6 +2183,7 @@ impl<'a> Analyzer<'a> {
             );
             return EnumVariantType {
                 common: EnumVariantCommon {
+                    symbol_id: TopLevelSymbolId::new_illegal(),
                     name: Default::default(),
                     assigned_name: String::new(),
                     container_index: 0,
@@ -2177,6 +2201,7 @@ impl<'a> Analyzer<'a> {
             );
             EnumVariantType {
                 common: EnumVariantCommon {
+                    symbol_id: TopLevelSymbolId::new_illegal(),
                     name: Default::default(),
                     assigned_name: String::new(),
                     container_index: 0,
@@ -2362,8 +2387,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                .expect_immutable()
-                .unwrap()
+                    .expect_immutable()
+                    .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2604,8 +2629,7 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
-    }
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -2792,6 +2816,7 @@ impl<'a> Analyzer<'a> {
             self.add_err(ErrorKind::NotValidLocationStartingPoint, &chain.base.node);
             let unit_type = self.types().unit();
             let err_variable = Variable {
+                symbol_id: ScopedSymbolId::new_illegal(),
                 name: Default::default(),
                 assigned_name: String::new(),
                 resolved_type: unit_type,
@@ -2817,6 +2842,7 @@ impl<'a> Analyzer<'a> {
 
             let unit_type = self.types().unit();
             let err_variable = Variable {
+                symbol_id: ScopedSymbolId::new_illegal(),
                 name: Default::default(),
                 assigned_name: String::new(),
                 resolved_type: unit_type,
@@ -2894,6 +2920,7 @@ impl<'a> Analyzer<'a> {
                             node: Default::default(),
                             ty,
                             starting_variable: Rc::new(Variable {
+                                symbol_id: ScopedSymbolId::new_illegal(),
                                 name: Default::default(),
                                 assigned_name: String::new(),
                                 resolved_type: Rc::new(Type {
@@ -3024,6 +3051,7 @@ impl<'a> Analyzer<'a> {
                                 node: Default::default(),
                                 ty,
                                 starting_variable: Rc::new(Variable {
+                                    symbol_id: ScopedSymbolId::new_illegal(),
                                     name: Default::default(),
                                     assigned_name: String::new(),
                                     resolved_type: Rc::new(Type {
@@ -3135,9 +3163,12 @@ impl<'a> Analyzer<'a> {
                 if !var.is_mutable() {
                     self.add_err(ErrorKind::VariableIsNotMutable, &expr.node);
                 }
+
+                let var_node = self.to_node(&generated_var.name);
+                self.shared.state.refs.add(var.symbol_id.into(), var_node.clone());
                 SingleLocationExpression {
                     kind: MutableReferenceKind::MutVariableRef,
-                    node: self.to_node(&generated_var.name),
+                    node: var_node,
                     ty: var.resolved_type.clone(),
                     starting_variable: var,
                     access_chain: vec![],
@@ -3151,6 +3182,7 @@ impl<'a> Analyzer<'a> {
                     node: self.to_node(&expr.node),
                     ty: unit_type.clone(),
                     starting_variable: Rc::new(Variable {
+                        symbol_id: ScopedSymbolId::new_illegal(),
                         name: Default::default(),
                         assigned_name: String::new(),
                         resolved_type: unit_type,
@@ -4306,6 +4338,9 @@ impl<'a> Analyzer<'a> {
             ast_arguments,
         );
 
+        let name_node = self.to_node(node);
+        self.shared.state.refs.add(function_ref.symbol_id().into(), name_node);
+
         (
             PostfixKind::MemberCall(function_ref, resolved_arguments),
             TypeRef::from(instantiated_signature.return_type.clone()),
@@ -4372,8 +4407,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                        .types()
-                        .compatible_with(initializer_value_type, storage_value)
+                    .types()
+                    .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }

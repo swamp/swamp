@@ -5,12 +5,13 @@
 use crate::Analyzer;
 use source_map_node::Node;
 use std::rc::Rc;
-use swamp_semantic::ScopeInfo;
 use swamp_semantic::err::ErrorKind;
+use swamp_semantic::ScopeInfo;
 use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
 };
+use swamp_symbol::ScopedSymbolId;
 use swamp_types::prelude::*;
 
 const MAX_VIRTUAL_REGISTER: usize = 24;
@@ -197,8 +198,10 @@ impl Analyzer<'_> {
     ) -> (VariableRef, String) {
         if let Some(_existing_variable) = self.try_find_local_variable(variable) {
             self.add_err_resolved(ErrorKind::OverwriteVariableNotAllowedHere, variable);
+            let symbol_id = self.shared.state.symbol_id_allocator.alloc_scoped();
 
             let error_var_ref = VariableRef::new(Variable {
+                symbol_id,
                 name: Default::default(),
                 assigned_name: "err".to_string(),
                 resolved_type: self.types().unit(),
@@ -234,7 +237,9 @@ impl Analyzer<'_> {
         if !should_insert_in_scope && is_mutable.is_some() {
             self.add_err_resolved(ErrorKind::UnusedVariablesCanNotBeMut, variable);
 
+
             let error_var_ref = VariableRef::new(Variable {
+                symbol_id: ScopedSymbolId::new_illegal(),
                 name: Default::default(),
                 assigned_name: "err".to_string(),
                 resolved_type: self.types().unit(),
@@ -253,7 +258,9 @@ impl Analyzer<'_> {
         // Only increment register counter when we're actually creating a valid variable
         let maybe_virtual_register = allocate_next_register(&mut self.scope);
         if let Some(virtual_register) = maybe_virtual_register {
+            let symbol_id = self.shared.state.symbol_id_allocator.alloc_scoped();
             let resolved_variable = Variable {
+                symbol_id,
                 name: variable.clone(),
                 assigned_name: variable_str.clone(),
                 variable_type,
@@ -305,6 +312,7 @@ impl Analyzer<'_> {
             }
             self.add_err_resolved(ErrorKind::OutOfVirtualRegisters, variable);
             let resolved_variable = Variable {
+                symbol_id: ScopedSymbolId::new_illegal(),
                 name: variable.clone(),
                 assigned_name: variable_str,
                 variable_type,

@@ -10,6 +10,7 @@ use crate::type_kind::{TypeKind, TypeRef};
 use crate::{Type, TypeId};
 use seq_map::SeqMap;
 use std::rc::Rc;
+use swamp_symbol::TopLevelSymbolId;
 
 /// Type cache for interning and deduplicating types in the system
 #[derive(Debug, Clone)]
@@ -210,12 +211,12 @@ impl TypeCache {
                 // Check if fields match
                 anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
                     && anon_a.field_name_sorted_fields.keys().all(|key| {
-                        anon_b.field_name_sorted_fields.contains_key(key)
-                            && self.compatible_with(
-                                &anon_a.field_name_sorted_fields[key].field_type,
-                                &anon_b.field_name_sorted_fields[key].field_type,
-                            )
-                    })
+                    anon_b.field_name_sorted_fields.contains_key(key)
+                        && self.compatible_with(
+                        &anon_a.field_name_sorted_fields[key].field_type,
+                        &anon_b.field_name_sorted_fields[key].field_type,
+                    )
+                })
             }
 
             (TypeKind::Range(range_a), TypeKind::Range(range_b)) => {
@@ -241,28 +242,21 @@ impl TypeCache {
                 // Compare range types
                 anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
                     && anon_a.field_name_sorted_fields.keys().all(|key| {
-                        anon_b.field_name_sorted_fields.contains_key(key)
-                            && self.compatible_with(
-                                &anon_a.field_name_sorted_fields[key].field_type,
-                                &anon_b.field_name_sorted_fields[key].field_type,
-                            )
-                    })
+                    anon_b.field_name_sorted_fields.contains_key(key)
+                        && self.compatible_with(
+                        &anon_a.field_name_sorted_fields[key].field_type,
+                        &anon_b.field_name_sorted_fields[key].field_type,
+                    )
+                })
             }
 
             (TypeKind::NamedStruct(named_a), TypeKind::NamedStruct(named_b)) => {
                 // Check named struct compatibility
                 if named_a.assigned_name != named_b.assigned_name
-                    || named_a.instantiated_type_parameters.len()
-                        != named_b.instantiated_type_parameters.len()
                 {
                     false
                 } else {
-                    // Check type parameters compatibility
-                    named_a
-                        .instantiated_type_parameters
-                        .iter()
-                        .zip(named_b.instantiated_type_parameters.iter())
-                        .all(|(a, b)| self.compatible_with(a, b))
+                    self.compatible_with(&named_a.anon_struct_type, &named_b.anon_struct_type)
                 }
             }
 
@@ -270,7 +264,7 @@ impl TypeCache {
                 // Check enum compatibility
                 if enum_a.assigned_name != enum_b.assigned_name
                     || enum_a.instantiated_type_parameters.len()
-                        != enum_b.instantiated_type_parameters.len()
+                    != enum_b.instantiated_type_parameters.len()
                 {
                     false
                 } else {
@@ -681,6 +675,7 @@ impl TypeCache {
         let _ = range_fields.insert(
             "start".to_string(),
             StructTypeField {
+                symbol_id: TopLevelSymbolId::new_illegal(),
                 identifier: None,
                 field_type: int_type.clone(),
             },
@@ -688,6 +683,7 @@ impl TypeCache {
         let _ = range_fields.insert(
             "end".to_string(),
             StructTypeField {
+                symbol_id: TopLevelSymbolId::new_illegal(),
                 identifier: None,
                 field_type: int_type,
             },
@@ -695,6 +691,7 @@ impl TypeCache {
         let _ = range_fields.insert(
             "is_inclusive".to_string(),
             StructTypeField {
+                symbol_id: TopLevelSymbolId::new_illegal(),
                 identifier: None,
                 field_type: bool_type,
             },

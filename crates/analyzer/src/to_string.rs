@@ -41,6 +41,7 @@ use swamp_semantic::{
     Pattern, PatternElement, Postfix, PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator,
     UnaryOperatorKind, Variable, VariableRef, VariableScopes, VariableType, WhenBinding,
 };
+use swamp_symbol::{SymbolIdAllocator, Symbols};
 use swamp_types::prelude::{EnumType, NamedStructType, Signature, TypeCache, TypeForParameter};
 use swamp_types::{TypeKind, TypeRef};
 
@@ -639,11 +640,13 @@ fn create_string_representation_of_expression(
     }
 }
 
-pub struct GeneratedScope {
+pub struct GeneratedScope<'a> {
     pub scope: VariableScopes,
     active_virtual_registers: HashSet<u8>,
     scope_stack: Vec<ScopeFrame>,
     next_unique_id: usize,
+    pub symbol_id_allocator: &'a mut SymbolIdAllocator,
+    pub symbols: &'a mut Symbols,
 }
 
 #[derive(Debug)]
@@ -652,16 +655,20 @@ struct ScopeFrame {
     virtual_registers_in_scope: Vec<u8>,
 }
 
-impl GeneratedScope {
-    pub fn new() -> Self {
+impl<'a> GeneratedScope<'a> {
+    pub fn new(symbol_id_allocator: &'a mut SymbolIdAllocator, symbols: &'a mut Symbols) -> Self {
         Self {
+            symbol_id_allocator,
+            symbols,
             scope: VariableScopes::default(),
             active_virtual_registers: HashSet::new(),
             scope_stack: Vec::new(),
             next_unique_id: 1, // Start at 1, 0 is reserved for return value
         }
     }
+}
 
+impl GeneratedScope<'_> {
     /// Push a new scope frame for proper variable management
     pub fn push_scope(&mut self) {
         self.scope_stack.push(ScopeFrame {
@@ -713,8 +720,19 @@ impl GeneratedScope {
             .unwrap_or_else(|| panic!("out of virtual registers for variable {assigned_name}"));
 
         let unique_id = self.allocate_unique_id();
+        let symbol_id = self.symbol_id_allocator.alloc_scoped();
+        /*
+        self.symbols.insert_scoped(symbol_id, Symbol {
+            id: symbol_id.into(),
+            kind: SymbolKind::Variable,
+            source_map_node: node.clone(),
+            name: node.clone(),
+        });
+
+         */
 
         let var_ref = VariableRef::new(Variable {
+            symbol_id,
             name: node.clone(),
             assigned_name: assigned_name.to_string(),
             resolved_type: variable_type.clone(),
@@ -1535,12 +1553,14 @@ fn generate_to_string_for_tuple(
 pub fn internal_generate_to_string_function_for_type(
     generator: &mut ExpressionGenerator,
     id_gen: &mut InternalFunctionIdAllocator,
+    symbol_id_allocator: &mut SymbolIdAllocator,
+    symbols: &mut Symbols,
     module_path: &[String],
     ty: &TypeRef,
     resolved_node: &Node,
     is_short_string: bool,
 ) -> InternalFunctionDefinition {
-    let mut block_scope_to_use = GeneratedScope::new();
+    let mut block_scope_to_use = GeneratedScope::new(symbol_id_allocator, symbols);
 
     // Create the "self" parameter using the same method as normal functions
     let variable_ref = block_scope_to_use.create_parameter("self", ty, resolved_node);
@@ -1669,7 +1689,10 @@ pub fn internal_generate_to_string_function_for_type(
     // Finalize the scope to set the highest register watermark
     block_scope_to_use.scope.finalize();
 
+    let symbol_id = block_scope_to_use.symbol_id_allocator.alloc_top_level();
+
     InternalFunctionDefinition {
+        symbol_id,
         body: body_expr,
         name: LocalIdentifier(resolved_node.clone()),
         assigned_name: if is_short_string {
@@ -1677,7 +1700,7 @@ pub fn internal_generate_to_string_function_for_type(
         } else {
             "string"
         }
-        .to_string(),
+            .to_string(),
         associated_with_type: Option::from(ty.clone()),
         defined_in_module_path: module_path.to_vec(),
         signature: Signature {
@@ -1698,6 +1721,8 @@ pub fn internal_generate_to_string_function_for_type(
 pub fn internal_generate_to_short_string_function_for_type(
     generator: &mut ExpressionGenerator,
     id_gen: &mut InternalFunctionIdAllocator,
+    symbol_id_allocator: &mut SymbolIdAllocator,
+    symbols: &mut Symbols,
     module_path: &[String],
     ty: &TypeRef,
     resolved_node: &Node,
@@ -1705,6 +1730,8 @@ pub fn internal_generate_to_short_string_function_for_type(
     internal_generate_to_string_function_for_type(
         generator,
         id_gen,
+        symbol_id_allocator,
+        symbols,
         module_path,
         ty,
         resolved_node,
@@ -1715,11 +1742,14 @@ pub fn internal_generate_to_short_string_function_for_type(
 pub fn internal_generate_to_pretty_string_function_for_type(
     generator: &mut ExpressionGenerator,
     id_gen: &mut InternalFunctionIdAllocator,
+    symbol_id_allocator: &mut SymbolIdAllocator,
+    symbols: &mut Symbols,
+
     module_path: &[String],
     ty: &TypeRef,
     resolved_node: &Node,
 ) -> InternalFunctionDefinition {
-    let mut block_scope_to_use = GeneratedScope::new();
+    let mut block_scope_to_use = GeneratedScope::new(symbol_id_allocator, symbols);
 
     // Create the "self" parameter
     let self_variable_ref = block_scope_to_use.create_parameter("self", ty, resolved_node);
@@ -1756,7 +1786,10 @@ pub fn internal_generate_to_pretty_string_function_for_type(
 
     block_scope_to_use.scope.finalize();
 
+    let symbol_id = block_scope_to_use.symbol_id_allocator.alloc_top_level();
+
     InternalFunctionDefinition {
+        symbol_id,
         body: body_expr,
         name: LocalIdentifier(resolved_node.clone()),
         assigned_name: "pretty_string_with_indent".to_string(),
@@ -1788,11 +1821,13 @@ pub fn internal_generate_to_pretty_string_function_for_type(
 pub fn internal_generate_to_pretty_short_string_function_for_type(
     generator: &mut ExpressionGenerator,
     id_gen: &mut InternalFunctionIdAllocator,
+    symbol_id_allocator: &mut SymbolIdAllocator,
+    symbols: &mut Symbols,
     module_path: &[String],
     ty: &TypeRef,
     resolved_node: &Node,
 ) -> InternalFunctionDefinition {
-    let mut block_scope_to_use = GeneratedScope::new();
+    let mut block_scope_to_use = GeneratedScope::new(symbol_id_allocator, symbols);
 
     // Create the "self" parameter
     let self_variable_ref = block_scope_to_use.create_parameter("self", ty, resolved_node);
@@ -1829,7 +1864,10 @@ pub fn internal_generate_to_pretty_short_string_function_for_type(
 
     block_scope_to_use.scope.finalize();
 
+    let symbol_id = block_scope_to_use.symbol_id_allocator.alloc_top_level();
+
     InternalFunctionDefinition {
+        symbol_id,
         body: body_expr,
         name: LocalIdentifier(resolved_node.clone()),
         assigned_name: "pretty_short_string".to_string(),
@@ -1861,11 +1899,13 @@ pub fn internal_generate_to_pretty_short_string_function_for_type(
 pub fn internal_generate_to_pretty_string_parameterless_function_for_type(
     generator: &mut ExpressionGenerator,
     id_gen: &mut InternalFunctionIdAllocator,
+    symbol_id_allocator: &mut SymbolIdAllocator,
+    symbols: &mut Symbols,
     module_path: &[String],
     ty: &TypeRef,
     resolved_node: &Node,
 ) -> InternalFunctionDefinition {
-    let mut block_scope_to_use = GeneratedScope::new();
+    let mut block_scope_to_use = GeneratedScope::new(symbol_id_allocator, symbols);
 
     // Create the "self" parameter
     let self_variable_ref = block_scope_to_use.create_parameter("self", ty, resolved_node);
@@ -1898,7 +1938,10 @@ pub fn internal_generate_to_pretty_string_parameterless_function_for_type(
 
     block_scope_to_use.scope.finalize();
 
+    let symbol_id = block_scope_to_use.symbol_id_allocator.alloc_top_level();
+
     InternalFunctionDefinition {
+        symbol_id,
         body: body_expr,
         name: LocalIdentifier(resolved_node.clone()),
         assigned_name: "pretty_string".to_string(),

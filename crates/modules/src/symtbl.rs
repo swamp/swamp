@@ -8,8 +8,9 @@ use source_map_node::Node;
 use std::fmt::Debug;
 use std::rc::Rc;
 use swamp_semantic::prelude::*;
-use swamp_types::TypeRef;
+use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::*;
+use swamp_types::TypeRef;
 use tiny_ver::TinyVersion;
 
 #[derive(Debug, Clone)]
@@ -17,6 +18,18 @@ pub enum FuncDef {
     Internal(InternalFunctionDefinitionRef),
     Intrinsic(IntrinsicFunctionDefinitionRef),
     External(ExternalFunctionDefinitionRef),
+}
+
+impl FuncDef {
+    pub fn symbol_id(&self) -> TopLevelSymbolId {
+        match self {
+            FuncDef::Internal(internal) => {
+                internal.symbol_id
+            }
+            FuncDef::Intrinsic(_) => { TopLevelSymbolId::new_illegal() }
+            FuncDef::External(_) => { TopLevelSymbolId::new_illegal() }
+        }
+    }
 }
 
 impl FuncDef {
@@ -44,6 +57,7 @@ pub struct TypeParameter {
 
 #[derive(Clone, Debug)]
 pub struct AliasType {
+    pub symbol_id: TopLevelSymbolId,
     pub name: Option<Node>,
     pub assigned_name: String,
     pub ty: TypeRef,
@@ -51,7 +65,7 @@ pub struct AliasType {
 
 #[derive(Clone, Debug)]
 pub enum Symbol {
-    Type(Node, TypeRef),
+    Type(TopLevelSymbolId, TypeRef),
     Module(ModuleRef),
     PackageVersion(TinyVersion),
     Constant(ConstantRef),
@@ -398,8 +412,8 @@ impl SymbolTable {
         };
 
         let node = match &*ty.kind {
-            TypeKind::NamedStruct(named) => named.name.clone(),
-            TypeKind::Enum(enum_type) => enum_type.name.clone(),
+            TypeKind::NamedStruct(named) => named.symbol_id.clone(),
+            TypeKind::Enum(enum_type) => enum_type.symbol_id.clone(),
             _ => panic!("not a named type"),
         };
 
@@ -425,9 +439,9 @@ impl SymbolTable {
             &decl_ref.assigned_name,
             Symbol::FunctionDefinition(FuncDef::External(decl_ref.clone())),
         )
-        .map_err(|_| {
-            SemanticError::DuplicateExternalFunction(decl_ref.assigned_name.to_string())
-        })?;
+            .map_err(|_| {
+                SemanticError::DuplicateExternalFunction(decl_ref.assigned_name.to_string())
+            })?;
         Ok(())
     }
 

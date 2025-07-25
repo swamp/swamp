@@ -9,6 +9,8 @@ description = "semantic types for swamp"
 [dependencies]
 source-map-node = "0.0.1"
 swamp-types = { path = "../types", version = "0.2.17" }
+swamp-symbol = { path = "../symbol", version = "0.2.17" }
+swamp-refs = { path = "../refs", version = "0.2.17" }
 
 seq-map = "0.0.14"
 fixed32 = "0.0.18"

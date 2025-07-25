@@ -4,8 +4,8 @@
  */
 use regex::Regex;
 use seq_map::SeqMap;
-use source_map_cache::SourceMap;
 use source_map_cache::SourceMapWrapper;
+use source_map_cache::{SourceMap, SourceMapLookup};
 use source_map_node::FileId;
 use std::env::current_dir;
 use std::io;
@@ -296,6 +296,16 @@ pub fn bootstrap_and_compile(
 
     if options.show_errors {
         show_errors(&program.state.errors, &source_map_wrapper);
+    }
+
+    if options.show_warnings {
+        for x in program.state.symbols.iter_all() {
+            if !program.state.refs.is_used(&x.id) {
+                let name = source_map_wrapper.get_text(&x.name);
+                let line_info = source_map_wrapper.get_line(&x.name.span);
+                eprintln!("not used: '{}' ({:?}) file://{}:{}:{}\n{}", name, x.kind, line_info.relative_file_name, line_info.row, line_info.col, line_info.line);
+            }
+        }
     }
 
     if options.show_hints {

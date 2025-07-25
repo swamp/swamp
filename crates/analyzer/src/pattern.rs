@@ -5,6 +5,7 @@
 use crate::Analyzer;
 use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{NormalPattern, Pattern, PatternElement};
+use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::EnumVariantType as TypesEnumVariantType;
 use swamp_types::prelude::{EnumVariantCommon, TypeKind, TypeRef};
 
@@ -21,6 +22,7 @@ impl Analyzer<'_> {
 
             return TypesEnumVariantType {
                 common: EnumVariantCommon {
+                    symbol_id: TopLevelSymbolId::new_illegal(),
                     name: Default::default(),
                     assigned_name: String::new(),
                     container_index: 0,
@@ -37,6 +39,7 @@ impl Analyzer<'_> {
             self.add_err(ErrorKind::UnknownEnumVariantTypeInPattern, ast_name);
             TypesEnumVariantType {
                 common: EnumVariantCommon {
+                    symbol_id: TopLevelSymbolId::new_illegal(),
                     name: Default::default(),
                     assigned_name: String::new(),
                     container_index: 0,
@@ -90,6 +93,9 @@ impl Analyzer<'_> {
                 let mut scope_was_pushed = false;
                 let enum_variant_type_ref =
                     self.find_variant_in_pattern(expected_condition_type, variant_name);
+
+                let name_node = self.to_node(node);
+                self.shared.state.refs.add(enum_variant_type_ref.common.symbol_id.into(), name_node);
 
                 match destructuring_pattern {
                     swamp_ast::DestructuringPattern::Struct { fields } => {

@@ -7,12 +7,14 @@ use source_map_node::FileId;
 use swamp_modules::prelude::{Module, SymbolTable};
 use swamp_modules::symtbl::AliasType;
 use swamp_semantic::prelude::{IntrinsicFunction, IntrinsicFunctionDefinition};
+use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::{Signature, TypeCache, TypeForParameter};
 use tiny_ver::TinyVersion;
 
 pub const PACKAGE_NAME: &str = "core";
 fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
     let any_alias = AliasType {
+        symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
         name: None,
         assigned_name: "Any".to_string(),
         ty: cache.any(),
@@ -20,6 +22,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
     core_ns.add_alias(any_alias).unwrap();
 
     let byte_alias = AliasType {
+        symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
         name: None,
         assigned_name: "Byte".to_string(),
         ty: cache.byte(),
@@ -27,6 +30,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
     core_ns.add_alias(byte_alias).unwrap();
 
     let char_alias = AliasType {
+        symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
         name: None,
         assigned_name: "Char".to_string(),
         ty: cache.codepoint(),
@@ -34,6 +38,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
     core_ns.add_alias(char_alias).unwrap();
 
     let int_alias = AliasType {
+        symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
         name: None,
         assigned_name: "Int".to_string(),
         ty: cache.int(),
@@ -41,6 +46,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
     core_ns.add_alias(int_alias).unwrap();
 
     let float_alias = AliasType {
+        symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
         name: None,
         assigned_name: "Float".to_string(),
         ty: cache.float(),
@@ -48,6 +54,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
     core_ns.add_alias(float_alias).unwrap();
 
     let string_alias = AliasType {
+        symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
         name: None,
         assigned_name: "String".to_string(),
         ty: cache.string(),
@@ -55,6 +62,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
     core_ns.add_alias(string_alias).unwrap();
 
     let bool_alias = AliasType {
+        symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
         name: None,
         assigned_name: "Bool".to_string(),
         ty: cache.bool(),
@@ -85,7 +93,7 @@ fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: unit_type.clone(),
     };
     let string_unit_functions = [IntrinsicFunction::RuntimePanic];
@@ -132,7 +140,7 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: int_type,
     };
 
@@ -156,7 +164,7 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: string_type.clone(),
     };
     let string_to_string_functions = [IntrinsicFunction::StringToString];
@@ -180,7 +188,7 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: type_cache.tuple(vec![int, bool.clone()]),
     };
     let string_to_int_tuple_functions = [IntrinsicFunction::StringToInt];
@@ -203,7 +211,7 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: type_cache.tuple(vec![float, bool]),
     };
     let string_to_float_tuple_functions = [IntrinsicFunction::StringToFloat];
@@ -230,7 +238,7 @@ fn add_intrinsic_bool_functions(core_ns: &mut SymbolTable, type_cache: &mut Type
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: string_type,
     };
     let self_to_string_functions = [IntrinsicFunction::BoolToString];
@@ -257,7 +265,7 @@ fn add_intrinsic_byte_functions(core_ns: &mut SymbolTable, type_cache: &mut Type
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: string_type,
     };
     let self_to_string_functions = [IntrinsicFunction::ByteToString];
@@ -285,7 +293,7 @@ fn add_intrinsic_codepoint_functions(core_ns: &mut SymbolTable, type_cache: &mut
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: string_type,
     };
     let self_to_string_functions = [IntrinsicFunction::CodepointToString];
@@ -307,7 +315,7 @@ fn add_intrinsic_codepoint_functions(core_ns: &mut SymbolTable, type_cache: &mut
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: int_type,
     };
     let self_to_int_functions = [IntrinsicFunction::CodepointToInt];
@@ -335,7 +343,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeC
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: int_type.clone(),
     };
     let int_to_int_functions = [IntrinsicFunction::IntAbs, IntrinsicFunction::IntRnd];
@@ -357,7 +365,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeC
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: string_type,
     };
     let self_to_string_functions = [IntrinsicFunction::IntToString];
@@ -387,7 +395,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeC
                 node: None,
             },
         ]
-        .into(),
+            .into(),
         return_type: int_type.clone(),
     };
     let int_int_to_int_functions = [IntrinsicFunction::IntMax, IntrinsicFunction::IntMin];
@@ -424,7 +432,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeC
                 node: None,
             },
         ]
-        .into(),
+            .into(),
         return_type: int_type.clone(),
     };
     let int_int_int_to_int_functions = [IntrinsicFunction::IntClamp];
@@ -446,7 +454,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeC
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: float_type,
     };
 
@@ -472,7 +480,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: float_type.clone(),
     };
 
@@ -504,7 +512,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: int_type,
     };
     let float_to_int_functions = [IntrinsicFunction::FloatRound, IntrinsicFunction::FloatFloor];
@@ -526,7 +534,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
             is_mutable: false,
             node: None,
         }]
-        .into(),
+            .into(),
         return_type: string_type,
     };
     let self_to_string_functions = [IntrinsicFunction::FloatToString];
@@ -556,7 +564,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
                 node: None,
             },
         ]
-        .into(),
+            .into(),
         return_type: float_type.clone(),
     };
 
@@ -598,7 +606,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
                 node: None,
             },
         ]
-        .into(),
+            .into(),
         return_type: float_type,
     };
 

@@ -2,14 +2,14 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::Analyzer;
 use crate::to_string::{
-    ExpressionGenerator, internal_generate_to_pretty_string_function_for_type,
-    internal_generate_to_pretty_string_parameterless_function_for_type,
+    internal_generate_to_pretty_string_function_for_type, internal_generate_to_pretty_string_parameterless_function_for_type,
     internal_generate_to_short_string_function_for_type,
     internal_generate_to_string_function_for_type,
+    ExpressionGenerator,
 };
 use crate::types::TypeAnalyzeContext;
+use crate::Analyzer;
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_ast::Node;
@@ -20,6 +20,7 @@ use swamp_semantic::{
     ExternalFunctionDefinition, ExternalFunctionId, Function, InternalFunctionDefinition,
     InternalFunctionId, LocalIdentifier, UseItem,
 };
+use swamp_symbol::{Symbol, SymbolKind, TopLevelSymbolId};
 use swamp_types::prelude::*;
 use tracing::debug;
 
@@ -167,8 +168,19 @@ impl Analyzer<'_> {
     ) {
         let mut resolved_variants = SeqMap::new();
 
+        let name_node = self.to_node(&enum_type_name.name);
+
+        let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
+        self.shared.state.symbols.insert_top(symbol_id, Symbol {
+            id: symbol_id.into(),
+            kind: SymbolKind::Enum,
+            source_map_node: name_node.clone(),
+            name: name_node.clone(),
+        });
+
         let mut new_enum_type = EnumType {
-            name: self.to_node(&enum_type_name.name),
+            symbol_id,
+            name: name_node,
             assigned_name: self.get_text(&enum_type_name.name).to_string(),
             module_path: vec![],
             variants: SeqMap::default(),
@@ -183,8 +195,19 @@ impl Analyzer<'_> {
                 swamp_ast::EnumVariantType::Struct(name, _) => name,
             };
 
+            let name_node_for_variant = self.to_node(variant_name_node);
+
+            let variant_symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
+            self.shared.state.symbols.insert_top(variant_symbol_id, Symbol {
+                id: variant_symbol_id.into(),
+                kind: SymbolKind::EnumVariant,
+                source_map_node: name_node_for_variant.clone(),
+                name: name_node_for_variant.clone(),
+            });
+
             let common = EnumVariantCommon {
-                name: self.to_node(variant_name_node),
+                symbol_id: variant_symbol_id,
+                name: name_node_for_variant,
                 assigned_name: self.get_text(variant_name_node).to_string(),
                 container_index: container_index_usize as u8,
             };
@@ -226,8 +249,19 @@ impl Analyzer<'_> {
                         let field_name_str =
                             self.get_text(&field_with_type.field_name.0).to_string();
 
+                        let name_node = self.to_node(&field_with_type.field_name.0);
+
+                        let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
+                        self.shared.state.symbols.insert_top(symbol_id, Symbol {
+                            id: symbol_id.into(),
+                            kind: SymbolKind::EnumPayloadStructField,
+                            source_map_node: name_node.clone(),
+                            name: name_node.clone(),
+                        });
+
                         let resolved_field = StructTypeField {
-                            identifier: Some(self.to_node(&field_with_type.field_name.0)),
+                            symbol_id,
+                            identifier: Some(name_node),
                             field_type: resolved_type,
                         };
 
@@ -293,7 +327,16 @@ impl Analyzer<'_> {
         self.ensure_default_functions_for_type(&resolved_type, &ast_alias.identifier.0);
 
         let alias_name_str = self.get_text(&ast_alias.identifier.0).to_string();
+        let name_node = self.to_node(&ast_alias.identifier.0);
+        let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
+        self.shared.state.symbols.insert_top(symbol_id, Symbol {
+            id: symbol_id.into(),
+            kind: SymbolKind::Alias,
+            source_map_node: name_node.clone(),
+            name: name_node.clone(),
+        });
         let resolved_alias = AliasType {
+            symbol_id,
             name: None,
             ty: resolved_type,
             assigned_name: alias_name_str,
@@ -305,6 +348,7 @@ impl Analyzer<'_> {
             Err(err) => {
                 self.add_err(ErrorKind::SemanticError(err), &ast_alias.identifier.0);
                 AliasType {
+                    symbol_id: TopLevelSymbolId::new_illegal(),
                     name: None,
                     assigned_name: "err".to_string(),
                     ty: self.types().unit(),
@@ -319,6 +363,7 @@ impl Analyzer<'_> {
         {
             self.add_err(ErrorKind::SemanticError(sem_err), &ast_alias.identifier.0);
             AliasType {
+                symbol_id: TopLevelSymbolId::new_illegal(),
                 name: None,
                 assigned_name: "err".to_string(),
                 ty: self.types().unit(),
@@ -361,9 +406,19 @@ impl Analyzer<'_> {
             if !resolved_type.can_be_stored_in_field() {
                 self.add_hint(ErrorKind::NeedStorage, &field_name_and_type.field_name.0);
             }
+            let name_node = self.to_node(&field_name_and_type.field_name.0);
+
+            let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
+            self.shared.state.symbols.insert_top(symbol_id.into(), Symbol {
+                id: symbol_id.into(),
+                kind: SymbolKind::NamedStructField,
+                source_map_node: name_node.clone(),
+                name: name_node.clone(),
+            });
 
             let field_type = StructTypeField {
-                identifier: Some(self.to_node(&field_name_and_type.field_name.0)),
+                symbol_id,
+                identifier: Some(name_node),
                 field_type: resolved_type,
             };
 
@@ -399,12 +454,23 @@ impl Analyzer<'_> {
             .types
             .anonymous_struct(analyzed_anonymous_struct);
 
+        let name_node = self.to_node(&ast_struct_def.identifier.name);
+
+        let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
+        self.shared.state.symbols.insert_top(symbol_id, Symbol {
+            id: symbol_id.into(),
+            kind: SymbolKind::NamedStruct,
+            source_map_node: name_node.clone(),
+            name: name_node.clone(),
+        });
+
+
         let named_struct_type = NamedStructType {
-            name: self.to_node(&ast_struct_def.identifier.name),
+            symbol_id,
+            name: name_node,
             anon_struct_type: anon_struct_type_ref,
             assigned_name: struct_name_str,
             module_path: self.shared.definition_table.module_path(),
-            instantiated_type_parameters: Vec::default(),
         };
 
         let named_struct_type_ref = self.shared.state.types.named_struct(named_struct_type);
@@ -480,7 +546,9 @@ impl Analyzer<'_> {
                 let statements =
                     self.analyze_function_body_expression(&function_data.body, &return_type);
 
+                let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
                 let internal = InternalFunctionDefinition {
+                    symbol_id,
                     signature: Signature {
                         parameters,
                         return_type,
@@ -803,13 +871,24 @@ impl Analyzer<'_> {
 
                 let attributes = self.analyze_attributes(&function_data.attributes);
 
+                let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
+
+                let name_node = self.to_node(&function_data.declaration.name);
+                self.shared.state.symbols.insert_top(symbol_id, Symbol {
+                    id: symbol_id.into(),
+                    kind: SymbolKind::MemberFunction,
+                    source_map_node: name_node.clone(),
+                    name: name_node.clone(),
+                });
+
                 let internal = InternalFunctionDefinition {
+                    symbol_id,
                     signature: Signature {
                         parameters,
                         return_type,
                     },
                     body: statements,
-                    name: LocalIdentifier(self.to_node(&function_data.declaration.name)),
+                    name: LocalIdentifier(name_node),
                     assigned_name: self.get_text(&function_data.declaration.name).to_string(),
                     defined_in_module_path: self.module_path.clone(),
                     associated_with_type: Some(self_type.clone()),
@@ -888,11 +967,11 @@ impl Analyzer<'_> {
             // Check if we already have the functions to avoid infinite recursion
             if !self.shared.state.associated_impls.is_prepared(ty)
                 || self
-                    .shared
-                    .state
-                    .associated_impls
-                    .get_internal_member_function(ty, "string")
-                    .is_none()
+                .shared
+                .state
+                .associated_impls
+                .get_internal_member_function(ty, "string")
+                .is_none()
             {
                 self.add_default_functions(ty, node);
             }
@@ -1124,6 +1203,8 @@ impl Analyzer<'_> {
         internal_generate_to_string_function_for_type(
             &mut generator,
             &mut self.shared.state.internal_function_id_allocator,
+            &mut self.shared.state.symbol_id_allocator,
+            &mut self.shared.state.symbols,
             &self.module_path,
             ty,
             &node,
@@ -1144,6 +1225,8 @@ impl Analyzer<'_> {
         internal_generate_to_short_string_function_for_type(
             &mut generator,
             &mut self.shared.state.internal_function_id_allocator,
+            &mut self.shared.state.symbol_id_allocator,
+            &mut self.shared.state.symbols,
             &self.module_path,
             ty,
             &node,
@@ -1163,6 +1246,8 @@ impl Analyzer<'_> {
         internal_generate_to_pretty_string_function_for_type(
             &mut generator,
             &mut self.shared.state.internal_function_id_allocator,
+            &mut self.shared.state.symbol_id_allocator,
+            &mut self.shared.state.symbols,
             &self.module_path,
             ty,
             &node,
@@ -1182,6 +1267,8 @@ impl Analyzer<'_> {
         internal_generate_to_pretty_string_parameterless_function_for_type(
             &mut generator,
             &mut self.shared.state.internal_function_id_allocator,
+            &mut self.shared.state.symbol_id_allocator,
+            &mut self.shared.state.symbols,
             &self.module_path,
             ty,
             &node,

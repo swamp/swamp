@@ -12,6 +12,7 @@ use swamp_semantic::{
     AnonymousStructLiteral, Expression, ExpressionKind, FunctionRef, Postfix, PostfixKind,
     StartOfChain, StartOfChainKind,
 };
+use swamp_symbol::{Symbol, SymbolKind};
 use swamp_types::prelude::*;
 
 impl Analyzer<'_> {
@@ -144,7 +145,16 @@ impl Analyzer<'_> {
 
             let expression_type = resolved_expression.ty.clone();
 
+            let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
+            self.shared.state.symbols.insert_top(symbol_id.into(), Symbol {
+                id: symbol_id.into(),
+                kind: SymbolKind::AnonStructField,
+                source_map_node: Default::default(),
+                name: Default::default(),
+            });
+
             let field = StructTypeField {
+                symbol_id,
                 identifier: Some(resolved_node),
                 field_type: expression_type,
             };
@@ -253,6 +263,9 @@ impl Analyzer<'_> {
         }
 
         let named_struct_type = self.get_struct_type(qualified_type_identifier);
+        let sem_node = self.to_node(&qualified_type_identifier.name.0);
+
+        self.shared.state.refs.add(named_struct_type.symbol_id.into(), sem_node);
 
         let super_type = self
             .shared
@@ -467,6 +480,8 @@ impl Analyzer<'_> {
                 .field_name_sorted_fields
                 .get(&field_name)
                 .expect("field existence checked above");
+
+            self.shared.state.refs.add(looked_up_field.symbol_id.into(), resolved_node.clone());
 
             let field_index_in_definition = target_anon_struct_type
                 .field_name_sorted_fields

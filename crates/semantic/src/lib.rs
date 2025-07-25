@@ -16,6 +16,8 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 use swamp_attributes::Attributes;
+use swamp_refs::ReferenceTracker;
+use swamp_symbol::{ScopedSymbolId, SymbolIdAllocator, Symbols, TopLevelSymbolId};
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeRef};
 use tracing::error;
@@ -82,6 +84,7 @@ pub fn formal_function_name(internal_fn_def: &InternalFunctionDefinition) -> Str
 
 //#[derive(Debug,Clone)]
 pub struct InternalFunctionDefinition {
+    pub symbol_id: TopLevelSymbolId,
     pub body: Expression,
     pub name: LocalIdentifier,
     pub assigned_name: String,
@@ -118,6 +121,7 @@ impl Default for InternalFunctionDefinition {
                 }),
             },
             function_variables: VariableScopes::default(),
+            symbol_id: TopLevelSymbolId::new_illegal(),
             program_unique_id: 0,
             attributes: Attributes::default(),
         }
@@ -327,6 +331,7 @@ pub enum VariableType {
 
 #[derive(Debug, Clone)]
 pub struct Variable {
+    pub symbol_id: ScopedSymbolId,
     pub name: Node,
     pub assigned_name: String,
     pub resolved_type: TypeRef,
@@ -345,6 +350,7 @@ impl Variable {
     #[must_use]
     pub fn create_err(unit_type: TypeRef) -> Self {
         Self {
+            symbol_id: ScopedSymbolId::new_illegal(),
             name: Node::default(),
             assigned_name: "err".to_string(),
             resolved_type: unit_type,
@@ -507,6 +513,15 @@ impl Function {
             Self::Internal(x) => x.assigned_name.clone(),
             Self::External(y) => y.assigned_name.clone(),
             Self::Intrinsic(i) => i.name.clone(),
+        }
+    }
+
+    #[must_use]
+    pub fn symbol_id(&self) -> TopLevelSymbolId {
+        match self {
+            Self::Internal(x) => x.symbol_id.clone(),
+            Self::External(y) => TopLevelSymbolId::new_illegal(),
+            Self::Intrinsic(i) => TopLevelSymbolId::new_illegal(),
         }
     }
 
@@ -954,6 +969,7 @@ pub struct LocalTypeIdentifier(pub Node);
 
 #[derive(Debug, Clone)]
 pub struct Constant {
+    pub symbol_id: TopLevelSymbolId,
     pub name: Node,
     pub assigned_name: String,
     pub id: ConstantId,
@@ -1204,6 +1220,9 @@ impl AssociatedImpls {
 #[derive(Debug, Clone)]
 pub struct ProgramState {
     pub internal_function_id_allocator: InternalFunctionIdAllocator,
+    pub symbol_id_allocator: SymbolIdAllocator,
+    pub symbols: Symbols,
+    pub refs: ReferenceTracker,
     // It is just so we don't have to do another dependency check of the
     // modules, we know that these constants have been
     // evaluated in order already
@@ -1256,6 +1275,9 @@ impl ProgramState {
     #[must_use]
     pub fn new() -> Self {
         Self {
+            symbol_id_allocator: SymbolIdAllocator::new(),
+            symbols: Symbols::new(),
+            refs: ReferenceTracker::new(),
             internal_function_id_allocator: InternalFunctionIdAllocator::new(),
             constants_in_dependency_order: Vec::new(),
             associated_impls: AssociatedImpls::new(),

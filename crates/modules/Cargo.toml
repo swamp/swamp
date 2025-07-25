@@ -9,6 +9,7 @@ description = "Module support for Swamp"
 [dependencies]
 swamp-semantic = { path = "../semantic", version = "0.2.17" }
 swamp-types = { path = "../types", version = "0.2.17" }
+swamp-symbol = { path = "../symbol", version = "0.2.17" }
 source-map-node = "0.0.1"
 
 seq-map = "0.0.14"

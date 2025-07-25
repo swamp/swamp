@@ -9,6 +9,7 @@ description = "Initializes the Swamp core library module, defining primitive typ
 [dependencies]
 swamp-semantic = { path = "../semantic", version = "0.2.17" }
 swamp-types = { path = "../types", version = "0.2.17" }
+swamp-symbol = { path = "../symbol", version = "0.2.17" }
 swamp-modules = { path = "../modules", version = "0.2.17" }
 
 tiny-ver = "0.1.2"
