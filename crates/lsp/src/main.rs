@@ -4,6 +4,7 @@
  */
 mod conn;
 mod srv;
+mod log;
 
 use crate::conn::SendConnection;
 use crate::conn::SendConnectionImpl;
@@ -14,14 +15,39 @@ use lsp_types::{
     DidOpenTextDocumentParams, InitializeParams, ServerCapabilities, TextDocumentSyncKind,
     TextDocumentSyncOptions,
 };
+use pico_args;
+use seq_map::SeqMap;
+use source_map_cache::SourceMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use tracing::{debug, info};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 use walkdir::WalkDir;
 
+
 fn main() {
-    let (connection, io_threads) = Connection::stdio();
+    let (lsp_layer, lsp_connection) = log::LspLayer::new();
+
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(std::io::stderr)
+        )
+        .with(lsp_layer)
+        .init();
+
+    let mut pargs = pico_args::Arguments::from_env();
+
+    let (connection, io_threads) = if let Ok(port) = pargs.value_from_str::<_, u16>("--listen") {
+        info!("Starting LSP server on port {}", port);
+        Connection::listen(("127.0.0.1", port)).unwrap()
+    } else {
+        info!("Starting LSP server on stdio");
+        Connection::stdio()
+    };
 
     let (init_id, params_value) = connection.initialize_start().unwrap();
-    let _params: InitializeParams = serde_json::from_value(params_value).unwrap();
+    let params: InitializeParams = serde_json::from_value(params_value).unwrap();
 
     let caps = ServerCapabilities {
         position_encoding: None,
@@ -33,7 +59,7 @@ fn main() {
                 will_save: None, // The user should always be able to save when they want
                 will_save_wait_until: None, // The user should always be able to save when they want
             }
-            .into(),
+                .into(),
         ),
 
         // how to synchronize notebook documents (e.g. Jupyter-style .ipynb or VS Code's own notebook formats). when user updates cell it gets reported.
@@ -169,20 +195,27 @@ fn main() {
 
     let send_connection = SendConnectionImpl { connection };
 
-    send_connection.log("initialize done");
+    let send_connection_arc = Arc::new(send_connection);
 
-    let mut server = Server::new();
+    if let Ok(mut conn_opt) = lsp_connection.lock() {
+        *conn_opt = Some(send_connection_arc.clone());
+    }
 
-    for msg in &send_connection.connection.receiver {
+    info!("LSP server initialized and ready to start fetching swamp files");
+    let source_map_cache = first_init(&params);
+
+    let mut server = Server::new(source_map_cache);
+
+    for msg in &send_connection_arc.connection.receiver {
         match msg {
             Message::Request(req) => {
-                if send_connection.connection.handle_shutdown(&req).unwrap() {
+                if send_connection_arc.connection.handle_shutdown(&req).unwrap() {
                     break;
                 }
-                handle_request(req, &send_connection, &mut server);
+                handle_request(req, &send_connection_arc, &mut server);
             }
             Message::Notification(notif) => {
-                handle_notification(notif, &send_connection, &mut server);
+                handle_notification(notif, &send_connection_arc, &mut server);
             }
             Message::Response(_) => {
                 // no custom requests, so ignore.
@@ -234,7 +267,13 @@ fn handle_notification(notif: Notification, connection: &SendConnectionImpl, ser
 }
 
 fn uri_to_path(uri: &Uri) -> Option<PathBuf> {
-    Some(uri.to_string().parse().unwrap())
+    if uri.scheme().map(|s| s.as_str()) == Some("file") {
+        // Get the path component and convert to string
+        let path_str = uri.path().as_str();
+        Some(PathBuf::from(path_str))
+    } else {
+        None
+    }
 }
 
 fn to_relative_key(workspace_root: &Path, path: &Path) -> Result<String, ()> {
@@ -246,16 +285,47 @@ fn to_relative_key(workspace_root: &Path, path: &Path) -> Result<String, ()> {
     Ok(s)
 }
 
-fn extract_workspace_roots(params: &InitializeParams) -> Vec<PathBuf> {
+fn first_init(params: &InitializeParams) -> SourceMap {
+    if let Some(folder_list) = &params.workspace_folders {
+        let roots = extract_workspace_roots(folder_list);
+
+        // TODO: For now, just support the first root:
+        let main_root = &roots[0];
+        let scripts = main_root.join("scripts");
+        let packages = main_root.join("packages");
+        let mut mounts = SeqMap::new();
+
+        let _ = mounts.insert("crate".to_string(), scripts.clone());
+        let _ = mounts.insert("packages".to_string(), packages.clone());
+
+        let mut source_map_cache = SourceMap::new(&mounts).unwrap();
+
+        let script_files = collect_swamp_files(&scripts);
+        debug!(count=%script_files.len(), "found script files");
+        for file in script_files {
+            source_map_cache.read_file(&file, "crate").unwrap();
+        }
+
+        let package_files = collect_swamp_files(&packages);
+        debug!(count=%package_files.len(), "found package files");
+        for file in package_files {
+            source_map_cache.read_file(&file, "packages").unwrap();
+        }
+        source_map_cache
+    } else {
+        panic!("no workspace folders");
+    }
+}
+
+fn extract_workspace_roots(folder_list: &[WorkspaceFolder]) -> Vec<PathBuf> {
     let mut roots = Vec::new();
 
-    if let Some(folder_list) = &params.workspace_folders {
-        for WorkspaceFolder { uri, .. } in folder_list {
-            if let Some(path) = uri_to_path(uri) {
-                roots.push(path);
-            }
+    for WorkspaceFolder { uri, .. } in folder_list {
+        if let Some(path) = uri_to_path(uri) {
+            roots.push(path);
         }
     }
+
     roots
 }
 
