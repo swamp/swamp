@@ -13,6 +13,7 @@ use swamp_semantic::{Expression, ExpressionKind, InternalMainExpression};
 #[derive(Debug)]
 pub struct Modules {
     modules: SeqMap<Vec<String>, ModuleRef>,
+    file_id_to_module: SeqMap<FileId, ModuleRef>,
 }
 
 impl Default for Modules {
@@ -86,6 +87,7 @@ impl Modules {
     pub fn new() -> Self {
         Self {
             modules: SeqMap::new(),
+            file_id_to_module: SeqMap::new(),
         }
     }
 
@@ -102,17 +104,24 @@ impl Modules {
     pub fn add(&mut self, module: ModuleRef) {
         let path = module.symbol_table.module_path();
 
-        self.modules.insert(path, module).expect("could not insert");
+        self.modules.insert(path, module.clone()).expect("could not insert");
+        self.file_id_to_module.insert(module.file_id, module.clone());
     }
 
     pub fn link_module(&mut self, module_path: &[String], referred_module: ModuleRef) {
         self.modules
-            .insert(module_path.to_vec(), referred_module)
-            .expect("todo");
+            .insert(module_path.to_vec(), referred_module.clone())
+            .expect("could not insert");
+        self.file_id_to_module.insert(referred_module.file_id, referred_module).expect("could not insert");
     }
 
     #[must_use]
     pub fn get(&self, module_path: &[String]) -> Option<&ModuleRef> {
         self.modules.get(&module_path.to_vec())
+    }
+
+    #[must_use]
+    pub fn get_from_file_id(&self, file_id: FileId) -> Option<&ModuleRef> {
+        self.file_id_to_module.get(&file_id)
     }
 }

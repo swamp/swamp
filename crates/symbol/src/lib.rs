@@ -1,3 +1,5 @@
+pub mod prelude;
+
 use seq_map::SeqMap;
 use source_map_node::Node;
 
@@ -37,7 +39,7 @@ impl SymbolId {
 }
 
 impl SymbolId {
-    fn new_illegal() -> SymbolId {
+    pub fn new_illegal() -> SymbolId {
         SymbolId(0)
     }
 }
@@ -131,5 +133,15 @@ impl Symbols {
 
     pub fn iter_all(&self) -> impl Iterator<Item=&Symbol> {
         self.top_level_symbols.values().chain(self.scoped_symbols.values())
+    }
+
+    pub fn get(&self, symbol_id: SymbolId) -> Option<&Symbol> {
+        if let Some(sym) = self.top_level_symbols.get(&TopLevelSymbolId(symbol_id)) {
+            return Some(sym)
+        }
+        if let Some(sym) = self.scoped_symbols.get(&ScopedSymbolId(symbol_id)) {
+            return Some(sym)
+        }
+        None
     }
 }

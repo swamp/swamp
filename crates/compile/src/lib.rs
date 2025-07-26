@@ -299,13 +299,20 @@ pub fn bootstrap_and_compile(
     }
 
     if options.show_warnings {
+        /* TODO: Not working perfectly yet
         for x in program.state.symbols.iter_all() {
             if !program.state.refs.is_used(&x.id) {
                 let name = source_map_wrapper.get_text(&x.name);
+                if x.name.span.file_id <= 2 {
+                    eprintln!("name: {name} {:?} {}", x.kind, x.name.span.file_id);
+                    continue;
+                }
                 let line_info = source_map_wrapper.get_line(&x.name.span);
                 eprintln!("not used: '{}' ({:?}) file://{}:{}:{}\n{}", name, x.kind, line_info.relative_file_name, line_info.row, line_info.col, line_info.line);
             }
         }
+
+         */
     }
 
     if options.show_hints {

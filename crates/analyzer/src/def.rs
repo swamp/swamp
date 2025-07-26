@@ -543,10 +543,18 @@ impl Analyzer<'_> {
                     .get_text(&function_data.declaration.name)
                     .trim()
                     .to_string();
+
+                let name_node = self.to_node(&function_data.declaration.name);
                 let statements =
                     self.analyze_function_body_expression(&function_data.body, &return_type);
 
                 let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
+                self.shared.state.symbols.insert_top(symbol_id.into(), Symbol {
+                    id: symbol_id.into(),
+                    kind: SymbolKind::Function,
+                    source_map_node: name_node.clone(),
+                    name: name_node.clone(),
+                });
                 let internal = InternalFunctionDefinition {
                     symbol_id,
                     signature: Signature {
@@ -554,7 +562,7 @@ impl Analyzer<'_> {
                         return_type,
                     },
                     body: statements,
-                    name: LocalIdentifier(self.to_node(&function_data.declaration.name)),
+                    name: LocalIdentifier(name_node),
                     assigned_name: self.get_text(&function_data.declaration.name).to_string(),
                     associated_with_type: None,
                     defined_in_module_path: self.module_path.clone(),

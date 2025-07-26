@@ -17,6 +17,8 @@ swamp-semantic = { path = "../semantic", version = "0.2.17" }
 swamp-types = { path = "../types", version = "0.2.17" }
 swamp-analyzer = { path = "../analyzer", version = "0.2.17" }
 swamp-modules = { path = "../modules", version = "0.2.17" }
+swamp-refs = { path = "../refs", version = "0.2.17"}
+swamp-symbol = { path = "../symbol", version = "0.2.17"}
 
 # Core
 swamp-core = { path = "../core", version = "0.2.17" }

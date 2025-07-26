@@ -482,6 +482,7 @@ impl Analyzer<'_> {
                 .expect("field existence checked above");
 
             self.shared.state.refs.add(looked_up_field.symbol_id.into(), resolved_node.clone());
+            self.shared.definition_table.refs.add(looked_up_field.symbol_id.into(), resolved_node.clone());
 
             let field_index_in_definition = target_anon_struct_type
                 .field_name_sorted_fields

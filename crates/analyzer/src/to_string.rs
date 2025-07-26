@@ -41,7 +41,7 @@ use swamp_semantic::{
     Pattern, PatternElement, Postfix, PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator,
     UnaryOperatorKind, Variable, VariableRef, VariableScopes, VariableType, WhenBinding,
 };
-use swamp_symbol::{SymbolIdAllocator, Symbols};
+use swamp_symbol::{Symbol, SymbolIdAllocator, SymbolKind, Symbols};
 use swamp_types::prelude::{EnumType, NamedStructType, Signature, TypeCache, TypeForParameter};
 use swamp_types::{TypeKind, TypeRef};
 
@@ -721,7 +721,6 @@ impl GeneratedScope<'_> {
 
         let unique_id = self.allocate_unique_id();
         let symbol_id = self.symbol_id_allocator.alloc_scoped();
-        /*
         self.symbols.insert_scoped(symbol_id, Symbol {
             id: symbol_id.into(),
             kind: SymbolKind::Variable,
@@ -729,7 +728,6 @@ impl GeneratedScope<'_> {
             name: node.clone(),
         });
 
-         */
 
         let var_ref = VariableRef::new(Variable {
             symbol_id,

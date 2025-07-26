@@ -196,7 +196,8 @@ impl Analyzer<'_> {
                 };
 
                 let variant_reference_name_node = self.to_node(&enum_variant_literal.name.0);
-                self.shared.state.refs.add(variant_ref.common.symbol_id.into(), variant_reference_name_node);
+                self.shared.state.refs.add(variant_ref.common.symbol_id.into(), variant_reference_name_node.clone());
+                self.shared.definition_table.refs.add(variant_ref.common.symbol_id.into(), variant_reference_name_node);
 
                 let resolved_data = match &enum_variant_literal.kind {
                     swamp_ast::EnumVariantLiteralKind::Simple => EnumLiteralExpressions::Nothing,

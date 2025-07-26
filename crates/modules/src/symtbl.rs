@@ -7,6 +7,7 @@ use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::Debug;
 use std::rc::Rc;
+use swamp_refs::ModuleSymbolReferences;
 use swamp_semantic::prelude::*;
 use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::*;
@@ -97,6 +98,7 @@ impl Symbol {
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
     symbols: SeqMap<String, Symbol>,
+    pub refs: ModuleSymbolReferences,
     module_path: Vec<String>,
 }
 
@@ -132,6 +134,7 @@ impl SymbolTable {
     #[must_use]
     pub fn new(module_path: &[String]) -> Self {
         Self {
+            refs: ModuleSymbolReferences::new(),
             symbols: SeqMap::default(),
             module_path: module_path.to_vec(),
         }

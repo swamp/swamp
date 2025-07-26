@@ -118,7 +118,8 @@ impl Analyzer<'_> {
                 let ty = constant_ref.resolved_type.clone();
 
                 let constant_reference_name_node = self.to_node(&qualified_constant_identifier.name);
-                self.shared.state.refs.add(constant_ref.symbol_id.into(), constant_reference_name_node);
+                self.shared.state.refs.add(constant_ref.symbol_id.into(), constant_reference_name_node.clone());
+                self.shared.definition_table.refs.add(constant_ref.symbol_id.into(), constant_reference_name_node);
 
                 self.create_expr(
                     ExpressionKind::ConstantAccess(constant_ref.clone()),

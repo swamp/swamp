@@ -11,7 +11,7 @@ use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
 };
-use swamp_symbol::ScopedSymbolId;
+use swamp_symbol::{ScopedSymbolId, Symbol, SymbolKind};
 use swamp_types::prelude::*;
 
 const MAX_VIRTUAL_REGISTER: usize = 24;
@@ -198,10 +198,10 @@ impl Analyzer<'_> {
     ) -> (VariableRef, String) {
         if let Some(_existing_variable) = self.try_find_local_variable(variable) {
             self.add_err_resolved(ErrorKind::OverwriteVariableNotAllowedHere, variable);
-            let symbol_id = self.shared.state.symbol_id_allocator.alloc_scoped();
+
 
             let error_var_ref = VariableRef::new(Variable {
-                symbol_id,
+                symbol_id: ScopedSymbolId::new_illegal(),
                 name: Default::default(),
                 assigned_name: "err".to_string(),
                 resolved_type: self.types().unit(),
@@ -259,6 +259,12 @@ impl Analyzer<'_> {
         let maybe_virtual_register = allocate_next_register(&mut self.scope);
         if let Some(virtual_register) = maybe_virtual_register {
             let symbol_id = self.shared.state.symbol_id_allocator.alloc_scoped();
+            self.shared.state.symbols.insert_scoped(symbol_id, Symbol {
+                id: symbol_id.into(),
+                kind: SymbolKind::Variable,
+                source_map_node: variable.clone(),
+                name: variable.clone(),
+            });
             let resolved_variable = Variable {
                 symbol_id,
                 name: variable.clone(),
