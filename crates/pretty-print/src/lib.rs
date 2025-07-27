@@ -7,7 +7,7 @@ use source_map_cache::SourceMapLookup;
 use source_map_node::Node;
 use std::fmt::{Display, Formatter};
 use swamp_modules::modules::{ModuleRef, Modules};
-use swamp_modules::symtbl::{AliasType, FuncDef, Symbol, SymbolTable};
+use swamp_modules::symtbl::{AliasType, DefinitionTable, FuncDef, ModuleDefinition, ModuleDefinitionKind};
 use swamp_semantic::prelude::*;
 use swamp_semantic::{
     ArgumentExpression, AssociatedImpls, MutableReferenceKind, Postfix, PostfixKind,
@@ -31,14 +31,13 @@ impl SourceMapDisplay<'_> {
             yansi::disable();
         }
     }
-    const fn get_color_from_symbol(symbol: &Symbol) -> Color {
-        match symbol {
-            Symbol::Type(_, _) => Color::BrightYellow,
-            Symbol::Module(_) => Color::BrightGreen,
-            Symbol::PackageVersion(_) => Color::BrightMagenta,
-            Symbol::Constant(_) => Color::BrightCyan,
-            Symbol::FunctionDefinition(_) => Color::Cyan,
-            Symbol::Alias(_) => Color::Red,
+    const fn get_color_from_symbol(symbol: &ModuleDefinition) -> Color {
+        match symbol.kind {
+            ModuleDefinitionKind::Type(_, _) => Color::BrightYellow,
+            ModuleDefinitionKind::Module(_) => Color::BrightGreen,
+            ModuleDefinitionKind::Constant(_) => Color::BrightCyan,
+            ModuleDefinitionKind::FunctionDefinition(_) => Color::Cyan,
+            ModuleDefinitionKind::Alias(_) => Color::Red,
         }
     }
 
@@ -72,7 +71,7 @@ impl SourceMapDisplay<'_> {
         &self,
         f: &mut Formatter<'_>,
         name: &str,
-        symbol: &Symbol,
+        symbol: &ModuleDefinition,
         tabs: usize,
     ) -> std::fmt::Result {
         let tab_str = "..".repeat(tabs);
@@ -80,13 +79,13 @@ impl SourceMapDisplay<'_> {
         let color = Self::get_color_from_symbol(symbol);
         write!(f, "{tab_str}{} ", name.paint(color))?;
 
-        match symbol {
-            Symbol::Type(_, ty) => self.show_type_except_name(f, ty, tabs + 1),
-            Symbol::Module(module_ref) => {
+        match &symbol.kind {
+            ModuleDefinitionKind::Type(_, ty) => self.show_type_except_name(f, ty, tabs + 1),
+            ModuleDefinitionKind::Module(module_ref) => {
                 write!(f, "{module_ref:?}")
             }
-            Symbol::Constant(constant_ref) => self.show_constant_content(f, constant_ref, tabs),
-            Symbol::FunctionDefinition(func_def) => match func_def {
+            ModuleDefinitionKind::Constant(constant_ref) => self.show_constant_content(f, constant_ref, tabs),
+            ModuleDefinitionKind::FunctionDefinition(func_def) => match func_def {
                 FuncDef::Internal(internal_fn) => self.show_internal_function(f, internal_fn, tabs),
                 FuncDef::Intrinsic(intrinsic_fn) => {
                     self.show_intrinsic_function(f, intrinsic_fn, tabs)
@@ -95,10 +94,7 @@ impl SourceMapDisplay<'_> {
                     self.show_external_function_declaration(f, external_fn, tabs)
                 }
             },
-            Symbol::Alias(alias_type_ref) => self.show_alias(f, alias_type_ref),
-            Symbol::PackageVersion(version) => {
-                write!(f, "version {version}")
-            }
+            ModuleDefinitionKind::Alias(alias_type_ref) => self.show_alias(f, alias_type_ref),
         }
     }
 
@@ -107,11 +103,11 @@ impl SourceMapDisplay<'_> {
     pub fn pretty_print_symbol_table(
         &self,
         f: &mut Formatter<'_>,
-        symbol_table: &SymbolTable,
+        symbol_table: &DefinitionTable,
         tabs: usize,
     ) -> std::fmt::Result {
         writeln!(f)?;
-        for (name, symbol) in symbol_table.symbols() {
+        for (name, symbol) in symbol_table.definitions() {
             self.pretty_print_symbol(f, name, symbol, tabs)?;
             writeln!(f)?;
         }
@@ -120,7 +116,7 @@ impl SourceMapDisplay<'_> {
 }
 
 pub struct SymbolTableDisplay<'a> {
-    pub symbol_table: &'a SymbolTable,
+    pub symbol_table: &'a DefinitionTable,
     pub source_map_display: &'a SourceMapDisplay<'a>,
 }
 
@@ -351,7 +347,7 @@ impl SourceMapDisplay<'_> {
         f: &mut Formatter<'_>,
         ns: &ModuleRef,
     ) -> std::fmt::Result {
-        self.show_module_path(f, &ns.symbol_table.module_path())
+        self.show_module_path(f, &ns.definition_table.module_path())
     }
 
     fn show_mut_or_not_expression(

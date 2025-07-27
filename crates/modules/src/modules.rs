@@ -2,7 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::symtbl::SymbolTable;
+use crate::symtbl::DefinitionTable;
 use seq_map::SeqMap;
 use source_map_node::FileId;
 use std::fmt::{Debug, Formatter};
@@ -24,14 +24,14 @@ impl Default for Modules {
 
 pub struct Module {
     pub main_expression: Option<InternalMainExpression>,
-    pub symbol_table: SymbolTable,
+    pub definition_table: DefinitionTable,
     pub file_id: FileId,
     pub errors: Vec<Error>,
 }
 
 impl Debug for Module {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, " {:?}", self.symbol_table)?;
+        writeln!(f, " {:?}", self.definition_table)?;
 
         if let Some(internal_main) = &self.main_expression {
             pretty_print(f, &internal_main.expression, 0)?;
@@ -68,13 +68,13 @@ pub type ModuleRef = Rc<Module>;
 impl Module {
     #[must_use]
     pub const fn new(
-        symbol_table: SymbolTable,
+        symbol_table: DefinitionTable,
         errors: Vec<Error>,
         expression: Option<InternalMainExpression>,
         file_id: FileId,
     ) -> Self {
         Self {
-            symbol_table,
+            definition_table: symbol_table,
             file_id,
             main_expression: expression,
             errors,
@@ -102,7 +102,7 @@ impl Modules {
     }
 
     pub fn add(&mut self, module: ModuleRef) {
-        let path = module.symbol_table.module_path();
+        let path = module.definition_table.module_path();
 
         self.modules.insert(path, module.clone()).expect("could not insert");
         self.file_id_to_module.insert(module.file_id, module.clone());

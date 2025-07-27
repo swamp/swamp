@@ -4,5 +4,5 @@
  */
 pub use crate::{
     modules::{Module, ModuleRef, Modules},
-    symtbl::{FuncDef, Symbol, SymbolTable},
+    symtbl::{DefinitionTable, FuncDef, ModuleDefinition, ModuleDefinitionKind},
 };

@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 pub mod text;
-use source_map_node::FileId;
-use swamp_modules::prelude::{Module, SymbolTable};
+use source_map_node::{FileId, Node};
+use swamp_modules::prelude::{DefinitionTable, Module};
 use swamp_modules::symtbl::AliasType;
 use swamp_semantic::prelude::{IntrinsicFunction, IntrinsicFunctionDefinition};
 use swamp_symbol::TopLevelSymbolId;
@@ -12,10 +12,10 @@ use swamp_types::prelude::{Signature, TypeCache, TypeForParameter};
 use tiny_ver::TinyVersion;
 
 pub const PACKAGE_NAME: &str = "core";
-fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
+fn add_intrinsic_types(core_ns: &mut DefinitionTable, cache: &mut TypeCache) {
     let any_alias = AliasType {
         symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
-        name: None,
+        name: Node::new_unknown(),
         assigned_name: "Any".to_string(),
         ty: cache.any(),
     };
@@ -23,7 +23,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
 
     let byte_alias = AliasType {
         symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
-        name: None,
+        name: Node::new_unknown(),
         assigned_name: "Byte".to_string(),
         ty: cache.byte(),
     };
@@ -31,7 +31,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
 
     let char_alias = AliasType {
         symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
-        name: None,
+        name: Node::new_unknown(),
         assigned_name: "Char".to_string(),
         ty: cache.codepoint(),
     };
@@ -39,7 +39,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
 
     let int_alias = AliasType {
         symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
-        name: None,
+        name: Node::new_unknown(),
         assigned_name: "Int".to_string(),
         ty: cache.int(),
     };
@@ -47,7 +47,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
 
     let float_alias = AliasType {
         symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
-        name: None,
+        name: Node::new_unknown(),
         assigned_name: "Float".to_string(),
         ty: cache.float(),
     };
@@ -55,7 +55,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
 
     let string_alias = AliasType {
         symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
-        name: None,
+        name: Node::new_unknown(),
         assigned_name: "String".to_string(),
         ty: cache.string(),
     };
@@ -63,7 +63,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
 
     let bool_alias = AliasType {
         symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
-        name: None,
+        name: Node::new_unknown(),
         assigned_name: "Bool".to_string(),
         ty: cache.bool(),
     };
@@ -71,7 +71,7 @@ fn add_intrinsic_types(core_ns: &mut SymbolTable, cache: &mut TypeCache) {
 }
 
 #[allow(clippy::too_many_lines)]
-fn add_intrinsic_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+fn add_intrinsic_functions(core_ns: &mut DefinitionTable, type_cache: &mut TypeCache) {
     add_intrinsic_byte_functions(core_ns, type_cache);
     add_intrinsic_codepoint_functions(core_ns, type_cache);
     add_intrinsic_bool_functions(core_ns, type_cache);
@@ -82,7 +82,7 @@ fn add_intrinsic_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache
     add_intrinsic_debug_functions(core_ns, type_cache);
 }
 
-fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+fn add_intrinsic_debug_functions(core_ns: &mut DefinitionTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
     let unit_type = type_cache.unit();
 
@@ -129,7 +129,7 @@ fn add_intrinsic_debug_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
 }
 
 #[allow(clippy::too_many_lines)]
-fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+fn add_intrinsic_string_functions(core_ns: &mut DefinitionTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
     let int_type = type_cache.int();
 
@@ -227,7 +227,7 @@ fn add_intrinsic_string_functions(core_ns: &mut SymbolTable, type_cache: &mut Ty
     }
 }
 
-fn add_intrinsic_bool_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+fn add_intrinsic_bool_functions(core_ns: &mut DefinitionTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
     let bool_type = type_cache.bool();
 
@@ -254,7 +254,7 @@ fn add_intrinsic_bool_functions(core_ns: &mut SymbolTable, type_cache: &mut Type
     }
 }
 
-fn add_intrinsic_byte_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+fn add_intrinsic_byte_functions(core_ns: &mut DefinitionTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
     let byte_type = type_cache.byte();
 
@@ -281,7 +281,7 @@ fn add_intrinsic_byte_functions(core_ns: &mut SymbolTable, type_cache: &mut Type
     }
 }
 
-fn add_intrinsic_codepoint_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+fn add_intrinsic_codepoint_functions(core_ns: &mut DefinitionTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
     let char_type = type_cache.codepoint();
     let int_type = type_cache.int();
@@ -332,7 +332,7 @@ fn add_intrinsic_codepoint_functions(core_ns: &mut SymbolTable, type_cache: &mut
 }
 
 #[allow(clippy::too_many_lines)]
-fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+fn add_intrinsic_int_functions(core_ns: &mut DefinitionTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
     let int_type = type_cache.int();
     let float_type = type_cache.float();
@@ -468,7 +468,7 @@ fn add_intrinsic_int_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeC
 }
 
 #[allow(clippy::too_many_lines)]
-fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut TypeCache) {
+fn add_intrinsic_float_functions(core_ns: &mut DefinitionTable, type_cache: &mut TypeCache) {
     let string_type = type_cache.string();
     let int_type = type_cache.int();
     let float_type = type_cache.float();
@@ -624,7 +624,7 @@ fn add_intrinsic_float_functions(core_ns: &mut SymbolTable, type_cache: &mut Typ
 #[must_use]
 pub fn create_module(tiny_version: &TinyVersion, type_cache: &mut TypeCache, file_id: FileId) -> Module {
     let canonical_core_path = [tiny_version.versioned_name(PACKAGE_NAME).unwrap()];
-    let mut intrinsic_types_symbol_table = SymbolTable::new(&canonical_core_path);
+    let mut intrinsic_types_symbol_table = DefinitionTable::new(&canonical_core_path);
     add_intrinsic_types(&mut intrinsic_types_symbol_table, type_cache);
     add_intrinsic_functions(&mut intrinsic_types_symbol_table, type_cache);
 
@@ -635,7 +635,7 @@ pub fn create_module(tiny_version: &TinyVersion, type_cache: &mut TypeCache, fil
 /// if `versioned_name` is wrong
 #[must_use]
 pub fn create_module_with_name(path: &[String], file_id: FileId) -> Module {
-    let intrinsic_types_symbol_table = SymbolTable::new(path);
+    let intrinsic_types_symbol_table = DefinitionTable::new(path);
 
     Module::new(intrinsic_types_symbol_table, Vec::new(), None, file_id)
 }

@@ -168,7 +168,7 @@ pub fn formal_module_name(parts: &[String]) -> String {
 
 #[derive(Eq, PartialEq)]
 pub struct ExternalFunctionDefinition {
-    pub name: Option<Node>,
+    pub name: Node,
     pub assigned_name: String,
     pub signature: Signature,
     pub id: ExternalFunctionId,
@@ -529,7 +529,7 @@ impl Function {
     pub fn maybe_node(&self) -> Option<&Node> {
         match self {
             Self::Internal(x) => Some(&x.name.0),
-            Self::External(y) => y.name.as_ref(),
+            Self::External(y) => Some(&y.name),
             Self::Intrinsic(_i) => None,
         }
     }

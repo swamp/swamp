@@ -24,7 +24,7 @@ use swamp_error_report::prelude::Kind;
 use swamp_error_report::{prelude::show_script_resolve_error, ScriptResolveError};
 use swamp_modules::modules::{ModuleRef, Modules};
 use swamp_modules::prelude::Module;
-use swamp_modules::symtbl::{SymbolTable, SymbolTableRef};
+use swamp_modules::symtbl::{DefinitionTable, SymbolTableRef};
 use swamp_pretty_print::{ImplsDisplay, SourceMapDisplay, SymbolTableDisplay};
 use swamp_program_analyzer::analyze_modules_in_order;
 use swamp_semantic::err::Error;
@@ -52,13 +52,13 @@ pub fn analyze_ast_module_skip_expression(
 #[must_use]
 pub fn analyze_single_module(
     state: &mut ProgramState,
-    default_symbol_table: SymbolTable,
+    default_symbol_table: DefinitionTable,
     modules: &Modules,
     core_symbol_table: SymbolTableRef,
     parsed_ast_module: &ParsedAstModule,
     source_map: &SourceMap,
     versioned_module_path: &[String],
-) -> SymbolTable {
+) -> DefinitionTable {
     let mut analyzer = Analyzer::new(
         state,
         modules,
@@ -127,11 +127,11 @@ pub fn bootstrap_modules(
     let core_module_with_intrinsics =
         swamp_core::create_module(&compiler_version, &mut state.types, 0);
 
-    let core_path = core_module_with_intrinsics.symbol_table.module_path();
+    let core_path = core_module_with_intrinsics.definition_table.module_path();
     let core_parsed_ast_module =
         parse_single_module_from_text(source_map, &core_path, &core_text())?;
 
-    let half_completed_core_symbol_table = core_module_with_intrinsics.symbol_table.clone();
+    let half_completed_core_symbol_table = core_module_with_intrinsics.definition_table.clone();
     let default_symbol_table_for_core_with_intrinsics = half_completed_core_symbol_table.clone();
 
     let mut analyzed_core_symbol_table = analyze_single_module(
@@ -141,16 +141,16 @@ pub fn bootstrap_modules(
         half_completed_core_symbol_table.clone().into(),
         &core_parsed_ast_module,
         source_map,
-        &core_module_with_intrinsics.symbol_table.module_path(),
+        &core_module_with_intrinsics.definition_table.module_path(),
     );
 
     // After this the core symbol table is done
     analyzed_core_symbol_table
-        .extend_basic_from(&core_module_with_intrinsics.symbol_table)
+        .extend_basic_from(&core_module_with_intrinsics.definition_table)
         .expect("couldn't extend core");
     let mut default_module = swamp_core::create_module_with_name(&[], 0);
     default_module
-        .symbol_table
+        .definition_table
         .extend_alias_from(&analyzed_core_symbol_table)
         .expect("extend basic alias and functions from core");
 
@@ -169,10 +169,10 @@ pub fn bootstrap_modules(
         half_completed_core_symbol_table.into(),
         &std_ast_module,
         source_map,
-        &std_module_with_intrinsics.symbol_table.module_path(),
+        &std_module_with_intrinsics.definition_table.module_path(),
     );
     default_module
-        .symbol_table
+        .definition_table
         .extend_basic_from(&analyzed_std_symbol_table)
         .expect("extend basics from core");
 
@@ -180,7 +180,7 @@ pub fn bootstrap_modules(
 
     modules.add(ModuleRef::from(analyzed_std_module));
 
-    let bootstrap_program = Program::new(state, modules, default_module.symbol_table);
+    let bootstrap_program = Program::new(state, modules, default_module.definition_table);
 
     let result = BootstrapResult {
         program: bootstrap_program,
@@ -258,7 +258,7 @@ pub fn bootstrap_and_compile(
         .modules
         .get(&bootstrap_result.core_module_path)
         .unwrap()
-        .symbol_table
+        .definition_table
         .clone();
 
     let compile_all_modules_timer = ScopedTimer::new("compile all modules");
@@ -361,10 +361,10 @@ fn show_information(infos: &[Error], source_map_wrapper: &SourceMapWrapper) {
 
 pub fn debug_all_modules(modules: &Modules, source_map: &SourceMap) {
     for (_name, module) in modules.modules() {
-        debug_module(&module.symbol_table, source_map);
+        debug_module(&module.definition_table, source_map);
     }
 }
-pub fn debug_module(symbol_table: &SymbolTable, source_map: &SourceMap) {
+pub fn debug_module(symbol_table: &DefinitionTable, source_map: &SourceMap) {
     let source_map_lookup = SourceMapWrapper {
         source_map,
         current_dir: current_dir().unwrap(),

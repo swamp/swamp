@@ -8,14 +8,14 @@ use source_map_cache::SourceMap;
 use source_map_node::FileId;
 use swamp_analyzer::Analyzer;
 use swamp_modules::modules::Modules;
-use swamp_modules::symtbl::{SymbolTable, SymbolTableRef};
+use swamp_modules::symtbl::{DefinitionTable, SymbolTableRef};
 use swamp_semantic::ProgramState;
 
 #[test]
 fn test_if_compiles() {
     let mut program_state = ProgramState::default();
     let modules = Modules::default();
-    let core_symbol_table = SymbolTable::new(&[]);
+    let core_symbol_table = DefinitionTable::new(&[]);
     let source_map = SourceMap::new(&SeqMap::new()).unwrap();
 
     let test_module_path: &[String] = &[];

@@ -13,8 +13,8 @@ use std::thread::sleep;
 use std::time::Duration;
 use swamp_runtime::prelude::{CodeGenOptions, RunMode};
 use swamp_runtime::{
-    CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions, RunOptions,
-    StandardOnlyHostCallbacks, compile_codegen_and_create_vm,
+    compile_codegen_and_create_vm, CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions,
+    RunOptions, StandardOnlyHostCallbacks,
 };
 use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
@@ -267,7 +267,7 @@ pub fn run_tests(
 
             for (module_name, module) in result.compile.program.modules.modules() {
                 let mut has_shown_mod_name = false;
-                for internal_fn in module.symbol_table.internal_functions() {
+                for internal_fn in module.definition_table.internal_functions() {
                     if !internal_fn.attributes.has_attribute("test") {
                         continue;
                     }
@@ -514,10 +514,10 @@ pub fn run_tests(
         println!("  ✅ Passed (Expected Trap): {expected_trap_pass_count}");
 
         if total_failed_count > 0 {
-            println!("  ❌ **TOTAL FAILED:** {total_failed_count}",);
+            println!("  ❌ **TOTAL FAILED:** {total_failed_count}", );
         }
 
-        println!("  Total Tests Run: {total_tests_run}",);
+        println!("  Total Tests Run: {total_tests_run}", );
 
         // ---
         // ## Failing Test Details

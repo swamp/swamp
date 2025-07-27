@@ -108,12 +108,12 @@ pub enum StartOfChainBase {
 pub struct Program {
     pub state: ProgramState,
     pub modules: Modules,
-    pub default_symbol_table: SymbolTable,
+    pub default_symbol_table: DefinitionTable,
 }
 
 impl Default for Program {
     fn default() -> Self {
-        Self::new(ProgramState::new(), Modules::new(), SymbolTable::new(&[]))
+        Self::new(ProgramState::new(), Modules::new(), DefinitionTable::new(&[]))
     }
 }
 
@@ -122,7 +122,7 @@ impl Program {
     pub const fn new(
         state: ProgramState,
         modules: Modules,
-        default_symbol_table: SymbolTable,
+        default_symbol_table: DefinitionTable,
     ) -> Self {
         Self {
             state,
@@ -159,8 +159,8 @@ impl<'a> Analyzer<'a> {
     ) -> Self {
         let shared = SharedState {
             state,
-            lookup_table: SymbolTable::new(&[]),
-            definition_table: SymbolTable::new(module_path),
+            lookup_table: DefinitionTable::new(&[]),
+            definition_table: DefinitionTable::new(module_path),
             modules,
             core_symbol_table,
             source_map,
@@ -399,7 +399,7 @@ impl<'a> Analyzer<'a> {
         let path = self.get_module_path(qualified_func_name.module_path.as_ref());
         let function_name = self.get_text(&qualified_func_name.name);
 
-        if let Some(found_table) = self.shared.get_symbol_table(&path)
+        if let Some(found_table) = self.shared.get_definition_table(&path)
             && let Some(found_func) = found_table.get_function(function_name).cloned()
         {
             {
@@ -885,7 +885,7 @@ impl<'a> Analyzer<'a> {
         }
 
         let symbol = {
-            if let Some(symbol_table) = self.shared.get_symbol_table(&path) {
+            if let Some(symbol_table) = self.shared.get_definition_table(&path) {
                 if let Some(x) = symbol_table.get_symbol(&name) {
                     x.clone()
                 } else {
@@ -900,13 +900,13 @@ impl<'a> Analyzer<'a> {
 
         let sym_node = self.to_node(&type_name_to_find.name.0);
         if analyzed_type_parameters.is_empty() {
-            match &symbol {
-                Symbol::Type(symbol_id, base_type) => {
+            match &symbol.kind {
+                ModuleDefinitionKind::Type(symbol_id, base_type) => {
                     self.shared.state.refs.add((*symbol_id).into(), sym_node.clone());
                     self.shared.definition_table.refs.add((*symbol_id).into(), sym_node);
                     base_type.clone()
                 }
-                Symbol::Alias(alias_type) => {
+                ModuleDefinitionKind::Alias(alias_type) => {
                     self.shared.state.refs.add(alias_type.symbol_id.into(), sym_node.clone());
                     self.shared.definition_table.refs.add(alias_type.symbol_id.into(), sym_node);
                     alias_type.ty.clone()
@@ -2234,11 +2234,11 @@ impl<'a> Analyzer<'a> {
     pub(crate) fn get_symbol_table_and_name(
         &self,
         type_identifier: &swamp_ast::QualifiedTypeIdentifier,
-    ) -> Option<(&SymbolTable, String)> {
+    ) -> Option<(&DefinitionTable, String)> {
         let path = self.get_module_path(type_identifier.module_path.as_ref());
         let name = self.get_text(&type_identifier.name.0).to_string();
 
-        if let Some(found) = self.shared.get_symbol_table(&path) {
+        if let Some(found) = self.shared.get_definition_table(&path) {
             Some((found, name))
         } else {
             None

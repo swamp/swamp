@@ -21,7 +21,7 @@ fn internal_compile(script: &str) -> Program {
     };
 
     let symbol_table_display = SymbolTableDisplay {
-        symbol_table: &test_module.symbol_table,
+        symbol_table: &test_module.definition_table,
         source_map_display: &pretty_printer,
     };
 

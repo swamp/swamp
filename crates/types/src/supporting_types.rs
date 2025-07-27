@@ -175,7 +175,7 @@ impl Display for TypeForParameter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(
             f,
-            "{}{}: {:?}",
+            "{}{}: {}",
             if self.is_mutable { "mut " } else { "" },
             self.name,
             self.resolved_type

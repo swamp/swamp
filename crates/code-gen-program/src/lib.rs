@@ -8,9 +8,9 @@ use swamp_code_gen::disasm::{disasm_function, disasm_whole_program};
 use swamp_code_gen::top_state::TopLevelGenState;
 use swamp_compile::Program;
 use swamp_semantic::Function;
+use swamp_vm_types::types::write_basic_type;
 use swamp_vm_types::FrameMemoryAddress;
 use swamp_vm_types::InstructionPositionOffset;
-use swamp_vm_types::types::write_basic_type;
 use time_dilation::ScopedTimer;
 
 pub struct CodeGenOptions {
@@ -100,7 +100,7 @@ pub fn code_gen_program(
      */
 
     for (_path, module) in program.modules.modules() {
-        for internal_function_def in &module.symbol_table.internal_functions() {
+        for internal_function_def in &module.definition_table.internal_functions() {
             code_gen.emit_function_def(
                 internal_function_def,
                 source_map_lookup,

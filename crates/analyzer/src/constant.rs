@@ -138,7 +138,7 @@ impl Analyzer<'_> {
         let path = self.get_module_path(qualified_constant_identifier.module_path.as_ref());
         let constant_name = self.get_text(&qualified_constant_identifier.name);
 
-        let maybe_symbol_table = self.shared.get_symbol_table(&path);
+        let maybe_symbol_table = self.shared.get_definition_table(&path);
         maybe_symbol_table.map_or_else(
             || None,
             |symbol_table| Some(symbol_table.get_constant(constant_name)),

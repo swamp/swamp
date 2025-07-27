@@ -38,6 +38,8 @@ impl Analyzer<'_> {
             return;
         };
 
+        let name_node = self.to_node(node);
+
         match import_items {
             swamp_ast::ImportItems::Nothing => {
                 let last_name = path.last().unwrap();
@@ -50,7 +52,7 @@ impl Analyzer<'_> {
                     match self
                         .shared
                         .lookup_table
-                        .add_module_link(last_name, found_module.clone())
+                        .add_module_link(last_name, &name_node, found_module.clone())
                     {
                         Ok(_x) => {}
                         Err(err) => {
@@ -68,7 +70,7 @@ impl Analyzer<'_> {
                             let ident_text =
                                 self.get_text_resolved(&ident_resolved_node).to_string();
                             if let Some(found_symbol) =
-                                found_module.symbol_table.get_symbol(&ident_text)
+                                found_module.definition_table.get_symbol(&ident_text)
                             {
                                 if let Err(sem_err) = self
                                     .shared
@@ -91,7 +93,7 @@ impl Analyzer<'_> {
                             let ident_text =
                                 self.get_text_resolved(&ident_resolved_node).to_string();
                             if let Some(found_symbol) =
-                                found_module.symbol_table.get_symbol(&ident_text)
+                                found_module.definition_table.get_symbol(&ident_text)
                             {
                                 if let Err(sem_err) = self
                                     .shared
@@ -116,7 +118,7 @@ impl Analyzer<'_> {
                 if let Err(sem_err) = self
                     .shared
                     .lookup_table
-                    .extend_from(&found_module.symbol_table)
+                    .extend_from(&found_module.definition_table)
                 {
                     self.add_err(ErrorKind::SemanticError(sem_err), node);
                 }
@@ -337,7 +339,7 @@ impl Analyzer<'_> {
         });
         let resolved_alias = AliasType {
             symbol_id,
-            name: None,
+            name: name_node.clone(),
             ty: resolved_type,
             assigned_name: alias_name_str,
         };
@@ -349,7 +351,7 @@ impl Analyzer<'_> {
                 self.add_err(ErrorKind::SemanticError(err), &ast_alias.identifier.0);
                 AliasType {
                     symbol_id: TopLevelSymbolId::new_illegal(),
-                    name: None,
+                    name: source_map_node::Node::default(),
                     assigned_name: "err".to_string(),
                     ty: self.types().unit(),
                 }
@@ -364,7 +366,7 @@ impl Analyzer<'_> {
             self.add_err(ErrorKind::SemanticError(sem_err), &ast_alias.identifier.0);
             AliasType {
                 symbol_id: TopLevelSymbolId::new_illegal(),
-                name: None,
+                name: source_map_node::Node::default(),
                 assigned_name: "err".to_string(),
                 ty: self.types().unit(),
             }
@@ -624,7 +626,7 @@ impl Analyzer<'_> {
                         parameters,
                         return_type,
                     },
-                    name: Some(self.to_node(&ast_signature.name)),
+                    name: self.to_node(&ast_signature.name),
                     id: external_function_id,
                 };
 
@@ -953,7 +955,7 @@ impl Analyzer<'_> {
 
                 let external = ExternalFunctionDefinition {
                     assigned_name: self.get_text(&signature.name).to_string(),
-                    name: Some(self.to_node(&signature.name)),
+                    name: self.to_node(&signature.name),
                     signature: Signature {
                         parameters,
                         return_type,

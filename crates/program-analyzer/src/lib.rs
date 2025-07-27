@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use source_map_cache::SourceMap;
-use swamp_analyzer::Analyzer;
 use swamp_analyzer::prelude::Program;
-use swamp_dep_loader::{DependencyParser, ParsedAstModule, parse_local_modules_and_get_order};
+use swamp_analyzer::Analyzer;
+use swamp_dep_loader::{parse_local_modules_and_get_order, DependencyParser, ParsedAstModule};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::Error;
@@ -30,13 +30,13 @@ impl From<Error> for LoaderErr {
 ///
 pub fn analyze_module(
     state: &mut ProgramState,
-    default_lookup_symbol_table: &SymbolTable,
+    default_lookup_symbol_table: &DefinitionTable,
     modules: &mut Modules,
     core_symbol_table: &SymbolTableRef,
     source_map: &SourceMap,
     module_path: &[String],
     ast_module: &ParsedAstModule,
-) -> Result<(SymbolTable, Vec<Error>, Option<InternalMainExpression>), LoaderErr> {
+) -> Result<(DefinitionTable, Vec<Error>, Option<InternalMainExpression>), LoaderErr> {
     //debug!(?module_path, "analyze module");
     let debug_string = format!("analyze module {module_path:?}");
     let _analyze_timer = ScopedTimer::new(&debug_string);
@@ -79,7 +79,7 @@ pub fn analyze_module(
 ///
 pub fn analyze_modules_in_order(
     state: &mut ProgramState,
-    default_lookup_symbol_table: &SymbolTable,
+    default_lookup_symbol_table: &DefinitionTable,
     modules: &mut Modules,
     core_symbol_table: &SymbolTableRef,
     source_map: &SourceMap,

@@ -12,7 +12,6 @@ use swamp_semantic::prelude::*;
 use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::*;
 use swamp_types::TypeRef;
-use tiny_ver::TinyVersion;
 
 #[derive(Debug, Clone)]
 pub enum FuncDef {
@@ -59,24 +58,22 @@ pub struct TypeParameter {
 #[derive(Clone, Debug)]
 pub struct AliasType {
     pub symbol_id: TopLevelSymbolId,
-    pub name: Option<Node>,
+    pub name: Node,
     pub assigned_name: String,
     pub ty: TypeRef,
 }
 
 #[derive(Clone, Debug)]
-pub enum Symbol {
+pub enum ModuleDefinitionKind {
     Type(TopLevelSymbolId, TypeRef),
     Module(ModuleRef),
-    PackageVersion(TinyVersion),
     Constant(ConstantRef),
     FunctionDefinition(FuncDef),
     Alias(AliasType),
 }
 
-impl Symbol {}
 
-impl Symbol {
+impl ModuleDefinitionKind {
     #[must_use]
     pub const fn is_basic_type(&self) -> bool {
         matches!(
@@ -96,21 +93,42 @@ impl Symbol {
 }
 
 #[derive(Debug, Clone)]
-pub struct SymbolTable {
-    symbols: SeqMap<String, Symbol>,
+pub struct ModuleDefinition {
+    pub kind: ModuleDefinitionKind,
+    pub range: Node,
+    pub name: Node,
+}
+
+impl ModuleDefinition {
+    #[must_use]
+    pub const fn is_basic_type(&self) -> bool {
+        self.kind.is_basic_type()
+    }
+
+    #[must_use]
+    pub const fn is_alias_type(&self) -> bool {
+        self.kind.is_alias_type()
+    }
+
+    pub(crate) const fn is_function(&self) -> bool {
+        self.kind.is_function()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DefinitionTable {
+    definitions: SeqMap<String, ModuleDefinition>,
     pub refs: ModuleSymbolReferences,
     module_path: Vec<String>,
 }
 
-impl SymbolTable {}
-
-impl SymbolTable {
+impl DefinitionTable {
     #[must_use]
     pub fn internal_functions(&self) -> Vec<InternalFunctionDefinitionRef> {
         let mut v = Vec::new();
 
-        for (_name, sym) in &self.symbols {
-            if let Symbol::FunctionDefinition(func_def) = sym
+        for (_name, sym) in &self.definitions {
+            if let ModuleDefinitionKind::FunctionDefinition(func_def) = &sym.kind
                 && let FuncDef::Internal(internal) = func_def
             {
                 v.push(internal.clone());
@@ -121,41 +139,41 @@ impl SymbolTable {
     }
 }
 
-impl SymbolTable {
+impl DefinitionTable {
     #[must_use]
     pub fn module_path(&self) -> Vec<String> {
         self.module_path.clone()
     }
 }
 
-pub type SymbolTableRef = Rc<SymbolTable>;
+pub type SymbolTableRef = Rc<DefinitionTable>;
 
-impl SymbolTable {
+impl DefinitionTable {
     #[must_use]
     pub fn new(module_path: &[String]) -> Self {
         Self {
             refs: ModuleSymbolReferences::new(),
-            symbols: SeqMap::default(),
+            definitions: SeqMap::default(),
             module_path: module_path.to_vec(),
         }
     }
 
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.symbols.is_empty()
+        self.definitions.is_empty()
     }
 
     #[must_use]
-    pub const fn symbols(&self) -> &SeqMap<String, Symbol> {
-        &self.symbols
+    pub const fn definitions(&self) -> &SeqMap<String, ModuleDefinition> {
+        &self.definitions
     }
 
     #[must_use]
     pub fn structs(&self) -> SeqMap<String, NamedStructType> {
         let mut structs = SeqMap::new();
 
-        for (name, symbol) in &self.symbols {
-            if let Symbol::Type(_, ty) = symbol
+        for (name, symbol) in &self.definitions {
+            if let ModuleDefinitionKind::Type(_, ty) = &symbol.kind
                 && let TypeKind::NamedStruct(struct_ref) = &*ty.kind
             {
                 structs
@@ -171,8 +189,8 @@ impl SymbolTable {
     pub fn enums(&self) -> SeqMap<String, EnumType> {
         let mut enums = SeqMap::new();
 
-        for (name, symbol) in &self.symbols {
-            if let Symbol::Type(_, ty) = symbol
+        for (name, symbol) in &self.definitions {
+            if let ModuleDefinitionKind::Type(_, ty) = &symbol.kind
                 && let TypeKind::Enum(enum_type) = &*ty.kind
             {
                 enums.insert(name.to_string(), enum_type.clone()).unwrap();
@@ -185,7 +203,7 @@ impl SymbolTable {
     /// # Errors
     ///
     pub fn extend_from(&mut self, symbol_table: &Self) -> Result<(), SemanticError> {
-        for (name, symbol) in symbol_table.symbols() {
+        for (name, symbol) in symbol_table.definitions() {
             self.add_symbol(name, symbol.clone())?;
         }
         Ok(())
@@ -194,7 +212,7 @@ impl SymbolTable {
     /// # Errors
     ///
     pub fn extend_basic_from(&mut self, symbol_table: &Self) -> Result<(), SemanticError> {
-        for (name, symbol) in symbol_table.symbols() {
+        for (name, symbol) in symbol_table.definitions() {
             if symbol.is_basic_type() {
                 self.add_symbol(name, symbol.clone())?;
             }
@@ -205,7 +223,7 @@ impl SymbolTable {
     /// # Errors
     ///
     pub fn extend_alias_from(&mut self, symbol_table: &Self) -> Result<(), SemanticError> {
-        for (name, symbol) in symbol_table.symbols() {
+        for (name, symbol) in symbol_table.definitions() {
             if symbol.is_alias_type() || symbol.is_function() {
                 self.add_symbol(name, symbol.clone())?;
             }
@@ -217,8 +235,8 @@ impl SymbolTable {
         &mut self,
         symbol_table: &Self,
     ) -> Result<(), SemanticError> {
-        for (name, symbol) in symbol_table.symbols() {
-            if let Symbol::FunctionDefinition(func_def) = symbol
+        for (name, symbol) in symbol_table.definitions() {
+            if let ModuleDefinitionKind::FunctionDefinition(func_def) = &symbol.kind
                 && let FuncDef::Intrinsic(_intrinsic_def) = func_def
             {
                 self.add_symbol(name, symbol.clone())?;
@@ -227,13 +245,6 @@ impl SymbolTable {
         Ok(())
     }
 
-    #[must_use]
-    pub fn get_package_version(&self, name: &str) -> Option<String> {
-        match self.get_symbol(name)? {
-            Symbol::PackageVersion(name) => Some(name.to_string()),
-            _ => None,
-        }
-    }
 
     /// # Errors
     ///
@@ -248,13 +259,19 @@ impl SymbolTable {
     /// # Errors
     ///
     pub fn add_constant_link(&mut self, constant_ref: ConstantRef) -> Result<(), SemanticError> {
-        let name = constant_ref.assigned_name.clone();
+        self.insert(&constant_ref.assigned_name, &constant_ref.name, &constant_ref.name, ModuleDefinitionKind::Constant(constant_ref.clone()))
+    }
 
-        self.symbols
-            .insert(name.to_string(), Symbol::Constant(constant_ref))
-            .map_err(|_| SemanticError::DuplicateConstName(name.to_string()))?;
+    pub fn insert(&mut self, name: &str, name_node: &Node, range: &Node, kind: ModuleDefinitionKind) -> Result<(), SemanticError> {
+        let mod_def = ModuleDefinition {
+            kind,
+            range: range.clone(),
+            name: name_node.clone(),
+        };
 
-        Ok(())
+        self.definitions
+            .insert(name.to_string(), mod_def)
+            .map_err(|_| SemanticError::DuplicateDefinition(name.to_string()))
     }
 
     /// # Errors
@@ -267,12 +284,7 @@ impl SymbolTable {
     /// # Errors
     ///
     pub fn add_alias_link(&mut self, alias_type_ref: AliasType) -> Result<(), SemanticError> {
-        let name = alias_type_ref.assigned_name.clone();
-        self.symbols
-            .insert(name.clone(), Symbol::Alias(alias_type_ref))
-            .map_err(|_| SemanticError::DuplicateStructName(name))?;
-
-        Ok(())
+        self.insert(&alias_type_ref.assigned_name, &alias_type_ref.name, &alias_type_ref.name, ModuleDefinitionKind::Alias(alias_type_ref.clone()))
     }
 
     pub fn add_internal_function(
@@ -280,16 +292,10 @@ impl SymbolTable {
         name: &str,
         function: InternalFunctionDefinition,
     ) -> Result<InternalFunctionDefinitionRef, SemanticError> {
-        if self.symbols.contains_key(&name.to_string()) {
-            return Err(SemanticError::DuplicateDefinition(name.to_string()));
-        }
         let function_ref = Rc::new(function);
-        self.symbols
-            .insert(
-                name.to_string(),
-                Symbol::FunctionDefinition(FuncDef::Internal(function_ref.clone())),
-            )
-            .expect("todo: add seqmap error handling");
+
+        self.insert(&function_ref.assigned_name, &function_ref.name.0, &function_ref.name.0, ModuleDefinitionKind::FunctionDefinition(FuncDef::Internal(function_ref.clone())))?;
+
         Ok(function_ref)
     }
 
@@ -298,30 +304,24 @@ impl SymbolTable {
         name: &str,
         function_ref: InternalFunctionDefinitionRef,
     ) -> Result<(), SemanticError> {
-        self.symbols
-            .insert(
-                name.to_string(),
-                Symbol::FunctionDefinition(FuncDef::Internal(function_ref)),
-            )
-            .expect("todo: add seqmap error handling");
-        Ok(())
+        self.insert(&function_ref.assigned_name, &function_ref.name.0, &function_ref.name.0, ModuleDefinitionKind::FunctionDefinition(FuncDef::Internal(function_ref.clone())))
     }
 
     #[must_use]
-    pub fn get_symbol(&self, name: &str) -> Option<&Symbol> {
-        self.symbols.get(&name.to_string())
+    pub fn get_symbol(&self, name: &str) -> Option<&ModuleDefinition> {
+        self.definitions.get(&name.to_string())
     }
 
-    pub fn add_symbol(&mut self, name: &str, symbol: Symbol) -> Result<(), SemanticError> {
-        self.symbols
+    pub fn add_symbol(&mut self, name: &str, symbol: ModuleDefinition) -> Result<(), SemanticError> {
+        self.definitions
             .insert(name.to_string(), symbol)
             .map_err(|_| SemanticError::DuplicateSymbolName(name.to_string()))
     }
 
     #[must_use]
     pub fn get_type(&self, name: &str) -> Option<&TypeRef> {
-        if let Some(Symbol::Type(_, type_ref)) = self.get_symbol(name) {
-            Some(type_ref)
+        if let ModuleDefinitionKind::Type(_, type_ref) = &self.get_symbol(name)?.kind {
+            Some(&type_ref)
         } else {
             None
         }
@@ -357,8 +357,8 @@ impl SymbolTable {
 
     #[must_use]
     pub fn get_constant(&self, name: &str) -> Option<&ConstantRef> {
-        match self.get_symbol(name)? {
-            Symbol::Constant(constant) => Some(constant),
+        match &self.get_symbol(name)?.kind {
+            ModuleDefinitionKind::Constant(constant) => Some(constant),
             _ => None,
         }
     }
@@ -367,8 +367,8 @@ impl SymbolTable {
 
     #[must_use]
     pub fn get_function(&self, name: &str) -> Option<&FuncDef> {
-        match self.get_symbol(name)? {
-            Symbol::FunctionDefinition(func_def) => Some(func_def),
+        match &self.get_symbol(name)?.kind {
+            ModuleDefinitionKind::FunctionDefinition(func_def) => Some(func_def),
             _ => None,
         }
     }
@@ -401,8 +401,8 @@ impl SymbolTable {
         }
     }
 
-    fn insert_symbol(&mut self, name: &str, symbol: Symbol) -> Result<(), SemanticError> {
-        self.symbols
+    fn insert_definition(&mut self, name: &str, symbol: ModuleDefinition) -> Result<(), SemanticError> {
+        self.definitions
             .insert(name.to_string(), symbol)
             .map_err(|_| SemanticError::DuplicateSymbolName(name.to_string()))
     }
@@ -414,13 +414,19 @@ impl SymbolTable {
             _ => panic!("not a named type"),
         };
 
-        let node = match &*ty.kind {
+        let symbol_id = match &*ty.kind {
             TypeKind::NamedStruct(named) => named.symbol_id.clone(),
             TypeKind::Enum(enum_type) => enum_type.symbol_id.clone(),
             _ => panic!("not a named type"),
         };
 
-        self.insert_symbol(&name, Symbol::Type(node, ty))
+        let name_node = match &*ty.kind {
+            TypeKind::NamedStruct(named) => &named.name,
+            TypeKind::Enum(enum_type) => &enum_type.name,
+            _ => panic!("not a named type"),
+        };
+
+        self.insert(&name, name_node, name_node, ModuleDefinitionKind::Type(symbol_id, ty.clone()))
     }
 
     pub fn add_external_function_declaration(
@@ -438,9 +444,11 @@ impl SymbolTable {
         &mut self,
         decl_ref: ExternalFunctionDefinitionRef,
     ) -> Result<(), SemanticError> {
-        self.insert_symbol(
+        self.insert(
             &decl_ref.assigned_name,
-            Symbol::FunctionDefinition(FuncDef::External(decl_ref.clone())),
+            &decl_ref.name,
+            &decl_ref.name,
+            ModuleDefinitionKind::FunctionDefinition(FuncDef::External(decl_ref.clone())),
         )
             .map_err(|_| {
                 SemanticError::DuplicateExternalFunction(decl_ref.assigned_name.to_string())
@@ -448,40 +456,31 @@ impl SymbolTable {
         Ok(())
     }
 
-    pub fn add_module_link(&mut self, name: &str, ns: ModuleRef) -> Result<(), SemanticError> {
-        self.insert_symbol(name, Symbol::Module(ns))
-            .map_err(|_| SemanticError::DuplicateNamespaceLink(name.to_string()))?;
-        Ok(())
+    pub fn add_module_link(&mut self, name: &str, name_node: &Node, ns: ModuleRef) -> Result<(), SemanticError> {
+        self.insert(name, name_node, name_node, ModuleDefinitionKind::Module(ns))
     }
 
     #[must_use]
     pub fn get_module_link(&self, name: &str) -> Option<&ModuleRef> {
-        match self.get_symbol(name)? {
-            Symbol::Module(module_ref) => Some(module_ref),
+        match &self.get_symbol(name)?.kind {
+            ModuleDefinitionKind::Module(module_ref) => Some(module_ref),
             _ => None,
         }
     }
 
-    pub fn add_package_version(
-        &mut self,
-        name: &str,
-        version: TinyVersion,
-    ) -> Result<(), SemanticError> {
-        self.insert_symbol(name, Symbol::PackageVersion(version))
-            .map_err(|_| SemanticError::DuplicateNamespaceLink(name.to_string()))?;
-        Ok(())
-    }
 
     pub fn add_intrinsic_function(
         &mut self,
         function: IntrinsicFunctionDefinition,
     ) -> Result<IntrinsicFunctionDefinitionRef, SemanticError> {
         let function_ref = Rc::new(function);
-        self.symbols
-            .insert(
-                function_ref.name.clone(),
-                Symbol::FunctionDefinition(FuncDef::Intrinsic(function_ref.clone())),
-            )
+        let fake_node = Node::new_unknown();
+        self.insert(
+            &function_ref.name,
+            &fake_node,
+            &fake_node,
+            ModuleDefinitionKind::FunctionDefinition(FuncDef::Intrinsic(function_ref.clone())),
+        )
             .expect("todo: add seqmap error handling");
 
         Ok(function_ref)

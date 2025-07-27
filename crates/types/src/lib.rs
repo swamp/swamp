@@ -50,7 +50,7 @@ pub type TypeRef = Rc<Type>;
 
 impl Display for Type {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}|{}", self.id, self.kind)
+        write!(f, "{}", self.kind)
     }
 }
 
