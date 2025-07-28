@@ -519,7 +519,7 @@ impl Function {
     #[must_use]
     pub fn symbol_id(&self) -> TopLevelSymbolId {
         match self {
-            Self::Internal(x) => x.symbol_id.clone(),
+            Self::Internal(x) => x.symbol_id,
             Self::External(y) => TopLevelSymbolId::new_illegal(),
             Self::Intrinsic(i) => TopLevelSymbolId::new_illegal(),
         }

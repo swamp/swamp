@@ -292,7 +292,7 @@ impl CodeBuilder<'_> {
                 self.emit_block(output, expressions, ctx);
             }
             ExpressionKind::NamedStructLiteral(inner) => {
-                self.emit_expression(output, inner, ctx)
+                self.emit_expression(output, inner, ctx);
             }
             ExpressionKind::AnonymousStructLiteral(anon_struct) => {
                 // Literals can not have pointers to them, they need to materialize into a memory location

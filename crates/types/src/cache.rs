@@ -252,11 +252,10 @@ impl TypeCache {
 
             (TypeKind::NamedStruct(named_a), TypeKind::NamedStruct(named_b)) => {
                 // Check named struct compatibility
-                if named_a.assigned_name != named_b.assigned_name
-                {
-                    false
-                } else {
+                if named_a.assigned_name == named_b.assigned_name {
                     self.compatible_with(&named_a.anon_struct_type, &named_b.anon_struct_type)
+                } else {
+                    false
                 }
             }
 

@@ -30,13 +30,14 @@
 
 use seq_map::SeqMap;
 use std::rc::Rc;
+use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::{
     AnonymousStructType, EnumType, EnumVariantCommon, EnumVariantType, StructTypeField, TypeCache,
     TypeRef,
 };
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::MemoryOffset;
 use swamp_vm_types::types::BasicTypeKind;
+use swamp_vm_types::MemoryOffset;
 
 #[test]
 fn test_create_cache() {
@@ -78,6 +79,7 @@ fn test_struct_field_offsets() {
     let _ = fields.insert(
         "field1".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },
@@ -85,6 +87,7 @@ fn test_struct_field_offsets() {
     let _ = fields.insert(
         "field2".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type,
         },
@@ -92,6 +95,7 @@ fn test_struct_field_offsets() {
     let _ = fields.insert(
         "field3".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: string_type,
         },
@@ -139,6 +143,7 @@ fn test_nested_struct_deduplication() {
     let _ = inner_fields.insert(
         "x".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type.clone(),
         },
@@ -146,6 +151,7 @@ fn test_nested_struct_deduplication() {
     let _ = inner_fields.insert(
         "y".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },
@@ -159,6 +165,7 @@ fn test_nested_struct_deduplication() {
     let _ = outer_fields.insert(
         "point1".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: inner_struct_type.clone(),
         },
@@ -166,6 +173,7 @@ fn test_nested_struct_deduplication() {
     let _ = outer_fields.insert(
         "point2".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: inner_struct_type,
         },
@@ -539,10 +547,11 @@ fn create_test_enum(type_cache: &mut TypeCache) -> TypeRef {
     use source_map_node::Node;
 
     // Create a simple enum with `None` and `Some(Int)` variants
-    let mut enum_type = EnumType::new(Node::default(), "Option", vec!["test".to_string()]);
+    let mut enum_type = EnumType::new(Node::default(), "Option", TopLevelSymbolId::new_illegal(), vec!["test".to_string()]);
 
     let none_variant = EnumVariantType {
         common: EnumVariantCommon {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             name: Node::default(),
             assigned_name: "None".to_string(),
             container_index: 0,
@@ -557,6 +566,7 @@ fn create_test_enum(type_cache: &mut TypeCache) -> TypeRef {
     let _ = some_fields.insert(
         "value".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },
@@ -568,6 +578,7 @@ fn create_test_enum(type_cache: &mut TypeCache) -> TypeRef {
 
     let some_variant = EnumVariantType {
         common: EnumVariantCommon {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             name: Node::default(),
             assigned_name: "Some".to_string(),
             container_index: 1,
@@ -591,6 +602,7 @@ fn test_structural_type_equality() {
     let _ = fields1.insert(
         "x".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type.clone(),
         },
@@ -598,6 +610,7 @@ fn test_structural_type_equality() {
     let _ = fields1.insert(
         "y".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type.clone(),
         },
@@ -612,6 +625,7 @@ fn test_structural_type_equality() {
     let _ = fields2.insert(
         "a".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type.clone(),
         },
@@ -619,6 +633,7 @@ fn test_structural_type_equality() {
     let _ = fields2.insert(
         "b".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },

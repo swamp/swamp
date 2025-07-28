@@ -5,6 +5,7 @@
 
 use seq_map::SeqMap;
 use source_map_node::Node;
+use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::{AnonymousStructType, NamedStructType, StructTypeField, TypeCache};
 
 #[test]
@@ -19,6 +20,7 @@ fn test_range_deduplication_with_named_struct() {
     let _ = range_fields.insert(
         "min".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type.clone(),
         },
@@ -26,6 +28,7 @@ fn test_range_deduplication_with_named_struct() {
     let _ = range_fields.insert(
         "max".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },
@@ -33,6 +36,7 @@ fn test_range_deduplication_with_named_struct() {
     let _ = range_fields.insert(
         "inclusive".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type,
         },
@@ -45,6 +49,7 @@ fn test_range_deduplication_with_named_struct() {
     let range_named_struct = NamedStructType::new(
         Node::default(),
         "Range",
+        TopLevelSymbolId::new_illegal(),
         anon_struct_ref,
         &["core".to_string()],
     );
@@ -75,6 +80,7 @@ fn test_range_field_access() {
     let _ = range_fields.insert(
         "min".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type.clone(),
         },
@@ -82,6 +88,7 @@ fn test_range_field_access() {
     let _ = range_fields.insert(
         "max".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },
@@ -89,6 +96,7 @@ fn test_range_field_access() {
     let _ = range_fields.insert(
         "inclusive".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type,
         },
@@ -101,6 +109,7 @@ fn test_range_field_access() {
     let range_named_struct = NamedStructType::new(
         Node::default(),
         "Range",
+        TopLevelSymbolId::new_illegal(),
         anon_struct_ref,
         &["core".to_string()],
     );

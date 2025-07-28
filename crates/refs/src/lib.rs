@@ -9,8 +9,14 @@ pub struct ReferenceTracker {
     map: SeqMap<SymbolId, Vec<Node>>,
 }
 
+impl Default for ReferenceTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReferenceTracker {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self { map: SeqMap::new() }
     }
 
@@ -22,12 +28,12 @@ impl ReferenceTracker {
         }
     }
 
-    pub fn get(&self, symbol: SymbolId) -> Option<&[Node]> {
-        self.map.get(&symbol).map(|v| v.as_slice())
+    #[must_use] pub fn get(&self, symbol: SymbolId) -> Option<&[Node]> {
+        self.map.get(&symbol).map(std::vec::Vec::as_slice)
     }
 
-    pub fn is_used(&self, symbol: &SymbolId) -> bool {
-        self.map.get(symbol).map_or(false, |v| !v.is_empty())
+    #[must_use] pub fn is_used(&self, symbol: &SymbolId) -> bool {
+        self.map.get(symbol).is_some_and(|v| !v.is_empty())
     }
 
     pub fn iter(&self) -> impl Iterator<Item=(&SymbolId, &[Node])> {
@@ -46,8 +52,14 @@ pub struct ModuleSymbolReferences {
     pub refs: Vec<SymbolReference>,
 }
 
+impl Default for ModuleSymbolReferences {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModuleSymbolReferences {
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self {
             refs: Vec::new(),
         }
@@ -56,6 +68,6 @@ impl ModuleSymbolReferences {
         self.refs.push(SymbolReference {
             pointing_to_symbol_id: symbol_id,
             usage_node: usage_site,
-        })
+        });
     }
 }

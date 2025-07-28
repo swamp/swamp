@@ -12,7 +12,7 @@ fn test_core() {
     let version: TinyVersion = "1.2.3".parse().unwrap();
     let mut type_cache = TypeCache::new();
 
-    let module = create_module(&version, &mut type_cache);
+    let module = create_module(&version, &mut type_cache, 0);
 
     let x = format!("output:{module:?}");
 

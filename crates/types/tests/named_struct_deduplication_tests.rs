@@ -5,6 +5,7 @@
 
 use seq_map::SeqMap;
 use source_map_node::Node;
+use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::{AnonymousStructType, NamedStructType, StructTypeField, TypeCache};
 
 #[test]
@@ -17,6 +18,7 @@ fn test_named_struct_deduplication_with_type_ref() {
     let _ = fields1.insert(
         "x".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type.clone(),
         },
@@ -24,6 +26,7 @@ fn test_named_struct_deduplication_with_type_ref() {
     let _ = fields1.insert(
         "y".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type.clone(),
         },
@@ -33,6 +36,7 @@ fn test_named_struct_deduplication_with_type_ref() {
     let _ = fields2.insert(
         "x".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type.clone(),
         },
@@ -40,6 +44,7 @@ fn test_named_struct_deduplication_with_type_ref() {
     let _ = fields2.insert(
         "y".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },
@@ -59,6 +64,7 @@ fn test_named_struct_deduplication_with_type_ref() {
     let named_struct1 = NamedStructType::new(
         Node::default(),
         "Point",
+        TopLevelSymbolId::new_illegal(),
         anon_struct_ref1,
         &["test".to_string()],
     );
@@ -66,6 +72,7 @@ fn test_named_struct_deduplication_with_type_ref() {
     let named_struct2 = NamedStructType::new(
         Node::default(),
         "Point",
+        TopLevelSymbolId::new_illegal(),
         anon_struct_ref2,
         &["test".to_string()],
     );
@@ -93,6 +100,7 @@ fn test_named_struct_field_access() {
     let _ = fields.insert(
         "x".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },
@@ -100,6 +108,7 @@ fn test_named_struct_field_access() {
     let _ = fields.insert(
         "active".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type,
         },
@@ -111,6 +120,7 @@ fn test_named_struct_field_access() {
     let named_struct = NamedStructType::new(
         Node::default(),
         "Entity",
+        TopLevelSymbolId::new_illegal(),
         anon_struct_ref,
         &["test".to_string()],
     );

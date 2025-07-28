@@ -10,7 +10,6 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::{env, io};
 use swamp_ast::prelude::*;
-use swamp_ast::Function;
 use swamp_parser::{AstParser, SpecificError};
 use time_dilation::ScopedTimer;
 use tracing::error;

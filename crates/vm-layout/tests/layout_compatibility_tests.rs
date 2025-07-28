@@ -5,6 +5,7 @@
 
 use seq_map::SeqMap;
 use source_map_node::Node;
+use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::{
     AnonymousStructType, EnumVariantType, StructTypeField, TypeCache, TypeRef,
 };
@@ -13,11 +14,12 @@ use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::{MemoryAlignment, MemoryOffset, MemorySize};
 fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
-    let mut enum_type = EnumType::new(Node::default(), "TestEnum", vec!["test".to_string()]);
+    let mut enum_type = EnumType::new(Node::default(), "TestEnum", TopLevelSymbolId::new_illegal(), vec!["test".to_string()]);
 
     // Add a simple variant (no payload)
     let empty_variant = EnumVariantType {
         common: EnumVariantCommon {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             name: Node::default(),
             assigned_name: "Empty".to_string(),
             container_index: 0,
@@ -34,6 +36,7 @@ fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
     let _ = int_fields.insert(
         "value".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },
@@ -45,6 +48,7 @@ fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
 
     let int_variant = EnumVariantType {
         common: EnumVariantCommon {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             name: Node::default(),
             assigned_name: "Int".to_string(),
             container_index: 1,
@@ -63,6 +67,7 @@ fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
     let _ = mixed_fields.insert(
         "i".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type, // 4 bytes, aligned to 4
         },
@@ -70,6 +75,7 @@ fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
     let _ = mixed_fields.insert(
         "b".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type, // 1 byte, align 1
         },
@@ -77,6 +83,7 @@ fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
     let _ = mixed_fields.insert(
         "f".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: float_type, // 4 bytes, aligned to 4
         },
@@ -88,6 +95,7 @@ fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
 
     let mixed_variant = EnumVariantType {
         common: EnumVariantCommon {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             name: Node::default(),
             assigned_name: "Mixed".to_string(),
             container_index: 2,
@@ -115,6 +123,7 @@ pub fn test_struct_with_mixed_alignments() {
     let _ = fields.insert(
         "int_field".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },
@@ -122,6 +131,7 @@ pub fn test_struct_with_mixed_alignments() {
     let _ = fields.insert(
         "bool_field".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type,
         },
@@ -129,6 +139,7 @@ pub fn test_struct_with_mixed_alignments() {
     let _ = fields.insert(
         "float_field".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: float_type,
         },
@@ -183,6 +194,7 @@ pub fn test_struct_with_trailing_padding() {
     let _ = fields.insert(
         "int_field".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type,
         },
@@ -190,6 +202,7 @@ pub fn test_struct_with_trailing_padding() {
     let _ = fields.insert(
         "bool_field".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type,
         },
@@ -237,6 +250,7 @@ pub fn test_nested_struct_alignment() {
     let _ = inner_fields.insert(
         "i".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type, // 4 bytes, align 4
         },
@@ -244,6 +258,7 @@ pub fn test_nested_struct_alignment() {
     let _ = inner_fields.insert(
         "b".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type.clone(), // 1 byte, align 1
         },
@@ -257,6 +272,7 @@ pub fn test_nested_struct_alignment() {
     let _ = outer_fields.insert(
         "c".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type, // 1 byte, align 1
         },
@@ -264,6 +280,7 @@ pub fn test_nested_struct_alignment() {
     let _ = outer_fields.insert(
         "inner".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: inner_struct_type,
         },
@@ -271,6 +288,7 @@ pub fn test_nested_struct_alignment() {
     let _ = outer_fields.insert(
         "f".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: float_type, // 4 bytes, align 4
         },
@@ -438,6 +456,7 @@ pub fn test_complex_nested_structure() {
     let _ = struct_fields.insert(
         "f".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: float_type,
         },
@@ -445,6 +464,7 @@ pub fn test_complex_nested_structure() {
     let _ = struct_fields.insert(
         "t".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: tuple_type,
         },
@@ -452,6 +472,7 @@ pub fn test_complex_nested_structure() {
     let _ = struct_fields.insert(
         "b".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type,
         },
@@ -585,6 +606,7 @@ pub fn test_struct_with_max_alignment_field_at_end() {
     let _ = fields.insert(
         "b1".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type.clone(), // 1 byte, align 1
         },
@@ -592,6 +614,7 @@ pub fn test_struct_with_max_alignment_field_at_end() {
     let _ = fields.insert(
         "b2".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: bool_type, // 1 byte, align 1
         },
@@ -599,6 +622,7 @@ pub fn test_struct_with_max_alignment_field_at_end() {
     let _ = fields.insert(
         "i".to_string(),
         StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
             identifier: None,
             field_type: int_type, // 4 bytes, align 4
         },

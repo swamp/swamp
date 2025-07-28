@@ -21,13 +21,13 @@ pub enum FuncDef {
 }
 
 impl FuncDef {
-    pub fn symbol_id(&self) -> TopLevelSymbolId {
+    #[must_use] pub fn symbol_id(&self) -> TopLevelSymbolId {
         match self {
-            FuncDef::Internal(internal) => {
+            Self::Internal(internal) => {
                 internal.symbol_id
             }
-            FuncDef::Intrinsic(_) => { TopLevelSymbolId::new_illegal() }
-            FuncDef::External(_) => { TopLevelSymbolId::new_illegal() }
+            Self::Intrinsic(_) => { TopLevelSymbolId::new_illegal() }
+            Self::External(_) => { TopLevelSymbolId::new_illegal() }
         }
     }
 }
@@ -321,7 +321,7 @@ impl DefinitionTable {
     #[must_use]
     pub fn get_type(&self, name: &str) -> Option<&TypeRef> {
         if let ModuleDefinitionKind::Type(_, type_ref) = &self.get_symbol(name)?.kind {
-            Some(&type_ref)
+            Some(type_ref)
         } else {
             None
         }
@@ -415,8 +415,8 @@ impl DefinitionTable {
         };
 
         let symbol_id = match &*ty.kind {
-            TypeKind::NamedStruct(named) => named.symbol_id.clone(),
-            TypeKind::Enum(enum_type) => enum_type.symbol_id.clone(),
+            TypeKind::NamedStruct(named) => named.symbol_id,
+            TypeKind::Enum(enum_type) => enum_type.symbol_id,
             _ => panic!("not a named type"),
         };
 

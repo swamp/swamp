@@ -33,14 +33,14 @@ pub enum SymbolKind {
 pub struct SymbolId(u32);
 
 impl SymbolId {
-    pub fn inner(&self) -> u32 {
+    #[must_use] pub const fn inner(&self) -> u32 {
         self.0
     }
 }
 
 impl SymbolId {
-    pub fn new_illegal() -> SymbolId {
-        SymbolId(0)
+    #[must_use] pub const fn new_illegal() -> Self {
+        Self(0)
     }
 }
 
@@ -48,7 +48,7 @@ impl SymbolId {
 pub struct TopLevelSymbolId(pub SymbolId);
 
 impl TopLevelSymbolId {
-    pub fn new_illegal() -> Self {
+    #[must_use] pub const fn new_illegal() -> Self {
         Self(SymbolId::new_illegal())
     }
 }
@@ -64,8 +64,8 @@ pub struct ScopedSymbolId(pub SymbolId);
 
 
 impl ScopedSymbolId {
-    pub fn new_illegal() -> ScopedSymbolId {
-        ScopedSymbolId(SymbolId::new_illegal())
+    #[must_use] pub const fn new_illegal() -> Self {
+        Self(SymbolId::new_illegal())
     }
 }
 
@@ -89,22 +89,28 @@ pub struct SymbolIdAllocator {
     next: u32,
 }
 
+impl Default for SymbolIdAllocator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SymbolIdAllocator {
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self { next: 0 }
     }
 
-    pub fn alloc(&mut self) -> SymbolId {
+    pub const fn alloc(&mut self) -> SymbolId {
         self.next += 1;
-        let id = SymbolId(self.next);
-        id
+        
+        SymbolId(self.next)
     }
 
-    pub fn alloc_top_level(&mut self) -> TopLevelSymbolId {
+    pub const fn alloc_top_level(&mut self) -> TopLevelSymbolId {
         TopLevelSymbolId(self.alloc())
     }
 
-    pub fn alloc_scoped(&mut self) -> ScopedSymbolId {
+    pub const fn alloc_scoped(&mut self) -> ScopedSymbolId {
         ScopedSymbolId(self.alloc())
     }
 }
@@ -116,8 +122,14 @@ pub struct Symbols {
     pub scoped_symbols: SeqMap<ScopedSymbolId, Symbol>,
 }
 
+impl Default for Symbols {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Symbols {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             top_level_symbols: SeqMap::new(),
             scoped_symbols: SeqMap::new(),
@@ -135,7 +147,7 @@ impl Symbols {
         self.top_level_symbols.values().chain(self.scoped_symbols.values())
     }
 
-    pub fn get(&self, symbol_id: SymbolId) -> Option<&Symbol> {
+    #[must_use] pub fn get(&self, symbol_id: SymbolId) -> Option<&Symbol> {
         if let Some(sym) = self.top_level_symbols.get(&TopLevelSymbolId(symbol_id)) {
             return Some(sym)
         }
