@@ -75,6 +75,7 @@ pub enum IntrinsicFunction {
     VecLen,
     VecCapacity,
     VecIsEmpty,
+    VecExtend,
 
     // Transformer
     TransformerFor,
@@ -173,6 +174,7 @@ impl fmt::Display for IntrinsicFunction {
 
             // Vec
             Self::VecPush => "vec_push",
+            Self::VecExtend => "vec_extend",
             Self::VecPop => "vec_pop",
             Self::VecSlice => "vec_slice",
             Self::VecRemoveIndex => "vec_remove_index",

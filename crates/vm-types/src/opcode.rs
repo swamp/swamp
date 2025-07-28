@@ -150,6 +150,7 @@ pub enum OpCode {
     VecCmp,
     VecCopy,
     VecPushAddr,
+    VecExtend,
     VecRemoveIndex,
     VecPop,
     VecRemoveIndexGetValue,
@@ -333,6 +334,7 @@ impl OpCode {
 
             // Vec
             Self::VecPushAddr => "vec.push",
+            Self::VecExtend => "vec.extend",
             Self::VecRemoveIndex => "vec.rem",
             Self::VecPop => "vec.pop",
             Self::VecRemoveIndexGetValue => "vec.rem.v",

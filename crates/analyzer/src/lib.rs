@@ -3625,6 +3625,21 @@ impl<'a> Analyzer<'a> {
                     return_type: self.types().unit(),
                 },
             ),
+            "extend" => (
+                IntrinsicFunction::VecExtend,
+                Signature {
+                    parameters: vec![
+                        self_mutable_type_param,
+                        TypeForParameter {
+                            name: "other_vec".to_string(),
+                            resolved_type: self.types().dynamic_vec_view(&element_type.clone()),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: self.types().unit(),
+                },
+            ),
             "pop" => (
                 IntrinsicFunction::VecPop,
                 Signature {
