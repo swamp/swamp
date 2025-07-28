@@ -1,6 +1,6 @@
 [package]
 name = "swamp"
-version = "0.2.17"
+version = "0.2.18"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
@@ -8,34 +8,34 @@ description = "script language for embedding"
 
 [dependencies]
 # Parser
-swamp-parser = { path = "../parser", version = "0.2.17" } # TODO: This is only for an error. parser should not be a dependency
+swamp-parser = { path = "../parser", version = "0.2.18" } # TODO: This is only for an error. parser should not be a dependency
 
 # Semantic and Analyzer
-swamp-dep-loader = { path = "../dep-loader", version = "0.2.17" }
-swamp-program-analyzer = { path = "../program-analyzer", version = "0.2.17" }
-swamp-semantic = { path = "../semantic", version = "0.2.17" }
-swamp-types = { path = "../types", version = "0.2.17" }
-swamp-analyzer = { path = "../analyzer", version = "0.2.17" }
-swamp-modules = { path = "../modules", version = "0.2.17" }
-swamp-refs = { path = "../refs", version = "0.2.17"}
-swamp-symbol = { path = "../symbol", version = "0.2.17"}
+swamp-dep-loader = { path = "../dep-loader", version = "0.2.18" }
+swamp-program-analyzer = { path = "../program-analyzer", version = "0.2.18" }
+swamp-semantic = { path = "../semantic", version = "0.2.18" }
+swamp-types = { path = "../types", version = "0.2.18" }
+swamp-analyzer = { path = "../analyzer", version = "0.2.18" }
+swamp-modules = { path = "../modules", version = "0.2.18" }
+swamp-refs = { path = "../refs", version = "0.2.18" }
+swamp-symbol = { path = "../symbol", version = "0.2.18" }
 
 # Core
-swamp-core = { path = "../core", version = "0.2.17" }
+swamp-core = { path = "../core", version = "0.2.18" }
 
 # Compile orchestrator
-swamp-compile = { path = "../compile", version = "0.2.17" }
+swamp-compile = { path = "../compile", version = "0.2.18" }
 
-swamp-error-report = { path = "../err", version = "0.2.17" }
+swamp-error-report = { path = "../err", version = "0.2.18" }
 
 # Runtime and VM
-swamp-code-gen = { path = "../code-gen", version = "0.2.17" }
-swamp-vm = { path = "../vm", version = "0.2.17" }
-swamp-vm-types = { path = "../vm-types", version = "0.2.17" }
+swamp-code-gen = { path = "../code-gen", version = "0.2.18" }
+swamp-vm = { path = "../vm", version = "0.2.18" }
+swamp-vm-types = { path = "../vm-types", version = "0.2.18" }
 # Not ready yet // swamp-vm-pretty-print = { path = "../vm-pretty-print", version = "0.2.0" }
-swamp-runtime = { path = "../runtime", version = "0.2.17" }
+swamp-runtime = { path = "../runtime", version = "0.2.18" }
 
-swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.17" }
+swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.18" }
 
 # Source Map
 source-map-cache = "0.0.6"
@@ -43,7 +43,7 @@ source-map-node = "0.0.1"
 
 [dev-dependencies]
 test-log = { version = "0.2.16", features = ["trace", "log", "color"] }
-swamp-test-runner = { path = "../test-runner", version = "0.2.17" }
+swamp-test-runner = { path = "../test-runner", version = "0.2.18" }
 
 # Optional features for debugging and development
 [features]

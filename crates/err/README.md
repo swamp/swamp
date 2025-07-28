@@ -19,7 +19,7 @@ This crate is typically used by the main Swamp compiler executable or related to
 
 ```toml
 [dependencies]
-swamp-error-report = "0.2.17"
+swamp-error-report = "0.2.18"
 ```
 
 ## License
