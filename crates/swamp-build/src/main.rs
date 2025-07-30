@@ -7,10 +7,10 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
-use swamp_runtime::prelude::{CodeGenOptions, RunMode};
-use swamp_runtime::{CompileAndCodeGenOptions, CompileOptions, compile_and_code_gen};
+use swamp_runtime::prelude::{create_default_source_map_from_scripts_dir, CodeGenOptions, RunMode};
+use swamp_runtime::{compile_and_code_gen, CompileAndCodeGenOptions, CompileOptions};
 use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 pub fn init_logger() {
     let filter = EnvFilter::builder()
@@ -115,8 +115,10 @@ fn main() -> ExitCode {
         run_mode: RunMode::Deployed,
     };
 
+    let mut source_map = create_default_source_map_from_scripts_dir(&*test_path).unwrap();
+
     let test_result = compile_and_code_gen(
-        &test_path,
+        &mut source_map,
         &["crate".to_string(), module.unwrap_or_default()],
         &compile_and_code_gen_options,
     );

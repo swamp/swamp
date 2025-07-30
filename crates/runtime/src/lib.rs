@@ -539,6 +539,7 @@ pub fn run_function_with_debug(
                         start_row,
                         end_row,
                         &run_options.source_map_wrapper,
+                        true,
                     );
                     print!("{string}");
                 }

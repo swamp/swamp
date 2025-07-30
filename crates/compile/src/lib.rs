@@ -2,10 +2,12 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+pub mod prelude;
+
 use regex::Regex;
 use seq_map::SeqMap;
-use source_map_cache::SourceMapWrapper;
 use source_map_cache::SourceMap;
+use source_map_cache::SourceMapWrapper;
 use std::env::current_dir;
 use std::io;
 use std::path::Path;
@@ -86,6 +88,24 @@ pub fn create_source_map(registry_path: &Path, local_path: &Path) -> io::Result<
 
     mounts
         .insert("registry".to_string(), registry_path.to_path_buf())
+        .unwrap();
+
+    SourceMap::new(&mounts)
+}
+
+pub fn create_default_source_map(local_path: &Path) -> io::Result<SourceMap> {
+    create_source_map(&local_path.join("packages/"), &local_path.join("scripts/"))
+}
+
+pub fn create_default_source_map_from_scripts_dir(local_path: &Path) -> io::Result<SourceMap> {
+    let root = local_path.join("..");
+    create_default_source_map(&root)
+}
+
+pub fn create_default_source_map_crate_only(local_path: &Path) -> io::Result<SourceMap> {
+    let mut mounts = SeqMap::new();
+    mounts
+        .insert("crate".to_string(), local_path.to_path_buf())
         .unwrap();
 
     SourceMap::new(&mounts)
