@@ -196,7 +196,7 @@ impl TestResult {
     }
 }
 
-pub fn run_tests_source_map(test_dir: &Path, options: &TestRunOptions,
+#[must_use] pub fn run_tests_source_map(test_dir: &Path, options: &TestRunOptions,
                             filter: &str,
                             module_suffix: &str, ) -> TestResult {
     let mut mounts = SeqMap::new();

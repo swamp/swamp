@@ -18,7 +18,6 @@ use std::cmp::{max, Ordering};
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use tinter::print_styled;
 use tracing::error;
 use yansi::Paint;
 

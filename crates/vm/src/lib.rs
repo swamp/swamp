@@ -687,30 +687,30 @@ impl Vm {
         !self.execution_complete
     }
 
-    ///  Optimization ideas:
-    /// ```
-    ///    use swamp_vm_types::BinaryInstruction;
-    ///
-    ///    type Handler = fn(&mut VM, &BinaryInstruction, *mut u32);
-    ///
-    ///    pub fn run(&mut self) {
-    ///         let handlers = unsafe { self.decoded_handlers.get_unchecked(..) };
-    ///         let instrs   = unsafe { self.instructions.get_unchecked(..) };
-    ///         let regs_ptr = self.regs.as_mut_ptr();
-    ///
-    ///         while !self.execution_complete {
-    ///             let pc = self.pc;
-    ///             self.pc += 1;
-    ///
-    ///             let h: Handler = unsafe { *handlers.get_unchecked(pc) };
-    ///
-    ///             let inst: &BinaryInstruction = unsafe { &*instrs.as_ptr().add(pc) };
-    ///
-    ///             h(self, inst, regs_ptr);
-    ///         }
-    ///     }
-    ///```
-    ///
+    //  Optimization ideas:
+    // ```
+    //    use swamp_vm_types::BinaryInstruction;
+    //
+    //    type Handler = fn(&mut VM, &BinaryInstruction, *mut u32);
+    //
+    //    pub fn run(&mut self) {
+    //         let handlers = unsafe { self.decoded_handlers.get_unchecked(..) };
+    //         let instrs   = unsafe { self.instructions.get_unchecked(..) };
+    //         let regs_ptr = self.regs.as_mut_ptr();
+    //
+    //         while !self.execution_complete {
+    //             let pc = self.pc;
+    //             self.pc += 1;
+    //
+    //             let h: Handler = unsafe { *handlers.get_unchecked(pc) };
+    //
+    //             let inst: &BinaryInstruction = unsafe { &*instrs.as_ptr().add(pc) };
+    //
+    //             h(self, inst, regs_ptr);
+    //         }
+    //     }
+    //```
+    //
     #[allow(clippy::too_many_lines)]
     pub fn execute_internal(&mut self, host_function_callback: &mut dyn HostFunctionCallback) {
         self.execution_complete = false;

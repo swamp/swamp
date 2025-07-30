@@ -115,7 +115,7 @@ fn main() -> ExitCode {
         run_mode: RunMode::Deployed,
     };
 
-    let mut source_map = create_default_source_map_from_scripts_dir(&*test_path).unwrap();
+    let mut source_map = create_default_source_map_from_scripts_dir(&test_path).unwrap();
 
     let test_result = compile_and_code_gen(
         &mut source_map,

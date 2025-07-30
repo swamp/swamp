@@ -55,9 +55,8 @@ pub fn display_lines(
                 .unwrap_or("wrong row: {row_to_display}");
             writeln!(
                 f,
-                "{:4} {} {}",
+                "{:4} | {}",
                 row_to_display,
-                "|",
                 convert_tabs_to_spaces(line),
             )
                 .expect("insert");
@@ -140,7 +139,7 @@ pub fn disasm_instructions_color(
         display_meta_information_about_instruction(
             &mut string,
             absolute_pc,
-            &instruction,
+            instruction,
             &found.meta,
             &found.function_debug_info.frame_memory,
             use_color,

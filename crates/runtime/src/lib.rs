@@ -595,7 +595,7 @@ pub fn compile_and_code_gen(
         compile_main_path(source_map, main_module_path, &options.compile_options)?;
 
     let source_map_wrapper = SourceMapWrapper {
-        source_map: &source_map,
+        source_map,
         current_dir,
     };
 
@@ -696,7 +696,7 @@ pub fn compile_codegen_and_create_vm_and_run_first_time(
                 max_count: 0,
                 debug_info: &found_result.codegen.code_gen_result.debug_info,
                 source_map_wrapper: SourceMapWrapper {
-                    source_map: &source_map,
+                    source_map,
                     current_dir: current_dir().unwrap(),
                 },
                 debug_memory_enabled: false,

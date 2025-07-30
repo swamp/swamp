@@ -69,9 +69,7 @@ pub fn disasm_function(
 
 
     format!(
-        "{}\n{}",
-        header_output,
-        asm,
+        "{header_output}\n{asm}",
     )
 }
 

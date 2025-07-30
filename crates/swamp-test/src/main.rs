@@ -124,7 +124,7 @@ fn main() -> ExitCode {
 
     init_logger();
 
-    let mut source_map = create_default_source_map_crate_only(&*test_path).unwrap();
+    let mut source_map = create_default_source_map_crate_only(&test_path).unwrap();
     let test_result = run_tests(
         &mut source_map,
         &TestRunOptions {

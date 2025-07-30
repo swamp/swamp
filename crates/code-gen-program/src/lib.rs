@@ -10,7 +10,6 @@ use swamp_compile::Program;
 use swamp_semantic::Function;
 use swamp_vm_types::types::write_basic_type;
 use swamp_vm_types::FrameMemoryAddress;
-use swamp_vm_types::InstructionPositionOffset;
 use time_dilation::ScopedTimer;
 
 pub struct CodeGenOptions {
