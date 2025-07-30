@@ -659,3 +659,95 @@ pub fn test_struct_with_max_alignment_field_at_end() {
         _ => panic!("Expected struct type"),
     }
 }
+
+/// This test specifically checks that the two-pass layout algorithm is working correctly.
+/// It creates a scenario where a single-pass algorithm would produce incorrect field offsets.
+///
+/// You need to know the maximum alignment of all fields before you can correctly position any field.
+#[test]
+pub fn test_two_pass_layout_requirement() {
+    let mut type_cache = TypeCache::new();
+
+    let bool_type = type_cache.bool();   // 1 byte, align 1
+    let int_type = type_cache.int();     // 4 bytes, align 4
+
+    // Create a struct where the field with the highest alignment requirement comes last
+    // This is the critical case that exposes single-pass vs two-pass differences
+    let mut fields = SeqMap::new();
+    let _ = fields.insert(
+        "byte1".to_string(),
+        StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
+            identifier: None,
+            field_type: bool_type.clone(), // 1 byte, align 1
+        },
+    );
+    let _ = fields.insert(
+        "byte2".to_string(),
+        StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
+            identifier: None,
+            field_type: bool_type.clone(), // 1 byte, align 1
+        },
+    );
+    let _ = fields.insert(
+        "byte3".to_string(),
+        StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
+            identifier: None,
+            field_type: bool_type, // 1 byte, align 1
+        },
+    );
+    let _ = fields.insert(
+        "highest_align".to_string(),
+        StructTypeField {
+            symbol_id: TopLevelSymbolId::new_illegal(),
+            identifier: None,
+            field_type: int_type, // 4 bytes, align 4 - HIGHEST ALIGNMENT
+        },
+    );
+
+    let struct_type = AnonymousStructType::new(fields);
+    let struct_ref = TypeRef::from(type_cache.anonymous_struct(struct_type));
+
+    let mut layout_cache = LayoutCache::new();
+    let layout = layout_cache.layout(&struct_ref);
+
+    match &layout.kind {
+        BasicTypeKind::Struct(s) => {
+            assert_eq!(s.fields.len(), 4);
+
+            // With CORRECT two-pass layout (what we expect):
+            // - First pass determines max_alignment = 4 (from the int field)
+            // - Second pass lays out fields knowing the struct needs 4-byte alignment
+
+            // byte1: offset 0, size 1
+            assert_eq!(s.fields[0].name, "byte1");
+            assert_eq!(s.fields[0].offset, MemoryOffset(0));
+            assert_eq!(s.fields[0].size, MemorySize(1));
+
+            // byte2: offset 1, size 1
+            assert_eq!(s.fields[1].name, "byte2");
+            assert_eq!(s.fields[1].offset, MemoryOffset(1));
+            assert_eq!(s.fields[1].size, MemorySize(1));
+
+            // byte3: offset 2, size 1
+            assert_eq!(s.fields[2].name, "byte3");
+            assert_eq!(s.fields[2].offset, MemoryOffset(2));
+            assert_eq!(s.fields[2].size, MemorySize(1));
+
+            // highest_align: offset 4, size 4 (aligned to 4-byte boundary)
+            // This is the CRITICAL test - the int must be at offset 4, not 3
+            assert_eq!(s.fields[3].name, "highest_align");
+            assert_eq!(s.fields[3].offset, MemoryOffset(4));
+            assert_eq!(s.fields[3].size, MemorySize(4));
+
+            // Total size: 8 bytes (4 for int + 4 for the three bytes + padding)
+            assert_eq!(s.total_size, MemorySize(8));
+
+            // Max alignment: 4 bytes (determined by the int field)
+            assert_eq!(s.max_alignment, MemoryAlignment::U32);
+        }
+        _ => panic!("Expected struct type"),
+    }
+}

@@ -38,7 +38,6 @@ impl Vm {
             element_size_2,
             element_size_3
         );
-        debug_assert_ne!(capacity, 0, "illegal capacity");
         unsafe {
             (*mut_vec_ptr).element_count = capacity;
             (*mut_vec_ptr).capacity = capacity;
@@ -286,7 +285,6 @@ impl Vm {
             element_size_2,
             element_size_3
         );
-        debug_assert_ne!(capacity, 0, "illegal capacity");
         unsafe {
             //(*mut_vec_ptr).element_count = 0; // zero is default, so shouldn't be needed
             (*mut_vec_ptr).capacity = capacity;

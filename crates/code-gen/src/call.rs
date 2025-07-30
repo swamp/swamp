@@ -6,17 +6,15 @@
 
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
+use crate::err::Error;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
-use crate::{
-    ArgumentAndTempScope, MAX_REGISTER_INDEX_FOR_PARAMETERS, RepresentationOfRegisters,
-    SpilledRegisterRegion,
-};
+use crate::{err, ArgumentAndTempScope, RepresentationOfRegisters, SpilledRegisterRegion, MAX_REGISTER_INDEX_FOR_PARAMETERS};
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
-use swamp_types::TypeKind;
+use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
 use swamp_types::prelude::Signature;
+use swamp_types::TypeKind;
 use swamp_vm_types::types::{BasicTypeRef, Destination, TypedRegister, VmType};
 use swamp_vm_types::{FrameMemoryRegion, REG_ON_FRAME_SIZE};
 
@@ -170,15 +168,20 @@ impl CodeBuilder<'_> {
                     &mut self.state.layout_cache,
                     expr,
                 ) {
-                    // Use the helper function to get a pointer to the temporary storage
-                    let temp_ptr = self.emit_scalar_rvalue_or_pointer_to_temporary(expr, ctx, true);
+                    if expr.ty.is_storage() {
+                        // Use the helper function to get a pointer to the temporary storage
+                        let temp_ptr = self.emit_scalar_rvalue_or_pointer_to_temporary(expr, ctx, true);
 
-                    self.builder.add_mov_reg(
-                        argument_to_use,
-                        &temp_ptr,
-                        node,
-                        "copy temporary storage address to argument register",
-                    );
+                        self.builder.add_mov_reg(
+                            argument_to_use,
+                            &temp_ptr,
+                            node,
+                            "copy temporary storage address to argument register",
+                        );
+                    } else {
+                        self.add_error(err::ErrorKind::CanNotCreateTempArgument, &expr.node);
+                        return;
+                    }
                 } else {
                     // Normal case: expression can be materialized directly into register
                     self.emit_expression_into_register(
@@ -531,7 +534,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling `{function_name}` ({comment})",);
+        let call_comment = &format!("calling `{function_name}` ({comment})", );
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {
@@ -576,5 +579,12 @@ impl CodeBuilder<'_> {
     ) -> bool {
         // TODO: for now just assume it is
         true
+    }
+
+    fn add_error(&mut self, error_kind: err::ErrorKind, node: &Node) {
+        self.errors.push(Error {
+            node: node.clone(),
+            kind: error_kind,
+        })
     }
 }

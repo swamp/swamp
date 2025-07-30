@@ -459,15 +459,19 @@ impl CodeBuilder<'_> {
                 }
             }
             ExpressionKind::VariableReassignment(variable, expression) => {
-                debug_assert!(output.is_unit());
+                assert!(output.is_unit());
                 self.emit_variable_reassignment(variable, expression, ctx);
             }
             ExpressionKind::CompoundAssignment(target_location, operator_kind, source_expr) => {
-                debug_assert!(output.is_unit());
+                assert!(output.is_unit());
                 self.emit_compound_assignment(target_location, operator_kind, source_expr, ctx);
             }
             ExpressionKind::ForLoop(for_pattern, collection, lambda_expr) => {
-                debug_assert!(output.is_unit());
+                if !output.is_unit() {
+                    let x = 3;
+                    eprintln!("problem");
+                }
+                assert!(output.is_unit());
                 self.emit_for_loop(
                     output,
                     &expr.node,
@@ -478,7 +482,7 @@ impl CodeBuilder<'_> {
                 );
             }
             ExpressionKind::WhileLoop(condition, expression) => {
-                debug_assert!(output.is_unit());
+                assert!(output.is_unit());
                 self.emit_while_loop(condition, expression, ctx);
             }
 

@@ -4,6 +4,7 @@
  */
 use crate::alloc::StackFrameAllocator;
 use crate::ctx::Context;
+use crate::err;
 use crate::reg_pool::HwmTempRegisterPool;
 use crate::state::CodeGenState;
 use seq_map::SeqMap;
@@ -17,14 +18,14 @@ use swamp_semantic::{
 };
 use swamp_types::TypeKind;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::types::{
-    BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType, b8_type, u8_type, u32_type,
+    b8_type, u32_type, u8_type, BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType,
 };
 use swamp_vm_types::{
-    ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, AggregateMemoryLocation,
-    FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset, MemorySize, PointerLocation,
+    AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation,
+    MemoryOffset, MemorySize, PointerLocation, ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET,
     REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
 use tracing::info;
@@ -43,6 +44,7 @@ pub(crate) struct CodeBuilder<'a> {
     //pub spilled_registers: SpilledRegisterScopes,
     pub source_map_lookup: &'a SourceMapWrapper<'a>,
     pub options: CodeBuilderOptions,
+    pub errors: Vec<err::Error>,
 }
 
 impl<'a> CodeBuilder<'a> {
@@ -65,6 +67,7 @@ impl<'a> CodeBuilder<'a> {
             debug_line_tracker: KeepTrackOfSourceLine::default(),
             options,
             source_map_lookup,
+            errors: Vec::new(),
         }
     }
 }
@@ -331,11 +334,14 @@ impl CodeBuilder<'_> {
     ) {
         if let Some((last, others)) = expressions.split_last() {
             for expr in others {
+                info!(%expr.ty.kind, "block: emit statement");
                 self.emit_statement(expr, ctx);
             }
             if matches!(&*last.ty.kind, TypeKind::Unit) {
+                info!(%last.ty.kind, "block_last: emit statement");
                 self.emit_statement(last, ctx);
             } else {
+                info!(%last.ty.kind,"block_last: emit expression");
                 self.emit_expression(target_reg, last, ctx);
             }
         } else {

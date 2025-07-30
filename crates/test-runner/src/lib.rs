@@ -239,7 +239,7 @@ pub fn run_tests(
     let mut expected_trap_passed: Vec<TestInfo> = Vec::new();
 
     if options.should_run {
-        let should_run_in_debug_mode = true; // TODO: Until very stable, always run in debug.  options.debug_opcodes || options.debug_output;
+        let should_run_in_debug_mode = false; // TODO: Until very stable, always run in debug.  options.debug_opcodes || options.debug_output;
 
         let run_first_options = RunOptions {
             debug_stats_enabled: options.debug_stats,
@@ -320,9 +320,9 @@ pub fn run_tests(
 
                     let test_info = TestInfo { name: formal_name };
 
-                    eprintln!("🚀starting test '{complete_name}'");
 
                     if should_run_in_debug_mode {
+                        eprintln!("🚀starting test in debug '{complete_name}'");
                         for _ in 0..options.iteration_count {
                             result.codegen.vm.memory_mut().reset_allocator();
                             swamp_runtime::run_function_with_debug(
@@ -355,6 +355,7 @@ pub fn run_tests(
                             }
                         }
                     } else {
+                        eprintln!("🚀starting test in fast mode '{complete_name}'");
                         for _ in 0..options.iteration_count {
                             result.codegen.vm.memory_mut().reset_allocator();
                             swamp_runtime::run_as_fast_as_possible(

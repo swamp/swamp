@@ -1211,9 +1211,6 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        //debug_assert!(len > 0);
-        debug_assert!(capacity > 0);
-
         let capacity_bytes = u16_to_u8_pair(capacity);
         let element_bytes = u32_to_bytes(element_size.0);
 
@@ -1351,7 +1348,7 @@ impl InstructionBuilder<'_> {
         comment: &str,
     ) {
         //debug_assert!(len > 0);
-        debug_assert!(capacity.0 > 0);
+        //debug_assert!(capacity.0 > 0);
 
         let capacity_bytes = u16_to_u8_pair(capacity.0);
         let element_bytes = u32_to_bytes(element_size.0);

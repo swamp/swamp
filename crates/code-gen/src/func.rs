@@ -9,13 +9,13 @@ use crate::reg_pool::HwmTempRegisterPool;
 use crate::state::GenOptions;
 use crate::top_state::TopLevelGenState;
 use crate::{
-    FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, MAX_REGISTER_INDEX_FOR_PARAMETERS,
-    RepresentationOfRegisters, SpilledRegisterRegion,
+    FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, RepresentationOfRegisters,
+    SpilledRegisterRegion, MAX_REGISTER_INDEX_FOR_PARAMETERS,
 };
 use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{InternalFunctionDefinitionRef, InternalMainExpression, formal_function_name};
+use swamp_semantic::{formal_function_name, InternalFunctionDefinitionRef, InternalMainExpression};
 use swamp_vm_debug_info::FunctionDebugInfo;
 use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_types::types::{
@@ -26,6 +26,7 @@ use swamp_vm_types::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,
     PatchPosition,
 };
+use tracing::info;
 
 impl TopLevelGenState {
     /// # Panics
@@ -39,7 +40,7 @@ impl TopLevelGenState {
         assert_ne!(internal_fn_def.program_unique_id, 0);
 
         let complete_function_name = formal_function_name(internal_fn_def);
-        //info!(complete_function_name, "code generating function def");
+        info!(complete_function_name, "code generating function def");
 
         let in_data = FunctionInData {
             function_name_node: internal_fn_def.name.0.clone(),

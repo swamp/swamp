@@ -4,8 +4,9 @@
  */
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
-use swamp_vm_types::types::{BasicTypeKind, BasicTypeRef, VmType, u16_type, u32_type};
+use swamp_vm_types::types::{u16_type, u32_type, BasicTypeKind, BasicTypeRef, VmType};
 use swamp_vm_types::{AggregateMemoryLocation, CountU16, MemoryLocation};
+use tracing::info;
 
 impl CodeBuilder<'_> {
     /// Helper function to initialize collections in any type (struct, tuple, optional, etc.)
@@ -152,6 +153,7 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
+        info!(%memory_location.ty, "initialize collection");
         let basic_type = memory_location.ty.basic_type();
         if !basic_type.is_collection() {
             return; // Not a collection, nothing to initialize

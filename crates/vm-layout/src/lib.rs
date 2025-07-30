@@ -86,6 +86,7 @@ impl LayoutCache {
             (MemorySize(4), MemoryAlignment::U32)
         };
 
+        // First pass: Find maximum payload size and alignment
         let max_payload_size = variants
             .iter()
             .map(|v| v.ty.total_size)
@@ -97,8 +98,9 @@ impl LayoutCache {
             .max()
             .unwrap_or(MemoryAlignment::U8);
 
-        let payload_offset = align_to(MemoryOffset(tag_size.0), max_payload_alignment);
+        // Second pass: Layout using maximum alignment
         let max_alignment = max(tag_alignment, max_payload_alignment);
+        let payload_offset = align_to(MemoryOffset(tag_size.0), max_payload_alignment);
 
         let complete_size_before_alignment = MemorySize(payload_offset.0 + max_payload_size.0);
         let total_size = adjust_size_to_alignment(complete_size_before_alignment, max_alignment);
@@ -693,9 +695,9 @@ impl LayoutCache {
         struct_type: &AnonymousStructType,
         name: &str,
     ) -> StructType {
-        let mut offset = MemoryOffset(0);
+        // First pass: Layout all field types and determine maximum alignment requirement
+        let mut field_layouts = Vec::with_capacity(struct_type.field_name_sorted_fields.len());
         let mut max_alignment = MemoryAlignment::U8;
-        let mut items = Vec::with_capacity(struct_type.field_name_sorted_fields.len());
 
         for (field_name, field_type) in &struct_type.field_name_sorted_fields {
             // Use layout instead of layout_type to ensure proper caching
@@ -707,20 +709,28 @@ impl LayoutCache {
                 .id_to_layout
                 .insert(field_type.field_type.id, field_layout.clone());
 
+            if field_layout.max_alignment > max_alignment {
+                max_alignment = field_layout.max_alignment;
+            }
+
+            field_layouts.push((field_name.clone(), field_layout));
+        }
+
+        // Second pass: Layout fields using the maximum alignment
+        let mut offset = MemoryOffset(0);
+        let mut items = Vec::with_capacity(field_layouts.len());
+
+        for (field_name, field_layout) in field_layouts {
             offset = align_to(offset, field_layout.max_alignment);
 
             items.push(OffsetMemoryItem {
                 offset,
                 size: field_layout.total_size,
-                name: field_name.clone(),
+                name: field_name,
                 ty: field_layout.clone(),
             });
 
             offset = offset + field_layout.total_size;
-
-            if field_layout.max_alignment > max_alignment {
-                max_alignment = field_layout.max_alignment;
-            }
         }
 
         let total_size = adjust_size_to_alignment(offset.as_size(), max_alignment);

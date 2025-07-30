@@ -161,6 +161,7 @@ pub enum TrapCode {
     UnalignedAccess,
     ReverseRangeNotAllowedHere,
     U8CheckFailed,
+    Misaligned,
 }
 
 impl TrapCode {
@@ -686,12 +687,38 @@ impl Vm {
         !self.execution_complete
     }
 
+    ///  Optimization ideas:
+    /// ```
+    ///    use swamp_vm_types::BinaryInstruction;
+    ///
+    ///    type Handler = fn(&mut VM, &BinaryInstruction, *mut u32);
+    ///
+    ///    pub fn run(&mut self) {
+    ///         let handlers = unsafe { self.decoded_handlers.get_unchecked(..) };
+    ///         let instrs   = unsafe { self.instructions.get_unchecked(..) };
+    ///         let regs_ptr = self.regs.as_mut_ptr();
+    ///
+    ///         while !self.execution_complete {
+    ///             let pc = self.pc;
+    ///             self.pc += 1;
+    ///
+    ///             let h: Handler = unsafe { *handlers.get_unchecked(pc) };
+    ///
+    ///             let inst: &BinaryInstruction = unsafe { &*instrs.as_ptr().add(pc) };
+    ///
+    ///             h(self, inst, regs_ptr);
+    ///         }
+    ///     }
+    ///```
+    ///
     #[allow(clippy::too_many_lines)]
     pub fn execute_internal(&mut self, host_function_callback: &mut dyn HostFunctionCallback) {
         self.execution_complete = false;
 
+        let inst_ptr = self.instructions.as_ptr();
+
         while !self.execution_complete {
-            let instruction = &self.instructions[self.pc];
+            let instruction: &BinaryInstruction = unsafe { &*inst_ptr.add(self.pc) };
             let opcode = instruction.opcode;
 
             #[cfg(feature = "debug_vm")]
@@ -1584,6 +1611,23 @@ impl Vm {
         let offset = u32_from_u8s!(offset_0, offset_1, offset_2, offset_3);
         let ptr_to_read_from =
             self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset) as *const u32;
+
+        // u32 must be 4‑byte aligned
+        let raw_ptr = self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset) as usize;
+
+        let base_addr = get_reg!(self, base_ptr_reg);
+        const ALIGN: usize = std::mem::align_of::<u32>(); // == 4
+        if (base_addr as usize) & (ALIGN - 1) != 0 {
+            eprintln!("base_addr {base_addr} offset {offset}");
+            self.internal_trap(TrapCode::Misaligned);
+            return;
+        }
+
+        if raw_ptr & (ALIGN - 1) != 0 {
+            self.internal_trap(TrapCode::Misaligned);
+            return;
+        }
+
         unsafe {
             set_reg!(self, dst_reg, *ptr_to_read_from);
         }

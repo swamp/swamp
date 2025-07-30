@@ -46,6 +46,7 @@ mod tuple;
 mod variable;
 mod vec;
 mod when;
+mod err;
 
 pub const MAX_REGISTER_INDEX_FOR_PARAMETERS: u8 = 6;
 
