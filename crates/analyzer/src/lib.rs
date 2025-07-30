@@ -45,7 +45,7 @@ use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_symbol::{ScopedSymbolId, TopLevelSymbolId};
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeKind};
-use tracing::error;
+use tracing::{debug, error};
 /*
            swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
                    previous_was_optional_chaining = false;
@@ -765,7 +765,7 @@ impl<'a> Analyzer<'a> {
                 self.analyze_range(min_value, max_value, range_mode, &ast_expression.node)
             }
 
-            swamp_ast::ExpressionKind::ForLoop(pattern, iterable_expression, statements) => {
+            swamp_ast::ExpressionKind::ForLoop(pattern, iterable_expression, single_statement) => {
                 if pattern.is_key_variable_mut() {
                     return self.create_err(
                         ErrorKind::KeyVariableNotAllowedToBeMutable,
@@ -781,14 +781,18 @@ impl<'a> Analyzer<'a> {
                     resolved_iterator.key_type.as_ref(),
                     &resolved_iterator.value_type,
                 );
-                let resolved_statements = self.analyze_expression(statements, context);
+                let unit_type = self.types().unit();
+                let for_context = context.with_expected_type(Some(&unit_type), false);
+                let resolved_statement = self.analyze_expression(single_statement, &for_context);
+                debug!(%resolved_statement.kind, "for_loop");
+                assert!(matches!(&*resolved_statement.ty.kind, TypeKind::Unit));
                 self.pop_block_scope("for_loop");
-                let resolved_type = resolved_statements.ty.clone();
+                let resolved_type = resolved_statement.ty.clone();
                 self.create_expr(
                     ExpressionKind::ForLoop(
                         pattern,
                         resolved_iterator,
-                        Box::from(resolved_statements),
+                        Box::from(resolved_statement),
                     ),
                     resolved_type,
                     &ast_expression.node,

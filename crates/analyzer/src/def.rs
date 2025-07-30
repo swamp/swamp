@@ -22,7 +22,7 @@ use swamp_semantic::{
 };
 use swamp_symbol::{Symbol, SymbolKind, TopLevelSymbolId};
 use swamp_types::prelude::*;
-use tracing::debug;
+use tracing::{debug, info};
 
 impl Analyzer<'_> {
     fn general_import(
@@ -545,6 +545,9 @@ impl Analyzer<'_> {
                     .get_text(&function_data.declaration.name)
                     .trim()
                     .to_string();
+
+                info!("function: {function_name}");
+
 
                 let name_node = self.to_node(&function_data.declaration.name);
                 let statements =
