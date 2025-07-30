@@ -585,6 +585,6 @@ impl CodeBuilder<'_> {
         self.errors.push(Error {
             node: node.clone(),
             kind: error_kind,
-        })
+        });
     }
 }

@@ -176,7 +176,7 @@ impl Analyzer<'_> {
         }
     }
      */
-    fn needs_materialization(&self, expr: &Expression) -> bool {
+    const fn needs_materialization(&self, expr: &Expression) -> bool {
         match &expr.kind {
             ExpressionKind::ConstantAccess(_) => false,
             ExpressionKind::VariableAccess(_) => false,

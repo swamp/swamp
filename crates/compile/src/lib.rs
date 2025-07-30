@@ -5,8 +5,7 @@
 use regex::Regex;
 use seq_map::SeqMap;
 use source_map_cache::SourceMapWrapper;
-use source_map_cache::{SourceMap, SourceMapLookup};
-use source_map_node::FileId;
+use source_map_cache::SourceMap;
 use std::env::current_dir;
 use std::io;
 use std::path::Path;

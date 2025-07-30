@@ -146,7 +146,7 @@ impl Analyzer<'_> {
             let expression_type = resolved_expression.ty.clone();
 
             let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
-            self.shared.state.symbols.insert_top(symbol_id.into(), Symbol {
+            self.shared.state.symbols.insert_top(symbol_id, Symbol {
                 id: symbol_id.into(),
                 kind: SymbolKind::AnonStructField,
                 source_map_node: Default::default(),

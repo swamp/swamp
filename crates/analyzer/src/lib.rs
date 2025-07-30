@@ -45,7 +45,7 @@ use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_symbol::{ScopedSymbolId, TopLevelSymbolId};
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeKind};
-use tracing::{debug, error};
+use tracing::error;
 /*
            swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
                    previous_was_optional_chaining = false;
@@ -404,7 +404,7 @@ impl<'a> Analyzer<'a> {
         {
             {
                 let converted_node = self.to_node(&qualified_func_name.name);
-                let symbol_id: TopLevelSymbolId = found_func.symbol_id().into();
+                let symbol_id: TopLevelSymbolId = found_func.symbol_id();
                 let refs = &mut self.shared.state.refs;
                 refs.add(symbol_id.into(), converted_node.clone());
                 self.shared.definition_table.refs.add(symbol_id.into(), converted_node);

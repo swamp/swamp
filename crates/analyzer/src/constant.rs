@@ -122,7 +122,7 @@ impl Analyzer<'_> {
                 self.shared.definition_table.refs.add(constant_ref.symbol_id.into(), constant_reference_name_node);
 
                 self.create_expr(
-                    ExpressionKind::ConstantAccess(constant_ref.clone()),
+                    ExpressionKind::ConstantAccess(constant_ref),
                     ty,
                     &qualified_constant_identifier.name,
                 )

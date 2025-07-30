@@ -22,7 +22,7 @@ use swamp_semantic::{
 };
 use swamp_symbol::{Symbol, SymbolKind, TopLevelSymbolId};
 use swamp_types::prelude::*;
-use tracing::{debug, info};
+use tracing::debug;
 
 impl Analyzer<'_> {
     fn general_import(
@@ -339,7 +339,7 @@ impl Analyzer<'_> {
         });
         let resolved_alias = AliasType {
             symbol_id,
-            name: name_node.clone(),
+            name: name_node,
             ty: resolved_type,
             assigned_name: alias_name_str,
         };
@@ -411,7 +411,7 @@ impl Analyzer<'_> {
             let name_node = self.to_node(&field_name_and_type.field_name.0);
 
             let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
-            self.shared.state.symbols.insert_top(symbol_id.into(), Symbol {
+            self.shared.state.symbols.insert_top(symbol_id, Symbol {
                 id: symbol_id.into(),
                 kind: SymbolKind::NamedStructField,
                 source_map_node: name_node.clone(),
@@ -551,7 +551,7 @@ impl Analyzer<'_> {
                     self.analyze_function_body_expression(&function_data.body, &return_type);
 
                 let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
-                self.shared.state.symbols.insert_top(symbol_id.into(), Symbol {
+                self.shared.state.symbols.insert_top(symbol_id, Symbol {
                     id: symbol_id.into(),
                     kind: SymbolKind::Function,
                     source_map_node: name_node.clone(),
