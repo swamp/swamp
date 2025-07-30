@@ -2,7 +2,8 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use source_map_cache::SourceMapWrapper;
+use seq_map::SeqMap;
+use source_map_cache::{SourceMap, SourceMapWrapper};
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::io::Write;
@@ -193,10 +194,20 @@ impl TestResult {
     }
 }
 
+pub fn run_tests_source_map(test_dir: &Path, options: &TestRunOptions,
+                            filter: &str,
+                            module_suffix: &str, ) -> TestResult {
+    let mut mounts = SeqMap::new();
+    mounts.insert("crate".to_string(), test_dir.to_path_buf()).expect("TODO: panic message");
+    let mut source_map = SourceMap::new(&mounts).unwrap();
+
+    run_tests(&mut source_map, options, filter, module_suffix)
+}
+
 /// # Panics
 #[allow(clippy::too_many_lines)]
 pub fn run_tests(
-    test_dir: &Path,
+    source_map: &mut SourceMap,
     options: &TestRunOptions,
     filter: &str,
     module_suffix: &str,
@@ -222,8 +233,9 @@ pub fn run_tests(
         skip_codegen: false,
         run_mode: RunMode::Deployed,
     };
+
     let internal_result =
-        compile_codegen_and_create_vm(test_dir, crate_main_path, &compile_and_code_gen_options)
+        compile_codegen_and_create_vm(source_map, crate_main_path, &compile_and_code_gen_options)
             .unwrap();
 
     let CompileAndVmResult::CompileAndVm(mut result) = internal_result else {
@@ -250,7 +262,7 @@ pub fn run_tests(
             use_color: true,
             debug_info: &result.codegen.code_gen_result.debug_info,
             source_map_wrapper: SourceMapWrapper {
-                source_map: &result.codegen.source_map,
+                source_map,
                 current_dir: PathBuf::default(),
             },
         };
@@ -338,7 +350,7 @@ pub fn run_tests(
                                     use_color: true,
                                     debug_info: &result.codegen.code_gen_result.debug_info,
                                     source_map_wrapper: SourceMapWrapper {
-                                        source_map: &result.codegen.source_map,
+                                        source_map,
                                         current_dir: PathBuf::default(),
                                     },
                                 },
@@ -370,7 +382,7 @@ pub fn run_tests(
                                     use_color: true,
                                     debug_info: &result.codegen.code_gen_result.debug_info,
                                     source_map_wrapper: SourceMapWrapper {
-                                        source_map: &result.codegen.source_map,
+                                        source_map,
                                         current_dir: PathBuf::default(),
                                     },
                                     debug_memory_enabled: options.debug_memory_enabled,

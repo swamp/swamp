@@ -422,6 +422,7 @@ pub fn show_crash_info(vm: &Vm, debug_info: &DebugInfo, source_map_wrapper: &Sou
                 line.saturating_sub(2), // Show a couple lines before
                 line + 2,               // Show a couple lines after
                 source_map_wrapper,
+                true,
             );
             eprint!("{string}");
 
@@ -583,15 +584,14 @@ pub struct CompileAndCodeGenOptions {
 
 #[must_use]
 pub fn compile_and_code_gen(
-    path_to_root_of_swamp_files: &Path,
+    source_map: &mut SourceMap,
     main_module_path: &[String],
     options: &CompileAndCodeGenOptions,
-) -> Option<(CompileAndMaybeCodeGenResult, SourceMap)> {
-    let mut source_map = crate_and_registry(path_to_root_of_swamp_files, &options.run_mode);
+) -> Option<CompileAndMaybeCodeGenResult> {
     let current_dir = PathBuf::from(Path::new(""));
 
     let compile_result =
-        compile_main_path(&mut source_map, main_module_path, &options.compile_options)?;
+        compile_main_path(source_map, main_module_path, &options.compile_options)?;
 
     let source_map_wrapper = SourceMapWrapper {
         source_map: &source_map,
@@ -610,13 +610,12 @@ pub fn compile_and_code_gen(
             Some(code_gen_result)
         };
 
-    Some((
+    Some(
         CompileAndMaybeCodeGenResult {
             compile: compile_result,
             codegen: maybe_code_gen_result,
         },
-        source_map,
-    ))
+    )
 }
 
 pub struct CompileCodeGenVmResult {
@@ -632,7 +631,6 @@ pub enum CompileAndVmResult {
 pub struct CodeGenAndVmResult {
     pub vm: Vm,
     pub code_gen_result: CodeGenResult,
-    pub source_map: SourceMap,
 }
 
 pub struct StandardOnlyHostCallbacks {}
@@ -680,12 +678,12 @@ impl CompileCodeGenVmResult {
 
 #[must_use]
 pub fn compile_codegen_and_create_vm_and_run_first_time(
-    root_directory: &Path,
+    source_map: &mut SourceMap,
     root_module: &[String],
     compile_and_code_gen_options: CompileAndCodeGenOptions,
 ) -> Option<CompileAndVmResult> {
     let result =
-        compile_codegen_and_create_vm(root_directory, root_module, &compile_and_code_gen_options);
+        compile_codegen_and_create_vm(source_map, root_module, &compile_and_code_gen_options);
     if let Some(mut first_result) = result {
         if let CompileAndVmResult::CompileAndVm(found_result) = &mut first_result {
             let mut callbacks = StandardOnlyHostCallbacks {};
@@ -697,7 +695,7 @@ pub fn compile_codegen_and_create_vm_and_run_first_time(
                 max_count: 0,
                 debug_info: &found_result.codegen.code_gen_result.debug_info,
                 source_map_wrapper: SourceMapWrapper {
-                    source_map: &found_result.codegen.source_map,
+                    source_map: &source_map,
                     current_dir: current_dir().unwrap(),
                 },
                 debug_memory_enabled: false,
@@ -721,12 +719,12 @@ pub fn compile_codegen_and_create_vm_and_run_first_time(
 /// The root module is needed so it knows which mod that should be considered.
 #[must_use]
 pub fn compile_codegen_and_create_vm(
-    root_directory: &Path,
+    source_map: &mut SourceMap,
     root_module: &[String],
     compile_and_code_gen_options: &CompileAndCodeGenOptions,
 ) -> Option<CompileAndVmResult> {
-    let (compile_and_maybe_code_gen, source_map) =
-        compile_and_code_gen(root_directory, root_module, compile_and_code_gen_options)?;
+    let compile_and_maybe_code_gen =
+        compile_and_code_gen(source_map, root_module, compile_and_code_gen_options)?;
 
     if let Some(code_gen_result) = compile_and_maybe_code_gen.codegen {
         let vm = create_vm_with_standard_settings(
@@ -737,7 +735,6 @@ pub fn compile_codegen_and_create_vm(
         let code_gen_and_vm = CodeGenAndVmResult {
             vm,
             code_gen_result,
-            source_map,
         };
 
         Some(CompileAndVmResult::CompileAndVm(CompileCodeGenVmResult {

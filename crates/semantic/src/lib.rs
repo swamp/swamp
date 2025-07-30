@@ -525,6 +525,7 @@ impl Function {
         }
     }
 
+
     #[must_use]
     pub fn maybe_node(&self) -> Option<&Node> {
         match self {

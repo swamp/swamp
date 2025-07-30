@@ -9,8 +9,8 @@ pub use crate::{
     ExternalFunctionCall, ExternalFunctionDefinition, ExternalFunctionDefinitionRef, ExternalFunctionId,
     ForPattern, FormatSpecifier, FormatSpecifierKind, Fp, Function, FunctionRef,
     FunctionScopeState, Guard, InternalFunctionCall, InternalFunctionDefinition,
-    InternalFunctionDefinitionRef, Iterable, LocalIdentifier, LocalTypeIdentifier, LocationAccessKind, Match, MatchArm,
-    MemberCall, MutVariable, MutableReferenceKind, Pattern, PrecisionType, ProgramState,
-    SemanticError, StartOfChainKind, UnaryOperator,
-    Variable, VariableRef,
+    InternalFunctionDefinitionRef, InternalFunctionId, Iterable, LocalIdentifier, LocalTypeIdentifier, LocationAccessKind, Match,
+    MatchArm, MemberCall, MutVariable, MutableReferenceKind, Pattern, PrecisionType,
+    ProgramState, SemanticError, StartOfChainKind,
+    UnaryOperator, Variable, VariableRef,
 };

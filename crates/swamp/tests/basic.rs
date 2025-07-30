@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use std::path::PathBuf;
-use swamp_test_runner::{StepBehavior, TestRunOptions, run_tests};
+use swamp_test_runner::{run_tests_source_map, StepBehavior, TestRunOptions};
 
 #[must_use]
 pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
@@ -32,7 +32,7 @@ pub fn get_fixture_dir(sub_dirs: &[&str]) -> PathBuf {
 /// ```
 fn run_swamp_test(test_filter: &str, print_output: bool) {
     let test_dir = get_fixture_dir(&["basic"]);
-    let result = run_tests(
+    let result = run_tests_source_map(
         &test_dir,
         &TestRunOptions {
             should_run: true,

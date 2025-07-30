@@ -143,6 +143,7 @@ pub fn code_gen_program(
     }
 
     if options.show_disasm {
+        let use_color = true;
         if let Some(filter) = &options.disasm_filter {
             // Filter specific functions
             let mut current_ip: u32 = 0;
@@ -160,15 +161,15 @@ pub fn code_gen_program(
                         );
                         let end_ip =
                             current_ip + debug_info_for_pc.function_debug_info.ip_range.count.0;
-                        let instructions_slice =
-                            &instructions[current_ip as usize..end_ip as usize];
+
 
                         let output_string = disasm_function(
                             &debug_info_for_pc.function_debug_info.return_type,
-                            instructions_slice,
-                            &InstructionPositionOffset(current_ip),
+                            instructions,
+                            &debug_info_for_pc.function_debug_info.ip_range,
                             code_gen.debug_info(),
                             source_map_lookup,
+                            use_color,
                         );
                         println!("{output_string}"); // log to stdout since this is a feature "asked" by the user
                     }
@@ -184,6 +185,7 @@ pub fn code_gen_program(
                 code_gen.debug_info(),
                 source_map_lookup,
                 code_gen.instructions(),
+                use_color,
             );
         }
     }

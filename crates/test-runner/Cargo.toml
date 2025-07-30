@@ -13,6 +13,7 @@ swamp-runtime = { path = "../runtime", version = "0.2.18", features = [] }
 swamp-std = { path = "../std", version = "0.2.18" }
 swamp-vm = { path = "../vm", version = "0.2.18", features = [] }
 source-map-cache = "0.0.6"
+seq-map = "0.0.14"
 
 tinter = "0.1.0"
 time-dilation = "0.1.11"

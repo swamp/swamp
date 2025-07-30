@@ -3,21 +3,22 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::{
-    AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryRegion,
-    InstructionPosition, InstructionPositionOffset, InstructionRange, MAP_HEADER_ALIGNMENT,
-    MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemoryLocation,
-    MemoryOffset, MemorySize, ProgramCounterDelta, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
-    align_to,
+    align_to, AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion,
+    FrameMemorySize, HeapMemoryAddress, HeapMemoryRegion, InstructionPosition,
+    InstructionPositionOffset, InstructionRange, MemoryAlignment, MemoryLocation,
+    MemoryOffset, MemorySize, ProgramCounterDelta, RegIndex, HEAP_PTR_ON_FRAME_ALIGNMENT,
+    HEAP_PTR_ON_FRAME_SIZE, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
+    RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, STRING_PTR_ALIGNMENT,
+    STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT,
+    VEC_PTR_SIZE,
 };
 use fxhash::FxHasher;
 use seq_fmt::comma;
-use std::cmp::{Ordering, max};
+use std::cmp::{max, Ordering};
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
+use tinter::print_styled;
 use tracing::error;
 use yansi::Paint;
 
@@ -111,7 +112,7 @@ pub struct TaggedUnion {
 
 impl Display for TaggedUnion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "union {}:", self.name,)?;
+        write!(f, "union {}:", self.name, )?;
         for (offset, variant) in self.variants.iter().enumerate() {
             writeln!(f, "  {offset}: {variant}")?;
         }
@@ -1011,8 +1012,8 @@ impl VmType {
     pub fn is_mutable_primitive(&self) -> bool {
         self.basic_type.is_mutable_reference()
             && self
-                .basic_type
-                .should_be_copied_back_when_mutable_arg_or_return()
+            .basic_type
+            .should_be_copied_back_when_mutable_arg_or_return()
     }
 
     #[must_use]
@@ -1973,7 +1974,7 @@ pub fn write_basic_type(
             value_type,
             ..
         } => {
-            write!(f, "MapStorage<{key_type}, {value_type}, {logical_size}>",)
+            write!(f, "MapStorage<{key_type}, {value_type}, {logical_size}>", )
         }
         BasicTypeKind::InternalVecIterator => {
             write!(f, "vec_iter")
@@ -2005,7 +2006,13 @@ pub fn show_frame_region(
     region: FrameMemoryRegion,
     f: &mut dyn Write,
     tabs: usize,
+    use_color: bool,
 ) -> std::fmt::Result {
+    if use_color {
+        yansi::enable();
+    } else {
+        yansi::disable();
+    }
     show_frame_addr(region.addr, f, tabs)?;
     write!(f, ":")?;
     show_memory_size(region.size, f, tabs)
@@ -2014,10 +2021,11 @@ pub fn show_frame_region(
 pub fn show_frame_memory(
     frame_relative_infos: &FrameMemoryInfo,
     f: &mut dyn Write,
+    use_color: bool,
 ) -> std::fmt::Result {
     for mem in &frame_relative_infos.infos {
         let addr = mem.frame_placed_type.addr;
-        show_frame_region(mem.frame_placed_type.region(), f, 0)?;
+        show_frame_region(mem.frame_placed_type.region(), f, 0, use_color)?;
         write!(f, " ")?;
         match &mem.kind {
             VariableInfoKind::Variable(v) => {

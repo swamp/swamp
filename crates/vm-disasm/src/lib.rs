@@ -18,10 +18,7 @@ use swamp_vm_types::types::{
     DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind, DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, FramePlacedType,
     PathInfo, TypedRegister,
 };
-use swamp_vm_types::{
-    BinaryInstruction, FrameMemoryAddress, HeapMemoryAddress, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, ProgramCounterDelta, RegIndex,
-};
+use swamp_vm_types::{BinaryInstruction, FrameMemoryAddress, HeapMemoryAddress, InstructionPosition, InstructionRange, MemoryOffset, MemorySize, Meta, ProgramCounterDelta, RegIndex};
 
 fn convert_tabs_to_spaces(input: &str) -> String {
     input.replace('\t', " ")
@@ -35,19 +32,36 @@ pub fn display_lines(
     start_row: usize,
     end_row: usize,
     source_file_wrapper: &SourceMapWrapper,
+    use_color: bool,
 ) {
-    for row_to_display in start_row..=end_row {
-        let line = source_file_wrapper
-            .get_source_line(file_id, row_to_display)
-            .unwrap_or("wrong row: {row_to_display}");
-        writeln!(
-            f,
-            "{:4} {} {}",
-            row_to_display,
-            tinter::green("|"),
-            convert_tabs_to_spaces(line),
-        )
-            .expect("insert");
+    if use_color {
+        for row_to_display in start_row..=end_row {
+            let line = source_file_wrapper
+                .get_source_line(file_id, row_to_display)
+                .unwrap_or("wrong row: {row_to_display}");
+            writeln!(
+                f,
+                "{:4} {} {}",
+                row_to_display,
+                tinter::green("|"),
+                convert_tabs_to_spaces(line),
+            )
+                .expect("insert");
+        }
+    } else {
+        for row_to_display in start_row..=end_row {
+            let line = source_file_wrapper
+                .get_source_line(file_id, row_to_display)
+                .unwrap_or("wrong row: {row_to_display}");
+            writeln!(
+                f,
+                "{:4} {} {}",
+                row_to_display,
+                "|",
+                convert_tabs_to_spaces(line),
+            )
+                .expect("insert");
+        }
     }
 }
 
@@ -57,34 +71,46 @@ pub fn display_meta_information_about_instruction(
     instruction: &BinaryInstruction,
     meta: &Meta,
     memory_infos: &FrameMemoryInfo,
+    use_color: bool,
 ) {
-    writeln!(
-        f,
-        "     {} {}",
-        tinter::bright_black(format!("{absolute_pc:04X}>")),
-        disasm_color(
-            instruction,
-            memory_infos,
-            meta,
-            &InstructionPosition(absolute_pc)
+    if use_color {
+        writeln!(
+            f,
+            "     {} {}",
+            tinter::bright_black(format!("{absolute_pc:04X}>")),
+            disasm_color(
+                instruction,
+                memory_infos,
+                meta,
+                &InstructionPosition(absolute_pc)
+            )
         )
-    )
-        .expect("insert");
+            .expect("insert");
+    } else {
+        writeln!(
+            f,
+            "     {} {}",
+            format!("{absolute_pc:04X}>"),
+            disasm_no_color(instruction, memory_infos, &meta.comment)
+        )
+            .expect("insert");
+    }
 }
 
 #[must_use]
 pub fn disasm_instructions_color(
     binary_instructions: &[BinaryInstruction],
-    instruction_position_base: &InstructionPositionOffset,
+    range: &InstructionRange,
     debug_info: &DebugInfo,
     source_file_wrapper: &SourceMapWrapper,
+    use_color: bool,
 ) -> String {
     let mut string = String::new();
 
     let mut last_line_info = KeepTrackOfSourceLine::new();
 
-    for (ip_offset, instruction) in binary_instructions.iter().enumerate() {
-        let absolute_pc = instruction_position_base.0 + ip_offset as u32;
+    for absolute_pc in range.start.0..range.start.0 + range.count.0 {
+        let instruction = &binary_instructions[absolute_pc as usize];
 
         let found = &debug_info.fetch(absolute_pc as usize).unwrap();
 
@@ -106,6 +132,7 @@ pub fn disasm_instructions_color(
                     start_row,
                     end_row,
                     source_file_wrapper,
+                    use_color,
                 );
             }
         }
@@ -113,9 +140,10 @@ pub fn disasm_instructions_color(
         display_meta_information_about_instruction(
             &mut string,
             absolute_pc,
-            instruction,
+            &instruction,
             &found.meta,
             &found.function_debug_info.frame_memory,
+            use_color,
         );
     }
 
@@ -378,11 +406,11 @@ pub fn disasm_no_color(
 
     for operand in decorated.operands {
         let new_str = match operand.kind {
-            DecoratedOperandAccessKind::ReadRegister(addr, _memory_kind, _attr) => {
-                format!("{}{}", "$", format!("{}", addr))
+            DecoratedOperandAccessKind::ReadRegister(reg, _memory_kind, _attr) => {
+                format!("{reg}")
             }
-            DecoratedOperandAccessKind::WriteRegister(addr, _memory_kind, _attr) => {
-                format!("{}{}", "$", format!("{}", addr))
+            DecoratedOperandAccessKind::WriteRegister(reg, _memory_kind, _attr) => {
+                format!("{reg}")
             }
             DecoratedOperandAccessKind::AbsoluteMemoryPosition(addr) => {
                 format!("{}{}", "%$", format!("{:08X}", addr.0))
@@ -403,20 +431,19 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::ImmediateU8(data) => format!("{data:02X}", ).to_string(),
             DecoratedOperandAccessKind::CountU16(data) => format!("{data:04X}", ).to_string(),
             DecoratedOperandAccessKind::CountU8(data) => format!("{data:02X}", ).to_string(),
-
             DecoratedOperandAccessKind::ReadMask(data) => format!("#{}", format!("{data}", )),
             DecoratedOperandAccessKind::WriteMask(data) => format!("#{}", format!("{data}", )),
-            DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => {
-                format!("{data}", ).to_string()
+            DecoratedOperandAccessKind::ReadFrameMemoryAddress(addr) => {
+                format!("{addr}", ).to_string()
             }
-            DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => {
-                format!("{data}", ).to_string()
+            DecoratedOperandAccessKind::WriteFrameMemoryAddress(addr) => {
+                format!("{addr}", ).to_string()
             }
             DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => {
-                format!("[R{} #{}]", base_reg, offset.0)
+                format!("[{} #{}]", base_reg, offset.0)
             }
             DecoratedOperandAccessKind::ReadBaseRegWithOffset(base_reg, offset) => {
-                format!("[R{} #{}]", base_reg, offset.0)
+                format!("[{} #{}]", base_reg, offset.0)
             }
         };
         converted_operands.push(new_str);
@@ -955,12 +982,10 @@ pub fn disasm(
             ]
         }
 
-        OpCode::VecExtend => {
-            &[
-                to_write_reg(operands[0], &vec_type(), frame_memory_info),
-                to_read_reg(operands[1], &vec_type(), frame_memory_info),
-            ]
-        }
+        OpCode::VecExtend => &[
+            to_write_reg(operands[0], &vec_type(), frame_memory_info),
+            to_read_reg(operands[1], &vec_type(), frame_memory_info),
+        ],
 
         OpCode::VecRemoveIndex => &[
             to_write_reg(operands[0], &vec_type(), frame_memory_info),
