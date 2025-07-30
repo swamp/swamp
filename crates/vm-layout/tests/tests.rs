@@ -116,17 +116,25 @@ fn test_struct_field_offsets() {
             assert_eq!(struct_type.fields[1].name, "field2");
             assert_eq!(struct_type.fields[2].name, "field3");
 
-            // field1 should be at offset 0
+            // Validate C ABI-compatible layout:
+            // field1 (int): offset 0, size 4, align 4
             assert_eq!(struct_type.fields[0].offset, MemoryOffset(0));
+            assert_eq!(struct_type.fields[0].size.0, 4);
 
-            // field2 should be after field1 (int is 4 bytes)
+            // field2 (bool): offset 4, size 1, align 1 (after int)
             assert_eq!(struct_type.fields[1].offset, MemoryOffset(4));
+            assert_eq!(struct_type.fields[1].size.0, 1);
 
-            // field3 should be after field2 with proper alignment
-            // bool is 1 byte, but string pointer needs alignment to 4 bytes
+            // field3 (string): offset 8, size 4, align 4 (aligned to 4-byte boundary)
+            // The bool at offset 4 requires padding to align the string pointer to 4 bytes
             assert_eq!(struct_type.fields[2].offset, MemoryOffset(8));
+            assert_eq!(struct_type.fields[2].size.0, 4);
 
-            assert_eq!(struct_type.total_size.0, 12); // 4 (int) + padding to 8 + 4 (string ptr)
+            // Total struct size should be 12 bytes (4 + 1 + 3 padding + 4)
+            assert_eq!(struct_type.total_size.0, 12);
+
+            // Struct alignment should be 4 bytes (determined by int and string pointer fields)
+            assert_eq!(struct_type.max_alignment, swamp_vm_types::MemoryAlignment::U32);
         }
         _ => panic!("Expected struct type"),
     }
@@ -236,6 +244,26 @@ fn test_nested_struct_deduplication() {
         3,
         "kind_to_layout should contain exactly 3 entries: int kind, inner struct kind, and outer struct kind"
     );
+
+    // Validate C-compatible layout of the outer struct
+    match &outer_layout.kind {
+        BasicTypeKind::Struct(outer_struct) => {
+            // Check C ABI compliance: point1 and point2 should be properly aligned
+            assert_eq!(outer_struct.fields[0].name, "point1");
+            assert_eq!(outer_struct.fields[0].offset, MemoryOffset(0));
+
+            assert_eq!(outer_struct.fields[1].name, "point2");
+            assert_eq!(outer_struct.fields[1].offset, MemoryOffset(8)); // After first point (8 bytes)
+
+            // Each point should be 8 bytes (int + int with alignment)
+            assert_eq!(outer_struct.fields[0].size.0, 8);
+            assert_eq!(outer_struct.fields[1].size.0, 8);
+
+            // Total size should be 16 bytes (two 8-byte structs)
+            assert_eq!(outer_struct.total_size.0, 16);
+        }
+        _ => panic!("Expected struct type for outer struct"),
+    }
 }
 
 #[test]
@@ -438,44 +466,27 @@ fn test_map_storage_deduplication() {
     // creates a tuple type for key-value pairs, which is also deduplicated.
     //
     // Expected types in id_to_layout:
-    // 1. string type (InternalStringPointer) - key type // and also byte and char
-    // 2. int type (S32) - value type
-    // 3. map storage type - only ONE because map1 and map2 have identical structure
+    // 1. byte type - from string type
+    // 2. char type - from string type
+    // 3. string type (StringView) - key type
+    // 4. int type (S32) - value type
+    // 5. map storage type - only ONE because map1 and map2 have identical structure
     //
-    // Note: The internal tuple type (string, int) for key-value pairs is created but doesn't
-    // get a separate entry in id_to_layout because it's managed internally by the map storage.
-    // It does appear in kind_to_layout for structural deduplication.
-    //
-    // Total: 3 unique TypeIds in id_to_layout, 4 kinds in kind_to_layout
+    // Total: 5 unique TypeIds in id_to_layout
     assert_eq!(
         layout_cache.id_to_layout.len(),
         5,
-        "id_to_layout should contain exactly 5 entries: string type, byte type, char type, int type, and map storage type. \
+        "id_to_layout should contain exactly 5 entries: byte type, char type, string type, int type, and map storage type. \
         Even though we created map1 and map2 separately, swamp-types deduplicates them to the same TypeId \
         because they have identical structure (same key/value types and capacity)."
     );
 
-    // kind_to_layout contains: string kind, int kind, tuple kind (for key-value pairs), and map storage kind
-    //
-    // IMPORTANT: kind_to_layout.len() > id_to_layout.len() here (4 vs 3)!
-    //
-    // This happens because the layout cache creates an internal tuple type for key-value pairs
-    // that doesn't get its own TypeId in swamp-types (it's managed internally by MapStorage),
-    // but it DOES get stored in kind_to_layout for structural layout sharing.
-    // It will probably be changed/fixed in the future. But we can leave it for now.
-    //
-    // So we have:
-    // - id_to_layout: 3 entries (string TypeId, int TypeId, map TypeId)
-    // - kind_to_layout: 3  entries (string kind, int kind, map kind)
-    //
-    // The tuple kind exists for layout purposes but has no corresponding user-visible TypeId.
-    // This demonstrates how the layout cache can share layouts between structurally identical
-    // types even when those types don't have explicit TypeIds in the swamp-types system.
+    // kind_to_layout contains the same 5 entries
+    // No additional layout sharing occurs here since each type has a unique structure
     assert_eq!(
         layout_cache.kind_to_layout.len(),
         5,
-        "kind_to_layout should contain exactly 5 entries: string kind, int kind, \
-         and map storage kind"
+        "kind_to_layout should contain exactly 5 entries: byte kind, char kind, string kind, int kind, and map storage kind"
     );
 }
 
@@ -520,23 +531,13 @@ fn test_enum_variant_deduplication() {
     assert_eq!(
         layout_cache.id_to_layout.len(),
         4,
-        "id_to_layout should contain exactly 3 entries: enum type, int type, and struct type for Some variant"
+        "id_to_layout should contain exactly 4 entries: enum type, int type, struct type for Some variant, and unit type for None variant"
     );
 
-    // kind_to_layout contains: int, struct for Some variant, enum, and Empty type for None variant
+    // kind_to_layout contains: int, struct for Some variant, enum, unit type for None variant, and Empty type for None variant
     //
-    // IMPORTANT: kind_to_layout.len() > id_to_layout.len() here (4 vs 3)!
-    //
-    // This happens because the enum creates internal variant types:
-    // - The "None" variant creates an Empty type that gets stored in kind_to_layout
-    //   but doesn't get its own TypeId (it's managed internally by the enum)
-    // - The "Some" variant creates a struct type that DOES get a TypeId
-    //
-    // So we have:
-    // - id_to_layout: 3 entries (int TypeId, struct TypeId for Some, enum TypeId)
-    // - kind_to_layout: 5 entries (int kind, unit, struct kind, enum kind, Empty kind for None)
-    //
-    // This demonstrates internal type creation for layout optimization.
+    // Note: The enum creates internal variant types that get stored in kind_to_layout
+    // The Empty type for None variant gets created internally and stored in kind_to_layout
     assert_eq!(
         layout_cache.kind_to_layout.len(),
         5,
