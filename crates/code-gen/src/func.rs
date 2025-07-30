@@ -26,7 +26,6 @@ use swamp_vm_types::{
     InstructionPosition, InstructionPositionOffset, InstructionRange, MemoryLocation, MemoryOffset,
     PatchPosition,
 };
-use tracing::info;
 
 impl TopLevelGenState {
     /// # Panics
@@ -40,7 +39,7 @@ impl TopLevelGenState {
         assert_ne!(internal_fn_def.program_unique_id, 0);
 
         let complete_function_name = formal_function_name(internal_fn_def);
-        info!(complete_function_name, "code generating function def");
+        //        info!(complete_function_name, "code generating function def");
 
         let in_data = FunctionInData {
             function_name_node: internal_fn_def.name.0.clone(),

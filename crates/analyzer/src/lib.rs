@@ -784,7 +784,6 @@ impl<'a> Analyzer<'a> {
                 let unit_type = self.types().unit();
                 let for_context = context.with_expected_type(Some(&unit_type), false);
                 let resolved_statement = self.analyze_expression(single_statement, &for_context);
-                debug!(%resolved_statement.kind, "for_loop");
                 assert!(matches!(&*resolved_statement.ty.kind, TypeKind::Unit));
                 self.pop_block_scope("for_loop");
                 let resolved_type = resolved_statement.ty.clone();
@@ -802,7 +801,9 @@ impl<'a> Analyzer<'a> {
             swamp_ast::ExpressionKind::WhileLoop(expression, statements) => {
                 let condition = self.analyze_bool_argument_expression(expression);
 
-                let resolved_statements = self.analyze_expression(statements, context);
+                let unit = self.types().unit();
+                let unit_context = context.with_expected_type(Some(&unit), false);
+                let resolved_statements = self.analyze_expression(statements, &unit_context);
                 let resolved_type = resolved_statements.ty.clone();
 
                 self.create_expr(

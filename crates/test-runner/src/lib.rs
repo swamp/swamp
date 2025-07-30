@@ -239,7 +239,7 @@ pub fn run_tests(
     let mut expected_trap_passed: Vec<TestInfo> = Vec::new();
 
     if options.should_run {
-        let should_run_in_debug_mode = false; // TODO: Until very stable, always run in debug.  options.debug_opcodes || options.debug_output;
+        let should_run_in_debug_mode = true; // TODO: Until very stable, always run in debug.  options.debug_opcodes || options.debug_output;
 
         let run_first_options = RunOptions {
             debug_stats_enabled: options.debug_stats,

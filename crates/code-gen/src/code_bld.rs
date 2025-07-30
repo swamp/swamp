@@ -334,14 +334,11 @@ impl CodeBuilder<'_> {
     ) {
         if let Some((last, others)) = expressions.split_last() {
             for expr in others {
-                info!(%expr.ty.kind, "block: emit statement");
                 self.emit_statement(expr, ctx);
             }
             if matches!(&*last.ty.kind, TypeKind::Unit) {
-                info!(%last.ty.kind, "block_last: emit statement");
                 self.emit_statement(last, ctx);
             } else {
-                info!(%last.ty.kind,"block_last: emit expression");
                 self.emit_expression(target_reg, last, ctx);
             }
         } else {

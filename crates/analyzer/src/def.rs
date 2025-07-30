@@ -546,9 +546,6 @@ impl Analyzer<'_> {
                     .trim()
                     .to_string();
 
-                info!("function: {function_name}");
-
-
                 let name_node = self.to_node(&function_data.declaration.name);
                 let statements =
                     self.analyze_function_body_expression(&function_data.body, &return_type);
