@@ -1,6 +1,6 @@
 [package]
 name = "swamp-symbol"
-version = "0.2.18"
+version = "0.2.19"
 edition = "2024"
 description = "unique symbol ids for Swamp"
 repository = "https://github.com/swamp/swamp"
