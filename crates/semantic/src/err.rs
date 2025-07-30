@@ -132,11 +132,13 @@ pub enum ErrorKind {
     CanNotInferEnumType,
     CanNotHaveSeparateMemberFuncRef,
     OutOfVirtualRegisters,
+    CanNotCreateTemporaryStorage,
 }
 
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let error_message = match self {
+            Self::CanNotCreateTemporaryStorage => "can not create temporary storage",
             Self::OutOfVirtualRegisters => "out of virtual registers",
             Self::CanNotHaveSeparateMemberFuncRef => "can not have separate member func reference",
             Self::EnumTypeWasntExpectedHere => "enum type was not expected here",
@@ -361,6 +363,7 @@ impl ErrorKind {
             Self::CanNotHaveSeparateMemberFuncRef => 90,
             Self::ByteConversionError(_) => 91,
             Self::OutOfVirtualRegisters => 92,
+            Self::CanNotCreateTemporaryStorage => 93,
         }
     }
 }

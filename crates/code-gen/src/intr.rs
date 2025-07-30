@@ -923,7 +923,7 @@ impl CodeBuilder<'_> {
                 // Materialize self to ensure we have the actual scalar value
                 let mut converted_regs = vec![self_reg.unwrap().clone()];
                 for arg in arguments {
-                    let ArgumentExpression::Expression(found_expression) = arg else {
+                    let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
                         panic!("must be expression");
                     };
                     let materialized_arg = self.emit_scalar_rvalue(found_expression, ctx);
@@ -999,7 +999,7 @@ impl CodeBuilder<'_> {
                 // Materialize additional arguments (self is already materialized)
                 let mut converted_regs = vec![self_reg.unwrap().clone()];
                 for arg in arguments {
-                    let ArgumentExpression::Expression(found_expression) = arg else {
+                    let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
                         panic!("must be expression");
                     };
                     let materialized_arg = self.emit_scalar_rvalue(found_expression, ctx);
@@ -1050,7 +1050,7 @@ impl CodeBuilder<'_> {
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
                     .map(|arg| {
-                        let ArgumentExpression::Expression(found_expression) = arg else {
+                        let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
                             panic!("must be expression");
                         };
                         found_expression.clone()
@@ -1079,7 +1079,7 @@ impl CodeBuilder<'_> {
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
                     .map(|arg| {
-                        let ArgumentExpression::Expression(found_expression) = arg else {
+                        let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
                             panic!("must be expression");
                         };
                         found_expression.clone()
@@ -1107,7 +1107,7 @@ impl CodeBuilder<'_> {
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
                     .map(|arg| {
-                        let ArgumentExpression::Expression(found_expression) = arg else {
+                        let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
                             panic!("must be expression");
                         };
                         found_expression.clone()
@@ -1423,7 +1423,7 @@ impl CodeBuilder<'_> {
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
                     .map(|arg| {
-                        let ArgumentExpression::Expression(found_expression) = arg else {
+                        let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
                             panic!("must be expression");
                         };
                         found_expression.clone()
@@ -1594,7 +1594,7 @@ impl CodeBuilder<'_> {
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
                     .map(|arg| {
-                        let ArgumentExpression::Expression(found_expression) = arg else {
+                        let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
                             panic!("must be expression");
                         };
                         found_expression.clone()

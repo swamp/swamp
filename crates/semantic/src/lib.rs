@@ -733,6 +733,7 @@ pub enum MutableReferenceKind {
 #[derive(Debug, Clone)]
 pub enum ArgumentExpression {
     Expression(Expression),
+    MaterializedExpression(Expression),
     BorrowMutableReference(SingleLocationExpression),
 }
 
@@ -741,6 +742,7 @@ impl ArgumentExpression {
     pub fn ty(&self) -> TypeRef {
         match self {
             Self::Expression(expr) => expr.ty.clone(),
+            Self::MaterializedExpression(expr) => expr.ty.clone(),
             Self::BorrowMutableReference(location) => location.ty.clone(),
         }
     }
@@ -748,6 +750,7 @@ impl ArgumentExpression {
     pub fn expect_immutable(self) -> Result<Expression, SemanticError> {
         match self {
             Self::Expression(expr) => Ok(expr),
+            Self::MaterializedExpression(expr) => Ok(expr),
             Self::BorrowMutableReference(_) => Err(SemanticError::WasNotImmutable),
         }
     }
@@ -755,6 +758,7 @@ impl ArgumentExpression {
     pub const fn expect_immutable_ref(&self) -> Result<&Expression, SemanticError> {
         match &self {
             Self::Expression(expr) => Ok(expr),
+            Self::MaterializedExpression(expr) => Ok(expr),
             Self::BorrowMutableReference(_) => Err(SemanticError::WasNotImmutable),
         }
     }
@@ -768,6 +772,7 @@ impl ArgumentExpression {
     pub const fn node(&self) -> &Node {
         match &self {
             Self::Expression(expr) => &expr.node,
+            Self::MaterializedExpression(expr) => &expr.node,
             Self::BorrowMutableReference(loc) => &loc.node,
         }
     }

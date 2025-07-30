@@ -1001,7 +1001,7 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         match arg {
-            ArgumentExpression::Expression(expression) => self.show_expression(f, expression, tabs),
+            ArgumentExpression::Expression(expression) | ArgumentExpression::MaterializedExpression(expression) => self.show_expression(f, expression, tabs),
             ArgumentExpression::BorrowMutableReference(location) => {
                 self.show_location(f, location, tabs)
             }

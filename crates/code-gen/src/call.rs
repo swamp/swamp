@@ -161,29 +161,18 @@ impl CodeBuilder<'_> {
                     );
                 }
             }
-            ArgumentExpression::Expression(expr) => {
-                // For expressions that need memory (like VecStorage literals), we need to check
-                // if they should be materialized into temporary frame space first
-                if Self::rvalue_needs_memory_location_to_materialize_in(
-                    &mut self.state.layout_cache,
-                    expr,
-                ) {
-                    if expr.ty.is_storage() {
-                        // Use the helper function to get a pointer to the temporary storage
-                        let temp_ptr = self.emit_scalar_rvalue_or_pointer_to_temporary(expr, ctx, true);
+            ArgumentExpression::MaterializedExpression(expr) => {
+                if Self::rvalue_needs_memory_location_to_materialize_in(&mut self.state.layout_cache, expr) {
+                    // Use the helper function to get a pointer to the temporary storage
+                    let temp_ptr = self.emit_scalar_rvalue_or_pointer_to_temporary(expr, ctx, true);
 
-                        self.builder.add_mov_reg(
-                            argument_to_use,
-                            &temp_ptr,
-                            node,
-                            "copy temporary storage address to argument register",
-                        );
-                    } else {
-                        self.add_error(err::ErrorKind::CanNotCreateTempArgument, &expr.node);
-                        return;
-                    }
+                    self.builder.add_mov_reg(
+                        argument_to_use,
+                        &temp_ptr,
+                        node,
+                        "copy temporary storage address to argument register",
+                    );
                 } else {
-                    // Normal case: expression can be materialized directly into register
                     self.emit_expression_into_register(
                         argument_to_use,
                         expr,
@@ -192,8 +181,19 @@ impl CodeBuilder<'_> {
                     );
                 }
             }
+
+            ArgumentExpression::Expression(expr) => {
+                // Normal case: expression can be materialized directly into register
+                self.emit_expression_into_register(
+                    argument_to_use,
+                    expr,
+                    "argument expression into specific argument register",
+                    ctx,
+                );
+            }
         }
     }
+
 
     pub(crate) fn emit_arguments(
         &mut self,

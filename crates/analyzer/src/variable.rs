@@ -345,7 +345,7 @@ impl Analyzer<'_> {
         let expression_type = converted_expression.ty();
 
         match converted_expression {
-            ArgumentExpression::Expression(expr) => {
+            ArgumentExpression::Expression(expr) | ArgumentExpression::MaterializedExpression(expr) => {
                 // For immutable bindings or expressions that can't be aliased,
                 // create a regular variable definition
                 let variable_ref = self.create_local_variable(
