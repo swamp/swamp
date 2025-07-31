@@ -7,7 +7,18 @@ use std::{
     mem::{align_of, size_of},
     ptr, slice,
 };
-use swamp_vm_types::{VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VecHeader};
+use swamp_vm_types::{AnyHeader, VecHeader, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET};
+
+pub struct AnyValue {
+    pub bytes: Vec<u8>,
+    pub type_hash: u32,
+}
+
+pub struct AnyValueMut {
+    pub data_ptr: *mut u8,
+    pub size: usize,
+    pub type_hash: u32,
+}
 
 pub struct HostArgs {
     // references into the Vm
@@ -205,6 +216,31 @@ impl HostArgs {
             let bytes = slice::from_raw_parts(string_data_ptr, string_byte_length);
 
             std::str::from_utf8_unchecked(bytes)
+        }
+    }
+
+    pub fn any(&self, register_id: u8) -> AnyValue {
+        let any_header = self.get::<AnyHeader>(register_id);
+
+        unsafe {
+            let any_data_ptr = self.all_memory.add(any_header.data_ptr as usize);
+
+            let data_slice = slice::from_raw_parts(any_data_ptr, any_header.size as usize);
+
+            AnyValue {
+                bytes: data_slice.to_vec(),
+                type_hash: any_header.type_hash,
+            }
+        }
+    }
+
+    pub fn any_mut(&self, register_id: u8) -> AnyValueMut {
+        let any_header = self.get::<AnyHeader>(register_id);
+        let any_data_ptr = unsafe { self.all_memory.add(any_header.data_ptr as usize) };
+        AnyValueMut {
+            data_ptr: any_data_ptr,
+            size: any_header.size as usize,
+            type_hash: any_header.type_hash,
         }
     }
 
