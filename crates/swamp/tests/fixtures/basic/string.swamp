@@ -286,3 +286,13 @@ fn string_in_constant() {
     print('cool:{ARTIFACT_LIB[ArtifactID::SetCollector].description}')
     assert(ARTIFACT_LIB[ArtifactID::SetCollector].description == "For each ArtifactLabel::Blue artifact, equipped, +1 strength", 'was not equal {ARTIFACT_LIB[ArtifactID::SetCollector].description}')
 }
+
+/*
+#[test]
+fn chars_lookup() {
+    string = "🧛✨🌟"
+
+    middle_char = string.chars()[1]
+    assert(middle_char == 0x2728, 'middle char was wrong')
+}
+*/
