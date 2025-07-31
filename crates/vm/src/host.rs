@@ -9,11 +9,13 @@ use std::{
 };
 use swamp_vm_types::{AnyHeader, VecHeader, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET};
 
+#[derive(Debug)]
 pub struct AnyValue {
     pub bytes: Vec<u8>,
     pub type_hash: u32,
 }
 
+#[derive(Debug)]
 pub struct AnyValueMut {
     pub data_ptr: *mut u8,
     pub size: usize,
