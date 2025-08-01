@@ -46,6 +46,7 @@ use swamp_symbol::{ScopedSymbolId, TopLevelSymbolId};
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeKind};
 use tracing::error;
+use crate::variable::MAX_VIRTUAL_REGISTER;
 /*
            swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
                    previous_was_optional_chaining = false;
@@ -146,6 +147,7 @@ pub struct Analyzer<'a> {
     scope: ScopeInfo,
     global: FunctionScopeState,
     module_path: Vec<String>,
+    last_function_node: Node,
 }
 
 impl<'a> Analyzer<'a> {
@@ -172,6 +174,7 @@ impl<'a> Analyzer<'a> {
             global: FunctionScopeState::new(),
             shared,
             module_path: module_path.to_vec(),
+            last_function_node: Default::default(),
         };
 
         // Hack
@@ -182,13 +185,17 @@ impl<'a> Analyzer<'a> {
     }
 
     // TODO: Not happy about this construct of a start function, should be a separate struct.
-    fn start_function(&mut self) {
+    fn start_function(&mut self, node: &swamp_ast::Node) {
         self.global.block_scope_stack = take(&mut self.scope.active_scope.block_scope_stack);
+        self.last_function_node = self.to_node(node);
         self.scope = ScopeInfo::default();
     }
 
     fn stop_function(&mut self) {
         self.scope.active_scope.block_scope_stack = take(&mut self.global.block_scope_stack);
+        if self.scope.total_scopes.highest_virtual_register > MAX_VIRTUAL_REGISTER / 2 {
+            self.add_hint_resolved(ErrorKind::CloseToMaxVirtualRegister, &self.last_function_node.clone());
+        }
     }
 
     fn analyze_if_expression(
@@ -506,7 +513,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         ast_expression: &swamp_ast::Expression,
     ) -> InternalMainExpression {
-        self.start_function();
+        self.start_function(&ast_expression.node);
 
         let context = TypeContext::new_anything_argument(true); // function returns are per definition lvalue target for aggregates
         let analyzed_expr = self.analyze_expression(ast_expression, &context);

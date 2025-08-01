@@ -15,6 +15,7 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
     let span = &err.node.span;
     let mut b = match &err.kind {
         ErrorKind::OutOfVirtualRegisters
+        | ErrorKind::CloseToMaxVirtualRegister
         | ErrorKind::ByteConversionError(_)
         | ErrorKind::CanNotHaveSeparateMemberFuncRef
         | ErrorKind::CanNotSubscriptWithThatType

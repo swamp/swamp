@@ -690,7 +690,7 @@ impl Analyzer<'_> {
             }
             swamp_ast::DefinitionKind::FunctionDef(function) => {
                 let _resolved_return_type = self.analyze_return_type(function);
-                self.start_function();
+                self.start_function(function.node());
                 self.analyze_function_definition(function, &analyzed_attributes);
                 self.stop_function();
             }
@@ -759,7 +759,6 @@ impl Analyzer<'_> {
         }
 
         for function in functions {
-            self.start_function();
 
             let function_name = match function {
                 swamp_ast::Function::Internal(function_with_body) => {
@@ -767,6 +766,7 @@ impl Analyzer<'_> {
                 }
                 swamp_ast::Function::External(_, external_declaration) => external_declaration,
             };
+            self.start_function(&function_name.name);
 
             let function_name_str = self.get_text(&function_name.name).to_string();
 

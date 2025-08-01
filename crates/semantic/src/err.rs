@@ -133,11 +133,13 @@ pub enum ErrorKind {
     CanNotHaveSeparateMemberFuncRef,
     OutOfVirtualRegisters,
     CanNotCreateTemporaryStorage,
+    CloseToMaxVirtualRegister,
 }
 
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let error_message = match self {
+            Self::CloseToMaxVirtualRegister => "close to max virtual register",
             Self::CanNotCreateTemporaryStorage => "can not create temporary storage",
             Self::OutOfVirtualRegisters => "out of virtual registers",
             Self::CanNotHaveSeparateMemberFuncRef => "can not have separate member func reference",
@@ -364,6 +366,7 @@ impl ErrorKind {
             Self::ByteConversionError(_) => 91,
             Self::OutOfVirtualRegisters => 92,
             Self::CanNotCreateTemporaryStorage => 93,
+            Self::CloseToMaxVirtualRegister => 94,
         }
     }
 }

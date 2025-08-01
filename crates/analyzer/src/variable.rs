@@ -14,7 +14,7 @@ use swamp_semantic::{
 use swamp_symbol::{ScopedSymbolId, Symbol, SymbolKind};
 use swamp_types::prelude::*;
 
-const MAX_VIRTUAL_REGISTER: usize = 24;
+pub const MAX_VIRTUAL_REGISTER: usize = 48;
 
 /// Common helper function for allocating the next available register from `ScopeInfo`
 /// This function uses high watermark approach - simply increment counter, restore on scope pop
