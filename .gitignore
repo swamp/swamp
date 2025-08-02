@@ -6,3 +6,4 @@ Cargo.lock
 output.ansi
 *.trace
 .vscode
+appendonly.aof
