@@ -64,14 +64,14 @@ impl CodeBuilder<'_> {
                 );
             }
 
-            TypeKind::StackStorage(element_type, _)
-            | TypeKind::StackView(element_type)
-            | TypeKind::QueueStorage(element_type, _)
-            | TypeKind::QueueView(element_type)
-            | TypeKind::DynamicLengthVecView(element_type)
-            | TypeKind::VecStorage(element_type, ..)
-            | TypeKind::FixedCapacityAndLengthArray(element_type, _)
-            | TypeKind::SliceView(element_type) => {
+            TypeKind::StackStorage(_element_type, _)
+            | TypeKind::StackView(_element_type)
+            | TypeKind::QueueStorage(_element_type, _)
+            | TypeKind::QueueView(_element_type)
+            | TypeKind::DynamicLengthVecView(_element_type)
+            | TypeKind::VecStorage(_element_type, ..)
+            | TypeKind::FixedCapacityAndLengthArray(_element_type, _)
+            | TypeKind::SliceView(_element_type) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,
@@ -95,7 +95,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            TypeKind::DynamicLengthMapView(key, value) | TypeKind::MapStorage(key, value, ..) => {
+            TypeKind::DynamicLengthMapView(_key, _value) | TypeKind::MapStorage(_key, _value, ..) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,

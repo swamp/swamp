@@ -5,7 +5,6 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, ExpressionKind};
-use swamp_types::TypeKind;
 use swamp_vm_types::types::{Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
@@ -62,9 +61,9 @@ impl CodeBuilder<'_> {
     ) -> TypedRegister {
         if allow_temporary
             && Self::rvalue_needs_memory_location_to_materialize_in(
-                &mut self.state.layout_cache,
-                expr,
-            )
+            &mut self.state.layout_cache,
+            expr,
+        )
         {
             // Expression needs temporary storage (like initializer lists)
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
@@ -100,26 +99,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub fn emit_bool_expression(
-        &mut self,
-        target_reg: &Destination,
-        expr: &Expression,
-        ctx: &Context,
-    ) {
-        debug_assert!(
-            matches!(&*expr.ty.kind, TypeKind::Bool),
-            "must have scalar type"
-        );
-        self.emit_expression(target_reg, expr, ctx);
-    }
-
-    pub fn emit_bool_value(&mut self, expr: &Expression, ctx: &Context) -> TypedRegister {
-        debug_assert!(
-            matches!(&*expr.ty.kind, TypeKind::Bool),
-            "must have scalar type"
-        );
-        self.emit_scalar_rvalue(expr, ctx)
-    }
 
     /// Emits code to evaluate an expression into a scalar rvalue.
     ///

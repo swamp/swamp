@@ -6,8 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, WhenBinding};
 use swamp_types::TypeKind;
+use swamp_vm_types::types::{u8_type, Destination, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Destination, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -57,7 +57,7 @@ impl CodeBuilder<'_> {
             // Get the optional type information to find the payload offset
             let optional_type = &binding.expr.ty;
             let payload_memory_offset = match &*optional_type.kind {
-                TypeKind::Optional(inner_type) => {
+                TypeKind::Optional(_inner_type) => {
                     // We have an Optional type, get the layout info
                     let binding_gen_type = self.state.layout_cache.layout(optional_type);
                     let (_, _, payload_offset, _) = binding_gen_type.unwrap_info().unwrap();

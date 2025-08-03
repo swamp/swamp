@@ -25,6 +25,8 @@ use swamp_vm_types::{
 pub struct LayoutCache {
     pub id_to_layout: SeqMap<TypeId, BasicTypeRef>,
     pub kind_to_layout: SeqMap<TypeKind, BasicTypeRef>,
+    pub universal_id_to_layout: SeqMap<u64, BasicTypeRef>,
+    pub universal_short_id_to_layout: SeqMap<u32, BasicTypeRef>,
 }
 
 impl LayoutCache {}
@@ -41,6 +43,8 @@ impl LayoutCache {
         Self {
             id_to_layout: SeqMap::default(),
             kind_to_layout: SeqMap::default(),
+            universal_id_to_layout: SeqMap::default(),
+            universal_short_id_to_layout: SeqMap::default(),
         }
     }
 
@@ -52,20 +56,16 @@ impl LayoutCache {
         }
 
         // Check if we already have a layout for this kind of type
-        if let Some(existing_layout) = self.kind_to_layout.get(&analyzed_type.kind) {
+        if let Some(existing_layout) = self.kind_to_layout.get(&analyzed_type.kind).cloned() {
             // For deduplication, we reuse the existing layout directly
             // This ensures pointer equality for structurally identical types
-            let _ = self
-                .id_to_layout
-                .insert(analyzed_type.id, existing_layout.clone());
+            self.insert_layout(analyzed_type.id, existing_layout.clone());
             return existing_layout.clone();
         }
 
         let basic_type = self.layout_type(analyzed_type);
 
-        let _ = self
-            .id_to_layout
-            .insert(analyzed_type.id, basic_type.clone());
+        self.insert_layout(analyzed_type.id, basic_type.clone());
 
         // Also store in kind_to_layout for future deduplication
         let _ = self
@@ -247,7 +247,7 @@ impl LayoutCache {
             });
 
             // Store the mapping from this type ID to the new layout
-            let _ = self.id_to_layout.insert(ty.id, new_basic_type.clone());
+            self.insert_layout(ty.id, new_basic_type.clone());
 
             // For nested types, we need to properly track all component types
             // This is essential for the deduplication to work correctly
@@ -269,7 +269,7 @@ impl LayoutCache {
                         for field in anon_struct.field_name_sorted_fields.values() {
                             let field_type = &field.field_type;
                             let field_layout = self.layout(field_type);
-                            let _ = self.id_to_layout.insert(field_type.id, field_layout);
+                            self.insert_layout(field_type.id, field_layout);
                         }
                     }
                 }
@@ -278,7 +278,7 @@ impl LayoutCache {
                     // Process each tuple element type
                     for elem_type in tuple_types {
                         let elem_layout = self.layout(elem_type);
-                        let _ = self.id_to_layout.insert(elem_type.id, elem_layout);
+                        self.insert_layout(elem_type.id, elem_layout);
                     }
                 }
                 _ => {}
@@ -355,7 +355,7 @@ impl LayoutCache {
                 });
 
                 // Also store the element type in id_to_layout
-                let _ = self.id_to_layout.insert(element_type.id, element_layout);
+                self.insert_layout(element_type.id, element_layout);
 
                 array_type
             }
@@ -376,7 +376,7 @@ impl LayoutCache {
                 });
 
                 // Also store the element type in id_to_layout
-                let _ = self.id_to_layout.insert(byte_type.id, element_layout);
+                self.insert_layout(byte_type.id, element_layout);
 
                 array_type
             }
@@ -398,7 +398,7 @@ impl LayoutCache {
                     max_alignment: PTR_ALIGNMENT,
                 });
 
-                let _ = self.id_to_layout.insert(element_type.id, element_layout);
+                self.insert_layout(element_type.id, element_layout);
 
                 vec_type
             }
@@ -414,7 +414,7 @@ impl LayoutCache {
                     max_alignment: max(VEC_HEADER_ALIGNMENT, element_alignment),
                 });
 
-                let _ = self.id_to_layout.insert(element_type.id, element_layout);
+                self.insert_layout(element_type.id, element_layout);
 
                 storage_type
             }
@@ -422,13 +422,11 @@ impl LayoutCache {
             TypeKind::DynamicLengthMapView(key_type, value_type) => {
                 // Layout key type
                 let key_layout = self.layout(key_type);
-                let _ = self.id_to_layout.insert(key_type.id, key_layout.clone());
+                self.insert_layout(key_type.id, key_layout.clone());
 
                 // Layout value type
                 let value_layout = self.layout(value_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(value_type.id, value_layout.clone());
+                self.insert_layout(value_type.id, value_layout.clone());
 
                 let key_item = OffsetMemoryItem {
                     offset: MemoryOffset(0),
@@ -463,13 +461,11 @@ impl LayoutCache {
             TypeKind::MapStorage(key_type, value_type, logical_limit) => {
                 // Layout key type
                 let key_layout = self.layout(key_type);
-                let _ = self.id_to_layout.insert(key_type.id, key_layout.clone());
+                self.insert_layout(key_type.id, key_layout.clone());
 
                 // Layout value type
                 let value_layout = self.layout(value_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(value_type.id, value_layout.clone());
+                self.insert_layout(value_type.id, value_layout.clone());
 
                 let logical_limit = *logical_limit;
 
@@ -504,9 +500,7 @@ impl LayoutCache {
 
             TypeKind::GridView(element_type) => {
                 let element_layout = self.layout(element_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                self.insert_layout(element_type.id, element_layout.clone());
 
                 Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
@@ -518,9 +512,7 @@ impl LayoutCache {
 
             TypeKind::GridStorage(element_type, width, height) => {
                 let element_layout = self.layout(element_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                self.insert_layout(element_type.id, element_layout.clone());
 
                 let element_size = element_layout.total_size;
                 let element_alignment = element_layout.max_alignment;
@@ -537,9 +529,7 @@ impl LayoutCache {
 
             TypeKind::SliceView(element_type) => {
                 let element_layout = self.layout(element_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                self.insert_layout(element_type.id, element_layout.clone());
 
                 Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
@@ -563,9 +553,7 @@ impl LayoutCache {
 
             TypeKind::SparseView(element_type) => {
                 let element_layout = self.layout(element_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                self.insert_layout(element_type.id, element_layout.clone());
 
                 Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
@@ -586,16 +574,14 @@ impl LayoutCache {
                     max_alignment: VEC_HEADER_ALIGNMENT,
                 });
 
-                let _ = self.id_to_layout.insert(element_type.id, element_layout);
+                self.insert_layout(element_type.id, element_layout);
 
                 storage_type
             }
 
             TypeKind::StackView(element_type) => {
                 let element_layout = self.layout(element_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                self.insert_layout(element_type.id, element_layout.clone());
 
                 Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
@@ -616,16 +602,14 @@ impl LayoutCache {
                     max_alignment: VEC_HEADER_ALIGNMENT,
                 });
 
-                let _ = self.id_to_layout.insert(element_type.id, element_layout);
+                self.insert_layout(element_type.id, element_layout);
 
                 storage_type
             }
 
             TypeKind::QueueView(element_type) => {
                 let element_layout = self.layout(element_type);
-                let _ = self
-                    .id_to_layout
-                    .insert(element_type.id, element_layout.clone());
+                self.insert_layout(element_type.id, element_layout.clone());
 
                 Rc::new(BasicType {
                     id: BasicTypeId(ty.id.inner()),
@@ -648,7 +632,7 @@ impl LayoutCache {
         };
 
         // Store in both caches
-        let _ = self.id_to_layout.insert(ty.id, basic_type.clone());
+        self.insert_layout(ty.id, basic_type.clone());
         let _ = self
             .kind_to_layout
             .insert((*ty.kind).clone(), basic_type.clone());
@@ -705,9 +689,7 @@ impl LayoutCache {
             check_type_size(&field_layout, &format!("field {name}::{field_name}"));
 
             // Make sure the field type is in the id_to_layout map
-            let _ = self
-                .id_to_layout
-                .insert(field_type.field_type.id, field_layout.clone());
+            self.insert_layout(field_type.field_type.id, field_layout.clone());
 
             if field_layout.max_alignment > max_alignment {
                 max_alignment = field_layout.max_alignment;
@@ -759,9 +741,9 @@ impl LayoutCache {
 
         // Check if we already have a layout for this kind
         let struct_kind = TypeKind::AnonymousStruct(struct_type.clone());
-        if let Some(existing_layout) = self.kind_to_layout.get(&struct_kind) {
+        if let Some(existing_layout) = self.kind_to_layout.get(&struct_kind).cloned() {
             // Store the mapping from this type ID to the existing layout
-            let _ = self.id_to_layout.insert(type_id, existing_layout.clone());
+            self.insert_layout(type_id, existing_layout.clone());
             return existing_layout.clone();
         }
 
@@ -778,7 +760,7 @@ impl LayoutCache {
         });
 
         // Store in both caches
-        let _ = self.id_to_layout.insert(struct_id, basic_type.clone());
+        self.insert_layout(struct_id, basic_type.clone());
         let _ = self.kind_to_layout.insert(struct_kind, basic_type.clone());
 
         basic_type
@@ -797,9 +779,7 @@ impl LayoutCache {
         let inner_layout = self.layout(inner_type);
 
         // Store the inner type in both caches
-        let _ = self
-            .id_to_layout
-            .insert(inner_type.id, inner_layout.clone());
+        self.insert_layout(inner_type.id, inner_layout.clone());
         let _ = self
             .kind_to_layout
             .insert((*inner_type.kind).clone(), inner_layout);
@@ -818,7 +798,7 @@ impl LayoutCache {
         });
 
         // Store in both caches
-        let _ = self.id_to_layout.insert(optional_id, basic_type.clone());
+        self.insert_layout(optional_id, basic_type.clone());
         let _ = self
             .kind_to_layout
             .insert(optional_kind, basic_type.clone());
@@ -857,7 +837,7 @@ impl LayoutCache {
             let elem_layout = self.layout(ty);
 
             // Make sure the element type is in the id_to_layout map
-            let _ = self.id_to_layout.insert(ty.id, elem_layout.clone());
+            self.insert_layout(ty.id, elem_layout.clone());
 
             if elem_layout.max_alignment > max_alignment {
                 max_alignment = elem_layout.max_alignment;
@@ -899,7 +879,7 @@ impl LayoutCache {
         // Always process each inner type to ensure it's in the cache
         for ty in types {
             let inner_layout = self.layout(ty);
-            let _ = self.id_to_layout.insert(ty.id, inner_layout.clone());
+            self.insert_layout(ty.id, inner_layout.clone());
             let _ = self
                 .kind_to_layout
                 .insert((*ty.kind).clone(), inner_layout.clone());
@@ -907,9 +887,9 @@ impl LayoutCache {
 
         // Check if we already have a layout for this kind
         let tuple_kind = TypeKind::Tuple(types.to_vec());
-        if let Some(existing_layout) = self.kind_to_layout.get(&tuple_kind) {
+        if let Some(existing_layout) = self.kind_to_layout.get(&tuple_kind).cloned() {
             // Store the mapping from this type ID to the existing layout
-            let _ = self.id_to_layout.insert(tuple_id, existing_layout.clone());
+            self.insert_layout(tuple_id, existing_layout.clone());
             return existing_layout.clone();
         }
 
@@ -923,10 +903,31 @@ impl LayoutCache {
         });
 
         // Store in both caches
-        let _ = self.id_to_layout.insert(tuple_id, basic_type.clone());
+        self.insert_layout(tuple_id, basic_type.clone());
         let _ = self.kind_to_layout.insert(tuple_kind, basic_type.clone());
 
         basic_type
+    }
+
+    /// Helper method to insert a layout into all relevant maps
+    fn insert_layout(&mut self, type_id: TypeId, layout: BasicTypeRef) {
+        let _ = self.id_to_layout.insert(type_id, layout.clone());
+
+        // Calculate universal hashes and store them
+        let universal_hash = layout.universal_hash_u64();
+        let _ = self.universal_id_to_layout.insert(universal_hash, layout.clone());
+        let _ = self.universal_short_id_to_layout.insert(universal_hash as u32, layout);
+    }
+
+    pub fn universal_short_id(&self, short_id: u32) -> &BasicTypeRef {
+        if let Some(x) = self.universal_short_id_to_layout.get(&short_id) {
+            x
+        } else {
+            for (hash, ty) in &self.universal_short_id_to_layout {
+                eprintln!("{hash:X} ({hash}) {}", ty.kind)
+            }
+            panic!("not found")
+        }
     }
 }
 

@@ -2067,7 +2067,7 @@ impl Hash for BasicTypeKind {
         std::mem::discriminant(self).hash(state);
 
         match self {
-            Self::Any => panic!("not allowed to perform hash on any"),
+            Self::Any => {}
             Self::Empty => {}
             Self::U8 => {}
             Self::B8 => {}

@@ -4,10 +4,10 @@
  */
 use pico_args::Arguments;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::{env, io};
-use swamp_runtime::prelude::{create_default_source_map_from_scripts_dir, CodeGenOptions, RunMode};
+use swamp_runtime::prelude::{create_source_map, CodeGenOptions, RunMode};
 use swamp_runtime::{compile_and_code_gen, CompileAndCodeGenOptions, CompileOptions};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::{fmt, EnvFilter};
@@ -49,7 +49,7 @@ fn main() -> ExitCode {
         return ExitCode::from(1);
     }
 
-    let test_path: PathBuf = match args.opt_value_from_str::<_, String>("--path") {
+    let app_path: PathBuf = match args.opt_value_from_str::<_, String>("--path") {
         Ok(Some(path_str)) => PathBuf::from(path_str),
         Ok(None) => env::current_dir().unwrap_or_else(|e| {
             eprintln!("error: failed to get current directory: {e}");
@@ -115,7 +115,7 @@ fn main() -> ExitCode {
         run_mode: RunMode::Deployed,
     };
 
-    let mut source_map = create_default_source_map_from_scripts_dir(&test_path).unwrap();
+    let mut source_map = create_source_map(Path::new(&"packages"), &app_path).unwrap();
 
     let test_result = compile_and_code_gen(
         &mut source_map,

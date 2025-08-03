@@ -5,7 +5,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Match, NormalPattern, Pattern, PatternElement};
-use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, b8_type, u8_type};
+use swamp_vm_types::types::{b8_type, u8_type, BasicTypeKind, Destination, VmType};
 use swamp_vm_types::{MemoryLocation, MemoryOffset};
 
 impl CodeBuilder<'_> {
@@ -91,7 +91,7 @@ impl CodeBuilder<'_> {
 
             // insert code here to emit patterns to variables
             match &arm.pattern {
-                Pattern::Normal(normal_pattern, maybe_guard) => match normal_pattern {
+                Pattern::Normal(normal_pattern, _maybe_guard) => match normal_pattern {
                     NormalPattern::PatternList(_) => todo!(),
                     NormalPattern::EnumPattern(enum_variant, maybe_patterns) => {
                         if let Some(patterns) = maybe_patterns {

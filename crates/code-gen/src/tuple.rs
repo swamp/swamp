@@ -50,7 +50,6 @@ impl CodeBuilder<'_> {
         source_tuple_expression: &Expression,
         context: &Context,
     ) {
-        let node = &source_tuple_expression.node;
         let tuple_base_pointer_reg = self.emit_scalar_rvalue(source_tuple_expression, context);
 
         let gen_tuple_type_ref = self.state.layout_cache.layout(tuple_type_ref);
@@ -60,8 +59,7 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
 
         for (tuple_index, target_variable) in target_variables.iter().enumerate() {
-            if target_variable.is_unused {
-            } else {
+            if target_variable.is_unused {} else {
                 let frame_placed_target_variable_register =
                     self.get_variable_register(target_variable).clone();
 

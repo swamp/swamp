@@ -2,11 +2,11 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
+use crate::DetailedLocationResolved;
 use source_map_node::Node;
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType, u16_type};
-use swamp_vm_types::{COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation};
+use swamp_vm_types::types::{u16_type, BasicTypeKind, Destination, TypedRegister, VmType};
+use swamp_vm_types::{MemoryLocation, COLLECTION_CAPACITY_OFFSET};
 
 impl CodeBuilder<'_> {
     // Load -------------------------------------------------------
@@ -211,63 +211,6 @@ impl CodeBuilder<'_> {
 
     // Store -------------------------------------------------------
 
-    /// Ensures that a scalar value from a `Destination` is available in a register for intrinsic calls.
-    ///
-    /// This function is specifically designed for intrinsic function calls that require scalar values
-    /// to be materialized in registers. It handles the distinction between:
-    ///
-    /// - **Scalar values**: Loads the actual primitive value into a register
-    /// - **Aggregate pointers**: Returns the pointer register for aggregate operations
-    /// - **Pointer-to-scalar**: Dereferences pointer registers that point to scalar values
-    ///
-    /// The key difference from `emit_materialize_value_to_register` is that this function
-    /// specifically handles the case where a register contains a pointer to a scalar value
-    /// (common in postfix chains like `struct.field.intrinsic()`), and ensures the actual
-    /// scalar value is loaded rather than passing the pointer address to the intrinsic.
-    ///
-    /// # Arguments
-    /// * `destination` - The source location (register, memory, or unit)
-
-    pub fn emit_check_that_element_count_is_less_or_equal_to_capacity(
-        &mut self,
-        destination_memory_location: &MemoryLocation,
-        source_memory_location: &MemoryLocation,
-        node: &Node,
-        comment: &str,
-    ) -> TypedRegister {
-        // First check if the destination capacity is greater or equal to the source location element_count so we don't overwrite too much
-
-        let destination_capacity_reg = self.temp_registers.allocate(
-            VmType::new_contained_in_register(u16_type()),
-            "destination capacity",
-        );
-        self.builder.add_ld16_from_pointer_from_memory_location(
-            destination_capacity_reg.register(),
-            &destination_memory_location.unsafe_add_offset(COLLECTION_CAPACITY_OFFSET),
-            node,
-            &format!("{comment} - load capacity for destination"),
-        );
-
-        let source_length_reg = self.temp_registers.allocate(
-            VmType::new_contained_in_register(u16_type()),
-            "source capacity",
-        );
-        self.builder.add_ld16_from_pointer_from_memory_location(
-            source_length_reg.register(),
-            &source_memory_location.unsafe_add_offset(COLLECTION_ELEMENT_COUNT_OFFSET),
-            node,
-            &format!("{comment} - load source element_count"),
-        );
-
-        self.builder.add_trap_if_lt(
-            destination_capacity_reg.register(),
-            source_length_reg.register(),
-            node,
-            &format!("{comment} - verify that we are within bounds"),
-        );
-
-        source_length_reg.register
-    }
 
     pub fn emit_check_that_known_len_is_less_or_equal_to_capacity(
         &mut self,
@@ -409,7 +352,7 @@ impl CodeBuilder<'_> {
         let ty = &source_memory_location.ty;
         if ty.is_collection_like() {
             if ty.basic_type.is_vec_like() {
-                if let (Some(element_size), Some(header_size)) = (
+                if let (Some(_element_size), Some(_header_size)) = (
                     source_memory_location
                         .ty
                         .basic_type

@@ -34,12 +34,12 @@ use tracing::info;
 pub struct CodeBuilderOptions {
     pub should_show_debug: bool,
 }
-pub(crate) struct CodeBuilder<'a> {
+pub struct CodeBuilder<'a> {
     pub state: &'a mut CodeGenState,
-    pub(crate) builder: &'a mut InstructionBuilder<'a>,
-    pub(crate) variable_registers: SeqMap<usize, TypedRegister>,
-    pub(crate) temp_registers: HwmTempRegisterPool,
-    pub(crate) frame_allocator: StackFrameAllocator,
+    pub builder: &'a mut InstructionBuilder<'a>,
+    pub variable_registers: SeqMap<usize, TypedRegister>,
+    pub temp_registers: HwmTempRegisterPool,
+    pub frame_allocator: StackFrameAllocator,
     pub debug_line_tracker: KeepTrackOfSourceLine,
     //pub spilled_registers: SpilledRegisterScopes,
     pub source_map_lookup: &'a SourceMapWrapper<'a>,
@@ -134,22 +134,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub(crate) fn add_ld_regs_from_frame(
-        &mut self,
-        start_reg: &TypedRegister,
-        start_address: FrameMemoryRegion,
-        count: u8,
-        node: &Node,
-        comment: &str,
-    ) {
-        self.builder.add_ld_contiguous_regs_from_frame(
-            start_reg.index,
-            start_address,
-            count,
-            node,
-            comment,
-        );
-    }
 
     pub fn total_aligned_frame_size(&self) -> FrameMemorySize {
         let aligned = align(
@@ -351,15 +335,6 @@ impl CodeBuilder<'_> {
         self.variable_registers
             .get(&variable.unique_id_within_function)
             .unwrap()
-    }
-
-    fn get_variable_frame_placed(&self, variable: &VariableRef) -> FramePlacedType {
-        let frame_address = self
-            .variable_registers
-            .get(&variable.unique_id_within_function)
-            .unwrap();
-
-        frame_address.frame_placed()
     }
 
     pub fn allocate_frame_space_and_return_absolute_pointer_reg(
