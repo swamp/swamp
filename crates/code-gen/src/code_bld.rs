@@ -21,7 +21,7 @@ use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
 use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::types::{
-    b8_type, u32_type, u8_type, BasicTypeRef, Destination, FramePlacedType, TypedRegister, VmType,
+    b8_type, u32_type, u8_type, BasicTypeRef, Destination, TypedRegister, VmType,
 };
 use swamp_vm_types::{
     AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation,
@@ -135,7 +135,7 @@ impl CodeBuilder<'_> {
     }
 
 
-    pub fn total_aligned_frame_size(&self) -> FrameMemorySize {
+    #[must_use] pub fn total_aligned_frame_size(&self) -> FrameMemorySize {
         let aligned = align(
             self.frame_allocator.addr().as_size().0 as usize,
             SAFE_ALIGNMENT,

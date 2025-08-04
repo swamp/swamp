@@ -82,7 +82,7 @@ use crate::variable::MAX_VIRTUAL_REGISTER;
 pub enum ParseByteError {
     /// Input wasn't of the form `b'X'`
     InvalidFormat,
-    /// Escape‐sequence wasn't one of our supported set
+    /// Escape-sequence wasn't one of our supported set
     InvalidEscape,
 }
 

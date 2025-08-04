@@ -4,7 +4,6 @@
  */
 use crate::{Analyzer, TypeContext};
 use swamp_semantic::err::ErrorKind;
-use swamp_semantic::ExpressionKind::BinaryOp;
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind, UnaryOperator, UnaryOperatorKind};
 use swamp_types::prelude::*;
 use tracing::error;

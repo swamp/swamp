@@ -1612,7 +1612,7 @@ impl Vm {
         let ptr_to_read_from =
             self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset) as *const u32;
 
-        // u32 must be 4‑byte aligned
+        // u32 must be 4-byte aligned
         let raw_ptr = self.get_const_ptr_from_reg_with_offset(base_ptr_reg, offset) as usize;
 
         let base_addr = get_reg!(self, base_ptr_reg);

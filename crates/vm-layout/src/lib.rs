@@ -60,7 +60,7 @@ impl LayoutCache {
             // For deduplication, we reuse the existing layout directly
             // This ensures pointer equality for structurally identical types
             self.insert_layout(analyzed_type.id, existing_layout.clone());
-            return existing_layout.clone();
+            return existing_layout;
         }
 
         let basic_type = self.layout_type(analyzed_type);
@@ -744,7 +744,7 @@ impl LayoutCache {
         if let Some(existing_layout) = self.kind_to_layout.get(&struct_kind).cloned() {
             // Store the mapping from this type ID to the existing layout
             self.insert_layout(type_id, existing_layout.clone());
-            return existing_layout.clone();
+            return existing_layout;
         }
 
         let struct_layout = self.layout_struct_type(struct_type, name);
@@ -890,7 +890,7 @@ impl LayoutCache {
         if let Some(existing_layout) = self.kind_to_layout.get(&tuple_kind).cloned() {
             // Store the mapping from this type ID to the existing layout
             self.insert_layout(tuple_id, existing_layout.clone());
-            return existing_layout.clone();
+            return existing_layout;
         }
 
         let tuple_layout = self.layout_tuple_items(types);
@@ -919,12 +919,12 @@ impl LayoutCache {
         let _ = self.universal_short_id_to_layout.insert(universal_hash as u32, layout);
     }
 
-    pub fn universal_short_id(&self, short_id: u32) -> &BasicTypeRef {
+    #[must_use] pub fn universal_short_id(&self, short_id: u32) -> &BasicTypeRef {
         if let Some(x) = self.universal_short_id_to_layout.get(&short_id) {
             x
         } else {
             for (hash, ty) in &self.universal_short_id_to_layout {
-                eprintln!("{hash:X} ({hash}) {}", ty.kind)
+                eprintln!("{hash:X} ({hash}) {}", ty.kind);
             }
             panic!("not found")
         }
