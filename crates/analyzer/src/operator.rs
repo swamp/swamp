@@ -4,6 +4,7 @@
  */
 use crate::{Analyzer, TypeContext};
 use swamp_semantic::err::ErrorKind;
+use swamp_semantic::ExpressionKind::BinaryOp;
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind, UnaryOperator, UnaryOperatorKind};
 use swamp_types::prelude::*;
 use tracing::error;
@@ -19,10 +20,22 @@ impl Analyzer<'_> {
         let left = self.analyze_expression(ast_left, &anything_context);
         let left_type = &*left.ty.kind;
 
-        let right = self.analyze_expression(ast_right, &anything_context);
+        let kind = Self::convert_binary_operator_kind(ast_op);
+        let right_context = match kind {
+            BinaryOperatorKind::Equal => {
+                match left_type {
+                    TypeKind::Enum(_enum_type) => {
+                        anything_context.with_expected_type(Some(&left.ty), true)
+                    }
+                    _ => anything_context
+                }
+            }
+            _ => anything_context
+        };
+
+        let right = self.analyze_expression(ast_right, &right_context);
         let right_type = &*right.ty.kind;
 
-        let kind = Self::convert_binary_operator_kind(ast_op);
         let node = self.to_node(&ast_op.node);
 
         match (&kind, &left_type, &right_type) {
