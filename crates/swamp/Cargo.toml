@@ -25,6 +25,7 @@ swamp-core = { path = "../core", version = "0.2.22" }
 
 # Compile orchestrator
 swamp-compile = { path = "../compile", version = "0.2.22" }
+swamp-yini = { path = "../yini", version = "0.2.22" }
 
 swamp-error-report = { path = "../err", version = "0.2.22" }
 

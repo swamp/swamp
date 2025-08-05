@@ -9,6 +9,7 @@ use std::process::ExitCode;
 use std::{env, io};
 use swamp_runtime::prelude::{create_source_map, CodeGenOptions, RunMode};
 use swamp_runtime::{compile_and_code_gen, CompileAndCodeGenOptions, CompileOptions};
+use swamp_yini::read_yini_cwd_with_defaults;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -115,18 +116,31 @@ fn main() -> ExitCode {
         run_mode: RunMode::Deployed,
     };
 
-    let mut source_map = create_source_map(Path::new(&"packages"), &app_path).unwrap();
+    let ini = read_yini_cwd_with_defaults();
 
-    let test_result = compile_and_code_gen(
-        &mut source_map,
-        &["crate".to_string(), module.unwrap_or_default()],
-        &compile_and_code_gen_options,
-    );
+    let roots = ini.members;
 
-    if test_result.is_none() {
-        eprintln!("build failed.");
-        return ExitCode::from(1);
+    let crate_module_root = module.unwrap_or_default();
+    let mut something_failed = false;
+
+    for root in roots {
+        eprintln!("=== compiling {root:?}");
+        let mut source_map = create_source_map(Path::new(&"packages"), &root).unwrap();
+        let compile_result = compile_and_code_gen(
+            &mut source_map,
+            &["crate".to_string(), crate_module_root.clone()],
+            &compile_and_code_gen_options,
+        );
+
+        if compile_result.is_none() {
+            eprintln!("build failed.");
+            something_failed = true;
+        }
     }
 
-    ExitCode::SUCCESS
+    if something_failed {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }

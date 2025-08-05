@@ -1,0 +1,11 @@
+[package]
+name = "swamp-yini"
+version = "0.2.22"
+edition = "2024"
+license = "MIT"
+description = "Swamp project and workspace initialization reader"
+repository = "https://github.com/swamp/swamp"
+
+[dependencies]
+yini = "0.1.1"
+tracing = "0.1.40"
