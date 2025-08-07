@@ -9,17 +9,23 @@ pub struct SwampIni {
     pub members: Vec<PathBuf>,
 }
 
+impl Default for SwampIni {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SwampIni {
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self { members: vec![] }
     }
 }
 
-pub fn read_yini_cwd() -> Option<SwampIni> {
+#[must_use] pub fn read_yini_cwd() -> Option<SwampIni> {
     read_yini(Path::new("./"))
 }
 
-pub fn read_yini_cwd_with_defaults() -> SwampIni {
+#[must_use] pub fn read_yini_cwd_with_defaults() -> SwampIni {
     read_yini_with_defaults(Path::new("./"))
 }
 
@@ -34,7 +40,7 @@ pub fn read_yini(path: &Path) -> Option<SwampIni> {
     }
 }
 
-pub fn read_yini_with_defaults(path: &Path) -> SwampIni {
+#[must_use] pub fn read_yini_with_defaults(path: &Path) -> SwampIni {
     if let Some(found) = read_yini(path) {
         found
     } else {
@@ -54,7 +60,7 @@ pub fn read_yini_from_str(ini_content: &str) -> Option<SwampIni> {
         let mut vec = Vec::new();
 
         for member in members {
-            vec.push(Path::new(member.as_str().unwrap()).to_path_buf())
+            vec.push(Path::new(member.as_str().unwrap()).to_path_buf());
         }
 
         ini.members = vec;
